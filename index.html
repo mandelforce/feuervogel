@@ -4777,7 +4777,7 @@ function update() {
     if (it.kind === 'M' || it.kind === 'A') { it.t++; it.vy = Math.min(it.vy + 0.08, scrollV + 0.15); it.y += it.vy; continue; }
     it.t++; it.y += 0.45; it.x += Math.sin(it.t * 0.05) * 0.7;
     it.x = clamp(it.x, 7, W - 7);
-    if (it.kind === 'W' && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: 'S' }[it.w];
+    if (it.kind === 'W' && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
   }
 
   for (const s of shots) {
@@ -5547,7 +5547,7 @@ function drawItem(it) {
   }
   if (it.kind === 'M' || it.kind === 'A') return drawMedal(it);
   const x = Math.round(it.x), y = Math.round(it.y);
-  const ramp = it.kind === 'B' ? RP.alien : it.kind === 'T' ? RP.crys : { S: RP.crys, L: RP.glass, H: RP.pinkb, A: ARC_RAMP }[it.w];
+  const ramp = it.kind === 'B' ? RP.alien : it.kind === 'T' ? RP.crys : { S: RP.crys, L: RP.glass, H: RP.pinkb, A: ARC_RAMP }[it.w] || RP.crys;
   ctx.globalAlpha = 0.22 + 0.14 * Math.sin(it.t * 0.2); dk(x, y, 14 + Math.round(2 * Math.sin(it.t * 0.2)), it.kind === 'T' ? '#4ccfae' : '#ffffff'); ctx.globalAlpha = 1;
   dk(x, y, 9, (it.t >> 3) & 1 ? '#ffffff' : OUT);
   dk(x, y, 8, ramp[2]); dk(x - 1, y - 1, 6, ramp[3]); dk(x - 3, y - 3, 1, ramp[4]);
@@ -5602,8 +5602,8 @@ function drawHUDBody(H) {
   for (let i = 0; i < Math.min(lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
   for (let i = 0; i < Math.min(bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
   if (player) {
-    const nm = { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[player.wpn];
-    const c = { S: ['#a8f6dc', '#4ccfae'], L: ['#d8f2ff', '#8cc0e0'], H: ['#ffd0e8', '#ff8ac0'] }[player.wpn];
+    const nm = { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[player.wpn] || 'SCATTER';
+    const c = { S: ['#a8f6dc', '#4ccfae'], L: ['#d8f2ff', '#8cc0e0'], H: ['#ffd0e8', '#ff8ac0'], A: ['#a8e0ff', '#4a9ad8'] }[player.wpn] || ['#a8f6dc', '#4ccfae'];
     textS(nm + ' ' + '>'.repeat(0) + player.lvl, 4, H - 31, c[0], 1, 'left', c[1]);
   }
   const big = enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss'));
