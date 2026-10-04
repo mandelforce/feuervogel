@@ -1,6 +1,6 @@
 // StarFall service worker: keeps the game on the device so it opens instantly and works offline.
 // When you upload a new version of index.html, change VERSION so players get the update.
-const VERSION = 'starfall-1.5';
+const VERSION = 'starfall-1.8';
 const APP = ['./', 'index.html', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -23,7 +23,7 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
-  if (url.origin !== location.origin) return;
+  if (url.origin !== location.origin) return; // leaderboard and other sites always go to the network
   // The game page: try the network first so updates arrive, fall back to the stored copy offline
   if (e.request.mode === 'navigate') {
     e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('index.html', copy)); return r; }).catch(() => caches.match('index.html')));

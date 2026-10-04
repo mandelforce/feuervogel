@@ -13,6 +13,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="StarFall">
+<script>
+// Leaderboard address: paste your Cloudflare Worker address between the quotes, for example 'https://starfall-scores.your-name.workers.dev'
+window.STARFALL_LEADERBOARD = 'https://starfall-scores.c-roth79.workers.dev/';
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -54,6 +58,30 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #pauseBtn{right:92px;display:none}
 #pauseMenu{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.5);line-height:1.25;z-index:4}
 #pauseMenu.open{display:grid}
+#settings .panel{max-height:92vh;overflow-y:auto}
+#settings .help{margin:14px 0 6px;border-top:2px solid #3a3060;padding-top:10px}
+#settings .help h3{margin:0 0 8px;font-size:16px;color:#fff0a0}
+#settings .help ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:7px}
+#settings .help li{display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center;font-size:13px;line-height:1.3}
+#settings .help b{color:#fff0a0;font-weight:600}
+.orb{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:600 13px "Pixelify Sans",monospace;color:#fff;text-shadow:1px 1px 0 #120e1a;box-shadow:0 0 0 2px #120e1a,0 0 8px rgba(255,255,255,.35);justify-self:center}
+.hico{justify-self:center;image-rendering:pixelated}
+#lbPanel{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:6}
+#lbPanel.open{display:grid}
+#lbPanel .panel{width:min(92%,330px);max-height:92%;overflow:auto}
+#lbPanel label{display:grid;gap:4px;margin:8px 0;font-size:14px}
+#lbPanel input{font:16px "Pixelify Sans",ui-monospace,monospace;color:#f2ecd8;background:#120e1a;border:2px solid #8466dc;border-radius:3px;padding:7px 8px;width:100%;box-sizing:border-box}
+#lbPanel .lbrow{display:flex;gap:8px;margin-top:8px}
+#lbPanel .lbrow button{flex:1;padding:9px}
+#lbPanel .seg{justify-content:flex-start;margin:4px 0}
+#lbPanel .seg button{padding:5px 8px;font-size:13px}
+#lbPanel .seg button[aria-pressed="true"]{background:#8466dc;color:#120e1a}
+#lbList{list-style:none;margin:10px 0 6px;padding:0;display:grid;gap:3px;font-size:14px}
+#lbList li{display:grid;grid-template-columns:22px 1fr auto;gap:6px;align-items:baseline;padding:3px 4px;background:#241c40}
+#lbList li.me{background:#3a2a70;outline:1px solid #f4d050}
+#lbList .rk{color:#a99cc8}#lbList .tg{color:#7a6ea0;font-size:11px;margin-left:4px}#lbList .sc{color:#fff0a0}#lbList .st{color:#a99cc8;font-size:11px;margin-left:6px}
+.lbmsg{min-height:1.2em;margin:6px 0 0;color:#a8f6dc;font-size:13px}
+#lbScore{margin:0 0 4px;color:#fff0a0}
 .panel .menu{display:grid;gap:8px;margin-top:4px}
 .panel .menu button{width:100%;padding:9px;font-size:16px}
 #settings{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
@@ -90,6 +118,25 @@ body[data-results="1"] #bombBtn{display:none !important}
     <button class="ibtn hidden" id="pauseBtn" type="button" aria-label="Pause" tabindex="-1"></button>
     <button class="ibtn hidden" id="setBtn" type="button" aria-label="Settings" tabindex="-1"></button>
     <button class="ibtn hidden" id="soundBtn" type="button" aria-label="Sound" tabindex="-1"></button>
+    <div id="lbPanel" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+      <div class="panel">
+        <h2 id="lbTitle">High scores</h2>
+        <div id="lbSubmit">
+          <p id="lbScore"></p>
+          <label for="lbName">Your name (up to 12 characters)<input id="lbName" maxlength="12" autocomplete="nickname" autocapitalize="characters" spellcheck="false"></label>
+          <div class="lbrow"><button type="button" id="lbSend">Submit</button><button type="button" id="lbSkip">Skip</button></div>
+        </div>
+        <div id="lbView">
+          <span class="seg" id="lbMode"><button type="button" data-v="camp">Campaign</button><button type="button" data-v="endless">Endless</button></span>
+          <span class="seg" id="lbPlat"><button type="button" data-v="mobile">Mobile</button><button type="button" data-v="pc">PC</button></span>
+          <span class="seg" id="lbDiffSeg"><button type="button" data-v="0">Easy</button><button type="button" data-v="1">Normal</button><button type="button" data-v="2">Hard</button></span>
+          <span class="seg" id="lbPeriod"><button type="button" data-v="all">All-time</button><button type="button" data-v="week">This week</button></span>
+          <ol id="lbList"></ol>
+          <div class="lbrow"><button type="button" id="lbClose">Done</button></div>
+        </div>
+        <p class="lbmsg" id="lbMsg" role="status"></p>
+      </div>
+    </div>
     <div id="pauseMenu" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
       <div class="panel">
         <h2 id="pmTitle">Menu</h2>
@@ -114,6 +161,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row" id="sSkinRow" style="display:none"><span>Ship colour</span><span class="seg" id="sSkin"><button type="button" data-g="0">Purple</button><button type="button" data-g="1">Gold</button></span></div>
         <div class="row"><span>Map</span><span class="seg" id="sMode"><button type="button" data-m="camp">Campaign</button><button type="button" data-m="gen">Generative</button></span></div>
         <div class="row"><span>Difficulty</span><span class="seg" id="sDiff"><button type="button" data-d="0">Easy</button><button type="button" data-d="1">Normal</button><button type="button" data-d="2">Hard</button></span></div>
+        <div class="help" id="helpBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
       </div>
     </div>
@@ -2589,7 +2637,7 @@ try { endlessBest = Object.assign(endlessBest, JSON.parse(localStorage.getItem('
 function saveEndless() { if (!endless) return; let ch = false; if (score > endlessBest.score) { endlessBest.score = score; ch = true; } if (stage > endlessBest.stage) { endlessBest.stage = stage; ch = true; } if (ch) try { localStorage.setItem('starfall-endless', JSON.stringify(endlessBest)); } catch (e) {} }
 function stageLabel(st) { if (endless) return String(st); return String(((st - 1) % 6) + 1) + '+'.repeat(Math.floor((st - 1) / 6)); }
 let hitStop = 0, slowT = 0, results = null, secret = null, trainLeft = {}, trainId = 0;
-const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0 });
+const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0, maxMul: 1 });
 let guardCount = 0;
 const GUARDED = new Set(['flak', 'bunker', 'casemate', 'aatower', 'search', 'fuel', 'hangar', 'tower', 'crate', 'shells', 'drums', 'camo', 'popup', 'arty', 'radar', 'gen']);
 const NOCOUNT = new Set(['troop', 'secret', 'bridge', 'crate', 'sandbag', 'camo', 'missile', 'parked']);
@@ -2647,7 +2695,7 @@ let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 function seedStage() { drandS = (SEED * 31 + stage * 977) | 0; }
 function newGame() {
-  ravenGate = null;
+  ravenGate = null; runFrames = 0;
   SEED = settings.mode === 'gen' || endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetWorld();
@@ -2679,11 +2727,68 @@ function startEndless() {
   else showMsg('STAGE 1', STAGE_NAMES[0], 170);
 }
 const ENDLESS_BTN = { w: 96, h: 18 };
+function scoresHit(gx, gy) { const y0 = SEL.y + SEL.h + 12 + ENDLESS_BTN.h + 20; return gy >= y0 && gy <= y0 + 14 && Math.abs(gx - W / 2) <= 36; }
 function endlessHit(gx, gy) { const y0 = SEL.y + SEL.h + 12; return gy >= y0 && gy <= y0 + ENDLESS_BTN.h && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2; }
 const SEL = { y: 262, w: 26, h: 20, gap: 6 };
 const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
 function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
-function gameOver() { saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[69, 4], [65, 4], [62, 4], [57, 12]], 0.11); }
+function gameOver() { saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[69, 4], [65, 4], [62, 4], [57, 12]], 0.11); if (LB_URL && score > 0) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
+// ---------------- leaderboard ----------------
+const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
+const LB_PLAT = H > 330 ? 'mobile' : 'pc';
+let lbOpen = false, lbRun = null, lbView = { mode: 'camp', plat: LB_PLAT, diff: 1, period: 'all' }, runFrames = 0;
+const lbEl = id => document.getElementById(id);
+function lbPlayer() {
+  let p = null; try { p = localStorage.getItem('starfall-player'); } catch (e) {}
+  if (!p || !/^[A-Za-z0-9-]{16,40}$/.test(p)) { const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); p = 'p-' + [...a].map(b => b.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem('starfall-player', p); } catch (e) {} }
+  return p;
+}
+function lbMsg(t) { lbEl('lbMsg').textContent = t || ''; }
+function lbSync() { for (const [id, key] of [['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(lbView[key]) === b.dataset.v)); }
+function openLB(kind) {
+  lbOpen = true; lbEl('lbPanel').classList.add('open'); lbMsg('');
+  if (kind === 'submit') {
+    lbRun = { score, stage, mode: endless ? 'endless' : 'camp', plat: LB_PLAT, diff: settings.diff, dur: Math.round(runFrames / 60) };
+    lbView = { mode: lbRun.mode, plat: LB_PLAT, diff: lbRun.diff, period: 'all' };
+    lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
+    lbEl('lbScore').textContent = 'Score ' + lbRun.score + ', stage ' + stageLabel(lbRun.stage);
+    let nm = ''; try { nm = localStorage.getItem('starfall-name') || ''; } catch (e) {}
+    lbEl('lbName').value = nm; setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
+  } else {
+    lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbLoad();
+  }
+}
+function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open'); if (state === 'over') toTitle(); }
+async function lbLoad() {
+  lbSync(); const list = lbEl('lbList'); list.innerHTML = '';
+  if (!LB_URL) { lbMsg("The online leaderboard isn't connected yet."); return; }
+  lbMsg('Loading...');
+  try {
+    const r = await fetch(LB_URL + '/top?mode=' + lbView.mode + '&plat=' + lbView.plat + '&diff=' + lbView.diff + '&period=' + lbView.period + '&player=' + encodeURIComponent(lbPlayer()));
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
+    if (!d.top.length) { lbMsg(lbView.period === 'week' ? 'No scores yet this week. Be the first!' : 'No scores yet. Be the first!'); return; }
+    d.top.forEach((t, i) => { const li = document.createElement('li'); if (t.me) li.className = 'me'; const a = document.createElement('span'); a.className = 'rk'; a.textContent = (i + 1) + '.'; const b = document.createElement('span'); b.textContent = t.name; const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = '#' + t.tag; b.appendChild(tg); const c = document.createElement('span'); c.className = 'sc'; c.textContent = t.score; const st = document.createElement('span'); st.className = 'st'; st.textContent = 'S' + t.stage; c.appendChild(st); li.append(a, b, c); list.appendChild(li); });
+    lbMsg(d.me && !d.top.some(t => t.me) ? 'Your best: #' + d.me.rank + ' with ' + d.me.score : d.me ? '' : '');
+  } catch (e) { lbMsg("Couldn't reach the leaderboard. Check your connection."); }
+}
+async function lbSend() {
+  const name = lbEl('lbName').value.trim().replace(/\s+/g, ' ');
+  if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
+  try { localStorage.setItem('starfall-name', name); } catch (e) {}
+  lbMsg('Sending...'); lbEl('lbSend').disabled = true;
+  try {
+    const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: '1.6' }, lbRun)) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
+    lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad();
+  } catch (e) { lbMsg(e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score. Check your connection."); }
+  lbEl('lbSend').disabled = false;
+}
+lbEl('lbSend').addEventListener('click', lbSend);
+lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lbSend(); } });
+lbEl('lbSkip').addEventListener('click', closeLB);
+lbEl('lbClose').addEventListener('click', closeLB);
+for (const [id, key] of [['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
+lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
 function toTitle() { scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
 function doContinue() {
   if (cont <= 0 || !player) return;
@@ -2902,7 +3007,7 @@ function directorInner() {
     groundCd = (1 / Math.max(0.4, dens)) * ({ factory: 46, sea: 95, coastUp: 75, coastDown: 75, country: 66, forest: 70, base: 54, bossland: 90, fortline: 50, castle: 70, city: 48 }[b] || 70) - Math.min(16, loop * 8);
   }
   if (--waveCd <= 0) { spawnWave(b, big); waveCd = (big ? 200 : Math.max(48, 115 - loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
-  if (--podCd <= 0 && !big) { enemies.push(E('pod', { x: rnd(30, W - 30), y: -12, hp: 5 * hpm(), hw: 6, hh: 7, score: 300 })); podCd = rnd(520, 700); }
+  if (--podCd <= 0 && !big) { enemies.push(E('pod', { x: rnd(30, W - 30), y: -16, hp: 5 * hpm(), hw: 9, hh: 10, score: 300 })); podCd = rnd(520, 700); }
 }
 function mkFighter(x, y, h, v, o) {
   const boom = (stage >= 2 || endless || settings.mode === 'gen') && Math.random() < 0.18 + loop * 0.08;
@@ -3298,7 +3403,7 @@ function openResults() {
   const pct = stats.seen ? Math.min(1, stats.kills / stats.seen) : 0;
   const lines = [
     ['ENEMIES DOWN', stats.kills + '/' + stats.seen, stats.kills * 100 + Math.round(pct * 100) * 400, Math.round(pct * 100) + '%'],
-    ['MEDALS', String(stats.medals), stats.medals * 200, null, 'medal'],
+    ['MEDALS', String(stats.medals), stats.medals * 200, 'X' + (stats.maxMul || 1), 'medal', 'BEST'],
     ['NOVA BOMBS USED', String(stats.novas), stats.novas === 0 ? 15000 : 0],
     ['SECRET', stats.artifact ? 'FOUND' : 'MISSED', stats.artifact ? 20000 : 0, null, 'gem']
   ];
@@ -3397,6 +3502,7 @@ function drawResultsBody() {
     if (l[4] === 'medal') coin(21, y + 16, 4, 5, RP.yel);
     if (l[4] === 'gem') { if (!stats.artifact) ctx.globalAlpha = 0.35; drawGem(21, y + 16, 5); ctx.globalAlpha = 1; }
     textO(l[1], ix, y + 12, '#ffffff', 2, 'left', '#c4c9ce');
+    if (l[5]) textS(l[5], W / 2 + 8, y + 16, '#a99cc8', 1, 'left', '#6a5aa0');
     if (l[3]) textO(l[3], W / 2 + 34, y + 12, '#fff0a0', 2, 'left', '#f4d050');
     textS(l[2] ? '+' + l[2] : '-', W - 16, y, l[2] ? '#a8f6dc' : '#6a6a7a', 1, 'right', l[2] ? '#4ccfae' : '#4a4a5a');
   });
@@ -4436,7 +4542,8 @@ function update() {
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
   if (state === 'title') return;
-  if (state === 'over') { overT++; if (overT > 900) { toTitle(); return; } }
+  if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) { toTitle(); return; } }
+  if (state === 'play' && !paused && !results) runFrames++;
 
   director();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].at <= gf) { const f = later[i].fn; later.splice(i, 1); f(); }
@@ -4604,14 +4711,14 @@ function update() {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
       if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { score += 10; if (score > hi) hi = score; checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); items.splice(i, 1); } continue; }
-      if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 130)) {
+      if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
           score += 20000; stats.artifact = true; arts.add(curTheme); try { localStorage.setItem('starfall-arts', JSON.stringify([...arts])); } catch (e) {}
           label(it.x, it.y - 8, arts.size >= 6 ? 'GOLDEN RAPTOR UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           medalMul = medalT > 0 ? Math.min(MEDAL_MAX, medalMul + 1) : 1; medalT = MEDAL_WIN;
-          const v = MEDAL_BASE * medalMul; score += v; label(it.x, it.y - 6, String(v));
+          stats.maxMul = Math.max(stats.maxMul || 1, medalMul); const v = MEDAL_BASE * medalMul; score += v; label(it.x, it.y - 6, String(v));
           if (medalMul > 1) parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + medalMul });
           stats.medals++; medalSfx(Math.min(6, medalMul - 1)); haptic(medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); items.splice(i, 1); continue;
@@ -5157,7 +5264,11 @@ function drawBoss(e) {
   }
   ctx.globalAlpha = 1;
 }
+cv.addEventListener('contextlost', e => { e.preventDefault(); gfxLost = true; logError('contextlost', 'graphics context lost'); });
+cv.addEventListener('contextrestored', () => { gfxLost = false; lowFX = true; chunks = new Map(); chunkJobs = []; genP = -Math.floor((-Math.floor(scroll) + H) / CH) - 2; logError('contextrestored', 'graphics context restored'); });
+let gfxLost = false;
 function lightBeam(x, y, a, len, half) {
+  if (!isFinite(x) || !isFinite(y) || !isFinite(a)) return;
   const g = ctx.createLinearGradient(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len);
   g.addColorStop(0, 'rgba(255,248,200,0.42)'); g.addColorStop(1, 'rgba(255,248,200,0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y);
@@ -5167,7 +5278,7 @@ function drawNight() {
   ctx.fillStyle = `rgba(6,8,30,${0.6 * nightF})`; ctx.fillRect(-8, -8, W + 16, H + 16);
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
-    if (e.type === 'search' && !e.dead && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
+    if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
     if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) lightBeam(e.x + p.ox, e.y + p.oy, p.ang, 170, 0.16);
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
@@ -5272,9 +5383,9 @@ function drawAir(e) {
       break;
     }
     case 'pod': {
-      const r = 8 + ((gf >> 3) & 1);
+      const r = 12 + ((gf >> 3) & 1);
       ctx.globalAlpha = 0.35; dk(e.x, e.y, r, '#4ccfae'); ctx.globalAlpha = 1;
-      spr(SPR.pod, e.x, e.y, fl); break;
+      ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1.5, 1.5); ctx.translate(-Math.round(e.x), -Math.round(e.y)); spr(SPR.pod, e.x, e.y, fl); ctx.restore(); break;
     }
     case 'wing': spr(SPR.wing, e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); break;
   }
@@ -5322,10 +5433,11 @@ function drawItem(it) {
   if (it.kind === 'M' || it.kind === 'A') return drawMedal(it);
   const x = Math.round(it.x), y = Math.round(it.y);
   const ramp = it.kind === 'B' ? RP.alien : it.kind === 'T' ? RP.crys : { S: RP.crys, L: RP.glass, H: RP.pinkb }[it.w];
-  ctx.globalAlpha = 0.22 + 0.14 * Math.sin(it.t * 0.2); dk(x, y, 11 + Math.round(2 * Math.sin(it.t * 0.2)), it.kind === 'T' ? '#4ccfae' : '#ffffff'); ctx.globalAlpha = 1;
-  dk(x, y, 7, (it.t >> 3) & 1 ? '#ffffff' : OUT);
-  dk(x, y, 6, ramp[2]); dk(x - 1, y - 1, 4, ramp[3]); dk(x - 2, y - 2, 1, ramp[4]);
-  text(it.kind === 'B' ? 'N' : it.kind === 'T' ? 'T' : it.w, x - 1, y - 2, '#ffffff');
+  ctx.globalAlpha = 0.22 + 0.14 * Math.sin(it.t * 0.2); dk(x, y, 14 + Math.round(2 * Math.sin(it.t * 0.2)), it.kind === 'T' ? '#4ccfae' : '#ffffff'); ctx.globalAlpha = 1;
+  dk(x, y, 9, (it.t >> 3) & 1 ? '#ffffff' : OUT);
+  dk(x, y, 8, ramp[2]); dk(x - 1, y - 1, 6, ramp[3]); dk(x - 3, y - 3, 1, ramp[4]);
+  const lt = it.kind === 'B' ? 'N' : it.kind === 'T' ? 'T' : it.w;
+  text(lt, x, y - 2, OUT); text(lt, x - 1, y - 3, '#ffffff');
 }
 function drawPlayer() {
   const p = player;
@@ -5392,6 +5504,7 @@ function drawHUDBody(H) {
   }
 }
 function render() {
+  if (gfxLost) return;
   ctx.save();
   if (shake > 0) ctx.translate(Math.round(rnd(-shake, shake) / 2), Math.round(rnd(-shake, shake) / 2));
   drawGround();
@@ -5404,7 +5517,7 @@ function render() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.save(); ctx.translate(0, TY);
     textO('STARFALL', W / 2, 54, '#fff0a0', 5, 'center', '#f8a83a');
-    textO('1.5', W / 2 + 74, 84, '#a8f6dc', 2, 'right', '#4ccfae');
+    textO('1.8', W / 2 + 74, 84, '#a8f6dc', 2, 'right', '#4ccfae');
     const ps = (useGold() ? goldSet() : SPR.playerSet)[1], sw = ps.w * 2, sh = ps.h * 2, by = 176 + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
     for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
@@ -5423,7 +5536,8 @@ function render() {
       ctx.fillStyle = 'rgba(28,22,48,0.85)'; ctx.fillRect(bx, by, ENDLESS_BTN.w, ENDLESS_BTN.h);
       for (let i = 0; i < 6; i++) { ctx.fillStyle = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34'][i]; ctx.fillRect(bx + i * (ENDLESS_BTN.w / 6), by + ENDLESS_BTN.h - 3, Math.ceil(ENDLESS_BTN.w / 6), 3); }
       textS('ENDLESS', W / 2, by + 4, '#a8f6dc', 1, 'center', '#4ccfae');
-      if (endlessBest.score > 0) textS('BEST ' + endlessBest.score + '   STAGE ' + endlessBest.stage, W / 2, by + ENDLESS_BTN.h + 6, '#a99cc8', 1, 'center', '#6a5aa0'); }
+      if (endlessBest.score > 0) textS('BEST ' + endlessBest.score + '   STAGE ' + endlessBest.stage, W / 2, by + ENDLESS_BTN.h + 6, '#a99cc8', 1, 'center', '#6a5aa0');
+      const sy = by + ENDLESS_BTN.h + 20; ctx.fillStyle = OUT; ctx.fillRect(W / 2 - 37, sy - 1, 74, 16); ctx.fillStyle = 'rgba(28,22,48,0.85)'; ctx.fillRect(W / 2 - 36, sy, 72, 14); textS('SCORES', W / 2, sy + 4, '#fff0a0', 1, 'center', '#d0a020'); }
     ctx.restore();
     syncBody(); return;
   }
@@ -5615,7 +5729,44 @@ for (const b of document.querySelectorAll('#sDiff button')) b.setAttribute('aria
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   document.getElementById('hapNote').textContent = CAN_VIBRATE ? '' : IOS ? 'iPhone haptics need iOS 18 in Safari and may not work in every app.' : 'This device does not report vibration support.';
 }
-function openSettings() { syncSettingsUI(); setPanel.classList.add('open'); if (state === 'play' && !paused) { paused = true; panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
+function buildHelp() {
+  const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
+  const orb = (c1, c2, t) => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = `radial-gradient(circle at 35% 35%, ${c2}, ${c1})`; o.textContent = t; return o; };
+  const sprIcon = (sp, k) => { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; c.getContext('2d').drawImage(sp.c, 0, 0); c.className = 'hico'; c.style.width = Math.round(sp.w * k) + 'px'; c.style.height = Math.round(sp.h * k) + 'px'; return c; };
+  const gem = () => { const o = document.createElement('span'); o.className = 'hico'; o.style.cssText = 'width:12px;height:12px;background:#bba4ff;transform:rotate(45deg);box-shadow:0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
+  const coinI = () => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = 'radial-gradient(circle at 35% 35%, #fff0a0, #d0a020)'; o.style.width = o.style.height = '16px'; return o; };
+  const sections = [
+    ['Power-ups', [
+      [sprIcon(SPR.pod, 1.6), '<b>Supply container.</b> Shoot it to release a power-up.'],
+      [orb(RP.crys[2], RP.crys[4], 'S'), '<b>Scatter.</b> A wide fan of shots. Collect it again to power it up, up to level 4.'],
+      [orb(RP.glass[2], RP.glass[4], 'L'), '<b>Lance.</b> Fast, piercing shots straight ahead.'],
+      [orb(RP.pinkb[2], RP.pinkb[4], 'H'), '<b>Seekers.</b> Homing shots that find their own targets.'],
+      [orb(RP.alien[2], RP.alien[4], 'N'), '<b>Nova.</b> One extra Nova bomb, up to six.'],
+      [orb(RP.crys[1], RP.crys[3], 'T'), '<b>Talon.</b> An escort drone that fires with you and blocks small bullets. Up to two.'],
+      [coinI(), '<b>Medal.</b> 300 points. Collect the next one within about three seconds to raise the multiplier, up to x10.'],
+      [gem(), '<b>Secret.</b> Look for three circling crows. Fly over the spot until the ring fills, then catch the gem before it escapes.']]],
+    ['Special attacks', [
+      [orb('#3a1a5a', '#bba4ff', 'N'), '<b>Nova button.</b> Tap it (or press X or Space) to set off a Nova bomb: it wipes out enemy bullets, damages everything on screen and protects you for a moment. The purple dots show how many you have.'],
+      [orb('#1a3a5a', '#a8f6dc', '!'), '<b>Super laser.</b> Hold still to charge: a ring fills around your ship and chimes when ready. Then touch the screen again, or start moving, to fire a powerful laser through everything in its path.']]]
+  ];
+  for (const [title, items] of sections) {
+    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
+    const ul = document.createElement('ul');
+    for (const [ic, html] of items) { const li = document.createElement('li'); const t = document.createElement('span'); t.innerHTML = html; li.append(ic, t); ul.appendChild(li); }
+    box.appendChild(ul);
+  }
+  const eb = document.createElement('div'); eb.id = 'errBox'; box.appendChild(eb);
+}
+function updateErr() {
+  const eb = document.getElementById('errBox'); if (!eb) return; eb.innerHTML = '';
+  let er = null; try { er = JSON.parse(localStorage.getItem('starfall-lasterror') || 'null'); } catch (e) {}
+  if (!er) return;
+  const h = document.createElement('h3'); h.textContent = 'Last problem report'; eb.appendChild(h);
+  const pre = document.createElement('p'); pre.style.cssText = 'font:11px ui-monospace,monospace;color:#a99cc8;word-break:break-all;margin:0 0 6px';
+  pre.textContent = `${er.t} v${er.v} ${er.where}: ${er.msg} (stage ${er.stage}, theme ${er.theme}, diff ${er.diff}, h ${er.h}) ${er.stack} ${er.ua}`; eb.appendChild(pre);
+  const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = 'Copy report'; bt.addEventListener('click', () => { try { navigator.clipboard.writeText(pre.textContent); bt.textContent = 'Copied'; } catch (e) {} }); eb.appendChild(bt);
+}
+function openSettings() { buildHelp(); updateErr(); syncSettingsUI(); setPanel.classList.add('open'); if (state === 'play' && !paused) { paused = true; panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
 function closeSettings() { setPanel.classList.remove('open'); saveSettings(); if (panelPaused) { panelPaused = false; paused = false; setPauseIcon(); } else showPauseMenu(true); }
 setPanel.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === setPanel) closeSettings(); });
 setBtn.addEventListener('pointerdown', e => e.stopPropagation());
@@ -5638,6 +5789,7 @@ function setSoundLabel() {
 setSoundLabel();
 
 addEventListener('keydown', e => {
+  if (lbOpen || (e.target && e.target.tagName === 'INPUT')) return;
   const k = e.key.toLowerCase();
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
@@ -5662,8 +5814,8 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (endlessHit(gx0, gy0)) startEndless(); else { const n = selectorHit(gx0, gy0); startAt(n || 1); } }
-  else if (state === 'over') { if (overT > 60) toTitle(); return; }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) startEndless(); else { const n = selectorHit(gx0, gy0); startAt(n || 1); } }
+  else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   else if (paused) { togglePause(); return; }
   else if (results || congrats) { skipResults(); return; }
   else if (cont > 0) { doContinue(); return; }
@@ -5723,15 +5875,21 @@ const warmList = [];
 (function collect(o, depth) { if (!o || depth > 4) return; if (typeof o.getContext === 'function' && o.width !== undefined) { warmList.push(o); return; } if (typeof o === 'object') for (const k in o) collect(o[k], depth + 1); })(SPR, 0);
 function warmStep() { const end = Math.min(warmList.length, warmIdx + 40); for (; warmIdx < end; warmIdx++) ctx.drawImage(warmList[warmIdx], 0, 0, 1, 1); }
 let warmIdx = 0;
+let errCount = 0;
+function logError(where, e) {
+  errCount++;
+  try { const rec = { v: '1.8', where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; localStorage.setItem('starfall-lasterror', JSON.stringify(rec)); } catch (e2) {}
+}
+function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {
-  if (warmIdx < warmList.length) warmStep();
+  requestAnimationFrame(frameLoop);
+  if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
   const dtf = now - last;
   acc += Math.min(100, dtf); last = now;
   fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; }
   if (state === 'play' && !paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
-  while (acc >= STEP) { acc -= STEP; if (hitStop > 0) { hitStop--; continue; } if (slowT > 0) { slowT--; if (slowT & 1) continue; } update(); }
-  render();
-  requestAnimationFrame(frameLoop);
+  while (acc >= STEP) { acc -= STEP; if (hitStop > 0) { hitStop--; continue; } if (slowT > 0) { slowT--; if (slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
+  try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
 }
 requestAnimationFrame(frameLoop);
 })();

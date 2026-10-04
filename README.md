@@ -27,6 +27,11 @@ The game then opens full screen from its own icon and works offline after the fi
 2. Open `sw.js` and change `VERSION` (for example to `starfall-1.6`).
 3. Upload both files. Players get the update the next time they open the game online.
 
+## Leaderboard
+
+The `leaderboard` folder contains the online high-score service and a step-by-step guide in
+`leaderboard/SETUP.md`. Until it is set up, the game simply says the leaderboard isn't connected.
+
 ## Notes
 
 - Scores, secrets and settings are saved on each device, separately for each website.
