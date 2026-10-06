@@ -6,6 +6,14 @@
 <title>StarFall</title>
 <meta name="description" content="StarFall, a WW2 arcade shooter. Fly the Starfall across six stages.">
 <meta name="theme-color" content="#1b1530">
+<meta property="og:type" content="website">
+<meta property="og:title" content="StarFall">
+<meta property="og:description" content="1944. The Allies fly a stranded alien starship against the Axis. A pixel-art arcade shooter for phone and desktop, with online high scores.">
+<meta property="og:url" content="https://mandelforce.github.io/StarFall/">
+<meta property="og:image" content="https://mandelforce.github.io/StarFall/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -229,6 +237,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
+const VERSION = '1.1.1'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
@@ -3389,7 +3398,7 @@ async function lbSend() {
   if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
   lbMsg('Sending...'); lbEl('lbSend').disabled = true;
   try {
-    const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: '1.1.1' }, lbRun)) });
+    const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: VERSION }, lbRun)) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
     lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad();
   } catch (e) { const m = e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score online."; lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); lbMsg(m + ' It is saved on this device.'); }
@@ -6293,7 +6302,7 @@ function render() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.save(); ctx.translate(0, TY);
     textO('STARFALL', W / 2, 54, '#fff0a0', 5, 'center', '#f8a83a');
-    textO('1.1.1', W / 2 + 74, 84, '#a8f6dc', 2, 'right', '#4ccfae');
+    textO(VERSION, W / 2 + 74, 84, '#a8f6dc', 2, 'right', '#4ccfae');
     const ps = (useGold() ? goldSet() : SPR.playerSet)[1], sw = ps.w * 2, sh = ps.h * 2, by = 140 + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
     for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
@@ -6702,7 +6711,7 @@ let warmIdx = 0;
 let errCount = 0;
 function logError(where, e) {
   errCount++;
-  try { const rec = { v: '1.1.1', where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; localStorage.setItem('starfall-lasterror', JSON.stringify(rec)); } catch (e2) {}
+  try { const rec = { v: VERSION, where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; localStorage.setItem('starfall-lasterror', JSON.stringify(rec)); } catch (e2) {}
 }
 function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {

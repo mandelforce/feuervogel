@@ -1,39 +1,60 @@
 # StarFall
 
-A WW2-themed vertical arcade shooter. Six stages, six bosses, Campaign, Generative and Endless modes.
+**1944. The Allies fly a stranded alien starship against the Axis.**
 
-## Publish on GitHub Pages
+StarFall is a pixel-art vertical arcade shooter that runs in any modern browser, on phone or desktop. No download, no account.
 
-1. Create a free account at github.com.
-2. Click **New repository**, name it `starfall` and set it to **Public**.
-3. Choose **Add file > Upload files** and drag in everything from this folder:
-   `index.html`, `manifest.json`, `sw.js`, `README.md` and the `icons` folder.
-   Click **Commit changes**.
-4. Go to **Settings > Pages**. Under "Build and deployment" choose **Deploy from a branch**,
-   select **main** and **/ (root)**, then **Save**.
-5. After a minute or two the game is live at `https://YOUR-USERNAME.github.io/starfall/`.
+**[▶ Play StarFall](https://mandelforce.github.io/StarFall/)**
+
+![StarFall title screen](og-image.png)
+
+## The game
+
+- **Campaign:** six stages, six bosses: Cross the Channel, The Winter Line, Sea of Sand, The Long Night, The Iron Forest and The Burning City.
+- **Endless:** the stages keep looping and getting harder.
+- **Practice:** jump straight into any stage from the title screen. Practice runs don't count for the Campaign board.
+- **Difficulty:** Easy, Normal or Hard, locked for the whole run.
+- **Weapons:** Scatter, Lance, Seekers and, from Stage 3, Arc. Plus the Nova bomb and a charged super laser.
+- **Secrets:** every stage hides one. Find all six to unlock the golden skin.
+- New players can take a three-minute tutorial (the **?** next to Start).
+
+## Controls
+
+| | Desktop | Phone |
+|---|---|---|
+| Fly | Mouse, arrow keys or WASD | Drag anywhere |
+| Fire | Automatic | Automatic |
+| Nova bomb | X or Space | Nova button |
+| Pause | P or Esc | Pause button |
+
+Game controllers work too.
+
+## Online high scores
+
+- Separate top-10 boards for Campaign and Endless, per difficulty, split into mobile and PC.
+- All-time and weekly boards.
+- Two continues per run; continuing keeps your score. Runs finished without continues get a ★.
+- Only Campaign runs that start at Stage 1 are ranked.
 
 ## Install on a phone
 
-- **iPhone:** open the link in Safari, tap **Share**, then **Add to Home Screen**.
-- **Android:** open the link in Chrome, tap the menu, then **Install app** or **Add to Home screen**.
+- **iPhone:** open the game in Safari, tap **Share**, then **Add to Home Screen**.
+- **Android:** open it in Chrome, tap the menu, then **Install app**.
 
-The game then opens full screen from its own icon and works offline after the first visit.
+It then opens full screen from its own icon and works offline after the first visit.
 
-## Updating the game
+## For developers
 
-1. Replace `index.html` with the new version (keep the lines in its header that link
-   `manifest.json` and the icons, and the small script at the end that registers `sw.js`).
-2. Open `sw.js` and change `VERSION` (for example to `starfall-1.6`).
-3. Upload both files. Players get the update the next time they open the game online.
+The whole game is one file, `index.html`, with no build step and no dependencies. GitHub Pages serves it straight from `main`.
 
-## Leaderboard
+| File | Purpose |
+|---|---|
+| `index.html` | The game |
+| `sw.js` | Service worker for offline play |
+| `manifest.json`, `icons/` | Home-screen app setup |
+| `worker.js`, `schema.sql` | Leaderboard backend (Cloudflare Worker + D1). See [SETUP.md](SETUP.md) |
+| `CHANGELOG.md` | What changed in each release |
 
-The `leaderboard` folder contains the online high-score service and a step-by-step guide in
-`leaderboard/SETUP.md`. Until it is set up, the game simply says the leaderboard isn't connected.
+**Run locally:** serve the folder with any static server, e.g. `python3 -m http.server`, and open `http://localhost:8000`. Local builds never submit scores to the live leaderboard.
 
-## Notes
-
-- Scores, secrets and settings are saved on each device, separately for each website.
-- The menus use the Pixelify Sans font from Google Fonts. It is downloaded on the first
-  visit and then kept for offline play. The game's own text uses a built-in pixel font.
+**Releasing:** bump `VERSION` at the top of the script in `index.html` and `VERSION` in `sw.js`, and add the changes to `CHANGELOG.md`.
