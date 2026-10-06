@@ -449,6 +449,8 @@ function camo(x, thr = 0.58, f = 0.72, sc = 0.22, seed = 0) {
 const SPR = {};
 function buildRaptor(bank, gold) {
   const PA = gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
+  // golden skin leans into the rooster look: hackle-orange wing edges, green sickle tail, comb and beak
+  const EDGE = gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
   return sprite(34, 36, x => {
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
@@ -461,19 +463,25 @@ function buildRaptor(bank, gold) {
       if (!inL && !inR) continue;
       const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f;
       const edge = !pip(inL ? wl : wr, i + 0.5, j - 1.5);
-      if (edge && j < 20) rect(x, pick(PC, 0.8, i, j), i, j, 1, 1);
+      if (edge && j < 20) rect(x, pick(EDGE, 0.8, i, j), i, j, 1, 1);
       else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? '#ecebe0' : '#1a1a1e', i, j, 1, 1);
     }
-    polyS(x, PA, [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
+    polyS(x, TAIL, gold ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
     polyS(x, PC, [[14, 20], [11, 25], [13, 25], [15, 23]], -0.05, 0.4);
     polyS(x, PC, [[20, 20], [23, 25], [21, 25], [19, 23]], -0.05, 0.4);
     ellS(x, PA, 17 + bank * 0.6, 16, 3.6, 10, 0.05);
     for (let j = 10; j < 25; j++) rect(x, pick(PC, 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
     polyS(x, PA, [[17, 0], [19, 3], [20, 7], [18, 10], [16, 10], [14, 7], [15, 3]], 0.25, 0.5);
-    rect(x, '#1a0a14', 17, 0, 1, 3); rect(x, '#1a0a14', 16, 2, 1, 1);
-    rect(x, '#ff5a3a', 15, 5, 1, 1); rect(x, '#ff5a3a', 16, 6, 1, 1);
-    rect(x, '#ff5a3a', 19, 5, 1, 1); rect(x, '#ff5a3a', 18, 6, 1, 1);
-    rect(x, '#ffd08a', 16, 6, 1, 1); rect(x, '#ffd08a', 18, 6, 1, 1);
+    if (gold) {
+      rect(x, '#f0a020', 16, 0, 3, 1); rect(x, '#ffd060', 17, 0, 1, 1); rect(x, '#c07010', 17, 1, 1, 1);
+      for (let j = 2; j <= 8; j++) rect(x, j % 2 ? '#d83a2a' : '#ff6a4a', 17, j, 1, 1);
+      for (const j of [2, 4]) { rect(x, '#ff6a4a', 16, j, 1, 1); rect(x, '#ff6a4a', 18, j, 1, 1); }
+      rect(x, '#a01c1c', 16, 3, 1, 1); rect(x, '#a01c1c', 18, 3, 1, 1);
+    } else { rect(x, '#1a0a14', 17, 0, 1, 3); rect(x, '#1a0a14', 16, 2, 1, 1); }
+    const e0 = gold ? '#1a0a14' : '#ff5a3a', e1 = gold ? '#fff4c0' : '#ffd08a';
+    rect(x, e0, 15, 5, 1, 1); rect(x, e0, 16, 6, 1, 1);
+    rect(x, e0, 19, 5, 1, 1); rect(x, e0, 18, 6, 1, 1);
+    rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
 SPR.playerSet = [buildRaptor(-1), buildRaptor(0), buildRaptor(1)];
