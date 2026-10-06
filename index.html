@@ -46,9 +46,9 @@ body{
 #tutBox.on{display:block}
 #tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
 #tutText b{color:#fff0a0;font-weight:400}
-#tutBtns{display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:6px}#tutBtns.on{display:flex}#tutGoLbl{width:100%;color:#fff0a0}
-#tutBtns button{font:16px 'StarFall Text',ui-monospace,monospace;background:#2a2050;color:#fff0a0;border:2px solid #3a3060;padding:6px 10px;min-height:38px;cursor:pointer}
-#tutBtns button{flex:1;max-width:110px}
+#tutBtns{display:none;flex-direction:column;gap:10px;align-items:center;margin-top:6px}#tutBtns.on{display:flex}#tutGoLbl{width:100%;color:#fff0a0}
+#tutBtns button{font:18px 'StarFall Text',ui-monospace,monospace;background:#3a2a70;color:#fff0a0;border:2px solid #d0a020;box-shadow:0 0 0 2px #120e1a;padding:8px 10px;min-height:42px;width:min(100%,220px);cursor:pointer;text-shadow:1px 1px 0 #120e1a}
+#tutBtns button:active{background:#4a3a90}
 @media (max-width:380px){#tutBox{font-size:17px}}
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-shadow:0 0 0 3px var(--frame),0 0 0 6px #120e1a;touch-action:none;cursor:crosshair}
 .btn{
@@ -97,15 +97,15 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #lbPanel .seg button:focus-visible{outline:2px solid #a8f6dc;outline-offset:1px}
 #lbList{margin-top:8px}
 #lbList{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:2px;font-size:17px}
-#lbList li{display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:#211a3c;border-left:3px solid transparent}
+#lbList li{display:grid;grid-template-columns:28px 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:#211a3c;border-left:3px solid transparent}
 #lbList li:nth-child(even){background:#1b1532}
 #lbList li.me{background:#352866;border-left-color:#f4d050}
-#lbList .rk{color:#8a7eb0;text-align:right}
+#lbList .rk{color:#8a7eb0;text-align:left}
 #lbList li.g1 .rk{color:#f4d050}#lbList li.g2 .rk{color:#d6dce6}#lbList li.g3 .rk{color:#e09a5a}
 #lbList .nm{color:#f2ecd8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lbList .tg{color:#6a5e90;font-size:11px;margin-left:5px}
 #lbList .star{color:#f4d050;margin-left:4px}
-#lbList .mv{font-size:11px;margin-left:4px}#lbList .mv.up{color:#4ccf82}#lbList .mv.dn{color:#e86050}#lbList .nw{font-size:10px;color:#a8f6dc;margin-left:4px}
+#lbList .mv{display:block;font-size:10px}#lbList .mv.up{color:#4ccf82}#lbList .mv.dn{color:#e86050}#lbList .nw{display:block;font-size:10px;color:#a8f6dc}
 #lbList li.flash{animation:lbflash 1.6s ease-out 2}#lbList li.pulse{animation:lbpulse 1.4s ease-in-out infinite}
 @keyframes lbflash{0%{box-shadow:0 0 0 2px #ffffff}100%{box-shadow:0 0 0 2px transparent}}
 @keyframes lbpulse{0%,100%{box-shadow:0 0 0 1px rgba(168,246,220,.25)}50%{box-shadow:0 0 0 2px rgba(168,246,220,.95)}}
@@ -3273,8 +3273,11 @@ const ENDLESS_BTN = { w: 96, h: 16 };
 function startOrOffer() { let seen = false; try { seen = !!localStorage.getItem('starfall-tut'); } catch (e) {} if (seen) { startAt(1); return; } try { localStorage.setItem('starfall-tut', '1'); } catch (e) {} document.getElementById('tutAsk').classList.add('open'); }
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 2 && gy <= SCORES_Y + 20 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
-const SEL = { y: 238, w: 22, h: 16, gap: 5 };
-const START_BTN = { y: 198, w: 116, h: 24 }, ENDLESS_Y = 262, SCORES_Y = 284;
+const SEL = { y: 231, w: 22, h: 16, gap: 5 };
+const START_BTN = { y: 190, w: 116, h: 24 }, ENDLESS_Y = 257, SCORES_Y = 283;
+const TUT_Q = { x: W / 2 + START_BTN.w / 2 + 16, y: START_BTN.y + START_BTN.h / 2, r: 9 };
+function tutQHit(gx, gy) { return Math.hypot(gx - TUT_Q.x, gy - TUT_Q.y) <= TUT_Q.r + 4; }
+function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - 140) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
 function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
@@ -3282,6 +3285,8 @@ function lbEligible() { return score > 0 && (endless || runStart === 1); }
 function gameOver() { saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
+// Local/test builds never post scores to the live board (reading it is fine).
+const LB_TEST = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|.*\.test)$/i.test(location.hostname);
 const LB_PLAT = H > 330 ? 'mobile' : 'pc';
 let runStart = 1, runDiff = 1, newBestT = 0, newBestDone = false, localBest = -1;
 function computeLocalBest() { const mode = endless ? 'endless' : 'camp'; localBest = 0; for (const r of localRuns()) if (r.mode === mode && r.diff === runDiff && r.plat === LB_PLAT) localBest = Math.max(localBest, r.score); }
@@ -3373,7 +3378,7 @@ async function lbSend() {
   if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
   try { localStorage.setItem('starfall-name', name); } catch (e) {}
   saveLocal(lbRun, name);
-  if (!LB_URL) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; lbLoad(); return; }
+  if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
   lbMsg('Sending...'); lbEl('lbSend').disabled = true;
   try {
     const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: '1.1.1' }, lbRun)) });
@@ -6306,9 +6311,9 @@ function render() {
       textS('ENDLESS', W / 2, ENDLESS_Y + 4, '#a8f6dc', 1, 'center', '#4ccfae');
       btn(bx, SCORES_Y, ENDLESS_BTN.w, ENDLESS_BTN.h + 2, 'rgba(28,22,48,0.85)');
       textS('SCORES', W / 2, SCORES_Y + 5, '#fff0a0', 1, 'center', '#d0a020');
-      { const qx = W - 16, qy = 26 - TY + SAFE_T; dk(qx, qy, 9, OUT); dk(qx, qy, 8, '#3a2a70'); textO('?', qx + 1, qy - 4, '#fff0a0', 2, 'center', '#f8a83a'); }
+      { const qx = TUT_Q.x, qy = TUT_Q.y; dk(qx, qy, TUT_Q.r + 2, '#d0a020'); dk(qx, qy, TUT_Q.r + 1, OUT); dk(qx, qy, TUT_Q.r, '#3a2a70'); textO('?', qx + 1, qy - 6, '#fff0a0', 2, 'center', '#f8a83a'); }
       if (lbAlert) { const dx = W / 2 + ENDLESS_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, lbAlert === 'red' ? '#e86050' : '#f4d050'); ctx.globalAlpha = 1; dk(dx, dy, pr, lbAlert === 'red' ? '#e86050' : '#f4d050'); }
-      if (endlessBest.score > 0) textS('ENDLESS BEST ' + endlessBest.score + '  STAGE ' + endlessBest.stage, W / 2, SCORES_Y + 24, '#8a7eb0', 1, 'center', '#4a3e70'); }
+    }
     ctx.restore();
     syncBody(); return;
   }
@@ -6612,7 +6617,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (gx0 > W - 30 && gy0 < 40 - TY + SAFE_T) startTutorial(); else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) startEndless(); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) startAt(n); } }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) startTutorial(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) startEndless(); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) startAt(n); } }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
