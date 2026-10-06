@@ -58,3 +58,7 @@ The whole game is one file, `index.html`, with no build step and no dependencies
 **Run locally:** serve the folder with any static server, e.g. `python3 -m http.server`, and open `http://localhost:8000`. Local builds never submit scores to the live leaderboard.
 
 **Releasing:** bump `VERSION` at the top of the script in `index.html` and `VERSION` in `sw.js`, and add the changes to `CHANGELOG.md`.
+
+## Licence
+
+All rights reserved. See [LICENSE](LICENSE).
