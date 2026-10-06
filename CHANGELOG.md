@@ -10,3 +10,6 @@
 - Fixed: home-screen icons were missing on the live site (the files weren't in the icons/ folder), which also stopped offline play from installing.
 - Link previews: sharing the game link now shows a title, description and preview image.
 - Project: new README, removed the outdated zip copy of the game, one VERSION constant in index.html, and an automatic smoke test on every pull request.
+- Balance: the Stage 5 boss (Winter Wolf) calls in supply trains less often and keeps them off the tracks next to its own trains, so they no longer soak up most shots aimed at the boss. Fewer supply trains also means slightly fewer bonus points in that fight.
+- Balance: the Arc weapon deals 1.25x instead of 0.45x damage to boss parts, and zaps soldiers, crates, drums and buildings only when nothing more important is in reach. Arc boss fights are now about as fast as with the other weapons.
+- Testing: balance bot (tests/harness.js, tests/balance.mjs) for timing bosses and playing whole campaigns on local builds.

@@ -4256,7 +4256,8 @@ function yardMove(e, t) {
 }
 function yardSupport(e) {
   const busy = yardBusy(e, null), fromTop = Math.random() < 0.5;
-  const free = YARD_T.filter(x => !busy.has(x) && !enemies.some(o => (o.type === 'loco' || o.type === 'boxcar' || o.type === 'flatcar') && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -160 && o.y < H + 220));
+  // keep supply trains off the tracks right next to the boss trains, so they don't soak up every shot aimed at the boss
+  const free = YARD_T.filter(x => ![...busy].some(b => Math.abs(b - x) < 30) && !enemies.some(o => (o.type === 'loco' || o.type === 'boxcar' || o.type === 'flatcar') && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -160 && o.y < H + 220));
   if (!free.length) return;
   const wx = free[(Math.random() * free.length) | 0], sc = Math.floor(scroll), m2 = hpm(), tid = ++trainId, n = 2 + ((Math.random() * 2) | 0);
   trainLeft[tid] = n + 1; trainBonus[tid] = 1500 * (n + 1);
@@ -4367,7 +4368,7 @@ const BOSSMOVE = {
     if (e.joinT > 0 && --e.joinT === 0) yardActivate(e, 1);
     for (const t of e.trains) if (t.on) yardMove(e, t);
     for (const p of e.parts) { const t = e.trains[p.tr]; p.ox = yardX(t, t.y + p.ly) + p.lx - e.x; p.oy = t.y + p.ly - e.y; }
-    if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(200, 300)) | 0; }
+    if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
     return A.ready;
   },
   fortress(e) {
@@ -4823,10 +4824,12 @@ const kd = (...ks) => ks.some(k => keys[k]);
 function pshot(x, y, a, sp, dmg) { shots.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }); }
 // ---------- Arc: a bolt to the nearest enemy ahead, with at most two short jumps ----------
 const arcs = [];
+// soldiers and scenery are only zapped when nothing more important is in reach
+const ARC_LOW = new Set(['troop', 'crate', 'drums', 'bldg']);
 function arcTargets(x, y, reach, cone, skip, troops) {
   let best = null, bd = 1e9;
   for (const e of enemies) {
-    if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (e.type === 'troop' && !troops) || e.type === 'camo') continue;
+    if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ARC_LOW.has(e.type)) || e.type === 'camo') continue;
     if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || (e.kind === 'castle' && q.k === 'core' && !e.open)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
     if (e.y < 4 || e.y > y - 4) continue;
     const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * 0.35 && d < bd) { bd = d; best = { e, x: e.x, y: e.y }; }
@@ -4834,7 +4837,7 @@ function arcTargets(x, y, reach, cone, skip, troops) {
   return best;
 }
 function arcHit(t, d) { if (t.e.type === 'troop') { for (let k = 0; k < 8; k++) parts.push({ kind: 'spark', layer: 'g', x: t.x + rnd(-3, 3), y: t.y + rnd(-4, 3), vx: rnd(-0.8, 0.8), vy: rnd(-1, 0.3), life: 12, max: 12, col: k % 2 ? '#a8e0ff' : '#ffffff' }); smokePuff(t.x, t.y - 2); }
-  if (t.part) damagePart(t.e, t.part, d * 0.45); else damage(t.e, d); stats.hits++; parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
+  if (t.part) damagePart(t.e, t.part, d * 1.25); else damage(t.e, d); stats.hits++; parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
 function arcBolt(x0, y0, x1, y1, w) { const n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)), pts = [[x0, y0]]; for (let k = 1; k < n; k++) { const f = k / n, nx = -(y1 - y0), ny = x1 - x0, l = Math.hypot(nx, ny) || 1, o = rnd(-3.5, 3.5); pts.push([x0 + (x1 - x0) * f + nx / l * o, y0 + (y1 - y0) * f + ny / l * o]); } pts.push([x1, y1]); arcs.push({ pts, w, life: 5 }); }
 function fireArc(p, L) {
   const reach = H * [0, 0.5, 0.55, 0.6, 0.66][L], dmg = [0, 1.8, 2.0, 2.3, 2.6][L], jumps = [0, 0, 1, 1, 2][L], hop = [0, 0, 38, 46, 52][L], w = L >= 3 ? 2 : 1;
@@ -6725,6 +6728,8 @@ function frameLoop(now) {
   try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
 }
 requestAnimationFrame(frameLoop);
+// local/test builds only: lets tests/harness.js drive the game (see tests/README.md)
+if (LB_TEST) window.__sf = c => eval(c);
 })();
 </script>
 <script>
