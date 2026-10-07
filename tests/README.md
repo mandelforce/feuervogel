@@ -1,5 +1,15 @@
 # Tests
 
+## Unit tests (run automatically)
+
+`worker.test.mjs` checks the leaderboard Worker's rules with a fake database: name limits, the 2-continue cap, Stage-1-only Campaign ranking, score plausibility, rate limits, allowed origins and ISO week labels. It needs only Node 20, no browser:
+
+```
+node --test tests/
+```
+
+If you change `worker.js`, run this first. The tests check the rules, not live data.
+
 ## Smoke test (runs automatically)
 
 `smoke.mjs` runs on every pull request through GitHub Actions. It loads the game on desktop and phone sizes, checks the title screen, plays Stage 1 for a few seconds and fails on any error or missing file.

@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Unit tests (leaderboard Worker rules)
+        run: node --test tests/
       - name: Install headless browser
         run: |
           npm install --no-save playwright@1
