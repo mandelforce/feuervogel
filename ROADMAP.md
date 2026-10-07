@@ -20,12 +20,12 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 
 ## Phase 1: Cleanups (no gameplay change, low risk)
 
-- [ ] Remove the dead haptics code (`HAPT`, iOS switch hack, 53 `haptic()` calls). First confirm `haptic()` is a no-op and `settings.hap` stays false. Haptics were dropped; don't re-add.
-- [ ] Delete the stale `old-check.html` (590 KB, ignored by git).
+- [x] Remove the unreachable phone-vibration code (iOS switch hack, `navigator.vibrate`). The `HAPT` table and `haptic()` calls stay: they drive controller rumble. Phone haptics were dropped; don't re-add.
+- [x] Delete the stale `old-check.html` (a v1.1.1 copy, ignored by git).
 - [ ] Export the live Cloudflare Worker into `worker.js` (it has `/status` and the best-score table the repo copy lacks), so the repo is the real source. Add blocks, never replace wholesale.
-- [ ] Add a `Storage` wrapper for all `localStorage` access. Keep every `starfall-*` key unchanged. Replace the empty catches with it.
-- [ ] Fill in the "Project structure" section of `CLAUDE.md` and add a short `ARCHITECTURE.md`.
-- [ ] Add unit tests for pure functions (`isoWeek`, Worker validation, collision helpers, score extends).
+- [x] Add a `store` wrapper (and a `KEY` list) for all `localStorage` access. Every key name is unchanged.
+- [x] Fill in the "Project structure" section of `CLAUDE.md` (a local file, not in git) and add `ARCHITECTURE.md`.
+- [x] Unit tests for the Worker rules and ISO week labels (`tests/worker.test.mjs`, run in CI). Still open: game-side helpers (collision, score extends); they become testable once the code is in modules (Phase 3).
 
 ## Phase 2: Safety net
 
