@@ -4478,16 +4478,17 @@ function yardX(t, y) {
 function yardInit(e) {
   e.x = W / 2; e.y = H / 2; e.hw = 100; e.hh = 120; e.supCd = 120; e.mt = 0;
   const defs = BOSSDEF.train.parts, m = e.parts[0].maxhp / defs[0].hp;
-  // on short (PC) screens the second train stops as high as the first, so its locomotive stays above the player
-  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 175 + BY + clamp(H - 360, 0, 40), on: false, dead: false, mt: 0 }];
+  // the second train drives in forward, locomotive first (flip): its core leads at the top, well above the player
+  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 290 + BY, on: false, dead: false, mt: 0, flip: true }];
   e.parts = [];
-  e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
+  e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: e.trains[ti].flip ? -146 - q.oy : q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
 }
 function yardActivate(e, ti) { const t = e.trains[ti]; if (t.on) return; t.on = true; for (const p of e.parts) if (p.tr === ti) { p.off = false; p.dead = false; } sfx('whistle'); haptic('warn'); }
 function yardBusy(e, skip) { const s2 = new Set(); for (const t of e.trains) if (t !== skip && t.on && !t.dead) { s2.add(t.x); if (t.path) { s2.add(t.path.xTop); s2.add(t.path.xBot); } } return s2; }
 function yardMove(e, t) {
   if (t.dead) { t.y += scrollV; return; }
-  if (gf % 3 === 0) parts.push({ kind: 'smoke', layer: 'g', x: yardX(t, t.y - 21) + rnd(-2, 2), y: t.y - 21, vx: rnd(-0.2, 0.2), vy: scrollV + 0.25, r: rnd(2.5, 4), life: 46, max: 46 });
+  const chy = t.flip ? t.y - 125 : t.y - 21;
+  if (gf % 3 === 0) parts.push({ kind: 'smoke', layer: 'g', x: yardX(t, chy) + rnd(-2, 2), y: chy, vx: rnd(-0.2, 0.2), vy: scrollV + 0.25, r: rnd(2.5, 4), life: 46, max: 46 });
   if (!t.ready) { t.y -= 1.1; if (t.y <= t.rest) t.ready = true; }
   else { t.mt++; t.y = t.rest + Math.sin(t.mt * 0.008) * 26; }
   if (gf % 5 === 0) parts.push({ kind: 'spark', layer: 'g', x: yardX(t, t.y) + (Math.random() < 0.5 ? -13 : 13), y: t.y - rnd(0, 150), vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.6), life: 10, max: 10, col: '#fff2a8' });
@@ -6621,9 +6622,11 @@ function drawBoss(e) {
     for (const t of (e.trains || [])) {
       if (!t.on) continue;
       if (t.dead) ctx.globalAlpha = 0.65;
-      for (const oy of [-146, -98, -50]) { const cx = yardX(t, t.y + oy); ctx.fillStyle = '#141416'; ctx.fillRect(Math.round(cx) - 2, Math.round(t.y + oy + 21), 4, 6); spr(SPR.bCar, cx, t.y + oy, fl); }
-      const lx = yardX(t, t.y); spr(SPR.bLoco, lx, t.y, fl);
-      if (!t.dead) { const gl = 0.6 + 0.4 * Math.sin(gf * 0.15); ctx.globalAlpha = 0.35 * gl; dk(lx, t.y + 14, 8, '#4ab0f0'); ctx.globalAlpha = 1; ctx.fillStyle = gl > 0.7 ? '#c8f0ff' : '#4ab0f0'; ctx.fillRect(Math.round(lx) - 6, Math.round(t.y) + 13, 13, 1); }
+      const fd = t.flip ? -1 : 1, ly0 = t.flip ? t.y - 146 : t.y; // a flipped train has its locomotive at the top, facing up
+      for (const oy of [-146, -98, -50]) { const yy = t.flip ? t.y - 146 - oy : t.y + oy, cx = yardX(t, yy); ctx.fillStyle = '#141416'; ctx.fillRect(Math.round(cx) - 2, Math.round(yy + (t.flip ? -27 : 21)), 4, 6); spr(SPR.bCar, cx, yy, fl); }
+      const lx = yardX(t, ly0);
+      if (t.flip) { ctx.save(); ctx.translate(Math.round(lx), Math.round(ly0)); ctx.rotate(PI); spr(SPR.bLoco, 0, 0, fl); ctx.restore(); } else spr(SPR.bLoco, lx, ly0, fl);
+      if (!t.dead) { const gl = 0.6 + 0.4 * Math.sin(gf * 0.15); ctx.globalAlpha = 0.35 * gl; dk(lx, ly0 + 14 * fd, 8, '#4ab0f0'); ctx.globalAlpha = 1; ctx.fillStyle = gl > 0.7 ? '#c8f0ff' : '#4ab0f0'; ctx.fillRect(Math.round(lx) - 6, Math.round(ly0) + (t.flip ? -14 : 13), 13, 1); }
       ctx.globalAlpha = e.dying ? clamp(e.dying / 120, 0.35, 1) : 1;
     }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, rocket: SPR.rocketPod });
