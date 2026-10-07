@@ -4478,7 +4478,8 @@ function yardX(t, y) {
 function yardInit(e) {
   e.x = W / 2; e.y = H / 2; e.hw = 100; e.hh = 120; e.supCd = 120; e.mt = 0;
   const defs = BOSSDEF.train.parts, m = e.parts[0].maxhp / defs[0].hp;
-  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 215 + BY, on: false, dead: false, mt: 0 }];
+  // on short (PC) screens the second train stops as high as the first, so its locomotive stays above the player
+  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 175 + BY + clamp(H - 360, 0, 40), on: false, dead: false, mt: 0 }];
   e.parts = [];
   e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
 }
@@ -4884,6 +4885,8 @@ const BOSSMOVE = {
     for (const p of e.parts) { const t = e.trains[p.tr]; p.ox = yardX(t, t.y + p.ly) + p.lx - e.x; p.oy = t.y + p.ly - e.y; }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
     if (A.ready) wolfPack(e);
+    // during the fight, shots fly over the crate stacks and sheds on the platforms beside the boss tracks (they soaked up most shots)
+    if (gf % 20 === 0) for (const o of enemies) if ((o.type === 'crate' || o.type === 'drums' || (o.type === 'bldg' && o.bk === 'shed')) && !o.untarget) o.untarget = true;
     return A.ready;
   },
   fortress(e) {
