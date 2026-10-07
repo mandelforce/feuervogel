@@ -4003,8 +4003,8 @@ const BOSSDEF = {
     { k: 'core', ox: 0, oy: 13, hp: 150, hw: 10, hh: 5 }, { k: 'main', ox: 0, oy: -4, hp: 55, hw: 7, hh: 7 }, { k: 'main', ox: 0, oy: -50, hp: 70 },
     { k: 'rocket', ox: 0, oy: -98, hp: 60, hw: 8, hh: 8 }, { k: 'aa', ox: -6, oy: -136, hp: 28 }, { k: 'aa', ox: 6, oy: -156, hp: 28 }] },
   fortress: { y: -70, parts: [
-    { k: 'core', ox: 0, oy: -6, hp: 220, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 55, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 55, hw: 6, hh: 6 },
-    { k: 'aa', ox: -26, oy: -40, hp: 30 }, { k: 'aa', ox: 26, oy: -40, hp: 30 }, { k: 'mortar', ox: 0, oy: -44, hp: 50, hw: 6, hh: 6 }] },
+    { k: 'core', ox: 0, oy: -6, hp: 340, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 70, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 70, hw: 6, hh: 6 },
+    { k: 'aa', ox: -26, oy: -40, hp: 38 }, { k: 'aa', ox: 26, oy: -40, hp: 38 }, { k: 'mortar', ox: 0, oy: -44, hp: 64, hw: 6, hh: 6 }] },
   railgun: { y: -90, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: -15, hp: 240, hw: 10, hh: 12 }, { k: 'main', ox: -28, oy: 22, hp: 60 }, { k: 'main', ox: 28, oy: 22, hp: 60 },
     { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 20, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 20, hw: 5, hh: 5 }] }
@@ -4444,57 +4444,47 @@ function drawRamLanes() {
     ctx.globalAlpha = 1;
   }
 }
-// Sand Colossus "Burrow": below 65% and again below 30% core health it vanishes into the sand in a dust cloud.
-// A sand mound tracks the player, stops, shows a dark red ring, then erupts with a ring of shells; the Colossus
-// rises back at its post. While underground it is parked off-screen, so it can't be hit and doesn't fire.
-const BUR_SINK = 40, BUR_TRACK = 150, BUR_WARN = 45, BUR_RISE = 50;
-function burrow(e) {
+// Sand Colossus "Sandstorm": at 85% and again at 45% core health it digs in, revs its engines and its rear fans
+// blast sand sideways. A storm blows across the screen for ~6 s: the wind pushes the player's plane and bends the
+// boss's shells. A light haze and streaks show it; bullets and the player are drawn on top so they stay readable.
+const STORM_WARN = 70, STORM_BLOW = 360, STORM_PUSH = 0.85;
+let windX = 0, stormK = 0, stormStreaks = [];
+function sandstorm(e) {
   const core = e.parts.find(p => p.k === 'core');
-  e.burN = e.burN || 0;
-  if (!e.bur) {
+  e.stormN = e.stormN || 0;
+  if (!e.storm) {
     if (!core || core.dead || player.dead) return false;
-    const due = (e.burN === 0 && core.hp < core.maxhp * 0.65) || (e.burN === 1 && core.hp < core.maxhp * 0.3);
+    const due = (e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45);
     if (!due) return false;
-    e.bur = { ph: 'sink', t: 0, sx: e.x, sy: e.y }; e.burN++; sfx('roar'); haptic('big');
+    e.storm = { t: 0, dir: e.stormN === 0 ? 1 : -1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big');
   }
-  const B = e.bur, dust = (x, y, n, sp) => { for (let i = 0; i < n; i++) { const a = Math.random() * TAU; parts.push({ kind: 'dust', layer: 'w', x: x + Math.cos(a) * rnd(0, 40), y: y + Math.sin(a) * rnd(0, 46), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 50, max: 50, r: rnd(4, 8) }); } };
-  B.t++;
-  if (B.ph === 'sink') {
-    e.x = B.sx + Math.sin(B.t * 1.9) * 1.2; shake = Math.max(shake, 3);
-    if (B.t % 3 === 0) dust(B.sx, B.sy, 4, 0.9);
-    if (B.t >= BUR_SINK) { dust(B.sx, B.sy, 26, 1.4); e.y = -400; B.ph = 'track'; B.t = 0; B.mx = B.sx; B.my = B.sy + 50; }
-  } else if (B.ph === 'track') {
-    const tx = player.x, ty = Math.min(player.y, H - 24), d = Math.hypot(tx - B.mx, ty - B.my);
-    if (d > 2) { B.mx += (tx - B.mx) / d * 1.4; B.my += (ty - B.my) / d * 1.4; }
-    if (gf % 3 === 0) parts.push({ kind: 'dust', layer: 'w', x: B.mx + rnd(-6, 6), y: B.my + rnd(-3, 3), vx: rnd(-0.3, 0.3), vy: -0.2, life: 26, max: 26, r: rnd(2, 4) });
-    if (B.t >= BUR_TRACK || d < 4) { B.ph = 'warn'; B.t = 0; sfx('charge'); }
-  } else if (B.ph === 'warn') {
-    if (B.t % 4 === 0) parts.push({ kind: 'dust', layer: 'w', x: B.mx + rnd(-8, 8), y: B.my + rnd(-4, 4), vx: 0, vy: -0.3, life: 20, max: 20, r: 3 });
-    if (B.t >= BUR_WARN) {
-      ring(B.mx, B.my, 14 + loop * 2, bspeed() * 0.85, Math.random() * TAU, 'B'); dust(B.mx, B.my - 20, 18, 1.6);
-      shake = Math.max(shake, 8); sfx('gboom'); haptic('big');
-      e.x = B.sx; e.y = B.sy; dust(B.sx, B.sy, 26, 1.2); B.ph = 'rise'; B.t = 0;
-    }
-  } else if (B.ph === 'rise') {
-    e.x = B.sx; e.y = B.sy;
-    if (B.t >= BUR_RISE) { e.bur = null; e.tlx = undefined; } // tread tracks start fresh where it surfaced
-  }
+  const S = e.storm; S.t++;
+  e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y;
+  // sand plumes from the rear fans, blown the way the storm will go
+  if (S.t % 2 === 0) for (const sx of [-34, 34]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-6, 6), vx: S.dir * rnd(1.2, 2.6), vy: rnd(-0.5, 0.2), life: 60, max: 60, r: rnd(5, 9) });
+  if (S.t < STORM_WARN) shake = Math.max(shake, 2);
+  if (S.t === STORM_WARN) sfx('roar');
+  const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
+  S.k = k;
+  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); }
   return true;
 }
-function drawMounds() {
-  for (const e of enemies) {
-    const B = e.type === 'boss' && !e.dying && e.bur; if (!B || (B.ph !== 'track' && B.ph !== 'warn')) continue;
-    const x = Math.round(B.mx), y = Math.round(B.my), wob = B.ph === 'warn' ? Math.sin(B.t * 1.3) : 0;
-    ctx.globalAlpha = 0.35; dk(x + 2, y + 3, 10, '#3a2a10'); ctx.globalAlpha = 1;
-    dk(x, y, 9 + wob, '#a8803a'); dk(x - 1, y - 2, 6, '#d8b060'); dk(x - 2, y - 3, 3, '#f0d890');
-  }
+function updStorm() {
+  const e = enemies.find(o => o.type === 'boss' && o.storm && !o.dying), S = e && e.storm;
+  const warn = S && S.t < STORM_WARN, target = S ? (warn ? 0.25 : Math.max(0.25, S.k)) : 0;
+  stormK += (target - stormK) * 0.08; if (stormK < 0.01) stormK = 0;
+  windX = S && !warn ? S.dir * STORM_PUSH * S.k : 0;
+  const dir = S ? S.dir : (stormStreaks[0] ? stormStreaks[0].d : 1);
+  if (stormK > 0) { while (stormStreaks.length < 46) stormStreaks.push({ x: rnd(0, W), y: rnd(0, H), l: rnd(6, 16), v: rnd(3, 6), d: dir }); }
+  for (const st of stormStreaks) { st.d = dir; st.x += st.d * st.v * (0.4 + stormK); st.y += 0.3; if (st.x > W + 20) st.x = -20; if (st.x < -20) st.x = W + 20; if (st.y > H) st.y = 0; }
+  if (stormK === 0) stormStreaks.length = 0;
 }
-function drawMoundWarn() {
-  for (const e of enemies) {
-    const B = e.type === 'boss' && !e.dying && e.bur; if (!B || B.ph !== 'warn') continue;
-    const r = 26 - B.t * 0.2; ctx.globalAlpha = (B.t >> 2) & 1 ? 0.95 : 0.55; ctx.strokeStyle = '#c81e1e'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(Math.round(B.mx) + 0.5, Math.round(B.my) + 0.5, r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
-  }
+function drawStorm() {
+  if (stormK <= 0) return;
+  ctx.globalAlpha = 0.16 * stormK; ctx.fillStyle = '#c89a52'; ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 0.5 * stormK; ctx.fillStyle = '#f0d8a0';
+  for (const st of stormStreaks) ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 1);
+  ctx.globalAlpha = 1;
 }
 const BOSSMOVE = {
   castle(e) {
@@ -4576,7 +4566,7 @@ const BOSSMOVE = {
     return A.ready;
   },
   fortress(e) {
-    if (e.mt > 0 && burrow(e)) return true;
+    if (e.mt > 0 && sandstorm(e)) return true;
     if (gf % 4 === 0) for (const sx of [-40, 40]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 56, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 });
     if (gf % 5 === 0) for (const sx of [-16, 16]) smokePuff(e.x + sx + rnd(-1, 1), e.y - 30);
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
@@ -4954,7 +4944,6 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
-      if (e.bur && e.bur.ph !== 'sink') { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
@@ -5197,7 +5186,7 @@ function updPlayer() {
   if (kd('arrowup', 'w')) dy--; if (kd('arrowdown', 's')) dy++;
   if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
   if (gpad) { dx += gpad.dx; dy += gpad.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } }
-  p.x += dx * 2.6; p.y += dy * 2.6;
+  p.x += dx * 2.6 + windX; p.y += dy * 2.6;
   p.x = clamp(p.x, 8, W - 8); p.y = clamp(p.y, 18, H - 14);
   const moved = Math.abs(p.x - p.lx) + Math.abs(p.y - (p.ly ?? p.y));
   if (moved < 0.5 && !results) {
@@ -5236,7 +5225,7 @@ function bomb() {
   ebul.length = 0;
   for (const e of enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
-    if (e.type === 'boss') { if (!(e.bur && e.bur.ph !== 'sink' && e.bur.ph !== 'rise')) for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
+    if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
     else damage(e, e.big ? 45 : 40);
   }
   sfx('nova'); haptic('nova');
@@ -5613,7 +5602,9 @@ function update() {
   for (const e of enemies) if (!e.seenC && !NOCOUNT.has(e.type) && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
   for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); AI[e.type](e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); } }
 
+  updStorm();
   for (const b of ebul) {
+    if (windX && (b.kind === 's' || b.kind === 'B')) b.vx += windX * 0.012;
     b.x += b.vx; b.y += b.vy;
     if (b.kind === 'rocket') {
       if (b.life === undefined) b.life = 90;
@@ -6597,10 +6588,9 @@ function render() {
   }
   drawBeam();
   drawPlayerArcs();
+  drawStorm();
   drawRamLanes();
-  drawMounds();
   drawPlayer();
-  drawMoundWarn();
   drawLocks();
   drawParts('a');
   drawHitbox();

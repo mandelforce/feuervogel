@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Stage 2 boss (Sand Colossus): "Burrow" below 65% and 30% core health. It vanishes into the sand, a sand mound tracks you, stops inside a dark red ring, then erupts with a ring of shells; the Colossus rises back at its post.
+- Stage 2 boss (Sand Colossus): "Sandstorm" at 85% and 45% core health. It digs in and its rear fans blast sand sideways; for about 6 seconds the wind pushes your plane and bends its shells, under a light sand haze. It also has about 50% more health.
 
 ## 1.1.1 update (7 October 2026)
 - Leaderboard: names are left-aligned next to a narrower rank column, leaving room for bigger scores; rank movement (▲/▼/NEW) sits under the rank.
