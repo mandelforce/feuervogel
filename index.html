@@ -5023,7 +5023,8 @@ const AI = {
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
       } else if (p.k === 'core') {
         if (e.kind === 'ship') {
-          if (!core.armored) { p.cd = Math.round((6) * fireSlow()); e.spin += 0.27; for (let i = 0; i < 3; i++) eshot(px, py, e.spin + i * TAU / 3, sp * 0.85); if (e.mt % 96 < 6) ring(px, py, 18 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
+          // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
+          if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
           else p.cd = Math.round((30) * fireSlow());
         } else if (e.kind === 'train') {
           const angry = others <= 2 || p.hp < p.maxhp * 0.5;

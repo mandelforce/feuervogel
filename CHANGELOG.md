@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Stage 1 boss (Iron Leviathan): its final phase fires far fewer bullets (a 2-way spiral and a smaller, rarer ring), better suited to a first boss.
 - Stage 1 boss (Iron Leviathan): "Full ahead" is now a broadside. The horn sounds and it surges forward, smoke and flashes run along its hull, then it fires three volleys of shells out of both sides. The safe place is right above the ship. (Replaces the barrage down a red lane, which rarely reached the player.)
 - Stage 2 boss (Sand Colossus) fights a retreat: it faces you and reverses up the screen with the scrolling ground, shifting lanes by angling its hull (it moves like a tank, never sideways). It digs in and the ground stops during its sandstorms. Last stand: once only its turret is left (or its core is below 30%), a track is shot off; it drifts towards you grinding in circles while its turret sprays a spiral, and the ground stops when it gets close.
 - Big boss tracks look like real tank track prints (edge lines with grip bars) in a darker shade of the ground, and are less heavy than before.
