@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Stage 4 castle grounds: thicker curtain walls with a wall walk and battlements, round corner towers with slate roofs, gun emplacements along both walls (a crossfire over the courtyards), and a gate breach: the advance stops at the closed inner gate until you blast it open while its guns and the flanking bunkers fire.
 - Stage 4 boss (Ravenhold): "The Raven's Wheel", twice per fight. The bell tolls and crows circle the tower, then two arms of shells stream out of the tower top and the wheel turns once, so you fly round the tower ahead of an arm. Clockwise the first time, the other way the second time. The castle's other guns, hatches and fighters hold off while it turns.
 - Stage 1 boss (Iron Leviathan): its final phase fires far fewer bullets (a 2-way spiral and a smaller, rarer ring), better suited to a first boss.
 - Stage 1 boss (Iron Leviathan): "Hard to port" at 70% and 35% core health. The horn sounds and the battleship slowly swings about 60 degrees (about 4 seconds) so one long side faces you, smoke and flashes run along that side, then two broadsides fire out of it towards you before it swings back. Its big turrets and anti-aircraft guns are tougher (about 50% more health). It turns like a big ship: around a pivot near the bow with the stern swinging wide, creeping forward through the arc, slow to start with a small overshoot, leaving a curved wake, with funnel smoke trailing astern.

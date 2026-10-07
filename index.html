@@ -1048,7 +1048,7 @@ const RV_H = 1440, RV_GATE = RV_H - 40;
 function ravenU(u, x) {
   if (u < -26) return 0; if (u < -4) return (x >= 98 && x <= 126) ? 6 : 1;
   if (u > 1372) return 0; if (u > 1344) return 1;
-  if (x < 12 || x > W - 13) return 2;
+  if (x < 22 || x > W - 23) return (x < 12 || x > W - 13) ? 2 : 8; // curtain wall: outer face, then the wall walk
   if (u < 22) return (x > 90 && x < 134) ? 3 : 2;
   if (u < 420) return 3;
   if (u < 444) return (x > 96 && x < 128) ? 4 : 2;
@@ -1072,13 +1072,22 @@ lazySpr('ravenFloor', () => {
     else if (r === 3) { const sx = (xx + ((yy / 8) | 0) % 2 * 6) % 12, sy = yy % 8; col = sx === 0 || sy === 0 ? H2.wall[0] : H2.flag[(n * 3) | 0]; }
     else if (r === 4) { const sx = (xx + ((yy / 3) | 0) % 2 * 2) % 4, sy = yy % 3; col = sx === 0 || sy === 0 ? H2.cob[0] : H2.cob[1 + ((n * 2) | 0)]; if (vnoise(xx * 0.05, yy * 0.05) > 0.72) col = hx(n < 0.5 ? '#4a6a34' : '#56783c'); }
     else if (r === 5) col = H2.path[(n * 2) | 0];
+    else if (r === 8) { col = yy % 7 === 0 ? H2.wall[0] : H2.wall[2 + ((n * 2) | 0)]; if (xx === 12 || xx === W - 13) col = H2.wall[0]; }
     else { const sx = xx % 10, sy = yy % 10; col = sx === 0 || sy === 0 ? hx('#26242a') : H2.keep[(n * 3) | 0]; }
     a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; a[o + 3] = 255;
   }
   x.putImageData(img, 0, 0);
   const Y = u => RV_GATE - u;
-  // corner bastions on every wall line
-  for (const u of [8, 432, 911, 1332]) for (const bx of [10, W - 10]) { x.fillStyle = '#2e2a26'; x.beginPath(); x.arc(bx, Y(u), 15, 0, TAU); x.fill(); x.fillStyle = '#5a544c'; x.beginPath(); x.arc(bx, Y(u), 12, 0, TAU); x.fill(); x.fillStyle = '#3e3a34'; x.beginPath(); x.arc(bx, Y(u), 6, 0, TAU); x.fill(); for (let a2 = 0; a2 < 10; a2++) { const an = a2 * TAU / 10; x.fillStyle = '#766d60'; x.fillRect(Math.round(bx + Math.cos(an) * 13) - 1, Math.round(Y(u) + Math.sin(an) * 13) - 1, 3, 3); } }
+  // battlements: merlons along the inner edge of both wall walks, casting a shadow into the courtyards
+  for (let yy = 0; yy < RV_H; yy++) {
+    const r0 = ravenU(RV_GATE - yy, 30); if (r0 !== 3 && r0 !== 4 && r0 !== 5 && r0 !== 7) continue;
+    x.fillStyle = 'rgba(10,8,6,0.35)'; x.fillRect(22, yy, 3, 1); x.fillRect(W - 25, yy, 3, 1);
+    if (yy % 6 < 3) { x.fillStyle = '#847d74'; x.fillRect(19, yy, 3, 1); x.fillRect(W - 22, yy, 3, 1); }
+    else { x.fillStyle = '#3a3630'; x.fillRect(20, yy, 2, 1); x.fillRect(W - 22, yy, 2, 1); }
+  }
+  // round corner towers with slate roofs where the walls meet
+  const tower = (a0, b0, rr) => { disk(x, '#16120e', a0 + 1, b0 + 2, rr + 1); disk(x, STONE[0], a0, b0, rr + 1); ellS(x, STONE, a0, b0, rr, rr, 0.05); for (let k = 0; k < 14; k++) { const an = k * TAU / 14; rect(x, STONE[4], Math.round(a0 + Math.cos(an) * (rr - 1)), Math.round(b0 + Math.sin(an) * (rr - 1)), 2, 2); } disk(x, STONE[1], a0, b0, rr - 5); ellS(x, SLATE, a0, b0, rr - 6, rr - 6, 0.1); rect(x, SLATE[4], a0 - 1, b0 - 1, 2, 2); };
+  for (const u of [8, 432, 911, 1332]) for (const bx of [15, W - 15]) tower(bx, Y(u), 18);
   // red banners with a gold raven hanging from the outer wall and the inner wall
   for (const u of [20, 442]) for (let bx = 30; bx < W - 20; bx += 36) { if (Math.abs(bx - 112) < 24) continue; x.fillStyle = '#7a1a1a'; x.fillRect(bx, Y(u) + 1, 8, 13); x.fillStyle = '#5a1010'; x.fillRect(bx, Y(u) + 13, 3, 3); x.fillRect(bx + 5, Y(u) + 13, 3, 3); x.fillStyle = '#d0a020'; x.fillRect(bx + 3, Y(u) + 5, 2, 4); x.fillRect(bx + 1, Y(u) + 6, 6, 1); }
   // wells, a statue and stalls in the inner ward
@@ -4044,7 +4053,11 @@ function ravenInit(e) {
     const rocket = [1, 7, 8, 10].includes(i++);
     e.hatches.push(add('popup', 46 + col * 44, 120 + row * 90, { hp: 6 * m, hw: 8, hh: 8, score: rocket ? 900 : 600, rad: 10, st: 'down', stT: 999, ga: PI / 2, untarget: true, ctrl: true, rocket, row, col }));
   }
-  for (const x of [76, 148]) add('bunker', x, 432, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 });
+  for (const x of [62, 162]) add('bunker', x, 432, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 });
+  // guns on both wall walks: a crossfire over the courtyards
+  for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0 });
+  // the inner gate: the advance stops in front of it until it is blasted open
+  e.gate2 = add('cgate', 112, 432, { hp: 80 * m, hw: 34, hh: 13, score: 5000, rad: 30, cd: 50, inner: true });
   add('bldg', 52, 560, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 172, 640, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 60, 760, { bk: 'chapel', hp: 22 * m, hw: 13, hh: 20, score: 2000, rad: 20 });
@@ -4585,6 +4598,10 @@ const BOSSMOVE = {
     const gateY = e.gateWy + sc;
     if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.1; }
     if (e.stage1 && !e.halt && e.y >= 150 + BY) { e.halt = true; scrollTarget = 0; }
+    if (!e.breach && e.gate2) {
+      if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; scrollTarget = 0; sfx('chain'); later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
+      else { e.breach = true; if (e.holding) { e.holding = false; scrollTarget = SCROLL * 1.1; sfx('gboom'); shake = Math.max(shake, 8); } }
+    }
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     if (e.stage1 && !e.wheel && (e.patT = (e.patT ?? 90) - 1) <= 0) {
       e.patT = 150; const live = e.hatches.filter(h => !h.dead && h.st === 'down' && h.y > 16 && h.y < H - 70);
