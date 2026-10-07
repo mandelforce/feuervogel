@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>StarFall</title>
-<meta name="description" content="StarFall, a WW2 arcade shooter. Fly the Starfall across six stages.">
+<title>FEUERVOGEL 89</title>
+<meta name="description" content="FEUERVOGEL 89, a WW2 arcade shooter. Fly the Feuervogel across six stages.">
 <meta name="theme-color" content="#1b1530">
 <meta property="og:type" content="website">
-<meta property="og:title" content="StarFall">
+<meta property="og:title" content="FEUERVOGEL 89">
 <meta property="og:description" content="1944. The Allies fly a stranded alien starship against the Axis. A pixel-art arcade shooter for phone and desktop, with online high scores.">
 <meta property="og:url" content="https://mandelforce.github.io/StarFall/">
-<meta property="og:image" content="https://mandelforce.github.io/StarFall/og-image.png">
+<meta property="og:image" content="https://mandelforce.github.io/StarFall/og-image.png?v=feuervogel">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -20,7 +20,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="StarFall">
+<meta name="apple-mobile-web-app-title" content="Feuervogel">
 <script>
 // Leaderboard address: paste your Cloudflare Worker address between the quotes, for example 'https://starfall-scores.your-name.workers.dev'
 window.STARFALL_LEADERBOARD = 'https://starfall-scores.c-roth79.workers.dev';
@@ -175,10 +175,10 @@ body[data-results="1"] #bombBtn{display:none !important}
 </style>
 </head>
 <body data-state="title">
-<div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>StarFall plays in portrait.</p></div></div>
+<div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>FEUERVOGEL 89 plays in portrait.</p></div></div>
 <div id="app">
   <div id="stage">
-    <canvas id="game" aria-label="StarFall game screen"></canvas>
+    <canvas id="game" aria-label="FEUERVOGEL 89 game screen"></canvas>
     <div id="tutBox" aria-live="polite"><div id="tutStep"></div><div id="tutText"></div><div id="tutBtns"><span id="tutGoLbl">Start the campaign</span><button type="button" data-d="0">Easy</button><button type="button" data-d="1">Normal</button><button type="button" data-d="2">Hard</button></div></div>
     <button class="ibtn" id="menuBtn" type="button" aria-label="Menu" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="5" width="18" height="2.6"/><rect x="3" y="10.7" width="18" height="2.6"/><rect x="3" y="16.4" width="18" height="2.6"/></svg></button>
     <button class="ibtn hidden" id="pauseBtn" type="button" aria-label="Pause" tabindex="-1"></button>
@@ -3383,7 +3383,7 @@ function startTutorial() {
   closeAllPanels();
   startAt(1); tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
   runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
-  showMsg('TUTORIAL', 'LEARN TO FLY THE STARFALL', 150);
+  showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
 function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
 function tutSpawn(o) { enemies.push(o); tut.ids.push(o); return o; }

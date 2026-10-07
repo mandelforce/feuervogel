@@ -1,7 +1,7 @@
 {
-  "name": "StarFall",
-  "short_name": "StarFall",
-  "description": "A WW2 arcade shooter. Fly the Starfall across six stages.",
+  "name": "FEUERVOGEL 89",
+  "short_name": "Feuervogel",
+  "description": "A WW2 arcade shooter. Fly the Feuervogel across six stages.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
