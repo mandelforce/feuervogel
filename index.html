@@ -4019,8 +4019,8 @@ const BOSSDEF = {
     { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 20, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 20, hw: 5, hh: 5 }] }
 };
 BOSSDEF.castle = { world: true, parts: [
-  { k: 'main', ox: -32, oy: -32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 40, hw: 9, hh: 9 },
-  { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 30 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 30 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 36, hw: 7, hh: 7 },
+  { k: 'main', ox: -32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 75, hw: 9, hh: 9 },
+  { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 65, hw: 7, hh: 7 },
   { k: 'core', tw: [0, 0], ox: 0, oy: 0, hp: 170, hw: 18, hh: 18 }] };
 function towerTop(e) { const th = e.towerH ?? 70, by = e.y - 170; return [(e.x - W / 2) * th / 200, -th * 0.55 + (by - H * 0.6) * th / 400]; }
 function placeTowerParts(e) { const [tx, ty] = towerTop(e); for (const p of e.parts) if (p.tw) { p.ox = tx + p.tw[0]; p.oy = -170 + ty + p.tw[1]; } }
