@@ -4271,6 +4271,8 @@ function blockedMove(e, dx, dy) {
   }
   return false;
 }
+// boss searchlights reach down to where the player flies, on every screen height
+const beamLen = y => Math.max(170, H - 24 - y);
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -4378,6 +4380,33 @@ function bossIntro(e) {
   } else if (e.kind === 'castle') {
     e.bridgeT = 0; sfx('chain'); later.push({ at: gf + 10, fn: () => sfx('toll') }); later.push({ at: gf + 60, fn: () => sfx('toll') }); later.push({ at: gf + 110, fn: () => sfx('toll') });
   } else if (e.kind === 'skyfort') { sfx('horn'); }
+}
+// Night Hammer: when a searchlight catches the player, a red lock-on follows them for ~2/3 s, freezes,
+// then the railgun fires a fast burst at that spot. Shooting out both lights stops it.
+function railLock(e, core) {
+  e.lockCd = Math.max(0, (e.lockCd ?? 120) - 1);
+  if (!e.lock) {
+    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && !player.dead && core && !core.dead && e.parts.some(q => q.k === 'light' && !q.dead)) { e.lock = { t: 60, x: player.x, y: player.y }; sfx('tick'); }
+    return;
+  }
+  const L = e.lock;
+  if (player.dead || !core || core.dead) { e.lock = null; return; }
+  if (--L.t > 20) { L.x = player.x; L.y = player.y; }
+  if (L.t === 20) sfx('charge');
+  if (L.t > 0) return;
+  const bx = e.x + core.ox, by = e.y + core.oy, a = Math.atan2(L.y - by, L.x - bx);
+  for (let k = 0; k < 3; k++) later.push({ at: gf + k * 4, fn: () => { if (!e.dying) eshot(bx, by, a, 6.5, 'B'); } });
+  flash(bx, by, 8); shake = Math.max(shake, 4); sfx('cannon'); haptic('big');
+  e.lock = null; e.lockCd = Math.round(240 * fireSlow());
+}
+function drawLocks() {
+  for (const e of enemies) {
+    const L = e.type === 'boss' && !e.dying && e.lock; if (!L) continue;
+    const frozen = L.t <= 20, x = Math.round(L.x), y = Math.round(L.y), r = frozen ? 11 : 14 + ((gf >> 2) & 1);
+    if (frozen && (gf >> 1) & 1) { const core = e.parts.find(p => p.k === 'core'); if (core) { ctx.globalAlpha = 0.5; ctx.strokeStyle = '#ff4a3a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x + core.ox, e.y + core.oy); ctx.lineTo(x, y); ctx.stroke(); ctx.globalAlpha = 1; } }
+    ctx.fillStyle = frozen && (gf >> 1) & 1 ? '#ffffff' : '#ff4a3a';
+    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(x + sx * r - (sx > 0 ? 4 : 0), y + sy * r - (sy > 0 ? 1 : 0), 5, 2); ctx.fillRect(x + sx * r - (sx > 0 ? 1 : 0), y + sy * r - (sy > 0 ? 4 : 0), 2, 5); }
+  }
 }
 const BOSSMOVE = {
   castle(e) {
@@ -4815,6 +4844,7 @@ const AI = {
     if (e.kind === 'ship') core.armored = e.parts.some(p => p.k === 'main' && !p.dead);
     const others = e.parts.filter(p => p.k !== 'core' && p.k !== 'light' && !p.dead).length;
     if (e.spot > 0) e.spot--;
+    if (e.kind === 'railgun') railLock(e, core);
     for (const p of e.parts) {
       const px = e.x + p.ox, py = e.y + p.oy;
       if (p.hit > 0) p.hit--;
@@ -4822,7 +4852,7 @@ const AI = {
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
         p.ang = PI / 2 + Math.sin(e.mt * 0.02 + p.ox) * 0.8;
-        if (!player.dead && inBeam(px, py, p.ang, 170, 0.16, player.x, player.y)) e.spot = 40;
+        if (!player.dead && inBeam(px, py, p.ang, beamLen(py), 0.16, player.x, player.y)) e.spot = 40;
         continue;
       }
       if (p.k === 'core' && e.kind === 'railgun') {
@@ -4894,7 +4924,8 @@ const AI = {
             if (e.fanT % 18 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
           }
         } else if (e.kind === 'railgun') {
-          if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
+          if (e.lock && !e.chargeT) p.cd = 1;
+          else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
           else if (--e.chargeT <= 0) {
             e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
             const [bx, by] = mz(58), d = Math.max(60, player.y - by);
@@ -6142,7 +6173,7 @@ function drawNight() {
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) lightBeam(e.x + p.ox, e.y + p.oy, p.ang, 170, 0.16);
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) lightBeam(e.x + p.ox, e.y + p.oy, p.ang, beamLen(e.y + p.oy), 0.16);
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
@@ -6473,6 +6504,7 @@ function render() {
   drawBeam();
   drawPlayerArcs();
   drawPlayer();
+  drawLocks();
   drawParts('a');
   drawHitbox();
   drawHiClouds();
