@@ -3111,6 +3111,7 @@ function sfx(n) {
     case 'rocket': noise(0.35, 0.09, 3000); tone(300, 0.3, 'sawtooth', 0.02, 900); break;
     case 'medalLost': tone(620, 0.25, 'square', 0.04, 180); break;
     case 'horn': tone(98, 1.6, 'sawtooth', 0.07, 96); tone(73, 1.6, 'sawtooth', 0.06, 72); noise(1.4, 0.05, 300); break;
+    case 'howl': tone(480, 1.7, 'sine', 0.07, 900); tone(600, 1.7, 'sine', 0.05, 1130); tone(240, 1.7, 'triangle', 0.03, 300); noise(1.6, 0.06, 4200); break;
     case 'whistle': tone(880, 1.1, 'sine', 0.06, 860); tone(1108, 1.1, 'sine', 0.05, 1090); noise(1.2, 0.08, 5000); break;
     case 'roar': tone(46, 1.8, 'sawtooth', 0.12, 70); noise(1.8, 0.25, 500); break;
     case 'clunk': noise(0.12, 0.3, 1800); tone(140, 0.12, 'square', 0.06, 70); break;
@@ -4514,6 +4515,24 @@ function yardSupport(e) {
   for (let k = 0; k < n; k++) { const flak = Math.random() < 0.5; enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy + dir * (36 + k * 30), { train: tid, hp: (flak ? 10 : 8) * m2, hw: 6, hh: 13, score: flak ? 700 : 500, rad: 10, v, up, ga: up ? -PI / 2 : PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
   sfx('whistle');
 }
+// Winter Wolf, "Wolf Pack": at 70% and 35% of a train's core it howls, raises its rocket rack and ripples six rockets that climb,
+// curve onto where the player was at launch and burst into flak. Destroying the rocket car stops it; the train's guns hold off meanwhile.
+function wolfPack(e) {
+  e.trains.forEach((t, ti) => {
+    if (!t.on || t.dead || !t.ready) { t.pack = null; return; }
+    const core = e.parts.find(p => p.tr === ti && p.k === 'core'), rk = e.parts.find(p => p.tr === ti && p.k === 'rocket');
+    if (!core || core.dead || !rk || rk.dead) { t.pack = null; return; }
+    t.packN = t.packN || 0;
+    if (!t.pack && t.packN < 2 && core.hp < core.maxhp * (t.packN ? 0.35 : 0.7) && !e.trains.some(o => o.pack) && !player.dead) { t.pack = { t: 0, n: 0 }; t.packN++; sfx('howl'); haptic('warn'); }
+    const P = t.pack; if (!P) return;
+    P.t++;
+    const rx = e.x + rk.ox, ry = e.y + rk.oy;
+    if (P.t >= 70 && (P.t - 70) % 14 === 0) {
+      if (!player.dead && ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: player.x + rnd(-8, 8), ty: player.y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
+      if (++P.n >= 6) t.pack = null;
+    }
+  });
+}
 function yardTrainDown(e, p) {
   const t = e.trains[p.tr]; if (t.dead) return true; t.dead = true;
   for (const q of e.parts) if (q.tr === p.tr && !q.dead) q.dead = true;
@@ -4864,6 +4883,7 @@ const BOSSMOVE = {
     for (const t of e.trains) if (t.on) yardMove(e, t);
     for (const p of e.parts) { const t = e.trains[p.tr]; p.ox = yardX(t, t.y + p.ly) + p.lx - e.x; p.oy = t.y + p.ly - e.y; }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
+    if (A.ready) wolfPack(e);
     return A.ready;
   },
   fortress(e) {
@@ -5287,7 +5307,7 @@ const AI = {
       if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
+      if (e.kind === 'train' && (py < 6 || py > H - 30 || e.trains.some(t => t.pack))) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
       if (--p.cd > 0) continue;
       const mz = (L) => [px + Math.cos(p.ang) * L, py + Math.sin(p.ang) * L];
@@ -5970,6 +5990,16 @@ function update() {
       if (--b.life > 0 && !player.dead) { let a = Math.atan2(b.vy, b.vx); a += clamp(angDiff(a, aim(b.x, b.y)), -0.035, 0.035); const spd = Math.min(2.2, Math.hypot(b.vx, b.vy) + 0.01); b.vx = Math.cos(a) * spd; b.vy = Math.sin(a) * spd; b.a = a; }
       if (gf % 3 === 0) smokePuff(b.x, b.y, 'a');
     }
+    if (b.kind === 'srocket') {
+      b.life--; let a = Math.atan2(b.vy, b.vx); a += clamp(angDiff(a, Math.atan2(b.ty - b.y, b.tx - b.x)), -0.05, 0.05);
+      const spd = Math.min(2.6, Math.hypot(b.vx, b.vy) + 0.035); b.vx = Math.cos(a) * spd; b.vy = Math.sin(a) * spd; b.a = a;
+      // a dark smoke trail that reads against the snow
+      parts.push({ kind: 'smoke', layer: 'a', x: b.x - b.vx * 2 + rnd(-0.6, 0.6), y: b.y - b.vy * 2 + rnd(-0.6, 0.6), vx: 0, vy: 0, r: rnd(2.4, 3.4), life: 44, max: 44 });
+      if (Math.hypot(b.tx - b.x, b.ty - b.y) < 6 || b.life <= 0) {
+        b.dead = true; parts.push({ kind: 'fire', layer: 'a', x: b.x, y: b.y, vx: 0, vy: 0, r: 5, life: 12, max: 12 }); for (let i = 0; i < 3; i++) smokePuff(b.x + rnd(-3, 3), b.y + rnd(-3, 3), 'a'); sfx('boom');
+        const off = Math.random() * TAU; for (let i = 0; i < 4; i++) { const a2 = off + i * TAU / 4; ebul.push({ x: b.x, y: b.y, vx: Math.cos(a2) * bspeed() * 0.7, vy: Math.sin(a2) * bspeed() * 0.7, r: 2, kind: 's', a: a2 }); }
+      }
+    }
     if (b.kind === 'mortar') {
       b.life--; const f = 1 - b.life / b.max;
       b.x = b.sx + (b.tx - b.sx) * f; b.y = b.sy + (b.ty - b.sy) * f;
@@ -6594,6 +6624,11 @@ function drawBoss(e) {
       ctx.globalAlpha = e.dying ? clamp(e.dying / 120, 0.35, 1) : 1;
     }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, rocket: SPR.rocketPod });
+    // Wolf Pack: the rocket rack rises with six red-tipped rockets, emptying one by one
+    (e.trains || []).forEach((t, ti) => { const P = t.pack, rk = P && e.parts.find(q => q.tr === ti && q.k === 'rocket'); if (!rk || rk.dead) return;
+      const x = Math.round(e.x + rk.ox), f = Math.min(1, P.t / 30), y = Math.round(e.y + rk.oy - 6 * f);
+      ctx.fillStyle = '#120e1a'; ctx.fillRect(x - 9, y - 7, 18, 14); ctx.fillStyle = (gf >> 3) & 1 ? '#f4d050' : '#d0a020'; ctx.fillRect(x - 8, y - 6, 16, 12); ctx.fillStyle = '#4d535a'; ctx.fillRect(x - 7, y - 5, 14, 10);
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = i >= P.n ? ((gf >> 3) & 1 ? '#ff5a3a' : '#d84a34') : '#1d2024'; ctx.fillRect(x - 6 + (i % 3) * 5, y - 4 + ((i / 3) | 0) * 5, 3, 3); } });
     for (const q of e.parts) if (q.k === 'core' && !q.dead && !q.off) coreGlow(e.x + q.ox, e.y + q.oy, q.hit > 0, false);
   } else if (e.kind === 'fortress') {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
@@ -7007,6 +7042,12 @@ function render() {
     else if (b.kind === 'shell') spr(SPR.shell[dirIdx(b.a)], b.x, b.y);
     else if (b.kind === 'flak') spr(SPR.flak, b.x, b.y);
     else if (b.kind === 'rocket') spr(SPR.rocket[dirIdx(b.a)], b.x, b.y);
+    else if (b.kind === 'srocket') {
+      // a salvo rocket: dark-outlined grey body with a red nose and a flickering flame
+      const c = Math.cos(b.a), sn = Math.sin(b.a), seg = (w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(b.x - c * 4, b.y - sn * 4); ctx.lineTo(b.x + c * 3, b.y + sn * 3); ctx.stroke(); };
+      dk(b.x - c * 6, b.y - sn * 6, 2 + (gf & 1), (gf & 2) ? '#ffd060' : '#ff6a1a');
+      seg(4, '#120e1a'); seg(2, '#b4b6ba'); dk(b.x + c * 4, b.y + sn * 4, 1.4, '#d84a34');
+    }
     else if (b.kind === 'mega') { if (nightF > 0.3) { ctx.globalAlpha = 0.35; dk(b.x, b.y, 10, '#ff8a5a'); ctx.globalAlpha = 1; } spr(SPR.mega, b.x, b.y); }
     else if (b.kind === 'mortar') {
       const f = 1 - b.life / b.max, hgt = Math.sin(f * PI);
