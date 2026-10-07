@@ -156,7 +156,7 @@ body[data-state="play"] #bombBtn{display:block}
 @keyframes tutHi{0%,100%{outline-color:rgba(168,246,220,.45);outline-offset:4px}50%{outline-color:#a8f6dc;outline-offset:8px}}
 @media (prefers-reduced-motion: reduce){#bombBtn.tutHi{animation:none}}
 body[data-results="1"] #bombBtn{display:none !important}
-@media (pointer:coarse){#sMouseRow,body:not([data-pad]) #sRumbleRow{display:none}}
+@media (pointer:coarse){#sMouseRow,#sP2Row,body:not([data-pad]) #sRumbleRow{display:none}}
 #rotate{display:none;position:fixed;inset:0;z-index:20;place-items:center;text-align:center;background:#120e1a;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace;padding:16px}
 #rotate h2{margin:14px 0 6px;font-size:22px;font-weight:400;color:#fff0a0;text-shadow:2px 2px 0 #000}#rotate p{margin:0;color:#a99cc8}
 #rotShip{width:72px;height:76px;margin:0 auto;box-shadow:none;cursor:default;image-rendering:pixelated;animation:rotShip 2.4s ease-in-out infinite}
@@ -248,6 +248,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button></span></div>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
+        <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
@@ -271,7 +272,7 @@ ctx.imageSmoothingEnabled = false;
 const OUT = '#120e1a';
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a, b) => a + Math.random() * (b - a);
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('starfall-settings') || '{}')); } catch (e) {}
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { try { localStorage.setItem('starfall-settings', JSON.stringify(settings)); } catch (e) {} }
@@ -368,8 +369,16 @@ const CITYC = {
 };
 const THEME_RGB = THEME_TR.map(o => { const r = {}; for (const k in TR) r[k] = (o[k] || TR[k]).map(hexRGB); return r; });
 let TRGB = THEME_RGB[0];
-const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5], YARD_XO = [0, 2, 3, 4, 6];
-function yardXover(k, i) { if (!YARD_XO.includes(i)) return 0; const h = hash(k * 7 + i, 91); return h < 0.12 ? 1 : h < 0.22 ? -1 : 0; }
+const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5];
+// crossovers: one per 240px stretch of yard, a long gentle S-bend (120px for one track spacing) that the trains follow exactly.
+// They run in a fixed sequence (from track -> to track, for a train moving up the yard) so the boss trains on tracks 3 and 5
+// can step out to a neighbouring track and back. Returns { i, xTop, xBot, y0, y1 }.
+const XO_P = 240, XO_A = 60, XO_L = 120, XO_SEQ = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
+function yardXover(k) {
+  const [from, to] = XO_SEQ[((k % 6) + 6) % 6];
+  return { i: Math.min(from, to), xTop: YARD_T[to], xBot: YARD_T[from], y0: k * XO_P + XO_A, y1: k * XO_P + XO_A + XO_L };
+}
+const xoS = f => f * f * (3 - 2 * f);
 const RAILC = { steel: hexRGB('#c4c8d0'), sleeper: hexRGB('#3a2a1c'), deck: hexRGB('#6a4c30'), deckDark: hexRGB('#2a1e14'), ballast: ['#4a4642', '#5e5a54', '#77726a'].map(hexRGB) };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
@@ -521,9 +530,36 @@ SPR.playerSet = [buildRaptor(-1), buildRaptor(0), buildRaptor(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
 function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildRaptor(b, true))); }
+// 2nd player: a captured Raven prototype, the Ravens' bat-wing bomber shrunk to fighter size and flown nose-up
+const RAVEN = ['#1c1d22', '#30323a', '#4a4d56', '#686c76', '#8c919b', '#b4b9c2', '#dde1e7'];
+function buildRaven(bank) {
+  return sprite(36, 32, x => {
+    const fL = bank < 0 ? 0.7 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.7 : bank < 0 ? 1.04 : 1;
+    const half = [[18, 9], [12, 9], [5, 11.4], [0, 13.8], [0, 17.4], [2, 16.2], [3.2, 21], [5.6, 18.6], [7, 22.8], [9.5, 19.8], [11.6, 23.4], [18, 23.4]];
+    const wl = half.map(([a, b]) => [18 + (a - 18) * fL, b]), wr = half.map(([a, b]) => [18 + (18 - a) * fR, b]);
+    for (const [s0, s1] of [[11.5, fL], [24.5, fR]]) { const bx = 18 + (s0 - 18) * s1; boxS(x, RAVEN, Math.round(bx - 1), 20, 2, 9, 0.05); }
+    polyS(x, RAVEN, [[18 - 9 * fL, 27], [18 + 9 * fR, 27], [18 + 8 * fR, 30], [18 - 8 * fL, 30]], 0, 0.4);
+    polyS(x, RAVEN, wl, bank < 0 ? -0.15 : 0.02, 0.45); polyS(x, RAVEN, wr, bank > 0 ? -0.15 : 0.02, 0.45);
+    for (let j = 0; j < 32; j++) for (let i = 0; i < 36; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5); if (!inL && !inR) continue;
+      if (!pip(inL ? wl : wr, i + 0.5, j + 2.5)) rect(x, RAVEN[1], i, j, 1, 1); // the shadowed, serrated trailing edge
+      else if (!pip(inL ? wl : wr, i + 0.5, j - 0.5)) rect(x, RAVEN[5], i, j, 1, 1);
+    }
+    for (const [s0, s1] of [[11, fL], [25, fR]]) ellS(x, RAVEN, 18 + (s0 - 18) * s1, 13, 1.6, 3.4, 0.1);
+    ellS(x, RAVEN, 18 + bank * 0.6, 15, 4.2, 12.5, 0.08);
+    for (let j = 8; j < 27; j += 4) rect(x, 'rgba(0,0,0,0.25)', 15, j, 7, 1);
+    polyS(x, RAVEN, [[15, 6], [21, 6], [20, 2], [18, 0], [16, 2]], 0.15, 0.5);
+    rect(x, '#0e1414', 15, 4, 6, 2); rect(x, '#4ccfae', 16, 4, 4, 1); rect(x, '#e8fff6', 17, 4, 2, 1); // alien-teal slit marks it as friendly
+  }, { oc: '#0e0d10' });
+}
+lazySpr('raven', () => [-1, 0, 1].map(buildRaven));
 SPR.talon = sprite(12, 13, x => {
   polyS(x, RP.crys, [[6, 0], [12, 6], [10, 13], [6, 8], [2, 13], [0, 6]], 0.05, 0.6);
   ellS(x, RP.alien, 6, 6, 2.4, 3, 0.35);
+});
+SPR.rdrone = sprite(12, 13, x => {
+  polyS(x, RP.grey, [[6, 13], [12, 7], [10, 0], [6, 5], [2, 0], [0, 7]], 0.05, 0.6);
+  ellS(x, RP.alien, 6, 7, 2.4, 3, 0.35);
 });
 SPR.life = (() => { const PAL = { P: '#c8b0ff', p: '#8466dc', c: '#a8f6dc', t: '#4ccfae', w: '#f2ecd8', r: '#ff4a3a' };
   const rows = ['....p....', '...rpr...', '..tpcpt..', '.tpwcwpt.', 'tppwcwppt', 'p.ppcpp.p', '...pcp...', '...p.pp..', '..p...p..', '.......p.'];
@@ -1048,7 +1084,7 @@ const RV_H = 1440, RV_GATE = RV_H - 40;
 function ravenU(u, x) {
   if (u < -26) return 0; if (u < -4) return (x >= 98 && x <= 126) ? 6 : 1;
   if (u > 1372) return 0; if (u > 1344) return 1;
-  if (x < 12 || x > W - 13) return 2;
+  if (x < 22 || x > W - 23) return (x < 12 || x > W - 13) ? 2 : 8; // curtain wall: outer face, then the wall walk
   if (u < 22) return (x > 90 && x < 134) ? 3 : 2;
   if (u < 420) return 3;
   if (u < 444) return (x > 96 && x < 128) ? 4 : 2;
@@ -1059,7 +1095,8 @@ function ravenU(u, x) {
 }
 lazySpr('ravenFloor', () => {
   const [c, x] = mk(W, RV_H), img = x.createImageData(W, RV_H), a = img.data;
-  const P = { water: ['#1a3448', '#22425a', '#2c5068'], wall: ['#3a3630', '#4e4840', '#625a50', '#766d60'], flag: ['#5a5650', '#6a655e', '#76716a'], cob: ['#4e4a44', '#5c5852', '#6a665e'], path: ['#7a7060', '#8a8070'], plank: ['#5a3e22', '#6e4c2a', '#3a2814'], keep: ['#36333a', '#423e46', '#4c4852'] };
+  // a grim military keep: cool weathered stone, moss, a murky moat; the keep yard keeps its original colours
+  const P = { water: ['#162a38', '#1d3648', '#244252'], wall: ['#2f2c28', '#413c35', '#524c43', '#645d52'], flag: ['#4a4743', '#57534e', '#615d57'], cob: ['#413e3a', '#4c4944', '#58554e'], path: ['#5e5546', '#6a6050'], plank: ['#4c3620', '#5c4226', '#30200f'], keep: ['#36333a', '#423e46', '#4c4852'] };
   const hx = (c2) => [parseInt(c2.slice(1, 3), 16), parseInt(c2.slice(3, 5), 16), parseInt(c2.slice(5, 7), 16)];
   const H2 = {}; for (const k in P) H2[k] = P[k].map(hx);
   for (let yy = 0; yy < RV_H; yy++) for (let xx = 0; xx < W; xx++) {
@@ -1070,22 +1107,47 @@ lazySpr('ravenFloor', () => {
     else if (r === 6) col = (yy % 4 === 0) ? H2.plank[2] : H2.plank[(n * 2) | 0];
     else if (r === 2) { const bx = (xx + ((yy >> 2) & 1) * 3) % 6, by = yy % 4; col = bx === 0 || by === 0 ? H2.wall[0] : H2.wall[1 + ((n * 3) | 0)]; const edge = (u >= -4 && u < 0) || (u >= 1316 && u < 1320) || (u >= 418 && u < 422) || (u >= 898 && u < 902); if (edge && ((xx >> 2) & 1)) col = H2.wall[3]; }
     else if (r === 3) { const sx = (xx + ((yy / 8) | 0) % 2 * 6) % 12, sy = yy % 8; col = sx === 0 || sy === 0 ? H2.wall[0] : H2.flag[(n * 3) | 0]; }
-    else if (r === 4) { const sx = (xx + ((yy / 3) | 0) % 2 * 2) % 4, sy = yy % 3; col = sx === 0 || sy === 0 ? H2.cob[0] : H2.cob[1 + ((n * 2) | 0)]; if (vnoise(xx * 0.05, yy * 0.05) > 0.72) col = hx(n < 0.5 ? '#4a6a34' : '#56783c'); }
+    else if (r === 4) { const sx = (xx + ((yy / 3) | 0) % 2 * 2) % 4, sy = yy % 3; col = sx === 0 || sy === 0 ? H2.cob[0] : H2.cob[1 + ((n * 2) | 0)]; if (vnoise(xx * 0.05, yy * 0.05) > 0.72) col = hx(n < 0.5 ? '#3a4e2c' : '#435934'); }
     else if (r === 5) col = H2.path[(n * 2) | 0];
+    else if (r === 8) { col = yy % 7 === 0 ? H2.wall[0] : H2.wall[2 + ((n * 2) | 0)]; if (xx === 12 || xx === W - 13) col = H2.wall[0]; }
     else { const sx = xx % 10, sy = yy % 10; col = sx === 0 || sy === 0 ? hx('#26242a') : H2.keep[(n * 3) | 0]; }
     a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; a[o + 3] = 255;
   }
   x.putImageData(img, 0, 0);
   const Y = u => RV_GATE - u;
-  // corner bastions on every wall line
-  for (const u of [8, 432, 911, 1332]) for (const bx of [10, W - 10]) { x.fillStyle = '#2e2a26'; x.beginPath(); x.arc(bx, Y(u), 15, 0, TAU); x.fill(); x.fillStyle = '#5a544c'; x.beginPath(); x.arc(bx, Y(u), 12, 0, TAU); x.fill(); x.fillStyle = '#3e3a34'; x.beginPath(); x.arc(bx, Y(u), 6, 0, TAU); x.fill(); for (let a2 = 0; a2 < 10; a2++) { const an = a2 * TAU / 10; x.fillStyle = '#766d60'; x.fillRect(Math.round(bx + Math.cos(an) * 13) - 1, Math.round(Y(u) + Math.sin(an) * 13) - 1, 3, 3); } }
+  // battlements: merlons along the inner edge of both wall walks, casting a shadow into the courtyards
+  for (let yy = 0; yy < RV_H; yy++) {
+    const r0 = ravenU(RV_GATE - yy, 30); if (r0 !== 3 && r0 !== 4 && r0 !== 5 && r0 !== 7) continue;
+    x.fillStyle = 'rgba(10,8,6,0.35)'; x.fillRect(22, yy, 3, 1); x.fillRect(W - 25, yy, 3, 1);
+    if (yy % 6 < 3) { x.fillStyle = '#847d74'; x.fillRect(19, yy, 3, 1); x.fillRect(W - 22, yy, 3, 1); }
+    else { x.fillStyle = '#3a3630'; x.fillRect(20, yy, 2, 1); x.fillRect(W - 22, yy, 2, 1); }
+  }
+  // round corner towers with slate roofs where the walls meet
+  const tower = (a0, b0, rr) => { disk(x, '#16120e', a0 + 1, b0 + 2, rr + 1); disk(x, STONE[0], a0, b0, rr + 1); ellS(x, STONE, a0, b0, rr, rr, 0.05); for (let k = 0; k < 14; k++) { const an = k * TAU / 14; rect(x, STONE[4], Math.round(a0 + Math.cos(an) * (rr - 1)), Math.round(b0 + Math.sin(an) * (rr - 1)), 2, 2); } disk(x, STONE[1], a0, b0, rr - 5); ellS(x, SLATE, a0, b0, rr - 6, rr - 6, 0.1); rect(x, SLATE[4], a0 - 1, b0 - 1, 2, 2); };
+  for (const u of [8, 432, 911, 1332]) for (const bx of [15, W - 15]) tower(bx, Y(u), 18);
   // red banners with a gold raven hanging from the outer wall and the inner wall
-  for (const u of [20, 442]) for (let bx = 30; bx < W - 20; bx += 36) { if (Math.abs(bx - 112) < 24) continue; x.fillStyle = '#7a1a1a'; x.fillRect(bx, Y(u) + 1, 8, 13); x.fillStyle = '#5a1010'; x.fillRect(bx, Y(u) + 13, 3, 3); x.fillRect(bx + 5, Y(u) + 13, 3, 3); x.fillStyle = '#d0a020'; x.fillRect(bx + 3, Y(u) + 5, 2, 4); x.fillRect(bx + 1, Y(u) + 6, 6, 1); }
+  for (const u of [20, 442]) for (let bx = 30; bx < W - 20; bx += 36) { if (Math.abs(bx - 112) < 24) continue; x.fillStyle = '#121016'; x.fillRect(bx, Y(u) + 1, 8, 13); x.fillStyle = '#08070a'; x.fillRect(bx, Y(u) + 13, 3, 3); x.fillRect(bx + 5, Y(u) + 13, 3, 3); x.fillStyle = '#8a1414'; x.fillRect(bx + 3, Y(u) + 4, 2, 5); x.fillRect(bx + 1, Y(u) + 5, 6, 1); x.fillRect(bx + 2, Y(u) + 9, 1, 2); x.fillRect(bx + 5, Y(u) + 9, 1, 2); }
   // wells, a statue and stalls in the inner ward
   for (const [wx2, u] of [[112, 470], [112, 880]]) { x.fillStyle = '#3a3630'; x.beginPath(); x.arc(wx2, Y(u), 7, 0, TAU); x.fill(); x.fillStyle = '#1a3448'; x.beginPath(); x.arc(wx2, Y(u), 4, 0, TAU); x.fill(); }
-  x.fillStyle = '#3e3a44'; x.fillRect(106, Y(700) - 6, 12, 12); x.fillStyle = '#8a8690'; x.fillRect(109, Y(700) - 10, 6, 10); x.fillStyle = '#b8b4c0'; x.fillRect(110, Y(700) - 12, 4, 4);
-  for (const [sx2, u] of [[140, 520], [86, 610], [140, 700]]) { x.fillStyle = '#5a3e22'; x.fillRect(sx2 - 9, Y(u) - 5, 18, 10); for (let i = 0; i < 18; i += 3) { x.fillStyle = i % 6 ? '#c09030' : '#7a1a1a'; x.fillRect(sx2 - 9 + i, Y(u) - 5, 3, 4); } }
+  x.fillStyle = '#26232a'; x.fillRect(106, Y(700) - 6, 12, 12); x.fillStyle = '#121014'; x.fillRect(109, Y(700) - 11, 6, 8); x.fillRect(105, Y(700) - 9, 14, 3); x.fillRect(110, Y(700) - 13, 3, 3); x.fillStyle = '#8a1414'; x.fillRect(111, Y(700) - 12, 1, 1);
+  const sand = (cx, cy) => { for (let k = 0; k < 10; k++) { const an = k * TAU / 10; x.fillStyle = k % 2 ? '#5a503c' : '#4a4232'; x.fillRect(Math.round(cx + Math.cos(an) * 8) - 2, Math.round(cy + Math.sin(an) * 6) - 1, 5, 3); } x.fillStyle = '#18161a'; x.fillRect(cx - 3, cy - 2, 6, 4); };
+  for (const [sx2, u] of [[140, 520], [86, 610], [140, 700], [70, 300], [154, 160]]) sand(sx2, Y(u));
+  for (const [sx2, u] of [[60, 540], [168, 590], [62, 820]]) for (let k = 0; k < 3; k++) { x.fillStyle = '#2e2a1e'; x.fillRect(sx2 + (k % 2) * 7, Y(u) - k * 3, 7, 5); x.fillStyle = '#3c3626'; x.fillRect(sx2 + 1 + (k % 2) * 7, Y(u) - k * 3 + 1, 5, 1); }
+  const hedge = (cx, cy) => { x.fillStyle = '#1c1a18'; for (let k = -3; k <= 3; k++) { x.fillRect(cx + k, cy + k, 1, 1); x.fillRect(cx + k, cy - k, 1, 1); } x.fillRect(cx - 3, cy, 7, 1); };
+  for (const [hx2, u] of [[40, 380], [184, 380], [40, 860], [184, 860], [90, 90], [134, 90]]) hedge(hx2, Y(u));
+  for (let k = 0; k < 26; k++) { const cx = 30 + hash(k, 3) * (W - 60), u = 40 + hash(k, 7) * 860, rr = 3 + hash(k, 11) * 6; x.fillStyle = 'rgba(14,12,10,0.45)'; x.beginPath(); x.ellipse(cx, Y(u), rr * 1.4, rr, 0, 0, TAU); x.fill(); }
   return c;
+});
+lazySpr('proto', () => {
+  const src = SPR.skyfort, w = Math.round(src.w * 0.45), h = Math.round(src.h * 0.45), [c, x] = mk(w, h);
+  x.drawImage(src.c, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h), a = d.data;
+  for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; const l = (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) / 255; const v = 70 + l * 300; a[i] = Math.min(255, v * 0.92); a[i + 1] = Math.min(255, v * 0.95); a[i + 2] = Math.min(255, v); a[i + 3] = 255; }
+  x.putImageData(d, 0, 0);
+  for (const [px, py] of [[30, 30], [62, 34], [44, 50]]) { x.fillStyle = '#1a1a1e'; x.fillRect(px, py, 6, 4); x.fillStyle = '#5a5e66'; x.fillRect(px, py - 1, 6, 1); }
+  x.globalCompositeOperation = 'destination-out'; x.fillRect(w - 20, 36, 10, 14); x.globalCompositeOperation = 'source-over';
+  x.fillStyle = '#0e0d10'; x.fillRect(w / 2 - 1, 22, 3, 7); x.fillRect(w / 2 - 6, 24, 13, 2); x.fillRect(w / 2 - 3, 29, 2, 3); x.fillRect(w / 2 + 2, 29, 2, 3);
+  return { c, w, h };
 });
 lazySpr('keep', () => [0, 1].map(open => sprite(84, 84, x => {
   boxS(x, ['#2a2730', '#3a3640', '#4a4650', '#5a5660', '#6e6a74'], 4, 4, 76, 76, 0.1);
@@ -1103,7 +1165,9 @@ SPR.cgate = sprite(72, 30, x => {
 }, { oc: '#0e0c12' });
 SPR.bldg = {
   barracks: sprite(44, 22, x => { boxS(x, ['#2a3240', '#3a4456', '#4a5468', '#5a6478'], 0, 0, 44, 22, 0.25); for (let i = 3; i < 44; i += 5) rect(x, '#1e2430', i, 0, 1, 22); rect(x, '#1e2430', 0, 10, 44, 2); }),
-  chapel: sprite(26, 40, x => { boxS(x, ['#4a3a30', '#5e4a3c', '#725a48', '#86705a'], 2, 12, 22, 28, 0.2); rect(x, '#3a2a20', 12, 12, 2, 28); boxS(x, ['#3e3a44', '#4e4a54', '#5e5a64'], 6, 0, 14, 14, 0.2); disk(x, '#c09030', 13, 7, 3); rect(x, '#f0d870', 12, 6, 2, 2); }),
+  chapel: sprite(26, 40, x => { boxS(x, ['#1e1c22', '#28252c', '#322f36', '#3c3940'], 2, 12, 22, 28, 0.2); rect(x, '#141216', 12, 12, 2, 28); boxS(x, ['#16141a', '#201e24', '#2a282e'], 6, 0, 14, 14, 0.2); disk(x, '#3a0e0e', 13, 7, 3); rect(x, '#8a1a14', 12, 6, 2, 2); }),
+  rbarracks: sprite(44, 22, x => { boxS(x, ['#1c1d22', '#25262c', '#2f3038', '#393a44'], 0, 0, 44, 22, 0.25); for (let i = 3; i < 44; i += 5) { rect(x, '#141518', i, 0, 1, 22); if (i % 10 === 3) rect(x, '#4a2a1a', i + 1, 2, 1, 8); } rect(x, '#141518', 0, 10, 44, 2); }),
+  rarmoury: sprite(30, 24, x => { boxS(x, ['#1e1e1a', '#282822', '#32322a', '#3c3c32'], 0, 0, 30, 24, 0.2); for (let i = 0; i < 30; i += 6) { rect(x, '#4a2214', i, 10, 3, 4); rect(x, '#1a1a16', i + 3, 10, 3, 4); } rect(x, '#0e0e0c', 11, 16, 8, 8); }),
   shed: sprite(12, 26, x => { boxS(x, ['#3a3e48', '#565c68', '#7a808c', '#a0a6b2'], 0, 0, 12, 26, 0.25); rect(x, '#2a2e36', 5, 0, 2, 26); for (let j = 3; j < 26; j += 6) rect(x, '#e8ecf2', 1, j, 3, 1); rect(x, '#5a3e22', 8, 10, 3, 6); }),
   armoury: sprite(30, 24, x => { boxS(x, ['#3a3a2a', '#4a4a34', '#5c5c40', '#6e6e4c'], 0, 0, 30, 24, 0.2); for (let i = 0; i < 30; i += 6) { rect(x, '#d84a34', i, 10, 3, 4); rect(x, '#f0d040', i + 3, 10, 3, 4); } rect(x, '#1a1a14', 11, 16, 8, 8); })
 };
@@ -1944,9 +2008,10 @@ function pixelColor(wx, wy, rx) {
     }
     case 'ryard': {
       const snowy = vnoise(wx * 0.05, wy * 0.04) > 0.64, ball = () => snowy && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
-      const k = Math.floor(wy / 48), ly2 = wy - k * 48;
-      // crossovers between neighbouring tracks
-      if (ly2 >= 4 && ly2 <= 44) for (const i of YARD_XO) { const d = yardXover(k, i); if (!d) continue; const x0 = YARD_T[i], x1 = YARD_T[i + 1]; if (wx < x0 - 5 || wx > x1 + 5) continue; const f = (ly2 - 4) / 40, cx = d > 0 ? x0 + f * 26 : x1 - f * 26, ddx = Math.round(wx - cx); if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 2) return RAILC.steel; if (((ly2 % 5) + 5) % 5 < 2) return RAILC.sleeper; } }
+      // a crossover between neighbouring tracks, drawn on exactly the curve the trains follow
+      { const X = yardXover(Math.floor(wy / XO_P)); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
+        const cx = X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L), ddx = Math.round(wx - cx);
+        if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 2) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; } } }
       const ti = Math.round((wx - 18) / 26), tx = 18 + ti * 26, dx = wx - tx;
       // platforms with yellow edges and canopies
       for (const g of YARD_PLAT) { const a = YARD_T[g] + 7, b2 = YARD_T[g + 1] - 7; if (wx >= a && wx <= b2) { const canopy = ((Math.floor(wy / 96) % 2) + 2) % 2 === 0 && wy % 96 > 10 && wy % 96 < 86; if (wx === a || wx === b2) return hexRGB('#e8c040'); if (canopy) return hexRGB(((wy >> 1) & 1) ? '#4a4e58' : '#5a5e68'); if ((((wy % 32) + 32) % 32) === 0 && wx === ((a + b2) >> 1)) return hexRGB('#2a2a2e'); return hexRGB(snowy && hash(wx, wy) < 0.6 ? '#eef2f6' : hash(wx, wy) < 0.5 ? '#9a9ca2' : '#8a8c92'); } }
@@ -3079,6 +3144,7 @@ function sfx(n) {
     case 'rocket': noise(0.35, 0.09, 3000); tone(300, 0.3, 'sawtooth', 0.02, 900); break;
     case 'medalLost': tone(620, 0.25, 'square', 0.04, 180); break;
     case 'horn': tone(98, 1.6, 'sawtooth', 0.07, 96); tone(73, 1.6, 'sawtooth', 0.06, 72); noise(1.4, 0.05, 300); break;
+    case 'howl': tone(480, 1.7, 'sine', 0.07, 900); tone(600, 1.7, 'sine', 0.05, 1130); tone(240, 1.7, 'triangle', 0.03, 300); noise(1.6, 0.06, 4200); break;
     case 'whistle': tone(880, 1.1, 'sine', 0.06, 860); tone(1108, 1.1, 'sine', 0.05, 1090); noise(1.2, 0.08, 5000); break;
     case 'roar': tone(46, 1.8, 'sawtooth', 0.12, 70); noise(1.8, 0.25, 500); break;
     case 'clunk': noise(0.12, 0.3, 1800); tone(140, 0.12, 'square', 0.06, 70); break;
@@ -3094,6 +3160,10 @@ function sfx(n) {
     case 'cancel': [1568, 1976, 2349, 2637, 3136].forEach((f, i) => setTimeout(() => tone(f, 0.07, 'triangle', 0.035), i * 45)); break;
     case 'spool': tone(40, 1.9, 'sawtooth', 0.09, 160); tone(80, 1.9, 'square', 0.03, 320); noise(1.9, 0.12, 400); break;
     case 'liftoff': tone(60, 2.4, 'sawtooth', 0.12, 30); noise(2.4, 0.3, 600); tone(30, 2, 'sine', 0.4, 22); break;
+    case 'fcharge': tone(50, 1.5, 'sawtooth', 0.07, 150); tone(200, 1.5, 'sine', 0.04, 900); noise(1.5, 0.04, 2400); break;
+    case 'fbeam': noise(1.2, 0.24, 800); tone(70, 1.2, 'sawtooth', 0.1, 40); tone(700, 0.5, 'square', 0.015, 160); break;
+    case 'clash': tone(260, 1.0, 'sawtooth', 0.05, 1500); tone(520, 1.0, 'square', 0.015, 2400); noise(1.0, 0.1, 3200); break;
+    case 'snap': noise(1.2, 0.3, 380); tone(48, 1.6, 'sawtooth', 0.12, 18); tone(140, 0.6, 'square', 0.03, 40); break;
     case 'reward': rewardSfx(); break;
     case 'beam': tone(1800, 0.5, 'sawtooth', 0.06, 160); tone(90, 0.5, 'sine', 0.3, 30); noise(0.45, 0.16, 5000); tone(2400, 0.3, 'square', 0.02, 600); if (actx) { hawkCry(actx.currentTime); bit8Screech(actx.currentTime); } break;
     case 'surface': noise(0.6, 0.12, 700); tone(70, 0.5, 'sine', 0.08, 50); break;
@@ -3135,6 +3205,15 @@ const NOCOUNT = new Set(['troop', 'secret', 'bridge', 'crate', 'sandbag', 'camo'
 let stats = newStats();
 let arts = new Set(); try { arts = new Set(JSON.parse(localStorage.getItem('starfall-arts') || '[]')); } catch (e) {}
 let beam = null, gpad = null, padPrev = {};
+// 2nd player (PC only): flies with the mouse or a controller, mirrors player 1's weapon and respawns on its own
+let p2 = null, run2P = false, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
+const P2_OK = !matchMedia('(pointer:coarse)').matches;
+const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
+const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
+function setP2() {
+  if (p2Mode() === 'off') { p2 = null; return; }
+  if (!p2 && player) { p2 = { x: W / 2 + 34, y: Math.round(H * 0.71) + 8, inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2 + 34, tagT: 180 }; run2P = true; }
+}
 const props = [], towerRows = new Set(), towerCells = new Set(), critters = [];
 function propFree(x, y, w, d, h) { for (const q of props) if (Math.abs(q.wx - x) < (q.w + w) / 2 + 6 && Math.abs(q.wy - y) < (q.d + d) / 2 + 6 + Math.max(q.h, h) * 0.35) return false; for (const e of enemies) if (!e.dead && (e.type === 'aatower' || e.type === 'tower') && Math.abs(e.wx - x) < (e.hw || 15) + w / 2 + 6 && Math.abs(e.wy - y) < (e.hh || 15) + d / 2 + 6 + h * 0.35) return false; return true; }
 const hiClouds = [{ x: 60, y: -40, s: 2, v: 1.8 }, { x: 170, y: -260, s: 0, v: 1.65 }];
@@ -3189,6 +3268,7 @@ let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 function seedStage() { drandS = (SEED * 31 + stage * 977) | 0; }
 function newGame() {
+  protoWatch = null; duelWatch = null; runProto = { dmg: 0 };
   laserHeat = 0; overheatT = 0;
   ravenGate = null; runFrames = 0; runConts = 0; runStart = 1; runDiff = settings.diff; newBestT = 0; newBestDone = false; localBest = -1;
   SEED = settings.mode === 'gen' || endless ? (Math.random() * 1e9) | 0 : 1944;
@@ -3197,6 +3277,7 @@ function newGame() {
   score = 0; lives = DIFF.lives[settings.diff]; bombs = DIFF.bombs[settings.diff]; loop = 0; stage = 1; gameOverPending = false;
   shots = []; ebul = []; enemies = []; items = []; parts = []; decals = []; later = [];
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
+  p2 = null; run2P = false; setP2();
   trainDone = false; quiet = false; rainT = 0; rainF = 0; rainCd = 1200; medalLv = 0; medalMul = 1; medalT = 0; arcs.length = 0; scrollV = scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; trainLeft = {};
   waveCd = 95; groundCd = 70; podCd = 200; nextExtend = DIFF.ext[settings.diff][0]; extendsGot = 0; bombFx = 0; flashFx = 0; shake = 0;
   midDone = false; bossSpawned = false;
@@ -3337,7 +3418,7 @@ function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - 14
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
 function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
-function lbEligible() { return score > 0 && (endless || runStart === 1); }
+function lbEligible() { return score > 0 && (endless || runStart === 1) && !run2P; } // 2-player runs stay off the boards
 function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
@@ -3474,7 +3555,7 @@ function saveResume() {
   }
   if (gameOverPending || cont > 0) { if (runConts >= MAX_CONT) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless, diff: runDiff, runStart, conts: cn, credits: credits + (cn - runConts), frames: runFrames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl, twoP: run2P };
   try { localStorage.setItem(RESUME_KEY, JSON.stringify(r)); } catch (e) {}
 }
 function clearResume() { try { localStorage.removeItem(RESUME_KEY); } catch (e) {} }
@@ -3491,7 +3572,7 @@ function resumeRun(r) {
   setTimeout(() => prewarmBoss(curTheme), 400);
   chunkJobs = []; chunks = new Map(); chunkInfo = new Map(); genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  score = r.score; lives = r.lives; bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl;
+  score = r.score; lives = r.lives; bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run2P = true;
   runStart = r.runStart; runDiff = r.diff; runConts = r.conts; credits = r.credits; runFrames = r.frames;
   nextExtend = r.nextExtend; extendsGot = r.extendsGot; camp = Object.assign(newCamp(), r.camp);
   markStage();
@@ -3692,8 +3773,11 @@ function directorInner() {
     bossSpawned = true; prewarmBoss(curTheme);
     fadeMusicOut(1.0);
     if (curTheme === 2) for (let i = 0; i < 14; i++) later.push({ at: gf + 205 + i * 10, fn: () => { shake = Math.max(shake, 1.5 + i * 0.2); } });
-    showMsg('WARNING', ['ENEMY FLAGSHIP APPROACHING', 'ARMOURED TRAIN ON THE LINE', 'LAND FORTRESS INBOUND', 'SUPERGUN DETECTED', 'THE CASTLE GUNS AWAKEN', 'FLYING FORTRESS ON RADAR'][curTheme], 220); sfx('warn'); haptic('warn');
-    later.push({ at: gf + 240, fn: spawnBoss });
+    const warn = () => { showMsg('WARNING', ['ENEMY FLAGSHIP APPROACHING', 'ARMOURED TRAIN ON THE LINE', 'LAND FORTRESS INBOUND', 'SUPERGUN DETECTED', 'THE CASTLE GUNS AWAKEN', 'FLYING FORTRESS ON RADAR'][curTheme], 220); sfx('warn'); haptic('warn');
+      later.push({ at: gf + 240, fn: spawnBoss }); };
+    if (curTheme === 1) { spawnProtoFly(); later.push({ at: gf + 190, fn: warn }); }
+    else if (curTheme === 5) spawnProtoDuel(warn);
+    else warn();
   }
   if (bossSpawned) {
     if (--waveCd <= 0) { waveCd = 360; if (!quiet && enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
@@ -3996,22 +4080,22 @@ function spawnWing() {
 }
 const BOSSDEF = {
   ship: { y: -130, parts: [
-    { k: 'main', ox: 0, oy: 76, hp: 70 }, { k: 'main', ox: 0, oy: 52, hp: 70 }, { k: 'main', ox: 0, oy: -60, hp: 70 }, { k: 'main', ox: 0, oy: -84, hp: 70 },
-    { k: 'aa', ox: -24, oy: 16, hp: 24 }, { k: 'aa', ox: 24, oy: 16, hp: 24 }, { k: 'aa', ox: -24, oy: -20, hp: 24 }, { k: 'aa', ox: 24, oy: -20, hp: 24 },
+    { k: 'main', ox: 0, oy: 76, hp: 110 }, { k: 'main', ox: 0, oy: 52, hp: 110 }, { k: 'main', ox: 0, oy: -60, hp: 110 }, { k: 'main', ox: 0, oy: -84, hp: 110 },
+    { k: 'aa', ox: -24, oy: 16, hp: 36 }, { k: 'aa', ox: 24, oy: 16, hp: 36 }, { k: 'aa', ox: -24, oy: -20, hp: 36 }, { k: 'aa', ox: 24, oy: -20, hp: 36 },
     { k: 'core', ox: 0, oy: 26, hp: 170, hw: 11, hh: 7 }] },
   train: { y: -30, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: 13, hp: 150, hw: 10, hh: 5 }, { k: 'main', ox: 0, oy: -4, hp: 55, hw: 7, hh: 7 }, { k: 'main', ox: 0, oy: -50, hp: 70 },
     { k: 'rocket', ox: 0, oy: -98, hp: 60, hw: 8, hh: 8 }, { k: 'aa', ox: -6, oy: -136, hp: 28 }, { k: 'aa', ox: 6, oy: -156, hp: 28 }] },
   fortress: { y: -70, parts: [
-    { k: 'core', ox: 0, oy: -6, hp: 220, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 55, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 55, hw: 6, hh: 6 },
-    { k: 'aa', ox: -26, oy: -40, hp: 30 }, { k: 'aa', ox: 26, oy: -40, hp: 30 }, { k: 'mortar', ox: 0, oy: -44, hp: 50, hw: 6, hh: 6 }] },
+    { k: 'core', ox: 0, oy: -6, hp: 340, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 70, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 70, hw: 6, hh: 6 },
+    { k: 'aa', ox: -26, oy: -40, hp: 38 }, { k: 'aa', ox: 26, oy: -40, hp: 38 }, { k: 'mortar', ox: 0, oy: -44, hp: 64, hw: 6, hh: 6 }] },
   railgun: { y: -90, x: BOSSRAIL, parts: [
-    { k: 'core', ox: 0, oy: -15, hp: 240, hw: 10, hh: 12 }, { k: 'main', ox: -28, oy: 22, hp: 60 }, { k: 'main', ox: 28, oy: 22, hp: 60 },
-    { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 20, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 20, hw: 5, hh: 5 }] }
+    { k: 'core', ox: 0, oy: -15, hp: 300, hw: 10, hh: 12 }, { k: 'main', ox: -28, oy: 22, hp: 60 }, { k: 'main', ox: 28, oy: 22, hp: 60 },
+    { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 32, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 32, hw: 5, hh: 5 }] }
 };
 BOSSDEF.castle = { world: true, parts: [
-  { k: 'main', ox: -32, oy: -32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 40, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 40, hw: 9, hh: 9 },
-  { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 30 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 30 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 36, hw: 7, hh: 7 },
+  { k: 'main', ox: -32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 75, hw: 9, hh: 9 },
+  { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 65, hw: 7, hh: 7 },
   { k: 'core', tw: [0, 0], ox: 0, oy: 0, hp: 170, hw: 18, hh: 18 }] };
 function towerTop(e) { const th = e.towerH ?? 70, by = e.y - 170; return [(e.x - W / 2) * th / 200, -th * 0.55 + (by - H * 0.6) * th / 400]; }
 function placeTowerParts(e) { const [tx, ty] = towerTop(e); for (const p of e.parts) if (p.tw) { p.ox = tx + p.tw[0]; p.oy = -170 + ty + p.tw[1]; } }
@@ -4044,11 +4128,20 @@ function ravenInit(e) {
     const rocket = [1, 7, 8, 10].includes(i++);
     e.hatches.push(add('popup', 46 + col * 44, 120 + row * 90, { hp: 6 * m, hw: 8, hh: 8, score: rocket ? 900 : 600, rad: 10, st: 'down', stT: 999, ga: PI / 2, untarget: true, ctrl: true, rocket, row, col }));
   }
-  for (const x of [76, 148]) add('bunker', x, 432, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 });
-  add('bldg', 52, 560, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
-  add('bldg', 172, 640, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
+  for (const x of [62, 162]) add('bunker', x, 432, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 });
+  // guns on both wall walks: a crossfire over the courtyards
+  for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0 });
+  // the inner gate: the advance stops in front of it until it is blasted open
+  // the Ravens' secret project: a half-size Black Fortress prototype on the apron behind the keep, with mechanics
+  const proto = add('proto', 112, 1214, { hp: 1e9, hw: 40, hh: 26, score: 0, rad: 38, untarget: true });
+  for (const [dx, du] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + dx, 1248 + du, { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 0, post: proto });
+  // drill squads appear as they scroll into view: [u, kind, from]
+  e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
+  e.gate2 = add('cgate', 112, 432, { hp: 80 * m, hw: 34, hh: 13, score: 5000, rad: 30, cd: 50, inner: true });
+  add('bldg', 52, 560, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
+  add('bldg', 172, 640, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 60, 760, { bk: 'chapel', hp: 22 * m, hw: 13, hh: 20, score: 2000, rad: 20 });
-  add('bldg', 170, 820, { bk: 'armoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
+  add('bldg', 170, 820, { bk: 'rarmoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
   for (const [dx, du] of [[-22, 0], [22, 6], [0, -18]]) add('drums', 170 + dx, 820 + du, { hp: 3 * m, hw: 4, hh: 4, score: 200, rad: 6 });
   for (const ln of [[[80, 500], [150, 500]], [[150, 700], [70, 700]], [[36, 165], [188, 165]], [[188, 255], [36, 255]]]) add('tank', ln[0][0], ln[0][1], tankStats(false, { road: false, hd: PI / 2, v: 0.25, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
   for (const ln of [[[60, 980], [164, 980]], [[164, 1060], [60, 1060]]]) add('htank', ln[0][0], ln[0][1], tankStats(true, { road: false, hd: PI / 2, v: 0.18, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
@@ -4065,11 +4158,108 @@ function castleUnits(e, grp) {
   const fuels = grp === 1 ? [[96, 392], [128, 392], [84, 512], [140, 524]] : [[34, 96], [190, 96], [34, 200], [190, 200]];
   for (const [sx, sy] of fuels) add('fuel', sx, sy, { hp: 6 * m, hw: 7, hh: 7, score: 300, rad: 9 });
 }
+// Black Fortress: a fire laser from an alien core. It charges as a purple orb (the core takes extra damage then), locks on and fires.
+// The first shot comes when the second engine goes, the core drops below 75% or 25 seconds pass; then every 11 seconds,
+// and every 8 seconds, slowly following the player, once all engines are gone. A Nova cuts it short.
+const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
+function skyLaser(e, ea) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
+  const cx = e.x + core.ox, cy = e.y + core.oy;
+  if (e.stun > 0 && !e.fl) { e.stun--; if (gf % 4 === 0) parts.push({ kind: 'spark', layer: 'a', x: cx + rnd(-30, 30), y: cy + rnd(-30, 10), vx: 0, vy: -0.4, life: 12, max: 12, col: '#bba4ff' }); return; } // staggered after losing a beam clash
+  if (!e.fl) {
+    if (player.dead) return;
+    e.flT = (e.flT || 0) + 1;
+    if (ea === 0 && !e.lastAct) { e.lastAct = true; if (e.foreDone) e.flT = Math.max(e.flT, FL_GAP3 - 150); } // the last act opens with a shot
+    let go = false;
+    if (!e.foreDone) { if (ea <= 2 || core.hp < core.maxhp * 0.75 || e.flT >= 1500) { e.foreDone = true; go = true; } }
+    else if (e.flT >= (ea === 0 ? FL_GAP3 : FL_GAP)) go = true;
+    if (go) { e.fl = { ph: 'charge', t: 0 }; e.flT = 0; sfx('fcharge'); }
+    return;
+  }
+  const F = e.fl; F.t++;
+  if (F.ph === 'charge') {
+    if (gf % 2 === 0) { const a = Math.random() * TAU, d = rnd(22, 34); parts.push({ kind: 'spark', layer: 'a', x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, vx: -Math.cos(a) * 1.1, vy: -Math.sin(a) * 0.9, life: 16, max: 16, col: Math.random() < 0.5 ? '#bba4ff' : '#e8dcff' }); }
+    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); shake = Math.max(shake, 7); flash(cx, cy + 6, 10); }
+    return;
+  }
+  // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
+  // the player's beam pushes the meeting point up into the orb, which overloads (8% of the core) and the fortress staggers
+  const under = !player.dead && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
+  if (!F.clash && beam && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + player.y - 26) / 2 }; sfx('clash'); }
+  if (F.clash) {
+    const C = F.clash;
+    if (!beam || !under) F.clash = null; // the clash breaks and the fire laser carries on
+    else {
+      C.t++; F.t--;
+      const f = Math.min(1, C.t / 60); C.y = C.y0 + (cy + 14 - C.y0) * f * f;
+      beam.clashY = C.y; beam.clashK = 2; player.inv = Math.max(player.inv, 45);
+      F.a = Math.atan2(C.y - cy, player.x - cx); shake = Math.max(shake, 3);
+      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; parts.push({ kind: 'spark', layer: 'a', x: player.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
+      if (C.t >= 60) {
+        damagePart(e, core, core.maxhp * 0.08); e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
+        flash(cx, cy, 14); boom(cx, cy, 24, 'a'); flashFx = Math.max(flashFx, 6); shake = 12; hitStop = Math.max(hitStop, 6); sfx('bigboom'); sfx('nova');
+        parts.push({ kind: 'ring', layer: 'a', x: cx, y: cy, vx: 0, vy: 0, life: 24, max: 24, r: 70 });
+        for (let k = 0; k < 28; k++) { const a = k * TAU / 28; parts.push({ kind: 'spark', layer: 'a', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2.6), vy: Math.sin(a) * rnd(1, 2.2), life: 22, max: 22, col: k & 1 ? '#e8dcff' : '#ffd060' }); }
+      }
+      return;
+    }
+  }
+  if (F.sweep && !player.dead) F.a = clamp(F.a + clamp(angDiff(F.a, aim(cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
+  shake = Math.max(shake, 2);
+  const env = Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
+  if (gf % 2 === 0) { const d = rnd(30, 400); parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
+  for (const b of shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
+  if (env > 0.5 && !player.dead && player.inv === 0) {
+    const dx = player.x - cx, dy = player.y - cy;
+    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die();
+  }
+  if (F.t >= FL_FIRE) e.fl = null;
+}
+function drawSkyLaser(e) {
+  const core = e.parts.find(p => p.k === 'core'), F = e.fl; if (!F || !core || core.dead || e.dying) return;
+  const cx = e.x + core.ox, cy = e.y + core.oy;
+  if (F.ph === 'charge') {
+    const f = F.t / FL_CHARGE;
+    ctx.strokeStyle = (gf & 4) && f > 0.8 ? '#ffffff' : '#bba4ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 20 + 6 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke();
+    return;
+  }
+  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
+  ctx.globalAlpha = 0.3; ctx.fillStyle = '#8466dc'; ctx.fillRect(-w / 2 - 5, 6, w + 10, L); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#a8241a'; ctx.fillRect(-w / 2 - 2, 6, w + 4, L);
+  ctx.fillStyle = '#ff6a1a'; ctx.fillRect(-w / 2, 6, w, L);
+  ctx.fillStyle = '#ffb030'; ctx.fillRect(-w / 3, 6, w * 2 / 3, L);
+  ctx.fillStyle = '#fff2b0'; ctx.fillRect(-w / 6, 6, Math.max(1, w / 3), L);
+  // flame tongues licking off both edges, moving outward along the beam
+  for (let k = 0; k < 70; k++) {
+    const yy = 10 + k * 6 + ((gf * 3) % 6); if (yy > L) break; const n = Math.sin(k * 2.3 + gf * 0.7) * Math.sin(k * 0.9 - gf * 0.4), o = (2 + Math.abs(n) * 7) * env;
+    ctx.fillStyle = n > 0.3 ? '#ffd060' : n > -0.3 ? '#ff6a1a' : '#c8301a';
+    if (k & 1) ctx.fillRect(Math.round(w / 2 + 1), yy, Math.round(o), 2); else ctx.fillRect(Math.round(-w / 2 - 1 - o), yy, Math.round(o), 2);
+  }
+  ctx.globalAlpha = 0.6 * env; ctx.fillStyle = '#ffffff';
+  for (let k = 0; k < 50; k++) { const yy = 8 + k * 13 + ((gf * 5) % 13); if (yy > L) break; ctx.fillRect(Math.round(-w / 4), yy, Math.max(1, Math.round(w / 2)), 2); }
+  ctx.restore(); ctx.globalAlpha = 1;
+  if (C) {
+    // the meeting point: a ball of light ringed in purple, throwing crackling arcs to the sides
+    const mx = player.x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
+    ctx.globalAlpha = 0.3; dk(mx, my, R + 14, '#8466dc'); ctx.globalAlpha = 0.55; dk(mx, my, R + 7, '#bba4ff'); ctx.globalAlpha = 1;
+    dk(mx, my, R, '#ffd060'); dk(mx, my, R * 0.75, '#fff2b0'); dk(mx, my, R * 0.45, '#ffffff');
+    ctx.strokeStyle = '#e8dcff'; ctx.lineWidth = 1;
+    for (let j = 0; j < 4; j++) { let x = mx, y = my; const sd = j < 2 ? -1 : 1; ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 5; k++) { x += sd * rnd(5, 9); y += rnd(-6, 6); ctx.lineTo(x, y); } ctx.stroke(); }
+  }
+}
+function alienCore(px, py, hit, f) {
+  // the Black Fortress's core: a purple alien orb like the weapon pods, which swells while the laser charges
+  const R = 4 + ((gf >> 3) & 1) + f * 9;
+  ctx.globalAlpha = 0.25 + 0.2 * f; dk(px, py, R + 8, '#563aa4'); ctx.globalAlpha = 0.45; dk(px, py, R + 4, '#8466dc'); ctx.globalAlpha = 1;
+  dk(px, py, R + 1, '#1c1238'); dk(px, py, R, hit ? '#ffffff' : '#bba4ff'); dk(px - 1, py - 1, R * 0.6, '#e8dcff'); dk(px - 1, py - 1, R * 0.3, '#ffffff');
+}
 BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
   { k: 'engine', ox: -40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: -76, oy: 14, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 76, oy: 14, hp: 60, hw: 7, hh: 14 },
   { k: 'main', ox: -22, oy: -30, hp: 80 }, { k: 'main', ox: 22, oy: -30, hp: 80 },
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
-  { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 360, hw: 9, hh: 7 }] };
+  { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
   const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
@@ -4081,7 +4271,7 @@ function spawnBoss() {
   if (state === 'play') playSong(curTheme === 5 ? 'final' : 'boss', false);
   const sc = Math.floor(scroll);
   const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, hw: 32, hh: 86, spin: 0, chargeT: 0, spot: 0,
-    score: (kind === 'skyfort' ? 80000 : kind === 'castle' ? 40000 : 30000) * (loop + 1), onDead: e => { scrollTarget = SCROLL; stageClear(); } });
+    score: (kind === 'skyfort' ? 80000 : kind === 'castle' ? 40000 : 30000) * (loop + 1), onDead: e => { scrollTarget = SCROLL; if (!(kind === 'castle' && protoEscape())) stageClear(); } });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
   if (kind === 'skyfort') {
     const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
@@ -4271,8 +4461,24 @@ function blockedMove(e, dx, dy) {
   }
   return false;
 }
-// boss searchlights reach down to where the player flies, on every screen height
-const beamLen = y => Math.max(170, H - 24 - y);
+// Night Hammer searchlights, seen from above: a bright spot on the ground with a faint beam back to the lamp. Each spot sweeps a slow
+// search pattern over the whole screen; within 90px of the plane it creeps toward it (slower than the plane flies). Caught = spotted.
+const SPOT_R = 22, SPOT_V = 0.75;
+function searchSpot(e, p, px, py) {
+  if (p.sx === undefined) { p.sx = px; p.sy = py + 60; }
+  const ph = e.mt * 0.006 + (p.ox < 0 ? 0 : 2.4), bx = W / 2 + Math.sin(ph * 1.7) * (W / 2 - 30), by = H * 0.55 + Math.sin(ph * 1.1 + 1) * H * 0.3;
+  const near = !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = near ? player.x : bx, ty = near ? player.y : by;
+  const d = Math.hypot(tx - p.sx, ty - p.sy), v = Math.min(d, near ? SPOT_V : 1.4);
+  if (d > 0.01) { p.sx += (tx - p.sx) / d * v; p.sy += (ty - p.sy) / d * v; }
+  p.ang = Math.atan2(p.sy - py, p.sx - px);
+  return !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < SPOT_R;
+}
+function drawSpot(x0, y0, x, y, red) {
+  // the faint beam from the lamp, then the pool of light where it lands
+  ctx.strokeStyle = red ? 'rgba(170,20,14,0.35)' : 'rgba(255,248,200,0.16)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+  const g = ctx.createRadialGradient(x, y, 0, x, y, SPOT_R + 4); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,248,210,0.75)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.45)' : 'rgba(255,244,190,0.4)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, SPOT_R + 4, 0, TAU); ctx.fill();
+}
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -4292,7 +4498,21 @@ function canFire(e, margin = 80) { return !player.dead && !e.turDead && e.y > 10
 function dyingTick(e) {
   e.dying--;
   const lay = e.air ? 'a' : e.surface ? 'g' : 'a';
-  if (e.kind === 'skyfort' && e.type === 'boss') e.y += 0.22;
+  if (e.kind === 'skyfort' && e.type === 'boss') {
+    e.y += 0.22;
+    // about two seconds of explosions, then the hull snaps in two and both halves fall away burning
+    if (e.dying === 230) { e.split = 0; sfx('snap'); sfx('bigboom'); boom(e.x, e.y, 34, 'a'); shake = 14; flashFx = 6; hitStop = 4; for (let k = 0; k < 20; k++) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + rnd(-70, 60), vx: rnd(-1.6, 1.6), vy: rnd(-1, 1), life: 22, max: 22, col: k & 1 ? '#ffd060' : '#fff2a8' }); }
+    if (e.split !== undefined) {
+      e.split++;
+      for (const sd of [-1, 1]) {
+        const h = skyHalf(e, sd), ex = e.x + h.dx, ey = e.y + h.dy;
+        if (gf % 3 === 0) { smokePuff(ex + sd * rnd(0, 6), ey + rnd(-60 * h.sc, 50 * h.sc), 'a'); fireAt(ex + sd * rnd(0, 5), ey + rnd(-40, 40) * h.sc, 'a', true); }
+        if (gf % 14 === 0) { boom(ex + sd * rnd(10, 70) * h.sc, ey + rnd(-40, 40) * h.sc, 16, 'a'); sfx('boom'); }
+      }
+      if (e.dying === 2) for (let k = 0; k < 3; k++) parts.push({ kind: 'ring', layer: 'a', x: e.x, y: e.y + 60, vx: 0, vy: 0, life: 26 + k * 10, max: 26 + k * 10, r: 90 + k * 50 });
+      if (e.dying > 1) return;
+    }
+  }
   if (e.dying % 6 === 0) { const ww = e.kind === 'skyfort' ? 90 : e.kind === 'castle' ? 50 : e.hw, hh = e.kind === 'castle' ? 60 : e.kind === 'skyfort' ? 50 : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); shake = Math.max(shake, 4); }
   if (e.dying <= 0) {
     e.dead = true; boom(e.x, e.y, 50, lay);
@@ -4303,7 +4523,7 @@ function dyingTick(e) {
       else if (e.kind === 'train') { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) D(yardX(t, t.y + oy) - e.x, t.y + oy - e.y, 'crater', 22, 260); }
       else if (e.kind === 'fortress') { D(0, 0, 'crater', 50, 400); D(-30, -40, 'crater', 20, 200); D(30, 40, 'crater', 20, 200); }
       else if (e.kind === 'railgun') { D(0, 0, 'crater', 40, 400); D(0, -60, 'crater', 22, 200); D(0, 60, 'crater', 22, 200); }
-      else if (e.kind === 'skyfort') { D(0, 0, 'crater', 50, 400); D(-70, 10, 'crater', 30, 260); D(70, 10, 'crater', 30, 260); }
+      else if (e.kind === 'skyfort') { D(0, 40, 'crater', 40, 400); D(-66, 80, 'crater', 34, 300); D(66, 80, 'crater', 34, 300); }
       else D(0, 0, 'crater', 30, 300); }
     if (e.onDead) e.onDead(e);
   }
@@ -4312,33 +4532,36 @@ function yardX(t, y) {
   const P = t.path; if (!P) return t.x;
   const wy = y - Math.floor(scroll);
   if (wy <= P.y0) return P.xTop; if (wy >= P.y1) return P.xBot;
-  const f = (wy - P.y0) / (P.y1 - P.y0), s2 = f * f * (3 - 2 * f); return P.xTop + (P.xBot - P.xTop) * s2;
+  return P.xTop + (P.xBot - P.xTop) * xoS((wy - P.y0) / (P.y1 - P.y0));
 }
+// a rail vehicle rides on two bogies 14px either side of its centre: its centre sits between them and it turns with the rails
+function yardPose(t, y) { const xa = yardX(t, y - 14), xb = yardX(t, y + 14); return { x: (xa + xb) / 2, a: -Math.atan2(xb - xa, 28) }; }
+const YARD_CARS = [0, -50, -98, -146];
 function yardInit(e) {
   e.x = W / 2; e.y = H / 2; e.hw = 100; e.hh = 120; e.supCd = 120; e.mt = 0;
   const defs = BOSSDEF.train.parts, m = e.parts[0].maxhp / defs[0].hp;
-  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 215 + BY, on: false, dead: false, mt: 0 }];
+  // the second train drives in forward, locomotive first (flip): its core leads at the top, well above the player
+  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 290 + BY, on: false, dead: false, mt: 0, flip: true }];
   e.parts = [];
-  e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
+  e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: e.trains[ti].flip ? -146 - q.oy : q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
 }
 function yardActivate(e, ti) { const t = e.trains[ti]; if (t.on) return; t.on = true; for (const p of e.parts) if (p.tr === ti) { p.off = false; p.dead = false; } sfx('whistle'); haptic('warn'); }
 function yardBusy(e, skip) { const s2 = new Set(); for (const t of e.trains) if (t !== skip && t.on && !t.dead) { s2.add(t.x); if (t.path) { s2.add(t.path.xTop); s2.add(t.path.xBot); } } return s2; }
 function yardMove(e, t) {
   if (t.dead) { t.y += scrollV; return; }
-  if (gf % 3 === 0) parts.push({ kind: 'smoke', layer: 'g', x: yardX(t, t.y - 21) + rnd(-2, 2), y: t.y - 21, vx: rnd(-0.2, 0.2), vy: scrollV + 0.25, r: rnd(2.5, 4), life: 46, max: 46 });
+  const chy = t.flip ? t.y - 125 : t.y - 21;
+  if (gf % 3 === 0) parts.push({ kind: 'smoke', layer: 'g', x: yardX(t, chy) + rnd(-2, 2), y: chy, vx: rnd(-0.2, 0.2), vy: scrollV + 0.25, r: rnd(2.5, 4), life: 46, max: 46 });
   if (!t.ready) { t.y -= 1.1; if (t.y <= t.rest) t.ready = true; }
   else { t.mt++; t.y = t.rest + Math.sin(t.mt * 0.008) * 26; }
   if (gf % 5 === 0) parts.push({ kind: 'spark', layer: 'g', x: yardX(t, t.y) + (Math.random() < 0.5 ? -13 : 13), y: t.y - rnd(0, 150), vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.6), life: 10, max: 10, col: '#fff2a8' });
   // the train is backing up the yard: switch tracks at a crossover ahead of its rear car
   const sc = Math.floor(scroll);
   if (t.path && t.y - sc < t.path.y0 - 4) { t.x = t.path.xTop; t.path = null; }
-  if (!t.path && t.ready && Math.random() < 0.006) {
-    const ti = YARD_T.indexOf(t.x), wTop = t.y - 170 - sc, busy = yardBusy(e, t);
-    for (let k = Math.floor(wTop / 48) - 1; k >= Math.floor(wTop / 48) - 4 && !t.path; k--) for (const i of [ti - 1, ti]) {
-      const d = yardXover(k, i); if (!d || i < 0 || i > 6) continue;
-      const xa = YARD_T[i], xb = YARD_T[i + 1], xTop = d > 0 ? xa : xb, xBot = d > 0 ? xb : xa;
-      if (xBot !== t.x || busy.has(xTop)) continue;
-      t.path = { y0: k * 48 + 4, y1: k * 48 + 44, xTop, xBot }; break;
+  if (!t.path && t.ready && Math.random() < 0.03) {
+    const wTop = t.y - 170 - sc, busy = yardBusy(e, t);
+    for (let k = Math.floor(wTop / XO_P); k >= Math.floor(wTop / XO_P) - 2 && !t.path; k--) {
+      const X = yardXover(k); if (!X || X.y1 > wTop - 4 || X.xBot !== t.x || busy.has(X.xTop)) continue;
+      t.path = { y0: X.y0, y1: X.y1, xTop: X.xTop, xBot: X.xBot };
     }
   }
 }
@@ -4353,6 +4576,24 @@ function yardSupport(e) {
   enemies.push(G('loco', wx, wy, { train: tid, diesel: Math.random() < 0.4, hp: 16 * m2, hw: 7, hh: 20, score: 1500, rad: 12, v, up }));
   for (let k = 0; k < n; k++) { const flak = Math.random() < 0.5; enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy + dir * (36 + k * 30), { train: tid, hp: (flak ? 10 : 8) * m2, hw: 6, hh: 13, score: flak ? 700 : 500, rad: 10, v, up, ga: up ? -PI / 2 : PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
   sfx('whistle');
+}
+// Winter Wolf, "Wolf Pack": at 70% and 35% of a train's core it howls, raises its rocket rack and ripples six rockets that climb,
+// curve onto where the player was at launch and burst into flak. Destroying the rocket car stops it; the train's guns hold off meanwhile.
+function wolfPack(e) {
+  e.trains.forEach((t, ti) => {
+    if (!t.on || t.dead || !t.ready) { t.pack = null; return; }
+    const core = e.parts.find(p => p.tr === ti && p.k === 'core'), rk = e.parts.find(p => p.tr === ti && p.k === 'rocket');
+    if (!core || core.dead || !rk || rk.dead) { t.pack = null; return; }
+    t.packN = t.packN || 0;
+    if (!t.pack && t.packN < 2 && core.hp < core.maxhp * (t.packN ? 0.35 : 0.7) && !e.trains.some(o => o.pack) && !player.dead) { t.pack = { t: 0, n: 0 }; t.packN++; sfx('howl'); haptic('warn'); }
+    const P = t.pack; if (!P) return;
+    P.t++;
+    const rx = e.x + rk.ox, ry = e.y + rk.oy;
+    if (P.t >= 70 && (P.t - 70) % 14 === 0) {
+      if (!player.dead && ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: player.x + rnd(-8, 8), ty: player.y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
+      if (++P.n >= 6) t.pack = null;
+    }
+  });
 }
 function yardTrainDown(e, p) {
   const t = e.trains[p.tr]; if (t.dead) return true; t.dead = true;
@@ -4386,7 +4627,7 @@ function bossIntro(e) {
 function railLock(e, core) {
   e.lockCd = Math.max(0, (e.lockCd ?? 120) - 1);
   if (!e.lock) {
-    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && !player.dead && core && !core.dead && e.parts.some(q => q.k === 'light' && !q.dead)) { e.lock = { t: 60, x: player.x, y: player.y }; sfx('tick'); }
+    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && !player.dead && core && !core.dead && (e.parts.some(q => q.k === 'light' && !q.dead) || count('flare'))) { e.lock = { t: 60, x: player.x, y: player.y }; sfx('tick'); }
     return;
   }
   const L = e.lock;
@@ -4399,6 +4640,32 @@ function railLock(e, core) {
   flash(bx, by, 8); shake = Math.max(shake, 4); sfx('cannon'); haptic('big');
   e.lock = null; e.lockCd = Math.round(240 * fireSlow());
 }
+// Night Hammer "Star Shells": at 60% and 30% core health it fires three parachute flares that pop over the battlefield and drift down,
+// each lighting a circle for about 5 seconds. Inside the light the player is spotted (lock-on and burst). Flares can be shot down.
+function starShells(e, core) {
+  e.ssN = e.ssN || 0;
+  if (e.ssN >= 2 || !core || core.dead || player.dead || core.hp > core.maxhp * (e.ssN ? 0.3 : 0.6)) return;
+  e.ssN++; const bx = e.x + core.ox, by = e.y + core.oy;
+  [-1, 0, 1].forEach((k, i) => later.push({ at: gf + i * 12, fn: () => {
+    if (e.dying) return;
+    const tx = clamp(player.x + k * 62 + rnd(-10, 10), 24, W - 24), ty = clamp(player.y - 70 + rnd(-30, 20) - Math.abs(k) * 10, 60, H - 90);
+    enemies.push(E('flare', { x: bx, y: by, sx: bx, sy: by, tx, ty, ft: 0, hp: 2 * hpm(), hw: 5, hh: 5, score: 300, ghost: true, boss: e, r: 0, life: 330 }));
+    flash(bx, by - 10, 5); sfx('rocket');
+  } }));
+}
+// Night Hammer "Hammer Blow": once only the barrel is left (or the core is below 45%) it charges for 2 s (barrel steaming, rising whine), fires a full-power round
+// that throws the gun back up its rails, and the shell bursts in the air short of the player into a ring of shrapnel with one gap.
+function hammerBlow(e, core, p, px, py) {
+  if (!e.hb) { e.hb = { t: 0 }; sfx('charge'); haptic('charge'); }
+  const B = e.hb; B.t++;
+  p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.02, 0.02), PI / 2 - 0.6, PI / 2 + 0.6);
+  if (B.t < 120) { e.recoil = Math.max(e.recoil || 0, B.t / 120 * 5); if (gf % 3 === 0) parts.push({ kind: 'smoke', layer: 'a', white: true, x: px + rnd(-8, 8), y: py + rnd(-6, 10), vx: rnd(-0.5, 0.5), vy: rnd(-0.6, -0.1), r: rnd(2, 4), life: 30, max: 30 }); if (B.t % 30 === 0) sfx('charge'); p.cd = 1; return; }
+  const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(player.x - bx, player.y - by);
+  ebul.push({ x: bx, y: by, vx: Math.cos(p.ang) * 2.4, vy: Math.sin(p.ang) * 2.4, r: 5, kind: 'mega', a: p.ang, fuse: Math.max(8, Math.round((d - 85) / 2.4)), hb: true, close: d < 145 });
+  flash(bx, by, 12); boom(bx, by, 14, 'a'); shake = 14; flashFx = Math.max(flashFx, 4); sfx('bigboom'); sfx('cannon'); haptic('big');
+  e.recoil = -34; for (let k = 0; k < 10; k++) smokePuff(px + rnd(-14, 14), py + rnd(-10, 30));
+  e.hb = null; p.cd = Math.round(130 * fireSlow());
+}
 function drawLocks() {
   for (const e of enemies) {
     const L = e.type === 'boss' && !e.dying && e.lock; if (!L) continue;
@@ -4408,9 +4675,12 @@ function drawLocks() {
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(x + sx * r - (sx > 0 ? 4 : 0), y + sy * r - (sy > 0 ? 1 : 0), 5, 2); ctx.fillRect(x + sx * r - (sx > 0 ? 1 : 0), y + sy * r - (sy > 0 ? 4 : 0), 2, 5); }
   }
 }
-// Iron Leviathan "Full ahead": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
-// the horn, marks its lane in dark red, then surges forward firing a barrage of shells straight down that lane.
-const RAM_WARN = 70, RAM_GO = 130, RAM_HOLD = 170, RAM_END = 290, RAM_DIST = 60, RAM_HALF = 28;
+// Iron Leviathan "Hard to port": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
+// the horn and comes about so one long side faces the player, then fires two broadsides out of that side.
+// It turns like a big ship: around a pivot near the bow (the stern swings wide), creeping forward through the arc,
+// with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
+const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
+  RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
@@ -4419,46 +4689,219 @@ function shipRam(e) {
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
     if (!due) return false;
     if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
-    e.ram = { t: 0, x0: e.x }; e.ramN++; sfx('horn'); haptic('warn');
+    // turn away from the player's side, so the broadside ends up facing them
+    e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
   }
-  const R = e.ram, base = 118 + BY; R.t++;
-  let dy = 0;
-  if (R.t <= RAM_WARN) { e.x = R.x0 + Math.sin(R.t * 1.7) * 0.8; if (gf % 2 === 0) foam(e.x + rnd(-18, 18), e.y + 112); }
-  else if (R.t <= RAM_GO) { const f = (R.t - RAM_WARN) / (RAM_GO - RAM_WARN); dy = RAM_DIST * f * f * (3 - 2 * f); e.x = R.x0; shake = Math.max(shake, 2); for (const sx of [-24, 0, 24]) foam(e.x + sx + rnd(-4, 4), e.y + 112); }
-  else if (R.t <= RAM_HOLD) dy = RAM_DIST;
-  else { const f = (R.t - RAM_HOLD) / (RAM_END - RAM_HOLD); dy = RAM_DIST * (1 - f * f * (3 - 2 * f)); }
-  e.y = base + dy;
-  if (R.t === RAM_WARN + 1) { sfx('horn'); shake = Math.max(shake, 6); }
-  // the bow guns fire straight down the marked lane while the ship surges
-  if (R.t > RAM_WARN + 6 && R.t <= RAM_GO + 14 && R.t % 4 === 0) { for (let k = 0; k < 2; k++) eshot(e.x + rnd(-RAM_HALF + 5, RAM_HALF - 5), e.y + 110, PI / 2 + rnd(-0.03, 0.03), bspeed() * 1.3); if (R.t % 8 === 0) sfx('cannon'); }
-  if (R.t >= RAM_END) { e.ram = null; e.ramCd = 240; }
+  const R = e.ram; R.t++;
+  // heading with momentum: the rudder pulls towards the target angle, the hull's inertia lags and overshoots a little
+  const target = R.t <= RAM_WARN ? 0 : R.t <= RAM_BACK ? RAM_ANG * R.dir : 0;
+  R.w += (target - e.hd) * RAM_K - R.w * RAM_DAMP; e.hd += R.w;
+  if (R.t > RAM_END - 36) { R.w *= 0.8; e.hd *= 0.9; } // settle smoothly into the normal heading at the end
+  // the pivot near the bow creeps forward through the turn, then the ship backs to its station while turning back
+  const bow = [-Math.sin(e.hd), Math.cos(e.hd)];
+  if (R.t > RAM_WARN && R.t <= RAM_BACK) { const v = RAM_CREEP * Math.min(1, (R.t - RAM_WARN) / 60); R.px += bow[0] * v; R.py += bow[1] * v; }
+  else if (R.t > RAM_BACK) { const f = Math.min(1, (R.t - RAM_BACK) / (RAM_END - RAM_BACK - 20)), g = 0.03 + 0.07 * f; R.px += (R.bx - R.px) * g; R.py += (R.by + RAM_PIVOT - R.py) * g; }
+  // place the hull so that its pivot point sits on the pivot path
+  e.x = R.px + RAM_PIVOT * Math.sin(e.hd); e.y = R.py - RAM_PIVOT * Math.cos(e.hd);
+  if (R.t > RAM_END - 36) { const f = (R.t - (RAM_END - 36)) / 36; e.x += (R.bx - e.x) * f; e.y += (R.by - e.y) * f; }
+  if (R.t <= RAM_WARN) e.x += Math.sin(R.t * 1.7) * 0.4;
+  if (R.t === RAM_WARN + 1) sfx('horn');
+  const c = Math.cos(e.hd), s = Math.sin(e.hd), at = (lx, ly) => [e.x + lx * c - ly * s, e.y + lx * s + ly * c];
+  // curved wake from the stern that stays on the water, bow wave on the outer side, funnel smoke trailing astern
+  if (gf % 2 === 0) { const [sx, sy] = at(rnd(-8, 8), -112); parts.push({ kind: 'foam', layer: 'w', x: sx, y: sy, vx: rnd(-0.2, 0.2), vy: scrollV, life: 130, max: 130 }); }
+  if (R.t > RAM_WARN && gf % 2 === 0) { const [fx, fy] = at(-R.dir * rnd(10, 20), rnd(90, 112)); foam(fx, fy); const [gx, gy] = at(-R.dir * 37, rnd(-80, 60)); foam(gx, gy); }
+  if (gf % 6 === 0) for (const ly of [-16, -36]) { const [fx, fy] = at(0, ly), life = (rnd(36, 54)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: fx, y: fy, vx: -bow[0] * 0.45 + rnd(-0.1, 0.1), vy: -bow[1] * 0.45 + scrollV - 0.1, r: rnd(2, 4), life, max: life }); }
+  // the side facing down the screen fires
+  const sd = Math.sign(e.hd) || R.dir;
+  for (const [vi, v] of RAM_VOLLEYS.entries()) {
+    if (R.t > v - 26 && R.t < v && R.t % 4 === 0) { const [gx, gy] = at(sd * RAM_SIDE, rnd(-90, 90)); flash(gx, gy, 2); smokePuff(gx, gy); }
+    if (R.t === v) {
+      const out = sd > 0 ? e.hd : e.hd + PI;
+      for (let ly = -90 + (vi % 2) * 9; ly <= 90; ly += 18) { const [gx, gy] = at(sd * RAM_SIDE, ly); eshot(gx, gy, out + rnd(-0.05, 0.05), bspeed() * 0.95, 'B'); if (((ly + 90) / 18 | 0) % 2 === 0) flash(gx, gy, 4); }
+      shake = Math.max(shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
+    }
+  }
+  placeTankParts(e);
+  if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.x = R.bx; e.y = R.by; e.ramCd = 240; placeTankParts(e); }
   return true;
 }
-function drawRamLanes() {
-  for (const e of enemies) {
-    const R = e.type === 'boss' && !e.dying && e.ram; if (!R || R.t > RAM_GO + 14) continue;
-    if (((R.t >> 3) & 1) && R.t <= RAM_WARN) continue;
-    const top = Math.round(e.y + 112), x0 = Math.round(e.x - RAM_HALF);
-    ctx.globalAlpha = R.t <= RAM_WARN ? 0.28 : 0.18; ctx.fillStyle = '#a8141a'; ctx.fillRect(x0, top, RAM_HALF * 2, H - top);
-    ctx.globalAlpha = 0.7; ctx.fillStyle = '#e83a2a'; ctx.fillRect(x0, top, 2, H - top); ctx.fillRect(x0 + RAM_HALF * 2 - 2, top, 2, H - top);
-    ctx.globalAlpha = 1;
+// Sand Colossus "Sandstorm": at 85% and again at 45% core health it digs in, revs its engines and its rear fans
+// blast sand sideways. A storm blows across the screen for ~6 s: the wind pushes the player's plane and bends the
+// boss's shells. A light haze and streaks show it; bullets and the player are drawn on top so they stay readable.
+const STORM_WARN = 70, STORM_BLOW = 360, STORM_PUSH = 0.85;
+let windX = 0, stormK = 0, stormStreaks = [];
+function sandstorm(e) {
+  const core = e.parts.find(p => p.k === 'core');
+  e.stormN = e.stormN || 0;
+  if (!e.storm) {
+    if (!core || core.dead || player.dead) return false;
+    const due = !e.last && ((e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45));
+    if (!due) return false;
+    e.storm = { t: 0, dir: e.stormN === 0 ? 1 : -1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big'); scrollTarget = 0;
   }
+  const S = e.storm; S.t++;
+  S.y += scrollV; // dug in: it rides with the ground while the scroll comes to a stop
+  e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y; e.moving = false;
+  // sand plumes from the rear fans, blown the way the storm will go
+  for (const sx of [-34, 34]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-8, 8), vx: S.dir * rnd(1.5, 3.2), vy: rnd(-0.6, 0.3), life: 70, max: 70, r: rnd(7, 13) });
+  if (S.t < STORM_WARN) shake = Math.max(shake, 2);
+  if (S.t === STORM_WARN) sfx('roar');
+  const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
+  S.k = k;
+  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); e.calm = 150; if (!e.last) scrollTarget = SCROLL; }
+  return true;
+}
+function updStorm() {
+  const e = enemies.find(o => o.type === 'boss' && o.storm && !o.dying), S = e && e.storm;
+  const warn = S && S.t < STORM_WARN, target = S ? (warn ? 0.25 : Math.max(0.25, S.k)) : 0;
+  stormK += (target - stormK) * 0.08; if (stormK < 0.01) stormK = 0;
+  windX = S && !warn ? S.dir * STORM_PUSH * S.k : 0;
+  const dir = S ? S.dir : (stormStreaks[0] ? stormStreaks[0].d : 1);
+  if (stormK > 0) { while (stormStreaks.length < 110) { const puff = stormStreaks.length < 14; stormStreaks.push({ x: rnd(0, W), y: rnd(0, H), l: puff ? rnd(30, 60) : rnd(10, 30), v: puff ? rnd(1.5, 2.5) : rnd(4, 8), d: dir, puff }); } }
+  for (const st of stormStreaks) { st.d = dir; st.x += st.d * st.v * (0.4 + stormK); st.y += 0.3; if (st.x > W + 20) st.x = -20; if (st.x < -20) st.x = W + 20; if (st.y > H) st.y = 0; }
+  if (stormK === 0) stormStreaks.length = 0;
+}
+function drawStorm() {
+  if (stormK <= 0) return;
+  ctx.globalAlpha = 0.3 * stormK; ctx.fillStyle = '#c89a52'; ctx.fillRect(0, 0, W, H);
+  // rolling sand clouds, then sharp streaks
+  for (const st of stormStreaks) if (st.puff) { ctx.globalAlpha = 0.22 * stormK; dk(st.x, st.y, st.l * 0.45, '#e0b878'); dk(st.x + st.d * st.l * 0.4, st.y + 4, st.l * 0.35, '#e8c890'); }
+  ctx.fillStyle = '#fff0c8';
+  for (const st of stormStreaks) if (!st.puff) { ctx.globalAlpha = 0.75 * stormK; ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 2); }
+  ctx.globalAlpha = 1;
+}
+// The Sand Colossus fights a retreat: it faces the player and reverses up the screen as fast as the ground scrolls,
+// so it holds its place while its tracks turn. It shifts lanes by angling a little while reversing (it can only move
+// along its heading) and now and then pulls away or lets the player catch up.
+// Last stand: once only its turret is left (or its core is below 30%), a track is shot off. It can no longer keep pace, so it drifts down
+// towards the player, grinding round in circles on its good track, while the turret sprays a spiral.
+const TANK_TURN = 0.006, TANK_MAXHD = 0.26, TANK_LASTY = 0.5;
+function tankDrive(e) {
+  if (e.hd === undefined) e.hd = 0;
+  const others = e.parts.filter(p => p.k !== 'core' && !p.dead).length, core = e.parts.find(p => p.k === 'core');
+  if (e.calm > 0) e.calm--;
+  if (!e.last && core && !core.dead && !e.storm && !(e.calm > 0) && (others === 0 || core.hp < core.maxhp * 0.3)) {
+    e.last = { t: 0, side: Math.random() < 0.5 ? -1 : 1 };
+    const c = Math.cos(e.hd), sn = Math.sin(e.hd), tx = e.x + e.last.side * 39 * c, ty = e.y + e.last.side * 39 * sn;
+    boom(tx, ty, 26, 'g'); shake = Math.max(shake, 10); sfx('gboom'); haptic('big');
+    for (let i = 0; i < 26; i++) { const a = Math.random() * TAU, v = rnd(0.8, 2.6); parts.push({ kind: i % 3 ? 'spark' : 'dust', layer: 'a', x: tx + rnd(-4, 4), y: ty + rnd(-30, 30), vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 30, max: 30, col: '#fff2a8', r: 4 }); }
+  }
+  let s; // ground speed along the heading: negative = reversing
+  if (e.last) {
+    const L = e.last; L.t++;
+    e.hd += 0.0105 * L.side; // one track drags, so it grinds round in circles
+    const stop = e.y >= Math.min(H * TANK_LASTY, H * 0.71 - 95); // stops short of the player's usual position
+    if (stop) scrollTarget = 0;
+    s = stop ? -scrollV * Math.cos(e.hd) : -scrollV * 0.5;
+    if (L.t % 4 === 0) parts.push({ kind: 'spark', layer: 'g', x: e.x + L.side * 39 * Math.cos(e.hd) + rnd(-3, 3), y: e.y + L.side * 39 * Math.sin(e.hd) + rnd(-20, 20), vx: rnd(-1, 1), vy: rnd(-1, 0.4), life: 12, max: 12, col: '#fff2a8' });
+    if (L.t % 9 === 0) smokePuff(e.x + L.side * 30 * Math.cos(e.hd), e.y + L.side * 30 * Math.sin(e.hd));
+  } else {
+    // pick a new lane and distance now and then
+    if (!e.wp || --e.wpT <= 0) { e.wp = { x: clamp(e.x + rnd(-40, 40), 84, W - 84), y: 104 + BY + rnd(-4, 22) }; e.wpT = (rnd(180, 320)) | 0; }
+    const vyWant = clamp((e.wp.y - e.y) * 0.02, -0.35, 0.25), vxWant = clamp((e.wp.x - e.x) * 0.012, -0.22, 0.22);
+    s = (vyWant - scrollV) / Math.max(0.5, Math.cos(e.hd));
+    // sideways motion only comes from angling the hull while it reverses
+    const want = Math.abs(s) > 0.08 ? clamp(Math.asin(clamp(-vxWant / s, -0.9, 0.9)), -TANK_MAXHD, TANK_MAXHD) : 0;
+    e.hd += clamp(angDiff(e.hd, want), -TANK_TURN, TANK_TURN);
+  }
+  e.x += -Math.sin(e.hd) * s; e.y += Math.cos(e.hd) * s + scrollV;
+  e.x = clamp(e.x, 60, W - 60);
+  e.moving = Math.abs(s) > 0.04 || !!e.last;
+  placeTankParts(e);
+}
+function placeTankParts(e) {
+  const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0);
+  for (const p of e.parts) { if (p.bx === undefined) { p.bx = p.ox; p.by = p.oy; } p.ox = p.bx * c - p.by * s; p.oy = p.bx * s + p.by * c; }
+}
+// Ravenhold "The Raven's Wheel": twice per fight the bell tolls and a flock of crows circles the tower in the
+// direction the wheel will turn. Then two arms of shells stream out of the tower top in opposite directions and the
+// wheel turns once (about 8 s), so the player has to fly round the tower ahead of an arm. First clockwise, then the
+// other way. The castle's other guns, hatches and fighter waves hold off while it turns.
+const WHEEL_WARN = 90, WHEEL_TURN = 480, WHEEL_SPEED = 1.7;
+function castleWheel(e) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead || e.dying) { e.wheel = null; return; }
+  e.wheelN = e.wheelN || 0;
+  if (!e.wheel) {
+    const corners = e.parts.filter(p => p.k === 'main' && p.dead).length;
+    if (e.wheelGap > 0) { e.wheelGap--; if (core.hp < core.maxhp * 0.12) core.hp = core.maxhp * 0.12; return; } // a breather between the two wheels
+    const due = e.wheelN === 0 ? (corners >= 2 || e.mt > 900) : e.wheelN === 1 && e.open && core.hp < core.maxhp * 0.75;
+    if (!due || player.dead) return;
+    e.wheel = { t: 0, dir: e.wheelN === 0 ? 1 : -1, a: aim(e.x + core.ox, e.y + core.oy) + PI / 2, crows: [] }; e.wheelN++;
+    sfx('toll'); haptic('warn');
+    for (let i = 0; i < 12; i++) { const b = { x: 0, y: 0, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); e.wheel.crows.push(b); }
+  }
+  const Wh = e.wheel, cx = e.x + core.ox, cy = e.y + core.oy; Wh.t++;
+  if (core.hp < core.maxhp * 0.1) core.hp = core.maxhp * 0.1; // the core holds out until the wheel has turned
+  if (Wh.t === 45) sfx('toll');
+  for (const b of Wh.crows) if (b.orb) { b.orb.a += Wh.dir * 0.055; b.x = cx + Math.cos(b.orb.a) * b.orb.r; b.y = cy + Math.sin(b.orb.a) * b.orb.r * 0.8; b.vx = b.vy = 0; b.ph += 0.2; }
+  const w = Wh.t - WHEEL_WARN;
+  if (w > 0 && w <= WHEEL_TURN) {
+    Wh.a += Wh.dir * TAU / WHEEL_TURN;
+    if (w % 3 === 0) { eshot(cx, cy, Wh.a, WHEEL_SPEED); eshot(cx, cy, Wh.a + PI, WHEEL_SPEED); }
+    if (w % 40 === 0) sfx('gun');
+  }
+  if (w > WHEEL_TURN) {
+    for (const b of Wh.crows) if (b.orb) { const a = b.orb.a; b.vx = Math.cos(a) * 1.2 + rnd(-0.3, 0.3); b.vy = Math.sin(a) * 1.2 - 0.4; b.orb = null; }
+    e.wheel = null; e.wheelGap = e.wheelN < 2 ? 360 : 0;
+  }
+}
+// The Ravens' prototype can only be hit once the keep has fallen: it spools up and tries to take off.
+// Destroying it scores its bonus; either way the stage clears once it is destroyed or gone.
+let protoWatch = null;
+function protoEscape() {
+  const p = enemies.find(o => o.type === 'proto' && !o.dead); if (!p) return false;
+  p.untarget = false; p.escape = 1; protoWatch = p; sfx('spool');
+  for (const t of enemies) if (t.type === 'troop' && t.post === p) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; }
+  return true;
+}
+function checkProto() {
+  if (protoWatch && (protoWatch.dead || protoWatch.dying)) { runProto.dmg = protoWatch.dmg || 0; protoWatch = null; stageClear(); }
+  if (duelWatch && (duelWatch.e.dead || duelWatch.e.dying)) { const fn = duelWatch.done; duelWatch = null; later.push({ at: gf + 90, fn }); }
+}
+// ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
+let runProto = { dmg: 0 }, duelWatch = null;
+const protoLvl = () => Math.min(3, Math.floor(runProto.dmg / (18 * hpm())));
+function spawnProtoFly() { enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, hw: 40, hh: 30, score: 0 })); later.push({ at: gf + 20, fn: boostOutSfx }); }
+function spawnProtoDuel(done) {
+  const base = 100 * hpm(), hp = Math.max(base * 0.5, base - runProto.dmg * 0.45);
+  const e = E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, hw: 38, hh: 24, score: 20000, rad: 40, untarget: true });
+  enemies.push(e); duelWatch = { e, done }; sfx('flyin');
+}
+function drawProtoPlane(e, rot, sc, flames) {
+  const P = SPR.proto, lvl = protoLvl(), w = P.w * sc, h = P.h * sc;
+  ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y));
+  ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(16, 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
+  ctx.rotate(rot); ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -w / 2, -h / 2, w, h);
+  for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
+  if (flames) for (const ex of [-30, -14, 14]) { const fl = 4 + ((gf >> 1) & 1) * 3; ctx.fillStyle = '#ff7a3a'; ctx.fillRect(ex * sc - 1, -h / 2 - fl + 2, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(ex * sc, -h / 2 - fl + 4, 1, fl - 2); }
+  ctx.restore();
 }
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
     if (!e.rvInit) ravenInit(e);
     const gateY = e.gateWy + sc;
-    if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.1; }
+    // pace of the approach: brisk through the outer yard, fast through the inner ward, then easing into the keep yard
+    if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.5; }
+    if (e.breach && !e.halt && !e.keepYard && e.gateWy - 911 + sc > H * 0.3) { e.keepYard = true; scrollTarget = SCROLL * 1.4; }
     if (e.stage1 && !e.halt && e.y >= 150 + BY) { e.halt = true; scrollTarget = 0; }
-    if (e.stage1 && !e.dying && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
-    if (e.stage1 && (e.patT = (e.patT ?? 90) - 1) <= 0) {
+    if (!e.breach && e.gate2) {
+      if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; scrollTarget = 0; sfx('chain'); later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
+      else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); shake = Math.max(shake, 8); } if (!e.keepYard) scrollTarget = SCROLL * 2; }
+    }
+    if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
+    for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
+      q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
+      for (let i = 0; i < n; i++) { const row = i % 2, rank = i >> 1, wx = q.k === 'down' ? 106 + row * 12 : (q.d > 0 ? 28 - rank * 8 : W - 28 + rank * 8), wy = q.k === 'down' ? wy0 - rank * 8 : wy0 + row * 8;
+        enemies.push(G('troop', wx, wy, { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: 0, scared: 0, drill: drill.slice(), keep: true })); }
+    }
+    if (e.stage1 && !e.wheel && (e.patT = (e.patT ?? 90) - 1) <= 0) {
       e.patT = 150; const live = e.hatches.filter(h => !h.dead && h.st === 'down' && h.y > 16 && h.y < H - 70);
       const pat = (e.patN = (e.patN || 0) + 1) % 5;
       const pick = h => pat === 0 ? h.row === 0 : pat === 1 ? h.row === 1 : pat === 2 ? h.row === 2 : pat === 3 ? (h.row + h.col) % 2 === 0 : h.row === h.col % 3;
       let n = 0; for (const h of live) if (pick(h)) { h.st = 'rise'; h.stT = 18; n++; } if (n) sfx('clunk');
     }
-    if (e.halt) e.mt++;
+    if (e.halt) { e.mt++; castleWheel(e); }
     return e.halt;
   },
   skyfort(e) {
@@ -4477,15 +4920,22 @@ const BOSSMOVE = {
     }
     if (e.phase === 'lift') {
       e.pt++; const f = Math.min(1, e.pt / 150), ez = f * f * (3 - 2 * f);
-      e.scale = 0.72 + 0.28 * ez; e.y = e.y0 + (110 - e.y0) * ez;
+      e.scale = 0.72 + 0.28 * ez; e.y = e.y0 + (110 + BY - e.y0) * ez; // lift to exactly where the fight starts, so it doesn't jump on tall screens
       shake = Math.max(shake, 3 * (1 - f));
       if (gf % 2 === 0) for (let i = 0; i < 2; i++) parts.push({ kind: 'dust', layer: 'w', x: e.x + rnd(-100, 100), y: e.y + rnd(-50, 70), vx: rnd(-1.5, 1.5), vy: rnd(-0.6, 0.6), life: 40, max: 40, r: rnd(3, 6) });
       if (f >= 1) { e.phase = 'fight'; e.untarget = false; e.scale = 1; scrollTarget = SCROLL; }
       return false;
     }
-    e.mt++;
+    if (!e.fl) e.mt++; // it holds still while the fire laser charges and fires
     const ea = e.parts.filter(p => p.k === 'engine' && !p.dead).length, sp = ea === 0 ? 2 : 1;
-    e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4); e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
+    // every dead engine tips the fortress toward that side and costs it a little height; with none left it levels out but sags and wallows
+    let lean = 0; for (const p of e.parts) { if (p.box === undefined) { p.box = p.ox; p.boy = p.oy; } if (p.k === 'engine' && p.dead) lean += Math.sign(p.box) * (Math.abs(p.box) > 50 ? 0.075 : 0.05); }
+    if (ea === 0) lean = Math.sin(e.mt * 0.02) * 0.035;
+    e.tilt = (e.tilt || 0) + (lean - (e.tilt || 0)) * 0.012;
+    e.sag = (e.sag || 1) + ((1 - 0.016 * (4 - ea) - (ea === 0 ? 0.02 : 0)) - (e.sag || 1)) * 0.01;
+    { const c = Math.cos(e.tilt), s = Math.sin(e.tilt); for (const p of e.parts) { p.ox = (p.box * c - p.boy * s) * e.sag; p.oy = (p.box * s + p.boy * c) * e.sag; } }
+    e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4) + e.tilt * 70; e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
+    skyLaser(e, ea);
     for (const p of e.parts) if (p.k === 'engine' && p.dead && gf % 3 === 0) { smokePuff(e.x + p.ox, e.y + p.oy - 10, 'a'); if (Math.random() < 0.4) parts.push({ kind: 'fire', layer: 'a', x: e.x + p.ox + rnd(-2, 2), y: e.y + p.oy - 6, vx: 0, vy: -0.3, r: rnd(2, 3.5), life: 14, max: 14 }); }
     return true;
   },
@@ -4519,22 +4969,33 @@ const BOSSMOVE = {
     if (A.ready && !e.trains[1].on) { e.waitT = (e.waitT || 0) + 1; if (e.waitT > 1500) yardActivate(e, 1); }
     if (e.joinT > 0 && --e.joinT === 0) yardActivate(e, 1);
     for (const t of e.trains) if (t.on) yardMove(e, t);
-    for (const p of e.parts) { const t = e.trains[p.tr]; p.ox = yardX(t, t.y + p.ly) + p.lx - e.x; p.oy = t.y + p.ly - e.y; }
+    for (const p of e.parts) {
+      // guns sit on their car and swing with it through a crossover
+      const t = e.trains[p.tr], vc = YARD_CARS.map(o => t.flip ? -146 - o : o).reduce((b, o) => Math.abs(o - p.ly) < Math.abs(b - p.ly) ? o : b), P = yardPose(t, t.y + vc), d = p.ly - vc, c = Math.cos(P.a), sn = Math.sin(P.a);
+      p.ox = P.x + p.lx * c - d * sn - e.x; p.oy = t.y + vc + p.lx * sn + d * c - e.y;
+    }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
+    if (A.ready) wolfPack(e);
+    // during the fight, shots fly over the crate stacks and sheds on the platforms beside the boss tracks (they soaked up most shots)
+    if (gf % 20 === 0) for (const o of enemies) if ((o.type === 'crate' || o.type === 'drums' || (o.type === 'bldg' && o.bk === 'shed')) && !o.untarget) o.untarget = true;
     return A.ready;
   },
   fortress(e) {
-    if (gf % 4 === 0) for (const sx of [-40, 40]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 56, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 });
-    if (gf % 5 === 0) for (const sx of [-16, 16]) smokePuff(e.x + sx + rnd(-1, 1), e.y - 30);
+    // the core can't be finished off before the last stand has started
+    if (!e.last) { const c = e.parts.find(p => p.k === 'core'); if (c && !c.dead && c.hp < c.maxhp * 0.2) c.hp = c.maxhp * 0.2; }
+    if (e.mt > 0 && sandstorm(e)) return true;
+    const hc = Math.cos(e.hd || 0), hs = Math.sin(e.hd || 0), rot = (ox, oy) => [ox * hc - oy * hs, ox * hs + oy * hc];
+    if (gf % 4 === 0 && e.moving) for (const sx of [-40, 40]) { const [dx, dy] = rot(sx, -56); parts.push({ kind: 'dust', layer: 'w', x: e.x + dx + rnd(-4, 4), y: e.y + dy, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 }); }
+    if (gf % 5 === 0) for (const sx of [-16, 16]) { const [dx, dy] = rot(sx, -30); smokePuff(e.x + dx + rnd(-1, 1), e.y + dy); }
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
-      if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const col = treadCol(wx5 + sx, wy5 + 50); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + sx, wy: wy5 + 48 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
-    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; return false; }
-    e.mt++; e.x = 112 + Math.sin(e.mt * 0.006) * 40; e.y = 110 + BY + Math.sin(e.mt * 0.011) * 14;
+      if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const [dx, dy] = rot(sx, 50); const col = treadCol(wx5 + dx, wy5 + dy); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + dx, wy: wy5 + dy - 2 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
+    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; e.moving = true; return false; }
+    e.mt++; tankDrive(e);
     return true;
   },
   railgun(e) {
     if (e.mt === 0 && e.y < 100 + BY) { e.y += 0.5; return false; }
-    e.mt++; e.y = 100 + BY + Math.sin(e.mt * 0.006) * 16;
+    e.mt++; e.recoil = (e.recoil || 0) * 0.975; e.y = 100 + BY + Math.sin(e.mt * 0.006) * 16 + e.recoil; // recoil throws it back up the rails, then it rolls forward again
     return true;
   }
 };
@@ -4605,6 +5066,24 @@ const AI = {
     e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (gf % 2 === 0) parts.push({ kind: 'smoke', layer: 'a', x: e.x - Math.cos(e.h) * 16, y: e.y - Math.sin(e.h) * 16, vx: rnd(-0.1, 0.1), vy: rnd(-0.1, 0.1), r: rnd(1.5, 2.5), life: 26, max: 26 });
     if (e.life <= 0 || e.x < -20 || e.x > W + 20 || e.y < -40 || e.y > H + 20) { if (e.life <= 0) { boom(e.x, e.y, 14, 'a'); if (e.y > 0 && e.y < H) sfx('gboom'); } e.dead = true; }
+  },
+  // a star shell: streaks up to its burst point, pops, then hangs under a parachute drifting down and lighting a circle
+  flare(e) {
+    e.ft++;
+    if (e.ft <= 40) { const f = e.ft / 40; e.x = e.sx + (e.tx - e.sx) * f; e.y = e.sy + (e.ty - e.sy) * f - Math.sin(f * PI) * 30; if (e.ft === 40) { sfx('tink'); flash(e.x, e.y, 6); } return; }
+    e.y += 0.12; e.x += Math.sin(e.ft * 0.03) * 0.15; e.life--;
+    e.r = Math.min(46, (e.ft - 40) * 3) * Math.min(1, e.life / 40);
+    if (e.life <= 0) { e.dead = true; return; }
+    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!e.lit) e.caught = 30; } e.lit = true; } else e.lit = false;
+    if (e.caught > 0) e.caught--;
+  },
+  // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
+  rdrone(e) {
+    const tx = player.dead ? e.x : player.x, ty = player.dead ? H * 0.5 : player.y - 90;
+    const want = e.t < 28 ? (e.side > 0 ? 0.3 : PI - 0.3) : e.t < 72 ? Math.atan2(ty - e.y, tx - e.x) : PI / 2 + e.side * 0.45;
+    e.h += clamp(angDiff(e.h, want), -0.07, 0.07);
+    const sp = e.t < 28 ? 1.5 : 2.1; e.x += Math.cos(e.h) * sp; e.y += Math.sin(e.h) * sp;
+    if (e.t === 72 && !player.dead && e.y < player.y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
   },
   pod(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; },
   wing(e) {
@@ -4709,6 +5188,8 @@ const AI = {
     if (e.post) { if (e.post.dead || e.post.turDead) { e.post = null; e.scared = 100; e.hd = Math.random() * TAU; } else { groundPos(e); return; } }
     if (e.march && !e.scared) { e.wy += e.v; e.wx = roadX(e.wy) + e.lane; e.hd = PI / 2; groundPos(e); return; }
     if (e.march && e.scared) e.march = false;
+    if (e.drill && !e.scared) { e.wx += e.drill[0]; e.wy += e.drill[1]; e.hd = Math.atan2(e.drill[1], e.drill[0]); groundPos(e); if ((e.drill[0] > 0 && e.wx > W - 24) || (e.drill[0] < 0 && e.wx < 24)) e.dead = true; return; } // they march out through the far wall
+    if (e.drill && e.scared) e.drill = null;
     if (e.ff && !e.scared) {
       if (!e.fire || (e.fire.fireT !== undefined ? e.fire.fireT <= 0 : (e.fire.dead || e.fire.out))) {
         e.fire = null; let bd = 85 * 85;
@@ -4815,6 +5296,31 @@ const AI = {
     if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && !player.dead) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) enemies.push(G('acar', e.wx + dx, e.wy + 14, { hp: 4 * hpm(), hw: 5, hh: 9, score: 700, rad: 9, v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
   },
+  protoFly(e) {
+    e.v = Math.min(4.2, (e.v || 1.6) + 0.03); e.y -= e.v; e.x += 0.35;
+    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex * 1.15, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
+    if (e.y < -110) e.dead = true;
+  },
+  protoDuel(e) {
+    if (e.dying) return dyingTick(e);
+    e.t2 = (e.t2 || 0) + 1;
+    if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
+    if (e.t2 > 1320 || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // breaks off and escapes
+    const k = e.t2 - 110; e.x = 112 + Math.sin(k * 0.013) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16;
+    if (player.dead) return;
+    if (k % Math.round(46 * fireSlow()) === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
+    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y - 30, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
+  },
+  proto(e) {
+    if (!e.escape) { groundPos(e); return; }
+    e.escape++;
+    if (e.escape === 90) boostOutSfx();
+    if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const ex of [-30, -14, 14]) smokePuff(e.x + ex, e.y + 30); return; }
+    e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
+    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
+    if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
+    if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
+  },
   bldg(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } },
   camo(e) {
     groundPos(e); e.untarget = true;
@@ -4881,16 +5387,15 @@ const AI = {
     if (e.kind === 'ship') core.armored = e.parts.some(p => p.k === 'main' && !p.dead);
     const others = e.parts.filter(p => p.k !== 'core' && p.k !== 'light' && !p.dead).length;
     if (e.spot > 0) e.spot--;
-    if (e.kind === 'railgun') railLock(e, core);
+    if (e.kind === 'railgun') { railLock(e, core); starShells(e, core); }
     for (const p of e.parts) {
       const px = e.x + p.ox, py = e.y + p.oy;
       if (p.hit > 0) p.hit--;
       if (p.off) continue;
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
-        p.ang = PI / 2 + Math.sin(e.mt * 0.02 + p.ox) * 0.8;
-        const lit = !player.dead && inBeam(px, py, p.ang, beamLen(py), 0.16, player.x, player.y);
-        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the beam flashes dark red the moment it catches the player
+        const lit = (e.lightT === undefined || e.lightT > (p.ox < 0 ? 1 : 25)) && searchSpot(e, p, px, py);
+        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the light flashes dark red the moment it catches the player
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
@@ -4901,8 +5406,10 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
+      if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
+      if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
+      if (e.kind === 'train' && (py < 6 || py > H - 30 || e.trains.some(t => t.pack))) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
       if (--p.cd > 0) continue;
       const mz = (L) => [px + Math.cos(p.ang) * L, py + Math.sin(p.ang) * L];
@@ -4927,14 +5434,16 @@ const AI = {
         smokePuff(px, py); sfx('rocket');
       } else if (p.k === 'engine') { p.cd = 999;
       } else if (p.k === 'bay') {
-        p.cd = Math.round((Math.max(110, 150 - loop * 15)) * fireSlow());
-        for (const o of [-26, 0, 26]) mortarShot(px, py, o); sfx('rocket');
+        // the hangar launches a pair of Raven drones every 5.5 seconds, never more than four in the air
+        p.cd = Math.round((Math.max(270, 330 - loop * 30)) * fireSlow());
+        if (count('rdrone') <= 2) { for (const sd of [-1, 1]) enemies.push(E('rdrone', { x: px + sd * 5, y: py + 2, h: PI / 2, side: sd, hp: 3 * hpm(), hw: 5, hh: 5, score: 200 })); flash(px, py + 4, 4); sfx('clunk'); }
       } else if (p.k === 'mortar') {
         p.cd = Math.round((Math.max(120, 170 - loop * 15)) * fireSlow());
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
       } else if (p.k === 'core') {
         if (e.kind === 'ship') {
-          if (!core.armored) { p.cd = Math.round((6) * fireSlow()); e.spin += 0.27; for (let i = 0; i < 3; i++) eshot(px, py, e.spin + i * TAU / 3, sp * 0.85); if (e.mt % 96 < 6) ring(px, py, 18 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
+          // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
+          if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
           else p.cd = Math.round((30) * fireSlow());
         } else if (e.kind === 'train') {
           const angry = others <= 2 || p.hp < p.maxhp * 0.5;
@@ -4943,6 +5452,10 @@ const AI = {
           if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
           const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
           smokePuff(sx, sy); sfx('cannon');
+        } else if (e.kind === 'fortress' && e.last) {
+          p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
+          eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
+          if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
         } else if (e.kind === 'fortress') {
           p.cd = Math.round((100) * fireSlow());
           const [bx, by] = mz(34);
@@ -4956,14 +5469,16 @@ const AI = {
         } else if (e.kind === 'skyfort') {
           const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
           if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
-          else if (ea >= 1) { p.cd = Math.round((6) * fireSlow()); e.spin += 0.29; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); if (e.mt % 80 < 6) { const a = aim(px, py); for (let k = -3; k <= 3; k++) eshot(px, py, a + k * 0.12, sp * 1.05, 'B'); } }
+          // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
+          else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
           else {
-            p.cd = Math.round(8 * fireSlow()); e.spin += 0.17;
+            p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
             eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
             e.fanT = (e.fanT || 0) + 1;
-            if (e.fanT % 18 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
+            if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
           }
         } else if (e.kind === 'railgun') {
+          if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); continue; }
           if (e.lock && !e.chargeT) p.cd = 1;
           else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
           else if (--e.chargeT <= 0) {
@@ -4972,7 +5487,6 @@ const AI = {
             eshot(bx, by, p.ang, 2.2, 'mega');
             flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
           } else p.cd = 1;
-          if (others === 0 && !e.chargeT && e.mt % 8 === 0) { e.spin += 0.31; eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8); }
         }
       }
     }
@@ -4998,7 +5512,7 @@ function arcTargets(x, y, reach, cone, skip, troops) {
   return best;
 }
 function arcHit(t, d) { if (t.e.type === 'troop') { for (let k = 0; k < 8; k++) parts.push({ kind: 'spark', layer: 'g', x: t.x + rnd(-3, 3), y: t.y + rnd(-4, 3), vx: rnd(-0.8, 0.8), vy: rnd(-1, 0.3), life: 12, max: 12, col: k % 2 ? '#a8e0ff' : '#ffffff' }); smokePuff(t.x, t.y - 2); }
-  if (t.part) damagePart(t.e, t.part, d * 1.25); else damage(t.e, d); stats.hits++; parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
+  d *= dmgK(); if (t.part) damagePart(t.e, t.part, d * 1.25); else damage(t.e, d); stats.hits++; parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
 function arcBolt(x0, y0, x1, y1, w) { const n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)), pts = [[x0, y0]]; for (let k = 1; k < n; k++) { const f = k / n, nx = -(y1 - y0), ny = x1 - x0, l = Math.hypot(nx, ny) || 1, o = rnd(-3.5, 3.5); pts.push([x0 + (x1 - x0) * f + nx / l * o, y0 + (y1 - y0) * f + ny / l * o]); } pts.push([x1, y1]); arcs.push({ pts, w, life: 5 }); }
 function fireArc(p, L) {
   const reach = H * [0, 0.5, 0.55, 0.6, 0.66][L], dmg = [0, 1.8, 2.0, 2.3, 2.6][L], jumps = [0, 0, 1, 1, 2][L], hop = [0, 0, 38, 46, 52][L], w = L >= 3 ? 2 : 1;
@@ -5021,8 +5535,7 @@ function drawArcs() {
   ctx.globalAlpha = 1;
 }
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
-function firing() {
-  const p = player;
+function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
   if (p.mcd > 0) p.mcd--;
   if (p.cd > 0) return;
@@ -5039,11 +5552,12 @@ function firing() {
   } else {
     p.cd = 7;
     pshot(p.x - 3, p.y - 8, up, 6, 1); pshot(p.x + 3, p.y - 8, up, 6, 1);
-    if (p.mcd <= 0) { chipPlay('missile');
+    if (p.mcd <= 0) { if (!two) chipPlay('missile');
       p.mcd = Math.max(16, 32 - L * 4);
       for (let i = 0; i < Math.min(L, 3); i++) { const side = i % 2 ? 1 : -1; shots.push({ x: p.x + side * 6, y: p.y, vx: side * (1.2 + i * 0.3), vy: -0.6, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 }); }
     }
   }
+  if (two) return;
   if (p.wpn === 'L') { if ((p.lanceN = (p.lanceN || 0) + 1) % 2 === 0) chipPlay('lance'); } else chipPlay('shot');
 }
 let laserHeat = 0, overheatT = 0;
@@ -5057,7 +5571,7 @@ function heatTick() {
 }
 function fireBeam(pw) {
   if (overheatT > 0) return;
-  beam = { t: 18, max: 18, w: 8 + 16 * pw, dmg: 0.9 + 2.0 * pw, pw, hit: false };
+  beam = { t: 18, max: 18, w: 8 + 16 * pw, dmg: (0.9 + 2.0 * pw) * dmgK(), pw, hit: false };
   stats.shots++; sfx('beam'); haptic(pw > 0.9 ? 'big' : 'gkill'); shake = Math.max(shake, 3 + pw * 4);
   laserHeat += 45;
   if (laserHeat >= 100) { overheatT = 300; laserHeat = 100; later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 14, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
@@ -5066,6 +5580,9 @@ function fireBeam(pw) {
 function updBeam() {
   if (!beam) return;
   if (--beam.t <= 0 || !player || player.dead) { beam = null; return; }
+  // locked in a beam clash with the Black Fortress: held at full strength and blocked at the meeting point
+  if (beam.clashK > 0) { beam.clashK--; beam.t = beam.max - 1; return; }
+  beam.clashY = undefined;
   const bx = player.x, half = beam.w / 2 * (0.6 + 0.4 * beam.t / beam.max), top = player.y - 14;
   for (const b of ebul) if (b.kind === 'mega' && !b.dead && Math.abs(b.x - bx) < half + 6 && b.y < top) { b.dead = true; for (let k = 0; k < 9; k++) { eshot(b.x, b.y, k * TAU / 9 + rnd(-0.08, 0.08), bspeed()); ebul[ebul.length - 1].shrapnel = true; } boom(b.x, b.y, 10, 'a'); flash(b.x, b.y, 8); sfx('boom'); }
   for (const b of ebul) if (b.kind !== 'mega' && !b.shrapnel && Math.abs(b.x - bx) < half + 2 && b.y < top) { b.dead = true; parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: -0.5, life: 8, max: 8, col: '#e8dcff' }); }
@@ -5082,12 +5599,13 @@ function drawBeam() {
   if (beam) {
     const f = beam.t / beam.max, w = beam.w * (0.6 + 0.4 * f), x = p.x, tip = p.y - 18, flare = p.y - 44;
     const tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - 1, tip); ctx.lineTo(x + 1, tip); ctx.lineTo(x + ww / 2, flare); ctx.lineTo(x - ww / 2, flare); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
-    ctx.globalAlpha = 0.5 * f + 0.2; ctx.fillStyle = '#8466dc'; ctx.fillRect(Math.round(x - w / 2 - 2), 0, Math.round(w + 4), Math.round(flare)); ctx.globalAlpha = 1;
+    const lim = Math.round(beam.clashY ?? 0); // a beam clash stops the column where the two beams meet
+    ctx.globalAlpha = 0.5 * f + 0.2; ctx.fillStyle = '#8466dc'; ctx.fillRect(Math.round(x - w / 2 - 2), lim, Math.round(w + 4), Math.round(flare) - lim); ctx.globalAlpha = 1;
     tri(w + 4, '#8466dc', 0.5 * f + 0.2); tri(w, '#4ccfae', 1);
-    ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(x - w / 2), 0, Math.round(w), Math.round(flare) + 1);
-    ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(x - w / 4), 0, Math.max(2, Math.round(w / 2)), Math.round(flare));
+    ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(x - w / 2), lim, Math.round(w), Math.round(flare) + 1 - lim);
+    ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(x - w / 4), lim, Math.max(2, Math.round(w / 2)), Math.round(flare) - lim);
     ctx.beginPath(); ctx.moveTo(x - 0.5, tip); ctx.lineTo(x + 0.5, tip); ctx.lineTo(x + w / 4, flare); ctx.lineTo(x - w / 4, flare); ctx.closePath(); ctx.fill();
-    for (let k = 0; k < 40; k++) { const yy = flare - 4 - k * 12 - ((gf * 4) % 12); if (yy < 0) break; const ph = ((k * 2 + gf) % 6 + 1) / 6, half = (w / 2 + 2) * ph; ctx.globalAlpha = (0.95 - 0.6 * ph) * f; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - half), Math.round(yy), Math.round(half * 2), 2); ctx.globalAlpha = 0.5 * (1 - ph) * f; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(Math.round(x - half - 2), Math.round(yy) - 1, Math.round(half * 2 + 4), 4); }
+    for (let k = 0; k < 40; k++) { const yy = flare - 4 - k * 12 - ((gf * 4) % 12); if (yy < lim) break; const ph = ((k * 2 + gf) % 6 + 1) / 6, half = (w / 2 + 2) * ph; ctx.globalAlpha = (0.95 - 0.6 * ph) * f; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - half), Math.round(yy), Math.round(half * 2), 2); ctx.globalAlpha = 0.5 * (1 - ph) * f; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(Math.round(x - half - 2), Math.round(yy) - 1, Math.round(half * 2 + 4), 4); }
     ctx.globalAlpha = 1; dk(x, tip + 1, 2.5, '#ffffff');
   }
   if (overheatT > 0) { const r = 4 + Math.sin(gf * 0.3) * 0.6; ctx.globalAlpha = 0.45; dk(p.x, p.y - 19, r + 3, '#e84030'); ctx.globalAlpha = 1; dk(p.x, p.y - 19, r, (gf >> 3) & 1 ? '#a82a26' : '#7a1a1a'); dk(p.x, p.y - 19, Math.max(0, r - 2), '#3a0e0e'); }
@@ -5143,7 +5661,7 @@ function updPlayer() {
   if (kd('arrowup', 'w')) dy--; if (kd('arrowdown', 's')) dy++;
   if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
   if (gpad) { dx += gpad.dx; dy += gpad.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } }
-  p.x += dx * 2.6; p.y += dy * 2.6;
+  p.x += dx * 2.6 + windX; p.y += dy * 2.6;
   p.x = clamp(p.x, 8, W - 8); p.y = clamp(p.y, 18, H - 14);
   const moved = Math.abs(p.x - p.lx) + Math.abs(p.y - (p.ly ?? p.y));
   if (moved < 0.5 && !results) {
@@ -5174,12 +5692,49 @@ function die() {
   p.lvl = Math.max(1, p.lvl - 1);
   if (lives === 0) gameOverPending = true; else lives--;
 }
+function updP2() {
+  const q = p2, p = player; if (!q || !p) return;
+  if (q.tagT > 0) q.tagT--;
+  if (p.fly > 0 || p.exitT > 0 || p.y < -40) { // fly-ins and stage exits: player 2 rides on player 1's wing
+    const k = p.flyK || 1; q.dead = 0; q.x = p.x + 30 * k; q.y = p.y + 8 * k; q.bank = p.bank; q.lx = q.x; q.inv = 150; q.tagT = Math.max(q.tagT, 120); return;
+  }
+  if (q.dead > 0) { if (--q.dead === 0) { q.x = clamp(p.x + 34, 12, W - 12); q.y = Math.round(H * 0.71) + 8; q.lx = q.x; q.inv = 150; q.tagT = 120; } return; }
+  if (q.inv > 0) q.inv--;
+  const mode = p2Mode();
+  if (mode === 'pad' && p2In) { let dx = p2In.dx, dy = p2In.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } q.x += dx * 2.6 + windX; q.y += dy * 2.6; }
+  else if (mode === 'mouse' && p2Mouse) { const vx = p2Mouse.x - q.x, vy = p2Mouse.y - q.y, d = Math.hypot(vx, vy); if (d > 0.5) { const sp = Math.min(d, 3); q.x += vx / d * sp; q.y += vy / d * sp; } }
+  q.x = clamp(q.x, 8, W - 8); q.y = clamp(q.y, 18, H - 14);
+  q.bank += ((q.x - q.lx) * 0.6 - q.bank) * 0.25; q.lx = q.x;
+  q.wpn = p.wpn; q.lvl = p.lvl;
+  firing(q, true);
+  if (q.inv > 0) return;
+  let hit = false;
+  for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - q.x) ** 2 + (b.y - q.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
+  if (!hit) for (const e of enemies) {
+    if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
+    if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
+  }
+  if (hit) { q.dead = 150; boom(q.x, q.y, 24); shake = Math.max(shake, 6); sfx('die'); }
+}
+function drawP2() {
+  const q = p2; if (!q || q.dead || state !== 'play' || !player) return;
+  const fl = 3 + ((gf >> 1) & 1) * 2;
+  for (const ox of [-6, 6]) { ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
+  spr(SPR.raven[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y);
+  if (q.inv > 0 && !results && (q.inv > 40 || (gf >> 2) & 1)) {
+    ctx.globalAlpha = 0.8; for (let i = 0; i < 7; i++) { const a = gf * 0.12 + i * TAU / 7; ctx.fillStyle = '#dde1e7'; ctx.fillRect(Math.round(q.x + Math.cos(a) * 20), Math.round(q.y + Math.sin(a) * 20), 1, 1); } ctx.globalAlpha = 1;
+  }
+  if (q.tagT > 0 && (q.tagT > 40 || (gf >> 2) & 1)) textS('2P', q.x, q.y - 26, '#dde1e7', 1, 'center', '#8c919b');
+  if (!results) { ctx.globalAlpha = 0.5; dk(q.x, q.y, 2.5, '#8c919b'); ctx.globalAlpha = 1; dk(q.x, q.y, 1, '#ffffff'); }
+}
 function bomb() {
   if (state !== 'play' || paused || !player || player.dead || bombs <= 0 || bombFx > 0) return;
   bombs--; stats.novas++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   ebul.length = 0;
+  // a Nova snuffs out the Black Fortress's fire laser, charging or firing
+  for (const e of enemies) if (e.fl) { e.fl = null; e.flT = 0; const c = e.parts.find(p => p.k === 'core'); if (c) for (let k = 0; k < 16; k++) { const a = k * TAU / 16; parts.push({ kind: 'spark', layer: 'a', x: e.x + c.ox, y: e.y + c.oy, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 18, max: 18, col: k & 1 ? '#bba4ff' : '#ff6a1a' }); } }
   for (const e of enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
     if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
@@ -5217,6 +5772,7 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; const add = Math.min(Math.round(d * 60), 15000 - (e.bonus || 0)); if (add > 0) { e.bonus = (e.bonus || 0) + add; score += add; if (score > hi) hi = score; checkExtend(); } if (Math.random() < 0.4) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { startCrash(e); return; }
@@ -5235,7 +5791,8 @@ const HARMLESS = new Set(['camo', 'radar', 'gen', 'boss', 'bridge', 'secret', 't
 const EXPLOSIVE = new Set(['fuel', 'shells', 'drums', 'ftruck']);
 function clearField() {
   quiet = true; let k = 0;
-  for (const o of enemies) if (!o.dead && !o.dying && !HARMLESS.has(o.type)) { const t = o; later.push({ at: gf + 6 + (k++) * 4, fn: () => { if (!t.dead && !t.dying) { if (t.crash) t.crash = false; kill(t); } } }); }
+  // the prototype is left out: it gets its own escape
+  for (const o of enemies) if (!o.dead && !o.dying && !HARMLESS.has(o.type) && o.type !== 'proto') { const t = o; later.push({ at: gf + 6 + (k++) * 4, fn: () => { if (!t.dead && !t.dying) { if (t.crash) t.crash = false; kill(t); } } }); }
 }
 function cancelBullets(x, y, r) {
   let n = 0;
@@ -5251,6 +5808,7 @@ function damagePart(e, p, d) {
   if (p.dead || e.dying) return;
   if (e.kind === 'castle' && p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return; }
   const px = e.x + p.ox, py = e.y + p.oy;
+  if (e.kind === 'skyfort' && p.k === 'core' && e.fl && e.fl.ph === 'charge') d *= 1.6; // the open orb is vulnerable while it charges
   p.hp -= d; p.hit = 3;
   if (p.hp <= 0) {
     p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
@@ -5262,7 +5820,7 @@ function damagePart(e, p, d) {
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
       score += e.score; checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = 220; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -5277,11 +5835,12 @@ function revealSecret(e) {
 const REVENGE = new Set(['tank', 'htank', 'heavy', 'bomber', 'destroyer', 'flak', 'aatower', 'acar', 'bunker', 'casemate', 'arty', 'popup', 'sub']);
 function revenge(x, y, n) { if (runDiff !== 2 || !player || player.dead || y < 0 || y > H) return; const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
 function kill(e) {
+  if (e.type === 'protoDuel') { for (let i = 0; i < 6; i++) later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big'); }
   if (REVENGE.has(e.type)) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
   if (e.type === 'missile') { boom(e.x, e.y, 14, 'a'); sfx('gboom'); }
   if (e.type === 'bldg') {
-    if (e.bk === 'barracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
-    if (e.bk === 'armoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
+    if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
+    if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
     if (e.bk === 'chapel') sfx('toll');
   }
   if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
@@ -5393,10 +5952,23 @@ function padTitle(nav) {
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
-  let gp = null; if (pads) for (const x of pads) if (x && x.connected) { gp = x; break; }
+  const cps = pads ? [...pads].filter(x => x && x.connected) : [];
+  // 2nd player on a controller: the second pad, or the only one (then player 1 flies with the keyboard)
+  p2In = null; let p2Pad = -1;
+  if (p2 && p2Mode() === 'pad' && cps.length) {
+    const g2 = cps[cps.length > 1 ? 1 : 0], b2 = i => !!(g2.buttons[i] && g2.buttons[i].pressed);
+    const ax = Math.abs(g2.axes[0] || 0) > 0.22 ? g2.axes[0] : 0, ay = Math.abs(g2.axes[1] || 0) > 0.22 ? g2.axes[1] : 0;
+    p2In = { dx: (b2(15) ? 1 : 0) - (b2(14) ? 1 : 0) || ax, dy: (b2(13) ? 1 : 0) - (b2(12) ? 1 : 0) || ay, start: b2(9) && !p2Prev[9] };
+    p2Prev[9] = b2(9); p2Pad = g2.index;
+  }
+  const own = state === 'play' && !paused && p2Pad >= 0, lent = p2Lent && !own; p2Lent = own; // menus and pauses use any pad
+  if (own && p2In.start) { togglePause(); return; }
+  let gp = null; for (const x of cps) if (!(own && x.index === p2Pad)) { gp = x; break; }
   if (!gp) { gpad = null; padIdx = -1; return; }
   padIdx = gp.index;
-  const btn = i => !!(gp.buttons[i] && gp.buttons[i].pressed), press = i => btn(i) && !padPrev[i];
+  const btn = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  if (lent) { for (const i of [0, 1, 2, 3, 4, 5, 9, 12, 13, 14, 15]) padPrev[i] = btn(i); padPrev.ay = padPrev.ax = true; } // buttons still held from flying player 2 are not presses
+  const press = i => btn(i) && !padPrev[i];
   const ax = Math.abs(gp.axes[0] || 0) > 0.22 ? gp.axes[0] : 0, ay = Math.abs(gp.axes[1] || 0) > 0.22 ? gp.axes[1] : 0;
   gpad = { dx: (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0) || ax, dy: (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0) || ay, a: press(0) || press(1), start: press(9), any: [0, 1, 2, 3, 9].some(press) };
   const nav = { up: press(12) || (ay < -0.6 && !padPrev.ay), down: press(13) || (ay > 0.6 && !padPrev.ay), left: press(14) || (ax < -0.6 && !padPrev.ax), right: press(15) || (ax > 0.6 && !padPrev.ax), a: press(0), b: press(1), x: press(2), start: press(9), lb: press(4), rb: press(5) };
@@ -5480,6 +6052,7 @@ function update() {
   if (state === 'play') {
     updPlayer(); updBeam();
     if (cont > 0) { cont--; if (cont % 60 === 59) { sfx('tick'); haptic('tick'); } if (cont === 0) gameOver(); else return; }
+    updP2();
   }
   if (state === 'title') return;
   const sc = Math.floor(scroll);
@@ -5559,12 +6132,24 @@ function update() {
   for (const e of enemies) if (!e.seenC && !NOCOUNT.has(e.type) && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
   for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); AI[e.type](e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); } }
 
+  updStorm(); checkProto();
   for (const b of ebul) {
+    if (windX && (b.kind === 's' || b.kind === 'B')) b.vx += windX * 0.012;
     b.x += b.vx; b.y += b.vy;
     if (b.kind === 'rocket') {
       if (b.life === undefined) b.life = 90;
       if (--b.life > 0 && !player.dead) { let a = Math.atan2(b.vy, b.vx); a += clamp(angDiff(a, aim(b.x, b.y)), -0.035, 0.035); const spd = Math.min(2.2, Math.hypot(b.vx, b.vy) + 0.01); b.vx = Math.cos(a) * spd; b.vy = Math.sin(a) * spd; b.a = a; }
       if (gf % 3 === 0) smokePuff(b.x, b.y, 'a');
+    }
+    if (b.kind === 'srocket') {
+      b.life--; let a = Math.atan2(b.vy, b.vx); a += clamp(angDiff(a, Math.atan2(b.ty - b.y, b.tx - b.x)), -0.05, 0.05);
+      const spd = Math.min(2.6, Math.hypot(b.vx, b.vy) + 0.035); b.vx = Math.cos(a) * spd; b.vy = Math.sin(a) * spd; b.a = a;
+      // a dark smoke trail that reads against the snow
+      parts.push({ kind: 'smoke', layer: 'a', x: b.x - b.vx * 2 + rnd(-0.6, 0.6), y: b.y - b.vy * 2 + rnd(-0.6, 0.6), vx: 0, vy: 0, r: rnd(2.4, 3.4), life: 44, max: 44 });
+      if (Math.hypot(b.tx - b.x, b.ty - b.y) < 6 || b.life <= 0) {
+        b.dead = true; parts.push({ kind: 'fire', layer: 'a', x: b.x, y: b.y, vx: 0, vy: 0, r: 5, life: 12, max: 12 }); for (let i = 0; i < 3; i++) smokePuff(b.x + rnd(-3, 3), b.y + rnd(-3, 3), 'a'); sfx('boom');
+        const off = Math.random() * TAU; for (let i = 0; i < 4; i++) { const a2 = off + i * TAU / 4; ebul.push({ x: b.x, y: b.y, vx: Math.cos(a2) * bspeed() * 0.7, vy: Math.sin(a2) * bspeed() * 0.7, r: 2, kind: 's', a: a2 }); }
+      }
     }
     if (b.kind === 'mortar') {
       b.life--; const f = 1 - b.life / b.max;
@@ -5573,6 +6158,12 @@ function update() {
         b.dead = true; boom(b.x, b.y, 18, 'a'); sfx('boom');
         if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die();
       }
+    }
+    if (b.hb && --b.fuse <= 0 && !b.dead) {
+      b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); shake = Math.max(shake, 8); sfx('bigboom');
+      // the gap is random; when the player was close it faces them, so a burst just ahead is never unavoidable
+      const gap = b.close && !player.dead ? Math.atan2(player.y - b.y, player.x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
+      for (let k = 0; k < n; k++) { const a = gap + (k + 0.5) * TAU / n; if (Math.abs(angDiff(a, gap)) < 0.42) continue; ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.9, vy: Math.sin(a) * bspeed() * 0.9, r: 3, kind: 'B', a, shrapnel: true }); }
     }
     if (b.kind === 'mega' && gf % 2 === 0) parts.push({ kind: 'fire', layer: 'a', x: b.x + rnd(-2, 2), y: b.y - 4, vx: 0, vy: -0.2, r: rnd(2, 3), life: 10, max: 10 });
     if (b.kind === 'flak' && --b.life <= 0) {
@@ -5614,13 +6205,13 @@ function update() {
       if (e.type === 'boss') {
         let hitPart = null;
         for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || (e.kind === 'castle' && p.k === 'core' && !e.open)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
-        if (hitPart) { s.dead = true; parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, s.dmg); stats.hits++; break; }
+        if (hitPart) { s.dead = true; parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, s.dmg * dmgK()); stats.hits++; break; }
         continue;
       }
       if (Math.abs(s.x - e.x) < e.hw + s.w / 2 && Math.abs(s.y - e.y) < e.hh + s.h / 2) {
         s.dead = true;
         parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' });
-        damage(e, s.dmg); stats.hits++;
+        damage(e, s.dmg * dmgK()); stats.hits++;
         break;
       }
     }
@@ -5663,7 +6254,7 @@ function update() {
       let hit = false;
       for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
       if (!hit) for (const e of enemies) {
-        if (e.ground || e.surface || e.dead || e.dying || e.crash) continue;
+        if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
         if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
       }
       if (hit) die();
@@ -5870,7 +6461,10 @@ function drawCanopy() {
 }
 function drawTreads() {
   const sc = Math.floor(scroll);
-  for (const t of treads) if (t.big) { const y = t.wy + sc; if (y < -8 || y > H + 8) continue; ctx.globalAlpha = Math.min(1, t.life / 600) * 0.6; ctx.fillStyle = '#4a3418'; ctx.fillRect(Math.round(t.wx - 8), Math.round(y), 16, 2); if (t.cleat) { ctx.fillStyle = '#2e2010'; for (let i = -7; i < 8; i += 3) ctx.fillRect(Math.round(t.wx + i), Math.round(y), 2, 2); } }
+  // big boss tracks: a track print pressed into the ground, two edge lines with evenly spaced grip bars
+  for (const t of treads) if (t.big) { const y = t.wy + sc; if (y < -8 || y > H + 8) continue; const f = Math.min(1, t.life / 600), x = Math.round(t.wx), yy = Math.round(y);
+    ctx.fillStyle = t.dk || (t.dk = (([r, g, b]) => `rgb(${r * 0.62 | 0},${g * 0.62 | 0},${b * 0.62 | 0})`)(hexRGB(t.col))); ctx.globalAlpha = f * 0.5; ctx.fillRect(x - 8, yy, 1, 2); ctx.fillRect(x + 7, yy, 1, 2);
+    if ((Math.round(t.wy) & 3) === 0) { ctx.globalAlpha = f * 0.4; ctx.fillRect(x - 6, yy, 5, 1); ctx.fillRect(x + 1, yy, 5, 1); } }
   ctx.globalAlpha = 1;
   if (lowFX) return;
   let la = -1, lc = '';
@@ -5888,7 +6482,7 @@ function drawRaven() {
   const top = ravenGate - RV_GATE + Math.floor(scroll);
   if (top > H) { ravenGate = null; return; }
   const y0 = Math.max(0, -top), y1 = Math.min(RV_H, H - top);
-  if (y1 > y0) ctx.drawImage(SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0);
+  if (y1 > y0) { ctx.drawImage(SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
 }
 function drawMarkers() {
   const sc = Math.floor(scroll);
@@ -5997,6 +6591,21 @@ function prop(x, y, h, len = 4) {
   ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.75)' : 'rgba(160,160,150,0.6)';
   for (let i = -len; i <= len; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(nx + px * i), Math.round(ny + py * i), 1, 1);
 }
+function drawProto(e) {
+  const P = SPR.proto, x0 = Math.round(e.x - P.w / 2), y0 = Math.round(e.y - P.h / 2);
+  const lvl = Math.min(3, Math.floor((e.dmg || 0) / (18 * hpm())));
+  ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI);
+  ctx.globalAlpha = 0.3; ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -Math.round(P.w / 2) - 4, -Math.round(P.h / 2) - 6); ctx.globalAlpha = 1;
+  ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -Math.round(P.w / 2), -Math.round(P.h / 2));
+  // scorch marks, more with every damage level
+  for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * P.w * 0.7), Math.round((hash(k, 9) - 0.5) * P.h * 0.5), 4 + (k % 3), 3); }
+  ctx.restore();
+  if (lvl >= 1 && gf % (lvl >= 2 ? 3 : 6) === 0) smokePuff(e.x + (lvl >= 3 ? -14 : 14), e.y + 4, 'a');
+  if (lvl >= 2 && (gf >> 2) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x) + 12, Math.round(e.y) + 2, 4, 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) + 2, 2, 2); }
+  if (e.escape > 50) for (const ex of [-30, -14, 14, 30]) { if (ex === 30) continue; const fl = 3 + ((gf >> 1) & 1) * 2 + Math.min(6, (e.escape - 50) / 20); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x + ex) - 1, y0 + P.h - 6, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x + ex), y0 + P.h - 6, 1, fl - 2); }
+  if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
+  if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
+}
 function drawGroundEnemy(e) {
   const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
   switch (e.type) {
@@ -6038,6 +6647,7 @@ function drawGroundEnemy(e) {
     }
     case 'cgate': spr(SPR.cgate, e.x, e.y, fl); break;
     case 'bldg': spr(SPR.bldg[e.bk], e.x, e.y, fl); break;
+    case 'proto': drawProto(e); break;
     case 'camo': { const wob = e.warn && (gf >> 2) & 1 ? 1 : 0, s2 = e.cv === 'hay' ? SPR.hay : e.cv === 'bush' ? SPR.bush : SPR.net; spr(s2, e.x + wob, e.y, fl); if (e.warn && gf % 9 === 0) parts.push({ kind: 'spark', layer: 'g', x: e.x + rnd(-8, 8), y: e.y - 6, vx: rnd(-0.3, 0.3), vy: -0.3 + scrollV, life: 12, max: 12, col: e.cv === 'hay' ? '#f0dc98' : e.cv === 'bush' ? '#58903a' : '#6a5a38' }); break; }
     case 'radar': { spr(SPR.radarBase, e.x, e.y, fl); spr(SPR.dish[dirIdx(e.rot)], e.x, e.y, fl); break; }
     case 'gen': { spr(SPR.gen, e.x, e.y, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x) + 8, Math.round(e.y) - 6, 1, 1); } const sc7 = Math.floor(scroll); ctx.strokeStyle = 'rgba(20,20,24,0.7)'; ctx.lineWidth = 1; for (const o of enemies) if (o.type === 'search' && o.gen === e && !o.dead) { ctx.beginPath(); ctx.moveTo(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5); ctx.lineTo(Math.round(o.x) + 0.5, Math.round(o.y) + 0.5); ctx.stroke(); } break; }
@@ -6126,28 +6736,62 @@ function coreGlow(px, py, hit, dim) {
   const pulse = 4 + ((gf >> 3) & 1);
   dk(px, py - 1, pulse + 1, '#120e1a'); dk(px, py - 1, pulse, hit ? '#ffffff' : dim ? '#a82a26' : '#d84a34'); dk(px - 1, py - 2, pulse - 2, dim ? '#f48a60' : '#fff0a0');
 }
+function skyHalf(e, sd) { const t = e.split || 0; return { dx: sd * (t * 0.15 + t * t * 0.0006), dy: t * 0.08 + t * t * 0.0004, rot: sd * t * t * 0.00003, sc: 1 - 0.5 * Math.pow(Math.min(1, t / 230), 1.5) }; }
+// the Black Fortress hull, drawn in its own (tilted, scaled) frame: parts use their unrotated offsets here
+function drawSkyBody(e, fl, core) {
+  const alt = ((e.scale || 1) - 0.72) / 0.28;
+  for (const p of e.parts) if (p.box !== undefined) { p.rx = p.ox; p.ry = p.oy; p.ox = p.box; p.oy = p.boy; }
+  shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt);
+  spr(SPR.skyfort, e.x, e.y, fl);
+  for (const p of e.parts) if (p.k === 'engine' && !p.dead) { ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gf * 0.5 + p.ox); dk(e.x + p.ox, e.y + p.oy - 17, 3, '#ff6a3a'); ctx.globalAlpha = 1; }
+  if ((gf >> 4) & 1) { dk(e.x - 100, e.y + 2, 1, '#ff3a2a'); dk(e.x + 100, e.y + 2, 1, '#ff3a2a'); dk(e.x, e.y - 70, 1, '#ff3a2a'); }
+  const eye = 0.6 + 0.4 * Math.sin(gf * 0.12); ctx.globalAlpha = 0.35 * eye; dk(e.x, e.y + 56, 9, '#8466dc'); ctx.globalAlpha = 1;
+  drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
+  for (const p of e.parts) {
+    const px = e.x + p.ox, py = e.y + p.oy;
+    if (p.k === 'engine' && !p.dead) {
+      if (p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; dk(px, py, 7, '#ffffff'); ctx.globalAlpha = 1; }
+      const fy = py + (Math.abs(p.ox) > 50 ? 18 : 16);
+      ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.8)' : 'rgba(150,150,140,0.6)';
+      for (let i = -9; i <= 9; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(px + i), Math.round(fy + Math.sin(gf * 0.9 + i) * 0.6), 1, 1);
+    }
+    if (p.k === 'bay' && !p.dead && p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px - 12), Math.round(py - 8), 24, 16); ctx.globalAlpha = 1; }
+  }
+  if (!core.dead) alienCore(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.fl ? 0 : e.fl.ph === 'charge' ? e.fl.t / FL_CHARGE : 1);
+  for (const p of e.parts) if (p.box !== undefined) { p.ox = p.rx; p.oy = p.ry; }
+}
 function drawBoss(e) {
-  const fl = e.dying && (gf >> 2) & 1;
-  if (e.dying) ctx.globalAlpha = clamp(e.dying / 120, 0.35, 1);
+  const fl = e.dying && e.split === undefined && (gf >> 2) & 1;
+  if (e.dying) ctx.globalAlpha = e.split !== undefined ? clamp(e.dying / 50, 0.6, 1) : clamp(e.dying / 120, 0.35, 1);
   const core = e.parts.find(p => p.k === 'core');
   if (e.kind === 'ship') {
-    spr(SPR.bship, e.x, e.y, fl);
-    if (e.crew && !e.dying) for (const c of e.crew) spr(SPR.sailor[Math.abs(c.v) + Math.abs(c.vx) > 0.02 ? (gf >> (e.panicT > 0 ? 2 : 3)) & 1 : 2], e.x + c.ox, e.y + c.oy);
+    { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
+      spr(SPR.bship, e.x, e.y, fl);
+      if (e.crew && !e.dying) for (const c of e.crew) spr(SPR.sailor[Math.abs(c.v) + Math.abs(c.vx) > 0.02 ? (gf >> (e.panicT > 0 ? 2 : 3)) & 1 : 2], e.x + c.ox, e.y + c.oy);
+      if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
     if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, core.armored);
   } else if (e.kind === 'train') {
     for (const t of (e.trains || [])) {
       if (!t.on) continue;
       if (t.dead) ctx.globalAlpha = 0.65;
-      for (const oy of [-146, -98, -50]) { const cx = yardX(t, t.y + oy); ctx.fillStyle = '#141416'; ctx.fillRect(Math.round(cx) - 2, Math.round(t.y + oy + 21), 4, 6); spr(SPR.bCar, cx, t.y + oy, fl); }
-      const lx = yardX(t, t.y); spr(SPR.bLoco, lx, t.y, fl);
-      if (!t.dead) { const gl = 0.6 + 0.4 * Math.sin(gf * 0.15); ctx.globalAlpha = 0.35 * gl; dk(lx, t.y + 14, 8, '#4ab0f0'); ctx.globalAlpha = 1; ctx.fillStyle = gl > 0.7 ? '#c8f0ff' : '#4ab0f0'; ctx.fillRect(Math.round(lx) - 6, Math.round(t.y) + 13, 13, 1); }
+      const fd = t.flip ? -1 : 1, ly0 = t.flip ? t.y - 146 : t.y; // a flipped train has its locomotive at the top, facing up
+      const veh = (s2, y, flipV) => { const P = yardPose(t, y); if (!flipV && Math.abs(P.a) < 0.01) { spr(s2, P.x, y, fl); return P.x; } ctx.save(); ctx.translate(Math.round(P.x), Math.round(y)); ctx.rotate(P.a + (flipV ? PI : 0)); spr(s2, 0, 0, fl); ctx.restore(); return P.x; };
+      for (const oy of [-146, -98, -50]) { const yy = t.flip ? t.y - 146 - oy : t.y + oy, cy2 = yy + (t.flip ? -24 : 24); ctx.fillStyle = '#141416'; ctx.fillRect(Math.round(yardX(t, cy2)) - 2, Math.round(cy2 - 3), 4, 6); veh(SPR.bCar, yy, false); }
+      const lx = veh(SPR.bLoco, ly0, !!t.flip);
+      if (!t.dead) { const gl = 0.6 + 0.4 * Math.sin(gf * 0.15); ctx.globalAlpha = 0.35 * gl; dk(lx, ly0 + 14 * fd, 8, '#4ab0f0'); ctx.globalAlpha = 1; ctx.fillStyle = gl > 0.7 ? '#c8f0ff' : '#4ab0f0'; ctx.fillRect(Math.round(lx) - 6, Math.round(ly0) + (t.flip ? -14 : 13), 13, 1); }
       ctx.globalAlpha = e.dying ? clamp(e.dying / 120, 0.35, 1) : 1;
     }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, rocket: SPR.rocketPod });
+    // Wolf Pack: the rocket rack rises with six red-tipped rockets, emptying one by one
+    (e.trains || []).forEach((t, ti) => { const P = t.pack, rk = P && e.parts.find(q => q.tr === ti && q.k === 'rocket'); if (!rk || rk.dead) return;
+      const x = Math.round(e.x + rk.ox), f = Math.min(1, P.t / 30), y = Math.round(e.y + rk.oy - 6 * f);
+      ctx.fillStyle = '#120e1a'; ctx.fillRect(x - 9, y - 7, 18, 14); ctx.fillStyle = (gf >> 3) & 1 ? '#f4d050' : '#d0a020'; ctx.fillRect(x - 8, y - 6, 16, 12); ctx.fillStyle = '#4d535a'; ctx.fillRect(x - 7, y - 5, 14, 10);
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = i >= P.n ? ((gf >> 3) & 1 ? '#ff5a3a' : '#d84a34') : '#1d2024'; ctx.fillRect(x - 6 + (i % 3) * 5, y - 4 + ((i / 3) | 0) * 5, 3, 3); } });
     for (const q of e.parts) if (q.k === 'core' && !q.dead && !q.off) coreGlow(e.x + q.ox, e.y + q.oy, q.hit > 0, false);
   } else if (e.kind === 'fortress') {
-    spr(SPR.fortHull[e.mt > 0 || e.y < 110 + BY ? (gf >> 3) & 1 : 0], e.x, e.y, fl);
+    { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
+      spr(SPR.fortHull[e.moving ? (gf >> 3) & 1 : 0], e.x, e.y, fl); if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.dGun, aa: SPR.bAA, mortar: SPR.mortar, core: SPR.fortTur });
   } else if (e.kind === 'castle') {
     if (e.y > -140 && e.y < H + 60) {
@@ -6158,29 +6802,22 @@ function drawBoss(e) {
       if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.open);
     }
   } else if (e.kind === 'skyfort') {
-    const sc2 = e.scale || 1, alt = (sc2 - 0.72) / 0.28;
-    ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc2, sc2); ctx.translate(-e.x, -e.y);
-    shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt);
-    spr(SPR.skyfort, e.x, e.y, fl);
-    for (const p of e.parts) if (p.k === 'engine' && !p.dead) { ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gf * 0.5 + p.ox); dk(e.x + p.ox, e.y + p.oy - 17, 3, '#ff6a3a'); ctx.globalAlpha = 1; }
-    if ((gf >> 4) & 1) { dk(e.x - 100, e.y + 2, 1, '#ff3a2a'); dk(e.x + 100, e.y + 2, 1, '#ff3a2a'); dk(e.x, e.y - 70, 1, '#ff3a2a'); }
-    const eye = 0.6 + 0.4 * Math.sin(gf * 0.12); ctx.globalAlpha = 0.35 * eye; dk(e.x, e.y + 56, 8, '#ff3a2a'); ctx.globalAlpha = 1;
-    drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
-    for (const p of e.parts) {
-      const px = e.x + p.ox, py = e.y + p.oy;
-      if (p.k === 'engine' && !p.dead) {
-        if (p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; dk(px, py, 7, '#ffffff'); ctx.globalAlpha = 1; }
-        const fy = py + (Math.abs(p.ox) > 50 ? 18 : 16);
-        ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.8)' : 'rgba(150,150,140,0.6)';
-        for (let i = -9; i <= 9; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(px + i), Math.round(fy + Math.sin(gf * 0.9 + i) * 0.6), 1, 1);
-      }
-      if (p.k === 'bay' && !p.dead && p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px - 12), Math.round(py - 8), 24, 16); ctx.globalAlpha = 1; }
+    const sc2 = (e.scale || 1) * (e.sag || 1);
+    if (e.split === undefined) { ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.tilt || 0); ctx.scale(sc2, sc2); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore(); }
+    else for (const sd of [-1, 1]) {
+      // the breakup: the hull snaps along the keel and each half rolls away and falls
+      const h = skyHalf(e, sd);
+      ctx.save(); ctx.translate(e.x + h.dx, e.y + h.dy); ctx.rotate((e.tilt || 0) + h.rot); ctx.scale(sc2 * h.sc, sc2 * h.sc);
+      ctx.beginPath(); ctx.rect(sd < 0 ? -200 : 0, -200, 200, 400); ctx.clip(); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore();
     }
-    if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, false);
-    ctx.restore();
+    drawSkyLaser(e);
   } else {
     spr(SPR.rgBase, e.x, e.y, fl);
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, light: SPR.searchBase, core: SPR.rgBarrel });
+    if (e.hb && !core.dead) { // Hammer Blow charging: the muzzle glows hotter, orange to white
+      const f = Math.min(1, e.hb.t / 120), mx = e.x + core.ox + Math.cos(core.ang) * 58, my = e.y + core.oy + Math.sin(core.ang) * 58;
+      ctx.globalAlpha = 0.35 + 0.3 * f; dk(mx, my, 5 + f * 9 + ((gf >> 2) & 1), '#ff6a1a'); ctx.globalAlpha = 1; dk(mx, my, 2 + f * 5, f > 0.7 && (gf & 4) ? '#ffffff' : '#ffd060');
+    }
     if (e.chargeT > 0 && !core.dead) {
       const px = e.x + core.ox, py = e.y + core.oy, c = Math.cos(core.ang), sn = Math.sin(core.ang), f = 1 - e.chargeT / 75;
       ctx.fillStyle = (gf >> 1) & 1 ? '#ff5a3a' : '#ffd08a';
@@ -6213,7 +6850,9 @@ function drawNight() {
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); lightBeam(e.x + p.ox, e.y + p.oy, p.ang, beamLen(e.y + p.oy), 0.16, red ? '170,20,14' : undefined, red ? 0.75 : undefined); }
+    if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0 && ((e.caught >> 2) & 1), g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.42)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = red ? 'rgba(200,30,20,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, red); }
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
@@ -6301,6 +6940,20 @@ function drawWeather() {
 }
 function drawAir(e) {
   const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
+  if (e.type === 'protoFly') return drawProtoPlane(e, PI, 1.15, true);
+  if (e.type === 'protoDuel') return drawProtoPlane(e, 0, 1, true);
+  if (e.type === 'flare') {
+    if (e.ft <= 40) { dk(e.x, e.y, 2, '#fff2a8'); parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, life: 10, max: 10, col: '#ffd060' }); return; }
+    ctx.strokeStyle = '#c4c9ce'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - 7); ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + 4, e.y - 7); ctx.stroke();
+    ctx.fillStyle = '#dce0e8'; ctx.beginPath(); ctx.arc(e.x, e.y - 8, 5, PI, TAU); ctx.fill();
+    dk(e.x, e.y + 1, 2.5 + (gf & 1) * 0.5, e.hit > 0 ? '#ffffff' : '#fff6c8'); return;
+  }
+  if (e.type === 'rdrone') {
+    ctx.globalAlpha = 0.25; dk(e.x, e.y, 6 + ((gf >> 3) & 1), '#8466dc'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.h - PI / 2);
+    ctx.fillStyle = (gf & 2) ? '#bba4ff' : '#e8dcff'; ctx.fillRect(0, -9 - (gf & 1), 1, 2 + (gf & 1));
+    spr(SPR.rdrone, 0, 0, fl); ctx.restore(); return;
+  }
   switch (e.type) {
     case 'fighter': {
       const s = (e.leader ? SPR.fighterL : SPR.fighter)[dirIdx(e.h)];
@@ -6449,7 +7102,7 @@ function drawHUDBody(H) {
     ctx.fillStyle = '#3a0c10'; ctx.fillRect(5, 23, w, 3);
     ctx.fillStyle = '#d84a34'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 3);
     ctx.fillStyle = '#f48a60'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 1);
-    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' : '';
+    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : '';
     if (nm) textS(nm, 5, 29, '#f48a60', 1, 'left', '#d84a34');
   }
 }
@@ -6543,8 +7196,9 @@ function render() {
   }
   drawBeam();
   drawPlayerArcs();
-  drawRamLanes();
+  drawStorm();
   drawPlayer();
+  drawP2();
   drawLocks();
   drawParts('a');
   drawHitbox();
@@ -6560,6 +7214,12 @@ function render() {
     else if (b.kind === 'shell') spr(SPR.shell[dirIdx(b.a)], b.x, b.y);
     else if (b.kind === 'flak') spr(SPR.flak, b.x, b.y);
     else if (b.kind === 'rocket') spr(SPR.rocket[dirIdx(b.a)], b.x, b.y);
+    else if (b.kind === 'srocket') {
+      // a salvo rocket: dark-outlined grey body with a red nose and a flickering flame
+      const c = Math.cos(b.a), sn = Math.sin(b.a), seg = (w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(b.x - c * 4, b.y - sn * 4); ctx.lineTo(b.x + c * 3, b.y + sn * 3); ctx.stroke(); };
+      dk(b.x - c * 6, b.y - sn * 6, 2 + (gf & 1), (gf & 2) ? '#ffd060' : '#ff6a1a');
+      seg(4, '#120e1a'); seg(2, '#b4b6ba'); dk(b.x + c * 4, b.y + sn * 4, 1.4, '#d84a34');
+    }
     else if (b.kind === 'mega') { if (nightF > 0.3) { ctx.globalAlpha = 0.35; dk(b.x, b.y, 10, '#ff8a5a'); ctx.globalAlpha = 1; } spr(SPR.mega, b.x, b.y); }
     else if (b.kind === 'mortar') {
       const f = 1 - b.life / b.max, hgt = Math.sin(f * PI);
@@ -6693,6 +7353,7 @@ function syncSettingsUI() {
   document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx;
   for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
+for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
 }
@@ -6756,6 +7417,7 @@ document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = 
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
 for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
+for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => startTutorial());
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
@@ -6803,6 +7465,7 @@ cv.addEventListener('pointerdown', e => {
   else if (paused) { togglePause(); return; }
   else if (results || congrats) { skipResults(); return; }
   else if (cont > 0) { doContinue(); return; }
+  if (state === 'play' && p2 && p2Mode() === 'mouse' && e.pointerType === 'mouse') return; // the mouse flies the 2nd player
   if (state === 'play' && player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
   if (state === 'play' && mouseClickMode(e)) {
     if (document.pointerLockElement !== cv) { try { cv.requestPointerLock(); } catch (err) {} return; }
@@ -6817,6 +7480,7 @@ document.addEventListener('mousemove', e => {
   if (document.pointerLockElement !== cv || state !== 'play' || paused || resumeT > 0 || !player || player.dead) return;
   player.x = clamp(player.x + e.movementX / scale * 1.1, 8, W - 8); player.y = clamp(player.y + e.movementY / scale * 1.1, 18, H - 14);
 });
+document.addEventListener('mousemove', e => { if (p2Mode() !== 'mouse') return; const r = cv.getBoundingClientRect(); p2Mouse = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; });
 document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== cv && state === 'play' && !paused) togglePause(); });
 cv.addEventListener('contextmenu', e => { if (settings.mouseMode === 'click') e.preventDefault(); });
 cv.addEventListener('pointermove', e => {
