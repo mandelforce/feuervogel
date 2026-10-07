@@ -4612,6 +4612,8 @@ const BOSSMOVE = {
     return A.ready;
   },
   fortress(e) {
+    // the core can't be finished off before the last stand has started
+    if (!e.last) { const c = e.parts.find(p => p.k === 'core'); if (c && !c.dead && c.hp < c.maxhp * 0.2) c.hp = c.maxhp * 0.2; }
     if (e.mt > 0 && sandstorm(e)) return true;
     const hc = Math.cos(e.hd || 0), hs = Math.sin(e.hd || 0), rot = (ox, oy) => [ox * hc - oy * hs, ox * hs + oy * hc];
     if (gf % 4 === 0 && e.moving) for (const sx of [-40, 40]) { const [dx, dy] = rot(sx, -56); parts.push({ kind: 'dust', layer: 'w', x: e.x + dx + rnd(-4, 4), y: e.y + dy, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 }); }
