@@ -100,7 +100,8 @@ window.SF = {
     return Math.round((gf - t0) / 60);
   },
   // Boss damage per second with the ship held 70px below the boss core: a fair weapon-vs-weapon comparison.
-  bossDps(diff, st, w, secs = 20) {
+  // laser: true also fires the charged super laser whenever it is ready and would not overheat (a careful player).
+  bossDps(diff, st, w, secs = 20, laser = false) {
     const force = () => { player.wpn = w; player.lvl = 4; player.drones = 0; };
     SF.setMode('immortal'); SF.start(diff, st);
     for (let n = 0; n < 400 && !bossUp(); n++) { force(); SF.run(300); }
@@ -113,6 +114,7 @@ window.SF = {
         const b = enemies.find(e => e.type === 'boss'); if (!b || b.dying) break;
         const t = b.parts.filter(p => !p.dead && !p.off).sort((a, c) => (c.k === 'core') - (a.k === 'core'))[0]; if (!t) break;
         player.x = clamp(b.x + t.ox, 8, W - 8); player.y = clamp(b.y + t.oy + 70, 18, H - 14); player.lx = player.x;
+        if (laser && player.charge >= 100 && !beam && overheatT === 0 && laserHeat + 45 < 100) { player.charge = 0; fireBeam(1); }
         SF.run(1);
       }
     } finally { damagePart = dp; }

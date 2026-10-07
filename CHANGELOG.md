@@ -13,3 +13,4 @@
 - Balance: the Stage 5 boss (Winter Wolf) calls in supply trains less often and keeps them off the tracks next to its own trains, so they no longer soak up most shots aimed at the boss. Fewer supply trains also means slightly fewer bonus points in that fight.
 - Balance: the Arc weapon deals 1.25x instead of 0.45x damage to boss parts, and zaps soldiers, crates, drums and buildings only when nothing more important is in reach. Arc boss fights are now about as fast as with the other weapons.
 - Testing: balance bot (tests/harness.js, tests/balance.mjs) for timing bosses and playing whole campaigns on local builds.
+- Balance: the super laser is a little weaker: it takes about 0.95 s to charge (was 0.75 s), deals about 12% less damage, and each shot builds more heat, so it can be fired about 22% less often without overheating. It still clears bullets the same way.
