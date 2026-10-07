@@ -3122,6 +3122,9 @@ function sfx(n) {
     case 'cancel': [1568, 1976, 2349, 2637, 3136].forEach((f, i) => setTimeout(() => tone(f, 0.07, 'triangle', 0.035), i * 45)); break;
     case 'spool': tone(40, 1.9, 'sawtooth', 0.09, 160); tone(80, 1.9, 'square', 0.03, 320); noise(1.9, 0.12, 400); break;
     case 'liftoff': tone(60, 2.4, 'sawtooth', 0.12, 30); noise(2.4, 0.3, 600); tone(30, 2, 'sine', 0.4, 22); break;
+    case 'fcharge': tone(50, 1.5, 'sawtooth', 0.07, 150); tone(200, 1.5, 'sine', 0.04, 900); noise(1.5, 0.04, 2400); break;
+    case 'fbeam': noise(1.2, 0.24, 800); tone(70, 1.2, 'sawtooth', 0.1, 40); tone(700, 0.5, 'square', 0.015, 160); break;
+    case 'snap': noise(1.2, 0.3, 380); tone(48, 1.6, 'sawtooth', 0.12, 18); tone(140, 0.6, 'square', 0.03, 40); break;
     case 'reward': rewardSfx(); break;
     case 'beam': tone(1800, 0.5, 'sawtooth', 0.06, 160); tone(90, 0.5, 'sine', 0.3, 30); noise(0.45, 0.16, 5000); tone(2400, 0.3, 'square', 0.02, 600); if (actx) { hawkCry(actx.currentTime); bit8Screech(actx.currentTime); } break;
     case 'surface': noise(0.6, 0.12, 700); tone(70, 0.5, 'sine', 0.08, 50); break;
@@ -4106,11 +4109,95 @@ function castleUnits(e, grp) {
   const fuels = grp === 1 ? [[96, 392], [128, 392], [84, 512], [140, 524]] : [[34, 96], [190, 96], [34, 200], [190, 200]];
   for (const [sx, sy] of fuels) add('fuel', sx, sy, { hp: 6 * m, hw: 7, hh: 7, score: 300, rad: 9 });
 }
+// Black Fortress, act 1: the flak guns lay a curtain of bursts across the screen, three rows, each with one gap to fly through
+function skyCurtain(e, ea) {
+  if (e.ct) {
+    const C = e.ct; C.t++;
+    if (C.t % 40 === 1 && C.n < 3 && !player.dead) {
+      if (C.n) C.gap = clamp(C.gap + rnd(-36, 36), 34, W - 34);
+      const y = e.y + 78 * (e.sag || 1), sp = bspeed() * 0.75;
+      for (let x = 6; x <= W - 6; x += 11) {
+        if (Math.abs(x - C.gap) < 21) continue;
+        if (ebul.length < 420 && bombFx <= 20) ebul.push({ x, y: y + rnd(-2, 2), vx: 0, vy: sp, r: 2, kind: 'shell', a: PI / 2 });
+        if ((x / 11 | 0) % 2 === 0) { smokePuff(x, y); flash(x, y, 2); }
+      }
+      C.n++; sfx('cannon'); sfx('gun'); shake = Math.max(shake, 2);
+    }
+    if (C.t > 130) e.ct = null;
+    return;
+  }
+  if (ea < 3 || e.fl) return;
+  e.ctT = (e.ctT ?? 300) + 1; // the first curtain comes about 4 seconds into the fight
+  if (e.ctT >= 560) { e.ctT = 0; e.ct = { t: 0, n: 0, gap: clamp(player.x + rnd(-50, 50), 34, W - 34) }; }
+}
+// Black Fortress, acts 2 and 3: a fire laser from an alien core. It charges as a purple orb (the core takes extra damage then),
+// locks on and fires; once all engines are gone it fires every 8 seconds and slowly follows the player. A Nova cuts it short.
+const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 480;
+function skyLaser(e, ea) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
+  const cx = e.x + core.ox, cy = e.y + core.oy;
+  if (!e.fl) {
+    if (player.dead || e.ct) return;
+    let go = false;
+    if (ea <= 2 && !e.foreDone) { e.foreDone = true; go = true; } // the first shot, when the second engine goes down
+    else if (ea === 0 && ++e.flT >= (e.lastAct ? FL_GAP : 150)) { e.lastAct = true; go = true; }
+    if (go) { e.fl = { ph: 'charge', t: 0 }; e.flT = 0; sfx('fcharge'); }
+    return;
+  }
+  const F = e.fl; F.t++;
+  if (F.ph === 'charge') {
+    if (gf % 2 === 0) { const a = Math.random() * TAU, d = rnd(22, 34); parts.push({ kind: 'spark', layer: 'a', x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, vx: -Math.cos(a) * 1.1, vy: -Math.sin(a) * 0.9, life: 16, max: 16, col: Math.random() < 0.5 ? '#bba4ff' : '#e8dcff' }); }
+    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); shake = Math.max(shake, 7); flash(cx, cy + 6, 10); }
+    return;
+  }
+  if (F.sweep && !player.dead) F.a = clamp(F.a + clamp(angDiff(F.a, aim(cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
+  shake = Math.max(shake, 2);
+  const env = Math.min(1, F.t / 6, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
+  if (gf % 2 === 0) { const d = rnd(30, 400); parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
+  for (const b of shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
+  if (env > 0.5 && !player.dead && player.inv === 0) {
+    const dx = player.x - cx, dy = player.y - cy;
+    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die();
+  }
+  if (F.t >= FL_FIRE) e.fl = null;
+}
+function drawSkyLaser(e) {
+  const core = e.parts.find(p => p.k === 'core'), F = e.fl; if (!F || !core || core.dead || e.dying) return;
+  const cx = e.x + core.ox, cy = e.y + core.oy;
+  if (F.ph === 'charge') {
+    const f = F.t / FL_CHARGE;
+    ctx.strokeStyle = (gf & 4) && f > 0.8 ? '#ffffff' : '#bba4ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 20 + 6 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke();
+    return;
+  }
+  const env = Math.min(1, F.t / 6, (FL_FIRE - F.t) / 8), w = 22 * env, L = 700;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
+  ctx.globalAlpha = 0.3; ctx.fillStyle = '#8466dc'; ctx.fillRect(-w / 2 - 5, 6, w + 10, L); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#a8241a'; ctx.fillRect(-w / 2 - 2, 6, w + 4, L);
+  ctx.fillStyle = '#ff6a1a'; ctx.fillRect(-w / 2, 6, w, L);
+  ctx.fillStyle = '#ffb030'; ctx.fillRect(-w / 3, 6, w * 2 / 3, L);
+  ctx.fillStyle = '#fff2b0'; ctx.fillRect(-w / 6, 6, Math.max(1, w / 3), L);
+  // flame tongues licking off both edges, moving outward along the beam
+  for (let k = 0; k < 70; k++) {
+    const yy = 10 + k * 6 + ((gf * 3) % 6), n = Math.sin(k * 2.3 + gf * 0.7) * Math.sin(k * 0.9 - gf * 0.4), o = (2 + Math.abs(n) * 7) * env;
+    ctx.fillStyle = n > 0.3 ? '#ffd060' : n > -0.3 ? '#ff6a1a' : '#c8301a';
+    if (k & 1) ctx.fillRect(Math.round(w / 2 + 1), yy, Math.round(o), 2); else ctx.fillRect(Math.round(-w / 2 - 1 - o), yy, Math.round(o), 2);
+  }
+  ctx.globalAlpha = 0.6 * env; ctx.fillStyle = '#ffffff';
+  for (let k = 0; k < 50; k++) { const yy = 8 + k * 13 + ((gf * 5) % 13); ctx.fillRect(Math.round(-w / 4), yy, Math.max(1, Math.round(w / 2)), 2); }
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function alienCore(px, py, hit, f) {
+  // the Black Fortress's core: a purple alien orb like the weapon pods, which swells while the laser charges
+  const R = 4 + ((gf >> 3) & 1) + f * 9;
+  ctx.globalAlpha = 0.25 + 0.2 * f; dk(px, py, R + 8, '#563aa4'); ctx.globalAlpha = 0.45; dk(px, py, R + 4, '#8466dc'); ctx.globalAlpha = 1;
+  dk(px, py, R + 1, '#1c1238'); dk(px, py, R, hit ? '#ffffff' : '#bba4ff'); dk(px - 1, py - 1, R * 0.6, '#e8dcff'); dk(px - 1, py - 1, R * 0.3, '#ffffff');
+}
 BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
   { k: 'engine', ox: -40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: -76, oy: 14, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 76, oy: 14, hp: 60, hw: 7, hh: 14 },
   { k: 'main', ox: -22, oy: -30, hp: 80 }, { k: 'main', ox: 22, oy: -30, hp: 80 },
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
-  { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 360, hw: 9, hh: 7 }] };
+  { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
   const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
@@ -4333,7 +4420,21 @@ function canFire(e, margin = 80) { return !player.dead && !e.turDead && e.y > 10
 function dyingTick(e) {
   e.dying--;
   const lay = e.air ? 'a' : e.surface ? 'g' : 'a';
-  if (e.kind === 'skyfort' && e.type === 'boss') e.y += 0.22;
+  if (e.kind === 'skyfort' && e.type === 'boss') {
+    e.y += 0.22;
+    // about two seconds of explosions, then the hull snaps in two and both halves fall away burning
+    if (e.dying === 230) { e.split = 0; sfx('snap'); sfx('bigboom'); boom(e.x, e.y, 34, 'a'); shake = 14; flashFx = 6; hitStop = 4; for (let k = 0; k < 20; k++) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + rnd(-70, 60), vx: rnd(-1.6, 1.6), vy: rnd(-1, 1), life: 22, max: 22, col: k & 1 ? '#ffd060' : '#fff2a8' }); }
+    if (e.split !== undefined) {
+      e.split++;
+      for (const sd of [-1, 1]) {
+        const h = skyHalf(e, sd), ex = e.x + h.dx, ey = e.y + h.dy;
+        if (gf % 3 === 0) { smokePuff(ex + sd * rnd(0, 6), ey + rnd(-60 * h.sc, 50 * h.sc), 'a'); fireAt(ex + sd * rnd(0, 5), ey + rnd(-40, 40) * h.sc, 'a', true); }
+        if (gf % 14 === 0) { boom(ex + sd * rnd(10, 70) * h.sc, ey + rnd(-40, 40) * h.sc, 16, 'a'); sfx('boom'); }
+      }
+      if (e.dying === 2) for (let k = 0; k < 3; k++) parts.push({ kind: 'ring', layer: 'a', x: e.x, y: e.y + 60, vx: 0, vy: 0, life: 26 + k * 10, max: 26 + k * 10, r: 90 + k * 50 });
+      if (e.dying > 1) return;
+    }
+  }
   if (e.dying % 6 === 0) { const ww = e.kind === 'skyfort' ? 90 : e.kind === 'castle' ? 50 : e.hw, hh = e.kind === 'castle' ? 60 : e.kind === 'skyfort' ? 50 : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); shake = Math.max(shake, 4); }
   if (e.dying <= 0) {
     e.dead = true; boom(e.x, e.y, 50, lay);
@@ -4344,7 +4445,7 @@ function dyingTick(e) {
       else if (e.kind === 'train') { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) D(yardX(t, t.y + oy) - e.x, t.y + oy - e.y, 'crater', 22, 260); }
       else if (e.kind === 'fortress') { D(0, 0, 'crater', 50, 400); D(-30, -40, 'crater', 20, 200); D(30, 40, 'crater', 20, 200); }
       else if (e.kind === 'railgun') { D(0, 0, 'crater', 40, 400); D(0, -60, 'crater', 22, 200); D(0, 60, 'crater', 22, 200); }
-      else if (e.kind === 'skyfort') { D(0, 0, 'crater', 50, 400); D(-70, 10, 'crater', 30, 260); D(70, 10, 'crater', 30, 260); }
+      else if (e.kind === 'skyfort') { D(0, 40, 'crater', 40, 400); D(-66, 80, 'crater', 34, 300); D(66, 80, 'crater', 34, 300); }
       else D(0, 0, 'crater', 30, 300); }
     if (e.onDead) e.onDead(e);
   }
@@ -4700,9 +4801,16 @@ const BOSSMOVE = {
       if (f >= 1) { e.phase = 'fight'; e.untarget = false; e.scale = 1; scrollTarget = SCROLL; }
       return false;
     }
-    e.mt++;
+    if (!e.fl) e.mt++; // it holds still while the fire laser charges and fires
     const ea = e.parts.filter(p => p.k === 'engine' && !p.dead).length, sp = ea === 0 ? 2 : 1;
-    e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4); e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
+    // every dead engine tips the fortress toward that side and costs it a little height; with none left it levels out but sags and wallows
+    let lean = 0; for (const p of e.parts) { if (p.box === undefined) { p.box = p.ox; p.boy = p.oy; } if (p.k === 'engine' && p.dead) lean += Math.sign(p.box) * (Math.abs(p.box) > 50 ? 0.075 : 0.05); }
+    if (ea === 0) lean = Math.sin(e.mt * 0.02) * 0.035;
+    e.tilt = (e.tilt || 0) + (lean - (e.tilt || 0)) * 0.012;
+    e.sag = (e.sag || 1) + ((1 - 0.016 * (4 - ea) - (ea === 0 ? 0.02 : 0)) - (e.sag || 1)) * 0.01;
+    { const c = Math.cos(e.tilt), s = Math.sin(e.tilt); for (const p of e.parts) { p.ox = (p.box * c - p.boy * s) * e.sag; p.oy = (p.box * s + p.boy * c) * e.sag; } }
+    e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4) + e.tilt * 70; e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
+    skyCurtain(e, ea); skyLaser(e, ea);
     for (const p of e.parts) if (p.k === 'engine' && p.dead && gf % 3 === 0) { smokePuff(e.x + p.ox, e.y + p.oy - 10, 'a'); if (Math.random() < 0.4) parts.push({ kind: 'fire', layer: 'a', x: e.x + p.ox + rnd(-2, 2), y: e.y + p.oy - 6, vx: 0, vy: -0.3, r: rnd(2, 3.5), life: 14, max: 14 }); }
     return true;
   },
@@ -5150,6 +5258,7 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
+      if ((e.fl && p.k === 'core') || (e.ct && p.k === 'aa')) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
@@ -5435,6 +5544,8 @@ function bomb() {
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   ebul.length = 0;
+  // a Nova snuffs out the Black Fortress's fire laser, charging or firing
+  for (const e of enemies) if (e.fl) { e.fl = null; e.flT = 0; const c = e.parts.find(p => p.k === 'core'); if (c) for (let k = 0; k < 16; k++) { const a = k * TAU / 16; parts.push({ kind: 'spark', layer: 'a', x: e.x + c.ox, y: e.y + c.oy, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 18, max: 18, col: k & 1 ? '#bba4ff' : '#ff6a1a' }); } }
   for (const e of enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
     if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
@@ -5508,6 +5619,7 @@ function damagePart(e, p, d) {
   if (p.dead || e.dying) return;
   if (e.kind === 'castle' && p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return; }
   const px = e.x + p.ox, py = e.y + p.oy;
+  if (e.kind === 'skyfort' && p.k === 'core' && e.fl && e.fl.ph === 'charge') d *= 1.6; // the open orb is vulnerable while it charges
   p.hp -= d; p.hit = 3;
   if (p.hp <= 0) {
     p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
@@ -5519,7 +5631,7 @@ function damagePart(e, p, d) {
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
       score += e.score; checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = 220; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; e.ct = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -6405,9 +6517,33 @@ function coreGlow(px, py, hit, dim) {
   const pulse = 4 + ((gf >> 3) & 1);
   dk(px, py - 1, pulse + 1, '#120e1a'); dk(px, py - 1, pulse, hit ? '#ffffff' : dim ? '#a82a26' : '#d84a34'); dk(px - 1, py - 2, pulse - 2, dim ? '#f48a60' : '#fff0a0');
 }
+function skyHalf(e, sd) { const t = e.split || 0; return { dx: sd * (t * 0.15 + t * t * 0.0006), dy: t * 0.08 + t * t * 0.0004, rot: sd * t * t * 0.00003, sc: 1 - 0.5 * Math.pow(Math.min(1, t / 230), 1.5) }; }
+// the Black Fortress hull, drawn in its own (tilted, scaled) frame: parts use their unrotated offsets here
+function drawSkyBody(e, fl, core) {
+  const alt = ((e.scale || 1) - 0.72) / 0.28;
+  for (const p of e.parts) if (p.box !== undefined) { p.rx = p.ox; p.ry = p.oy; p.ox = p.box; p.oy = p.boy; }
+  shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt);
+  spr(SPR.skyfort, e.x, e.y, fl);
+  for (const p of e.parts) if (p.k === 'engine' && !p.dead) { ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gf * 0.5 + p.ox); dk(e.x + p.ox, e.y + p.oy - 17, 3, '#ff6a3a'); ctx.globalAlpha = 1; }
+  if ((gf >> 4) & 1) { dk(e.x - 100, e.y + 2, 1, '#ff3a2a'); dk(e.x + 100, e.y + 2, 1, '#ff3a2a'); dk(e.x, e.y - 70, 1, '#ff3a2a'); }
+  const eye = 0.6 + 0.4 * Math.sin(gf * 0.12); ctx.globalAlpha = 0.35 * eye; dk(e.x, e.y + 56, 9, '#8466dc'); ctx.globalAlpha = 1;
+  drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
+  for (const p of e.parts) {
+    const px = e.x + p.ox, py = e.y + p.oy;
+    if (p.k === 'engine' && !p.dead) {
+      if (p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; dk(px, py, 7, '#ffffff'); ctx.globalAlpha = 1; }
+      const fy = py + (Math.abs(p.ox) > 50 ? 18 : 16);
+      ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.8)' : 'rgba(150,150,140,0.6)';
+      for (let i = -9; i <= 9; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(px + i), Math.round(fy + Math.sin(gf * 0.9 + i) * 0.6), 1, 1);
+    }
+    if (p.k === 'bay' && !p.dead && p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px - 12), Math.round(py - 8), 24, 16); ctx.globalAlpha = 1; }
+  }
+  if (!core.dead) alienCore(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.fl ? 0 : e.fl.ph === 'charge' ? e.fl.t / FL_CHARGE : 1);
+  for (const p of e.parts) if (p.box !== undefined) { p.ox = p.rx; p.oy = p.ry; }
+}
 function drawBoss(e) {
-  const fl = e.dying && (gf >> 2) & 1;
-  if (e.dying) ctx.globalAlpha = clamp(e.dying / 120, 0.35, 1);
+  const fl = e.dying && e.split === undefined && (gf >> 2) & 1;
+  if (e.dying) ctx.globalAlpha = e.split !== undefined ? clamp(e.dying / 50, 0.6, 1) : clamp(e.dying / 120, 0.35, 1);
   const core = e.parts.find(p => p.k === 'core');
   if (e.kind === 'ship') {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
@@ -6440,26 +6576,15 @@ function drawBoss(e) {
       if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.open);
     }
   } else if (e.kind === 'skyfort') {
-    const sc2 = e.scale || 1, alt = (sc2 - 0.72) / 0.28;
-    ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc2, sc2); ctx.translate(-e.x, -e.y);
-    shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt);
-    spr(SPR.skyfort, e.x, e.y, fl);
-    for (const p of e.parts) if (p.k === 'engine' && !p.dead) { ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gf * 0.5 + p.ox); dk(e.x + p.ox, e.y + p.oy - 17, 3, '#ff6a3a'); ctx.globalAlpha = 1; }
-    if ((gf >> 4) & 1) { dk(e.x - 100, e.y + 2, 1, '#ff3a2a'); dk(e.x + 100, e.y + 2, 1, '#ff3a2a'); dk(e.x, e.y - 70, 1, '#ff3a2a'); }
-    const eye = 0.6 + 0.4 * Math.sin(gf * 0.12); ctx.globalAlpha = 0.35 * eye; dk(e.x, e.y + 56, 8, '#ff3a2a'); ctx.globalAlpha = 1;
-    drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
-    for (const p of e.parts) {
-      const px = e.x + p.ox, py = e.y + p.oy;
-      if (p.k === 'engine' && !p.dead) {
-        if (p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; dk(px, py, 7, '#ffffff'); ctx.globalAlpha = 1; }
-        const fy = py + (Math.abs(p.ox) > 50 ? 18 : 16);
-        ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.8)' : 'rgba(150,150,140,0.6)';
-        for (let i = -9; i <= 9; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(px + i), Math.round(fy + Math.sin(gf * 0.9 + i) * 0.6), 1, 1);
-      }
-      if (p.k === 'bay' && !p.dead && p.hit > 0 && (gf & 2)) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px - 12), Math.round(py - 8), 24, 16); ctx.globalAlpha = 1; }
+    const sc2 = (e.scale || 1) * (e.sag || 1);
+    if (e.split === undefined) { ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.tilt || 0); ctx.scale(sc2, sc2); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore(); }
+    else for (const sd of [-1, 1]) {
+      // the breakup: the hull snaps along the keel and each half rolls away and falls
+      const h = skyHalf(e, sd);
+      ctx.save(); ctx.translate(e.x + h.dx, e.y + h.dy); ctx.rotate((e.tilt || 0) + h.rot); ctx.scale(sc2 * h.sc, sc2 * h.sc);
+      ctx.beginPath(); ctx.rect(sd < 0 ? -200 : 0, -200, 200, 400); ctx.clip(); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore();
     }
-    if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, false);
-    ctx.restore();
+    drawSkyLaser(e);
   } else {
     spr(SPR.rgBase, e.x, e.y, fl);
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, light: SPR.searchBase, core: SPR.rgBarrel });
