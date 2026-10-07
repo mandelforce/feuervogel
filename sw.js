@@ -1,6 +1,6 @@
 // StarFall service worker: keeps the game on the device so it opens instantly and works offline.
 // When you upload a new version of index.html, change VERSION so players get the update.
-const VERSION = 'starfall-1.1.1-d';
+const VERSION = 'starfall-1.2.0';
 const APP = ['./', 'index.html', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

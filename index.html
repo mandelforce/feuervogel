@@ -270,7 +270,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.1.1'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.0'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
