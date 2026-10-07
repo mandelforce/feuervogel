@@ -4546,6 +4546,38 @@ function placeTankParts(e) {
   const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0);
   for (const p of e.parts) { if (p.bx === undefined) { p.bx = p.ox; p.by = p.oy; } p.ox = p.bx * c - p.by * s; p.oy = p.bx * s + p.by * c; }
 }
+// Ravenhold "The Raven's Wheel": twice per fight the bell tolls and a flock of crows circles the tower in the
+// direction the wheel will turn. Then two arms of shells stream out of the tower top in opposite directions and the
+// wheel turns once (about 8 s), so the player has to fly round the tower ahead of an arm. First clockwise, then the
+// other way. The castle's other guns, hatches and fighter waves hold off while it turns.
+const WHEEL_WARN = 90, WHEEL_TURN = 480, WHEEL_SPEED = 1.7;
+function castleWheel(e) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead || e.dying) { e.wheel = null; return; }
+  e.wheelN = e.wheelN || 0;
+  if (!e.wheel) {
+    const corners = e.parts.filter(p => p.k === 'main' && p.dead).length;
+    if (e.wheelGap > 0) { e.wheelGap--; if (core.hp < core.maxhp * 0.12) core.hp = core.maxhp * 0.12; return; } // a breather between the two wheels
+    const due = e.wheelN === 0 ? (corners >= 2 || e.mt > 900) : e.wheelN === 1 && e.open && core.hp < core.maxhp * 0.75;
+    if (!due || player.dead) return;
+    e.wheel = { t: 0, dir: e.wheelN === 0 ? 1 : -1, a: aim(e.x + core.ox, e.y + core.oy) + PI / 2, crows: [] }; e.wheelN++;
+    sfx('toll'); haptic('warn');
+    for (let i = 0; i < 12; i++) { const b = { x: 0, y: 0, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); e.wheel.crows.push(b); }
+  }
+  const Wh = e.wheel, cx = e.x + core.ox, cy = e.y + core.oy; Wh.t++;
+  if (core.hp < core.maxhp * 0.1) core.hp = core.maxhp * 0.1; // the core holds out until the wheel has turned
+  if (Wh.t === 45) sfx('toll');
+  for (const b of Wh.crows) if (b.orb) { b.orb.a += Wh.dir * 0.055; b.x = cx + Math.cos(b.orb.a) * b.orb.r; b.y = cy + Math.sin(b.orb.a) * b.orb.r * 0.8; b.vx = b.vy = 0; b.ph += 0.2; }
+  const w = Wh.t - WHEEL_WARN;
+  if (w > 0 && w <= WHEEL_TURN) {
+    Wh.a += Wh.dir * TAU / WHEEL_TURN;
+    if (w % 3 === 0) { eshot(cx, cy, Wh.a, WHEEL_SPEED); eshot(cx, cy, Wh.a + PI, WHEEL_SPEED); }
+    if (w % 40 === 0) sfx('gun');
+  }
+  if (w > WHEEL_TURN) {
+    for (const b of Wh.crows) if (b.orb) { const a = b.orb.a; b.vx = Math.cos(a) * 1.2 + rnd(-0.3, 0.3); b.vy = Math.sin(a) * 1.2 - 0.4; b.orb = null; }
+    e.wheel = null; e.wheelGap = e.wheelN < 2 ? 360 : 0;
+  }
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -4553,14 +4585,14 @@ const BOSSMOVE = {
     const gateY = e.gateWy + sc;
     if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.1; }
     if (e.stage1 && !e.halt && e.y >= 150 + BY) { e.halt = true; scrollTarget = 0; }
-    if (e.stage1 && !e.dying && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
-    if (e.stage1 && (e.patT = (e.patT ?? 90) - 1) <= 0) {
+    if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
+    if (e.stage1 && !e.wheel && (e.patT = (e.patT ?? 90) - 1) <= 0) {
       e.patT = 150; const live = e.hatches.filter(h => !h.dead && h.st === 'down' && h.y > 16 && h.y < H - 70);
       const pat = (e.patN = (e.patN || 0) + 1) % 5;
       const pick = h => pat === 0 ? h.row === 0 : pat === 1 ? h.row === 1 : pat === 2 ? h.row === 2 : pat === 3 ? (h.row + h.col) % 2 === 0 : h.row === h.col % 3;
       let n = 0; for (const h of live) if (pick(h)) { h.st = 'rise'; h.stT = 18; n++; } if (n) sfx('clunk');
     }
-    if (e.halt) e.mt++;
+    if (e.halt) { e.mt++; castleWheel(e); }
     return e.halt;
   },
   skyfort(e) {
@@ -5007,6 +5039,7 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
+      if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
