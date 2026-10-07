@@ -19,3 +19,4 @@
 - Game over: the name entry sits at the bottom, so the GAME OVER screen and your score stay visible.
 - Settings: the skin choice is now "Ship: Raptor / Rooster"; on phones the mouse and controller-rumble options are hidden (rumble appears once a controller is used).
 - Resume: if the browser reloads the game mid-run (common on Android when switching apps), the title screen offers to resume. You restart the stage you were in with the score it began with and the lives, bombs, weapon and continues you had; the run still counts for the leaderboard. Leaving at the continue prompt spends a continue.
+- Start flow: START, Endless and the practice stages now open a "Choose difficulty" panel (Easy / Normal / Hard, your last choice highlighted); START also offers the tutorial there. The "?" next to START opens How to play. Difficulty is no longer in Settings, and the old "New here?" prompt is gone.

@@ -77,7 +77,11 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .panel{max-height:92vh;overflow-y:auto;width:min(94%,360px)}
 #settings .seg{flex-wrap:nowrap}
 #settings .wide{width:100%;margin:10px 0 4px}
-#tutAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#tutAsk.open{display:grid}#tutAsk .panel{width:min(90%,340px)}#tutAsk .lbrow{display:flex;gap:8px;margin-top:10px}#tutAsk .lbrow button{flex:1;padding:10px}
+#diffAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#diffAsk.open{display:grid}#diffAsk .panel{width:min(90%,340px);max-height:96%;overflow-y:auto}@media (max-height:600px){#diffAsk .panel{padding:10px 12px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu{gap:6px}#diffAsk .dmenu button{padding:5px 10px}#diffAsk .dback{margin-top:6px;padding:4px}}
+#diffAsk .dmenu{display:grid;gap:10px}#diffAsk .dmenu button{display:grid;gap:3px;width:100%;padding:9px 10px;background:#34226a;border-color:#8466dc;box-shadow:0 0 0 2px #120e1a}
+#diffAsk .dmenu b{font-weight:400;font-size:19px;color:#fff0a0}#diffAsk .dmenu span{font-size:12px;color:#c8bce8}
+#diffAsk .dmenu button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;color:#f2ecd8}#diffAsk .dmenu .dtut{background:#2a2050;border-color:#a8f6dc;color:#a8f6dc;font-size:17px}
+#diffAsk [hidden]{display:none}#diffAsk .dback{width:100%;margin-top:12px;background:none;border-color:transparent;color:#a99cc8}
 #resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
@@ -202,11 +206,16 @@ body[data-results="1"] #bombBtn{display:none !important}
         </div>
       </div>
     </div>
-    <div id="tutAsk" role="dialog" aria-modal="true" aria-labelledby="tutTitle">
+    <div id="diffAsk" role="dialog" aria-modal="true" aria-labelledby="diffTitle">
       <div class="panel">
-        <h2 id="tutTitle">New here?</h2>
-        <p class="note">Try the short tutorial: moving, weapons, medals, the Nova bomb, the super laser and secrets. About three minutes.</p>
-        <div class="lbrow"><button type="button" class="primary" id="tutYes">Play tutorial</button><button type="button" id="tutNo">Start game</button></div>
+        <h2 id="diffTitle">Choose difficulty</h2>
+        <div class="dmenu">
+          <button type="button" id="dTut" class="dtut">Play tutorial</button>
+          <button type="button" data-d="0"><b>Easy</b><span>Slower bullets, gentler fire</span></button>
+          <button type="button" data-d="1"><b>Normal</b><span>The intended challenge</span></button>
+          <button type="button" data-d="2"><b>Hard</b><span>Fiercer enemies, 2 Nova bombs</span></button>
+        </div>
+        <button type="button" id="dBack" class="dback">Back</button>
       </div>
     </div>
     <div id="resumeAsk" role="dialog" aria-modal="true" aria-labelledby="resTitle">
@@ -231,10 +240,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button></span></div>
-        <div class="row"><span>Difficulty</span><span class="seg" id="sDiff"><button type="button" data-d="0">Easy</button><button type="button" data-d="1">Normal</button><button type="button" data-d="2">Hard</button></span></div>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
-        <p class="note" id="diffNote"></p>
         <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
@@ -3200,7 +3207,7 @@ function startTutorial() {
   runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
   showMsg('TUTORIAL', 'LEARN TO FLY THE STARFALL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'tutAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
 function tutSpawn(o) { enemies.push(o); tut.ids.push(o); return o; }
 function tutAlive() { return tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { tut.step++; tut.t = 0; tut.ids = []; }
@@ -3299,7 +3306,19 @@ function startEndless() {
   else showMsg('STAGE 1', STAGE_NAMES[0], 170);
 }
 const ENDLESS_BTN = { w: 96, h: 16 };
-function startOrOffer() { let seen = false; try { seen = !!localStorage.getItem('starfall-tut'); } catch (e) {} if (seen) { startAt(1); return; } try { localStorage.setItem('starfall-tut', '1'); } catch (e) {} document.getElementById('tutAsk').classList.add('open'); }
+let diffNext = null;
+// Every run starts by choosing a difficulty: START (with the tutorial offered), Endless and the practice stages.
+function openDiff(kind, n) {
+  diffNext = { kind, n };
+  document.getElementById('dTut').hidden = kind !== 'camp';
+  document.getElementById('diffTitle').textContent = kind === 'endless' ? 'Endless' : kind === 'practice' ? 'Practice stage ' + n : 'Choose difficulty';
+  for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
+  document.getElementById('diffAsk').classList.add('open');
+  const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
+}
+function closeDiff() { document.getElementById('diffAsk').classList.remove('open'); diffNext = null; }
+function openHowTo() { buildHelp(); document.getElementById('howto').classList.add('open'); document.getElementById('howClose').focus(); }
+function startOrOffer() { openDiff('camp', 1); }
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 2 && gy <= SCORES_Y + 20 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 const SEL = { y: 231, w: 22, h: 16, gap: 5 };
@@ -5256,7 +5275,7 @@ function targetPos(e) {
 }
 let padSeen = -9999, titleFocus = 0;
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['lbPanel', 'howto', 'settings', 'pauseMenu']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
+function openDialog() { for (const id of ['lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
 function padMenus(nav) {
   const dlg = openDialog(); if (!dlg) return false;
   const nameBox = document.getElementById('lbName'), entering = dlg.id === 'lbPanel' && document.getElementById('lbSubmit').style.display !== 'none';
@@ -5278,7 +5297,7 @@ function padMenus(nav) {
   if (nav.down || nav.right) i = (i + 1) % items.length; else if (nav.up || nav.left) i = i <= 0 ? items.length - 1 : i - 1;
   if (nav.down || nav.right || nav.up || nav.left) items[Math.max(0, i)].focus();
   if (nav.a && document.activeElement && items.includes(document.activeElement)) document.activeElement.click();
-  if (nav.b || nav.start) { if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else closeMenu(); }
+  if (nav.b || nav.start) { if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else closeMenu(); }
   return true;
 }
 // title: START, the six practice stages, Endless and Scores
@@ -5287,7 +5306,7 @@ function padTitle(nav) {
   else if (nav.down) titleFocus = titleFocus === 0 ? 1 : titleFocus <= 6 ? 7 : titleFocus === 7 ? 8 : 0;
   else if (nav.left && titleFocus >= 1 && titleFocus <= 6) titleFocus = titleFocus === 1 ? 6 : titleFocus - 1;
   else if (nav.right && titleFocus >= 1 && titleFocus <= 6) titleFocus = titleFocus === 6 ? 1 : titleFocus + 1;
-  if (nav.a || nav.start) { if (titleFocus === 0) startAt(1); else if (titleFocus <= 6) startAt(titleFocus); else if (titleFocus === 7) startEndless(); else openLB('view'); }
+  if (nav.a || nav.start) { if (titleFocus === 0) openDiff('camp', 1); else if (titleFocus <= 6) openDiff('practice', titleFocus); else if (titleFocus === 7) openDiff('endless'); else openLB('view'); }
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
@@ -6590,7 +6609,6 @@ function syncSettingsUI() {
   for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
-{ const locked = state === 'play' || state === 'over'; for (const b of document.querySelectorAll('#sDiff button')) { b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); b.disabled = locked; b.style.opacity = locked && +b.dataset.d !== settings.diff ? 0.35 : 1; } const dn = document.getElementById('diffNote'); if (dn) dn.textContent = locked ? 'Difficulty is locked during a run. Change it on the title screen.' : ''; }
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
 }
 function buildHelp() {
@@ -6652,12 +6670,8 @@ document.getElementById('sMusic').addEventListener('input', e => { settings.musi
 document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
 for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
-for (const b of document.querySelectorAll('#sDiff button')) b.addEventListener('click', () => { if (state === 'play' || state === 'over') return; settings.diff = +b.dataset.d; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
-document.getElementById('tutYes').addEventListener('click', () => { document.getElementById('tutAsk').classList.remove('open'); startTutorial(); });
-document.getElementById('tutNo').addEventListener('click', () => { document.getElementById('tutAsk').classList.remove('open'); startAt(1); });
-document.getElementById('tutAsk').addEventListener('pointerdown', e => e.stopPropagation());
 document.getElementById('howTut').addEventListener('click', () => startTutorial());
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
 document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPropagation());
@@ -6678,11 +6692,12 @@ addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
   keys[k] = true; audio();
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
-    if (go && state === 'title') newGame();
-    else if (state === 'title' && k >= '1' && k <= '6') startAt(+k);
+    if (go && state === 'title') openDiff('camp', 1);
+    else if (state === 'title' && k >= '1' && k <= '6') openDiff('practice', +k);
     else if (go && state === 'over' && overT > 60) toTitle();
     return;
   }
@@ -6697,7 +6712,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) startTutorial(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) startEndless(); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) startAt(n); } }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) openHowTo(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) openDiff('practice', n); } }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
@@ -6749,6 +6764,13 @@ addEventListener('pagehide', () => { saveHi(); saveResume(); });
 document.getElementById('resYes').addEventListener('click', () => { const r = resumeOffer; resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
 document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); document.getElementById('resumeAsk').classList.remove('open'); });
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
+for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
+  const nx = diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'practice') startAt(nx.n); else startAt(1);
+});
+document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
+document.getElementById('dBack').addEventListener('click', closeDiff);
+document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPropagation());
 offerResume();
 
 /* ================= sizing ================= */
