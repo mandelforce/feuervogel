@@ -96,6 +96,17 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #howto .help{margin:4px 0 10px;border:0;padding:0}
 #howto h3{margin:12px 0 8px;font-size:16px;color:#fff0a0}
 #howto .tip{background:#2a2050;border-left:3px solid #a8f6dc;padding:8px 10px;font-size:13px;line-height:1.35;margin:0 0 6px}
+#howto .help p{font-size:13px;line-height:1.35;margin:0 0 6px;color:#f2ecd8}
+#howto .help ul{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 8px}
+#howto .help ul.one{grid-template-columns:1fr}
+#howto .help li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:center;font-size:13px;line-height:1.25}
+#howto .help b{display:block;color:#fff0a0;font-weight:600}
+#howto .help li span{color:#c8bce8}
+#howto .help .hint{font-size:12px;color:#a99cc8;margin:2px 0 0}
+#howto details{margin:10px 0 0;border-top:2px solid #3a3060;padding-top:8px}
+#howto summary{cursor:pointer;font-size:14px;color:#c8bce8;padding:4px 0}
+#howto details p{margin:6px 0 0;color:#c8bce8}
+#howto details b{display:inline;color:#fff0a0;font-weight:600}
 #settings .help{margin:14px 0 6px;border-top:2px solid #3a3060;padding-top:10px}
 #settings .help h3{margin:0 0 8px;font-size:16px;color:#fff0a0}
 #settings .help ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:7px}
@@ -3402,7 +3413,7 @@ function tutTick() {
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
       if (T.t > 60 && !tutAlive()) { if (T.ids.every(e => e.dead && e.y < H)) tutNext(); else { T.t = 0; T.ids = []; } } break; }
     case 2: { // power-up
-      if (T.t === 1) { T.got = 0; tutSpawn(E('pod', { x: W / 2, y: -16, hp: 3, hw: 9, hh: 10, score: 300 })); }
+      if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, hw: 9, hh: 10, score: 300, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
     case 3: { // medals and multiplier
       if (T.t === 1) { T.m0 = stats.medals; T.best = 1; }
@@ -3434,7 +3445,7 @@ const TUT_TEXT = () => {
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the supply container</b> and collect the power-up that drops out.',
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
     '<b>Collect medals quickly, one after another:</b> the multiplier rises up to x10. Wait too long and it resets.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
     (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the Nova button in the bottom right corner</b>') + ': it wipes out all enemy bullets.',
@@ -6007,7 +6018,7 @@ function kill(e) {
   } else {
     boom(e.x, e.y, e.type === 'bomber' ? 30 : e.type === 'pod' ? 12 : 11); sfx('boom'); haptic('kill');
     for (let i = 0; i < 3; i++) parts.push({ kind: 'debris', layer: 'a', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0.2), g: 0.07, life: (rnd(26, 40)) | 0, max: 40 });
-    if (e.type === 'pod') items.push(mkItem(!e.bossPod && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y));
+    if (e.type === 'pod') { const pi = mkItem(!e.bossPod && !e.tutW && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } items.push(pi); }
   }
   if (e.type === 'bomber' && Math.random() < 0.5) items.push(mkItem('B', e.x, e.y));
 }
@@ -6297,7 +6308,7 @@ function update() {
     if (it.kind === 'M' || it.kind === 'A') { it.t++; it.vy = Math.min(it.vy + 0.08, scrollV + 0.15); it.y += it.vy; continue; }
     it.t++; it.y += 0.45; it.x += Math.sin(it.t * 0.05) * 0.7;
     it.x = clamp(it.x, 7, W - 7);
-    if (it.kind === 'W' && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
+    if (it.kind === 'W' && !it.fixed && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
   }
 
   for (const s of shots) {
@@ -7460,36 +7471,44 @@ function buildHelp() {
   const gem = () => { const o = document.createElement('span'); o.className = 'hico'; o.style.cssText = 'width:12px;height:12px;background:#bba4ff;transform:rotate(45deg);box-shadow:0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
   const coinI = () => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = 'radial-gradient(circle at 35% 35%, #fff0a0, #d0a020)'; o.style.width = o.style.height = '16px'; return o; };
   const touch = matchMedia('(pointer: coarse)').matches;
-  const ctl = document.createElement('div');
-  ctl.innerHTML = '<h3>Controls</h3>' + (touch
-    ? '<p class="tip"><b>Tip:</b> you don\'t need to touch the plane itself. Move it to the middle of the screen, then steer with your finger anywhere below it. The plane follows your finger\'s movement, so it stays visible.</p><p style="font-size:13px;margin:0 0 6px">Your guns fire on their own.</p>'
-    : '<p class="tip">Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space sets off a Nova bomb. P pauses.</p><p style="font-size:13px;margin:0 0 6px">One-click mouse mode (Settings): click once and steer with the mouse without holding the button. Left click fires the charged laser, right click sets off a Nova. Esc lets go.</p><p style="font-size:13px;margin:0 0 6px">Controller: stick or D-pad to fly, X fires the charged laser, A or the shoulder buttons set off a Nova, Start pauses.</p>');
-  box.appendChild(ctl);
-  const sections = [
-    ['Special attacks', [
-      [orb('#3a1a5a', '#bba4ff', 'N'), '<b>Nova bomb.</b> ' + (touch ? 'Tap the Nova button' : 'Press X or Space, or click the Nova button') + ' to wipe out enemy bullets, damage everything on screen and protect yourself for a moment. The purple dots show how many you have.'],
-      [orb('#1a3a5a', '#a8f6dc', '!'), '<b>Super laser.</b> Hold still to charge: a ring fills around your ship and chimes when ready. Then ' + (touch ? 'touch the screen again' : 'move again') + ' to fire a powerful laser through everything in its path.']]],
-    ['Items', [
-      [sprIcon(SPR.pod, 1.6), '<b>Supply container.</b> Shoot it to release a power-up.'],
-      [orb(RP.crys[2], RP.crys[4], 'S'), '<b>Scatter.</b> A wide fan of shots. Collect it again to power it up, up to level 4.'],
-      [orb(RP.glass[2], RP.glass[4], 'L'), '<b>Lance.</b> Fast, piercing shots straight ahead.'],
-      [orb(RP.pinkb[2], RP.pinkb[4], 'H'), '<b>Seekers.</b> Twin guns plus homing missiles that find their own targets.'],
-      [orb('#2a6aa8', '#a8e0ff', 'A'), '<b>Arc.</b> From Stage 3 on. Lightning bolts strike the nearest enemy ahead and jump on to one or two enemies close by.'],
-      [orb(RP.alien[2], RP.alien[4], 'N'), '<b>Nova.</b> One extra Nova bomb, up to six.'],
-      [orb(RP.crys[1], RP.crys[3], 'T'), '<b>Talon.</b> An escort drone that fires with you and blocks small bullets. Up to two.'],
-      [coinI(), '<b>Medal.</b> 300 points. Collect the next one within about three seconds to raise the multiplier, up to x10.'],
-      [gem(), '<b>Secret.</b> Look for three circling crows. Fly over the spot until the ring fills, then catch the gem before it escapes.']]],
-    ['Leaderboard', [
-      [orb('#3a2a10', '#f4d050', '★'), '<b>Star.</b> A star after a name means the run used no continues. You get two continues per run, and your score is kept.'],
-      [orb('#241c40', '#8a7eb0', '1'), '<b>Campaign scores</b> only count when you start with the START button at Stage 1. Stage buttons are for practice. Difficulty is fixed for the whole run.'],
-      [orb('#5a1010', '#e86050', '!'), '<b>Hard mode.</b> Starts as tough as the second round on Normal, and bigger enemies fire a few last bullets at you when destroyed.'],
-      [orb('#241c40', '#8a7eb0', 'i'), '<b>Privacy.</b> Only your chosen name, your scores and a random player number are stored. No personal data.']]]
-  ];
-  for (const [title, items] of sections) {
-    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
-    const ul = document.createElement('ul');
-    for (const [ic, html] of items) { const li = document.createElement('li'); const t = document.createElement('span'); t.innerHTML = html; li.append(ic, t); ul.appendChild(li); }
+  const add = (tag, html) => { const e = document.createElement(tag); e.innerHTML = html; box.appendChild(e); return e; };
+  const list = (rows, one) => {
+    const ul = document.createElement('ul'); if (one) ul.className = 'one';
+    for (const [ic, name, desc] of rows) { const li = document.createElement('li'); const t = document.createElement('div'); t.innerHTML = '<b>' + name + '</b><span>' + desc + '</span>'; li.append(ic, t); ul.appendChild(li); }
     box.appendChild(ul);
+  };
+  add('h3', 'Controls');
+  add('p', touch
+    ? 'Slide a finger anywhere below the ship. It follows your movement. Guns fire on their own.'
+    : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space: Nova bomb. P: pause.');
+  list([
+    [orb('#3a1a5a', '#bba4ff', 'N'), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
+    [orb('#1a3a5a', '#a8f6dc', '!'), 'Super laser', 'Hold still, then ' + (touch ? 'touch again' : 'move') + ' to fire.']]);
+  add('h3', 'Weapons');
+  list([
+    [orb(RP.crys[2], RP.crys[4], 'S'), 'Scatter', 'Wide fan of shots'],
+    [orb(RP.glass[2], RP.glass[4], 'L'), 'Lance', 'Piercing, straight ahead'],
+    [orb(RP.pinkb[2], RP.pinkb[4], 'H'), 'Seekers', 'Homing missiles'],
+    [orb('#2a6aa8', '#a8e0ff', 'A'), 'Arc', 'Chain lightning (Stage 3+)']]);
+  add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4.').className = 'hint';
+  add('h3', 'Pickups');
+  list([
+    [orb(RP.alien[2], RP.alien[4], 'N'), 'Nova', 'Extra bomb'],
+    [orb(RP.crys[1], RP.crys[3], 'T'), 'Talon', 'Escort drone'],
+    [coinI(), 'Medal', 'Grab in a chain for up to x10'],
+    [gem(), 'Secret', 'Follow the crows']]);
+  const more = document.createElement('details');
+  more.innerHTML = '<summary>Scores &amp; rules</summary>'
+    + '<p><b>Star:</b> a run with no continues. You get two, and your score is kept.</p>'
+    + '<p><b>Campaign scores</b> count only from START at Stage 1, on one difficulty. Stage buttons are practice.</p>'
+    + '<p><b>Privacy:</b> only your name, scores and a random player number are stored.</p>';
+  box.appendChild(more);
+  if (!touch) {
+    const mc = document.createElement('details');
+    mc.innerHTML = '<summary>Mouse &amp; controller</summary>'
+      + '<p><b>One-click mouse</b> (Settings): click once, steer without holding. Left click: laser. Right click: Nova. Esc lets go.</p>'
+      + '<p><b>Controller:</b> stick or D-pad to fly, X laser, A or shoulders Nova, Start pauses.</p>';
+    box.appendChild(mc);
   }
 }
 function updateErr() {
