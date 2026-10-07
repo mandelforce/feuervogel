@@ -4409,9 +4409,11 @@ function drawLocks() {
   }
 }
 // Iron Leviathan "Hard to port": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
-// the horn and swings about 60 degrees so one long side faces the player, like a real battleship bringing its guns to
-// bear. Smoke and flashes run along that side, two broadsides fire out of it towards the player, then it swings back.
-const RAM_WARN = 40, RAM_TURN = 170, RAM_VOLLEYS = [200, 238], RAM_BACK = 262, RAM_END = 390, RAM_ANG = 1.05, RAM_SIDE = 33;
+// the horn and comes about so one long side faces the player, then fires two broadsides out of that side.
+// It turns like a big ship: around a pivot near the bow (the stern swings wide), creeping forward through the arc,
+// with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
+const RAM_WARN = 40, RAM_VOLLEYS = [210, 248], RAM_BACK = 272, RAM_END = 430, RAM_ANG = 1.05, RAM_SIDE = 33,
+  RAM_PIVOT = 40, RAM_K = 0.0007, RAM_DAMP = 0.036, RAM_CREEP = 0.17;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
@@ -4420,19 +4422,30 @@ function shipRam(e) {
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
     if (!due) return false;
     if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
-    // turn so the stern swings away from the player's side: the broadside then faces down across the screen
-    e.ram = { t: 0, dir: player.x < e.x ? -1 : 1 }; e.ramN++; sfx('horn'); haptic('warn');
+    // turn away from the player's side, so the broadside ends up facing them
+    e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
   }
   const R = e.ram; R.t++;
-  const ease = f => f * f * (3 - 2 * f), T = RAM_ANG * R.dir;
-  if (R.t <= RAM_WARN) { e.hd = 0; e.x += Math.sin(R.t * 1.7) * 0.4; }
-  else if (R.t <= RAM_TURN) e.hd = T * ease((R.t - RAM_WARN) / (RAM_TURN - RAM_WARN));
-  else if (R.t <= RAM_BACK) e.hd = T;
-  else e.hd = T * (1 - ease(Math.min(1, (R.t - RAM_BACK) / (RAM_END - RAM_BACK))));
+  // heading with momentum: the rudder pulls towards the target angle, the hull's inertia lags and overshoots a little
+  const target = R.t <= RAM_WARN ? 0 : R.t <= RAM_BACK ? RAM_ANG * R.dir : 0;
+  R.w += (target - e.hd) * RAM_K - R.w * RAM_DAMP; e.hd += R.w;
+  if (R.t > RAM_END - 36) { R.w *= 0.8; e.hd *= 0.9; } // settle smoothly into the normal heading at the end
+  // the pivot near the bow creeps forward through the turn, then the ship backs to its station while turning back
+  const bow = [-Math.sin(e.hd), Math.cos(e.hd)];
+  if (R.t > RAM_WARN && R.t <= RAM_BACK) { const v = RAM_CREEP * Math.min(1, (R.t - RAM_WARN) / 60); R.px += bow[0] * v; R.py += bow[1] * v; }
+  else if (R.t > RAM_BACK) { const f = Math.min(1, (R.t - RAM_BACK) / (RAM_END - RAM_BACK - 20)), g = 0.03 + 0.07 * f; R.px += (R.bx - R.px) * g; R.py += (R.by + RAM_PIVOT - R.py) * g; }
+  // place the hull so that its pivot point sits on the pivot path
+  e.x = R.px + RAM_PIVOT * Math.sin(e.hd); e.y = R.py - RAM_PIVOT * Math.cos(e.hd);
+  if (R.t > RAM_END - 36) { const f = (R.t - (RAM_END - 36)) / 36; e.x += (R.bx - e.x) * f; e.y += (R.by - e.y) * f; }
+  if (R.t <= RAM_WARN) e.x += Math.sin(R.t * 1.7) * 0.4;
   if (R.t === RAM_WARN + 1) sfx('horn');
-  if (R.t > RAM_WARN && R.t <= RAM_TURN && gf % 2 === 0) for (const sd of [-1, 1]) foam(e.x + Math.cos(e.hd) * sd * 36 + rnd(-6, 6), e.y + Math.sin(e.hd) * sd * 36 + rnd(-30, 30));
-  // the side facing down the screen is the one that fires
-  const sd = Math.sign(e.hd) || R.dir, c = Math.cos(e.hd), s = Math.sin(e.hd), at = (lx, ly) => [e.x + lx * c - ly * s, e.y + lx * s + ly * c];
+  const c = Math.cos(e.hd), s = Math.sin(e.hd), at = (lx, ly) => [e.x + lx * c - ly * s, e.y + lx * s + ly * c];
+  // curved wake from the stern that stays on the water, bow wave on the outer side, funnel smoke trailing astern
+  if (gf % 2 === 0) { const [sx, sy] = at(rnd(-8, 8), -112); parts.push({ kind: 'foam', layer: 'w', x: sx, y: sy, vx: rnd(-0.2, 0.2), vy: scrollV, life: 130, max: 130 }); }
+  if (R.t > RAM_WARN && gf % 2 === 0) { const [fx, fy] = at(-R.dir * rnd(10, 20), rnd(90, 112)); foam(fx, fy); const [gx, gy] = at(-R.dir * 37, rnd(-80, 60)); foam(gx, gy); }
+  if (gf % 6 === 0) for (const ly of [-16, -36]) { const [fx, fy] = at(0, ly), life = (rnd(36, 54)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: fx, y: fy, vx: -bow[0] * 0.45 + rnd(-0.1, 0.1), vy: -bow[1] * 0.45 + scrollV - 0.1, r: rnd(2, 4), life, max: life }); }
+  // the side facing down the screen fires
+  const sd = Math.sign(e.hd) || R.dir;
   for (const [vi, v] of RAM_VOLLEYS.entries()) {
     if (R.t > v - 26 && R.t < v && R.t % 4 === 0) { const [gx, gy] = at(sd * RAM_SIDE, rnd(-90, 90)); flash(gx, gy, 2); smokePuff(gx, gy); }
     if (R.t === v) {
@@ -4442,7 +4455,7 @@ function shipRam(e) {
     }
   }
   placeTankParts(e);
-  if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.ramCd = 240; placeTankParts(e); }
+  if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.x = R.bx; e.y = R.by; e.ramCd = 240; placeTankParts(e); }
   return true;
 }
 // Sand Colossus "Sandstorm": at 85% and again at 45% core health it digs in, revs its engines and its rear fans
