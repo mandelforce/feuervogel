@@ -4454,19 +4454,20 @@ function sandstorm(e) {
   e.stormN = e.stormN || 0;
   if (!e.storm) {
     if (!core || core.dead || player.dead) return false;
-    const due = (e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45);
+    const due = !e.last && ((e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45));
     if (!due) return false;
-    e.storm = { t: 0, dir: e.stormN === 0 ? 1 : -1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big');
+    e.storm = { t: 0, dir: e.stormN === 0 ? 1 : -1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big'); scrollTarget = 0;
   }
   const S = e.storm; S.t++;
-  e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y;
+  S.y += scrollV; // dug in: it rides with the ground while the scroll comes to a stop
+  e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y; e.moving = false;
   // sand plumes from the rear fans, blown the way the storm will go
   for (const sx of [-34, 34]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-8, 8), vx: S.dir * rnd(1.5, 3.2), vy: rnd(-0.6, 0.3), life: 70, max: 70, r: rnd(7, 13) });
   if (S.t < STORM_WARN) shake = Math.max(shake, 2);
   if (S.t === STORM_WARN) sfx('roar');
   const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
   S.k = k;
-  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); }
+  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); e.calm = 150; if (!e.last) scrollTarget = SCROLL; }
   return true;
 }
 function updStorm() {
@@ -4488,26 +4489,43 @@ function drawStorm() {
   for (const st of stormStreaks) if (!st.puff) { ctx.globalAlpha = 0.75 * stormK; ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 2); }
   ctx.globalAlpha = 1;
 }
-// The Sand Colossus drives like a tank: it can only go forward or in reverse along its heading, so to reach a
-// new spot it first pivots on its tracks, then drives. Its heading stays within ~35 degrees of facing the player.
-const TANK_TURN = 0.009, TANK_SPEED = 0.38, TANK_MAXHD = 0.6;
+// The Sand Colossus fights a retreat: it faces the player and reverses up the screen as fast as the ground scrolls,
+// so it holds its place while its tracks turn. It shifts lanes by angling a little while reversing (it can only move
+// along its heading) and now and then pulls away or lets the player catch up.
+// Last stand: once only its turret is left (or its core is below 30%), a track is shot off. It can no longer keep pace, so it drifts down
+// towards the player, grinding round in circles on its good track, while the turret sprays a spiral.
+const TANK_TURN = 0.006, TANK_MAXHD = 0.26, TANK_LASTY = 0.5;
 function tankDrive(e) {
   if (e.hd === undefined) e.hd = 0;
-  if (!e.wp || Math.hypot(e.wp.x - e.x, e.wp.y - e.y) < 3 || ++e.wpT > 420) {
-    if (e.wp && e.wpT <= 420 && (e.wpWait = (e.wpWait ?? 40) - 1) > 0) { e.moving = false; placeTankParts(e); return; }
-    // next spot lies ahead or behind within the turn limit, so it can always be reached by turning and driving
-    let x, y, k = 0; do { const dir = e.y > 128 + BY ? -1 : e.y < 102 + BY ? 1 : (Math.random() < 0.5 ? -1 : 1), dy = dir * rnd(16, 34), dx = rnd(-0.6, 0.6) * Math.abs(dy);
-      x = clamp(e.x + dx, 70, W - 70); y = clamp(e.y + dy, 96 + BY, 136 + BY); k++; } while (k < 30 && (Math.hypot(x - e.x, y - e.y) < 12 || Math.abs(x - e.x) > 0.62 * Math.abs(y - e.y)));
-    e.wp = { x, y }; e.wpT = 0; e.wpWait = (rnd(30, 90)) | 0;
+  const others = e.parts.filter(p => p.k !== 'core' && !p.dead).length, core = e.parts.find(p => p.k === 'core');
+  if (e.calm > 0) e.calm--;
+  if (!e.last && core && !core.dead && !e.storm && !(e.calm > 0) && (others === 0 || core.hp < core.maxhp * 0.3)) {
+    e.last = { t: 0, side: Math.random() < 0.5 ? -1 : 1 };
+    const c = Math.cos(e.hd), sn = Math.sin(e.hd), tx = e.x + e.last.side * 39 * c, ty = e.y + e.last.side * 39 * sn;
+    boom(tx, ty, 26, 'g'); shake = Math.max(shake, 10); sfx('gboom'); haptic('big');
+    for (let i = 0; i < 26; i++) { const a = Math.random() * TAU, v = rnd(0.8, 2.6); parts.push({ kind: i % 3 ? 'spark' : 'dust', layer: 'a', x: tx + rnd(-4, 4), y: ty + rnd(-30, 30), vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 30, max: 30, col: '#fff2a8', r: 4 }); }
   }
-  const dx = e.wp.x - e.x, dy = e.wp.y - e.y, fwd = Math.atan2(-dx, dy), back = fwd + (fwd > 0 ? -PI : PI);
-  // drive forwards or in reverse, whichever needs less turning and keeps the nose towards the player
-  const pick = [fwd, back].filter(a => Math.abs(a) <= TANK_MAXHD).sort((a, b) => Math.abs(angDiff(e.hd, a)) - Math.abs(angDiff(e.hd, b)))[0];
-  if (pick === undefined) { e.wp = null; placeTankParts(e); return; } // out of reach after all: choose another spot
-  const want = pick, err = angDiff(e.hd, want);
-  e.hd += clamp(err, -TANK_TURN, TANK_TURN);
-  e.moving = true;
-  if (Math.abs(err) < 0.06) { const fx = -Math.sin(e.hd), fy = Math.cos(e.hd), along = dx * fx + dy * fy, sp = Math.min(TANK_SPEED, Math.abs(along)); e.x += fx * sp * Math.sign(along); e.y += fy * sp * Math.sign(along); }
+  let s; // ground speed along the heading: negative = reversing
+  if (e.last) {
+    const L = e.last; L.t++;
+    e.hd += 0.0105 * L.side; // one track drags, so it grinds round in circles
+    const stop = e.y >= Math.min(H * TANK_LASTY, H * 0.71 - 95); // stops short of the player's usual position
+    if (stop) scrollTarget = 0;
+    s = stop ? -scrollV * Math.cos(e.hd) : -scrollV * 0.5;
+    if (L.t % 4 === 0) parts.push({ kind: 'spark', layer: 'g', x: e.x + L.side * 39 * Math.cos(e.hd) + rnd(-3, 3), y: e.y + L.side * 39 * Math.sin(e.hd) + rnd(-20, 20), vx: rnd(-1, 1), vy: rnd(-1, 0.4), life: 12, max: 12, col: '#fff2a8' });
+    if (L.t % 9 === 0) smokePuff(e.x + L.side * 30 * Math.cos(e.hd), e.y + L.side * 30 * Math.sin(e.hd));
+  } else {
+    // pick a new lane and distance now and then
+    if (!e.wp || --e.wpT <= 0) { e.wp = { x: clamp(e.x + rnd(-40, 40), 84, W - 84), y: 104 + BY + rnd(-4, 22) }; e.wpT = (rnd(180, 320)) | 0; }
+    const vyWant = clamp((e.wp.y - e.y) * 0.02, -0.35, 0.25), vxWant = clamp((e.wp.x - e.x) * 0.012, -0.22, 0.22);
+    s = (vyWant - scrollV) / Math.max(0.5, Math.cos(e.hd));
+    // sideways motion only comes from angling the hull while it reverses
+    const want = Math.abs(s) > 0.08 ? clamp(Math.asin(clamp(-vxWant / s, -0.9, 0.9)), -TANK_MAXHD, TANK_MAXHD) : 0;
+    e.hd += clamp(angDiff(e.hd, want), -TANK_TURN, TANK_TURN);
+  }
+  e.x += -Math.sin(e.hd) * s; e.y += Math.cos(e.hd) * s + scrollV;
+  e.x = clamp(e.x, 60, W - 60);
+  e.moving = Math.abs(s) > 0.04 || !!e.last;
   placeTankParts(e);
 }
 function placeTankParts(e) {
@@ -4600,8 +4618,7 @@ const BOSSMOVE = {
     if (gf % 5 === 0) for (const sx of [-16, 16]) { const [dx, dy] = rot(sx, -30); smokePuff(e.x + dx + rnd(-1, 1), e.y + dy); }
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
       if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const [dx, dy] = rot(sx, 50); const col = treadCol(wx5 + dx, wy5 + dy); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + dx, wy: wy5 + dy - 2 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
-    // the ground stops under the Colossus, so everything it does on screen is real driving over the sand
-    if (e.mt === 0 && e.y < 110 + BY) { scrollTarget = 0; e.y += 0.45; e.moving = true; return false; }
+    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; e.moving = true; return false; }
     e.mt++; tankDrive(e);
     return true;
   },
@@ -5016,6 +5033,10 @@ const AI = {
           if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
           const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
           smokePuff(sx, sy); sfx('cannon');
+        } else if (e.kind === 'fortress' && e.last) {
+          p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
+          eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
+          if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
         } else if (e.kind === 'fortress') {
           p.cd = Math.round((100) * fireSlow());
           const [bx, by] = mz(34);
