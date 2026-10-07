@@ -4920,7 +4920,7 @@ const BOSSMOVE = {
     }
     if (e.phase === 'lift') {
       e.pt++; const f = Math.min(1, e.pt / 150), ez = f * f * (3 - 2 * f);
-      e.scale = 0.72 + 0.28 * ez; e.y = e.y0 + (110 - e.y0) * ez;
+      e.scale = 0.72 + 0.28 * ez; e.y = e.y0 + (110 + BY - e.y0) * ez; // lift to exactly where the fight starts, so it doesn't jump on tall screens
       shake = Math.max(shake, 3 * (1 - f));
       if (gf % 2 === 0) for (let i = 0; i < 2; i++) parts.push({ kind: 'dust', layer: 'w', x: e.x + rnd(-100, 100), y: e.y + rnd(-50, 70), vx: rnd(-1.5, 1.5), vy: rnd(-0.6, 0.6), life: 40, max: 40, r: rnd(3, 6) });
       if (f >= 1) { e.phase = 'fight'; e.untarget = false; e.scale = 1; scrollTarget = SCROLL; }
@@ -5309,7 +5309,6 @@ const AI = {
     const k = e.t2 - 110; e.x = 112 + Math.sin(k * 0.013) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16;
     if (player.dead) return;
     if (k % Math.round(46 * fireSlow()) === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
-    if (k % Math.round(170 * fireSlow()) === 85) { for (const o of [-24, 0, 24]) mortarShot(e.x, e.y, o); sfx('rocket'); }
     if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y - 30, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
   },
   proto(e) {
