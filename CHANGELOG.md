@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Stage 2 boss (Sand Colossus): "Burrow" below 65% and 30% core health. It vanishes into the sand, a sand mound tracks you, stops inside a dark red ring, then erupts with a ring of shells; the Colossus rises back at its post.
+
 ## 1.1.1 update (7 October 2026)
 - Leaderboard: names are left-aligned next to a narrower rank column, leaving room for bigger scores; rank movement (▲/▼/NEW) sits under the rank.
 - Tutorial: the Easy / Normal / Hard choice at the end is now three stacked boxes, styled like the Start button.

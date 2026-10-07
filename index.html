@@ -4444,6 +4444,58 @@ function drawRamLanes() {
     ctx.globalAlpha = 1;
   }
 }
+// Sand Colossus "Burrow": below 65% and again below 30% core health it vanishes into the sand in a dust cloud.
+// A sand mound tracks the player, stops, shows a dark red ring, then erupts with a ring of shells; the Colossus
+// rises back at its post. While underground it is parked off-screen, so it can't be hit and doesn't fire.
+const BUR_SINK = 40, BUR_TRACK = 150, BUR_WARN = 45, BUR_RISE = 50;
+function burrow(e) {
+  const core = e.parts.find(p => p.k === 'core');
+  e.burN = e.burN || 0;
+  if (!e.bur) {
+    if (!core || core.dead || player.dead) return false;
+    const due = (e.burN === 0 && core.hp < core.maxhp * 0.65) || (e.burN === 1 && core.hp < core.maxhp * 0.3);
+    if (!due) return false;
+    e.bur = { ph: 'sink', t: 0, sx: e.x, sy: e.y }; e.burN++; sfx('roar'); haptic('big');
+  }
+  const B = e.bur, dust = (x, y, n, sp) => { for (let i = 0; i < n; i++) { const a = Math.random() * TAU; parts.push({ kind: 'dust', layer: 'w', x: x + Math.cos(a) * rnd(0, 40), y: y + Math.sin(a) * rnd(0, 46), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 50, max: 50, r: rnd(4, 8) }); } };
+  B.t++;
+  if (B.ph === 'sink') {
+    e.x = B.sx + Math.sin(B.t * 1.9) * 1.2; shake = Math.max(shake, 3);
+    if (B.t % 3 === 0) dust(B.sx, B.sy, 4, 0.9);
+    if (B.t >= BUR_SINK) { dust(B.sx, B.sy, 26, 1.4); e.y = -400; B.ph = 'track'; B.t = 0; B.mx = B.sx; B.my = B.sy + 50; }
+  } else if (B.ph === 'track') {
+    const tx = player.x, ty = Math.min(player.y, H - 24), d = Math.hypot(tx - B.mx, ty - B.my);
+    if (d > 2) { B.mx += (tx - B.mx) / d * 1.4; B.my += (ty - B.my) / d * 1.4; }
+    if (gf % 3 === 0) parts.push({ kind: 'dust', layer: 'w', x: B.mx + rnd(-6, 6), y: B.my + rnd(-3, 3), vx: rnd(-0.3, 0.3), vy: -0.2, life: 26, max: 26, r: rnd(2, 4) });
+    if (B.t >= BUR_TRACK || d < 4) { B.ph = 'warn'; B.t = 0; sfx('charge'); }
+  } else if (B.ph === 'warn') {
+    if (B.t % 4 === 0) parts.push({ kind: 'dust', layer: 'w', x: B.mx + rnd(-8, 8), y: B.my + rnd(-4, 4), vx: 0, vy: -0.3, life: 20, max: 20, r: 3 });
+    if (B.t >= BUR_WARN) {
+      ring(B.mx, B.my, 14 + loop * 2, bspeed() * 0.85, Math.random() * TAU, 'B'); dust(B.mx, B.my - 20, 18, 1.6);
+      shake = Math.max(shake, 8); sfx('gboom'); haptic('big');
+      e.x = B.sx; e.y = B.sy; dust(B.sx, B.sy, 26, 1.2); B.ph = 'rise'; B.t = 0;
+    }
+  } else if (B.ph === 'rise') {
+    e.x = B.sx; e.y = B.sy;
+    if (B.t >= BUR_RISE) { e.bur = null; e.tlx = undefined; } // tread tracks start fresh where it surfaced
+  }
+  return true;
+}
+function drawMounds() {
+  for (const e of enemies) {
+    const B = e.type === 'boss' && !e.dying && e.bur; if (!B || (B.ph !== 'track' && B.ph !== 'warn')) continue;
+    const x = Math.round(B.mx), y = Math.round(B.my), wob = B.ph === 'warn' ? Math.sin(B.t * 1.3) : 0;
+    ctx.globalAlpha = 0.35; dk(x + 2, y + 3, 10, '#3a2a10'); ctx.globalAlpha = 1;
+    dk(x, y, 9 + wob, '#a8803a'); dk(x - 1, y - 2, 6, '#d8b060'); dk(x - 2, y - 3, 3, '#f0d890');
+  }
+}
+function drawMoundWarn() {
+  for (const e of enemies) {
+    const B = e.type === 'boss' && !e.dying && e.bur; if (!B || B.ph !== 'warn') continue;
+    const r = 26 - B.t * 0.2; ctx.globalAlpha = (B.t >> 2) & 1 ? 0.95 : 0.55; ctx.strokeStyle = '#c81e1e'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(Math.round(B.mx) + 0.5, Math.round(B.my) + 0.5, r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -4524,6 +4576,7 @@ const BOSSMOVE = {
     return A.ready;
   },
   fortress(e) {
+    if (e.mt > 0 && burrow(e)) return true;
     if (gf % 4 === 0) for (const sx of [-40, 40]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 56, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 });
     if (gf % 5 === 0) for (const sx of [-16, 16]) smokePuff(e.x + sx + rnd(-1, 1), e.y - 30);
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
@@ -4901,6 +4954,7 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
+      if (e.bur && e.bur.ph !== 'sink') { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
@@ -5182,7 +5236,7 @@ function bomb() {
   ebul.length = 0;
   for (const e of enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
-    if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
+    if (e.type === 'boss') { if (!(e.bur && e.bur.ph !== 'sink' && e.bur.ph !== 'rise')) for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
     else damage(e, e.big ? 45 : 40);
   }
   sfx('nova'); haptic('nova');
@@ -6544,7 +6598,9 @@ function render() {
   drawBeam();
   drawPlayerArcs();
   drawRamLanes();
+  drawMounds();
   drawPlayer();
+  drawMoundWarn();
   drawLocks();
   drawParts('a');
   drawHitbox();
