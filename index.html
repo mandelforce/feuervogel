@@ -369,8 +369,16 @@ const CITYC = {
 };
 const THEME_RGB = THEME_TR.map(o => { const r = {}; for (const k in TR) r[k] = (o[k] || TR[k]).map(hexRGB); return r; });
 let TRGB = THEME_RGB[0];
-const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5], YARD_XO = [0, 2, 3, 4, 6];
-function yardXover(k, i) { if (!YARD_XO.includes(i)) return 0; const h = hash(k * 7 + i, 91); return h < 0.12 ? 1 : h < 0.22 ? -1 : 0; }
+const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5];
+// crossovers: one per 240px stretch of yard, a long gentle S-bend (120px for one track spacing) that the trains follow exactly.
+// They run in a fixed sequence (from track -> to track, for a train moving up the yard) so the boss trains on tracks 3 and 5
+// can step out to a neighbouring track and back. Returns { i, xTop, xBot, y0, y1 }.
+const XO_P = 240, XO_A = 60, XO_L = 120, XO_SEQ = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
+function yardXover(k) {
+  const [from, to] = XO_SEQ[((k % 6) + 6) % 6];
+  return { i: Math.min(from, to), xTop: YARD_T[to], xBot: YARD_T[from], y0: k * XO_P + XO_A, y1: k * XO_P + XO_A + XO_L };
+}
+const xoS = f => f * f * (3 - 2 * f);
 const RAILC = { steel: hexRGB('#c4c8d0'), sleeper: hexRGB('#3a2a1c'), deck: hexRGB('#6a4c30'), deckDark: hexRGB('#2a1e14'), ballast: ['#4a4642', '#5e5a54', '#77726a'].map(hexRGB) };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
@@ -2000,9 +2008,10 @@ function pixelColor(wx, wy, rx) {
     }
     case 'ryard': {
       const snowy = vnoise(wx * 0.05, wy * 0.04) > 0.64, ball = () => snowy && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
-      const k = Math.floor(wy / 48), ly2 = wy - k * 48;
-      // crossovers between neighbouring tracks
-      if (ly2 >= 4 && ly2 <= 44) for (const i of YARD_XO) { const d = yardXover(k, i); if (!d) continue; const x0 = YARD_T[i], x1 = YARD_T[i + 1]; if (wx < x0 - 5 || wx > x1 + 5) continue; const f = (ly2 - 4) / 40, cx = d > 0 ? x0 + f * 26 : x1 - f * 26, ddx = Math.round(wx - cx); if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 2) return RAILC.steel; if (((ly2 % 5) + 5) % 5 < 2) return RAILC.sleeper; } }
+      // a crossover between neighbouring tracks, drawn on exactly the curve the trains follow
+      { const X = yardXover(Math.floor(wy / XO_P)); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
+        const cx = X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L), ddx = Math.round(wx - cx);
+        if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 2) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; } } }
       const ti = Math.round((wx - 18) / 26), tx = 18 + ti * 26, dx = wx - tx;
       // platforms with yellow edges and canopies
       for (const g of YARD_PLAT) { const a = YARD_T[g] + 7, b2 = YARD_T[g + 1] - 7; if (wx >= a && wx <= b2) { const canopy = ((Math.floor(wy / 96) % 2) + 2) % 2 === 0 && wy % 96 > 10 && wy % 96 < 86; if (wx === a || wx === b2) return hexRGB('#e8c040'); if (canopy) return hexRGB(((wy >> 1) & 1) ? '#4a4e58' : '#5a5e68'); if ((((wy % 32) + 32) % 32) === 0 && wx === ((a + b2) >> 1)) return hexRGB('#2a2a2e'); return hexRGB(snowy && hash(wx, wy) < 0.6 ? '#eef2f6' : hash(wx, wy) < 0.5 ? '#9a9ca2' : '#8a8c92'); } }
@@ -4507,7 +4516,7 @@ function yardX(t, y) {
   const P = t.path; if (!P) return t.x;
   const wy = y - Math.floor(scroll);
   if (wy <= P.y0) return P.xTop; if (wy >= P.y1) return P.xBot;
-  const f = (wy - P.y0) / (P.y1 - P.y0), s2 = f * f * (3 - 2 * f); return P.xTop + (P.xBot - P.xTop) * s2;
+  return P.xTop + (P.xBot - P.xTop) * xoS((wy - P.y0) / (P.y1 - P.y0));
 }
 // a rail vehicle rides on two bogies 14px either side of its centre: its centre sits between them and it turns with the rails
 function yardPose(t, y) { const xa = yardX(t, y - 14), xb = yardX(t, y + 14); return { x: (xa + xb) / 2, a: -Math.atan2(xb - xa, 28) }; }
@@ -4532,13 +4541,11 @@ function yardMove(e, t) {
   // the train is backing up the yard: switch tracks at a crossover ahead of its rear car
   const sc = Math.floor(scroll);
   if (t.path && t.y - sc < t.path.y0 - 4) { t.x = t.path.xTop; t.path = null; }
-  if (!t.path && t.ready && Math.random() < 0.006) {
-    const ti = YARD_T.indexOf(t.x), wTop = t.y - 170 - sc, busy = yardBusy(e, t);
-    for (let k = Math.floor(wTop / 48) - 1; k >= Math.floor(wTop / 48) - 4 && !t.path; k--) for (const i of [ti - 1, ti]) {
-      const d = yardXover(k, i); if (!d || i < 0 || i > 6) continue;
-      const xa = YARD_T[i], xb = YARD_T[i + 1], xTop = d > 0 ? xa : xb, xBot = d > 0 ? xb : xa;
-      if (xBot !== t.x || busy.has(xTop)) continue;
-      t.path = { y0: k * 48 + 4, y1: k * 48 + 44, xTop, xBot }; break;
+  if (!t.path && t.ready && Math.random() < 0.03) {
+    const wTop = t.y - 170 - sc, busy = yardBusy(e, t);
+    for (let k = Math.floor(wTop / XO_P); k >= Math.floor(wTop / XO_P) - 2 && !t.path; k--) {
+      const X = yardXover(k); if (!X || X.y1 > wTop - 4 || X.xBot !== t.x || busy.has(X.xTop)) continue;
+      t.path = { y0: X.y0, y1: X.y1, xTop: X.xTop, xBot: X.xBot };
     }
   }
 }
