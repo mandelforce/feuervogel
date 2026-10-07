@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Burnt trees no longer reappear on top of animals and ground units: the tree overlay drawn over them skips trees that have been burnt.
+
 ## 1.2.2 (7 October 2026)
 - Version 1.2.2.
 - Run reports: at the end of each run (game over, quit, or the page left mid-run) the game sends one anonymous report to a new `/report` endpoint, stored in its own `runs` table: mode, difficulty, platform, start and final stage, score, continues, play time, and per stage the time to the boss, boss fight time, deaths (with cause, weapon and level), Nova bombs used and time spent with each weapon; also pickups, controls used (keys, touch, mouse, controller), tutorial seen, run number on the device and time since the last run. Settings → "Share play data" turns it off. Tutorial runs and test builds send nothing. Scores, boards and their rules are unchanged.
