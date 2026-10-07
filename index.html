@@ -4488,6 +4488,32 @@ function drawStorm() {
   for (const st of stormStreaks) if (!st.puff) { ctx.globalAlpha = 0.75 * stormK; ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 2); }
   ctx.globalAlpha = 1;
 }
+// The Sand Colossus drives like a tank: it can only go forward or in reverse along its heading, so to reach a
+// new spot it first pivots on its tracks, then drives. Its heading stays within ~35 degrees of facing the player.
+const TANK_TURN = 0.009, TANK_SPEED = 0.38, TANK_MAXHD = 0.6;
+function tankDrive(e) {
+  if (e.hd === undefined) e.hd = 0;
+  if (!e.wp || Math.hypot(e.wp.x - e.x, e.wp.y - e.y) < 3 || ++e.wpT > 420) {
+    if (e.wp && e.wpT <= 420 && (e.wpWait = (e.wpWait ?? 40) - 1) > 0) { e.moving = false; placeTankParts(e); return; }
+    // next spot lies ahead or behind within the turn limit, so it can always be reached by turning and driving
+    let x, y, k = 0; do { const dir = e.y > 128 + BY ? -1 : e.y < 102 + BY ? 1 : (Math.random() < 0.5 ? -1 : 1), dy = dir * rnd(16, 34), dx = rnd(-0.6, 0.6) * Math.abs(dy);
+      x = clamp(e.x + dx, 70, W - 70); y = clamp(e.y + dy, 96 + BY, 136 + BY); k++; } while (k < 30 && (Math.hypot(x - e.x, y - e.y) < 12 || Math.abs(x - e.x) > 0.62 * Math.abs(y - e.y)));
+    e.wp = { x, y }; e.wpT = 0; e.wpWait = (rnd(30, 90)) | 0;
+  }
+  const dx = e.wp.x - e.x, dy = e.wp.y - e.y, fwd = Math.atan2(-dx, dy), back = fwd + (fwd > 0 ? -PI : PI);
+  // drive forwards or in reverse, whichever needs less turning and keeps the nose towards the player
+  const pick = [fwd, back].filter(a => Math.abs(a) <= TANK_MAXHD).sort((a, b) => Math.abs(angDiff(e.hd, a)) - Math.abs(angDiff(e.hd, b)))[0];
+  if (pick === undefined) { e.wp = null; placeTankParts(e); return; } // out of reach after all: choose another spot
+  const want = pick, err = angDiff(e.hd, want);
+  e.hd += clamp(err, -TANK_TURN, TANK_TURN);
+  e.moving = true;
+  if (Math.abs(err) < 0.06) { const fx = -Math.sin(e.hd), fy = Math.cos(e.hd), along = dx * fx + dy * fy, sp = Math.min(TANK_SPEED, Math.abs(along)); e.x += fx * sp * Math.sign(along); e.y += fy * sp * Math.sign(along); }
+  placeTankParts(e);
+}
+function placeTankParts(e) {
+  const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0);
+  for (const p of e.parts) { if (p.bx === undefined) { p.bx = p.ox; p.by = p.oy; } p.ox = p.bx * c - p.by * s; p.oy = p.bx * s + p.by * c; }
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -4569,12 +4595,13 @@ const BOSSMOVE = {
   },
   fortress(e) {
     if (e.mt > 0 && sandstorm(e)) return true;
-    if (gf % 4 === 0) for (const sx of [-40, 40]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 56, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 });
-    if (gf % 5 === 0) for (const sx of [-16, 16]) smokePuff(e.x + sx + rnd(-1, 1), e.y - 30);
+    const hc = Math.cos(e.hd || 0), hs = Math.sin(e.hd || 0), rot = (ox, oy) => [ox * hc - oy * hs, ox * hs + oy * hc];
+    if (gf % 4 === 0 && e.moving) for (const sx of [-40, 40]) { const [dx, dy] = rot(sx, -56); parts.push({ kind: 'dust', layer: 'w', x: e.x + dx + rnd(-4, 4), y: e.y + dy, vx: rnd(-0.2, 0.2), vy: -0.2, life: 40, max: 40, r: 4 }); }
+    if (gf % 5 === 0) for (const sx of [-16, 16]) { const [dx, dy] = rot(sx, -30); smokePuff(e.x + dx + rnd(-1, 1), e.y + dy); }
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
-      if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const col = treadCol(wx5 + sx, wy5 + 50); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + sx, wy: wy5 + 48 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
-    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; return false; }
-    e.mt++; e.x = 112 + Math.sin(e.mt * 0.006) * 40; e.y = 110 + BY + Math.sin(e.mt * 0.011) * 14;
+      if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const [dx, dy] = rot(sx, 50); const col = treadCol(wx5 + dx, wy5 + dy); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + dx, wy: wy5 + dy - 2 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
+    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; e.moving = true; return false; }
+    e.mt++; tankDrive(e);
     return true;
   },
   railgun(e) {
@@ -6197,7 +6224,8 @@ function drawBoss(e) {
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, rocket: SPR.rocketPod });
     for (const q of e.parts) if (q.k === 'core' && !q.dead && !q.off) coreGlow(e.x + q.ox, e.y + q.oy, q.hit > 0, false);
   } else if (e.kind === 'fortress') {
-    spr(SPR.fortHull[e.mt > 0 || e.y < 110 + BY ? (gf >> 3) & 1 : 0], e.x, e.y, fl);
+    { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
+      spr(SPR.fortHull[e.moving ? (gf >> 3) & 1 : 0], e.x, e.y, fl); if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.dGun, aa: SPR.bAA, mortar: SPR.mortar, core: SPR.fortTur });
   } else if (e.kind === 'castle') {
     if (e.y > -140 && e.y < H + 60) {
