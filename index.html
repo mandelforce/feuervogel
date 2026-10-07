@@ -4564,7 +4564,7 @@ function blockedMove(e, dx, dy) {
   }
   return false;
 }
-// Night Hammer searchlights, seen from above: a bright spot on the ground with a faint beam back to the lamp. Each spot sweeps a slow
+// Night Hammer searchlights, seen from above: a bright spot on the ground with a soft beam back to the lamp. Each spot sweeps a slow
 // search pattern over the whole screen; within 90px of the plane it creeps toward it (slower than the plane flies). Caught = spotted.
 const SPOT_R = 22, SPOT_V = 0.75;
 function searchSpot(e, p, px, py) {
@@ -4577,11 +4577,22 @@ function searchSpot(e, p, px, py) {
   return !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < SPOT_R;
 }
 function drawSpot(x0, y0, x, y, red) {
-  // the faint beam from the lamp, then the pool of light where it lands
-  ctx.strokeStyle = red ? 'rgba(170,20,14,0.35)' : 'rgba(255,248,200,0.16)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
-  const g = ctx.createRadialGradient(x, y, 0, x, y, SPOT_R + 4); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,248,210,0.75)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.45)' : 'rgba(255,244,190,0.4)'); g.addColorStop(1, 'rgba(255,240,180,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, SPOT_R + 4, 0, TAU); ctx.fill();
+  // a soft cone from the lamp out to the full width of the pool (several faint nested cones, so the edges feather out),
+  // then the pool of light with a thin rim where the catch zone ends, and a glow on the lamp. Bright red while it has the player.
+  const rgb = red ? '255,60,40' : '255,246,205', R = SPOT_R + 4, d = Math.hypot(x - x0, y - y0) || 1, nx = -(y - y0) / d, ny = (x - x0) / d, n = 5;
+  let g = ctx.createLinearGradient(x0, y0, x, y); g.addColorStop(0, `rgba(${rgb},${(red ? 0.26 : 0.14) / n})`); g.addColorStop(1, `rgba(${rgb},${(red ? 0.36 : 0.2) / n})`);
+  ctx.fillStyle = g;
+  for (let k = 0; k < n; k++) {
+    const f = 1 - k / n, w = R * f, w0 = 1.5 + 2 * f, a = Math.atan2(ny, nx);
+    ctx.beginPath(); ctx.moveTo(x0 + nx * w0, y0 + ny * w0); ctx.lineTo(x + nx * w, y + ny * w); ctx.arc(x, y, w, a, a + PI); ctx.lineTo(x0 - nx * w0, y0 - ny * w0); ctx.closePath(); ctx.fill();
+  }
+  g = ctx.createRadialGradient(x, y, 0, x, y, R + 2); g.addColorStop(0, `rgba(${rgb},0.62)`); g.addColorStop(0.7, `rgba(${rgb},0.42)`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R + 2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(${rgb},0.45)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, SPOT_R, 0, TAU); ctx.stroke();
+  g = ctx.createRadialGradient(x0, y0, 0, x0, y0, 9); g.addColorStop(0, `rgba(${rgb},0.8)`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x0, y0, 9, 0, TAU); ctx.fill();
 }
+function caughtRing() { parts.push({ kind: 'ring', layer: 'a', x: player.x, y: player.y, vx: 0, vy: 0, life: 18, max: 18, r: 40, col: '#ff4a3a' }); }
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -5177,7 +5188,7 @@ const AI = {
     e.y += 0.12; e.x += Math.sin(e.ft * 0.03) * 0.15; e.life--;
     e.r = Math.min(46, (e.ft - 40) * 3) * Math.min(1, e.life / 40);
     if (e.life <= 0) { e.dead = true; return; }
-    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!e.lit) e.caught = 30; } e.lit = true; } else e.lit = false;
+    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!(e.caught > 0)) caughtRing(); e.caught = 40; } e.lit = true; } else e.lit = false;
     if (e.caught > 0) e.caught--;
   },
   // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
@@ -5498,7 +5509,7 @@ const AI = {
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
         const lit = (e.lightT === undefined || e.lightT > (p.ox < 0 ? 1 : 25)) && searchSpot(e, p, px, py);
-        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the light flashes dark red the moment it catches the player
+        if (lit) { e.spot = 40; if (!(p.caught > 0)) caughtRing(); p.caught = 40; } // the light stays bright red while it has the player; a red ring marks the catch
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
@@ -6678,7 +6689,7 @@ function drawPart(q) {
     case 'spark': ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); break;
     case 'ring': {
       const rr = (1 - f) * q.r + 3;
-      ctx.globalAlpha = f; ctx.strokeStyle = '#fff2a8'; ctx.lineWidth = 2;
+      ctx.globalAlpha = f; ctx.strokeStyle = q.col || '#fff2a8'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(q.x, q.y, rr, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; break;
     }
     case 'flash': dk(q.x, q.y, q.r, f > 0.5 ? '#fff2a8' : '#f8a83a'); break;
@@ -6952,9 +6963,9 @@ function drawNight() {
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
-    if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0 && ((e.caught >> 2) & 1), g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.42)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
-      ctx.strokeStyle = red ? 'rgba(200,30,20,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, red); }
+    if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0, g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(255,60,40,0.7)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(255,60,40,0.4)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = red ? 'rgba(255,60,40,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, p.caught > 0); }
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
