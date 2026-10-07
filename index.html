@@ -4408,10 +4408,10 @@ function drawLocks() {
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(x + sx * r - (sx > 0 ? 4 : 0), y + sy * r - (sy > 0 ? 1 : 0), 5, 2); ctx.fillRect(x + sx * r - (sx > 0 ? 1 : 0), y + sy * r - (sy > 0 ? 4 : 0), 2, 5); }
   }
 }
-// Iron Leviathan "Full ahead": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
-// the horn and surges forward, then fires full broadsides out of both sides of its hull. Smoke and flashes running
-// along the hull warn that the side guns are about to fire. The safe place is right above the ship.
-const RAM_WARN = 70, RAM_GO = 130, RAM_HOLD = 170, RAM_END = 290, RAM_DIST = 40, RAM_VOLLEYS = [84, 112, 140], RAM_SIDE = 33;
+// Iron Leviathan "Hard to port": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
+// the horn and swings about 60 degrees so one long side faces the player, like a real battleship bringing its guns to
+// bear. Smoke and flashes run along that side, two broadsides fire out of it towards the player, then it swings back.
+const RAM_WARN = 40, RAM_TURN = 110, RAM_VOLLEYS = [140, 178], RAM_BACK = 200, RAM_END = 280, RAM_ANG = 1.05, RAM_SIDE = 33;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
@@ -4420,25 +4420,29 @@ function shipRam(e) {
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
     if (!due) return false;
     if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
-    e.ram = { t: 0, x0: e.x }; e.ramN++; sfx('horn'); haptic('warn');
+    // turn so the stern swings away from the player's side: the broadside then faces down across the screen
+    e.ram = { t: 0, dir: player.x < e.x ? -1 : 1 }; e.ramN++; sfx('horn'); haptic('warn');
   }
-  const R = e.ram, base = 118 + BY; R.t++;
-  let dy = 0;
-  if (R.t <= RAM_WARN) { e.x = R.x0 + Math.sin(R.t * 1.7) * 0.8; if (gf % 2 === 0) foam(e.x + rnd(-18, 18), e.y + 112); }
-  else if (R.t <= RAM_GO) { const f = (R.t - RAM_WARN) / (RAM_GO - RAM_WARN); dy = RAM_DIST * f * f * (3 - 2 * f); e.x = R.x0; shake = Math.max(shake, 2); for (const sx of [-24, 0, 24]) foam(e.x + sx + rnd(-4, 4), e.y + 112); }
-  else if (R.t <= RAM_HOLD) dy = RAM_DIST;
-  else { const f = (R.t - RAM_HOLD) / (RAM_END - RAM_HOLD); dy = RAM_DIST * (1 - f * f * (3 - 2 * f)); }
-  e.y = base + dy;
-  if (R.t === RAM_WARN + 1) { sfx('horn'); shake = Math.max(shake, 6); }
-  // side guns: smoke and flashes along the hull just before each broadside, then a row of shells out of each side
+  const R = e.ram; R.t++;
+  const ease = f => f * f * (3 - 2 * f), T = RAM_ANG * R.dir;
+  if (R.t <= RAM_WARN) { e.hd = 0; e.x += Math.sin(R.t * 1.7) * 0.4; }
+  else if (R.t <= RAM_TURN) e.hd = T * ease((R.t - RAM_WARN) / (RAM_TURN - RAM_WARN));
+  else if (R.t <= RAM_BACK) e.hd = T;
+  else e.hd = T * (1 - ease(Math.min(1, (R.t - RAM_BACK) / (RAM_END - RAM_BACK))));
+  if (R.t === RAM_WARN + 1) sfx('horn');
+  if (R.t > RAM_WARN && R.t <= RAM_TURN && gf % 2 === 0) for (const sd of [-1, 1]) foam(e.x + Math.cos(e.hd) * sd * 36 + rnd(-6, 6), e.y + Math.sin(e.hd) * sd * 36 + rnd(-30, 30));
+  // the side facing down the screen is the one that fires
+  const sd = Math.sign(e.hd) || R.dir, c = Math.cos(e.hd), s = Math.sin(e.hd), at = (lx, ly) => [e.x + lx * c - ly * s, e.y + lx * s + ly * c];
   for (const [vi, v] of RAM_VOLLEYS.entries()) {
-    if (R.t > v - 30 && R.t < v && R.t % 5 === 0) { const sd = Math.random() < 0.5 ? -1 : 1, gy = e.y + rnd(-86, 86); flash(e.x + sd * RAM_SIDE, gy, 2); smokePuff(e.x + sd * (RAM_SIDE + 2), gy); }
+    if (R.t > v - 26 && R.t < v && R.t % 4 === 0) { const [gx, gy] = at(sd * RAM_SIDE, rnd(-90, 90)); flash(gx, gy, 2); smokePuff(gx, gy); }
     if (R.t === v) {
-      for (let gy = -88 + (vi % 2) * 8; gy <= 88; gy += 16) for (const sd of [-1, 1]) { eshot(e.x + sd * RAM_SIDE, e.y + gy, sd > 0 ? rnd(-0.06, 0.06) : PI + rnd(-0.06, 0.06), bspeed() * 1.05, 'B'); if ((gy & 31) === 0) flash(e.x + sd * RAM_SIDE, e.y + gy, 4); }
+      const out = sd > 0 ? e.hd : e.hd + PI;
+      for (let ly = -90 + (vi % 2) * 9; ly <= 90; ly += 18) { const [gx, gy] = at(sd * RAM_SIDE, ly); eshot(gx, gy, out + rnd(-0.05, 0.05), bspeed() * 0.95, 'B'); if (((ly + 90) / 18 | 0) % 2 === 0) flash(gx, gy, 4); }
       shake = Math.max(shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
     }
   }
-  if (R.t >= RAM_END) { e.ram = null; e.ramCd = 240; }
+  placeTankParts(e);
+  if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.ramCd = 240; placeTankParts(e); }
   return true;
 }
 // Sand Colossus "Sandstorm": at 85% and again at 45% core health it digs in, revs its engines and its rear fans
@@ -6230,8 +6234,10 @@ function drawBoss(e) {
   if (e.dying) ctx.globalAlpha = clamp(e.dying / 120, 0.35, 1);
   const core = e.parts.find(p => p.k === 'core');
   if (e.kind === 'ship') {
-    spr(SPR.bship, e.x, e.y, fl);
-    if (e.crew && !e.dying) for (const c of e.crew) spr(SPR.sailor[Math.abs(c.v) + Math.abs(c.vx) > 0.02 ? (gf >> (e.panicT > 0 ? 2 : 3)) & 1 : 2], e.x + c.ox, e.y + c.oy);
+    { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
+      spr(SPR.bship, e.x, e.y, fl);
+      if (e.crew && !e.dying) for (const c of e.crew) spr(SPR.sailor[Math.abs(c.v) + Math.abs(c.vx) > 0.02 ? (gf >> (e.panicT > 0 ? 2 : 3)) & 1 : 2], e.x + c.ox, e.y + c.oy);
+      if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
     if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, core.armored);
   } else if (e.kind === 'train') {
