@@ -80,8 +80,15 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #diffAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#diffAsk.open{display:grid}#diffAsk .panel{width:min(90%,340px);max-height:96%;overflow-y:auto}@media (max-height:600px){#diffAsk .panel{padding:10px 12px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu{gap:6px}#diffAsk .dmenu button{padding:5px 10px}#diffAsk .dback{margin-top:6px;padding:4px}}
 #diffAsk .dmenu{display:grid;gap:10px}#diffAsk .dmenu button{display:grid;gap:3px;width:100%;padding:9px 10px;background:#34226a;border-color:#8466dc;box-shadow:0 0 0 2px #120e1a}
 #diffAsk .dmenu b{font-weight:400;font-size:19px;color:#fff0a0}#diffAsk .dmenu span{font-size:12px;color:#c8bce8}
-#diffAsk .dmenu button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;color:#f2ecd8}#diffAsk .dmenu .dtut{background:#2a2050;border-color:#a8f6dc;color:#a8f6dc;font-size:17px}
-#diffAsk [hidden]{display:none}#diffAsk .dback{width:100%;margin-top:12px;background:none;border-color:transparent;color:#a99cc8}
+#diffAsk .dmenu button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;color:#f2ecd8}
+#diffAsk .dextra{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}#diffAsk .dextra button{padding:8px 4px;min-height:40px;font-size:14px;background:#2a2050;border-color:#a8f6dc;color:#a8f6dc}#diffAsk .dextra #dPrac{border-color:#8466dc;color:#c8bce8}
+#diffAsk [hidden]{display:none}
+#diffAsk .dstage{display:grid;gap:6px;margin:2px 0}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:13px;color:#c8bce8}
+#diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#diffAsk .dsel button{position:relative;padding:9px 0 7px;font-size:16px;background:#211a3c;border:2px solid #4a3e70;border-bottom:3px solid var(--acc,#4a3e70);box-shadow:none;color:#d8d0f0}
+#diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;border-bottom-color:var(--acc,#d0a020);color:#fff0a0}
+#diffAsk .dsel button.art::after{content:'';position:absolute;top:4px;right:4px;width:5px;height:5px;background:#bba4ff;box-shadow:0 0 0 1px #120e1a;transform:rotate(45deg)}
+#diffAsk .dnote{margin:0;font-size:12px;line-height:1.3;color:#a8f6dc}#diffAsk .dnote.prac{color:#c8bce8}#diffAsk .dback{width:100%;margin-top:12px;background:none;border-color:transparent;color:#a99cc8}
 #resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
@@ -217,11 +224,12 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <button type="button" id="dTut" class="dtut">Play tutorial</button>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Easy</b><span>Slower bullets, gentler fire</span></button>
           <button type="button" data-d="1"><b>Normal</b><span>The intended challenge</span></button>
           <button type="button" data-d="2"><b>Hard</b><span>Fiercer enemies, 2 Nova bombs</span></button>
         </div>
+        <div class="dextra" id="dExtra"><button type="button" id="dTut">Tutorial</button><button type="button" id="dPrac">Practice</button></div>
         <button type="button" id="dBack" class="dback">Back</button>
       </div>
     </div>
@@ -1527,6 +1535,86 @@ function textO(s, x, y, c1, sc = 1, align = 'left', c2) {
   text(s, x, y, c1, sc, align, c2);
 }
 const pad = (n, l) => String(Math.floor(n)).padStart(l, '0');
+
+/* ================= title logo ================= */
+// FEUERVOGEL 89: its own 5x7 letters (finer than the 3x5 game font), chrome face with a 3D edge, a passing glint,
+// 火の鳥 down the left side, and a rare glitch: a strip of the logo slips sideways for a few frames.
+const LOGO_FONT = {
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'], E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'], R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'], O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'], L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+};
+const COPYRIGHT = ['.#####.', '#.....#', '#.###.#', '#.#...#', '#.###.#', '#.....#', '.#####.'];
+const KANJI = [
+  ['.......##.......', '.......##.......', '.......##.......', '.##....##....##.', '.##....##...##..', '..##...##..##...', '..##...##.......', '.......##.......', '......####......',
+   '......####......', '.....##..##.....', '.....##..##.....', '....##....##....', '...###....###...', '..###......###..', '.###........###.', '##............##'],
+  ['......########....', '....###..##...###.', '...##....##.....##', '..##.....##.....##', '.##.....##......##', '.##.....##......##', '##......##......##', '##.....##.......##',
+   '##.....##.......##', '##....##.......##.', '##....##.......##.', '.##..##.......##..', '.#####.......##...', '..###......###....', '.........####.....', '.........##.......'],
+  ['........##..........', '........##..........', '...#############....', '...#############....', '...##.........##....', '...#############....', '...#############....', '...##.........##....',
+   '...#############....', '...##...............', '...#################', '...#################', '...##...............', '...################.', '...################.', '..#..##..#...#...##.',
+   '..#..##..##..##..##.', '.##...#...#...#..##.', '.##...#...##....##..', '##....#......#####..']
+];
+const logoMasks = new Map(), logoTints = new Map();
+function logoBits(rows, sc, key) {
+  if (logoMasks.has(key)) return logoMasks.get(key);
+  const [c, x] = mk(rows[0].length * sc, rows.length * sc); x.fillStyle = '#fff';
+  rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '1' || r[i] === '#') x.fillRect(i * sc, j * sc, sc, sc); });
+  logoMasks.set(key, c); return c;
+}
+function logoWord(s, sc) { return logoBits([0, 1, 2, 3, 4, 5, 6].map(j => [...s].map(ch => LOGO_FONT[ch][j]).join('0')), sc, s + '|' + sc); }
+function logoTint(m, col) {
+  let t = logoTints.get(m); if (!t) logoTints.set(m, t = new Map());
+  if (!t.has(col)) { const [c, x] = mk(m.width, m.height); x.drawImage(m, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); t.set(col, c); }
+  return t.get(col);
+}
+const LOGO_RING = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+// face colour per pixel row; edge: 3D depth in px (with side colour) or just a drop shadow
+function logoDraw(m, x, y, colAt, depth, side) {
+  for (let d = depth + 1; d >= (depth ? 1 : 0); d--) for (const [dx, dy] of LOGO_RING) ctx.drawImage(logoTint(m, OUT), x + d + dx, y + d + dy);
+  for (let d = depth; d >= 1; d--) ctx.drawImage(logoTint(m, side), x + d, y + d);
+  for (let r = 0; r < m.height; r++) ctx.drawImage(logoTint(m, colAt(r, m.height)), 0, r, m.width, 1, x, y + r, m.width, 1);
+}
+const LOGO_SKY = ['#ffffff', '#d8f2ff', '#a8d0f4', '#6a9ad8', '#3a5aa8'], LOGO_GOLD = ['#5a3e08', '#946a10', '#d0a020', '#f4d050', '#fff0a0'];
+function logoChrome(t) {
+  const hzF = 0.52 + Math.sin(t * 0.04) * 0.06;
+  return (r, h) => { const hz = Math.round(h * hzF); return r < hz ? LOGO_SKY[Math.min(4, Math.floor(r / hz * 5))] : r === hz ? '#1c1238' : LOGO_GOLD[4 - Math.min(3, Math.floor((r - hz - 1) / (h - hz - 1) * 4))]; };
+}
+const logoGlintC = mk(160, 40);
+function logoGlint(m, x, y, p) {
+  if (p < 0 || p > 1) return;
+  const [c, g] = logoGlintC, cx = -30 + p * (m.width + 60);
+  g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, c.width, c.height); // both stripes first, then trim them to the letters
+  g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx + 6, 0); g.lineTo(cx - 8, m.height); g.lineTo(cx - 14, m.height); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.moveTo(cx + 9, 0); g.lineTo(cx + 11, 0); g.lineTo(cx - 3, m.height); g.lineTo(cx - 5, m.height); g.closePath(); g.fill();
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(m, 0, 0);
+  ctx.drawImage(c, 0, 0, m.width, m.height, x, y, m.width, m.height);
+}
+const LOGO = { x: 50, y: 18, glitch: { until: 0, seed: 0, next: 2700 }, shine: 60, shineNext: 420 };
+// drawn inside the title screen's translate(0, TY)
+function drawTitleLogo() {
+  const L = LOGO, g = L.glitch, t = gf;
+  if (t >= g.next) { g.seed = (Math.random() * 1e6) | 0; g.until = t + 6 + ((Math.random() * 6) | 0); g.next = t + 2700 + ((Math.random() * 1800) | 0); }
+  if (t >= L.shineNext) { L.shine = t; L.shineNext = t + 300 + ((Math.random() * 240) | 0); }
+  const on = t < g.until, face = logoChrome(t);
+  const w1 = logoWord('FEUER', 5), w2 = logoWord('VOGEL', 5), y2 = L.y + 42;
+  logoDraw(w1, L.x, L.y, face, 3, '#34226a'); logoGlint(w1, L.x, L.y, (t - L.shine) / 40);
+  logoDraw(w2, L.x, y2, face, 3, '#34226a'); logoGlint(w2, L.x, y2, (t - L.shine - 6) / 40);
+  let ky = L.y + 6;
+  KANJI.forEach((rows, i) => { const k = logoBits(rows, 1, 'k' + i), kx = Math.round(L.x / 2 - k.width / 2) - 2; ctx.drawImage(logoTint(k, OUT), kx + 1, ky + 1); ctx.drawImage(logoTint(k, '#d8f2ff'), kx, ky); ky += k.height + 5; });
+  textO(VERSION, L.x + w2.width + 1, y2 + 42, '#a8f6dc', 1, 'right', '#4ccfae');
+  if (on) { // strip slip
+    const oy = Math.round(ctx.getTransform().f), sy = L.y + 4 + ((hash(g.seed, t >> 2) * 70) | 0), sh = 3 + ((hash(g.seed, 7) * 6) | 0), dx = (hash(g.seed, 3) < 0.5 ? -1 : 1) * (3 + ((hash(g.seed, 4) * 6) | 0));
+    const [c, x] = mk(200, sh); x.putImageData(ctx.getImageData(12, sy + oy, 200, sh), 0, 0);
+    ctx.drawImage(c, 12 + dx, sy); ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(12 + dx, sy, 200, 1); ctx.globalAlpha = 1;
+  }
+}
+// © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
+function drawTitleCredit(y) {
+  const cm = logoBits(COPYRIGHT, 1, 'copy'), tw = textW('1989 MANDELFORCE', 1), x0 = Math.round(W / 2 - (cm.width + 3 + tw) / 2);
+  ctx.drawImage(logoTint(cm, OUT), x0 + 1, y); ctx.drawImage(logoTint(cm, '#8a7eb0'), x0, y - 1);
+  textS('1989 MANDELFORCE', x0 + cm.width + 3, y, '#8a7eb0', 1, 'left', '#6a5e90');
+}
 
 /* ================= terrain ================= */
 let chunks = new Map(), chunkInfo = new Map(), genP = -7, stageBaseP = 0;
@@ -3286,6 +3374,7 @@ function newGame() {
   sfx('start'); cont = 0; playSong('stage'); player.fly = 110; seedStage(); fade = { t: 0, phase: 'in' }; stats = newStats(); newSecret(); results = null; hitStop = 0; slowT = 0;
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
+const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker
 // ================= tutorial =================
 let tut = null;
 const tutTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -3397,10 +3486,28 @@ function startEndless() {
 const ENDLESS_BTN = { w: 96, h: 16 };
 let diffNext = null;
 // Every run starts by choosing a difficulty: START (with the tutorial offered), Endless and the practice stages.
+// Two views: the campaign (difficulty only, tutorial and practice offered underneath) and practice (a stage row above the difficulties).
+function setDiffView(prac) {
+  diffNext.prac = prac;
+  const camp = diffNext.kind === 'camp';
+  document.getElementById('dStage').hidden = !prac;
+  document.getElementById('dExtra').hidden = !camp || prac;
+  document.getElementById('diffTitle').textContent = prac ? 'Practice a stage' : camp ? 'Choose difficulty' : 'Endless';
+  if (prac) {
+    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.style.setProperty('--acc', STAGE_ACC[STAGE_ORDER[i]]); b.classList.toggle('art', arts.has(STAGE_ORDER[i])); b.setAttribute('aria-label', 'Stage ' + (i + 1) + (arts.has(STAGE_ORDER[i]) ? ', artifact found' : '')); });
+    setDiffStage(diffNext.n || 1);
+  } else diffNext.n = 1;
+}
+function setDiffStage(n) {
+  diffNext.n = n;
+  for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
+  const note = document.getElementById('dNote');
+  note.textContent = n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
+  note.classList.toggle('prac', n !== 1);
+}
 function openDiff(kind, n) {
   diffNext = { kind, n };
-  document.getElementById('dTut').hidden = kind !== 'camp';
-  document.getElementById('diffTitle').textContent = kind === 'endless' ? 'Endless' : kind === 'practice' ? 'Practice stage ' + n : 'Choose difficulty';
+  setDiffView(kind === 'camp' && n > 1);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
@@ -3410,14 +3517,11 @@ function openHowTo() { buildHelp(); document.getElementById('howto').classList.a
 function startOrOffer() { openDiff('camp', 1); }
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 2 && gy <= SCORES_Y + 20 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
-const SEL = { y: 231, w: 22, h: 16, gap: 5 };
-const START_BTN = { y: 190, w: 116, h: 24 }, ENDLESS_Y = 257, SCORES_Y = 283;
+const START_BTN = { y: 190, w: 116, h: 24 }, ENDLESS_Y = 234, SCORES_Y = 258;
 const TUT_Q = { x: W / 2 + START_BTN.w / 2 + 16, y: START_BTN.y + START_BTN.h / 2, r: 9 };
 function tutQHit(gx, gy) { return Math.hypot(gx - TUT_Q.x, gy - TUT_Q.y) <= TUT_Q.r + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - 140) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
-const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
-function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
 function lbEligible() { return score > 0 && (endless || runStart === 1) && !run2P; } // 2-player runs stay off the boards
 function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
@@ -5942,13 +6046,11 @@ function padMenus(nav) {
   if (nav.b || nav.start) { if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else closeMenu(); }
   return true;
 }
-// title: START, the six practice stages, Endless and Scores
+// title: START (the stage is picked in the difficulty panel), Endless and Scores
 function padTitle(nav) {
-  if (nav.up) titleFocus = titleFocus === 0 ? 8 : titleFocus <= 6 ? 0 : titleFocus === 7 ? 1 : 7;
-  else if (nav.down) titleFocus = titleFocus === 0 ? 1 : titleFocus <= 6 ? 7 : titleFocus === 7 ? 8 : 0;
-  else if (nav.left && titleFocus >= 1 && titleFocus <= 6) titleFocus = titleFocus === 1 ? 6 : titleFocus - 1;
-  else if (nav.right && titleFocus >= 1 && titleFocus <= 6) titleFocus = titleFocus === 6 ? 1 : titleFocus + 1;
-  if (nav.a || nav.start) { if (titleFocus === 0) openDiff('camp', 1); else if (titleFocus <= 6) openDiff('practice', titleFocus); else if (titleFocus === 7) openDiff('endless'); else openLB('view'); }
+  if (nav.up) titleFocus = titleFocus === 0 ? 8 : titleFocus === 7 ? 0 : 7;
+  else if (nav.down) titleFocus = titleFocus === 0 ? 7 : titleFocus === 7 ? 8 : 0;
+  if (nav.a || nav.start) { if (titleFocus === 0) openDiff('camp', 1); else if (titleFocus === 7) openDiff('endless'); else openLB('view'); }
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
@@ -7119,8 +7221,7 @@ function render() {
     g.addColorStop(0, 'rgba(18,14,26,0.75)'); g.addColorStop(0.55, 'rgba(18,14,26,0.35)'); g.addColorStop(1, 'rgba(18,14,26,0.7)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.save(); ctx.translate(0, TY);
-    textO('STARFALL', W / 2, 54, '#fff0a0', 5, 'center', '#f8a83a');
-    textO(VERSION, W / 2 + 74, 84, '#a8f6dc', 2, 'right', '#4ccfae');
+    drawTitleLogo();
     const ps = (useGold() ? goldSet() : SPR.playerSet)[1], sw = ps.w * 2, sh = ps.h * 2, by = 140 + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
     for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
@@ -7130,16 +7231,8 @@ function render() {
       btn(x0 - 2, START_BTN.y - 2, START_BTN.w + 4, START_BTN.h + 4, '#d0a020'); btn(x0, START_BTN.y, START_BTN.w, START_BTN.h, '#3a2a70');
       ctx.globalAlpha = 0.25 + 0.2 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0, START_BTN.y, START_BTN.w, 3); ctx.globalAlpha = 1;
       textO('START', W / 2, START_BTN.y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    textS('PRACTICE A STAGE', W / 2, SEL.y - 9, '#8a7eb0', 1, 'center', '#4a3e70');
-    if (gf - padSeen < 1200) { const r = titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : titleFocus <= 6 ? [selX(titleFocus - 1) - 3, SEL.y - 3, SEL.w + 6, SEL.h + 6] : [W / 2 - ENDLESS_BTN.w / 2 - 3, (titleFocus === 7 ? ENDLESS_Y : SCORES_Y) - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6 + (titleFocus === 8 ? 2 : 0)]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
-    const acc = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34'];
-    for (let i = 0; i < 6; i++) {
-      const x0 = selX(i);
-      btn(x0, SEL.y, SEL.w, SEL.h, 'rgba(28,22,48,0.85)');
-      ctx.fillStyle = acc[STAGE_ORDER[i]]; ctx.fillRect(x0, SEL.y + SEL.h - 2, SEL.w, 2);
-      textS(String(i + 1), x0 + SEL.w / 2 + 1, SEL.y + 4, '#d8d0f0', 1, 'center', '#6a5aa0');
-      if (arts.has(STAGE_ORDER[i])) drawGem(x0 + SEL.w - 3, SEL.y + 3, 2);
-    }
+    if (gf - padSeen < 1200) { const r = titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : [W / 2 - ENDLESS_BTN.w / 2 - 3, (titleFocus === 7 ? ENDLESS_Y : SCORES_Y) - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6 + (titleFocus === 8 ? 2 : 0)]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    const acc = STAGE_ACC;
     { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2);
       btn(bx, ENDLESS_Y, ENDLESS_BTN.w, ENDLESS_BTN.h, 'rgba(28,22,48,0.85)');
       for (let i = 0; i < 6; i++) { ctx.fillStyle = acc[i]; ctx.fillRect(bx + i * (ENDLESS_BTN.w / 6), ENDLESS_Y + ENDLESS_BTN.h - 2, Math.ceil(ENDLESS_BTN.w / 6), 2); }
@@ -7149,6 +7242,7 @@ function render() {
       { const qx = TUT_Q.x, qy = TUT_Q.y; dk(qx, qy, TUT_Q.r + 2, '#d0a020'); dk(qx, qy, TUT_Q.r + 1, OUT); dk(qx, qy, TUT_Q.r, '#3a2a70'); textO('?', qx + 1, qy - 6, '#fff0a0', 2, 'center', '#f8a83a'); }
       if (lbAlert) { const dx = W / 2 + ENDLESS_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, lbAlert === 'red' ? '#e86050' : '#f4d050'); ctx.globalAlpha = 1; dk(dx, dy, pr, lbAlert === 'red' ? '#e86050' : '#f4d050'); }
     }
+    drawTitleCredit(H - TY - 11);
     ctx.restore();
     syncBody(); return;
   }
@@ -7444,7 +7538,7 @@ addEventListener('keydown', e => {
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
     if (go && state === 'title') openDiff('camp', 1);
-    else if (state === 'title' && k >= '1' && k <= '6') openDiff('practice', +k);
+    else if (state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k);
     else if (go && state === 'over' && overT > 60) toTitle();
     return;
   }
@@ -7459,7 +7553,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) openHowTo(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) openDiff('practice', n); } }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) openHowTo(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
@@ -7515,10 +7609,12 @@ document.getElementById('resNo').addEventListener('click', () => { resumeOffer =
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'practice') startAt(nx.n); else startAt(1);
+  if (nx.kind === 'endless') startEndless(); else startAt(nx.n > 1 ? nx.n : 1); // a camp run from stage 2-6 is practice
 });
+for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
-document.getElementById('dBack').addEventListener('click', closeDiff);
+document.getElementById('dBack').addEventListener('click', () => { if (diffNext && diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
+document.getElementById('dPrac').addEventListener('click', () => { if (!diffNext) return; setDiffView(true); const b = document.querySelector('#dStage [aria-pressed="true"]'); if (b) b.focus(); });
 document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPropagation());
 { // phones held sideways: pause, and show the ship in the current skin on the "turn upright" screen
   const mq = matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:500px)');
