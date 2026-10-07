@@ -4800,6 +4800,9 @@ const AI = {
       return dyingTick(e);
     }
     const ready = BOSSMOVE[e.kind](e);
+    // a weapon pod flies in during the fight (25 s in, then every 35 s, up to 3) so players can switch weapons
+    if (ready) { e.podT = (e.podT || 0) + 1; e.pods = e.pods || 0;
+      if (e.pods < 3 && e.podT >= 1500 + e.pods * 2100) { e.pods++; enemies.push(E('pod', { x: rnd(30, W - 30), y: -16, hp: 5 * hpm(), hw: 9, hh: 10, score: 300, bossPod: true })); } }
     if (e.kind === 'castle' && e.stage1) bossIntro(e);
     if (e.kind === 'skyfort' && e.phase === 'spool') bossIntro(e);
     if (e.lightT !== undefined) e.lightT++;
@@ -5269,7 +5272,7 @@ function kill(e) {
   } else {
     boom(e.x, e.y, e.type === 'bomber' ? 30 : e.type === 'pod' ? 12 : 11); sfx('boom'); haptic('kill');
     for (let i = 0; i < 3; i++) parts.push({ kind: 'debris', layer: 'a', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0.2), g: 0.07, life: (rnd(26, 40)) | 0, max: 40 });
-    if (e.type === 'pod') items.push(mkItem(player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y));
+    if (e.type === 'pod') items.push(mkItem(!e.bossPod && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y));
   }
   if (e.type === 'bomber' && Math.random() < 0.5) items.push(mkItem('B', e.x, e.y));
 }

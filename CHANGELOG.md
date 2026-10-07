@@ -22,3 +22,4 @@
 - Start flow: START, Endless and the practice stages now open a "Choose difficulty" panel (Easy / Normal / Hard, your last choice highlighted); START also offers the tutorial there. The "?" next to START opens How to play. Difficulty is no longer in Settings, and the old "New here?" prompt is gone.
 - Phones held sideways show a "Turn your phone upright" screen and pause the run. In short desktop windows the game now shrinks to fit and hides the hint line instead of running off the top.
 - Balance: bosses on Hard have 25% more health on top of Hard's existing bonus, so Hard boss fights last roughly 40-90% longer than on Normal.
+- Boss fights: a weapon pod flies in 25 seconds into a boss fight and then every 35 seconds (up to 3 per fight), always carrying a weapon pickup, so you can switch weapons mid-fight.
