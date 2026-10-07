@@ -3342,7 +3342,7 @@ function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; s
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
 // Local/test builds never post scores to the live board (reading it is fine).
-const LB_TEST = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|.*\.test)$/i.test(location.hostname);
+const LB_TEST = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|.*\.test|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/i.test(location.hostname); // also home-network addresses, for testing on a phone
 const LB_PLAT = H > 330 ? 'mobile' : 'pc';
 let runStart = 1, runDiff = 1, newBestT = 0, newBestDone = false, localBest = -1;
 function computeLocalBest() { const mode = endless ? 'endless' : 'camp'; localBest = 0; for (const r of localRuns()) if (r.mode === mode && r.diff === runDiff && r.plat === LB_PLAT) localBest = Math.max(localBest, r.score); }
