@@ -3217,7 +3217,7 @@ let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 function seedStage() { drandS = (SEED * 31 + stage * 977) | 0; }
 function newGame() {
-  protoWatch = null;
+  protoWatch = null; duelWatch = null; runProto = { dmg: 0 };
   laserHeat = 0; overheatT = 0;
   ravenGate = null; runFrames = 0; runConts = 0; runStart = 1; runDiff = settings.diff; newBestT = 0; newBestDone = false; localBest = -1;
   SEED = settings.mode === 'gen' || endless ? (Math.random() * 1e9) | 0 : 1944;
@@ -3721,8 +3721,11 @@ function directorInner() {
     bossSpawned = true; prewarmBoss(curTheme);
     fadeMusicOut(1.0);
     if (curTheme === 2) for (let i = 0; i < 14; i++) later.push({ at: gf + 205 + i * 10, fn: () => { shake = Math.max(shake, 1.5 + i * 0.2); } });
-    showMsg('WARNING', ['ENEMY FLAGSHIP APPROACHING', 'ARMOURED TRAIN ON THE LINE', 'LAND FORTRESS INBOUND', 'SUPERGUN DETECTED', 'THE CASTLE GUNS AWAKEN', 'FLYING FORTRESS ON RADAR'][curTheme], 220); sfx('warn'); haptic('warn');
-    later.push({ at: gf + 240, fn: spawnBoss });
+    const warn = () => { showMsg('WARNING', ['ENEMY FLAGSHIP APPROACHING', 'ARMOURED TRAIN ON THE LINE', 'LAND FORTRESS INBOUND', 'SUPERGUN DETECTED', 'THE CASTLE GUNS AWAKEN', 'FLYING FORTRESS ON RADAR'][curTheme], 220); sfx('warn'); haptic('warn');
+      later.push({ at: gf + 240, fn: spawnBoss }); };
+    if (curTheme === 1) { spawnProtoFly(); later.push({ at: gf + 190, fn: warn }); }
+    else if (curTheme === 5) spawnProtoDuel(warn);
+    else warn();
   }
   if (bossSpawned) {
     if (--waveCd <= 0) { waveCd = 360; if (!quiet && enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
@@ -4625,7 +4628,28 @@ function protoEscape() {
   for (const t of enemies) if (t.type === 'troop' && t.post === p) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; }
   return true;
 }
-function checkProto() { if (protoWatch && (protoWatch.dead || protoWatch.dying)) { protoWatch = null; stageClear(); } }
+function checkProto() {
+  if (protoWatch && (protoWatch.dead || protoWatch.dying)) { runProto.dmg = protoWatch.dmg || 0; protoWatch = null; stageClear(); }
+  if (duelWatch && (duelWatch.e.dead || duelWatch.e.dying)) { const fn = duelWatch.done; duelWatch = null; later.push({ at: gf + 90, fn }); }
+}
+// ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
+let runProto = { dmg: 0 }, duelWatch = null;
+const protoLvl = () => Math.min(3, Math.floor(runProto.dmg / (18 * hpm())));
+function spawnProtoFly() { enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, hw: 40, hh: 30, score: 0 })); later.push({ at: gf + 20, fn: boostOutSfx }); }
+function spawnProtoDuel(done) {
+  const base = 100 * hpm(), hp = Math.max(base * 0.5, base - runProto.dmg * 0.45);
+  const e = E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, hw: 38, hh: 24, score: 20000, rad: 40, untarget: true });
+  enemies.push(e); duelWatch = { e, done }; sfx('flyin');
+}
+function drawProtoPlane(e, rot, sc, flames) {
+  const P = SPR.proto, lvl = protoLvl(), w = P.w * sc, h = P.h * sc;
+  ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y));
+  ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(16, 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
+  ctx.rotate(rot); ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -w / 2, -h / 2, w, h);
+  for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
+  if (flames) for (const ex of [-30, -14, 14]) { const fl = 4 + ((gf >> 1) & 1) * 3; ctx.fillStyle = '#ff7a3a'; ctx.fillRect(ex * sc - 1, -h / 2 - fl + 2, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(ex * sc, -h / 2 - fl + 4, 1, fl - 2); }
+  ctx.restore();
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -5013,6 +5037,22 @@ const AI = {
     groundPos(e);
     if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && !player.dead) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) enemies.push(G('acar', e.wx + dx, e.wy + 14, { hp: 4 * hpm(), hw: 5, hh: 9, score: 700, rad: 9, v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
+  },
+  protoFly(e) {
+    e.v = Math.min(4.2, (e.v || 1.6) + 0.03); e.y -= e.v; e.x += 0.35;
+    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex * 1.15, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
+    if (e.y < -110) e.dead = true;
+  },
+  protoDuel(e) {
+    if (e.dying) return dyingTick(e);
+    e.t2 = (e.t2 || 0) + 1;
+    if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
+    if (e.t2 > 1320 || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // breaks off and escapes
+    const k = e.t2 - 110; e.x = 112 + Math.sin(k * 0.013) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16;
+    if (player.dead) return;
+    if (k % Math.round(46 * fireSlow()) === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
+    if (k % Math.round(170 * fireSlow()) === 85) { for (const o of [-24, 0, 24]) mortarShot(e.x, e.y, o); sfx('rocket'); }
+    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y - 30, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
   },
   proto(e) {
     if (!e.escape) { groundPos(e); return; }
@@ -5494,6 +5534,7 @@ function revealSecret(e) {
 const REVENGE = new Set(['tank', 'htank', 'heavy', 'bomber', 'destroyer', 'flak', 'aatower', 'acar', 'bunker', 'casemate', 'arty', 'popup', 'sub']);
 function revenge(x, y, n) { if (runDiff !== 2 || !player || player.dead || y < 0 || y > H) return; const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
 function kill(e) {
+  if (e.type === 'protoDuel') { for (let i = 0; i < 6; i++) later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big'); }
   if (REVENGE.has(e.type)) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
   if (e.type === 'missile') { boom(e.x, e.y, 14, 'a'); sfx('gboom'); }
   if (e.type === 'bldg') {
@@ -5882,7 +5923,7 @@ function update() {
       let hit = false;
       for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
       if (!hit) for (const e of enemies) {
-        if (e.ground || e.surface || e.dead || e.dying || e.crash) continue;
+        if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
         if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
       }
       if (hit) die();
@@ -6542,6 +6583,8 @@ function drawWeather() {
 }
 function drawAir(e) {
   const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
+  if (e.type === 'protoFly') return drawProtoPlane(e, PI, 1.15, true);
+  if (e.type === 'protoDuel') return drawProtoPlane(e, 0, 1, true);
   switch (e.type) {
     case 'fighter': {
       const s = (e.leader ? SPR.fighterL : SPR.fighter)[dirIdx(e.h)];
@@ -6690,7 +6733,7 @@ function drawHUDBody(H) {
     ctx.fillStyle = '#3a0c10'; ctx.fillRect(5, 23, w, 3);
     ctx.fillStyle = '#d84a34'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 3);
     ctx.fillStyle = '#f48a60'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 1);
-    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' : '';
+    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : '';
     if (nm) textS(nm, 5, 29, '#f48a60', 1, 'left', '#d84a34');
   }
 }

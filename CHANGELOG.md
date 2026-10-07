@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- The Ravens' prototype returns. Stage 5: just before the Winter Wolf, it streaks overhead and climbs away (a flyby, no fight). Stage 6: just before the Black Fortress, a short duel: it dives in, weaves and fires bursts and bomb runs; shoot it down for 20,000 points or it breaks off after about 22 seconds. Damage you dealt in Stage 4 stays visible as scorch marks and lowers its health in the duel.
 - Stage 4: the Ravens' secret project. A half-size, unpainted prototype of the final boss stands under scaffolding behind the keep, guarded by mechanics. It can't be hit during the keep fight; when the keep falls it spools up and takes off with a whoosh (about 4.5 seconds). It can be damaged but not destroyed: every hit scores (up to 15,000) and leaves scorch marks, smoke and fire, and its bonus floats up as it leaves. No on-screen text.
 - Stage 4 castle looks grimmer: weathered stone with moss, a murky moat, black banners with a red raven, an iron raven statue, sandbag gun nests, ammo crates, anti-tank hedgehogs and scorch marks instead of market stalls, dark castle-only barracks/chapel/armoury, and a light dusk over the yards (the keep yard keeps its look). Squads of soldiers march across the yards and down the central path.
 - Stage 4: the castle approach is tighter: the scroll moves faster through the outer yard (1.5x) and the inner ward (2x), then eases into the keep yard. About 33 seconds of travel instead of about 47, plus the gate breach.
