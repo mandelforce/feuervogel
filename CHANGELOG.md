@@ -21,3 +21,4 @@
 - Resume: if the browser reloads the game mid-run (common on Android when switching apps), the title screen offers to resume. You restart the stage you were in with the score it began with and the lives, bombs, weapon and continues you had; the run still counts for the leaderboard. Leaving at the continue prompt spends a continue.
 - Start flow: START, Endless and the practice stages now open a "Choose difficulty" panel (Easy / Normal / Hard, your last choice highlighted); START also offers the tutorial there. The "?" next to START opens How to play. Difficulty is no longer in Settings, and the old "New here?" prompt is gone.
 - Phones held sideways show a "Turn your phone upright" screen and pause the run. In short desktop windows the game now shrinks to fit and hides the hint line instead of running off the top.
+- Balance: bosses on Hard have 25% more health on top of Hard's existing bonus, so Hard boss fights last roughly 40-90% longer than on Normal.

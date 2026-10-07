@@ -275,7 +275,7 @@ const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: fal
 try { Object.assign(settings, JSON.parse(localStorage.getItem('starfall-settings') || '{}')); } catch (e) {}
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { try { localStorage.setItem('starfall-settings', JSON.stringify(settings)); } catch (e) {} }
-const DIFF = { bs: [1, 1.12, 1.12], hp: [1, 1.15, 1.15], lives: [2, 2, 2], skip: [0, 0, 0], bombs: [3, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [1, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.5, 1.3, 1.15] };
+const DIFF = { bs: [1, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [0, 0, 0], bombs: [3, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [1, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.5, 1.3, 1.15] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
 function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? 1 : 0)) * DIFF.rank[settings.diff]; }
 let eshotN = 0;
@@ -4071,7 +4071,7 @@ BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 360, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
-  const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
+  const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
     p.hp *= m * (kind === 'castle' && p.g === 1 ? 0.5 : 1);
