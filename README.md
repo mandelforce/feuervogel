@@ -1,12 +1,14 @@
-# StarFall
+# FEUERVOGEL 89
 
 **1944. The Allies fly a stranded alien starship against the Axis.**
 
-StarFall is a pixel-art vertical arcade shooter that runs in any modern browser, on phone or desktop. No download, no account.
+FEUERVOGEL 89 is a pixel-art vertical arcade shooter that runs in any modern browser, on phone or desktop. No download, no account.
 
-**[▶ Play StarFall](https://mandelforce.github.io/StarFall/)**
+**[▶ Play FEUERVOGEL 89](https://mandelforce.github.io/StarFall/)**
 
-![StarFall title screen](og-image.png)
+(Formerly StarFall. The address, saved progress and the leaderboard stayed the same.)
+
+![FEUERVOGEL 89 title screen](og-image.png)
 
 ## The game
 
