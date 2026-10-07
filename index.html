@@ -1059,7 +1059,8 @@ function ravenU(u, x) {
 }
 lazySpr('ravenFloor', () => {
   const [c, x] = mk(W, RV_H), img = x.createImageData(W, RV_H), a = img.data;
-  const P = { water: ['#1a3448', '#22425a', '#2c5068'], wall: ['#3a3630', '#4e4840', '#625a50', '#766d60'], flag: ['#5a5650', '#6a655e', '#76716a'], cob: ['#4e4a44', '#5c5852', '#6a665e'], path: ['#7a7060', '#8a8070'], plank: ['#5a3e22', '#6e4c2a', '#3a2814'], keep: ['#36333a', '#423e46', '#4c4852'] };
+  // a grim military keep: cool weathered stone, moss, a murky moat; the keep yard keeps its original colours
+  const P = { water: ['#162a38', '#1d3648', '#244252'], wall: ['#2f2c28', '#413c35', '#524c43', '#645d52'], flag: ['#4a4743', '#57534e', '#615d57'], cob: ['#413e3a', '#4c4944', '#58554e'], path: ['#5e5546', '#6a6050'], plank: ['#4c3620', '#5c4226', '#30200f'], keep: ['#36333a', '#423e46', '#4c4852'] };
   const hx = (c2) => [parseInt(c2.slice(1, 3), 16), parseInt(c2.slice(3, 5), 16), parseInt(c2.slice(5, 7), 16)];
   const H2 = {}; for (const k in P) H2[k] = P[k].map(hx);
   for (let yy = 0; yy < RV_H; yy++) for (let xx = 0; xx < W; xx++) {
@@ -1070,7 +1071,7 @@ lazySpr('ravenFloor', () => {
     else if (r === 6) col = (yy % 4 === 0) ? H2.plank[2] : H2.plank[(n * 2) | 0];
     else if (r === 2) { const bx = (xx + ((yy >> 2) & 1) * 3) % 6, by = yy % 4; col = bx === 0 || by === 0 ? H2.wall[0] : H2.wall[1 + ((n * 3) | 0)]; const edge = (u >= -4 && u < 0) || (u >= 1316 && u < 1320) || (u >= 418 && u < 422) || (u >= 898 && u < 902); if (edge && ((xx >> 2) & 1)) col = H2.wall[3]; }
     else if (r === 3) { const sx = (xx + ((yy / 8) | 0) % 2 * 6) % 12, sy = yy % 8; col = sx === 0 || sy === 0 ? H2.wall[0] : H2.flag[(n * 3) | 0]; }
-    else if (r === 4) { const sx = (xx + ((yy / 3) | 0) % 2 * 2) % 4, sy = yy % 3; col = sx === 0 || sy === 0 ? H2.cob[0] : H2.cob[1 + ((n * 2) | 0)]; if (vnoise(xx * 0.05, yy * 0.05) > 0.72) col = hx(n < 0.5 ? '#4a6a34' : '#56783c'); }
+    else if (r === 4) { const sx = (xx + ((yy / 3) | 0) % 2 * 2) % 4, sy = yy % 3; col = sx === 0 || sy === 0 ? H2.cob[0] : H2.cob[1 + ((n * 2) | 0)]; if (vnoise(xx * 0.05, yy * 0.05) > 0.72) col = hx(n < 0.5 ? '#3a4e2c' : '#435934'); }
     else if (r === 5) col = H2.path[(n * 2) | 0];
     else if (r === 8) { col = yy % 7 === 0 ? H2.wall[0] : H2.wall[2 + ((n * 2) | 0)]; if (xx === 12 || xx === W - 13) col = H2.wall[0]; }
     else { const sx = xx % 10, sy = yy % 10; col = sx === 0 || sy === 0 ? hx('#26242a') : H2.keep[(n * 3) | 0]; }
@@ -1089,11 +1090,16 @@ lazySpr('ravenFloor', () => {
   const tower = (a0, b0, rr) => { disk(x, '#16120e', a0 + 1, b0 + 2, rr + 1); disk(x, STONE[0], a0, b0, rr + 1); ellS(x, STONE, a0, b0, rr, rr, 0.05); for (let k = 0; k < 14; k++) { const an = k * TAU / 14; rect(x, STONE[4], Math.round(a0 + Math.cos(an) * (rr - 1)), Math.round(b0 + Math.sin(an) * (rr - 1)), 2, 2); } disk(x, STONE[1], a0, b0, rr - 5); ellS(x, SLATE, a0, b0, rr - 6, rr - 6, 0.1); rect(x, SLATE[4], a0 - 1, b0 - 1, 2, 2); };
   for (const u of [8, 432, 911, 1332]) for (const bx of [15, W - 15]) tower(bx, Y(u), 18);
   // red banners with a gold raven hanging from the outer wall and the inner wall
-  for (const u of [20, 442]) for (let bx = 30; bx < W - 20; bx += 36) { if (Math.abs(bx - 112) < 24) continue; x.fillStyle = '#7a1a1a'; x.fillRect(bx, Y(u) + 1, 8, 13); x.fillStyle = '#5a1010'; x.fillRect(bx, Y(u) + 13, 3, 3); x.fillRect(bx + 5, Y(u) + 13, 3, 3); x.fillStyle = '#d0a020'; x.fillRect(bx + 3, Y(u) + 5, 2, 4); x.fillRect(bx + 1, Y(u) + 6, 6, 1); }
+  for (const u of [20, 442]) for (let bx = 30; bx < W - 20; bx += 36) { if (Math.abs(bx - 112) < 24) continue; x.fillStyle = '#121016'; x.fillRect(bx, Y(u) + 1, 8, 13); x.fillStyle = '#08070a'; x.fillRect(bx, Y(u) + 13, 3, 3); x.fillRect(bx + 5, Y(u) + 13, 3, 3); x.fillStyle = '#8a1414'; x.fillRect(bx + 3, Y(u) + 4, 2, 5); x.fillRect(bx + 1, Y(u) + 5, 6, 1); x.fillRect(bx + 2, Y(u) + 9, 1, 2); x.fillRect(bx + 5, Y(u) + 9, 1, 2); }
   // wells, a statue and stalls in the inner ward
   for (const [wx2, u] of [[112, 470], [112, 880]]) { x.fillStyle = '#3a3630'; x.beginPath(); x.arc(wx2, Y(u), 7, 0, TAU); x.fill(); x.fillStyle = '#1a3448'; x.beginPath(); x.arc(wx2, Y(u), 4, 0, TAU); x.fill(); }
-  x.fillStyle = '#3e3a44'; x.fillRect(106, Y(700) - 6, 12, 12); x.fillStyle = '#8a8690'; x.fillRect(109, Y(700) - 10, 6, 10); x.fillStyle = '#b8b4c0'; x.fillRect(110, Y(700) - 12, 4, 4);
-  for (const [sx2, u] of [[140, 520], [86, 610], [140, 700]]) { x.fillStyle = '#5a3e22'; x.fillRect(sx2 - 9, Y(u) - 5, 18, 10); for (let i = 0; i < 18; i += 3) { x.fillStyle = i % 6 ? '#c09030' : '#7a1a1a'; x.fillRect(sx2 - 9 + i, Y(u) - 5, 3, 4); } }
+  x.fillStyle = '#26232a'; x.fillRect(106, Y(700) - 6, 12, 12); x.fillStyle = '#121014'; x.fillRect(109, Y(700) - 11, 6, 8); x.fillRect(105, Y(700) - 9, 14, 3); x.fillRect(110, Y(700) - 13, 3, 3); x.fillStyle = '#8a1414'; x.fillRect(111, Y(700) - 12, 1, 1);
+  const sand = (cx, cy) => { for (let k = 0; k < 10; k++) { const an = k * TAU / 10; x.fillStyle = k % 2 ? '#5a503c' : '#4a4232'; x.fillRect(Math.round(cx + Math.cos(an) * 8) - 2, Math.round(cy + Math.sin(an) * 6) - 1, 5, 3); } x.fillStyle = '#18161a'; x.fillRect(cx - 3, cy - 2, 6, 4); };
+  for (const [sx2, u] of [[140, 520], [86, 610], [140, 700], [70, 300], [154, 160]]) sand(sx2, Y(u));
+  for (const [sx2, u] of [[60, 540], [168, 590], [62, 820]]) for (let k = 0; k < 3; k++) { x.fillStyle = '#2e2a1e'; x.fillRect(sx2 + (k % 2) * 7, Y(u) - k * 3, 7, 5); x.fillStyle = '#3c3626'; x.fillRect(sx2 + 1 + (k % 2) * 7, Y(u) - k * 3 + 1, 5, 1); }
+  const hedge = (cx, cy) => { x.fillStyle = '#1c1a18'; for (let k = -3; k <= 3; k++) { x.fillRect(cx + k, cy + k, 1, 1); x.fillRect(cx + k, cy - k, 1, 1); } x.fillRect(cx - 3, cy, 7, 1); };
+  for (const [hx2, u] of [[40, 380], [184, 380], [40, 860], [184, 860], [90, 90], [134, 90]]) hedge(hx2, Y(u));
+  for (let k = 0; k < 26; k++) { const cx = 30 + hash(k, 3) * (W - 60), u = 40 + hash(k, 7) * 860, rr = 3 + hash(k, 11) * 6; x.fillStyle = 'rgba(14,12,10,0.45)'; x.beginPath(); x.ellipse(cx, Y(u), rr * 1.4, rr, 0, 0, TAU); x.fill(); }
   return c;
 });
 lazySpr('keep', () => [0, 1].map(open => sprite(84, 84, x => {
@@ -1112,7 +1118,9 @@ SPR.cgate = sprite(72, 30, x => {
 }, { oc: '#0e0c12' });
 SPR.bldg = {
   barracks: sprite(44, 22, x => { boxS(x, ['#2a3240', '#3a4456', '#4a5468', '#5a6478'], 0, 0, 44, 22, 0.25); for (let i = 3; i < 44; i += 5) rect(x, '#1e2430', i, 0, 1, 22); rect(x, '#1e2430', 0, 10, 44, 2); }),
-  chapel: sprite(26, 40, x => { boxS(x, ['#4a3a30', '#5e4a3c', '#725a48', '#86705a'], 2, 12, 22, 28, 0.2); rect(x, '#3a2a20', 12, 12, 2, 28); boxS(x, ['#3e3a44', '#4e4a54', '#5e5a64'], 6, 0, 14, 14, 0.2); disk(x, '#c09030', 13, 7, 3); rect(x, '#f0d870', 12, 6, 2, 2); }),
+  chapel: sprite(26, 40, x => { boxS(x, ['#1e1c22', '#28252c', '#322f36', '#3c3940'], 2, 12, 22, 28, 0.2); rect(x, '#141216', 12, 12, 2, 28); boxS(x, ['#16141a', '#201e24', '#2a282e'], 6, 0, 14, 14, 0.2); disk(x, '#3a0e0e', 13, 7, 3); rect(x, '#8a1a14', 12, 6, 2, 2); }),
+  rbarracks: sprite(44, 22, x => { boxS(x, ['#1c1d22', '#25262c', '#2f3038', '#393a44'], 0, 0, 44, 22, 0.25); for (let i = 3; i < 44; i += 5) { rect(x, '#141518', i, 0, 1, 22); if (i % 10 === 3) rect(x, '#4a2a1a', i + 1, 2, 1, 8); } rect(x, '#141518', 0, 10, 44, 2); }),
+  rarmoury: sprite(30, 24, x => { boxS(x, ['#1e1e1a', '#282822', '#32322a', '#3c3c32'], 0, 0, 30, 24, 0.2); for (let i = 0; i < 30; i += 6) { rect(x, '#4a2214', i, 10, 3, 4); rect(x, '#1a1a16', i + 3, 10, 3, 4); } rect(x, '#0e0e0c', 11, 16, 8, 8); }),
   shed: sprite(12, 26, x => { boxS(x, ['#3a3e48', '#565c68', '#7a808c', '#a0a6b2'], 0, 0, 12, 26, 0.25); rect(x, '#2a2e36', 5, 0, 2, 26); for (let j = 3; j < 26; j += 6) rect(x, '#e8ecf2', 1, j, 3, 1); rect(x, '#5a3e22', 8, 10, 3, 6); }),
   armoury: sprite(30, 24, x => { boxS(x, ['#3a3a2a', '#4a4a34', '#5c5c40', '#6e6e4c'], 0, 0, 30, 24, 0.2); for (let i = 0; i < 30; i += 6) { rect(x, '#d84a34', i, 10, 3, 4); rect(x, '#f0d040', i + 3, 10, 3, 4); } rect(x, '#1a1a14', 11, 16, 8, 8); })
 };
@@ -4057,11 +4065,13 @@ function ravenInit(e) {
   // guns on both wall walks: a crossfire over the courtyards
   for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0 });
   // the inner gate: the advance stops in front of it until it is blasted open
+  // drill squads appear as they scroll into view: [u, kind, from]
+  e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
   e.gate2 = add('cgate', 112, 432, { hp: 80 * m, hw: 34, hh: 13, score: 5000, rad: 30, cd: 50, inner: true });
-  add('bldg', 52, 560, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
-  add('bldg', 172, 640, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
+  add('bldg', 52, 560, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
+  add('bldg', 172, 640, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 60, 760, { bk: 'chapel', hp: 22 * m, hw: 13, hh: 20, score: 2000, rad: 20 });
-  add('bldg', 170, 820, { bk: 'armoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
+  add('bldg', 170, 820, { bk: 'rarmoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
   for (const [dx, du] of [[-22, 0], [22, 6], [0, -18]]) add('drums', 170 + dx, 820 + du, { hp: 3 * m, hw: 4, hh: 4, score: 200, rad: 6 });
   for (const ln of [[[80, 500], [150, 500]], [[150, 700], [70, 700]], [[36, 165], [188, 165]], [[188, 255], [36, 255]]]) add('tank', ln[0][0], ln[0][1], tankStats(false, { road: false, hd: PI / 2, v: 0.25, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
   for (const ln of [[[60, 980], [164, 980]], [[164, 1060], [60, 1060]]]) add('htank', ln[0][0], ln[0][1], tankStats(true, { road: false, hd: PI / 2, v: 0.18, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
@@ -4605,6 +4615,11 @@ const BOSSMOVE = {
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); shake = Math.max(shake, 8); } if (!e.keepYard) scrollTarget = SCROLL * 2; }
     }
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
+    for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
+      q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
+      for (let i = 0; i < n; i++) { const row = i % 2, rank = i >> 1, wx = q.k === 'down' ? 106 + row * 12 : (q.d > 0 ? 28 - rank * 8 : W - 28 + rank * 8), wy = q.k === 'down' ? wy0 - rank * 8 : wy0 + row * 8;
+        enemies.push(G('troop', wx, wy, { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: 0, scared: 0, drill: drill.slice(), keep: true })); }
+    }
     if (e.stage1 && !e.wheel && (e.patT = (e.patT ?? 90) - 1) <= 0) {
       e.patT = 150; const live = e.hatches.filter(h => !h.dead && h.st === 'down' && h.y > 16 && h.y < H - 70);
       const pat = (e.patN = (e.patN || 0) + 1) % 5;
@@ -4866,6 +4881,8 @@ const AI = {
     if (e.post) { if (e.post.dead || e.post.turDead) { e.post = null; e.scared = 100; e.hd = Math.random() * TAU; } else { groundPos(e); return; } }
     if (e.march && !e.scared) { e.wy += e.v; e.wx = roadX(e.wy) + e.lane; e.hd = PI / 2; groundPos(e); return; }
     if (e.march && e.scared) e.march = false;
+    if (e.drill && !e.scared) { e.wx += e.drill[0]; e.wy += e.drill[1]; e.hd = Math.atan2(e.drill[1], e.drill[0]); groundPos(e); if ((e.drill[0] > 0 && e.wx > W - 24) || (e.drill[0] < 0 && e.wx < 24)) e.dead = true; return; } // they march out through the far wall
+    if (e.drill && e.scared) e.drill = null;
     if (e.ff && !e.scared) {
       if (!e.fire || (e.fire.fireT !== undefined ? e.fire.fireT <= 0 : (e.fire.dead || e.fire.out))) {
         e.fire = null; let bd = 85 * 85;
@@ -5443,8 +5460,8 @@ function kill(e) {
   if (REVENGE.has(e.type)) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
   if (e.type === 'missile') { boom(e.x, e.y, 14, 'a'); sfx('gboom'); }
   if (e.type === 'bldg') {
-    if (e.bk === 'barracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
-    if (e.bk === 'armoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
+    if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
+    if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
     if (e.bk === 'chapel') sfx('toll');
   }
   if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
@@ -6056,7 +6073,7 @@ function drawRaven() {
   const top = ravenGate - RV_GATE + Math.floor(scroll);
   if (top > H) { ravenGate = null; return; }
   const y0 = Math.max(0, -top), y1 = Math.min(RV_H, H - top);
-  if (y1 > y0) ctx.drawImage(SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0);
+  if (y1 > y0) { ctx.drawImage(SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
 }
 function drawMarkers() {
   const sc = Math.floor(scroll);
