@@ -157,11 +157,18 @@ body[data-state="play"] #bombBtn{display:block}
 @media (prefers-reduced-motion: reduce){#bombBtn.tutHi{animation:none}}
 body[data-results="1"] #bombBtn{display:none !important}
 @media (pointer:coarse){#sMouseRow,body:not([data-pad]) #sRumbleRow{display:none}}
+#rotate{display:none;position:fixed;inset:0;z-index:20;place-items:center;text-align:center;background:#120e1a;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace;padding:16px}
+#rotate h2{margin:14px 0 6px;font-size:22px;font-weight:400;color:#fff0a0;text-shadow:2px 2px 0 #000}#rotate p{margin:0;color:#a99cc8}
+#rotShip{width:72px;height:76px;margin:0 auto;box-shadow:none;cursor:default;image-rendering:pixelated;animation:rotShip 2.4s ease-in-out infinite}
+@keyframes rotShip{0%,20%{transform:rotate(-90deg)}45%,100%{transform:rotate(0)}}
+@media (prefers-reduced-motion: reduce){#rotShip{animation:none}}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:500px){#rotate{display:grid}}
 #hint{font-size:15px;color:var(--muted);text-align:center;max-width:48ch;line-height:1.45;margin:0}
 @media (pointer:coarse){#hint{display:none}}
 </style>
 </head>
 <body data-state="title">
+<div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>StarFall plays in portrait.</p></div></div>
 <div id="app">
   <div id="stage">
     <canvas id="game" aria-label="StarFall game screen"></canvas>
@@ -6771,17 +6778,32 @@ for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListen
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
 document.getElementById('dBack').addEventListener('click', closeDiff);
 document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPropagation());
+{ // phones held sideways: pause, and show the ship in the current skin on the "turn upright" screen
+  const mq = matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:500px)');
+  const onTurn = () => {
+    if (!mq.matches) return;
+    const c = document.getElementById('rotShip'), x = c.getContext('2d'), s = (useGold() ? goldSet() : SPR.playerSet)[1];
+    x.clearRect(0, 0, c.width, c.height); x.drawImage(s.c, 0, 0);
+    if (state === 'play' && !paused) togglePause();
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onTurn); else mq.addListener(onTurn);
+  onTurn();
+}
 offerResume();
 
 /* ================= sizing ================= */
 function fit() {
   const app = document.getElementById('app'), hint = document.getElementById('hint');
+  const tall = H > 330;
+  if (!tall) hint.style.display = '';
   const hintH = getComputedStyle(hint).display === 'none' ? 0 : hint.offsetHeight + 12;
-  const tall = H > 330, aw = app.clientWidth - (tall ? 0 : 28), ah = app.clientHeight - (tall ? 0 : 28) - (tall ? 0 : hintH);
-  let s = Math.min(aw / W, ah / H);
+  const aw = app.clientWidth - (tall ? 0 : 28), ah = app.clientHeight - (tall ? 0 : 28);
+  let s = Math.min(aw / W, (ah - (tall ? 0 : hintH)) / H);
+  // in a short window the game matters more than the hint line below it
+  if (!tall && hintH && s < 1.5) { hint.style.display = 'none'; s = Math.min(aw / W, ah / H); }
   if (s > 2 && !tall) s = Math.floor(s * 4) / 4;
   if (tall) hint.style.display = 'none';
-  scale = Math.max(1, s);
+  scale = Math.max(0.5, s);
   cv.style.width = Math.round(W * scale) + 'px';
   cv.style.height = Math.round(H * scale) + 'px';
 }
