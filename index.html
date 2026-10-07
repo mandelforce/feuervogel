@@ -4078,7 +4078,7 @@ function ravenInit(e) {
   for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0 });
   // the inner gate: the advance stops in front of it until it is blasted open
   // the Ravens' secret project: a half-size Black Fortress prototype on the apron behind the keep, with mechanics
-  const proto = add('proto', 112, 1214, { hp: 60 * m, hw: 40, hh: 26, score: 15000, rad: 38, untarget: true });
+  const proto = add('proto', 112, 1214, { hp: 1e9, hw: 40, hh: 26, score: 0, rad: 38, untarget: true });
   for (const [dx, du] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + dx, 1248 + du, { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 0, post: proto });
   // drill squads appear as they scroll into view: [u, kind, from]
   e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
@@ -5017,10 +5017,12 @@ const AI = {
   proto(e) {
     if (!e.escape) { groundPos(e); return; }
     e.escape++;
+    if (e.escape === 90) boostOutSfx();
     if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const ex of [-30, -14, 14]) smokePuff(e.x + ex, e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
     if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
-    if (e.y < -70) { e.gone = true; e.dead = true; } // it got away
+    if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
+    if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   },
   bldg(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } },
   camo(e) {
@@ -5430,6 +5432,7 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; const add = Math.min(Math.round(d * 60), 15000 - (e.bonus || 0)); if (add > 0) { e.bonus = (e.bonus || 0) + add; score += add; if (score > hi) hi = score; checkExtend(); } if (Math.random() < 0.4) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { startCrash(e); return; }
@@ -6218,8 +6221,15 @@ function prop(x, y, h, len = 4) {
 }
 function drawProto(e) {
   const P = SPR.proto, x0 = Math.round(e.x - P.w / 2), y0 = Math.round(e.y - P.h / 2);
-  ctx.globalAlpha = 0.35; ctx.fillStyle = '#0a0a0e'; ctx.fillRect(x0 + 4, y0 + 6, P.w, P.h - 10); ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(P.c, -Math.round(P.w / 2), -Math.round(P.h / 2)); ctx.restore();
+  const lvl = Math.min(3, Math.floor((e.dmg || 0) / (18 * hpm())));
+  ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI);
+  ctx.globalAlpha = 0.3; ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -Math.round(P.w / 2) - 4, -Math.round(P.h / 2) - 6); ctx.globalAlpha = 1;
+  ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -Math.round(P.w / 2), -Math.round(P.h / 2));
+  // scorch marks, more with every damage level
+  for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * P.w * 0.7), Math.round((hash(k, 9) - 0.5) * P.h * 0.5), 4 + (k % 3), 3); }
+  ctx.restore();
+  if (lvl >= 1 && gf % (lvl >= 2 ? 3 : 6) === 0) smokePuff(e.x + (lvl >= 3 ? -14 : 14), e.y + 4, 'a');
+  if (lvl >= 2 && (gf >> 2) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x) + 12, Math.round(e.y) + 2, 4, 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) + 2, 2, 2); }
   if (e.escape > 50) for (const ex of [-30, -14, 14, 30]) { if (ex === 30) continue; const fl = 3 + ((gf >> 1) & 1) * 2 + Math.min(6, (e.escape - 50) / 20); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x + ex) - 1, y0 + P.h - 6, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x + ex), y0 + P.h - 6, 1, fl - 2); }
   if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
   if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
