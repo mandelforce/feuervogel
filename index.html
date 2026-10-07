@@ -4852,7 +4852,9 @@ const AI = {
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
         p.ang = PI / 2 + Math.sin(e.mt * 0.02 + p.ox) * 0.8;
-        if (!player.dead && inBeam(px, py, p.ang, beamLen(py), 0.16, player.x, player.y)) e.spot = 40;
+        const lit = !player.dead && inBeam(px, py, p.ang, beamLen(py), 0.16, player.x, player.y);
+        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the beam flashes dark red the moment it catches the player
+        p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
       if (p.k === 'core' && e.kind === 'railgun') {
@@ -6161,10 +6163,10 @@ function onDeck(ox, oy) {
   for (const [dx, dy] of [[-3, 0], [3, 0], [0, -3], [0, 3], [0, 0]]) { const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= deckMask.w || y >= deckMask.h || deckMask.a[(y * deckMask.w + x) * 4 + 3] < 200) return false; }
   return true;
 }
-function lightBeam(x, y, a, len, half) {
+function lightBeam(x, y, a, len, half, rgb = '255,248,200', al = 0.42) {
   if (!isFinite(x) || !isFinite(y) || !isFinite(a)) return;
   const g = ctx.createLinearGradient(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len);
-  g.addColorStop(0, 'rgba(255,248,200,0.42)'); g.addColorStop(1, 'rgba(255,248,200,0)');
+  g.addColorStop(0, `rgba(${rgb},${al})`); g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y);
   ctx.arc(x, y, len, a - half, a + half); ctx.closePath(); ctx.fill();
 }
@@ -6173,7 +6175,7 @@ function drawNight() {
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) lightBeam(e.x + p.ox, e.y + p.oy, p.ang, beamLen(e.y + p.oy), 0.16);
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); lightBeam(e.x + p.ox, e.y + p.oy, p.ang, beamLen(e.y + p.oy), 0.16, red ? '170,20,14' : undefined, red ? 0.75 : undefined); }
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
