@@ -4461,7 +4461,7 @@ function sandstorm(e) {
   const S = e.storm; S.t++;
   e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y;
   // sand plumes from the rear fans, blown the way the storm will go
-  if (S.t % 2 === 0) for (const sx of [-34, 34]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-6, 6), vx: S.dir * rnd(1.2, 2.6), vy: rnd(-0.5, 0.2), life: 60, max: 60, r: rnd(5, 9) });
+  for (const sx of [-34, 34]) parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-8, 8), vx: S.dir * rnd(1.5, 3.2), vy: rnd(-0.6, 0.3), life: 70, max: 70, r: rnd(7, 13) });
   if (S.t < STORM_WARN) shake = Math.max(shake, 2);
   if (S.t === STORM_WARN) sfx('roar');
   const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
@@ -4475,15 +4475,17 @@ function updStorm() {
   stormK += (target - stormK) * 0.08; if (stormK < 0.01) stormK = 0;
   windX = S && !warn ? S.dir * STORM_PUSH * S.k : 0;
   const dir = S ? S.dir : (stormStreaks[0] ? stormStreaks[0].d : 1);
-  if (stormK > 0) { while (stormStreaks.length < 46) stormStreaks.push({ x: rnd(0, W), y: rnd(0, H), l: rnd(6, 16), v: rnd(3, 6), d: dir }); }
+  if (stormK > 0) { while (stormStreaks.length < 110) { const puff = stormStreaks.length < 14; stormStreaks.push({ x: rnd(0, W), y: rnd(0, H), l: puff ? rnd(30, 60) : rnd(10, 30), v: puff ? rnd(1.5, 2.5) : rnd(4, 8), d: dir, puff }); } }
   for (const st of stormStreaks) { st.d = dir; st.x += st.d * st.v * (0.4 + stormK); st.y += 0.3; if (st.x > W + 20) st.x = -20; if (st.x < -20) st.x = W + 20; if (st.y > H) st.y = 0; }
   if (stormK === 0) stormStreaks.length = 0;
 }
 function drawStorm() {
   if (stormK <= 0) return;
-  ctx.globalAlpha = 0.16 * stormK; ctx.fillStyle = '#c89a52'; ctx.fillRect(0, 0, W, H);
-  ctx.globalAlpha = 0.5 * stormK; ctx.fillStyle = '#f0d8a0';
-  for (const st of stormStreaks) ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 1);
+  ctx.globalAlpha = 0.3 * stormK; ctx.fillStyle = '#c89a52'; ctx.fillRect(0, 0, W, H);
+  // rolling sand clouds, then sharp streaks
+  for (const st of stormStreaks) if (st.puff) { ctx.globalAlpha = 0.22 * stormK; dk(st.x, st.y, st.l * 0.45, '#e0b878'); dk(st.x + st.d * st.l * 0.4, st.y + 4, st.l * 0.35, '#e8c890'); }
+  ctx.fillStyle = '#fff0c8';
+  for (const st of stormStreaks) if (!st.puff) { ctx.globalAlpha = 0.75 * stormK; ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 2); }
   ctx.globalAlpha = 1;
 }
 const BOSSMOVE = {
