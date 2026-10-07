@@ -258,6 +258,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
+        <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
+        <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
         <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
@@ -270,7 +272,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.2.1'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.2'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
@@ -3371,7 +3373,7 @@ function newGame() {
   midDone = false; bossSpawned = false;
   state = 'play'; paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); camp = newCamp(); camp.credits0 = credits; congrats = null; congratsShown = 0;
-  sfx('start'); cont = 0; playSong('stage'); player.fly = 110; seedStage(); fade = { t: 0, phase: 'in' }; stats = newStats(); newSecret(); results = null; hitStop = 0; slowT = 0;
+  sfx('start'); cont = 0; playSong('stage'); player.fly = 110; seedStage(); fade = { t: 0, phase: 'in' }; stats = newStats(); newSecret(); results = null; hitStop = 0; slowT = 0; rrNew();
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
 const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker
@@ -3522,7 +3524,7 @@ function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 function lbEligible() { return score > 0 && (endless || runStart === 1) && !run2P; } // 2-player runs stay off the boards
-function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
+function gameOver() { clearResume(); rrSend('over'); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
 // Local/test builds never post scores to the live board (reading it is fine).
@@ -3531,6 +3533,61 @@ const LB_PLAT = H > 330 ? 'mobile' : 'pc';
 let runStart = 1, runDiff = 1, newBestT = 0, newBestDone = false, localBest = -1;
 function computeLocalBest() { const mode = endless ? 'endless' : 'camp'; localBest = 0; for (const r of localRuns()) if (r.mode === mode && r.diff === runDiff && r.plat === LB_PLAT) localBest = Math.max(localBest, r.score); }
 let lbOpen = false, lbRun = null, lbView = { src: LB_URL ? 'online' : 'local', mode: 'camp', plat: LB_PLAT, diff: 1, period: 'all' }, runFrames = 0;
+/* ---------- run reports: anonymous play data (stage and boss times, deaths, weapons, inputs) ---------- */
+// One small report per run, sent when it ends (game over, quit, or the page was left mid-run). It never touches scores
+// or the boards. Test builds and players who switch it off in Settings send nothing; test builds keep the last one in rrLast.
+const RR_KEY = 'starfall-report';
+let rr = null, rrIn = 'key', rrLast = null;
+const rrSec = f => Math.round(f / 6) / 10;
+function rrNew() {
+  let last = 0, tutSeen = 0;
+  try { last = +localStorage.getItem('starfall-lastrun') || 0; tutSeen = localStorage.getItem('starfall-tut') ? 1 : 0; } catch (e) {}
+  rr = { gap: last ? Math.round((Date.now() - last) / 1000) : -1, tut: tutSeen, inp: {}, pk: {}, st: [], dt: [], cur: null };
+}
+function rrStage() { // a stage begins (also a resumed or practice start)
+  if (!rr) return;
+  if (rr.cur && !rr.cur.ok) rr.cur.end = rr.cur.end || 'left';
+  rr.cur = { s: stage, th: curTheme, t: 0, b: 0, boss: 0, ok: 0, d: 0, nb: 0, w: {}, lv: player ? player.lvl : 1 };
+  if (rr.st.length < 120) rr.st.push(rr.cur);
+}
+function rrTick() { // once per played frame
+  const c = rr && rr.cur; if (!c || c.ok || !player) return;
+  if (c.boss) c.b++; else c.t++;
+  c.w[player.wpn] = (c.w[player.wpn] || 0) + 1; if (player.lvl > c.lv) c.lv = player.lvl;
+  if (gpad && (gpad.dx || gpad.dy)) rrIn = 'pad';
+  rr.inp[rrIn] = (rr.inp[rrIn] || 0) + 1;
+}
+function rrDeath(cause) {
+  const c = rr && rr.cur; if (!c) return;
+  c.d++;
+  if (rr.dt.length < 100) rr.dt.push({ s: stage, th: curTheme, t: rrSec(c.t + c.b), boss: c.boss, c: cause, w: player.wpn, lv: player.lvl });
+}
+function rrPayload(end) {
+  const sec = o => { const r = {}; for (const k in o) r[k] = rrSec(o[k]); return r; };
+  return { player: lbPlayer(), v: VERSION, mode: endless ? 'endless' : 'camp', diff: runDiff, plat: LB_PLAT, start: runStart, twoP: run2P ? 1 : 0,
+    stage, score, conts: runConts, dur: rrSec(runFrames), end, n: 0, gap: rr.gap, tut: rr.tut, inp: sec(rr.inp), pk: rr.pk,
+    st: rr.st.map(c => ({ s: c.s, th: c.th, t: rrSec(c.t), b: rrSec(c.b), boss: c.boss, ok: c.ok, end: c.ok ? 'clear' : c.end || end, d: c.d, nb: c.nb, w: sec(c.w), lv: c.lv })), dt: rr.dt };
+}
+function rrPost(p) { // p.n: how many reported runs this device has played, this one included
+  try { p.n = (+localStorage.getItem('starfall-runs') || 0) + 1; localStorage.setItem('starfall-runs', String(p.n)); localStorage.setItem('starfall-lastrun', String(Date.now())); localStorage.removeItem(RR_KEY); } catch (e) {}
+  if (LB_TEST) { rrLast = p; return; }
+  if (!LB_URL || settings.share === false) return;
+  const body = JSON.stringify(p);
+  try { if (navigator.sendBeacon && navigator.sendBeacon(LB_URL + '/report', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+  fetch(LB_URL + '/report', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+}
+function rrSend(end) { // the run is over
+  if (!rr) return;
+  if (runStart !== 99 && runFrames > 0) rrPost(rrPayload(end)); // tutorial runs are not reported
+  rr = null;
+}
+function rrPark() { // the page is hidden mid-run: keep the report in case the browser closes it
+  if (!rr || state !== 'play' || runStart === 99) return;
+  try { localStorage.setItem(RR_KEY, JSON.stringify({ p: rrPayload('left'), rr })); } catch (e) {}
+}
+function rrUnpark() { try { localStorage.removeItem(RR_KEY); } catch (e) {} }
+function rrParked() { try { return JSON.parse(localStorage.getItem(RR_KEY) || 'null'); } catch (e) { return null; } }
+function rrFlushParked() { const k = rrParked(); if (k && k.p) rrPost(k.p); else rrUnpark(); } // the run was left and not resumed
 const lbEl = id => document.getElementById(id);
 function lbPlayer() {
   let p = null; try { p = localStorage.getItem('starfall-player'); } catch (e) {}
@@ -3634,7 +3691,7 @@ lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
-function toTitle() { clearResume(); if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
+function toTitle() { clearResume(); if (state === 'play') rrSend('quit'); rr = null; if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
 function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
@@ -3648,7 +3705,7 @@ function doContinue() {
 // weapon and continues as they were when the game was left. It can't gain points or undo a death, so it still counts.
 const RESUME_KEY = 'starfall-resume';
 let stageMark = null;
-function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; }
+function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; rrStage(); }
 function saveResume() {
   if (state !== 'play' || tut || !player || !stageMark) return;
   let st = stage, theme = curTheme, mark = stageMark, lv = lives, cn = runConts;
@@ -3675,6 +3732,7 @@ function resumeRun(r) {
   setTimeout(() => prewarmBoss(curTheme), 400);
   chunkJobs = []; chunks = new Map(); chunkInfo = new Map(); genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
+  { const k = rrParked(); if (k && k.rr) { rr = k.rr; if (rr.cur) rr.cur = rr.st[rr.st.length - 1]; } rrUnpark(); } // the resumed run keeps adding to the report it had
   score = r.score; lives = r.lives; bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run2P = true;
   runStart = r.runStart; runDiff = r.diff; runConts = r.conts; credits = r.credits; runFrames = r.frames;
   nextExtend = r.nextExtend; extendsGot = r.extendsGot; camp = Object.assign(newCamp(), r.camp);
@@ -4314,7 +4372,7 @@ function skyLaser(e, ea) {
   for (const b of shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
   if (env > 0.5 && !player.dead && player.inv === 0) {
     const dx = player.x - cx, dy = player.y - cy;
-    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die();
+    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die('flame');
   }
   if (F.t >= FL_FIRE) e.fl = null;
 }
@@ -4365,6 +4423,7 @@ BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
+  if (rr && rr.cur) rr.cur.boss = 1;
   const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
@@ -4408,6 +4467,7 @@ function rewardSfx() {
   for (let i = 0; i < 8; i++) { const t = tb + 0.05 + i * 0.07, o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = rnd(2200, 3600); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.025, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); o.connect(g).connect(sfxBus); o.start(t); o.stop(t + 0.14); }
 }
 function stageClear() {
+  if (rr && rr.cur) rr.cur.ok = 1;
   stopMusic();
   if (player && !player.dead) { player.exitT = 80; player.inv = Math.max(player.inv, 200); boostOutSfx(); }
   later.push({ at: gf + 82, fn: () => { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [74, 2], [77, 2], [81, 8]]); showMsg('STAGE CLEAR', '', 130); later.push({ at: gf + 280, fn: openResults }); } });
@@ -5798,8 +5858,8 @@ function updPlayer() {
   if (p.dcd === 0 && p.drones) p.dcd = p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26;
   firing();
 }
-function die() {
-  const p = player;
+function die(cause) {
+  const p = player; rrDeath(cause || '?');
   p.dead = 120; stats.deaths++; p.charge = 0; beam = null; hitStop = 6; boom(p.x, p.y, 30); shake = 12; flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; medalMul = 1; medalT = 0;
@@ -5843,7 +5903,7 @@ function drawP2() {
 }
 function bomb() {
   if (state !== 'play' || paused || !player || player.dead || bombs <= 0 || bombFx > 0) return;
-  bombs--; stats.novas++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
+  bombs--; stats.novas++; if (rr && rr.cur) rr.cur.nb++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   ebul.length = 0;
@@ -6149,7 +6209,7 @@ function update() {
   }
   if (state === 'title') return;
   if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) { toTitle(); return; } }
-  if (state === 'play' && !paused && !results) { runFrames++; if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
+  if (state === 'play' && !paused && !results) { runFrames++; rrTick(); if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
 
   director();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].at <= gf) { const f = later[i].fn; later.splice(i, 1); f(); }
@@ -6220,7 +6280,7 @@ function update() {
   for (const mk2 of markers) {
     mk2.t--;
     if (mk2.t === 0) { const sy = mk2.wy + Math.floor(scroll); boom(mk2.wx, sy, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 5); decals.push({ kind: 'crater', wx: mk2.wx, wy: mk2.wy, r: 9, smokeT: 120 });
-      if (player && !player.dead && player.inv <= 0 && Math.hypot(player.x - mk2.wx, player.y - sy) < 11) die(); }
+      if (player && !player.dead && player.inv <= 0 && Math.hypot(player.x - mk2.wx, player.y - sy) < 11) die('shell'); }
   }
   for (let i = markers.length - 1; i >= 0; i--) if (markers[i].t <= 0) markers.splice(i, 1);
   for (const L of linkFx) L.t--;
@@ -6269,7 +6329,7 @@ function update() {
       b.x = b.sx + (b.tx - b.sx) * f; b.y = b.sy + (b.ty - b.sy) * f;
       if (b.life <= 0) {
         b.dead = true; boom(b.x, b.y, 18, 'a'); sfx('boom');
-        if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die();
+        if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die('mortar');
       }
     }
     if (b.hb && --b.fuse <= 0 && !b.dead) {
@@ -6351,6 +6411,7 @@ function update() {
         if (it.kind === 'T') {
           if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; p.drones++; label(it.x, it.y - 8, 'TALON'); }
           else { score += 3000; label(it.x, it.y - 8, '3000'); }
+          if (rr) rr.pk.T = (rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (tut && (it.kind === 'B' || it.kind === 'T')) tut.got++;
@@ -6360,17 +6421,18 @@ function update() {
           if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else score += 2000; } else p.wpn = it.w;
           label(it.x, it.y - 8, { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[it.w] + ' ' + p.lvl);
         }
+        if (rr) rr.pk[it.kind === 'B' ? 'B' : it.w] = (rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
         checkExtend(); sfx('power'); haptic('power'); items.splice(i, 1);
       }
     }
     if (p.inv === 0) {
       let hit = false;
-      for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
+      for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = 'shot:' + (b.kind || 'b'); break; } }
       if (!hit) for (const e of enemies) {
         if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
-        if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
+        if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = 'ram:' + (e.type || '?'); if (!e.big) damage(e, 5); break; }
       }
-      if (hit) die();
+      if (hit) die(hit);
     }
   }
   if (medalT > 0 && !results && --medalT === 0) medalMul = 1;
@@ -7450,7 +7512,7 @@ document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('
 document.getElementById('pmResume').addEventListener('click', closeMenu);
 document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); startAt(stage); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
-document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); stopMusic(); if (state === 'play' && lbEligible()) { saveEndless(); saveHi(); state = 'over'; overT = 0; openLB('submit'); } else toTitle(); });
+document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); stopMusic(); if (state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); state = 'over'; overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
 let panelPaused = false;
 function useGold() { return arts.size >= 6 && settings.gold; }
@@ -7461,6 +7523,7 @@ function syncSettingsUI() {
   for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
+for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
 }
@@ -7525,6 +7588,7 @@ document.getElementById('sSfx').addEventListener('change', () => { audio(); boom
 for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
+for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => startTutorial());
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
@@ -7547,7 +7611,7 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
-  keys[k] = true; audio();
+  keys[k] = true; audio(); rrIn = 'key';
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
     if (go && state === 'title') openDiff('camp', 1);
@@ -7565,7 +7629,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
-  e.preventDefault(); audio();
+  e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
   if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
@@ -7615,10 +7679,10 @@ soundBtn.addEventListener('click', () => {
   soundBtn.blur();
   try { localStorage.setItem('starfall44-muted', muted ? '1' : '0'); } catch (e) {}
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) saveResume(); else if (state === 'play') clearResume(); });
-addEventListener('pagehide', () => { saveHi(); saveResume(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) { saveResume(); rrPark(); } else if (state === 'play') { clearResume(); rrUnpark(); } });
+addEventListener('pagehide', () => { saveHi(); saveResume(); rrPark(); });
 document.getElementById('resYes').addEventListener('click', () => { const r = resumeOffer; resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
-document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); document.getElementById('resumeAsk').classList.remove('open'); });
+document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); rrFlushParked(); document.getElementById('resumeAsk').classList.remove('open'); });
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
@@ -7640,7 +7704,7 @@ document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPr
   if (mq.addEventListener) mq.addEventListener('change', onTurn); else mq.addListener(onTurn);
   onTurn();
 }
-offerResume();
+offerResume(); if (!resumeOffer) rrFlushParked();
 
 /* ================= sizing ================= */
 function fit() {
