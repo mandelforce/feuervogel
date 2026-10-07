@@ -4412,8 +4412,8 @@ function drawLocks() {
 // the horn and comes about so one long side faces the player, then fires two broadsides out of that side.
 // It turns like a big ship: around a pivot near the bow (the stern swings wide), creeping forward through the arc,
 // with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
-const RAM_WARN = 40, RAM_VOLLEYS = [210, 248], RAM_BACK = 272, RAM_END = 430, RAM_ANG = 1.05, RAM_SIDE = 33,
-  RAM_PIVOT = 40, RAM_K = 0.0007, RAM_DAMP = 0.036, RAM_CREEP = 0.17;
+const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
+  RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
