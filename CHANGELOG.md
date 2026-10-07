@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Rebirth: when the Feuervogel is destroyed it bursts into pieces, and after a short hang the same burst runs backwards: the pieces fly back, the fireball shrinks away, a white flash marks the snap and the shield ring cools from orange to teal. A continue plays the backwards half. New sounds: a reversed boom (swelling noise and rising sweep) and the Feuervogel hawk cry played backwards, cutting off as the ship snaps whole. Respawn timing, lives, continues and scoring are unchanged.
 - How to play is much simpler: Controls (two lines), a four-icon Weapons legend (Scatter, Lance, Seekers, Arc), a Pickups legend (Nova, Talon, Medal, Secret) and the two special moves, all on one phone screen without scrolling. Score rules, privacy and mouse/controller details moved into collapsed sections. Nothing about scoring or the leaderboard changed.
 - Tutorial step 3 now shows weapons: three supply containers each drop a different, non-cycling weapon (Scatter, Lance, Seekers), so you can see and choose one.
 - Tutorial: the text box no longer covers the menu button, so Settings, Music and Quit stay reachable during the tutorial.
