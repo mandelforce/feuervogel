@@ -525,6 +525,10 @@ SPR.talon = sprite(12, 13, x => {
   polyS(x, RP.crys, [[6, 0], [12, 6], [10, 13], [6, 8], [2, 13], [0, 6]], 0.05, 0.6);
   ellS(x, RP.alien, 6, 6, 2.4, 3, 0.35);
 });
+SPR.rdrone = sprite(12, 13, x => {
+  polyS(x, RP.grey, [[6, 13], [12, 7], [10, 0], [6, 5], [2, 0], [0, 7]], 0.05, 0.6);
+  ellS(x, RP.alien, 6, 7, 2.4, 3, 0.35);
+});
 SPR.life = (() => { const PAL = { P: '#c8b0ff', p: '#8466dc', c: '#a8f6dc', t: '#4ccfae', w: '#f2ecd8', r: '#ff4a3a' };
   const rows = ['....p....', '...rpr...', '..tpcpt..', '.tpwcwpt.', 'tppwcwppt', 'p.ppcpp.p', '...pcp...', '...p.pp..', '..p...p..', '.......p.'];
   return sprite(9, 10, x => rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== '.') rect(x, PAL[ch], i, j, 1, 1); })), { oc: '#140e20' }); })();
@@ -4110,39 +4114,21 @@ function castleUnits(e, grp) {
   const fuels = grp === 1 ? [[96, 392], [128, 392], [84, 512], [140, 524]] : [[34, 96], [190, 96], [34, 200], [190, 200]];
   for (const [sx, sy] of fuels) add('fuel', sx, sy, { hp: 6 * m, hw: 7, hh: 7, score: 300, rad: 9 });
 }
-// Black Fortress, act 1: the flak guns lay a curtain of bursts across the screen, three rows, each with one gap to fly through
-function skyCurtain(e, ea) {
-  if (e.ct) {
-    const C = e.ct; C.t++;
-    if (C.t % 40 === 1 && C.n < 3 && !player.dead) {
-      if (C.n) C.gap = clamp(C.gap + rnd(-36, 36), 34, W - 34);
-      const y = e.y + 78 * (e.sag || 1), sp = bspeed() * 0.75;
-      for (let x = 6; x <= W - 6; x += 11) {
-        if (Math.abs(x - C.gap) < 21) continue;
-        if (ebul.length < 420 && bombFx <= 20) ebul.push({ x, y: y + rnd(-2, 2), vx: 0, vy: sp, r: 2, kind: 'shell', a: PI / 2 });
-        if ((x / 11 | 0) % 2 === 0) { smokePuff(x, y); flash(x, y, 2); }
-      }
-      C.n++; sfx('cannon'); sfx('gun'); shake = Math.max(shake, 2);
-    }
-    if (C.t > 130) e.ct = null;
-    return;
-  }
-  if (ea < 3 || e.fl) return;
-  e.ctT = (e.ctT ?? 300) + 1; // the first curtain comes about 4 seconds into the fight
-  if (e.ctT >= 560) { e.ctT = 0; e.ct = { t: 0, n: 0, gap: clamp(player.x + rnd(-50, 50), 34, W - 34) }; }
-}
-// Black Fortress, acts 2 and 3: a fire laser from an alien core. It charges as a purple orb (the core takes extra damage then),
-// locks on and fires; once all engines are gone it fires every 8 seconds and slowly follows the player. A Nova cuts it short.
-const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 480;
+// Black Fortress: a fire laser from an alien core. It charges as a purple orb (the core takes extra damage then), locks on and fires.
+// The first shot comes when the second engine goes, the core drops below 75% or 25 seconds pass; then every 11 seconds,
+// and every 8 seconds, slowly following the player, once all engines are gone. A Nova cuts it short.
+const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
 function skyLaser(e, ea) {
   const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
   const cx = e.x + core.ox, cy = e.y + core.oy;
   if (e.stun > 0 && !e.fl) { e.stun--; if (gf % 4 === 0) parts.push({ kind: 'spark', layer: 'a', x: cx + rnd(-30, 30), y: cy + rnd(-30, 10), vx: 0, vy: -0.4, life: 12, max: 12, col: '#bba4ff' }); return; } // staggered after losing a beam clash
   if (!e.fl) {
-    if (player.dead || e.ct) return;
+    if (player.dead) return;
+    e.flT = (e.flT || 0) + 1;
+    if (ea === 0 && !e.lastAct) { e.lastAct = true; if (e.foreDone) e.flT = Math.max(e.flT, FL_GAP3 - 150); } // the last act opens with a shot
     let go = false;
-    if (ea <= 2 && !e.foreDone) { e.foreDone = true; go = true; } // the first shot, when the second engine goes down
-    else if (ea === 0 && ++e.flT >= (e.lastAct ? FL_GAP : 150)) { e.lastAct = true; go = true; }
+    if (!e.foreDone) { if (ea <= 2 || core.hp < core.maxhp * 0.75 || e.flT >= 1500) { e.foreDone = true; go = true; } }
+    else if (e.flT >= (ea === 0 ? FL_GAP3 : FL_GAP)) go = true;
     if (go) { e.fl = { ph: 'charge', t: 0 }; e.flT = 0; sfx('fcharge'); }
     return;
   }
@@ -4842,7 +4828,7 @@ const BOSSMOVE = {
     e.sag = (e.sag || 1) + ((1 - 0.016 * (4 - ea) - (ea === 0 ? 0.02 : 0)) - (e.sag || 1)) * 0.01;
     { const c = Math.cos(e.tilt), s = Math.sin(e.tilt); for (const p of e.parts) { p.ox = (p.box * c - p.boy * s) * e.sag; p.oy = (p.box * s + p.boy * c) * e.sag; } }
     e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4) + e.tilt * 70; e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
-    skyCurtain(e, ea); skyLaser(e, ea);
+    skyLaser(e, ea);
     for (const p of e.parts) if (p.k === 'engine' && p.dead && gf % 3 === 0) { smokePuff(e.x + p.ox, e.y + p.oy - 10, 'a'); if (Math.random() < 0.4) parts.push({ kind: 'fire', layer: 'a', x: e.x + p.ox + rnd(-2, 2), y: e.y + p.oy - 6, vx: 0, vy: -0.3, r: rnd(2, 3.5), life: 14, max: 14 }); }
     return true;
   },
@@ -4966,6 +4952,14 @@ const AI = {
     e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (gf % 2 === 0) parts.push({ kind: 'smoke', layer: 'a', x: e.x - Math.cos(e.h) * 16, y: e.y - Math.sin(e.h) * 16, vx: rnd(-0.1, 0.1), vy: rnd(-0.1, 0.1), r: rnd(1.5, 2.5), life: 26, max: 26 });
     if (e.life <= 0 || e.x < -20 || e.x > W + 20 || e.y < -40 || e.y > H + 20) { if (e.life <= 0) { boom(e.x, e.y, 14, 'a'); if (e.y > 0 && e.y < H) sfx('gboom'); } e.dead = true; }
+  },
+  // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
+  rdrone(e) {
+    const tx = player.dead ? e.x : player.x, ty = player.dead ? H * 0.5 : player.y - 90;
+    const want = e.t < 28 ? (e.side > 0 ? 0.3 : PI - 0.3) : e.t < 72 ? Math.atan2(ty - e.y, tx - e.x) : PI / 2 + e.side * 0.45;
+    e.h += clamp(angDiff(e.h, want), -0.07, 0.07);
+    const sp = e.t < 28 ? 1.5 : 2.1; e.x += Math.cos(e.h) * sp; e.y += Math.sin(e.h) * sp;
+    if (e.t === 72 && !player.dead && e.y < player.y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
   },
   pod(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; },
   wing(e) {
@@ -5290,7 +5284,7 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
-      if ((e.fl && p.k === 'core') || (e.ct && p.k === 'aa') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
+      if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
@@ -5318,8 +5312,9 @@ const AI = {
         smokePuff(px, py); sfx('rocket');
       } else if (p.k === 'engine') { p.cd = 999;
       } else if (p.k === 'bay') {
-        p.cd = Math.round((Math.max(110, 150 - loop * 15)) * fireSlow());
-        for (const o of [-26, 0, 26]) mortarShot(px, py, o); sfx('rocket');
+        // the hangar launches a pair of Raven drones every 5.5 seconds, never more than four in the air
+        p.cd = Math.round((Math.max(270, 330 - loop * 30)) * fireSlow());
+        if (count('rdrone') <= 2) { for (const sd of [-1, 1]) enemies.push(E('rdrone', { x: px + sd * 5, y: py + 2, h: PI / 2, side: sd, hp: 3 * hpm(), hw: 5, hh: 5, score: 200 })); flash(px, py + 4, 4); sfx('clunk'); }
       } else if (p.k === 'mortar') {
         p.cd = Math.round((Math.max(120, 170 - loop * 15)) * fireSlow());
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
@@ -5352,12 +5347,13 @@ const AI = {
         } else if (e.kind === 'skyfort') {
           const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
           if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
-          else if (ea >= 1) { p.cd = Math.round((6) * fireSlow()); e.spin += 0.29; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); if (e.mt % 80 < 6) { const a = aim(px, py); for (let k = -3; k <= 3; k++) eshot(px, py, a + k * 0.12, sp * 1.05, 'B'); } }
+          // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
+          else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
           else {
-            p.cd = Math.round(8 * fireSlow()); e.spin += 0.17;
+            p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
             eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
             e.fanT = (e.fanT || 0) + 1;
-            if (e.fanT % 18 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
+            if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
           }
         } else if (e.kind === 'railgun') {
           if (e.lock && !e.chargeT) p.cd = 1;
@@ -5667,7 +5663,7 @@ function damagePart(e, p, d) {
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
       score += e.score; checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; e.ct = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -6746,6 +6742,12 @@ function drawAir(e) {
   const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
   if (e.type === 'protoFly') return drawProtoPlane(e, PI, 1.15, true);
   if (e.type === 'protoDuel') return drawProtoPlane(e, 0, 1, true);
+  if (e.type === 'rdrone') {
+    ctx.globalAlpha = 0.25; dk(e.x, e.y, 6 + ((gf >> 3) & 1), '#8466dc'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.h - PI / 2);
+    ctx.fillStyle = (gf & 2) ? '#bba4ff' : '#e8dcff'; ctx.fillRect(0, -9 - (gf & 1), 1, 2 + (gf & 1));
+    spr(SPR.rdrone, 0, 0, fl); ctx.restore(); return;
+  }
   switch (e.type) {
     case 'fighter': {
       const s = (e.leader ? SPR.fighterL : SPR.fighter)[dirIdx(e.h)];
