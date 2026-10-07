@@ -753,8 +753,9 @@ SPR.clouds = [
   cloudSprite(44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]),
   cloudSprite(80, 36, [[16, 22, 14, 11], [36, 14, 18, 13], [58, 20, 16, 12], [40, 26, 22, 9]])
 ];
-SPR.eb = [sprite(5, 5, x => ellS(x, RP.fire, 2.5, 2.5, 2.5, 2.5, 0.3)), sprite(5, 5, x => ellS(x, RP.pinkb, 2.5, 2.5, 2.5, 2.5, 0.3))];
-SPR.ebB = [sprite(7, 7, x => ellS(x, RP.pinkb, 3.5, 3.5, 3.5, 3.5, 0.25)), sprite(7, 7, x => ellS(x, RP.fire, 3.5, 3.5, 3.5, 3.5, 0.25))];
+// enemy bullets look the same everywhere: a steady deep orange with a hot core, darker than the gold medals
+{ const eb = (n, rr, core) => sprite(n, n, x => { ellS(x, RP.fire, rr, rr, rr, rr, 0.02); x.fillStyle = '#fff2a8'; x.fillRect(core[0], core[1], core[2], core[2]); });
+  const s = eb(5, 2.5, [2, 2, 1]), b = eb(7, 3.5, [2, 2, 2]); SPR.eb = [s, s]; SPR.ebB = [b, b]; }
 SPR.shell = rotSet(sprite(3, 7, x => ellS(x, RP.yel, 1.5, 3.5, 1.5, 3.5, 0.3), { oc: '#e0281e' }));
 SPR.flak = sprite(5, 5, x => ellS(x, RP.smoke, 2.5, 2.5, 2.5, 2.5, 0.2));
 SPR.ps = rotSet(sprite(3, 8, x => ellS(x, RP.crys, 1.5, 4, 1.5, 4, 0.4)));
@@ -6478,8 +6479,8 @@ function render() {
 
   const fr = (gf >> 2) & 1;
   { const crowd = Math.min(1, ebul.length / 50), halo = nightF > 0.5 ? '#f0e8ff' : '#0a0812';
-    ctx.globalAlpha = (nightF > 0.5 ? 0.16 : 0.26 + 0.24 * snowF) + 0.2 * crowd;
-    for (const b of ebul) if (b.kind !== 'mortar') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 3 + (snowF > 0.5 ? 1 : 0), halo);
+    ctx.globalAlpha = (nightF > 0.5 ? 0.3 : 0.5) + 0.15 * crowd;
+    for (const b of ebul) if (b.kind !== 'mortar') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
     ctx.globalAlpha = 1; }
   for (const b of ebul) {
     if (b.kind === 'B') spr(SPR.ebB[fr], b.x, b.y);
