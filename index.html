@@ -3124,6 +3124,7 @@ function sfx(n) {
     case 'liftoff': tone(60, 2.4, 'sawtooth', 0.12, 30); noise(2.4, 0.3, 600); tone(30, 2, 'sine', 0.4, 22); break;
     case 'fcharge': tone(50, 1.5, 'sawtooth', 0.07, 150); tone(200, 1.5, 'sine', 0.04, 900); noise(1.5, 0.04, 2400); break;
     case 'fbeam': noise(1.2, 0.24, 800); tone(70, 1.2, 'sawtooth', 0.1, 40); tone(700, 0.5, 'square', 0.015, 160); break;
+    case 'clash': tone(260, 1.0, 'sawtooth', 0.05, 1500); tone(520, 1.0, 'square', 0.015, 2400); noise(1.0, 0.1, 3200); break;
     case 'snap': noise(1.2, 0.3, 380); tone(48, 1.6, 'sawtooth', 0.12, 18); tone(140, 0.6, 'square', 0.03, 40); break;
     case 'reward': rewardSfx(); break;
     case 'beam': tone(1800, 0.5, 'sawtooth', 0.06, 160); tone(90, 0.5, 'sine', 0.3, 30); noise(0.45, 0.16, 5000); tone(2400, 0.3, 'square', 0.02, 600); if (actx) { hawkCry(actx.currentTime); bit8Screech(actx.currentTime); } break;
@@ -4136,6 +4137,7 @@ const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 480;
 function skyLaser(e, ea) {
   const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
   const cx = e.x + core.ox, cy = e.y + core.oy;
+  if (e.stun > 0 && !e.fl) { e.stun--; if (gf % 4 === 0) parts.push({ kind: 'spark', layer: 'a', x: cx + rnd(-30, 30), y: cy + rnd(-30, 10), vx: 0, vy: -0.4, life: 12, max: 12, col: '#bba4ff' }); return; } // staggered after losing a beam clash
   if (!e.fl) {
     if (player.dead || e.ct) return;
     let go = false;
@@ -4150,9 +4152,31 @@ function skyLaser(e, ea) {
     if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); shake = Math.max(shake, 7); flash(cx, cy + 6, 10); }
     return;
   }
+  // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
+  // the player's beam pushes the meeting point up into the orb, which overloads (8% of the core) and the fortress staggers
+  const under = !player.dead && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
+  if (!F.clash && beam && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + player.y - 26) / 2 }; sfx('clash'); }
+  if (F.clash) {
+    const C = F.clash;
+    if (!beam || !under) F.clash = null; // the clash breaks and the fire laser carries on
+    else {
+      C.t++; F.t--;
+      const f = Math.min(1, C.t / 60); C.y = C.y0 + (cy + 14 - C.y0) * f * f;
+      beam.clashY = C.y; beam.clashK = 2; player.inv = Math.max(player.inv, 45);
+      F.a = Math.atan2(C.y - cy, player.x - cx); shake = Math.max(shake, 3);
+      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; parts.push({ kind: 'spark', layer: 'a', x: player.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
+      if (C.t >= 60) {
+        damagePart(e, core, core.maxhp * 0.08); e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
+        flash(cx, cy, 14); boom(cx, cy, 24, 'a'); flashFx = Math.max(flashFx, 6); shake = 12; hitStop = Math.max(hitStop, 6); sfx('bigboom'); sfx('nova');
+        parts.push({ kind: 'ring', layer: 'a', x: cx, y: cy, vx: 0, vy: 0, life: 24, max: 24, r: 70 });
+        for (let k = 0; k < 28; k++) { const a = k * TAU / 28; parts.push({ kind: 'spark', layer: 'a', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2.6), vy: Math.sin(a) * rnd(1, 2.2), life: 22, max: 22, col: k & 1 ? '#e8dcff' : '#ffd060' }); }
+      }
+      return;
+    }
+  }
   if (F.sweep && !player.dead) F.a = clamp(F.a + clamp(angDiff(F.a, aim(cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
   shake = Math.max(shake, 2);
-  const env = Math.min(1, F.t / 6, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
+  const env = Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
   if (gf % 2 === 0) { const d = rnd(30, 400); parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
   for (const b of shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
   if (env > 0.5 && !player.dead && player.inv === 0) {
@@ -4170,7 +4194,7 @@ function drawSkyLaser(e) {
     ctx.beginPath(); ctx.arc(cx, cy, 20 + 6 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke();
     return;
   }
-  const env = Math.min(1, F.t / 6, (FL_FIRE - F.t) / 8), w = 22 * env, L = 700;
+  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
   ctx.globalAlpha = 0.3; ctx.fillStyle = '#8466dc'; ctx.fillRect(-w / 2 - 5, 6, w + 10, L); ctx.globalAlpha = 1;
   ctx.fillStyle = '#a8241a'; ctx.fillRect(-w / 2 - 2, 6, w + 4, L);
@@ -4179,13 +4203,21 @@ function drawSkyLaser(e) {
   ctx.fillStyle = '#fff2b0'; ctx.fillRect(-w / 6, 6, Math.max(1, w / 3), L);
   // flame tongues licking off both edges, moving outward along the beam
   for (let k = 0; k < 70; k++) {
-    const yy = 10 + k * 6 + ((gf * 3) % 6), n = Math.sin(k * 2.3 + gf * 0.7) * Math.sin(k * 0.9 - gf * 0.4), o = (2 + Math.abs(n) * 7) * env;
+    const yy = 10 + k * 6 + ((gf * 3) % 6); if (yy > L) break; const n = Math.sin(k * 2.3 + gf * 0.7) * Math.sin(k * 0.9 - gf * 0.4), o = (2 + Math.abs(n) * 7) * env;
     ctx.fillStyle = n > 0.3 ? '#ffd060' : n > -0.3 ? '#ff6a1a' : '#c8301a';
     if (k & 1) ctx.fillRect(Math.round(w / 2 + 1), yy, Math.round(o), 2); else ctx.fillRect(Math.round(-w / 2 - 1 - o), yy, Math.round(o), 2);
   }
   ctx.globalAlpha = 0.6 * env; ctx.fillStyle = '#ffffff';
-  for (let k = 0; k < 50; k++) { const yy = 8 + k * 13 + ((gf * 5) % 13); ctx.fillRect(Math.round(-w / 4), yy, Math.max(1, Math.round(w / 2)), 2); }
+  for (let k = 0; k < 50; k++) { const yy = 8 + k * 13 + ((gf * 5) % 13); if (yy > L) break; ctx.fillRect(Math.round(-w / 4), yy, Math.max(1, Math.round(w / 2)), 2); }
   ctx.restore(); ctx.globalAlpha = 1;
+  if (C) {
+    // the meeting point: a ball of light ringed in purple, throwing crackling arcs to the sides
+    const mx = player.x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
+    ctx.globalAlpha = 0.3; dk(mx, my, R + 14, '#8466dc'); ctx.globalAlpha = 0.55; dk(mx, my, R + 7, '#bba4ff'); ctx.globalAlpha = 1;
+    dk(mx, my, R, '#ffd060'); dk(mx, my, R * 0.75, '#fff2b0'); dk(mx, my, R * 0.45, '#ffffff');
+    ctx.strokeStyle = '#e8dcff'; ctx.lineWidth = 1;
+    for (let j = 0; j < 4; j++) { let x = mx, y = my; const sd = j < 2 ? -1 : 1; ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 5; k++) { x += sd * rnd(5, 9); y += rnd(-6, 6); ctx.lineTo(x, y); } ctx.stroke(); }
+  }
 }
 function alienCore(px, py, hit, f) {
   // the Black Fortress's core: a purple alien orb like the weapon pods, which swells while the laser charges
@@ -5258,7 +5290,7 @@ const AI = {
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
-      if ((e.fl && p.k === 'core') || (e.ct && p.k === 'aa')) { p.cd = Math.max(p.cd, 20); continue; }
+      if ((e.fl && p.k === 'core') || (e.ct && p.k === 'aa') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
@@ -5430,6 +5462,9 @@ function fireBeam(pw) {
 function updBeam() {
   if (!beam) return;
   if (--beam.t <= 0 || !player || player.dead) { beam = null; return; }
+  // locked in a beam clash with the Black Fortress: held at full strength and blocked at the meeting point
+  if (beam.clashK > 0) { beam.clashK--; beam.t = beam.max - 1; return; }
+  beam.clashY = undefined;
   const bx = player.x, half = beam.w / 2 * (0.6 + 0.4 * beam.t / beam.max), top = player.y - 14;
   for (const b of ebul) if (b.kind === 'mega' && !b.dead && Math.abs(b.x - bx) < half + 6 && b.y < top) { b.dead = true; for (let k = 0; k < 9; k++) { eshot(b.x, b.y, k * TAU / 9 + rnd(-0.08, 0.08), bspeed()); ebul[ebul.length - 1].shrapnel = true; } boom(b.x, b.y, 10, 'a'); flash(b.x, b.y, 8); sfx('boom'); }
   for (const b of ebul) if (b.kind !== 'mega' && !b.shrapnel && Math.abs(b.x - bx) < half + 2 && b.y < top) { b.dead = true; parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: -0.5, life: 8, max: 8, col: '#e8dcff' }); }
@@ -5446,12 +5481,13 @@ function drawBeam() {
   if (beam) {
     const f = beam.t / beam.max, w = beam.w * (0.6 + 0.4 * f), x = p.x, tip = p.y - 18, flare = p.y - 44;
     const tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - 1, tip); ctx.lineTo(x + 1, tip); ctx.lineTo(x + ww / 2, flare); ctx.lineTo(x - ww / 2, flare); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
-    ctx.globalAlpha = 0.5 * f + 0.2; ctx.fillStyle = '#8466dc'; ctx.fillRect(Math.round(x - w / 2 - 2), 0, Math.round(w + 4), Math.round(flare)); ctx.globalAlpha = 1;
+    const lim = Math.round(beam.clashY ?? 0); // a beam clash stops the column where the two beams meet
+    ctx.globalAlpha = 0.5 * f + 0.2; ctx.fillStyle = '#8466dc'; ctx.fillRect(Math.round(x - w / 2 - 2), lim, Math.round(w + 4), Math.round(flare) - lim); ctx.globalAlpha = 1;
     tri(w + 4, '#8466dc', 0.5 * f + 0.2); tri(w, '#4ccfae', 1);
-    ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(x - w / 2), 0, Math.round(w), Math.round(flare) + 1);
-    ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(x - w / 4), 0, Math.max(2, Math.round(w / 2)), Math.round(flare));
+    ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(x - w / 2), lim, Math.round(w), Math.round(flare) + 1 - lim);
+    ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(x - w / 4), lim, Math.max(2, Math.round(w / 2)), Math.round(flare) - lim);
     ctx.beginPath(); ctx.moveTo(x - 0.5, tip); ctx.lineTo(x + 0.5, tip); ctx.lineTo(x + w / 4, flare); ctx.lineTo(x - w / 4, flare); ctx.closePath(); ctx.fill();
-    for (let k = 0; k < 40; k++) { const yy = flare - 4 - k * 12 - ((gf * 4) % 12); if (yy < 0) break; const ph = ((k * 2 + gf) % 6 + 1) / 6, half = (w / 2 + 2) * ph; ctx.globalAlpha = (0.95 - 0.6 * ph) * f; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - half), Math.round(yy), Math.round(half * 2), 2); ctx.globalAlpha = 0.5 * (1 - ph) * f; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(Math.round(x - half - 2), Math.round(yy) - 1, Math.round(half * 2 + 4), 4); }
+    for (let k = 0; k < 40; k++) { const yy = flare - 4 - k * 12 - ((gf * 4) % 12); if (yy < lim) break; const ph = ((k * 2 + gf) % 6 + 1) / 6, half = (w / 2 + 2) * ph; ctx.globalAlpha = (0.95 - 0.6 * ph) * f; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(x - half), Math.round(yy), Math.round(half * 2), 2); ctx.globalAlpha = 0.5 * (1 - ph) * f; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(Math.round(x - half - 2), Math.round(yy) - 1, Math.round(half * 2 + 4), 4); }
     ctx.globalAlpha = 1; dk(x, tip + 1, 2.5, '#ffffff');
   }
   if (overheatT > 0) { const r = 4 + Math.sin(gf * 0.3) * 0.6; ctx.globalAlpha = 0.45; dk(p.x, p.y - 19, r + 3, '#e84030'); ctx.globalAlpha = 1; dk(p.x, p.y - 19, r, (gf >> 3) & 1 ? '#a82a26' : '#7a1a1a'); dk(p.x, p.y - 19, Math.max(0, r - 2), '#3a0e0e'); }
