@@ -3091,27 +3091,6 @@ const HAPT = {
   warn: [70, 90, 70, 90, 70, 90, 140], extend: [20, 40, 20, 40, 70], charge: [6, 90, 6, 70, 8, 50, 8, 35, 10, 25, 12, 15, 14],
   chainLost: [30, 50, 30], test: [20, 60, 40, 60, 80, 60, 140]
 };
-const CAN_VIBRATE = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-let hapBusy = 0, hapLight = 0, iosLabel = null, iosTimers = [];
-if (!CAN_VIBRATE && IOS) {
-  try {
-    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('switch', ''); inp.id = 'hapticSwitch';
-    inp.setAttribute('aria-hidden', 'true'); inp.tabIndex = -1;
-    inp.style.cssText = 'position:fixed;left:-200px;top:0;opacity:0;pointer-events:none;width:1px;height:1px';
-    const lab = document.createElement('label'); lab.htmlFor = 'hapticSwitch'; lab.setAttribute('aria-hidden', 'true');
-    lab.style.cssText = inp.style.cssText;
-    document.body.appendChild(inp); document.body.appendChild(lab); iosLabel = lab;
-  } catch (e) { iosLabel = null; }
-}
-function iosPattern(pat) {
-  if (!iosLabel) return;
-  let t = 0;
-  for (let i = 0; i < pat.length; i += 2) {
-    const n = Math.max(1, Math.round(pat[i] / 45));
-    for (let k = 0; k < n; k++) iosTimers.push(setTimeout(() => { try { iosLabel.click(); } catch (e) {} }, t + k * 45));
-    t += pat[i] + (pat[i + 1] || 0);
-  }
-}
 let padIdx = -1;
 function padRumble(ms, strong, weak) {
   if (settings.rumble === false || padIdx < 0) return;
@@ -3119,13 +3098,6 @@ function padRumble(ms, strong, weak) {
 }
 function haptic(name) {
   { const pat = HAPT[name]; if (pat && padIdx >= 0) { const on = pat.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0); padRumble(Math.min(600, Math.max(40, on)), Math.min(1, on / 300), Math.min(1, 0.3 + on / 500)); } }
-  return;
-  const pat = HAPT[name]; if (!pat) return;
-  const now = performance.now(), total = pat.reduce((a, b) => a + b, 0), heavy = total > 45;
-  if (!heavy) { if (now < hapBusy || now - hapLight < (name === 'hit' ? 110 : 60)) return; hapLight = now; }
-  else { if (now < hapBusy && total < 300) return; hapBusy = now + total; iosTimers.forEach(clearTimeout); iosTimers = []; }
-  if (CAN_VIBRATE) { try { navigator.vibrate(pat); } catch (e) {} }
-  else iosPattern(pat);
 }
 function nzSrc(t, d, v, type, freq, Q = 1) { const s2 = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(); s2.buffer = noiseBuf; s2.loop = true; fl.type = type; fl.frequency.value = freq; fl.Q.value = Q; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s2.connect(fl).connect(g).connect(sfxOut()); s2.start(t); s2.stop(t + d + 0.02); return g; }
 function shipHorn(t) {
