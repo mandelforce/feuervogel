@@ -26,3 +26,4 @@
 - Balance: the final phase of the Stage 4 boss (Ravenhold) fires about half as many bullets (a slower spiral, smaller and less frequent rings). It used to be as intense as the Stage 6 boss.
 - Readability: enemy bullets look the same in every stage: a steady deep orange with a hot core (no more orange/pink blinking), darker than the gold medals, with a darker shadow underneath.
 - Stage 3 boss (Night Hammer): its searchlights now reach the whole screen. When one catches you, the beam flashes dark red and a red lock-on marker follows you, freezes, and the railgun fires a fast burst at that spot; shoot out both lights to stop it.
+- Stage 1 boss (Iron Leviathan): "Full ahead" at 70% and 35% core health (or once its four big turrets are gone). The horn sounds, a dark red lane marks its path, then it surges forward firing a barrage of shells straight down that lane.

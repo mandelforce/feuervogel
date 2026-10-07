@@ -4408,6 +4408,42 @@ function drawLocks() {
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(x + sx * r - (sx > 0 ? 4 : 0), y + sy * r - (sy > 0 ? 1 : 0), 5, 2); ctx.fillRect(x + sx * r - (sx > 0 ? 1 : 0), y + sy * r - (sy > 0 ? 4 : 0), 2, 5); }
   }
 }
+// Iron Leviathan "Full ahead": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
+// the horn, marks its lane in dark red, then surges forward firing a barrage of shells straight down that lane.
+const RAM_WARN = 70, RAM_GO = 130, RAM_HOLD = 170, RAM_END = 290, RAM_DIST = 60, RAM_HALF = 28;
+function shipRam(e) {
+  const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
+  e.ramN = e.ramN || 0;
+  if (!e.ram) {
+    if (!core || core.dead || player.dead) return false;
+    const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
+    if (!due) return false;
+    if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
+    e.ram = { t: 0, x0: e.x }; e.ramN++; sfx('horn'); haptic('warn');
+  }
+  const R = e.ram, base = 118 + BY; R.t++;
+  let dy = 0;
+  if (R.t <= RAM_WARN) { e.x = R.x0 + Math.sin(R.t * 1.7) * 0.8; if (gf % 2 === 0) foam(e.x + rnd(-18, 18), e.y + 112); }
+  else if (R.t <= RAM_GO) { const f = (R.t - RAM_WARN) / (RAM_GO - RAM_WARN); dy = RAM_DIST * f * f * (3 - 2 * f); e.x = R.x0; shake = Math.max(shake, 2); for (const sx of [-24, 0, 24]) foam(e.x + sx + rnd(-4, 4), e.y + 112); }
+  else if (R.t <= RAM_HOLD) dy = RAM_DIST;
+  else { const f = (R.t - RAM_HOLD) / (RAM_END - RAM_HOLD); dy = RAM_DIST * (1 - f * f * (3 - 2 * f)); }
+  e.y = base + dy;
+  if (R.t === RAM_WARN + 1) { sfx('horn'); shake = Math.max(shake, 6); }
+  // the bow guns fire straight down the marked lane while the ship surges
+  if (R.t > RAM_WARN + 6 && R.t <= RAM_GO + 14 && R.t % 4 === 0) { for (let k = 0; k < 2; k++) eshot(e.x + rnd(-RAM_HALF + 5, RAM_HALF - 5), e.y + 110, PI / 2 + rnd(-0.03, 0.03), bspeed() * 1.3); if (R.t % 8 === 0) sfx('cannon'); }
+  if (R.t >= RAM_END) { e.ram = null; e.ramCd = 240; }
+  return true;
+}
+function drawRamLanes() {
+  for (const e of enemies) {
+    const R = e.type === 'boss' && !e.dying && e.ram; if (!R || R.t > RAM_GO + 14) continue;
+    if (((R.t >> 3) & 1) && R.t <= RAM_WARN) continue;
+    const top = Math.round(e.y + 112), x0 = Math.round(e.x - RAM_HALF);
+    ctx.globalAlpha = R.t <= RAM_WARN ? 0.28 : 0.18; ctx.fillStyle = '#a8141a'; ctx.fillRect(x0, top, RAM_HALF * 2, H - top);
+    ctx.globalAlpha = 0.7; ctx.fillStyle = '#e83a2a'; ctx.fillRect(x0, top, 2, H - top); ctx.fillRect(x0 + RAM_HALF * 2 - 2, top, 2, H - top);
+    ctx.globalAlpha = 1;
+  }
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -4459,6 +4495,7 @@ const BOSSMOVE = {
     for (const c of e.crew) { const sp = e.panicT > 0 ? 3 : 1; c.oy += c.v * sp; c.ox += c.vx * sp; if (Math.abs(c.oy) > 96 || (Math.abs(c.ox) < 20 && c.oy > -32 && c.oy < 34)) c.v = -c.v; if (Math.abs(c.ox) > 28) c.vx = -c.vx; if (Math.random() < 0.01) { c.v = rnd(-0.18, 0.18); c.vx = e.panicT > 0 ? rnd(-0.2, 0.2) : 0; } }
     if (e.panicT > 0) e.panicT--;
     if (e.mt === 0 && e.y < 118 + BY) { e.y += 0.55; if (gf % 2 === 0) foam(e.x + rnd(-14, 14), e.y + 114); return false; }
+    if (shipRam(e)) return true;
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.008) * 26; e.y = 118 + BY + Math.sin(e.mt * 0.013) * 6;
     if (gf % 2 === 0) { foam(e.x + rnd(-8, 8), e.y + 116); foam(e.x + (Math.random() < 0.5 ? -38 : 38), e.y + rnd(-90, 90)); }
@@ -4863,6 +4900,7 @@ const AI = {
         if (!player.dead) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
       if (player.dead) continue;
+      if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
       if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
       if (e.kind === 'train' && (py < 6 || py > H - 30)) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.spot > 0 && p.k === 'main') p.cd--;
@@ -6505,6 +6543,7 @@ function render() {
   }
   drawBeam();
   drawPlayerArcs();
+  drawRamLanes();
   drawPlayer();
   drawLocks();
   drawParts('a');
