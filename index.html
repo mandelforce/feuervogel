@@ -4600,7 +4600,8 @@ const BOSSMOVE = {
     if (gf % 5 === 0) for (const sx of [-16, 16]) { const [dx, dy] = rot(sx, -30); smokePuff(e.x + dx + rnd(-1, 1), e.y + dy); }
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
       if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const [dx, dy] = rot(sx, 50); const col = treadCol(wx5 + dx, wy5 + dy); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + dx, wy: wy5 + dy - 2 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
-    if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; e.moving = true; return false; }
+    // the ground stops under the Colossus, so everything it does on screen is real driving over the sand
+    if (e.mt === 0 && e.y < 110 + BY) { scrollTarget = 0; e.y += 0.45; e.moving = true; return false; }
     e.mt++; tankDrive(e);
     return true;
   },
