@@ -78,6 +78,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .seg{flex-wrap:nowrap}
 #settings .wide{width:100%;margin:10px 0 4px}
 #tutAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#tutAsk.open{display:grid}#tutAsk .panel{width:min(90%,340px)}#tutAsk .lbrow{display:flex;gap:8px;margin-top:10px}#tutAsk .lbrow button{flex:1;padding:10px}
+#resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
 #howto .panel{width:min(94%,420px);max-height:94vh;overflow-y:auto}
@@ -206,6 +207,13 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="tutTitle">New here?</h2>
         <p class="note">Try the short tutorial: moving, weapons, medals, the Nova bomb, the super laser and secrets. About three minutes.</p>
         <div class="lbrow"><button type="button" class="primary" id="tutYes">Play tutorial</button><button type="button" id="tutNo">Start game</button></div>
+      </div>
+    </div>
+    <div id="resumeAsk" role="dialog" aria-modal="true" aria-labelledby="resTitle">
+      <div class="panel">
+        <h2 id="resTitle">Continue your run?</h2>
+        <p class="note" id="resInfo"></p>
+        <div class="lbrow"><button type="button" class="primary" id="resYes">Resume</button><button type="button" id="resNo">New game</button></div>
       </div>
     </div>
     <div id="howto" role="dialog" aria-modal="true" aria-labelledby="howTitle">
@@ -3192,7 +3200,7 @@ function startTutorial() {
   runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
   showMsg('TUTORIAL', 'LEARN TO FLY THE STARFALL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'tutAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'tutAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
 function tutSpawn(o) { enemies.push(o); tut.ids.push(o); return o; }
 function tutAlive() { return tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { tut.step++; tut.t = 0; tut.ids = []; }
@@ -3276,12 +3284,13 @@ function startAt(n, keepEndless) {
   if (tut && n !== 99) { tut = null; quiet = false; }
   if (!keepEndless) endless = false;
   newGame(); runStart = endless ? 1 : n; runDiff = settings.diff;
-  if (n <= 1) return;
+  if (n <= 1) { markStage(); return; }
   stage = n; loop = rankFor(n); curTheme = prevTheme = blendFrom = blendTo = STAGE_ORDER[n - 1]; prevLand = false; runStart = endless ? 1 : n;
   setTimeout(() => prewarmBoss(curTheme), 400);
   chunkJobs = []; chunks = new Map(); chunkInfo = new Map(); genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
   showMsg('STAGE ' + stageLabel(n), STAGE_NAMES[curTheme] + (n > 1 && !endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[curTheme]);
+  markStage();
 }
 function startEndless() {
   endless = true; const th = (Math.random() * 6) | 0;
@@ -3302,7 +3311,7 @@ function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + 
 const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
 function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
 function lbEligible() { return score > 0 && (endless || runStart === 1); }
-function gameOver() { saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
+function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
 // Local/test builds never post scores to the live board (reading it is fine).
@@ -3414,13 +3423,58 @@ lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
-function toTitle() { if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
+function toTitle() { clearResume(); if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
 function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
   lives = DIFF.lives[settings.diff]; bombs = 3; ebul.length = 0;
   Object.assign(player, { dead: 0, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
   sfx('start');
+}
+
+/* ---------- resume after the browser reloads the page (Android closes background tabs) ---------- */
+// A resumed run restarts the stage it was in: score as it was when that stage began, lives, bombs,
+// weapon and continues as they were when the game was left. It can't gain points or undo a death, so it still counts.
+const RESUME_KEY = 'starfall-resume';
+let stageMark = null;
+function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; }
+function saveResume() {
+  if (state !== 'play' || tut || !player || !stageMark) return;
+  let st = stage, theme = curTheme, mark = stageMark, lv = lives, cn = runConts;
+  if (results || congrats) { // the stage is already cleared: pick up at the next one with the bonus banked
+    st = stage + 1; theme = endless ? (curTheme + 1 + ((Math.random() * 5) | 0)) % 6 : STAGE_ORDER[(st - 1) % 6];
+    mark = { score: score + (results ? results.total - results.counted : 0), nextExtend, extendsGot, camp: Object.assign({}, camp) };
+  }
+  if (gameOverPending || cont > 0) { if (runConts >= MAX_CONT) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
+  const r = { v: VERSION, at: Date.now(), stage: st, theme, endless, diff: runDiff, runStart, conts: cn, credits: credits + (cn - runConts), frames: runFrames,
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl };
+  try { localStorage.setItem(RESUME_KEY, JSON.stringify(r)); } catch (e) {}
+}
+function clearResume() { try { localStorage.removeItem(RESUME_KEY); } catch (e) {} }
+function loadResume() {
+  try { const r = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; } catch (e) {}
+  clearResume(); return null;
+}
+function resumeRun(r) {
+  clearResume(); closeAllPanels();
+  if (tut) { tut = null; quiet = false; }
+  endless = !!r.endless; settings.diff = r.diff;
+  newGame();
+  stage = r.stage; loop = rankFor(stage); curTheme = prevTheme = blendFrom = blendTo = r.theme; prevLand = false;
+  setTimeout(() => prewarmBoss(curTheme), 400);
+  chunkJobs = []; chunks = new Map(); chunkInfo = new Map(); genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
+  ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
+  score = r.score; lives = r.lives; bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl;
+  runStart = r.runStart; runDiff = r.diff; runConts = r.conts; credits = r.credits; runFrames = r.frames;
+  nextExtend = r.nextExtend; extendsGot = r.extendsGot; camp = Object.assign(newCamp(), r.camp);
+  markStage();
+  showMsg('STAGE ' + stageLabel(stage), STAGE_NAMES[curTheme], 170); playSong(STAGE_SONGS[curTheme]);
+}
+let resumeOffer = null;
+function offerResume() {
+  const r = resumeOffer = loadResume(); if (!r) return;
+  document.getElementById('resInfo').textContent = (r.endless ? 'Endless' : 'Campaign') + ', ' + ['Easy', 'Normal', 'Hard'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
+  document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
 /* ================= helpers ================= */
@@ -4101,6 +4155,7 @@ function doFinishResults() {
   waveCd = 95; groundCd = 70; podCd = 200; stats = newStats(); newSecret(); trainDone = false; quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(stage), STAGE_NAMES[curTheme], 170); sfx('start'); if (state === 'play') playSong(STAGE_SONGS[curTheme]);
   if (player && !player.dead) player.fly = 110;
+  markStage();
 }
 function updCongrats() {
   const c = congrats; c.t++;
@@ -6689,8 +6744,12 @@ soundBtn.addEventListener('click', () => {
   soundBtn.blur();
   try { localStorage.setItem('starfall44-muted', muted ? '1' : '0'); } catch (e) {}
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); });
-addEventListener('pagehide', saveHi);
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) saveResume(); else if (state === 'play') clearResume(); });
+addEventListener('pagehide', () => { saveHi(); saveResume(); });
+document.getElementById('resYes').addEventListener('click', () => { const r = resumeOffer; resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
+document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); document.getElementById('resumeAsk').classList.remove('open'); });
+document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
+offerResume();
 
 /* ================= sizing ================= */
 function fit() {
