@@ -4880,7 +4880,8 @@ const AI = {
           flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
         } else if (e.kind === 'castle') {
           if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
-          else { p.cd = Math.round((5) * fireSlow()); e.spin += 0.23; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if (e.mt % 110 < 5) ring(px, py, 20, sp * 0.7, e.mt * 0.1, 'B'); }
+          // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
+          else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
         } else if (e.kind === 'skyfort') {
           const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
           if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }

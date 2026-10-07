@@ -23,3 +23,4 @@
 - Phones held sideways show a "Turn your phone upright" screen and pause the run. In short desktop windows the game now shrinks to fit and hides the hint line instead of running off the top.
 - Balance: bosses on Hard have 25% more health on top of Hard's existing bonus, so Hard boss fights last roughly 40-90% longer than on Normal.
 - Boss fights: a weapon pod flies in 25 seconds into a boss fight and then every 35 seconds (up to 3 per fight), always carrying a weapon pickup, so you can switch weapons mid-fight.
+- Balance: the final phase of the Stage 4 boss (Ravenhold) fires about half as many bullets (a slower spiral, smaller and less frequent rings). It used to be as intense as the Stage 6 boss.
