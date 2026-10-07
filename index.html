@@ -4596,11 +4596,13 @@ const BOSSMOVE = {
     const sc = Math.floor(scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
     if (!e.rvInit) ravenInit(e);
     const gateY = e.gateWy + sc;
-    if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.1; }
+    // pace of the approach: brisk through the outer yard, fast through the inner ward, then easing into the keep yard
+    if (!e.stage1 && gateY > 30) { e.stage1 = true; scrollTarget = SCROLL * 1.5; }
+    if (e.breach && !e.halt && !e.keepYard && e.gateWy - 911 + sc > H * 0.3) { e.keepYard = true; scrollTarget = SCROLL * 1.4; }
     if (e.stage1 && !e.halt && e.y >= 150 + BY) { e.halt = true; scrollTarget = 0; }
     if (!e.breach && e.gate2) {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; scrollTarget = 0; sfx('chain'); later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
-      else { e.breach = true; if (e.holding) { e.holding = false; scrollTarget = SCROLL * 1.1; sfx('gboom'); shake = Math.max(shake, 8); } }
+      else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); shake = Math.max(shake, 8); } if (!e.keepYard) scrollTarget = SCROLL * 2; }
     }
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     if (e.stage1 && !e.wheel && (e.patT = (e.patT ?? 90) - 1) <= 0) {

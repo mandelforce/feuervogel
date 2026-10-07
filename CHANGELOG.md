@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Stage 4: the castle approach is tighter: the scroll moves faster through the outer yard (1.5x) and the inner ward (2x), then eases into the keep yard. About 33 seconds of travel instead of about 47, plus the gate breach.
 - Stage 4 boss (Ravenhold): its corner guns and tower guns are much tougher (about 1.8x health), so they last through the keep fight.
 - Stage 4 castle grounds: thicker curtain walls with a wall walk and battlements, round corner towers with slate roofs, gun emplacements along both walls (a crossfire over the courtyards), and a gate breach: the advance stops at the closed inner gate until you blast it open while its guns and the flanking bunkers fire.
 - Stage 4 boss (Ravenhold): "The Raven's Wheel", twice per fight. The bell tolls and crows circle the tower, then two arms of shells stream out of the tower top and the wheel turns once, so you fly round the tower ahead of an arm. Clockwise the first time, the other way the second time. The castle's other guns, hatches and fighters hold off while it turns.
