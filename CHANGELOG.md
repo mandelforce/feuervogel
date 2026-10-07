@@ -14,3 +14,7 @@
 - Balance: the Arc weapon deals 1.25x instead of 0.45x damage to boss parts, and zaps soldiers, crates, drums and buildings only when nothing more important is in reach. Arc boss fights are now about as fast as with the other weapons.
 - Testing: balance bot (tests/harness.js, tests/balance.mjs) for timing bosses and playing whole campaigns on local builds.
 - Balance: the super laser is a little weaker: it takes about 0.95 s to charge (was 0.75 s), deals about 12% less damage, and each shot builds more heat, so it can be fired about 22% less often without overheating. It still clears bullets the same way.
+- Extra lives are rarer: you can hold at most 6, the stage-clear bonus gives at most 1 extra plane (was 2), and after the first two score extends each gap is 1.5x the one before. The medal chain window is a little shorter (2.8 s, was 3.3 s).
+- Continue screen: the battle now freezes while the countdown runs.
+- Game over: the name entry sits at the bottom, so the GAME OVER screen and your score stay visible.
+- Settings: the skin choice is now "Ship: Raptor / Rooster"; on phones the mouse and controller-rumble options are hidden (rumble appears once a controller is used).

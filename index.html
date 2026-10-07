@@ -93,6 +93,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .hico{justify-self:center;image-rendering:pixelated}
 #lbPanel{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:6}
 #lbPanel.open{display:grid}
+#lbPanel.below{place-items:end center;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(rgba(18,14,26,0) 45%,rgba(18,14,26,.6))}
 #lbPanel .panel{width:min(96%,440px);max-height:95%;overflow:auto;padding:14px 14px 12px}
 #lbPanel label{display:grid;gap:4px;margin:8px 0;font-size:14px}
 #lbPanel input{font:16px 'StarFall Text',ui-monospace,monospace;color:#f2ecd8;background:#120e1a;border:2px solid #8466dc;border-radius:3px;padding:7px 8px;width:100%;box-sizing:border-box}
@@ -150,6 +151,7 @@ body[data-state="play"] #bombBtn{display:block}
 @keyframes tutHi{0%,100%{outline-color:rgba(168,246,220,.45);outline-offset:4px}50%{outline-color:#a8f6dc;outline-offset:8px}}
 @media (prefers-reduced-motion: reduce){#bombBtn.tutHi{animation:none}}
 body[data-results="1"] #bombBtn{display:none !important}
+@media (pointer:coarse){#sMouseRow,body:not([data-pad]) #sRumbleRow{display:none}}
 #hint{font-size:15px;color:var(--muted);text-align:center;max-width:48ch;line-height:1.45;margin:0}
 @media (pointer:coarse){#hint{display:none}}
 </style>
@@ -220,10 +222,10 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
-        <div class="row" id="sSkinRow" style="display:none"><span>Ship colour</span><span class="seg" id="sSkin"><button type="button" data-g="0">Purple</button><button type="button" data-g="1">Gold</button></span></div>
+        <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button></span></div>
         <div class="row"><span>Difficulty</span><span class="seg" id="sDiff"><button type="button" data-d="0">Easy</button><button type="button" data-d="1">Normal</button><button type="button" data-d="2">Hard</button></span></div>
-        <div class="row"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
-        <div class="row"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
+        <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
+        <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <p class="note" id="diffNote"></p>
         <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
@@ -3083,7 +3085,7 @@ function sfx(n) {
 
 /* ================= state ================= */
 let state = 'title', gf = 0, scroll = 0, paused = false, overT = 0;
-let score = 0, hi = 0, lives = 2, bombs = 3, loop = 0, stage = 1, nextExtend = 80000, gameOverPending = false;
+let score = 0, hi = 0, lives = 2, bombs = 3, loop = 0, stage = 1, nextExtend = 80000, extendsGot = 0, gameOverPending = false;
 let player = null, shots = [], ebul = [], enemies = [], items = [], parts = [], decals = [], later = [];
 let msg = null, shake = 0, bombFx = 0, bombX = 0, bombY = 0, flashFx = 0;
 let waveCd = 60, groundCd = 30, podCd = 300, midDone = false, bossSpawned = false, cont = 0, credits = 0, runConts = 0;
@@ -3145,7 +3147,8 @@ function tentAt(ci, cj) {
 function inTent(x, y, m = 6) { const ci = Math.floor(x / 100), cj = Math.floor(y / 90); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const t = tentAt(ci + a, cj + b); if (t && Math.abs(x - t.x) < 14 + m && Math.abs(y - t.y) < 12 + m) return true; } return false; }
 const MEDAL_VALS = [100, 200, 500, 1000, 2000, 5000, 10000];
 let medalLv = 0, medalLost = 0, medalMul = 1, medalT = 0;
-const MEDAL_BASE = 300, MEDAL_WIN = 200, MEDAL_MAX = 10;
+const MEDAL_BASE = 300, MEDAL_WIN = 170, MEDAL_MAX = 10;
+const LIFE_CAP = 6; // the most spare ships a player can hold (also all the HUD shows)
 const MEDAL_CHANCE = { bldg: 1, cgate: 1.5, missile: 0.2, popup: 0.5, arty: 1, acar: 0.5, radar: 1.5, gen: 1, heavy: 1, station: 1, tower: 2, ftruck: 0.5, crate: 0.12, shells: 0.4, drums: 0.3, moto: 0.3, staff: 0.6, sub: 2, casemate: 2, aatower: 3, tank: 0.6, htank: 1, truck: 0.5, flak: 0.5, bunker: 0.7, hangar: 2, fuel: 0.4, parked: 0.5, pt: 0.5, destroyer: 2, bridge: 1, loco: 1, boxcar: 2, flatcar: 0.6, search: 0.7 };
 function dropMedals(x, y, n) { for (let i = 0; i < n; i++) items.push({ kind: 'M', x: x + (n > 1 ? (i - (n - 1) / 2) * 9 : 0), y, t: (Math.random() * 16) | 0, vy: -1.6 - i * 0.3 }); }
 const flakes = []; for (let i = 0; i < 70; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() });
@@ -3172,7 +3175,7 @@ function newGame() {
   shots = []; ebul = []; enemies = []; items = []; parts = []; decals = []; later = [];
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   trainDone = false; quiet = false; rainT = 0; rainF = 0; rainCd = 1200; medalLv = 0; medalMul = 1; medalT = 0; arcs.length = 0; scrollV = scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; trainLeft = {};
-  waveCd = 95; groundCd = 70; podCd = 200; nextExtend = DIFF.ext[settings.diff][0]; bombFx = 0; flashFx = 0; shake = 0;
+  waveCd = 95; groundCd = 70; podCd = 200; nextExtend = DIFF.ext[settings.diff][0]; extendsGot = 0; bombFx = 0; flashFx = 0; shake = 0;
   midDone = false; bossSpawned = false;
   state = 'play'; paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); camp = newCamp(); camp.credits0 = credits; congrats = null; congratsShown = 0;
@@ -3349,15 +3352,16 @@ function openLB(kind) {
   if (kind === 'submit') {
     lbRun = { score, stage, conts: runConts, start: runStart, mode: endless ? 'endless' : 'camp', plat: LB_PLAT, diff: runDiff, dur: Math.round(runFrames / 60) };
     lbView = { src: LB_URL ? 'online' : 'local', mode: lbRun.mode, plat: LB_PLAT, diff: lbRun.diff, period: 'all' }; lbEl('lbSend').textContent = LB_URL ? 'Submit' : 'Save';
+    lbEl('lbPanel').classList.toggle('below', state === 'over');
     lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
     lbEl('lbScore').textContent = 'Score ' + lbRun.score + ', stage ' + stageLabel(lbRun.stage);
     let nm = ''; try { nm = localStorage.getItem('starfall-name') || ''; } catch (e) {}
     lbEl('lbName').value = nm; setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
   } else {
-    lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbLoad();
+    lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
   }
 }
-function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open'); if (state === 'over') toTitle(); }
+function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (state === 'over') toTitle(); }
 function lbRow(list, i, t) { const li = document.createElement('li'); li.className = (t.me ? 'me ' : '') + (i < 3 ? 'g' + (i + 1) : '') + (t.flash ? ' flash' : '') + (t.pulse ? ' pulse' : ''); const a = document.createElement('span'); a.className = 'rk'; a.textContent = i + 1; if (t.mv) { const m = document.createElement('span'); m.className = 'mv ' + (t.mv > 0 ? 'up' : 'dn'); m.textContent = (t.mv > 0 ? '▲' : '▼') + Math.abs(t.mv); a.appendChild(m); } else if (t.isNew) { const m = document.createElement('span'); m.className = 'nw'; m.textContent = 'NEW'; a.appendChild(m); } const b = document.createElement('span'); b.className = 'nm'; b.textContent = t.name; if (t.tag) { const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = '#' + t.tag; b.appendChild(tg); } if (t.star) { const sr = document.createElement('span'); sr.className = 'star'; sr.textContent = '★'; sr.title = 'No continues used'; b.appendChild(sr); } const c = document.createElement('span'); c.className = 'sc'; c.textContent = Number(t.score).toLocaleString('en-US'); const st = document.createElement('span'); st.className = 'st'; st.textContent = 'stage ' + t.stage; c.appendChild(st); li.append(a, b, c); list.appendChild(li); }
 async function lbLoad() {
   lbSync(); const list = lbEl('lbList'); list.innerHTML = '';
@@ -3395,13 +3399,13 @@ async function lbSend() {
   if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
   try { localStorage.setItem('starfall-name', name); } catch (e) {}
   saveLocal(lbRun, name);
-  if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
+  if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
   lbMsg('Sending...'); lbEl('lbSend').disabled = true;
   try {
     const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: VERSION }, lbRun)) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
-    lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad();
-  } catch (e) { const m = e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score online."; lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); lbMsg(m + ' It is saved on this device.'); }
+    lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad();
+  } catch (e) { const m = e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score online."; lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); lbMsg(m + ' It is saved on this device.'); }
   lbEl('lbSend').disabled = false;
 }
 lbEl('lbSend').addEventListener('click', lbSend);
@@ -4048,7 +4052,7 @@ function openResults() {
   results = { lines, t: 0, shown: 0, total: lines.reduce((a, l) => a + l[2], 0), counted: 0, done: false, hold: 0 };
   ebul.length = 0;
 }
-function resultsDone() { const r = results; r.done = true; r.reward = Math.min(2, Math.floor(r.total / DIFF.plane[settings.diff])); r.awarded = 0; r.rt = 0; checkExtend(); jingle([[74, 2], [78, 2], [81, 2], [86, 6]], 0.08); haptic('extend'); }
+function resultsDone() { const r = results; r.done = true; r.reward = Math.max(0, Math.min(1, LIFE_CAP - lives, Math.floor(r.total / DIFF.plane[settings.diff]))); r.awarded = 0; r.rt = 0; checkExtend(); jingle([[74, 2], [78, 2], [81, 2], [86, 6]], 0.08); haptic('extend'); }
 function updResults() {
   const r = results; r.t++;
   if (player) player.inv = Math.max(player.inv, 20);
@@ -5027,7 +5031,8 @@ function bomb() {
   sfx('nova'); haptic('nova');
 }
 function checkExtend() {
-  if (score >= nextExtend) { lives++; nextExtend += DIFF.ext[settings.diff][1]; sfx('extend'); haptic('extend'); if (player) label(player.x, player.y - 14, '1UP'); }
+  // after the first two score extends, each gap is 1.5x the one before
+  if (score >= nextExtend) { if (lives < LIFE_CAP) lives++; extendsGot++; nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, extendsGot - 1))); sfx('extend'); haptic('extend'); if (player) label(player.x, player.y - 14, '1UP'); }
   if (score > hi) hi = score;
 }
 const TURRETED = new Set(['tank', 'htank', 'pt', 'destroyer', 'flak', 'bunker', 'casemate', 'aatower', 'flatcar']);
@@ -5240,7 +5245,7 @@ function pollPad() {
   const nav = { up: press(12) || (ay < -0.6 && !padPrev.ay), down: press(13) || (ay > 0.6 && !padPrev.ay), left: press(14) || (ax < -0.6 && !padPrev.ax), right: press(15) || (ax > 0.6 && !padPrev.ax), a: press(0), b: press(1), x: press(2), start: press(9), lb: press(4), rb: press(5) };
   for (const i of [0, 1, 2, 3, 4, 5, 9, 12, 13, 14, 15]) padPrev[i] = btn(i);
   padPrev.ay = Math.abs(ay) > 0.6; padPrev.ax = Math.abs(ax) > 0.6;
-  if (gpad.any || nav.up || nav.down || nav.left || nav.right) { audio(); padSeen = gf; }
+  if (gpad.any || nav.up || nav.down || nav.left || nav.right) { audio(); padSeen = gf; if (!document.body.dataset.pad) document.body.dataset.pad = '1'; }
   if (padMenus(nav)) return;
   if (state === 'title') { padTitle(nav); return; }
   else if (state === 'over' && gpad.any && overT > 60) toTitle();
@@ -5260,7 +5265,7 @@ function update() {
   gf++;
   pollPad();
   if (state === 'play' && paused) return;
-  scrollV += (scrollTarget - scrollV) * 0.03; scroll += scrollV;
+  if (!(state === 'play' && cont > 0)) { scrollV += (scrollTarget - scrollV) * 0.03; scroll += scrollV; } // the battle holds still on the continue screen
   ensureChunks();
   const ck = 0.12 + 0.88 * clamp(scrollV / SCROLL, 0, 1);
   for (const c of hiClouds) { c.y += c.v * ck; if (c.y > H + 90) { c.y = rnd(-300, -90); c.x = rnd(0, W); c.s = (Math.random() * 3) | 0; } }
@@ -5317,7 +5322,7 @@ function update() {
   if (results) updResults();
   if (state === 'play') {
     updPlayer(); updBeam();
-    if (cont > 0) { cont--; if (cont % 60 === 59) { sfx('tick'); haptic('tick'); } if (cont === 0) gameOver(); }
+    if (cont > 0) { cont--; if (cont % 60 === 59) { sfx('tick'); haptic('tick'); } if (cont === 0) gameOver(); else return; }
   }
   if (state === 'title') return;
   const sc = Math.floor(scroll);
