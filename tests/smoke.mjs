@@ -38,7 +38,9 @@ for (const [label, opts] of [
   });
   if (colours < 20) fail(`${label}: title screen looks blank (${colours} colours)`);
 
+  // '1' opens the difficulty panel for practice stage 1; pick Normal
   await page.keyboard.press('1');
+  await page.click('#diffAsk [data-d="1"]');
   await page.waitForTimeout(5000);
   const playing = await page.evaluate(() => document.body.dataset.state);
   if (playing !== 'play') fail(`${label}: Stage 1 did not start (state "${playing}")`);
