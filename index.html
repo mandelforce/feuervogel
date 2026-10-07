@@ -3996,8 +3996,8 @@ function spawnWing() {
 }
 const BOSSDEF = {
   ship: { y: -130, parts: [
-    { k: 'main', ox: 0, oy: 76, hp: 70 }, { k: 'main', ox: 0, oy: 52, hp: 70 }, { k: 'main', ox: 0, oy: -60, hp: 70 }, { k: 'main', ox: 0, oy: -84, hp: 70 },
-    { k: 'aa', ox: -24, oy: 16, hp: 24 }, { k: 'aa', ox: 24, oy: 16, hp: 24 }, { k: 'aa', ox: -24, oy: -20, hp: 24 }, { k: 'aa', ox: 24, oy: -20, hp: 24 },
+    { k: 'main', ox: 0, oy: 76, hp: 110 }, { k: 'main', ox: 0, oy: 52, hp: 110 }, { k: 'main', ox: 0, oy: -60, hp: 110 }, { k: 'main', ox: 0, oy: -84, hp: 110 },
+    { k: 'aa', ox: -24, oy: 16, hp: 36 }, { k: 'aa', ox: 24, oy: 16, hp: 36 }, { k: 'aa', ox: -24, oy: -20, hp: 36 }, { k: 'aa', ox: 24, oy: -20, hp: 36 },
     { k: 'core', ox: 0, oy: 26, hp: 170, hw: 11, hh: 7 }] },
   train: { y: -30, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: 13, hp: 150, hw: 10, hh: 5 }, { k: 'main', ox: 0, oy: -4, hp: 55, hw: 7, hh: 7 }, { k: 'main', ox: 0, oy: -50, hp: 70 },
@@ -4411,7 +4411,7 @@ function drawLocks() {
 // Iron Leviathan "Hard to port": at 70% core health (or once its four big turrets are gone) and again at 35% it sounds
 // the horn and swings about 60 degrees so one long side faces the player, like a real battleship bringing its guns to
 // bear. Smoke and flashes run along that side, two broadsides fire out of it towards the player, then it swings back.
-const RAM_WARN = 40, RAM_TURN = 110, RAM_VOLLEYS = [140, 178], RAM_BACK = 200, RAM_END = 280, RAM_ANG = 1.05, RAM_SIDE = 33;
+const RAM_WARN = 40, RAM_TURN = 170, RAM_VOLLEYS = [200, 238], RAM_BACK = 262, RAM_END = 390, RAM_ANG = 1.05, RAM_SIDE = 33;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
