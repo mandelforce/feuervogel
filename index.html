@@ -4091,7 +4091,7 @@ const BOSSDEF = {
     { k: 'aa', ox: -26, oy: -40, hp: 38 }, { k: 'aa', ox: 26, oy: -40, hp: 38 }, { k: 'mortar', ox: 0, oy: -44, hp: 64, hw: 6, hh: 6 }] },
   railgun: { y: -90, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: -15, hp: 300, hw: 10, hh: 12 }, { k: 'main', ox: -28, oy: 22, hp: 60 }, { k: 'main', ox: 28, oy: 22, hp: 60 },
-    { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 20, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 20, hw: 5, hh: 5 }] }
+    { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 32, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 32, hw: 5, hh: 5 }] }
 };
 BOSSDEF.castle = { world: true, parts: [
   { k: 'main', ox: -32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 75, hw: 9, hh: 9 },
@@ -4461,8 +4461,24 @@ function blockedMove(e, dx, dy) {
   }
   return false;
 }
-// boss searchlights sweep the middle of the screen: the plane is caught when it pushes up to attack, the bottom stays dark
-const beamLen = y => 110;
+// Night Hammer searchlights, seen from above: a bright spot on the ground with a faint beam back to the lamp. Each spot sweeps a slow
+// search pattern over the whole screen; within 90px of the plane it creeps toward it (slower than the plane flies). Caught = spotted.
+const SPOT_R = 22, SPOT_V = 0.75;
+function searchSpot(e, p, px, py) {
+  if (p.sx === undefined) { p.sx = px; p.sy = py + 60; }
+  const ph = e.mt * 0.006 + (p.ox < 0 ? 0 : 2.4), bx = W / 2 + Math.sin(ph * 1.7) * (W / 2 - 30), by = H * 0.55 + Math.sin(ph * 1.1 + 1) * H * 0.3;
+  const near = !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = near ? player.x : bx, ty = near ? player.y : by;
+  const d = Math.hypot(tx - p.sx, ty - p.sy), v = Math.min(d, near ? SPOT_V : 1.4);
+  if (d > 0.01) { p.sx += (tx - p.sx) / d * v; p.sy += (ty - p.sy) / d * v; }
+  p.ang = Math.atan2(p.sy - py, p.sx - px);
+  return !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < SPOT_R;
+}
+function drawSpot(x0, y0, x, y, red) {
+  // the faint beam from the lamp, then the pool of light where it lands
+  ctx.strokeStyle = red ? 'rgba(170,20,14,0.35)' : 'rgba(255,248,200,0.16)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+  const g = ctx.createRadialGradient(x, y, 0, x, y, SPOT_R + 4); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,248,210,0.75)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.45)' : 'rgba(255,244,190,0.4)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, SPOT_R + 4, 0, TAU); ctx.fill();
+}
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -5379,9 +5395,8 @@ const AI = {
       if (p.off) continue;
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
-        p.ang = PI / 2 + Math.sin(e.mt * 0.02 + p.ox) * 0.8;
-        const lit = !player.dead && inBeam(px, py, p.ang, beamLen(py), 0.16, player.x, player.y);
-        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the beam flashes dark red the moment it catches the player
+        const lit = (e.lightT === undefined || e.lightT > (p.ox < 0 ? 1 : 25)) && searchSpot(e, p, px, py);
+        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the light flashes dark red the moment it catches the player
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
@@ -6838,7 +6853,7 @@ function drawNight() {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
     if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0 && ((e.caught >> 2) & 1), g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.42)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
       ctx.strokeStyle = red ? 'rgba(200,30,20,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); lightBeam(e.x + p.ox, e.y + p.oy, p.ang, beamLen(e.y + p.oy), 0.16, red ? '170,20,14' : undefined, red ? 0.75 : undefined); }
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, red); }
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
