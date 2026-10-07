@@ -5917,7 +5917,10 @@ function drawCanopy() {
 }
 function drawTreads() {
   const sc = Math.floor(scroll);
-  for (const t of treads) if (t.big) { const y = t.wy + sc; if (y < -8 || y > H + 8) continue; ctx.globalAlpha = Math.min(1, t.life / 600) * 0.6; ctx.fillStyle = '#4a3418'; ctx.fillRect(Math.round(t.wx - 8), Math.round(y), 16, 2); if (t.cleat) { ctx.fillStyle = '#2e2010'; for (let i = -7; i < 8; i += 3) ctx.fillRect(Math.round(t.wx + i), Math.round(y), 2, 2); } }
+  // big boss tracks: a track print pressed into the ground, two edge lines with evenly spaced grip bars
+  for (const t of treads) if (t.big) { const y = t.wy + sc; if (y < -8 || y > H + 8) continue; const f = Math.min(1, t.life / 600), x = Math.round(t.wx), yy = Math.round(y);
+    ctx.fillStyle = t.dk || (t.dk = (([r, g, b]) => `rgb(${r * 0.62 | 0},${g * 0.62 | 0},${b * 0.62 | 0})`)(hexRGB(t.col))); ctx.globalAlpha = f * 0.5; ctx.fillRect(x - 8, yy, 1, 2); ctx.fillRect(x + 7, yy, 1, 2);
+    if ((Math.round(t.wy) & 3) === 0) { ctx.globalAlpha = f * 0.4; ctx.fillRect(x - 6, yy, 5, 1); ctx.fillRect(x + 1, yy, 5, 1); } }
   ctx.globalAlpha = 1;
   if (lowFX) return;
   let la = -1, lc = '';

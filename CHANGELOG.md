@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Big boss tracks look like real tank track prints (edge lines with grip bars) in a darker shade of the ground, and are less heavy than before.
 - Stage 2 boss (Sand Colossus): "Sandstorm" at 85% and 45% core health. It digs in and its rear fans blast sand sideways; for about 6 seconds the wind pushes your plane and bends its shells, under a light sand haze. It also has about 50% more health.
 
 ## 1.1.1 update (7 October 2026)
