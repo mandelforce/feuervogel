@@ -63,6 +63,22 @@ export default {
         await env.DB.prepare('INSERT INTO scores (player, name, mode, plat, diff, score, stage, version, created, week, conts, start) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)').bind(player, name, mode, plat, diff, score, stage, version, now, isoWeek(now), conts, start).run();
         return json({ ok: true }, 200, origin);
       }
+      if (req.method === 'POST' && url.pathname === '/report') { // anonymous run report (play data), kept apart from scores
+        if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: 'origin not allowed' }, 403, origin);
+        const txt = await req.text();
+        if (txt.length > 24000) return json({ error: 'too big' }, 413, origin);
+        const b = JSON.parse(txt);
+        const player = String(b.player || ''), mode = String(b.mode || ''), plat = String(b.plat || ''), end = String(b.end || '');
+        if (!/^[A-Za-z0-9-]{16,40}$/.test(player) || !MODES.includes(mode) || !PLATS.includes(plat) || !['over', 'quit', 'left'].includes(end)) return json({ error: 'bad report' }, 400, origin);
+        const int = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v)) || 0));
+        const now = Date.now();
+        const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM runs WHERE player = ?1 AND created > ?2').bind(player, now - 86400000).first();
+        if (recent && recent.n >= 300) return json({ error: 'Daily limit reached.' }, 429, origin);
+        const data = JSON.stringify({ n: b.n, gap: b.gap, tut: b.tut, inp: b.inp, pk: b.pk, st: b.st, dt: b.dt });
+        await env.DB.prepare('INSERT INTO runs (player, version, mode, plat, diff, start, two_p, stage, score, conts, dur, end_kind, created, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)')
+          .bind(player, String(b.v || '').slice(0, 12), mode, plat, int(b.diff, 0, 2), int(b.start, 1, 300), b.twoP ? 1 : 0, int(b.stage, 1, 300), int(b.score, 0, 99999999), int(b.conts, 0, 9), int(b.dur, 0, 86400), end, now, data).run();
+        return json({ ok: true }, 200, origin);
+      }
       return json({ error: 'not found' }, 404, origin);
     } catch (e) {
       return json({ error: 'server error' }, 500, origin);

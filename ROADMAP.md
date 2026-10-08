@@ -20,18 +20,20 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 
 ## Phase 1: Cleanups (no gameplay change, low risk)
 
-- [ ] Remove the dead haptics code (`HAPT`, iOS switch hack, 53 `haptic()` calls). First confirm `haptic()` is a no-op and `settings.hap` stays false. Haptics were dropped; don't re-add.
-- [ ] Delete the stale `old-check.html` (590 KB, ignored by git).
+- [x] Remove the unreachable phone-vibration code (iOS switch hack, `navigator.vibrate`). The `HAPT` table and `haptic()` calls stay: they drive controller rumble. Phone haptics were dropped; don't re-add.
+- [x] Delete the stale `old-check.html` (a v1.1.1 copy, ignored by git).
 - [ ] Export the live Cloudflare Worker into `worker.js` (it has `/status` and the best-score table the repo copy lacks), so the repo is the real source. Add blocks, never replace wholesale.
-- [ ] Add a `Storage` wrapper for all `localStorage` access. Keep every `starfall-*` key unchanged. Replace the empty catches with it.
-- [ ] Fill in the "Project structure" section of `CLAUDE.md` and add a short `ARCHITECTURE.md`.
-- [ ] Add unit tests for pure functions (`isoWeek`, Worker validation, collision helpers, score extends).
+- [x] Add a `store` wrapper (and a `KEY` list) for all `localStorage` access. Every key name is unchanged.
+- [x] Fill in the "Project structure" section of `CLAUDE.md` (a local file, not in git) and add `ARCHITECTURE.md`.
+- [x] Unit tests for the Worker rules and ISO week labels (`tests/worker.test.mjs`, run in CI). Still open: game-side helpers (collision, score extends); they become testable once the code is in modules (Phase 3).
 
 ## Phase 2: Safety net
 
-- [ ] One seeded RNG for everything that affects gameplay. Cosmetic effects (clouds, sparks) may keep `Math.random`.
-- [ ] Record inputs from a bot run and replay them. Save the expected score, stage and kills as a golden result.
-- [ ] Run the replay test in CI next to the smoke test.
+- [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. In CI as an advisory step until proven stable.
+- [ ] One seeded RNG inside the game for everything that affects gameplay. Cosmetic effects (clouds, sparks) may keep `Math.random`. Until then the replay test needs a fresh page per scenario and a stopped frame loop.
+- [x] Terrain: checked and already deterministic for the Campaign. The layout comes from fixed-seed hash noise (seed 1944, no `Math.random`), and the per-frame time budget in `ensureChunks` only affects painted pictures, not the simulation. A terrain fingerprint for all six stages now guards it (`tests/golden.json`). Open: where enemies and ground targets are placed still uses `rnd()` (random each run); making placement fixed would change gameplay, so ask first.
+- [ ] Ambient state (weather timers, birds, clouds) draws random numbers and keeps running while the title screen idles, so a run's randomness depends on idle time. Reset or isolate it when a run starts.
+- [ ] Run the replay test as a required CI check once it has proven stable.
 - [ ] Optional later: store a replay with submitted scores to allow server-side checks. Needs a decision first, as it touches leaderboard rules.
 
 ## Phase 3: Modules

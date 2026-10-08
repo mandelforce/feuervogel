@@ -2,9 +2,18 @@
 
 ## Unreleased
 - Rebirth: when the Feuervogel is destroyed it bursts into pieces, and after a short hang the same burst runs backwards: the pieces fly back, the fireball shrinks away, a white flash marks the snap and the shield ring cools from orange to teal. A continue plays the backwards half. New sounds: a reversed boom (swelling noise and rising sweep) and the Feuervogel hawk cry played backwards, cutting off as the ship snaps whole. Respawn timing, lives, continues and scoring are unchanged.
+- New start-up screen: the MANDELFORCE logo with loading dots before the title. It lasts about two seconds (while the graphics warm up) and a tap or key skips it. It dissolves into the title in a retro dither.
 - How to play is much simpler: Controls (two lines), a four-icon Weapons legend (Scatter, Lance, Seekers, Arc), a Pickups legend (Nova, Talon, Medal, Secret) and the two special moves, all on one phone screen without scrolling. Score rules, privacy and mouse/controller details moved into collapsed sections. Nothing about scoring or the leaderboard changed.
 - Tutorial step 3 now shows weapons: three supply containers each drop a different, non-cycling weapon (Scatter, Lance, Seekers), so you can see and choose one.
 - Tutorial: the text box no longer covers the menu button, so Settings, Music and Quit stay reachable during the tutorial.
+
+## 1.2.2 (7 October 2026)
+- Version 1.2.2.
+- Run reports: at the end of each run (game over, quit, or the page left mid-run) the game sends one anonymous report to a new `/report` endpoint, stored in its own `runs` table: mode, difficulty, platform, start and final stage, score, continues, play time, and per stage the time to the boss, boss fight time, deaths (with cause, weapon and level), Nova bombs used and time spent with each weapon; also pickups, controls used (keys, touch, mouse, controller), tutorial seen, run number on the device and time since the last run. Settings → "Share play data" turns it off. Tutorial runs and test builds send nothing. Scores, boards and their rules are unchanged.
+
+## 1.2.1 (7 October 2026)
+- Version 1.2.1.
+- Stage 3 boss (Night Hammer): clearer searchlights. Each beam now widens softly from the lamp to the full width of its light circle, the circle has a thin rim where the catch zone ends, and the lamps glow. When a light (or a Star Shell flare) catches you, a red ring snaps out from your plane and the whole light turns bright red for as long as you are spotted, instead of a brief dark-red blink. Drawing only: catch zones, timing and scoring are unchanged.
 
 ## 1.2.0 (7 October 2026)
 - Version 1.2.0. 2-player runs never submit scores to the leaderboard; single-player boards, rules and scores are unchanged.
