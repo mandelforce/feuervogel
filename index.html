@@ -50,7 +50,7 @@ body{
 }
 #app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:8px}
 #stage{position:relative;line-height:0}
-#tutBox{position:absolute;left:2%;right:2%;top:calc(env(safe-area-inset-top,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
+#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
 #tutBox.on{display:block}
 #tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
 #tutText b{color:#fff0a0;font-weight:400}
@@ -96,6 +96,17 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #howto .help{margin:4px 0 10px;border:0;padding:0}
 #howto h3{margin:12px 0 8px;font-size:16px;color:#fff0a0}
 #howto .tip{background:#2a2050;border-left:3px solid #a8f6dc;padding:8px 10px;font-size:13px;line-height:1.35;margin:0 0 6px}
+#howto .help p{font-size:13px;line-height:1.35;margin:0 0 6px;color:#f2ecd8}
+#howto .help ul{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 8px}
+#howto .help ul.one{grid-template-columns:1fr}
+#howto .help li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:center;font-size:13px;line-height:1.25}
+#howto .help b{display:block;color:#fff0a0;font-weight:600}
+#howto .help li span{color:#c8bce8}
+#howto .help .hint{font-size:12px;color:#a99cc8;margin:2px 0 0}
+#howto details{margin:10px 0 0;border-top:2px solid #3a3060;padding-top:8px}
+#howto summary{cursor:pointer;font-size:14px;color:#c8bce8;padding:4px 0}
+#howto details p{margin:6px 0 0;color:#c8bce8}
+#howto details b{display:inline;color:#fff0a0;font-weight:600}
 #settings .help{margin:14px 0 6px;border-top:2px solid #3a3060;padding-top:10px}
 #settings .help h3{margin:0 0 8px;font-size:16px;color:#fff0a0}
 #settings .help ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:7px}
@@ -282,10 +293,25 @@ ctx.imageSmoothingEnabled = false;
 const OUT = '#120e1a';
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a, b) => a + Math.random() * (b - a);
+// Every key the game saves on the device. The names are fixed: renaming one would reset players' progress.
+const KEY = {
+  settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
+  arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
+  status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun'
+};
+// localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
+const store = {
+  get(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch (e) { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, String(value)); } catch (e) {} },
+  remove(key) { try { localStorage.removeItem(key); } catch (e) {} },
+  getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+};
 const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off' };
-try { Object.assign(settings, JSON.parse(localStorage.getItem('starfall-settings') || '{}')); } catch (e) {}
+Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.mode = 'camp'; settings.hap = false;
-function saveSettings() { try { localStorage.setItem('starfall-settings', JSON.stringify(settings)); } catch (e) {} }
+function saveSettings() { store.setJSON(KEY.settings, settings); }
 const DIFF = { bs: [1, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [0, 0, 0], bombs: [3, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [1, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.5, 1.3, 1.15] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
 function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? 1 : 0)) * DIFF.rank[settings.diff]; }
@@ -2424,7 +2450,7 @@ const musicBase = () => settings.musicOn === false ? 0 : 0.55 * settings.music /
 function applyVolumes() { if (!actx) return; musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(musicBase(), actx.currentTime); sfxBus.gain.setValueAtTime(sfxBase(), actx.currentTime); }
 let musicBus = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
 const IOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-try { muted = localStorage.getItem('starfall44-muted') === '1'; } catch (e) {}
+muted = store.get(KEY.muted) === '1';
 function setupBuses() {
   master = actx.createGain(); master.gain.value = 1;
   let routed = false;
@@ -3082,27 +3108,6 @@ const HAPT = {
   warn: [70, 90, 70, 90, 70, 90, 140], extend: [20, 40, 20, 40, 70], charge: [6, 90, 6, 70, 8, 50, 8, 35, 10, 25, 12, 15, 14],
   chainLost: [30, 50, 30], test: [20, 60, 40, 60, 80, 60, 140]
 };
-const CAN_VIBRATE = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-let hapBusy = 0, hapLight = 0, iosLabel = null, iosTimers = [];
-if (!CAN_VIBRATE && IOS) {
-  try {
-    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('switch', ''); inp.id = 'hapticSwitch';
-    inp.setAttribute('aria-hidden', 'true'); inp.tabIndex = -1;
-    inp.style.cssText = 'position:fixed;left:-200px;top:0;opacity:0;pointer-events:none;width:1px;height:1px';
-    const lab = document.createElement('label'); lab.htmlFor = 'hapticSwitch'; lab.setAttribute('aria-hidden', 'true');
-    lab.style.cssText = inp.style.cssText;
-    document.body.appendChild(inp); document.body.appendChild(lab); iosLabel = lab;
-  } catch (e) { iosLabel = null; }
-}
-function iosPattern(pat) {
-  if (!iosLabel) return;
-  let t = 0;
-  for (let i = 0; i < pat.length; i += 2) {
-    const n = Math.max(1, Math.round(pat[i] / 45));
-    for (let k = 0; k < n; k++) iosTimers.push(setTimeout(() => { try { iosLabel.click(); } catch (e) {} }, t + k * 45));
-    t += pat[i] + (pat[i + 1] || 0);
-  }
-}
 let padIdx = -1;
 function padRumble(ms, strong, weak) {
   if (settings.rumble === false || padIdx < 0) return;
@@ -3110,13 +3115,6 @@ function padRumble(ms, strong, weak) {
 }
 function haptic(name) {
   { const pat = HAPT[name]; if (pat && padIdx >= 0) { const on = pat.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0); padRumble(Math.min(600, Math.max(40, on)), Math.min(1, on / 300), Math.min(1, 0.3 + on / 500)); } }
-  return;
-  const pat = HAPT[name]; if (!pat) return;
-  const now = performance.now(), total = pat.reduce((a, b) => a + b, 0), heavy = total > 45;
-  if (!heavy) { if (now < hapBusy || now - hapLight < (name === 'hit' ? 110 : 60)) return; hapLight = now; }
-  else { if (now < hapBusy && total < 300) return; hapBusy = now + total; iosTimers.forEach(clearTimeout); iosTimers = []; }
-  if (CAN_VIBRATE) { try { navigator.vibrate(pat); } catch (e) {} }
-  else iosPattern(pat);
 }
 function nzSrc(t, d, v, type, freq, Q = 1) { const s2 = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(); s2.buffer = noiseBuf; s2.loop = true; fl.type = type; fl.frequency.value = freq; fl.Q.value = Q; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s2.connect(fl).connect(g).connect(sfxOut()); s2.start(t); s2.stop(t + d + 0.02); return g; }
 function shipHorn(t) {
@@ -3273,19 +3271,19 @@ let player = null, shots = [], ebul = [], enemies = [], items = [], parts = [], 
 let msg = null, shake = 0, bombFx = 0, bombX = 0, bombY = 0, flashFx = 0;
 let waveCd = 60, groundCd = 30, podCd = 300, midDone = false, bossSpawned = false, cont = 0, credits = 0, runConts = 0;
 const MAX_CONT = 2;
-try { hi = +localStorage.getItem('starfall44-hi') || 0; } catch (e) {}
+hi = +store.get(KEY.hi) || 0;
 const SCROLL = 0.4;
 let scrollV = SCROLL, scrollTarget = SCROLL;
 const STAGE_NAMES = ['CROSS THE CHANNEL', 'THE WINTER LINE', 'SEA OF SAND', 'THE LONG NIGHT', 'THE IRON FOREST', 'THE BURNING CITY'];
 let nightF = 0, snowF = 0, dustF = 0, spotted = 0, birdCd = 300;
 let trainDone = false, quiet = false; const trainBonus = {};
 let fade = null, mixF = 1, congrats = null, congratsShown = 0;
-let loopsWon = 0; try { loopsWon = +localStorage.getItem('starfall-loops') || 0; } catch (e) {}
+let loopsWon = +store.get(KEY.loops) || 0;
 const newCamp = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, secrets: 0, t0: 0, frames: 0, credits0: 0 });
 let camp = newCamp();
 let endless = false, endlessBest = { score: 0, stage: 0 };
-try { endlessBest = Object.assign(endlessBest, JSON.parse(localStorage.getItem('starfall-endless') || '{}')); } catch (e) {}
-function saveEndless() { if (!endless) return; let ch = false; if (score > endlessBest.score) { endlessBest.score = score; ch = true; } if (stage > endlessBest.stage) { endlessBest.stage = stage; ch = true; } if (ch) try { localStorage.setItem('starfall-endless', JSON.stringify(endlessBest)); } catch (e) {} }
+endlessBest = Object.assign(endlessBest, store.getJSON(KEY.endless, {}));
+function saveEndless() { if (!endless) return; let ch = false; if (score > endlessBest.score) { endlessBest.score = score; ch = true; } if (stage > endlessBest.stage) { endlessBest.stage = stage; ch = true; } if (ch) store.setJSON(KEY.endless, endlessBest); }
 function stageLabel(st) { if (endless) return String(st); return String(((st - 1) % 6) + 1) + '+'.repeat(Math.floor((st - 1) / 6)); }
 let hitStop = 0, slowT = 0, results = null, secret = null, trainLeft = {}, trainId = 0;
 const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0, maxMul: 1 });
@@ -3293,7 +3291,7 @@ let guardCount = 0;
 const GUARDED = new Set(['flak', 'bunker', 'casemate', 'aatower', 'search', 'fuel', 'hangar', 'tower', 'crate', 'shells', 'drums', 'camo', 'popup', 'arty', 'radar', 'gen']);
 const NOCOUNT = new Set(['troop', 'secret', 'bridge', 'crate', 'sandbag', 'camo', 'missile', 'parked']);
 let stats = newStats();
-let arts = new Set(); try { arts = new Set(JSON.parse(localStorage.getItem('starfall-arts') || '[]')); } catch (e) {}
+let arts = new Set(store.getJSON(KEY.arts, []));
 let beam = null, gpad = null, padPrev = {};
 // 2nd player (PC only): flies with the mouse or a controller, mirrors player 1's weapon and respawns on its own
 let p2 = null, run2P = false, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
@@ -3351,7 +3349,7 @@ const glints = [];
 for (let i = 0; i < 26; i++) glints.push({ x: rnd(0, W), y: rnd(0, H), life: (Math.random() * 60) | 0 });
 
 function saveHi() {
-  if (tut) return; try { localStorage.setItem('starfall44-hi', String(Math.floor(hi))); } catch (e) {} }
+  if (tut) return; store.set(KEY.hi, Math.floor(hi)); }
 function showMsg(a, b, dur) { msg = { a, b, t: dur }; }
 
 let drandS = 1;
@@ -3384,7 +3382,7 @@ const tutPad = () => gf - padSeen < 1800;
 function startTutorial() {
   closeAllPanels();
   startAt(1); tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
-  runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
+  runStart = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
 function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
@@ -3404,7 +3402,7 @@ function tutTick() {
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
       if (T.t > 60 && !tutAlive()) { if (T.ids.every(e => e.dead && e.y < H)) tutNext(); else { T.t = 0; T.ids = []; } } break; }
     case 2: { // power-up
-      if (T.t === 1) { T.got = 0; tutSpawn(E('pod', { x: W / 2, y: -16, hp: 3, hw: 9, hh: 10, score: 300 })); }
+      if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, hw: 9, hh: 10, score: 300, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
     case 3: { // medals and multiplier
       if (T.t === 1) { T.m0 = stats.medals; T.best = 1; }
@@ -3436,7 +3434,7 @@ const TUT_TEXT = () => {
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the supply container</b> and collect the power-up that drops out.',
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
     '<b>Collect medals quickly, one after another:</b> the multiplier rises up to x10. Wait too long and it resets.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
     (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the Nova button in the bottom right corner</b>') + ': it wipes out all enemy bullets.',
@@ -3536,12 +3534,11 @@ let lbOpen = false, lbRun = null, lbView = { src: LB_URL ? 'online' : 'local', m
 /* ---------- run reports: anonymous play data (stage and boss times, deaths, weapons, inputs) ---------- */
 // One small report per run, sent when it ends (game over, quit, or the page was left mid-run). It never touches scores
 // or the boards. Test builds and players who switch it off in Settings send nothing; test builds keep the last one in rrLast.
-const RR_KEY = 'starfall-report';
 let rr = null, rrIn = 'key', rrLast = null;
 const rrSec = f => Math.round(f / 6) / 10;
 function rrNew() {
   let last = 0, tutSeen = 0;
-  try { last = +localStorage.getItem('starfall-lastrun') || 0; tutSeen = localStorage.getItem('starfall-tut') ? 1 : 0; } catch (e) {}
+  last = +store.get(KEY.lastRun) || 0; tutSeen = store.get(KEY.tut) ? 1 : 0;
   rr = { gap: last ? Math.round((Date.now() - last) / 1000) : -1, tut: tutSeen, inp: {}, pk: {}, st: [], dt: [], cur: null };
 }
 function rrStage() { // a stage begins (also a resumed or practice start)
@@ -3569,7 +3566,7 @@ function rrPayload(end) {
     st: rr.st.map(c => ({ s: c.s, th: c.th, t: rrSec(c.t), b: rrSec(c.b), boss: c.boss, ok: c.ok, end: c.ok ? 'clear' : c.end || end, d: c.d, nb: c.nb, w: sec(c.w), lv: c.lv })), dt: rr.dt };
 }
 function rrPost(p) { // p.n: how many reported runs this device has played, this one included
-  try { p.n = (+localStorage.getItem('starfall-runs') || 0) + 1; localStorage.setItem('starfall-runs', String(p.n)); localStorage.setItem('starfall-lastrun', String(Date.now())); localStorage.removeItem(RR_KEY); } catch (e) {}
+  p.n = (+store.get(KEY.runs) || 0) + 1; store.set(KEY.runs, p.n); store.set(KEY.lastRun, Date.now()); store.remove(KEY.report);
   if (LB_TEST) { rrLast = p; return; }
   if (!LB_URL || settings.share === false) return;
   const body = JSON.stringify(p);
@@ -3583,36 +3580,36 @@ function rrSend(end) { // the run is over
 }
 function rrPark() { // the page is hidden mid-run: keep the report in case the browser closes it
   if (!rr || state !== 'play' || runStart === 99) return;
-  try { localStorage.setItem(RR_KEY, JSON.stringify({ p: rrPayload('left'), rr })); } catch (e) {}
+  store.setJSON(KEY.report, { p: rrPayload('left'), rr });
 }
-function rrUnpark() { try { localStorage.removeItem(RR_KEY); } catch (e) {} }
-function rrParked() { try { return JSON.parse(localStorage.getItem(RR_KEY) || 'null'); } catch (e) { return null; } }
+function rrUnpark() { store.remove(KEY.report); }
+function rrParked() { return store.getJSON(KEY.report); }
 function rrFlushParked() { const k = rrParked(); if (k && k.p) rrPost(k.p); else rrUnpark(); } // the run was left and not resumed
 const lbEl = id => document.getElementById(id);
 function lbPlayer() {
-  let p = null; try { p = localStorage.getItem('starfall-player'); } catch (e) {}
-  if (!p || !/^[A-Za-z0-9-]{16,40}$/.test(p)) { const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); p = 'p-' + [...a].map(b => b.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem('starfall-player', p); } catch (e) {} }
+  let p = store.get(KEY.player);
+  if (!p || !/^[A-Za-z0-9-]{16,40}$/.test(p)) { const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); p = 'p-' + [...a].map(b => b.toString(16).padStart(2, '0')).join(''); store.set(KEY.player, p); }
   return p;
 }
 function isoWeekC(ms) { const d = new Date(ms); d.setUTCHours(0, 0, 0, 0); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); const y = d.getUTCFullYear(); return y + '-W' + String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0'); }
-function localRuns() { try { return JSON.parse(localStorage.getItem('starfall-local') || '[]'); } catch (e) { return []; } }
+function localRuns() { return store.getJSON(KEY.local, []); }
 let lastLocalT = 0;
 function saveLocal(run, name) {
   if (!run || run.saved) return; run.saved = true;
   const L = localRuns(); lastLocalT = Date.now();
   L.push({ name: name || 'PLAYER', score: run.score, stage: run.stage, mode: run.mode, plat: run.plat, diff: run.diff, conts: run.conts, t: lastLocalT });
-  L.sort((a, b) => b.score - a.score); try { localStorage.setItem('starfall-local', JSON.stringify(L.slice(0, 300))); } catch (e) {}
+  L.sort((a, b) => b.score - a.score); store.setJSON(KEY.local, L.slice(0, 300));
 }
 function lbMsg(t) { lbEl('lbMsg').textContent = t || ''; }
 function lbSync() { for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(lbView[key]) === b.dataset.v)); }
 // ---- what changed since you last looked: one small request when the game starts ----
-function lbSeen() { try { return JSON.parse(localStorage.getItem('starfall-seen') || '{}'); } catch (e) { return {}; } }
-function lbSeenSave(o) { try { localStorage.setItem('starfall-seen', JSON.stringify(o)); } catch (e) {} }
+function lbSeen() { return store.getJSON(KEY.seen, {}); }
+function lbSeenSave(o) { store.setJSON(KEY.seen, o); }
 let lbAlert = null, lbAlertBoard = null;
-function lbClearAlert(key) { if (lbAlertBoard === key) { lbAlert = null; lbAlertBoard = null; } try { const st = JSON.parse(localStorage.getItem('starfall-status') || '{}'); st.at = Date.now(); localStorage.setItem('starfall-status', JSON.stringify(st)); } catch (e) {} }
+function lbClearAlert(key) { if (lbAlertBoard === key) { lbAlert = null; lbAlertBoard = null; } const st = store.getJSON(KEY.status, {}); st.at = Date.now(); store.setJSON(KEY.status, st); }
 async function lbStatus() {
   if (!LB_URL) return;
-  let st = {}; try { st = JSON.parse(localStorage.getItem('starfall-status') || '{}'); } catch (e) {}
+  let st = store.getJSON(KEY.status, {});
   try {
     const r = await fetch(LB_URL + '/status?player=' + encodeURIComponent(lbPlayer()) + '&since=' + (st.at || 0)); if (!r.ok) return;
     const d = await r.json(), seen = lbSeen();
@@ -3632,7 +3629,7 @@ function openLB(kind) {
     lbEl('lbPanel').classList.toggle('below', state === 'over');
     lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
     lbEl('lbScore').textContent = 'Score ' + lbRun.score + ', stage ' + stageLabel(lbRun.stage);
-    let nm = ''; try { nm = localStorage.getItem('starfall-name') || ''; } catch (e) {}
+    let nm = store.get(KEY.name, '');
     lbEl('lbName').value = nm; setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
   } else {
     lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
@@ -3674,7 +3671,7 @@ async function lbLoad() {
 async function lbSend() {
   const name = lbEl('lbName').value.trim().replace(/\s+/g, ' ');
   if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
-  try { localStorage.setItem('starfall-name', name); } catch (e) {}
+  store.set(KEY.name, name);
   saveLocal(lbRun, name);
   if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
   lbMsg('Sending...'); lbEl('lbSend').disabled = true;
@@ -3687,7 +3684,7 @@ async function lbSend() {
 }
 lbEl('lbSend').addEventListener('click', lbSend);
 lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lbSend(); } });
-lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (lbRun) saveLocal(lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (localStorage.getItem('starfall-name') || 'PLAYER')); closeLB(); });
+lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (lbRun) saveLocal(lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (store.get(KEY.name) || 'PLAYER')); closeLB(); });
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
@@ -3703,7 +3700,6 @@ function doContinue() {
 /* ---------- resume after the browser reloads the page (Android closes background tabs) ---------- */
 // A resumed run restarts the stage it was in: score as it was when that stage began, lives, bombs,
 // weapon and continues as they were when the game was left. It can't gain points or undo a death, so it still counts.
-const RESUME_KEY = 'starfall-resume';
 let stageMark = null;
 function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; rrStage(); }
 function saveResume() {
@@ -3716,11 +3712,11 @@ function saveResume() {
   if (gameOverPending || cont > 0) { if (runConts >= MAX_CONT) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless, diff: runDiff, runStart, conts: cn, credits: credits + (cn - runConts), frames: runFrames,
     score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl, twoP: run2P };
-  try { localStorage.setItem(RESUME_KEY, JSON.stringify(r)); } catch (e) {}
+  store.setJSON(KEY.resume, r);
 }
-function clearResume() { try { localStorage.removeItem(RESUME_KEY); } catch (e) {} }
+function clearResume() { store.remove(KEY.resume); }
 function loadResume() {
-  try { const r = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; } catch (e) {}
+  { const r = store.getJSON(KEY.resume); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; }
   clearResume(); return null;
 }
 function resumeRun(r) {
@@ -4512,7 +4508,7 @@ function finishResults() {
   if (fade) return;
   if (!endless && stage % 6 === 0 && congratsShown !== stage) {
     congratsShown = stage; results = null; congrats = { t: 0 };
-    loopsWon++; try { localStorage.setItem('starfall-loops', String(loopsWon)); } catch (e) {}
+    loopsWon++; store.set(KEY.loops, loopsWon);
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -6078,7 +6074,7 @@ function kill(e) {
   } else {
     boom(e.x, e.y, e.type === 'bomber' ? 30 : e.type === 'pod' ? 12 : 11); sfx('boom'); haptic('kill');
     for (let i = 0; i < 3; i++) parts.push({ kind: 'debris', layer: 'a', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0.2), g: 0.07, life: (rnd(26, 40)) | 0, max: 40 });
-    if (e.type === 'pod') items.push(mkItem(!e.bossPod && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y));
+    if (e.type === 'pod') { const pi = mkItem(!e.bossPod && !e.tutW && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } items.push(pi); }
   }
   if (e.type === 'bomber' && Math.random() < 0.5) items.push(mkItem('B', e.x, e.y));
 }
@@ -6368,7 +6364,7 @@ function update() {
     if (it.kind === 'M' || it.kind === 'A') { it.t++; it.vy = Math.min(it.vy + 0.08, scrollV + 0.15); it.y += it.vy; continue; }
     it.t++; it.y += 0.45; it.x += Math.sin(it.t * 0.05) * 0.7;
     it.x = clamp(it.x, 7, W - 7);
-    if (it.kind === 'W' && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
+    if (it.kind === 'W' && !it.fixed && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
   }
 
   for (const s of shots) {
@@ -6398,7 +6394,7 @@ function update() {
       if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { score += 10; if (score > hi) hi = score; checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); items.splice(i, 1); } continue; }
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
-          score += 20000; stats.artifact = true; if (!tut) arts.add(curTheme); try { localStorage.setItem('starfall-arts', JSON.stringify([...arts])); } catch (e) {}
+          score += 20000; stats.artifact = true; if (!tut) arts.add(curTheme); store.setJSON(KEY.arts, [...arts]);
           label(it.x, it.y - 8, arts.size >= 6 ? 'GOLDEN RAPTOR UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
@@ -7502,7 +7498,7 @@ menuBtn.addEventListener('click', () => { pauseMenu.classList.contains('open') ?
 pauseMenu.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === pauseMenu) closeMenu(); });
 function toggleAudio(key) {
   const wasRunning = actx && actx.state === 'running';
-  audio(); if (muted) { muted = false; try { localStorage.setItem('starfall44-muted', '0'); } catch (e) {} }
+  audio(); if (muted) { muted = false; store.set(KEY.muted, '0'); }
   if (wasRunning) settings[key] = settings[key] === false;
   saveSettings(); applyVolumes();
   setTimeout(() => { setSoundLabel(); if (key === 'sfxOn' && settings.sfxOn !== false) hitSfx(true); }, 60);
@@ -7534,41 +7530,49 @@ function buildHelp() {
   const gem = () => { const o = document.createElement('span'); o.className = 'hico'; o.style.cssText = 'width:12px;height:12px;background:#bba4ff;transform:rotate(45deg);box-shadow:0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
   const coinI = () => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = 'radial-gradient(circle at 35% 35%, #fff0a0, #d0a020)'; o.style.width = o.style.height = '16px'; return o; };
   const touch = matchMedia('(pointer: coarse)').matches;
-  const ctl = document.createElement('div');
-  ctl.innerHTML = '<h3>Controls</h3>' + (touch
-    ? '<p class="tip"><b>Tip:</b> you don\'t need to touch the plane itself. Move it to the middle of the screen, then steer with your finger anywhere below it. The plane follows your finger\'s movement, so it stays visible.</p><p style="font-size:13px;margin:0 0 6px">Your guns fire on their own.</p>'
-    : '<p class="tip">Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space sets off a Nova bomb. P pauses.</p><p style="font-size:13px;margin:0 0 6px">One-click mouse mode (Settings): click once and steer with the mouse without holding the button. Left click fires the charged laser, right click sets off a Nova. Esc lets go.</p><p style="font-size:13px;margin:0 0 6px">Controller: stick or D-pad to fly, X fires the charged laser, A or the shoulder buttons set off a Nova, Start pauses.</p>');
-  box.appendChild(ctl);
-  const sections = [
-    ['Special attacks', [
-      [orb('#3a1a5a', '#bba4ff', 'N'), '<b>Nova bomb.</b> ' + (touch ? 'Tap the Nova button' : 'Press X or Space, or click the Nova button') + ' to wipe out enemy bullets, damage everything on screen and protect yourself for a moment. The purple dots show how many you have.'],
-      [orb('#1a3a5a', '#a8f6dc', '!'), '<b>Super laser.</b> Hold still to charge: a ring fills around your ship and chimes when ready. Then ' + (touch ? 'touch the screen again' : 'move again') + ' to fire a powerful laser through everything in its path.']]],
-    ['Items', [
-      [sprIcon(SPR.pod, 1.6), '<b>Supply container.</b> Shoot it to release a power-up.'],
-      [orb(RP.crys[2], RP.crys[4], 'S'), '<b>Scatter.</b> A wide fan of shots. Collect it again to power it up, up to level 4.'],
-      [orb(RP.glass[2], RP.glass[4], 'L'), '<b>Lance.</b> Fast, piercing shots straight ahead.'],
-      [orb(RP.pinkb[2], RP.pinkb[4], 'H'), '<b>Seekers.</b> Twin guns plus homing missiles that find their own targets.'],
-      [orb('#2a6aa8', '#a8e0ff', 'A'), '<b>Arc.</b> From Stage 3 on. Lightning bolts strike the nearest enemy ahead and jump on to one or two enemies close by.'],
-      [orb(RP.alien[2], RP.alien[4], 'N'), '<b>Nova.</b> One extra Nova bomb, up to six.'],
-      [orb(RP.crys[1], RP.crys[3], 'T'), '<b>Talon.</b> An escort drone that fires with you and blocks small bullets. Up to two.'],
-      [coinI(), '<b>Medal.</b> 300 points. Collect the next one within about three seconds to raise the multiplier, up to x10.'],
-      [gem(), '<b>Secret.</b> Look for three circling crows. Fly over the spot until the ring fills, then catch the gem before it escapes.']]],
-    ['Leaderboard', [
-      [orb('#3a2a10', '#f4d050', '★'), '<b>Star.</b> A star after a name means the run used no continues. You get two continues per run, and your score is kept.'],
-      [orb('#241c40', '#8a7eb0', '1'), '<b>Campaign scores</b> only count when you start with the START button at Stage 1. Stage buttons are for practice. Difficulty is fixed for the whole run.'],
-      [orb('#5a1010', '#e86050', '!'), '<b>Hard mode.</b> Starts as tough as the second round on Normal, and bigger enemies fire a few last bullets at you when destroyed.'],
-      [orb('#241c40', '#8a7eb0', 'i'), '<b>Privacy.</b> Only your chosen name, your scores and a random player number are stored. No personal data.']]]
-  ];
-  for (const [title, items] of sections) {
-    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
-    const ul = document.createElement('ul');
-    for (const [ic, html] of items) { const li = document.createElement('li'); const t = document.createElement('span'); t.innerHTML = html; li.append(ic, t); ul.appendChild(li); }
+  const add = (tag, html) => { const e = document.createElement(tag); e.innerHTML = html; box.appendChild(e); return e; };
+  const list = (rows, one) => {
+    const ul = document.createElement('ul'); if (one) ul.className = 'one';
+    for (const [ic, name, desc] of rows) { const li = document.createElement('li'); const t = document.createElement('div'); t.innerHTML = '<b>' + name + '</b><span>' + desc + '</span>'; li.append(ic, t); ul.appendChild(li); }
     box.appendChild(ul);
+  };
+  add('h3', 'Controls');
+  add('p', touch
+    ? 'Slide a finger anywhere below the ship. It follows your movement. Guns fire on their own.'
+    : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space: Nova bomb. P: pause.');
+  list([
+    [orb('#3a1a5a', '#bba4ff', 'N'), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
+    [orb('#1a3a5a', '#a8f6dc', '!'), 'Super laser', 'Hold still, then ' + (touch ? 'touch again' : 'move') + ' to fire.']]);
+  add('h3', 'Weapons');
+  list([
+    [orb(RP.crys[2], RP.crys[4], 'S'), 'Scatter', 'Wide fan of shots'],
+    [orb(RP.glass[2], RP.glass[4], 'L'), 'Lance', 'Piercing, straight ahead'],
+    [orb(RP.pinkb[2], RP.pinkb[4], 'H'), 'Seekers', 'Homing missiles'],
+    [orb('#2a6aa8', '#a8e0ff', 'A'), 'Arc', 'Chain lightning (Stage 3+)']]);
+  add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4.').className = 'hint';
+  add('h3', 'Pickups');
+  list([
+    [orb(RP.alien[2], RP.alien[4], 'N'), 'Nova', 'Extra bomb'],
+    [orb(RP.crys[1], RP.crys[3], 'T'), 'Talon', 'Escort drone'],
+    [coinI(), 'Medal', 'Grab in a chain for up to x10'],
+    [gem(), 'Secret', 'Follow the crows']]);
+  const more = document.createElement('details');
+  more.innerHTML = '<summary>Scores &amp; rules</summary>'
+    + '<p><b>Star:</b> a run with no continues. You get two, and your score is kept.</p>'
+    + '<p><b>Campaign scores</b> count only from START at Stage 1, on one difficulty. Stage buttons are practice.</p>'
+    + '<p><b>Privacy:</b> only your name, scores and a random player number are stored.</p>';
+  box.appendChild(more);
+  if (!touch) {
+    const mc = document.createElement('details');
+    mc.innerHTML = '<summary>Mouse &amp; controller</summary>'
+      + '<p><b>One-click mouse</b> (Settings): click once, steer without holding. Left click: laser. Right click: Nova. Esc lets go.</p>'
+      + '<p><b>Controller:</b> stick or D-pad to fly, X laser, A or shoulders Nova, Start pauses.</p>';
+    box.appendChild(mc);
   }
 }
 function updateErr() {
   const eb = document.getElementById('errBox'); if (!eb) return; eb.innerHTML = '';
-  let er = null; try { er = JSON.parse(localStorage.getItem('starfall-lasterror') || 'null'); } catch (e) {}
+  const er = store.getJSON(KEY.lastError);
   if (!er) return;
   const h = document.createElement('h3'); h.textContent = 'Last problem report'; eb.appendChild(h);
   const pre = document.createElement('p'); pre.style.cssText = 'font:11px ui-monospace,monospace;color:#a99cc8;word-break:break-all;margin:0 0 6px';
@@ -7677,7 +7681,7 @@ soundBtn.addEventListener('click', () => {
   if (wasRunning || muted) muted = !muted;
   setTimeout(() => { setSoundLabel(); if (!muted) hitSfx(true); }, 60);
   soundBtn.blur();
-  try { localStorage.setItem('starfall44-muted', muted ? '1' : '0'); } catch (e) {}
+  store.set(KEY.muted, muted ? '1' : '0');
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) { saveResume(); rrPark(); } else if (state === 'play') { clearResume(); rrUnpark(); } });
 addEventListener('pagehide', () => { saveHi(); saveResume(); rrPark(); });
@@ -7737,7 +7741,7 @@ let warmIdx = 0;
 let errCount = 0;
 function logError(where, e) {
   errCount++;
-  try { const rec = { v: VERSION, where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; localStorage.setItem('starfall-lasterror', JSON.stringify(rec)); } catch (e2) {}
+  try { const rec = { v: VERSION, where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; store.setJSON(KEY.lastError, rec); } catch (e2) {}
 }
 function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {
