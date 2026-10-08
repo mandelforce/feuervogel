@@ -28,7 +28,7 @@ for (const [label, opts] of [
   await page.route(/workers\.dev/, r => r.abort());
 
   await page.goto(URL);
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3500);
   const state = await page.evaluate(() => document.body.dataset.state);
   if (state !== 'title') fail(`${label}: expected title screen, got "${state}"`);
   const colours = await page.evaluate(() => {
@@ -38,7 +38,7 @@ for (const [label, opts] of [
   });
   if (colours < 20) fail(`${label}: title screen looks blank (${colours} colours)`);
 
-  // '1' opens the difficulty panel for practice stage 1; pick Normal
+  // '1' opens the difficulty panel with Stage 1 picked; pick Normal
   await page.keyboard.press('1');
   await page.click('#diffAsk [data-d="1"]');
   await page.waitForTimeout(5000);

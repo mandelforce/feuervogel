@@ -1,5 +1,19 @@
 # StarFall leaderboard setup (Cloudflare, free)
 
+## Adding run reports (anonymous play data)
+1. **Database:** in the D1 console, paste the `runs` part at the end of `schema.sql` (the `CREATE TABLE runs`
+   and the two `CREATE INDEX` lines) and click **Execute**.
+2. **Worker:** add the `/report` block from `worker.js` (it starts with `if (req.method === 'POST' && url.pathname === '/report')`)
+   to the Worker, just above the final `return json({ error: 'not found' } ...)` line, and click **Deploy**.
+3. **Game:** ship the new `index.html`. Until steps 1 and 2 are done, reports simply fail quietly.
+
+Reading the data, for example in the D1 console:
+```
+SELECT diff, stage, end_kind, COUNT(*) FROM runs WHERE mode = 'camp' AND start = 1 GROUP BY diff, stage, end_kind;
+SELECT json_extract(s.value, '$.s') AS stage, ROUND(AVG(json_extract(s.value, '$.b')), 1) AS boss_secs, COUNT(*) AS n
+  FROM runs, json_each(runs.data, '$.st') AS s WHERE json_extract(s.value, '$.ok') = 1 GROUP BY stage;
+```
+
 ## Updating to StarFall 1.0 (release)
 Paste the new `worker.js` into the Worker (**Workers & Pages > starfall-scores > Edit code**, replace everything, **Deploy**).
 It accepts scores from every version and shows all stored scores again. If you have not yet added the
@@ -75,5 +89,7 @@ each difficulty, all-time or this week.
 - **Removing a score:** in the D1 console, run for example
   `DELETE FROM scores WHERE name = 'Cheater';`
 - **Privacy:** only the name, score, stage, mode, difficulty, date and the random player ID are stored.
+  Run reports (table `runs`) hold the random player ID and play data only: no names, no IP addresses.
+  Players can switch them off in Settings → "Share play data".
 - **Free tier:** far more than a hobby game needs, and it doesn't pause when quiet.
 - The leaderboard only works on the GitHub version. Inside Claude, the game can't reach other sites.
