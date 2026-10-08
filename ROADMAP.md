@@ -31,7 +31,7 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 
 - [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. In CI as an advisory step until proven stable.
 - [ ] One seeded RNG inside the game for everything that affects gameplay. Cosmetic effects (clouds, sparks) may keep `Math.random`. Until then the replay test needs a fresh page per scenario and a stopped frame loop.
-- [ ] Terrain is generated under a per-frame time budget (`ensureChunks`), so what exists at a given frame depends on machine speed, and spawns read the terrain. Make generation deterministic (by frame or position, not by clock). Needed before any server-side replay check.
+- [x] Terrain: checked and already deterministic for the Campaign. The layout comes from fixed-seed hash noise (seed 1944, no `Math.random`), and the per-frame time budget in `ensureChunks` only affects painted pictures, not the simulation. A terrain fingerprint for all six stages now guards it (`tests/golden.json`). Open: where enemies and ground targets are placed still uses `rnd()` (random each run); making placement fixed would change gameplay, so ask first.
 - [ ] Ambient state (weather timers, birds, clouds) draws random numbers and keeps running while the title screen idles, so a run's randomness depends on idle time. Reset or isolate it when a run starts.
 - [ ] Run the replay test as a required CI check once it has proven stable.
 - [ ] Optional later: store a replay with submitted scores to allow server-side checks. Needs a decision first, as it touches leaderboard rules.

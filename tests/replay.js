@@ -13,11 +13,6 @@ const SCENARIOS = [
   { name: 'easy-stage5-real', diff: 0, stage: 5, seed: 42, mode: 'real', frames: 30000 },
 ];
 
-// The game builds terrain chunks within a small time budget per frame (ensureChunks), so how much terrain exists at a
-// given frame depends on machine speed. That changes spawns. Finish every chunk right away so a replay does not.
-const realEnsure = ensureChunks;
-ensureChunks = function () { realEnsure(); chunkJobs = chunkJobs.filter(j => !workChunk(j, CH)); };
-
 SF.replay = sc => {
   const realRandom = Math.random;
   try {
@@ -30,4 +25,21 @@ SF.replay = sc => {
 };
 SF.replayAll = () => Object.fromEntries(SCENARIOS.map(sc => [sc.name, SF.replay(sc)]));
 SF.SCENARIOS = SCENARIOS;
+
+// Terrain fingerprint: what is under every spot of every campaign stage (water, road, sand, ...), hashed.
+// The campaign world comes from fixed-seed hash noise, so this must never change by accident. Not by timing, not by a refactor.
+SF.terrainPrints = () => {
+  const out = {};
+  for (let n = 1; n <= 6; n++) {
+    SF.start(1, n);
+    let h = 2166136261, cells = 0;
+    for (let p = stageBaseP - 2; p <= stageBaseP + 70; p++) for (let ly = 0; ly < CH; ly += 8) for (let wx = 0; wx < W; wx += 8) {
+      const t = terrainType(wx, -p * CH + ly);
+      for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+      cells++;
+    }
+    out['stage' + n] = { hash: (h >>> 0).toString(16), cells };
+  }
+  return out;
+};
 })();

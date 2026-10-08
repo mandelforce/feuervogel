@@ -1,4 +1,4 @@
-// Replay test: plays fixed scenarios with the bot and checks the results match tests/golden.json.
+// Replay test: plays fixed scenarios with the bot and checks the results (and the terrain of every campaign stage) match tests/golden.json.
 // Catches any change that alters how the game plays or scores, which matters because scores are compared across versions.
 // Needs Node and Playwright (see tests/balance.mjs); serve the folder first (python3 -m http.server 8000).
 //   node tests/replay.mjs            compare with golden.json
@@ -48,8 +48,24 @@ for (const name of names) {
   const diffs = Object.keys({ ...want, ...got }).filter(k => want?.[k] !== got[k]).map(k => `${k}: expected ${want?.[k]}, got ${got[k]}`);
   if (diffs.length) { bad++; console.error(`FAIL ${name}\n  ${diffs.join('\n  ')}`); } else console.log(`ok   ${name}`);
 }
+
+// Terrain fingerprint for every campaign stage, on its own fresh page.
+{
+  const page = await browser.newPage({ viewport: golden.viewport });
+  await page.route(/workers\.dev/, r => r.abort());
+  await page.addInitScript(initScript);
+  await page.goto(PAGE);
+  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
+  results.terrain = await page.evaluate(() => window.SF.terrainPrints());
+  await page.close();
+  if (!update) for (const [stage, got] of Object.entries(results.terrain)) {
+    const want = golden.terrain?.[stage];
+    if (!want || want.hash !== got.hash || want.cells !== got.cells) { bad++; console.error(`FAIL terrain ${stage}: expected ${want?.hash}, got ${got.hash}`); } else console.log(`ok   terrain ${stage}`);
+  }
+}
 await browser.close();
 
-if (update) { golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); }
-else if (bad) { console.error(`\n${bad} scenario(s) changed. If the change was meant to alter gameplay, run with --update and say so in the commit.`); process.exit(1); }
+if (update) { golden.terrain = results.terrain; delete results.terrain; golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); }
+else if (bad) { console.error(`\n${bad} check(s) changed. If the change was meant to alter gameplay, run with --update and say so in the commit.`); process.exit(1); }
 else console.log('\nReplay matches.');

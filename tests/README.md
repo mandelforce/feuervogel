@@ -25,7 +25,9 @@ node tests/replay.mjs --update   # write new expected values
 
 Only use `--update` after a change that is *meant* to alter gameplay (balance, spawns, scoring), and say so in the commit. For a refactor, any difference is a bug.
 
-How it stays repeatable: each scenario runs on a fresh page, `Math.random` is seeded before the game loads, and the frame loop is switched off so only the replay moves the game. The viewport size is fixed (stored in `golden.json`) because the playfield height follows the window shape. `replay.js` also finishes terrain generation immediately, since the game builds terrain under a per-frame time budget.
+How it stays repeatable: each scenario runs on a fresh page, `Math.random` is seeded before the game loads, and the frame loop is switched off so only the replay moves the game. The viewport size is fixed (stored in `golden.json`) because the playfield height follows the window shape. 
+
+It also fingerprints the terrain of all six campaign stages (what is under every sampled spot, hashed). The campaign world comes from fixed-seed hash noise (seed 1944), so these hashes must never change by accident. Terrain painting is time-budgeted per frame, but that only affects the pictures, not the simulation: the replay result is identical on a simulated slow machine.
 
 Not yet proven on CI hardware, so the CI step is allowed to fail (`continue-on-error`) until it has run clean a few times.
 
