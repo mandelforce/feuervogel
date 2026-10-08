@@ -3356,7 +3356,7 @@ const ORB = (() => {
 let flyby = null;
 function startFlyby() {
   const p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, rt: -1, skip: false, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H - 110), s0: scroll };
+  flyby = { t: 0, pt: 0, rt: -1, skip: false, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
   later.push({ at: gf + FLYBY_IN - 15, fn: () => { if (state === 'over' && flyby) sfx('flyby'); } });
