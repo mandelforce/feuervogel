@@ -1625,7 +1625,27 @@ function drawBoot() {
   for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
   ctx.globalAlpha = 1;
 }
-function endBoot() { if (booting && bootT > 40) { booting = false; delete document.body.dataset.boot; } }
+function finishBoot() { booting = false; bootOut = 1; delete document.body.dataset.boot; }
+function endBoot() { if (booting && bootT > 40) finishBoot(); }
+// splash -> title: the splash dissolves away in a 4x4 ordered dither (2px cells), 2 frames per level
+let bootOut = 0;
+const BOOT_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], DITHER_FRAMES = 2, ditherMasks = [];
+function ditherMask(k) {
+  if (ditherMasks[k]) return ditherMasks[k];
+  const [c, x] = mk(W, H); x.fillStyle = '#000';
+  for (let cy = 0; cy < H / 2; cy++) for (let cx = 0; cx < W / 2; cx++) if (BOOT_BAYER[(cy & 3) * 4 + (cx & 3)] >= k) x.fillRect(cx * 2, cy * 2, 2, 2);
+  return ditherMasks[k] = c;
+}
+const bootTmp = mk(W, H);
+function drawBootOut() {
+  const k = Math.floor(bootOut / DITHER_FRAMES) + 1;
+  if (k > 16) { bootOut = 0; return; }
+  // keep the title only where the dither has uncovered it: copy it aside, punch out the cells still showing the splash, lay it over the splash
+  const [c, x] = bootTmp;
+  x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H); x.drawImage(cv, 0, 0, W, H);
+  x.globalCompositeOperation = 'destination-out'; x.drawImage(ditherMask(k), 0, 0);
+  drawBoot(); ctx.drawImage(c, 0, 0);
+}
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
 function drawTitleCredit(y) {
   const cm = logoBits(COPYRIGHT, 1, 'copy'), tw = textW('1989 MANDELFORCE', 1), x0 = Math.round(W / 2 - (cm.width + 3 + tw) / 2);
@@ -6107,7 +6127,8 @@ function pollPad() {
   }
 }
 function update() {
-  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) { booting = false; delete document.body.dataset.boot; } return; }
+  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) finishBoot(); return; }
+  if (bootOut) bootOut++;
   SPOS = null;
   if (state === 'play' && !paused && resumeT <= 0) heatTick();
   if (state === 'play' && !paused && resumeT > 0) { resumeT--; return; }
@@ -7227,6 +7248,10 @@ function drawHUDBody(H) {
   }
 }
 function render() {
+  renderMain();
+  if (bootOut) { resetCtx(); drawBootOut(); }
+}
+function renderMain() {
   if (gfxLost) return;
   if (booting) { drawBoot(); return; }
   ctx.save();
