@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- New start-up screen: the MANDELFORCE logo with loading dots before the title. It lasts about two seconds (while the graphics warm up) and a tap or key skips it. It dissolves into the title in a retro dither.
 - How to play is much simpler: Controls (two lines), a four-icon Weapons legend (Scatter, Lance, Seekers, Arc), a Pickups legend (Nova, Talon, Medal, Secret) and the two special moves, all on one phone screen without scrolling. Score rules, privacy and mouse/controller details moved into collapsed sections. Nothing about scoring or the leaderboard changed.
 - Tutorial step 3 now shows weapons: three supply containers each drop a different, non-cycling weapon (Scatter, Lance, Seekers), so you can see and choose one.
 - Tutorial: the text box no longer covers the menu button, so Settings, Music and Quit stay reachable during the tutorial.

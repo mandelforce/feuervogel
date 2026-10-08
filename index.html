@@ -168,6 +168,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
 }
 #bombBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #120e1a}
+body[data-boot="1"] #menuBtn{display:none}
 body[data-state="play"] #pauseBtn{display:grid}
 body[data-state="play"] #bombBtn{display:block}
 #bombBtn.tutHi{outline:3px dashed #a8f6dc;outline-offset:5px;animation:tutHi 1s ease-in-out infinite}
@@ -185,7 +186,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 @media (pointer:coarse){#hint{display:none}}
 </style>
 </head>
-<body data-state="title">
+<body data-state="title" data-boot="1">
 <div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>FEUERVOGEL 89 plays in portrait.</p></div></div>
 <div id="app">
   <div id="stage">
@@ -1571,6 +1572,9 @@ const LOGO_FONT = {
   F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'], E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
   U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'], R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
   V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'], O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'], A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'], D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
   G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'], L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
 };
 const COPYRIGHT = ['.#####.', '#.....#', '#.###.#', '#.#...#', '#.###.#', '#.....#', '.#####.'];
@@ -1636,6 +1640,39 @@ function drawTitleLogo() {
     const [c, x] = mk(200, sh); x.putImageData(ctx.getImageData(12, sy + oy, 200, sh), 0, 0);
     ctx.drawImage(c, 12 + dx, sy); ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(12 + dx, sy, 200, 1); ctx.globalAlpha = 1;
   }
+}
+// boot splash: the MANDELFORCE logo and loading dots before the title screen
+let bootT = 0, booting = true;
+function drawBoot() {
+  ctx.fillStyle = OUT; ctx.fillRect(0, 0, W, H);
+  const a = Math.min(1, bootT / 24), w = logoWord('MANDELFORCE', 2), x = Math.round(W / 2 - w.width / 2), y = Math.round(H / 2 - 16);
+  ctx.globalAlpha = a;
+  logoDraw(w, x, y, logoChrome(bootT), 2, '#34226a'); logoGlint(w, x, y, (bootT - 30) / 40);
+  textS('PRESENTS', W / 2, y + 26, '#8a7eb0', 1, 'center', '#6a5e90');
+  const n = (bootT >> 4) % 4;
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
+  ctx.globalAlpha = 1;
+}
+function finishBoot() { booting = false; bootOut = 1; delete document.body.dataset.boot; }
+function endBoot() { if (booting && bootT > 40) finishBoot(); }
+// splash -> title: the splash dissolves away in a 4x4 ordered dither (2px cells), 2 frames per level
+let bootOut = 0;
+const BOOT_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], DITHER_FRAMES = 2, ditherMasks = [];
+function ditherMask(k) {
+  if (ditherMasks[k]) return ditherMasks[k];
+  const [c, x] = mk(W, H); x.fillStyle = '#000';
+  for (let cy = 0; cy < H / 2; cy++) for (let cx = 0; cx < W / 2; cx++) if (BOOT_BAYER[(cy & 3) * 4 + (cx & 3)] >= k) x.fillRect(cx * 2, cy * 2, 2, 2);
+  return ditherMasks[k] = c;
+}
+const bootTmp = mk(W, H);
+function drawBootOut() {
+  const k = Math.floor(bootOut / DITHER_FRAMES) + 1;
+  if (k > 16) { bootOut = 0; return; }
+  // keep the title only where the dither has uncovered it: copy it aside, punch out the cells still showing the splash, lay it over the splash
+  const [c, x] = bootTmp;
+  x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H); x.drawImage(cv, 0, 0, W, H);
+  x.globalCompositeOperation = 'destination-out'; x.drawImage(ditherMask(k), 0, 0);
+  drawBoot(); ctx.drawImage(c, 0, 0);
 }
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
 function drawTitleCredit(y) {
@@ -6157,6 +6194,8 @@ function pollPad() {
   }
 }
 function update() {
+  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) finishBoot(); return; }
+  if (bootOut) bootOut++;
   SPOS = null;
   if (state === 'play' && !paused && resumeT <= 0) heatTick();
   if (state === 'play' && !paused && resumeT > 0) { resumeT--; return; }
@@ -7278,7 +7317,12 @@ function drawHUDBody(H) {
   }
 }
 function render() {
+  renderMain();
+  if (bootOut) { resetCtx(); drawBootOut(); }
+}
+function renderMain() {
   if (gfxLost) return;
+  if (booting) { drawBoot(); return; }
   ctx.save();
   if (shake > 0) ctx.translate(Math.round(rnd(-shake, shake) / 2), Math.round(rnd(-shake, shake) / 2));
   drawGround();
@@ -7616,6 +7660,7 @@ addEventListener('keydown', e => {
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
   keys[k] = true; audio(); rrIn = 'key';
+  if (booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
     if (go && state === 'title') openDiff('camp', 1);
@@ -7634,6 +7679,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
+  if (booting) { endBoot(); return; }
   if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
