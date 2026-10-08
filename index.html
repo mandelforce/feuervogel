@@ -317,7 +317,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.2.3'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.4'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
@@ -332,7 +332,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun'
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -3625,9 +3625,21 @@ const ORB = (() => {
   return c;
 })();
 let flyby = null;
+// Escalation: the first game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost
+// and won, and never the same one twice in a row. New reactions plug into GO_BEATS (min = the escalation level at which it can first appear).
+const GO_BEATS = { orb: { min: 3 }, flypast: { min: 5 } };
+let gameOvers = +store.get(KEY.overs) || 0;
+function pickBeat() {
+  gameOvers++; store.set(KEY.overs, gameOvers);
+  const n = gameOvers + 3 * loopsWon; // escalation level
+  if (n <= 2 || Math.random() > Math.min(0.85, 0.25 + 0.08 * (n - 3))) return 'none';
+  const last = store.get(KEY.lastBeat, ''), pool = Object.keys(GO_BEATS).filter(b => GO_BEATS[b].min <= n && b !== last);
+  if (!pool.length) return 'none';
+  const b = pool[(Math.random() * pool.length) | 0]; store.set(KEY.lastBeat, b); return b;
+}
 function startFlyby() {
-  const p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, rt: -1, skip: false, hold: lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
+  const beat = pickBeat(), p = player; if (!p) return;
+  flyby = { t: 0, pt: 0, rt: -1, beat, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
 }
@@ -3635,6 +3647,7 @@ function startFlyby() {
 function leaveOver(auto) {
   const f = flyby;
   if (!f) { toTitle(); return; }
+  if (f.beat === 'none') { if (!fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // nothing to wait for
   if (f.hold) return; // the score dialog is still to come
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
@@ -3643,7 +3656,7 @@ function updFlyby() {
   const f = flyby; if (!f) return;
   if (state !== 'over') { flyby = null; quiet = false; return; }
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
-  if (f.t === FLYBY_IN - 15 && !f.hold) sfx('flyby');
+  if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
   const wy = f.y + scroll - f.s0;
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };

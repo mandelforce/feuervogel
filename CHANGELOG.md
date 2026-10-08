@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4 (9 October 2026)
+- Version 1.2.4.
+- Game over escalates. The first two game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost and won (game overs counted plus three per loop completed, kept on the device): at first only the orb rising, later also the missing man flypast. The same reaction never comes twice in a row. Scoring, lives, continues and the leaderboard are unchanged.
+
 ## 1.2.3 (9 October 2026)
 - Two-player: player 2 now flies the golden Rooster skin from the start (no unlocking needed), with orange engine flames, and is drawn underneath player 1, so the Talon drones are never hidden behind it. In a two-player game player 1 always flies the original Feuervogel, even with the golden skin switched on.
 - Fixed: when a stage ends, the Talon drones now fly off with the Feuervogel instead of staying behind (player 2's ship already rode along).
