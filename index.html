@@ -92,6 +92,14 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
+#credits{position:absolute;inset:0;display:none;background:#000;z-index:9;overflow:hidden;color:#d8f2ff;font:13px/1.6 'StarFall Text',ui-monospace,monospace;text-align:center}
+#credits.open{display:block}
+#crRoll{position:absolute;left:0;right:0;padding:0 14px}
+#credits canvas{display:block;margin:0 auto;box-shadow:none;cursor:default;image-rendering:pixelated}
+#crRoll .r{color:#8a7eb0;margin-top:16px}#crRoll .g{color:#f4d050}#crRoll .b{color:#6a9ad8}#crRoll .d{color:#5a4e80}
+#crRoll .jp{font-family:'StarFall Text','Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif}
+#crClose{position:absolute;right:8px;top:8px;z-index:2;font:600 14px 'StarFall Text',ui-monospace,monospace;color:#f2ecd8;background:#34226a;border:2px solid #8466dc;border-radius:3px;padding:6px 10px;cursor:pointer;touch-action:manipulation}
+#crClose:focus-visible{outline:3px solid #f4d050;outline-offset:2px}
 #howto .panel{width:min(94%,420px);max-height:94vh;overflow-y:auto}
 #howto .help{margin:4px 0 10px;border:0;padding:0}
 #howto h3{margin:12px 0 8px;font-size:16px;color:#fff0a0}
@@ -216,6 +224,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmMusic">Music: On</button>
           <button type="button" id="pmSound">Sound: On</button>
           <button type="button" id="pmSettings">Settings</button>
+          <button type="button" id="pmCredits">Credits</button>
           <button type="button" id="pmRestart">Restart stage</button>
           <button type="button" id="pmQuit">Quit to title</button>
         </div>
@@ -239,6 +248,28 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="resTitle">Continue your run?</h2>
         <p class="note" id="resInfo"></p>
         <div class="lbrow"><button type="button" class="primary" id="resYes">Resume</button><button type="button" id="resNo">New game</button></div>
+      </div>
+    </div>
+    <div id="credits" role="dialog" aria-modal="true" aria-label="Credits">
+      <button type="button" id="crClose">Back</button>
+      <div id="crRoll">
+        <canvas id="crTop" width="96" height="96" style="width:168px;height:168px;margin-bottom:6px"></canvas>
+        <div class="g jp">万出力</div><div class="g" style="letter-spacing:5px">MANDELFORCE</div>
+        <div style="height:70px"></div>
+        <div class="b" style="letter-spacing:4px">STAFF</div>
+        <div class="r jp">企画 / PLANNING</div><div class="jp">鳴海 遼</div><div>NARUMI RYO</div>
+        <div class="r jp">プログラム / PROGRAM</div><div class="jp">十和田 圭</div><div>TOWADA KEI</div>
+        <div class="r jp">グラフィック / GRAPHICS</div><div class="jp">白石 みづき</div><div>SHIRAISHI MIZUKI</div><div class="jp">柊 大輔</div><div>HIIRAGI DAISUKE</div>
+        <div class="r jp">サウンド / SOUND</div><div class="jp">汐見 蓮</div><div>SHIOMI REN</div>
+        <div class="r jp">空と大地 / SKIES AND TERRAIN</div><div>BY MATHEMATICS</div>
+        <div style="height:36px"></div><div id="crSlip" class="g">FULL OUTPUT OF EXCITEMENT!</div><div style="height:36px"></div>
+        <div class="r jp" style="margin-top:0">特殊チップ / CUSTOM CHIP</div><div>MF-1 FRACTAL ENGINE</div>
+        <canvas id="crZoom" width="80" height="80" style="width:120px;height:120px;margin-top:10px"></canvas>
+        <div style="height:30px"></div>
+        <div class="r jp" style="margin-top:0">追加プログラム / ADDITIONAL CODE</div><div id="crHex" style="white-space:pre"></div>
+        <div style="height:40px"></div><div class="b">THANK YOU FOR PLAYING</div>
+        <div style="height:40px"></div><div class="r" style="margin-top:0">© 1989 MANDELFORCE</div><div class="d">FOR USE IN JAPAN ONLY</div>
+        <div style="height:90px"></div>
       </div>
     </div>
     <div id="howto" role="dialog" aria-modal="true" aria-labelledby="howTitle">
@@ -3422,7 +3453,7 @@ function startTutorial() {
   runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
 function tutSpawn(o) { enemies.push(o); tut.ids.push(o); return o; }
 function tutAlive() { return tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { tut.step++; tut.t = 0; tut.ids = []; }
@@ -6057,7 +6088,7 @@ function targetPos(e) {
 }
 let padSeen = -9999, titleFocus = 0;
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
+function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
 function padMenus(nav) {
   const dlg = openDialog(); if (!dlg) return false;
   const nameBox = document.getElementById('lbName'), entering = dlg.id === 'lbPanel' && document.getElementById('lbSubmit').style.display !== 'none';
@@ -6079,7 +6110,7 @@ function padMenus(nav) {
   if (nav.down || nav.right) i = (i + 1) % items.length; else if (nav.up || nav.left) i = i <= 0 ? items.length - 1 : i - 1;
   if (nav.down || nav.right || nav.up || nav.left) items[Math.max(0, i)].focus();
   if (nav.a && document.activeElement && items.includes(document.activeElement)) document.activeElement.click();
-  if (nav.b || nav.start) { if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else closeMenu(); }
+  if (nav.b || nav.start) { if (dlg.id === 'credits') closeCredits(); else if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else closeMenu(); }
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
@@ -7545,6 +7576,102 @@ function updateErr() {
   pre.textContent = `${er.t} v${er.v} ${er.where}: ${er.msg} (stage ${er.stage}, theme ${er.theme}, diff ${er.diff}, h ${er.h}) ${er.stack} ${er.ua}`; eb.appendChild(pre);
   const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = 'Copy report'; bt.addEventListener('click', () => { try { navigator.clipboard.writeText(pre.textContent); bt.textContent = 'Copied'; } catch (e) {} }); eb.appendChild(bt);
 }
+/* ================= credits ================= */
+// The staff roll of the MANDELFORCE board, opened from the menu. The names are invented (fiction).
+// Fractal tile -> dissolve -> bug (head pops out) -> staff roll. The "additional code" line is a name that glitches into a hex dump of
+// MANDEL-0.7453,0.1127, the centre of the fractal; its last bytes never arrive. Cosmetic only: no scoring, no saved data.
+const Credits = (() => {
+  const el = document.getElementById('credits'), roll = document.getElementById('crRoll'), slip = document.getElementById('crSlip'), hexEl = document.getElementById('crHex');
+  const top = document.getElementById('crTop').getContext('2d'), zoom = document.getElementById('crZoom').getContext('2d'), zimg = zoom.createImageData(80, 80);
+  const N = 48, OUTC = '#1c1238', SKY = ['#ffffff', '#d8f2ff', '#a8d0f4', '#6a9ad8'], GOLD = ['#fff0a0', '#f4d050', '#d0a020', '#946a10', '#5a3e08'];
+  let mask, edges, yTop, yBot, hz, tile, timer = 0, t = 0, ry = 0;
+  function build() {
+    mask = []; for (let py = 0; py < N; py++) { mask[py] = []; for (let px = 0; px < N; px++) { const re = (py / N * 2.6 - 1.3) - 0.75, im = (px + 0.5) / N * 2.6 - 1.3; let zr = 0, zi = 0, i = 0; while (i < 60 && zr * zr + zi * zi < 16) { const q = zr * zr - zi * zi + re; zi = 2 * zr * zi + im; zr = q; i++; } mask[py][px] = i === 60; } }
+    edges = mask.map(r => [r.indexOf(true), r.lastIndexOf(true)]);
+    yTop = edges.findIndex(e => e[0] >= 0); yBot = edges.map(e => e[0] >= 0).lastIndexOf(true); hz = Math.round(yTop + (yBot - yTop) * 0.34);
+    tile = document.createElement('canvas'); tile.width = tile.height = 96; fractal(tile.getContext('2d'), 96, 0.006, 200);
+  }
+  // 1-bit fractal: black and white by the parity of the escape count, seahorse valley
+  function fractal(c, W, span, maxIt, img) {
+    img = img || c.createImageData(W, W);
+    for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) {
+      const re = -0.7453 + (px / W - 0.5) * span, im = 0.1127 + (py / W - 0.5) * span; let zr = 0, zi = 0, i = 0;
+      while (i < maxIt && zr * zr + zi * zi < 256) { const q = zr * zr - zi * zi + re; zi = 2 * zr * zi + im; zr = q; i++; }
+      const v = i === maxIt ? 0 : (i & 1 ? 255 : 0), o = (py * W + px) * 4; img.data[o] = img.data[o + 1] = img.data[o + 2] = v; img.data[o + 3] = 255;
+    }
+    c.putImageData(img, 0, 0);
+  }
+  // the bug: head (chrome sky) and body (gold) on separate layers so the head can hide inside the body
+  function bug(o) {
+    const dy = Math.round((1 - o.e) * (hz - yTop + 4)), mkc = () => { const b = document.createElement('canvas'); b.width = b.height = N; return b; };
+    const hb = mkc(), h = hb.getContext('2d'), bb = mkc(), c = bb.getContext('2d'), P = (g, x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+    const legs = [];
+    [0.5, 0.65, 0.8].forEach((f, k) => { const y = Math.round(yTop + (yBot - yTop) * f), [l, r] = edges[y], ph = o.walk ? ((o.t >> 1) + k) % 2 : 0;
+      for (const sd of [-1, 1]) { const x0 = sd < 0 ? l : r; for (let d = 1; d <= 3; d++) legs.push([x0 + sd * d, y - 1 - (d > 1 ? 1 : 0) + ph]); for (let d = 1; d <= 3; d++) legs.push([x0 + sd * (3 + d), y - 3 + d + ph]); } });
+    const isHead = (x, y) => mask[y] && mask[y][x] && y < hz, isBody = (x, y) => (mask[y] && mask[y][x] && y >= hz) || legs.some(([a, b]) => a === x && b === y);
+    const ring = (g, f) => { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (f(x, y) || mask[y][x]) continue; let n = false; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (f(x + i, y + j)) n = true; if (n) P(g, x, y, OUTC); } };
+    ring(h, isHead); ring(c, isBody);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (mask[y][x]) {
+      const g = y < hz ? h : c; let col;
+      if (y < hz) col = SKY[Math.min(3, Math.floor((y - yTop) / (hz - yTop) * 4))]; else if (y === hz) col = OUTC; else col = GOLD[1 + Math.min(3, Math.floor((y - hz - 1) / (yBot - hz) * 4))];
+      if (x === edges[y][0] && y !== hz) col = '#ffffff';
+      if (Math.abs((x + y * 0.6) - o.glint) < 2 && y !== hz) col = '#ffffff';
+      P(g, x, y, col);
+    }
+    legs.forEach(([x, y]) => P(c, x, y, '#d0a020'));
+    const cx = N / 2, ey = Math.round(yTop + (yBot - yTop) * 0.2);
+    if (o.blink) { P(h, cx - 3, ey, OUTC); P(h, cx - 2, ey, OUTC); P(h, cx + 1, ey, OUTC); P(h, cx + 2, ey, OUTC); }
+    else { P(h, cx - 3, ey - 1, OUTC); P(h, cx - 3, ey, OUTC); P(h, cx + 2, ey - 1, OUTC); P(h, cx + 2, ey, OUTC); P(h, cx - 2, ey - 1, '#fff'); P(h, cx + 1, ey - 1, '#fff'); }
+    const out = mkc(), g = out.getContext('2d'); g.drawImage(hb, 0, dy); g.drawImage(bb, 0, 0); return out;
+  }
+  const ease = u => { u -= 1; return 1 + 2.7 * u * u * u + 1.7 * u * u; };
+  const hash = (x, y) => ((x * 73856093 ^ y * 19349663) >>> 0) % 1000 / 1000;
+  const MSG = [...'MANDEL-0.7453,0.1127'].map(ch => ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')), DIG = '0123456789ABCDEF';
+  const hexSwap = h => h.replace(/[0-9A-F]/, () => DIG[(Math.random() * 16) | 0]);
+  function nameBurst() { let o = ''; for (const ch of 'MANDEL') o += Math.random() < 0.4 ? ch.charCodeAt(0).toString(16).toUpperCase() : ch; return o; }
+  function win(w, flick) { const out = []; for (let i = 0; i < 8; i++) { const k = w + i; let b = k < MSG.length ? MSG[k] : '??'; if (flick && b !== '??' && Math.random() < 0.1) b = hexSwap(b); out.push(b); } return (0x798 + w).toString(16).toUpperCase().padStart(4, '0') + ' ' + out.join(' '); }
+  function tick() {
+    if (!el.classList.contains('open')) { stop(); return; }
+    t++;
+    // header: fractal, dissolve into the bug, head pops out, then the bug idles
+    const idle = t - 92, e = t < 70 ? 0 : t < 92 ? ease((t - 70) / 22) : 1;
+    if (t < 40) top.drawImage(tile, 0, 0);
+    else {
+      const bc = document.createElement('canvas'); bc.width = bc.height = 96; const bx = bc.getContext('2d'); bx.imageSmoothingEnabled = false;
+      bx.fillStyle = '#0b0820'; bx.fillRect(0, 0, 96, 96);
+      const k = idle > 0 ? idle % 150 : 0;
+      bx.drawImage(bug({ e, t, walk: idle > 0 && k < 40, blink: idle > 0 && k > 60 && k < 66, glint: idle > 0 && k > 20 ? k - 20 : -99 }), 0, 0, 96, 96);
+      if (t >= 62) top.drawImage(bc, 0, 0);
+      else { const p = (t - 40) / 22, fd = tile.getContext('2d').getImageData(0, 0, 96, 96), bd = bx.getImageData(0, 0, 96, 96);
+        for (let y = 0; y < 96; y++) for (let x = 0; x < 96; x++) if (hash(x, y) < p) { const o = (y * 96 + x) * 4; fd.data[o] = bd.data[o]; fd.data[o + 1] = bd.data[o + 1]; fd.data[o + 2] = bd.data[o + 2]; }
+        top.putImageData(fd, 0, 0); }
+    }
+    // scroll: hold on the logo, then roll
+    if (t > 100) ry -= 0.9;
+    if (-ry > roll.offsetHeight + 20) { t = 0; ry = 0; }
+    roll.style.top = (el.clientHeight * 0.18 + ry) + 'px';
+    slip.style.transform = t % 170 > 162 ? 'translateX(10px)' : 'none';
+    if (t % 2 === 0) fractal(zoom, 80, 0.3 * Math.exp(-(1 - Math.cos(t * 0.011)) * 2.0), 140, zimg);
+    // additional code: a name that is not quite a name
+    const c = t % 150; let txt, tear = Math.random() < 0.06;
+    if (c < 36) txt = 'MANDEL'; else if (c < 43) { txt = nameBurst(); tear = Math.random() < 0.5; }
+    else if (c < 136) txt = win(Math.min(14, Math.floor((c - 43) / 6)), c > 50);
+    else if (c < 143) { txt = Math.random() < 0.5 ? nameBurst() : win(14, true); tear = Math.random() < 0.5; } else txt = 'MANDEL';
+    hexEl.textContent = txt; hexEl.style.transform = tear ? 'translateX(' + ((Math.random() * 18 - 9) | 0) + 'px)' : 'none';
+    hexEl.style.color = tear ? (Math.random() < 0.5 ? '#a8f6dc' : '#e4506a') : (c >= 43 && c < 136 ? '#8a7eb0' : '#d8f2ff');
+    hexEl.style.visibility = Math.random() < 0.02 ? 'hidden' : 'visible';
+  }
+  function stop() { clearInterval(timer); timer = 0; }
+  return {
+    open() { if (!mask) build(); t = 0; ry = 0; el.classList.add('open'); top.imageSmoothingEnabled = false; top.drawImage(tile, 0, 0); stop(); timer = setInterval(tick, 70); document.getElementById('crClose').focus(); },
+    close() { el.classList.remove('open'); stop(); },
+  };
+})();
+function openCredits() { showPauseMenu(false); Credits.open(); }
+function closeCredits() { Credits.close(); showPauseMenu(true); }
+document.getElementById('pmCredits').addEventListener('click', openCredits);
+document.getElementById('crClose').addEventListener('click', closeCredits);
+document.getElementById('credits').addEventListener('pointerdown', e => e.stopPropagation());
 function openSettings() { updateErr(); syncSettingsUI(); setPanel.classList.add('open'); if (state === 'play' && !paused) { paused = true; panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
 function closeSettings() { setPanel.classList.remove('open'); saveSettings(); if (panelPaused) { panelPaused = false; paused = false; resumeT = 180; setPauseIcon(); } else showPauseMenu(true); }
 setPanel.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === setPanel) closeSettings(); });
@@ -7577,6 +7704,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
+  if (document.getElementById('credits').classList.contains('open')) { if (k === 'escape') closeCredits(); return; }
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }

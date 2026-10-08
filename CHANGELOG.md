@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.0 (7 October 2026)
+- New Credits entry in the menu: a staff roll from the MANDELFORCE board with the studio bug, a custom-chip credit and a slow fractal zoom. The staff names are invented, and the Japanese text still needs a native-speaker check. Cosmetic only; nothing about scores or saved data changes.
 - New start-up screen: the MANDELFORCE logo with loading dots before the title. It lasts about two seconds (while the graphics warm up) and a tap or key skips it. It dissolves into the title in a retro dither.
 - Version 1.2.0. 2-player runs never submit scores to the leaderboard; single-player boards, rules and scores are unchanged.
 - The game is now called FEUERVOGEL 89 (formerly StarFall). New title logo: FEUERVOGEL in chrome letters with 火の鳥 down the left side, a passing glint, a rare glitch and a "© 1989 MANDELFORCE" credit. The tab title, home-screen name ("Feuervogel"), link preview and image follow. The web address, saved progress and the leaderboard are unchanged.
