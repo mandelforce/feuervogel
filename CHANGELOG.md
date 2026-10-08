@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.2.3 (9 October 2026)
+- Easy is much gentler: about a third fewer enemy bullets, smaller boss rings, slower bullets and slower enemy fire, and the stage difficulty ramps up more slowly.
+- Easy: sparser enemy waves and ground units, most of all in Stage 1.
+- Easy: start with 4 Nova bombs (was 3), the super laser allows three shots before it overheats (was two), and you get a third continue. Scores from a three-continue run are submitted as two continues, since only a run with none earns the star.
+- Scoring note: each unused Nova bomb is still worth 5,000 at the end of a stage, so Easy runs can bank 5,000 more.
 - Burnt trees no longer reappear on top of animals and ground units: the tree overlay drawn over them skips trees that have been burnt.
 - New Credits entry in the menu: a staff roll from the MANDELFORCE board with the studio bug, a custom-chip credit and a slow fractal zoom. The staff names are invented, and the Japanese text still needs a native-speaker check. The Japanese uses a pixel font built into the game (DotGothic16, SIL Open Font License, see licenses/), so it looks the same on every device and works offline. Cosmetic only; nothing about scores or saved data changes.
 - Rebirth: when the Feuervogel is destroyed it bursts into pieces, and after a short hang the same burst runs backwards: the pieces fly back, the fireball shrinks away, a white flash marks the snap and the shield ring cools from orange to teal. A continue plays the backwards half. New sounds: a reversed boom (swelling noise and rising sweep) and the Feuervogel hawk cry played backwards, cutting off as the ship snaps whole. Respawn timing, lives, continues and scoring are unchanged.

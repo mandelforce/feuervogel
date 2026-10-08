@@ -4031,6 +4031,7 @@ function directorInner() {
   let zone = 'mix', dens = 1;
   ARC_U = u;
   for (const [until, z, d] of ARC) if (u < until) { zone = z; dens = d; break; }
+  if (settings.diff === 0) dens *= stage === 1 ? 0.7 : 0.85; // Easy: sparser waves and ground units, most of all in Stage 1, where new players start
   if ((zone === 'set1' || zone === 'set2') && !setPieceDone.has(zone)) { setPieceDone.add(zone); runSetPiece(zone === 'set1' ? 0 : 1, b); }
   if (zone === 'set1' || zone === 'set2') zone = 'calm';
   if (zone === 'still') { waveCd = Math.max(waveCd, 30); podCd = Math.max(podCd, 30); groundCd = Math.max(groundCd, 30); }
