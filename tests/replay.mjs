@@ -3,6 +3,7 @@
 // Needs Node and Playwright (see tests/balance.mjs); serve the folder first (python3 -m http.server 8000).
 //   node tests/replay.mjs            compare with golden.json
 //   node tests/replay.mjs --update   write golden.json (only after a change that is meant to alter gameplay)
+//   node tests/replay.mjs --terrain --warn   only the campaign terrain check; a change prints a warning and does not fail (CI uses this)
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -12,6 +13,7 @@ const golden = JSON.parse(readFileSync(goldenUrl, 'utf8'));
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const replay = readFileSync(new URL('./replay.js', import.meta.url), 'utf8');
 const update = process.argv.includes('--update');
+const onlyTerrain = process.argv.includes('--terrain'), warnOnly = process.argv.includes('--warn');
 
 // Runs before the game's own script: a seeded Math.random, and no frame loop, so only the replay moves the game.
 // (Weather, birds and clouds also draw random numbers while the title screen idles; the loop must not run before the replay.)
@@ -24,7 +26,7 @@ const initScript = () => {
 const browser = await chromium.launch();
 const results = {};
 let bad = 0;
-const names = (await (async () => {
+const names = onlyTerrain ? [] : (await (async () => {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.addInitScript(initScript); await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function');
@@ -61,11 +63,17 @@ for (const name of names) {
   await page.close();
   if (!update) for (const [stage, got] of Object.entries(results.terrain)) {
     const want = golden.terrain?.[stage];
-    if (!want || want.hash !== got.hash || want.cells !== got.cells) { bad++; console.error(`FAIL terrain ${stage}: expected ${want?.hash}, got ${got.hash}`); } else console.log(`ok   terrain ${stage}`);
+    if (!want || want.hash !== got.hash || want.cells !== got.cells) {
+      bad++;
+      if (warnOnly) console.log(`::warning title=Campaign terrain changed::${stage}: expected ${want?.hash}, got ${got.hash}. The Campaign level terrain is meant to stay fixed. If this is intended, regenerate tests/golden.json.`);
+      console.error(`${warnOnly ? 'WARNING' : 'FAIL'} terrain ${stage}: expected ${want?.hash}, got ${got.hash}`);
+    } else console.log(`ok   terrain ${stage}`);
   }
 }
 await browser.close();
 
-if (update) { golden.terrain = results.terrain; delete results.terrain; golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); }
+if (update && onlyTerrain) { golden.terrain = results.terrain; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json terrain updated.'); }
+else if (update) { golden.terrain = results.terrain; delete results.terrain; golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); }
+else if (bad && warnOnly) console.log(`\n${bad} terrain stage(s) differ from golden.json (warning only).`);
 else if (bad) { console.error(`\n${bad} check(s) changed. If the change was meant to alter gameplay, run with --update and say so in the commit.`); process.exit(1); }
 else console.log('\nReplay matches.');

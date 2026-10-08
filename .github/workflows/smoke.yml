@@ -27,6 +27,8 @@ jobs:
           sleep 2
       - name: Run smoke test
         run: node tests/smoke.mjs
+      - name: Campaign terrain check (warning only)
+        run: node tests/replay.mjs --terrain --warn
       - name: Replay test (advisory until proven stable)
         continue-on-error: true
         run: node tests/replay.mjs

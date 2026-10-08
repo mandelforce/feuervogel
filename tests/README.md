@@ -29,6 +29,8 @@ How it stays repeatable: each scenario runs on a fresh page, `Math.random` is se
 
 It also fingerprints the terrain of all six campaign stages (what is under every sampled spot, hashed). The campaign world comes from fixed-seed hash noise (seed 1944), so these hashes must never change by accident. Terrain painting is time-budgeted per frame, but that only affects the pictures, not the simulation: the replay result is identical on a simulated slow machine.
 
+CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the campaign terrain and shows a yellow warning (never a failure) if it changed.
+
 Not yet proven on CI hardware, so the CI step is allowed to fail (`continue-on-error`) until it has run clean a few times.
 
 ## Balance bot (run by hand)
