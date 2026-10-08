@@ -3356,22 +3356,23 @@ const ORB = (() => {
 let flyby = null;
 function startFlyby() {
   const p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, rt: -1, skip: false, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
+  flyby = { t: 0, pt: 0, rt: -1, skip: false, hold: lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
-  later.push({ at: gf + FLYBY_IN - 15, fn: () => { if (state === 'over' && flyby) sfx('flyby'); } });
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
 function leaveOver(auto) {
   const f = flyby;
   if (!f) { toTitle(); return; }
+  if (f.hold) return; // the score dialog is still to come
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
 function updFlyby() {
   const f = flyby; if (!f) return;
   if (state !== 'over') { flyby = null; quiet = false; return; }
-  f.t++;
+  if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
+  if (f.t === FLYBY_IN - 15 && !f.hold) sfx('flyby');
   const wy = f.y + scroll - f.s0;
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
@@ -3466,7 +3467,7 @@ function openLB(kind) {
     lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
   }
 }
-function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (state === 'over') leaveOver(); }
+function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (state === 'over') { if (flyby && flyby.hold) flyby.hold = false; else leaveOver(); } }
 function lbRow(list, i, t) { const li = document.createElement('li'); li.className = (t.me ? 'me ' : '') + (i < 3 ? 'g' + (i + 1) : '') + (t.flash ? ' flash' : '') + (t.pulse ? ' pulse' : ''); const a = document.createElement('span'); a.className = 'rk'; a.textContent = i + 1; if (t.mv) { const m = document.createElement('span'); m.className = 'mv ' + (t.mv > 0 ? 'up' : 'dn'); m.textContent = (t.mv > 0 ? '▲' : '▼') + Math.abs(t.mv); a.appendChild(m); } else if (t.isNew) { const m = document.createElement('span'); m.className = 'nw'; m.textContent = 'NEW'; a.appendChild(m); } const b = document.createElement('span'); b.className = 'nm'; b.textContent = t.name; if (t.tag) { const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = '#' + t.tag; b.appendChild(tg); } if (t.star) { const sr = document.createElement('span'); sr.className = 'star'; sr.textContent = '★'; sr.title = 'No continues used'; b.appendChild(sr); } const c = document.createElement('span'); c.className = 'sc'; c.textContent = Number(t.score).toLocaleString('en-US'); const st = document.createElement('span'); st.className = 'st'; st.textContent = 'stage ' + t.stage; c.appendChild(st); li.append(a, b, c); list.appendChild(li); }
 async function lbLoad() {
   lbSync(); const list = lbEl('lbList'); list.innerHTML = '';
