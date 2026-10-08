@@ -114,7 +114,7 @@ window.SF = {
         const b = enemies.find(e => e.type === 'boss'); if (!b || b.dying) break;
         const t = b.parts.filter(p => !p.dead && !p.off).sort((a, c) => (c.k === 'core') - (a.k === 'core'))[0]; if (!t) break;
         player.x = clamp(b.x + t.ox, 8, W - 8); player.y = clamp(b.y + t.oy + 70, 18, H - 14); player.lx = player.x;
-        if (laser && player.charge >= 100 && !beam && overheatT === 0 && laserHeat + 45 < 100) { player.charge = 0; fireBeam(1); }
+        if (laser && player.charge >= 100 && !beam && overheatT === 0 && laserHeat + DIFF.heat[settings.diff] < 100) { player.charge = 0; fireBeam(1); }
         SF.run(1);
       }
     } finally { damagePart = dp; }
