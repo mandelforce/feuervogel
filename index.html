@@ -248,7 +248,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
           <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
-          <button type="button" data-d="0"><b>Easy</b><span>Slower bullets, gentler fire</span></button>
+          <button type="button" data-d="0"><b>Easy</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Normal</b><span>The intended challenge</span></button>
           <button type="button" data-d="2"><b>Hard</b><span>Fiercer enemies, 2 Nova bombs</span></button>
         </div>
@@ -317,7 +317,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.2.2'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.4'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
@@ -346,7 +346,8 @@ const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: fal
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
-const DIFF = { bs: [1, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [0, 0, 0], bombs: [3, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [1, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.5, 1.3, 1.15] };
+// Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs +1, heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
+const DIFF = { bs: [0.88, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.3, 1.15] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
 function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? 1 : 0)) * DIFF.rank[settings.diff]; }
 let eshotN = 0;
@@ -3358,7 +3359,7 @@ let score = 0, hi = 0, lives = 2, bombs = 3, loop = 0, stage = 1, nextExtend = 8
 let player = null, shots = [], ebul = [], enemies = [], items = [], parts = [], decals = [], later = [];
 let msg = null, shake = 0, bombFx = 0, bombX = 0, bombY = 0, flashFx = 0;
 let waveCd = 60, groundCd = 30, podCd = 300, midDone = false, bossSpawned = false, cont = 0, credits = 0, runConts = 0;
-const MAX_CONT = 2;
+const maxCont = () => DIFF.conts[runDiff]; // Easy gets a third continue; scores are submitted with at most 2 (the Worker rejects more, and only 0 earns the star)
 hi = +store.get(KEY.hi) || 0;
 const SCROLL = 0.4;
 let scrollV = SCROLL, scrollTarget = SCROLL;
@@ -3793,7 +3794,7 @@ setTimeout(lbStatus, 1500);
 function openLB(kind) {
   lbOpen = true; lbEl('lbPanel').classList.add('open'); lbMsg('');
   if (kind === 'submit') {
-    lbRun = { score, stage, conts: runConts, start: runStart, mode: endless ? 'endless' : 'camp', plat: LB_PLAT, diff: runDiff, dur: Math.round(runFrames / 60) };
+    lbRun = { score, stage, conts: Math.min(runConts, 2), start: runStart, mode: endless ? 'endless' : 'camp', plat: LB_PLAT, diff: runDiff, dur: Math.round(runFrames / 60) };
     lbView = { src: LB_URL ? 'online' : 'local', mode: lbRun.mode, plat: LB_PLAT, diff: lbRun.diff, period: 'all' }; lbEl('lbSend').textContent = LB_URL ? 'Submit' : 'Save';
     lbEl('lbPanel').classList.toggle('below', state === 'over');
     lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
@@ -3861,7 +3862,7 @@ function toTitle() { clearResume(); if (state === 'play') rrSend('quit'); rr = n
 function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
-  lives = DIFF.lives[settings.diff]; bombs = 3; ebul.length = 0;
+  lives = DIFF.lives[settings.diff]; bombs = Math.max(3, DIFF.bombs[settings.diff]); ebul.length = 0;
   Object.assign(player, { dead: RB_BURST, rbMode: 1, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
   sfx('rebirth');
 }
@@ -3878,7 +3879,7 @@ function saveResume() {
     st = stage + 1; theme = endless ? (curTheme + 1 + ((Math.random() * 5) | 0)) % 6 : STAGE_ORDER[(st - 1) % 6];
     mark = { score: score + (results ? results.total - results.counted : 0), nextExtend, extendsGot, camp: Object.assign({}, camp) };
   }
-  if (gameOverPending || cont > 0) { if (runConts >= MAX_CONT) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
+  if (gameOverPending || cont > 0) { if (runConts >= maxCont()) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless, diff: runDiff, runStart, conts: cn, credits: credits + (cn - runConts), frames: runFrames,
     score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl, twoP: run2P };
   store.setJSON(KEY.resume, r);
@@ -3927,7 +3928,7 @@ function flakShot(x, y, spread = 1) {
   const tx = player.x + rnd(-14, 14) * spread, ty = player.y + rnd(-20, 6) * spread;
   eshot(x, y, Math.atan2(ty - y, tx - x), bspeed() * 1.15, 'shell');
 }
-function ring(x, y, n, sp, off, kind = 's') { for (let i = 0; i < n; i++) eshot(x, y, off + i * TAU / n, sp, kind); }
+function ring(x, y, n, sp, off, kind = 's') { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) eshot(x, y, off + i * TAU / n, sp, kind); }
 const count = type => enemies.reduce((n, e) => n + (e.type === type && !e.dead ? 1 : 0), 0);
 function E(type, o) { return Object.assign({ type, x: 0, y: 0, t: 0, hp: 1, hw: 6, hh: 6, score: 100, hit: 0, ground: false, big: false, mt: 0, rad: 10 }, o); }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(scroll) }, o)); }
@@ -4113,6 +4114,7 @@ function directorInner() {
   let zone = 'mix', dens = 1;
   ARC_U = u;
   for (const [until, z, d] of ARC) if (u < until) { zone = z; dens = d; break; }
+  if (settings.diff === 0) dens *= stage === 1 ? 0.7 : 0.85; // Easy: sparser waves and ground units, most of all in Stage 1, where new players start
   if ((zone === 'set1' || zone === 'set2') && !setPieceDone.has(zone)) { setPieceDone.add(zone); runSetPiece(zone === 'set1' ? 0 : 1, b); }
   if (zone === 'set1' || zone === 'set2') zone = 'calm';
   if (zone === 'still') { waveCd = Math.max(waveCd, 30); podCd = Math.max(podCd, 30); groundCd = Math.max(groundCd, 30); }
@@ -5912,7 +5914,7 @@ function fireBeam(pw) {
   if (overheatT > 0) return;
   beam = { t: 18, max: 18, w: 8 + 16 * pw, dmg: (0.9 + 2.0 * pw) * dmgK(), pw, hit: false };
   stats.shots++; sfx('beam'); haptic(pw > 0.9 ? 'big' : 'gkill'); shake = Math.max(shake, 3 + pw * 4);
-  laserHeat += 45;
+  laserHeat += DIFF.heat[settings.diff];
   if (laserHeat >= 100) { overheatT = 300; laserHeat = 100; later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 14, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
   flash(player.x, player.y - 16, 6);
 }
@@ -5982,6 +5984,7 @@ function updPlayer() {
     if (k === 18) { flash(p.x, p.y + 14, 6); shake = Math.max(shake, 2); }
     if (gf % 2 === 0 && p.y > -20) parts.push({ kind: 'fire', layer: 'a', x: p.x + rnd(-2, 2), y: p.y + 18, vx: 0, vy: 1.5, life: 14, max: 14, r: 3 });
     if (p.exitT === 0) p.y = -60;
+    for (let i = 0; i < p.drones; i++) { p.dr[i].x = p.x + (i ? 17 : -17); p.dr[i].y = p.y + 7; } // Talon drones leave with the ship
     return;
   }
   if (p.y < -40 && !(p.fly > 0)) return;
@@ -5991,8 +5994,8 @@ function updPlayer() {
     if (!p.rbMode && p.dead === RB_BURST && !gameOverPending) sfx('rebirth');
     if (p.dead === 19 && !gameOverPending) sfx('rebirthHawk'); // 0.32 s long, so it cuts off right as the ship snaps whole
     if (p.dead === 0) {
-      if (gameOverPending) { p.dead = 1; if (runConts < MAX_CONT) cont = 10 * 60 - 1; else gameOver(); return; }
-      p.x = W / 2; p.y = Math.round(H * 0.71); p.inv = 150; bombs = Math.max(bombs, 3); ebul.length = 0; p.rbEnd = gf;
+      if (gameOverPending) { p.dead = 1; if (runConts < maxCont()) cont = 10 * 60 - 1; else gameOver(); return; }
+      p.x = W / 2; p.y = Math.round(H * 0.71); p.inv = 150; bombs = Math.max(bombs, 3, DIFF.bombs[settings.diff]); ebul.length = 0; p.rbEnd = gf;
     }
     return;
   }
@@ -6098,8 +6101,8 @@ function updP2() {
 function drawP2() {
   const q = p2; if (!q || q.dead || state !== 'play' || !player) return;
   const fl = 3 + ((gf >> 1) & 1) * 2;
-  for (const ox of [-6, 6]) { ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
-  spr(SPR.raven[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y);
+  for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
+  spr(goldSet()[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y); // player 2 always flies the golden Rooster
   if (q.inv > 0 && !results && (q.inv > 40 || (gf >> 2) & 1)) {
     ctx.globalAlpha = 0.8; for (let i = 0; i < 7; i++) { const a = gf * 0.12 + i * TAU / 7; ctx.fillStyle = '#dde1e7'; ctx.fillRect(Math.round(q.x + Math.cos(a) * 20), Math.round(q.y + Math.sin(a) * 20), 1, 1); } ctx.globalAlpha = 1;
   }
@@ -7436,7 +7439,7 @@ function drawPlayer() {
     ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
-  spr((useGold() ? goldSet() : SPR.playerSet)[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y);
+  spr((useGold() && !p2 ? goldSet() : SPR.playerSet)[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
   for (let i = 0; i < p.drones; i++) {
     const d = p.dr[i];
@@ -7582,8 +7585,8 @@ function renderMain() {
   drawBeam();
   drawPlayerArcs();
   drawStorm();
+  drawP2(); // under player 1 and the Talons
   drawPlayer();
-  drawP2();
   drawLocks();
   drawParts('a');
   drawHitbox();
@@ -7669,7 +7672,7 @@ function renderMain() {
     ctx.fillStyle = 'rgba(18,14,26,0.4)'; ctx.fillRect(0, 0, W, H);
     textO('CONTINUE?', W / 2, 100, '#fff0a0', 3, 'center', '#f8a83a');
     textO(String(Math.floor(cont / 60)), W / 2, 130, '#ffffff', 8, 'center', '#bba4ff');
-    textS(MAX_CONT - runConts === 1 ? 'LAST CONTINUE' : (MAX_CONT - runConts) + ' CONTINUES LEFT', W / 2, 190, MAX_CONT - runConts === 1 ? '#f48a60' : '#a99cc8', 1, 'center', MAX_CONT - runConts === 1 ? '#a82a26' : '#6a5aa0');
+    textS(maxCont() - runConts === 1 ? 'LAST CONTINUE' : (maxCont() - runConts) + ' CONTINUES LEFT', W / 2, 190, maxCont() - runConts === 1 ? '#f48a60' : '#a99cc8', 1, 'center', maxCont() - runConts === 1 ? '#a82a26' : '#6a5aa0');
     if ((gf >> 4) & 1) textS('TAP OR PRESS ENTER', W / 2, 206, '#ffffff', 1, 'center', '#c4c9ce');
   }
   if (state === 'over') {
@@ -7779,7 +7782,7 @@ function buildHelp() {
     [gem(), 'Secret', 'Follow the crows']]);
   const more = document.createElement('details');
   more.innerHTML = '<summary>Scores &amp; rules</summary>'
-    + '<p><b>Star:</b> a run with no continues. You get two, and your score is kept.</p>'
+    + '<p><b>Star:</b> a run with no continues. You get two (three on Easy), and your score is kept.</p>'
     + '<p><b>Campaign scores</b> count only from START at Stage 1, on one difficulty. Stage buttons are practice.</p>'
     + '<p><b>Privacy:</b> only your name, scores and a random player number are stored.</p>';
   box.appendChild(more);

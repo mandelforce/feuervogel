@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 1.2.4 (9 October 2026)
+- Version 1.2.4.
 - Game over escalates. The first two game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost and won (game overs counted plus three per loop completed, kept on the device): at first only the orb rising, later also the missing man flypast. The same reaction never comes twice in a row. Scoring, lives, continues and the leaderboard are unchanged.
+
+## 1.2.3 (9 October 2026)
+- Two-player: player 2 now flies the golden Rooster skin from the start (no unlocking needed), with orange engine flames, and is drawn underneath player 1, so the Talon drones are never hidden behind it. In a two-player game player 1 always flies the original Feuervogel, even with the golden skin switched on.
+- Fixed: when a stage ends, the Talon drones now fly off with the Feuervogel instead of staying behind (player 2's ship already rode along).
+- Easy is much gentler: about a third fewer enemy bullets, smaller boss rings, slower bullets and slower enemy fire, and the stage difficulty ramps up more slowly.
+- Easy: sparser enemy waves and ground units, most of all in Stage 1.
+- Easy: start with 4 Nova bombs (was 3), the super laser allows three shots before it overheats (was two), and you get a third continue. Scores from a three-continue run are submitted as two continues, since only a run with none earns the star.
+- Scoring note: each unused Nova bomb is still worth 5,000 at the end of a stage, so Easy runs can bank 5,000 more.
 - Game over: the wreck keeps burning where the Feuervogel fell, the world slows to a stop and no new enemies appear. After a short pause a four-plane squadron flies over in missing man formation: the rear plane climbs away, growing as it rises while its shadow stays behind, and leaves a gap. A low engine drone plays. Aircraft on screen when the run ends vanish so the squadron is the only thing in the sky. The purple heart of the Feuervogel glows as a small orb inside the wreck; when the player taps to continue (or closes the score dialog), it lifts free with a soft rising tone, grows as it rises toward the viewer, and the screen dither-fades to the title. A second tap skips the wait. On a leaderboard run the squadron waits until the name has been entered or skipped, so the flypast plays in full view. Score, lives, continues and the leaderboard are unchanged.
 - Burnt trees no longer reappear on top of animals and ground units: the tree overlay drawn over them skips trees that have been burnt.
 - New Credits entry in the menu: a staff roll from the MANDELFORCE board with the studio bug, a custom-chip credit and a slow fractal zoom. The staff names are invented, and the Japanese text still needs a native-speaker check. The Japanese uses a pixel font built into the game (DotGothic16, SIL Open Font License, see licenses/), so it looks the same on every device and works offline. Cosmetic only; nothing about scores or saved data changes.
