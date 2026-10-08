@@ -3083,13 +3083,16 @@ function chipPlay(name) {
 }
 // ---- 11. the super laser: the old blast, plus a low hawk cry and a stretched 8-bit screech ----
 function hawkCry(t0, o = {}) {
-  const { f0 = 1300, peak = 1650, end = 800, d = 0.32, v = 0.24, flutter = 26, rough = 0.6 } = o;
+  const { f0 = 1300, peak = 1650, end = 800, d = 0.32, v = 0.24, flutter = 26, rough = 0.6, rev = false } = o;
   const g = actx.createGain(), f1 = actx.createBiquadFilter(), f2 = actx.createBiquadFilter(), mix = actx.createGain(), hp = actx.createBiquadFilter();
   f1.type = 'bandpass'; f1.frequency.value = 2700; f1.Q.value = 3; f2.type = 'bandpass'; f2.frequency.value = 4200; f2.Q.value = 4; hp.type = 'highpass'; hp.frequency.value = 900;
-  for (const [type, det, gv] of [['sawtooth', 0, 1], ['square', 9, 0.5], ['sawtooth', -14, 0.6]]) { const os = actx.createOscillator(), og = actx.createGain(); os.type = type; os.detune.value = det; os.frequency.setValueAtTime(f0, t0); os.frequency.exponentialRampToValueAtTime(peak, t0 + d * 0.15); os.frequency.exponentialRampToValueAtTime(end, t0 + d); const l = actx.createOscillator(), lg = actx.createGain(); l.frequency.value = flutter; lg.gain.value = peak * 0.035; l.connect(lg).connect(os.frequency); og.gain.value = gv; os.connect(og).connect(mix); os.start(t0); os.stop(t0 + d + 0.05); l.start(t0); l.stop(t0 + d + 0.05); }
+  for (const [type, det, gv] of [['sawtooth', 0, 1], ['square', 9, 0.5], ['sawtooth', -14, 0.6]]) { const os = actx.createOscillator(), og = actx.createGain(); os.type = type; os.detune.value = det; if (rev) { os.frequency.setValueAtTime(end, t0); os.frequency.exponentialRampToValueAtTime(peak, t0 + d * 0.85); os.frequency.exponentialRampToValueAtTime(f0, t0 + d); } else { os.frequency.setValueAtTime(f0, t0); os.frequency.exponentialRampToValueAtTime(peak, t0 + d * 0.15); os.frequency.exponentialRampToValueAtTime(end, t0 + d); } const l = actx.createOscillator(), lg = actx.createGain(); l.frequency.value = flutter; lg.gain.value = peak * 0.035; l.connect(lg).connect(os.frequency); og.gain.value = gv; os.connect(og).connect(mix); os.start(t0); os.stop(t0 + d + 0.05); l.start(t0); l.stop(t0 + d + 0.05); }
   mix.connect(hp); hp.connect(f1); hp.connect(f2); f1.connect(g); f2.connect(g);
   const am = actx.createOscillator(), ag = actx.createGain(); am.type = 'square'; am.frequency.value = 55; ag.gain.value = rough * v * 0.5; am.connect(ag).connect(g.gain); am.start(t0); am.stop(t0 + d + 0.05);
-  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.025); g.gain.setValueAtTime(v, t0 + d * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); g.connect(sfxOut());
+  g.gain.setValueAtTime(0.0001, t0);
+  if (rev) { g.gain.exponentialRampToValueAtTime(v, t0 + d * 0.65); g.gain.setValueAtTime(v, t0 + d - 0.025); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); } // swells in, then cuts off as the ship snaps whole
+  else { g.gain.exponentialRampToValueAtTime(v, t0 + 0.025); g.gain.setValueAtTime(v, t0 + d * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); }
+  g.connect(sfxOut());
 }
 function bit8Screech(t, { d = 0.32, f0 = 900, peak = 1700, end = 500, v = 0.085, fl = 18, depth = 90 } = {}) {
   const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(peak, t + d * 0.18); o.frequency.exponentialRampToValueAtTime(end, t + d);
@@ -3249,6 +3252,17 @@ function warnSfx(th) {
   else if (th === 5) fortressSpool(tb);
 }
 const sfxLast = {}, sfxGap = { shot: 5, boom: 4, gboom: 5, bigboom: 10, tink: 6, gun: 6, cannon: 8, hit: 3, hitm: 3, rocket: 10 };
+function rebirthSfx() { // the death boom run backwards: noise swells in while a sweep climbs
+  if (muted || !actx) return;
+  ensureNoise();
+  const t0 = actx.currentTime, d = 0.8, s = actx.createBufferSource(), g = actx.createGain(), fl = actx.createBiquadFilter(), o = actx.createOscillator(), og = actx.createGain();
+  s.buffer = noiseBuf; s.loop = true; fl.type = 'lowpass'; fl.frequency.setValueAtTime(4000, t0); fl.frequency.exponentialRampToValueAtTime(600, t0 + d);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + d * 0.95); g.gain.linearRampToValueAtTime(0, t0 + d);
+  s.connect(fl).connect(g).connect(sfxOut()); s.start(t0); s.stop(t0 + d);
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(60, t0); o.frequency.exponentialRampToValueAtTime(520, t0 + d);
+  og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.06, t0 + d * 0.95); og.gain.linearRampToValueAtTime(0, t0 + d);
+  o.connect(og).connect(sfxOut()); o.start(t0); o.stop(t0 + d + 0.02);
+}
 function sfx(n) {
   if (muted || !actx) return;
   if (sfxLast[n] !== undefined && gf - sfxLast[n] < (sfxGap[n] || 0)) return;
@@ -3262,6 +3276,8 @@ function sfx(n) {
     case 'gboom': boomSfx(1); break;
     case 'bigboom': boomSfx(2); break;
     case 'die': noise(0.8, 0.32); tone(520, 0.7, 'sawtooth', 0.06, 60); break;
+    case 'rebirth': rebirthSfx(); break;
+    case 'rebirthHawk': if (actx) hawkCry(actx.currentTime, { rev: true }); break;
     case 'nova': novaSfx(); break;
     case 'hit': hitSfx(false); break;
     case 'hitm': hitSfx(true); break;
@@ -3730,8 +3746,8 @@ function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
   lives = DIFF.lives[settings.diff]; bombs = 3; ebul.length = 0;
-  Object.assign(player, { dead: 0, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
-  sfx('start');
+  Object.assign(player, { dead: RB_BURST, rbMode: 1, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
+  sfx('rebirth');
 }
 
 /* ---------- resume after the browser reloads the page (Android closes background tabs) ---------- */
@@ -5856,9 +5872,11 @@ function updPlayer() {
   if (p.dead > 0) {
     if (cont > 0) return;
     p.dead--;
+    if (!p.rbMode && p.dead === RB_BURST && !gameOverPending) sfx('rebirth');
+    if (p.dead === 19 && !gameOverPending) sfx('rebirthHawk'); // 0.32 s long, so it cuts off right as the ship snaps whole
     if (p.dead === 0) {
       if (gameOverPending) { p.dead = 1; if (runConts < MAX_CONT) cont = 10 * 60 - 1; else gameOver(); return; }
-      p.x = W / 2; p.y = Math.round(H * 0.71); p.inv = 150; bombs = Math.max(bombs, 3); ebul.length = 0;
+      p.x = W / 2; p.y = Math.round(H * 0.71); p.inv = 150; bombs = Math.max(bombs, 3); ebul.length = 0; p.rbEnd = gf;
     }
     return;
   }
@@ -5891,9 +5909,47 @@ function updPlayer() {
   if (p.dcd === 0 && p.drones) p.dcd = p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26;
   firing();
 }
+/* ---- rebirth: the ship bursts into its own pixels, then the same burst runs backwards ---- */
+const RB_BURST = 50, RB_HOLD = 20, RB_TOTAL = 2 * RB_BURST + RB_HOLD;
+let rbPix = null, rbSrc = null;
+const lerp = (a, b, t) => a + (b - a) * t;
+function rbPixels() { // the sprite cut into 3x3 chunks that travel as one piece
+  const s = (useGold() ? goldSet() : SPR.playerSet)[1];
+  if (rbSrc === s) return rbPix;
+  const d = s.c.getContext('2d').getImageData(0, 0, s.c.width, s.c.height).data, w = s.c.width, h = s.c.height; let seed = 7;
+  const r01 = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  rbPix = []; rbSrc = s;
+  for (let cj = 0; cj < h; cj += 3) for (let ci = 0; ci < w; ci += 3) {
+    const px = [];
+    for (let j = cj; j < Math.min(cj + 3, h); j++) for (let i = ci; i < Math.min(ci + 3, w); i++) { const o = (j * w + i) * 4; if (d[o + 3] >= 128) px.push({ x: i - w / 2, y: j - h / 2, c: [d[o], d[o + 1], d[o + 2]] }); }
+    if (!px.length) continue;
+    const dx = ci + 1.5 - w / 2, dy = cj + 1.5 - h / 2, a = Math.atan2(dy, dx) + (r01() - 0.5) * 1.4, nr = Math.hypot(dx, dy) / (w / 2), sp = (nr * 0.7 + 0.3 + r01() * 0.5) * 38;
+    rbPix.push({ px, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+  }
+  return rbPix;
+}
+function drawRebirth(p) {
+  const sx = W / 2, sy = Math.round(H * 0.71), e = p.rbMode ? RB_BURST + RB_HOLD + (RB_BURST - p.dead) : RB_TOTAL - p.dead;
+  let k, a = 1, cx = sx, cy = sy;
+  if (e < RB_BURST) { k = e / RB_BURST; cx = p.dx; cy = p.dy; }
+  else if (e < RB_BURST + RB_HOLD) { k = 1; const m = (e - RB_BURST) / RB_HOLD, u = m * m * (3 - 2 * m); cx = lerp(p.dx, sx, u); cy = lerp(p.dy, sy, u); }
+  else k = 1 - (e - RB_BURST - RB_HOLD) / RB_BURST;
+  if (gameOverPending && !p.rbMode) { if (e >= RB_BURST) { k = 1; cx = p.dx; cy = p.dy; a = 1 - clamp((e - RB_BURST) / 40, 0, 1); } if (a <= 0) return; }
+  const back = e >= RB_BURST + RB_HOLD, ease = 1 - Math.pow(1 - k, 2.2), heat = back ? k * 0.7 : clamp(1 - k * 1.3, 0, 1); // glowing on the way out, cooling to the real colors on the way back
+  if (e >= RB_BURST + RB_HOLD && k > 0) { const t = k * 44; if (t < 28) { ctx.globalAlpha = 1 - t / 28; dk(cx, cy, t * 1.1, '#ffd060'); dk(cx, cy, t * 0.66, '#ff6a2a'); ctx.globalAlpha = 1; } }
+  ctx.globalAlpha = a;
+  for (const q of rbPixels()) {
+    const mx = cx + q.vx * ease, my = cy + q.vy * ease + k * k * 6;
+    for (const o of q.px) {
+      ctx.fillStyle = 'rgb(' + Math.round(lerp(o.c[0], 255, heat)) + ',' + Math.round(lerp(o.c[1], 150, heat)) + ',' + Math.round(lerp(o.c[2], 60, heat)) + ')';
+      ctx.fillRect(Math.round(mx + o.x), Math.round(my + o.y), 1, 1);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
 function die(cause) {
   const p = player; rrDeath(cause || '?');
-  p.dead = 120; stats.deaths++; p.charge = 0; beam = null; hitStop = 6; boom(p.x, p.y, 30); shake = 12; flashFx = 5; sfx('die'); haptic('die');
+  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; stats.deaths++; p.charge = 0; beam = null; hitStop = 6; boom(p.x, p.y, 30); shake = 12; flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; medalMul = 1; medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
@@ -7252,7 +7308,8 @@ function drawItem(it) {
 function drawPlayerArcs() { drawArcs(); }
 function drawPlayer() {
   const p = player;
-  if (!p || p.dead) return;
+  if (!p) return;
+  if (p.dead) { if (p.dx !== undefined) drawRebirth(p); return; }
   const fk = p.fly > 0 ? (p.flyK || 1) : 1;
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
   const fl = 4 + ((gf >> 1) & 1) * 2;
@@ -7272,8 +7329,10 @@ function drawPlayer() {
   }
   if (p.inv > 0 && !results) {
     const a0 = gf * 0.12, fade2 = p.inv > 40 ? 1 : ((gf >> 2) & 1 ? 1 : 0.3);
-    ctx.globalAlpha = 0.18 * fade2; dk(p.x, p.y, 19, '#a8f6dc'); ctx.globalAlpha = 0.9 * fade2;
-    for (let i = 0; i < 14; i++) { const a = a0 + i * TAU / 14; if (i % 2) continue; for (let k = 0; k < 3; k++) { const aa = a + k * 0.06; ctx.fillStyle = k === 1 ? '#ffffff' : '#a8f6dc'; ctx.fillRect(Math.round(p.x + Math.cos(aa) * 20), Math.round(p.y + Math.sin(aa) * 20), 1, 1); } }
+    const rv = p.rbEnd === undefined ? 99 : gf - p.rbEnd, hk = clamp(1 - rv / 25, 0, 1), rc = hk > 0 ? 'rgb(' + Math.round(lerp(168, 255, hk)) + ',' + Math.round(lerp(246, 140, hk)) + ',' + Math.round(lerp(220, 50, hk)) + ')' : '#a8f6dc';
+    if (rv >= 0 && rv < 4) { ctx.globalAlpha = 1 - rv / 4; dk(p.x, p.y, 8 + rv * 3, '#ffffff'); }
+    ctx.globalAlpha = 0.18 * fade2; dk(p.x, p.y, 19, rc); ctx.globalAlpha = 0.9 * fade2;
+    for (let i = 0; i < 14; i++) { const a = a0 + i * TAU / 14; if (i % 2) continue; for (let k = 0; k < 3; k++) { const aa = a + k * 0.06; ctx.fillStyle = k === 1 ? '#ffffff' : rc; ctx.fillRect(Math.round(p.x + Math.cos(aa) * 20), Math.round(p.y + Math.sin(aa) * 20), 1, 1); } }
     ctx.globalAlpha = 1;
   }
 }
