@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Game over: the wreck keeps burning where the Feuervogel fell, the world slows to a stop and no new enemies appear. After a short pause a four-plane squadron flies over in missing man formation: the rear plane climbs away, growing as it rises while its shadow stays behind, and leaves a gap. A low engine drone plays. It runs behind the leaderboard dialog too. Score, lives, continues and the leaderboard are unchanged.
+- Game over: the wreck keeps burning where the Feuervogel fell, the world slows to a stop and no new enemies appear. After a short pause a four-plane squadron flies over in missing man formation: the rear plane climbs away, growing as it rises while its shadow stays behind, and leaves a gap. A low engine drone plays. Once the squadron has gone, the purple heart of the Feuervogel, a small orb that glowed inside the wreck, lifts free with a soft rising tone and grows as it rises toward the viewer, with a light cone onto the hull. It runs behind the leaderboard dialog too. Score, lives, continues and the leaderboard are unchanged.
 
 ## 1.1.1 update (7 October 2026)
 - Leaderboard: names are left-aligned next to a narrower rank column, leaving room for bigger scores; rank movement (▲/▼/NEW) sits under the rank.

@@ -3092,6 +3092,7 @@ function sfx(n) {
     case 'zap': noise(0.05, 0.05 * mixF, 5200); tone(1900, 0.04, 'square', 0.012 * mixF, 900); break;
     case 'thunder': noise(2.6, 0.32, 260); tone(42, 2.2, 'sine', 0.28, 24); break;
     case 'cancel': [1568, 1976, 2349, 2637, 3136].forEach((f, i) => setTimeout(() => tone(f, 0.07, 'triangle', 0.035), i * 45)); break;
+    case 'orb': tone(196, 2.6, 'sine', 0.035, 392); tone(294, 2.6, 'sine', 0.02, 588); break;
     case 'flyby': tone(70, 4.5, 'sawtooth', 0.035, 62); tone(140, 4.5, 'square', 0.012, 124); noise(4.5, 0.04, 350); break;
     case 'spool': tone(40, 1.9, 'sawtooth', 0.09, 160); tone(80, 1.9, 'square', 0.03, 320); noise(1.9, 0.12, 400); break;
     case 'liftoff': tone(60, 2.4, 'sawtooth', 0.12, 30); noise(2.4, 0.3, 600); tone(30, 2, 'sine', 0.4, 22); break;
@@ -3339,14 +3340,27 @@ function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + 
 const selX = i => Math.round((W - (6 * SEL.w + 5 * SEL.gap)) / 2) + i * (SEL.w + SEL.gap);
 function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; for (let i = 0; i < 6; i++) if (gx >= selX(i) && gx <= selX(i) + SEL.w) return i + 1; return 0; }
 function lbEligible() { return score > 0 && (endless || runStart === 1); }
-/* game over: the burning wreck, then a squadron flies over in missing man formation. Nothing here touches score, lives or the leaderboard. */
-const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3;
+/* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
+   (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
+const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 150;
+const ORB = (() => {
+  const [c, x] = mk(15, 15), ramp = ['#2a1a5a', '#5a3aa8', '#8466dc', '#bba4ff', '#e8dcff'];
+  for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) {
+    const d = Math.hypot(i, j); if (d > 6.4) continue;
+    let l = 1 - d / 6 * 0.55 - (i + j) / 6 * 0.35; if (d > 5.1) l = Math.min(l, 0.15);
+    x.fillStyle = ramp[Math.max(0, Math.min(4, Math.floor(l * 4.2)))]; x.fillRect(i + 7, j + 7, 1, 1);
+  }
+  x.fillStyle = '#ffffff'; x.fillRect(4, 4, 2, 1); x.fillRect(4, 5, 1, 1);
+  return c;
+})();
 let flyby = null;
 function startFlyby() {
   const p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H - 110), s0: scroll };
+  const tO = FLYBY_IN + Math.ceil((H + 90) / FLYBY_SPD) + 20; // the orb is released a moment after the last plane has left the screen
+  flyby = { t: 0, pt: 0, tO, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H - 110), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   later.push({ at: gf + FLYBY_IN - 15, fn: () => { if (state === 'over' && flyby) sfx('flyby'); } });
+  later.push({ at: gf + tO, fn: () => { if (state === 'over' && flyby) sfx('orb'); } });
 }
 function updFlyby() {
   const f = flyby; if (!f) return;
@@ -3359,14 +3373,27 @@ function updFlyby() {
 }
 function drawFlyby() {
   const f = flyby; if (!f) return;
-  const wx = f.x, wy = f.y + scroll - f.s0, pul = (gf >> 4) & 1;
-  ctx.globalAlpha = 0.14 + 0.05 * pul; dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 0.16; dk(wx, wy, 14, '#ff8a3a'); ctx.globalAlpha = 1;
+  const wx = f.x, wy = f.y + scroll - f.s0, pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
+  const rel = clamp((f.t - f.tO) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it hovers free
+  const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e, gs = 0.55 + 0.45 * e;
+  ctx.globalAlpha = 0.12 + 0.04 * pul; dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
   shadow(SPR.player, wx, wy, 0, 0, 0.9);
-  ctx.fillStyle = pul ? '#ffb040' : '#e8642a'; ctx.fillRect(Math.round(wx) - 2, Math.round(wy), 3, 2); ctx.fillRect(Math.round(wx) + 3, Math.round(wy) + 3, 2, 1);
+  if (e > 0.02) { // light cone from the free orb down onto the hull
+    ctx.globalAlpha = 0.28 * e; ctx.fillStyle = '#a58cff'; ctx.beginPath(); ctx.moveTo(ox - 3, oy); ctx.lineTo(ox + 3, oy); ctx.lineTo(wx + 24, wy + 8); ctx.lineTo(wx - 24, wy + 8); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  for (const [r, a] of [[46, 0.09], [34, 0.12], [23, 0.16], [14, 0.22]]) { ctx.globalAlpha = a * (0.6 + 0.4 * pul) * gs; dk(ox, oy, r * (0.5 + 0.5 * gs), '#8466dc'); }
+  ctx.globalAlpha = 1;
+  ctx.drawImage(ORB, Math.round(ox - 7.5 * sc), Math.round(oy - 7.5 * sc), Math.round(15 * sc), Math.round(15 * sc));
+  if (e > 0.25) { // motes circle the orb, sparks rise from the wreck
+    for (let k = 0; k < 5; k++) { const a = f.t * 0.035 + k * 1.26; ctx.fillStyle = Math.sin(a) > 0 ? '#e8dcff' : '#8466dc'; ctx.globalAlpha = e; ctx.fillRect(Math.round(ox + Math.cos(a) * 15 * sc), Math.round(oy + Math.sin(a) * 5.5 * sc), 1, 1); }
+    ctx.fillStyle = '#bba4ff';
+    for (let k = 0; k < 6; k++) { const age = (f.t * 0.8 + k * 37) % 110; ctx.globalAlpha = (1 - age / 110) * e; ctx.fillRect(Math.round(ox + Math.sin(k * 2.3 + age * 0.06) * 9), Math.round(wy - 6 - age * 0.35), 1, 1); }
+    ctx.globalAlpha = 1;
+  }
   const tt = f.t - FLYBY_IN; if (tt <= 0) return;
   const lead = H + 40 - FLYBY_SPD * tt, s = SPR.fighter[dirIdx(-PI / 2)];
-  for (const [ox, oy, leave] of FLYBY_FORM) {
-    const gx = wx + ox, gy = lead + oy; let x = gx, y = gy, k = 1;
+  for (const [fx, fy, leave] of FLYBY_FORM) {
+    const gx = wx + fx, gy = lead + fy; let x = gx, y = gy, k = 1;
     if (leave && f.pt) { const q = Math.min(1, (f.t - f.pt) / 100); k = 1 + 0.9 * q; y -= 150 * q * q + Math.max(0, f.t - f.pt - 100) * 3.2; x += 10 * q; }
     if (y < -40) continue;
     shadow(s, gx, gy, 3 + (k - 1) * 8, 5 + (k - 1) * 10, 0.28);
