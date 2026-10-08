@@ -157,6 +157,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
 }
 #bombBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #120e1a}
+body[data-boot="1"] #menuBtn{display:none}
 body[data-state="play"] #pauseBtn{display:grid}
 body[data-state="play"] #bombBtn{display:block}
 #bombBtn.tutHi{outline:3px dashed #a8f6dc;outline-offset:5px;animation:tutHi 1s ease-in-out infinite}
@@ -174,7 +175,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 @media (pointer:coarse){#hint{display:none}}
 </style>
 </head>
-<body data-state="title">
+<body data-state="title" data-boot="1">
 <div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>FEUERVOGEL 89 plays in portrait.</p></div></div>
 <div id="app">
   <div id="stage">
@@ -1624,7 +1625,7 @@ function drawBoot() {
   for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
   ctx.globalAlpha = 1;
 }
-function endBoot() { if (booting && bootT > 40) booting = false; }
+function endBoot() { if (booting && bootT > 40) { booting = false; delete document.body.dataset.boot; } }
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
 function drawTitleCredit(y) {
   const cm = logoBits(COPYRIGHT, 1, 'copy'), tw = textW('1989 MANDELFORCE', 1), x0 = Math.round(W / 2 - (cm.width + 3 + tw) / 2);
@@ -6106,7 +6107,7 @@ function pollPad() {
   }
 }
 function update() {
-  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) booting = false; return; }
+  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) { booting = false; delete document.body.dataset.boot; } return; }
   SPOS = null;
   if (state === 'play' && !paused && resumeT <= 0) heatTick();
   if (state === 'play' && !paused && resumeT > 0) { resumeT--; return; }
