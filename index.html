@@ -5901,6 +5901,7 @@ function updPlayer() {
     if (k === 18) { flash(p.x, p.y + 14, 6); shake = Math.max(shake, 2); }
     if (gf % 2 === 0 && p.y > -20) parts.push({ kind: 'fire', layer: 'a', x: p.x + rnd(-2, 2), y: p.y + 18, vx: 0, vy: 1.5, life: 14, max: 14, r: 3 });
     if (p.exitT === 0) p.y = -60;
+    for (let i = 0; i < p.drones; i++) { p.dr[i].x = p.x + (i ? 17 : -17); p.dr[i].y = p.y + 7; } // Talon drones leave with the ship
     return;
   }
   if (p.y < -40 && !(p.fly > 0)) return;

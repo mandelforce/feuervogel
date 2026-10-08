@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.3 (9 October 2026)
+- Fixed: when a stage ends, the Talon drones now fly off with the Feuervogel instead of staying behind (player 2's ship already rode along).
 - Easy is much gentler: about a third fewer enemy bullets, smaller boss rings, slower bullets and slower enemy fire, and the stage difficulty ramps up more slowly.
 - Easy: sparser enemy waves and ground units, most of all in Stage 1.
 - Easy: start with 4 Nova bombs (was 3), the super laser allows three shots before it overheats (was two), and you get a third continue. Scores from a three-continue run are submitted as two continues, since only a run with none earns the star.
