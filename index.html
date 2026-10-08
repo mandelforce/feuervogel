@@ -3342,7 +3342,7 @@ function selectorHit(gx, gy) { if (gy < SEL.y || gy > SEL.y + SEL.h) return 0; f
 function lbEligible() { return score > 0 && (endless || runStart === 1); }
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
-const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 150;
+const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100;
 const ORB = (() => {
   const [c, x] = mk(15, 15), ramp = ['#2a1a5a', '#5a3aa8', '#8466dc', '#bba4ff', '#e8dcff'];
   for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) {
@@ -3356,11 +3356,17 @@ const ORB = (() => {
 let flyby = null;
 function startFlyby() {
   const p = player; if (!p) return;
-  const tO = FLYBY_IN + Math.ceil((H + 90) / FLYBY_SPD) + 20; // the orb is released a moment after the last plane has left the screen
-  flyby = { t: 0, pt: 0, tO, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H - 110), s0: scroll };
+  flyby = { t: 0, pt: 0, rt: -1, skip: false, x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H - 110), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
+  if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
   later.push({ at: gf + FLYBY_IN - 15, fn: () => { if (state === 'over' && flyby) sfx('flyby'); } });
-  later.push({ at: gf + tO, fn: () => { if (state === 'over' && flyby) sfx('orb'); } });
+}
+// Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
+function leaveOver(auto) {
+  const f = flyby;
+  if (!f) { toTitle(); return; }
+  if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
+  f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
 function updFlyby() {
   const f = flyby; if (!f) return;
@@ -3368,13 +3374,14 @@ function updFlyby() {
   f.t++;
   const wy = f.y + scroll - f.s0;
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
+  if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
   if (gf % 4 === 0) smokePuff(f.x, wy - 4);
   if (gf % 9 === 0) parts.push({ kind: 'spark', layer: 'a', x: f.x + rnd(-4, 4), y: wy, vx: rnd(-0.2, 0.2), vy: rnd(-0.8, -0.3), life: 30, max: 30, col: '#f8a83a' });
 }
 function drawFlyby() {
   const f = flyby; if (!f) return;
   const wx = f.x, wy = f.y + scroll - f.s0, pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
-  const rel = clamp((f.t - f.tO) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it hovers free
+  const rel = f.rt < 0 ? 0 : clamp((f.t - f.rt) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it has risen free
   const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e, gs = 0.55 + 0.45 * e;
   ctx.globalAlpha = 0.12 + 0.04 * pul; dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
   shadow(SPR.player, wx, wy, 0, 0, 0.9);
@@ -3390,7 +3397,7 @@ function drawFlyby() {
     for (let k = 0; k < 6; k++) { const age = (f.t * 0.8 + k * 37) % 110; ctx.globalAlpha = (1 - age / 110) * e; ctx.fillRect(Math.round(ox + Math.sin(k * 2.3 + age * 0.06) * 9), Math.round(wy - 6 - age * 0.35), 1, 1); }
     ctx.globalAlpha = 1;
   }
-  const tt = f.t - FLYBY_IN; if (tt <= 0) return;
+  const tt = f.t - FLYBY_IN; if (tt <= 0 || f.skip) return;
   const lead = H + 40 - FLYBY_SPD * tt, s = SPR.fighter[dirIdx(-PI / 2)];
   for (const [fx, fy, leave] of FLYBY_FORM) {
     const gx = wx + fx, gy = lead + fy; let x = gx, y = gy, k = 1;
@@ -3459,7 +3466,7 @@ function openLB(kind) {
     lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
   }
 }
-function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (state === 'over') toTitle(); }
+function closeLB() { lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (state === 'over') leaveOver(); }
 function lbRow(list, i, t) { const li = document.createElement('li'); li.className = (t.me ? 'me ' : '') + (i < 3 ? 'g' + (i + 1) : '') + (t.flash ? ' flash' : '') + (t.pulse ? ' pulse' : ''); const a = document.createElement('span'); a.className = 'rk'; a.textContent = i + 1; if (t.mv) { const m = document.createElement('span'); m.className = 'mv ' + (t.mv > 0 ? 'up' : 'dn'); m.textContent = (t.mv > 0 ? '▲' : '▼') + Math.abs(t.mv); a.appendChild(m); } else if (t.isNew) { const m = document.createElement('span'); m.className = 'nw'; m.textContent = 'NEW'; a.appendChild(m); } const b = document.createElement('span'); b.className = 'nm'; b.textContent = t.name; if (t.tag) { const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = '#' + t.tag; b.appendChild(tg); } if (t.star) { const sr = document.createElement('span'); sr.className = 'star'; sr.textContent = '★'; sr.title = 'No continues used'; b.appendChild(sr); } const c = document.createElement('span'); c.className = 'sc'; c.textContent = Number(t.score).toLocaleString('en-US'); const st = document.createElement('span'); st.className = 'st'; st.textContent = 'stage ' + t.stage; c.appendChild(st); li.append(a, b, c); list.appendChild(li); }
 async function lbLoad() {
   lbSync(); const list = lbEl('lbList'); list.innerHTML = '';
@@ -5467,7 +5474,7 @@ function pollPad() {
   if (gpad.any || nav.up || nav.down || nav.left || nav.right) { audio(); padSeen = gf; if (!document.body.dataset.pad) document.body.dataset.pad = '1'; }
   if (padMenus(nav)) return;
   if (state === 'title') { padTitle(nav); return; }
-  else if (state === 'over' && gpad.any && overT > 60) toTitle();
+  else if (state === 'over' && gpad.any && overT > 60) leaveOver();
   else if (state === 'play') {
     if (gpad.start) togglePause();
     else if (paused) { if (gpad.a) togglePause(); }
@@ -5525,7 +5532,7 @@ function update() {
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
   if (state === 'title') { if (flyby) { flyby = null; quiet = false; } return; }
-  if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) { toTitle(); return; } }
+  if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) leaveOver(true); }
   if (state === 'play' && !paused && !results) { runFrames++; if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
 
   updFlyby();
@@ -6847,7 +6854,7 @@ addEventListener('keydown', e => {
   if (state !== 'play') {
     if (go && state === 'title') openDiff('camp', 1);
     else if (state === 'title' && k >= '1' && k <= '6') openDiff('practice', +k);
-    else if (go && state === 'over' && overT > 60) toTitle();
+    else if (go && state === 'over' && overT > 60) leaveOver();
     return;
   }
   if (results || congrats) { if (go) skipResults(); return; }
@@ -6862,7 +6869,7 @@ let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
   if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (tutQHit(gx0, gy0)) openHowTo(); else if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); else { const n = selectorHit(gx0, gy0); if (n) openDiff('practice', n); } }
-  else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
+  else if (state === 'over') { if (lbOpen) return; if (overT > 60) leaveOver(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
   else if (results || congrats) { skipResults(); return; }
