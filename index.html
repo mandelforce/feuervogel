@@ -52,7 +52,7 @@ body{
 }
 #app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:8px}
 #stage{position:relative;line-height:0}
-#tutBox{position:absolute;left:2%;right:2%;top:calc(env(safe-area-inset-top,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
+#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
 #tutBox.on{display:block}
 #tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
 #tutText b{color:#fff0a0;font-weight:400}
@@ -106,6 +106,17 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #howto .help{margin:4px 0 10px;border:0;padding:0}
 #howto h3{margin:12px 0 8px;font-size:16px;color:#fff0a0}
 #howto .tip{background:#2a2050;border-left:3px solid #a8f6dc;padding:8px 10px;font-size:13px;line-height:1.35;margin:0 0 6px}
+#howto .help p{font-size:13px;line-height:1.35;margin:0 0 6px;color:#f2ecd8}
+#howto .help ul{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 8px}
+#howto .help ul.one{grid-template-columns:1fr}
+#howto .help li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:center;font-size:13px;line-height:1.25}
+#howto .help b{display:block;color:#fff0a0;font-weight:600}
+#howto .help li span{color:#c8bce8}
+#howto .help .hint{font-size:12px;color:#a99cc8;margin:2px 0 0}
+#howto details{margin:10px 0 0;border-top:2px solid #3a3060;padding-top:8px}
+#howto summary{cursor:pointer;font-size:14px;color:#c8bce8;padding:4px 0}
+#howto details p{margin:6px 0 0;color:#c8bce8}
+#howto details b{display:inline;color:#fff0a0;font-weight:600}
 #settings .help{margin:14px 0 6px;border-top:2px solid #3a3060;padding-top:10px}
 #settings .help h3{margin:0 0 8px;font-size:16px;color:#fff0a0}
 #settings .help ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:7px}
@@ -292,6 +303,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
+        <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
+        <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
         <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
@@ -304,7 +317,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.2.0'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.2'; // shown on the title screen and sent with scores; also update VERSION in sw.js
 const W = 224, H = Math.max(320, Math.min(500, Math.round(224 * ((window.innerHeight || 640) / (window.innerWidth || 448))) - 2)), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
 const cv = document.getElementById('game');
@@ -314,10 +327,25 @@ ctx.imageSmoothingEnabled = false;
 const OUT = '#120e1a';
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a, b) => a + Math.random() * (b - a);
+// Every key the game saves on the device. The names are fixed: renaming one would reset players' progress.
+const KEY = {
+  settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
+  arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
+  status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun'
+};
+// localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
+const store = {
+  get(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch (e) { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, String(value)); } catch (e) {} },
+  remove(key) { try { localStorage.removeItem(key); } catch (e) {} },
+  getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+};
 const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off' };
-try { Object.assign(settings, JSON.parse(localStorage.getItem('starfall-settings') || '{}')); } catch (e) {}
+Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.mode = 'camp'; settings.hap = false;
-function saveSettings() { try { localStorage.setItem('starfall-settings', JSON.stringify(settings)); } catch (e) {} }
+function saveSettings() { store.setJSON(KEY.settings, settings); }
 const DIFF = { bs: [1, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [0, 0, 0], bombs: [3, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [1, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.5, 1.3, 1.15] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
 function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? 1 : 0)) * DIFF.rank[settings.diff]; }
@@ -2492,7 +2520,7 @@ const musicBase = () => settings.musicOn === false ? 0 : 0.55 * settings.music /
 function applyVolumes() { if (!actx) return; musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(musicBase(), actx.currentTime); sfxBus.gain.setValueAtTime(sfxBase(), actx.currentTime); }
 let musicBus = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
 const IOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-try { muted = localStorage.getItem('starfall44-muted') === '1'; } catch (e) {}
+muted = store.get(KEY.muted) === '1';
 function setupBuses() {
   master = actx.createGain(); master.gain.value = 1;
   let routed = false;
@@ -3150,27 +3178,6 @@ const HAPT = {
   warn: [70, 90, 70, 90, 70, 90, 140], extend: [20, 40, 20, 40, 70], charge: [6, 90, 6, 70, 8, 50, 8, 35, 10, 25, 12, 15, 14],
   chainLost: [30, 50, 30], test: [20, 60, 40, 60, 80, 60, 140]
 };
-const CAN_VIBRATE = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-let hapBusy = 0, hapLight = 0, iosLabel = null, iosTimers = [];
-if (!CAN_VIBRATE && IOS) {
-  try {
-    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('switch', ''); inp.id = 'hapticSwitch';
-    inp.setAttribute('aria-hidden', 'true'); inp.tabIndex = -1;
-    inp.style.cssText = 'position:fixed;left:-200px;top:0;opacity:0;pointer-events:none;width:1px;height:1px';
-    const lab = document.createElement('label'); lab.htmlFor = 'hapticSwitch'; lab.setAttribute('aria-hidden', 'true');
-    lab.style.cssText = inp.style.cssText;
-    document.body.appendChild(inp); document.body.appendChild(lab); iosLabel = lab;
-  } catch (e) { iosLabel = null; }
-}
-function iosPattern(pat) {
-  if (!iosLabel) return;
-  let t = 0;
-  for (let i = 0; i < pat.length; i += 2) {
-    const n = Math.max(1, Math.round(pat[i] / 45));
-    for (let k = 0; k < n; k++) iosTimers.push(setTimeout(() => { try { iosLabel.click(); } catch (e) {} }, t + k * 45));
-    t += pat[i] + (pat[i + 1] || 0);
-  }
-}
 let padIdx = -1;
 function padRumble(ms, strong, weak) {
   if (settings.rumble === false || padIdx < 0) return;
@@ -3178,13 +3185,6 @@ function padRumble(ms, strong, weak) {
 }
 function haptic(name) {
   { const pat = HAPT[name]; if (pat && padIdx >= 0) { const on = pat.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0); padRumble(Math.min(600, Math.max(40, on)), Math.min(1, on / 300), Math.min(1, 0.3 + on / 500)); } }
-  return;
-  const pat = HAPT[name]; if (!pat) return;
-  const now = performance.now(), total = pat.reduce((a, b) => a + b, 0), heavy = total > 45;
-  if (!heavy) { if (now < hapBusy || now - hapLight < (name === 'hit' ? 110 : 60)) return; hapLight = now; }
-  else { if (now < hapBusy && total < 300) return; hapBusy = now + total; iosTimers.forEach(clearTimeout); iosTimers = []; }
-  if (CAN_VIBRATE) { try { navigator.vibrate(pat); } catch (e) {} }
-  else iosPattern(pat);
 }
 function nzSrc(t, d, v, type, freq, Q = 1) { const s2 = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(); s2.buffer = noiseBuf; s2.loop = true; fl.type = type; fl.frequency.value = freq; fl.Q.value = Q; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s2.connect(fl).connect(g).connect(sfxOut()); s2.start(t); s2.stop(t + d + 0.02); return g; }
 function shipHorn(t) {
@@ -3341,19 +3341,19 @@ let player = null, shots = [], ebul = [], enemies = [], items = [], parts = [], 
 let msg = null, shake = 0, bombFx = 0, bombX = 0, bombY = 0, flashFx = 0;
 let waveCd = 60, groundCd = 30, podCd = 300, midDone = false, bossSpawned = false, cont = 0, credits = 0, runConts = 0;
 const MAX_CONT = 2;
-try { hi = +localStorage.getItem('starfall44-hi') || 0; } catch (e) {}
+hi = +store.get(KEY.hi) || 0;
 const SCROLL = 0.4;
 let scrollV = SCROLL, scrollTarget = SCROLL;
 const STAGE_NAMES = ['CROSS THE CHANNEL', 'THE WINTER LINE', 'SEA OF SAND', 'THE LONG NIGHT', 'THE IRON FOREST', 'THE BURNING CITY'];
 let nightF = 0, snowF = 0, dustF = 0, spotted = 0, birdCd = 300;
 let trainDone = false, quiet = false; const trainBonus = {};
 let fade = null, mixF = 1, congrats = null, congratsShown = 0;
-let loopsWon = 0; try { loopsWon = +localStorage.getItem('starfall-loops') || 0; } catch (e) {}
+let loopsWon = +store.get(KEY.loops) || 0;
 const newCamp = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, secrets: 0, t0: 0, frames: 0, credits0: 0 });
 let camp = newCamp();
 let endless = false, endlessBest = { score: 0, stage: 0 };
-try { endlessBest = Object.assign(endlessBest, JSON.parse(localStorage.getItem('starfall-endless') || '{}')); } catch (e) {}
-function saveEndless() { if (!endless) return; let ch = false; if (score > endlessBest.score) { endlessBest.score = score; ch = true; } if (stage > endlessBest.stage) { endlessBest.stage = stage; ch = true; } if (ch) try { localStorage.setItem('starfall-endless', JSON.stringify(endlessBest)); } catch (e) {} }
+endlessBest = Object.assign(endlessBest, store.getJSON(KEY.endless, {}));
+function saveEndless() { if (!endless) return; let ch = false; if (score > endlessBest.score) { endlessBest.score = score; ch = true; } if (stage > endlessBest.stage) { endlessBest.stage = stage; ch = true; } if (ch) store.setJSON(KEY.endless, endlessBest); }
 function stageLabel(st) { if (endless) return String(st); return String(((st - 1) % 6) + 1) + '+'.repeat(Math.floor((st - 1) / 6)); }
 let hitStop = 0, slowT = 0, results = null, secret = null, trainLeft = {}, trainId = 0;
 const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0, maxMul: 1 });
@@ -3361,7 +3361,7 @@ let guardCount = 0;
 const GUARDED = new Set(['flak', 'bunker', 'casemate', 'aatower', 'search', 'fuel', 'hangar', 'tower', 'crate', 'shells', 'drums', 'camo', 'popup', 'arty', 'radar', 'gen']);
 const NOCOUNT = new Set(['troop', 'secret', 'bridge', 'crate', 'sandbag', 'camo', 'missile', 'parked']);
 let stats = newStats();
-let arts = new Set(); try { arts = new Set(JSON.parse(localStorage.getItem('starfall-arts') || '[]')); } catch (e) {}
+let arts = new Set(store.getJSON(KEY.arts, []));
 let beam = null, gpad = null, padPrev = {};
 // 2nd player (PC only): flies with the mouse or a controller, mirrors player 1's weapon and respawns on its own
 let p2 = null, run2P = false, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
@@ -3419,7 +3419,7 @@ const glints = [];
 for (let i = 0; i < 26; i++) glints.push({ x: rnd(0, W), y: rnd(0, H), life: (Math.random() * 60) | 0 });
 
 function saveHi() {
-  if (tut) return; try { localStorage.setItem('starfall44-hi', String(Math.floor(hi))); } catch (e) {} }
+  if (tut) return; store.set(KEY.hi, Math.floor(hi)); }
 function showMsg(a, b, dur) { msg = { a, b, t: dur }; }
 
 let drandS = 1;
@@ -3441,7 +3441,7 @@ function newGame() {
   midDone = false; bossSpawned = false;
   state = 'play'; paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); camp = newCamp(); camp.credits0 = credits; congrats = null; congratsShown = 0;
-  sfx('start'); cont = 0; playSong('stage'); player.fly = 110; seedStage(); fade = { t: 0, phase: 'in' }; stats = newStats(); newSecret(); results = null; hitStop = 0; slowT = 0;
+  sfx('start'); cont = 0; playSong('stage'); player.fly = 110; seedStage(); fade = { t: 0, phase: 'in' }; stats = newStats(); newSecret(); results = null; hitStop = 0; slowT = 0; rrNew();
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
 const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker
@@ -3452,7 +3452,7 @@ const tutPad = () => gf - padSeen < 1800;
 function startTutorial() {
   closeAllPanels();
   startAt(1); tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
-  runStart = 99; try { localStorage.setItem('starfall-tut', '1'); } catch (e) {}
+  runStart = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
 function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
@@ -3472,7 +3472,7 @@ function tutTick() {
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
       if (T.t > 60 && !tutAlive()) { if (T.ids.every(e => e.dead && e.y < H)) tutNext(); else { T.t = 0; T.ids = []; } } break; }
     case 2: { // power-up
-      if (T.t === 1) { T.got = 0; tutSpawn(E('pod', { x: W / 2, y: -16, hp: 3, hw: 9, hh: 10, score: 300 })); }
+      if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, hw: 9, hh: 10, score: 300, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
     case 3: { // medals and multiplier
       if (T.t === 1) { T.m0 = stats.medals; T.best = 1; }
@@ -3504,7 +3504,7 @@ const TUT_TEXT = () => {
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the supply container</b> and collect the power-up that drops out.',
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
     '<b>Collect medals quickly, one after another:</b> the multiplier rises up to x10. Wait too long and it resets.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
     (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the Nova button in the bottom right corner</b>') + ': it wipes out all enemy bullets.',
@@ -3592,7 +3592,7 @@ function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 function lbEligible() { return score > 0 && (endless || runStart === 1) && !run2P; } // 2-player runs stay off the boards
-function gameOver() { clearResume(); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
+function gameOver() { clearResume(); rrSend('over'); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
 // Local/test builds never post scores to the live board (reading it is fine).
@@ -3601,31 +3601,85 @@ const LB_PLAT = H > 330 ? 'mobile' : 'pc';
 let runStart = 1, runDiff = 1, newBestT = 0, newBestDone = false, localBest = -1;
 function computeLocalBest() { const mode = endless ? 'endless' : 'camp'; localBest = 0; for (const r of localRuns()) if (r.mode === mode && r.diff === runDiff && r.plat === LB_PLAT) localBest = Math.max(localBest, r.score); }
 let lbOpen = false, lbRun = null, lbView = { src: LB_URL ? 'online' : 'local', mode: 'camp', plat: LB_PLAT, diff: 1, period: 'all' }, runFrames = 0;
+/* ---------- run reports: anonymous play data (stage and boss times, deaths, weapons, inputs) ---------- */
+// One small report per run, sent when it ends (game over, quit, or the page was left mid-run). It never touches scores
+// or the boards. Test builds and players who switch it off in Settings send nothing; test builds keep the last one in rrLast.
+let rr = null, rrIn = 'key', rrLast = null;
+const rrSec = f => Math.round(f / 6) / 10;
+function rrNew() {
+  let last = 0, tutSeen = 0;
+  last = +store.get(KEY.lastRun) || 0; tutSeen = store.get(KEY.tut) ? 1 : 0;
+  rr = { gap: last ? Math.round((Date.now() - last) / 1000) : -1, tut: tutSeen, inp: {}, pk: {}, st: [], dt: [], cur: null };
+}
+function rrStage() { // a stage begins (also a resumed or practice start)
+  if (!rr) return;
+  if (rr.cur && !rr.cur.ok) rr.cur.end = rr.cur.end || 'left';
+  rr.cur = { s: stage, th: curTheme, t: 0, b: 0, boss: 0, ok: 0, d: 0, nb: 0, w: {}, lv: player ? player.lvl : 1 };
+  if (rr.st.length < 120) rr.st.push(rr.cur);
+}
+function rrTick() { // once per played frame
+  const c = rr && rr.cur; if (!c || c.ok || !player) return;
+  if (c.boss) c.b++; else c.t++;
+  c.w[player.wpn] = (c.w[player.wpn] || 0) + 1; if (player.lvl > c.lv) c.lv = player.lvl;
+  if (gpad && (gpad.dx || gpad.dy)) rrIn = 'pad';
+  rr.inp[rrIn] = (rr.inp[rrIn] || 0) + 1;
+}
+function rrDeath(cause) {
+  const c = rr && rr.cur; if (!c) return;
+  c.d++;
+  if (rr.dt.length < 100) rr.dt.push({ s: stage, th: curTheme, t: rrSec(c.t + c.b), boss: c.boss, c: cause, w: player.wpn, lv: player.lvl });
+}
+function rrPayload(end) {
+  const sec = o => { const r = {}; for (const k in o) r[k] = rrSec(o[k]); return r; };
+  return { player: lbPlayer(), v: VERSION, mode: endless ? 'endless' : 'camp', diff: runDiff, plat: LB_PLAT, start: runStart, twoP: run2P ? 1 : 0,
+    stage, score, conts: runConts, dur: rrSec(runFrames), end, n: 0, gap: rr.gap, tut: rr.tut, inp: sec(rr.inp), pk: rr.pk,
+    st: rr.st.map(c => ({ s: c.s, th: c.th, t: rrSec(c.t), b: rrSec(c.b), boss: c.boss, ok: c.ok, end: c.ok ? 'clear' : c.end || end, d: c.d, nb: c.nb, w: sec(c.w), lv: c.lv })), dt: rr.dt };
+}
+function rrPost(p) { // p.n: how many reported runs this device has played, this one included
+  p.n = (+store.get(KEY.runs) || 0) + 1; store.set(KEY.runs, p.n); store.set(KEY.lastRun, Date.now()); store.remove(KEY.report);
+  if (LB_TEST) { rrLast = p; return; }
+  if (!LB_URL || settings.share === false) return;
+  const body = JSON.stringify(p);
+  try { if (navigator.sendBeacon && navigator.sendBeacon(LB_URL + '/report', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+  fetch(LB_URL + '/report', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+}
+function rrSend(end) { // the run is over
+  if (!rr) return;
+  if (runStart !== 99 && runFrames > 0) rrPost(rrPayload(end)); // tutorial runs are not reported
+  rr = null;
+}
+function rrPark() { // the page is hidden mid-run: keep the report in case the browser closes it
+  if (!rr || state !== 'play' || runStart === 99) return;
+  store.setJSON(KEY.report, { p: rrPayload('left'), rr });
+}
+function rrUnpark() { store.remove(KEY.report); }
+function rrParked() { return store.getJSON(KEY.report); }
+function rrFlushParked() { const k = rrParked(); if (k && k.p) rrPost(k.p); else rrUnpark(); } // the run was left and not resumed
 const lbEl = id => document.getElementById(id);
 function lbPlayer() {
-  let p = null; try { p = localStorage.getItem('starfall-player'); } catch (e) {}
-  if (!p || !/^[A-Za-z0-9-]{16,40}$/.test(p)) { const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); p = 'p-' + [...a].map(b => b.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem('starfall-player', p); } catch (e) {} }
+  let p = store.get(KEY.player);
+  if (!p || !/^[A-Za-z0-9-]{16,40}$/.test(p)) { const a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); p = 'p-' + [...a].map(b => b.toString(16).padStart(2, '0')).join(''); store.set(KEY.player, p); }
   return p;
 }
 function isoWeekC(ms) { const d = new Date(ms); d.setUTCHours(0, 0, 0, 0); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); const y = d.getUTCFullYear(); return y + '-W' + String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0'); }
-function localRuns() { try { return JSON.parse(localStorage.getItem('starfall-local') || '[]'); } catch (e) { return []; } }
+function localRuns() { return store.getJSON(KEY.local, []); }
 let lastLocalT = 0;
 function saveLocal(run, name) {
   if (!run || run.saved) return; run.saved = true;
   const L = localRuns(); lastLocalT = Date.now();
   L.push({ name: name || 'PLAYER', score: run.score, stage: run.stage, mode: run.mode, plat: run.plat, diff: run.diff, conts: run.conts, t: lastLocalT });
-  L.sort((a, b) => b.score - a.score); try { localStorage.setItem('starfall-local', JSON.stringify(L.slice(0, 300))); } catch (e) {}
+  L.sort((a, b) => b.score - a.score); store.setJSON(KEY.local, L.slice(0, 300));
 }
 function lbMsg(t) { lbEl('lbMsg').textContent = t || ''; }
 function lbSync() { for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(lbView[key]) === b.dataset.v)); }
 // ---- what changed since you last looked: one small request when the game starts ----
-function lbSeen() { try { return JSON.parse(localStorage.getItem('starfall-seen') || '{}'); } catch (e) { return {}; } }
-function lbSeenSave(o) { try { localStorage.setItem('starfall-seen', JSON.stringify(o)); } catch (e) {} }
+function lbSeen() { return store.getJSON(KEY.seen, {}); }
+function lbSeenSave(o) { store.setJSON(KEY.seen, o); }
 let lbAlert = null, lbAlertBoard = null;
-function lbClearAlert(key) { if (lbAlertBoard === key) { lbAlert = null; lbAlertBoard = null; } try { const st = JSON.parse(localStorage.getItem('starfall-status') || '{}'); st.at = Date.now(); localStorage.setItem('starfall-status', JSON.stringify(st)); } catch (e) {} }
+function lbClearAlert(key) { if (lbAlertBoard === key) { lbAlert = null; lbAlertBoard = null; } const st = store.getJSON(KEY.status, {}); st.at = Date.now(); store.setJSON(KEY.status, st); }
 async function lbStatus() {
   if (!LB_URL) return;
-  let st = {}; try { st = JSON.parse(localStorage.getItem('starfall-status') || '{}'); } catch (e) {}
+  let st = store.getJSON(KEY.status, {});
   try {
     const r = await fetch(LB_URL + '/status?player=' + encodeURIComponent(lbPlayer()) + '&since=' + (st.at || 0)); if (!r.ok) return;
     const d = await r.json(), seen = lbSeen();
@@ -3645,7 +3699,7 @@ function openLB(kind) {
     lbEl('lbPanel').classList.toggle('below', state === 'over');
     lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
     lbEl('lbScore').textContent = 'Score ' + lbRun.score + ', stage ' + stageLabel(lbRun.stage);
-    let nm = ''; try { nm = localStorage.getItem('starfall-name') || ''; } catch (e) {}
+    let nm = store.get(KEY.name, '');
     lbEl('lbName').value = nm; setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
   } else {
     lbRun = null; lbView.diff = settings.diff; lbView.plat = LB_PLAT; if (lbAlertBoard) { const [m2, p2, d2] = lbAlertBoard.split('|'); lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
@@ -3687,7 +3741,7 @@ async function lbLoad() {
 async function lbSend() {
   const name = lbEl('lbName').value.trim().replace(/\s+/g, ' ');
   if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
-  try { localStorage.setItem('starfall-name', name); } catch (e) {}
+  store.set(KEY.name, name);
   saveLocal(lbRun, name);
   if (!LB_URL || LB_TEST) { lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); if (LB_TEST) lbMsg('Test build: score saved on this device only.'); return; }
   lbMsg('Sending...'); lbEl('lbSend').disabled = true;
@@ -3700,11 +3754,11 @@ async function lbSend() {
 }
 lbEl('lbSend').addEventListener('click', lbSend);
 lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lbSend(); } });
-lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (lbRun) saveLocal(lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (localStorage.getItem('starfall-name') || 'PLAYER')); closeLB(); });
+lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (lbRun) saveLocal(lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (store.get(KEY.name) || 'PLAYER')); closeLB(); });
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
-function toTitle() { clearResume(); if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
+function toTitle() { clearResume(); if (state === 'play') rrSend('quit'); rr = null; if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
 function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
@@ -3716,9 +3770,8 @@ function doContinue() {
 /* ---------- resume after the browser reloads the page (Android closes background tabs) ---------- */
 // A resumed run restarts the stage it was in: score as it was when that stage began, lives, bombs,
 // weapon and continues as they were when the game was left. It can't gain points or undo a death, so it still counts.
-const RESUME_KEY = 'starfall-resume';
 let stageMark = null;
-function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; }
+function markStage() { stageMark = { score, nextExtend, extendsGot, camp: Object.assign({}, camp) }; rrStage(); }
 function saveResume() {
   if (state !== 'play' || tut || !player || !stageMark) return;
   let st = stage, theme = curTheme, mark = stageMark, lv = lives, cn = runConts;
@@ -3729,11 +3782,11 @@ function saveResume() {
   if (gameOverPending || cont > 0) { if (runConts >= MAX_CONT) return; cn = runConts + 1; lv = DIFF.lives[runDiff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless, diff: runDiff, runStart, conts: cn, credits: credits + (cn - runConts), frames: runFrames,
     score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs, wpn: player.wpn, lvl: player.lvl, twoP: run2P };
-  try { localStorage.setItem(RESUME_KEY, JSON.stringify(r)); } catch (e) {}
+  store.setJSON(KEY.resume, r);
 }
-function clearResume() { try { localStorage.removeItem(RESUME_KEY); } catch (e) {} }
+function clearResume() { store.remove(KEY.resume); }
 function loadResume() {
-  try { const r = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null'); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; } catch (e) {}
+  { const r = store.getJSON(KEY.resume); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; }
   clearResume(); return null;
 }
 function resumeRun(r) {
@@ -3745,6 +3798,7 @@ function resumeRun(r) {
   setTimeout(() => prewarmBoss(curTheme), 400);
   chunkJobs = []; chunks = new Map(); chunkInfo = new Map(); genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
+  { const k = rrParked(); if (k && k.rr) { rr = k.rr; if (rr.cur) rr.cur = rr.st[rr.st.length - 1]; } rrUnpark(); } // the resumed run keeps adding to the report it had
   score = r.score; lives = r.lives; bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run2P = true;
   runStart = r.runStart; runDiff = r.diff; runConts = r.conts; credits = r.credits; runFrames = r.frames;
   nextExtend = r.nextExtend; extendsGot = r.extendsGot; camp = Object.assign(newCamp(), r.camp);
@@ -4384,7 +4438,7 @@ function skyLaser(e, ea) {
   for (const b of shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
   if (env > 0.5 && !player.dead && player.inv === 0) {
     const dx = player.x - cx, dy = player.y - cy;
-    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die();
+    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die('flame');
   }
   if (F.t >= FL_FIRE) e.fl = null;
 }
@@ -4435,6 +4489,7 @@ BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
+  if (rr && rr.cur) rr.cur.boss = 1;
   const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
@@ -4478,6 +4533,7 @@ function rewardSfx() {
   for (let i = 0; i < 8; i++) { const t = tb + 0.05 + i * 0.07, o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = rnd(2200, 3600); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.025, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); o.connect(g).connect(sfxBus); o.start(t); o.stop(t + 0.14); }
 }
 function stageClear() {
+  if (rr && rr.cur) rr.cur.ok = 1;
   stopMusic();
   if (player && !player.dead) { player.exitT = 80; player.inv = Math.max(player.inv, 200); boostOutSfx(); }
   later.push({ at: gf + 82, fn: () => { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [74, 2], [77, 2], [81, 8]]); showMsg('STAGE CLEAR', '', 130); later.push({ at: gf + 280, fn: openResults }); } });
@@ -4522,7 +4578,7 @@ function finishResults() {
   if (fade) return;
   if (!endless && stage % 6 === 0 && congratsShown !== stage) {
     congratsShown = stage; results = null; congrats = { t: 0 };
-    loopsWon++; try { localStorage.setItem('starfall-loops', String(loopsWon)); } catch (e) {}
+    loopsWon++; store.set(KEY.loops, loopsWon);
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -4634,7 +4690,7 @@ function blockedMove(e, dx, dy) {
   }
   return false;
 }
-// Night Hammer searchlights, seen from above: a bright spot on the ground with a faint beam back to the lamp. Each spot sweeps a slow
+// Night Hammer searchlights, seen from above: a bright spot on the ground with a soft beam back to the lamp. Each spot sweeps a slow
 // search pattern over the whole screen; within 90px of the plane it creeps toward it (slower than the plane flies). Caught = spotted.
 const SPOT_R = 22, SPOT_V = 0.75;
 function searchSpot(e, p, px, py) {
@@ -4647,11 +4703,22 @@ function searchSpot(e, p, px, py) {
   return !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < SPOT_R;
 }
 function drawSpot(x0, y0, x, y, red) {
-  // the faint beam from the lamp, then the pool of light where it lands
-  ctx.strokeStyle = red ? 'rgba(170,20,14,0.35)' : 'rgba(255,248,200,0.16)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
-  const g = ctx.createRadialGradient(x, y, 0, x, y, SPOT_R + 4); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,248,210,0.75)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.45)' : 'rgba(255,244,190,0.4)'); g.addColorStop(1, 'rgba(255,240,180,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, SPOT_R + 4, 0, TAU); ctx.fill();
+  // a soft cone from the lamp out to the full width of the pool (several faint nested cones, so the edges feather out),
+  // then the pool of light with a thin rim where the catch zone ends, and a glow on the lamp. Bright red while it has the player.
+  const rgb = red ? '255,60,40' : '255,246,205', R = SPOT_R + 4, d = Math.hypot(x - x0, y - y0) || 1, nx = -(y - y0) / d, ny = (x - x0) / d, n = 5;
+  let g = ctx.createLinearGradient(x0, y0, x, y); g.addColorStop(0, `rgba(${rgb},${(red ? 0.26 : 0.14) / n})`); g.addColorStop(1, `rgba(${rgb},${(red ? 0.36 : 0.2) / n})`);
+  ctx.fillStyle = g;
+  for (let k = 0; k < n; k++) {
+    const f = 1 - k / n, w = R * f, w0 = 1.5 + 2 * f, a = Math.atan2(ny, nx);
+    ctx.beginPath(); ctx.moveTo(x0 + nx * w0, y0 + ny * w0); ctx.lineTo(x + nx * w, y + ny * w); ctx.arc(x, y, w, a, a + PI); ctx.lineTo(x0 - nx * w0, y0 - ny * w0); ctx.closePath(); ctx.fill();
+  }
+  g = ctx.createRadialGradient(x, y, 0, x, y, R + 2); g.addColorStop(0, `rgba(${rgb},0.62)`); g.addColorStop(0.7, `rgba(${rgb},0.42)`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R + 2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(${rgb},0.45)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, SPOT_R, 0, TAU); ctx.stroke();
+  g = ctx.createRadialGradient(x0, y0, 0, x0, y0, 9); g.addColorStop(0, `rgba(${rgb},0.8)`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x0, y0, 9, 0, TAU); ctx.fill();
 }
+function caughtRing() { parts.push({ kind: 'ring', layer: 'a', x: player.x, y: player.y, vx: 0, vy: 0, life: 18, max: 18, r: 40, col: '#ff4a3a' }); }
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -5247,7 +5314,7 @@ const AI = {
     e.y += 0.12; e.x += Math.sin(e.ft * 0.03) * 0.15; e.life--;
     e.r = Math.min(46, (e.ft - 40) * 3) * Math.min(1, e.life / 40);
     if (e.life <= 0) { e.dead = true; return; }
-    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!e.lit) e.caught = 30; } e.lit = true; } else e.lit = false;
+    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!(e.caught > 0)) caughtRing(); e.caught = 40; } e.lit = true; } else e.lit = false;
     if (e.caught > 0) e.caught--;
   },
   // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
@@ -5568,7 +5635,7 @@ const AI = {
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
         const lit = (e.lightT === undefined || e.lightT > (p.ox < 0 ? 1 : 25)) && searchSpot(e, p, px, py);
-        if (lit) { e.spot = 40; if (!p.lit) p.caught = 30; } // the light flashes dark red the moment it catches the player
+        if (lit) { e.spot = 40; if (!(p.caught > 0)) caughtRing(); p.caught = 40; } // the light stays bright red while it has the player; a red ring marks the catch
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
@@ -5857,8 +5924,8 @@ function updPlayer() {
   if (p.dcd === 0 && p.drones) p.dcd = p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26;
   firing();
 }
-function die() {
-  const p = player;
+function die(cause) {
+  const p = player; rrDeath(cause || '?');
   p.dead = 120; stats.deaths++; p.charge = 0; beam = null; hitStop = 6; boom(p.x, p.y, 30); shake = 12; flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; medalMul = 1; medalT = 0;
@@ -5902,7 +5969,7 @@ function drawP2() {
 }
 function bomb() {
   if (state !== 'play' || paused || !player || player.dead || bombs <= 0 || bombFx > 0) return;
-  bombs--; stats.novas++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
+  bombs--; stats.novas++; if (rr && rr.cur) rr.cur.nb++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   ebul.length = 0;
@@ -6077,7 +6144,7 @@ function kill(e) {
   } else {
     boom(e.x, e.y, e.type === 'bomber' ? 30 : e.type === 'pod' ? 12 : 11); sfx('boom'); haptic('kill');
     for (let i = 0; i < 3; i++) parts.push({ kind: 'debris', layer: 'a', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0.2), g: 0.07, life: (rnd(26, 40)) | 0, max: 40 });
-    if (e.type === 'pod') items.push(mkItem(!e.bossPod && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y));
+    if (e.type === 'pod') { const pi = mkItem(!e.bossPod && !e.tutW && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } items.push(pi); }
   }
   if (e.type === 'bomber' && Math.random() < 0.5) items.push(mkItem('B', e.x, e.y));
 }
@@ -6210,7 +6277,7 @@ function update() {
   }
   if (state === 'title') return;
   if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) { toTitle(); return; } }
-  if (state === 'play' && !paused && !results) { runFrames++; if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
+  if (state === 'play' && !paused && !results) { runFrames++; rrTick(); if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
 
   director();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].at <= gf) { const f = later[i].fn; later.splice(i, 1); f(); }
@@ -6281,7 +6348,7 @@ function update() {
   for (const mk2 of markers) {
     mk2.t--;
     if (mk2.t === 0) { const sy = mk2.wy + Math.floor(scroll); boom(mk2.wx, sy, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 5); decals.push({ kind: 'crater', wx: mk2.wx, wy: mk2.wy, r: 9, smokeT: 120 });
-      if (player && !player.dead && player.inv <= 0 && Math.hypot(player.x - mk2.wx, player.y - sy) < 11) die(); }
+      if (player && !player.dead && player.inv <= 0 && Math.hypot(player.x - mk2.wx, player.y - sy) < 11) die('shell'); }
   }
   for (let i = markers.length - 1; i >= 0; i--) if (markers[i].t <= 0) markers.splice(i, 1);
   for (const L of linkFx) L.t--;
@@ -6330,7 +6397,7 @@ function update() {
       b.x = b.sx + (b.tx - b.sx) * f; b.y = b.sy + (b.ty - b.sy) * f;
       if (b.life <= 0) {
         b.dead = true; boom(b.x, b.y, 18, 'a'); sfx('boom');
-        if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die();
+        if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die('mortar');
       }
     }
     if (b.hb && --b.fuse <= 0 && !b.dead) {
@@ -6369,7 +6436,7 @@ function update() {
     if (it.kind === 'M' || it.kind === 'A') { it.t++; it.vy = Math.min(it.vy + 0.08, scrollV + 0.15); it.y += it.vy; continue; }
     it.t++; it.y += 0.45; it.x += Math.sin(it.t * 0.05) * 0.7;
     it.x = clamp(it.x, 7, W - 7);
-    if (it.kind === 'W' && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
+    if (it.kind === 'W' && !it.fixed && it.t % 110 === 0) it.w = { S: 'L', L: 'H', H: stage >= 3 ? 'A' : 'S', A: 'S' }[it.w] || 'S';
   }
 
   for (const s of shots) {
@@ -6399,7 +6466,7 @@ function update() {
       if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { score += 10; if (score > hi) hi = score; checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); items.splice(i, 1); } continue; }
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
-          score += 20000; stats.artifact = true; if (!tut) arts.add(curTheme); try { localStorage.setItem('starfall-arts', JSON.stringify([...arts])); } catch (e) {}
+          score += 20000; stats.artifact = true; if (!tut) arts.add(curTheme); store.setJSON(KEY.arts, [...arts]);
           label(it.x, it.y - 8, arts.size >= 6 ? 'GOLDEN RAPTOR UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
@@ -6412,6 +6479,7 @@ function update() {
         if (it.kind === 'T') {
           if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; p.drones++; label(it.x, it.y - 8, 'TALON'); }
           else { score += 3000; label(it.x, it.y - 8, '3000'); }
+          if (rr) rr.pk.T = (rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (tut && (it.kind === 'B' || it.kind === 'T')) tut.got++;
@@ -6421,17 +6489,18 @@ function update() {
           if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else score += 2000; } else p.wpn = it.w;
           label(it.x, it.y - 8, { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[it.w] + ' ' + p.lvl);
         }
+        if (rr) rr.pk[it.kind === 'B' ? 'B' : it.w] = (rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
         checkExtend(); sfx('power'); haptic('power'); items.splice(i, 1);
       }
     }
     if (p.inv === 0) {
       let hit = false;
-      for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
+      for (const b of ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = 'shot:' + (b.kind || 'b'); break; } }
       if (!hit) for (const e of enemies) {
         if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
-        if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
+        if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = 'ram:' + (e.type || '?'); if (!e.big) damage(e, 5); break; }
       }
-      if (hit) die();
+      if (hit) die(hit);
     }
   }
   if (medalT > 0 && !results && --medalT === 0) medalMul = 1;
@@ -6750,7 +6819,7 @@ function drawPart(q) {
     case 'spark': ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); break;
     case 'ring': {
       const rr = (1 - f) * q.r + 3;
-      ctx.globalAlpha = f; ctx.strokeStyle = '#fff2a8'; ctx.lineWidth = 2;
+      ctx.globalAlpha = f; ctx.strokeStyle = q.col || '#fff2a8'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(q.x, q.y, rr, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; break;
     }
     case 'flash': dk(q.x, q.y, q.r, f > 0.5 ? '#fff2a8' : '#f8a83a'); break;
@@ -7024,9 +7093,9 @@ function drawNight() {
   ctx.globalCompositeOperation = 'lighter';
   for (const e of enemies) {
     if (e.type === 'search' && !e.dead && e.y > -60 && e.y < H + 60 && !(e.off > 60) && !(e.off > 0 && Math.random() < 0.5)) { lightBeam(e.x, e.y, e.ba, 150, 0.16); for (const o of enemies) if (o !== e && !o.dead && o.type !== 'boss' && o.type !== 'troop' && inBeam(e.x, e.y, e.ba, 150, 0.16, o.x, o.y)) { ctx.globalAlpha = 0.3; dk(o.x, o.y, (o.hw || 5) + 4, '#c8d0ff'); ctx.globalAlpha = 1; } }
-    if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0 && ((e.caught >> 2) & 1), g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(170,20,14,0.8)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(170,20,14,0.42)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
-      ctx.strokeStyle = red ? 'rgba(200,30,20,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
-    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { const red = p.caught > 0 && ((p.caught >> 2) & 1); if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, red); }
+    if (e.type === 'flare' && !e.dead && e.r > 1) { const red = e.caught > 0, g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r); g.addColorStop(0, red ? 'rgba(255,60,40,0.7)' : 'rgba(255,246,200,0.7)'); g.addColorStop(0.75, red ? 'rgba(255,60,40,0.4)' : 'rgba(255,240,180,0.34)'); g.addColorStop(1, 'rgba(255,240,180,0.08)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = red ? 'rgba(255,60,40,0.6)' : 'rgba(255,240,180,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); } // a faint edge shows where the light ends
+    if (e.type === 'boss' && !e.dying) for (const p of e.parts) if (p.k === 'light' && !p.dead && (e.kind !== 'railgun' || (e.lightT !== undefined && e.lightT > (p.ox < 0 ? 1 : 25)))) { if (p.sx !== undefined) drawSpot(e.x + p.ox, e.y + p.oy, p.sx, p.sy, p.caught > 0); }
   }
   for (const q of parts) if ((q.kind === 'fire' || q.kind === 'flash') && q.layer !== 'a') { ctx.globalAlpha = 0.3 * q.life / q.max; dk(q.x, q.y, q.r * 2.4, '#f8a83a'); }
   { let n = 0; const sc6 = Math.floor(scroll);
@@ -7506,7 +7575,7 @@ menuBtn.addEventListener('click', () => { pauseMenu.classList.contains('open') ?
 pauseMenu.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === pauseMenu) closeMenu(); });
 function toggleAudio(key) {
   const wasRunning = actx && actx.state === 'running';
-  audio(); if (muted) { muted = false; try { localStorage.setItem('starfall44-muted', '0'); } catch (e) {} }
+  audio(); if (muted) { muted = false; store.set(KEY.muted, '0'); }
   if (wasRunning) settings[key] = settings[key] === false;
   saveSettings(); applyVolumes();
   setTimeout(() => { setSoundLabel(); if (key === 'sfxOn' && settings.sfxOn !== false) hitSfx(true); }, 60);
@@ -7516,7 +7585,7 @@ document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('
 document.getElementById('pmResume').addEventListener('click', closeMenu);
 document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); startAt(stage); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
-document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); stopMusic(); if (state === 'play' && lbEligible()) { saveEndless(); saveHi(); state = 'over'; overT = 0; openLB('submit'); } else toTitle(); });
+document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); paused = false; setPauseIcon(); stopMusic(); if (state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); state = 'over'; overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
 let panelPaused = false;
 function useGold() { return arts.size >= 6 && settings.gold; }
@@ -7527,6 +7596,7 @@ function syncSettingsUI() {
   for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
+for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
 }
@@ -7537,41 +7607,49 @@ function buildHelp() {
   const gem = () => { const o = document.createElement('span'); o.className = 'hico'; o.style.cssText = 'width:12px;height:12px;background:#bba4ff;transform:rotate(45deg);box-shadow:0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
   const coinI = () => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = 'radial-gradient(circle at 35% 35%, #fff0a0, #d0a020)'; o.style.width = o.style.height = '16px'; return o; };
   const touch = matchMedia('(pointer: coarse)').matches;
-  const ctl = document.createElement('div');
-  ctl.innerHTML = '<h3>Controls</h3>' + (touch
-    ? '<p class="tip"><b>Tip:</b> you don\'t need to touch the plane itself. Move it to the middle of the screen, then steer with your finger anywhere below it. The plane follows your finger\'s movement, so it stays visible.</p><p style="font-size:13px;margin:0 0 6px">Your guns fire on their own.</p>'
-    : '<p class="tip">Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space sets off a Nova bomb. P pauses.</p><p style="font-size:13px;margin:0 0 6px">One-click mouse mode (Settings): click once and steer with the mouse without holding the button. Left click fires the charged laser, right click sets off a Nova. Esc lets go.</p><p style="font-size:13px;margin:0 0 6px">Controller: stick or D-pad to fly, X fires the charged laser, A or the shoulder buttons set off a Nova, Start pauses.</p>');
-  box.appendChild(ctl);
-  const sections = [
-    ['Special attacks', [
-      [orb('#3a1a5a', '#bba4ff', 'N'), '<b>Nova bomb.</b> ' + (touch ? 'Tap the Nova button' : 'Press X or Space, or click the Nova button') + ' to wipe out enemy bullets, damage everything on screen and protect yourself for a moment. The purple dots show how many you have.'],
-      [orb('#1a3a5a', '#a8f6dc', '!'), '<b>Super laser.</b> Hold still to charge: a ring fills around your ship and chimes when ready. Then ' + (touch ? 'touch the screen again' : 'move again') + ' to fire a powerful laser through everything in its path.']]],
-    ['Items', [
-      [sprIcon(SPR.pod, 1.6), '<b>Supply container.</b> Shoot it to release a power-up.'],
-      [orb(RP.crys[2], RP.crys[4], 'S'), '<b>Scatter.</b> A wide fan of shots. Collect it again to power it up, up to level 4.'],
-      [orb(RP.glass[2], RP.glass[4], 'L'), '<b>Lance.</b> Fast, piercing shots straight ahead.'],
-      [orb(RP.pinkb[2], RP.pinkb[4], 'H'), '<b>Seekers.</b> Twin guns plus homing missiles that find their own targets.'],
-      [orb('#2a6aa8', '#a8e0ff', 'A'), '<b>Arc.</b> From Stage 3 on. Lightning bolts strike the nearest enemy ahead and jump on to one or two enemies close by.'],
-      [orb(RP.alien[2], RP.alien[4], 'N'), '<b>Nova.</b> One extra Nova bomb, up to six.'],
-      [orb(RP.crys[1], RP.crys[3], 'T'), '<b>Talon.</b> An escort drone that fires with you and blocks small bullets. Up to two.'],
-      [coinI(), '<b>Medal.</b> 300 points. Collect the next one within about three seconds to raise the multiplier, up to x10.'],
-      [gem(), '<b>Secret.</b> Look for three circling crows. Fly over the spot until the ring fills, then catch the gem before it escapes.']]],
-    ['Leaderboard', [
-      [orb('#3a2a10', '#f4d050', '★'), '<b>Star.</b> A star after a name means the run used no continues. You get two continues per run, and your score is kept.'],
-      [orb('#241c40', '#8a7eb0', '1'), '<b>Campaign scores</b> only count when you start with the START button at Stage 1. Stage buttons are for practice. Difficulty is fixed for the whole run.'],
-      [orb('#5a1010', '#e86050', '!'), '<b>Hard mode.</b> Starts as tough as the second round on Normal, and bigger enemies fire a few last bullets at you when destroyed.'],
-      [orb('#241c40', '#8a7eb0', 'i'), '<b>Privacy.</b> Only your chosen name, your scores and a random player number are stored. No personal data.']]]
-  ];
-  for (const [title, items] of sections) {
-    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
-    const ul = document.createElement('ul');
-    for (const [ic, html] of items) { const li = document.createElement('li'); const t = document.createElement('span'); t.innerHTML = html; li.append(ic, t); ul.appendChild(li); }
+  const add = (tag, html) => { const e = document.createElement(tag); e.innerHTML = html; box.appendChild(e); return e; };
+  const list = (rows, one) => {
+    const ul = document.createElement('ul'); if (one) ul.className = 'one';
+    for (const [ic, name, desc] of rows) { const li = document.createElement('li'); const t = document.createElement('div'); t.innerHTML = '<b>' + name + '</b><span>' + desc + '</span>'; li.append(ic, t); ul.appendChild(li); }
     box.appendChild(ul);
+  };
+  add('h3', 'Controls');
+  add('p', touch
+    ? 'Slide a finger anywhere below the ship. It follows your movement. Guns fire on their own.'
+    : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space: Nova bomb. P: pause.');
+  list([
+    [orb('#3a1a5a', '#bba4ff', 'N'), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
+    [orb('#1a3a5a', '#a8f6dc', '!'), 'Super laser', 'Hold still, then ' + (touch ? 'touch again' : 'move') + ' to fire.']]);
+  add('h3', 'Weapons');
+  list([
+    [orb(RP.crys[2], RP.crys[4], 'S'), 'Scatter', 'Wide fan of shots'],
+    [orb(RP.glass[2], RP.glass[4], 'L'), 'Lance', 'Piercing, straight ahead'],
+    [orb(RP.pinkb[2], RP.pinkb[4], 'H'), 'Seekers', 'Homing missiles'],
+    [orb('#2a6aa8', '#a8e0ff', 'A'), 'Arc', 'Chain lightning (Stage 3+)']]);
+  add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4.').className = 'hint';
+  add('h3', 'Pickups');
+  list([
+    [orb(RP.alien[2], RP.alien[4], 'N'), 'Nova', 'Extra bomb'],
+    [orb(RP.crys[1], RP.crys[3], 'T'), 'Talon', 'Escort drone'],
+    [coinI(), 'Medal', 'Grab in a chain for up to x10'],
+    [gem(), 'Secret', 'Follow the crows']]);
+  const more = document.createElement('details');
+  more.innerHTML = '<summary>Scores &amp; rules</summary>'
+    + '<p><b>Star:</b> a run with no continues. You get two, and your score is kept.</p>'
+    + '<p><b>Campaign scores</b> count only from START at Stage 1, on one difficulty. Stage buttons are practice.</p>'
+    + '<p><b>Privacy:</b> only your name, scores and a random player number are stored.</p>';
+  box.appendChild(more);
+  if (!touch) {
+    const mc = document.createElement('details');
+    mc.innerHTML = '<summary>Mouse &amp; controller</summary>'
+      + '<p><b>One-click mouse</b> (Settings): click once, steer without holding. Left click: laser. Right click: Nova. Esc lets go.</p>'
+      + '<p><b>Controller:</b> stick or D-pad to fly, X laser, A or shoulders Nova, Start pauses.</p>';
+    box.appendChild(mc);
   }
 }
 function updateErr() {
   const eb = document.getElementById('errBox'); if (!eb) return; eb.innerHTML = '';
-  let er = null; try { er = JSON.parse(localStorage.getItem('starfall-lasterror') || 'null'); } catch (e) {}
+  const er = store.getJSON(KEY.lastError);
   if (!er) return;
   const h = document.createElement('h3'); h.textContent = 'Last problem report'; eb.appendChild(h);
   const pre = document.createElement('p'); pre.style.cssText = 'font:11px ui-monospace,monospace;color:#a99cc8;word-break:break-all;margin:0 0 6px';
@@ -7687,6 +7765,7 @@ document.getElementById('sSfx').addEventListener('change', () => { audio(); boom
 for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
+for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => startTutorial());
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
@@ -7710,7 +7789,7 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
-  keys[k] = true; audio();
+  keys[k] = true; audio(); rrIn = 'key';
   if (booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
@@ -7729,7 +7808,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
-  e.preventDefault(); audio();
+  e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
   if (booting) { endBoot(); return; }
   if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
@@ -7778,12 +7857,12 @@ soundBtn.addEventListener('click', () => {
   if (wasRunning || muted) muted = !muted;
   setTimeout(() => { setSoundLabel(); if (!muted) hitSfx(true); }, 60);
   soundBtn.blur();
-  try { localStorage.setItem('starfall44-muted', muted ? '1' : '0'); } catch (e) {}
+  store.set(KEY.muted, muted ? '1' : '0');
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) saveResume(); else if (state === 'play') clearResume(); });
-addEventListener('pagehide', () => { saveHi(); saveResume(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !paused) togglePause(); saveHi(); if (document.hidden) { saveResume(); rrPark(); } else if (state === 'play') { clearResume(); rrUnpark(); } });
+addEventListener('pagehide', () => { saveHi(); saveResume(); rrPark(); });
 document.getElementById('resYes').addEventListener('click', () => { const r = resumeOffer; resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
-document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); document.getElementById('resumeAsk').classList.remove('open'); });
+document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); rrFlushParked(); document.getElementById('resumeAsk').classList.remove('open'); });
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
@@ -7805,7 +7884,7 @@ document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPr
   if (mq.addEventListener) mq.addEventListener('change', onTurn); else mq.addListener(onTurn);
   onTurn();
 }
-offerResume();
+offerResume(); if (!resumeOffer) rrFlushParked();
 
 /* ================= sizing ================= */
 function fit() {
@@ -7838,7 +7917,7 @@ let warmIdx = 0;
 let errCount = 0;
 function logError(where, e) {
   errCount++;
-  try { const rec = { v: VERSION, where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; localStorage.setItem('starfall-lasterror', JSON.stringify(rec)); } catch (e2) {}
+  try { const rec = { v: VERSION, where, msg: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), stage, theme: curTheme, diff: settings.diff, lowFX, h: H, ua: navigator.userAgent.slice(0, 120), t: new Date().toISOString() }; store.setJSON(KEY.lastError, rec); } catch (e2) {}
 }
 function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {

@@ -1,8 +1,37 @@
 # Tests
 
+## Unit tests (run automatically)
+
+`worker.test.mjs` checks the leaderboard Worker's rules with a fake database: name limits, the 2-continue cap, Stage-1-only Campaign ranking, score plausibility, rate limits, allowed origins and ISO week labels. It needs only Node 20, no browser:
+
+```
+node --test tests/
+```
+
+If you change `worker.js`, run this first. The tests check the rules, not live data.
+
 ## Smoke test (runs automatically)
 
 `smoke.mjs` runs on every pull request through GitHub Actions. It loads the game on desktop and phone sizes, checks the title screen, plays Stage 1 for a few seconds and fails on any error or missing file.
+
+## Replay test (runs in CI, advisory for now)
+
+`replay.mjs` plays three fixed scenarios with the bot (different difficulties, stages and modes, 30,000 frames each) and compares score, stage, lives, kills and more with `golden.json`. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
+
+```
+node tests/replay.mjs            # compare
+node tests/replay.mjs --update   # write new expected values
+```
+
+Only use `--update` after a change that is *meant* to alter gameplay (balance, spawns, scoring), and say so in the commit. For a refactor, any difference is a bug.
+
+How it stays repeatable: each scenario runs on a fresh page, `Math.random` is seeded before the game loads, and the frame loop is switched off so only the replay moves the game. The viewport size is fixed (stored in `golden.json`) because the playfield height follows the window shape. 
+
+It also fingerprints the terrain of all six campaign stages (what is under every sampled spot, hashed). The campaign world comes from fixed-seed hash noise (seed 1944), so these hashes must never change by accident. Terrain painting is time-budgeted per frame, but that only affects the pictures, not the simulation: the replay result is identical on a simulated slow machine.
+
+CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the campaign terrain and shows a yellow warning (never a failure) if it changed.
+
+Not yet proven on CI hardware, so the CI step is allowed to fail (`continue-on-error`) until it has run clean a few times.
 
 ## Balance bot (run by hand)
 

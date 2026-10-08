@@ -7,14 +7,14 @@ let mode = 'immortal', cur = null, stageStart = 0, lastStage = -1;
 const realDie = die, realOpen = openResults;
 
 // Record every hit. In 'immortal' mode the hit is counted but the ship survives, so a run always reaches the end.
-die = function () {
+die = function (why) {
   const p = player; let cause = 'collision', near = 1e9;
   for (const b of ebul) { const d = (b.x - p.x) ** 2 + (b.y - p.y) ** 2; if (d < near) { near = d; cause = 'bullet:' + b.kind; } }
   for (const e of enemies) if (!e.ground && !e.surface && Math.abs(e.x - p.x) < e.hw && Math.abs(e.y - p.y) < e.hh) { cause = 'body:' + e.type; break; }
   R.hits.push({ stage, t: Math.round((gf - stageStart) / 60), cause, boss: enemies.some(e => e.type === 'boss' && !e.dying), bullets: ebul.length });
   if (cur) cur.hits++;
   if (mode === 'immortal') { p.inv = 90; ebul.length = 0; return; }
-  realDie();
+  realDie(why);
 };
 openResults = function () {
   if (cur) Object.assign(cur, { kills: stats.kills, seen: stats.seen, medals: stats.medals, secret: !!stats.artifact, clearT: Math.round((gf - stageStart) / 60) });
