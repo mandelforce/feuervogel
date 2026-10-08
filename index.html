@@ -6018,8 +6018,8 @@ function updP2() {
 function drawP2() {
   const q = p2; if (!q || q.dead || state !== 'play' || !player) return;
   const fl = 3 + ((gf >> 1) & 1) * 2;
-  for (const ox of [-6, 6]) { ctx.fillStyle = '#4ccfae'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#e8fff6'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
-  spr(SPR.raven[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y);
+  for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
+  spr(goldSet()[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y); // player 2 always flies the golden Rooster
   if (q.inv > 0 && !results && (q.inv > 40 || (gf >> 2) & 1)) {
     ctx.globalAlpha = 0.8; for (let i = 0; i < 7; i++) { const a = gf * 0.12 + i * TAU / 7; ctx.fillStyle = '#dde1e7'; ctx.fillRect(Math.round(q.x + Math.cos(a) * 20), Math.round(q.y + Math.sin(a) * 20), 1, 1); } ctx.globalAlpha = 1;
   }
@@ -7501,8 +7501,8 @@ function renderMain() {
   drawBeam();
   drawPlayerArcs();
   drawStorm();
+  drawP2(); // under player 1 and the Talons
   drawPlayer();
-  drawP2();
   drawLocks();
   drawParts('a');
   drawHitbox();
