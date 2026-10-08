@@ -5,6 +5,14 @@
 - Tutorial step 3 now shows weapons: three supply containers each drop a different, non-cycling weapon (Scatter, Lance, Seekers), so you can see and choose one.
 - Tutorial: the text box no longer covers the menu button, so Settings, Music and Quit stay reachable during the tutorial.
 
+## 1.2.2 (7 October 2026)
+- Version 1.2.2.
+- Run reports: at the end of each run (game over, quit, or the page left mid-run) the game sends one anonymous report to a new `/report` endpoint, stored in its own `runs` table: mode, difficulty, platform, start and final stage, score, continues, play time, and per stage the time to the boss, boss fight time, deaths (with cause, weapon and level), Nova bombs used and time spent with each weapon; also pickups, controls used (keys, touch, mouse, controller), tutorial seen, run number on the device and time since the last run. Settings → "Share play data" turns it off. Tutorial runs and test builds send nothing. Scores, boards and their rules are unchanged.
+
+## 1.2.1 (7 October 2026)
+- Version 1.2.1.
+- Stage 3 boss (Night Hammer): clearer searchlights. Each beam now widens softly from the lamp to the full width of its light circle, the circle has a thin rim where the catch zone ends, and the lamps glow. When a light (or a Star Shell flare) catches you, a red ring snaps out from your plane and the whole light turns bright red for as long as you are spotted, instead of a brief dark-red blink. Drawing only: catch zones, timing and scoring are unchanged.
+
 ## 1.2.0 (7 October 2026)
 - Version 1.2.0. 2-player runs never submit scores to the leaderboard; single-player boards, rules and scores are unchanged.
 - The game is now called FEUERVOGEL 89 (formerly StarFall). New title logo: FEUERVOGEL in chrome letters with 火の鳥 down the left side, a passing glint, a rare glitch and a "© 1989 MANDELFORCE" credit. The tab title, home-screen name ("Feuervogel"), link preview and image follow. The web address, saved progress and the leaderboard are unchanged.
