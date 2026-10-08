@@ -1543,6 +1543,9 @@ const LOGO_FONT = {
   F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'], E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
   U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'], R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
   V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'], O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'], A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'], D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
   G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'], L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
 };
 const COPYRIGHT = ['.#####.', '#.....#', '#.###.#', '#.#...#', '#.###.#', '#.....#', '.#####.'];
@@ -1609,6 +1612,19 @@ function drawTitleLogo() {
     ctx.drawImage(c, 12 + dx, sy); ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; ctx.fillRect(12 + dx, sy, 200, 1); ctx.globalAlpha = 1;
   }
 }
+// boot splash: the MANDELFORCE logo and loading dots before the title screen
+let bootT = 0, booting = true;
+function drawBoot() {
+  ctx.fillStyle = OUT; ctx.fillRect(0, 0, W, H);
+  const a = Math.min(1, bootT / 24), w = logoWord('MANDELFORCE', 2), x = Math.round(W / 2 - w.width / 2), y = Math.round(H / 2 - 16);
+  ctx.globalAlpha = a;
+  logoDraw(w, x, y, logoChrome(bootT), 2, '#34226a'); logoGlint(w, x, y, (bootT - 30) / 40);
+  textS('PRESENTS', W / 2, y + 26, '#8a7eb0', 1, 'center', '#6a5e90');
+  const n = (bootT >> 4) % 4;
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
+  ctx.globalAlpha = 1;
+}
+function endBoot() { if (booting && bootT > 40) booting = false; }
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
 function drawTitleCredit(y) {
   const cm = logoBits(COPYRIGHT, 1, 'copy'), tw = textW('1989 MANDELFORCE', 1), x0 = Math.round(W / 2 - (cm.width + 3 + tw) / 2);
@@ -6090,6 +6106,7 @@ function pollPad() {
   }
 }
 function update() {
+  if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) booting = false; return; }
   SPOS = null;
   if (state === 'play' && !paused && resumeT <= 0) heatTick();
   if (state === 'play' && !paused && resumeT > 0) { resumeT--; return; }
@@ -7210,6 +7227,7 @@ function drawHUDBody(H) {
 }
 function render() {
   if (gfxLost) return;
+  if (booting) { drawBoot(); return; }
   ctx.save();
   if (shake > 0) ctx.translate(Math.round(rnd(-shake, shake) / 2), Math.round(rnd(-shake, shake) / 2));
   drawGround();
@@ -7537,6 +7555,7 @@ addEventListener('keydown', e => {
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
   keys[k] = true; audio();
+  if (booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (state !== 'play') {
     if (go && state === 'title') openDiff('camp', 1);
@@ -7555,6 +7574,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio();
+  if (booting) { endBoot(); return; }
   if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) toTitle(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }

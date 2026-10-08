@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.0 (7 October 2026)
+- New start-up screen: the MANDELFORCE logo with loading dots before the title. It lasts about two seconds (while the graphics warm up) and a tap or key skips it.
 - Version 1.2.0. 2-player runs never submit scores to the leaderboard; single-player boards, rules and scores are unchanged.
 - The game is now called FEUERVOGEL 89 (formerly StarFall). New title logo: FEUERVOGEL in chrome letters with 火の鳥 down the left side, a passing glint, a rare glitch and a "© 1989 MANDELFORCE" credit. The tab title, home-screen name ("Feuervogel"), link preview and image follow. The web address, saved progress and the leaderboard are unchanged.
 - Simpler start: the title shows only START and a bigger SCORES button, lower down, with more room around the ship. Endless is hidden from the title for now (its boards stay), and the ? button is gone (How to play is still in Settings). After START you pick a difficulty; Tutorial and Practice sit underneath, and Practice shows the stage picker (practice runs still don't count for the board). Keys 2 to 6 on the title open practice at that stage.
