@@ -6751,7 +6751,7 @@ function drawCanopy() {
   const add = (wx, wy) => {
     const key = (wy >> 2) * 128 + (wx >> 2) + 16; let L = canopyCache.get(key);
     if (!L) { L = treeList(wx, wy, 10); canopyCache.set(key, L); if (canopyCache.size > 3000) canopyCache.clear(); }
-    for (const t of L) { const k2 = t.x + ',' + t.y; if (!seen.has(k2)) { seen.add(k2); out.push(t); } }
+    for (const t of L) { if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue; const k2 = t.x + ',' + t.y; if (!seen.has(k2)) { seen.add(k2); out.push(t); } }
   };
   for (const e of enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
   for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
