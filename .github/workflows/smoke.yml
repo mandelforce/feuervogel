@@ -27,3 +27,6 @@ jobs:
           sleep 2
       - name: Run smoke test
         run: node tests/smoke.mjs
+      - name: Replay test (advisory until proven stable)
+        continue-on-error: true
+        run: node tests/replay.mjs

@@ -14,6 +14,21 @@ If you change `worker.js`, run this first. The tests check the rules, not live d
 
 `smoke.mjs` runs on every pull request through GitHub Actions. It loads the game on desktop and phone sizes, checks the title screen, plays Stage 1 for a few seconds and fails on any error or missing file.
 
+## Replay test (runs in CI, advisory for now)
+
+`replay.mjs` plays three fixed scenarios with the bot (different difficulties, stages and modes, 30,000 frames each) and compares score, stage, lives, kills and more with `golden.json`. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
+
+```
+node tests/replay.mjs            # compare
+node tests/replay.mjs --update   # write new expected values
+```
+
+Only use `--update` after a change that is *meant* to alter gameplay (balance, spawns, scoring), and say so in the commit. For a refactor, any difference is a bug.
+
+How it stays repeatable: each scenario runs on a fresh page, `Math.random` is seeded before the game loads, and the frame loop is switched off so only the replay moves the game. The viewport size is fixed (stored in `golden.json`) because the playfield height follows the window shape. `replay.js` also finishes terrain generation immediately, since the game builds terrain under a per-frame time budget.
+
+Not yet proven on CI hardware, so the CI step is allowed to fail (`continue-on-error`) until it has run clean a few times.
+
 ## Balance bot (run by hand)
 
 `harness.js` drives the game at high speed with a bot that dodges by looking a few frames ahead. Use it to check balance after changing weapons, bosses or stages. It only works on local builds (localhost, `file://`, `.test`), where the game exposes a `window.__sf` hook. The live site never has it.

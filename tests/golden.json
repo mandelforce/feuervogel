@@ -1,0 +1,9 @@
+{
+  "note": "Expected results of tests/replay.mjs. Regenerate with `node tests/replay.mjs --update` ONLY when a change is meant to alter gameplay (balance, spawns, scoring); otherwise a difference is a bug.",
+  "viewport": { "width": 400, "height": 700 },
+  "scenarios": {
+    "normal-stage1-immortal": { "status": "ok", "score": 922970, "stage": 3, "lives": 6, "bombs": 6, "frames": 30000, "kills": 241, "medals": 47, "hits": 1, "enemies": 38, "bullets": 0, "errors": 0 },
+    "hard-stage3-real": { "status": "ok", "score": 838470, "stage": 4, "lives": 5, "bombs": 2, "frames": 30000, "kills": 442, "medals": 94, "hits": 0, "enemies": 0, "bullets": 0, "errors": 0 },
+    "easy-stage5-real": { "status": "ok", "score": 959600, "stage": 7, "lives": 4, "bombs": 6, "frames": 30000, "kills": 89, "medals": 10, "hits": 3, "enemies": 16, "bullets": 0, "errors": 0 }
+  }
+}
