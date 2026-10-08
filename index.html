@@ -7355,7 +7355,7 @@ function drawPlayer() {
     ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
-  spr((useGold() ? goldSet() : SPR.playerSet)[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y);
+  spr((useGold() && !p2 ? goldSet() : SPR.playerSet)[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
   for (let i = 0; i < p.drones; i++) {
     const d = p.dr[i];
