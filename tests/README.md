@@ -1,5 +1,13 @@
 # Tests
 
+## Local test server
+
+```
+python3 scripts/devserver.py [folder]
+```
+
+Serves the folder (default: the current one) on port 8080, always the same address, whichever branch or worktree you test. It stops its own earlier run first, so there is only ever one server, and it sends no-store headers so a phone never shows an old copy. It prints three links: this computer (`http://localhost:8080/`), the phone link by computer name (`http://<name>.local:8080/`, which survives IP changes) and the phone link by IP. All of them count as test builds: scores stay on the device and nothing goes to the live leaderboard.
+
 ## Unit tests (run automatically)
 
 `worker.test.mjs` checks the leaderboard Worker's rules with a fake database: name limits, the 2-continue cap, Stage-1-only Campaign ranking, score plausibility, rate limits, allowed origins and ISO week labels. It needs only Node 20, no browser:
