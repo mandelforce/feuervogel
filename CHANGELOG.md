@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Cleanup: removed the unused gold alert on the SCORES button; only the red dot (someone passed your score) is left. No visible change.
 - The game now lives at https://mandelforce.github.io/feuervogel/ (the repository was renamed from StarFall to feuervogel). Old links redirect to the new address; saved progress, settings and the leaderboard are unchanged.
 - Behind the scenes (hidden build 1.2.4.2): the game now talks to its new leaderboard server, `feuervogel.c-roth79.workers.dev`, which uses the same database. Scores, boards and the leaderboard are unchanged, and older versions keep working against the original server.
 - Fixed: the red dot on the SCORES button works again (someone passed your score on a board). It had stopped when the leaderboard server was updated on 7 October. Server change only; no game update needed.
