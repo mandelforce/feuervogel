@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixed: the red and gold alerts on the SCORES button work again (someone passed your score; a rival is closing in). They had stopped when the leaderboard server was updated on 7 October. Gold means another player scored at least 80% of your best since you last looked at the boards. Server change only; no game update needed.
 - Start-up: there is now one splash, the MANDELFORCE PRESENTS screen from the page itself (animated dots), shown at once and kept until the title is ready, then it fades out. Before, an older phone showed a blank dark screen for several seconds while the game built its graphics, and then a second, pixel-art version of the same splash. No change to gameplay, scoring or the leaderboard.
 - Under the hood: the game now draws its gameplay random numbers from a seeded stream that starts fresh with every run (a new random seed each time, so runs stay varied). Sound, visual effects and the idle weather use a separate stream, so they can no longer change how a run plays, and a slow device no longer shifts what spawns. No change to scoring, continues or the leaderboard.
 - Fixed: on iPhone the sound sometimes stayed silent after coming back to the game (after leaving the app, locking the phone or another sound playing) until Sound was switched off and on in the menu. The next tap now always restarts the sound.
