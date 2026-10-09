@@ -44,6 +44,11 @@ for (const [label, opts] of [
   await page.waitForTimeout(5000);
   const playing = await page.evaluate(() => document.body.dataset.state);
   if (playing !== 'play') fail(`${label}: Stage 1 did not start (state "${playing}")`);
+  // The page must show its own splash before the game script runs (that script blocks the page for a while, seconds on an old phone).
+  const t = await page.evaluate(() => { const fcp = performance.getEntriesByName('first-contentful-paint')[0]; return { fcp: fcp && fcp.startTime, start: (performance.getEntriesByName('game-start')[0] || {}).startTime, ready: (performance.getEntriesByName('game-ready')[0] || {}).startTime }; });
+  if (t.fcp === undefined || t.ready === undefined) fail(`${label}: could not read the start-up timing (first paint ${t.fcp}, game-ready ${t.ready})`);
+  else if (t.fcp > t.ready - 50) fail(`${label}: the splash painted only after the game script finished (first paint ${Math.round(t.fcp)} ms, script done ${Math.round(t.ready)} ms)`);
+  else console.log(`${label}: splash painted at ${Math.round(t.fcp)} ms, game script ran ${Math.round(t.start)} to ${Math.round(t.ready)} ms`);
   const lastErr = await page.evaluate(() => localStorage.getItem('starfall-lasterror'));
   if (lastErr) fail(`${label}: game recorded an error: ${lastErr}`);
   for (const e of errors) fail(`${label}: page error: ${e}`);
