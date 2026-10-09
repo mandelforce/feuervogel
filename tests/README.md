@@ -14,6 +14,25 @@ If you change `worker.js`, run this first. The tests check the rules, not live d
 
 `smoke.mjs` runs on every pull request through GitHub Actions. It loads the game on desktop and phone sizes, checks the title screen, plays Stage 1 for a few seconds and fails on any error or missing file.
 
+## Layout test (runs automatically)
+
+`layout.mjs` loads the game at 11 sizes, from iPhone SE to iPad and desktop, and checks that:
+- the playfield fills the screen edge to edge on phones,
+- it is centred,
+- it stays clear of the notch and home bar,
+- the page never scrolls,
+- the Nova and menu buttons are on screen during play,
+- turning the device and back keeps the same size.
+
+Headless browsers report no safe-area insets, so the test simulates them through the `--sat` and `--sab` CSS variables that the page uses for every inset. Serve the folder, then:
+
+```
+node tests/layout.mjs                # check every size
+node tests/layout.mjs --shots out/   # also save a screenshot per size
+```
+
+It cannot reproduce everything. Check a real phone too, especially from the Home Screen icon (iOS standalone mode), after a layout change.
+
 ## Replay test (runs in CI, advisory for now)
 
 `replay.mjs` plays three fixed scenarios with the bot (different difficulties, stages and modes, 30,000 frames each) and compares score, stage, lives, kills and more with `golden.json`. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):

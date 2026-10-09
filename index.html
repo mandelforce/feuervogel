@@ -34,6 +34,8 @@ window.STARFALL_LEADERBOARD = 'https://starfall-scores.c-roth79.workers.dev';
   --bg:#d9d3c4; --ink:#2b2418; --muted:#5e5440; --frame:#2b2418;
   --btn-bg:rgba(18,14,26,.6); --btn-ink:#f2ecd8; --btn-line:#f2ecd8; --bomb:#8466dc;
   box-sizing:border-box;
+  /* safe-area insets in one place, so tests/layout.mjs can simulate a notch (headless browsers report 0) */
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){ --bg:#17140f; --ink:#e8e0c8; --muted:#a89c7c; --frame:#5e5440; }
@@ -49,9 +51,9 @@ body{
   overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
-#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 4px) 8px calc(env(safe-area-inset-bottom,0px) * .4 + 6px)}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(var(--sat) + 4px) 8px calc(var(--sab) * .4 + 6px)}
 #stage{position:relative;line-height:0}
-#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
+#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(var(--sat) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
 #tutBox.on{display:block}
 #tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
 #tutText b{color:#fff0a0;font-weight:400}
@@ -125,7 +127,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .hico{justify-self:center;image-rendering:pixelated}
 #lbPanel{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:6}
 #lbPanel.open{display:grid}
-#lbPanel.below{place-items:end center;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:linear-gradient(rgba(18,14,26,0) 45%,rgba(18,14,26,.6))}
+#lbPanel.below{place-items:end center;padding-bottom:calc(var(--sab) + 14px);background:linear-gradient(rgba(18,14,26,0) 45%,rgba(18,14,26,.6))}
 #lbPanel .panel{width:min(96%,440px);max-height:95%;overflow:auto;padding:14px 14px 12px}
 #lbPanel label{display:grid;gap:4px;margin:8px 0;font-size:14px}
 #lbPanel input{font:16px 'StarFall Text',ui-monospace,monospace;color:#f2ecd8;background:#120e1a;border:2px solid #8466dc;border-radius:3px;padding:7px 8px;width:100%;box-sizing:border-box}
@@ -171,7 +173,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel .primary{width:100%;margin-top:6px;background:#f4d050;color:#1b1530;border-color:#120e1a;font-size:16px}
 .panel .note{margin:2px 0 0;font-size:12px;color:#a99cc8}
 #bombBtn{
-  bottom:calc(14px + env(safe-area-inset-bottom, 0px));right:14px;width:64px;height:64px;border-radius:50%;
+  bottom:calc(14px + var(--sab));right:14px;width:64px;height:64px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%,#e8dcff 0,#8466dc 38%,#34226a 100%);
   color:#fff;border:2px solid #120e1a;font-size:15px;display:none;
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
