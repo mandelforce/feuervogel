@@ -1,0 +1,66 @@
+name: Read old Worker versions (one-off, read-only)
+
+# Temporary, authorized by the owner in chat on 2026-10-09. Downloads the code of every stored version of the starfall-scores Worker
+# so the lost /status route can be restored in the repository. It only makes GET requests to the Cloudflare API, runs only after the
+# production-worker reviewer approves, and keeps the result as a build artifact for one day. The token is never printed.
+# Delete this file when done.
+on:
+  pull_request:
+    paths: ['.github/workflows/recover-worker-versions.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-worker
+    steps:
+      - name: Download every stored version of starfall-scores
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          mkdir -p out
+          python3 - <<'PY'
+          import base64, json, os, urllib.request
+          acct, tok = os.environ['CLOUDFLARE_ACCOUNT_ID'], os.environ['CLOUDFLARE_API_TOKEN']
+          def get(path):
+              req = urllib.request.Request('https://api.cloudflare.com/client/v4/accounts/%s/%s' % (acct, path), headers={'Authorization': 'Bearer ' + tok})
+              return json.load(urllib.request.urlopen(req))
+          def strings(o):
+              if isinstance(o, dict):
+                  for v in o.values(): yield from strings(v)
+              elif isinstance(o, list):
+                  for v in o: yield from strings(v)
+              elif isinstance(o, str): yield o
+          vs = get('workers/scripts/starfall-scores/versions?per_page=50')
+          items = vs.get('result', {}).get('items', [])
+          print('versions found:', len(items))
+          json.dump(vs, open('out/versions.json', 'w'), indent=1)
+          for it in items:
+              vid = it['id']; num = it.get('number'); created = (it.get('metadata') or {}).get('created_on')
+              d = get('workers/scripts/starfall-scores/versions/' + vid)
+              tag = 'v%s_%s' % (num, vid[:8])
+              json.dump(d, open('out/%s.json' % tag, 'w'), indent=1)
+              n = 0
+              for s in strings(d.get('result', {})):
+                  txt = None
+                  if 'export default' in s or 'async fetch' in s or 'worker_default' in s: txt = s
+                  else:
+                      try:
+                          dec = base64.b64decode(s, validate=True).decode('utf-8')
+                          if 'export default' in dec or 'async fetch' in dec or 'worker_default' in dec: txt = dec
+                      except Exception: pass
+                  if txt:
+                      n += 1
+                      open('out/%s_%d.js' % (tag, n), 'w').write(txt)
+              print(tag, 'created', created, 'code files:', n, 'has /status:', any('/status' in open('out/%s_%d.js' % (tag, k)).read() for k in range(1, n + 1)))
+          PY
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-versions
+          path: out
+          retention-days: 1
