@@ -1785,37 +1785,11 @@ function drawTitleLogo() {
 // boot splash: the MANDELFORCE logo and loading dots before the title screen
 let bootT = 0, booting = true;
 let preboot = document.getElementById('preboot');
-function drawBoot() {
-  ctx.fillStyle = OUT; ctx.fillRect(0, 0, W, H);
-  const a = Math.min(1, bootT / 24), w = logoWord('MANDELFORCE', 2), x = Math.round(W / 2 - w.width / 2), y = Math.round(H / 2 - 16);
-  ctx.globalAlpha = a;
-  logoDraw(w, x, y, logoChrome(bootT), 2, '#34226a'); logoGlint(w, x, y, (bootT - 30) / 40);
-  textS('PRESENTS', W / 2, y + 26, '#8a7eb0', 1, 'center', '#6a5e90');
-  const n = (bootT >> 4) % 4;
-  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
-  ctx.globalAlpha = 1;
+function finishBoot() {
+  performance.mark('title-ready'); booting = false; delete document.body.dataset.boot;
+  if (preboot) { preboot.classList.add('gone'); const pb = preboot; preboot = null; setTimeout(() => pb.remove(), 700); } // the page's splash fades out, the title is underneath
 }
-function finishBoot() { performance.mark('title-ready'); booting = false; bootOut = 1; delete document.body.dataset.boot; }
 function endBoot() { if (booting && bootT > 40) finishBoot(); }
-// splash -> title: the splash dissolves away in a 4x4 ordered dither (2px cells), 2 frames per level
-let bootOut = 0;
-const BOOT_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], DITHER_FRAMES = 2, ditherMasks = [];
-function ditherMask(k) {
-  if (ditherMasks[k]) return ditherMasks[k];
-  const [c, x] = mk(W, H); x.fillStyle = '#000';
-  for (let cy = 0; cy < H / 2; cy++) for (let cx = 0; cx < W / 2; cx++) if (BOOT_BAYER[(cy & 3) * 4 + (cx & 3)] >= k) x.fillRect(cx * 2, cy * 2, 2, 2);
-  return ditherMasks[k] = c;
-}
-const bootTmp = mk(W, H);
-function drawBootOut() {
-  const k = Math.floor(bootOut / DITHER_FRAMES) + 1;
-  if (k > 16) { bootOut = 0; return; }
-  // keep the title only where the dither has uncovered it: copy it aside, punch out the cells still showing the splash, lay it over the splash
-  const [c, x] = bootTmp;
-  x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H); x.drawImage(cv, 0, 0, W, H);
-  x.globalCompositeOperation = 'destination-out'; x.drawImage(ditherMask(k), 0, 0);
-  drawBoot(); ctx.drawImage(c, 0, 0);
-}
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
 function drawTitleCredit(y) {
   const cm = logoBits(COPYRIGHT, 1, 'copy'), tw = textW('1989 MANDELFORCE', 1), x0 = Math.round(W / 2 - (cm.width + 3 + tw) / 2);
@@ -6697,7 +6671,6 @@ function pollPad() {
 }
 function update() {
   if (booting) { if (++bootT >= 110 && warmIdx >= warmList.length || bootT > 300) finishBoot(); return; }
-  if (bootOut) bootOut++;
   SPOS = null;
   if (state === 'play' && !paused && resumeT <= 0) heatTick();
   if (state === 'play' && !paused && resumeT > 0) { resumeT--; return; }
@@ -7846,11 +7819,10 @@ function drawHUDBody(H) {
 }
 function render() {
   renderMain();
-  if (bootOut) { resetCtx(); drawBootOut(); }
 }
 function renderMain() {
   if (gfxLost) return;
-  if (booting) { drawBoot(); return; }
+  if (booting) return; // the page's own splash (#preboot) covers the screen until the title is ready
   ctx.save();
   if (shake > 0) ctx.translate(Math.round(rnd(-shake, shake) / 2), Math.round(rnd(-shake, shake) / 2));
   drawGround();
@@ -8429,7 +8401,6 @@ function logError(where, e) {
 function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {
   requestAnimationFrame(frameLoop);
-  if (preboot) { preboot.classList.add('gone'); const pb = preboot; preboot = null; setTimeout(() => pb.remove(), 700); } // fade the page's own splash into the game's
   if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
   const dtf = now - last;
   acc += Math.min(100, dtf); last = now;
