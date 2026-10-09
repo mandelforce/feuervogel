@@ -1,4 +1,4 @@
-# StarFall leaderboard setup (Cloudflare, free)
+# Feuervogel leaderboard setup (Cloudflare, free)
 
 ## Deploying the Worker (automatic)
 
@@ -43,12 +43,12 @@ SELECT json_extract(s.value, '$.s') AS stage, ROUND(AVG(json_extract(s.value, '$
   FROM runs, json_each(runs.data, '$.st') AS s WHERE json_extract(s.value, '$.ok') = 1 GROUP BY stage;
 ```
 
-## Updating to StarFall 1.0 (release)
+## Updating to version 1.0 (release)
 Deploy the new `worker.js` as described under "Deploying the Worker (automatic)".
 It accepts scores from every version and shows all stored scores again. If you have not yet added the
 `conts` and `start` columns from the 2.0 update below, do that first.
 
-## Updating an existing leaderboard to StarFall 2.0
+## Updating an existing leaderboard to version 2.0
 If your leaderboard already runs, you only need these three steps:
 1. **Database:** in Cloudflare, open **Storage & Databases > D1 SQL Database > starfall > Console**,
    paste these two lines and click **Execute**:
@@ -92,14 +92,14 @@ Sign up for free at dash.cloudflare.com.
 ## 5. Tell the game where the leaderboard is
 1. On the Worker's page, copy its address. It looks like
    `https://feuervogel.YOUR-NAME.workers.dev`
-2. On GitHub, open `index.html` in your StarFall repository and click the pencil icon to edit it.
+2. On GitHub, open `index.html` in your Feuervogel repository and click the pencil icon to edit it.
 3. Near the top, find this line:
    `window.STARFALL_LEADERBOARD = '';`
    and paste the address between the quotes, for example:
    `window.STARFALL_LEADERBOARD = 'https://feuervogel.YOUR-NAME.workers.dev';`
 4. Click **Commit changes**.
 
-After a minute or two, play a game. When it's over, StarFall asks for your name and sends the score.
+After a minute or two, play a game. When it's over, the game asks for your name and sends the score.
 The **SCORES** button on the title screen shows the top 10 for Campaign or Endless,
 each difficulty, all-time or this week.
 
