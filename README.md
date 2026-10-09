@@ -4,9 +4,9 @@
 
 FEUERVOGEL 89 is a pixel-art vertical arcade shooter that runs in any modern browser, on phone or desktop. No download, no account.
 
-**[▶ Play FEUERVOGEL 89](https://mandelforce.github.io/StarFall/)**
+**[▶ Play FEUERVOGEL 89](https://mandelforce.github.io/feuervogel/)**
 
-(Formerly StarFall. The address, saved progress and the leaderboard stayed the same.)
+(Formerly StarFall, at `mandelforce.github.io/StarFall/`. Old links redirect here; saved progress and the leaderboard stayed the same.)
 
 ![FEUERVOGEL 89 title screen](og-image.png)
 
