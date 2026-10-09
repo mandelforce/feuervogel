@@ -56,7 +56,13 @@ jobs:
       - name: Check that ${{ matrix.worker }} answers
         run: |
           base=https://${{ matrix.worker }}.c-roth79.workers.dev
-          curl -fsS "$base/top?mode=camp&plat=pc&diff=1" | head -c 200; echo
+          # a brand-new workers.dev address can take a minute to appear, so retry before giving up
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$base/top?mode=camp&plat=pc&diff=1" | head -c 200; echo
           # an empty report is rejected before anything is saved: 400 proves the route is deployed
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://mandelforce.github.io' -H 'Content-Type: application/json' -d '{}' "$base/report")
+          code=000
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://mandelforce.github.io' -H 'Content-Type: application/json' -d '{}' "$base/report")
+            test "$code" = 400 && break
+            sleep 5
+          done
           test "$code" = 400 || { echo "/report answered $code, expected 400"; exit 1; }
