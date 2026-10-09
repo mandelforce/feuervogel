@@ -299,7 +299,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
-        <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button></span></div>
+        <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button><button type="button" data-g="2" style="display:none">Raven</button></span></div>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
@@ -332,7 +332,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat'
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', raven: 'starfall-raven'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -342,7 +342,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off' };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', raven: false };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
@@ -560,10 +560,11 @@ function camo(x, thr = 0.58, f = 0.72, sc = 0.22, seed = 0) {
 
 /* ================= sprites ================= */
 const SPR = {};
-function buildRaptor(bank, gold) {
-  const PA = gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
+function buildRaptor(bank, skin) {
+  const gold = skin === true, raven = skin === 'raven'; // the Raven: a darker Feuervogel, black with the violet kept as glow
+  const PA = raven ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = raven ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
   // golden skin leans into the rooster look: hackle-orange wing edges, green sickle tail, comb and beak
-  const EDGE = gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
+  const EDGE = raven ? ['#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = raven ? PA : gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
   return sprite(34, 36, x => {
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
@@ -577,7 +578,7 @@ function buildRaptor(bank, gold) {
       const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f;
       const edge = !pip(inL ? wl : wr, i + 0.5, j - 1.5);
       if (edge && j < 20) rect(x, pick(EDGE, 0.8, i, j), i, j, 1, 1);
-      else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? '#ecebe0' : '#1a1a1e', i, j, 1, 1);
+      else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? (raven ? '#6e62a8' : '#ecebe0') : (raven ? '#06050a' : '#1a1a1e'), i, j, 1, 1);
     }
     polyS(x, TAIL, gold ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
     polyS(x, PC, [[14, 20], [11, 25], [13, 25], [15, 23]], -0.05, 0.4);
@@ -601,6 +602,41 @@ SPR.playerSet = [buildRaptor(-1), buildRaptor(0), buildRaptor(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
 function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildRaptor(b, true))); }
+let ravenCache = null;
+function ravenSet() { return ravenCache || (ravenCache = [-1, 0, 1].map(b => buildRaptor(b, 'raven'))); }
+// The Raven skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
+const ravenState = () => +store.get(KEY.raven, 0) || 0;
+const ravenOwned = () => ravenState() > 0;
+function unlockRaven() { if (!ravenOwned()) store.set(KEY.raven, 1); }
+function useRaven() { return ravenOwned() && !!settings.raven; }
+const skinSet = () => useRaven() ? ravenSet() : useGold() ? goldSet() : SPR.playerSet;
+const FLAME = () => useRaven() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.raven = g === 2 && ravenOwned(); syncSettingsUI(); saveSettings(); }
+// the ship picker on the title screen: tap the ship to see the ships you own
+let shipPick = false;
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, goldSet()]] : [], ravenOwned() ? [[2, ravenSet()]] : []);
+const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
+function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
+function openShipPick() { shipPick = true; if (ravenState() === 1) store.set(KEY.raven, 2); sfx('tick'); }
+function tapShipPick(gx, gy) {
+  const list = shipList(), x0 = pickX0(list.length);
+  for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
+  shipPick = false;
+}
+function drawShipPick() {
+  const list = shipList(), x0 = pickX0(list.length), cur = useRaven() ? 2 : useGold() ? 1 : 0;
+  ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
+  list.forEach(([id, set], i) => {
+    const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
+    ctx.fillStyle = OUT; ctx.fillRect(cx - 2, PICK_CARD.y - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
+    ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, PICK_CARD.y - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
+    ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, PICK_CARD.y + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
+    const ps = set[1], sw = Math.round(ps.w * 1.4), sh = Math.round(ps.h * 1.4), by = PICK_CARD.y + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
+    ctx.fillStyle = id === 2 ? '#8466dc' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
+    ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
+    if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, PICK_CARD.y + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
+  });
+}
 // 2nd player: a captured Raven prototype, the Ravens' bat-wing bomber shrunk to fighter size and flown nose-up
 const RAVEN = ['#1c1d22', '#30323a', '#4a4d56', '#686c76', '#8c919b', '#b4b9c2', '#dde1e7'];
 function buildRaven(bank) {
@@ -3972,7 +4008,7 @@ lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
-function toTitle() { clearResume(); if (state === 'play') rrSend('quit'); rr = null; if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
+function toTitle() { shipPick = false; clearResume(); if (state === 'play') rrSend('quit'); rr = null; if (tut) { tut = null; quiet = false; } scrollTarget = SCROLL; results = null; props.length = 0; towerRows.clear(); towerCells.clear(); state = 'title'; enemies = []; ebul = []; shots = []; items = []; parts = []; decals = []; later = []; msg = null; cont = 0; player = null; }
 function doContinue() {
   if (cont <= 0 || !player) return;
   cont = 0; credits++; runConts++; gameOverPending = false;
@@ -6159,7 +6195,7 @@ const RB_BURST = 50, RB_HOLD = 20, RB_TOTAL = 2 * RB_BURST + RB_HOLD;
 let rbPix = null, rbSrc = null;
 const lerp = (a, b, t) => a + (b - a) * t;
 function rbPixels() { // the sprite cut into 3x3 chunks that travel as one piece
-  const s = (useGold() ? goldSet() : SPR.playerSet)[1];
+  const s = skinSet()[1];
   if (rbSrc === s) return rbPix;
   const d = s.c.getContext('2d').getImageData(0, 0, s.c.width, s.c.height).data, w = s.c.width, h = s.c.height; let seed = 7;
   const r01 = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -7561,12 +7597,14 @@ function drawPlayer() {
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
   const fl = 4 + ((gf >> 1) & 1) * 2;
   for (const [ox, top] of [[-3, 12], [3, 13]]) {
-    ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top);
-    ctx.fillStyle = '#ffb03a'; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
-    ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
+    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME();
+    ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top);
+    ctx.fillStyle = FC[1]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
+    ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
-  spr((useGold() && !p2 ? goldSet() : SPR.playerSet)[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
+  if (!p2 && useRaven()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
+  spr((p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
   for (let i = 0; i < p.drones; i++) {
     const d = p.dr[i];
@@ -7641,9 +7679,9 @@ function renderMain() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.save(); ctx.translate(0, TY);
     drawTitleLogo();
-    const ps = (useGold() ? goldSet() : SPR.playerSet)[1], sw = ps.w * 2, sh = ps.h * 2, by = TITLE_SHIP_Y + Math.sin(gf * 0.05) * 3;
+    const ps = skinSet()[1], sw = ps.w * 2, sh = ps.h * 2, by = TITLE_SHIP_Y + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
-    for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
+    for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
     ctx.drawImage(ps.c, W / 2 - sw / 2, by - sh / 2, sw, sh);
     const btn = (x0, y0, w, h, fill) => { ctx.fillStyle = OUT; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2); ctx.fillStyle = fill; ctx.fillRect(x0, y0, w, h); };
     { const x0 = Math.round(W / 2 - START_BTN.w / 2), pulse = 0.5 + 0.5 * Math.sin(gf * 0.08);
@@ -7663,7 +7701,9 @@ function renderMain() {
       textO('SCORES', W / 2, SCORES_Y + 5, '#fff0a0', 2, 'center', '#f4d050');
       if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, lbAlert === 'red' ? '#e86050' : '#f4d050'); ctx.globalAlpha = 1; dk(dx, dy, pr, lbAlert === 'red' ? '#e86050' : '#f4d050'); }
     }
+    if (ravenState() === 1 && !shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
+    if (shipPick) drawShipPick();
     ctx.restore();
     syncBody(); return;
   }
@@ -7866,10 +7906,10 @@ setPauseIcon();
 let panelPaused = false;
 function useGold() { return arts.size >= 6 && settings.gold; }
 function syncSettingsUI() {
-  { const row = document.getElementById('sSkinRow'); if (row) row.style.display = arts.size >= 6 ? '' : 'none';
-    for (const b of document.querySelectorAll('#sSkin button')) b.setAttribute('aria-pressed', String((b.dataset.g === '1') === !!settings.gold)); }
+  { const row = document.getElementById('sSkinRow'), cur = useRaven() ? '2' : useGold() ? '1' : '0'; if (row) row.style.display = arts.size >= 6 || ravenOwned() ? '' : 'none';
+    for (const b of document.querySelectorAll('#sSkin button')) { b.style.display = b.dataset.g === '1' && arts.size < 6 || b.dataset.g === '2' && !ravenOwned() ? 'none' : ''; b.setAttribute('aria-pressed', String(b.dataset.g === cur)); } }
   document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx;
-  for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
+  for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => setSkin(+b.dataset.g));
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
@@ -8038,7 +8078,7 @@ document.getElementById('sFps').addEventListener('click', () => { settings.fps =
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; applyVolumes(); });
 document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
-for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => { settings.gold = b.dataset.g === '1'; syncSettingsUI(); saveSettings(); });
+for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => setSkin(+b.dataset.g));
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
@@ -8086,7 +8126,7 @@ let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
   if (booting) { endBoot(); return; }
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (arts.size >= 6 && shipHit(gx0, gy0)) { settings.gold = !settings.gold; syncSettingsUI(); saveSettings(); sfx('tick'); } else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || ravenOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) leaveOver(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
@@ -8153,7 +8193,7 @@ document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPr
   const mq = matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:500px)');
   const onTurn = () => {
     if (!mq.matches) return;
-    const c = document.getElementById('rotShip'), x = c.getContext('2d'), s = (useGold() ? goldSet() : SPR.playerSet)[1];
+    const c = document.getElementById('rotShip'), x = c.getContext('2d'), s = skinSet()[1];
     x.clearRect(0, 0, c.width, c.height); x.drawImage(s.c, 0, 0);
     if (state === 'play' && !paused) togglePause();
   };
