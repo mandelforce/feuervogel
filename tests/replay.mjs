@@ -13,6 +13,7 @@ const golden = JSON.parse(readFileSync(goldenUrl, 'utf8'));
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const replay = readFileSync(new URL('./replay.js', import.meta.url), 'utf8');
 const update = process.argv.includes('--update');
+const diag = process.argv.includes('--diag');
 const onlyTerrain = process.argv.includes('--terrain'), warnOnly = process.argv.includes('--warn');
 
 // Runs before the game's own script: a seeded Math.random, and no frame loop, so only the replay moves the game.
@@ -24,6 +25,16 @@ const initScript = () => {
 };
 
 const browser = await chromium.launch();
+if (diag) {
+  // print environment facts and a trace so two machines can be compared line by line
+  const page = await browser.newPage({ viewport: golden.viewport });
+  await page.route(/workers\.dev/, r => r.abort());
+  await page.addInitScript(initScript); await page.goto(PAGE);
+  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
+  console.log('DIAG ' + JSON.stringify(await page.evaluate(() => window.SF.diag())));
+  await browser.close(); process.exit(0);
+}
 const results = {};
 let bad = 0;
 const names = onlyTerrain ? [] : (await (async () => {
@@ -47,6 +58,7 @@ for (const name of names) {
   await page.close();
   if (update) { console.log(`${name}: ${JSON.stringify(results[name])}`); continue; }
   const want = golden.scenarios[name], got = results[name];
+  if (want?.H !== got.H) { bad++; console.error(`FAIL ${name}: playfield height H is ${got.H}, golden was made at ${want?.H}. The game sizes H from the window layout, so this machine is not comparable (or the layout CSS changed). Not a gameplay difference.`); continue; }
   const diffs = Object.keys({ ...want, ...got }).filter(k => want?.[k] !== got[k]).map(k => `${k}: expected ${want?.[k]}, got ${got[k]}`);
   if (diffs.length) { bad++; console.error(`FAIL ${name}\n  ${diffs.join('\n  ')}`); } else console.log(`ok   ${name}`);
 }
@@ -73,7 +85,7 @@ for (const name of names) {
 await browser.close();
 
 if (update && onlyTerrain) { golden.terrain = results.terrain; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json terrain updated.'); }
-else if (update) { golden.terrain = results.terrain; delete results.terrain; golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); }
+else if (update) { golden.terrain = results.terrain; delete results.terrain; golden.scenarios = results; writeFileSync(goldenUrl, JSON.stringify(golden, null, 2) + '\n'); console.log('\ngolden.json updated.'); console.log('GOLDEN-BEGIN\n' + JSON.stringify(golden, null, 2) + '\nGOLDEN-END'); }
 else if (bad && warnOnly) console.log(`\n${bad} terrain stage(s) differ from golden.json (warning only).`);
 else if (bad) { console.error(`\n${bad} check(s) changed. If the change was meant to alter gameplay, run with --update and say so in the commit.`); process.exit(1); }
 else console.log('\nReplay matches.');

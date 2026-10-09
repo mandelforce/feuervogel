@@ -34,3 +34,10 @@ jobs:
       - name: Replay test (advisory until proven stable)
         continue-on-error: true
         run: node tests/replay.mjs
+      # Manual runs only (Actions tab > Run workflow): print machine details plus fresh golden values for tests/golden.json.
+      - name: Replay diagnostics (manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: node tests/replay.mjs --diag
+      - name: Replay golden refresh (manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: node tests/replay.mjs --update
