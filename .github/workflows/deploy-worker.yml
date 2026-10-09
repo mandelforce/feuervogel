@@ -1,0 +1,62 @@
+name: Deploy leaderboard Worker
+
+# Pull requests: run the Worker tests and check the deploy configuration (nothing is uploaded).
+# Merge to main with a changed worker.js or wrangler.toml: deploy to Cloudflare, after the tests pass and after the
+# reviewer set on the "production-worker" environment approves (GitHub: Settings > Environments). See SETUP.md.
+on:
+  pull_request:
+    paths: ['worker.js', 'wrangler.toml', 'tests/worker.test.mjs', '.github/workflows/deploy-worker.yml']
+  push:
+    branches: [main]
+    paths: ['worker.js', 'wrangler.toml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Worker rules (unit tests)
+        run: node --test tests/worker.test.mjs
+      - name: Check the deploy configuration (nothing is uploaded)
+        run: npx --yes wrangler@4 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-worker
+    strategy:
+      fail-fast: false
+      matrix:
+        # "feuervogel" is the current Worker; "starfall-scores" is the original one, kept running from the same code and the same
+        # database for game versions that were released before the rename. Remove it from this list when it is retired.
+        worker: [feuervogel, starfall-scores]
+    concurrency:
+      group: deploy-worker
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Deploy ${{ matrix.worker }} to Cloudflare
+        run: npx --yes wrangler@4 deploy --name ${{ matrix.worker }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Check that ${{ matrix.worker }} answers
+        run: |
+          base=https://${{ matrix.worker }}.c-roth79.workers.dev
+          curl -fsS "$base/top?mode=camp&plat=pc&diff=1" | head -c 200; echo
+          # an empty report is rejected before anything is saved: 400 proves the route is deployed
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://mandelforce.github.io' -H 'Content-Type: application/json' -d '{}' "$base/report")
+          test "$code" = 400 || { echo "/report answered $code, expected 400"; exit 1; }
