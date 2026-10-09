@@ -7038,9 +7038,10 @@ function drawGroundEnemy(e) {
     case 'fuel': spr(SPR.fuel, e.x, e.y, fl); break;
     case 'bridge': spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); break;
     case 'secret': {
-      // the hint: dark crows circling over the hiding place, led by one larger white crow
-      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3; ctx.drawImage(CROW_IMG[0][((gf >> 3) + k) & 1], Math.round(e.x + Math.cos(an) * 19) - 6, Math.round(e.y - 16 + Math.sin(an) * 9) - 5); }
-      { const an = -gf * 0.022 + 1, cx = Math.round(e.x + Math.cos(an) * 28), cy = Math.round(e.y - 20 + Math.sin(an) * 13); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(gf * 0.1); dk(cx, cy, 8, '#f4f0ff'); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[1][(gf >> 3) & 1], cx - 6, cy - 5); }
+      // the hint: dark crows circling over the hiding place, led by a cream one; all cast a soft shadow
+      const crowAt = (set, fr, x, y) => { ctx.globalAlpha = 0.28; ctx.drawImage(CROW_IMG[0][fr], x - 2, y + 4); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[set][fr], x - 6, y - 5); };
+      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3; crowAt(0, ((gf >> 3) + k) & 1, Math.round(e.x + Math.cos(an) * 19), Math.round(e.y - 16 + Math.sin(an) * 9)); }
+      { const an = -gf * 0.022 + 1; crowAt(1, (gf >> 3) & 1, Math.round(e.x + Math.cos(an) * 28), Math.round(e.y - 20 + Math.sin(an) * 13)); }
       if (e.prog > 0) { const f = e.prog / 48; ctx.globalAlpha = 0.3 + 0.5 * f; ctx.strokeStyle = '#bba4ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5, 4 + 8 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke(); ctx.globalAlpha = 1; }
       break;
     }
@@ -7235,7 +7236,7 @@ function drawNight() {
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
 const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0];
-// the secret's crows as pixel maps: [0] small dark ones, [1] the larger white one (outlined); frame 0 wings up, 1 wings down
+// the secret's crows as pixel maps: [0] the dark flock, [1] a cream leader; frame 0 wings up, 1 wings down
 const CROW_IMG = (() => {
   const build = (rows, pal, outline) => {
     const h = rows.length, w = rows[0].length, [c, x] = mk(w + 2, h + 2), at = (i, j) => (rows[j] || '')[i] || '.';
@@ -7246,7 +7247,7 @@ const CROW_IMG = (() => {
   const rows = [['W....K....W', 'WW..WEW..WW', '.WW.WWW.WW.', '..WWWWWWW..', '...WWWWW...', '....SWS....', '.....S.....', '....SSS....'],
     ['.....K.....', '....WEW....', 'WW..WWW..WW', 'WWWWWWWWWWW', '.SSWWWWWSS.', '...SWWWS...', '.....S.....', '....SSS....']];
   const small = rows.map(r => build(r, { W: '#141018', S: '#2a2433', E: '#141018', K: '#141018' }, null));
-  const big = rows.map(r => build(r, { W: '#fbfaff', S: '#b9b3d2', E: '#141018', K: '#e8b04a' }, '#3a3450'));
+  const big = rows.map(r => build(r, { W: '#f2eee4', S: '#b9b09a', E: '#141018', K: '#c9a85a' }, null));
   return [small, big];
 })();
 function drawBirds() {
