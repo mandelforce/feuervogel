@@ -120,3 +120,62 @@ test('weekly boards use ISO weeks', async () => {
     }
   } finally { Date.now = realNow; }
 });
+
+// ---- /status: the red dot on the SCORES button (rank like /top) ----
+// A tiny in-memory stand-in for the two queries /status makes.
+function memoryDb(rows) {
+  const run = (sql, args) => {
+    if (/GROUP BY mode, plat, diff/.test(sql)) { // the player's best score on each board
+      const best = new Map();
+      for (const r of rows) if (r.player === args[0]) { const k = `${r.mode}|${r.plat}|${r.diff}`; best.set(k, Math.max(best.get(k) ?? -1, r.score)); }
+      return [...best].map(([k, score]) => { const [mode, plat, diff] = k.split('|'); return { mode, plat, diff: +diff, score }; });
+    }
+    if (/FROM \(SELECT player, MAX\(score\)/.test(sql)) { // how many players have a better best score
+      const [mode, diff, plat, mine] = args, per = new Map();
+      for (const r of rows) if (r.mode === mode && r.diff === diff && r.plat === plat) per.set(r.player, Math.max(per.get(r.player) ?? -1, r.score));
+      return [{ n: [...per.values()].filter(s => s > mine).length }];
+    }
+    throw new Error('unexpected query: ' + sql);
+  };
+  const prepare = sql => ({ bind: (...args) => ({ sql, args, all: async () => ({ results: run(sql, args) }), first: async () => run(sql, args)[0] ?? null }) });
+  return { prepare, batch: async list => list.map(s => ({ results: run(s.sql, s.args) })) };
+}
+const pid = name => 'p-' + name.padEnd(18, '0');
+const ME = pid('me'), A = pid('a'), B = pid('b'), C = pid('c');
+const row = (player, score, o = {}) => ({ player, score, mode: 'camp', plat: 'pc', diff: 1, ...o });
+async function status(rows, query, origin = ORIGIN) {
+  const res = await worker.fetch(new Request('https://worker.test/status?' + query, { headers: { Origin: origin } }), { DB: memoryDb(rows) });
+  return { status: res.status, body: await res.json(), allow: res.headers.get('Access-Control-Allow-Origin') };
+}
+
+test('/status: rank counts players with a better best score, like /top', async () => {
+  const rows = [row(ME, 500), row(A, 900), row(A, 100), row(B, 700), row(C, 500)]; // A's lower second score must not count twice; a tie does not outrank
+  const r = await status(rows, `player=${ME}`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.boards, [{ mode: 'camp', plat: 'pc', diff: 1, rank: 3 }]);
+});
+
+test('/status: one entry per board the player has a score on, others are ignored', async () => {
+  const rows = [row(ME, 500), row(ME, 40, { mode: 'endless', plat: 'mobile', diff: 0 }), row(A, 900, { diff: 2 })];
+  const r = await status(rows, `player=${ME}`);
+  const keys = r.body.boards.map(b => `${b.mode}|${b.plat}|${b.diff}|${b.rank}`).sort();
+  assert.deepEqual(keys, ['camp|pc|1|1', 'endless|mobile|0|1']);
+});
+
+test('/status: the best score leads, whoever else played', async () => {
+  const r = await status([row(ME, 900), row(A, 500), row(B, 100)], `player=${ME}`);
+  assert.equal(r.body.boards[0].rank, 1);
+});
+
+test('/status: unknown or invalid players get an empty list, not an error', async () => {
+  assert.deepEqual((await status([row(ME, 500)], `player=${pid('nobody')}`)).body, { boards: [] });
+  assert.deepEqual((await status([row(ME, 500)], 'player=short')).body, { boards: [] });
+  assert.deepEqual((await status([row(ME, 500)], '')).body, { boards: [] });
+});
+
+test('/status: answers the game page, never echoes a foreign origin, reads only', async () => {
+  assert.equal((await status([row(ME, 500)], `player=${ME}`)).allow, ORIGIN);
+  assert.equal((await status([row(ME, 500)], `player=${ME}`, 'https://evil.example')).allow, ORIGIN);
+  const res = await worker.fetch(new Request('https://worker.test/status?player=' + ME, { method: 'POST', headers: { Origin: ORIGIN } }), { DB: memoryDb([]) });
+  assert.equal(res.status, 404);
+});

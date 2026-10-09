@@ -40,6 +40,16 @@ export default {
         const tag = p => p.slice(-4).toUpperCase();
         return json({ period, plat, week: useWk || wk, top: top.results.map(r => ({ name: r.name, tag: tag(r.player), score: r.score, stage: r.stage, star: r.conts === 0, me: r.player === player })), me }, 200, origin);
       }
+      // The red dot on the title screen's SCORES button. For every board the player has a score on (mode, platform, difficulty) it returns
+      // the player's all-time rank, worked out exactly like /top's "me.rank": the game compares the two and shows the dot when the rank got worse.
+      if (req.method === 'GET' && url.pathname === '/status') {
+        const player = url.searchParams.get('player') || '';
+        if (!/^[A-Za-z0-9-]{16,40}$/.test(player)) return json({ boards: [] }, 200, origin);
+        const mine = await env.DB.prepare('SELECT mode, plat, diff, MAX(score) AS score FROM scores WHERE player = ?1 GROUP BY mode, plat, diff').bind(player).all();
+        const rows = mine.results || [];
+        const ranks = rows.length ? await env.DB.batch(rows.map(r => env.DB.prepare('SELECT COUNT(*) AS n FROM (SELECT player, MAX(score) AS s FROM scores WHERE mode = ?1 AND diff = ?2 AND plat = ?3 GROUP BY player) WHERE s > ?4').bind(r.mode, r.diff, r.plat, r.score))) : [];
+        return json({ boards: rows.map((r, i) => ({ mode: r.mode, plat: r.plat, diff: r.diff, rank: (((ranks[i] && ranks[i].results && ranks[i].results[0]) || {}).n || 0) + 1 })) }, 200, origin);
+      }
       if (req.method === 'POST' && url.pathname === '/submit') {
         if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: 'origin not allowed' }, 403, origin);
         const b = await req.json();
