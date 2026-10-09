@@ -78,6 +78,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #pauseMenu.open{display:grid}
 #settings .panel{max-height:92vh;overflow-y:auto;width:min(94%,360px)}
 #settings .seg{flex-wrap:nowrap}
+#sSkinRow{flex-wrap:wrap;row-gap:6px}#sSkinRow .seg{margin-left:auto} /* three ships can be too wide for one line on a phone: the buttons drop below the label */
 #settings .wide{width:100%;margin:10px 0 4px}
 #diffAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#diffAsk.open{display:grid}#diffAsk .panel{width:min(90%,340px);max-height:96%;overflow-y:auto}@media (max-height:600px){#diffAsk .panel{padding:10px 12px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu{gap:6px}#diffAsk .dmenu button{padding:5px 10px}#diffAsk .dback{margin-top:6px;padding:4px}}
 #diffAsk .dmenu{display:grid;gap:10px}#diffAsk .dmenu button{display:grid;gap:3px;width:100%;padding:9px 10px;background:#34226a;border-color:#8466dc;box-shadow:0 0 0 2px #120e1a}
@@ -299,7 +300,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
-        <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button><button type="button" data-g="2" style="display:none">Raven</button></span></div>
+        <div class="row" id="sSkinRow" style="display:none"><span>Ship</span><span class="seg" id="sSkin"><button type="button" data-g="0">Raptor</button><button type="button" data-g="1">Rooster</button><button type="button" data-g="2" style="display:none">Nachtvogel</button></span></div>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
@@ -332,7 +333,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', raven: 'starfall-raven'
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'starfall-nachtvogel'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -342,7 +343,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', raven: false };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
@@ -561,10 +562,10 @@ function camo(x, thr = 0.58, f = 0.72, sc = 0.22, seed = 0) {
 /* ================= sprites ================= */
 const SPR = {};
 function buildRaptor(bank, skin) {
-  const gold = skin === true, raven = skin === 'raven'; // the Raven: a darker Feuervogel, black with the violet kept as glow
-  const PA = raven ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = raven ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
+  const gold = skin === true, nacht = skin === 'nacht'; // the Nachtvogel: a darker Feuervogel, black with the violet kept as glow
+  const PA = nacht ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = nacht ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
   // golden skin leans into the rooster look: hackle-orange wing edges, green sickle tail, comb and beak
-  const EDGE = raven ? ['#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = raven ? PA : gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
+  const EDGE = nacht ? ['#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = nacht ? PA : gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
   return sprite(34, 36, x => {
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
@@ -578,7 +579,7 @@ function buildRaptor(bank, skin) {
       const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f;
       const edge = !pip(inL ? wl : wr, i + 0.5, j - 1.5);
       if (edge && j < 20) rect(x, pick(EDGE, 0.8, i, j), i, j, 1, 1);
-      else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? (raven ? '#6e62a8' : '#ecebe0') : (raven ? '#06050a' : '#1a1a1e'), i, j, 1, 1);
+      else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? (nacht ? '#6e62a8' : '#ecebe0') : (nacht ? '#06050a' : '#1a1a1e'), i, j, 1, 1);
     }
     polyS(x, TAIL, gold ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
     polyS(x, PC, [[14, 20], [11, 25], [13, 25], [15, 23]], -0.05, 0.4);
@@ -602,29 +603,29 @@ SPR.playerSet = [buildRaptor(-1), buildRaptor(0), buildRaptor(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
 function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildRaptor(b, true))); }
-let ravenCache = null;
-function ravenSet() { return ravenCache || (ravenCache = [-1, 0, 1].map(b => buildRaptor(b, 'raven'))); }
-// The Raven skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
-const ravenState = () => +store.get(KEY.raven, 0) || 0;
-const ravenOwned = () => ravenState() > 0;
-function unlockRaven() { if (!ravenOwned()) store.set(KEY.raven, 1); }
-function useRaven() { return ravenOwned() && !!settings.raven; }
-const skinSet = () => useRaven() ? ravenSet() : useGold() ? goldSet() : SPR.playerSet;
-const FLAME = () => useRaven() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.raven = g === 2 && ravenOwned(); syncSettingsUI(); saveSettings(); }
+let nachtCache = null;
+function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => buildRaptor(b, 'nacht'))); }
+// The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
+const nachtState = () => +store.get(KEY.nacht, 0) || 0;
+const nachtOwned = () => nachtState() > 0;
+function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
+function useNacht() { return nachtOwned() && !!settings.nacht; }
+const skinSet = () => useNacht() ? nachtSet() : useGold() ? goldSet() : SPR.playerSet;
+const FLAME = () => useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); syncSettingsUI(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 let shipPick = false;
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, goldSet()]] : [], ravenOwned() ? [[2, ravenSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, goldSet()]] : [], nachtOwned() ? [[2, nachtSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { shipPick = true; if (ravenState() === 1) store.set(KEY.raven, 2); sfx('tick'); }
+function openShipPick() { shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); sfx('tick'); }
 function tapShipPick(gx, gy) {
   const list = shipList(), x0 = pickX0(list.length);
   for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   shipPick = false;
 }
 function drawShipPick() {
-  const list = shipList(), x0 = pickX0(list.length), cur = useRaven() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), x0 = pickX0(list.length), cur = useNacht() ? 2 : useGold() ? 1 : 0;
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
   list.forEach(([id, set], i) => {
     const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
@@ -3371,7 +3372,7 @@ function sfx(n) {
     case 'cancel': [1568, 1976, 2349, 2637, 3136].forEach((f, i) => setTimeout(() => tone(f, 0.07, 'triangle', 0.035), i * 45)); break;
     case 'orb': tone(196, 2.6, 'sine', 0.035, 392); tone(294, 2.6, 'sine', 0.02, 588); break;
     case 'implode': noise(0.9, 0.12, 260); tone(260, 0.8, 'sawtooth', 0.05, 38); tone(130, 0.8, 'sine', 0.05, 30); break;
-    case 'ravenup': tone(98, 2.2, 'sawtooth', 0.035, 196); tone(147, 2.2, 'sine', 0.03, 294); tone(392, 1.6, 'sine', 0.015, 784); break;
+    case 'nachtup': tone(98, 2.2, 'sawtooth', 0.035, 196); tone(147, 2.2, 'sine', 0.03, 294); tone(392, 1.6, 'sine', 0.015, 784); break;
     case 'flyby': tone(70, 4.5, 'sawtooth', 0.035, 62); tone(140, 4.5, 'square', 0.012, 124); noise(4.5, 0.04, 350); break;
     case 'spool': tone(40, 1.9, 'sawtooth', 0.09, 160); tone(80, 1.9, 'square', 0.03, 320); noise(1.9, 0.12, 400); break;
     case 'liftoff': tone(60, 2.4, 'sawtooth', 0.12, 30); noise(2.4, 0.3, 600); tone(30, 2, 'sine', 0.4, 22); break;
@@ -3667,10 +3668,10 @@ const ORBD = (() => { // the orb after it has taken the crows: a black core with
   for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = Math.hypot(i, j); if (d > 6.4) continue; x.fillStyle = ramp[d > 5.1 ? 4 : d > 4.1 ? 3 : d > 3 ? 2 : d > 1.8 ? 1 : 0]; x.fillRect(i + 7, j + 7, 1, 1); }
   return c;
 })();
-// The Raven unlock (Ravenhold, escalation level 8 and up): when the orb rises, the crows gather round it, it pulls them in one by one and the screen
-// implodes into black. The first time, a window shows the Raven rising out of the black orb; the next tap goes on to the title screen.
-const RV_SUCK = 110, RV_GAP = 8, RV_FLASH_AT = 204, RV_WIN_AT = 284;
-const rvS0 = f => f.rt + ORB_RISE + 10; // when the first crow starts to spiral in
+// The Nachtvogel unlock (Ravenhold, escalation level 8 and up): when the orb rises, the crows gather round it, it pulls them in one by one and the screen
+// implodes into black. The first time, a window shows the Nachtvogel rising out of the black orb; the next tap goes on to the title screen.
+const NV_SUCK = 110, NV_GAP = 8, NV_FLASH_AT = 204, NV_WIN_AT = 284;
+const nvS0 = f => f.rt + ORB_RISE + 10; // when the first crow starts to spiral in
 function flyOrb(f) { // where the orb is, and how far it has risen
   const wy = flyY(f), rel = f.rt < 0 ? 0 : clamp((f.t - f.rt) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel);
   return { x: f.x, y: wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, e };
@@ -3694,7 +3695,7 @@ function pickBeat(boss) {
 function startFlyby() {
   const boss = enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
   const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), deck = bossAnchor(boss, fx, fy), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(scroll)));
-  flyby = { t: 0, pt: 0, rt: -1, ravenBeat: beat === 'boss' && !!boss && boss.kind === 'castle' && escLevel >= 8, absorbed: 0, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
+  flyby = { t: 0, pt: 0, rt: -1, nachtBeat: beat === 'boss' && !!boss && boss.kind === 'castle' && escLevel >= 8, absorbed: 0, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
   if (flyby.water) splash(fx, fy, 14); // it went down in the water: the wreck will sink
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
@@ -3707,13 +3708,13 @@ function castleReact(f, e) {
   if (t === 0) { sfx('toll'); f.crows = []; for (let i = 0; i < 12; i++) { const b = { x: cx, y: cy, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); f.crows.push(b); } }
   if (t === 45) sfx('toll');
   if (!f.crows) return;
-  if (f.ravenBeat && f.rt >= 0 && f.t === f.rt + 8) for (let k = 0; k < 7; k++) { // the rest of the flock comes back to the orb
+  if (f.nachtBeat && f.rt >= 0 && f.t === f.rt + 8) for (let k = 0; k < 7; k++) { // the rest of the flock comes back to the orb
     const side = k % 2 ? 1 : -1, b = { x: side < 0 ? -8 : W + 8, y: rnd(20, H * 0.7), vx: 0, vy: 0, ph: Math.random() * 6 }; b.cir = { i: 5 + k, r: rnd(40, 70), a: rnd(0, TAU), w: 0.045 + (k % 4) * 0.004, sx: b.x, sy: b.y }; birds.push(b); f.crows.push(b);
   }
   for (let q = f.crows.length - 1; q >= 0; q--) if (f.crows[q].gone) { const bi = birds.indexOf(f.crows[q]); if (bi >= 0) birds.splice(bi, 1); f.crows.splice(q, 1); }
   f.crows.forEach((b, i) => {
-    if (b.cir) { // Raven: round the orb, then spiralling in
-      const O = flyOrb(f), u = clamp((f.t - rvS0(f) - b.cir.i * RV_GAP) / RV_SUCK, 0, 1), k = clamp((f.t - (f.rt + 8)) / 70, 0, 1);
+    if (b.cir) { // Nachtvogel unlock: round the orb, then spiralling in
+      const O = flyOrb(f), u = clamp((f.t - nvS0(f) - b.cir.i * NV_GAP) / NV_SUCK, 0, 1), k = clamp((f.t - (f.rt + 8)) / 70, 0, 1);
       const r = b.cir.r * Math.pow(1 - u, 1.7), a = b.cir.a + b.cir.w * f.t * (1 + 3.5 * u), tx = O.x + Math.cos(a) * r * 1.15, ty = O.y + Math.sin(a) * r * 0.6;
       b.x = b.cir.sx + (tx - b.cir.sx) * k; b.y = b.cir.sy + (ty - b.cir.sy) * k; b.vx = b.vy = 0; b.sc = 1 - 0.8 * u; b.ph += 0.25;
       if (u >= 1 && !b.gone) { b.gone = true; f.absorbed++; }
@@ -3721,14 +3722,14 @@ function castleReact(f, e) {
     }
     if (b.perch) {
       b.x = f.x + b.px; b.y = wy + b.py;
-      if (f.rt >= 0 && f.t > f.rt + 8) { b.perch = false; b.land = false; if (f.ravenBeat) b.cir = { i: i, r: rnd(40, 70), a: rnd(0, TAU), w: 0.045 + (i % 4) * 0.004, sx: b.x, sy: b.y }; else { b.vx = rnd(-1.2, 1.2); b.vy = rnd(-1.5, -0.5); } }
+      if (f.rt >= 0 && f.t > f.rt + 8) { b.perch = false; b.land = false; if (f.nachtBeat) b.cir = { i: i, r: rnd(40, 70), a: rnd(0, TAU), w: 0.045 + (i % 4) * 0.004, sx: b.x, sy: b.y }; else { b.vx = rnd(-1.2, 1.2); b.vy = rnd(-1.5, -0.5); } }
       return;
     }
     if (b.orb) {
       b.orb.a += 0.055; b.x = cx + Math.cos(b.orb.a) * b.orb.r; b.y = cy + Math.sin(b.orb.a) * b.orb.r * 0.8; b.vx = b.vy = 0;
       if (t > 300) { const a = b.orb.a; b.orb = null; if (f.tier >= 3 && i < 5) { const pa = i * TAU / 5 + rnd(-0.3, 0.3), pr = rnd(14, 20); b.land = true; b.px = Math.cos(pa) * pr; b.py = Math.sin(pa) * pr * 0.8; } else { b.vx = Math.cos(a) * 1.2 + rnd(-0.3, 0.3); b.vy = Math.sin(a) * 1.2 - 0.4; } }
     } else if (b.land) {
-      if (f.ravenBeat && f.rt >= 0 && f.t > f.rt + 8) { b.land = false; b.cir = { i: i, r: rnd(40, 70), a: rnd(0, TAU), w: 0.045 + (i % 4) * 0.004, sx: b.x, sy: b.y }; return; }
+      if (f.nachtBeat && f.rt >= 0 && f.t > f.rt + 8) { b.land = false; b.cir = { i: i, r: rnd(40, 70), a: rnd(0, TAU), w: 0.045 + (i % 4) * 0.004, sx: b.x, sy: b.y }; return; }
       const tx = f.x + b.px, ty = wy + b.py; b.x += (tx - b.x) * 0.035; b.y += (ty - b.y) * 0.035;
       if (Math.hypot(tx - b.x, ty - b.y) < 1.2) b.perch = true;
     }
@@ -3758,7 +3759,7 @@ function leaveOver(auto) {
   if (!f) { toTitle(); return; }
   if (f.beat === 'none') { if (!fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // nothing to wait for
   if (f.hold) return; // the score dialog is still to come
-  if (f.rt >= 0 && f.ravenBeat) { if (f.rvWin && !auto && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // the unlock scene runs its course; a tap closes its window
+  if (f.rt >= 0 && f.nachtBeat) { if (f.nvWin && !auto && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // the unlock scene runs its course; a tap closes its window
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
@@ -3775,13 +3776,13 @@ function updFlyby() {
   if (f.deck && !f.deck.free) { const [ax, ay] = anchorPos(f.deck); f.x = ax; f.y = ay; } // lying on a boss: it goes where the boss goes
   const wy = flyY(f);
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
-  if (f.rt >= 0 && f.ravenBeat) { // the unlock scene
-    const tf = rvS0(f) + RV_FLASH_AT;
+  if (f.rt >= 0 && f.nachtBeat) { // the unlock scene
+    const tf = nvS0(f) + NV_FLASH_AT;
     if (f.t === tf) sfx('implode');
     if (f.t >= tf + 24 && f.t < tf + 34) shake = Math.max(shake, 3);
-    if (f.t === tf + 26) { f.rvDark = true; if (!ravenOwned()) { unlockRaven(); f.rvNew = true; } }
-    if (f.t === tf + 80) { if (f.rvNew) { f.rvWin = true; sfx('ravenup'); } }
-    if (!f.rvNew && f.t >= tf + 110 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; // seen before: no window
+    if (f.t === tf + 26) { f.nvDark = true; if (!nachtOwned()) { unlockNacht(); f.nvNew = true; } }
+    if (f.t === tf + 80) { if (f.nvNew) { f.nvWin = true; sfx('nachtup'); } }
+    if (!f.nvNew && f.t >= tf + 110 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; // seen before: no window
   } else if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
   if (f.blow && f.cover && f.t === 40) f.cover.reactStorm = true; // it went down on top of the tank: the sandstorm blows it off
   { const S = f.cover && f.cover.storm; // the wind slides the wreck (and the orb in it) out from under the tank
@@ -3847,15 +3848,15 @@ function anchorPos(D) {
 }
 const flyY = f => f.deck ? f.y : f.y + scroll - f.s0; // screen y of the wreck: on a deck it is the deck's, on the ground it moves with the ground
 function drawFlybyOverlay() { // on top of everything, including the GAME OVER text
-  const f = flyby; if (!f || !f.ravenBeat || f.rt < 0) return;
-  const tt = f.t - (rvS0(f) + RV_FLASH_AT), O = flyOrb(f);
+  const f = flyby; if (!f || !f.nachtBeat || f.rt < 0) return;
+  const tt = f.t - (nvS0(f) + NV_FLASH_AT), O = flyOrb(f);
   if (tt >= 0 && tt < 80) { // C: a ring of light contracts onto the orb, black for five frames, then it clears
     if (tt < 26) { const r = 110 * (1 - tt / 26); ctx.strokeStyle = `rgba(200,170,255,${0.2 + 0.6 * tt / 26})`; ctx.lineWidth = 2 + tt / 8; ctx.beginPath(); ctx.arc(O.x, O.y, Math.max(1, r), 0, TAU); ctx.stroke(); ctx.fillStyle = `rgba(0,0,0,${tt / 26 * 0.45})`; ctx.fillRect(0, 0, W, H); }
     else if (tt < 31) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
     else { ctx.fillStyle = `rgba(0,0,0,${0.85 * (1 - (tt - 31) / 49)})`; ctx.fillRect(0, 0, W, H); }
   }
-  if (f.rvWin) { // no words: the Raven rises out of the black orb, ringed by crows
-    const wt = f.t - (rvS0(f) + RV_WIN_AT), rise = clamp(wt / 80, 0, 1), cx = W / 2, cy = H * 0.46, ps = ravenSet()[1];
+  if (f.nvWin) { // no words: the Nachtvogel rises out of the black orb, ringed by crows
+    const wt = f.t - (nvS0(f) + NV_WIN_AT), rise = clamp(wt / 80, 0, 1), cx = W / 2, cy = H * 0.46, ps = nachtSet()[1];
     ctx.fillStyle = 'rgba(10,8,16,0.78)'; ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 0.18 * rise; dk(cx, cy, 52, '#8466dc'); ctx.globalAlpha = 0.3 * rise; dk(cx, cy, 30, '#8466dc'); ctx.globalAlpha = 1;
     ctx.globalAlpha = 0.5; dk(cx, cy + 27, 22, '#000000'); ctx.globalAlpha = 1;
@@ -3875,14 +3876,14 @@ function drawFlyby() {
   const rel = f.rt < 0 ? 0 : clamp((f.t - f.rt) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it has risen free
   const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e + 0.05 * (f.absorbed || 0);
   const covered = f.cover && !f.deck && onBoss(f.cover, wx, wy, 0) && e < 0.12 ? 1 : 0; // under a boss: only its glow shows through
-  const depth = f.water ? clamp(1 - (wy - 3 - oy) / 8, 0, 1) : 0, gs = (0.55 + 0.45 * e) * (1 - 0.4 * depth) * (1 - 0.65 * covered) * (f.rvDark ? 0 : 1); // depth: 1 while the orb is under the water
+  const depth = f.water ? clamp(1 - (wy - 3 - oy) / 8, 0, 1) : 0, gs = (0.55 + 0.45 * e) * (1 - 0.4 * depth) * (1 - 0.65 * covered) * (f.nvDark ? 0 : 1); // depth: 1 while the orb is under the water
   if (e > 0.02 && !f.water) { // light cone from the free orb down onto the hull
     ctx.globalAlpha = 0.28 * e; ctx.fillStyle = '#a58cff'; ctx.beginPath(); ctx.moveTo(ox - 3, oy); ctx.lineTo(ox + 3, oy); ctx.lineTo(wx + 24, wy + 8); ctx.lineTo(wx - 24, wy + 8); ctx.fill(); ctx.globalAlpha = 1;
   }
   for (const [r, a] of [[46, 0.09], [34, 0.12], [23, 0.16], [14, 0.22]]) { ctx.globalAlpha = a * (0.6 + 0.4 * pul) * gs; dk(ox, oy, r * (0.5 + 0.5 * gs), '#8466dc'); }
   ctx.globalAlpha = 1;
-  if (f.rvDark) { ctx.globalAlpha = 0.3; dk(ox, oy, 34, '#000000'); ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(132,102,220,0.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox, oy, 10 + Math.sin(f.t * 0.08) * 1.5, 0, TAU); ctx.stroke(); } // dark light round the black orb
-  if (!covered) ctx.drawImage(f.rvDark ? ORBD : ORB, Math.round(ox - 7.5 * sc), Math.round(oy - 7.5 * sc), Math.round(15 * sc), Math.round(15 * sc));
+  if (f.nvDark) { ctx.globalAlpha = 0.3; dk(ox, oy, 34, '#000000'); ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(132,102,220,0.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox, oy, 10 + Math.sin(f.t * 0.08) * 1.5, 0, TAU); ctx.stroke(); } // dark light round the black orb
+  if (!covered) ctx.drawImage(f.nvDark ? ORBD : ORB, Math.round(ox - 7.5 * sc), Math.round(oy - 7.5 * sc), Math.round(15 * sc), Math.round(15 * sc));
   if (depth > 0) { ctx.globalAlpha = 0.4 * depth; dk(ox, oy, 8 * sc, '#2b2f78'); ctx.globalAlpha = 1; } // seen through the water
   if (f.water && f.rt >= 0 && f.t > f.rt + ORB_BREAK && f.t < f.rt + ORB_BREAK + 60) { // drops run off it as it comes out of the water
     ctx.fillStyle = '#a8d0ff';
@@ -7667,7 +7668,7 @@ function drawPlayer() {
     ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
-  if (!p2 && useRaven()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
+  if (!p2 && useNacht()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
   spr((p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
   for (let i = 0; i < p.drones; i++) {
@@ -7765,7 +7766,7 @@ function renderMain() {
       textO('SCORES', W / 2, SCORES_Y + 5, '#fff0a0', 2, 'center', '#f4d050');
       if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, lbAlert === 'red' ? '#e86050' : '#f4d050'); ctx.globalAlpha = 1; dk(dx, dy, pr, lbAlert === 'red' ? '#e86050' : '#f4d050'); }
     }
-    if (ravenState() === 1 && !shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if (nachtState() === 1 && !shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (shipPick) drawShipPick();
     ctx.restore();
@@ -7910,7 +7911,7 @@ function renderMain() {
   }
   if (state === 'over') {
     ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H);
-    if (!(flyby && flyby.rvWin)) { // the Raven window has the screen to itself
+    if (!(flyby && flyby.nvWin)) { // the Nachtvogel window has the screen to itself
       textO('GAME OVER', W / 2, 118, '#f48a60', 3, 'center', '#a82a26');
       textS('SCORE ' + pad(score, 8), W / 2, 150, '#ffffff', 1, 'center');
       if (score >= hi && score > 0) textS('NEW HIGH SCORE', W / 2, 162, '#fff0a0', 1, 'center', '#f4d050');
@@ -7972,8 +7973,8 @@ setPauseIcon();
 let panelPaused = false;
 function useGold() { return arts.size >= 6 && settings.gold; }
 function syncSettingsUI() {
-  { const row = document.getElementById('sSkinRow'), cur = useRaven() ? '2' : useGold() ? '1' : '0'; if (row) row.style.display = arts.size >= 6 || ravenOwned() ? '' : 'none';
-    for (const b of document.querySelectorAll('#sSkin button')) { b.style.display = b.dataset.g === '1' && arts.size < 6 || b.dataset.g === '2' && !ravenOwned() ? 'none' : ''; b.setAttribute('aria-pressed', String(b.dataset.g === cur)); } }
+  { const row = document.getElementById('sSkinRow'), cur = useNacht() ? '2' : useGold() ? '1' : '0'; if (row) row.style.display = arts.size >= 6 || nachtOwned() ? '' : 'none';
+    for (const b of document.querySelectorAll('#sSkin button')) { b.style.display = b.dataset.g === '1' && arts.size < 6 || b.dataset.g === '2' && !nachtOwned() ? 'none' : ''; b.setAttribute('aria-pressed', String(b.dataset.g === cur)); } }
   document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx;
   for (const b of document.querySelectorAll('#sSkin button')) b.addEventListener('click', () => setSkin(+b.dataset.g));
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
@@ -8192,7 +8193,7 @@ let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
   if (booting) { endBoot(); return; }
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || ravenOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) leaveOver(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
