@@ -18,8 +18,8 @@ const onlyTerrain = process.argv.includes('--terrain'), warnOnly = process.argv.
 
 // Runs before the game's own script: a seeded Math.random, and no frame loop, so only the replay moves the game.
 // (Weather, birds and clouds also draw random numbers while the title screen idles; the loop must not run before the replay.)
-const initScript = () => {
-  let a = 1944;
+const initScript = (pageSeed = 1944) => {
+  let a = pageSeed;
   Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   window.requestAnimationFrame = () => 0;
 };
@@ -29,7 +29,7 @@ if (diag) {
   // print environment facts and a trace so two machines can be compared line by line
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
-  await page.addInitScript(initScript); await page.goto(PAGE);
+  await page.addInitScript(initScript, 1944); await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function');
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   console.log('DIAG ' + JSON.stringify(await page.evaluate(() => window.SF.diag())));
@@ -39,7 +39,7 @@ const results = {};
 let bad = 0;
 const names = onlyTerrain ? [] : (await (async () => {
   const page = await browser.newPage({ viewport: golden.viewport });
-  await page.addInitScript(initScript); await page.goto(PAGE);
+  await page.addInitScript(initScript, 1944); await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function');
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   const n = await page.evaluate(() => window.SF.SCENARIOS.map(s => s.name)); await page.close(); return n;
@@ -50,7 +50,7 @@ for (const name of names) {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => console.error('page error:', e.message));
-  await page.addInitScript(initScript);
+  await page.addInitScript(initScript, 1944);
   await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function');
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
@@ -63,11 +63,28 @@ for (const name of names) {
   if (diffs.length) { bad++; console.error(`FAIL ${name}\n  ${diffs.join('\n  ')}`); } else console.log(`ok   ${name}`);
 }
 
+// Isolation: sound, visual effects and idle weather must never change a run. Replay one scenario under conditions that must not matter
+// (another page-level random seed; the speed setting lowFX forced on) and require the very same result as the golden one.
+if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page seed', 777, ''], ['lowFX on', 1944, 'lowFX = true']]) {
+  const name = 'hard-stage3-real';
+  const page = await browser.newPage({ viewport: golden.viewport });
+  await page.route(/workers\.dev/, r => r.abort());
+  await page.addInitScript(initScript, pageSeed);
+  await page.goto(PAGE);
+  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
+  if (pre) await page.evaluate(s => window.__sf(s), pre);
+  const got = await page.evaluate(n => window.SF.replay(window.SF.SCENARIOS.find(s => s.name === n)), name);
+  await page.close();
+  const want = golden.scenarios[name];
+  if (JSON.stringify(got) !== JSON.stringify(want)) { bad++; console.error(`FAIL isolation (${label}): ${name} changed. Something outside the simulation (sound, effects, weather, a speed setting) now affects how a run plays.`); } else console.log(`ok   isolation (${label})`);
+}
+
 // Terrain fingerprint for every campaign stage, on its own fresh page.
 {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
-  await page.addInitScript(initScript);
+  await page.addInitScript(initScript, 1944);
   await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function');
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);

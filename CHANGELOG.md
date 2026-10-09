@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood: the game now draws its gameplay random numbers from a seeded stream that starts fresh with every run (a new random seed each time, so runs stay varied). Sound, visual effects and the idle weather use a separate stream, so they can no longer change how a run plays, and a slow device no longer shifts what spawns. No change to scoring, continues or the leaderboard.
 - Fixed: on iPhone the sound sometimes stayed silent after coming back to the game (after leaving the app, locking the phone or another sound playing) until Sound was switched off and on in the menu. The next tap now always restarts the sound.
 - Fixed: started from the Home Screen icon on iPhone, the game now fills the screen width and is centred between the status bar and the home bar, instead of sitting smaller with uneven gaps. A new layout test (`tests/layout.mjs`) checks this on 11 phone, tablet and desktop sizes.
 - Secrets are easier to spot: the circling crows over a hiding place are bigger and now cast soft shadows, and a cream-white leader crow circles wider around them.
