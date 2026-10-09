@@ -7039,16 +7039,8 @@ function drawGroundEnemy(e) {
     case 'bridge': spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); break;
     case 'secret': {
       // the hint: dark crows circling over the hiding place, led by one larger white crow
-      const crow = (cx, cy, up, big, body, edge) => { // wings flap between raised and level; big = 1.6x
-        const u = big ? 2 : 1, rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * u, cy + y * u, w * u, h * u); };
-        for (const [c, g] of edge ? [[edge, 1], [body, 0]] : [[body, 0]]) {
-          rect(-1 - g, -g, 3 + 2 * g, 2 + 2 * g, c); // body
-          rect(-4 - g, (up ? -2 : 0) - g, 3 + g, 1 + 2 * g, c); rect(2, (up ? -2 : 0) - g, 3 + g, 1 + 2 * g, c); // wings
-          rect(-5 - g, (up ? -3 : 1) - g, 1 + g, 1 + 2 * g, c); rect(5 - 0, (up ? -3 : 1) - g, 1 + g, 1 + 2 * g, c); // tips
-        }
-      };
-      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3, cx = Math.round(e.x + Math.cos(an) * 19), cy = Math.round(e.y - 16 + Math.sin(an) * 9); crow(cx, cy, ((gf >> 3) + k) & 1, false, '#141018', '#d8d0e8'); }
-      { const an = -gf * 0.022 + 1, cx = Math.round(e.x + Math.cos(an) * 28), cy = Math.round(e.y - 20 + Math.sin(an) * 13); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(gf * 0.1); dk(cx, cy, 11, '#f4f0ff'); ctx.globalAlpha = 1; crow(cx, cy, (gf >> 3) & 1, true, '#fbfaff', '#3a3450'); }
+      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3; ctx.drawImage(CROW_IMG[0][((gf >> 3) + k) & 1], Math.round(e.x + Math.cos(an) * 19) - 4, Math.round(e.y - 16 + Math.sin(an) * 9) - 3); }
+      { const an = -gf * 0.022 + 1, cx = Math.round(e.x + Math.cos(an) * 28), cy = Math.round(e.y - 20 + Math.sin(an) * 13); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(gf * 0.1); dk(cx, cy, 11, '#f4f0ff'); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[1][(gf >> 3) & 1], cx - 8, cy - 6); }
       if (e.prog > 0) { const f = e.prog / 48; ctx.globalAlpha = 0.3 + 0.5 * f; ctx.strokeStyle = '#bba4ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5, 4 + 8 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke(); ctx.globalAlpha = 1; }
       break;
     }
@@ -7243,6 +7235,22 @@ function drawNight() {
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
 const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0];
+// the secret's crows as pixel maps: [0] small dark ones, [1] the larger white one (outlined); frame 0 wings up, 1 wings down
+const CROW_IMG = (() => {
+  const build = (rows, pal, outline) => {
+    const h = rows.length, w = rows[0].length, [c, x] = mk(w + 2, h + 2), at = (i, j) => (rows[j] || '')[i] || '.';
+    if (outline) { x.fillStyle = outline; for (let j = -1; j <= h; j++) for (let i = -1; i <= w; i++) if (at(i, j) === '.' && (at(i - 1, j) !== '.' || at(i + 1, j) !== '.' || at(i, j - 1) !== '.' || at(i, j + 1) !== '.')) x.fillRect(i + 1, j + 1, 1, 1); }
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = rows[j][i]; if (k !== '.') { x.fillStyle = pal[k]; x.fillRect(i + 1, j + 1, 1, 1); } }
+    return c;
+  };
+  const small = [['x.....x', 'xx.x.xx', '.xxxxx.', '..xxx..'], ['..xxx..', 'xxxxxxx', 'x.....x']].map(r => build(r, { x: '#141018' }, null));
+  const big = [[
+    'W.............W', 'WW...........WW', 'WWW....K....WWW', '.WWW..WEW..WWW.', '..WWWWWWWWWWW..', '...SWWWWWWWS...',
+    '.....SWWWS.....', '......WWW......', '......SWS......', '.....SSWSS.....'], [
+    '.......K.......', '......WEW......', '.....WWWWW.....', 'WW.SWWWWWWWS.WW', 'WWWWWWWWWWWWWWW', 'SWWWSWWWWWSWWWS',
+    '.SS..SWWWS..SS.', '......SWS......', '......WWW......', '.....SSWSS.....']].map(r => build(r, { W: '#fbfaff', S: '#b9b3d2', E: '#141018', K: '#e8b04a' }, '#3a3450'));
+  return [small, big];
+})();
 function drawBirds() {
   const sc = Math.floor(scroll);
   for (const b of birds) {

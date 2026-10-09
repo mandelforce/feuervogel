@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Secrets are easier to spot: the circling crows over a hiding place are bigger and outlined, and a larger white crow with a soft glow circles wider around them.
+- Secrets are easier to spot: the circling crows over a hiding place are bigger, and a larger, more detailed white crow with a soft glow circles wider around them.
 
 ## 1.2.3 (9 October 2026)
 - Two-player: player 2 now flies the golden Rooster skin from the start (no unlocking needed), with orange engine flames, and is drawn underneath player 1, so the Talon drones are never hidden behind it. In a two-player game player 1 always flies the original Feuervogel, even with the golden skin switched on.
