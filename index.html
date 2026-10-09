@@ -3648,6 +3648,25 @@ function startFlyby() {
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
 }
+// Ravenhold: the bell tolls and a flock of crows circles the keep, as in "The Raven's Wheel" but without the shells. From tier 3 a few crows then
+// leave the flock, fly to the wreck and perch on it; the rest scatter. When the orb rises they take off again.
+function castleReact(f, e) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core) return;
+  const t = f.t - (BOSS_SOUND_AT + 160), cx = e.x + core.ox, cy = e.y + core.oy, wy = flyY(f);
+  if (t === 0) { sfx('toll'); f.crows = []; for (let i = 0; i < 12; i++) { const b = { x: cx, y: cy, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); f.crows.push(b); } }
+  if (t === 45) sfx('toll');
+  if (!f.crows) return;
+  f.crows.forEach((b, i) => {
+    if (b.perch) { b.x = f.x + b.px; b.y = wy + b.py; if (f.rt >= 0 && f.t > f.rt + 8) { b.perch = false; b.land = false; b.vx = rnd(-1.2, 1.2); b.vy = rnd(-1.5, -0.5); } return; }
+    if (b.orb) {
+      b.orb.a += 0.055; b.x = cx + Math.cos(b.orb.a) * b.orb.r; b.y = cy + Math.sin(b.orb.a) * b.orb.r * 0.8; b.vx = b.vy = 0;
+      if (t > 300) { const a = b.orb.a; b.orb = null; if (f.tier >= 3 && i < 5) { const pa = i * TAU / 5 + rnd(-0.3, 0.3), pr = rnd(14, 20); b.land = true; b.px = Math.cos(pa) * pr; b.py = Math.sin(pa) * pr * 0.8; } else { b.vx = Math.cos(a) * 1.2 + rnd(-0.3, 0.3); b.vy = Math.sin(a) * 1.2 - 0.4; } }
+    } else if (b.land) {
+      const tx = f.x + b.px, ty = wy + b.py; b.x += (tx - b.x) * 0.035; b.y += (ty - b.y) * 0.035;
+      if (Math.hypot(tx - b.x, ty - b.y) < 1.2) b.perch = true;
+    }
+  });
+}
 // What each boss does after it has beaten the player. Everything is picture and sound only: the player is gone, so nothing here can hurt.
 const BOSS_SOUND_AT = 150; // frames after game over: the game over jingle has finished
 function updBossReact(f) {
@@ -3658,6 +3677,7 @@ function updBossReact(f) {
     if (e.kind === 'fortress' && !f.blow) { if (f.tier >= 3 && f.rare) e.reactStorm = true; else if (f.tier >= 2) e.reactLeave = true; } // Sand Colossus: rarely the sandstorm, otherwise it backs out the way it came in
     if (e.kind === 'railgun' && f.tier === 2) e.reactLeave = true; // Night Hammer: rolls back up the rails
   }
+  if (e.kind === 'castle' && f.tier >= 2) castleReact(f, e); // Ravenhold: bell, crows, and from tier 3 a few perch on the wreck
   if (e.kind === 'railgun' && f.tier >= 3 && f.t >= BOSS_SOUND_AT + 60 && !f.lightsDone) { // Night Hammer: both searchlights find the wreck, rest on the orb for a while, then the carriage rolls back up the rails
     e.reactLights = true;
     const ls = e.parts.filter(q => q.k === 'light' && !q.dead && q.sx !== undefined), wy = flyY(f);
@@ -3674,9 +3694,13 @@ function leaveOver(auto) {
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
+function endFlyby() { // also takes the reaction's crows off the screen
+  const f = flyby; if (f && f.crows) for (const b of f.crows) { const i = birds.indexOf(b); if (i >= 0) birds.splice(i, 1); }
+  flyby = null; quiet = false;
+}
 function updFlyby() {
   const f = flyby; if (!f) return;
-  if (state !== 'over') { flyby = null; quiet = false; return; }
+  if (state !== 'over') { endFlyby(); return; }
   if (f.beat === 'boss') updBossReact(f);
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
   if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
@@ -6516,10 +6540,10 @@ function update() {
       const side = Math.random() < 0.5 ? -1 : 1, by0 = rnd(30, H - 60), n = 5 + ((Math.random() * 4) | 0);
       for (let i = 0; i < n; i++) birds.push({ x: (side < 0 ? -10 : W + 10) - side * (i >> 1) * 6, y: by0 + (i >> 1) * 5 * (i % 2 ? 1 : -1), vx: -side * rnd(0.7, 0.9), vy: rnd(0.1, 0.3), ph: Math.random() * 6 });
     }
-    for (const b of birds) { b.x += b.vx; b.y += b.vy; b.ph += 0.25; }
+    for (const b of birds) { if (b.perch) continue; b.x += b.vx; b.y += b.vy; b.ph += 0.25; } // a perched crow sits still
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
-  if (state === 'title') { if (flyby) { flyby = null; quiet = false; } return; }
+  if (state === 'title') { if (flyby) endFlyby(); return; }
   if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) leaveOver(true); }
   if (state === 'play' && !paused && !results) { runFrames++; rrTick(); if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
 
@@ -7348,13 +7372,14 @@ function drawNight() {
     for (const d of decals) if (d.fireT > 0) { const y = d.wy + sc6; if (y < -20 || y > H + 20) continue; ctx.globalAlpha = 0.08 * nightF * (0.85 + 0.15 * Math.sin(gf * 0.3 + d.wx)); dk(d.wx, y, 12 + (d.r || 6) * 0.6, '#ff7a30'); } }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
-const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0];
+const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0], BIRD_RIM = SPR.birdF.map(f => sil(f, '#8a8e9a'));
 function drawBirds() {
   const sc = Math.floor(scroll);
   for (const b of birds) {
     const tt = terrainType(Math.floor(b.x), Math.floor(b.y - sc)), light = tt === 'sea' || tt === 'surf' || snowF > 0.5 ? 1 : 0;
     const img = BIRD_IMG[light ? 0 : 1][(Math.sin(b.ph) > 0) ? 1 : 0];
     ctx.globalAlpha = 0.25; ctx.drawImage(BIRD_IMG[1][1], Math.round(b.x) + 8, Math.round(b.y) + 12); ctx.globalAlpha = 1;
+    if (b.perch) { for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(BIRD_RIM[0], Math.round(b.x) - 2 + dx, Math.round(b.y) - 1 + dy); } // perched crows get a light rim so they show on dark ground
     ctx.drawImage(img, Math.round(b.x) - 2, Math.round(b.y) - 1);
   }
 }
