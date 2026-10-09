@@ -616,7 +616,7 @@ function camo(x, thr = 0.58, f = 0.72, sc = 0.22, seed = 0) {
 
 /* ================= sprites ================= */
 const SPR = {};
-function buildRaptor(bank, skin) {
+function buildFeuervogel(bank, skin) {
   const gold = skin === true, nacht = skin === 'nacht'; // the Nachtvogel: a darker Feuervogel, black with the violet kept as glow
   const PA = nacht ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = nacht ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
   // golden skin leans into the rooster look: hackle-orange wing edges, green sickle tail, comb and beak
@@ -654,12 +654,12 @@ function buildRaptor(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-SPR.playerSet = [buildRaptor(-1), buildRaptor(0), buildRaptor(1)];
+SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
-function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildRaptor(b, true))); }
+function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildFeuervogel(b, true))); }
 let nachtCache = null;
-function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => buildRaptor(b, 'nacht'))); }
+function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => buildFeuervogel(b, 'nacht'))); }
 // The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
 const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
