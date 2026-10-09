@@ -1,9 +1,12 @@
 # How the leaderboard Worker is deployed (see SETUP.md, "Deploying the Worker"). Mirrors the settings the live Worker already has
 # in the Cloudflare dashboard (checked 2026-10-09): compatibility date, no flags, no variables or secrets, one D1 binding, logs on.
-name = "starfall-scores"
+#
+# The Worker is called "feuervogel" (https://feuervogel.c-roth79.workers.dev). The older name "starfall-scores" stays deployed from the
+# same code and the same database (see the deploy workflow), because game versions already out there still call that address.
+name = "feuervogel"
 main = "worker.js"
 compatibility_date = "2026-10-04"
-workers_dev = true     # the address https://starfall-scores.<account>.workers.dev
+workers_dev = true     # the address https://<name>.<account>.workers.dev
 keep_vars = true       # never wipe variables someone added in the dashboard
 
 [observability]

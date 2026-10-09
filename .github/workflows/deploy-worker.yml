@@ -34,6 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production-worker
+    strategy:
+      fail-fast: false
+      matrix:
+        # "feuervogel" is the current Worker; "starfall-scores" is the original one, kept running from the same code and the same
+        # database for game versions that were released before the rename. Remove it from this list when it is retired.
+        worker: [feuervogel, starfall-scores]
     concurrency:
       group: deploy-worker
       cancel-in-progress: false
@@ -42,14 +48,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Deploy to Cloudflare
-        run: npx --yes wrangler@4 deploy
+      - name: Deploy ${{ matrix.worker }} to Cloudflare
+        run: npx --yes wrangler@4 deploy --name ${{ matrix.worker }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Check that the live Worker answers
+      - name: Check that ${{ matrix.worker }} answers
         run: |
-          base=https://starfall-scores.c-roth79.workers.dev
+          base=https://${{ matrix.worker }}.c-roth79.workers.dev
           curl -fsS "$base/top?mode=camp&plat=pc&diff=1" | head -c 200; echo
           # an empty report is rejected before anything is saved: 400 proves the route is deployed
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://mandelforce.github.io' -H 'Content-Type: application/json' -d '{}' "$base/report")

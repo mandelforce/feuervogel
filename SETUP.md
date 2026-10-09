@@ -7,7 +7,7 @@ live Worker drift away from `worker.js` (it already did once: the live Worker cu
 
 How it works: a pull request that changes `worker.js` or `wrangler.toml` runs the Worker tests and checks the deploy configuration.
 After the merge to `main`, GitHub waits for **your approval** (a button on the workflow run), then deploys to Cloudflare and checks that
-the live Worker answers. Cloudflare keeps every version, so a bad deploy can be undone from **Workers & Pages > starfall-scores >
+the live Worker answers. Cloudflare keeps every version, so a bad deploy can be undone from **Workers & Pages > (the Worker) >
 Deployments** (roll back to the earlier version) or by reverting the pull request.
 
 **One-time setup (about 10 minutes):**
@@ -20,6 +20,11 @@ Deployments** (roll back to the earlier version) or by reverting the pull reques
    `CLOUDFLARE_API_TOKEN` (the token) and `CLOUDFLARE_ACCOUNT_ID` (the long ID in the dashboard address after `dash.cloudflare.com/`).
    Never paste the token into a chat or a file in this repository.
 4. Merge the pull request that added this setup. Approve the deploy when GitHub asks.
+
+**Worker names.** The Worker is called `feuervogel` (`https://feuervogel.c-roth79.workers.dev`). The original `starfall-scores` is deployed
+from the same code and talks to the same database, so scores are the same on both. Game versions released before the rename still call
+`starfall-scores`, so it stays until those are gone (check **Workers & Pages > starfall-scores > Metrics**: when requests stop, remove
+`starfall-scores` from the list in `.github/workflows/deploy-worker.yml` and delete it in the dashboard).
 
 **Day to day:** change `worker.js`, open a pull request, check the tests, merge, approve the deploy.
 **Database changes** (new tables or columns in `schema.sql`) are not part of the deploy: run them once in the D1 console
@@ -74,7 +79,7 @@ Sign up for free at dash.cloudflare.com.
 (First-time only. After this, deploy changes through the repository, see "Deploying the Worker (automatic)".)
 1. In the left menu, open **Compute (Workers) > Workers & Pages**.
 2. Click **Create**, then **Create Worker** (start from the Hello World example).
-3. Name it `starfall-scores` and click **Deploy**.
+3. Name it `feuervogel` and click **Deploy**.
 4. Click **Edit code**. Delete everything in the editor, then copy everything from `worker.js` in this folder and paste it in.
 5. Click **Deploy**.
 
@@ -86,12 +91,12 @@ Sign up for free at dash.cloudflare.com.
 
 ## 5. Tell the game where the leaderboard is
 1. On the Worker's page, copy its address. It looks like
-   `https://starfall-scores.YOUR-NAME.workers.dev`
+   `https://feuervogel.YOUR-NAME.workers.dev`
 2. On GitHub, open `index.html` in your StarFall repository and click the pencil icon to edit it.
 3. Near the top, find this line:
    `window.STARFALL_LEADERBOARD = '';`
    and paste the address between the quotes, for example:
-   `window.STARFALL_LEADERBOARD = 'https://starfall-scores.YOUR-NAME.workers.dev';`
+   `window.STARFALL_LEADERBOARD = 'https://feuervogel.YOUR-NAME.workers.dev';`
 4. Click **Commit changes**.
 
 After a minute or two, play a game. When it's over, StarFall asks for your name and sends the score.
