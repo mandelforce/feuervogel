@@ -9,7 +9,7 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,6 +34,9 @@ jobs:
       - name: Replay test (advisory until proven stable)
         continue-on-error: true
         run: node tests/replay.mjs
+      - name: Performance check (warning only)
+        continue-on-error: true
+        run: node tests/perf.mjs --warn
       # Manual runs only (Actions tab > Run workflow): print machine details plus fresh golden values for tests/golden.json.
       - name: Replay diagnostics (manual)
         if: github.event_name == 'workflow_dispatch'
@@ -41,3 +44,6 @@ jobs:
       - name: Replay golden refresh (manual)
         if: github.event_name == 'workflow_dispatch'
         run: node tests/replay.mjs --update
+      - name: Performance baseline refresh (manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: node tests/perf.mjs --update

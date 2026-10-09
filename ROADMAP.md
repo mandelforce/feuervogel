@@ -38,6 +38,16 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 - [ ] Input handlers still run gameplay actions between frames (`bomb`, `fireBeam`, `doContinue`). They use the sim stream, but a replay would have to record the frame each input was applied. Prefer: handlers only set input state, `update()` applies it.
 - [ ] Optional later: store a replay with submitted scores to allow server-side checks. Needs a decision first, as it touches leaderboard rules.
 
+## Performance (older phones matter)
+
+- [x] Frame statistics in the game ("Show FPS": FPS, longest frame gap, longest work time).
+- [x] `tests/perf.mjs`: slowed-down CPU (4x, 6x), real frame loop, start-up, heap growth, page weight; warnings only in CI.
+- [x] `tests/profile.js`: which functions use the time, and what slow frames do.
+- [ ] Measure on a real older iPhone or iPad (Show FPS) and compare with the CI numbers.
+- [ ] Spread terrain chunk completion (`drawFeatures`, final upload: about 5 ms in one frame) over several frames.
+- [ ] Reuse particle and bullet objects instead of creating new ones every frame (less garbage collection).
+- [ ] Look into the periodic 8 to 13 ms draw stalls seen on desktop (cause not found: not a single slow function).
+
 ## Phase 3: Modules
 
 Use plain ES modules, no bundler. GitHub Pages serves them as they are.

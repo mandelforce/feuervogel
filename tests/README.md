@@ -54,6 +54,21 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 `golden.json` comes from CI: run the workflow by hand (Actions > Smoke test > Run workflow, on your branch) and copy the printed block between `GOLDEN-BEGIN` and `GOLDEN-END`; the same run prints machine details (`--diag`). CI results have been identical across runs. The CI step stays advisory (`continue-on-error`): gameplay changes made on purpose, such as balance or Easy mode, change the numbers and need a refresh.
 
+## Performance test (runs in CI, warning only)
+
+`perf.mjs` checks how the game runs on slower phones. It slows Chrome's CPU down 4x ("mid-range phone") and 6x ("older phone"), plays with the bot on a phone-sized touch window, and measures: the cost of every frame (average, p95, p99, worst), frames over the 16.7 ms budget, the real frame loop (fps, hitches, whether lite mode switches on), start-up time, heap growth over a long run (leaks), and page weight. The table appears in the CI job summary; changes against `perf-baseline.json` raise yellow warnings and never fail the build.
+
+```
+node tests/perf.mjs            # measure and compare (serve the folder first)
+node tests/perf.mjs --update   # print a new baseline
+```
+
+The slow-down scales main-thread work only, not the graphics hardware or memory speed, and CI machines vary, so use it for regressions and trends. Confirm anything important on a real phone.
+
+**On a real phone:** Settings > Show FPS now shows `FPS 60 MAX 18 WORK 5` at the bottom of the screen: frames per second, the longest gap between two frames in the last 5 seconds (what you feel as a hitch; over 34 turns red) and the longest time the game itself needed for one frame. A normal FPS with a big MAX means stutter. `LITE` in front means the game switched to its reduced-effects mode on its own.
+
+`perf.js` holds the measurements, so they also work by hand in the console (`SF.perfSteps()`, `await SF.perfLoop()`, `SF.perfMemory()`).
+
 ## Frame-time profiler (run by hand)
 
 `profile.js` shows which functions use the time in `update` and `render`, and what the slow frames are doing. Local builds only. Serve the folder, open it in the browser, and paste into the console:
