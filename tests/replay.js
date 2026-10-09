@@ -20,11 +20,28 @@ SF.replay = sc => {
     gf = 0; // the frame counter keeps running while the title screen idles; start every scenario from zero
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     const status = SF.run(sc.frames);
-    return { status, score, stage, lives, bombs, frames: gf, kills: stats.kills, medals: stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length };
+    return { H, status, score, stage, lives, bombs, frames: gf, kills: stats.kills, medals: stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length };
   } finally { Math.random = realRandom; }
 };
 SF.replayAll = () => Object.fromEntries(SCENARIOS.map(sc => [sc.name, SF.replay(sc)]));
 SF.SCENARIOS = SCENARIOS;
+
+// Diagnostics for chasing differences between machines: environment facts plus a short frame-by-frame trace.
+SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
+  const m = Math;
+  const env = { ua: navigator.userAgent, dpr: devicePixelRatio, inner: [innerWidth, innerHeight], H, coarse: matchMedia('(pointer:coarse)').matches,
+    math: [m.sin(1.1), m.cos(2.3), m.tan(0.7), m.atan2(0.3, -1.7), m.pow(1.0001, 12345.6), m.exp(1.7), m.log(7.3), m.hypot(3.3, 4.4), m.cbrt(9.1), m.asin(0.37), m.sinh(0.8), m.sin(1234.5678), m.cos(98765.4321)] };
+  const realRandom = Math.random, trace = [];
+  try {
+    Math.random = mulberry32(sc.seed); gf = 0;
+    SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
+    for (let f = 0; f < frames; f += every) {
+      SF.run(every);
+      trace.push([gf, score, enemies.length, ebul.length, shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +scroll.toFixed(3)].join('|'));
+    }
+  } finally { Math.random = realRandom; }
+  return { env, trace };
+};
 
 // Terrain fingerprint: what is under every spot of every campaign stage (water, road, sand, ...), hashed.
 // The campaign world comes from fixed-seed hash noise, so this must never change by accident. Not by timing, not by a refactor.
