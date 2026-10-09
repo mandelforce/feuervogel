@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Game over on water: the destroyed Feuervogel sinks. A splash and foam ring mark where it went down, the wreck darkens into the water with steam, bubbles and rings spreading over it, and the purple orb keeps glowing under the surface. If the orb rises (tap to continue) it breaks through the surface with a splash and drops running off it. Game over at a boss: the boss's health bar is hidden.
 - Game over at a boss: from escalation level 3 each boss reacts to having beaten the player, the same way every time so players can compare. First its own warning sound plays (ship's horn, whistle, tank roll, rail roll, attack horn, engine spool). From level 8 the Iron Leviathan also comes about as in "Hard to port" and fires its guns one after another along the hull, with nobody to hit. Picture and sound only; scoring, lives, continues and the leaderboard are unchanged.
 
 ## 1.2.4 (9 October 2026)
