@@ -7038,8 +7038,17 @@ function drawGroundEnemy(e) {
     case 'fuel': spr(SPR.fuel, e.x, e.y, fl); break;
     case 'bridge': spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); break;
     case 'secret': {
-      // the hint: three crows circling over the hiding place
-      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3, cx = Math.round(e.x + Math.cos(an) * 12), cy = Math.round(e.y - 14 + Math.sin(an) * 6), wing = ((gf >> 3) + k) & 1; ctx.fillStyle = '#141018'; ctx.fillRect(cx - 1, cy, 3, 1); ctx.fillRect(cx - 2 + wing, cy - wing, 1, 1); ctx.fillRect(cx + 2 - wing, cy - wing, 1, 1); }
+      // the hint: dark crows circling over the hiding place, led by one larger white crow
+      const crow = (cx, cy, up, big, body, edge) => { // wings flap between raised and level; big = 1.6x
+        const u = big ? 2 : 1, rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * u, cy + y * u, w * u, h * u); };
+        for (const [c, g] of edge ? [[edge, 1], [body, 0]] : [[body, 0]]) {
+          rect(-1 - g, -g, 3 + 2 * g, 2 + 2 * g, c); // body
+          rect(-4 - g, (up ? -2 : 0) - g, 3 + g, 1 + 2 * g, c); rect(2, (up ? -2 : 0) - g, 3 + g, 1 + 2 * g, c); // wings
+          rect(-5 - g, (up ? -3 : 1) - g, 1 + g, 1 + 2 * g, c); rect(5 - 0, (up ? -3 : 1) - g, 1 + g, 1 + 2 * g, c); // tips
+        }
+      };
+      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3, cx = Math.round(e.x + Math.cos(an) * 19), cy = Math.round(e.y - 16 + Math.sin(an) * 9); crow(cx, cy, ((gf >> 3) + k) & 1, false, '#141018', '#d8d0e8'); }
+      { const an = -gf * 0.022 + 1, cx = Math.round(e.x + Math.cos(an) * 28), cy = Math.round(e.y - 20 + Math.sin(an) * 13); ctx.globalAlpha = 0.18 + 0.08 * Math.sin(gf * 0.1); dk(cx, cy, 11, '#f4f0ff'); ctx.globalAlpha = 1; crow(cx, cy, (gf >> 3) & 1, true, '#fbfaff', '#3a3450'); }
       if (e.prog > 0) { const f = e.prog / 48; ctx.globalAlpha = 0.3 + 0.5 * f; ctx.strokeStyle = '#bba4ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5, 4 + 8 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke(); ctx.globalAlpha = 1; }
       break;
     }
