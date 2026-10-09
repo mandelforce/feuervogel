@@ -3642,8 +3642,8 @@ function pickBeat(boss) {
 }
 function startFlyby() {
   const boss = enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
-  const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(scroll)));
-  flyby = { t: 0, pt: 0, rt: -1, cover: boss || null, rare: Math.random() < 0.25, blow: !!boss && onHull(boss, fx, fy), water: tt === 'sea' || tt === 'surf' || tt === 'river', beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
+  const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), deck = bossAnchor(boss, fx, fy), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(scroll)));
+  flyby = { t: 0, pt: 0, rt: -1, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
   if (flyby.water) splash(fx, fy, 14); // it went down in the water: the wreck will sink
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
@@ -3673,15 +3673,17 @@ function updFlyby() {
   if (f.beat === 'boss') updBossReact(f);
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
   if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
-  const wy = f.y + scroll - f.s0;
+  if (f.deck && !f.deck.free) { const [ax, ay] = anchorPos(f.deck); f.x = ax; f.y = ay; } // lying on a boss: it goes where the boss goes
+  const wy = flyY(f);
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
   if (f.blow && f.cover && f.t === 40) f.cover.reactStorm = true; // it went down on top of the tank: the sandstorm blows it off
   { const S = f.cover && f.cover.storm; // the wind slides the wreck (and the orb in it) out from under the tank
     if (f.blow && S && S.t > STORM_WARN && !f.blown) {
+      if (f.deck) f.deck.free = true;
       f.x = clamp(f.x + S.dir * 0.9 * S.k, 24, W - 24);
       if (gf % 3 === 0) parts.push({ kind: 'dust', layer: 'w', x: f.x + rnd(-6, 6), y: wy + rnd(-8, 8), vx: S.dir * rnd(1, 2.4), vy: rnd(-0.4, 0.3), life: 36, max: 36, r: rnd(3, 6) });
-      if (!onHull(f.cover, f.x, wy, 14) || f.x <= 24 || f.x >= W - 24) f.blown = true;
+      if (!onBoss(f.cover, f.x, wy, 14) || f.x <= 24 || f.x >= W - 24) { f.blown = true; if (f.deck) { f.deck = null; f.y = wy; f.s0 = scroll; } } // off the hull: it lies on the ground again
     } }
   if (f.water) { // sinking: a little steam at first, then bubbles; the orb breaks the surface when it rises
     if (f.t < 90 && gf % 6 === 0) smokePuff(f.x, wy - 4);
@@ -3693,9 +3695,9 @@ function updFlyby() {
   }
 }
 // The wreck lies on the ground, so it is drawn below ground units and bosses: a tank that rolls over it covers it.
-function drawWreck() {
-  const f = flyby; if (!f) return;
-  const wx = f.x, wy = f.y + scroll - f.s0, pul = 0.5 + 0.5 * Math.sin(f.t * 0.05), sink = f.water ? clamp(f.t / SINK_T, 0, 1) : 0;
+function drawWreck(top) { // top: the wreck lies on a boss and is drawn above it
+  const f = flyby; if (!f || !!f.deck !== !!top) return;
+  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05), sink = f.water ? clamp(f.t / SINK_T, 0, 1) : 0;
   ctx.globalAlpha = (0.12 + 0.04 * pul) * (1 - sink); dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
   if (f.water) { // the wreck slips under: it darkens into the water, drops a little and fades to a faint shape; rings spread over it
     const ease = sink * sink * (3 - 2 * sink);
@@ -3706,19 +3708,44 @@ function drawWreck() {
     ctx.globalAlpha = 1;
   } else shadow(SPR.player, wx, wy, 0, 0, 0.9);
 }
-// Where a ground boss's hull is, in its own frame (half width, half length), to tell whether something lies under it.
-const HULL = { fortress: { hw: 44, hh: 56 } };
-function onHull(e, x, y, m = 0) {
-  const h = HULL[e.kind]; if (!h || e.dead) return false;
-  const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y;
-  return Math.abs(dx * c + dy * s) < h.hw + m && Math.abs(-dx * s + dy * c) < h.hh + m;
+// Where a boss is: tells whether the wreck lies under it. Rigid hulls (ship, tank, rail carriage) are one rectangle in the boss's own frame, built from its
+// parts; a train or the castle is the union of its parts, since its cars and towers move about on their own.
+const RIGID = new Set(['ship', 'fortress', 'railgun']);
+function hullRect(e) { // [centre x, centre y, half width, half length] in the boss's frame
+  if (e.kind === 'fortress') return [0, 0, 44, 56];
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const p of e.parts) { x0 = Math.min(x0, p.ox - p.hw); x1 = Math.max(x1, p.ox + p.hw); y0 = Math.min(y0, p.oy - p.hh); y1 = Math.max(y1, p.oy + p.hh); }
+  const pad = e.kind === 'ship' ? 8 : 12;
+  return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 + pad, (y1 - y0) / 2 + pad];
 }
+function onBoss(e, x, y, m = 0) {
+  if (!e || e.dead || !e.parts) return false;
+  if (RIGID.has(e.kind)) {
+    const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y, [cx, cy, hw, hh] = hullRect(e);
+    return Math.abs(dx * c + dy * s - cx) < hw + m && Math.abs(-dx * s + dy * c - cy) < hh + m;
+  }
+  for (const p of e.parts) if (!p.off && Math.abs(x - e.x - p.ox) < p.hw + 10 + m && Math.abs(y - e.y - p.oy) < p.hh + 12 + m) return true;
+  return false;
+}
+// A wreck that came down on a boss lies on its deck and goes where the boss goes (a flying boss, the Black Fortress, has no deck: it just passes over).
+function bossAnchor(e, x, y) {
+  if (!e || e.kind === 'skyfort' || !onBoss(e, x, y)) return null;
+  if (RIGID.has(e.kind)) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
+  let best = null, bd = 1e9;
+  for (const p of e.parts) { if (p.off) continue; const d = Math.hypot(x - e.x - p.ox, y - e.y - p.oy); if (d < bd) { bd = d; best = p; } }
+  return best ? { e, p: best, dx: x - e.x - best.ox, dy: y - e.y - best.oy } : null;
+}
+function anchorPos(D) {
+  const e = D.e; if (D.p) return [e.x + D.p.ox + D.dx, e.y + D.p.oy + D.dy];
+  const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0); return [e.x + D.lx * c - D.ly * s, e.y + D.lx * s + D.ly * c];
+}
+const flyY = f => f.deck ? f.y : f.y + scroll - f.s0; // screen y of the wreck: on a deck it is the deck's, on the ground it moves with the ground
 function drawFlyby() {
   const f = flyby; if (!f) return;
-  const wx = f.x, wy = f.y + scroll - f.s0, pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
+  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
   const rel = f.rt < 0 ? 0 : clamp((f.t - f.rt) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it has risen free
   const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e;
-  const covered = f.cover && onHull(f.cover, wx, wy, 0) && e < 0.12 ? 1 : 0; // under a tank: only its glow shows through
+  const covered = f.cover && !f.deck && onBoss(f.cover, wx, wy, 0) && e < 0.12 ? 1 : 0; // under a boss: only its glow shows through
   const depth = f.water ? clamp(1 - (wy - 3 - oy) / 8, 0, 1) : 0, gs = (0.55 + 0.45 * e) * (1 - 0.4 * depth) * (1 - 0.65 * covered); // depth: 1 while the orb is under the water
   if (e > 0.02 && !f.water) { // light cone from the free orb down onto the hull
     ctx.globalAlpha = 0.28 * e; ctx.fillStyle = '#a58cff'; ctx.beginPath(); ctx.moveTo(ox - 3, oy); ctx.lineTo(ox + 3, oy); ctx.lineTo(wx + 24, wy + 8); ctx.lineTo(wx - 24, wy + 8); ctx.fill(); ctx.globalAlpha = 1;
@@ -7611,7 +7638,7 @@ function renderMain() {
   drawRaven();
   drawDecals();
   drawMarkers();
-  drawWreck();
+  drawWreck(false);
   drawParts('w');
   { const sc0 = Math.floor(scroll);
     for (const e of enemies) if (e.ground) {
@@ -7622,6 +7649,7 @@ function renderMain() {
       }
     } }
   for (const e of enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
+  drawWreck(true);
   drawCritters();
   drawCanopy();
   drawProps();
