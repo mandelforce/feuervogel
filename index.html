@@ -2575,6 +2575,20 @@ function drawFeatures(x, p, wy0) {
   }
 }
 let chunkJobs = [], lowFX = false, fpsShown = 0, fpsCount = 0, fpsT = 0, slowFrames = 0, frameN = 0;
+// Frame statistics for the "Show FPS" setting and the performance tests: per second, the longest gap between two frames (what the player
+// feels) and the longest time the game itself needed for one frame (update + draw). The numbers shown cover the last 5 seconds.
+const PERF = { ring: [], curIv: 0, curWork: 0, curSlow: 0, maxIv: 0, maxWork: 0, frames: 0, slow: 0, worst: 0 };
+function perfFrame(iv, work) {
+  if (iv > 1000) return; // back from a hidden tab: not a real frame
+  PERF.frames++; if (iv > PERF.curIv) PERF.curIv = iv; if (work > PERF.curWork) PERF.curWork = work;
+  if (iv > 25) { PERF.curSlow++; PERF.slow++; } if (iv > PERF.worst) PERF.worst = iv;
+}
+function perfRoll() {
+  PERF.ring.push([PERF.curIv, PERF.curWork]); if (PERF.ring.length > 5) PERF.ring.shift();
+  PERF.maxIv = Math.max(...PERF.ring.map(r => r[0])); PERF.maxWork = Math.max(...PERF.ring.map(r => r[1]));
+  PERF.curIv = 0; PERF.curWork = 0; PERF.curSlow = 0;
+}
+function perfStats() { return { fps: fpsShown, maxMs: Math.round(PERF.maxIv), workMs: +PERF.maxWork.toFixed(1), frames: PERF.frames, slowFrames: PERF.slow, worstMs: Math.round(PERF.worst), lowFX }; }
 function startChunk(p) {
   const I = predictInfo(p); chunkInfo.set(p, I);
   const [c, x] = mk(W, CH);
@@ -7991,7 +8005,7 @@ function renderMain() {
   drawHUD();
   if (results) drawResults();
   if (congrats) drawCongrats();
-  if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown, W / 2, SAFE_T + 3, '#a8f6dc', 1, 'center');
+  if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
 
   if (msg && state === 'play' && cont === 0 && !results && !congrats) {
     const warn = msg.a === 'WARNING';
@@ -8420,10 +8434,12 @@ function frameLoop(now) {
   if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
   const dtf = now - last;
   acc += Math.min(100, dtf); last = now;
-  fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; }
+  fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
+  const work0 = performance.now();
   if (state === 'play' && !paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
   while (acc >= STEP) { acc -= STEP; if (hitStop > 0) { hitStop--; continue; } if (slowT > 0) { slowT--; if (slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
   try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
+  perfFrame(dtf, performance.now() - work0);
 }
 requestAnimationFrame(frameLoop);
 // local/test builds only: lets tests/harness.js drive the game (see tests/README.md)

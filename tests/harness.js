@@ -64,6 +64,7 @@ function bot() {
 const bossUp = () => enemies.some(e => e.type === 'boss');
 window.SF = {
   R,
+  bot, // one step of the dodging bot (sets the arrow keys); used by tests/perf.js to play on the game's own frame loop
   setMode(m) { mode = m; },
   // Start a run at a stage on a difficulty (0 Easy, 1 Normal, 2 Hard). Pauses the game's own loop.
   start(diff, n = 1) { acc = -1e15; settings.diff = diff; R.stages = {}; R.hits = []; R.errs = []; lastStage = -1; startAt(n); },
