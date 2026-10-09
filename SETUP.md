@@ -1,10 +1,34 @@
 # StarFall leaderboard setup (Cloudflare, free)
 
+## Deploying the Worker (automatic)
+
+The leaderboard Worker is deployed from this repository, not by pasting code into the Cloudflare dashboard. Pasting by hand lets the
+live Worker drift away from `worker.js` (it already did once: the live Worker currently has no `/status`).
+
+How it works: a pull request that changes `worker.js` or `wrangler.toml` runs the Worker tests and checks the deploy configuration.
+After the merge to `main`, GitHub waits for **your approval** (a button on the workflow run), then deploys to Cloudflare and checks that
+the live Worker answers. Cloudflare keeps every version, so a bad deploy can be undone from **Workers & Pages > starfall-scores >
+Deployments** (roll back to the earlier version) or by reverting the pull request.
+
+**One-time setup (about 10 minutes):**
+1. **GitHub environment first:** in the repository open **Settings > Environments > New environment**, name it `production-worker`,
+   tick **Required reviewers** and add yourself, then save. (Do this before the secrets, so the first deploy cannot run unattended.)
+2. **Cloudflare API token:** open **dash.cloudflare.com > My Profile > API Tokens > Create Token > Create Custom Token**.
+   Permissions: **Account > Workers Scripts > Edit** and **Account > Account Settings > Read**. Account resources: only your account.
+   Create it and copy the token once. If the first deploy reports a missing permission, add the one it names.
+3. **Add two secrets to that environment** (the environment page, **Environment secrets**):
+   `CLOUDFLARE_API_TOKEN` (the token) and `CLOUDFLARE_ACCOUNT_ID` (the long ID in the dashboard address after `dash.cloudflare.com/`).
+   Never paste the token into a chat or a file in this repository.
+4. Merge the pull request that added this setup. Approve the deploy when GitHub asks.
+
+**Day to day:** change `worker.js`, open a pull request, check the tests, merge, approve the deploy.
+**Database changes** (new tables or columns in `schema.sql`) are not part of the deploy: run them once in the D1 console
+(**Storage & Databases > D1 > starfall > Console**) before merging the Worker change that needs them.
+
 ## Adding run reports (anonymous play data)
 1. **Database:** in the D1 console, paste the `runs` part at the end of `schema.sql` (the `CREATE TABLE runs`
    and the two `CREATE INDEX` lines) and click **Execute**.
-2. **Worker:** add the `/report` block from `worker.js` (it starts with `if (req.method === 'POST' && url.pathname === '/report')`)
-   to the Worker, just above the final `return json({ error: 'not found' } ...)` line, and click **Deploy**.
+2. **Worker:** merge the change; it is deployed as described above. (Do not paste code into the dashboard editor.)
 3. **Game:** ship the new `index.html`. Until steps 1 and 2 are done, reports simply fail quietly.
 
 Reading the data, for example in the D1 console:
@@ -15,7 +39,7 @@ SELECT json_extract(s.value, '$.s') AS stage, ROUND(AVG(json_extract(s.value, '$
 ```
 
 ## Updating to StarFall 1.0 (release)
-Paste the new `worker.js` into the Worker (**Workers & Pages > starfall-scores > Edit code**, replace everything, **Deploy**).
+Deploy the new `worker.js` as described under "Deploying the Worker (automatic)".
 It accepts scores from every version and shows all stored scores again. If you have not yet added the
 `conts` and `start` columns from the 2.0 update below, do that first.
 
@@ -27,8 +51,7 @@ If your leaderboard already runs, you only need these three steps:
    ALTER TABLE scores ADD COLUMN conts INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE scores ADD COLUMN start INTEGER NOT NULL DEFAULT 1;
    ```
-2. **Worker:** open **Workers & Pages > starfall-scores > Edit code**, select everything in the editor,
-   replace it with the contents of `worker.js` from this folder and click **Deploy**.
+2. **Worker:** deploy `worker.js` as described under "Deploying the Worker (automatic)".
 3. **Game:** upload the new `index.html` and `sw.js` to GitHub. The leaderboard address is already built in.
 
 To remove old test scores, run for example: `DELETE FROM scores WHERE name = 'Test';`
@@ -48,6 +71,7 @@ Sign up for free at dash.cloudflare.com.
    You should now see a table called `scores`.
 
 ## 3. Create the Worker
+(First-time only. After this, deploy changes through the repository, see "Deploying the Worker (automatic)".)
 1. In the left menu, open **Compute (Workers) > Workers & Pages**.
 2. Click **Create**, then **Create Worker** (start from the Hello World example).
 3. Name it `starfall-scores` and click **Deploy**.
