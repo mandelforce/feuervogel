@@ -1,0 +1,25 @@
+{
+  "note": "Baseline for tests/perf.mjs, from a CI run. Regenerate with the manual workflow run when a change is meant to alter performance.",
+  "rates": {
+    "1": {
+      "totalP95": 7.1,
+      "totalP99": 8.6,
+      "slowPct": 0.11,
+      "bootMs": 2592
+    },
+    "4": {
+      "totalP95": 31.9,
+      "totalP99": 38.6,
+      "slowPct": 0.22,
+      "bootMs": 4693
+    },
+    "6": {
+      "totalP95": 48.8,
+      "totalP99": 58.7,
+      "slowPct": 0.22,
+      "bootMs": 6092
+    }
+  },
+  "memoryGrowthKBper1000frames": 78.4,
+  "indexBytes": 715595
+}
