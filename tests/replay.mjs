@@ -30,7 +30,7 @@ if (diag) {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   await page.addInitScript(initScript, 1944); await page.goto(PAGE);
-  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 }); // not the default rAF polling: this runner replaces requestAnimationFrame
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   console.log('DIAG ' + JSON.stringify(await page.evaluate(() => window.SF.diag())));
   await browser.close(); process.exit(0);
@@ -40,7 +40,7 @@ let bad = 0;
 const names = onlyTerrain ? [] : (await (async () => {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.addInitScript(initScript, 1944); await page.goto(PAGE);
-  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 }); // not the default rAF polling: this runner replaces requestAnimationFrame
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   const n = await page.evaluate(() => window.SF.SCENARIOS.map(s => s.name)); await page.close(); return n;
 })());
@@ -52,7 +52,7 @@ for (const name of names) {
   page.on('pageerror', e => console.error('page error:', e.message));
   await page.addInitScript(initScript, 1944);
   await page.goto(PAGE);
-  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 }); // not the default rAF polling: this runner replaces requestAnimationFrame
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   results[name] = await page.evaluate(n => window.SF.replay(window.SF.SCENARIOS.find(s => s.name === n)), name);
   await page.close();
@@ -71,7 +71,7 @@ if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page 
   await page.route(/workers\.dev/, r => r.abort());
   await page.addInitScript(initScript, pageSeed);
   await page.goto(PAGE);
-  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 }); // not the default rAF polling: this runner replaces requestAnimationFrame
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   if (pre) await page.evaluate(s => window.__sf(s), pre);
   const got = await page.evaluate(n => window.SF.replay(window.SF.SCENARIOS.find(s => s.name === n)), name);
@@ -86,7 +86,7 @@ if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page 
   await page.route(/workers\.dev/, r => r.abort());
   await page.addInitScript(initScript, 1944);
   await page.goto(PAGE);
-  await page.waitForFunction(() => typeof window.__sf === 'function');
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 }); // not the default rAF polling: this runner replaces requestAnimationFrame
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   results.terrain = await page.evaluate(() => window.SF.terrainPrints());
   await page.close();
