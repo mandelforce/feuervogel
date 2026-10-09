@@ -2631,24 +2631,33 @@ function setupBuses() {
   pulseWave = actx.createPeriodicWave(re, im);
 }
 function audio() {
+  // the audio session type must be set before the context starts; changing it on a running context can silence iOS output
+  try { if (typeof navigator !== 'undefined' && navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
   if (!actx) {
     try { actx = new (window.AudioContext || window.webkitAudioContext)(); setupBuses(); } catch (e) { actx = null; }
+    // iOS suspends or 'interrupts' the context when the app is left, the phone locks or another sound plays;
+    // the routed <audio> element is paused with it and has to be played again on the next tap
+    if (actx) actx.onstatechange = () => { if (actx.state !== 'running') mediaOK = false; try { setSoundLabel(); } catch (e) {} };
   }
-  try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   if (!actx) return;
   if (actx.state !== 'running') { try { const pr = actx.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
   if (actx.state !== 'running' || !unlocked) {
     try { const b = actx.createBuffer(1, 1, 22050), s = actx.createBufferSource(); s.buffer = b; s.connect(actx.destination); s.start(0); unlocked = true; } catch (e) {}
   }
-  if (mediaEl && !mediaOK) {
+  if (mediaEl && (!mediaOK || mediaEl.paused)) {
+    const giveUp = () => { try { master.connect(actx.destination); } catch (er) {} mediaEl = null; };
     try {
       const pr = mediaEl.play();
-      if (pr && pr.then) pr.then(() => { mediaOK = true; }).catch(() => { if (!mediaOK) { try { master.connect(actx.destination); } catch (e) {} mediaEl = null; } });
+      // NotAllowedError only means this event did not count as a tap (a finger's pointerdown on iOS): try again on the next one
+      if (pr && pr.then) pr.then(() => { mediaOK = true; }).catch(e => { if (!mediaOK && mediaEl && !(e && e.name === 'NotAllowedError')) giveUp(); });
       else mediaOK = true;
-    } catch (e) { try { master.connect(actx.destination); } catch (er) {} mediaEl = null; }
+    } catch (e) { giveUp(); }
   }
 }
-['touchend', 'click', 'keydown', 'pointerdown'].forEach(ev => document.addEventListener(ev, audio, { capture: true, passive: true }));
+['touchend', 'pointerup', 'click', 'keydown', 'pointerdown'].forEach(ev => document.addEventListener(ev, audio, { capture: true, passive: true }));
+// coming back to the app: try to resume right away (works when iOS allows it; otherwise the next tap does it)
+addEventListener('pageshow', () => { if (actx && actx.state !== 'running') { try { const pr = actx.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && actx && actx.state !== 'running') { try { const pr = actx.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} } });
 function ensureNoise() {
   if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate); const a = noiseBuf.getChannelData(0); for (let i = 0; i < a.length; i++) a[i] = Math.random() * 2 - 1; }
 }
