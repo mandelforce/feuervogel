@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Continue screen (hidden build 1.2.4.4): the "CONTINUES LEFT" / "LAST CONTINUE" line is twice as big and brighter, with more space between the countdown, that line and the tap prompt. Display only; continues, scoring and the leaderboard are unchanged.
 - Cleanup: removed the unused gold alert on the SCORES button; only the red dot (someone passed your score) is left. No visible change.
 - The game now lives at https://mandelforce.github.io/feuervogel/ (the repository was renamed from StarFall to feuervogel). Old links redirect to the new address; saved progress, settings and the leaderboard are unchanged.
 - Behind the scenes (hidden build 1.2.4.2): the game now talks to its new leaderboard server, `feuervogel.c-roth79.workers.dev`, which uses the same database. Scores, boards and the leaderboard are unchanged, and older versions keep working against the original server.

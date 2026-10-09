@@ -359,7 +359,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.3'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8038,8 +8038,8 @@ function renderMain() {
     ctx.fillStyle = 'rgba(18,14,26,0.4)'; ctx.fillRect(0, 0, W, H);
     textO('CONTINUE?', W / 2, 100, '#fff0a0', 3, 'center', '#f8a83a');
     textO(String(Math.floor(cont / 60)), W / 2, 130, '#ffffff', 8, 'center', '#bba4ff');
-    textS(maxCont() - runConts === 1 ? 'LAST CONTINUE' : (maxCont() - runConts) + ' CONTINUES LEFT', W / 2, 190, maxCont() - runConts === 1 ? '#f48a60' : '#a99cc8', 1, 'center', maxCont() - runConts === 1 ? '#a82a26' : '#6a5aa0');
-    if ((gf >> 4) & 1) textS('TAP OR PRESS ENTER', W / 2, 206, '#ffffff', 1, 'center', '#c4c9ce');
+    textS(maxCont() - runConts === 1 ? 'LAST CONTINUE' : (maxCont() - runConts) + ' CONTINUES LEFT', W / 2, 188, maxCont() - runConts === 1 ? '#f48a60' : '#c9bcf0', 2, 'center', maxCont() - runConts === 1 ? '#a82a26' : '#8a78d0');
+    if ((gf >> 4) & 1) textS('TAP OR PRESS ENTER', W / 2, 222, '#ffffff', 1, 'center', '#c4c9ce');
   }
   if (state === 'over') {
     ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H);
