@@ -17,7 +17,7 @@ FEUERVOGEL 89 is a pixel-art vertical arcade shooter that runs in any modern bro
 - **Practice:** jump straight into any stage from the title screen. Practice runs don't count for the Campaign board.
 - **Difficulty:** Easy, Normal or Hard, locked for the whole run.
 - **Weapons:** Scatter, Lance, Seekers and, from Stage 3, Arc. Plus the Nova bomb and a charged super laser.
-- **Secrets:** every stage hides one. Find all six to unlock the golden skin.
+- **Secrets:** every stage hides one. Find all six to unlock the Schneevogel skin.
 - New players can take a three-minute tutorial (the **?** next to Start).
 
 ## Controls
