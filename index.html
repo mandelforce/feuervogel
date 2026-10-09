@@ -3628,20 +3628,29 @@ let flyby = null;
 // Escalation: the first game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost
 // and won, and never the same one twice in a row. New reactions plug into GO_BEATS (min = the escalation level at which it can first appear).
 const GO_BEATS = { orb: { min: 3 }, flypast: { min: 5 } };
-let gameOvers = +store.get(KEY.overs) || 0;
-function pickBeat() {
+let gameOvers = +store.get(KEY.overs) || 0, escLevel = 0;
+// A run that ends at a boss gets that boss's own reaction from level 3 on, every time (players test this on purpose, so it must be repeatable).
+// Its tier grows with the level: 1 = the boss's signature sound, 2 and 3 = more (see BOSS_REACT).
+function pickBeat(boss) {
   gameOvers++; store.set(KEY.overs, gameOvers);
-  const n = gameOvers + 3 * loopsWon; // escalation level
+  const n = escLevel = gameOvers + 3 * loopsWon; // escalation level
+  if (boss && n >= 3) return 'boss';
   if (n <= 2 || Math.random() > Math.min(0.85, 0.25 + 0.08 * (n - 3))) return 'none';
   const last = store.get(KEY.lastBeat, ''), pool = Object.keys(GO_BEATS).filter(b => GO_BEATS[b].min <= n && b !== last);
   if (!pool.length) return 'none';
   const b = pool[(Math.random() * pool.length) | 0]; store.set(KEY.lastBeat, b); return b;
 }
 function startFlyby() {
-  const beat = pickBeat(), p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, rt: -1, beat, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
+  const boss = enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
+  flyby = { t: 0, pt: 0, rt: -1, beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
+}
+// What each boss does after it has beaten the player. Everything is picture and sound only: the player is gone, so nothing here can hurt.
+const BOSS_SOUND_AT = 150; // frames after game over: the game over jingle has finished
+function updBossReact(f) {
+  const e = f.boss; if (!e || e.dead || e.dying) return;
+  if (f.t === BOSS_SOUND_AT) warnSfx(BOSS_KINDS.indexOf(e.kind)); // its own warning sound: horn, whistle, tank roll, rail roll, attack horn, engine spool
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
 function leaveOver(auto) {
@@ -3655,6 +3664,7 @@ function leaveOver(auto) {
 function updFlyby() {
   const f = flyby; if (!f) return;
   if (state !== 'over') { flyby = null; quiet = false; return; }
+  if (f.beat === 'boss') updBossReact(f);
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
   if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
   const wy = f.y + scroll - f.s0;
