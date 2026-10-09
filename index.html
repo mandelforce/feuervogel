@@ -195,9 +195,19 @@ body[data-results="1"] #bombBtn{display:none !important}
 @media (pointer:coarse) and (orientation:landscape) and (max-height:500px){#rotate{display:grid}}
 #hint{font-size:15px;color:var(--muted);text-align:center;max-width:48ch;line-height:1.45;margin:0}
 @media (pointer:coarse){#hint{display:none}}
+#preboot{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#120e1a;transition:opacity .5s ease}
+#preboot.gone{opacity:0;pointer-events:none}
+#preboot b{font:700 clamp(22px,7.5vw,40px)/1 ui-monospace,Menlo,monospace;letter-spacing:.14em;margin-right:-.14em;background:linear-gradient(#fff 0%,#a8d0f4 50%,#6a9ad8 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+#preboot i{font:normal 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.3em;margin:14px -.3em 0 0;color:#8a7eb0}
+#preboot .dots{display:flex;gap:8px;margin-top:40px}
+#preboot .dots span{width:5px;height:5px;background:#a8f6dc;opacity:.2;animation:pbdot 1.2s ease-in-out infinite}
+#preboot .dots span:nth-child(2){animation-delay:.2s}#preboot .dots span:nth-child(3){animation-delay:.4s}
+@keyframes pbdot{0%,100%{opacity:.2}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){#preboot .dots span{animation:none;opacity:.7}}
 </style>
 </head>
 <body data-state="title" data-boot="1">
+<div id="preboot" aria-hidden="true"><b>MANDELFORCE</b><i>PRESENTS</i><div class="dots"><span></span><span></span><span></span></div></div>
 <div id="rotate" aria-live="polite"><div><canvas id="rotShip" width="36" height="38" aria-hidden="true"></canvas><h2>Turn your phone upright</h2><p>FEUERVOGEL 89 plays in portrait.</p></div></div>
 <div id="app">
   <div id="stage">
@@ -314,9 +324,10 @@ body[data-results="1"] #bombBtn{display:none !important}
   </div>
   <p id="hint">Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space sets off a Nova bomb. P pauses. Controllers work too.</p>
 </div>
-<script>
+<script type="text/plain" id="gameSrc">
 (() => {
 'use strict';
+performance.mark('game-start'); // start-up marks: tests/smoke.mjs and tests/perf.mjs read them
 // ---- random streams ----
 // While update() runs, Math.random draws from a seeded "sim" stream that starts fresh with every run: the same seed and the same
 // inputs give the same run. Drawing, sound and the idle weather use the real Math.random (the "free" stream), so cosmetics can
@@ -1773,6 +1784,7 @@ function drawTitleLogo() {
 }
 // boot splash: the MANDELFORCE logo and loading dots before the title screen
 let bootT = 0, booting = true;
+let preboot = document.getElementById('preboot');
 function drawBoot() {
   ctx.fillStyle = OUT; ctx.fillRect(0, 0, W, H);
   const a = Math.min(1, bootT / 24), w = logoWord('MANDELFORCE', 2), x = Math.round(W / 2 - w.width / 2), y = Math.round(H / 2 - 16);
@@ -1783,7 +1795,7 @@ function drawBoot() {
   for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? '#a8f6dc' : '#34226a'; ctx.fillRect(Math.round(W / 2) - 10 + i * 8, Math.round(H * 0.72), 4, 4); }
   ctx.globalAlpha = 1;
 }
-function finishBoot() { booting = false; bootOut = 1; delete document.body.dataset.boot; }
+function finishBoot() { performance.mark('title-ready'); booting = false; bootOut = 1; delete document.body.dataset.boot; }
 function endBoot() { if (booting && bootT > 40) finishBoot(); }
 // splash -> title: the splash dissolves away in a 4x4 ordered dither (2px cells), 2 frames per level
 let bootOut = 0;
@@ -8417,6 +8429,7 @@ function logError(where, e) {
 function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
 function frameLoop(now) {
   requestAnimationFrame(frameLoop);
+  if (preboot) { preboot.classList.add('gone'); const pb = preboot; preboot = null; setTimeout(() => pb.remove(), 700); } // fade the page's own splash into the game's
   if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
   const dtf = now - last;
   acc += Math.min(100, dtf); last = now;
@@ -8425,9 +8438,24 @@ function frameLoop(now) {
   while (acc >= STEP) { acc -= STEP; if (hitStop > 0) { hitStop--; continue; } if (slowT > 0) { slowT--; if (slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
   try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
 }
+performance.mark('game-ready');
 requestAnimationFrame(frameLoop);
 // local/test builds only: lets tests/harness.js drive the game (see tests/README.md)
 if (LB_TEST) window.__sf = c => eval(c);
+})();
+</script>
+<script>
+// The game script is big and builds all its graphics when it starts, which blocks the page for a while (seconds on an older phone).
+// So the page first paints the splash above, and only then runs the game. The timer is the fallback for when no frame comes
+// (a tab opened in the background, or a test that replaces requestAnimationFrame).
+(function () {
+  var started = false;
+  function go() {
+    if (started) return; started = true;
+    var s = document.createElement('script'); s.textContent = document.getElementById('gameSrc').textContent; document.body.appendChild(s);
+  }
+  requestAnimationFrame(function () { setTimeout(go, 0); });
+  setTimeout(go, 150);
 })();
 </script>
 <script>

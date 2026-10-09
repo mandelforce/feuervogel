@@ -39,6 +39,15 @@ The script runs top to bottom once at page load, then `frameLoop` takes over. Se
 | input | Keyboard, mouse, touch, gamepad, buttons |
 | sizing, loop | Canvas scaling; `frameLoop` runs `update()` at a fixed 60 steps per second and `render()` once per frame |
 
+## Start-up
+
+1. The page's HTML and CSS paint the splash (`#preboot`: MANDELFORCE, PRESENTS, animated dots) immediately.
+2. The game script is stored as text (`<script type="text/plain" id="gameSrc">`) and a small loader runs it after the first paint (`requestAnimationFrame` then a timer; a 150 ms timer is the fallback when no frame comes, for example in a background tab or in tests that replace `requestAnimationFrame`). Running it builds all the graphics, which blocks the page for about a second on a fast machine and several seconds on an old phone.
+3. The game's own frame loop starts, `#preboot` fades out and the game's animated splash (`drawBoot`) takes over. It lasts at least 110 steps while `warmStep` touches the offscreen canvases.
+4. `title-ready` is marked and the title screen is usable. Marks `game-start`, `game-ready` and `title-ready` are in the browser's performance timeline.
+
+Because the script is run from text, line numbers in error stacks (`starfall-lasterror`) count from the first line of the game script, not from the top of `index.html`.
+
 ## How a frame works
 
 1. `frameLoop` collects elapsed time and runs `update()` as many fixed steps as are due (capped, so a slow tab doesn't spiral).
