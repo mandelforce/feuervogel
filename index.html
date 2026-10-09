@@ -317,7 +317,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.2.4'; // shown on the title screen and sent with scores; also update VERSION in sw.js
+const VERSION = '1.2.4.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the 6px frame), so it fills the screen width
   const a = document.getElementById('app'), cs = getComputedStyle(a);
@@ -1753,7 +1753,7 @@ function drawTitleLogo() {
   logoDraw(w2, L.x, y2, face, 3, '#34226a'); logoGlint(w2, L.x, y2, (t - L.shine - 6) / 40);
   let ky = L.y + 6;
   KANJI.forEach((rows, i) => { const k = logoBits(rows, 1, 'k' + i), kx = Math.round(L.x / 2 - k.width / 2) - 2; ctx.drawImage(logoTint(k, OUT), kx + 1, ky + 1); ctx.drawImage(logoTint(k, '#d8f2ff'), kx, ky); ky += k.height + 5; });
-  textO(VERSION, L.x + w2.width + 1, y2 + 42, '#a8f6dc', 1, 'right', '#4ccfae');
+  textO(VERSION.split('.').slice(0, 3).join('.'), L.x + w2.width + 1, y2 + 42, '#a8f6dc', 1, 'right', '#4ccfae');
   if (on) { // strip slip
     const oy = Math.round(ctx.getTransform().f), sy = L.y + 4 + ((hash(g.seed, t >> 2) * 70) | 0), sh = 3 + ((hash(g.seed, 7) * 6) | 0), dx = (hash(g.seed, 3) < 0.5 ? -1 : 1) * (3 + ((hash(g.seed, 4) * 6) | 0));
     const [c, x] = mk(200, sh); x.putImageData(ctx.getImageData(12, sy + oy, 200, sh), 0, 0);
