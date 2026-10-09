@@ -4090,7 +4090,6 @@ async function lbStatus() {
     for (const b of d.boards) {
       const key = b.mode + '|' + b.plat + '|' + b.diff, prev = seen[key + '|all'];
       if (prev && prev.me && b.rank > prev.me) { lbAlert = 'red'; lbAlertBoard = key; break; }
-      if (b.challenger && !lbAlert) { lbAlert = 'gold'; lbAlertBoard = key; }
     }
   } catch (e) {}
 }
@@ -7870,7 +7869,7 @@ function renderMain() {
       btn(sx - 1, SCORES_Y - 1, SCORES_BTN.w + 2, SCORES_BTN.h + 2, '#8466dc'); btn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, '#34226a');
       ctx.globalAlpha = 0.3; ctx.fillStyle = '#bba4ff'; ctx.fillRect(sx, SCORES_Y, SCORES_BTN.w, 2); ctx.globalAlpha = 1;
       textO('SCORES', W / 2, SCORES_Y + 5, '#fff0a0', 2, 'center', '#f4d050');
-      if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, lbAlert === 'red' ? '#e86050' : '#f4d050'); ctx.globalAlpha = 1; dk(dx, dy, pr, lbAlert === 'red' ? '#e86050' : '#f4d050'); }
+      if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
     }
     if (nachtState() === 1 && !shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
