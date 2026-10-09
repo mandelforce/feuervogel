@@ -1,6 +1,7 @@
 // Layout test: loads the game at many phone, tablet and desktop sizes and checks the playfield
 // fills the screen, is centred, stays clear of the notch and home bar, and never scrolls.
-// Safe-area insets are simulated through the --sat / --sab CSS variables (headless browsers report 0).
+// Safe-area insets are simulated through the --t-sat / --t-sab CSS variables (headless browsers report 0), and the
+// Home Screen app (edge to edge, no frame) by adding the 'standalone' class the page sets itself when launched that way.
 // Serve the folder first (python3 -m http.server 8000), then:
 //   node tests/layout.mjs                 check every device
 //   node tests/layout.mjs --shots out/    also save a screenshot per device into out/
@@ -11,13 +12,18 @@ const URL = process.env.STARFALL_URL || 'http://localhost:8000/';
 const shotsAt = process.argv.indexOf('--shots'), shots = shotsAt > 0 ? process.argv[shotsAt + 1] : '';
 if (shots) mkdirSync(shots, { recursive: true });
 
-// [label, width, height, top inset, bottom inset, touch]. Insets are what iOS reports in Home Screen (standalone) mode.
+// [label, width, height, top inset, bottom inset, touch, Home Screen app]. Insets are what iOS reports in Home Screen mode.
 const DEVICES = [
   ['iPhone SE', 375, 667, 20, 0, true],
   ['iPhone 13 mini', 375, 812, 50, 34, true],
   ['iPhone 15', 393, 852, 59, 34, true],
   ['iPhone 15 Pro Max', 430, 932, 59, 34, true],
   ['iPhone 15 Safari tab', 393, 659, 0, 0, true],
+  ['iPhone SE app', 375, 667, 20, 0, true, true],
+  ['iPhone 13 mini app', 375, 812, 50, 34, true, true],
+  ['iPhone 15 app', 393, 852, 59, 34, true, true],
+  ['iPhone 15 Pro Max app', 430, 932, 59, 34, true, true],
+  ['Pixel 7 app', 412, 915, 0, 0, true, true],
   ['Pixel 7', 412, 915, 24, 0, true],
   ['Galaxy S (small)', 360, 800, 24, 0, true],
   ['short Android', 360, 640, 0, 0, true],
@@ -25,24 +31,24 @@ const DEVICES = [
   ['desktop', 1440, 900, 0, 0, false],
   ['small desktop', 800, 600, 0, 0, false],
 ];
-const FRAME = 6; // the canvas frame drawn by box-shadow
 const TOL = 2;
 
 const failures = [];
 const browser = await chromium.launch();
-for (const [label, w, h, sat, sab, touch] of DEVICES) {
+for (const [label, w, h, sat, sab, touch, app] of DEVICES) {
+  const FRAME = app ? 0 : 6; // the canvas frame drawn by box-shadow (none in the Home Screen app)
   const fail = msg => { failures.push(`${label}: ${msg}`); console.error(`FAIL ${label}: ${msg}`); };
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: touch, hasTouch: touch, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.route(/workers\.dev/, r => r.abort());
-  await page.addInitScript(([t, b]) => {
-    const set = () => { document.documentElement.style.setProperty('--sat', t + 'px'); document.documentElement.style.setProperty('--sab', b + 'px'); };
+  await page.addInitScript(([t, b, app]) => {
+    const set = () => { const d = document.documentElement; d.style.setProperty('--t-sat', t + 'px'); d.style.setProperty('--t-sab', b + 'px'); if (app) d.classList.add('standalone'); };
     // must land before the game script sizes the playfield, so set it the moment <html> exists
     if (document.documentElement) set();
     else new MutationObserver((_, o) => { if (document.documentElement) { set(); o.disconnect(); } }).observe(document, { childList: true });
-  }, [sat, sab]);
+  }, [sat, sab, !!app]);
   await page.goto(URL);
   await page.waitForTimeout(3500);
 
@@ -53,7 +59,8 @@ for (const [label, w, h, sat, sab, touch] of DEVICES) {
     return { x: r.x, y: r.y, w: r.width, h: r.height, hb, vw: innerWidth, vh: innerHeight, sw: d.scrollWidth, sh: d.scrollHeight };
   });
   // the area the playfield may use: below the status bar, above part of the home bar, inside the side margin
-  const top = sat + 4, bottom = h - (sab * 0.4 + 6), left = 8, right = w - 8;
+  // (the Home Screen app keeps only the status bar clear and runs edge to edge, under the home bar)
+  const top = app ? sat : sat + 4, bottom = app ? h : h - (sab * 0.4 + 6), left = app ? 0 : 8, right = app ? w : w - 8;
   if (m.sw > m.vw || m.sh > m.vh) fail(`page scrolls (${m.sw}x${m.sh} in ${m.vw}x${m.vh})`);
   if (m.x - FRAME < left - TOL || m.x + m.w + FRAME > right + TOL) fail(`canvas outside the side margins (x ${m.x}, width ${m.w})`);
   if (m.y - FRAME < top - TOL) fail(`canvas reaches under the status bar (top ${m.y}, inset ${sat})`);
@@ -63,7 +70,7 @@ for (const [label, w, h, sat, sab, touch] of DEVICES) {
   const gapT = m.y - (m.hb ? 0 : FRAME) - top, gapB = bottom - Math.max(m.y + m.h + FRAME, m.hb), gapL = m.x - FRAME - left;
   if (Math.abs(gapT - gapB) > TOL) fail(`not centred vertically (gap above ${gapT.toFixed(1)}, below ${gapB.toFixed(1)})`);
   // a portrait phone should be filled edge to edge in one direction (the playfield shape is capped, so not always both)
-  if (touch && w < 600 && Math.min(gapL, gapT) > 4) fail(`does not fill the screen (gaps: side ${gapL.toFixed(1)}, top ${gapT.toFixed(1)})`);
+  if (touch && w < 600 && Math.min(gapL, gapT) > (app ? 1 : 4)) fail(`does not fill the screen (gaps: side ${gapL.toFixed(1)}, top ${gapT.toFixed(1)})`);
 
   if (touch) {
     // Stage 1 on Normal, then the touch controls must sit on screen and clear of the home bar

@@ -26,6 +26,21 @@
 // (Game versions before 1.2.4.2 call the original Worker, https://starfall-scores.c-roth79.workers.dev; it stays running on the same database.)
 window.STARFALL_LEADERBOARD = 'https://feuervogel.c-roth79.workers.dev';
 </script>
+<script>
+// Started from the Home Screen icon: play edge to edge (html.standalone). iOS reports the safe-area insets as 0 for a
+// moment at launch, so on iOS the game waits for them (at most 0.6 s) before it sizes the playfield (see the loader at the end).
+(() => {
+  const ios = navigator.standalone === true;
+  if (ios || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches)) document.documentElement.classList.add('standalone');
+  window.SF_BOOT = run => {
+    if (!ios) return run();
+    const p = document.createElement('div'), t0 = Date.now();
+    p.style.cssText = 'position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)';
+    document.body.appendChild(p);
+    (function wait() { if (p.offsetHeight > 0 || Date.now() - t0 > 600) { p.remove(); run(); } else setTimeout(wait, 30); })();
+  };
+})();
+</script>
 <style>
 @font-face{font-family:'StarFall Text';src:url(data:font/ttf;base64,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ABcAGwAfACMAJwArAC8AMwAAETUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUhFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFWQBLGT+DGQBLGT+DGQBLGT+DAH0/gxkASxk/gxkASxk/gxkASxkAlhkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAHAAAAAAH0ArwAAwAHAAsADwATABcAGwAAETUhFQU1MxUHNTMVBzUzFQc1MxUHNTMVBTUhFQH0/tRkZGRkZGRkZGT+1AH0AlhkZGRkZGRkZGRkZGRkZGRkZGRkZAAACAAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAAEzUhFQc1MxUHNTMVBzUzFQc1MxUFNTMVITUzFQU1IRXIASxkZGRkZGRkZP4MZAEsZP5wASwCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQAAA0AAAAAAfQCvAADAAcACwAPABMAFwAbAB8AIwAnACsALwAzAAARNTMVITUzFQU1MxUzNTMVBTUzFTM1MxUFNTMVBzUzFTM1MxUFNTMVMzUzFQU1MxUhNTMVZAEsZP4MZMhk/nBkZGT+1MjIZGRk/tRkyGT+cGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAcAAAAAAfQCvAADAAcACwAPABMAFwAbAAARNTMVBzUzFQc1MxUHNTMVBzUzFQc1MxUHNSEVZGRkZGRkZGRkZGRkAfQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkABAAAAAAAfQCvAADAAcACwAPABMAFwAbAB8AIwAnACsALwAzADcAOwA/AAARNTMVITUzFQU1MxUzNTMVBTUzFTM1MxUzNTMVBTUzFTM1MxUzNTMVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVZAEsZP4MyGTI/gxkZGRkZP4MZGRkZGT+DGQBLGT+DGQBLGT+DGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAAPAAAAAAH0ArwAAwAHAAsADwATABcAGwAfACMAJwArAC8AMwA3ADsAABE1MxUhNTMVBTUzFTM1MxUFNTMVMzUzFTM1MxUFNTMVMzUzFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFWQBLGT+DMjIZP4MZGRkZGT+DGTI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DGQBLGT+DGQBLGT+cAGQZGT+cAEsAZBkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAACwAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAjACcAKwAAETUzFQc1MxUHNSEVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUzFSE1MxVkZGRkAZD+cGQBLGT+DGQBLGT+DGQBLGT+DGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQABgBkAAABkAK8AAMABwALAA8AEwAXAAATNTMVBzUzFQc1MxUHNTMVBzUzFQc1IRXIZMjIZGRkZGRkyAEsAlhkZMhkZGRkZGRkZGRkZGRkZAAJAAD/OAGQArwAAwAHAAsADwATABcAGwAfACMAAAE1MxUHNTMVBzUzFQc1MxUHNTMVBzUzFQU1MxUzNTMVBTUzFQEsZMjIZGRkZGRkZGT+cGTIZP7UyAJYZGTIZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAALAAAAAAGQArwAAwAHAAsADwATABcAGwAfACMAJwArAAARNTMVBzUzFQc1MxUzNTMVBTUzFTM1MxUFNTMVBzUzFTM1MxUFNTMVMzUzFWRkZGRkyGT+cGRkZP7UyMhkZGT+1GTIZAJYZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAHAGQAAAGQArwAAwAHAAsADwATABcAGwAAEzUzFQc1MxUHNTMVBzUzFQc1MxUHNTMVBzUhFWTIZGRkZGRkZGRkZMgBLAJYZGRkZGRkZGRkZGRkZGRkZGRkZGQAAA0AAAAAAfQB9AADAAcACwAPABMAFwAbAB8AIwAnACsALwAzAAARNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUhNTMVyGRk/nBkZGRkZP4MZGRkZGT+DGRkZGRk/gxkASxkAZBkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQACQAAAAAB9AH0AAMABwALAA8AEwAXABsAHwAjAAARNSEVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUzFSE1MxUBkP5wZAEsZP4MZAEsZP4MZAEsZP4MZAEsZAGQZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAIAAAAAAH0AfQAAwAHAAsADwATABcAGwAf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B3VuaTAwNDgHdW5pMDA0OQd1bmkwMDRBB3VuaTAwNEIHdW5pMDA0Qwd1bmkwMDREB3VuaTAwNEUHdW5pMDA0Rgd1bmkwMDUwB3VuaTAwNTEHdW5pMDA1Mgd1bmkwMDUzB3VuaTAwNTQHdW5pMDA1NQd1bmkwMDU2B3VuaTAwNTcHdW5pMDA1OAd1bmkwMDU5B3VuaTAwNUEHdW5pMDAzMAd1bmkwMDMxB3VuaTAwMzIHdW5pMDAzMwd1bmkwMDM0B3VuaTAwMzUHdW5pMDAzNgd1bmkwMDM3B3VuaTAwMzgHdW5pMDAzOQd1bmkwMDYxB3VuaTAwNjIHdW5pMDA2Mwd1bmkwMDY0B3VuaTAwNjUHdW5pMDA2Ngd1bmkwMDY3B3VuaTAwNjgHdW5pMDA2OQd1bmkwMDZBB3VuaTAwNkIHdW5pMDA2Qwd1bmkwMDZEB3VuaTAwNkUHdW5pMDA2Rgd1bmkwMDcwB3VuaTAwNzEHdW5pMDA3Mgd1bmkwMDczB3VuaTAwNzQHdW5pMDA3NQd1bmkwMDc2B3VuaTAwNzcHdW5pMDA3OAd1bmkwMDc5B3VuaTAwN0EHdW5pMDAyMAd1bmkwMDJFB3VuaTAwMkMHdW5pMDAzQQd1bmkwMDNCB3VuaTAwMjEHdW5pMDAzRgd1bmkwMDI3B3VuaTAwMjIHdW5pMDAyRAd1bmkwMDJCB3VuaTAwM0QHdW5pMDAyRgd1bmkwMDI1B3VuaTAwMjMHdW5pMDAyNgd1bmkwMDI4B3VuaTAwMjkHdW5pMDAyQQd1bmkwMDNDB3VuaTAwM0UHdW5pMDA1Rgd1bmkwMDQwB3VuaTI2MDU=) format('truetype');font-weight:100 900;font-display:block}
 /* DotGothic16 (SIL Open Font License 1.1, see licenses/DotGothic16-OFL.txt), cut down to the characters used in the credits */
@@ -35,14 +50,14 @@ window.STARFALL_LEADERBOARD = 'https://feuervogel.c-roth79.workers.dev';
   --bg:#d9d3c4; --ink:#2b2418; --muted:#5e5440; --frame:#2b2418;
   --btn-bg:rgba(18,14,26,.6); --btn-ink:#f2ecd8; --btn-line:#f2ecd8; --bomb:#8466dc;
   box-sizing:border-box;
-  /* safe-area insets in one place, so tests/layout.mjs can simulate a notch (headless browsers report 0) */
-  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){ --bg:#17140f; --ink:#e8e0c8; --muted:#a89c7c; --frame:#5e5440; }
 }
 :root[data-theme="dark"]{ --bg:#17140f; --ink:#e8e0c8; --muted:#a89c7c; --frame:#5e5440; }
-/* pinned to the full screen so the home-screen app (standalone) gets the real viewport; safe-area insets are applied inside #app */
+/* pinned to the full screen so the home-screen app (standalone) gets the real viewport; safe-area insets are applied inside #app.
+   env() is used directly in each rule: iOS can leave an env() stored in a custom property at its launch value of 0.
+   --t-sat / --t-sab are never set on a real device; tests/layout.mjs uses them to simulate a notch. */
 html{position:fixed;inset:0;height:100%;width:100%}
 *,*::before,*::after{box-sizing:border-box}
 body{
@@ -52,9 +67,13 @@ body{
   overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
-#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(var(--sat) + 4px) 8px calc(var(--sab) * .4 + 6px)}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px) + 4px) 8px calc((env(safe-area-inset-bottom,0px) + var(--t-sab,0px)) * .4 + 6px)}
+/* Home Screen app: edge to edge, no frame; only the status bar is kept clear (the game runs on under the home bar) */
+html.standalone #app{padding:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px)) 0 0;gap:0}
+html.standalone #game{box-shadow:none}
+html.standalone body{background:#120c24} /* dark behind the status bar in both themes (its text is white) */
 #stage{position:relative;line-height:0}
-#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(var(--sat) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
+#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
 #tutBox.on{display:block}
 #tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
 #tutText b{color:#fff0a0;font-weight:400}
@@ -128,7 +147,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .hico{justify-self:center;image-rendering:pixelated}
 #lbPanel{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:6}
 #lbPanel.open{display:grid}
-#lbPanel.below{place-items:end center;padding-bottom:calc(var(--sab) + 14px);background:linear-gradient(rgba(18,14,26,0) 45%,rgba(18,14,26,.6))}
+#lbPanel.below{place-items:end center;padding-bottom:calc(env(safe-area-inset-bottom,0px) + var(--t-sab,0px) + 14px);background:linear-gradient(rgba(18,14,26,0) 45%,rgba(18,14,26,.6))}
 #lbPanel .panel{width:min(96%,440px);max-height:95%;overflow:auto;padding:14px 14px 12px}
 #lbPanel label{display:grid;gap:4px;margin:8px 0;font-size:14px}
 #lbPanel input{font:16px 'StarFall Text',ui-monospace,monospace;color:#f2ecd8;background:#120e1a;border:2px solid #8466dc;border-radius:3px;padding:7px 8px;width:100%;box-sizing:border-box}
@@ -174,7 +193,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel .primary{width:100%;margin-top:6px;background:#f4d050;color:#1b1530;border-color:#120e1a;font-size:16px}
 .panel .note{margin:2px 0 0;font-size:12px;color:#a99cc8}
 #bombBtn{
-  bottom:calc(14px + var(--sab));right:14px;width:64px;height:64px;border-radius:50%;
+  bottom:calc(14px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));right:14px;width:64px;height:64px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%,#e8dcff 0,#8466dc 38%,#34226a 100%);
   color:#fff;border:2px solid #120e1a;font-size:15px;display:none;
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
@@ -340,15 +359,23 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.2'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.3'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
-  // size the playfield to the box #app really offers (minus its padding and the 6px frame), so it fills the screen width
+  // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
   const a = document.getElementById('app'), cs = getComputedStyle(a);
-  const aw = a.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 12;
-  const ah = a.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 12;
+  const aw = a.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - FRAME2;
+  const ah = a.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - FRAME2;
   return Math.max(320, Math.min(500, Math.floor(ah / (aw / 224)) || 448));
 })(), CH = 64, TAU = Math.PI * 2, PI = Math.PI;
-const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = XH > 10 ? 8 : 0, HFULL = H;
+// Home Screen app: the playfield runs on under the home bar and the rounded screen corners, so the bottom HUD moves up by that much
+const HUD_LIFT = FRAME2 ? 0 : (() => {
+  const p = document.createElement('div');
+  p.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;height:calc(env(safe-area-inset-bottom,0px) + var(--t-sab,0px))';
+  document.body.appendChild(p); const v = p.offsetHeight; p.remove();
+  return Math.round(v / (document.getElementById('app').clientWidth / W));
+})();
+const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = (XH > 10 ? 8 : 0) + HUD_LIFT, HFULL = H;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 cv.width = W; cv.height = H;
@@ -8376,7 +8403,7 @@ function fit() {
   const tall = H > 330;
   if (!tall) hint.style.display = '';
   const hintH = getComputedStyle(hint).display === 'none' ? 0 : hint.offsetHeight + 12;
-  const cs = getComputedStyle(app), fr = tall ? 12 : 28;
+  const cs = getComputedStyle(app), fr = tall ? FRAME2 : 28;
   const aw = app.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - fr + (tall ? 0 : 16);
   const ah = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - fr + (tall ? 0 : 16);
   let s = Math.min(aw / W, (ah - (tall ? 0 : hintH)) / H);
@@ -8389,6 +8416,8 @@ function fit() {
   cv.style.height = Math.round(H * scale) + 'px';
 }
 addEventListener('resize', fit);
+// the safe-area insets can arrive after launch (iOS Home Screen app): refit when #app's inner box changes
+if (window.ResizeObserver) new ResizeObserver(() => fit()).observe(document.getElementById('app'));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 fit();
 
@@ -8439,7 +8468,8 @@ if (LB_TEST) window.__sf = c => eval(c);
   var started = false;
   function go() {
     if (started) return; started = true;
-    var s = document.createElement('script'); s.textContent = document.getElementById('gameSrc').textContent; document.body.appendChild(s);
+    // SF_BOOT (in <head>) waits for the iOS safe-area insets in the Home Screen app before the game sizes its playfield
+    window.SF_BOOT(function () { var s = document.createElement('script'); s.textContent = document.getElementById('gameSrc').textContent; document.body.appendChild(s); });
   }
   requestAnimationFrame(function () { setTimeout(go, 0); });
   setTimeout(go, 150);
