@@ -67,7 +67,13 @@ window.SF = {
   bot, // one step of the dodging bot (sets the arrow keys); used by tests/perf.js to play on the game's own frame loop
   setMode(m) { mode = m; },
   // Start a run at a stage on a difficulty (0 Easy, 1 Normal, 2 Hard). Pauses the game's own loop.
-  start(diff, n = 1) { acc = -1e15; settings.diff = diff; R.stages = {}; R.hits = []; R.errs = []; lastStage = -1; startAt(n); },
+  // With endlessSlot (0-5): an Endless run starting in that stage slot, as startEndless() does (which picks the slot at random).
+  start(diff, n = 1, endlessSlot) {
+    acc = -1e15; settings.diff = diff; R.stages = {}; R.hits = []; R.errs = []; lastStage = -1;
+    if (endlessSlot === undefined) { startAt(n); return; }
+    endless = true; startAt(endlessSlot + 1, true);
+    if (endlessSlot > 0) { stage = 1; loop = rankFor(1); }
+  },
   run(frames) {
     for (let i = 0; i < frames; i++) {
       if (state !== 'play') return 'state:' + state;

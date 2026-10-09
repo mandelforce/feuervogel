@@ -37,6 +37,11 @@ if (diag) {
 }
 const results = {};
 let bad = 0;
+// The trace is a checksum of the simulation every 500 frames (see tests/replay.js): name the first checkpoint that differs.
+const traceDiff = (want = '', got = '') => {
+  const a = want.split(' '), b = got.split(' '), i = a.findIndex((h, k) => h !== b[k]);
+  return `trace: the run first differs by frame ${(i < 0 ? a.length : i + 1) * 500} (checkpoint ${i < 0 ? a.length + 1 : i + 1} of ${a.length})`;
+};
 const names = onlyTerrain ? [] : (await (async () => {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.addInitScript(initScript, 1944); await page.goto(PAGE);
@@ -59,13 +64,14 @@ for (const name of names) {
   if (update) { console.log(`${name}: ${JSON.stringify(results[name])}`); continue; }
   const want = golden.scenarios[name], got = results[name];
   if (want?.H !== got.H) { bad++; console.error(`FAIL ${name}: playfield height H is ${got.H}, golden was made at ${want?.H}. The game sizes H from the window layout, so this machine is not comparable (or the layout CSS changed). Not a gameplay difference.`); continue; }
-  const diffs = Object.keys({ ...want, ...got }).filter(k => want?.[k] !== got[k]).map(k => `${k}: expected ${want?.[k]}, got ${got[k]}`);
+  const diffs = Object.keys({ ...want, ...got }).filter(k => want?.[k] !== got[k]).map(k => k === 'trace' ? traceDiff(want?.trace, got.trace) : `${k}: expected ${want?.[k]}, got ${got[k]}`);
   if (diffs.length) { bad++; console.error(`FAIL ${name}\n  ${diffs.join('\n  ')}`); } else console.log(`ok   ${name}`);
 }
 
-// Isolation: sound, visual effects and idle weather must never change a run. Replay one scenario under conditions that must not matter
-// (another page-level random seed; the speed setting lowFX forced on) and require the very same result as the golden one.
-if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page seed', 777, ''], ['lowFX on', 1944, 'lowFX = true']]) {
+// Isolation: sound, visual effects, idle weather and drawing must never change a run. Replay one scenario under conditions that must
+// not matter (another page-level random seed; the speed setting lowFX forced on; a frame drawn every 250 frames, which must also
+// draw without errors) and require the very same result as the golden one.
+if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page seed', 777, ''], ['lowFX on', 1944, 'lowFX = true'], ['drawing on', 1944, 'window.__drawEvery = 250']]) {
   const name = 'hard-stage3-real';
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
@@ -76,7 +82,9 @@ if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page 
   if (pre) await page.evaluate(s => window.__sf(s), pre);
   const got = await page.evaluate(n => window.SF.replay(window.SF.SCENARIOS.find(s => s.name === n)), name);
   await page.close();
-  const want = golden.scenarios[name];
+  const want = golden.scenarios[name], drawErrors = got.drawErrors || [];
+  delete got.drawErrors;
+  if (drawErrors.length) { bad++; console.error(`FAIL isolation (${label}): drawing threw ${drawErrors.length} error(s), first: ${drawErrors[0]}`); }
   if (JSON.stringify(got) !== JSON.stringify(want)) { bad++; console.error(`FAIL isolation (${label}): ${name} changed. Something outside the simulation (sound, effects, weather, a speed setting) now affects how a run plays.`); } else console.log(`ok   isolation (${label})`);
 }
 

@@ -43,7 +43,7 @@ It cannot reproduce everything. Check a real phone too, especially from the Home
 
 ## Replay test (runs in CI, advisory for now)
 
-`replay.mjs` plays three fixed scenarios with the bot (different difficulties, stages and modes, 30,000 frames each) and compares score, stage, lives, kills and more with `golden.json`. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
+`replay.mjs` plays eight fixed scenarios with the bot and compares score, stage, lives, kills and more with `golden.json`. Together they cover all six bosses, Easy, Normal and Hard, a run where the bot can die and continue, Endless, two-player, and a run saved and resumed the way the game does after a page reload. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
 
 ```
 node tests/replay.mjs            # compare
@@ -54,7 +54,16 @@ Only use `--update` after a change that is *meant* to alter gameplay (balance, s
 
 How it stays repeatable: the game plays each run from a seed (`runSeed`; test builds can force one with `window.__forceSeed`, which `replay.js` does), each scenario runs on a fresh page, and the frame loop is switched off so only the replay moves the game. Page-level `Math.random` is still seeded for the cosmetic randomness at load.
 
-Isolation checks: the runner also replays the Hard scenario under another page-level random seed and with the speed setting `lowFX` forced on, and requires the identical result. This guards the rule that sound, visual effects and weather never change how a run plays. The viewport size is fixed (stored in `golden.json`), and every result records the playfield height `H`, because the game sizes `H` from the window layout and `H` changes how the game plays. If `H` differs, the test says so and stops: that is a different machine or layout, not a gameplay change. (A borderless 400x700 window gives the same `H` as CI; a window with a 2px border does not.) 
+Each result also has a `trace`: a checksum of the simulation (the run's numbers, the seeded random stream, the ships, every enemy, boss part and bullet) every 500 frames. When a run differs, the test names the first 500-frame stretch where it went another way, which narrows down where a change went wrong.
+
+Isolation checks: the runner also replays the Hard scenario under another page-level random seed, with the speed setting `lowFX` forced on, and with a frame drawn every 250 frames, and requires the identical result (drawing must also not throw). This guards the rule that sound, visual effects, weather and drawing never change how a run plays. Comparing the drawn pictures themselves doesn't work, because terrain painting runs on a time budget. The viewport size is fixed (stored in `golden.json`), and every result records the playfield height `H`, because the game sizes `H` from the window layout and `H` changes how the game plays. If `H` differs, the test says so and stops: that is a different machine or layout, not a gameplay change. (A borderless 400x700 window gives the same `H` as CI; a window with a 2px border does not.) 
+
+Without Node, the scenarios also run in a browser on a local build: open the game in a window whose playfield height is 408 (a 400x700 desktop window, or 800x1430 in the Claude Browser pane: narrower than 768 there counts as a touch phone, which switches off two-player), then in the console, on a fresh page per scenario:
+
+```
+__sf(await (await fetch('tests/harness.js')).text()); __sf(await (await fetch('tests/replay.js')).text());
+SF.replay(SF.SCENARIOS[0])   // compare with tests/golden.json
+```
 
 It also fingerprints the terrain of all six campaign stages (what is under every sampled spot, hashed). The campaign world comes from fixed-seed hash noise (seed 1944), so these hashes must never change by accident. Terrain painting is time-budgeted per frame, but that only affects the pictures, not the simulation: the replay result is identical on a simulated slow machine.
 
