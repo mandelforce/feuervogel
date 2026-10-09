@@ -54,6 +54,19 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 `golden.json` comes from CI: run the workflow by hand (Actions > Smoke test > Run workflow, on your branch) and copy the printed block between `GOLDEN-BEGIN` and `GOLDEN-END`; the same run prints machine details (`--diag`). CI results have been identical across runs. The CI step stays advisory (`continue-on-error`): gameplay changes made on purpose, such as balance or Easy mode, change the numbers and need a refresh.
 
+## Frame-time profiler (run by hand)
+
+`profile.js` shows which functions use the time in `update` and `render`, and what the slow frames are doing. Local builds only. Serve the folder, open it in the browser, and paste into the console:
+
+```js
+__sf(await (await fetch('tests/harness.js')).text());
+__sf(await (await fetch('tests/profile.js')).text());
+const r = await SF.profile({ diff: 1, stage: 1, frames: 4000 });   // takes about 30 seconds
+r.update; r.render; r.top; r.spikes
+```
+
+Times are in milliseconds on the machine you run it on, so run it on a phone for numbers that matter. Functions called more than 40 times per frame are not timed one by one (the timing would distort them); they are listed in `hotNotTimed`. The profiler itself allocates, so treat spike counts as an upper bound.
+
 ## Balance bot (run by hand)
 
 `harness.js` drives the game at high speed with a bot that dodges by looking a few frames ahead. Use it to check balance after changing weapons, bosses or stages. It only works on local builds (localhost, `file://`, `.test`), where the game exposes a `window.__sf` hook. The live site never has it.
