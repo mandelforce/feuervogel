@@ -3656,6 +3656,13 @@ function updBossReact(f) {
   if (f.t === BOSS_SOUND_AT + 60) {
     if (e.kind === 'ship' && f.tier >= 3) e.reactRam = true; // Iron Leviathan: the turn from "Hard to port", with a rippling salvo
     if (e.kind === 'fortress' && !f.blow) { if (f.tier >= 3 && f.rare) e.reactStorm = true; else if (f.tier >= 2) e.reactLeave = true; } // Sand Colossus: rarely the sandstorm, otherwise it backs out the way it came in
+    if (e.kind === 'railgun' && f.tier === 2) e.reactLeave = true; // Night Hammer: rolls back up the rails
+  }
+  if (e.kind === 'railgun' && f.tier >= 3 && f.t >= BOSS_SOUND_AT + 60 && !f.lightsDone) { // Night Hammer: both searchlights find the wreck, rest on the orb for a while, then the carriage rolls back up the rails
+    e.reactLights = true;
+    const ls = e.parts.filter(q => q.k === 'light' && !q.dead && q.sx !== undefined), wy = flyY(f);
+    if (ls.length && ls.every(q => Math.hypot(q.sx - f.x, q.sy - wy) < 8)) f.lightDwell = (f.lightDwell || 0) + 1;
+    if (f.lightDwell > 150 || !ls.length || f.t > BOSS_SOUND_AT + 560) { e.reactLights = false; f.lightsDone = true; e.reactLeave = true; }
   }
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
@@ -4880,7 +4887,8 @@ const SPOT_R = 22, SPOT_V = 0.75;
 function searchSpot(e, p, px, py) {
   if (p.sx === undefined) { p.sx = px; p.sy = py + 60; }
   const ph = e.mt * 0.006 + (p.ox < 0 ? 0 : 2.4), bx = W / 2 + Math.sin(ph * 1.7) * (W / 2 - 30), by = H * 0.55 + Math.sin(ph * 1.1 + 1) * H * 0.3;
-  const near = !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = near ? player.x : bx, ty = near ? player.y : by;
+  const W0 = e.reactLights && flyby ? [flyby.x, flyY(flyby)] : null; // game over reaction: both lights go to the wreck and settle on the orb
+  const near = W0 ? Math.hypot(W0[0] - p.sx, W0[1] - p.sy) < 90 : !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = W0 ? W0[0] : near ? player.x : bx, ty = W0 ? W0[1] : near ? player.y : by;
   const d = Math.hypot(tx - p.sx, ty - p.sy), v = Math.min(d, near ? SPOT_V : 1.4);
   if (d > 0.01) { p.sx += (tx - p.sx) / d * v; p.sy += (ty - p.sy) / d * v; }
   p.ang = Math.atan2(p.sy - py, p.sx - px);
@@ -5428,6 +5436,7 @@ const BOSSMOVE = {
     return true;
   },
   railgun(e) {
+    if (e.reactLeave) { e.y -= 0.6; return true; } // game over reaction: back up the rails the way it came
     if (e.mt === 0 && e.y < 100 + BY) { e.y += 0.5; return false; }
     e.mt++; e.recoil = (e.recoil || 0) * 0.975; e.y = 100 + BY + Math.sin(e.mt * 0.006) * 16 + e.recoil; // recoil throws it back up the rails, then it rolls forward again
     return true;
