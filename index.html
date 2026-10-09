@@ -3686,12 +3686,15 @@ function updBossReact(f) {
   }
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
+const ORB_CLEAR = 16; // the orb will not leave a wreck that lies under a boss, or this close to its hull: it waits until the boss has moved off
+const orbBlocked = f => !!f.cover && !f.deck && onBoss(f.cover, f.x, flyY(f), ORB_CLEAR);
 function leaveOver(auto) {
   const f = flyby;
   if (!f) { toTitle(); return; }
   if (f.beat === 'none') { if (!fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // nothing to wait for
   if (f.hold) return; // the score dialog is still to come
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
+  if (orbBlocked(f)) { if (f.wait && !auto && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; f.wait = true; return; } // under the boss: the release waits for it to move off, another tap leaves
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
 function endFlyby() { // also takes the reaction's crows off the screen
@@ -3707,6 +3710,7 @@ function updFlyby() {
   if (f.deck && !f.deck.free) { const [ax, ay] = anchorPos(f.deck); f.x = ax; f.y = ay; } // lying on a boss: it goes where the boss goes
   if (f.deck && f.deck.slip) slipOff(f); // only the edge of the hull holds it: it slides off to the side
   const wy = flyY(f);
+  if (f.wait && f.rt < 0 && !orbBlocked(f)) { f.wait = false; f.rt = f.t; f.skip = true; sfx('orb'); } // the boss has moved off: the orb is released now
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
   if (f.blow && f.cover && f.t === 40) f.cover.reactStorm = true; // it went down on top of the tank: the sandstorm blows it off
