@@ -24,7 +24,7 @@ If you change `worker.js`, run this first. The tests check the rules, not live d
 
 ## Layout test (runs automatically)
 
-`layout.mjs` loads the game at 11 sizes, from iPhone SE to iPad and desktop, and checks that:
+`layout.mjs` loads the game at 16 sizes, from iPhone SE to iPad and desktop, five of them as the Home Screen app (edge to edge, no frame), and checks that:
 - the playfield fills the screen edge to edge on phones,
 - it is centred,
 - it stays clear of the notch and home bar,
@@ -32,7 +32,7 @@ If you change `worker.js`, run this first. The tests check the rules, not live d
 - the Nova and menu buttons are on screen during play,
 - turning the device and back keeps the same size.
 
-Headless browsers report no safe-area insets, so the test simulates them through the `--sat` and `--sab` CSS variables that the page uses for every inset. Serve the folder, then:
+Headless browsers report no safe-area insets, so the test simulates them by adding the `--t-sat` and `--t-sab` CSS variables to every inset (they are never set on a real device). It simulates the Home Screen app by adding the `standalone` class that the page sets itself when launched from the icon. Serve the folder, then:
 
 ```
 node tests/layout.mjs                # check every size
