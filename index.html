@@ -3733,8 +3733,9 @@ function drawWreck(top) { // top: the wreck lies on a boss and is drawn above it
   ctx.globalAlpha = (0.12 + 0.04 * pul) * (1 - sink); dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
   if (f.water) { // the wreck slips under: it darkens into the water, drops a little and fades to a faint shape; rings spread over it
     const ease = sink * sink * (3 - 2 * sink);
-    shadow(SPR.player, wx, wy + ease * 4, 0, 0, 0.9 * (1 - 0.82 * ease));
-    ctx.globalAlpha = 0.55 * ease; dk(wx, wy + 2, 19, '#17304f'); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.85 * (1 - 0.5 * ease); dk(wx, wy + 1, 22, '#07121f'); ctx.globalAlpha = 1; // a dark pool spreads under the wreck
+    shadow(SPR.player, wx, wy + ease * 4, 0, 0, 1 - 0.7 * ease);
+    ctx.globalAlpha = 0.8 * ease; dk(wx, wy + 2, 22, '#0b1a2e'); ctx.globalAlpha = 1;
     ctx.strokeStyle = '#a8c8e8'; ctx.lineWidth = 1;
     for (let k = 0; k < 2; k++) { const r = (((f.t - f.w0) * 0.3 + k * 14) % 28) + 3; ctx.globalAlpha = 0.28 * (1 - r / 31); ctx.beginPath(); ctx.ellipse(wx, wy + 2, r * 1.2, r * 0.8, 0, 0, TAU); ctx.stroke(); }
     ctx.globalAlpha = 1;
@@ -3783,7 +3784,7 @@ function slipOff(f) {
   if (onBoss(e, ax, ay, 0)) return;
   const tt = terrainType(Math.floor(ax), Math.floor(ay - Math.floor(scroll)));
   f.deck = null; f.x = ax; f.y = ay; f.s0 = scroll; f.w0 = f.t; // clear of the hull
-  if (tt === 'sea' || tt === 'surf' || tt === 'river') { f.water = true; splash(f.x, ay, 14); }
+  if (tt === 'sea' || tt === 'surf' || tt === 'river') { f.water = true; splash(f.x, ay, 26); later.push({ at: gf + 14, fn: () => splash(f.x, flyY(f), 16) }); } // a big splash as it drops in, a smaller one as the water closes over it
 }
 const flyY = f => f.deck ? f.y : f.y + scroll - f.s0; // screen y of the wreck: on a deck it is the deck's, on the ground it moves with the ground
 function drawFlyby() {
