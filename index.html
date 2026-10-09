@@ -3613,7 +3613,7 @@ function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + 
 function lbEligible() { return score > 0 && (endless || runStart === 1) && !run2P; } // 2-player runs stay off the boards
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
-const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100;
+const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100, ORB_BREAK = 26, SINK_T = 170; // ORB_BREAK: frames after release when the orb comes out of the water
 const ORB = (() => {
   const [c, x] = mk(15, 15), ramp = ['#2a1a5a', '#5a3aa8', '#8466dc', '#bba4ff', '#e8dcff'];
   for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) {
@@ -3628,20 +3628,62 @@ let flyby = null;
 // Escalation: the first game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost
 // and won, and never the same one twice in a row. New reactions plug into GO_BEATS (min = the escalation level at which it can first appear).
 const GO_BEATS = { orb: { min: 3 }, flypast: { min: 5 } };
-let gameOvers = +store.get(KEY.overs) || 0;
-function pickBeat() {
+let gameOvers = +store.get(KEY.overs) || 0, escLevel = 0;
+// A run that ends at a boss gets that boss's own reaction from level 3 on, every time (players test this on purpose, so it must be repeatable).
+// Its tier grows with the level: 1 = the boss's signature sound, 2 and 3 = more (see BOSS_REACT).
+function pickBeat(boss) {
   gameOvers++; store.set(KEY.overs, gameOvers);
-  const n = gameOvers + 3 * loopsWon; // escalation level
+  const n = escLevel = gameOvers + 3 * loopsWon; // escalation level
+  if (boss && n >= 3) return 'boss';
   if (n <= 2 || Math.random() > Math.min(0.85, 0.25 + 0.08 * (n - 3))) return 'none';
   const last = store.get(KEY.lastBeat, ''), pool = Object.keys(GO_BEATS).filter(b => GO_BEATS[b].min <= n && b !== last);
   if (!pool.length) return 'none';
   const b = pool[(Math.random() * pool.length) | 0]; store.set(KEY.lastBeat, b); return b;
 }
 function startFlyby() {
-  const beat = pickBeat(), p = player; if (!p) return;
-  flyby = { t: 0, pt: 0, rt: -1, beat, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: clamp(p.x, 50, W - 50), y: clamp(p.y, 90, H * 0.64), s0: scroll };
+  const boss = enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
+  const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), deck = bossAnchor(boss, fx, fy), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(scroll)));
+  flyby = { t: 0, pt: 0, rt: -1, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
+  if (flyby.water) splash(fx, fy, 14); // it went down in the water: the wreck will sink
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
+}
+// Ravenhold: the bell tolls and a flock of crows circles the keep, as in "The Raven's Wheel" but without the shells. From tier 3 a few crows then
+// leave the flock, fly to the wreck and perch on it; the rest scatter. When the orb rises they take off again.
+function castleReact(f, e) {
+  const core = e.parts.find(p => p.k === 'core'); if (!core) return;
+  const t = f.t - (BOSS_SOUND_AT + 160), cx = e.x + core.ox, cy = e.y + core.oy, wy = flyY(f);
+  if (t === 0) { sfx('toll'); f.crows = []; for (let i = 0; i < 12; i++) { const b = { x: cx, y: cy, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); f.crows.push(b); } }
+  if (t === 45) sfx('toll');
+  if (!f.crows) return;
+  f.crows.forEach((b, i) => {
+    if (b.perch) { b.x = f.x + b.px; b.y = wy + b.py; if (f.rt >= 0 && f.t > f.rt + 8) { b.perch = false; b.land = false; b.vx = rnd(-1.2, 1.2); b.vy = rnd(-1.5, -0.5); } return; }
+    if (b.orb) {
+      b.orb.a += 0.055; b.x = cx + Math.cos(b.orb.a) * b.orb.r; b.y = cy + Math.sin(b.orb.a) * b.orb.r * 0.8; b.vx = b.vy = 0;
+      if (t > 300) { const a = b.orb.a; b.orb = null; if (f.tier >= 3 && i < 5) { const pa = i * TAU / 5 + rnd(-0.3, 0.3), pr = rnd(14, 20); b.land = true; b.px = Math.cos(pa) * pr; b.py = Math.sin(pa) * pr * 0.8; } else { b.vx = Math.cos(a) * 1.2 + rnd(-0.3, 0.3); b.vy = Math.sin(a) * 1.2 - 0.4; } }
+    } else if (b.land) {
+      const tx = f.x + b.px, ty = wy + b.py; b.x += (tx - b.x) * 0.035; b.y += (ty - b.y) * 0.035;
+      if (Math.hypot(tx - b.x, ty - b.y) < 1.2) b.perch = true;
+    }
+  });
+}
+// What each boss does after it has beaten the player. Everything is picture and sound only: the player is gone, so nothing here can hurt.
+const BOSS_SOUND_AT = 150; // frames after game over: the game over jingle has finished
+function updBossReact(f) {
+  const e = f.boss; if (!e || e.dead || e.dying) return;
+  if (f.t === BOSS_SOUND_AT && !f.blow) warnSfx(BOSS_KINDS.indexOf(e.kind)); // its own warning sound: horn, whistle, tank roll, rail roll, attack horn, engine spool
+  if (f.t === BOSS_SOUND_AT + 60) {
+    if (e.kind === 'ship' && f.tier >= 3) e.reactRam = true; // Iron Leviathan: the turn from "Hard to port", with a rippling salvo
+    if (e.kind === 'fortress' && !f.blow) { if (f.tier >= 3 && f.rare) e.reactStorm = true; else if (f.tier >= 2) e.reactLeave = true; } // Sand Colossus: rarely the sandstorm, otherwise it backs out the way it came in
+    if (e.kind === 'railgun' && f.tier === 2) e.reactLeave = true; // Night Hammer: rolls back up the rails
+  }
+  if (e.kind === 'castle' && f.tier >= 2) castleReact(f, e); // Ravenhold: bell, crows, and from tier 3 a few perch on the wreck
+  if (e.kind === 'railgun' && f.tier >= 3 && f.t >= BOSS_SOUND_AT + 60 && !f.lightsDone) { // Night Hammer: both searchlights find the wreck, rest on the orb for a while, then the carriage rolls back up the rails
+    e.reactLights = true;
+    const ls = e.parts.filter(q => q.k === 'light' && !q.dead && q.sx !== undefined), wy = flyY(f);
+    if (ls.length && ls.every(q => Math.hypot(q.sx - f.x, q.sy - wy) < 8)) f.lightDwell = (f.lightDwell || 0) + 1;
+    if (f.lightDwell > 150 || !ls.length || f.t > BOSS_SOUND_AT + 560) { e.reactLights = false; f.lightsDone = true; e.reactLeave = true; }
+  }
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
 function leaveOver(auto) {
@@ -3652,30 +3694,102 @@ function leaveOver(auto) {
   if (f.rt >= 0) { if (!auto && f.t - f.rt > 30 && !fade) fade = { t: 0, phase: 'out', fn: toTitle }; return; } // another tap skips the wait
   f.rt = f.t; f.skip = true; sfx('orb'); // a squadron still in the sky leaves at once
 }
+function endFlyby() { // also takes the reaction's crows off the screen
+  const f = flyby; if (f && f.crows) for (const b of f.crows) { const i = birds.indexOf(b); if (i >= 0) birds.splice(i, 1); }
+  flyby = null; quiet = false;
+}
 function updFlyby() {
   const f = flyby; if (!f) return;
-  if (state !== 'over') { flyby = null; quiet = false; return; }
+  if (state !== 'over') { endFlyby(); return; }
+  if (f.beat === 'boss') updBossReact(f);
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
   if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
-  const wy = f.y + scroll - f.s0;
+  if (f.deck && !f.deck.free) { const [ax, ay] = anchorPos(f.deck); f.x = ax; f.y = ay; } // lying on a boss: it goes where the boss goes
+  const wy = flyY(f);
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
-  if (gf % 4 === 0) smokePuff(f.x, wy - 4);
-  if (gf % 9 === 0) parts.push({ kind: 'spark', layer: 'a', x: f.x + rnd(-4, 4), y: wy, vx: rnd(-0.2, 0.2), vy: rnd(-0.8, -0.3), life: 30, max: 30, col: '#f8a83a' });
+  if (f.blow && f.cover && f.t === 40) f.cover.reactStorm = true; // it went down on top of the tank: the sandstorm blows it off
+  { const S = f.cover && f.cover.storm; // the wind slides the wreck (and the orb in it) out from under the tank
+    if (f.blow && S && S.t > STORM_WARN && !f.blown) {
+      if (f.deck) f.deck.free = true;
+      f.x = clamp(f.x + S.dir * 0.9 * S.k, 24, W - 24);
+      if (gf % 3 === 0) parts.push({ kind: 'dust', layer: 'w', x: f.x + rnd(-6, 6), y: wy + rnd(-8, 8), vx: S.dir * rnd(1, 2.4), vy: rnd(-0.4, 0.3), life: 36, max: 36, r: rnd(3, 6) });
+      if (!onBoss(f.cover, f.x, wy, 14) || f.x <= 24 || f.x >= W - 24) { f.blown = true; if (f.deck) { f.deck = null; f.y = wy; f.s0 = scroll; } } // off the hull: it lies on the ground again
+    } }
+  if (f.water) { // sinking: a little steam at first, then bubbles; the orb breaks the surface when it rises
+    if (f.t < 90 && gf % 6 === 0) smokePuff(f.x, wy - 4);
+    if (f.t < 200 && gf % 10 === 0) parts.push({ kind: 'bubble', layer: 'w', x: f.x + rnd(-9, 9), y: wy + rnd(-7, 7), vx: 0, vy: scrollV, life: 26, max: 26 });
+    if (f.rt >= 0 && f.t === f.rt + ORB_BREAK) splash(f.x, wy - 4, 8);
+  } else {
+    if (gf % 4 === 0) smokePuff(f.x, wy - 4);
+    if (gf % 9 === 0) parts.push({ kind: 'spark', layer: 'a', x: f.x + rnd(-4, 4), y: wy, vx: rnd(-0.2, 0.2), vy: rnd(-0.8, -0.3), life: 30, max: 30, col: '#f8a83a' });
+  }
 }
+// The wreck lies on the ground, so it is drawn below ground units and bosses: a tank that rolls over it covers it.
+function drawWreck(top) { // top: the wreck lies on a boss and is drawn above it
+  const f = flyby; if (!f || !!f.deck !== !!top) return;
+  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05), sink = f.water ? clamp(f.t / SINK_T, 0, 1) : 0;
+  ctx.globalAlpha = (0.12 + 0.04 * pul) * (1 - sink); dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
+  if (f.water) { // the wreck slips under: it darkens into the water, drops a little and fades to a faint shape; rings spread over it
+    const ease = sink * sink * (3 - 2 * sink);
+    shadow(SPR.player, wx, wy + ease * 4, 0, 0, 0.9 * (1 - 0.82 * ease));
+    ctx.globalAlpha = 0.55 * ease; dk(wx, wy + 2, 19, '#17304f'); ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#a8c8e8'; ctx.lineWidth = 1;
+    for (let k = 0; k < 2; k++) { const r = ((f.t * 0.3 + k * 14) % 28) + 3; ctx.globalAlpha = 0.28 * (1 - r / 31); ctx.beginPath(); ctx.ellipse(wx, wy + 2, r * 1.2, r * 0.8, 0, 0, TAU); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  } else shadow(SPR.player, wx, wy, 0, 0, 0.9);
+}
+// Where a boss is: tells whether the wreck lies under it. Rigid hulls (ship, tank, rail carriage) are one rectangle in the boss's own frame, built from its
+// parts; a train or the castle is the union of its parts, since its cars and towers move about on their own.
+const RIGID = new Set(['ship', 'fortress', 'railgun']);
+function hullRect(e) { // [centre x, centre y, half width, half length] in the boss's frame
+  if (e.kind === 'fortress') return [0, 0, 44, 56];
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const p of e.parts) { x0 = Math.min(x0, p.ox - p.hw); x1 = Math.max(x1, p.ox + p.hw); y0 = Math.min(y0, p.oy - p.hh); y1 = Math.max(y1, p.oy + p.hh); }
+  const pad = e.kind === 'ship' ? 8 : 12;
+  return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 + pad, (y1 - y0) / 2 + pad];
+}
+function onBoss(e, x, y, m = 0) {
+  if (!e || e.dead || !e.parts) return false;
+  if (RIGID.has(e.kind)) {
+    const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y, [cx, cy, hw, hh] = hullRect(e);
+    return Math.abs(dx * c + dy * s - cx) < hw + m && Math.abs(-dx * s + dy * c - cy) < hh + m;
+  }
+  for (const p of e.parts) if (!p.off && Math.abs(x - e.x - p.ox) < p.hw + 10 + m && Math.abs(y - e.y - p.oy) < p.hh + 12 + m) return true;
+  return false;
+}
+// A wreck that came down on a boss lies on its deck and goes where the boss goes (a flying boss, the Black Fortress, has no deck: it just passes over).
+function bossAnchor(e, x, y) {
+  if (!e || e.kind === 'skyfort' || !onBoss(e, x, y)) return null;
+  if (RIGID.has(e.kind)) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
+  let best = null, bd = 1e9;
+  for (const p of e.parts) { if (p.off) continue; const d = Math.hypot(x - e.x - p.ox, y - e.y - p.oy); if (d < bd) { bd = d; best = p; } }
+  return best ? { e, p: best, dx: x - e.x - best.ox, dy: y - e.y - best.oy } : null;
+}
+function anchorPos(D) {
+  const e = D.e; if (D.p) return [e.x + D.p.ox + D.dx, e.y + D.p.oy + D.dy];
+  const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0); return [e.x + D.lx * c - D.ly * s, e.y + D.lx * s + D.ly * c];
+}
+const flyY = f => f.deck ? f.y : f.y + scroll - f.s0; // screen y of the wreck: on a deck it is the deck's, on the ground it moves with the ground
 function drawFlyby() {
   const f = flyby; if (!f) return;
-  const wx = f.x, wy = f.y + scroll - f.s0, pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
+  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05);
   const rel = f.rt < 0 ? 0 : clamp((f.t - f.rt) / ORB_RISE, 0, 1), e = rel * rel * (3 - 2 * rel); // 0 while the orb sits in the wreck, 1 once it has risen free
-  const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e, gs = 0.55 + 0.45 * e;
-  ctx.globalAlpha = 0.12 + 0.04 * pul; dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
-  shadow(SPR.player, wx, wy, 0, 0, 0.9);
-  if (e > 0.02) { // light cone from the free orb down onto the hull
+  const ox = wx, oy = wy - 3 - e * 38 + Math.sin(f.t * 0.03) * 3 * e, sc = 0.7 + 0.6 * e;
+  const covered = f.cover && !f.deck && onBoss(f.cover, wx, wy, 0) && e < 0.12 ? 1 : 0; // under a boss: only its glow shows through
+  const depth = f.water ? clamp(1 - (wy - 3 - oy) / 8, 0, 1) : 0, gs = (0.55 + 0.45 * e) * (1 - 0.4 * depth) * (1 - 0.65 * covered); // depth: 1 while the orb is under the water
+  if (e > 0.02 && !f.water) { // light cone from the free orb down onto the hull
     ctx.globalAlpha = 0.28 * e; ctx.fillStyle = '#a58cff'; ctx.beginPath(); ctx.moveTo(ox - 3, oy); ctx.lineTo(ox + 3, oy); ctx.lineTo(wx + 24, wy + 8); ctx.lineTo(wx - 24, wy + 8); ctx.fill(); ctx.globalAlpha = 1;
   }
   for (const [r, a] of [[46, 0.09], [34, 0.12], [23, 0.16], [14, 0.22]]) { ctx.globalAlpha = a * (0.6 + 0.4 * pul) * gs; dk(ox, oy, r * (0.5 + 0.5 * gs), '#8466dc'); }
   ctx.globalAlpha = 1;
-  ctx.drawImage(ORB, Math.round(ox - 7.5 * sc), Math.round(oy - 7.5 * sc), Math.round(15 * sc), Math.round(15 * sc));
+  if (!covered) ctx.drawImage(ORB, Math.round(ox - 7.5 * sc), Math.round(oy - 7.5 * sc), Math.round(15 * sc), Math.round(15 * sc));
+  if (depth > 0) { ctx.globalAlpha = 0.4 * depth; dk(ox, oy, 8 * sc, '#2b2f78'); ctx.globalAlpha = 1; } // seen through the water
+  if (f.water && f.rt >= 0 && f.t > f.rt + ORB_BREAK && f.t < f.rt + ORB_BREAK + 60) { // drops run off it as it comes out of the water
+    ctx.fillStyle = '#a8d0ff';
+    for (let k = 0; k < 8; k++) { const age = f.t - (f.rt + ORB_BREAK) - k * 3; if (age < 0 || age > 32) continue; ctx.globalAlpha = 1 - age / 32; ctx.fillRect(Math.round(ox + Math.sin(k * 2.1) * (4 + age * 0.2)), Math.round(oy + 5 + age * age * 0.035), 1, 1); }
+    ctx.globalAlpha = 1;
+  }
   if (e > 0.25) { // motes circle the orb, sparks rise from the wreck
     for (let k = 0; k < 5; k++) { const a = f.t * 0.035 + k * 1.26; ctx.fillStyle = Math.sin(a) > 0 ? '#e8dcff' : '#8466dc'; ctx.globalAlpha = e; ctx.fillRect(Math.round(ox + Math.cos(a) * 15 * sc), Math.round(oy + Math.sin(a) * 5.5 * sc), 1, 1); }
     ctx.fillStyle = '#bba4ff';
@@ -4797,7 +4911,8 @@ const SPOT_R = 22, SPOT_V = 0.75;
 function searchSpot(e, p, px, py) {
   if (p.sx === undefined) { p.sx = px; p.sy = py + 60; }
   const ph = e.mt * 0.006 + (p.ox < 0 ? 0 : 2.4), bx = W / 2 + Math.sin(ph * 1.7) * (W / 2 - 30), by = H * 0.55 + Math.sin(ph * 1.1 + 1) * H * 0.3;
-  const near = !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = near ? player.x : bx, ty = near ? player.y : by;
+  const W0 = e.reactLights && flyby ? [flyby.x, flyY(flyby)] : null; // game over reaction: both lights go to the wreck and settle on the orb
+  const near = W0 ? Math.hypot(W0[0] - p.sx, W0[1] - p.sy) < 90 : !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = W0 ? W0[0] : near ? player.x : bx, ty = W0 ? W0[1] : near ? player.y : by;
   const d = Math.hypot(tx - p.sx, ty - p.sy), v = Math.min(d, near ? SPOT_V : 1.4);
   if (d > 0.01) { p.sx += (tx - p.sx) / d * v; p.sy += (ty - p.sy) / d * v; }
   p.ang = Math.atan2(p.sy - py, p.sx - px);
@@ -5021,10 +5136,13 @@ function drawLocks() {
 // It turns like a big ship: around a pivot near the bow (the stern swings wide), creeping forward through the arc,
 // with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
 const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
-  RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
+  RAM_REACT_VOLLEYS = [280, 345], RAM_RIPPLE = 5, RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
+  if (!e.ram && e.reactRam && !e.reactDone) { // game over reaction: it comes about and fires a rippling salvo with nobody to hit
+    e.reactDone = true; e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
+  }
   if (!e.ram) {
     if (!core || core.dead || player.dead) return false;
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
@@ -5054,12 +5172,17 @@ function shipRam(e) {
   if (gf % 6 === 0) for (const ly of [-16, -36]) { const [fx, fy] = at(0, ly), life = (rnd(36, 54)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: fx, y: fy, vx: -bow[0] * 0.45 + rnd(-0.1, 0.1), vy: -bow[1] * 0.45 + scrollV - 0.1, r: rnd(2, 4), life, max: life }); }
   // the side facing down the screen fires
   const sd = Math.sign(e.hd) || R.dir;
-  for (const [vi, v] of RAM_VOLLEYS.entries()) {
+  const volleys = e.reactRam ? RAM_REACT_VOLLEYS : RAM_VOLLEYS; // the game over reaction fires its guns one after another, bow to stern, then back
+  for (const [vi, v] of volleys.entries()) {
     if (R.t > v - 26 && R.t < v && R.t % 4 === 0) { const [gx, gy] = at(sd * RAM_SIDE, rnd(-90, 90)); flash(gx, gy, 2); smokePuff(gx, gy); }
-    if (R.t === v) {
+    const gi = e.reactRam ? R.t - v : 0;
+    if (!e.reactRam && R.t === v) {
       const out = sd > 0 ? e.hd : e.hd + PI;
       for (let ly = -90 + (vi % 2) * 9; ly <= 90; ly += 18) { const [gx, gy] = at(sd * RAM_SIDE, ly); eshot(gx, gy, out + rnd(-0.05, 0.05), bspeed() * 0.95, 'B'); if (((ly + 90) / 18 | 0) % 2 === 0) flash(gx, gy, 4); }
       shake = Math.max(shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
+    } else if (e.reactRam && gi >= 0 && gi % RAM_RIPPLE === 0 && gi / RAM_RIPPLE < 11) {
+      const k = gi / RAM_RIPPLE, ly = vi % 2 ? 90 - k * 18 : -90 + k * 18, [gx, gy] = at(sd * RAM_SIDE, ly), out = sd > 0 ? e.hd : e.hd + PI;
+      eshot(gx, gy, out + rnd(-0.03, 0.03), bspeed() * 0.95, 'B'); flash(gx, gy, 4); smokePuff(gx, gy); shake = Math.max(shake, 2); sfx('cannon');
     }
   }
   placeTankParts(e);
@@ -5074,6 +5197,7 @@ let windX = 0, stormK = 0, stormStreaks = [];
 function sandstorm(e) {
   const core = e.parts.find(p => p.k === 'core');
   e.stormN = e.stormN || 0;
+  if (!e.storm && e.reactStorm && !e.reactDone) { e.reactDone = true; e.storm = { t: 0, dir: flyby && flyby.x < e.x ? -1 : 1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big'); scrollTarget = 0; } // game over reaction
   if (!e.storm) {
     if (!core || core.dead || player.dead) return false;
     const due = !e.last && ((e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45));
@@ -5089,7 +5213,7 @@ function sandstorm(e) {
   if (S.t === STORM_WARN) sfx('roar');
   const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
   S.k = k;
-  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); e.calm = 150; if (!e.last) scrollTarget = SCROLL; }
+  if (b >= STORM_BLOW) { e.storm = null; e.mt = Math.max(e.mt, 1); e.calm = 150; if (!e.last && state === 'play') scrollTarget = SCROLL; }
   return true;
 }
 function updStorm() {
@@ -5330,11 +5454,13 @@ const BOSSMOVE = {
     if (gf % 5 === 0) for (const sx of [-16, 16]) { const [dx, dy] = rot(sx, -30); smokePuff(e.x + dx + rnd(-1, 1), e.y + dy); }
     { const sc5 = Math.floor(scroll), wx5 = e.x, wy5 = e.y - sc5; if (e.tlx === undefined) { e.tlx = wx5; e.tly = wy5; }
       if ((wx5 - e.tlx) ** 2 + (wy5 - e.tly) ** 2 > 4) { for (const sx of [-39, 39]) { const [dx, dy] = rot(sx, 50); const col = treadCol(wx5 + dx, wy5 + dy); if (col) for (let k = 0; k < 3; k++) treads.push({ wx: wx5 + dx, wy: wy5 + dy - 2 - k * 2, a: PI / 2, w: 14, col, life: 2600, big: true, cleat: (Math.round(wy5) + k) % 4 < 2 }); } e.tlx = wx5; e.tly = wy5; } }
+    if (e.reactLeave) { e.moving = true; e.hd *= 0.97; e.y -= 0.6; return false; } // game over reaction: back out the way it came in
     if (e.mt === 0 && e.y < 110 + BY) { e.y += 0.45; e.moving = true; return false; }
     e.mt++; tankDrive(e);
     return true;
   },
   railgun(e) {
+    if (e.reactLeave) { e.y -= 0.6; return true; } // game over reaction: back up the rails the way it came
     if (e.mt === 0 && e.y < 100 + BY) { e.y += 0.5; return false; }
     e.mt++; e.recoil = (e.recoil || 0) * 0.975; e.y = 100 + BY + Math.sin(e.mt * 0.006) * 16 + e.recoil; // recoil throws it back up the rails, then it rolls forward again
     return true;
@@ -6414,10 +6540,10 @@ function update() {
       const side = Math.random() < 0.5 ? -1 : 1, by0 = rnd(30, H - 60), n = 5 + ((Math.random() * 4) | 0);
       for (let i = 0; i < n; i++) birds.push({ x: (side < 0 ? -10 : W + 10) - side * (i >> 1) * 6, y: by0 + (i >> 1) * 5 * (i % 2 ? 1 : -1), vx: -side * rnd(0.7, 0.9), vy: rnd(0.1, 0.3), ph: Math.random() * 6 });
     }
-    for (const b of birds) { b.x += b.vx; b.y += b.vy; b.ph += 0.25; }
+    for (const b of birds) { if (b.perch) continue; b.x += b.vx; b.y += b.vy; b.ph += 0.25; } // a perched crow sits still
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
-  if (state === 'title') { if (flyby) { flyby = null; quiet = false; } return; }
+  if (state === 'title') { if (flyby) endFlyby(); return; }
   if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) leaveOver(true); }
   if (state === 'play' && !paused && !results) { runFrames++; rrTick(); if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
 
@@ -7246,13 +7372,14 @@ function drawNight() {
     for (const d of decals) if (d.fireT > 0) { const y = d.wy + sc6; if (y < -20 || y > H + 20) continue; ctx.globalAlpha = 0.08 * nightF * (0.85 + 0.15 * Math.sin(gf * 0.3 + d.wx)); dk(d.wx, y, 12 + (d.r || 6) * 0.6, '#ff7a30'); } }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
-const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0];
+const BIRD_IMG = [['#f4f4f0', '#26262a'].map(c => SPR.birdF.map(f => sil(f, c)))][0], BIRD_RIM = SPR.birdF.map(f => sil(f, '#8a8e9a'));
 function drawBirds() {
   const sc = Math.floor(scroll);
   for (const b of birds) {
     const tt = terrainType(Math.floor(b.x), Math.floor(b.y - sc)), light = tt === 'sea' || tt === 'surf' || snowF > 0.5 ? 1 : 0;
     const img = BIRD_IMG[light ? 0 : 1][(Math.sin(b.ph) > 0) ? 1 : 0];
     ctx.globalAlpha = 0.25; ctx.drawImage(BIRD_IMG[1][1], Math.round(b.x) + 8, Math.round(b.y) + 12); ctx.globalAlpha = 1;
+    if (b.perch) { for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(BIRD_RIM[0], Math.round(b.x) - 2 + dx, Math.round(b.y) - 1 + dy); } // perched crows get a light rim so they show on dark ground
     ctx.drawImage(img, Math.round(b.x) - 2, Math.round(b.y) - 1);
   }
 }
@@ -7482,7 +7609,7 @@ function drawHUDBody(H) {
     const c = { S: ['#a8f6dc', '#4ccfae'], L: ['#d8f2ff', '#8cc0e0'], H: ['#ffd0e8', '#ff8ac0'], A: ['#a8e0ff', '#4a9ad8'] }[player.wpn] || ['#a8f6dc', '#4ccfae'];
     textS(nm + ' ' + '>'.repeat(0) + player.lvl, 4, H - 31, c[0], 1, 'left', c[1]);
   }
-  const big = enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss'));
+  const big = state === 'over' ? null : enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) {
     let hp = 0, mx = 0;
     if (big.parts) for (const p of big.parts) { hp += Math.max(0, p.hp); mx += p.maxhp; } else { hp = big.hp; mx = big.maxhp; }
@@ -7545,6 +7672,7 @@ function renderMain() {
   drawRaven();
   drawDecals();
   drawMarkers();
+  drawWreck(false);
   drawParts('w');
   { const sc0 = Math.floor(scroll);
     for (const e of enemies) if (e.ground) {
@@ -7555,6 +7683,7 @@ function renderMain() {
       }
     } }
   for (const e of enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
+  drawWreck(true);
   drawCritters();
   drawCanopy();
   drawProps();
