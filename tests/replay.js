@@ -1,10 +1,7 @@
-// Replay check: plays fixed scenarios with the bot and a seeded Math.random, and returns a fingerprint of each run.
+// Replay check: plays fixed scenarios with the bot and a fixed run seed, and returns a fingerprint of each run.
 // Same code + same seed must give the same fingerprint. Compare against tests/golden.json (see tests/replay.mjs).
 // Load after harness.js, on a local build:  __sf(await (await fetch('tests/replay.js')).text()); SF.replayAll()
 (() => {
-// small, fast, well-known seeded generator (mulberry32)
-function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-
 // mode 'immortal': hits are counted but the ship survives, so the run reaches deep into the game.
 // mode 'real': the bot can die, so lives, continues and bombs take part.
 const SCENARIOS = [
@@ -14,14 +11,14 @@ const SCENARIOS = [
 ];
 
 SF.replay = sc => {
-  const realRandom = Math.random;
   try {
-    Math.random = mulberry32(sc.seed);
+    if (booting) finishBoot(); // the boot splash would otherwise eat the first 300 frames of the run
+    window.__forceSeed = sc.seed; // the game's own seeded stream (see 'random streams' in index.html); page-level Math.random no longer matters
     gf = 0; // the frame counter keeps running while the title screen idles; start every scenario from zero
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     const status = SF.run(sc.frames);
     return { H, status, score, stage, lives, bombs, frames: gf, kills: stats.kills, medals: stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length };
-  } finally { Math.random = realRandom; }
+  } finally { delete window.__forceSeed; }
 };
 SF.replayAll = () => Object.fromEntries(SCENARIOS.map(sc => [sc.name, SF.replay(sc)]));
 SF.SCENARIOS = SCENARIOS;
@@ -31,15 +28,16 @@ SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
   const m = Math;
   const env = { ua: navigator.userAgent, dpr: devicePixelRatio, inner: [innerWidth, innerHeight], H, coarse: matchMedia('(pointer:coarse)').matches,
     math: [m.sin(1.1), m.cos(2.3), m.tan(0.7), m.atan2(0.3, -1.7), m.pow(1.0001, 12345.6), m.exp(1.7), m.log(7.3), m.hypot(3.3, 4.4), m.cbrt(9.1), m.asin(0.37), m.sinh(0.8), m.sin(1234.5678), m.cos(98765.4321)] };
-  const realRandom = Math.random, trace = [];
+  const trace = [];
   try {
-    Math.random = mulberry32(sc.seed); gf = 0;
+    if (booting) finishBoot();
+    window.__forceSeed = sc.seed; gf = 0;
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     for (let f = 0; f < frames; f += every) {
       SF.run(every);
       trace.push([gf, score, enemies.length, ebul.length, shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +scroll.toFixed(3)].join('|'));
     }
-  } finally { Math.random = realRandom; }
+  } finally { delete window.__forceSeed; }
   return { env, trace };
 };
 

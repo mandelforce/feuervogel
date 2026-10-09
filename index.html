@@ -317,6 +317,17 @@ body[data-results="1"] #bombBtn{display:none !important}
 <script>
 (() => {
 'use strict';
+// ---- random streams ----
+// While update() runs, Math.random draws from a seeded "sim" stream that starts fresh with every run: the same seed and the same
+// inputs give the same run. Drawing, sound and the idle weather use the real Math.random (the "free" stream), so cosmetics can
+// never change how a run plays. Every new run still picks a new random seed, so play stays varied.
+const realRandom = () => globalThis.Math.random();
+const Math = (() => { const M = {}; for (const k of Object.getOwnPropertyNames(globalThis.Math)) M[k] = globalThis.Math[k]; M.random = () => simOn ? simNext() : realRandom(); return M; })();
+let simOn = false, simS = 1, runSeed = 0;
+const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^ (simS >>> 15), 1 | simS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
+// fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
+const fx = fn => onStream(false, fn)();
 const VERSION = '1.2.4.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the 6px frame), so it fills the screen width
@@ -3541,6 +3552,7 @@ let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 function seedStage() { drandS = (SEED * 31 + stage * 977) | 0; }
 function newGame() {
+  runSeed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; simS = runSeed | 0; // test builds can force a seed (tests/replay.js)
   protoWatch = null; duelWatch = null; runProto = { dmg: 0 };
   laserHeat = 0; overheatT = 0;
   ravenGate = null; runFrames = 0; runConts = 0; runStart = 1; runDiff = settings.diff; newBestT = 0; newBestDone = false; localBest = -1;
@@ -4236,13 +4248,13 @@ function boomInner(x, y, size, layer) {
   const si = size < 13 ? 0 : size < 22 ? 1 : size < 36 ? 2 : 3, L = SPR.fx[si].length * 3 + 2;
   const fvy = layer === 'g' ? scrollV * 0.92 : -0.12;
   parts.push({ kind: 'fx', layer, x, y, vx: 0, vy: fvy, si, life: L, max: L, flip: Math.random() < 0.5 });
-  if (si >= 1 && !lowFX) {
+  if (si >= 1 && !lowFX) fx(() => {
     const extra = si === 1 ? 2 : si === 2 ? 4 : 7;
     for (let i = 0; i < extra; i++) {
       const a = Math.random() * TAU, d = size * rnd(0.3, 0.7), s2 = Math.max(0, si - 1 - (Math.random() < 0.5 ? 1 : 0)), L2 = SPR.fx[s2].length * 3 + 2;
       parts.push({ kind: 'fx', layer, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.8, vx: Math.cos(a) * 0.2, vy: fvy + Math.sin(a) * 0.15, si: s2, life: L2, max: L2, delay: 2 + ((Math.random() * (6 + si * 5)) | 0), flip: Math.random() < 0.5 });
     }
-  }
+  });
   if (si >= 2) for (let i = 0; i < (si === 3 ? 10 : 5); i++) {
     const a = rnd(-PI * 0.95, -PI * 0.05), sp = rnd(1.2, 2.8);
     parts.push({ kind: 'debris', layer, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: layer === 'g' ? 0.08 : 0.06, life: (rnd(30, 50)) | 0, max: 50 });
@@ -4998,11 +5010,11 @@ function doFinishResults() {
 function updCongrats() {
   const c = congrats; c.t++;
   if (player) player.inv = Math.max(player.inv, 20);
-  if (c.t % 26 === 0 && !lowFX) {
+  if (c.t % 26 === 0 && !lowFX) fx(() => {
     const x = rnd(30, W - 30), y = rnd(30, 150), col = ['#fff0a0', '#a8f6dc', '#ff8ac0', '#bba4ff', '#f8a83a'][(Math.random() * 5) | 0];
     for (let i = 0; i < 26; i++) { const a = i * TAU / 26, sp = rnd(1.2, 2.2); parts.push({ kind: 'spark', layer: 'a', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 30, max: 30, col }); }
     tone(rnd(500, 900), 0.08, 'triangle', 0.025);
-  }
+  });
 }
 function drawCongrats() { ctx.fillStyle = 'rgba(14,10,24,0.72)'; ctx.fillRect(0, 0, W, TY); ctx.save(); ctx.translate(0, TY); drawCongratsBody(); ctx.restore(); }
 function drawCongratsBody() {
@@ -6683,6 +6695,7 @@ function update() {
   if (!(state === 'play' && cont > 0)) { scrollV += (scrollTarget - scrollV) * 0.03; scroll += scrollV; } // the battle holds still on the continue screen
   ensureChunks();
   const ck = 0.12 + 0.88 * clamp(scrollV / SCROLL, 0, 1);
+  const simWas = simOn; simOn = false; // clouds, weather and birds are cosmetic: free stream (restored below)
   for (const c of hiClouds) { c.y += c.v * ck; if (c.y > H + 90) { c.y = rnd(-300, -90); c.x = rnd(0, W); c.s = (Math.random() * 3) | 0; } }
   for (const c of clouds) { c.y += c.v * ck; if (c.y > H + 50) { c.y = rnd(-200, -50); c.x = rnd(-20, W + 20); c.s = (Math.random() * 3) | 0; c.v = rnd(0.9, 1.2); const bb = state === 'play' ? biomeAtSpawn() : 'sea'; c.hide = Math.random() > (bb === 'sea' ? 0.7 : curTheme === 4 ? 0.85 : bb === 'forest' ? 0.6 : 0.15); } }
   for (const g of glints) { g.y += scrollV; g.life--; if (g.life <= 0 || g.y > H) { g.x = rnd(0, W); g.y = rnd(0, H); g.life = (rnd(30, 70)) | 0; } }
@@ -6720,6 +6733,7 @@ function update() {
     for (const b of birds) { if (b.perch) continue; b.x += b.vx; b.y += b.vy; b.ph += 0.25; } // a perched crow sits still
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
+  simOn = simWas;
   if (state === 'title') { if (flyby) endFlyby(); return; }
   if (state === 'over') { if (!lbOpen) overT++; if (overT > 900) leaveOver(true); }
   if (state === 'play' && !paused && !results) { runFrames++; rrTick(); if (localBest < 0) computeLocalBest(); if (!newBestDone && localBest > 0 && score > localBest && (endless || runStart === 1)) { newBestDone = true; newBestT = 150; medalSfx(6); } if (newBestT > 0) newBestT--; }
@@ -6768,12 +6782,12 @@ function update() {
   }
 
   if (quiet) for (const e of enemies) if (e.t === 0 && !HARMLESS.has(e.type)) e.dead = true;
-  for (const e of enemies) if (!e.big && e.type !== 'troop' && e.type !== 'boss' && !e.crash && e.y > -10 && e.y < H + 10 && !lowFX) {
+  for (const e of enemies) if (!e.big && e.type !== 'troop' && e.type !== 'boss' && !e.crash && e.y > -10 && e.y < H + 10 && !lowFX) fx(() => {
     if (e.mhp === undefined) e.mhp = e.hp;
     const f = e.hp / e.mhp, lay = e.ground ? 'g' : 'a';
     if (f < 0.5 && gf % 9 === 0) smokePuff(e.x + rnd(-3, 3), e.y + rnd(-3, 3), lay);
     if (f < 0.25 && gf % 6 === 0) fireAt(e.x + rnd(-3, 3), e.y + 2, lay, false);
-  }
+  });
   if (player && !player.dead && player.inv <= 0 && !(player.fly > 0) && player.y < H * 0.36) {
     for (const e of enemies) {
       if (e.dead || e.dying || e.untarget) continue;
@@ -6817,7 +6831,7 @@ function update() {
     if (bad) { e.dead = true; for (const o of enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
   for (const e of enemies) if (!e.seenC && !NOCOUNT.has(e.type) && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
-  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); AI[e.type](e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); } }
+  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); AI[e.type](e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); checkProto();
   for (const b of ebul) {
@@ -6971,7 +6985,7 @@ function update() {
       if (y > -10 && y < H + 10) {
         if (gf % 9 === 0) smokePuff(d.wx + rnd(-3, 3), y);
         if (d.fireT === undefined) d.fireT = Math.min(d.smokeT, (d.r || 10) * 22);
-        if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5); }
+        if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fx(() => fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5)); }
       }
     }
   }
@@ -8381,6 +8395,13 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 fit();
 
 /* ================= loop ================= */
+// Which stream each part uses (see the top of the script). The simulation runs on the seeded sim stream; sound and visual
+// effects are drawn on the free one even when update() triggers them.
+update = onStream(true, update); newGame = onStream(true, newGame);
+// actions that key presses, taps and the gamepad trigger between frames change the game too, so they use the sim stream
+bomb = onStream(true, bomb); fireBeam = onStream(true, fireBeam); doContinue = onStream(true, doContinue);
+sfx = onStream(false, sfx); boomSfx = onStream(false, boomSfx); novaSfx = onStream(false, novaSfx); haptic = onStream(false, haptic);
+smokePuff = onStream(false, smokePuff); groundPuff = onStream(false, groundPuff); splash = onStream(false, splash); steamPuff = onStream(false, steamPuff);
 ensureChunks();
 let last = performance.now(), acc = 0;
 const STEP = 1000 / 60;

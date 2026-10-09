@@ -60,5 +60,5 @@ All keys are listed in `KEY` near the top of the script. Names are fixed; renami
 
 - **Scoring, continues and leaderboard rules are fixed** unless the owner agrees. See `CLAUDE.md`.
 - State is global, so a change in one place can reach many others. Search for a variable's name across the whole file before changing how it is set.
-- Gameplay should not depend on `Math.random` where a replay needs to match; seeding the random numbers is Phase 2 of the roadmap.
+- Random numbers have two streams (see "random streams" at the top of the script). Inside `update()` (and `newGame`, `bomb`, `fireBeam`, `doContinue`) `Math.random` is a per-run seeded stream; everything else (drawing, sound, idle weather, `fx(() => ...)` blocks) uses the real one. Never let a visual effect or sound change a run: wrap effect code that only runs when `lowFX` is off in `fx()`. `tests/replay.mjs` checks this.
 - Bump `VERSION` in both `index.html` and `sw.js` for each release, and add a line to `CHANGELOG.md`.

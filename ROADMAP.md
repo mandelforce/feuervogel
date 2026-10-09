@@ -30,11 +30,12 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 ## Phase 2: Safety net
 
 - [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. In CI as an advisory step until proven stable.
-- [ ] One seeded RNG inside the game for everything that affects gameplay. Cosmetic effects (clouds, sparks) may keep `Math.random`. Until then the replay test needs a fresh page per scenario and a stopped frame loop.
+- [x] One seeded RNG inside the game. While `update()` (and `newGame`, `bomb`, `fireBeam`, `doContinue`) runs, `Math.random` draws from a per-run seeded stream; sound, drawing, idle weather and `lowFX`-gated effects use the free stream. Each run picks a new seed, so play stays varied. Guarded by the isolation checks in `tests/replay.mjs`.
 - [x] Terrain: checked and already deterministic for the Campaign. The layout comes from fixed-seed hash noise (seed 1944, no `Math.random`), and the per-frame time budget in `ensureChunks` only affects painted pictures, not the simulation. A terrain fingerprint for all six stages now guards it (`tests/golden.json`). Open: where enemies and ground targets are placed still uses `rnd()` (random each run); making placement fixed would change gameplay, so ask first.
 - [ ] The playfield height `H` now comes from the window layout (`#app` box), so gameplay depends on the screen. Fine for play, but any replay or server-side check must pin it. Consider a fixed logical height for the simulation.
-- [ ] Ambient state (weather timers, birds, clouds) draws random numbers and keeps running while the title screen idles, so a run's randomness depends on idle time. Reset or isolate it when a run starts.
+- [x] Ambient state (weather, birds, clouds) now draws from the free stream, so a run no longer depends on idle time.
 - [ ] Run the replay test as a required CI check once it has proven stable.
+- [ ] Input handlers still run gameplay actions between frames (`bomb`, `fireBeam`, `doContinue`). They use the sim stream, but a replay would have to record the frame each input was applied. Prefer: handlers only set input state, `update()` applies it.
 - [ ] Optional later: store a replay with submitted scores to allow server-side checks. Needs a decision first, as it touches leaderboard rules.
 
 ## Phase 3: Modules
