@@ -3643,7 +3643,7 @@ function pickBeat(boss) {
 function startFlyby() {
   const boss = enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
   const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), deck = bossAnchor(boss, fx, fy), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(scroll)));
-  flyby = { t: 0, pt: 0, rt: -1, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
+  flyby = { t: 0, pt: 0, rt: -1, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && !deck.slip && boss.kind === 'fortress', w0: 0, water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: escLevel < 5 ? 1 : escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: scroll };
   if (flyby.water) splash(fx, fy, 14); // it went down in the water: the wreck will sink
   scrollTarget = 0; quiet = true; // the world slows to a stop and no new enemies appear
   if (!enemies.some(e => e.type === 'boss')) { for (const e of enemies) if (!e.ground && !e.dying) e.dead = true; ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
@@ -3705,6 +3705,7 @@ function updFlyby() {
   if (!f.hold) f.t++; // on a leaderboard run the flypast waits until the name has been entered or skipped
   if (f.t === FLYBY_IN - 15 && !f.hold && f.beat === 'flypast') sfx('flyby');
   if (f.deck && !f.deck.free) { const [ax, ay] = anchorPos(f.deck); f.x = ax; f.y = ay; } // lying on a boss: it goes where the boss goes
+  if (f.deck && f.deck.slip) slipOff(f); // only the edge of the hull holds it: it slides off to the side
   const wy = flyY(f);
   if (!f.pt && f.t > FLYBY_IN && H + 40 - FLYBY_SPD * (f.t - FLYBY_IN) + 30 < wy - 10) f.pt = f.t; // the rear plane climbs once it has passed the wreck
   if (f.rt >= 0 && f.t >= f.rt + ORB_RISE + 40 && !fade) fade = { t: 0, phase: 'out', fn: toTitle };
@@ -3717,8 +3718,8 @@ function updFlyby() {
       if (!onBoss(f.cover, f.x, wy, 14) || f.x <= 24 || f.x >= W - 24) { f.blown = true; if (f.deck) { f.deck = null; f.y = wy; f.s0 = scroll; } } // off the hull: it lies on the ground again
     } }
   if (f.water) { // sinking: a little steam at first, then bubbles; the orb breaks the surface when it rises
-    if (f.t < 90 && gf % 6 === 0) smokePuff(f.x, wy - 4);
-    if (f.t < 200 && gf % 10 === 0) parts.push({ kind: 'bubble', layer: 'w', x: f.x + rnd(-9, 9), y: wy + rnd(-7, 7), vx: 0, vy: scrollV, life: 26, max: 26 });
+    if (f.t - f.w0 < 90 && gf % 6 === 0) smokePuff(f.x, wy - 4);
+    if (f.t - f.w0 < 200 && gf % 10 === 0) parts.push({ kind: 'bubble', layer: 'w', x: f.x + rnd(-9, 9), y: wy + rnd(-7, 7), vx: 0, vy: scrollV, life: 26, max: 26 });
     if (f.rt >= 0 && f.t === f.rt + ORB_BREAK) splash(f.x, wy - 4, 8);
   } else {
     if (gf % 4 === 0) smokePuff(f.x, wy - 4);
@@ -3728,14 +3729,14 @@ function updFlyby() {
 // The wreck lies on the ground, so it is drawn below ground units and bosses: a tank that rolls over it covers it.
 function drawWreck(top) { // top: the wreck lies on a boss and is drawn above it
   const f = flyby; if (!f || !!f.deck !== !!top) return;
-  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05), sink = f.water ? clamp(f.t / SINK_T, 0, 1) : 0;
+  const wx = f.x, wy = flyY(f), pul = 0.5 + 0.5 * Math.sin(f.t * 0.05), sink = f.water ? clamp((f.t - f.w0) / SINK_T, 0, 1) : 0;
   ctx.globalAlpha = (0.12 + 0.04 * pul) * (1 - sink); dk(wx, wy, 26, '#ff8a3a'); ctx.globalAlpha = 1;
   if (f.water) { // the wreck slips under: it darkens into the water, drops a little and fades to a faint shape; rings spread over it
     const ease = sink * sink * (3 - 2 * sink);
     shadow(SPR.player, wx, wy + ease * 4, 0, 0, 0.9 * (1 - 0.82 * ease));
     ctx.globalAlpha = 0.55 * ease; dk(wx, wy + 2, 19, '#17304f'); ctx.globalAlpha = 1;
     ctx.strokeStyle = '#a8c8e8'; ctx.lineWidth = 1;
-    for (let k = 0; k < 2; k++) { const r = ((f.t * 0.3 + k * 14) % 28) + 3; ctx.globalAlpha = 0.28 * (1 - r / 31); ctx.beginPath(); ctx.ellipse(wx, wy + 2, r * 1.2, r * 0.8, 0, 0, TAU); ctx.stroke(); }
+    for (let k = 0; k < 2; k++) { const r = (((f.t - f.w0) * 0.3 + k * 14) % 28) + 3; ctx.globalAlpha = 0.28 * (1 - r / 31); ctx.beginPath(); ctx.ellipse(wx, wy + 2, r * 1.2, r * 0.8, 0, 0, TAU); ctx.stroke(); }
     ctx.globalAlpha = 1;
   } else shadow(SPR.player, wx, wy, 0, 0, 0.9);
 }
@@ -3759,16 +3760,30 @@ function onBoss(e, x, y, m = 0) {
   return false;
 }
 // A wreck that came down on a boss lies on its deck and goes where the boss goes (a flying boss, the Black Fortress, has no deck: it just passes over).
+// It only stays on if its middle is well inside the hull (DECK_INSET). Where it just touches the rim it has no hold: it gets a deck with slip set and slides off (slipOff).
+const DECK_INSET = 14;
 function bossAnchor(e, x, y) {
   if (!e || e.kind === 'skyfort' || !onBoss(e, x, y)) return null;
-  if (RIGID.has(e.kind)) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
+  const slip = !onBoss(e, x, y, -DECK_INSET);
+  if (RIGID.has(e.kind)) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, slip, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
   let best = null, bd = 1e9;
   for (const p of e.parts) { if (p.off) continue; const d = Math.hypot(x - e.x - p.ox, y - e.y - p.oy); if (d < bd) { bd = d; best = p; } }
-  return best ? { e, p: best, dx: x - e.x - best.ox, dy: y - e.y - best.oy } : null;
+  return best ? { e, p: best, slip, dx: x - e.x - best.ox, dy: y - e.y - best.oy } : null;
 }
 function anchorPos(D) {
   const e = D.e; if (D.p) return [e.x + D.p.ox + D.dx, e.y + D.p.oy + D.dy];
   const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0); return [e.x + D.lx * c - D.ly * s, e.y + D.lx * s + D.ly * c];
+}
+// The wreck creeps outward over the nearest edge until it is clear of the hull, then lies on the ground there, or goes down in the water if that is what is there.
+function slipOff(f) {
+  const D = f.deck, e = D.e, V = 0.7;
+  if (D.p) { const d = Math.hypot(D.dx, D.dy) || 1, ux = D.dx || (f.x < W / 2 ? -1 : 1) * d, uy = D.dy; D.dx += ux / d * V; D.dy += uy / d * V; }
+  else { const [cx, cy, hw, hh] = hullRect(e), ax = hw - Math.abs(D.lx - cx), ay = hh - Math.abs(D.ly - cy); if (ax < ay) D.lx += (D.lx < cx ? -V : V); else D.ly += (D.ly < cy ? -V : V); }
+  const [ax, ay] = anchorPos(D);
+  if (onBoss(e, ax, ay, 0)) return;
+  const tt = terrainType(Math.floor(ax), Math.floor(ay - Math.floor(scroll)));
+  f.deck = null; f.x = ax; f.y = ay; f.s0 = scroll; f.w0 = f.t; // clear of the hull
+  if (tt === 'sea' || tt === 'surf' || tt === 'river') { f.water = true; splash(f.x, ay, 14); }
 }
 const flyY = f => f.deck ? f.y : f.y + scroll - f.s0; // screen y of the wreck: on a deck it is the deck's, on the ground it moves with the ground
 function drawFlyby() {
