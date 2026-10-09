@@ -3651,6 +3651,7 @@ const BOSS_SOUND_AT = 150; // frames after game over: the game over jingle has f
 function updBossReact(f) {
   const e = f.boss; if (!e || e.dead || e.dying) return;
   if (f.t === BOSS_SOUND_AT) warnSfx(BOSS_KINDS.indexOf(e.kind)); // its own warning sound: horn, whistle, tank roll, rail roll, attack horn, engine spool
+  if (f.tier >= 3 && e.kind === 'ship' && f.t === BOSS_SOUND_AT + 60) e.reactRam = true; // Iron Leviathan: the turn from "Hard to port", with a rippling salvo
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
 function leaveOver(auto) {
@@ -5031,10 +5032,13 @@ function drawLocks() {
 // It turns like a big ship: around a pivot near the bow (the stern swings wide), creeping forward through the arc,
 // with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
 const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
-  RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
+  RAM_REACT_VOLLEYS = [280, 345], RAM_RIPPLE = 5, RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
+  if (!e.ram && e.reactRam && !e.reactDone) { // game over reaction: it comes about and fires a rippling salvo with nobody to hit
+    e.reactDone = true; e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
+  }
   if (!e.ram) {
     if (!core || core.dead || player.dead) return false;
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
@@ -5064,12 +5068,17 @@ function shipRam(e) {
   if (gf % 6 === 0) for (const ly of [-16, -36]) { const [fx, fy] = at(0, ly), life = (rnd(36, 54)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: fx, y: fy, vx: -bow[0] * 0.45 + rnd(-0.1, 0.1), vy: -bow[1] * 0.45 + scrollV - 0.1, r: rnd(2, 4), life, max: life }); }
   // the side facing down the screen fires
   const sd = Math.sign(e.hd) || R.dir;
-  for (const [vi, v] of RAM_VOLLEYS.entries()) {
+  const volleys = e.reactRam ? RAM_REACT_VOLLEYS : RAM_VOLLEYS; // the game over reaction fires its guns one after another, bow to stern, then back
+  for (const [vi, v] of volleys.entries()) {
     if (R.t > v - 26 && R.t < v && R.t % 4 === 0) { const [gx, gy] = at(sd * RAM_SIDE, rnd(-90, 90)); flash(gx, gy, 2); smokePuff(gx, gy); }
-    if (R.t === v) {
+    const gi = e.reactRam ? R.t - v : 0;
+    if (!e.reactRam && R.t === v) {
       const out = sd > 0 ? e.hd : e.hd + PI;
       for (let ly = -90 + (vi % 2) * 9; ly <= 90; ly += 18) { const [gx, gy] = at(sd * RAM_SIDE, ly); eshot(gx, gy, out + rnd(-0.05, 0.05), bspeed() * 0.95, 'B'); if (((ly + 90) / 18 | 0) % 2 === 0) flash(gx, gy, 4); }
       shake = Math.max(shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
+    } else if (e.reactRam && gi >= 0 && gi % RAM_RIPPLE === 0 && gi / RAM_RIPPLE < 11) {
+      const k = gi / RAM_RIPPLE, ly = vi % 2 ? 90 - k * 18 : -90 + k * 18, [gx, gy] = at(sd * RAM_SIDE, ly), out = sd > 0 ? e.hd : e.hd + PI;
+      eshot(gx, gy, out + rnd(-0.03, 0.03), bspeed() * 0.95, 'B'); flash(gx, gy, 4); smokePuff(gx, gy); shake = Math.max(shake, 2); sfx('cannon');
     }
   }
   placeTankParts(e);

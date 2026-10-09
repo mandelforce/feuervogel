@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Game over at a boss: from escalation level 3 each boss reacts to having beaten the player, the same way every time so players can compare. First its own warning sound plays (ship's horn, whistle, tank roll, rail roll, attack horn, engine spool). From level 8 the Iron Leviathan also comes about as in "Hard to port" and fires its guns one after another along the hull, with nobody to hit. Picture and sound only; scoring, lives, continues and the leaderboard are unchanged.
+
 ## 1.2.4 (9 October 2026)
 - Version 1.2.4.
 - Game over escalates. The first two game overs show only the wreck and the dim orb. After that each game over may add one small reaction, more often the more the player has lost and won (game overs counted plus three per loop completed, kept on the device): at first only the orb rising, later also the missing man flypast. The same reaction never comes twice in a row. Scoring, lives, continues and the leaderboard are unchanged.
