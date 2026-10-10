@@ -5678,12 +5678,12 @@ const BOSSMOVE = {
   }
 };
 // Entity table: one entry per enemy type, keyed by e.type. Each entry holds the type's traits, update(e) (its behaviour for one
-// simulation step) and draw(e, fl) (attached in the render section, from LOOKS). Kill effects and base stats join each entry in
-// later steps (ROADMAP.md, Phase 4). Traits, absent when not set:
+// simulation step), its death effects (merged in from DEATHS, next to kill()) and draw(e, fl) (attached in the render section,
+// from LOOKS). Base stats join each entry in a later step (ROADMAP.md, Phase 4). Traits, absent when not set:
 //   harmless      can't hurt the player: left alone when a stage clears the field, doesn't count as armed cover for troops
 //   turret        has a turret that is shot off before the hull (turretAt: the turret's offset from the hull, default [0, 0])
-//   revenge       on Hard, fires a last burst at the player when destroyed
-//   explosive     goes up in a chain explosion when destroyed
+//   revenge       on Hard, fires a last burst of this many shots at the player when destroyed
+//   explosive     its explosion damages what stands close by (the fuel dump's bigger blast is in its wreck)
 //   guarded       soldiers are posted around it when it appears
 //   treads        leaves tracks on the ground
 //   uncounted     not counted for the stage's kill percentage
@@ -5729,14 +5729,14 @@ const ENT = {
     }
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
   } },
-  heavy: { revenge: true, medals: 1, update(e) {
+  heavy: { revenge: 2, medals: 1, update(e) {
     e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if (e.pause === 12 && !player.dead) { const a = aim(e.x, e.y + 10); for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } }
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of [-14, 14]) parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
-  bomber: { revenge: true, update(e) {
+  bomber: { revenge: 3, update(e) {
     if (e.dying) return dyingTick(e);
     if (e.ph === undefined) e.ph = Math.random() * 6;
     e.y += 0.58; const vx = Math.sin(e.t * 0.018 + e.ph) * 0.55 + Math.sin(e.t * 0.047 + e.ph * 2) * 0.2; e.x = clamp(e.x + vx, 26, W - 26); e.bank = vx;
@@ -5790,7 +5790,7 @@ const ENT = {
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
     if (e.mt % 300 === 210) ring(e.x, e.y, 16 + loop * 2, sp * 0.75, e.mt * 0.05);
   } },
-  tank: { turret: true, revenge: true, treads: true, medals: 0.6, update(e) {
+  tank: { turret: true, revenge: 2, treads: true, medals: 0.6, update(e) {
     if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 3) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
@@ -5822,7 +5822,7 @@ const ENT = {
     if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
     groundPos(e);
   } },
-  flak: { turret: true, revenge: true, guarded: true, medals: 0.5, treesInFront: true, update(e) {
+  flak: { turret: true, revenge: 2, guarded: true, medals: 0.5, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (spotted > 0) e.cd--;
@@ -5837,7 +5837,7 @@ const ENT = {
       if (nightF > 0.5) for (let k = 1; k <= 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
     }
   } },
-  bunker: { turret: true, revenge: true, guarded: true, medals: 0.7, treesInFront: true, update(e) {
+  bunker: { turret: true, revenge: 2, guarded: true, medals: 0.7, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.05, 0.05);
     if (--e.cd <= 0 && canFire(e, 90)) {
@@ -5855,7 +5855,7 @@ const ENT = {
     if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
-  destroyer: { turret: true, turretAt: [0, 22], revenge: true, medals: 2, update(e) {
+  destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, update(e) {
     if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
@@ -5865,7 +5865,7 @@ const ENT = {
     if (--e.cdA <= 0 && canFire(e, 60)) { e.cdA = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12, e.ta + (k - 0.5) * 0.1, bspeed()); flash(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12); sfx('cannon'); }
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
   } },
-  htank: { turret: true, revenge: true, treads: true, medals: 1, update(e) { ENT.tank.update(e); } },
+  htank: { turret: true, revenge: 3, treads: true, medals: 1, update(e) { ENT.tank.update(e); } },
   bridge: { harmless: true, uncounted: true, medals: 1, update(e) { groundPos(e); } },
   secret: { harmless: true, uncounted: true, update(e) {
     groundPos(e); e.untarget = true;
@@ -5915,7 +5915,7 @@ const ENT = {
     groundPos(e);
     if (false) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 0.9); sfx('gun'); }
   } },
-  sub: { turretAt: [0, 10], revenge: true, medals: 2, update(e) {
+  sub: { turretAt: [0, 10], revenge: 2, medals: 2, update(e) {
     e.stT--;
     if (e.st === 'under') {
       if (terrainType(e.wx, e.wy + 30) === 'sea' && !blockedMove(e, 0, 0.2)) e.wy += 0.2;
@@ -5943,7 +5943,7 @@ const ENT = {
     e.untarget = e.st === 'under';
     groundPos(e);
   } },
-  casemate: { turret: true, turretAt: [0, 8], revenge: true, guarded: true, medals: 2, treesInFront: true, update(e) {
+  casemate: { turret: true, turretAt: [0, 8], revenge: 2, guarded: true, medals: 2, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga = clamp(e.ga + clamp(angDiff(e.ga, aim(e.x, e.y + 8)), -0.03, 0.03), PI / 2 - 1.1, PI / 2 + 1.1);
     if (--e.cd <= 0 && canFire(e, 100)) {
@@ -5953,7 +5953,7 @@ const ENT = {
       flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
     }
   } },
-  aatower: { turret: true, revenge: true, guarded: true, medals: 3, treesInFront: true, update(e) {
+  aatower: { turret: true, revenge: 2, guarded: true, medals: 3, treesInFront: true, update(e) {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
@@ -6019,7 +6019,7 @@ const ENT = {
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
   } },
-  popup: { revenge: true, guarded: true, medals: 0.5, update(e) {
+  popup: { revenge: 2, guarded: true, medals: 0.5, update(e) {
     groundPos(e); e.stT--;
     if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
@@ -6032,7 +6032,7 @@ const ENT = {
   } },
   radar: { harmless: true, guarded: true, medals: 1.5, treesInFront: true, update(e) { groundPos(e); e.rot += 0.05; } },
   gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
-  arty: { revenge: true, guarded: true, medals: 1, treesInFront: true, update(e) {
+  arty: { revenge: 2, guarded: true, medals: 1, treesInFront: true, update(e) {
     groundPos(e); if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
@@ -6040,7 +6040,7 @@ const ENT = {
       markers.push({ wx: player.x, wy: player.y - Math.floor(scroll), t: 72, max: 72 });
     }
   } },
-  acar: { revenge: true, treads: true, medals: 0.5, update(e) {
+  acar: { revenge: 2, treads: true, medals: 0.5, update(e) {
     if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && !player.dead) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
@@ -6054,7 +6054,7 @@ const ENT = {
     else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; } }
     groundPos(e);
   } },
-  fuel: { harmless: true, explosive: true, guarded: true, medals: 0.4, treesInFront: true, update(e) { groundPos(e); } },
+  fuel: { harmless: true, guarded: true, medals: 0.4, treesInFront: true, update(e) { groundPos(e); } },
   parked: { harmless: true, uncounted: true, medals: 0.5, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
   boss: { harmless: true, update(e) {
     if (e.dying) {
@@ -6561,24 +6561,160 @@ function revealSecret(e) {
   for (let i = 0; i < 20; i++) { const an = i * TAU / 20; parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(an) * 1.6, vy: Math.sin(an) * 1.6, life: 20, max: 20, col: i % 2 ? '#bba4ff' : '#ffffff' }); }
 }
 function revenge(x, y, n) { if (runDiff !== 2 || !player || player.dead || y < 0 || y > H) return; const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
+// What each enemy type does when destroyed, merged into its entity entry. blast: the size of its explosion (ground default 14,
+// air 11). onKill(e) runs first, after the revenge burst and the kill count; returning true ends the kill there (the secret).
+// wreck(e) leaves the remains: decals and debris on the ground (wreckDefault: a ruin if the type has ruin sprites, else a crater),
+// or what a plane drops.
+const DEATHS = {
+  protoDuel: {
+    onKill(e) {
+      for (let i = 0; i < 6; i++) later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big');
+    },
+  },
+  missile: { onKill(e) { boom(e.x, e.y, 14, 'a'); sfx('gboom'); } },
+  bldg: {
+    blast: 24,
+    onKill(e) {
+      if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
+      if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
+      if (e.bk === 'chapel') sfx('toll');
+    },
+  },
+  heavy: { onKill(e) { if (Math.random() < 0.35) bailOut(e.x, e.y, 1); } },
+  bomber: {
+    blast: 30,
+    onKill(e) { if (Math.random() < 0.3) bailOut(e.x, e.y, 1); },
+    wreck(e) { if (Math.random() < 0.5) items.push(mkItem('B', e.x, e.y)); },
+  },
+  wing: { onKill(e) { if (Math.random() < 0.5) bailOut(e.x, e.y, 1 + ((Math.random() * 2) | 0)); } },
+  secret: {
+    onKill(e) {
+      e.dead = true; items.push({ kind: 'A', x: e.x, y: e.y, t: 0, vy: -1.4 });
+      label(e.x, e.y - 10, 'SECRET!'); sfx('drone'); haptic('drone');
+      for (let i = 0; i < 16; i++) { const a = i * TAU / 16; parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 20, max: 20, col: i % 2 ? '#fff0a0' : '#a8f6dc' }); }
+      return true;
+    },
+  },
+  radar: {
+    blast: 22,
+    wreck(e) {
+      linkFx.push({ wx: e.wx, wy: e.wy, t: 40, to: enemies.filter(o => o.type === 'flak' && o.rd === e && !o.dead).map(o => [o.wx, o.wy]) });
+      wreckDefault(e);
+    },
+  },
+  gen: {
+    blast: 20,
+    wreck(e) {
+      sfx('clunk'); later.push({ at: gf + 20, fn: () => sfx('clunk') });
+      wreckDefault(e);
+    },
+  },
+  acar: {
+    blast: 14,
+    wreck(e) {
+      decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 0 }); decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: SPR.acar[dirIdx(e.hd)], smokeT: 200 });
+      wreckDefault(e);
+    },
+  },
+  station: {
+    blast: 22,
+    wreck(e) {
+      decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 300 });
+      decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
+    },
+  },
+  tower: { blast: 24, wreck(e) { DEATHS.station.wreck(e); } },
+  moto: {
+    blast: 10,
+    wreck(e) {
+      decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 0 }); decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: SPR[e.type][dirIdx(e.hd)], smokeT: 200 });
+      wreckDefault(e);
+    },
+  },
+  staff: { blast: 12, wreck(e) { DEATHS.moto.wreck(e); } },
+  ftruck: { blast: 26, wreck(e) { DEATHS.moto.wreck(e); } },
+  crate: {
+    blast: 8,
+    wreck(e) {
+      for (let i = 0; i < 5; i++) parts.push({ kind: 'debris', layer: 'g', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0), g: 0.08, life: 26, max: 26 });
+      wreckDefault(e);
+    },
+  },
+  sandbag: { blast: 8, wreck(e) { DEATHS.crate.wreck(e); } },
+  bridge: {
+    blast: 24,
+    wreck(e) {
+      bridgeDown.add(e.bkey !== undefined ? e.bkey : -Math.floor(e.wy / CH)); decals.push({ kind: 'spr', s: e.small ? SPR.bridgeBrokenS : SPR.bridgeBroken, wx: e.wx, wy: e.wy, smokeT: 160 });
+      for (const g of enemies) if (g.ground && !g.dead && g !== e && Math.abs(g.wx - e.wx) < 12 && Math.abs(g.wy - e.wy) < 16) { const tg = g; later.push({ at: gf + 6, fn: () => damage(tg, 999) }); }
+    },
+  },
+  loco: {
+    blast: 26,
+    wreck(e) {
+      decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: e.type === 'loco' ? 13 : 11, smokeT: 0 });
+      decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: e.type === 'loco' && e.diesel ? SPR.locoD : SPR[e.type], smokeT: 260 });
+    },
+  },
+  boxcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
+  flatcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
+  hangar: {
+    blast: 34,
+    wreck(e) {
+      decals.push({ kind: 'spr', s: RUINS.hangar[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 16, smokeT: 400 }); if (Math.random() < 0.5) items.push(mkItem(Math.random() < 0.3 ? 'B' : 'W', e.x, e.y));
+    },
+  },
+  tank: {
+    wreck(e) {
+      const set = e.type === 'tank' ? SPR.tank[0] : e.type === 'htank' ? SPR.htank[0] : SPR.truck;
+      decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: set[dirIdx(e.hd)], smokeT: 240 });
+    },
+  },
+  htank: { blast: 22, wreck(e) { DEATHS.tank.wreck(e); } },
+  truck: { wreck(e) { DEATHS.tank.wreck(e); } },
+  destroyer: {
+    blast: 40,
+    wreck(e) {
+      decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: e.type === 'pt' ? 10 : e.type === 'sub' ? 16 : 22, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+      { const n = e.type === 'destroyer' ? (Math.random() < 0.6 ? 2 : 0) : e.type === 'sub' ? (Math.random() < 0.45 ? 1 : 0) : (Math.random() < 0.3 ? 1 : 0); if (n) spawnSwimmers(e.wx, e.wy, n, 8, e.hh); }
+      decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: e.type === 'destroyer' ? 300 : 200, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 });
+    },
+  },
+  pt: { wreck(e) { DEATHS.destroyer.wreck(e); } },
+  sub: { blast: 30, wreck(e) { DEATHS.destroyer.wreck(e); } },
+  fuel: {
+    blast: 30,
+    wreck(e) {
+      decals.push({ kind: 'spr', s: RUINS.fuel[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 11, smokeT: 300 });
+      for (const g of enemies) if (g.ground && !g.dead && (g.wx - e.wx) ** 2 + (g.wy - e.wy) ** 2 < 34 * 34) { const tg = g; later.push({ at: gf + 8, fn: () => damage(tg, 25) }); }
+      for (const b of enemies) if (b.type === 'boss' && !b.dying) for (const pt of b.parts) if (!pt.dead && (b.x + pt.ox - e.x) ** 2 + (b.y + pt.oy - e.y) ** 2 < 48 * 48) { const bb = b, pp = pt; later.push({ at: gf + 10, fn: () => { if (!pp.dead) damagePart(bb, pp, 45); } }); }
+      boom(e.x, e.y, 34, 'g'); fireAt(e.x, e.y, 'g', true);
+    },
+  },
+  pod: {
+    blast: 12,
+    wreck(e) {
+      const pi = mkItem(!e.bossPod && !e.tutW && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } items.push(pi);
+    },
+  },
+  cgate: { blast: 26 },
+  popup: { blast: 16 },
+  arty: { blast: 22 },
+  shells: { blast: 22 },
+  drums: { blast: 20 },
+  casemate: { blast: 32 },
+  aatower: { blast: 36 },
+  bunker: { blast: 18 },
+};
+for (const t in DEATHS) Object.assign(ENT[t], DEATHS[t]);
+function wreckDefault(e) {
+  if (RUINS[e.type]) decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
+  else decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
+}
 function kill(e) {
-  if (e.type === 'protoDuel') { for (let i = 0; i < 6; i++) later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big'); }
-  if (ENT[e.type].revenge) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
-  if (e.type === 'missile') { boom(e.x, e.y, 14, 'a'); sfx('gboom'); }
-  if (e.type === 'bldg') {
-    if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
-    if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
-    if (e.bk === 'chapel') sfx('toll');
-  }
+  const T = ENT[e.type];
+  if (T.revenge) revenge(e.x, e.y, T.revenge);
   if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
-  if (e.type === 'heavy' && Math.random() < 0.35) bailOut(e.x, e.y, 1);
-  if (e.type === 'bomber' && Math.random() < 0.3) bailOut(e.x, e.y, 1); else if (e.type === 'wing' && Math.random() < 0.5) bailOut(e.x, e.y, 1 + ((Math.random() * 2) | 0));
-  if (e.type === 'secret') {
-    e.dead = true; items.push({ kind: 'A', x: e.x, y: e.y, t: 0, vy: -1.4 });
-    label(e.x, e.y - 10, 'SECRET!'); sfx('drone'); haptic('drone');
-    for (let i = 0; i < 16; i++) { const a = i * TAU / 16; parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 20, max: 20, col: i % 2 ? '#fff0a0' : '#a8f6dc' }); }
-    return;
-  }
+  if (T.onKill && T.onKill(e)) return;
   if (e.type !== 'troop' && !e.counted) { if (e.ground) stats.ground++; else if (!e.big) stats.air++; }
   if (e.train && trainLeft[e.train] !== undefined && --trainLeft[e.train] === 0) { const tb = trainBonus[e.train] || 5000; addScore(tb); label(e.x, e.y - 16, String(tb)); sfx('power'); haptic('power'); }
   addScore(e.score); checkExtend();
@@ -6591,49 +6727,21 @@ function kill(e) {
   e.dead = true;
   if (e.ground) {
     if (e.type === 'troop') { decals.push(makeBody(e.wx, e.wy)); sfx('hit'); return; }
-    const size = { bldg: 24, cgate: 26, popup: 16, arty: 22, acar: 14, radar: 22, gen: 20, station: 22, tower: 24, ftruck: 26, shells: 22, drums: 20, crate: 8, sandbag: 8, moto: 10, staff: 12, sub: 30, casemate: 32, aatower: 36, destroyer: 40, hangar: 34, htank: 22, fuel: 30, bunker: 18, bridge: 24, loco: 26, flatcar: 16, boxcar: 16 }[e.type] || 14;
+    const size = T.blast || 14;
     boom(e.x, e.y, size, 'g'); sfx(size > 25 ? 'bigboom' : 'gboom'); haptic(size > 25 ? 'big' : 'gkill');
     if (size > 25) { shake = Math.max(shake, 8); hitStop = Math.max(hitStop, 3); }
-    const mc = ENT[e.type].medals || 0;
+    const mc = T.medals || 0;
     if (mc >= 1) dropMedals(e.x, e.y, Math.floor(mc)); else if (Math.random() < mc) dropMedals(e.x, e.y, 1);
-    if (e.type === 'radar') linkFx.push({ wx: e.wx, wy: e.wy, t: 40, to: enemies.filter(o => o.type === 'flak' && o.rd === e && !o.dead).map(o => [o.wx, o.wy]) });
-    if (e.type === 'gen') { sfx('clunk'); later.push({ at: gf + 20, fn: () => sfx('clunk') }); }
-    if (e.type === 'acar') { decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 0 }); decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: SPR.acar[dirIdx(e.hd)], smokeT: 200 }); }
-    if (e.type === 'station' || e.type === 'tower') decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 300 });
-    else if (e.type === 'moto' || e.type === 'staff' || e.type === 'ftruck') { decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 0 }); decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: SPR[e.type][dirIdx(e.hd)], smokeT: 200 }); }
-    else if (e.type === 'crate' || e.type === 'sandbag') { for (let i = 0; i < 5; i++) parts.push({ kind: 'debris', layer: 'g', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0), g: 0.08, life: 26, max: 26 }); }
-    if (ENT[e.type].explosive && e.type !== 'fuel') {
+    if (T.explosive) {
       for (const g of enemies) if (g.ground && !g.dead && g !== e && (g.wx - e.wx) ** 2 + (g.wy - e.wy) ** 2 < 32 * 32) { const tg = g; later.push({ at: gf + 8, fn: () => damage(tg, 25) }); }
       boom(e.x, e.y, 26, 'g'); fireAt(e.x, e.y, 'g', true);
     }
-    if (e.type === 'bridge') {
-      bridgeDown.add(e.bkey !== undefined ? e.bkey : -Math.floor(e.wy / CH)); decals.push({ kind: 'spr', s: e.small ? SPR.bridgeBrokenS : SPR.bridgeBroken, wx: e.wx, wy: e.wy, smokeT: 160 });
-      for (const g of enemies) if (g.ground && !g.dead && g !== e && Math.abs(g.wx - e.wx) < 12 && Math.abs(g.wy - e.wy) < 16) { const tg = g; later.push({ at: gf + 6, fn: () => damage(tg, 999) }); }
-    } else if (e.type === 'loco' || e.type === 'boxcar' || e.type === 'flatcar') {
-      decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: e.type === 'loco' ? 13 : 11, smokeT: 0 });
-      decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: e.type === 'loco' && e.diesel ? SPR.locoD : SPR[e.type], smokeT: 260 });
-    } else if (e.type === 'hangar') { decals.push({ kind: 'spr', s: RUINS.hangar[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 16, smokeT: 400 }); if (Math.random() < 0.5) items.push(mkItem(Math.random() < 0.3 ? 'B' : 'W', e.x, e.y)); }
-    else if (e.type === 'tank' || e.type === 'htank' || e.type === 'truck') {
-      const set = e.type === 'tank' ? SPR.tank[0] : e.type === 'htank' ? SPR.htank[0] : SPR.truck;
-      decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: set[dirIdx(e.hd)], smokeT: 240 });
-    } else if (e.type === 'destroyer' || e.type === 'pt' || e.type === 'sub') {
-      decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: e.type === 'pt' ? 10 : e.type === 'sub' ? 16 : 22, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
-      { const n = e.type === 'destroyer' ? (Math.random() < 0.6 ? 2 : 0) : e.type === 'sub' ? (Math.random() < 0.45 ? 1 : 0) : (Math.random() < 0.3 ? 1 : 0); if (n) spawnSwimmers(e.wx, e.wy, n, 8, e.hh); }
-      decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: e.type === 'destroyer' ? 300 : 200, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 });
-    }
-    else if (RUINS[e.type] && e.type !== 'station' && e.type !== 'tower') decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: e.type === 'fuel' ? 11 : 10, smokeT: e.type === 'fuel' ? 300 : 200 });
-    else decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
-    if (e.type === 'fuel') {
-      for (const g of enemies) if (g.ground && !g.dead && (g.wx - e.wx) ** 2 + (g.wy - e.wy) ** 2 < 34 * 34) { const tg = g; later.push({ at: gf + 8, fn: () => damage(tg, 25) }); }
-      for (const b of enemies) if (b.type === 'boss' && !b.dying) for (const pt of b.parts) if (!pt.dead && (b.x + pt.ox - e.x) ** 2 + (b.y + pt.oy - e.y) ** 2 < 48 * 48) { const bb = b, pp = pt; later.push({ at: gf + 10, fn: () => { if (!pp.dead) damagePart(bb, pp, 45); } }); }
-      boom(e.x, e.y, 34, 'g'); fireAt(e.x, e.y, 'g', true);
-    }
+    (T.wreck || wreckDefault)(e);
   } else {
-    boom(e.x, e.y, e.type === 'bomber' ? 30 : e.type === 'pod' ? 12 : 11); sfx('boom'); haptic('kill');
+    boom(e.x, e.y, T.blast || 11); sfx('boom'); haptic('kill');
     for (let i = 0; i < 3; i++) parts.push({ kind: 'debris', layer: 'a', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0.2), g: 0.07, life: (rnd(26, 40)) | 0, max: 40 });
-    if (e.type === 'pod') { const pi = mkItem(!e.bossPod && !e.tutW && player.drones < 2 && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } items.push(pi); }
+    if (T.wreck) T.wreck(e);
   }
-  if (e.type === 'bomber' && Math.random() < 0.5) items.push(mkItem('B', e.x, e.y));
 }
 
 /* ================= update ================= */
