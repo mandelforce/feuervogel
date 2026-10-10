@@ -73,14 +73,28 @@ html.standalone #app{padding:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px
 html.standalone #game{box-shadow:none}
 html.standalone body{background:#120c24} /* dark behind the status bar in both themes (its text is white) */
 #stage{position:relative;line-height:0}
-#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px) + 4px);display:none;background:rgba(22,18,42,.55);border-bottom:2px solid rgba(168,246,220,.7);padding:6px 10px 6px;line-height:1.3;color:#f2ecd8;font:18px 'StarFall Text',ui-monospace,monospace;text-align:center;z-index:3;text-shadow:1px 1px 0 #120e1a,-1px 0 0 #120e1a,0 -1px 0 #120e1a}
+/* pixel window frame shared by every panel (9-slice border-image): black outline, cream line, purple bevel, notched corners */
+:root{--pxframe:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 9 9' shape-rendering='crispEdges'><path fill='%23120e1a' d='M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1z'/><path fill='%23f2ecd8' d='M2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM1 2h1v1h-1zM7 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM7 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1z'/><path fill='%238466dc' d='M2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM2 3h1v1h-1zM2 4h1v1h-1zM2 5h1v1h-1zM2 6h1v1h-1z'/><path fill='%232a2050' d='M6 2h1v1h-1zM6 3h1v1h-1zM6 4h1v1h-1zM6 5h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1z'/></svg>")}
+/* tutorial box: the difficulty picker's arcade window (frame, diagonal stripes), a TRAINING header with progress pips */
+#tutBox{position:absolute;left:2%;right:calc(2% + 46px);top:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px) + 4px);display:none;box-sizing:border-box;border:9px solid transparent;border-image:var(--pxframe) 3 / 9px stretch;background:repeating-linear-gradient(-45deg,rgba(28,22,48,.94) 0 6px,rgba(36,28,66,.94) 6px 12px) padding-box;filter:drop-shadow(0 4px 0 #120e1a);padding:2px 6px 4px;line-height:1.3;color:#f2ecd8;font:16px 'StarFall Text',ui-monospace,monospace;text-align:left;z-index:3;text-shadow:1px 1px 0 #120e1a}
 #tutBox.on{display:block}
-#tutStep{font-size:14px;color:#c8bce8;text-align:left;margin-bottom:2px}
+#tutStep{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+#tutStep .tl{font-size:13px;letter-spacing:.16em;color:transparent;background:linear-gradient(#fff8d0 0 50%,#f4c040 50% 100%);-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(1px 1px 0 #120e1a)}
+#tutStep .pips{display:inline-flex;gap:3px}#tutStep .pips i{width:6px;height:6px;border:1px solid #8466dc;background:#120e1a}#tutStep .pips i.d{background:#a8f6dc;border-color:#a8f6dc}#tutStep .pips i.c{background:#fff0a0;border-color:#fff0a0}
 #tutText b{color:#fff0a0;font-weight:400}
-#tutBtns{display:none;flex-direction:column;gap:10px;align-items:center;margin-top:6px}#tutBtns.on{display:flex}#tutGoLbl{width:100%;color:#fff0a0}
-#tutBtns button{font:18px 'StarFall Text',ui-monospace,monospace;background:#3a2a70;color:#fff0a0;border:2px solid #d0a020;box-shadow:0 0 0 2px #120e1a;padding:8px 10px;min-height:42px;width:min(100%,220px);cursor:pointer;text-shadow:1px 1px 0 #120e1a}
-#tutBtns button:active{background:#4a3a90}
-@media (max-width:380px){#tutBox{font-size:17px}}
+#tutBtns{display:none;flex-direction:column;gap:2px;align-items:stretch;margin-top:4px}#tutBtns.on{display:flex}#tutGoLbl{margin-bottom:4px;text-align:center;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:#fff0a0}
+#tutBtns button{position:relative;display:grid;grid-template-columns:1fr auto;gap:0 8px;width:100%;padding:6px 8px 6px 24px;font:16px 'StarFall Text',ui-monospace,monospace;text-align:left;background:none;border:0;box-shadow:none;color:#a99cc8;cursor:pointer;text-shadow:1px 1px 0 #120e1a;outline:none}
+#tutBtns button b{font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:#a99cc8}#tutBtns button span{grid-column:1 / 3;font-size:12px;color:#7a6ea0}
+#tutBtns button::after{grid-row:1;grid-column:2;font-size:13px;letter-spacing:2px;color:#d0a020}#tutBtns [data-d="0"]::after{content:'\2605'}#tutBtns [data-d="1"]::after{content:'\2605\2605'}#tutBtns [data-d="2"]::after{content:'\2605\2605\2605';color:#f06040}
+#tutBtns button::before{content:'';position:absolute;left:6px;top:9px;width:11px;height:13px;background:#fff0a0;clip-path:polygon(0 0,100% 50%,0 100%,0 72%,45% 50%,0 28%);visibility:hidden}
+/* one highlight, as in the difficulty picker: hovered, else keyboard-focused, else the current setting */
+#tutBtns:not(:has(button:hover)):not(:has(button:focus-visible)) button[aria-pressed="true"],#tutBtns:not(:has(button:hover)) button:focus-visible,#tutBtns button:hover{background:#34226a;box-shadow:inset 0 2px 0 #5a44a0,inset 0 -2px 0 #120e1a}
+#tutBtns:not(:has(button:hover)):not(:has(button:focus-visible)) button[aria-pressed="true"]::before,#tutBtns:not(:has(button:hover)) button:focus-visible::before,#tutBtns button:hover::before{visibility:visible;animation:dblink .5s steps(1) infinite}
+#tutBtns:not(:has(button:hover)):not(:has(button:focus-visible)) button[aria-pressed="true"] b,#tutBtns:not(:has(button:hover)) button:focus-visible b,#tutBtns button:hover b{color:#fff0a0}
+#tutBtns:not(:has(button:hover)):not(:has(button:focus-visible)) button[aria-pressed="true"] span,#tutBtns:not(:has(button:hover)) button:focus-visible span,#tutBtns button:hover span{color:#c8bce8}
+#tutBtns button:active{transform:translateY(1px)}
+@media (max-width:380px){#tutBox{font-size:15px}}
+@media (prefers-reduced-motion: reduce){#tutBtns button::before{animation:none!important}}
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-shadow:0 0 0 3px var(--frame),0 0 0 6px #120e1a;touch-action:none;cursor:crosshair}
 .btn{
   position:absolute;font:600 13px/1 'StarFall Text',ui-monospace,monospace;
@@ -100,18 +114,39 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .panel{max-height:92vh;overflow-y:auto;width:min(94%,360px)}
 #settings .seg{flex-wrap:nowrap}
 #settings .wide{width:100%;margin:10px 0 4px}
-#diffAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#diffAsk.open{display:grid}#diffAsk .panel{width:min(90%,340px);max-height:96%;overflow-y:auto}@media (max-height:600px){#diffAsk .panel{padding:10px 12px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu{gap:6px}#diffAsk .dmenu button{padding:5px 10px}#diffAsk .dback{margin-top:6px;padding:4px}}
-#diffAsk .dmenu{display:grid;gap:10px}#diffAsk .dmenu button{display:grid;gap:3px;width:100%;padding:9px 10px;background:#34226a;border-color:#8466dc;box-shadow:0 0 0 2px #120e1a}
-#diffAsk .dmenu b{font-weight:400;font-size:19px;color:#fff0a0}#diffAsk .dmenu span{font-size:12px;color:#c8bce8}
-#diffAsk .dmenu button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;color:#f2ecd8}
-#diffAsk .dextra{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}#diffAsk .dextra button{padding:8px 4px;min-height:40px;font-size:14px;background:#2a2050;border-color:#a8f6dc;color:#a8f6dc}#diffAsk .dextra #dPrac{border-color:#8466dc;color:#c8bce8}
+/* difficulty picker, retro arcade style: bevelled pixel window, scanlines, star ratings, a blinking cursor */
+#diffAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#diffAsk.open{display:grid}
+#diffAsk .panel{width:min(90%,340px);max-height:96%;overflow-y:auto;box-sizing:border-box;padding:10px 12px 8px;border:9px solid transparent;border-image:var(--pxframe) 3 / 9px stretch;background:repeating-linear-gradient(-45deg,#1c1630 0 6px,#241c42 6px 12px) padding-box;box-shadow:none;filter:drop-shadow(0 6px 0 #120e1a)}
+#diffAsk h2{margin:0 0 12px;text-align:center;font-size:21px;letter-spacing:.12em;text-transform:uppercase;color:transparent;background:linear-gradient(#fff8d0 0 50%,#f4c040 50% 100%);-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(2px 2px 0 #120e1a)}
+#diffAsk .panel button{border-radius:0}
+#diffAsk .dmenu{display:grid;gap:2px}
+#diffAsk .dmenu [data-d]{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 8px;width:100%;padding:7px 8px 7px 26px;text-align:left;background:none;border:0;box-shadow:none;outline:none}
+#diffAsk .dmenu [data-d]::before{content:'';position:absolute;left:7px;top:10px;width:12px;height:14px;background:#fff0a0;clip-path:polygon(0 0,100% 50%,0 100%,0 72%,45% 50%,0 28%);visibility:hidden}
+#diffAsk .dmenu [data-d]::after{grid-row:1;grid-column:2;align-self:center;font-size:14px;letter-spacing:2px;color:#d0a020;text-shadow:1px 1px 0 #120e1a}
+#diffAsk .dmenu [data-d="0"]::after{content:'\2605'}#diffAsk .dmenu [data-d="1"]::after{content:'\2605\2605'}#diffAsk .dmenu [data-d="2"]::after{content:'\2605\2605\2605';color:#f06040}
+#diffAsk .dmenu b{font-weight:400;font-size:19px;letter-spacing:.08em;text-transform:uppercase;color:#a99cc8;text-shadow:2px 2px 0 #120e1a}
+#diffAsk .dmenu [data-d] span{grid-column:1 / 3;font-size:12px;color:#7a6ea0}
+/* one highlight only: the hovered row, else the keyboard-focused row, else the current setting */
+#diffAsk .dmenu:not(:has([data-d]:hover)):not(:has([data-d]:focus-visible)) [data-d][aria-pressed="true"],#diffAsk .dmenu:not(:has([data-d]:hover)) [data-d]:focus-visible,#diffAsk .dmenu [data-d]:hover{background:#34226a;box-shadow:inset 0 2px 0 #5a44a0,inset 0 -2px 0 #120e1a}
+#diffAsk .dmenu:not(:has([data-d]:hover)):not(:has([data-d]:focus-visible)) [data-d][aria-pressed="true"]::before,#diffAsk .dmenu:not(:has([data-d]:hover)) [data-d]:focus-visible::before,#diffAsk .dmenu [data-d]:hover::before{visibility:visible;animation:dblink .5s steps(1) infinite}
+#diffAsk .dmenu:not(:has([data-d]:hover)):not(:has([data-d]:focus-visible)) [data-d][aria-pressed="true"] b,#diffAsk .dmenu:not(:has([data-d]:hover)) [data-d]:focus-visible b,#diffAsk .dmenu [data-d]:hover b{color:#fff0a0}
+#diffAsk .dmenu:not(:has([data-d]:hover)):not(:has([data-d]:focus-visible)) [data-d][aria-pressed="true"] span,#diffAsk .dmenu:not(:has([data-d]:hover)) [data-d]:focus-visible span,#diffAsk .dmenu [data-d]:hover span{color:#c8bce8}
+@keyframes dblink{50%{visibility:hidden}}
+#diffAsk .dextra{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+#diffAsk .dextra button{padding:8px 4px 7px;min-height:40px;font-size:14px;letter-spacing:.1em;text-transform:uppercase;background:#2a2050;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;color:#a8f6dc;text-shadow:1px 1px 0 #120e1a}#diffAsk .dextra #dPrac{color:#c8bce8}
+#diffAsk .dextra button:hover{background:#34226a}
+#diffAsk .dextra button:active{transform:translateY(3px);box-shadow:inset 2px 2px 0 #170f2c,inset -2px -2px 0 #4a3e90}
 #diffAsk [hidden]{display:none}
-#diffAsk .dstage{display:grid;gap:6px;margin:2px 0}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:13px;color:#c8bce8}
-#diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-#diffAsk .dsel button{position:relative;padding:9px 0 7px;font-size:16px;background:#211a3c;border:2px solid #4a3e70;border-bottom:3px solid var(--acc,#4a3e70);box-shadow:none;color:#d8d0f0}
-#diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;border-color:#d0a020;border-bottom-color:var(--acc,#d0a020);color:#fff0a0}
-#diffAsk .dsel button.art::after{content:'';position:absolute;top:4px;right:4px;width:5px;height:5px;background:#bba4ff;box-shadow:0 0 0 1px #120e1a;transform:rotate(45deg)}
-#diffAsk .dnote{margin:0;font-size:12px;line-height:1.3;color:#a8f6dc}#diffAsk .dnote.prac{color:#c8bce8}#diffAsk .dback{width:100%;margin-top:12px;background:none;border-color:transparent;color:#a99cc8}
+#diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
+#diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+#diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
+#diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
+@keyframes dframe{50%{outline-color:#d0a020}}
+#diffAsk .dsel button.art::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;background:#bba4ff;box-shadow:0 0 0 1px #120e1a;transform:rotate(45deg)}
+#diffAsk .dnote{margin:0;font-size:12px;line-height:1.3;text-align:center;color:#a8f6dc}#diffAsk .dnote.prac{color:#c8bce8}
+#diffAsk .dback{display:block;width:auto;margin:10px auto 0;padding:4px 8px;background:none;border:0;box-shadow:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8a7eb0}#diffAsk .dback::before{content:'< '}#diffAsk .dback:hover{color:#fff0a0}
+@media (max-height:600px){#diffAsk .panel{padding:6px 10px 4px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu [data-d]{padding:4px 8px 4px 26px}#diffAsk .dmenu [data-d]::before{top:7px}#diffAsk .dextra{margin-top:8px}#diffAsk .dback{margin-top:4px;padding:2px 8px}}
+@media (prefers-reduced-motion: reduce){#diffAsk .dmenu [data-d]::before,#diffAsk .dsel button{animation:none!important}}
 #resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
@@ -192,6 +227,51 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel button[aria-pressed="true"]{background:#8466dc;color:#fff;border-color:#e8dcff}
 .panel .primary{width:100%;margin-top:6px;background:#f4d050;color:#1b1530;border-color:#120e1a;font-size:16px}
 .panel .note{margin:2px 0 0;font-size:12px;color:#a99cc8}
+/* arcade style for all panels: the picker's window and stripes, two-tone titles, START-like primary buttons, list menus with one highlight */
+.panel{box-sizing:border-box;border:9px solid transparent;border-image:var(--pxframe) 3 / 9px stretch;background:repeating-linear-gradient(-45deg,#1c1630 0 6px,#241c42 6px 12px) padding-box;box-shadow:none;filter:drop-shadow(0 6px 0 #120e1a);padding:10px 12px 10px}
+.panel h2{text-align:center;font-size:21px;letter-spacing:.12em;text-transform:uppercase;color:transparent;line-height:1.25;background:linear-gradient(#fff8d0 0 50%,#f4c040 50% 100%) 0 0/100% 1.25em;-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(2px 2px 0 #120e1a);margin:0 0 12px}
+.panel button{border-radius:0}
+/* arcade buttons: primary = START (gold rim), secondary = purple bevel */
+.panel .primary,.panel .lbrow button,#resumeAsk .lbrow button{font:16px 'StarFall Text',monospace;letter-spacing:.1em;text-transform:uppercase;padding:9px 8px 8px;background:#2a2050;color:#c8bce8;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;text-shadow:1px 1px 0 #120e1a}
+.panel .primary,#resumeAsk .lbrow .primary{background:#3a2a70;color:#fff0a0;box-shadow:inset 0 0 0 2px #d0a020,inset 3px 3px 0 #fff0a0,inset -3px -3px 0 #7a5410,0 3px 0 #120e1a}
+.panel .primary:active,.panel .lbrow button:active{transform:translateY(3px);box-shadow:inset -2px -2px 0 #4a3e90,inset 2px 2px 0 #170f2c}
+/* menu list: one highlight (hovered, else focused, else the first/primary row) with the blinking cursor */
+.panel .menu{gap:2px}
+.panel .menu button{position:relative;display:flex;justify-content:space-between;width:100%;padding:8px 10px 8px 28px;font-size:17px;letter-spacing:.08em;text-transform:uppercase;text-align:left;background:none;border:0;box-shadow:none;color:#a99cc8;text-shadow:2px 2px 0 #120e1a}
+.panel .menu button i{font-style:normal;color:#a8f6dc}.panel .menu button i.off{color:#6a5e90}
+.panel .menu button.danger{color:#c88070}
+.panel .menu button::before{content:'';position:absolute;left:9px;top:11px;width:11px;height:13px;background:#fff0a0;clip-path:polygon(0 0,100% 50%,0 100%,0 72%,45% 50%,0 28%);visibility:hidden}
+.panel .menu:not(:has(button:hover)):not(:has(button:focus-visible)) button.primary,.panel .menu:not(:has(button:hover)) button:focus-visible,.panel .menu button:hover{outline:none;background:#34226a;box-shadow:inset 0 2px 0 #5a44a0,inset 0 -2px 0 #120e1a;color:#fff0a0}
+.panel .menu:not(:has(button:hover)):not(:has(button:focus-visible)) button.primary::before,.panel .menu:not(:has(button:hover)) button:focus-visible::before,.panel .menu button:hover::before{visibility:visible;animation:dblink .5s steps(1) infinite}
+.panel .menu .sep{height:2px;margin:6px 4px;background:repeating-linear-gradient(90deg,#4a3e70 0 4px,transparent 4px 8px)}
+/* settings rows and toggles */
+#settings .row{margin:10px 0}
+#settings .row > label,#settings .row > span:first-child{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#a99cc8}
+.panel .seg{gap:0}
+#settings .seg button{font:13px 'StarFall Text',monospace;letter-spacing:.06em;text-transform:uppercase;padding:6px 8px 5px;background:#211a3c;color:#7a6ea0;border:2px solid #120e1a;margin-left:-2px;box-shadow:inset 2px 2px 0 #3a2e60}
+#settings .seg button[aria-pressed="true"]{background:#120e24;color:#fff0a0;box-shadow:inset 2px 2px 0 #0a0814,inset -1px -1px 0 #4a3e90}
+#settings input[type=range]{-webkit-appearance:none;appearance:none;height:14px;background:repeating-linear-gradient(90deg,#120e1a 0 2px,transparent 2px 10px),linear-gradient(90deg,#a8f6dc var(--v,60%),#2a2050 var(--v,60%));border:2px solid #120e1a;box-shadow:inset 0 2px 0 rgba(0,0,0,.3)}
+#settings input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:22px;background:#fff0a0;border:2px solid #120e1a;box-shadow:inset -2px -2px 0 #d0a020}
+#settings input[type=range]::-moz-range-track{background:transparent}#settings input[type=range]::-moz-range-thumb{width:8px;height:18px;border-radius:0;background:#fff0a0;border:2px solid #120e1a}
+#settings .note{font-size:11px;color:#7a6ea0}
+#settings .wide{background:#2a2050;color:#a8f6dc;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:8px}
+/* leaderboard: filters keep their underlines; the list gets arcade rows */
+#lbList li{background:rgba(18,14,36,.75);border-left:0;padding:7px 10px}
+#lbList li:nth-child(even){background:rgba(33,26,60,.75)}
+#lbList li.g1{box-shadow:inset 3px 0 0 #f4d050}#lbList li.g2{box-shadow:inset 3px 0 0 #d6dce6}#lbList li.g3{box-shadow:inset 3px 0 0 #e09a5a}
+#lbList .rk{font-size:15px;text-shadow:1px 1px 0 #120e1a}
+#lbList .nm{letter-spacing:.06em;text-transform:uppercase}
+#lbList .sc{color:#fff0a0;letter-spacing:.04em;text-shadow:1px 1px 0 #120e1a}
+#lbList li.me{background:#34226a;box-shadow:inset 0 2px 0 #5a44a0,inset 0 -2px 0 #120e1a,inset 3px 0 0 #a8f6dc}
+#lbLegend{font-size:11px;color:#7a6ea0;text-align:center}
+/* resume */
+#resumeAsk .note{text-align:center;font-size:14px;color:#c8bce8}
+/* how to play */
+#howto h3{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:#f4c040;text-shadow:1px 1px 0 #120e1a;border-bottom:2px solid #4a3e70;padding-bottom:4px}
+#howto .tip{background:rgba(18,14,36,.75);border-left:0;box-shadow:inset 3px 0 0 #a8f6dc}
+#howto summary{text-transform:uppercase;letter-spacing:.1em;font-size:13px}
+#howto .wide{margin-bottom:6px}
+@media (prefers-reduced-motion: reduce){.panel .menu button::before{animation:none!important}}
 #bombBtn{
   bottom:calc(14px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));right:14px;width:64px;height:64px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%,#e8dcff 0,#8466dc 38%,#34226a 100%);
@@ -232,7 +312,7 @@ body[data-results="1"] #bombBtn{display:none !important}
 <div id="app">
   <div id="stage">
     <canvas id="game" aria-label="FEUERVOGEL 89 game screen"></canvas>
-    <div id="tutBox" aria-live="polite"><div id="tutStep"></div><div id="tutText"></div><div id="tutBtns"><span id="tutGoLbl">Start the campaign</span><button type="button" data-d="0">Easy</button><button type="button" data-d="1">Normal</button><button type="button" data-d="2">Hard</button></div></div>
+    <div id="tutBox" aria-live="polite"><div id="tutStep"></div><div id="tutText"></div><div id="tutBtns"><span id="tutGoLbl">Start the campaign</span><button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button><button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button><button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button></div></div>
     <button class="ibtn" id="menuBtn" type="button" aria-label="Menu" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="5" width="18" height="2.6"/><rect x="3" y="10.7" width="18" height="2.6"/><rect x="3" y="16.4" width="18" height="2.6"/></svg></button>
     <button class="ibtn hidden" id="pauseBtn" type="button" aria-label="Pause" tabindex="-1"></button>
     <button class="ibtn hidden" id="setBtn" type="button" aria-label="Settings" tabindex="-1"></button>
@@ -250,7 +330,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <span class="seg" id="lbSrc"><button type="button" data-v="online">Online</button><button type="button" data-v="local">This device</button></span>
           <span class="seg" id="lbMode"><button type="button" data-v="camp">Campaign</button><button type="button" data-v="endless">Endless</button></span>
           <span class="seg" id="lbPeriod"><button type="button" data-v="all">All-time</button><button type="button" data-v="week">This week</button><button type="button" data-v="last">Last week</button></span>
-          <span class="seg" id="lbDiffSeg"><button type="button" data-v="0">Easy</button><button type="button" data-v="1">Normal</button><button type="button" data-v="2">Hard</button></span>
+          <span class="seg" id="lbDiffSeg"><button type="button" data-v="0">Rookie</button><button type="button" data-v="1">Veteran</button><button type="button" data-v="2">Ace</button></span>
           <span class="seg" id="lbPlat"><button type="button" data-v="mobile">Mobile</button><button type="button" data-v="pc">PC</button></span>
           </div>
           <ol id="lbList"></ol>
@@ -265,12 +345,14 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="pmTitle">Menu</h2>
         <div class="menu">
           <button type="button" class="primary" id="pmResume">Resume</button>
-          <button type="button" id="pmMusic">Music: On</button>
-          <button type="button" id="pmSound">Sound: On</button>
+          <button type="button" id="pmMusic" aria-label="Music: On">Music<i>ON</i></button>
+          <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
+          <div class="sep" aria-hidden="true"></div>
           <button type="button" id="pmSettings">Settings</button>
           <button type="button" id="pmCredits">Credits</button>
-          <button type="button" id="pmRestart">Restart stage</button>
-          <button type="button" id="pmQuit">Quit to title</button>
+          <div class="sep" id="pmSep2" aria-hidden="true"></div>
+          <button type="button" id="pmRestart" class="danger">Restart stage</button>
+          <button type="button" id="pmQuit" class="danger">Quit to title</button>
         </div>
       </div>
     </div>
@@ -279,9 +361,9 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
           <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
-          <button type="button" data-d="0"><b>Easy</b><span>Fewer, slower bullets</span></button>
-          <button type="button" data-d="1"><b>Normal</b><span>The intended challenge</span></button>
-          <button type="button" data-d="2"><b>Hard</b><span>Fiercer enemies, 2 Nova bombs</span></button>
+          <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
+          <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
+          <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
         </div>
         <div class="dextra" id="dExtra"><button type="button" id="dTut">Tutorial</button><button type="button" id="dPrac">Practice</button></div>
         <button type="button" id="dBack" class="dback">Back</button>
@@ -3670,7 +3752,7 @@ function drawTutorial() {
   if (!tut || state !== 'play') { if (tutShown) { box.classList.remove('on'); tutShown = ''; const bb = document.getElementById('bombBtn'); if (bb) bb.classList.remove('tutHi'); } return; }
   const k = Math.min(tut.step, 8), html = TUT_TEXT()[k], key = k + '|' + html;
   { const bb = document.getElementById('bombBtn'); if (bb) { if (tut.step === 5) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
-  if (key !== tutShown) { tutShown = key; box.classList.add('on'); document.getElementById('tutStep').textContent = 'Tutorial, step ' + (k + 1) + ' of 9'; document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 8) tb.classList.add('on'); else tb.classList.remove('on'); } }
+  if (key !== tutShown) { tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/9</span><span class="pips" aria-hidden="true">' + Array.from({ length: 9 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 9'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 8) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
   // a ghost finger below the ship while learning to move
   if (tut.step === 0 && player && tutTouch()) {
     const fx = Math.round(player.x + Math.sin(gf * 0.05) * 16), fy = Math.round(player.y + 34);
@@ -3735,6 +3817,7 @@ function openDiff(kind, n) {
 function closeDiff() { document.getElementById('diffAsk').classList.remove('open'); diffNext = null; }
 function openHowTo() { buildHelp(); document.getElementById('howto').classList.add('open'); document.getElementById('howClose').focus(); }
 function startOrOffer() { openDiff('camp', 1); }
+let titlePress = null; // { k: 'start' | 'scores', t: gf } so the pressed title button shows sunk for a few frames
 const SHOW_ENDLESS = false; // Endless is hidden from the title for now (its code and boards stay)
 const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20 }, ENDLESS_Y = 288, SCORES_Y = SCORES_BTN.y, TITLE_SHIP_Y = 156;
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
@@ -4233,7 +4316,7 @@ function resumeRun(r) {
 let resumeOffer = null;
 function offerResume() {
   const r = resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.endless ? 'Endless' : 'Campaign') + ', ' + ['Easy', 'Normal', 'Hard'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
+  document.getElementById('resInfo').textContent = (r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -6788,7 +6871,7 @@ function padTitle(nav) {
   const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(titleFocus));
   if (nav.up) titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) titleFocus = order[(i + 1) % order.length];
-  if (nav.a || nav.start) { if (titleFocus === 0) openDiff('camp', 1); else if (titleFocus === 7) openDiff('endless'); else openLB('view'); }
+  if (nav.a || nav.start) { if (titleFocus === 0) { titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (titleFocus === 7) openDiff('endless'); else { titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
@@ -7990,10 +8073,22 @@ function renderMain() {
     for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
     ctx.drawImage(ps.c, W / 2 - sw / 2, by - sh / 2, sw, sh);
     const btn = (x0, y0, w, h, fill) => { ctx.fillStyle = OUT; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2); ctx.fillStyle = fill; ctx.fillRect(x0, y0, w, h); };
-    { const x0 = Math.round(W / 2 - START_BTN.w / 2), pulse = 0.5 + 0.5 * Math.sin(gf * 0.08);
-      btn(x0 - 2, START_BTN.y - 2, START_BTN.w + 4, START_BTN.h + 4, '#d0a020'); btn(x0, START_BTN.y, START_BTN.w, START_BTN.h, '#3a2a70');
-      ctx.globalAlpha = 0.25 + 0.2 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0, START_BTN.y, START_BTN.w, 3); ctx.globalAlpha = 1;
-      textO('START', W / 2, START_BTN.y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
+    // arcade button: cap with a bevelled rim and notched corners on a dark plinth; pressed, the cap sinks onto it and the bevel flips
+    const abtn = (x0, y0, w, h, c, depth, down) => {
+      const y = y0 + (down ? depth - 1 : 0), hi = down ? c.lo : c.hi, lo = down ? c.hi : c.lo;
+      ctx.fillStyle = OUT; ctx.fillRect(x0, y0 + depth, w, h + 1); ctx.fillRect(x0 - 1, y, w + 2, h); ctx.fillRect(x0, y - 1, w, h + 2);
+      ctx.fillStyle = c.rim; ctx.fillRect(x0, y, w, h);
+      ctx.fillStyle = hi; ctx.fillRect(x0 + 1, y, w - 2, 1); ctx.fillRect(x0, y + 1, 1, h - 2);
+      ctx.fillStyle = lo; ctx.fillRect(x0 + 1, y + h - 1, w - 2, 1); ctx.fillRect(x0 + w - 1, y + 1, 1, h - 2);
+      ctx.fillStyle = c.face; ctx.fillRect(x0 + 2, y + 2, w - 4, h - 4);
+      ctx.fillStyle = c.faceLo; ctx.fillRect(x0 + 2, y + h - 3, w - 4, 1);
+      return y;
+    };
+    const pressed = k => titlePress && titlePress.k === k && gf - titlePress.t < 14;
+    { const x0 = Math.round(W / 2 - START_BTN.w / 2), pulse = 0.5 + 0.5 * Math.sin(gf * 0.08), dn = pressed('start');
+      const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#3a2a70', faceLo: '#241a48' }, 3, dn);
+      ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
+      textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
     if (gf - padSeen < 1200) { const r = titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
     { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
@@ -8002,10 +8097,10 @@ function renderMain() {
         for (let i = 0; i < 6; i++) { ctx.fillStyle = acc[i]; ctx.fillRect(bx + i * (ENDLESS_BTN.w / 6), ENDLESS_Y + ENDLESS_BTN.h - 2, Math.ceil(ENDLESS_BTN.w / 6), 2); }
         textS('ENDLESS', W / 2, ENDLESS_Y + 4, '#a8f6dc', 1, 'center', '#4ccfae');
       }
-      btn(sx - 1, SCORES_Y - 1, SCORES_BTN.w + 2, SCORES_BTN.h + 2, '#8466dc'); btn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, '#34226a');
-      ctx.globalAlpha = 0.3; ctx.fillStyle = '#bba4ff'; ctx.fillRect(sx, SCORES_Y, SCORES_BTN.w, 2); ctx.globalAlpha = 1;
-      textO('SCORES', W / 2, SCORES_Y + 5, '#fff0a0', 2, 'center', '#f4d050');
-      if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = SCORES_Y + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      // quieter than START: no gold, muted rim, shallower, lavender label
+      const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('scores'));
+      textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
+      if (lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
     }
     if (nachtState() === 1 && !shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
@@ -8186,7 +8281,7 @@ const pauseMenu = document.getElementById('pauseMenu');
 function showPauseMenu(v) {
   pauseMenu.classList.toggle('open', !!v);
   const inGame = state === 'play';
-  for (const id of ['pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
+  for (const id of ['pmSep2', 'pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
   setSoundLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 let resumeT = 0;
@@ -8214,7 +8309,7 @@ setPauseIcon();
 let panelPaused = false;
 function useGold() { return arts.size >= 6 && settings.gold; }
 function syncSettingsUI() {
-  document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx;
+  document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx; for (const id of ['sMusic', 'sSfx']) rangeFill(document.getElementById(id));
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
@@ -8256,7 +8351,7 @@ function buildHelp() {
     [gem(), 'Secret', 'Follow the crows']]);
   const more = document.createElement('details');
   more.innerHTML = '<summary>Scores &amp; rules</summary>'
-    + '<p><b>Star:</b> a run with no continues. You get two (three on Easy), and your score is kept.</p>'
+    + '<p><b>Star:</b> a run with no continues. You get two (three on Rookie), and your score is kept.</p>'
     + '<p><b>Campaign scores</b> count only from START at Stage 1, on one difficulty. Stage buttons are practice.</p>'
     + '<p><b>Privacy:</b> only your name, scores and a random player number are stored.</p>';
   box.appendChild(more);
@@ -8380,8 +8475,9 @@ setBtn.addEventListener('pointerdown', e => e.stopPropagation());
 setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('open') ? closeSettings() : openSettings(); setBtn.blur(); });
 document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
-document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; applyVolumes(); });
-document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; applyVolumes(); });
+function rangeFill(r) { r.style.setProperty('--v', r.value + '%'); } // the pixel bar fills up to the handle
+document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
+document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
@@ -8393,11 +8489,12 @@ document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPro
 document.getElementById('sHow').addEventListener('click', () => { buildHelp(); document.getElementById('howto').classList.add('open'); document.getElementById('howClose').focus(); });
 document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); document.getElementById('sHow').focus(); });
 document.getElementById('howto').addEventListener('pointerdown', e => e.stopPropagation());
+function pmLabel(el, name, v) { const h = name + '<i' + (v === 'On' ? '' : ' class="off"') + '>' + v.toUpperCase() + '</i>'; if (el.innerHTML !== h) { el.innerHTML = h; el.setAttribute('aria-label', name + ': ' + v); } }
 function setSoundLabel() {
   const pm = document.getElementById('pmSound');
   const live = actx && actx.state === 'running';
-  if (pm) { const t = !live && !muted ? 'Sound: Tap to enable' : muted || settings.sfxOn === false ? 'Sound: Off' : 'Sound: On'; if (pm.textContent !== t) pm.textContent = t; }
-  const pmm = document.getElementById('pmMusic'); if (pmm) { const t = !live && !muted ? 'Music: Tap to enable' : muted || settings.musicOn === false ? 'Music: Off' : 'Music: On'; if (pmm.textContent !== t) pmm.textContent = t; } const k = muted ? 'off' : (actx && actx.state === 'running') ? 'on' : 'wait'; if (soundBtn.dataset.k !== k) { soundBtn.innerHTML = ICON[k]; soundBtn.dataset.k = k; soundBtn.setAttribute('aria-label', k === 'off' ? 'Sound off' : k === 'on' ? 'Sound on' : 'Tap to enable sound'); } }
+  if (pm) pmLabel(pm, 'Sound', !live && !muted ? 'Tap to enable' : muted || settings.sfxOn === false ? 'Off' : 'On');
+  const pmm = document.getElementById('pmMusic'); if (pmm) pmLabel(pmm, 'Music', !live && !muted ? 'Tap to enable' : muted || settings.musicOn === false ? 'Off' : 'On'); const k = muted ? 'off' : (actx && actx.state === 'running') ? 'on' : 'wait'; if (soundBtn.dataset.k !== k) { soundBtn.innerHTML = ICON[k]; soundBtn.dataset.k = k; soundBtn.setAttribute('aria-label', k === 'off' ? 'Sound off' : k === 'on' ? 'Sound on' : 'Tap to enable sound'); } }
 setSoundLabel();
 
 addEventListener('keydown', e => {
@@ -8430,7 +8527,7 @@ let drag = null, scale = 2;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audio(); rrIn = e.pointerType || 'mouse';
   if (booting) { endBoot(); return; }
-  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) openLB('view'); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) startOrOffer(); }
+  if (state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (state === 'over') { if (lbOpen) return; if (overT > 60) leaveOver(); return; }
   if (state === 'play' && tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (paused) { togglePause(); return; }
