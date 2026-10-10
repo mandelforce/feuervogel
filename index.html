@@ -349,6 +349,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
           <button type="button" id="pmSettings">Settings</button>
+          <button type="button" id="pmHow">How to play</button>
           <button type="button" id="pmCredits">Credits</button>
           <div class="sep" id="pmSep2" aria-hidden="true"></div>
           <button type="button" id="pmRestart" class="danger">Restart stage</button>
@@ -417,7 +418,6 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
-        <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
       </div>
@@ -8501,11 +8501,11 @@ for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener(
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
-document.getElementById('howTut').addEventListener('click', () => startTutorial());
+document.getElementById('howTut').addEventListener('click', () => { paused = false; setPauseIcon(); startTutorial(); });
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
 document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPropagation());
-document.getElementById('sHow').addEventListener('click', () => { buildHelp(); document.getElementById('howto').classList.add('open'); document.getElementById('howClose').focus(); });
-document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); document.getElementById('sHow').focus(); });
+document.getElementById('pmHow').addEventListener('click', () => { showPauseMenu(false); openHowTo(); });
+document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); showPauseMenu(true); document.getElementById('pmHow').focus(); });
 document.getElementById('howto').addEventListener('pointerdown', e => e.stopPropagation());
 function pmLabel(el, name, v) { const h = name + '<i' + (v === 'On' ? '' : ' class="off"') + '>' + v.toUpperCase() + '</i>'; if (el.innerHTML !== h) { el.innerHTML = h; el.setAttribute('aria-label', name + ': ' + v); } }
 function setSoundLabel() {
@@ -8523,7 +8523,7 @@ addEventListener('keydown', e => {
   if (document.getElementById('credits').classList.contains('open')) { if (k === 'escape') closeCredits(); return; }
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
-  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); rrIn = 'key';
   if (booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
