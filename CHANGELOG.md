@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): every score gain now goes through one function, `addScore()`, so scoring has a single home in the code. Extra lives still come at exactly the same moments; the replay test confirms identical runs.
 - Testing (no game change): the replay test now plays eight scenarios (all six bosses, Endless, two-player, a run saved and resumed), records a checksum of the simulation every 500 frames so a difference shows where a run first went another way, and checks that drawing never changes a run. Groundwork for restructuring the game code.
 - Continue screen (hidden build 1.2.4.4): the "CONTINUES LEFT" / "LAST CONTINUE" line is twice as big and brighter, with more space between the countdown, that line and the tap prompt. Display only; continues, scoring and the leaderboard are unchanged.
 - Cleanup: removed the unused gold alert on the SCORES button; only the red dot (someone passed your score) is left. No visible change.
