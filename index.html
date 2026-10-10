@@ -528,6 +528,14 @@ const RP = {
   tree: ['#0e1e0a', '#183014', '#22441a', '#2f5a22', '#40722c', '#58903a'],
   cloud: ['#8890a8', '#aab2c6', '#ccd2e0', '#e8ecf4', '#ffffff']
 };
+// Each weapon has one colour, used for its pickup orb, its shots, the HUD label and the help screen.
+// Orange and gold stay with enemy bullets and medals, purple with the Nova.
+const WPN = {
+  S: { name: 'SCATTER', ramp: RP.crys, hud: ['#a8f6dc', '#4ccfae'] },
+  L: { name: 'LANCE', ramp: ['#1e3a0a', '#3e6a10', '#6aa818', '#a8e040', '#eaffb0'], hud: ['#eaffb0', '#a8e040'] },
+  H: { name: 'SEEKERS', ramp: RP.pinkb, hud: ['#ffd0e8', '#ff8ac0'] },
+  A: { name: 'ARC', ramp: ['#0a1a52', '#14389c', '#2a64e8', '#64a8ff', '#d4ecff'], hud: ['#d4ecff', '#64a8ff'] }
+};
 const TR = {
   sea: ['#0b2240', '#10325a', '#164474', '#1f5890', '#2e72aa', '#4a92c4', '#76b4d8'],
   surf: ['#7ab4d4', '#b4dcee', '#eef8fc'],
@@ -1083,7 +1091,7 @@ SPR.clouds = [
 SPR.shell = rotSet(sprite(3, 7, x => ellS(x, RP.yel, 1.5, 3.5, 1.5, 3.5, 0.3), { oc: '#e0281e' }));
 SPR.flak = sprite(5, 5, x => ellS(x, RP.smoke, 2.5, 2.5, 2.5, 2.5, 0.2));
 SPR.ps = rotSet(sprite(3, 8, x => ellS(x, RP.crys, 1.5, 4, 1.5, 4, 0.4)));
-SPR.seek = sprite(4, 4, x => ellS(x, RP.alien, 2, 2, 2, 2, 0.45));
+SPR.seek = sprite(4, 4, x => ellS(x, WPN.H.ramp, 2, 2, 2, 2, 0.45));
 
 const IRON = ['#141618', '#24282c', '#3a4046', '#565e66', '#7c858e'];
 const WOOD = ['#2e1c12', '#4a2e1c', '#6a4428', '#8a5c38', '#a87850'];
@@ -6308,8 +6316,8 @@ function fireArc(p, L) {
 }
 function drawArcs() {
   for (const a of arcs) { const f = a.life / 5;
-    for (const [col, lw, al] of [['#4ccfae', a.w + 3, 0.35], ['#a8f6dc', a.w + 1, 0.9], ['#ffffff', Math.max(1, a.w - 1), 1]]) { ctx.globalAlpha = al * f; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]); for (const q of a.pts) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
-    ctx.globalAlpha = 0.5 * f; dk(a.pts[a.pts.length - 1][0], a.pts[a.pts.length - 1][1], 4, '#a8f6dc'); }
+    for (const [col, lw, al] of [[WPN.A.ramp[2], a.w + 3, 0.5], [WPN.A.ramp[3], a.w + 1, 0.9], ['#ffffff', Math.max(1, a.w - 1), 1]]) { ctx.globalAlpha = al * f; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]); for (const q of a.pts) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
+    ctx.globalAlpha = 0.5 * f; dk(a.pts[a.pts.length - 1][0], a.pts[a.pts.length - 1][1], 4, WPN.A.ramp[3]); }
   ctx.globalAlpha = 1;
 }
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
@@ -6458,7 +6466,7 @@ function updPlayer() {
     for (const b of ebul) if ((b.kind === 's' || b.kind === 'shell') && !b.dead && (b.x - d.x) ** 2 + (b.y - d.y) ** 2 < 32) { b.dead = true; parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.6), life: 8, max: 8, col: '#a8f6dc' }); }
     if (p.dcd === 0) {
       if (p.wpn === 'S') pshot(d.x, d.y - 5, -PI / 2 + side * 0.06, 6, 0.7);
-      else if (p.wpn === 'L' || p.wpn === 'A') shots.push({ x: d.x, y: d.y - 8, vx: 0, vy: -7.5, dmg: 0.45, k: 'l', w: 2, h: 12 });
+      else if (p.wpn === 'L' || p.wpn === 'A') shots.push({ x: d.x, y: d.y - 8, vx: 0, vy: -7.5, dmg: 0.45, k: 'l', w: 2, h: 12, drone: true });
       else shots.push({ x: d.x, y: d.y - 4, vx: side * 0.8, vy: -1.2, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 });
     }
   }
@@ -7173,7 +7181,7 @@ function update() {
         else {
           if (tut) tut.got++;
           if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else addScore(2000); } else p.wpn = it.w;
-          label(it.x, it.y - 8, { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[it.w] + ' ' + p.lvl);
+          label(it.x, it.y - 8, WPN[it.w].name + ' ' + p.lvl);
         }
         if (rr) rr.pk[it.kind === 'B' ? 'B' : it.w] = (rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
         checkExtend(); sfx('power'); haptic('power'); items.splice(i, 1);
@@ -7960,7 +7968,6 @@ function drawMedal(it) {
   if (rx > 2) { ctx.fillStyle = ramp[0]; ctx.fillRect(x, y - 2, 1, 5); ctx.fillRect(x - 1, y, 3, 1); }
   if (it.t % 30 < 4) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 2, y - 4, 1, 1); ctx.fillRect(x + 2, y - 3, 1, 1); }
 }
-const ARC_RAMP = ['#0e2a4a', '#1a4a7a', '#2a6aa8', '#4a9ad8', '#a8e0ff'];
 function drawItem(it) {
   if (it.kind === 'S') {
     if (it.life < 60 && (it.life >> 2) & 1) return;
@@ -7970,13 +7977,21 @@ function drawItem(it) {
     return;
   }
   if (it.kind === 'M' || it.kind === 'A') return drawMedal(it);
-  const x = Math.round(it.x), y = Math.round(it.y);
-  const ramp = it.kind === 'B' ? RP.alien : it.kind === 'T' ? RP.crys : { S: RP.crys, L: RP.glass, H: RP.pinkb, A: ARC_RAMP }[it.w] || RP.crys;
-  ctx.globalAlpha = 0.22 + 0.14 * Math.sin(it.t * 0.2); dk(x, y, 14 + Math.round(2 * Math.sin(it.t * 0.2)), it.kind === 'T' ? '#4ccfae' : '#ffffff'); ctx.globalAlpha = 1;
+  // shape tells what it is (lettered orb: weapon, ringed ball: Nova, drone: Talon), colour tells which weapon
+  const x = Math.round(it.x), y = Math.round(it.y), pulse = Math.sin(it.t * 0.2);
+  ctx.globalAlpha = 0.22 + 0.14 * pulse; dk(x, y, (it.kind === 'T' ? 12 : 14) + Math.round(2 * pulse), it.kind === 'B' ? '#bba4ff' : it.kind === 'T' ? '#a8f6dc' : '#ffffff'); ctx.globalAlpha = 1;
+  if (it.kind === 'T') { spr(SPR.talon, x, y + Math.round(Math.sin(it.t * 0.1))); return; }
+  if (it.kind === 'B') { // the HUD's Nova ball, with a ring pulsing outwards like the blast
+    const R = RP.alien, k = (it.t >> 3) & 3;
+    dk(x, y, 9, OUT); dk(x, y, 8, R[2]); dk(x - 1, y - 1, 6, R[3]); dk(x - 3, y - 3, 1, R[5]);
+    ctx.strokeStyle = k === 3 ? R[4] : R[5]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, 2 + k, 0, TAU); ctx.stroke();
+    ctx.fillStyle = R[5]; ctx.fillRect(x, y, 1, 1);
+    return;
+  }
+  const ramp = (WPN[it.w] || WPN.S).ramp;
   dk(x, y, 9, (it.t >> 3) & 1 ? '#ffffff' : OUT);
   dk(x, y, 8, ramp[2]); dk(x - 1, y - 1, 6, ramp[3]); dk(x - 3, y - 3, 1, ramp[4]);
-  const lt = it.kind === 'B' ? 'N' : it.kind === 'T' ? 'T' : it.w;
-  text(lt, x, y - 2, OUT); text(lt, x - 1, y - 3, '#ffffff');
+  text(it.w, x, y - 2, OUT); text(it.w, x - 1, y - 3, '#ffffff');
 }
 function drawPlayerArcs() { drawArcs(); }
 function drawPlayer() {
@@ -8033,9 +8048,8 @@ function drawHUDBody(H) {
   for (let i = 0; i < Math.min(lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
   for (let i = 0; i < Math.min(bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
   if (player) {
-    const nm = { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[player.wpn] || 'SCATTER';
-    const c = { S: ['#a8f6dc', '#4ccfae'], L: ['#d8f2ff', '#8cc0e0'], H: ['#ffd0e8', '#ff8ac0'], A: ['#a8e0ff', '#4a9ad8'] }[player.wpn] || ['#a8f6dc', '#4ccfae'];
-    textS(nm + ' ' + '>'.repeat(0) + player.lvl, 4, H - 31, c[0], 1, 'left', c[1]);
+    const w = WPN[player.wpn] || WPN.S;
+    textS(w.name + ' ' + player.lvl, 4, H - 31, w.hud[0], 1, 'left', w.hud[1]);
   }
   const big = state === 'over' ? null : enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) {
@@ -8147,9 +8161,10 @@ function renderMain() {
     if (s.k === 's') spr(SPR.ps[dirIdx(s.a)], s.x, s.y);
     else if (s.k === 'l') {
       const w = Math.round(s.w), x = Math.round(s.x - w / 2), y = Math.round(s.y - 7);
-      ctx.fillStyle = '#34226a'; ctx.fillRect(x - 1, y, w + 2, 14);
-      ctx.fillStyle = '#8466dc'; ctx.fillRect(x, y, w, 14);
-      ctx.fillStyle = '#e8dcff'; ctx.fillRect(Math.round(s.x) - Math.max(0, (w >> 2)), y, Math.max(1, w >> 1), 14);
+      const c = s.drone ? RP.grey : WPN.L.ramp; // Talon shots stay neutral, whichever weapon is on
+      ctx.fillStyle = c[1]; ctx.fillRect(x - 1, y, w + 2, 14);
+      ctx.fillStyle = c[s.drone ? 4 : 3]; ctx.fillRect(x, y, w, 14);
+      ctx.fillStyle = s.drone ? '#ffffff' : c[4]; ctx.fillRect(Math.round(s.x) - Math.max(0, (w >> 2)), y, Math.max(1, w >> 1), 14);
     } else spr(SPR.seek, s.x, s.y);
   }
   drawBeam();
@@ -8208,7 +8223,7 @@ function renderMain() {
     for (let i = 0; i < 4; i++) {
       const rr = k * 6 - i * 22;
       if (rr <= 0) continue;
-      ctx.strokeStyle = i % 2 ? '#a8f6dc' : '#bba4ff'; ctx.lineWidth = 4 - i * 0.6;
+      ctx.strokeStyle = i % 2 ? '#e8dcff' : '#bba4ff'; ctx.lineWidth = 4 - i * 0.6;
       ctx.beginPath(); ctx.arc(bombX, bombY, rr, 0, TAU); ctx.stroke();
     }
     ctx.globalAlpha = 1;
@@ -8321,6 +8336,9 @@ function buildHelp() {
   const orb = (c1, c2, t) => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = `radial-gradient(circle at 35% 35%, ${c2}, ${c1})`; o.textContent = t; return o; };
   const sprIcon = (sp, k) => { const c = document.createElement('canvas'); c.width = sp.w; c.height = sp.h; c.getContext('2d').drawImage(sp.c, 0, 0); c.className = 'hico'; c.style.width = Math.round(sp.w * k) + 'px'; c.style.height = Math.round(sp.h * k) + 'px'; return c; };
   const gem = () => { const o = document.createElement('span'); o.className = 'hico'; o.style.cssText = 'width:12px;height:12px;background:#bba4ff;transform:rotate(45deg);box-shadow:0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
+  const nova = () => { const o = orb(RP.alien[2], RP.alien[4], ''); o.style.boxShadow = 'inset 0 0 0 5px ' + RP.alien[2] + ',inset 0 0 0 6px ' + RP.alien[5] + ',0 0 0 2px #120e1a,0 0 8px #bba4ff'; return o; };
+  const talon = () => { const o = new Image(); o.src = SPR.talon.c.toDataURL(); o.className = 'hico'; o.style.width = SPR.talon.w * 2 + 'px'; o.alt = ''; return o; };
+  const wpn = k => orb(WPN[k].ramp[2], WPN[k].ramp[4], k);
   const coinI = () => { const o = document.createElement('span'); o.className = 'orb'; o.style.background = 'radial-gradient(circle at 35% 35%, #fff0a0, #d0a020)'; o.style.width = o.style.height = '16px'; return o; };
   const touch = matchMedia('(pointer: coarse)').matches;
   const add = (tag, html) => { const e = document.createElement(tag); e.innerHTML = html; box.appendChild(e); return e; };
@@ -8334,19 +8352,19 @@ function buildHelp() {
     ? 'Slide a finger anywhere below the ship. It follows your movement. Guns fire on their own.'
     : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space: Nova bomb. P: pause.');
   list([
-    [orb('#3a1a5a', '#bba4ff', 'N'), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
+    [nova(), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
     [orb('#1a3a5a', '#a8f6dc', '!'), 'Super laser', 'Hold still, then ' + (touch ? 'touch again' : 'move') + ' to fire.']]);
   add('h3', 'Weapons');
   list([
-    [orb(RP.crys[2], RP.crys[4], 'S'), 'Scatter', 'Wide fan of shots'],
-    [orb(RP.glass[2], RP.glass[4], 'L'), 'Lance', 'Piercing, straight ahead'],
-    [orb(RP.pinkb[2], RP.pinkb[4], 'H'), 'Seekers', 'Homing missiles'],
-    [orb('#2a6aa8', '#a8e0ff', 'A'), 'Arc', 'Chain lightning (Stage 3+)']]);
+    [wpn('S'), 'Scatter', 'Wide fan of shots'],
+    [wpn('L'), 'Lance', 'Piercing, straight ahead'],
+    [wpn('H'), 'Seekers', 'Homing missiles'],
+    [wpn('A'), 'Arc', 'Chain lightning (Stage 3+)']]);
   add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4.').className = 'hint';
   add('h3', 'Pickups');
   list([
-    [orb(RP.alien[2], RP.alien[4], 'N'), 'Nova', 'Extra bomb'],
-    [orb(RP.crys[1], RP.crys[3], 'T'), 'Talon', 'Escort drone'],
+    [nova(), 'Nova', 'Extra bomb'],
+    [talon(), 'Talon', 'Escort drone'],
     [coinI(), 'Medal', 'Grab in a chain for up to x10'],
     [gem(), 'Secret', 'Follow the crows']]);
   const more = document.createElement('details');
