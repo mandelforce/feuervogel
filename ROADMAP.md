@@ -30,6 +30,7 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 ## Phase 2: Safety net
 
 - [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. In CI as an advisory step until proven stable.
+- [x] Replay coverage for the Phase 4 refactor: eight scenarios (all six bosses, Endless, two-player, a save-and-resume), a checksum of the simulation every 500 frames that names where a run first differs, and an isolation check that drawing never changes a run.
 - [x] One seeded RNG inside the game. While `update()` (and `newGame`, `bomb`, `fireBeam`, `doContinue`) runs, `Math.random` draws from a per-run seeded stream; sound, drawing, idle weather and `lowFX`-gated effects use the free stream. Each run picks a new seed, so play stays varied. Guarded by the isolation checks in `tests/replay.mjs`.
 - [x] Terrain: checked and already deterministic for the Campaign. The layout comes from fixed-seed hash noise (seed 1944, no `Math.random`), and the per-frame time budget in `ensureChunks` only affects painted pictures, not the simulation. A terrain fingerprint for all six stages now guards it (`tests/golden.json`). Open: where enemies and ground targets are placed still uses `rnd()` (random each run); making placement fixed would change gameplay, so ask first.
 - [ ] The playfield height `H` now comes from the window layout (`#app` box), so gameplay depends on the screen. Fine for play, but any replay or server-side check must pin it. Consider a fixed logical height for the simulation.
@@ -72,6 +73,8 @@ src/
 - [ ] Run Prettier once, as its own commit with no other changes, so `git blame` stays useful.
 
 ## Phase 4: Structure
+
+Done inside `index.html` before the module split (Phase 3): modules are easier to cut once entities and state are grouped. Order, one PR per step, each replay-identical: (0) replay coverage, see Phase 2; (1) one `addScore()` for all score changes; (2-7) the entity table: behaviour, drawing, type traits, kill effects, stats, then bosses; (8-12) the state object by lifetime: `run`, `world`, `app`, `fx`, then `newGame()` becomes `createRun()`. Land or pause feature branches before steps 8-11, which touch lines across the whole file. This also prepares the Generative mode (mini-bosses from entity recipes, terrain-tagged spawns, a run state that can be saved whole).
 
 - [ ] **Entity table.** Each enemy type declares its stats and its own `update`, `draw` and `onKill`. `update()` and `render()` loop over entities. Start with bosses (`BOSSDEF` and `BOSSMOVE` are already close), then ground enemies, then air.
 - [ ] **One `Game` state object** instead of scattered globals. `newGame()` becomes `createState()`. All score changes go through one function, so scoring has a single home.
