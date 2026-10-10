@@ -2798,6 +2798,15 @@ function sfxOut() {
   if (actx.createStereoPanner) { const pn = actx.createStereoPanner(); pn.pan.value = SPOS.pan; g.connect(pn).connect(sfxBus); } else g.connect(sfxBus);
   return lp;
 }
+// the run is over: fade out every sound effect still ringing (the last shots, the laser) by swapping in a fresh bus; music and later sounds are untouched
+function cutSfx(fade = 0.08) {
+  if (!actx || !sfxBus) return;
+  const old = sfxBus, t = actx.currentTime;
+  try { old.gain.cancelScheduledValues(t); old.gain.setValueAtTime(old.gain.value, t); old.gain.linearRampToValueAtTime(0, t + fade); } catch (e) {}
+  setTimeout(() => { try { old.disconnect(); } catch (e) {} }, fade * 1000 + 100);
+  sfxBus = actx.createGain(); sfxBus.gain.value = sfxBase(); sfxBus.connect(master);
+  if (chipSrc) { try { chipSrc.stop(t + fade); } catch (e) {} chipSrc = null; }
+}
 function setPos(x, y) { SPOS = { pan: clamp((x - W / 2) / (W / 2), -1, 1) * 0.75, v: 0.5 + 0.5 * clamp(y / (H * 0.75), 0, 1), far: y < H * 0.28 }; }
 function tone(f, d, type = 'square', v = 0.05, f2) {
   if (muted || !actx) return;
@@ -3332,7 +3341,7 @@ const CHIP = {
 };
 const chipCache = {}; let chipSrc = null, chipEnd = 0;
 function chipPlay(name) {
-  if (muted || !actx || settings.sfxOn === false) return;
+  if (muted || !actx || settings.sfxOn === false || state !== 'play' || cont > 0) return; // weapon sounds only while the ship is in play
   let b = chipCache[name]; if (!b) { const d = chipRender(CHIP[name]()); b = actx.createBuffer(1, d.length, CHIP_SR); b.getChannelData(0).set(d); chipCache[name] = b; }
   const t = actx.currentTime; if (chipSrc && t < chipEnd) { try { chipSrc.stop(t); } catch (e) {} }
   const s2 = actx.createBufferSource(), g = actx.createGain(); g.gain.value = 0.6 * mixF; s2.buffer = b; s2.connect(g).connect(sfxOut()); s2.start(t); chipSrc = s2; chipEnd = t + b.duration;
@@ -4109,7 +4118,7 @@ function drawFlyby() {
     ctx.drawImage(s.c, Math.round(x - s.w * k / 2), Math.round(y - s.h * k / 2), Math.round(s.w * k), Math.round(s.h * k));
   }
 }
-function gameOver() { clearResume(); rrSend('over'); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); startFlyby(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
+function gameOver() { clearResume(); rrSend('over'); saveEndless(); state = 'over'; overT = 0; saveHi(); stopMusic(); cutSfx(); startFlyby(); jingle([[64, 4], [63, 4], [59, 4], [56, 4], [57, 16]], 0.12); if (actx && musicBus) { const tj = actx.currentTime + 0.05; mBass(33, tj, 2.4); for (const c of CHORD.m) mLead(57 + c, tj + 1.92, 1.9, 'brass'); mKick(tj + 1.92); } if (lbEligible()) setTimeout(() => { if (state === 'over') openLB('submit'); }, 1300); }
 // ---------------- leaderboard ----------------
 const LB_URL = String(window.STARFALL_LEADERBOARD || '').trim().replace(/\/+$/, '');
 // Local/test builds never post scores to the live board (reading it is fine).
