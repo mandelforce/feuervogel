@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- How to play is now in the main menu (the ☰ button), right under Settings, instead of inside Settings. Back returns to the menu.
 - Power-ups are easier to tell apart. Each weapon has one colour for its pickup, its shots, the HUD label and the help screen: Scatter teal, Lance lime (its beam was purple), Seekers pink (the missiles were purple) and Arc electric blue (the lightning was teal). Only weapons are lettered orbs now: the Nova pickup is a purple ball with a pulsing ring like its blast, and the Talon pickup is the drone itself. The Nova blast rings are purple and lilac (teal stays Scatter's), and Talon shots are a neutral grey-white whatever the weapon. Picture only; gameplay, scoring and the leaderboard are unchanged.
 - New arcade look for the menus. START and SCORES on the title are arcade buttons that sink when tapped (SCORES is quieter, so START leads). Every panel (difficulty, pause menu, settings, high scores, continue your run, how to play) is a bevelled pixel window on diagonal stripes with an uppercase two-tone title; main actions are gold-rimmed arcade buttons. The difficulty and pause menus are lists with one highlight and a blinking cursor; settings use pixel volume bars and arcade switches. The tutorial box uses the same window with a TRAINING 1/9 header and progress squares.
 - Difficulties are renamed Rookie, Veteran and Ace (were Easy, Normal and Hard), with stars and a short line each. Only the names change: the difficulties, scoring and the leaderboard are the same, and saved settings carry over.
