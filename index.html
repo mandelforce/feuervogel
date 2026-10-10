@@ -7339,96 +7339,139 @@ function drawProto(e) {
   if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
   if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
 }
-function drawGroundEnemy(e) {
-  const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
-  switch (e.type) {
-    case 'tank': case 'htank': {
-      const set = e.type === 'tank' ? SPR.tank : SPR.htank, tur = e.type === 'tank' ? SPR.tankTur : SPR.htankTur;
-      spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
-      if (!e.turDead) spr(tur[dirIdx(e.ta)], e.x, e.y, fl); else turStub(e.x, e.y, e.type === 'htank' ? 5 : 4);
-      break;
+// Each enemy type's look, attached to its entry in the entity table as ENT[type].draw(e, fl) (fl: flashing white after a hit).
+// It stays here with the other drawing code, apart from the simulation (ROADMAP.md, Phase 5).
+const LOOKS = {
+  tank(e, fl) {
+    const set = e.type === 'tank' ? SPR.tank : SPR.htank, tur = e.type === 'tank' ? SPR.tankTur : SPR.htankTur;
+    spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
+    if (!e.turDead) spr(tur[dirIdx(e.ta)], e.x, e.y, fl); else turStub(e.x, e.y, e.type === 'htank' ? 5 : 4);
+  },
+  htank(e, fl) { LOOKS.tank(e, fl); },
+  truck(e, fl) { spr(SPR.truck[dirIdx(e.hd)], e.x, e.y, fl); },
+  moto(e, fl) { spr(SPR.moto[dirIdx(e.hd)], e.x, e.y, fl); },
+  staff(e, fl) { spr(SPR.staff[dirIdx(e.hd)], e.x, e.y, fl); },
+  ftruck(e, fl) { spr(SPR.ftruck[dirIdx(e.hd)], e.x, e.y, fl); },
+  station(e, fl) { spr(SPR.station, e.x, e.y, fl); },
+  crate(e, fl) { spr(SPR.crate, e.x, e.y, fl); },
+  shells(e, fl) { spr(SPR.shells, e.x, e.y, fl); },
+  drums(e, fl) { spr(SPR.drums, e.x, e.y, fl); },
+  sandbag(e, fl) { spr(SPR.sandbag, e.x, e.y, fl); },
+  tower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 14, 14, 20, CONCW, null, 0.3, true); spr(SPR.towerTop, e.x + tox, e.y + toy, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x + tox), Math.round(e.y + toy) - 7, 1, 1); } },
+  flak(e, fl) {
+    spr(SPR.flakBase, e.x, e.y, fl);
+    if (!e.turDead) {
+      const set = e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
+      if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
+    } else turStub(e.x, e.y, 4);
+  },
+  popup(e, fl) {
+    const x0 = Math.round(e.x), y0 = Math.round(e.y), f = e.st === 'rise' ? 1 - e.stT / 18 : e.st === 'sink' ? e.stT / 18 : e.st === 'up' ? 1 : 0;
+    ctx.fillStyle = '#141416'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, 8, 0, TAU); ctx.fill();
+    for (let a = 0; a < 12; a++) { const an = a * TAU / 12; ctx.fillStyle = a % 2 ? (e.rocket ? '#d84a34' : '#e8c040') : '#1a1a1e'; ctx.fillRect(Math.round(x0 + Math.cos(an) * 7), Math.round(y0 + Math.sin(an) * 7), 1, 1); }
+    const op = Math.round(f * 6); ctx.fillStyle = '#4a4e56'; ctx.fillRect(x0 - 6 - op, y0 - 5, 6, 10); ctx.fillRect(x0 + 1 + op, y0 - 5, 6, 10); ctx.fillStyle = '#6a6e76'; ctx.fillRect(x0 - 6 - op, y0 - 5, 6, 1); ctx.fillRect(x0 + 1 + op, y0 - 5, 6, 1);
+    if (f > 0) {
+      const r = 2 + f * 4; ctx.fillStyle = '#0a0a0c'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, r + 1, 0, TAU); ctx.fill(); ctx.fillStyle = fl ? '#ffffff' : '#5a616c'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, r, 0, TAU); ctx.fill(); ctx.fillStyle = '#7e8692'; ctx.fillRect(x0 - 1, y0 - 2, 2, 2);
+      if (f > 0.6) { ctx.strokeStyle = '#141416'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0 + 0.5, y0 + 0.5); ctx.lineTo(x0 + Math.cos(e.ga) * 10 * f + 0.5, y0 + Math.sin(e.ga) * 10 * f + 0.5); ctx.stroke(); }
+      if (e.st === 'up' && [50, 34, 18].some(k => e.stT > k && e.stT - k < 10)) { ctx.globalAlpha = 0.6; dk(x0 + Math.cos(e.ga) * 11, y0 + Math.sin(e.ga) * 11, 2, '#ff8a3a'); ctx.globalAlpha = 1; }
     }
-    case 'truck': spr(SPR.truck[dirIdx(e.hd)], e.x, e.y, fl); break;
-    case 'moto': spr(SPR.moto[dirIdx(e.hd)], e.x, e.y, fl); break;
-    case 'staff': spr(SPR.staff[dirIdx(e.hd)], e.x, e.y, fl); break;
-    case 'ftruck': spr(SPR.ftruck[dirIdx(e.hd)], e.x, e.y, fl); break;
-    case 'station': spr(SPR.station, e.x, e.y, fl); break;
-    case 'crate': spr(SPR.crate, e.x, e.y, fl); break;
-    case 'shells': spr(SPR.shells, e.x, e.y, fl); break;
-    case 'drums': spr(SPR.drums, e.x, e.y, fl); break;
-    case 'sandbag': spr(SPR.sandbag, e.x, e.y, fl); break;
-    case 'tower': { const [tox, toy] = drawBlock(e.x, e.y, 14, 14, 20, CONCW, null, 0.3, true); spr(SPR.towerTop, e.x + tox, e.y + toy, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x + tox), Math.round(e.y + toy) - 7, 1, 1); } break; }
-    case 'flak': {
-      spr(SPR.flakBase, e.x, e.y, fl);
-      if (!e.turDead) {
-        const set = e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
-        if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
-      } else turStub(e.x, e.y, 4);
-      break;
-    }
-    case 'popup': {
-      const x0 = Math.round(e.x), y0 = Math.round(e.y), f = e.st === 'rise' ? 1 - e.stT / 18 : e.st === 'sink' ? e.stT / 18 : e.st === 'up' ? 1 : 0;
-      ctx.fillStyle = '#141416'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, 8, 0, TAU); ctx.fill();
-      for (let a = 0; a < 12; a++) { const an = a * TAU / 12; ctx.fillStyle = a % 2 ? (e.rocket ? '#d84a34' : '#e8c040') : '#1a1a1e'; ctx.fillRect(Math.round(x0 + Math.cos(an) * 7), Math.round(y0 + Math.sin(an) * 7), 1, 1); }
-      const op = Math.round(f * 6); ctx.fillStyle = '#4a4e56'; ctx.fillRect(x0 - 6 - op, y0 - 5, 6, 10); ctx.fillRect(x0 + 1 + op, y0 - 5, 6, 10); ctx.fillStyle = '#6a6e76'; ctx.fillRect(x0 - 6 - op, y0 - 5, 6, 1); ctx.fillRect(x0 + 1 + op, y0 - 5, 6, 1);
-      if (f > 0) {
-        const r = 2 + f * 4; ctx.fillStyle = '#0a0a0c'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, r + 1, 0, TAU); ctx.fill(); ctx.fillStyle = fl ? '#ffffff' : '#5a616c'; ctx.beginPath(); ctx.arc(x0 + 0.5, y0 + 0.5, r, 0, TAU); ctx.fill(); ctx.fillStyle = '#7e8692'; ctx.fillRect(x0 - 1, y0 - 2, 2, 2);
-        if (f > 0.6) { ctx.strokeStyle = '#141416'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0 + 0.5, y0 + 0.5); ctx.lineTo(x0 + Math.cos(e.ga) * 10 * f + 0.5, y0 + Math.sin(e.ga) * 10 * f + 0.5); ctx.stroke(); }
-        if (e.st === 'up' && [50, 34, 18].some(k => e.stT > k && e.stT - k < 10)) { ctx.globalAlpha = 0.6; dk(x0 + Math.cos(e.ga) * 11, y0 + Math.sin(e.ga) * 11, 2, '#ff8a3a'); ctx.globalAlpha = 1; }
-      }
-      break;
-    }
-    case 'cgate': spr(SPR.cgate, e.x, e.y, fl); break;
-    case 'bldg': spr(SPR.bldg[e.bk], e.x, e.y, fl); break;
-    case 'proto': drawProto(e); break;
-    case 'camo': { const wob = e.warn && (gf >> 2) & 1 ? 1 : 0, s2 = e.cv === 'hay' ? SPR.hay : e.cv === 'bush' ? SPR.bush : SPR.net; spr(s2, e.x + wob, e.y, fl); if (e.warn && gf % 9 === 0) parts.push({ kind: 'spark', layer: 'g', x: e.x + rnd(-8, 8), y: e.y - 6, vx: rnd(-0.3, 0.3), vy: -0.3 + scrollV, life: 12, max: 12, col: e.cv === 'hay' ? '#f0dc98' : e.cv === 'bush' ? '#58903a' : '#6a5a38' }); break; }
-    case 'radar': { spr(SPR.radarBase, e.x, e.y, fl); spr(SPR.dish[dirIdx(e.rot)], e.x, e.y, fl); break; }
-    case 'gen': { spr(SPR.gen, e.x, e.y, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x) + 8, Math.round(e.y) - 6, 1, 1); } const sc7 = Math.floor(scroll); ctx.strokeStyle = 'rgba(20,20,24,0.7)'; ctx.lineWidth = 1; for (const o of enemies) if (o.type === 'search' && o.gen === e && !o.dead) { ctx.beginPath(); ctx.moveTo(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5); ctx.lineTo(Math.round(o.x) + 0.5, Math.round(o.y) + 0.5); ctx.stroke(); } break; }
-    case 'arty': {
-      spr(SPR.artyBase, e.x, e.y, fl);
-      const ex = Math.round(e.x), ey = Math.round(e.y) + 2; ctx.strokeStyle = '#141416'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ex + 0.5, ey + 0.5); ctx.lineTo(ex + Math.cos(e.ga) * 14 + 0.5, ey + Math.sin(e.ga) * 14 + 0.5); ctx.stroke(); ctx.strokeStyle = '#3e444e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ex + 0.5, ey + 0.5); ctx.lineTo(ex + Math.cos(e.ga) * 13 + 0.5, ey + Math.sin(e.ga) * 13 + 0.5); ctx.stroke();
-      if (e.cd > 0 && e.cd < 30 && canFire(e, 60)) { ctx.globalAlpha = 0.3 + 0.5 * (1 - e.cd / 30); dk(ex + Math.cos(e.ga) * 15, ey + Math.sin(e.ga) * 15, 2.5, '#ff8a3a'); ctx.globalAlpha = 1; }
-      break;
-    }
-    case 'acar': spr(SPR.acar[dirIdx(e.hd)], e.x, e.y, fl); break;
-    case 'bunker': spr(SPR.bunker, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 5); break;
-    case 'pt': spr(SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 7, fl); else turStub(e.x, e.y + 7, 3); break;
-    case 'destroyer': spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } break;
-    case 'hangar': spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); break;
-    case 'fuel': spr(SPR.fuel, e.x, e.y, fl); break;
-    case 'bridge': spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); break;
-    case 'secret': {
-      // the hint: dark crows circling over the hiding place, led by a cream one; all cast a soft shadow
-      const crowAt = (set, fr, x, y) => { ctx.globalAlpha = 0.28; ctx.drawImage(CROW_IMG[0][fr], x - 2, y + 4); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[set][fr], x - 6, y - 5); };
-      for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3; crowAt(0, ((gf >> 3) + k) & 1, Math.round(e.x + Math.cos(an) * 19), Math.round(e.y - 16 + Math.sin(an) * 9)); }
-      { const an = -gf * 0.022 + 1; crowAt(1, (gf >> 3) & 1, Math.round(e.x + Math.cos(an) * 28), Math.round(e.y - 20 + Math.sin(an) * 13)); }
-      if (e.prog > 0) { const f = e.prog / 48; ctx.globalAlpha = 0.3 + 0.5 * f; ctx.strokeStyle = '#bba4ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5, 4 + 8 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke(); ctx.globalAlpha = 1; }
-      break;
-    }
-    case 'troop': {
-      ctx.globalAlpha = 0.3; dk(e.x + 1, e.y + 3, 2, '#0a0812'); ctx.globalAlpha = 1;
-      const mv = e.flag || e.post || e.spray || e.idle > 0 ? 2 : e.march ? (gf >> 3) & 1 : (e.t >> (e.scared ? 2 : 3)) & 1;
-      spr(SPR.troop[mv], e.x, e.y, fl);
-      if (e.flag) { const x0 = Math.round(e.x) + 2, y0 = Math.round(e.y) - 9; ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x0, y0, 1, 7); const wv = Math.sin(gf * 0.3) > 0 ? 1 : 0; ctx.fillStyle = '#f6f4ee'; ctx.fillRect(x0 + 1, y0 + wv, 3, 2); ctx.fillRect(x0 + 4, y0 + 1 - wv, 1, 1); }
-      if (e.carry) { ctx.fillStyle = '#9a6c44'; ctx.fillRect(Math.round(e.x) - 1, Math.round(e.y) - 6, 3, 2); }
-      break;
-    }
-    case 'sub': {
-      const vis = e.st === 'under' ? 0 : e.st === 'rise' ? 1 - e.stT / 45 : e.st === 'dive' ? e.stT / 45 : 1;
-      ctx.globalAlpha = 0.32 * (1 - vis) + 0.1; ctx.drawImage(SPR.sub.k, Math.round(e.x - SPR.sub.w / 2), Math.round(e.y - SPR.sub.h / 2)); ctx.globalAlpha = 1;
-      if (e.st === 'under') { ctx.fillStyle = '#c4c9ce'; ctx.fillRect(Math.round(e.x), Math.round(e.y) + 2, 1, 2); }
-      if (vis > 0) { ctx.globalAlpha = vis; spr(SPR.sub, e.x, e.y, fl); if (vis > 0.6) { if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 10, fl); else turStub(e.x, e.y + 10, 3); } ctx.globalAlpha = 1; }
-      break;
-    }
-    case 'casemate': spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); break;
-    case 'aatower': { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } break; }
-    case 'search': spr(SPR.searchBase, e.x, e.y, fl); break;
-    case 'loco': case 'boxcar': { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.diesel ? SPR.locoD : SPR.loco; if (e.up) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); break; }
-    case 'flatcar': spr(SPR.flatcar, e.x, e.y, fl); if (!e.turDead) spr(SPR.flakGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 3); break;
-    case 'parked': if (e.taxi > 0) prop(e.x, e.y, e.hd, 4);
-      shadow(SPR.fighter[dirIdx(e.hd)], e.x, e.y, 2, 2, 0.4); spr(SPR.fighter[dirIdx(e.hd)], e.x, e.y, fl); break;
-  }
-}
+  },
+  cgate(e, fl) { spr(SPR.cgate, e.x, e.y, fl); },
+  bldg(e, fl) { spr(SPR.bldg[e.bk], e.x, e.y, fl); },
+  proto(e, fl) { drawProto(e); },
+  camo(e, fl) { const wob = e.warn && (gf >> 2) & 1 ? 1 : 0, s2 = e.cv === 'hay' ? SPR.hay : e.cv === 'bush' ? SPR.bush : SPR.net; spr(s2, e.x + wob, e.y, fl); if (e.warn && gf % 9 === 0) parts.push({ kind: 'spark', layer: 'g', x: e.x + rnd(-8, 8), y: e.y - 6, vx: rnd(-0.3, 0.3), vy: -0.3 + scrollV, life: 12, max: 12, col: e.cv === 'hay' ? '#f0dc98' : e.cv === 'bush' ? '#58903a' : '#6a5a38' }); },
+  radar(e, fl) { spr(SPR.radarBase, e.x, e.y, fl); spr(SPR.dish[dirIdx(e.rot)], e.x, e.y, fl); },
+  gen(e, fl) { spr(SPR.gen, e.x, e.y, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x) + 8, Math.round(e.y) - 6, 1, 1); } const sc7 = Math.floor(scroll); ctx.strokeStyle = 'rgba(20,20,24,0.7)'; ctx.lineWidth = 1; for (const o of enemies) if (o.type === 'search' && o.gen === e && !o.dead) { ctx.beginPath(); ctx.moveTo(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5); ctx.lineTo(Math.round(o.x) + 0.5, Math.round(o.y) + 0.5); ctx.stroke(); } },
+  arty(e, fl) {
+    spr(SPR.artyBase, e.x, e.y, fl);
+    const ex = Math.round(e.x), ey = Math.round(e.y) + 2; ctx.strokeStyle = '#141416'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ex + 0.5, ey + 0.5); ctx.lineTo(ex + Math.cos(e.ga) * 14 + 0.5, ey + Math.sin(e.ga) * 14 + 0.5); ctx.stroke(); ctx.strokeStyle = '#3e444e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ex + 0.5, ey + 0.5); ctx.lineTo(ex + Math.cos(e.ga) * 13 + 0.5, ey + Math.sin(e.ga) * 13 + 0.5); ctx.stroke();
+    if (e.cd > 0 && e.cd < 30 && canFire(e, 60)) { ctx.globalAlpha = 0.3 + 0.5 * (1 - e.cd / 30); dk(ex + Math.cos(e.ga) * 15, ey + Math.sin(e.ga) * 15, 2.5, '#ff8a3a'); ctx.globalAlpha = 1; }
+  },
+  acar(e, fl) { spr(SPR.acar[dirIdx(e.hd)], e.x, e.y, fl); },
+  bunker(e, fl) { spr(SPR.bunker, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 5); },
+  pt(e, fl) { spr(SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 7, fl); else turStub(e.x, e.y + 7, 3); },
+  destroyer(e, fl) { spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } },
+  hangar(e, fl) { spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); },
+  fuel(e, fl) { spr(SPR.fuel, e.x, e.y, fl); },
+  bridge(e, fl) { spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); },
+  secret(e, fl) {
+    // the hint: dark crows circling over the hiding place, led by a cream one; all cast a soft shadow
+    const crowAt = (set, fr, x, y) => { ctx.globalAlpha = 0.28; ctx.drawImage(CROW_IMG[0][fr], x - 2, y + 4); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[set][fr], x - 6, y - 5); };
+    for (let k = 0; k < 3; k++) { const an = gf * 0.035 + k * TAU / 3; crowAt(0, ((gf >> 3) + k) & 1, Math.round(e.x + Math.cos(an) * 19), Math.round(e.y - 16 + Math.sin(an) * 9)); }
+    { const an = -gf * 0.022 + 1; crowAt(1, (gf >> 3) & 1, Math.round(e.x + Math.cos(an) * 28), Math.round(e.y - 20 + Math.sin(an) * 13)); }
+    if (e.prog > 0) { const f = e.prog / 48; ctx.globalAlpha = 0.3 + 0.5 * f; ctx.strokeStyle = '#bba4ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x) + 0.5, Math.round(e.y) + 0.5, 4 + 8 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke(); ctx.globalAlpha = 1; }
+  },
+  troop(e, fl) {
+    ctx.globalAlpha = 0.3; dk(e.x + 1, e.y + 3, 2, '#0a0812'); ctx.globalAlpha = 1;
+    const mv = e.flag || e.post || e.spray || e.idle > 0 ? 2 : e.march ? (gf >> 3) & 1 : (e.t >> (e.scared ? 2 : 3)) & 1;
+    spr(SPR.troop[mv], e.x, e.y, fl);
+    if (e.flag) { const x0 = Math.round(e.x) + 2, y0 = Math.round(e.y) - 9; ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x0, y0, 1, 7); const wv = Math.sin(gf * 0.3) > 0 ? 1 : 0; ctx.fillStyle = '#f6f4ee'; ctx.fillRect(x0 + 1, y0 + wv, 3, 2); ctx.fillRect(x0 + 4, y0 + 1 - wv, 1, 1); }
+    if (e.carry) { ctx.fillStyle = '#9a6c44'; ctx.fillRect(Math.round(e.x) - 1, Math.round(e.y) - 6, 3, 2); }
+  },
+  sub(e, fl) {
+    const vis = e.st === 'under' ? 0 : e.st === 'rise' ? 1 - e.stT / 45 : e.st === 'dive' ? e.stT / 45 : 1;
+    ctx.globalAlpha = 0.32 * (1 - vis) + 0.1; ctx.drawImage(SPR.sub.k, Math.round(e.x - SPR.sub.w / 2), Math.round(e.y - SPR.sub.h / 2)); ctx.globalAlpha = 1;
+    if (e.st === 'under') { ctx.fillStyle = '#c4c9ce'; ctx.fillRect(Math.round(e.x), Math.round(e.y) + 2, 1, 2); }
+    if (vis > 0) { ctx.globalAlpha = vis; spr(SPR.sub, e.x, e.y, fl); if (vis > 0.6) { if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 10, fl); else turStub(e.x, e.y + 10, 3); } ctx.globalAlpha = 1; }
+  },
+  casemate(e, fl) { spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); },
+  aatower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } },
+  search(e, fl) { spr(SPR.searchBase, e.x, e.y, fl); },
+  loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.diesel ? SPR.locoD : SPR.loco; if (e.up) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
+  boxcar(e, fl) { LOOKS.loco(e, fl); },
+  flatcar(e, fl) { spr(SPR.flatcar, e.x, e.y, fl); if (!e.turDead) spr(SPR.flakGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 3); },
+  parked(e, fl) {
+    if (e.taxi > 0) prop(e.x, e.y, e.hd, 4);
+    shadow(SPR.fighter[dirIdx(e.hd)], e.x, e.y, 2, 2, 0.4); spr(SPR.fighter[dirIdx(e.hd)], e.x, e.y, fl);
+  },
+  fighter(e, fl) {
+    const s = (e.leader ? SPR.fighterL : SPR.fighter)[dirIdx(e.h)];
+    if (e.leader && !e.crash) { const bx = e.x - Math.cos(e.h) * 11, by = e.y - Math.sin(e.h) * 11; for (let k = 0; k < 7; k++) { ctx.fillStyle = k % 2 ? '#d84a34' : '#f6f4ee'; ctx.fillRect(Math.round(bx - Math.cos(e.h) * k + Math.sin(k * 0.8 + gf * 0.3)), Math.round(by - Math.sin(e.h) * k), 1, 1); } }
+    if (e.crash) { const sc = 1 - Math.min(1, e.ct / 85) * 0.45, w = Math.round(s.w * sc), h = Math.round(s.h * sc); ctx.drawImage(fl ? s.f : s.c, Math.round(e.x - w / 2), Math.round(e.y - h / 2), w, h); }
+    else { spr(s, e.x, e.y, fl); prop(e.x, e.y, e.h); }
+  },
+  missile(e, fl) {
+    const x0 = Math.round(e.x), y0 = Math.round(e.y);
+    ctx.save(); ctx.translate(x0, y0); ctx.rotate(e.h);
+    const shape = g2 => { ctx.beginPath(); ctx.moveTo(-9 - g2, -3 - g2); ctx.lineTo(6, -3 - g2); ctx.arc(6, 0, 3 + g2, -PI / 2, PI / 2); ctx.lineTo(-9 - g2, 3 + g2); ctx.closePath(); ctx.fill(); };
+    ctx.fillStyle = '#ffd23a'; ctx.globalAlpha = 0.22; shape(2); ctx.globalAlpha = 0.55; shape(1); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0e0f12'; shape(0); ctx.fillRect(-10, -4, 3, 8);
+    ctx.fillStyle = fl ? '#ffffff' : '#3a3e44'; ctx.fillRect(-8, -2, 14, 4); ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a616c'; ctx.fillRect(-7, -2, 12, 1); ctx.fillStyle = '#24282e'; ctx.fillRect(-7, 1, 12, 1); ctx.fillStyle = '#3a3e44'; ctx.fillRect(-9, -3, 2, 6);
+    ctx.fillStyle = '#d84a34'; ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff9a7a'; ctx.fillRect(6, -1, 1, 1);
+    const fk = (gf >> 1) & 1, fl2 = 5 + fk;
+    ctx.fillStyle = '#ff8a3a'; ctx.fillRect(-10 - fl2, -1, fl2, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(-10 - Math.ceil(fl2 / 2), -1, Math.ceil(fl2 / 2), 2);
+    ctx.globalAlpha = 0.4; ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(-13, 0, 3.5 + fk * 0.5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.restore();
+  },
+  heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + 6, ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
+  bomber(e, fl) {
+    { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
+    for (const ox of [-14, -7, 7, 14]) { ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.7)' : 'rgba(150,150,140,0.5)'; ctx.fillRect(Math.round(e.x + ox - 3), Math.round(e.y + 5), 7, 1); }
+  },
+  pod(e, fl) {
+    const r = 12 + ((gf >> 3) & 1);
+    ctx.globalAlpha = 0.35; dk(e.x, e.y, r, '#4ccfae'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1.5, 1.5); ctx.translate(-Math.round(e.x), -Math.round(e.y)); spr(SPR.pod, e.x, e.y, fl); ctx.restore();
+  },
+  wing(e, fl) { spr(SPR.wing, e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); },
+  protoFly(e, fl) { return drawProtoPlane(e, PI, 1.15, true); },
+  protoDuel(e, fl) { return drawProtoPlane(e, 0, 1, true); },
+  flare(e, fl) {
+    if (e.ft <= 40) { dk(e.x, e.y, 2, '#fff2a8'); parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, life: 10, max: 10, col: '#ffd060' }); return; }
+    ctx.strokeStyle = '#c4c9ce'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - 7); ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + 4, e.y - 7); ctx.stroke();
+    ctx.fillStyle = '#dce0e8'; ctx.beginPath(); ctx.arc(e.x, e.y - 8, 5, PI, TAU); ctx.fill();
+    dk(e.x, e.y + 1, 2.5 + (gf & 1) * 0.5, e.hit > 0 ? '#ffffff' : '#fff6c8');
+  },
+  rdrone(e, fl) {
+    ctx.globalAlpha = 0.25; dk(e.x, e.y, 6 + ((gf >> 3) & 1), '#8466dc'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.h - PI / 2);
+    ctx.fillStyle = (gf & 2) ? '#bba4ff' : '#e8dcff'; ctx.fillRect(0, -9 - (gf & 1), 1, 2 + (gf & 1));
+    spr(SPR.rdrone, 0, 0, fl); ctx.restore();
+  },
+};
+for (const t in LOOKS) ENT[t].draw = LOOKS[t];
+function drawEnemy(e) { const d = ENT[e.type].draw; if (d) d(e, e.hit > 0 && (e.hw < 10 || (gf & 2))); }
 function drawCastleTower(e) {
   const th = e.towerH ?? 70, bx = e.x, by = e.y - 170, r = 22;
   if (by < -110 || by > H + 40) return;
@@ -7689,57 +7732,6 @@ function drawWeather() {
   if (snowF > 0.05) { ctx.fillStyle = `rgba(255,255,255,${0.42 * snowF})`; for (let fi = 0; fi < flakes.length; fi += 2) { const f = flakes[fi]; ctx.fillRect(Math.round(f.x), Math.round(f.y), f.z > 0.7 ? 2 : 1, f.z > 0.7 ? 2 : 1); } }
   if (dustF > 0.05) { ctx.fillStyle = `rgba(240,216,168,${0.5 * dustF})`; for (const f of flakes) if (f.z > 0.4) ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 1); }
 }
-function drawAir(e) {
-  const fl = e.hit > 0 && (e.hw < 10 || (gf & 2));
-  if (e.type === 'protoFly') return drawProtoPlane(e, PI, 1.15, true);
-  if (e.type === 'protoDuel') return drawProtoPlane(e, 0, 1, true);
-  if (e.type === 'flare') {
-    if (e.ft <= 40) { dk(e.x, e.y, 2, '#fff2a8'); parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, life: 10, max: 10, col: '#ffd060' }); return; }
-    ctx.strokeStyle = '#c4c9ce'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - 7); ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + 4, e.y - 7); ctx.stroke();
-    ctx.fillStyle = '#dce0e8'; ctx.beginPath(); ctx.arc(e.x, e.y - 8, 5, PI, TAU); ctx.fill();
-    dk(e.x, e.y + 1, 2.5 + (gf & 1) * 0.5, e.hit > 0 ? '#ffffff' : '#fff6c8'); return;
-  }
-  if (e.type === 'rdrone') {
-    ctx.globalAlpha = 0.25; dk(e.x, e.y, 6 + ((gf >> 3) & 1), '#8466dc'); ctx.globalAlpha = 1;
-    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.h - PI / 2);
-    ctx.fillStyle = (gf & 2) ? '#bba4ff' : '#e8dcff'; ctx.fillRect(0, -9 - (gf & 1), 1, 2 + (gf & 1));
-    spr(SPR.rdrone, 0, 0, fl); ctx.restore(); return;
-  }
-  switch (e.type) {
-    case 'fighter': {
-      const s = (e.leader ? SPR.fighterL : SPR.fighter)[dirIdx(e.h)];
-      if (e.leader && !e.crash) { const bx = e.x - Math.cos(e.h) * 11, by = e.y - Math.sin(e.h) * 11; for (let k = 0; k < 7; k++) { ctx.fillStyle = k % 2 ? '#d84a34' : '#f6f4ee'; ctx.fillRect(Math.round(bx - Math.cos(e.h) * k + Math.sin(k * 0.8 + gf * 0.3)), Math.round(by - Math.sin(e.h) * k), 1, 1); } }
-      if (e.crash) { const sc = 1 - Math.min(1, e.ct / 85) * 0.45, w = Math.round(s.w * sc), h = Math.round(s.h * sc); ctx.drawImage(fl ? s.f : s.c, Math.round(e.x - w / 2), Math.round(e.y - h / 2), w, h); }
-      else { spr(s, e.x, e.y, fl); prop(e.x, e.y, e.h); }
-      break;
-    }
-    case 'missile': {
-      const x0 = Math.round(e.x), y0 = Math.round(e.y);
-      ctx.save(); ctx.translate(x0, y0); ctx.rotate(e.h);
-      const shape = g2 => { ctx.beginPath(); ctx.moveTo(-9 - g2, -3 - g2); ctx.lineTo(6, -3 - g2); ctx.arc(6, 0, 3 + g2, -PI / 2, PI / 2); ctx.lineTo(-9 - g2, 3 + g2); ctx.closePath(); ctx.fill(); };
-      ctx.fillStyle = '#ffd23a'; ctx.globalAlpha = 0.22; shape(2); ctx.globalAlpha = 0.55; shape(1); ctx.globalAlpha = 1;
-      ctx.fillStyle = '#0e0f12'; shape(0); ctx.fillRect(-10, -4, 3, 8);
-      ctx.fillStyle = fl ? '#ffffff' : '#3a3e44'; ctx.fillRect(-8, -2, 14, 4); ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#5a616c'; ctx.fillRect(-7, -2, 12, 1); ctx.fillStyle = '#24282e'; ctx.fillRect(-7, 1, 12, 1); ctx.fillStyle = '#3a3e44'; ctx.fillRect(-9, -3, 2, 6);
-      ctx.fillStyle = '#d84a34'; ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff9a7a'; ctx.fillRect(6, -1, 1, 1);
-      const fk = (gf >> 1) & 1, fl2 = 5 + fk;
-      ctx.fillStyle = '#ff8a3a'; ctx.fillRect(-10 - fl2, -1, fl2, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(-10 - Math.ceil(fl2 / 2), -1, Math.ceil(fl2 / 2), 2);
-      ctx.globalAlpha = 0.4; ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(-13, 0, 3.5 + fk * 0.5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.restore(); break; }
-    case 'heavy': { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + 6, ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } break; }
-    case 'bomber': {
-      { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
-      for (const ox of [-14, -7, 7, 14]) { ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.7)' : 'rgba(150,150,140,0.5)'; ctx.fillRect(Math.round(e.x + ox - 3), Math.round(e.y + 5), 7, 1); }
-      break;
-    }
-    case 'pod': {
-      const r = 12 + ((gf >> 3) & 1);
-      ctx.globalAlpha = 0.35; dk(e.x, e.y, r, '#4ccfae'); ctx.globalAlpha = 1;
-      ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1.5, 1.5); ctx.translate(-Math.round(e.x), -Math.round(e.y)); spr(SPR.pod, e.x, e.y, fl); ctx.restore(); break;
-    }
-    case 'wing': spr(SPR.wing, e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); break;
-  }
-}
 function airShadow(e) {
   let s = null;
   if (e.type === 'fighter') { s = SPR.fighter[dirIdx(e.h)]; if (e.crash) { const f = Math.min(1, e.ct / 85); shadow(s, e.x, e.y, 12 * (1 - f), 20 * (1 - f), 0.28 + 0.2 * f); return; } }
@@ -7917,7 +7909,7 @@ function renderMain() {
   drawParts('w');
   { const sc0 = Math.floor(scroll);
     for (const e of enemies) if (e.ground) {
-      drawGroundEnemy(e);
+      drawEnemy(e);
       if (FRONT_TREES.has(e.type)) {
         if (e.front === undefined) e.front = treeList(e.wx, e.wy, e.hw + 10).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
         for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.s, t.x, t.y + sc0);
@@ -7941,7 +7933,7 @@ function renderMain() {
   for (const e of enemies) if (!e.ground && !e.surface) airShadow(e);
   if (player && !player.dead) shadow(SPR.player, player.x, player.y, 12, 20, 0.28);
   for (const e of enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
-  for (const e of enemies) if (!e.ground && !e.surface) drawAir(e);
+  for (const e of enemies) if (!e.ground && !e.surface) drawEnemy(e);
 
   for (const s of shots) {
     if (s.k === 's') spr(SPR.ps[dirIdx(s.a)], s.x, s.y);
