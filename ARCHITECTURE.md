@@ -35,7 +35,7 @@ The script runs top to bottom once at page load, then `frameLoop` takes over. Se
 | AI | Per-enemy and per-boss behaviour: the entity table `ENT` (one entry per enemy type, `ENT[type].update(e)`) and `BOSSMOVE` |
 | player | Movement, weapons, bomb, death |
 | update | One simulation step: weather, shots, collisions, scoring |
-| render | One drawn frame |
+| render | One drawn frame. Each enemy type's look is in `LOOKS`, attached to the entity table as `ENT[type].draw(e, fl)` |
 | input | Keyboard, mouse, touch, gamepad, buttons |
 | sizing, loop | Canvas scaling; `frameLoop` runs `update()` at a fixed 60 steps per second and `render()` once per frame |
 

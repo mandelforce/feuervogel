@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): each enemy type's look is now its own draw function in the entity table (`ENT[type].draw`), replacing two long switch blocks. Checked pixel for pixel against the old drawing code for all 48 enemy types.
 - Under the hood (no game change): enemy behaviour now lives in an entity table, one entry per enemy type (`ENT[type].update`), the first step toward declaring each type in one place. The replay test confirms identical runs.
 - Under the hood (no game change): every score gain now goes through one function, `addScore()`, so scoring has a single home in the code. Extra lives still come at exactly the same moments; the replay test confirms identical runs.
 - Testing (no game change): the replay test now plays eight scenarios (all six bosses, Endless, two-player, a run saved and resumed), records a checksum of the simulation every 500 frames so a difference shows where a run first went another way, and checks that drawing never changes a run. Groundwork for restructuring the game code.
