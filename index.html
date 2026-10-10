@@ -4332,7 +4332,7 @@ function worldDamage(wx, wy, r) {
 }
 function blastTroops(x, y, r) {
   for (const e of enemies) if (e.type === 'troop' && !e.dead && (e.x - x) ** 2 + (e.y - y) ** 2 < r * r) {
-    e.dead = true; score += e.score; stats.ground++;
+    e.dead = true; addScore(e.score); stats.ground++;
     const a = Math.atan2(e.y - y, e.x - x) + rnd(-0.4, 0.4), sp = rnd(0.5, 1.1);
     parts.push({ kind: 'thrown', layer: 'g', x: e.x, y: e.y, wx: e.wx, wy: e.wy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, z: 0, vz: rnd(1.3, 2.1), life: 90, max: 90 });
   }
@@ -4990,7 +4990,7 @@ function updResults() {
   if (r.shown < r.lines.length) { if (r.t % 26 === 0) { r.shown++; sfx('tick'); haptic('tick'); } return; }
   if (!r.done) {
     const step = Math.max(100, Math.ceil(r.total / 70 / 100) * 100), add = Math.min(step, r.total - r.counted);
-    r.counted += add; score += add; if (score > hi) hi = score;
+    r.counted += add; addScore(add);
     if (gf % 3 === 0 && add > 0) tone(880 + (r.counted / Math.max(1, r.total)) * 900, 0.04, 'square', 0.03);
     if (r.counted >= r.total) resultsDone();
     return;
@@ -5001,7 +5001,7 @@ function updResults() {
 function skipResults() {
   if (congrats) { if (congrats.t > 150) finishResults(); else congrats.t = 150; return; }
   const r = results; if (!r) return;
-  if (!r.done) { r.shown = r.lines.length; score += r.total - r.counted; r.counted = r.total; resultsDone(); }
+  if (!r.done) { r.shown = r.lines.length; addScore(r.total - r.counted); r.counted = r.total; resultsDone(); }
   else if (r.awarded < r.reward) { while (r.awarded < r.reward) { lives++; r.awarded++; } sfx('reward'); haptic('extend'); }
   else if (r.hold > 20) finishResults();
 }
@@ -5272,7 +5272,7 @@ function yardTrainDown(e, p) {
   for (const q of e.parts) if (q.tr === p.tr && !q.dead) q.dead = true;
   const y0 = t.y, x0 = yardX(t, t.y);
   for (let i = 0; i < 8; i++) later.push({ at: gf + i * 9, fn: () => { boom(x0 + rnd(-8, 8), y0 - i * 20 + (gf % 2), 22, 'g'); sfx('gboom'); shake = Math.max(shake, 5); } });
-  score += 10000; label(x0, y0 - 20, '10000'); cancelBullets(x0, y0 - 60, 110); dropMedals(x0, y0 - 40, 3);
+  addScore(10000); label(x0, y0 - 20, '10000'); cancelBullets(x0, y0 - 60, 110); dropMedals(x0, y0 - 40, 3);
   if (!e.trains[1].on) { e.joinT = 90; return false; }
   return e.trains.every(q => q.dead);
 }
@@ -6466,10 +6466,12 @@ function bomb() {
   }
   sfx('nova'); haptic('nova');
 }
+// Every change to the score goes through addScore, so scoring has one home. The callers check for an extra life (checkExtend)
+// at the moment they always did, so a 1UP comes exactly when it used to.
+function addScore(v) { score += v; if (score > hi) hi = score; }
 function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
   if (score >= nextExtend) { if (lives < LIFE_CAP) lives++; extendsGot++; nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, extendsGot - 1))); sfx('extend'); haptic('extend'); if (player) label(player.x, player.y - 14, '1UP'); }
-  if (score > hi) hi = score;
 }
 const TURRETED = new Set(['tank', 'htank', 'pt', 'destroyer', 'flak', 'bunker', 'casemate', 'aatower', 'flatcar']);
 const TUR_OFF = { pt: [0, 7], destroyer: [0, 22], casemate: [0, 8], sub: [0, 10] };
@@ -6478,7 +6480,7 @@ function popTurret(e) {
   const [ox, oy] = TUR_OFF[e.type] || [0, 0], tx = e.x + ox, ty = e.y + oy;
   boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
   sfx('gboom'); haptic('gkill'); hitStop = Math.max(hitStop, 1);
-  const pts = Math.round(e.score * 0.3 / 10) * 10; score += pts; label(tx, ty - 8, String(pts)); checkExtend();
+  const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
   const set = e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
   if ((e.type === 'tank' || e.type === 'htank') && Math.random() < 0.7) for (let i = 0; i < 2; i++) enemies.push(G('troop', e.wx + rnd(-6, 6), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 90 }));
@@ -6489,14 +6491,14 @@ function startCrash(e) {
   if (Math.random() < 0.05) bailOut(e.x, e.y, 1);
   e.crash = true; e.ct = 0; e.hit = 3; e.counted = true; e.fireAt = -1; e.strafe = false; e.homeT = 0; e.turn = 0;
   e.spin = (Math.random() < 0.5 ? -1 : 1) * rnd(0.025, 0.05); e.v = Math.max(1.1, e.v * 0.85);
-  score += e.score; stats.air++; checkExtend(); label(e.x, e.y - 8, String(e.score));
+  addScore(e.score); stats.air++; checkExtend(); label(e.x, e.y - 8, String(e.score));
   sfx('hit'); haptic('kill');
   parts.push({ kind: 'fx', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, si: 0, life: 18, max: 18 });
 }
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
-  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; const add = Math.min(Math.round(d * 60), 15000 - (e.bonus || 0)); if (add > 0) { e.bonus = (e.bonus || 0) + add; score += add; if (score > hi) hi = score; checkExtend(); } if (Math.random() < 0.4) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); stats.hits++; return; }
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; const add = Math.min(Math.round(d * 60), 15000 - (e.bonus || 0)); if (add > 0) { e.bonus = (e.bonus || 0) + add; addScore(add); checkExtend(); } if (Math.random() < 0.4) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { startCrash(e); return; }
@@ -6537,13 +6539,13 @@ function damagePart(e, p, d) {
   if (p.hp <= 0) {
     p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
     const v = p.k === 'main' ? 3000 : p.k === 'aa' ? 800 : 0;
-    if (v) { score += v; label(px, py, String(v)); checkExtend(); }
+    if (v) { addScore(v); label(px, py, String(v)); checkExtend(); }
     revenge(e.x + p.ox, e.y + p.oy, 2);
     if (e.kind === 'castle' && p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); }
     if (p.k === 'core' && e.trains && !yardTrainDown(e, p)) { /* another train is still fighting */ }
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
-      score += e.score; checkExtend(); label(e.x, e.y, String(e.score));
+      addScore(e.score); checkExtend(); label(e.x, e.y, String(e.score));
       e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
@@ -6577,8 +6579,8 @@ function kill(e) {
     return;
   }
   if (e.type !== 'troop' && !e.counted) { if (e.ground) stats.ground++; else if (!e.big) stats.air++; }
-  if (e.train && trainLeft[e.train] !== undefined && --trainLeft[e.train] === 0) { const tb = trainBonus[e.train] || 5000; score += tb; label(e.x, e.y - 16, String(tb)); sfx('power'); haptic('power'); }
-  score += e.score; checkExtend();
+  if (e.train && trainLeft[e.train] !== undefined && --trainLeft[e.train] === 0) { const tb = trainBonus[e.train] || 5000; addScore(tb); label(e.x, e.y - 16, String(tb)); sfx('power'); haptic('power'); }
+  addScore(e.score); checkExtend();
   if (e.score >= 1000) label(e.x, e.y - 6, String(e.score));
   if (e.big) {
     e.dying = 90;
@@ -6787,7 +6789,7 @@ function update() {
   for (const s of shots) {
     if (!s.c) { s.c = 1; stats.shots++; s.rg = H * rnd(0.6, 0.7); s.dd = 0; }
     { let hitC = null; for (const c of chutes) if (!c.falling && c.t >= 0 && Math.abs(s.x - c.x) < 7 && s.y > c.y - 12 && s.y < c.y + 6) { hitC = c; break; }
-      if (hitC) { hitC.falling = 1; s.dead = true; score += 100; if (score > hi) hi = score; label(hitC.x, hitC.y - 12, '100'); for (let i = 0; i < 6; i++) parts.push({ kind: 'spark', layer: 'a', x: hitC.x + rnd(-5, 5), y: hitC.y - 8, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.4), life: 14, max: 14, col: '#f6f4ee' }); sfx('hit'); continue; } }
+      if (hitC) { hitC.falling = 1; s.dead = true; addScore(100); label(hitC.x, hitC.y - 12, '100'); for (let i = 0; i < 6; i++) parts.push({ kind: 'spark', layer: 'a', x: hitC.x + rnd(-5, 5), y: hitC.y - 8, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.4), life: 14, max: 14, col: '#f6f4ee' }); sfx('hit'); continue; } }
     { s.dd += Math.hypot(s.vx, s.vy); if (s.dd > s.rg) { s.dead = true; if (s.k === 's' || s.k === 'l') groundPuff(s.x, s.y); else parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 8, max: 8, col: '#ffd0e8' }); continue; } }
     if (s.k === 'h') {
       s.sp = Math.min(4.2, s.sp + 0.12);
@@ -6949,30 +6951,30 @@ function update() {
   if (!p.dead) {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
-      if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { score += 10; if (score > hi) hi = score; checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); items.splice(i, 1); } continue; }
+      if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { addScore(10); checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); items.splice(i, 1); } continue; }
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
-          score += 20000; stats.artifact = true; if (!tut) arts.add(curTheme); store.setJSON(KEY.arts, [...arts]);
+          addScore(20000); stats.artifact = true; if (!tut) arts.add(curTheme); store.setJSON(KEY.arts, [...arts]);
           label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           medalMul = medalT > 0 ? Math.min(MEDAL_MAX, medalMul + 1) : 1; medalT = MEDAL_WIN;
-          stats.maxMul = Math.max(stats.maxMul || 1, medalMul); const v = MEDAL_BASE * medalMul; score += v; label(it.x, it.y - 6, String(v));
+          stats.maxMul = Math.max(stats.maxMul || 1, medalMul); const v = MEDAL_BASE * medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (medalMul > 1) parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + medalMul });
           stats.medals++; medalSfx(Math.min(6, medalMul - 1)); haptic(medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); items.splice(i, 1); continue;
         }
         if (it.kind === 'T') {
           if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; p.drones++; label(it.x, it.y - 8, 'TALON'); }
-          else { score += 3000; label(it.x, it.y - 8, '3000'); }
+          else { addScore(3000); label(it.x, it.y - 8, '3000'); }
           if (rr) rr.pk.T = (rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); items.splice(i, 1); continue;
         }
         if (tut && (it.kind === 'B' || it.kind === 'T')) tut.got++;
-        if (it.kind === 'B') { bombs = Math.min(6, bombs + 1); score += 500; label(it.x, it.y - 8, 'NOVA'); }
+        if (it.kind === 'B') { bombs = Math.min(6, bombs + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
         else {
           if (tut) tut.got++;
-          if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else score += 2000; } else p.wpn = it.w;
+          if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else addScore(2000); } else p.wpn = it.w;
           label(it.x, it.y - 8, { S: 'SCATTER', L: 'LANCE', H: 'SEEKERS', A: 'ARC' }[it.w] + ' ' + p.lvl);
         }
         if (rr) rr.pk[it.kind === 'B' ? 'B' : it.w] = (rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
