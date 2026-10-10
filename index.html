@@ -5682,8 +5682,10 @@ const BOSSMOVE = {
     return true;
   }
 };
-const AI = {
-  fighter(e) {
+// Entity table: one entry per enemy type, keyed by e.type. update(e) is the type's behaviour for one simulation step.
+// Drawing, type traits, kill effects and base stats join each entry in later steps (ROADMAP.md, Phase 4).
+const ENT = {
+  fighter: { update(e) {
     if (e.lead && !e.crash) {
       const L = e.lead;
       if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && !player.dead) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
@@ -5720,15 +5722,15 @@ const AI = {
       eshot(e.x, e.y, a, bspeed()); if (loop >= 1) { eshot(e.x, e.y, a - 0.2, bspeed()); eshot(e.x, e.y, a + 0.2, bspeed()); }
     }
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
-  },
-  heavy(e) {
+  } },
+  heavy: { update(e) {
     e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if (e.pause === 12 && !player.dead) { const a = aim(e.x, e.y + 10); for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } }
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of [-14, 14]) parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
-  },
-  bomber(e) {
+  } },
+  bomber: { update(e) {
     if (e.dying) return dyingTick(e);
     if (e.ph === undefined) e.ph = Math.random() * 6;
     e.y += 0.58; const vx = Math.sin(e.t * 0.018 + e.ph) * 0.55 + Math.sin(e.t * 0.047 + e.ph * 2) * 0.2; e.x = clamp(e.x + vx, 26, W - 26); e.bank = vx;
@@ -5742,16 +5744,16 @@ const AI = {
       eshot(gx, gy, a, bspeed()); if (loop >= 1) { eshot(gx, gy, a - 0.18, bspeed()); eshot(gx, gy, a + 0.18, bspeed()); }
       sfx('gun');
     }
-  },
-  missile(e) {
+  } },
+  missile: { update(e) {
     e.life--; e.v = Math.min(1.7, e.v + 0.012);
     if (!player.dead && e.t > 14) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.028, 0.028);
     e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (gf % 2 === 0) parts.push({ kind: 'smoke', layer: 'a', x: e.x - Math.cos(e.h) * 16, y: e.y - Math.sin(e.h) * 16, vx: rnd(-0.1, 0.1), vy: rnd(-0.1, 0.1), r: rnd(1.5, 2.5), life: 26, max: 26 });
     if (e.life <= 0 || e.x < -20 || e.x > W + 20 || e.y < -40 || e.y > H + 20) { if (e.life <= 0) { boom(e.x, e.y, 14, 'a'); if (e.y > 0 && e.y < H) sfx('gboom'); } e.dead = true; }
-  },
+  } },
   // a star shell: streaks up to its burst point, pops, then hangs under a parachute drifting down and lighting a circle
-  flare(e) {
+  flare: { update(e) {
     e.ft++;
     if (e.ft <= 40) { const f = e.ft / 40; e.x = e.sx + (e.tx - e.sx) * f; e.y = e.sy + (e.ty - e.sy) * f - Math.sin(f * PI) * 30; if (e.ft === 40) { sfx('tink'); flash(e.x, e.y, 6); } return; }
     e.y += 0.12; e.x += Math.sin(e.ft * 0.03) * 0.15; e.life--;
@@ -5759,17 +5761,17 @@ const AI = {
     if (e.life <= 0) { e.dead = true; return; }
     if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!(e.caught > 0)) caughtRing(); e.caught = 40; } e.lit = true; } else e.lit = false;
     if (e.caught > 0) e.caught--;
-  },
+  } },
   // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
-  rdrone(e) {
+  rdrone: { update(e) {
     const tx = player.dead ? e.x : player.x, ty = player.dead ? H * 0.5 : player.y - 90;
     const want = e.t < 28 ? (e.side > 0 ? 0.3 : PI - 0.3) : e.t < 72 ? Math.atan2(ty - e.y, tx - e.x) : PI / 2 + e.side * 0.45;
     e.h += clamp(angDiff(e.h, want), -0.07, 0.07);
     const sp = e.t < 28 ? 1.5 : 2.1; e.x += Math.cos(e.h) * sp; e.y += Math.sin(e.h) * sp;
     if (e.t === 72 && !player.dead && e.y < player.y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
-  },
-  pod(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; },
-  wing(e) {
+  } },
+  pod: { update(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; } },
+  wing: { update(e) {
     if (e.dying) return dyingTick(e);
     if (e.y < 70 && !e.leaving && e.mt === 0) { e.y += 0.6; return; }
     e.mt++;
@@ -5781,8 +5783,8 @@ const AI = {
     if (e.mt % 48 === 0) { const s = (e.mt >> 5) & 1 ? 1 : -1, gx = e.x + s * 18, gy = e.y; for (let k = 0; k < 2; k++) later.push({ at: gf + k * 6, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, aim(gx, gy), sp * 1.1); } }); sfx('gun'); }
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
     if (e.mt % 300 === 210) ring(e.x, e.y, 16 + loop * 2, sp * 0.75, e.mt * 0.05);
-  },
-  tank(e) {
+  } },
+  tank: { update(e) {
     if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 3) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
@@ -5807,14 +5809,14 @@ const AI = {
       if (e.heavy) { eshot(bx, by, a - 0.16, bspeed() * 1.05, 'shell'); eshot(bx, by, a + 0.16, bspeed() * 1.05, 'shell'); }
       flash(bx, by, 3); smokePuff(bx, by); sfx('cannon');
     }
-  },
-  truck(e) {
+  } },
+  truck: { update(e) {
     const nwy = e.wy + e.dir * e.v, nwx = roadX(nwy) + e.lane;
     const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx, nwy + e.dir * 12);
     if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
     groundPos(e);
-  },
-  flak(e) {
+  } },
+  flak: { update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (spotted > 0) e.cd--;
@@ -5828,8 +5830,8 @@ const AI = {
       if (nb >= 4) later.push({ at: gf + 9, fn: () => { if (!e.dead && !e.turDead && !player.dead) { const cx = e.x + Math.cos(e.ga) * 12, cy = e.y + Math.sin(e.ga) * 12; flakShot(cx, cy, tight); flakShot(cx, cy, tight * 1.6); flash(cx, cy, 2); sfx('gun'); } } });
       if (nightF > 0.5) for (let k = 1; k <= 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
     }
-  },
-  bunker(e) {
+  } },
+  bunker: { update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.05, 0.05);
     if (--e.cd <= 0 && canFire(e, 90)) {
@@ -5838,16 +5840,16 @@ const AI = {
       for (let k = -1; k <= 1; k++) eshot(bx, by, e.ga + k * 0.2, bspeed());
       flash(bx, by, 3); sfx('cannon');
     }
-  },
-  pt(e) {
+  } },
+  pt: { update(e) {
     if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
     const gx = e.x, gy = e.y + 7;
     if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
-  },
-  destroyer(e) {
+  } },
+  destroyer: { update(e) {
     if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
@@ -5856,15 +5858,15 @@ const AI = {
     if (!player.dead) { e.ta += clamp(angDiff(e.ta, aim(A[0], A[1])), -0.04, 0.04); e.tb += clamp(angDiff(e.tb, aim(B[0], B[1])), -0.04, 0.04); }
     if (--e.cdA <= 0 && canFire(e, 60)) { e.cdA = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12, e.ta + (k - 0.5) * 0.1, bspeed()); flash(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12); sfx('cannon'); }
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
-  },
-  htank(e) { AI.tank(e); },
-  bridge(e) { groundPos(e); },
-  secret(e) {
+  } },
+  htank: { update(e) { ENT.tank.update(e); } },
+  bridge: { update(e) { groundPos(e); } },
+  secret: { update(e) {
     groundPos(e); e.untarget = true;
     const near = !player.dead && Math.abs(player.x - e.x) < 15 && Math.abs(player.y - e.y) < 18;
     if (near) { e.prog = (e.prog || 0) + 1; if (e.prog % 10 === 0) sfx('tick'); if (e.prog >= 48) { revealSecret(e); return; } } else e.prog = Math.max(0, (e.prog || 0) - 2);
-  },
-  troop(e) {
+  } },
+  troop: { update(e) {
     if (e.t === 1 && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 1))) { e.dead = true; return; }
     if (e.t % 20 === 1 && !e.post && !e.march && !e.flag && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 0))) { e.scared = 40; e.hd = Math.random() * TAU; }
     if (e.flag) { groundPos(e); return; }
@@ -5906,8 +5908,8 @@ const AI = {
     else { e.wx = nwx; e.wy = nwy; }
     groundPos(e);
     if (false) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 0.9); sfx('gun'); }
-  },
-  sub(e) {
+  } },
+  sub: { update(e) {
     e.stT--;
     if (e.st === 'under') {
       if (terrainType(e.wx, e.wy + 30) === 'sea' && !blockedMove(e, 0, 0.2)) e.wy += 0.2;
@@ -5934,8 +5936,8 @@ const AI = {
     }
     e.untarget = e.st === 'under';
     groundPos(e);
-  },
-  casemate(e) {
+  } },
+  casemate: { update(e) {
     groundPos(e);
     if (!player.dead) e.ga = clamp(e.ga + clamp(angDiff(e.ga, aim(e.x, e.y + 8)), -0.03, 0.03), PI / 2 - 1.1, PI / 2 + 1.1);
     if (--e.cd <= 0 && canFire(e, 100)) {
@@ -5944,8 +5946,8 @@ const AI = {
       for (let k = -1; k <= 1; k++) eshot(bx, by, e.ga + k * 0.15, bspeed(), 'B');
       flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
     }
-  },
-  aatower(e) {
+  } },
+  aatower: { update(e) {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
@@ -5956,8 +5958,8 @@ const AI = {
       if (i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); }
       flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun');
     }
-  },
-  search(e) {
+  } },
+  search: { update(e) {
     groundPos(e);
     if (e.gen === undefined) e.gen = enemies.find(o => o.type === 'gen' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 190) || null;
     if (e.gen && e.gen.dead) { e.off = (e.off || 0) + 1; if (e.off > 60) return; }
@@ -5965,26 +5967,26 @@ const AI = {
     if (e.wait > 0 && --e.wait === 0) e.lock = 150;
     if (e.lock > 0 && !player.dead) { e.lock--; e.ba += clamp(angDiff(e.ba, aim(e.x, e.y)) * 0.05, -0.012, 0.012); }
     else { const tgt = PI / 2 + Math.sin(e.t * 0.018 + e.ph) * 0.95; e.ba += angDiff(e.ba, tgt) * 0.05; }
-  },
-  loco(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } },
-  boxcar(e) { trainMove(e); },
-  flatcar(e) {
+  } },
+  loco: { update(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } } },
+  boxcar: { update(e) { trainMove(e); } },
+  flatcar: { update(e) {
     trainMove(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
-  },
-  hangar(e) { groundPos(e); },
-  cgate(e) {
+  } },
+  hangar: { update(e) { groundPos(e); } },
+  cgate: { update(e) {
     groundPos(e);
     if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && !player.dead) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) enemies.push(G('acar', e.wx + dx, e.wy + 14, { hp: 4 * hpm(), hw: 5, hh: 9, score: 700, rad: 9, v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
-  },
-  protoFly(e) {
+  } },
+  protoFly: { update(e) {
     e.v = Math.min(4.2, (e.v || 1.6) + 0.03); e.y -= e.v; e.x += 0.35;
     if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex * 1.15, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
     if (e.y < -110) e.dead = true;
-  },
-  protoDuel(e) {
+  } },
+  protoDuel: { update(e) {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
     if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
@@ -5993,8 +5995,8 @@ const AI = {
     if (player.dead) return;
     if (k % Math.round(46 * fireSlow()) === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
     if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y - 30, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
-  },
-  proto(e) {
+  } },
+  proto: { update(e) {
     if (!e.escape) { groundPos(e); return; }
     e.escape++;
     if (e.escape === 90) boostOutSfx();
@@ -6003,15 +6005,15 @@ const AI = {
     if (gf % 3 === 0) for (const ex of [-30, -14, 14]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
     if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
-  },
-  bldg(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } },
-  camo(e) {
+  } },
+  bldg: { update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
+  camo: { update(e) {
     groundPos(e); e.untarget = true;
     if (e.cv === 'hay') { e.warn = !player.dead && e.y > player.y - 40; if ((!player.dead && e.y > player.y - 4) || e.y > H - 50) revealCamo(e, false); }
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
-  },
-  popup(e) {
+  } },
+  popup: { update(e) {
     groundPos(e); e.stT--;
     if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
@@ -6021,34 +6023,34 @@ const AI = {
       else if ((e.stT === 50 || e.stT === 34 || e.stT === 18) && !player.dead) { const bx = e.x + Math.cos(e.ga) * 9, by = e.y + Math.sin(e.ga) * 9; for (const o of [-0.08, 0.08]) eshot(bx, by, e.ga + o, bspeed()); flash(bx, by, 2); sfx('gun'); }
       if (e.stT <= 0) { e.st = 'sink'; e.stT = 18; }
     } else if (e.st === 'sink') { if (e.stT <= 0) { e.st = 'down'; e.stT = (rnd(70, 130)) | 0; e.untarget = true; } }
-  },
-  radar(e) { groundPos(e); e.rot += 0.05; },
-  gen(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); },
-  arty(e) {
+  } },
+  radar: { update(e) { groundPos(e); e.rot += 0.05; } },
+  gen: { update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
+  arty: { update(e) {
     groundPos(e); if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
       const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); shake = Math.max(shake, 2);
       markers.push({ wx: player.x, wy: player.y - Math.floor(scroll), t: 72, max: 72 });
     }
-  },
-  acar(e) {
+  } },
+  acar: { update(e) {
     if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && !player.dead) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
-    AI.truck(e);
-  },
-  station(e) { groundPos(e); }, tower(e) { groundPos(e); }, crate(e) { groundPos(e); }, shells(e) { groundPos(e); }, drums(e) { groundPos(e); }, sandbag(e) { groundPos(e); },
-  moto(e) { AI.truck(e); }, staff(e) { AI.truck(e); },
-  ftruck(e) {
+    ENT.truck.update(e);
+  } },
+  station: { update(e) { groundPos(e); } }, tower: { update(e) { groundPos(e); } }, crate: { update(e) { groundPos(e); } }, shells: { update(e) { groundPos(e); } }, drums: { update(e) { groundPos(e); } }, sandbag: { update(e) { groundPos(e); } },
+  moto: { update(e) { ENT.truck.update(e); } }, staff: { update(e) { ENT.truck.update(e); } },
+  ftruck: { update(e) {
     const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
     if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
     else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; } }
     groundPos(e);
-  },
-  fuel(e) { groundPos(e); },
-  parked(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); },
-  boss(e) {
+  } },
+  fuel: { update(e) { groundPos(e); } },
+  parked: { update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
+  boss: { update(e) {
     if (e.dying) {
       if (e.kind === 'ship') e.y += 0.12;
       if (e.kind === 'castle') { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); }
@@ -6173,7 +6175,7 @@ const AI = {
         }
       }
     }
-  }
+  } }
 };
 
 /* ================= player ================= */
@@ -6859,7 +6861,7 @@ function update() {
     if (bad) { e.dead = true; for (const o of enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
   for (const e of enemies) if (!e.seenC && !NOCOUNT.has(e.type) && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
-  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); AI[e.type](e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
+  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); checkProto();
   for (const b of ebul) {

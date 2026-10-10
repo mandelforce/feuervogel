@@ -32,7 +32,7 @@ The script runs top to bottom once at page load, then `frameLoop` takes over. Se
 | resume | Saves a run so a reloaded page can continue |
 | helpers | Entity factories `E()` (any enemy) and `G()` (ground enemy), `hpm()` (difficulty health scale) |
 | director | Decides what spawns when: waves, ground targets, pods, bosses (`BOSSDEF`, `BOSSMOVE`) |
-| AI | Per-enemy and per-boss behaviour |
+| AI | Per-enemy and per-boss behaviour: the entity table `ENT` (one entry per enemy type, `ENT[type].update(e)`) and `BOSSMOVE` |
 | player | Movement, weapons, bomb, death |
 | update | One simulation step: weather, shots, collisions, scoring |
 | render | One drawn frame |
