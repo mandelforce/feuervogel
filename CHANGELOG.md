@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- New arcade look for the menus. START and SCORES on the title are arcade buttons that sink when tapped (SCORES is quieter, so START leads). Every panel (difficulty, pause menu, settings, high scores, continue your run, how to play) is a bevelled pixel window on diagonal stripes with an uppercase two-tone title; main actions are gold-rimmed arcade buttons. The difficulty and pause menus are lists with one highlight and a blinking cursor; settings use pixel volume bars and arcade switches. The tutorial box uses the same window with a TRAINING 1/9 header and progress squares.
+- Difficulties are renamed Rookie, Veteran and Ace (were Easy, Normal and Hard), with stars and a short line each. Only the names change: the difficulties, scoring and the leaderboard are the same, and saved settings carry over.
 - Under the hood (no game change): each enemy type's base stats (health, size, score, hit radius) are declared once in the entity table; spawns set only what differs. Every enemy created in the replay scenarios comes out identical to before.
 - Under the hood (no game change): what each enemy type does when destroyed (its explosion, wreck, ruin, sinking, parachutes, dropped items) now lives with that type in the entity table, so `kill()` only does what every kill shares. Checked kill by kill against the old code for all 49 types.
 - Under the hood (no game change): what each enemy type is (harmless, turreted, explosive, guarded, its medal drops, and so on) is now written on its own entry in the entity table instead of in eleven separate lists.
