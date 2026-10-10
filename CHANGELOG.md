@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): what each enemy type is (harmless, turreted, explosive, guarded, its medal drops, and so on) is now written on its own entry in the entity table instead of in eleven separate lists.
 - Under the hood (no game change): each enemy type's look is now its own draw function in the entity table (`ENT[type].draw`), replacing two long switch blocks. Checked pixel for pixel against the old drawing code for all 48 enemy types.
 - Under the hood (no game change): enemy behaviour now lives in an entity table, one entry per enemy type (`ENT[type].update`), the first step toward declaring each type in one place. The replay test confirms identical runs.
 - Under the hood (no game change): every score gain now goes through one function, `addScore()`, so scoring has a single home in the code. Extra lives still come at exactly the same moments; the replay test confirms identical runs.

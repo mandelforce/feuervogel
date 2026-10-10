@@ -2478,7 +2478,6 @@ function treeList(wx, wy, r) {
   }
   return out;
 }
-const FRONT_TREES = new Set(['bldg', 'cgate', 'arty', 'radar', 'gen', 'flak', 'bunker', 'casemate', 'aatower', 'search', 'fuel', 'hangar', 'station', 'tower']);
 function drawStations(x, p, wy0) {
   for (let dp = -1; dp <= 1; dp++) for (const e of railEnds(p + dp)) {
     const ly = e.wy - wy0;
@@ -3512,8 +3511,6 @@ function stageLabel(st) { if (endless) return String(st); return String(((st - 1
 let hitStop = 0, slowT = 0, results = null, secret = null, trainLeft = {}, trainId = 0;
 const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0, maxMul: 1 });
 let guardCount = 0;
-const GUARDED = new Set(['flak', 'bunker', 'casemate', 'aatower', 'search', 'fuel', 'hangar', 'tower', 'crate', 'shells', 'drums', 'camo', 'popup', 'arty', 'radar', 'gen']);
-const NOCOUNT = new Set(['troop', 'secret', 'bridge', 'crate', 'sandbag', 'camo', 'missile', 'parked']);
 let stats = newStats();
 let arts = new Set(store.getJSON(KEY.arts, []));
 let beam = null, gpad = null, padPrev = {};
@@ -3532,7 +3529,6 @@ const hiClouds = [{ x: 60, y: -40, s: 2, v: 1.8 }, { x: 170, y: -260, s: 0, v: 1
 function newSecret() { secret = { q: 11 + ((Math.random() * 14) | 0), x: rnd(30, W - 30), spawned: false }; }
 const chutes = [];
 const birds = [], chunkHouses = new Map(), chunkFires = new Map(), treads = [];
-const TREADERS = new Set(['acar', 'tank', 'htank', 'truck', 'moto', 'staff', 'ftruck']);
 function treadCol(wx, wy) { const tt = terrainType(Math.floor(wx), Math.floor(wy)); if (WATER.has(tt)) return null; if (snowF > 0.5) return '#8e9aac'; if (dustF > 0.5) return '#9a7c50'; if (tt === 'road' || tt === 'concrete' || tt === 'runway' || tt === 'taxi' || tt === 'street') return '#2e2e32'; return '#3a2a18'; }
 function layTread(wx, wy, a, w, gap) { const col = treadCol(wx, wy); if (!col) return; const px = -Math.sin(a), py = Math.cos(a); for (const sd of [-1, 1]) treads.push({ wx: wx + px * gap * sd, wy: wy + py * gap * sd, a, w, col, life: 900 }); if (treads.length > 700) treads.splice(0, treads.length - 1600); }
 let rainT = 0, rainF = 0, rainCd = 1200, flashL = 0, lightCd = 600;
@@ -3563,7 +3559,6 @@ const MEDAL_VALS = [100, 200, 500, 1000, 2000, 5000, 10000];
 let medalLv = 0, medalLost = 0, medalMul = 1, medalT = 0;
 const MEDAL_BASE = 300, MEDAL_WIN = 170, MEDAL_MAX = 10;
 const LIFE_CAP = 6; // the most spare ships a player can hold (also all the HUD shows)
-const MEDAL_CHANCE = { bldg: 1, cgate: 1.5, missile: 0.2, popup: 0.5, arty: 1, acar: 0.5, radar: 1.5, gen: 1, heavy: 1, station: 1, tower: 2, ftruck: 0.5, crate: 0.12, shells: 0.4, drums: 0.3, moto: 0.3, staff: 0.6, sub: 2, casemate: 2, aatower: 3, tank: 0.6, htank: 1, truck: 0.5, flak: 0.5, bunker: 0.7, hangar: 2, fuel: 0.4, parked: 0.5, pt: 0.5, destroyer: 2, bridge: 1, loco: 1, boxcar: 2, flatcar: 0.6, search: 0.7 };
 function dropMedals(x, y, n) { for (let i = 0; i < n; i++) items.push({ kind: 'M', x: x + (n > 1 ? (i - (n - 1) / 2) * 9 : 0), y, t: (Math.random() * 16) | 0, vy: -1.6 - i * 0.3 }); }
 const flakes = []; for (let i = 0; i < 70; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() });
 
@@ -5682,8 +5677,19 @@ const BOSSMOVE = {
     return true;
   }
 };
-// Entity table: one entry per enemy type, keyed by e.type. update(e) is the type's behaviour for one simulation step.
-// Drawing, type traits, kill effects and base stats join each entry in later steps (ROADMAP.md, Phase 4).
+// Entity table: one entry per enemy type, keyed by e.type. Each entry holds the type's traits, update(e) (its behaviour for one
+// simulation step) and draw(e, fl) (attached in the render section, from LOOKS). Kill effects and base stats join each entry in
+// later steps (ROADMAP.md, Phase 4). Traits, absent when not set:
+//   harmless      can't hurt the player: left alone when a stage clears the field, doesn't count as armed cover for troops
+//   turret        has a turret that is shot off before the hull (turretAt: the turret's offset from the hull, default [0, 0])
+//   revenge       on Hard, fires a last burst at the player when destroyed
+//   explosive     goes up in a chain explosion when destroyed
+//   guarded       soldiers are posted around it when it appears
+//   treads        leaves tracks on the ground
+//   uncounted     not counted for the stage's kill percentage
+//   arcLow        the Arc weapon only zaps it when nothing more important is in reach
+//   medals        medals dropped when destroyed: 1 or more drops that many (rounded down), less than 1 is the chance of one
+//   treesInFront  nearby trees are drawn over it
 const ENT = {
   fighter: { update(e) {
     if (e.lead && !e.crash) {
@@ -5723,14 +5729,14 @@ const ENT = {
     }
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
   } },
-  heavy: { update(e) {
+  heavy: { revenge: true, medals: 1, update(e) {
     e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if (e.pause === 12 && !player.dead) { const a = aim(e.x, e.y + 10); for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } }
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of [-14, 14]) parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
-  bomber: { update(e) {
+  bomber: { revenge: true, update(e) {
     if (e.dying) return dyingTick(e);
     if (e.ph === undefined) e.ph = Math.random() * 6;
     e.y += 0.58; const vx = Math.sin(e.t * 0.018 + e.ph) * 0.55 + Math.sin(e.t * 0.047 + e.ph * 2) * 0.2; e.x = clamp(e.x + vx, 26, W - 26); e.bank = vx;
@@ -5745,7 +5751,7 @@ const ENT = {
       sfx('gun');
     }
   } },
-  missile: { update(e) {
+  missile: { uncounted: true, medals: 0.2, update(e) {
     e.life--; e.v = Math.min(1.7, e.v + 0.012);
     if (!player.dead && e.t > 14) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.028, 0.028);
     e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
@@ -5784,7 +5790,7 @@ const ENT = {
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
     if (e.mt % 300 === 210) ring(e.x, e.y, 16 + loop * 2, sp * 0.75, e.mt * 0.05);
   } },
-  tank: { update(e) {
+  tank: { turret: true, revenge: true, treads: true, medals: 0.6, update(e) {
     if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 3) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
@@ -5810,13 +5816,13 @@ const ENT = {
       flash(bx, by, 3); smokePuff(bx, by); sfx('cannon');
     }
   } },
-  truck: { update(e) {
+  truck: { treads: true, medals: 0.5, update(e) {
     const nwy = e.wy + e.dir * e.v, nwx = roadX(nwy) + e.lane;
     const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx, nwy + e.dir * 12);
     if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
     groundPos(e);
   } },
-  flak: { update(e) {
+  flak: { turret: true, revenge: true, guarded: true, medals: 0.5, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (spotted > 0) e.cd--;
@@ -5831,7 +5837,7 @@ const ENT = {
       if (nightF > 0.5) for (let k = 1; k <= 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
     }
   } },
-  bunker: { update(e) {
+  bunker: { turret: true, revenge: true, guarded: true, medals: 0.7, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.05, 0.05);
     if (--e.cd <= 0 && canFire(e, 90)) {
@@ -5841,7 +5847,7 @@ const ENT = {
       flash(bx, by, 3); sfx('cannon');
     }
   } },
-  pt: { update(e) {
+  pt: { turret: true, turretAt: [0, 7], medals: 0.5, update(e) {
     if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
@@ -5849,7 +5855,7 @@ const ENT = {
     if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
-  destroyer: { update(e) {
+  destroyer: { turret: true, turretAt: [0, 22], revenge: true, medals: 2, update(e) {
     if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
@@ -5859,14 +5865,14 @@ const ENT = {
     if (--e.cdA <= 0 && canFire(e, 60)) { e.cdA = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12, e.ta + (k - 0.5) * 0.1, bspeed()); flash(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12); sfx('cannon'); }
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
   } },
-  htank: { update(e) { ENT.tank.update(e); } },
-  bridge: { update(e) { groundPos(e); } },
-  secret: { update(e) {
+  htank: { turret: true, revenge: true, treads: true, medals: 1, update(e) { ENT.tank.update(e); } },
+  bridge: { harmless: true, uncounted: true, medals: 1, update(e) { groundPos(e); } },
+  secret: { harmless: true, uncounted: true, update(e) {
     groundPos(e); e.untarget = true;
     const near = !player.dead && Math.abs(player.x - e.x) < 15 && Math.abs(player.y - e.y) < 18;
     if (near) { e.prog = (e.prog || 0) + 1; if (e.prog % 10 === 0) sfx('tick'); if (e.prog >= 48) { revealSecret(e); return; } } else e.prog = Math.max(0, (e.prog || 0) - 2);
   } },
-  troop: { update(e) {
+  troop: { harmless: true, uncounted: true, arcLow: true, update(e) {
     if (e.t === 1 && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 1))) { e.dead = true; return; }
     if (e.t % 20 === 1 && !e.post && !e.march && !e.flag && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 0))) { e.scared = 40; e.hd = Math.random() * TAU; }
     if (e.flag) { groundPos(e); return; }
@@ -5895,7 +5901,7 @@ const ENT = {
     }
     if (e.home && !e.scared && (e.home[0] - e.wx) ** 2 + (e.home[1] - e.wy) ** 2 > 26 * 26) e.hd = Math.atan2(e.home[1] - e.wy, e.home[0] - e.wx) + rnd(-0.3, 0.3);
     if (!e.scared && e.t > 240 && gf % 30 === 0 && Math.random() < 0.06 && enemies.filter(o => o.flag && !o.dead).length < 2) {
-      const armed = enemies.some(o => o.ground && !o.dead && !HARMLESS.has(o.type) && !o.turDead && (o.wx - e.wx) ** 2 + (o.wy - e.wy) ** 2 < 80 * 80);
+      const armed = enemies.some(o => o.ground && !o.dead && !ENT[o.type].harmless && !o.turDead && (o.wx - e.wx) ** 2 + (o.wy - e.wy) ** 2 < 80 * 80);
       const ruins = decals.filter(d => (d.kind === 'wreck' || d.kind === 'spr' || d.kind === 'crater') && (d.wx - e.wx) ** 2 + (d.wy - e.wy) ** 2 < 70 * 70).length;
       if (!armed && ruins >= 2) { e.flag = true; groundPos(e); return; }
     }
@@ -5909,7 +5915,7 @@ const ENT = {
     groundPos(e);
     if (false) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 0.9); sfx('gun'); }
   } },
-  sub: { update(e) {
+  sub: { turretAt: [0, 10], revenge: true, medals: 2, update(e) {
     e.stT--;
     if (e.st === 'under') {
       if (terrainType(e.wx, e.wy + 30) === 'sea' && !blockedMove(e, 0, 0.2)) e.wy += 0.2;
@@ -5937,7 +5943,7 @@ const ENT = {
     e.untarget = e.st === 'under';
     groundPos(e);
   } },
-  casemate: { update(e) {
+  casemate: { turret: true, turretAt: [0, 8], revenge: true, guarded: true, medals: 2, treesInFront: true, update(e) {
     groundPos(e);
     if (!player.dead) e.ga = clamp(e.ga + clamp(angDiff(e.ga, aim(e.x, e.y + 8)), -0.03, 0.03), PI / 2 - 1.1, PI / 2 + 1.1);
     if (--e.cd <= 0 && canFire(e, 100)) {
@@ -5947,7 +5953,7 @@ const ENT = {
       flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
     }
   } },
-  aatower: { update(e) {
+  aatower: { turret: true, revenge: true, guarded: true, medals: 3, treesInFront: true, update(e) {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
@@ -5959,7 +5965,7 @@ const ENT = {
       flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun');
     }
   } },
-  search: { update(e) {
+  search: { guarded: true, medals: 0.7, treesInFront: true, update(e) {
     groundPos(e);
     if (e.gen === undefined) e.gen = enemies.find(o => o.type === 'gen' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 190) || null;
     if (e.gen && e.gen.dead) { e.off = (e.off || 0) + 1; if (e.off > 60) return; }
@@ -5968,15 +5974,15 @@ const ENT = {
     if (e.lock > 0 && !player.dead) { e.lock--; e.ba += clamp(angDiff(e.ba, aim(e.x, e.y)) * 0.05, -0.012, 0.012); }
     else { const tgt = PI / 2 + Math.sin(e.t * 0.018 + e.ph) * 0.95; e.ba += angDiff(e.ba, tgt) * 0.05; }
   } },
-  loco: { update(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } } },
-  boxcar: { update(e) { trainMove(e); } },
-  flatcar: { update(e) {
+  loco: { medals: 1, update(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } } },
+  boxcar: { medals: 2, update(e) { trainMove(e); } },
+  flatcar: { turret: true, medals: 0.6, update(e) {
     trainMove(e);
     if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
   } },
-  hangar: { update(e) { groundPos(e); } },
-  cgate: { update(e) {
+  hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, update(e) { groundPos(e); } },
+  cgate: { medals: 1.5, treesInFront: true, update(e) {
     groundPos(e);
     if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && !player.dead) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) enemies.push(G('acar', e.wx + dx, e.wy + 14, { hp: 4 * hpm(), hw: 5, hh: 9, score: 700, rad: 9, v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
@@ -6006,14 +6012,14 @@ const ENT = {
     if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
-  bldg: { update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
-  camo: { update(e) {
+  bldg: { arcLow: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
+  camo: { harmless: true, guarded: true, uncounted: true, update(e) {
     groundPos(e); e.untarget = true;
     if (e.cv === 'hay') { e.warn = !player.dead && e.y > player.y - 40; if ((!player.dead && e.y > player.y - 4) || e.y > H - 50) revealCamo(e, false); }
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
   } },
-  popup: { update(e) {
+  popup: { revenge: true, guarded: true, medals: 0.5, update(e) {
     groundPos(e); e.stT--;
     if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
@@ -6024,9 +6030,9 @@ const ENT = {
       if (e.stT <= 0) { e.st = 'sink'; e.stT = 18; }
     } else if (e.st === 'sink') { if (e.stT <= 0) { e.st = 'down'; e.stT = (rnd(70, 130)) | 0; e.untarget = true; } }
   } },
-  radar: { update(e) { groundPos(e); e.rot += 0.05; } },
-  gen: { update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
-  arty: { update(e) {
+  radar: { harmless: true, guarded: true, medals: 1.5, treesInFront: true, update(e) { groundPos(e); e.rot += 0.05; } },
+  gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
+  arty: { revenge: true, guarded: true, medals: 1, treesInFront: true, update(e) {
     groundPos(e); if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
@@ -6034,23 +6040,23 @@ const ENT = {
       markers.push({ wx: player.x, wy: player.y - Math.floor(scroll), t: 72, max: 72 });
     }
   } },
-  acar: { update(e) {
+  acar: { revenge: true, treads: true, medals: 0.5, update(e) {
     if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && !player.dead) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
     ENT.truck.update(e);
   } },
-  station: { update(e) { groundPos(e); } }, tower: { update(e) { groundPos(e); } }, crate: { update(e) { groundPos(e); } }, shells: { update(e) { groundPos(e); } }, drums: { update(e) { groundPos(e); } }, sandbag: { update(e) { groundPos(e); } },
-  moto: { update(e) { ENT.truck.update(e); } }, staff: { update(e) { ENT.truck.update(e); } },
-  ftruck: { update(e) {
+  station: { harmless: true, medals: 1, treesInFront: true, update(e) { groundPos(e); } }, tower: { harmless: true, guarded: true, medals: 2, treesInFront: true, update(e) { groundPos(e); } }, crate: { harmless: true, guarded: true, uncounted: true, arcLow: true, medals: 0.12, update(e) { groundPos(e); } }, shells: { harmless: true, explosive: true, guarded: true, medals: 0.4, update(e) { groundPos(e); } }, drums: { harmless: true, explosive: true, guarded: true, arcLow: true, medals: 0.3, update(e) { groundPos(e); } }, sandbag: { harmless: true, uncounted: true, update(e) { groundPos(e); } },
+  moto: { harmless: true, treads: true, medals: 0.3, update(e) { ENT.truck.update(e); } }, staff: { harmless: true, treads: true, medals: 0.6, update(e) { ENT.truck.update(e); } },
+  ftruck: { harmless: true, explosive: true, treads: true, medals: 0.5, update(e) {
     const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
     if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
     else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; } }
     groundPos(e);
   } },
-  fuel: { update(e) { groundPos(e); } },
-  parked: { update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
-  boss: { update(e) {
+  fuel: { harmless: true, explosive: true, guarded: true, medals: 0.4, treesInFront: true, update(e) { groundPos(e); } },
+  parked: { harmless: true, uncounted: true, medals: 0.5, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
+  boss: { harmless: true, update(e) {
     if (e.dying) {
       if (e.kind === 'ship') e.y += 0.12;
       if (e.kind === 'castle') { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); }
@@ -6184,12 +6190,10 @@ const kd = (...ks) => ks.some(k => keys[k]);
 function pshot(x, y, a, sp, dmg) { shots.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }); }
 // ---------- Arc: a bolt to the nearest enemy ahead, with at most two short jumps ----------
 const arcs = [];
-// soldiers and scenery are only zapped when nothing more important is in reach
-const ARC_LOW = new Set(['troop', 'crate', 'drums', 'bldg']);
 function arcTargets(x, y, reach, cone, skip, troops) {
   let best = null, bd = 1e9;
   for (const e of enemies) {
-    if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ARC_LOW.has(e.type)) || e.type === 'camo') continue;
+    if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ENT[e.type].arcLow) || e.type === 'camo') continue;
     if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || (e.kind === 'castle' && q.k === 'core' && !e.open)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
     if (e.y < 4 || e.y > y - 4) continue;
     const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * 0.35 && d < bd) { bd = d; best = { e, x: e.x, y: e.y }; }
@@ -6475,11 +6479,9 @@ function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
   if (score >= nextExtend) { if (lives < LIFE_CAP) lives++; extendsGot++; nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, extendsGot - 1))); sfx('extend'); haptic('extend'); if (player) label(player.x, player.y - 14, '1UP'); }
 }
-const TURRETED = new Set(['tank', 'htank', 'pt', 'destroyer', 'flak', 'bunker', 'casemate', 'aatower', 'flatcar']);
-const TUR_OFF = { pt: [0, 7], destroyer: [0, 22], casemate: [0, 8], sub: [0, 10] };
 function popTurret(e) {
   e.turDead = true;
-  const [ox, oy] = TUR_OFF[e.type] || [0, 0], tx = e.x + ox, ty = e.y + oy;
+  const [ox, oy] = ENT[e.type].turretAt || [0, 0], tx = e.x + ox, ty = e.y + oy;
   boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
   sfx('gboom'); haptic('gkill'); hitStop = Math.max(hitStop, 1);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
@@ -6506,7 +6508,7 @@ function damage(e, d) {
     if (!e.crash) { startCrash(e); return; }
     e.score = 100; label(e.x, e.y - 14, 'AIRBURST 100'); kill(e); return;
   }
-  if (TURRETED.has(e.type) && !e.turDead) {
+  if (ENT[e.type].turret && !e.turDead) {
     if (e.turHp === undefined) { e.turHp = 0.001; e.hp *= 0.65; }
     e.turHp -= d; e.hit = 3;
     if (e.turHp <= 0) popTurret(e); else { sfx('hitm'); haptic('hit'); }
@@ -6515,12 +6517,10 @@ function damage(e, d) {
   e.hp -= d; e.hit = 3;
   if (e.hp <= 0) kill(e); else { sfx(e.ground || e.big || e.surface ? 'hitm' : 'hit'); haptic('hit'); }
 }
-const HARMLESS = new Set(['camo', 'radar', 'gen', 'boss', 'bridge', 'secret', 'troop', 'hangar', 'fuel', 'parked', 'station', 'tower', 'crate', 'shells', 'drums', 'sandbag', 'ftruck', 'moto', 'staff']);
-const EXPLOSIVE = new Set(['fuel', 'shells', 'drums', 'ftruck']);
 function clearField() {
   quiet = true; let k = 0;
   // the prototype is left out: it gets its own escape
-  for (const o of enemies) if (!o.dead && !o.dying && !HARMLESS.has(o.type) && o.type !== 'proto') { const t = o; later.push({ at: gf + 6 + (k++) * 4, fn: () => { if (!t.dead && !t.dying) { if (t.crash) t.crash = false; kill(t); } } }); }
+  for (const o of enemies) if (!o.dead && !o.dying && !ENT[o.type].harmless && o.type !== 'proto') { const t = o; later.push({ at: gf + 6 + (k++) * 4, fn: () => { if (!t.dead && !t.dying) { if (t.crash) t.crash = false; kill(t); } } }); }
 }
 function cancelBullets(x, y, r) {
   let n = 0;
@@ -6560,11 +6560,10 @@ function revealSecret(e) {
   label(e.x, e.y - 12, 'SECRET!'); sfx('drone'); haptic('drone');
   for (let i = 0; i < 20; i++) { const an = i * TAU / 20; parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(an) * 1.6, vy: Math.sin(an) * 1.6, life: 20, max: 20, col: i % 2 ? '#bba4ff' : '#ffffff' }); }
 }
-const REVENGE = new Set(['tank', 'htank', 'heavy', 'bomber', 'destroyer', 'flak', 'aatower', 'acar', 'bunker', 'casemate', 'arty', 'popup', 'sub']);
 function revenge(x, y, n) { if (runDiff !== 2 || !player || player.dead || y < 0 || y > H) return; const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
 function kill(e) {
   if (e.type === 'protoDuel') { for (let i = 0; i < 6; i++) later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big'); }
-  if (REVENGE.has(e.type)) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
+  if (ENT[e.type].revenge) revenge(e.x, e.y, e.type === 'bomber' || e.type === 'destroyer' || e.type === 'htank' ? 3 : 2);
   if (e.type === 'missile') { boom(e.x, e.y, 14, 'a'); sfx('gboom'); }
   if (e.type === 'bldg') {
     if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hp: 1, hw: 3, hh: 3, score: 50, rad: 2, hd: Math.random() * TAU, scared: 120, keep: true }));
@@ -6595,7 +6594,7 @@ function kill(e) {
     const size = { bldg: 24, cgate: 26, popup: 16, arty: 22, acar: 14, radar: 22, gen: 20, station: 22, tower: 24, ftruck: 26, shells: 22, drums: 20, crate: 8, sandbag: 8, moto: 10, staff: 12, sub: 30, casemate: 32, aatower: 36, destroyer: 40, hangar: 34, htank: 22, fuel: 30, bunker: 18, bridge: 24, loco: 26, flatcar: 16, boxcar: 16 }[e.type] || 14;
     boom(e.x, e.y, size, 'g'); sfx(size > 25 ? 'bigboom' : 'gboom'); haptic(size > 25 ? 'big' : 'gkill');
     if (size > 25) { shake = Math.max(shake, 8); hitStop = Math.max(hitStop, 3); }
-    const mc = MEDAL_CHANCE[e.type] || 0;
+    const mc = ENT[e.type].medals || 0;
     if (mc >= 1) dropMedals(e.x, e.y, Math.floor(mc)); else if (Math.random() < mc) dropMedals(e.x, e.y, 1);
     if (e.type === 'radar') linkFx.push({ wx: e.wx, wy: e.wy, t: 40, to: enemies.filter(o => o.type === 'flak' && o.rd === e && !o.dead).map(o => [o.wx, o.wy]) });
     if (e.type === 'gen') { sfx('clunk'); later.push({ at: gf + 20, fn: () => sfx('clunk') }); }
@@ -6603,7 +6602,7 @@ function kill(e) {
     if (e.type === 'station' || e.type === 'tower') decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 300 });
     else if (e.type === 'moto' || e.type === 'staff' || e.type === 'ftruck') { decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 0 }); decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: SPR[e.type][dirIdx(e.hd)], smokeT: 200 }); }
     else if (e.type === 'crate' || e.type === 'sandbag') { for (let i = 0; i < 5; i++) parts.push({ kind: 'debris', layer: 'g', x: e.x, y: e.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.4, 0), g: 0.08, life: 26, max: 26 }); }
-    if (EXPLOSIVE.has(e.type) && e.type !== 'fuel') {
+    if (ENT[e.type].explosive && e.type !== 'fuel') {
       for (const g of enemies) if (g.ground && !g.dead && g !== e && (g.wx - e.wx) ** 2 + (g.wy - e.wy) ** 2 < 32 * 32) { const tg = g; later.push({ at: gf + 8, fn: () => damage(tg, 25) }); }
       boom(e.x, e.y, 26, 'g'); fireAt(e.x, e.y, 'g', true);
     }
@@ -6811,7 +6810,7 @@ function update() {
     if (s.y < -16 || s.y > H + 10 || s.x < -10 || s.x > W + 10) s.dead = true;
   }
 
-  if (quiet) for (const e of enemies) if (e.t === 0 && !HARMLESS.has(e.type)) e.dead = true;
+  if (quiet) for (const e of enemies) if (e.t === 0 && !ENT[e.type].harmless) e.dead = true;
   for (const e of enemies) if (!e.big && e.type !== 'troop' && e.type !== 'boss' && !e.crash && e.y > -10 && e.y < H + 10 && !lowFX) fx(() => {
     if (e.mhp === undefined) e.mhp = e.hp;
     const f = e.hp / e.mhp, lay = e.ground ? 'g' : 'a';
@@ -6822,7 +6821,7 @@ function update() {
     for (const e of enemies) {
       if (e.dead || e.dying || e.untarget) continue;
       const d = Math.hypot(e.x - player.x, e.y - player.y);
-      if (e.ground && (TURRETED.has(e.type) || e.type === 'popup' && e.st === 'up' || e.type === 'acar') && !e.turDead && d < 72 && e.y > 0) {
+      if (e.ground && (ENT[e.type].turret || e.type === 'popup' && e.st === 'up' || e.type === 'acar') && !e.turDead && d < 72 && e.y > 0) {
         e.pbT = (e.pbT === undefined ? 30 : e.pbT) - 1;
         if (e.pbT === 14) parts.push({ kind: 'flash', layer: 'g', x: e.x, y: e.y, vx: 0, vy: scrollV, r: 3, life: 14, max: 14 });
         if (e.pbT <= 0) { e.pbT = 62; const a = aim(e.x, e.y); eshot(e.x + Math.cos(a) * 8, e.y + Math.sin(a) * 8, a, bspeed()); flash(e.x + Math.cos(a) * 8, e.y + Math.sin(a) * 8, 2); sfx('gun'); }
@@ -6830,7 +6829,7 @@ function update() {
       if (e.type === 'fighter' && !e.crash && !e.lead && d < 95 && e.y < player.y) { e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.045, 0.045); e.v = Math.min(2.3, e.v + 0.02); }
     }
   }
-  for (const e of enemies) if (TREADERS.has(e.type) && !e.dead && e.wx !== undefined) {
+  for (const e of enemies) if (ENT[e.type].treads && !e.dead && e.wx !== undefined) {
     if (e.tlx === undefined) { e.tlx = e.wx; e.tly = e.wy; }
     if ((e.wx - e.tlx) ** 2 + (e.wy - e.tly) ** 2 > 30) { const a = Math.atan2(e.wy - e.tly, e.wx - e.tlx); layTread(e.wx - Math.cos(a) * (e.hh || 5) * 0.8, e.wy - Math.sin(a) * (e.hh || 5) * 0.8, a, e.type === 'moto' ? 1 : 2, e.type === 'moto' ? 0.5 : Math.max(2, (e.hw || 5) - 2)); e.tlx = e.wx; e.tly = e.wy; }
   }
@@ -6855,13 +6854,13 @@ function update() {
   }
   for (let i = chutes.length - 1; i >= 0; i--) if (chutes[i].gone || chutes[i].y > H + 20) chutes.splice(i, 1);
   if (gf % 60 === 0) { let i = 0; while (i < treads.length && treads[i].life <= 0) i++; if (i) treads.splice(0, i); }
-  for (const e of enemies) if (e.t === 0 && e.ground && GUARDED.has(e.type) && !e.dead && !e.noGuard) {
+  for (const e of enemies) if (e.t === 0 && e.ground && ENT[e.type].guarded && !e.dead && !e.noGuard) {
     let bad = critterHouse(e.wx, e.wy, Math.max(2, (e.hw || 6) - 4)) || inTent(e.wx, e.wy, 2) || inFarm(e.wx, e.wy, 0) || WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)));
-    if (!bad) for (const o of enemies) { if (o === e || o.dead || !o.ground || !GUARDED.has(o.type) || o.wx === undefined) continue; if (Math.abs(o.wx - e.wx) < ((o.hw || 6) + (e.hw || 6)) * 0.8 && Math.abs(o.wy - e.wy) < ((o.hh || 6) + (e.hh || 6)) * 0.8) { bad = true; break; } }
+    if (!bad) for (const o of enemies) { if (o === e || o.dead || !o.ground || !ENT[o.type].guarded || o.wx === undefined) continue; if (Math.abs(o.wx - e.wx) < ((o.hw || 6) + (e.hw || 6)) * 0.8 && Math.abs(o.wy - e.wy) < ((o.hh || 6) + (e.hh || 6)) * 0.8) { bad = true; break; } }
     if (bad) { e.dead = true; for (const o of enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
-  for (const e of enemies) if (!e.seenC && !NOCOUNT.has(e.type) && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
-  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = TUR_OFF[e.type] || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
+  for (const e of enemies) if (!e.seenC && !ENT[e.type].uncounted && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; stats.seen++; }
+  for (const e of enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); checkProto();
   for (const b of ebul) {
@@ -7910,7 +7909,7 @@ function renderMain() {
   { const sc0 = Math.floor(scroll);
     for (const e of enemies) if (e.ground) {
       drawEnemy(e);
-      if (FRONT_TREES.has(e.type)) {
+      if (ENT[e.type].treesInFront) {
         if (e.front === undefined) e.front = treeList(e.wx, e.wy, e.hw + 10).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
         for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.s, t.x, t.y + sc0);
       }
