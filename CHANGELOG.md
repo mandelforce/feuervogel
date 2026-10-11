@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): each boss is now one entry in a boss table (`BOSS[kind]`): its parts, warning, score, music, hull, movement, entrance, breakup, remains, look and game-over reaction. Checked against the old code for all six bosses.
 - Fix: during the GET READY countdown after a pause, dragging and tapping no longer move the ship or fire the charged laser. At the end of a stage the ship's fly-away can no longer be stopped or steered by dragging, and the laser and Nova stay locked while it flies in or out. The replay test still matches.
 - How to play is now in the main menu (the ☰ button), right under Settings, instead of inside Settings. Back returns to the menu.
 - Phones and tablets playing in the browser are now asked to put the game on the Home Screen when the title screen appears. On Android Chrome, Install opens the browser's own install dialog. On iPhone and in other browsers the panel explains how (Share, then Add to Home Screen, or the browser menu), and Got it stops the question. Not now asks again a week later, at most three times. It never shows in the Home Screen app, on desktop or over the "Continue your run?" question. Nothing about gameplay, scoring or the leaderboard changes.
