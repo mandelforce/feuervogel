@@ -4043,7 +4043,7 @@ function onBoss(e, x, y, m = 0) {
 // It only stays on if its middle is well inside the hull (DECK_INSET). Where it just touches the rim it has no hold: it gets a deck with slip set and slides off (slipOff).
 const DECK_INSET = 14;
 function bossAnchor(e, x, y) {
-  if (!e || e.kind === 'skyfort' || !onBoss(e, x, y)) return null;
+  if (!e || BOSS[e.kind].noDeck || !onBoss(e, x, y)) return null;
   const slip = !onBoss(e, x, y, -DECK_INSET);
   if (BOSS[e.kind].rigid) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, slip, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
   let best = null, bd = 1e9;
@@ -4866,9 +4866,11 @@ function spawnWing() {
   enemies.push(E('wing', { x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { items.push(mkItem('W', e.x - 12, e.y)); items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); items.push(mkItem('B', e.x + 12, e.y)); } }));
 }
 // Boss table: one entry per boss kind (BOSS_KINDS[theme] picks a stage's boss). Each entry holds the boss's data: warn (the
-// warning as it approaches), rigid (its hull is one body: onBoss, bossAnchor), hull or hullPad (hullRect), score (times the loop
+// warning as it approaches), rigid (its hull is one body: onBoss, bossAnchor), hull or hullPad (hullRect), coreTurns (its core aims
+// like a gun), noDeck (a wreck can't rest on it), dyingFrames (how long it dies, default 220), score (times the loop
 // + 1), song, x/y/world/air (where it appears) and parts. Its hooks live next to the code they use and are put on the entry where
-// BOSS_LOOKS is defined: move(e) (BOSSMOVE), intro(e), breakup(e), blastArea, remains(e, D, wyb), react(e, f) and draw(e, fl, core).
+// BOSS_LOOKS is defined: move(e) (BOSSMOVE), intro(e), breakup(e), blastArea, remains(e, D, wyb), react(e, f) and draw(e, fl, core),
+// and from BOSS_FIGHT its fight: how it fires, holds fire, aims, takes damage and dies.
 const BOSS = {
   ship: { warn: 'ENEMY FLAGSHIP APPROACHING', rigid: true, hullPad: 8, score: 30000, y: -130, parts: [
     { k: 'main', ox: 0, oy: 76, hp: 110 }, { k: 'main', ox: 0, oy: 52, hp: 110 }, { k: 'main', ox: 0, oy: -60, hp: 110 }, { k: 'main', ox: 0, oy: -84, hp: 110 },
@@ -4877,7 +4879,7 @@ const BOSS = {
   train: { warn: 'ARMOURED TRAIN ON THE LINE', score: 30000, y: -30, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: 13, hp: 150, hw: 10, hh: 5 }, { k: 'main', ox: 0, oy: -4, hp: 55, hw: 7, hh: 7 }, { k: 'main', ox: 0, oy: -50, hp: 70 },
     { k: 'rocket', ox: 0, oy: -98, hp: 60, hw: 8, hh: 8 }, { k: 'aa', ox: -6, oy: -136, hp: 28 }, { k: 'aa', ox: 6, oy: -156, hp: 28 }] },
-  fortress: { warn: 'LAND FORTRESS INBOUND', rigid: true, hull: [0, 0, 44, 56], score: 30000, y: -70, parts: [
+  fortress: { warn: 'LAND FORTRESS INBOUND', rigid: true, coreTurns: true, hull: [0, 0, 44, 56], score: 30000, y: -70, parts: [
     { k: 'core', ox: 0, oy: -6, hp: 340, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 70, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 70, hw: 6, hh: 6 },
     { k: 'aa', ox: -26, oy: -40, hp: 38 }, { k: 'aa', ox: 26, oy: -40, hp: 38 }, { k: 'mortar', ox: 0, oy: -44, hp: 64, hw: 6, hh: 6 }] },
   railgun: { warn: 'SUPERGUN DETECTED', rigid: true, score: 30000, y: -90, x: BOSSRAIL, parts: [
@@ -5046,7 +5048,7 @@ function alienCore(px, py, hit, f) {
   ctx.globalAlpha = 0.25 + 0.2 * f; dk(px, py, R + 8, '#563aa4'); ctx.globalAlpha = 0.45; dk(px, py, R + 4, '#8466dc'); ctx.globalAlpha = 1;
   dk(px, py, R + 1, '#1c1238'); dk(px, py, R, hit ? '#ffffff' : '#bba4ff'); dk(px - 1, py - 1, R * 0.6, '#e8dcff'); dk(px - 1, py - 1, R * 0.3, '#ffffff');
 }
-BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', score: 80000, song: 'final', blastArea: [90, 50], y: H + 90, air: true, parts: [
+BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 340, score: 80000, song: 'final', blastArea: [90, 50], y: H + 90, air: true, parts: [
   { k: 'engine', ox: -40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: -76, oy: 14, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 76, oy: 14, hp: 60, hw: 7, hh: 14 },
   { k: 'main', ox: -22, oy: -30, hp: 80 }, { k: 'main', ox: 22, oy: -30, hp: 80 },
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
@@ -5057,17 +5059,14 @@ function spawnBoss() {
   const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
-    p.hp *= m * (kind === 'castle' && p.g === 1 ? 0.5 : 1);
+    p.hp *= m;
     return Object.assign(p, { maxhp: p.hp, ang: PI / 2, cd: 60 + i * 19, hit: 0, dead: false, hw: p.hw || (p.k === 'main' ? 9 : 5), hh: p.hh || (p.k === 'main' ? 9 : 5) });
   });
   if (state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(scroll);
-  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (loop + 1), onDead: e => { scrollTarget = SCROLL; if (!(kind === 'castle' && protoEscape())) stageClear(); } });
+  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (loop + 1), onDead: e => { scrollTarget = SCROLL; if (!(def.delayClear && def.delayClear(e))) stageClear(); } });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
-  if (kind === 'skyfort') {
-    const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
-    Object.assign(bossE, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
-  }
+  if (def.setup) def.setup(bossE, sc);
   enemies.push(bossE);
 }
 function mortarShot(x, y, off = 0) {
@@ -5828,6 +5827,104 @@ const BOSSMOVE = {
     return true;
   }
 };
+// How each boss fights, merged into BOSS[kind] (see the boss table). In ENT.boss.update: dyingDrift(e) moves it while it dies;
+// introEarly(e) starts its entrance before the fight is ready; tick(e, core) runs each frame before its parts fire; aimCore(e, p,
+// px, py) turns its core (else, with coreTurns, the core aims like a gun); holdFire(e, py) returns how long a part waits; mainFire(e,
+// p, mz, sp) replaces the main guns' three-way spread; coreFire(e, p, px, py, core, others, sp, mz) is its core's fire pattern. In
+// damagePart: deflect(e, p) (true: the hit bounces off), damageScale(e, p), partLost(e, p). shielded(e, p): a part shots can't reach
+// yet. setup(e, sc): placed when it spawns. delayClear(e): true holds the stage clear back (something still happens first).
+const BOSS_FIGHT = {
+  ship: {
+    dyingDrift(e) { e.y += 0.12; },
+    tick(e, core) { core.armored = e.parts.some(p => p.k === 'main' && !p.dead); },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
+      if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
+      else p.cd = Math.round((30) * fireSlow());
+    },
+  },
+  train: {
+    holdFire(e, py) { return py < 6 || py > H - 30 || e.trains.some(t => t.pack) ? 20 : 0; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      const angry = others <= 2 || p.hp < p.maxhp * 0.5;
+      p.cd = Math.round((angry ? 70 : 100) * fireSlow());
+      const sx = px, sy = py + 11;
+      if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
+      const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
+      smokePuff(sx, sy); sfx('cannon');
+    },
+  },
+  fortress: {
+    mainFire(e, p, mz, sp) {
+      const [bx, by] = mz(12);
+      for (let k = 0; k < 3; k++) later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && !player.dead) eshot(bx, by, aim(bx, by), sp * 1.15); } });
+      flash(bx, by, 3); sfx('gun');
+    },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if (e.last) {
+        p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
+        eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
+        if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
+      } else {
+        p.cd = Math.round((100) * fireSlow());
+        const [bx, by] = mz(34);
+        for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
+        if (p.hp < p.maxhp * 0.5) later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + loop * 2, sp * 0.75, gf * 0.1); } });
+        flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
+      }
+    },
+  },
+  railgun: {
+    tick(e, core) { railLock(e, core); starShells(e, core); },
+    aimCore(e, p, px, py) { if (!e.chargeT && !player.dead) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6); },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); return; }
+      if (e.lock && !e.chargeT) p.cd = 1;
+      else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
+      else if (--e.chargeT <= 0) {
+        e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
+        const [bx, by] = mz(58), d = Math.max(60, player.y - by);
+        eshot(bx, by, p.ang, 2.2, 'mega');
+        flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
+      } else p.cd = 1;
+    },
+  },
+  castle: {
+    dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
+    introEarly(e) { return e.stage1; },
+    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
+      // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
+      else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
+    },
+    deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
+    partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
+    shielded(e, p) { return p.k === 'core' && !e.open; },
+    delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
+  },
+  skyfort: {
+    introEarly(e) { return e.phase === 'spool'; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
+      if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
+      // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
+      else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
+      else {
+        p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
+        eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
+        e.fanT = (e.fanT || 0) + 1;
+        if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
+      }
+    },
+    damageScale(e, p) { return p.k === 'core' && e.fl && e.fl.ph === 'charge' ? 1.6 : 1; }, // the open orb is vulnerable while it charges
+    setup(e, sc) {
+      const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
+      Object.assign(e, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
+    },
+  },
+};
+function bossShielded(e, p) { const B = BOSS[e.kind]; return !!(B.shielded && B.shielded(e, p)); }
 // Entity table: one entry per enemy type, keyed by e.type. Each entry holds the type's traits, update(e) (its behaviour for one
 // simulation step), its death effects (merged in from DEATHS, next to kill()) and draw(e, fl) (attached in the render section,
 // from LOOKS). stats: its base hp (scaled with difficulty; fixedHp is not), hw, hh, score and rad, which every spawn starts
@@ -6210,8 +6307,7 @@ const ENT = {
   parked: { harmless: true, uncounted: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
   boss: { harmless: true, stats: { hw: 32, hh: 86 }, update(e) {
     if (e.dying) {
-      if (e.kind === 'ship') e.y += 0.12;
-      if (e.kind === 'castle') { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); }
+      if (BOSS[e.kind].dyingDrift) BOSS[e.kind].dyingDrift(e);
       for (const p of e.parts) if (gf % 5 === 0 && Math.random() < 0.3) smokePuff(e.x + p.ox, e.y + p.oy);
       return dyingTick(e);
     }
@@ -6219,18 +6315,16 @@ const ENT = {
     // a weapon pod flies in during the fight (25 s in, then every 35 s, up to 3) so players can switch weapons
     if (ready) { e.podT = (e.podT || 0) + 1; e.pods = e.pods || 0;
       if (e.pods < 3 && e.podT >= 1500 + e.pods * 2100) { e.pods++; enemies.push(E('pod', { x: rnd(30, W - 30), y: -16, bossPod: true })); } }
-    if (e.kind === 'castle' && e.stage1) bossIntro(e);
-    if (e.kind === 'skyfort' && e.phase === 'spool') bossIntro(e);
+    if (BOSS[e.kind].introEarly && BOSS[e.kind].introEarly(e)) bossIntro(e);
     if (e.lightT !== undefined) e.lightT++;
     if (e.bridgeT !== undefined && e.bridgeT < 90) e.bridgeT++;
     if (!ready) return;
     bossIntro(e);
     const sp = bspeed();
     const core = e.parts.find(p => p.k === 'core');
-    if (e.kind === 'ship') core.armored = e.parts.some(p => p.k === 'main' && !p.dead);
     const others = e.parts.filter(p => p.k !== 'core' && p.k !== 'light' && !p.dead).length;
     if (e.spot > 0) e.spot--;
-    if (e.kind === 'railgun') { railLock(e, core); starShells(e, core); }
+    if (BOSS[e.kind].tick) BOSS[e.kind].tick(e, core);
     for (const p of e.parts) {
       const px = e.x + p.ox, py = e.y + p.oy;
       if (p.hit > 0) p.hit--;
@@ -6242,27 +6336,23 @@ const ENT = {
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
-      if (p.k === 'core' && e.kind === 'railgun') {
-        if (!e.chargeT && !player.dead) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6);
-      } else if (p.k !== 'core' || e.kind === 'fortress') {
+      if (p.k === 'core' && BOSS[e.kind].aimCore) {
+        BOSS[e.kind].aimCore(e, p, px, py);
+      } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
         if (!player.dead) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
       if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'train' && (py < 6 || py > H - 30 || e.trains.some(t => t.pack))) { p.cd = Math.max(p.cd, 20); continue; }
+      { const hold = BOSS[e.kind].holdFire && BOSS[e.kind].holdFire(e, py); if (hold) { p.cd = Math.max(p.cd, hold); continue; } }
       if (e.spot > 0 && p.k === 'main') p.cd--;
       if (--p.cd > 0) continue;
       const mz = (L) => [px + Math.cos(p.ang) * L, py + Math.sin(p.ang) * L];
       if (p.k === 'main') {
         p.cd = Math.round((Math.max(80, 120 - loop * 15)) * fireSlow());
-        if (e.kind === 'fortress') {
-          const [bx, by] = mz(12);
-          for (let k = 0; k < 3; k++) later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && !player.dead) eshot(bx, by, aim(bx, by), sp * 1.15); } });
-          flash(bx, by, 3); sfx('gun');
-        } else {
+        if (BOSS[e.kind].mainFire) BOSS[e.kind].mainFire(e, p, mz, sp);
+        else {
           const [bx, by] = mz(16);
           for (let k = -1; k <= 1; k++) eshot(bx, by, p.ang + k * 0.12, sp * 0.95, 'B');
           flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
@@ -6284,53 +6374,7 @@ const ENT = {
         p.cd = Math.round((Math.max(120, 170 - loop * 15)) * fireSlow());
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
       } else if (p.k === 'core') {
-        if (e.kind === 'ship') {
-          // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
-          if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
-          else p.cd = Math.round((30) * fireSlow());
-        } else if (e.kind === 'train') {
-          const angry = others <= 2 || p.hp < p.maxhp * 0.5;
-          p.cd = Math.round((angry ? 70 : 100) * fireSlow());
-          const sx = px, sy = py + 11;
-          if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
-          const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
-          smokePuff(sx, sy); sfx('cannon');
-        } else if (e.kind === 'fortress' && e.last) {
-          p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
-          eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
-          if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
-        } else if (e.kind === 'fortress') {
-          p.cd = Math.round((100) * fireSlow());
-          const [bx, by] = mz(34);
-          for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
-          if (p.hp < p.maxhp * 0.5) later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + loop * 2, sp * 0.75, gf * 0.1); } });
-          flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
-        } else if (e.kind === 'castle') {
-          if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
-          // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
-          else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
-        } else if (e.kind === 'skyfort') {
-          const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
-          if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
-          // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
-          else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
-          else {
-            p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
-            eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
-            e.fanT = (e.fanT || 0) + 1;
-            if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
-          }
-        } else if (e.kind === 'railgun') {
-          if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); continue; }
-          if (e.lock && !e.chargeT) p.cd = 1;
-          else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
-          else if (--e.chargeT <= 0) {
-            e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
-            const [bx, by] = mz(58), d = Math.max(60, player.y - by);
-            eshot(bx, by, p.ang, 2.2, 'mega');
-            flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
-          } else p.cd = 1;
-        }
+        BOSS[e.kind].coreFire(e, p, px, py, core, others, sp, mz);
       }
     }
   } }
@@ -6346,7 +6390,7 @@ function arcTargets(x, y, reach, cone, skip, troops) {
   let best = null, bd = 1e9;
   for (const e of enemies) {
     if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ENT[e.type].arcLow) || e.type === 'camo') continue;
-    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || (e.kind === 'castle' && q.k === 'core' && !e.open)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
+    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || bossShielded(e, q)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
     if (e.y < 4 || e.y > y - 4) continue;
     const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * 0.35 && d < bd) { bd = d; best = { e, x: e.x, y: e.y }; }
   }
@@ -6429,7 +6473,7 @@ function updBeam() {
   for (const b of ebul) if (b.kind !== 'mega' && !b.shrapnel && Math.abs(b.x - bx) < half + 2 && b.y < top) { b.dead = true; parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: -0.5, life: 8, max: 8, col: '#e8dcff' }); }
   for (const e of enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
-    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !(e.kind === 'castle' && pt.k === 'core' && !e.open) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
+    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
     else if (Math.abs(e.x - bx) < e.hw + half) { damage(e, beam.dmg); beam.hit = true; }
   }
   if (beam && beam.t === beam.max - 1 && beam.hit) stats.hits++;
@@ -6688,21 +6732,21 @@ function cancelBullets(x, y, r) {
 }
 function damagePart(e, p, d) {
   if (p.dead || e.dying) return;
-  if (e.kind === 'castle' && p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return; }
+  if (BOSS[e.kind].deflect && BOSS[e.kind].deflect(e, p)) return;
   const px = e.x + p.ox, py = e.y + p.oy;
-  if (e.kind === 'skyfort' && p.k === 'core' && e.fl && e.fl.ph === 'charge') d *= 1.6; // the open orb is vulnerable while it charges
+  if (BOSS[e.kind].damageScale) d *= BOSS[e.kind].damageScale(e, p);
   p.hp -= d; p.hit = 3;
   if (p.hp <= 0) {
     p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
     const v = p.k === 'main' ? 3000 : p.k === 'aa' ? 800 : 0;
     if (v) { addScore(v); label(px, py, String(v)); checkExtend(); }
     revenge(e.x + p.ox, e.y + p.oy, 2);
-    if (e.kind === 'castle' && p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); }
+    if (BOSS[e.kind].partLost) BOSS[e.kind].partLost(e, p);
     if (p.k === 'core' && e.trains && !yardTrainDown(e, p)) { /* another train is still fighting */ }
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
       addScore(e.score); checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -7196,7 +7240,7 @@ function update() {
       if (e.dead || e.dying || (e.y < 4 && e.type !== 'boss') || e.untarget) continue;
       if (e.type === 'boss') {
         let hitPart = null;
-        for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || (e.kind === 'castle' && p.k === 'core' && !e.open)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
+        for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || bossShielded(e, p)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
         if (hitPart) { s.dead = true; parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, s.dmg * dmgK()); stats.hits++; break; }
         continue;
       }
@@ -7870,6 +7914,7 @@ const BOSS_LOOKS = {
 };
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];
+for (const k in BOSS_FIGHT) Object.assign(BOSS[k], BOSS_FIGHT[k]);
 function drawBoss(e) {
   const fl = e.dying && e.split === undefined && (gf >> 2) & 1;
   if (e.dying) ctx.globalAlpha = e.split !== undefined ? clamp(e.dying / 50, 0.6, 1) : clamp(e.dying / 120, 0.35, 1);

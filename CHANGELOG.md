@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): how each boss fights (its core's fire pattern, when it holds fire, how it aims, takes damage and dies) now lives in its entry of the boss table, so the boss code no longer checks which boss it is. The replay test confirms identical fights for all six bosses.
 - Under the hood (no game change): each boss is now one entry in a boss table (`BOSS[kind]`): its parts, warning, score, music, hull, movement, entrance, breakup, remains, look and game-over reaction. Checked against the old code for all six bosses.
 - Fix: during the GET READY countdown after a pause, dragging and tapping no longer move the ship or fire the charged laser. At the end of a stage the ship's fly-away can no longer be stopped or steered by dragging, and the laser and Nova stay locked while it flies in or out. The replay test still matches.
 - How to play is now in the main menu (the ☰ button), right under Settings, instead of inside Settings. Back returns to the menu.
