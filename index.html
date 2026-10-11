@@ -40,6 +40,8 @@ window.STARFALL_LEADERBOARD = 'https://feuervogel.c-roth79.workers.dev';
     (function wait() { if (p.offsetHeight > 0 || Date.now() - t0 > 600) { p.remove(); run(); } else setTimeout(wait, 30); })();
   };
 })();
+// Android/Chrome offers its own install dialog through this event, which can fire before the game script runs: keep it for the install panel
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.SF_INSTALL = e; });
 </script>
 <style>
 @font-face{font-family:'StarFall Text';src:url(data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMoe8a+0AAAEoAAAAYGNtYXBQeuB7AAACOAAAAJhnbHlmlhkNXwAAA4AAACUyaGVhZC7ch04AAACsAAAANmhoZWEFFgH2AAAA5AAAACRobXR4AlgAMgAAAYgAAACwbG9jYbX/vuMAAALQAAAAsG1heHAAaABCAAABCAAAACBuYW1l/tOv2wAAKLQAAABycG9zdOZn7hAAACkoAAADgAABAAAAAQAAJRug718PPPUAAQPoAAAAAObpoj0AAAAA5umiPQAA/zgB9AK8AAAAAwACAAAAAAAAAAEAAAMg/zgAAAJYAAAAZAH0AAEAAAAAAAAAAAAAAAAAAAABAAEAAABXAEAAEAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwJYAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAABAAAAAAAAAAAAAPz8/PwAAACAmBQMg/zgAAAMgAMgAAAAAAAAAAAH0ArwAAAAgAAACWAAyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAhAAAABIAEAADAAIAIwAvADkAQABaAF8AeiYF//8AAAAgACUAMAA6AEEAXwBhJgX//wAAAAD/6wAA/8D/9f/E2lEAAQASABgAAAAqAAAAAAAAAAAAAAA/AEQARwBNAEwATgBGAE8AUABRAEkAQQBIAEAASwBCAEMAUgBKAFMARQBVAAAADQBaAKEAzwEbAUoBeQG6AgsCOgJvAr0C6gNJA6MD8AQrBIAEywUGBTQFhQXUBjMGggbABu4HPgdsB6EH3AgbCFAIjAi5CQEJPQlnCacJygoMCjYKZQqnCuwLFAtNC48LvQwJDEMMeQy6DPsNKA1MDXoNtA3tDjUObQ6zDtYO1g7nDwMPIA9ID3APnw+2D9IP3xADEBYQRBCGENARHRFKEXYRrxHbEgcSEhJdEpkAAQAyAAABwgK8AAMAADMRIREyAZACvP1EAAAMAAAAAAH0ArwAAwAHAAsADwATABcAGwAfACMAJwArAC8AABM1IRUFNTMVITUzFQU1MxUhNTMVBTUhFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFWQBLP5wZAEsZP4MZAEsZP4MAfT+DGQBLGT+DGQBLGT+DGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAACwAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAjACcAKwAAETUhFQU1MxUhNTMVBTUzFSE1MxUFNSEVBTUzFSE1MxUFNTMVITUzFQU1IRUBkP5wZAEsZP4MZAEsZP4MAZD+cGQBLGT+DGQBLGT+DAGQAlhkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAcAAAAAAfQCvAADAAcACwAPABMAFwAbAAATNSEVBTUzFQc1MxUHNTMVBzUzFQc1MxUVNSEVZAGQ/gxkZGRkZGRkZGQBkAJYZGRkZGRkZGRkZGRkZGRkZGRkZGQADAAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAjACcAKwAvAAARNSEVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFQU1IRUBkP5wZAEsZP4MZAEsZP4MZAEsZP4MZAEsZP4MZAEsZP4MAZACWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAHAAAAAAH0ArwAAwAHAAsADwATABcAGwAAETUhFQU1MxUHNTMVBzUhFQU1MxUHNTMVBzUhFQH0/gxkZGRkAZD+cGRkZGQB9AJYZGRkZGRkZGRkZGRkZGRkZGRkZGQABwAAAAAB9AK8AAMABwALAA8AEwAXABsAABE1IRUFNTMVBzUzFQc1IRUFNTMVBzUzFQc1MxUB9P4MZGRkZAGQ/nBkZGRkZAJYZGRkZGRkZGRkZGRkZGRkZGRkZGQAAAoAAAAAAfQCvAADAAcACwAPABMAFwAbAB8AIwAnAAATNSEVBTUzFQc1MxUHNTMVMzUhFQU1MxUhNTMVBTUzFSE1MxUFNSEVZAGQ/gxkZGRkZGQBLP4MZAEsZP4MZAEsZP5wAZACWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAANAAAAAAH0ArwAAwAHAAsADwATABcAGwAfACMAJwArAC8AMwAAETUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUhFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFWQBLGT+DGQBLGT+DGQBLGT+DAH0/gxkASxk/gxkASxk/gxkASxkAlhkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAHAAAAAAH0ArwAAwAHAAsADwATABcAGwAAETUhFQU1MxUHNTMVBzUzFQc1MxUHNTMVBTUhFQH0/tRkZGRkZGRkZGT+1AH0AlhkZGRkZGRkZGRkZGRkZGRkZGRkZAAACAAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAAEzUhFQc1MxUHNTMVBzUzFQc1MxUFNTMVITUzFQU1IRXIASxkZGRkZGRkZP4MZAEsZP5wASwCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQAAA0AAAAAAfQCvAADAAcACwAPABMAFwAbAB8AIwAnACsALwAzAAARNTMVITUzFQU1MxUzNTMVBTUzFTM1MxUFNTMVBzUzFTM1MxUFNTMVMzUzFQU1MxUhNTMVZAEsZP4MZMhk/nBkZGT+1MjIZGRk/tRkyGT+cGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAcAAAAAAfQCvAADAAcACwAPABMAFwAbAAARNTMVBzUzFQc1MxUHNTMVBzUzFQc1MxUHNSEVZGRkZGRkZGRkZGRkAfQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkABAAAAAAAfQCvAADAAcACwAPABMAFwAbAB8AIwAnACsALwAzADcAOwA/AAARNTMVITUzFQU1MxUzNTMVBTUzFTM1MxUzNTMVBTUzFTM1MxUzNTMVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVZAEsZP4MyGTI/gxkZGRkZP4MZGRkZGT+DGQBLGT+DGQBLGT+DGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAAPAAAAAAH0ArwAAwAHAAsADwATABcAGwAfACMAJwArAC8AMwA3ADsAABE1MxUhNTMVBTUzFTM1MxUFNTMVMzUzFTM1MxUFNTMVMzUzFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFWQBLGT+DMjIZP4MZGRkZGT+DGTI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DGQBLGT+DGQBLGT+cAGQZGT+cAEsAZBkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAACwAAAAAB9AK8AAMABwALAA8AEwAXABsAHwAjACcAKwAAETUzFQc1MxUHNSEVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUzFSE1MxVkZGRkAZD+cGQBLGT+DGQBLGT+DGQBLGT+DGQBLGQCWGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQABgBkAAABkAK8AAMABwALAA8AEwAXAAATNTMVBzUzFQc1MxUHNTMVBzUzFQc1IRXIZMjIZGRkZGRkyAEsAlhkZMhkZGRkZGRkZGRkZGRkZAAJAAD/OAGQArwAAwAHAAsADwATABcAGwAfACMAAAE1MxUHNTMVBzUzFQc1MxUHNTMVBzUzFQU1MxUzNTMVBTUzFQEsZMjIZGRkZGRkZGT+cGTIZP7UyAJYZGTIZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAALAAAAAAGQArwAAwAHAAsADwATABcAGwAfACMAJwArAAARNTMVBzUzFQc1MxUzNTMVBTUzFTM1MxUFNTMVBzUzFTM1MxUFNTMVMzUzFWRkZGRkyGT+cGRkZP7UyMhkZGT+1GTIZAJYZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAHAGQAAAGQArwAAwAHAAsADwATABcAGwAAEzUzFQc1MxUHNTMVBzUzFQc1MxUHNTMVBzUhFWTIZGRkZGRkZGRkZMgBLAJYZGRkZGRkZGRkZGRkZGRkZGRkZGQAAA0AAAAAAfQB9AADAAcACwAPABMAFwAbAB8AIwAnACsALwAzAAARNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUzNTMVMzUzFQU1MxUhNTMVyGRk/nBkZGRkZP4MZGRkZGT+DGRkZGRk/gxkASxkAZBkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQACQAAAAAB9AH0AAMABwALAA8AEwAXABsAHwAjAAARNSEVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVBTUzFSE1MxUBkP5wZAEsZP4MZAEsZP4MZAEsZP4MZAEsZAGQZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAIAAAAAAH0AfQAAwAHAAsADwATABcAGwAf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B3VuaTAwNDgHdW5pMDA0OQd1bmkwMDRBB3VuaTAwNEIHdW5pMDA0Qwd1bmkwMDREB3VuaTAwNEUHdW5pMDA0Rgd1bmkwMDUwB3VuaTAwNTEHdW5pMDA1Mgd1bmkwMDUzB3VuaTAwNTQHdW5pMDA1NQd1bmkwMDU2B3VuaTAwNTcHdW5pMDA1OAd1bmkwMDU5B3VuaTAwNUEHdW5pMDAzMAd1bmkwMDMxB3VuaTAwMzIHdW5pMDAzMwd1bmkwMDM0B3VuaTAwMzUHdW5pMDAzNgd1bmkwMDM3B3VuaTAwMzgHdW5pMDAzOQd1bmkwMDYxB3VuaTAwNjIHdW5pMDA2Mwd1bmkwMDY0B3VuaTAwNjUHdW5pMDA2Ngd1bmkwMDY3B3VuaTAwNjgHdW5pMDA2OQd1bmkwMDZBB3VuaTAwNkIHdW5pMDA2Qwd1bmkwMDZEB3VuaTAwNkUHdW5pMDA2Rgd1bmkwMDcwB3VuaTAwNzEHdW5pMDA3Mgd1bmkwMDczB3VuaTAwNzQHdW5pMDA3NQd1bmkwMDc2B3VuaTAwNzcHdW5pMDA3OAd1bmkwMDc5B3VuaTAwN0EHdW5pMDAyMAd1bmkwMDJFB3VuaTAwMkMHdW5pMDAzQQd1bmkwMDNCB3VuaTAwMjEHdW5pMDAzRgd1bmkwMDI3B3VuaTAwMjIHdW5pMDAyRAd1bmkwMDJCB3VuaTAwM0QHdW5pMDAyRgd1bmkwMDI1B3VuaTAwMjMHdW5pMDAyNgd1bmkwMDI4B3VuaTAwMjkHdW5pMDAyQQd1bmkwMDNDB3VuaTAwM0UHdW5pMDA1Rgd1bmkwMDQwB3VuaTI2MDU=) format('truetype');font-weight:100 900;font-display:block}
@@ -147,7 +149,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #diffAsk .dback{display:block;width:auto;margin:10px auto 0;padding:4px 8px;background:none;border:0;box-shadow:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8a7eb0}#diffAsk .dback::before{content:'< '}#diffAsk .dback:hover{color:#fff0a0}
 @media (max-height:600px){#diffAsk .panel{padding:6px 10px 4px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu [data-d]{padding:4px 8px 4px 26px}#diffAsk .dmenu [data-d]::before{top:7px}#diffAsk .dextra{margin-top:8px}#diffAsk .dback{margin-top:4px;padding:2px 8px}}
 @media (prefers-reduced-motion: reduce){#diffAsk .dmenu [data-d]::before,#diffAsk .dsel button{animation:none!important}}
-#resumeAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open{display:grid}#resumeAsk .panel{width:min(90%,340px)}#resumeAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button{flex:1;padding:10px}
+#resumeAsk,#installAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open,#installAsk.open{display:grid}#resumeAsk .panel,#installAsk .panel{width:min(90%,340px)}#resumeAsk .note,#installAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow,#installAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button,#installAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
 #credits{position:absolute;inset:0;display:none;background:#000;z-index:9;overflow:hidden;color:#d8f2ff;font:13px/1.6 'StarFall Text',ui-monospace,monospace;text-align:center}
@@ -232,8 +234,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel h2{text-align:center;font-size:21px;letter-spacing:.12em;text-transform:uppercase;color:transparent;line-height:1.25;background:linear-gradient(#fff8d0 0 50%,#f4c040 50% 100%) 0 0/100% 1.25em;-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(2px 2px 0 #120e1a);margin:0 0 12px}
 .panel button{border-radius:0}
 /* arcade buttons: primary = START (gold rim), secondary = purple bevel */
-.panel .primary,.panel .lbrow button,#resumeAsk .lbrow button{font:16px 'StarFall Text',monospace;letter-spacing:.1em;text-transform:uppercase;padding:9px 8px 8px;background:#2a2050;color:#c8bce8;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;text-shadow:1px 1px 0 #120e1a}
-.panel .primary,#resumeAsk .lbrow .primary{background:#3a2a70;color:#fff0a0;box-shadow:inset 0 0 0 2px #d0a020,inset 3px 3px 0 #fff0a0,inset -3px -3px 0 #7a5410,0 3px 0 #120e1a}
+.panel .primary,.panel .lbrow button,#resumeAsk .lbrow button,#installAsk .lbrow button{font:16px 'StarFall Text',monospace;letter-spacing:.1em;text-transform:uppercase;padding:9px 8px 8px;background:#2a2050;color:#c8bce8;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;text-shadow:1px 1px 0 #120e1a}
+.panel .primary,#resumeAsk .lbrow .primary,#installAsk .lbrow .primary{background:#3a2a70;color:#fff0a0;box-shadow:inset 0 0 0 2px #d0a020,inset 3px 3px 0 #fff0a0,inset -3px -3px 0 #7a5410,0 3px 0 #120e1a}
 .panel .primary:active,.panel .lbrow button:active{transform:translateY(3px);box-shadow:inset -2px -2px 0 #4a3e90,inset 2px 2px 0 #170f2c}
 /* menu list: one highlight (hovered, else focused, else the first/primary row) with the blinking cursor */
 .panel .menu{gap:2px}
@@ -265,7 +267,9 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #lbList li.me{background:#34226a;box-shadow:inset 0 2px 0 #5a44a0,inset 0 -2px 0 #120e1a,inset 3px 0 0 #a8f6dc}
 #lbLegend{font-size:11px;color:#7a6ea0;text-align:center}
 /* resume */
-#resumeAsk .note{text-align:center;font-size:14px;color:#c8bce8}
+#resumeAsk .note,#installAsk .note{text-align:center;font-size:14px;color:#c8bce8}
+/* install to Home Screen */
+#installAsk .note b{font-weight:400;color:#fff0a0}#installAsk .note svg{width:14px;height:16px;vertical-align:-2px;fill:none;stroke:#fff0a0;stroke-width:2}#installAsk #insHow:empty{display:none}
 /* how to play */
 #howto h3{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:#f4c040;text-shadow:1px 1px 0 #120e1a;border-bottom:2px solid #4a3e70;padding-bottom:4px}
 #howto .tip{background:rgba(18,14,36,.75);border-left:0;box-shadow:inset 3px 0 0 #a8f6dc}
@@ -349,6 +353,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
           <button type="button" id="pmSettings">Settings</button>
+          <button type="button" id="pmHow">How to play</button>
           <button type="button" id="pmCredits">Credits</button>
           <div class="sep" id="pmSep2" aria-hidden="true"></div>
           <button type="button" id="pmRestart" class="danger">Restart stage</button>
@@ -374,6 +379,14 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="resTitle">Continue your run?</h2>
         <p class="note" id="resInfo"></p>
         <div class="lbrow"><button type="button" class="primary" id="resYes">Resume</button><button type="button" id="resNo">New game</button></div>
+      </div>
+    </div>
+    <div id="installAsk" role="dialog" aria-modal="true" aria-labelledby="insTitle">
+      <div class="panel">
+        <h2 id="insTitle">Play full screen</h2>
+        <p class="note">Put FEUERVOGEL 89 on your Home Screen: it opens full screen from its own icon and works offline.</p>
+        <p class="note" id="insHow"></p>
+        <div class="lbrow"><button type="button" class="primary" id="insYes">Install</button><button type="button" id="insNo">Not now</button></div>
       </div>
     </div>
     <div id="credits" role="dialog" aria-modal="true" aria-label="Credits">
@@ -417,7 +430,6 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
-        <button type="button" id="sHow" class="wide">How to play</button>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
       </div>
@@ -470,7 +482,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel'
+  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -1906,6 +1918,7 @@ let preboot = document.getElementById('preboot');
 function finishBoot() {
   performance.mark('title-ready'); booting = false; delete document.body.dataset.boot;
   if (preboot) { preboot.classList.add('gone'); const pb = preboot; preboot = null; setTimeout(() => pb.remove(), 700); } // the page's splash fades out, the title is underneath
+  offerInstall();
 }
 function endBoot() { if (booting && bootT > 40) finishBoot(); }
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
@@ -3704,7 +3717,7 @@ function startTutorial() {
   runStart = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof panelPaused !== 'undefined' && panelPaused) { panelPaused = false; paused = false; } }
 function tutSpawn(o) { enemies.push(o); tut.ids.push(o); return o; }
 function tutAlive() { return tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { tut.step++; tut.t = 0; tut.ids = []; }
@@ -3929,21 +3942,25 @@ function castleReact(f, e) {
 }
 // What each boss does after it has beaten the player. Everything is picture and sound only: the player is gone, so nothing here can hurt.
 const BOSS_SOUND_AT = 150; // frames after game over: the game over jingle has finished
+// Each boss's reaction, put on BOSS[kind].react(e, f) (f: the game over scene). The train and the sky fortress only sound off.
+const BOSS_REACTS = {
+  ship(e, f) { if (f.t === BOSS_SOUND_AT + 60 && f.tier >= 3) e.reactRam = true; }, // Iron Leviathan: the turn from "Hard to port", with a rippling salvo
+  fortress(e, f) { if (f.t === BOSS_SOUND_AT + 60 && !f.blow) { if (f.tier >= 3 && f.rare) e.reactStorm = true; else if (f.tier >= 2) e.reactLeave = true; } }, // Sand Colossus: rarely the sandstorm, otherwise it backs out the way it came in
+  railgun(e, f) {
+    if (f.t === BOSS_SOUND_AT + 60 && f.tier === 2) e.reactLeave = true; // Night Hammer: rolls back up the rails
+    if (f.tier >= 3 && f.t >= BOSS_SOUND_AT + 60 && !f.lightsDone) { // Night Hammer: both searchlights find the wreck, rest on the orb for a while, then the carriage rolls back up the rails
+      e.reactLights = true;
+      const ls = e.parts.filter(q => q.k === 'light' && !q.dead && q.sx !== undefined), wy = flyY(f);
+      if (ls.length && ls.every(q => Math.hypot(q.sx - f.x, q.sy - wy) < 8)) f.lightDwell = (f.lightDwell || 0) + 1;
+      if (f.lightDwell > 150 || !ls.length || f.t > BOSS_SOUND_AT + 560) { e.reactLights = false; f.lightsDone = true; e.reactLeave = true; }
+    }
+  },
+  castle(e, f) { if (f.tier >= 2) castleReact(f, e); }, // Ravenhold: bell, crows, and from tier 3 a few perch on the wreck
+};
 function updBossReact(f) {
   const e = f.boss; if (!e || e.dead || e.dying) return;
   if (f.t === BOSS_SOUND_AT && !f.blow) warnSfx(BOSS_KINDS.indexOf(e.kind)); // its own warning sound: horn, whistle, tank roll, rail roll, attack horn, engine spool
-  if (f.t === BOSS_SOUND_AT + 60) {
-    if (e.kind === 'ship' && f.tier >= 3) e.reactRam = true; // Iron Leviathan: the turn from "Hard to port", with a rippling salvo
-    if (e.kind === 'fortress' && !f.blow) { if (f.tier >= 3 && f.rare) e.reactStorm = true; else if (f.tier >= 2) e.reactLeave = true; } // Sand Colossus: rarely the sandstorm, otherwise it backs out the way it came in
-    if (e.kind === 'railgun' && f.tier === 2) e.reactLeave = true; // Night Hammer: rolls back up the rails
-  }
-  if (e.kind === 'castle' && f.tier >= 2) castleReact(f, e); // Ravenhold: bell, crows, and from tier 3 a few perch on the wreck
-  if (e.kind === 'railgun' && f.tier >= 3 && f.t >= BOSS_SOUND_AT + 60 && !f.lightsDone) { // Night Hammer: both searchlights find the wreck, rest on the orb for a while, then the carriage rolls back up the rails
-    e.reactLights = true;
-    const ls = e.parts.filter(q => q.k === 'light' && !q.dead && q.sx !== undefined), wy = flyY(f);
-    if (ls.length && ls.every(q => Math.hypot(q.sx - f.x, q.sy - wy) < 8)) f.lightDwell = (f.lightDwell || 0) + 1;
-    if (f.lightDwell > 150 || !ls.length || f.t > BOSS_SOUND_AT + 560) { e.reactLights = false; f.lightsDone = true; e.reactLeave = true; }
-  }
+  if (BOSS[e.kind].react) BOSS[e.kind].react(e, f);
 }
 // Every way out of game over ends here. The first tap (or closing the score dialog) releases the orb, which rises for a moment, then the usual dither fade leads to the title.
 const ORB_CLEAR = 16; // the orb will not leave a wreck that lies under a boss, or this close to its hull: it waits until the boss has moved off
@@ -4015,17 +4032,16 @@ function drawWreck(top) { // top: the wreck lies on a boss and is drawn above it
 }
 // Where a boss is: tells whether the wreck lies under it. Rigid hulls (ship, tank, rail carriage) are one rectangle in the boss's own frame, built from its
 // parts; a train or the castle is the union of its parts, since its cars and towers move about on their own.
-const RIGID = new Set(['ship', 'fortress', 'railgun']);
 function hullRect(e) { // [centre x, centre y, half width, half length] in the boss's frame
-  if (e.kind === 'fortress') return [0, 0, 44, 56];
+  const B = BOSS[e.kind]; if (B.hull) return B.hull;
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
   for (const p of e.parts) { x0 = Math.min(x0, p.ox - p.hw); x1 = Math.max(x1, p.ox + p.hw); y0 = Math.min(y0, p.oy - p.hh); y1 = Math.max(y1, p.oy + p.hh); }
-  const pad = e.kind === 'ship' ? 8 : 12;
+  const pad = B.hullPad || 12;
   return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 + pad, (y1 - y0) / 2 + pad];
 }
 function onBoss(e, x, y, m = 0) {
   if (!e || e.dead || !e.parts) return false;
-  if (RIGID.has(e.kind)) {
+  if (BOSS[e.kind].rigid) {
     const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y, [cx, cy, hw, hh] = hullRect(e);
     return Math.abs(dx * c + dy * s - cx) < hw + m && Math.abs(-dx * s + dy * c - cy) < hh + m;
   }
@@ -4036,9 +4052,9 @@ function onBoss(e, x, y, m = 0) {
 // It only stays on if its middle is well inside the hull (DECK_INSET). Where it just touches the rim it has no hold: it gets a deck with slip set and slides off (slipOff).
 const DECK_INSET = 14;
 function bossAnchor(e, x, y) {
-  if (!e || e.kind === 'skyfort' || !onBoss(e, x, y)) return null;
+  if (!e || BOSS[e.kind].noDeck || !onBoss(e, x, y)) return null;
   const slip = !onBoss(e, x, y, -DECK_INSET);
-  if (RIGID.has(e.kind)) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, slip, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
+  if (BOSS[e.kind].rigid) { const c = Math.cos(e.hd || 0), s = Math.sin(e.hd || 0), dx = x - e.x, dy = y - e.y; return { e, slip, lx: dx * c + dy * s, ly: -dx * s + dy * c }; }
   let best = null, bd = 1e9;
   for (const p of e.parts) { if (p.off) continue; const d = Math.hypot(x - e.x - p.ox, y - e.y - p.oy); if (d < bd) { bd = d; best = p; } }
   return best ? { e, p: best, slip, dx: x - e.x - best.ox, dy: y - e.y - best.oy } : null;
@@ -4337,6 +4353,27 @@ function offerResume() {
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
+// Install to Home Screen: a phone or tablet browser is asked when the title is ready (never in the Home Screen app, in automated
+// tests or over the resume question). Install opens Chrome's own dialog where there is one; elsewhere (iPhone, other browsers)
+// the panel says how and Got it stops asking. Not now asks again a week later, at most three times.
+const INSTALL_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function installState() { const v = store.getJSON(KEY.install, {}); return v && typeof v === 'object' ? v : {}; }
+function installFill() {
+  const how = document.getElementById('insHow'), yes = document.getElementById('insYes');
+  if (window.SF_INSTALL) { how.textContent = ''; yes.textContent = 'Install'; return; }
+  how.innerHTML = INSTALL_IOS ? 'Tap <b>Share</b> <svg viewBox="0 0 14 16" aria-hidden="true"><path d="M7 10V1M3.5 4.5L7 1l3.5 3.5M4.5 7H2v8h10V7H9.5"/></svg> in the browser bar, then <b>Add to Home Screen</b>.'
+    : 'Open the browser menu <b>&#8942;</b>, then tap <b>Install app</b> or <b>Add to Home screen</b>.';
+  yes.textContent = 'Got it';
+}
+function offerInstall() {
+  if (document.documentElement.classList.contains('standalone') || navigator.webdriver || openDialog() || !matchMedia('(pointer: coarse)').matches) return;
+  const st = installState(); if (st.done || (st.no || 0) >= 3 || Date.now() - (st.at || 0) < 7 * 864e5) return;
+  installFill(); document.getElementById('installAsk').classList.add('open'); document.getElementById('insYes').focus();
+}
+function closeInstall(change) { store.setJSON(KEY.install, Object.assign(installState(), change)); document.getElementById('installAsk').classList.remove('open'); }
+window.addEventListener('beforeinstallprompt', () => { if (document.getElementById('installAsk').classList.contains('open')) installFill(); });
+window.addEventListener('appinstalled', () => store.setJSON(KEY.install, Object.assign(installState(), { done: true })));
+
 /* ================= helpers ================= */
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
 function aim(x, y) { return Math.atan2(player.y - y, player.x - x); }
@@ -4532,7 +4569,7 @@ function directorInner() {
     bossSpawned = true; prewarmBoss(curTheme);
     fadeMusicOut(1.0);
     if (curTheme === 2) for (let i = 0; i < 14; i++) later.push({ at: gf + 205 + i * 10, fn: () => { shake = Math.max(shake, 1.5 + i * 0.2); } });
-    const warn = () => { showMsg('WARNING', ['ENEMY FLAGSHIP APPROACHING', 'ARMOURED TRAIN ON THE LINE', 'LAND FORTRESS INBOUND', 'SUPERGUN DETECTED', 'THE CASTLE GUNS AWAKEN', 'FLYING FORTRESS ON RADAR'][curTheme], 220); sfx('warn'); haptic('warn');
+    const warn = () => { showMsg('WARNING', BOSS[BOSS_KINDS[curTheme]].warn, 220); sfx('warn'); haptic('warn');
       later.push({ at: gf + 240, fn: spawnBoss }); };
     if (curTheme === 1) { spawnProtoFly(); later.push({ at: gf + 190, fn: warn }); }
     else if (curTheme === 5) spawnProtoDuel(warn);
@@ -4837,22 +4874,28 @@ function spawnWing() {
   const hp = 260 * (1 + 0.35 * loop);
   enemies.push(E('wing', { x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { items.push(mkItem('W', e.x - 12, e.y)); items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); items.push(mkItem('B', e.x + 12, e.y)); } }));
 }
-const BOSSDEF = {
-  ship: { y: -130, parts: [
+// Boss table: one entry per boss kind (BOSS_KINDS[theme] picks a stage's boss). Each entry holds the boss's data: warn (the
+// warning as it approaches), rigid (its hull is one body: onBoss, bossAnchor), hull or hullPad (hullRect), coreTurns (its core aims
+// like a gun), noDeck (a wreck can't rest on it), dyingFrames (how long it dies, default 220), score (times the loop
+// + 1), song, x/y/world/air (where it appears) and parts. Its hooks live next to the code they use and are put on the entry where
+// BOSS_LOOKS is defined: move(e) (BOSSMOVE), intro(e), breakup(e), blastArea, remains(e, D, wyb), react(e, f) and draw(e, fl, core),
+// and from BOSS_FIGHT its fight: how it fires, holds fire, aims, takes damage and dies.
+const BOSS = {
+  ship: { warn: 'ENEMY FLAGSHIP APPROACHING', rigid: true, hullPad: 8, score: 30000, y: -130, parts: [
     { k: 'main', ox: 0, oy: 76, hp: 110 }, { k: 'main', ox: 0, oy: 52, hp: 110 }, { k: 'main', ox: 0, oy: -60, hp: 110 }, { k: 'main', ox: 0, oy: -84, hp: 110 },
     { k: 'aa', ox: -24, oy: 16, hp: 36 }, { k: 'aa', ox: 24, oy: 16, hp: 36 }, { k: 'aa', ox: -24, oy: -20, hp: 36 }, { k: 'aa', ox: 24, oy: -20, hp: 36 },
     { k: 'core', ox: 0, oy: 26, hp: 170, hw: 11, hh: 7 }] },
-  train: { y: -30, x: BOSSRAIL, parts: [
+  train: { warn: 'ARMOURED TRAIN ON THE LINE', score: 30000, y: -30, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: 13, hp: 150, hw: 10, hh: 5 }, { k: 'main', ox: 0, oy: -4, hp: 55, hw: 7, hh: 7 }, { k: 'main', ox: 0, oy: -50, hp: 70 },
     { k: 'rocket', ox: 0, oy: -98, hp: 60, hw: 8, hh: 8 }, { k: 'aa', ox: -6, oy: -136, hp: 28 }, { k: 'aa', ox: 6, oy: -156, hp: 28 }] },
-  fortress: { y: -70, parts: [
+  fortress: { warn: 'LAND FORTRESS INBOUND', rigid: true, coreTurns: true, hull: [0, 0, 44, 56], score: 30000, y: -70, parts: [
     { k: 'core', ox: 0, oy: -6, hp: 340, hw: 13, hh: 13 }, { k: 'main', ox: -30, oy: 36, hp: 70, hw: 6, hh: 6 }, { k: 'main', ox: 30, oy: 36, hp: 70, hw: 6, hh: 6 },
     { k: 'aa', ox: -26, oy: -40, hp: 38 }, { k: 'aa', ox: 26, oy: -40, hp: 38 }, { k: 'mortar', ox: 0, oy: -44, hp: 64, hw: 6, hh: 6 }] },
-  railgun: { y: -90, x: BOSSRAIL, parts: [
+  railgun: { warn: 'SUPERGUN DETECTED', rigid: true, score: 30000, y: -90, x: BOSSRAIL, parts: [
     { k: 'core', ox: 0, oy: -15, hp: 300, hw: 10, hh: 12 }, { k: 'main', ox: -28, oy: 22, hp: 60 }, { k: 'main', ox: 28, oy: 22, hp: 60 },
     { k: 'aa', ox: -28, oy: -28, hp: 30 }, { k: 'aa', ox: 28, oy: -28, hp: 30 }, { k: 'light', ox: -20, oy: -62, hp: 32, hw: 5, hh: 5 }, { k: 'light', ox: 20, oy: -62, hp: 32, hw: 5, hh: 5 }] }
 };
-BOSSDEF.castle = { world: true, parts: [
+BOSS.castle = { warn: 'THE CASTLE GUNS AWAKEN', score: 40000, blastArea: [50, 60], world: true, parts: [
   { k: 'main', ox: -32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 75, hw: 9, hh: 9 },
   { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 65, hw: 7, hh: 7 },
   { k: 'core', tw: [0, 0], ox: 0, oy: 0, hp: 170, hw: 18, hh: 18 }] };
@@ -5014,7 +5057,7 @@ function alienCore(px, py, hit, f) {
   ctx.globalAlpha = 0.25 + 0.2 * f; dk(px, py, R + 8, '#563aa4'); ctx.globalAlpha = 0.45; dk(px, py, R + 4, '#8466dc'); ctx.globalAlpha = 1;
   dk(px, py, R + 1, '#1c1238'); dk(px, py, R, hit ? '#ffffff' : '#bba4ff'); dk(px - 1, py - 1, R * 0.6, '#e8dcff'); dk(px - 1, py - 1, R * 0.3, '#ffffff');
 }
-BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
+BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 340, score: 80000, song: 'final', blastArea: [90, 50], y: H + 90, air: true, parts: [
   { k: 'engine', ox: -40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 40, oy: 10, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: -76, oy: 14, hp: 60, hw: 7, hh: 14 }, { k: 'engine', ox: 76, oy: 14, hp: 60, hw: 7, hh: 14 },
   { k: 'main', ox: -22, oy: -30, hp: 80 }, { k: 'main', ox: 22, oy: -30, hp: 80 },
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
@@ -5022,20 +5065,17 @@ BOSSDEF.skyfort = { y: H + 90, air: true, parts: [
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
   if (rr && rr.cur) rr.cur.boss = 1;
-  const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSSDEF[kind];
+  const m = 2 * (1 + 0.25 * loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
-    p.hp *= m * (kind === 'castle' && p.g === 1 ? 0.5 : 1);
+    p.hp *= m;
     return Object.assign(p, { maxhp: p.hp, ang: PI / 2, cd: 60 + i * 19, hit: 0, dead: false, hw: p.hw || (p.k === 'main' ? 9 : 5), hh: p.hh || (p.k === 'main' ? 9 : 5) });
   });
-  if (state === 'play') playSong(curTheme === 5 ? 'final' : 'boss', false);
+  if (state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(scroll);
-  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: (kind === 'skyfort' ? 80000 : kind === 'castle' ? 40000 : 30000) * (loop + 1), onDead: e => { scrollTarget = SCROLL; if (!(kind === 'castle' && protoEscape())) stageClear(); } });
+  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (loop + 1), onDead: e => { scrollTarget = SCROLL; if (!(def.delayClear && def.delayClear(e))) stageClear(); } });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
-  if (kind === 'skyfort') {
-    const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
-    Object.assign(bossE, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
-  }
+  if (def.setup) def.setup(bossE, sc);
   enemies.push(bossE);
 }
 function mortarShot(x, y, off = 0) {
@@ -5267,10 +5307,20 @@ function trainMove(e) {
 }
 function groundPos(e) { e.x = e.wx; e.y = e.wy + Math.floor(scroll); }
 function canFire(e, margin = 80) { return !player.dead && !e.turDead && e.y > 10 && e.y < H - margin; }
-function dyingTick(e) {
-  e.dying--;
-  const lay = e.air ? 'a' : e.surface ? 'g' : 'a';
-  if (e.kind === 'skyfort' && e.type === 'boss') {
+// What each boss leaves when it is gone (craters, oil, swimmers; D(ox, oy, kind, r, smoke) places one, wyb is its world y),
+// put on BOSS[kind].remains.
+const BOSS_REMAINS = {
+  castle(e, D, wyb) { for (let k = 0; k < 14; k++) decals.push({ kind: 'crater', wx: e.x + rnd(-40, 40), wy: wyb + rnd(-40, 40), r: rnd(6, 14), smokeT: Math.random() < 0.4 ? 500 : 0 }); },
+  ship(e, D, wyb) { D(0, 60, 'oil', 34, 0); D(0, -60, 'oil', 30, 0); D(0, 0, 'oil', 34, 300); for (const d of decals) if (d.kind === 'oil' && Math.abs(d.wx - e.x) < 2) d.grow = true; spawnSwimmers(e.x, e.y - Math.floor(scroll), 5, 40, 100); },
+  train(e, D, wyb) { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) D(yardX(t, t.y + oy) - e.x, t.y + oy - e.y, 'crater', 22, 260); },
+  fortress(e, D, wyb) { D(0, 0, 'crater', 50, 400); D(-30, -40, 'crater', 20, 200); D(30, 40, 'crater', 20, 200); },
+  railgun(e, D, wyb) { D(0, 0, 'crater', 40, 400); D(0, -60, 'crater', 22, 200); D(0, 60, 'crater', 22, 200); },
+  skyfort(e, D, wyb) { D(0, 40, 'crater', 40, 400); D(-66, 80, 'crater', 34, 300); D(66, 80, 'crater', 34, 300); },
+};
+// The sky fortress's breakup: the hull snaps in two and both halves fall away burning. Put on BOSS.skyfort.breakup; true while the
+// halves still fall (dyingTick waits).
+const BOSS_BREAKUPS = {
+  skyfort(e) {
     e.y += 0.22;
     // about two seconds of explosions, then the hull snaps in two and both halves fall away burning
     if (e.dying === 230) { e.split = 0; sfx('snap'); sfx('bigboom'); boom(e.x, e.y, 34, 'a'); shake = 14; flashFx = 6; hitStop = 4; for (let k = 0; k < 20; k++) parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + rnd(-70, 60), vx: rnd(-1.6, 1.6), vy: rnd(-1, 1), life: 22, max: 22, col: k & 1 ? '#ffd060' : '#fff2a8' }); }
@@ -5282,21 +5332,20 @@ function dyingTick(e) {
         if (gf % 14 === 0) { boom(ex + sd * rnd(10, 70) * h.sc, ey + rnd(-40, 40) * h.sc, 16, 'a'); sfx('boom'); }
       }
       if (e.dying === 2) for (let k = 0; k < 3; k++) parts.push({ kind: 'ring', layer: 'a', x: e.x, y: e.y + 60, vx: 0, vy: 0, life: 26 + k * 10, max: 26 + k * 10, r: 90 + k * 50 });
-      if (e.dying > 1) return;
+      if (e.dying > 1) return true;
     }
-  }
-  if (e.dying % 6 === 0) { const ww = e.kind === 'skyfort' ? 90 : e.kind === 'castle' ? 50 : e.hw, hh = e.kind === 'castle' ? 60 : e.kind === 'skyfort' ? 50 : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); shake = Math.max(shake, 4); }
+  },
+};
+function dyingTick(e) {
+  e.dying--;
+  const lay = e.air ? 'a' : e.surface ? 'g' : 'a';
+  if (e.type === 'boss' && BOSS[e.kind].breakup && BOSS[e.kind].breakup(e)) return;
+  if (e.dying % 6 === 0) { const area = e.type === 'boss' && BOSS[e.kind].blastArea, ww = area ? area[0] : e.hw, hh = area ? area[1] : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); shake = Math.max(shake, 4); }
   if (e.dying <= 0) {
     e.dead = true; boom(e.x, e.y, 50, lay);
     if (e.type === 'boss') for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + Math.random() * 0.5; later.push({ at: gf + 4 + i * 5, fn: () => boom(e.x + Math.cos(a) * 40, e.y + Math.sin(a) * 34, 40, lay) }); } hitStop = Math.max(hitStop, 8); shake = 16; flashFx = 10; sfx('bigboom'); haptic(e.type === 'boss' ? 'boss' : 'big');
     { const wyb = e.y - Math.floor(scroll), D = (ox, oy, kind, r, sm) => { const wet = WATER.has(terrainType(Math.floor(e.x + ox), Math.floor(wyb + oy))); if (wet && kind === 'crater') { decals.unshift({ kind: 'oil', wx: e.x + ox, wy: wyb + oy, r: Math.min(30, r), smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 }); splash(e.x + ox, e.y + oy, Math.min(24, r)); } else decals.unshift({ kind, wx: e.x + ox, wy: wyb + oy, r, smokeT: sm }); };
-      if (e.kind === 'castle') for (let k = 0; k < 14; k++) decals.push({ kind: 'crater', wx: e.x + rnd(-40, 40), wy: wyb + rnd(-40, 40), r: rnd(6, 14), smokeT: Math.random() < 0.4 ? 500 : 0 });
-      else if (e.kind === 'ship') { D(0, 60, 'oil', 34, 0); D(0, -60, 'oil', 30, 0); D(0, 0, 'oil', 34, 300); for (const d of decals) if (d.kind === 'oil' && Math.abs(d.wx - e.x) < 2) d.grow = true; spawnSwimmers(e.x, e.y - Math.floor(scroll), 5, 40, 100); }
-      else if (e.kind === 'train') { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) D(yardX(t, t.y + oy) - e.x, t.y + oy - e.y, 'crater', 22, 260); }
-      else if (e.kind === 'fortress') { D(0, 0, 'crater', 50, 400); D(-30, -40, 'crater', 20, 200); D(30, 40, 'crater', 20, 200); }
-      else if (e.kind === 'railgun') { D(0, 0, 'crater', 40, 400); D(0, -60, 'crater', 22, 200); D(0, 60, 'crater', 22, 200); }
-      else if (e.kind === 'skyfort') { D(0, 40, 'crater', 40, 400); D(-66, 80, 'crater', 34, 300); D(66, 80, 'crater', 34, 300); }
-      else D(0, 0, 'crater', 30, 300); }
+      { const B = BOSS[e.kind]; if (e.type === 'boss' && B.remains) B.remains(e, D, wyb); else D(0, 0, 'crater', 30, 300); } }
     if (e.onDead) e.onDead(e);
   }
 }
@@ -5311,7 +5360,7 @@ function yardPose(t, y) { const xa = yardX(t, y - 14), xb = yardX(t, y + 14); re
 const YARD_CARS = [0, -50, -98, -146];
 function yardInit(e) {
   e.x = W / 2; e.y = H / 2; e.hw = 100; e.hh = 120; e.supCd = 120; e.mt = 0;
-  const defs = BOSSDEF.train.parts, m = e.parts[0].maxhp / defs[0].hp;
+  const defs = BOSS.train.parts, m = e.parts[0].maxhp / defs[0].hp;
   // the second train drives in forward, locomotive first (flip): its core leads at the top, well above the player
   e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 290 + BY, on: false, dead: false, mt: 0, flip: true }];
   e.parts = [];
@@ -5376,23 +5425,28 @@ function yardTrainDown(e, p) {
   if (!e.trains[1].on) { e.joinT = 90; return false; }
   return e.trains.every(q => q.dead);
 }
-function bossIntro(e) {
-  if (e.introDone) return; e.introDone = true;
-  if (e.kind === 'ship') {
+// Each boss's entrance as the fight begins (its sound and a short show), put on BOSS[kind].intro.
+const BOSS_INTROS = {
+  ship(e) {
     sfx('horn');
     e.parts.filter(p => p.k === 'main').forEach((p, i) => later.push({ at: gf + 40 + i * 9, fn: () => { if (e.dead || e.dying) return; const px = e.x + p.ox + Math.cos(p.ang) * 16, py = e.y + p.oy + Math.sin(p.ang) * 16; flash(px, py, 7); smokePuff(px, py); smokePuff(px + 2, py - 2); shake = Math.max(shake, 5); sfx('cannon'); haptic('gkill'); } }));
-  } else if (e.kind === 'train') {
+  },
+  train(e) {
     sfx('whistle'); haptic('warn');
     const t0 = e.trains ? e.trains[0] : { x: e.x, y: e.y };
     for (let i = 0; i < 14; i++) later.push({ at: gf + i * 3, fn: () => parts.push({ kind: 'smoke', layer: 'g', x: t0.x + rnd(-3, 3), y: t0.y - 21, vx: rnd(-0.6, 0.6), vy: -0.8, r: rnd(3, 5), life: 50, max: 50, white: true }) });
-  } else if (e.kind === 'fortress') {
+  },
+  fortress(e) {
     sfx('roar'); shake = Math.max(shake, 10); haptic('big');
     for (let i = 0; i < 24; i++) { const a = Math.random() * TAU; parts.push({ kind: 'dust', layer: 'w', x: e.x + Math.cos(a) * 44, y: e.y + Math.sin(a) * 50, vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2, life: 50, max: 50, r: rnd(4, 7) }); }
-  } else if (e.kind === 'railgun') {
-    e.lightT = 0; sfx('clunk'); later.push({ at: gf + 24, fn: () => sfx('clunk') }); later.push({ at: gf + 50, fn: () => sfx('charge') });
-  } else if (e.kind === 'castle') {
-    e.bridgeT = 0; sfx('chain'); later.push({ at: gf + 10, fn: () => sfx('toll') }); later.push({ at: gf + 60, fn: () => sfx('toll') }); later.push({ at: gf + 110, fn: () => sfx('toll') });
-  } else if (e.kind === 'skyfort') { sfx('horn'); }
+  },
+  railgun(e) { e.lightT = 0; sfx('clunk'); later.push({ at: gf + 24, fn: () => sfx('clunk') }); later.push({ at: gf + 50, fn: () => sfx('charge') }); },
+  castle(e) { e.bridgeT = 0; sfx('chain'); later.push({ at: gf + 10, fn: () => sfx('toll') }); later.push({ at: gf + 60, fn: () => sfx('toll') }); later.push({ at: gf + 110, fn: () => sfx('toll') }); },
+  skyfort(e) { sfx('horn'); },
+};
+function bossIntro(e) {
+  if (e.introDone) return; e.introDone = true;
+  BOSS[e.kind].intro(e);
 }
 // Night Hammer: when a searchlight catches the player, a red lock-on follows them for ~2/3 s, freezes,
 // then the railgun fires a fast burst at that spot. Shooting out both lights stops it.
@@ -5782,6 +5836,104 @@ const BOSSMOVE = {
     return true;
   }
 };
+// How each boss fights, merged into BOSS[kind] (see the boss table). In ENT.boss.update: dyingDrift(e) moves it while it dies;
+// introEarly(e) starts its entrance before the fight is ready; tick(e, core) runs each frame before its parts fire; aimCore(e, p,
+// px, py) turns its core (else, with coreTurns, the core aims like a gun); holdFire(e, py) returns how long a part waits; mainFire(e,
+// p, mz, sp) replaces the main guns' three-way spread; coreFire(e, p, px, py, core, others, sp, mz) is its core's fire pattern. In
+// damagePart: deflect(e, p) (true: the hit bounces off), damageScale(e, p), partLost(e, p). shielded(e, p): a part shots can't reach
+// yet. setup(e, sc): placed when it spawns. delayClear(e): true holds the stage clear back (something still happens first).
+const BOSS_FIGHT = {
+  ship: {
+    dyingDrift(e) { e.y += 0.12; },
+    tick(e, core) { core.armored = e.parts.some(p => p.k === 'main' && !p.dead); },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
+      if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
+      else p.cd = Math.round((30) * fireSlow());
+    },
+  },
+  train: {
+    holdFire(e, py) { return py < 6 || py > H - 30 || e.trains.some(t => t.pack) ? 20 : 0; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      const angry = others <= 2 || p.hp < p.maxhp * 0.5;
+      p.cd = Math.round((angry ? 70 : 100) * fireSlow());
+      const sx = px, sy = py + 11;
+      if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
+      const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
+      smokePuff(sx, sy); sfx('cannon');
+    },
+  },
+  fortress: {
+    mainFire(e, p, mz, sp) {
+      const [bx, by] = mz(12);
+      for (let k = 0; k < 3; k++) later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && !player.dead) eshot(bx, by, aim(bx, by), sp * 1.15); } });
+      flash(bx, by, 3); sfx('gun');
+    },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if (e.last) {
+        p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
+        eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
+        if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
+      } else {
+        p.cd = Math.round((100) * fireSlow());
+        const [bx, by] = mz(34);
+        for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
+        if (p.hp < p.maxhp * 0.5) later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + loop * 2, sp * 0.75, gf * 0.1); } });
+        flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
+      }
+    },
+  },
+  railgun: {
+    tick(e, core) { railLock(e, core); starShells(e, core); },
+    aimCore(e, p, px, py) { if (!e.chargeT && !player.dead) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6); },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); return; }
+      if (e.lock && !e.chargeT) p.cd = 1;
+      else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
+      else if (--e.chargeT <= 0) {
+        e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
+        const [bx, by] = mz(58), d = Math.max(60, player.y - by);
+        eshot(bx, by, p.ang, 2.2, 'mega');
+        flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
+      } else p.cd = 1;
+    },
+  },
+  castle: {
+    dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
+    introEarly(e) { return e.stage1; },
+    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
+      // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
+      else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
+    },
+    deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
+    partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
+    shielded(e, p) { return p.k === 'core' && !e.open; },
+    delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
+  },
+  skyfort: {
+    introEarly(e) { return e.phase === 'spool'; },
+    coreFire(e, p, px, py, core, others, sp, mz) {
+      const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
+      if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
+      // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
+      else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
+      else {
+        p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
+        eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
+        e.fanT = (e.fanT || 0) + 1;
+        if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
+      }
+    },
+    damageScale(e, p) { return p.k === 'core' && e.fl && e.fl.ph === 'charge' ? 1.6 : 1; }, // the open orb is vulnerable while it charges
+    setup(e, sc) {
+      const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
+      Object.assign(e, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
+    },
+  },
+};
+function bossShielded(e, p) { const B = BOSS[e.kind]; return !!(B.shielded && B.shielded(e, p)); }
 // Entity table: one entry per enemy type, keyed by e.type. Each entry holds the type's traits, update(e) (its behaviour for one
 // simulation step), its death effects (merged in from DEATHS, next to kill()) and draw(e, fl) (attached in the render section,
 // from LOOKS). stats: its base hp (scaled with difficulty; fixedHp is not), hw, hh, score and rad, which every spawn starts
@@ -6164,27 +6316,24 @@ const ENT = {
   parked: { harmless: true, uncounted: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
   boss: { harmless: true, stats: { hw: 32, hh: 86 }, update(e) {
     if (e.dying) {
-      if (e.kind === 'ship') e.y += 0.12;
-      if (e.kind === 'castle') { e.x = e.wx; e.y = e.wy + Math.floor(scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); }
+      if (BOSS[e.kind].dyingDrift) BOSS[e.kind].dyingDrift(e);
       for (const p of e.parts) if (gf % 5 === 0 && Math.random() < 0.3) smokePuff(e.x + p.ox, e.y + p.oy);
       return dyingTick(e);
     }
-    const ready = BOSSMOVE[e.kind](e);
+    const ready = BOSS[e.kind].move(e);
     // a weapon pod flies in during the fight (25 s in, then every 35 s, up to 3) so players can switch weapons
     if (ready) { e.podT = (e.podT || 0) + 1; e.pods = e.pods || 0;
       if (e.pods < 3 && e.podT >= 1500 + e.pods * 2100) { e.pods++; enemies.push(E('pod', { x: rnd(30, W - 30), y: -16, bossPod: true })); } }
-    if (e.kind === 'castle' && e.stage1) bossIntro(e);
-    if (e.kind === 'skyfort' && e.phase === 'spool') bossIntro(e);
+    if (BOSS[e.kind].introEarly && BOSS[e.kind].introEarly(e)) bossIntro(e);
     if (e.lightT !== undefined) e.lightT++;
     if (e.bridgeT !== undefined && e.bridgeT < 90) e.bridgeT++;
     if (!ready) return;
     bossIntro(e);
     const sp = bspeed();
     const core = e.parts.find(p => p.k === 'core');
-    if (e.kind === 'ship') core.armored = e.parts.some(p => p.k === 'main' && !p.dead);
     const others = e.parts.filter(p => p.k !== 'core' && p.k !== 'light' && !p.dead).length;
     if (e.spot > 0) e.spot--;
-    if (e.kind === 'railgun') { railLock(e, core); starShells(e, core); }
+    if (BOSS[e.kind].tick) BOSS[e.kind].tick(e, core);
     for (const p of e.parts) {
       const px = e.x + p.ox, py = e.y + p.oy;
       if (p.hit > 0) p.hit--;
@@ -6196,27 +6345,23 @@ const ENT = {
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
-      if (p.k === 'core' && e.kind === 'railgun') {
-        if (!e.chargeT && !player.dead) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6);
-      } else if (p.k !== 'core' || e.kind === 'fortress') {
+      if (p.k === 'core' && BOSS[e.kind].aimCore) {
+        BOSS[e.kind].aimCore(e, p, px, py);
+      } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
         if (!player.dead) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
       if (player.dead) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
       if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'castle' && (py < 6 || py > H - 40 || !e.halt)) { p.cd = Math.max(p.cd, 30); continue; }
-      if (e.kind === 'train' && (py < 6 || py > H - 30 || e.trains.some(t => t.pack))) { p.cd = Math.max(p.cd, 20); continue; }
+      { const hold = BOSS[e.kind].holdFire && BOSS[e.kind].holdFire(e, py); if (hold) { p.cd = Math.max(p.cd, hold); continue; } }
       if (e.spot > 0 && p.k === 'main') p.cd--;
       if (--p.cd > 0) continue;
       const mz = (L) => [px + Math.cos(p.ang) * L, py + Math.sin(p.ang) * L];
       if (p.k === 'main') {
         p.cd = Math.round((Math.max(80, 120 - loop * 15)) * fireSlow());
-        if (e.kind === 'fortress') {
-          const [bx, by] = mz(12);
-          for (let k = 0; k < 3; k++) later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && !player.dead) eshot(bx, by, aim(bx, by), sp * 1.15); } });
-          flash(bx, by, 3); sfx('gun');
-        } else {
+        if (BOSS[e.kind].mainFire) BOSS[e.kind].mainFire(e, p, mz, sp);
+        else {
           const [bx, by] = mz(16);
           for (let k = -1; k <= 1; k++) eshot(bx, by, p.ang + k * 0.12, sp * 0.95, 'B');
           flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
@@ -6238,53 +6383,7 @@ const ENT = {
         p.cd = Math.round((Math.max(120, 170 - loop * 15)) * fireSlow());
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
       } else if (p.k === 'core') {
-        if (e.kind === 'ship') {
-          // final phase, kept gentle for the first boss (was a 3-way spiral every 6 frames and an 18-shell ring every 96)
-          if (!core.armored) { p.cd = Math.round((9) * fireSlow()); e.spin += 0.33; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.8); if ((e.ringN = (e.ringN || 0) + 1) % 16 === 0) ring(px, py, 12 + loop * 2, sp * 0.7, e.mt * 0.1, 'B'); }
-          else p.cd = Math.round((30) * fireSlow());
-        } else if (e.kind === 'train') {
-          const angry = others <= 2 || p.hp < p.maxhp * 0.5;
-          p.cd = Math.round((angry ? 70 : 100) * fireSlow());
-          const sx = px, sy = py + 11;
-          if (angry) ring(sx, sy, 14 + loop * 2, sp * 0.8, e.mt * 0.07, 'B');
-          const a = aim(sx, sy); for (let k = -2; k <= 2; k++) eshot(sx, sy, a + k * 0.14, sp);
-          smokePuff(sx, sy); sfx('cannon');
-        } else if (e.kind === 'fortress' && e.last) {
-          p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
-          eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
-          if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
-        } else if (e.kind === 'fortress') {
-          p.cd = Math.round((100) * fireSlow());
-          const [bx, by] = mz(34);
-          for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
-          if (p.hp < p.maxhp * 0.5) later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + loop * 2, sp * 0.75, gf * 0.1); } });
-          flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
-        } else if (e.kind === 'castle') {
-          if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
-          // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
-          else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
-        } else if (e.kind === 'skyfort') {
-          const ea = e.parts.filter(q => q.k === 'engine' && !q.dead).length;
-          if (ea >= 3) { p.cd = Math.round((90) * fireSlow()); const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp, 'B'); sfx('cannon'); }
-          // lighter than before (a spiral every 6 / 8 frames with frequent fans) now that the laser and the drones carry the fight
-          else if (ea >= 1) { p.cd = Math.round((11) * fireSlow()); e.spin += 0.37; for (let i = 0; i < 2; i++) eshot(px, py, e.spin + i * PI, sp * 0.85); e.fanT = (e.fanT || 0) + 1; if (e.fanT % 14 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.14, sp * 1.05, 'B'); sfx('cannon'); } }
-          else {
-            p.cd = Math.round(12 * fireSlow()); e.spin += 0.23;
-            eshot(px, py, e.spin, sp * 0.75); eshot(px, py, e.spin + PI, sp * 0.75);
-            e.fanT = (e.fanT || 0) + 1;
-            if (e.fanT % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.24, sp * 0.9, 'B'); sfx('cannon'); }
-          }
-        } else if (e.kind === 'railgun') {
-          if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); continue; }
-          if (e.lock && !e.chargeT) p.cd = 1;
-          else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
-          else if (--e.chargeT <= 0) {
-            e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
-            const [bx, by] = mz(58), d = Math.max(60, player.y - by);
-            eshot(bx, by, p.ang, 2.2, 'mega');
-            flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
-          } else p.cd = 1;
-        }
+        BOSS[e.kind].coreFire(e, p, px, py, core, others, sp, mz);
       }
     }
   } }
@@ -6300,7 +6399,7 @@ function arcTargets(x, y, reach, cone, skip, troops) {
   let best = null, bd = 1e9;
   for (const e of enemies) {
     if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ENT[e.type].arcLow) || e.type === 'camo') continue;
-    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || (e.kind === 'castle' && q.k === 'core' && !e.open)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
+    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || bossShielded(e, q)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
     if (e.y < 4 || e.y > y - 4) continue;
     const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * 0.35 && d < bd) { bd = d; best = { e, x: e.x, y: e.y }; }
   }
@@ -6383,7 +6482,7 @@ function updBeam() {
   for (const b of ebul) if (b.kind !== 'mega' && !b.shrapnel && Math.abs(b.x - bx) < half + 2 && b.y < top) { b.dead = true; parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: -0.5, life: 8, max: 8, col: '#e8dcff' }); }
   for (const e of enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
-    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !(e.kind === 'castle' && pt.k === 'core' && !e.open) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
+    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
     else if (Math.abs(e.x - bx) < e.hw + half) { damage(e, beam.dmg); beam.hit = true; }
   }
   if (beam && beam.t === beam.max - 1 && beam.hit) stats.hits++;
@@ -6563,8 +6662,10 @@ function drawP2() {
   if (q.tagT > 0 && (q.tagT > 40 || (gf >> 2) & 1)) textS('2P', q.x, q.y - 26, '#dde1e7', 1, 'center', '#8c919b');
   if (!results) { ctx.globalAlpha = 0.5; dk(q.x, q.y, 2.5, '#8c919b'); ctx.globalAlpha = 1; dk(q.x, q.y, 1, '#ffffff'); }
 }
+// the player has the ship only while it is live: not paused, not in the GET READY countdown, not flying in or out of a stage
+function canSteer() { const p = player; return state === 'play' && !paused && resumeT <= 0 && !!p && !p.dead && !(p.fly > 0) && !(p.exitT > 0) && p.y >= -40; }
 function bomb() {
-  if (state !== 'play' || paused || !player || player.dead || bombs <= 0 || bombFx > 0) return;
+  if (!canSteer() || bombs <= 0 || bombFx > 0) return;
   bombs--; stats.novas++; if (rr && rr.cur) rr.cur.nb++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
@@ -6640,21 +6741,21 @@ function cancelBullets(x, y, r) {
 }
 function damagePart(e, p, d) {
   if (p.dead || e.dying) return;
-  if (e.kind === 'castle' && p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return; }
+  if (BOSS[e.kind].deflect && BOSS[e.kind].deflect(e, p)) return;
   const px = e.x + p.ox, py = e.y + p.oy;
-  if (e.kind === 'skyfort' && p.k === 'core' && e.fl && e.fl.ph === 'charge') d *= 1.6; // the open orb is vulnerable while it charges
+  if (BOSS[e.kind].damageScale) d *= BOSS[e.kind].damageScale(e, p);
   p.hp -= d; p.hit = 3;
   if (p.hp <= 0) {
     p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
     const v = p.k === 'main' ? 3000 : p.k === 'aa' ? 800 : 0;
     if (v) { addScore(v); label(px, py, String(v)); checkExtend(); }
     revenge(e.x + p.ox, e.y + p.oy, 2);
-    if (e.kind === 'castle' && p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); }
+    if (BOSS[e.kind].partLost) BOSS[e.kind].partLost(e, p);
     if (p.k === 'core' && e.trains && !yardTrainDown(e, p)) { /* another train is still fighting */ }
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; stats.kills++; }
       addScore(e.score); checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = e.kind === 'skyfort' ? 340 : 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -6858,7 +6959,7 @@ function targetPos(e) {
 }
 let padSeen = -9999, titleFocus = 0;
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
+function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
 function padMenus(nav) {
   const dlg = openDialog(); if (!dlg) return false;
   const nameBox = document.getElementById('lbName'), entering = dlg.id === 'lbPanel' && document.getElementById('lbSubmit').style.display !== 'none';
@@ -6880,7 +6981,7 @@ function padMenus(nav) {
   if (nav.down || nav.right) i = (i + 1) % items.length; else if (nav.up || nav.left) i = i <= 0 ? items.length - 1 : i - 1;
   if (nav.down || nav.right || nav.up || nav.left) items[Math.max(0, i)].focus();
   if (nav.a && document.activeElement && items.includes(document.activeElement)) document.activeElement.click();
-  if (nav.b || nav.start) { if (dlg.id === 'credits') closeCredits(); else if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else closeMenu(); }
+  if (nav.b || nav.start) { if (dlg.id === 'credits') closeCredits(); else if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else if (dlg.id === 'installAsk') document.getElementById('insNo').click(); else closeMenu(); }
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
@@ -6923,7 +7024,7 @@ function pollPad() {
     else if (paused) { if (gpad.a) togglePause(); }
     else if ((results || congrats) && gpad.any) skipResults();
     else if (cont > 0 && gpad.any) doContinue();
-    else if (nav.x && player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+    else if (nav.x && canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
     else if (gpad.a || nav.lb || nav.rb) bomb();
   }
 }
@@ -7148,7 +7249,7 @@ function update() {
       if (e.dead || e.dying || (e.y < 4 && e.type !== 'boss') || e.untarget) continue;
       if (e.type === 'boss') {
         let hitPart = null;
-        for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || (e.kind === 'castle' && p.k === 'core' && !e.open)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
+        for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || bossShielded(e, p)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
         if (hitPart) { s.dead = true; parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, s.dmg * dmgK()); stats.hits++; break; }
         continue;
       }
@@ -7751,18 +7852,17 @@ function drawSkyBody(e, fl, core) {
   if (!core.dead) alienCore(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.fl ? 0 : e.fl.ph === 'charge' ? e.fl.t / FL_CHARGE : 1);
   for (const p of e.parts) if (p.box !== undefined) { p.ox = p.rx; p.oy = p.ry; }
 }
-function drawBoss(e) {
-  const fl = e.dying && e.split === undefined && (gf >> 2) & 1;
-  if (e.dying) ctx.globalAlpha = e.split !== undefined ? clamp(e.dying / 50, 0.6, 1) : clamp(e.dying / 120, 0.35, 1);
-  const core = e.parts.find(p => p.k === 'core');
-  if (e.kind === 'ship') {
+// Each boss's look, put on BOSS[kind].draw(e, fl, core): fl flashes while it is dying, core is its core part.
+const BOSS_LOOKS = {
+  ship(e, fl, core) {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
       spr(SPR.bship, e.x, e.y, fl);
       if (e.crew && !e.dying) for (const c of e.crew) spr(SPR.sailor[Math.abs(c.v) + Math.abs(c.vx) > 0.02 ? (gf >> (e.panicT > 0 ? 2 : 3)) & 1 : 2], e.x + c.ox, e.y + c.oy);
       if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA });
     if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, core.armored);
-  } else if (e.kind === 'train') {
+  },
+  train(e, fl, core) {
     for (const t of (e.trains || [])) {
       if (!t.on) continue;
       if (t.dead) ctx.globalAlpha = 0.65;
@@ -7780,11 +7880,13 @@ function drawBoss(e) {
       ctx.fillStyle = '#120e1a'; ctx.fillRect(x - 9, y - 7, 18, 14); ctx.fillStyle = (gf >> 3) & 1 ? '#f4d050' : '#d0a020'; ctx.fillRect(x - 8, y - 6, 16, 12); ctx.fillStyle = '#4d535a'; ctx.fillRect(x - 7, y - 5, 14, 10);
       for (let i = 0; i < 6; i++) { ctx.fillStyle = i >= P.n ? ((gf >> 3) & 1 ? '#ff5a3a' : '#d84a34') : '#1d2024'; ctx.fillRect(x - 6 + (i % 3) * 5, y - 4 + ((i / 3) | 0) * 5, 3, 3); } });
     for (const q of e.parts) if (q.k === 'core' && !q.dead && !q.off) coreGlow(e.x + q.ox, e.y + q.oy, q.hit > 0, false);
-  } else if (e.kind === 'fortress') {
+  },
+  fortress(e, fl, core) {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
       spr(SPR.fortHull[e.moving ? (gf >> 3) & 1 : 0], e.x, e.y, fl); if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.dGun, aa: SPR.bAA, mortar: SPR.mortar, core: SPR.fortTur });
-  } else if (e.kind === 'castle') {
+  },
+  castle(e, fl, core) {
     if (e.y > -140 && e.y < H + 60) {
       spr(SPR.keep[1], e.x, e.y, fl);
       drawBossParts(e, { main: SPR.bMain }, q => !q.tw);
@@ -7792,7 +7894,8 @@ function drawBoss(e) {
       if ((e.towerH ?? 70) > 8) drawBossParts(e, { aa: SPR.bAA, rocket: SPR.rocketPod }, q => q.tw && q.k !== 'core');
       if (!core.dead) coreGlow(e.x + core.ox, e.y + core.oy, core.hit > 0, !e.open);
     }
-  } else if (e.kind === 'skyfort') {
+  },
+  skyfort(e, fl, core) {
     const sc2 = (e.scale || 1) * (e.sag || 1);
     if (e.split === undefined) { ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.tilt || 0); ctx.scale(sc2, sc2); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore(); }
     else for (const sd of [-1, 1]) {
@@ -7802,7 +7905,8 @@ function drawBoss(e) {
       ctx.beginPath(); ctx.rect(sd < 0 ? -200 : 0, -200, 200, 400); ctx.clip(); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore();
     }
     drawSkyLaser(e);
-  } else {
+  },
+  railgun(e, fl, core) {
     spr(SPR.rgBase, e.x, e.y, fl);
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, light: SPR.searchBase, core: SPR.rgBarrel });
     if (e.hb && !core.dead) { // Hammer Blow charging: the muzzle glows hotter, orange to white
@@ -7815,7 +7919,16 @@ function drawBoss(e) {
       for (let d = 64; d < 420; d += 6) ctx.fillRect(Math.round(px + c * d), Math.round(py + sn * d), 2, 2);
       dk(px + c * 58, py + sn * 58, 2 + f * 6, '#ff8a5a'); dk(px + c * 58, py + sn * 58, 1 + f * 3, '#fff2a8');
     }
-  }
+  },
+};
+for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
+  for (const k in tbl) BOSS[k][hook] = tbl[k];
+for (const k in BOSS_FIGHT) Object.assign(BOSS[k], BOSS_FIGHT[k]);
+function drawBoss(e) {
+  const fl = e.dying && e.split === undefined && (gf >> 2) & 1;
+  if (e.dying) ctx.globalAlpha = e.split !== undefined ? clamp(e.dying / 50, 0.6, 1) : clamp(e.dying / 120, 0.35, 1);
+  const core = e.parts.find(p => p.k === 'core');
+  BOSS[e.kind].draw(e, fl, core);
   ctx.globalAlpha = 1;
 }
 cv.addEventListener('contextlost', e => { e.preventDefault(); gfxLost = true; logError('contextlost', 'graphics context lost'); });
@@ -8510,11 +8623,11 @@ for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener(
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
-document.getElementById('howTut').addEventListener('click', () => startTutorial());
+document.getElementById('howTut').addEventListener('click', () => { paused = false; setPauseIcon(); startTutorial(); });
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); tut = null; drawTutorial(); startAt(1); });
 document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPropagation());
-document.getElementById('sHow').addEventListener('click', () => { buildHelp(); document.getElementById('howto').classList.add('open'); document.getElementById('howClose').focus(); });
-document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); document.getElementById('sHow').focus(); });
+document.getElementById('pmHow').addEventListener('click', () => { showPauseMenu(false); openHowTo(); });
+document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); showPauseMenu(true); document.getElementById('pmHow').focus(); });
 document.getElementById('howto').addEventListener('pointerdown', e => e.stopPropagation());
 function pmLabel(el, name, v) { const h = name + '<i' + (v === 'On' ? '' : ' class="off"') + '>' + v.toUpperCase() + '</i>'; if (el.innerHTML !== h) { el.innerHTML = h; el.setAttribute('aria-label', name + ': ' + v); } }
 function setSoundLabel() {
@@ -8532,7 +8645,8 @@ addEventListener('keydown', e => {
   if (document.getElementById('credits').classList.contains('open')) { if (k === 'escape') closeCredits(); return; }
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
-  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { closeDiff(); document.getElementById('howto').classList.remove('open'); } return; }
+  if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); rrIn = 'key';
   if (booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
@@ -8561,10 +8675,10 @@ cv.addEventListener('pointerdown', e => {
   else if (results || congrats) { skipResults(); return; }
   else if (cont > 0) { doContinue(); return; }
   if (state === 'play' && p2 && p2Mode() === 'mouse' && e.pointerType === 'mouse') return; // the mouse flies the 2nd player
-  if (state === 'play' && player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+  if (canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
   if (state === 'play' && mouseClickMode(e)) {
     if (document.pointerLockElement !== cv) { try { cv.requestPointerLock(); } catch (err) {} return; }
-    if (e.button === 2) bomb(); else if (player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+    if (e.button === 2) bomb(); else if (canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
     return;
   }
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
@@ -8572,7 +8686,7 @@ cv.addEventListener('pointerdown', e => {
 });
 function mouseClickMode(e) { return settings.mouseMode === 'click' && e.pointerType === 'mouse'; }
 document.addEventListener('mousemove', e => {
-  if (document.pointerLockElement !== cv || state !== 'play' || paused || resumeT > 0 || !player || player.dead) return;
+  if (document.pointerLockElement !== cv || !canSteer()) return;
   player.x = clamp(player.x + e.movementX / scale * 1.1, 8, W - 8); player.y = clamp(player.y + e.movementY / scale * 1.1, 18, H - 14);
 });
 document.addEventListener('mousemove', e => { if (p2Mode() !== 'mouse') return; const r = cv.getBoundingClientRect(); p2Mouse = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; });
@@ -8582,7 +8696,7 @@ cv.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return;
   const dx = (e.clientX - drag.x) / scale * 1.3, dy = (e.clientY - drag.y) / scale * 1.3;
   drag.x = e.clientX; drag.y = e.clientY;
-  if (state === 'play' && !paused && player && !player.dead) {
+  if (canSteer()) {
     player.x = clamp(player.x + dx, 8, W - 8);
     player.y = clamp(player.y + dy, 18, H - 14);
   }
@@ -8608,6 +8722,13 @@ addEventListener('pagehide', () => { saveHi(); saveResume(); rrPark(); });
 document.getElementById('resYes').addEventListener('click', () => { const r = resumeOffer; resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
 document.getElementById('resNo').addEventListener('click', () => { resumeOffer = null; clearResume(); rrFlushParked(); document.getElementById('resumeAsk').classList.remove('open'); });
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());
+document.getElementById('insYes').addEventListener('click', () => {
+  const e = window.SF_INSTALL; if (!e) return closeInstall({ done: true });
+  window.SF_INSTALL = null; closeInstall({ at: Date.now() }); // the browser's install event can be used only once
+  e.prompt(); e.userChoice.then(c => { if (c.outcome === 'accepted') closeInstall({ done: true }); }).catch(() => {});
+});
+document.getElementById('insNo').addEventListener('click', () => closeInstall({ at: Date.now(), no: (installState().no || 0) + 1 }));
+document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
   if (nx.kind === 'endless') startEndless(); else startAt(nx.n > 1 ? nx.n : 1); // a camp run from stage 2-6 is practice
