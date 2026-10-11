@@ -25,7 +25,7 @@ const checksum = () => {
   let h = 2166136261;
   const add = (...v) => { const s = v.join(',') + ';'; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
   const r = v => typeof v === 'number' ? Math.round(v * 1000) : v;
-  add(gf, score, lives, bombs, stage, loop, simS, r(scroll), shots.length, items.length);
+  add(gf, run.score, run.lives, run.bombs, run.stage, run.loop, simS, r(scroll), shots.length, items.length);
   for (const p of [player, p2]) if (p) add(r(p.x), r(p.y), p.wpn, p.lvl, p.inv, p.dead);
   for (const e of enemies) { add(e.type, r(e.x), r(e.y), r(e.hp), e.dead ? 1 : 0); if (e.parts) for (const q of e.parts) add(r(q.hp), q.dead ? 1 : 0); }
   for (const b of ebul) add(r(b.x), r(b.y));
@@ -53,7 +53,7 @@ SF.replay = sc => {
       if (drawEvery) { try { SF.draw(); } catch (e) { drawErrs.push(String(e && e.stack || e).slice(0, 300)); } }
       if (f % TRACE === 0 || status !== 'ok') trace.push(checksum());
     }
-    const out = { H, status, score, stage, lives, bombs, frames: gf, kills: stats.kills, medals: stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length, trace: trace.join(' ') };
+    const out = { H, status, score: run.score, stage: run.stage, lives: run.lives, bombs: run.bombs, frames: gf, kills: run.stats.kills, medals: run.stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length, trace: trace.join(' ') };
     if (drawEvery) out.drawErrors = drawErrs;
     return out;
   } finally { delete window.__forceSeed; settings.p2 = p2Was; clearResume(); }
@@ -73,7 +73,7 @@ SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     for (let f = 0; f < frames; f += every) {
       SF.run(every);
-      trace.push([gf, score, enemies.length, ebul.length, shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +scroll.toFixed(3)].join('|'));
+      trace.push([gf, run.score, enemies.length, ebul.length, shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +scroll.toFixed(3)].join('|'));
     }
   } finally { delete window.__forceSeed; }
   return { env, trace };
