@@ -31,8 +31,9 @@ jobs:
         run: node tests/layout.mjs
       - name: Campaign terrain check (warning only)
         run: node tests/replay.mjs --terrain --warn
-      - name: Replay test (advisory until proven stable)
-        continue-on-error: true
+      # Blocking: every scenario (Campaign stages on all difficulties, every boss, Endless, two-player, resume) must reproduce
+      # tests/golden.json exactly, so no change can alter how the Campaign plays without the PR turning red.
+      - name: Replay test
         run: node tests/replay.mjs
       - name: Performance check (warning only)
         continue-on-error: true

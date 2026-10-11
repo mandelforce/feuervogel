@@ -3694,24 +3694,30 @@ function showMsg(a, b, dur) { app.msg = { a, b, t: dur }; }
 let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
+// A fresh run's starting values on a difficulty, from a seed. newGame() puts them in run. run.endless (chosen before the run starts)
+// and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
+function createRun(diff, seed) {
+  return { seed, proto: { dmg: 0 }, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
+    gameOverPending: false, twoP: false, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
+}
 function newGame() {
-  run.seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; simS = run.seed | 0; // test builds can force a seed (tests/replay.js)
-  world.protoWatch = null; world.duelWatch = null; run.proto = { dmg: 0 };
+  const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
+  Object.assign(run, createRun(settings.diff, seed)); simS = run.seed | 0;
+  world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
-  world.ravenGate = null; run.frames = 0; run.conts = 0; run.start = 1; run.diff = settings.diff; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
+  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetWorld();
-  run.score = 0; run.lives = DIFF.lives[settings.diff]; run.bombs = DIFF.bombs[settings.diff]; run.loop = 0; run.stage = 1; run.gameOverPending = false;
   world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = [];
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
-  p2 = null; run.twoP = false; setP2();
-  world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; run.medalLv = 0; run.medalMul = 1; run.medalT = 0; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; run.nextExtend = DIFF.ext[settings.diff][0]; run.extendsGot = 0; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
+  p2 = null; setP2();
+  world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
   world.midDone = false; world.bossSpawned = false;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
-  showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp = newCamp(); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
-  sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; run.stats = newStats(); newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
+  showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
+  sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
 const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker

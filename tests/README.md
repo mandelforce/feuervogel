@@ -41,7 +41,7 @@ node tests/layout.mjs --shots out/   # also save a screenshot per size
 
 It cannot reproduce everything. Check a real phone too, especially from the Home Screen icon (iOS standalone mode), after a layout change.
 
-## Replay test (runs in CI, advisory for now)
+## Replay test (runs in CI, blocking)
 
 `replay.mjs` plays eight fixed scenarios with the bot and compares score, stage, lives, kills and more with `golden.json`. Together they cover all six bosses, Easy, Normal and Hard, a run where the bot can die and continue, Endless, two-player, and a run saved and resumed the way the game does after a page reload. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
 
@@ -69,7 +69,7 @@ It also fingerprints the terrain of all six campaign stages (what is under every
 
 CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the campaign terrain and shows a yellow warning (never a failure) if it changed.
 
-`golden.json` comes from CI: run the workflow by hand (Actions > Smoke test > Run workflow, on your branch) and copy the printed block between `GOLDEN-BEGIN` and `GOLDEN-END`; the same run prints machine details (`--diag`). CI results have been identical across runs. The CI step stays advisory (`continue-on-error`): gameplay changes made on purpose, such as balance or Easy mode, change the numbers and need a refresh.
+`golden.json` comes from CI: run the workflow by hand (Actions > Smoke test > Run workflow, on your branch) and copy the printed block between `GOLDEN-BEGIN` and `GOLDEN-END`; the same run prints machine details (`--diag`). CI results have been identical across runs, and a local run (Node, a 400x700 window) gives the same numbers. The CI step is blocking: a change made on purpose to how the game plays (balance, spawns, scoring) must refresh `golden.json` in the same pull request and say why; any other difference is a bug, and the PR stays red until it is fixed.
 
 ## Performance test (runs in CI, warning only)
 
