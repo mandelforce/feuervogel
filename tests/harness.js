@@ -11,16 +11,16 @@ die = function (why) {
   const p = player; let cause = 'collision', near = 1e9;
   for (const b of ebul) { const d = (b.x - p.x) ** 2 + (b.y - p.y) ** 2; if (d < near) { near = d; cause = 'bullet:' + b.kind; } }
   for (const e of enemies) if (!e.ground && !e.surface && Math.abs(e.x - p.x) < e.hw && Math.abs(e.y - p.y) < e.hh) { cause = 'body:' + e.type; break; }
-  R.hits.push({ stage, t: Math.round((gf - stageStart) / 60), cause, boss: enemies.some(e => e.type === 'boss' && !e.dying), bullets: ebul.length });
+  R.hits.push({ stage: run.stage, t: Math.round((gf - stageStart) / 60), cause, boss: enemies.some(e => e.type === 'boss' && !e.dying), bullets: ebul.length });
   if (cur) cur.hits++;
   if (mode === 'immortal') { p.inv = 90; ebul.length = 0; return; }
   realDie(why);
 };
 openResults = function () {
-  if (cur) Object.assign(cur, { kills: stats.kills, seen: stats.seen, medals: stats.medals, secret: !!stats.artifact, clearT: Math.round((gf - stageStart) / 60) });
+  if (cur) Object.assign(cur, { kills: run.stats.kills, seen: run.stats.seen, medals: run.stats.medals, secret: !!run.stats.artifact, clearT: Math.round((gf - stageStart) / 60) });
   realOpen();
 };
-function newStage() { stageStart = gf; cur = R.stages[stage] = { stage, theme: curTheme, hits: 0, maxB: 0, sumB: 0, n: 0, bossIn: null, bossDead: null, wpn: '', updMax: 0 }; }
+function newStage() { stageStart = gf; cur = R.stages[run.stage] = { stage: run.stage, theme: curTheme, hits: 0, maxB: 0, sumB: 0, n: 0, bossIn: null, bossDead: null, wpn: '', updMax: 0 }; }
 
 // The bot looks ahead up to 16 frames for each of the 9 stick directions and picks the safest one,
 // drifting toward the enemy (or boss part) it wants to shoot and toward pickups.
@@ -56,7 +56,7 @@ function bot() {
     d += Math.abs(px - tgt) * 3 + Math.abs(py - ty) * 2 + (px < 16 || px > W - 16 ? 400 : 0);
     if (d < bs) { bs = d; best = [dx, dy]; }
   }
-  if (bs > 4e5 && bombs > 0 && mode === 'real') bomb();
+  if (bs > 4e5 && run.bombs > 0 && mode === 'real') bomb();
   if (best[0] < 0) keys.arrowleft = true; if (best[0] > 0) keys.arrowright = true;
   if (best[1] < 0) keys.arrowup = true; if (best[1] > 0) keys.arrowdown = true;
 }
@@ -71,13 +71,13 @@ window.SF = {
   start(diff, n = 1, endlessSlot) {
     acc = -1e15; settings.diff = diff; R.stages = {}; R.hits = []; R.errs = []; lastStage = -1;
     if (endlessSlot === undefined) { startAt(n); return; }
-    endless = true; startAt(endlessSlot + 1, true);
-    if (endlessSlot > 0) { stage = 1; loop = rankFor(1); }
+    run.endless = true; startAt(endlessSlot + 1, true);
+    if (endlessSlot > 0) { run.stage = 1; run.loop = rankFor(1); }
   },
   run(frames) {
     for (let i = 0; i < frames; i++) {
       if (state !== 'play') return 'state:' + state;
-      if (stage !== lastStage) { lastStage = stage; newStage(); }
+      if (run.stage !== lastStage) { lastStage = run.stage; newStage(); }
       if (cont > 0) return 'continue-screen';
       if ((results || congrats) && gf % 30 === 0) skipResults();
       bot();
@@ -89,7 +89,7 @@ window.SF = {
       if (boss && cur.bossIn === null) cur.bossIn = Math.round((gf - stageStart) / 60);
       if (boss && boss.dying && cur.bossDead === null) cur.bossDead = Math.round((gf - stageStart) / 60);
       if (player) cur.wpn = player.wpn + player.lvl;
-      cur.lives = lives; cur.score = score;
+      cur.lives = run.lives; cur.score = run.score;
     }
     return 'ok';
   },
@@ -131,7 +131,7 @@ window.SF = {
   // Play stages 1-6 on one difficulty and return one summary row per stage.
   campaign(diff) {
     SF.setMode('immortal'); SF.start(diff, 1);
-    for (let n = 0; n < 200; n++) { if (SF.run(2000) !== 'ok' || stage > 6) break; if (n % 5 === 0) { parts.length = Math.min(parts.length, 300); } }
+    for (let n = 0; n < 200; n++) { if (SF.run(2000) !== 'ok' || run.stage > 6) break; if (n % 5 === 0) { parts.length = Math.min(parts.length, 300); } }
     return Object.values(R.stages).filter(s => s.stage <= 6).map(s => ({ stage: s.stage, clear: s.clearT, boss: s.bossDead !== null && s.bossIn !== null ? s.bossDead - s.bossIn : null, hits: s.hits, avgBullets: +(s.sumB / Math.max(1, s.n)).toFixed(1), maxBullets: s.maxB, weapon: s.wpn, lives: s.lives, score: s.score }));
   },
 };
