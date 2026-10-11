@@ -29,13 +29,13 @@ Goal: make FEUERVOGEL 89 easier to understand, safer to change and possible to p
 
 ## Phase 2: Safety net
 
-- [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. In CI as an advisory step until proven stable.
+- [x] Replay test: three bot scenarios with a seeded `Math.random`, compared with `tests/golden.json` (`tests/replay.mjs`). Works from outside the game, so the game code is untouched. Blocking in CI since 2026-10-12.
 - [x] Replay coverage for the Phase 4 refactor: eight scenarios (all six bosses, Endless, two-player, a save-and-resume), a checksum of the simulation every 500 frames that names where a run first differs, and an isolation check that drawing never changes a run.
 - [x] One seeded RNG inside the game. While `update()` (and `newGame`, `bomb`, `fireBeam`, `doContinue`) runs, `Math.random` draws from a per-run seeded stream; sound, drawing, idle weather and `lowFX`-gated effects use the free stream. Each run picks a new seed, so play stays varied. Guarded by the isolation checks in `tests/replay.mjs`.
 - [x] Terrain: checked and already deterministic for the Campaign. The layout comes from fixed-seed hash noise (seed 1944, no `Math.random`), and the per-frame time budget in `ensureChunks` only affects painted pictures, not the simulation. A terrain fingerprint for all six stages now guards it (`tests/golden.json`). Open: where enemies and ground targets are placed still uses `rnd()` (random each run); making placement fixed would change gameplay, so ask first.
 - [ ] The playfield height `H` now comes from the window layout (`#app` box), so gameplay depends on the screen. Fine for play, but any replay or server-side check must pin it. Consider a fixed logical height for the simulation.
 - [x] Ambient state (weather, birds, clouds) now draws from the free stream, so a run no longer depends on idle time.
-- [ ] Run the replay test as a required CI check once it has proven stable.
+- [x] Run the replay test as a blocking CI step (since 2026-10-12, after matching on every run through Phase 4). Making it a required check for merging is a GitHub setting (branch protection).
 - [ ] Input handlers still run gameplay actions between frames (`bomb`, `fireBeam`, `doContinue`). They use the sim stream, but a replay would have to record the frame each input was applied. Prefer: handlers only set input state, `update()` applies it.
 - [ ] Optional later: store a replay with submitted scores to allow server-side checks. Needs a decision first, as it touches leaderboard rules.
 
@@ -76,8 +76,8 @@ src/
 
 Done inside `index.html` before the module split (Phase 3): modules are easier to cut once entities and state are grouped. Order, one PR per step, each replay-identical: (0) replay coverage, see Phase 2; (1) one `addScore()` for all score changes; (2-7) the entity table: behaviour, drawing, type traits, kill effects, stats, then bosses; (8-12) the state object by lifetime: `run`, `world`, `app`, `feel` (the screen effects; named so because `fx()` already exists), then `newGame()` becomes `createRun()`. Land or pause feature branches before steps 8-11, which touch lines across the whole file. This also prepares the Generative mode (mini-bosses from entity recipes, terrain-tagged spawns, a run state that can be saved whole).
 
-- [ ] **Entity table.** Each enemy type declares its stats and its own `update`, `draw` and `onKill`. `update()` and `render()` loop over entities. Start with bosses (`BOSSDEF` and `BOSSMOVE` are already close), then ground enemies, then air.
-- [ ] **One `Game` state object** instead of scattered globals. `newGame()` becomes `createState()`. All score changes go through one function, so scoring has a single home.
+- [x] **Entity table.** Each enemy type declares its stats and its own `update`, `draw` and `onKill`. `update()` and `render()` loop over entities. Start with bosses (`BOSSDEF` and `BOSSMOVE` are already close), then ground enemies, then air.
+- [x] **State objects** instead of scattered globals, by lifetime: `run`, `world`, `app`, `feel`. A fresh run comes from `createRun()`. All score changes go through `addScore()`, so scoring has a single home.
 - [ ] **Input layer.** Keyboard, mouse, touch and gamepad produce one intent object (`move`, `bomb`, `pause`).
 - [ ] Break up `update`, `render` and `drawProtoPlane` into named steps.
 
