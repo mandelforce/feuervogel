@@ -26,7 +26,7 @@ function newStage() { stageStart = gf; cur = R.stages[run.stage] = { stage: run.
 // drifting toward the enemy (or boss part) it wants to shoot and toward pickups.
 function bot() {
   for (const k of ['arrowleft', 'arrowright', 'arrowup', 'arrowdown']) keys[k] = false;
-  const p = player; if (!p || p.dead || p.fly > 0 || p.exitT > 0 || results || congrats) return;
+  const p = player; if (!p || p.dead || p.fly > 0 || p.exitT > 0 || app.results || app.congrats) return;
   let tgt = W / 2, ty = H * 0.72, bestY = -1e9;
   for (const e of world.enemies) if (!e.dying && !e.dead && e.y > 10 && e.y < p.y - 20 && (e.type === 'boss' || e.y > bestY)) {
     bestY = e.type === 'boss' ? 1e9 : e.y; tgt = e.x;
@@ -76,10 +76,10 @@ window.SF = {
   },
   run(frames) {
     for (let i = 0; i < frames; i++) {
-      if (state !== 'play') return 'state:' + state;
+      if (app.state !== 'play') return 'state:' + app.state;
       if (run.stage !== lastStage) { lastStage = run.stage; newStage(); }
-      if (cont > 0) return 'continue-screen';
-      if ((results || congrats) && gf % 30 === 0) skipResults();
+      if (app.cont > 0) return 'continue-screen';
+      if ((app.results || app.congrats) && gf % 30 === 0) skipResults();
       bot();
       const a = performance.now();
       try { update(); } catch (e) { R.errs.push(String(e && e.stack || e).slice(0, 300)); }
