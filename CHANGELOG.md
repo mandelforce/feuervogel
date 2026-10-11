@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Sound fix: when the run ends (game over, also after the continue countdown runs out), shot and laser sounds that are still ringing fade out at once, and weapon sounds can no longer play on the continue screen or the game over screen. Reported on Android, where the laser sound kept going while the high score prompt opened. Sound only; gameplay, scoring and the leaderboard are unchanged.
 - Under the hood (no game change): how each boss fights (its core's fire pattern, when it holds fire, how it aims, takes damage and dies) now lives in its entry of the boss table, so the boss code no longer checks which boss it is. The replay test confirms identical fights for all six bosses.
 - Under the hood (no game change): each boss is now one entry in a boss table (`BOSS[kind]`): its parts, warning, score, music, hull, movement, entrance, breakup, remains, look and game-over reaction. Checked against the old code for all six bosses.
 - Fix: during the GET READY countdown after a pause, dragging and tapping no longer move the ship or fire the charged laser. At the end of a stage the ship's fly-away can no longer be stopped or steered by dragging, and the laser and Nova stay locked while it flies in or out. The replay test still matches.
