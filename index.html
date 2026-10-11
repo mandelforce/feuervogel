@@ -3609,7 +3609,9 @@ let gf = 0;
 const run = { score: 0, lives: 2, bombs: 3, loop: 0, stage: 1, nextExtend: 80000, extendsGot: 0, gameOverPending: false, conts: 0, start: 1, diff: 1, frames: 0, seed: 0, endless: false, twoP: false, camp: null, stats: null, medalLv: 0, medalMul: 1, medalT: 0, medalLost: 0, proto: { dmg: 0 } };
 let hi = 0;
 let player = null;
-let shake = 0, bombFx = 0, bombX = 0, bombY = 0, flashFx = 0;
+// Game feel: short-lived screen effects that sell a hit. Screen shake, the white flash, the Nova bomb's flash (and where it went off), hit-stop (a few frozen frames on a big hit) and slow motion.
+const feel = { shake: 0, flashFx: 0, bombFx: 0, bombX: 0, bombY: 0, hitStop: 0, slowT: 0 };
+
 
 const maxCont = () => DIFF.conts[run.diff]; // Easy gets a third continue; scores are submitted with at most 2 (the Worker rejects more, and only 0 earns the star)
 hi = +store.get(KEY.hi) || 0;
@@ -3626,7 +3628,7 @@ let endlessBest = { score: 0, stage: 0 };
 endlessBest = Object.assign(endlessBest, store.getJSON(KEY.endless, {}));
 function saveEndless() { if (!run.endless) return; let ch = false; if (run.score > endlessBest.score) { endlessBest.score = run.score; ch = true; } if (run.stage > endlessBest.stage) { endlessBest.stage = run.stage; ch = true; } if (ch) store.setJSON(KEY.endless, endlessBest); }
 function stageLabel(st) { if (run.endless) return String(st); return String(((st - 1) % 6) + 1) + '+'.repeat(Math.floor((st - 1) / 6)); }
-let hitStop = 0, slowT = 0;
+
 const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, deaths: 0, artifact: false, seen: 0, kills: 0, novas: 0, maxMul: 1 });
 let guardCount = 0;
 run.stats = newStats();
@@ -3705,11 +3707,11 @@ function newGame() {
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; run.twoP = false; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; run.medalLv = 0; run.medalMul = 1; run.medalT = 0; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; run.nextExtend = DIFF.ext[settings.diff][0]; run.extendsGot = 0; bombFx = 0; flashFx = 0; shake = 0;
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; run.nextExtend = DIFF.ext[settings.diff][0]; run.extendsGot = 0; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
   world.midDone = false; world.bossSpawned = false;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp = newCamp(); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
-  sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; run.stats = newStats(); newSecret(); app.results = null; hitStop = 0; slowT = 0; rrNew();
+  sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; run.stats = newStats(); newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
 const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker
@@ -3999,7 +4001,7 @@ function updFlyby() {
   if (f.rt >= 0 && f.nachtBeat) { // the unlock scene
     const tf = nvS0(f) + NV_FLASH_AT;
     if (f.t === tf) sfx('implode');
-    if (f.t >= tf + 24 && f.t < tf + 34) shake = Math.max(shake, 3);
+    if (f.t >= tf + 24 && f.t < tf + 34) feel.shake = Math.max(feel.shake, 3);
     if (f.t === tf + 26) { f.nvDark = true; if (!nachtOwned()) { unlockNacht(); f.nvNew = true; } }
     if (f.t === tf + 80) { if (f.nvNew) { f.nvWin = true; sfx('nachtup'); } }
     if (!f.nvNew && f.t >= tf + 110 && !app.fade) app.fade = { t: 0, phase: 'out', fn: toTitle }; // seen before: no window
@@ -4386,7 +4388,7 @@ function aim(x, y) { return Math.atan2(player.y - y, player.x - x); }
 function bspeed() { return (1.2 + run.loop * 0.18) * DIFF.bs[settings.diff]; }
 function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
-  if (world.ebul.length > 420 || bombFx > 20) return;
+  if (world.ebul.length > 420 || feel.bombFx > 20) return;
   const sk = DIFF.skip[settings.diff];
   if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && ++eshotN % sk === 0) return;
   world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
@@ -4574,7 +4576,7 @@ function directorInner() {
   if (!world.bossSpawned && qTop >= Math.round(37 * STAGE_LEN) + Math.ceil(XH / CH) + (world.curTheme === 1 ? Math.max(0, Math.ceil(36 * STAGE_LEN) + Math.ceil(H / CH) - 2 - Math.round(37 * STAGE_LEN) - Math.ceil(XH / CH)) : 0)) {
     world.bossSpawned = true; prewarmBoss(world.curTheme);
     fadeMusicOut(1.0);
-    if (world.curTheme === 2) for (let i = 0; i < 14; i++) world.later.push({ at: gf + 205 + i * 10, fn: () => { shake = Math.max(shake, 1.5 + i * 0.2); } });
+    if (world.curTheme === 2) for (let i = 0; i < 14; i++) world.later.push({ at: gf + 205 + i * 10, fn: () => { feel.shake = Math.max(feel.shake, 1.5 + i * 0.2); } });
     const warn = () => { showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn');
       world.later.push({ at: gf + 240, fn: spawnBoss }); };
     if (world.curTheme === 1) { spawnProtoFly(); world.later.push({ at: gf + 190, fn: warn }); }
@@ -4987,7 +4989,7 @@ function skyLaser(e, ea) {
   const F = e.fl; F.t++;
   if (F.ph === 'charge') {
     if (gf % 2 === 0) { const a = Math.random() * TAU, d = rnd(22, 34); world.parts.push({ kind: 'spark', layer: 'a', x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, vx: -Math.cos(a) * 1.1, vy: -Math.sin(a) * 0.9, life: 16, max: 16, col: Math.random() < 0.5 ? '#bba4ff' : '#e8dcff' }); }
-    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); shake = Math.max(shake, 7); flash(cx, cy + 6, 10); }
+    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); feel.shake = Math.max(feel.shake, 7); flash(cx, cy + 6, 10); }
     return;
   }
   // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
@@ -5001,11 +5003,11 @@ function skyLaser(e, ea) {
       C.t++; F.t--;
       const f = Math.min(1, C.t / 60); C.y = C.y0 + (cy + 14 - C.y0) * f * f;
       beam.clashY = C.y; beam.clashK = 2; player.inv = Math.max(player.inv, 45);
-      F.a = Math.atan2(C.y - cy, player.x - cx); shake = Math.max(shake, 3);
+      F.a = Math.atan2(C.y - cy, player.x - cx); feel.shake = Math.max(feel.shake, 3);
       for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; world.parts.push({ kind: 'spark', layer: 'a', x: player.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
       if (C.t >= 60) {
         damagePart(e, core, core.maxhp * 0.08); e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
-        flash(cx, cy, 14); boom(cx, cy, 24, 'a'); flashFx = Math.max(flashFx, 6); shake = 12; hitStop = Math.max(hitStop, 6); sfx('bigboom'); sfx('nova');
+        flash(cx, cy, 14); boom(cx, cy, 24, 'a'); feel.flashFx = Math.max(feel.flashFx, 6); feel.shake = 12; feel.hitStop = Math.max(feel.hitStop, 6); sfx('bigboom'); sfx('nova');
         world.parts.push({ kind: 'ring', layer: 'a', x: cx, y: cy, vx: 0, vy: 0, life: 24, max: 24, r: 70 });
         for (let k = 0; k < 28; k++) { const a = k * TAU / 28; world.parts.push({ kind: 'spark', layer: 'a', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2.6), vy: Math.sin(a) * rnd(1, 2.2), life: 22, max: 22, col: k & 1 ? '#e8dcff' : '#ffd060' }); }
       }
@@ -5013,7 +5015,7 @@ function skyLaser(e, ea) {
     }
   }
   if (F.sweep && !player.dead) F.a = clamp(F.a + clamp(angDiff(F.a, aim(cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
-  shake = Math.max(shake, 2);
+  feel.shake = Math.max(feel.shake, 2);
   const env = Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
   if (gf % 2 === 0) { const d = rnd(30, 400); world.parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
   for (const b of world.shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
@@ -5141,7 +5143,7 @@ function updResults() {
     if (r.counted >= r.total) resultsDone();
     return;
   }
-  if (r.awarded < r.reward) { if (++r.rt % 55 === 30) { run.lives++; r.awarded++; (r.awT = r.awT || [])[r.awarded - 1] = gf; sfx('reward'); haptic('extend'); shake = 3; } return; }
+  if (r.awarded < r.reward) { if (++r.rt % 55 === 30) { run.lives++; r.awarded++; (r.awT = r.awT || [])[r.awarded - 1] = gf; sfx('reward'); haptic('extend'); feel.shake = 3; } return; }
   r.hold++;
 }
 function skipResults() {
@@ -5329,7 +5331,7 @@ const BOSS_BREAKUPS = {
   skyfort(e) {
     e.y += 0.22;
     // about two seconds of explosions, then the hull snaps in two and both halves fall away burning
-    if (e.dying === 230) { e.split = 0; sfx('snap'); sfx('bigboom'); boom(e.x, e.y, 34, 'a'); shake = 14; flashFx = 6; hitStop = 4; for (let k = 0; k < 20; k++) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + rnd(-70, 60), vx: rnd(-1.6, 1.6), vy: rnd(-1, 1), life: 22, max: 22, col: k & 1 ? '#ffd060' : '#fff2a8' }); }
+    if (e.dying === 230) { e.split = 0; sfx('snap'); sfx('bigboom'); boom(e.x, e.y, 34, 'a'); feel.shake = 14; feel.flashFx = 6; feel.hitStop = 4; for (let k = 0; k < 20; k++) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + rnd(-70, 60), vx: rnd(-1.6, 1.6), vy: rnd(-1, 1), life: 22, max: 22, col: k & 1 ? '#ffd060' : '#fff2a8' }); }
     if (e.split !== undefined) {
       e.split++;
       for (const sd of [-1, 1]) {
@@ -5346,10 +5348,10 @@ function dyingTick(e) {
   e.dying--;
   const lay = e.air ? 'a' : e.surface ? 'g' : 'a';
   if (e.type === 'boss' && BOSS[e.kind].breakup && BOSS[e.kind].breakup(e)) return;
-  if (e.dying % 6 === 0) { const area = e.type === 'boss' && BOSS[e.kind].blastArea, ww = area ? area[0] : e.hw, hh = area ? area[1] : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); shake = Math.max(shake, 4); }
+  if (e.dying % 6 === 0) { const area = e.type === 'boss' && BOSS[e.kind].blastArea, ww = area ? area[0] : e.hw, hh = area ? area[1] : e.hh; boom(e.x + rnd(-ww, ww), e.y + rnd(-hh, hh), e.type === 'boss' ? (Math.random() < 0.35 ? 30 : 20) : 16, lay); sfx('boom'); feel.shake = Math.max(feel.shake, 4); }
   if (e.dying <= 0) {
     e.dead = true; boom(e.x, e.y, 50, lay);
-    if (e.type === 'boss') for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + Math.random() * 0.5; world.later.push({ at: gf + 4 + i * 5, fn: () => boom(e.x + Math.cos(a) * 40, e.y + Math.sin(a) * 34, 40, lay) }); } hitStop = Math.max(hitStop, 8); shake = 16; flashFx = 10; sfx('bigboom'); haptic(e.type === 'boss' ? 'boss' : 'big');
+    if (e.type === 'boss') for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + Math.random() * 0.5; world.later.push({ at: gf + 4 + i * 5, fn: () => boom(e.x + Math.cos(a) * 40, e.y + Math.sin(a) * 34, 40, lay) }); } feel.hitStop = Math.max(feel.hitStop, 8); feel.shake = 16; feel.flashFx = 10; sfx('bigboom'); haptic(e.type === 'boss' ? 'boss' : 'big');
     { const wyb = e.y - Math.floor(world.scroll), D = (ox, oy, kind, r, sm) => { const wet = WATER.has(terrainType(Math.floor(e.x + ox), Math.floor(wyb + oy))); if (wet && kind === 'crater') { world.decals.unshift({ kind: 'oil', wx: e.x + ox, wy: wyb + oy, r: Math.min(30, r), smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 }); splash(e.x + ox, e.y + oy, Math.min(24, r)); } else world.decals.unshift({ kind, wx: e.x + ox, wy: wyb + oy, r, smokeT: sm }); };
       { const B = BOSS[e.kind]; if (e.type === 'boss' && B.remains) B.remains(e, D, wyb); else D(0, 0, 'crater', 30, 300); } }
     if (e.onDead) e.onDead(e);
@@ -5426,7 +5428,7 @@ function yardTrainDown(e, p) {
   const t = e.trains[p.tr]; if (t.dead) return true; t.dead = true;
   for (const q of e.parts) if (q.tr === p.tr && !q.dead) q.dead = true;
   const y0 = t.y, x0 = yardX(t, t.y);
-  for (let i = 0; i < 8; i++) world.later.push({ at: gf + i * 9, fn: () => { boom(x0 + rnd(-8, 8), y0 - i * 20 + (gf % 2), 22, 'g'); sfx('gboom'); shake = Math.max(shake, 5); } });
+  for (let i = 0; i < 8; i++) world.later.push({ at: gf + i * 9, fn: () => { boom(x0 + rnd(-8, 8), y0 - i * 20 + (gf % 2), 22, 'g'); sfx('gboom'); feel.shake = Math.max(feel.shake, 5); } });
   addScore(10000); label(x0, y0 - 20, '10000'); cancelBullets(x0, y0 - 60, 110); dropMedals(x0, y0 - 40, 3);
   if (!e.trains[1].on) { e.joinT = 90; return false; }
   return e.trains.every(q => q.dead);
@@ -5435,7 +5437,7 @@ function yardTrainDown(e, p) {
 const BOSS_INTROS = {
   ship(e) {
     sfx('horn');
-    e.parts.filter(p => p.k === 'main').forEach((p, i) => world.later.push({ at: gf + 40 + i * 9, fn: () => { if (e.dead || e.dying) return; const px = e.x + p.ox + Math.cos(p.ang) * 16, py = e.y + p.oy + Math.sin(p.ang) * 16; flash(px, py, 7); smokePuff(px, py); smokePuff(px + 2, py - 2); shake = Math.max(shake, 5); sfx('cannon'); haptic('gkill'); } }));
+    e.parts.filter(p => p.k === 'main').forEach((p, i) => world.later.push({ at: gf + 40 + i * 9, fn: () => { if (e.dead || e.dying) return; const px = e.x + p.ox + Math.cos(p.ang) * 16, py = e.y + p.oy + Math.sin(p.ang) * 16; flash(px, py, 7); smokePuff(px, py); smokePuff(px + 2, py - 2); feel.shake = Math.max(feel.shake, 5); sfx('cannon'); haptic('gkill'); } }));
   },
   train(e) {
     sfx('whistle'); haptic('warn');
@@ -5443,7 +5445,7 @@ const BOSS_INTROS = {
     for (let i = 0; i < 14; i++) world.later.push({ at: gf + i * 3, fn: () => world.parts.push({ kind: 'smoke', layer: 'g', x: t0.x + rnd(-3, 3), y: t0.y - 21, vx: rnd(-0.6, 0.6), vy: -0.8, r: rnd(3, 5), life: 50, max: 50, white: true }) });
   },
   fortress(e) {
-    sfx('roar'); shake = Math.max(shake, 10); haptic('big');
+    sfx('roar'); feel.shake = Math.max(feel.shake, 10); haptic('big');
     for (let i = 0; i < 24; i++) { const a = Math.random() * TAU; world.parts.push({ kind: 'dust', layer: 'w', x: e.x + Math.cos(a) * 44, y: e.y + Math.sin(a) * 50, vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2, life: 50, max: 50, r: rnd(4, 7) }); }
   },
   railgun(e) { e.lightT = 0; sfx('clunk'); world.later.push({ at: gf + 24, fn: () => sfx('clunk') }); world.later.push({ at: gf + 50, fn: () => sfx('charge') }); },
@@ -5469,7 +5471,7 @@ function railLock(e, core) {
   if (L.t > 0) return;
   const bx = e.x + core.ox, by = e.y + core.oy, a = Math.atan2(L.y - by, L.x - bx);
   for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 4, fn: () => { if (!e.dying) eshot(bx, by, a, 6.5, 'B'); } });
-  flash(bx, by, 8); shake = Math.max(shake, 4); sfx('cannon'); haptic('big');
+  flash(bx, by, 8); feel.shake = Math.max(feel.shake, 4); sfx('cannon'); haptic('big');
   e.lock = null; e.lockCd = Math.round(240 * fireSlow());
 }
 // Night Hammer "Star Shells": at 60% and 30% core health it fires three parachute flares that pop over the battlefield and drift down,
@@ -5494,7 +5496,7 @@ function hammerBlow(e, core, p, px, py) {
   if (B.t < 120) { e.recoil = Math.max(e.recoil || 0, B.t / 120 * 5); if (gf % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'a', white: true, x: px + rnd(-8, 8), y: py + rnd(-6, 10), vx: rnd(-0.5, 0.5), vy: rnd(-0.6, -0.1), r: rnd(2, 4), life: 30, max: 30 }); if (B.t % 30 === 0) sfx('charge'); p.cd = 1; return; }
   const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(player.x - bx, player.y - by);
   world.ebul.push({ x: bx, y: by, vx: Math.cos(p.ang) * 2.4, vy: Math.sin(p.ang) * 2.4, r: 5, kind: 'mega', a: p.ang, fuse: Math.max(8, Math.round((d - 85) / 2.4)), hb: true, close: d < 145 });
-  flash(bx, by, 12); boom(bx, by, 14, 'a'); shake = 14; flashFx = Math.max(flashFx, 4); sfx('bigboom'); sfx('cannon'); haptic('big');
+  flash(bx, by, 12); boom(bx, by, 14, 'a'); feel.shake = 14; feel.flashFx = Math.max(feel.flashFx, 4); sfx('bigboom'); sfx('cannon'); haptic('big');
   e.recoil = -34; for (let k = 0; k < 10; k++) smokePuff(px + rnd(-14, 14), py + rnd(-10, 30));
   e.hb = null; p.cd = Math.round(130 * fireSlow());
 }
@@ -5555,10 +5557,10 @@ function shipRam(e) {
     if (!e.reactRam && R.t === v) {
       const out = sd > 0 ? e.hd : e.hd + PI;
       for (let ly = -90 + (vi % 2) * 9; ly <= 90; ly += 18) { const [gx, gy] = at(sd * RAM_SIDE, ly); eshot(gx, gy, out + rnd(-0.05, 0.05), bspeed() * 0.95, 'B'); if (((ly + 90) / 18 | 0) % 2 === 0) flash(gx, gy, 4); }
-      shake = Math.max(shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
+      feel.shake = Math.max(feel.shake, 6); sfx('cannon'); sfx('gboom'); haptic('big');
     } else if (e.reactRam && gi >= 0 && gi % RAM_RIPPLE === 0 && gi / RAM_RIPPLE < 11) {
       const k = gi / RAM_RIPPLE, ly = vi % 2 ? 90 - k * 18 : -90 + k * 18, [gx, gy] = at(sd * RAM_SIDE, ly), out = sd > 0 ? e.hd : e.hd + PI;
-      eshot(gx, gy, out + rnd(-0.03, 0.03), bspeed() * 0.95, 'B'); flash(gx, gy, 4); smokePuff(gx, gy); shake = Math.max(shake, 2); sfx('cannon');
+      eshot(gx, gy, out + rnd(-0.03, 0.03), bspeed() * 0.95, 'B'); flash(gx, gy, 4); smokePuff(gx, gy); feel.shake = Math.max(feel.shake, 2); sfx('cannon');
     }
   }
   placeTankParts(e);
@@ -5585,7 +5587,7 @@ function sandstorm(e) {
   e.x = S.x + (S.t < STORM_WARN ? Math.sin(S.t * 1.9) * 0.8 : 0); e.y = S.y; e.moving = false;
   // sand plumes from the rear fans, blown the way the storm will go
   for (const sx of [-34, 34]) world.parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y - 50 + rnd(-8, 8), vx: S.dir * rnd(1.5, 3.2), vy: rnd(-0.6, 0.3), life: 70, max: 70, r: rnd(7, 13) });
-  if (S.t < STORM_WARN) shake = Math.max(shake, 2);
+  if (S.t < STORM_WARN) feel.shake = Math.max(feel.shake, 2);
   if (S.t === STORM_WARN) sfx('roar');
   const b = S.t - STORM_WARN, k = b < 0 ? 0 : b < 40 ? b / 40 : b > STORM_BLOW - 50 ? Math.max(0, (STORM_BLOW - b) / 50) : 1;
   S.k = k;
@@ -5624,7 +5626,7 @@ function tankDrive(e) {
   if (!e.last && core && !core.dead && !e.storm && !(e.calm > 0) && (others === 0 || core.hp < core.maxhp * 0.3)) {
     e.last = { t: 0, side: Math.random() < 0.5 ? -1 : 1 };
     const c = Math.cos(e.hd), sn = Math.sin(e.hd), tx = e.x + e.last.side * 39 * c, ty = e.y + e.last.side * 39 * sn;
-    boom(tx, ty, 26, 'g'); shake = Math.max(shake, 10); sfx('gboom'); haptic('big');
+    boom(tx, ty, 26, 'g'); feel.shake = Math.max(feel.shake, 10); sfx('gboom'); haptic('big');
     for (let i = 0; i < 26; i++) { const a = Math.random() * TAU, v = rnd(0.8, 2.6); world.parts.push({ kind: i % 3 ? 'spark' : 'dust', layer: 'a', x: tx + rnd(-4, 4), y: ty + rnd(-30, 30), vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 30, max: 30, col: '#fff2a8', r: 4 }); }
   }
   let s; // ground speed along the heading: negative = reversing
@@ -5728,7 +5730,7 @@ const BOSSMOVE = {
     if (e.stage1 && !e.halt && e.y >= 150 + BY) { e.halt = true; world.scrollTarget = 0; }
     if (!e.breach && e.gate2) {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
-      else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); shake = Math.max(shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
+      else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
@@ -5755,14 +5757,14 @@ const BOSSMOVE = {
     if (e.phase === 'spool') {
       e.y = e.wy + Math.floor(world.scroll); e.pt++;
       if (gf % 3 === 0) for (const p of e.parts) if (p.k === 'engine') smokePuff(e.x + p.ox * e.scale, e.y + (p.oy - 18) * e.scale);
-      if (e.pt % 20 === 0) shake = Math.max(shake, 1 + e.pt / 40);
+      if (e.pt % 20 === 0) feel.shake = Math.max(feel.shake, 1 + e.pt / 40);
       if (e.pt > 110) { e.phase = 'lift'; e.pt = 0; e.y0 = e.y; sfx('liftoff'); haptic('boss'); }
       return false;
     }
     if (e.phase === 'lift') {
       e.pt++; const f = Math.min(1, e.pt / 150), ez = f * f * (3 - 2 * f);
       e.scale = 0.72 + 0.28 * ez; e.y = e.y0 + (110 + BY - e.y0) * ez; // lift to exactly where the fight starts, so it doesn't jump on tall screens
-      shake = Math.max(shake, 3 * (1 - f));
+      feel.shake = Math.max(feel.shake, 3 * (1 - f));
       if (gf % 2 === 0) for (let i = 0; i < 2; i++) world.parts.push({ kind: 'dust', layer: 'w', x: e.x + rnd(-100, 100), y: e.y + rnd(-50, 70), vx: rnd(-1.5, 1.5), vy: rnd(-0.6, 0.6), life: 40, max: 40, r: rnd(3, 6) });
       if (f >= 1) { e.phase = 'fight'; e.untarget = false; e.scale = 1; world.scrollTarget = SCROLL; }
       return false;
@@ -5885,7 +5887,7 @@ const BOSS_FIGHT = {
         const [bx, by] = mz(34);
         for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
         if (p.hp < p.maxhp * 0.5) world.later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + run.loop * 2, sp * 0.75, gf * 0.1); } });
-        flash(bx, by, 6); smokePuff(bx, by); shake = Math.max(shake, 4); sfx('cannon');
+        flash(bx, by, 6); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 4); sfx('cannon');
       }
     },
   },
@@ -5900,12 +5902,12 @@ const BOSS_FIGHT = {
         e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
         const [bx, by] = mz(58), d = Math.max(60, player.y - by);
         eshot(bx, by, p.ang, 2.2, 'mega');
-        flash(bx, by, 8); boom(bx, by, 10, 'a'); shake = 10; sfx('bigboom'); haptic('big');
+        flash(bx, by, 8); boom(bx, by, 10, 'a'); feel.shake = 10; sfx('bigboom'); haptic('big');
       } else p.cd = 1;
     },
   },
   castle: {
-    dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } shake = Math.max(shake, 3); if (gf % 4 === 0) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
+    dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } feel.shake = Math.max(feel.shake, 3); if (gf % 4 === 0) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
     introEarly(e) { return e.stage1; },
     holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
     coreFire(e, p, px, py, core, others, sp, mz) {
@@ -5914,7 +5916,7 @@ const BOSS_FIGHT = {
       else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
     },
     deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
-    partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); shake = Math.max(shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
+    partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); feel.shake = Math.max(feel.shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
     shielded(e, p) { return p.k === 'core' && !e.open; },
     delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
   },
@@ -6214,7 +6216,7 @@ const ENT = {
       e.cd = Math.round((Math.max(80, 120 - run.loop * 15)) * fireSlow());
       const bx = e.x + Math.cos(e.ga) * 16, by = e.y + 8 + Math.sin(e.ga) * 16;
       for (let k = -1; k <= 1; k++) eshot(bx, by, e.ga + k * 0.15, bspeed(), 'B');
-      flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
+      flash(bx, by, 5); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 2); sfx('cannon');
     }
   } },
   aatower: { turret: true, revenge: 2, guarded: true, medals: 3, treesInFront: true, stats: { hp: 60, hw: 18, hh: 18, score: 4000, rad: 22 }, update(e) {
@@ -6300,7 +6302,7 @@ const ENT = {
     groundPos(e); if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
-      const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); shake = Math.max(shake, 2);
+      const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
       markers.push({ wx: player.x, wy: player.y - Math.floor(world.scroll), t: 72, max: 72 });
     }
   } },
@@ -6370,7 +6372,7 @@ const ENT = {
         else {
           const [bx, by] = mz(16);
           for (let k = -1; k <= 1; k++) eshot(bx, by, p.ang + k * 0.12, sp * 0.95, 'B');
-          flash(bx, by, 5); smokePuff(bx, by); shake = Math.max(shake, 2); sfx('cannon');
+          flash(bx, by, 5); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 2); sfx('cannon');
         }
       } else if (p.k === 'aa') {
         p.cd = Math.round((Math.max(36, 52 - run.loop * 6)) * fireSlow());
@@ -6472,7 +6474,7 @@ function heatTick() {
 function fireBeam(pw) {
   if (overheatT > 0) return;
   beam = { t: 18, max: 18, w: 8 + 16 * pw, dmg: (0.9 + 2.0 * pw) * dmgK(), pw, hit: false };
-  run.stats.shots++; sfx('beam'); haptic(pw > 0.9 ? 'big' : 'gkill'); shake = Math.max(shake, 3 + pw * 4);
+  run.stats.shots++; sfx('beam'); haptic(pw > 0.9 ? 'big' : 'gkill'); feel.shake = Math.max(feel.shake, 3 + pw * 4);
   laserHeat += DIFF.heat[settings.diff];
   if (laserHeat >= 100) { overheatT = 300; laserHeat = 100; world.later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 14, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
   flash(player.x, player.y - 16, 6);
@@ -6531,7 +6533,7 @@ function updPlayer() {
     p.bank = clamp((nx - p.x) * 0.45, -1, 1); p.x = nx; p.y = ny; p.lx = p.x; p.ly = p.y; p.charge = 0; p.inv = Math.max(p.inv, 70); p.flyK = 1 + 0.9 * (1 - ez);
     for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: p.x + sd * 13 * p.flyK, y: p.y + 4 * p.flyK, vx: 0, vy: 0.3, life: 36, max: 36 });
     if (gf % 2 === 0) world.parts.push({ kind: 'flame', layer: 'a', x: p.x + rnd(-2, 2), y: p.y + 17 * p.flyK, vx: 0, vy: 1.2, life: 12, max: 12, fr: (Math.random() * 4) | 0, sc: p.flyK * 0.8 });
-    if (p.fly === 0) { p.flyK = 1; sfx('arrive'); haptic('big'); shake = Math.max(shake, 4); flash(p.x, p.y, 10);
+    if (p.fly === 0) { p.flyK = 1; sfx('arrive'); haptic('big'); feel.shake = Math.max(feel.shake, 4); flash(p.x, p.y, 10);
       for (let i = 0; i < 28; i++) { const a = i * TAU / 28; world.parts.push({ kind: 'spark', layer: 'a', x: p.x, y: p.y, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4, life: 22, max: 22, col: i % 2 ? '#a8f6dc' : '#e8dcff' }); }
       for (let i = 0; i < 6; i++) world.parts.push({ kind: 'trail', layer: 'a', x: p.x + rnd(-30, 30), y: p.y + rnd(-6, 20), vx: 0, vy: 2.5, life: 18, max: 18 }); }
     for (let i = 0; i < p.drones; i++) { p.dr[i].x = p.x + (i ? 17 : -17); p.dr[i].y = p.y + 7; }
@@ -6540,7 +6542,7 @@ function updPlayer() {
   if (p.exitT > 0) {
     p.exitT--; const k = 80 - p.exitT;
     p.y -= k < 18 ? 0.8 : 1 + (k - 18) * 0.28; p.bank *= 0.8;
-    if (k === 18) { flash(p.x, p.y + 14, 6); shake = Math.max(shake, 2); }
+    if (k === 18) { flash(p.x, p.y + 14, 6); feel.shake = Math.max(feel.shake, 2); }
     if (gf % 2 === 0 && p.y > -20) world.parts.push({ kind: 'fire', layer: 'a', x: p.x + rnd(-2, 2), y: p.y + 18, vx: 0, vy: 1.5, life: 14, max: 14, r: 3 });
     if (p.exitT === 0) p.y = -60;
     for (let i = 0; i < p.drones; i++) { p.dr[i].x = p.x + (i ? 17 : -17); p.dr[i].y = p.y + 7; } // Talon drones leave with the ship
@@ -6627,7 +6629,7 @@ function drawRebirth(p) {
 }
 function die(cause) {
   const p = player; rrDeath(cause || '?');
-  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; hitStop = 6; boom(p.x, p.y, 30); shake = 12; flashFx = 5; sfx('die'); haptic('die');
+  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
@@ -6655,7 +6657,7 @@ function updP2() {
     if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
     if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
   }
-  if (hit) { q.dead = 150; boom(q.x, q.y, 24); shake = Math.max(shake, 6); sfx('die'); }
+  if (hit) { q.dead = 150; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); }
 }
 function drawP2() {
   const q = p2; if (!q || q.dead || app.state !== 'play' || !player) return;
@@ -6671,8 +6673,8 @@ function drawP2() {
 // the player has the ship only while it is live: not paused, not in the GET READY countdown, not flying in or out of a stage
 function canSteer() { const p = player; return app.state === 'play' && !app.paused && app.resumeT <= 0 && !!p && !p.dead && !(p.fly > 0) && !(p.exitT > 0) && p.y >= -40; }
 function bomb() {
-  if (!canSteer() || run.bombs <= 0 || bombFx > 0) return;
-  run.bombs--; run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
+  if (!canSteer() || run.bombs <= 0 || feel.bombFx > 0) return;
+  run.bombs--; run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; feel.bombFx = 64; feel.flashFx = 8; feel.shake = 10; feel.bombX = player.x; feel.bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of world.ebul) world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   world.ebul.length = 0;
@@ -6696,7 +6698,7 @@ function popTurret(e) {
   e.turDead = true;
   const [ox, oy] = ENT[e.type].turretAt || [0, 0], tx = e.x + ox, ty = e.y + oy;
   boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
-  sfx('gboom'); haptic('gkill'); hitStop = Math.max(hitStop, 1);
+  sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
   const set = e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
@@ -6752,7 +6754,7 @@ function damagePart(e, p, d) {
   if (BOSS[e.kind].damageScale) d *= BOSS[e.kind].damageScale(e, p);
   p.hp -= d; p.hit = 3;
   if (p.hp <= 0) {
-    p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); hitStop = Math.max(hitStop, 2);
+    p.dead = true; boom(px, py, 20, 'g'); sfx('gboom'); feel.shake = Math.max(feel.shake, 6); haptic('part'); dropMedals(px, py, 1); e.panicT = 220; cancelBullets(px, py, 70); feel.hitStop = Math.max(feel.hitStop, 2);
     const v = p.k === 'main' ? 3000 : p.k === 'aa' ? 800 : 0;
     if (v) { addScore(v); label(px, py, String(v)); checkExtend(); }
     revenge(e.x + p.ox, e.y + p.oy, 2);
@@ -6761,7 +6763,7 @@ function damagePart(e, p, d) {
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; run.stats.kills++; }
       addScore(e.score); checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); world.later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } hitStop = 6; flashFx = 8;
+      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); feel.slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); world.later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } feel.hitStop = 6; feel.flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -6781,7 +6783,7 @@ function revenge(x, y, n) { if (run.diff !== 2 || !player || player.dead || y < 
 const DEATHS = {
   protoDuel: {
     onKill(e) {
-      for (let i = 0; i < 6; i++) world.later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); shake = Math.max(shake, 12); sfx('bigboom'); haptic('big');
+      for (let i = 0; i < 6; i++) world.later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); feel.shake = Math.max(feel.shake, 12); sfx('bigboom'); haptic('big');
     },
   },
   missile: { onKill(e) { boom(e.x, e.y, 14, 'a'); sfx('gboom'); } },
@@ -6789,7 +6791,7 @@ const DEATHS = {
     blast: 24,
     onKill(e) {
       if (e.bk === 'barracks' || e.bk === 'rbarracks') for (let k = 0; k < 5; k++) world.enemies.push(G('troop', e.wx + rnd(-16, 16), e.wy + rnd(-6, 6), { hd: Math.random() * TAU, scared: 120, keep: true }));
-      if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); shake = Math.max(shake, 8); for (const o of world.enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) world.later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
+      if (e.bk === 'armoury' || e.bk === 'rarmoury') { boom(e.x, e.y, 34, 'g'); feel.shake = Math.max(feel.shake, 8); for (const o of world.enemies) if (o !== e && !o.dead && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 52) world.later.push({ at: gf + 6, fn: () => { if (!o.dead) damage(o, 30); } }); }
       if (e.bk === 'chapel') sfx('toll');
     },
   },
@@ -6942,7 +6944,7 @@ function kill(e) {
     if (e.type === 'troop') { world.decals.push(makeBody(e.wx, e.wy)); sfx('hit'); return; }
     const size = T.blast || 14;
     boom(e.x, e.y, size, 'g'); sfx(size > 25 ? 'bigboom' : 'gboom'); haptic(size > 25 ? 'big' : 'gkill');
-    if (size > 25) { shake = Math.max(shake, 8); hitStop = Math.max(hitStop, 3); }
+    if (size > 25) { feel.shake = Math.max(feel.shake, 8); feel.hitStop = Math.max(feel.hitStop, 3); }
     const mc = T.medals || 0;
     if (mc >= 1) dropMedals(e.x, e.y, Math.floor(mc)); else if (Math.random() < mc) dropMedals(e.x, e.y, 1);
     if (T.explosive) {
@@ -7157,7 +7159,7 @@ function update() {
   for (const t of treads) t.life--;
   for (const mk2 of markers) {
     mk2.t--;
-    if (mk2.t === 0) { const sy = mk2.wy + Math.floor(world.scroll); boom(mk2.wx, sy, 20, 'g'); sfx('gboom'); shake = Math.max(shake, 5); world.decals.push({ kind: 'crater', wx: mk2.wx, wy: mk2.wy, r: 9, smokeT: 120 });
+    if (mk2.t === 0) { const sy = mk2.wy + Math.floor(world.scroll); boom(mk2.wx, sy, 20, 'g'); sfx('gboom'); feel.shake = Math.max(feel.shake, 5); world.decals.push({ kind: 'crater', wx: mk2.wx, wy: mk2.wy, r: 9, smokeT: 120 });
       if (player && !player.dead && player.inv <= 0 && Math.hypot(player.x - mk2.wx, player.y - sy) < 11) die('shell'); }
   }
   for (let i = markers.length - 1; i >= 0; i--) if (markers[i].t <= 0) markers.splice(i, 1);
@@ -7211,7 +7213,7 @@ function update() {
       }
     }
     if (b.hb && --b.fuse <= 0 && !b.dead) {
-      b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); shake = Math.max(shake, 8); sfx('bigboom');
+      b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); feel.shake = Math.max(feel.shake, 8); sfx('bigboom');
       // the gap is random; when the player was close it faces them, so a burst just ahead is never unavoidable
       const gap = b.close && !player.dead ? Math.atan2(player.y - b.y, player.x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
       for (let k = 0; k < n; k++) { const a = gap + (k + 0.5) * TAU / n; if (Math.abs(angDiff(a, gap)) < 0.42) continue; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.9, vy: Math.sin(a) * bspeed() * 0.9, r: 3, kind: 'B', a, shrapnel: true }); }
@@ -7400,9 +7402,9 @@ function update() {
   if (gf % 5 === 0) for (const pr of props) if (pr.kind === 'chimney' && pr.top && pr.top[1] > -10) smokePuff(pr.top[0] + rnd(-1, 1), pr.top[1]);
 
   updParts();
-  if (bombFx > 0) { bombFx--; if (bombFx > 24) world.ebul.length = 0; }
-  if (flashFx > 0) flashFx--;
-  if (shake > 0) shake = shake < 0.5 ? 0 : shake * 0.88;
+  if (feel.bombFx > 0) { feel.bombFx--; if (feel.bombFx > 24) world.ebul.length = 0; }
+  if (feel.flashFx > 0) feel.flashFx--;
+  if (feel.shake > 0) feel.shake = feel.shake < 0.5 ? 0 : feel.shake * 0.88;
   if (app.msg) { app.msg.t--; if (app.msg.t <= 0) app.msg = null; }
   if (run.score > hi) hi = run.score;
 }
@@ -8199,7 +8201,7 @@ function renderMain() {
   if (app.gfxLost) return;
   if (app.booting) return; // the page's own splash (#preboot) covers the screen until the title is ready
   ctx.save();
-  if (shake > 0) ctx.translate(Math.round(rnd(-shake, shake) / 2), Math.round(rnd(-shake, shake) / 2));
+  if (feel.shake > 0) ctx.translate(Math.round(rnd(-feel.shake, feel.shake) / 2), Math.round(rnd(-feel.shake, feel.shake) / 2));
   drawGround();
 
   if (app.state === 'title') {
@@ -8345,21 +8347,21 @@ function renderMain() {
   drawWeather();
   if (world.rainF > 0.02) { ctx.globalAlpha = 0.45 * world.rainF; ctx.fillStyle = '#b8d0e8'; for (const d of drops) { ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, 3); ctx.fillRect(Math.round(d.x) - 1, Math.round(d.y) + 3, 1, 1); } ctx.fillStyle = '#e4f0f8'; for (let i = 0; i < 6 * world.rainF; i++) ctx.fillRect((Math.random() * W) | 0, (Math.random() * H) | 0, 1, 1); ctx.globalAlpha = 1; }
   if (world.flashL > 0) { ctx.fillStyle = `rgba(220,230,255,${0.45 * world.flashL / 12})`; ctx.fillRect(0, 0, W, H); }
-  if (bombFx > 0) {
-    const k = 64 - bombFx;
-    ctx.globalAlpha = Math.min(1, bombFx / 30);
+  if (feel.bombFx > 0) {
+    const k = 64 - feel.bombFx;
+    ctx.globalAlpha = Math.min(1, feel.bombFx / 30);
     for (let i = 0; i < 4; i++) {
       const rr = k * 6 - i * 22;
       if (rr <= 0) continue;
       ctx.strokeStyle = i % 2 ? '#e8dcff' : '#bba4ff'; ctx.lineWidth = 4 - i * 0.6;
-      ctx.beginPath(); ctx.arc(bombX, bombY, rr, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(feel.bombX, feel.bombY, rr, 0, TAU); ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
   drawFlyby();
   ctx.restore();
 
-  if (flashFx > 0) { ctx.fillStyle = `rgba(240,236,255,${flashFx / 14})`; ctx.fillRect(0, 0, W, H); }
+  if (feel.flashFx > 0) { ctx.fillStyle = `rgba(240,236,255,${feel.flashFx / 14})`; ctx.fillRect(0, 0, W, H); }
   drawHUD();
   if (app.results) drawResults();
   if (app.congrats) drawCongrats();
@@ -8810,7 +8812,7 @@ function frameLoop(now) {
   fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
   const work0 = performance.now();
   if (app.state === 'play' && !app.paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
-  while (acc >= STEP) { acc -= STEP; if (hitStop > 0) { hitStop--; continue; } if (slowT > 0) { slowT--; if (slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
+  while (acc >= STEP) { acc -= STEP; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
   try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
   perfFrame(dtf, performance.now() - work0);
 }
