@@ -25,10 +25,10 @@ const checksum = () => {
   let h = 2166136261;
   const add = (...v) => { const s = v.join(',') + ';'; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
   const r = v => typeof v === 'number' ? Math.round(v * 1000) : v;
-  add(gf, run.score, run.lives, run.bombs, run.stage, run.loop, simS, r(scroll), shots.length, items.length);
+  add(gf, run.score, run.lives, run.bombs, run.stage, run.loop, simS, r(world.scroll), world.shots.length, world.items.length);
   for (const p of [player, p2]) if (p) add(r(p.x), r(p.y), p.wpn, p.lvl, p.inv, p.dead);
-  for (const e of enemies) { add(e.type, r(e.x), r(e.y), r(e.hp), e.dead ? 1 : 0); if (e.parts) for (const q of e.parts) add(r(q.hp), q.dead ? 1 : 0); }
-  for (const b of ebul) add(r(b.x), r(b.y));
+  for (const e of world.enemies) { add(e.type, r(e.x), r(e.y), r(e.hp), e.dead ? 1 : 0); if (e.parts) for (const q of e.parts) add(r(q.hp), q.dead ? 1 : 0); }
+  for (const b of world.ebul) add(r(b.x), r(b.y));
   return (h >>> 0).toString(16).padStart(8, '0');
 };
 
@@ -53,7 +53,7 @@ SF.replay = sc => {
       if (drawEvery) { try { SF.draw(); } catch (e) { drawErrs.push(String(e && e.stack || e).slice(0, 300)); } }
       if (f % TRACE === 0 || status !== 'ok') trace.push(checksum());
     }
-    const out = { H, status, score: run.score, stage: run.stage, lives: run.lives, bombs: run.bombs, frames: gf, kills: run.stats.kills, medals: run.stats.medals, hits: SF.R.hits.length, enemies: enemies.length, bullets: ebul.length, errors: SF.R.errs.length, trace: trace.join(' ') };
+    const out = { H, status, score: run.score, stage: run.stage, lives: run.lives, bombs: run.bombs, frames: gf, kills: run.stats.kills, medals: run.stats.medals, hits: SF.R.hits.length, enemies: world.enemies.length, bullets: world.ebul.length, errors: SF.R.errs.length, trace: trace.join(' ') };
     if (drawEvery) out.drawErrors = drawErrs;
     return out;
   } finally { delete window.__forceSeed; settings.p2 = p2Was; clearResume(); }
@@ -73,7 +73,7 @@ SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     for (let f = 0; f < frames; f += every) {
       SF.run(every);
-      trace.push([gf, run.score, enemies.length, ebul.length, shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +scroll.toFixed(3)].join('|'));
+      trace.push([gf, run.score, world.enemies.length, world.ebul.length, world.shots.length, +player.x.toFixed(4), +player.y.toFixed(4), +world.enemies.reduce((a, e) => a + e.x * 1.1 + e.y, 0).toFixed(3), +world.scroll.toFixed(3)].join('|'));
     }
   } finally { delete window.__forceSeed; }
   return { env, trace };
@@ -86,7 +86,7 @@ SF.terrainPrints = () => {
   for (let n = 1; n <= 6; n++) {
     SF.start(1, n);
     let h = 2166136261, cells = 0;
-    for (let p = stageBaseP - 2; p <= stageBaseP + 70; p++) for (let ly = 0; ly < CH; ly += 8) for (let wx = 0; wx < W; wx += 8) {
+    for (let p = world.stageBaseP - 2; p <= world.stageBaseP + 70; p++) for (let ly = 0; ly < CH; ly += 8) for (let wx = 0; wx < W; wx += 8) {
       const t = terrainType(wx, -p * CH + ly);
       for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
       cells++;

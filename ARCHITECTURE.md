@@ -27,7 +27,7 @@ The script runs top to bottom once at page load, then `frameLoop` takes over. Se
 | pixel font, title logo | Own bitmap fonts; the FEUERVOGEL logo with chrome and glitch effects |
 | terrain | The world is generated in chunks from a seed (`ensureChunks`); themes blend as you scroll |
 | audio | Web Audio: SFX (`sfx`), two synth engines (FM and OPL style), songs and arrangements |
-| state | The run in one object, `run` (score, lives, bombs, stage, loop, continues, difficulty, seed, stats, camp, medal chain); the rest still top-level variables: `state` (`title`/`play`/`over`), `player`, `enemies`, `ebul` (enemy bullets), `shots` |
+| state | The run in one object, `run` (score, lives, bombs, stage, loop, continues, difficulty, seed, stats, camp, medal chain); the stage being flown in `world` (scroll, terrain chunks and theme, `enemies`, `ebul` (enemy bullets), `shots`, items, particles, decals, director timers, weather); the rest still top-level variables: `state` (`title`/`play`/`over`), `player` |
 | tutorial, leaderboard | In-game tutorial; leaderboard client (fetch top lists, submit, local fallback) |
 | resume | Saves a run so a reloaded page can continue |
 | helpers | Entity factories `E()` (any enemy) and `G()` (ground enemy), `hpm()` (difficulty health scale) |

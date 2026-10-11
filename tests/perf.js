@@ -52,7 +52,7 @@ SF.perfMemory = ({ diff = 1, stage: st = 1, frames = 24000, every = 3000 } = {})
   const rows = [];
   for (let i = 0; i <= frames; i += every) {
     if (i) SF.run(every);
-    rows.push({ frame: i, heapKB: Math.round(heap() / 1024), parts: parts.length, decals: decals.length, enemies: enemies.length, bullets: ebul.length, chunks: chunks.size });
+    rows.push({ frame: i, heapKB: Math.round(heap() / 1024), parts: world.parts.length, decals: world.decals.length, enemies: world.enemies.length, bullets: world.ebul.length, chunks: world.chunks.size });
   }
   delete window.__forceSeed;
   const a = rows[2] || rows[0], b = rows[rows.length - 1]; // skip the first samples: caches fill up early
