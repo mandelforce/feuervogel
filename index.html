@@ -6588,8 +6588,10 @@ function drawP2() {
   if (q.tagT > 0 && (q.tagT > 40 || (gf >> 2) & 1)) textS('2P', q.x, q.y - 26, '#dde1e7', 1, 'center', '#8c919b');
   if (!results) { ctx.globalAlpha = 0.5; dk(q.x, q.y, 2.5, '#8c919b'); ctx.globalAlpha = 1; dk(q.x, q.y, 1, '#ffffff'); }
 }
+// the player has the ship only while it is live: not paused, not in the GET READY countdown, not flying in or out of a stage
+function canSteer() { const p = player; return state === 'play' && !paused && resumeT <= 0 && !!p && !p.dead && !(p.fly > 0) && !(p.exitT > 0) && p.y >= -40; }
 function bomb() {
-  if (state !== 'play' || paused || !player || player.dead || bombs <= 0 || bombFx > 0) return;
+  if (!canSteer() || bombs <= 0 || bombFx > 0) return;
   bombs--; stats.novas++; if (rr && rr.cur) rr.cur.nb++; bombFx = 64; flashFx = 8; shake = 10; bombX = player.x; bombY = player.y;
   player.inv = Math.max(player.inv, 110);
   for (const b of ebul) parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
@@ -6948,7 +6950,7 @@ function pollPad() {
     else if (paused) { if (gpad.a) togglePause(); }
     else if ((results || congrats) && gpad.any) skipResults();
     else if (cont > 0 && gpad.any) doContinue();
-    else if (nav.x && player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+    else if (nav.x && canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
     else if (gpad.a || nav.lb || nav.rb) bomb();
   }
 }
@@ -8587,10 +8589,10 @@ cv.addEventListener('pointerdown', e => {
   else if (results || congrats) { skipResults(); return; }
   else if (cont > 0) { doContinue(); return; }
   if (state === 'play' && p2 && p2Mode() === 'mouse' && e.pointerType === 'mouse') return; // the mouse flies the 2nd player
-  if (state === 'play' && player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+  if (canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
   if (state === 'play' && mouseClickMode(e)) {
     if (document.pointerLockElement !== cv) { try { cv.requestPointerLock(); } catch (err) {} return; }
-    if (e.button === 2) bomb(); else if (player && !player.dead && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
+    if (e.button === 2) bomb(); else if (canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
     return;
   }
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
@@ -8598,7 +8600,7 @@ cv.addEventListener('pointerdown', e => {
 });
 function mouseClickMode(e) { return settings.mouseMode === 'click' && e.pointerType === 'mouse'; }
 document.addEventListener('mousemove', e => {
-  if (document.pointerLockElement !== cv || state !== 'play' || paused || resumeT > 0 || !player || player.dead) return;
+  if (document.pointerLockElement !== cv || !canSteer()) return;
   player.x = clamp(player.x + e.movementX / scale * 1.1, 8, W - 8); player.y = clamp(player.y + e.movementY / scale * 1.1, 18, H - 14);
 });
 document.addEventListener('mousemove', e => { if (p2Mode() !== 'mouse') return; const r = cv.getBoundingClientRect(); p2Mouse = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; });
@@ -8608,7 +8610,7 @@ cv.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return;
   const dx = (e.clientX - drag.x) / scale * 1.3, dy = (e.clientY - drag.y) / scale * 1.3;
   drag.x = e.clientX; drag.y = e.clientY;
-  if (state === 'play' && !paused && player && !player.dead) {
+  if (canSteer()) {
     player.x = clamp(player.x + dx, 8, W - 8);
     player.y = clamp(player.y + dy, 18, H - 14);
   }
