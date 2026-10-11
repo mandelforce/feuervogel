@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Under the hood (no game change): which screen the game is on and how it got there (boot, title, pause, results, continue, game over scene, tutorial, leaderboard panel, resume) now lives in one `app` object instead of 41 separate variables.
 - Under the hood (no game change): the stage being flown (scrolling, terrain, enemies, bullets, items, effects, the director's timers, the weather) now lives in one `world` object instead of 50 separate variables. The replay test confirms identical runs.
 - Under the hood (no game change): everything that belongs to one run (score, lives, bombs, stage, continues, difficulty, seed, stats, the medal chain, ...) now lives in one `run` object instead of 22 separate variables. The replay test confirms identical runs.
 - Sound fix: when the run ends (game over, also after the continue countdown runs out), shot and laser sounds that are still ringing fade out at once, and weapon sounds can no longer play on the continue screen or the game over screen. Reported on Android, where the laser sound kept going while the high score prompt opened. Sound only; gameplay, scoring and the leaderboard are unchanged.

@@ -37,7 +37,7 @@ const checksum = () => {
 SF.replay = sc => {
   const p2Was = settings.p2, drawEvery = window.__drawEvery || 0, drawErrs = [];
   try {
-    if (booting) finishBoot(); // the boot splash would otherwise eat the first 300 frames of the run
+    if (app.booting) finishBoot(); // the boot splash would otherwise eat the first 300 frames of the run
     window.__forceSeed = sc.seed; // the game's own seeded stream (see 'random streams' in index.html); page-level Math.random no longer matters
     gf = 0; // the frame counter keeps running while the title screen idles; start every scenario from zero
     if (sc.p2) settings.p2 = sc.p2;
@@ -68,7 +68,7 @@ SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
     math: [m.sin(1.1), m.cos(2.3), m.tan(0.7), m.atan2(0.3, -1.7), m.pow(1.0001, 12345.6), m.exp(1.7), m.log(7.3), m.hypot(3.3, 4.4), m.cbrt(9.1), m.asin(0.37), m.sinh(0.8), m.sin(1234.5678), m.cos(98765.4321)] };
   const trace = [];
   try {
-    if (booting) finishBoot();
+    if (app.booting) finishBoot();
     window.__forceSeed = sc.seed; gf = 0;
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage);
     for (let f = 0; f < frames; f += every) {

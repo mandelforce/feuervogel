@@ -17,7 +17,7 @@ SF.profile = async ({ diff = 1, stage: st = 1, frames = 5000, spikeMs = 5, calls
   const C = {};
   for (const n in orig) { const o = orig[n]; C[n] = 0; const w = function (...a) { C[n]++; return o.apply(this, a); }; eval(n + ' = w'); }
   SF.setMode('immortal'); SF.start(diff, st);
-  if (typeof booting !== 'undefined' && booting) finishBoot();
+  if (typeof app.booting !== 'undefined' && app.booting) finishBoot();
   for (let i = 0; i < 1500; i++) { SF.run(1); SF.draw(); } // draw too, or the render functions would never be counted
   restore();
   const timed = Object.keys(orig).filter(n => C[n] / 1500 < calls && C[n] > 0);
@@ -36,7 +36,7 @@ SF.profile = async ({ diff = 1, stage: st = 1, frames = 5000, spikeMs = 5, calls
     eval(n + ' = w');
   }
   SF.setMode('immortal'); SF.start(diff, st);
-  if (typeof booting !== 'undefined' && booting) finishBoot();
+  if (typeof app.booting !== 'undefined' && app.booting) finishBoot();
   const spikes = []; let tu = 0, tr = 0, maxU = 0, maxR = 0;
   for (let i = 0; i < frames; i++) {
     F = {};

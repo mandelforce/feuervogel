@@ -11,7 +11,7 @@ const stats = a => { const s = Float64Array.from(a).sort(); let sum = 0; for (co
 const begin = (diff, st) => {
   window.__forceSeed = 1944;
   SF.setMode('immortal'); SF.start(diff, st);
-  if (typeof booting !== 'undefined' && booting) finishBoot();
+  if (typeof app.booting !== 'undefined' && app.booting) finishBoot();
 };
 
 // Cost of each frame (update + draw). The game's own loop is stopped, so nothing else competes.
@@ -31,7 +31,7 @@ SF.perfSteps = ({ diff = 1, stage: st = 1, frames = 3000, warmup = 300 } = {}) =
 SF.perfLoop = async ({ diff = 1, stage: st = 1, seconds = 15 } = {}) => {
   settings.diff = diff;
   SF.setMode('immortal');
-  startAt(st); if (typeof booting !== 'undefined' && booting) finishBoot();
+  startAt(st); if (typeof app.booting !== 'undefined' && app.booting) finishBoot();
   acc = 0; last = performance.now(); // SF.start would stop the game's own loop; here it runs
   const realUpdate = update; update = function () { SF.bot(); realUpdate(); };
   PERF.frames = 0; PERF.slow = 0; PERF.worst = 0; PERF.ring.length = 0; lowFX = false; slowFrames = 0; frameN = 0;
