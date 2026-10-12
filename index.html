@@ -5716,9 +5716,12 @@ function checkProto() {
 // ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
 
 const protoLvl = () => Math.min(3, Math.floor(run.proto.dmg / (18 * hpm())));
+// The prototype's four engine nacelles sit on its wings; this gives each exhaust (offset from the sprite centre) so smoke and flames start exactly there.
+const PROTO_DUEL_T = 7200; // frames of the duel (2 minutes) before it escapes if still alive
+function protoEngines(P, sc) { return [[62, 65], [142, 65], [26, 69], [178, 69]].map(([a, b]) => [(a / 204 - 0.5) * P.w * sc, (b / 144 - 0.5) * P.h * sc]); }
 function spawnProtoFly() { world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true })); world.later.push({ at: gf + 20, fn: boostOutSfx }); }
 function spawnProtoDuel(done) {
-  const base = 100 * hpm(), hp = Math.max(base * 0.5, base - run.proto.dmg * 0.45);
+  const base = 260 * hpm(), hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   const e = E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true });
   world.enemies.push(e); world.duelWatch = { e, done }; sfx('flyin');
 }
@@ -5726,9 +5729,10 @@ function drawProtoPlane(e, rot, sc, flames) {
   const P = SPR.proto, lvl = protoLvl(), w = P.w * sc, h = P.h * sc;
   ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y));
   ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(16, 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
-  ctx.rotate(rot); ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -w / 2, -h / 2, w, h);
+  ctx.rotate(rot);
+  if (flames) for (const [ex, ey] of protoEngines(P, sc)) { const fl = 20 + ((gf >> 1) & 1) * 4; ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - fl, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(ex), Math.round(ey) - fl + 2, 1, fl - 2); }
+  ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -w / 2, -h / 2, w, h);
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
-  if (flames) for (const ex of [-30, -14, 14]) { const fl = 4 + ((gf >> 1) & 1) * 3; ctx.fillStyle = '#ff7a3a'; ctx.fillRect(ex * sc - 1, -h / 2 - fl + 2, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(ex * sc, -h / 2 - fl + 4, 1, fl - 2); }
   ctx.restore();
 }
 const BOSSMOVE = {
@@ -6267,26 +6271,37 @@ const ENT = {
   } },
   protoFly: { stats: { hw: 40, hh: 30, score: 0 }, update(e) {
     e.v = Math.min(4.2, (e.v || 1.6) + 0.03); e.y -= e.v; e.x += 0.35;
-    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex * 1.15, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
+    if (gf % 3 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
     if (e.y < -110) e.dead = true;
   } },
   protoDuel: { stats: { hw: 38, hh: 24, score: 20000, rad: 40 }, update(e) {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
     if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
-    if (e.t2 > 1320 || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // breaks off and escapes
-    const k = e.t2 - 110; e.x = 112 + Math.sin(k * 0.013) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16;
+    if (e.t2 > 110 + PROTO_DUEL_T || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // not mandatory: after 2 minutes it breaks off and escapes
+    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
+    if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20, 20), e.y + rnd(-10, 10), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
+    // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
+    const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
+    e.x = 112 + Math.sin(k * (0.013 + ph * 0.004)) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16 + lunge;
+    if (ph === 2 && lt === 270 + 45 && !player.dead) { const gx = e.x, gy = e.y + 20; for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
     if (player.dead) return;
-    if (k % Math.round(46 * fireSlow()) === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) world.later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
-    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y - 30, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
+    const burst = Math.round((46 - ph * 6) * fireSlow());
+    if (k % burst === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) world.later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
+    // a slow fan of shells from the nose, wider with every phase
+    if (k % Math.round(210 * fireSlow()) === 120) { const n = 5 + ph * 2, gx = e.x, gy = e.y + 24; for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
+    // from phase 2 the bomb bay also launches a homing missile
+    if (ph >= 1 && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24, h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24, 5); sfx('rocket'); }
+    if (gf % 3 === 0) for (const [ex, ey] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
+    if (ph >= 1 && gf % (ph === 2 ? 4 : 9) === 0) smokePuff(e.x + rnd(-20, 20), e.y + rnd(-6, 10), 'a');
   } },
   proto: { stats: { fixedHp: 1000000000, hw: 40, hh: 26, score: 0, rad: 38 }, update(e) {
     if (!e.escape) { groundPos(e); return; }
     e.escape++;
     if (e.escape === 90) boostOutSfx();
-    if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const ex of [-30, -14, 14]) smokePuff(e.x + ex, e.y + 30); return; }
+    if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) smokePuff(e.x - ex, e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
-    if (gf % 3 === 0) for (const ex of [-30, -14, 14]) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
+    if (gf % 3 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
     if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
@@ -7663,13 +7678,13 @@ function drawProto(e) {
   const lvl = Math.min(3, Math.floor((e.dmg || 0) / (18 * hpm())));
   ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI);
   ctx.globalAlpha = 0.3; ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -Math.round(P.w / 2) - 4, -Math.round(P.h / 2) - 6); ctx.globalAlpha = 1;
+  if (e.escape > 50) for (const [ex, ey] of protoEngines(P, 1)) { const fl = 14 + ((gf >> 1) & 1) * 3 + Math.min(10, (e.escape - 50) / 12); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - fl, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(ex), Math.round(ey) - fl + 2, 1, fl - 2); }
   ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -Math.round(P.w / 2), -Math.round(P.h / 2));
   // scorch marks, more with every damage level
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * P.w * 0.7), Math.round((hash(k, 9) - 0.5) * P.h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
   if (lvl >= 1 && gf % (lvl >= 2 ? 3 : 6) === 0) smokePuff(e.x + (lvl >= 3 ? -14 : 14), e.y + 4, 'a');
   if (lvl >= 2 && (gf >> 2) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x) + 12, Math.round(e.y) + 2, 4, 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) + 2, 2, 2); }
-  if (e.escape > 50) for (const ex of [-30, -14, 14, 30]) { if (ex === 30) continue; const fl = 3 + ((gf >> 1) & 1) * 2 + Math.min(6, (e.escape - 50) / 20); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x + ex) - 1, y0 + P.h - 6, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x + ex), y0 + P.h - 6, 1, fl - 2); }
   if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
   if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
 }
