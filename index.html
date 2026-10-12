@@ -453,7 +453,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -470,8 +470,14 @@ const HUD_LIFT = FRAME2 ? 0 : (() => {
   return Math.round(v / (document.getElementById('app').clientWidth / W));
 })();
 const XH = H - 320, BY = Math.round(XH * 0.45), TY = Math.round(XH / 2), SAFE_T = XH > 10 ? 12 : 0, SAFE_B = (XH > 10 ? 8 : 0) + HUD_LIFT, HFULL = H;
-const cv = document.getElementById('game');
-const ctx = cv.getContext('2d');
+// Android Chrome can lose a GPU-backed canvas mid-run and sometimes never gives it back (the screen freezes).
+// willReadFrequently keeps the canvases in ordinary memory, which is never lost; at 224 px wide that costs little.
+const CTX_OPT = /Android/i.test(navigator.userAgent || '') ? { willReadFrequently: true } : undefined;
+let cv = document.getElementById('game');
+let ctx = cv.getContext('2d', CTX_OPT);
+// Listeners on the game canvas go through onCv() so they move over if the canvas is ever replaced (see newCanvas()).
+const cvHandlers = [];
+function onCv(type, fn) { cvHandlers.push([type, fn]); cv.addEventListener(type, fn); }
 cv.width = W; cv.height = H;
 ctx.imageSmoothingEnabled = false;
 const OUT = '#120e1a';
@@ -628,7 +634,7 @@ function pickI(n, l, i, j) { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95
 function pick(ramp, l, i, j) { return ramp[pickI(ramp.length, l, i, j)]; }
 
 /* ================= sprite toolkit ================= */
-function mk(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); const x = c.getContext('2d'); x.imageSmoothingEnabled = false; return [c, x]; }
+function mk(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); const x = c.getContext('2d', CTX_OPT); x.imageSmoothingEnabled = false; return [c, x]; }
 function crisp(c) { const x = c.getContext('2d'); const d = x.getImageData(0, 0, c.width, c.height), a = d.data; for (let i = 3; i < a.length; i += 4) a[i] = a[i] >= 110 ? 255 : 0; x.putImageData(d, 0, 0); }
 function outline(c, col) {
   const x = c.getContext('2d'), w = c.width, h = c.height;
@@ -7945,8 +7951,19 @@ function drawBoss(e) {
   BOSS[e.kind].draw(e, fl, core);
   ctx.globalAlpha = 1;
 }
-cv.addEventListener('contextlost', e => { e.preventDefault(); app.gfxLost = true; logError('contextlost', 'graphics context lost'); });
-cv.addEventListener('contextrestored', () => { app.gfxLost = false; lowFX = true; world.chunks = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2; logError('contextrestored', 'graphics context restored'); });
+// Graphics context lost: pause the run and stop drawing until it is back. The browser usually restores it;
+// if it hasn't after 2 s on screen, frameLoop() swaps in a fresh canvas (newCanvas()), because some Android phones never restore it.
+let gfxLostAt = 0;
+function gfxBack() { app.gfxLost = false; ctx.imageSmoothingEnabled = false; fadePats = null; lowFX = true; world.chunks = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2; }
+function newCanvas() {
+  const n = document.createElement('canvas');
+  for (const a of cv.attributes) n.setAttribute(a.name, a.value);
+  n.width = W; n.height = H; cv.replaceWith(n); cv = n; ctx = n.getContext('2d', CTX_OPT);
+  for (const [type, fn] of cvHandlers) n.addEventListener(type, fn);
+  gfxBack(); logError('canvasreplaced', 'graphics context replaced');
+}
+onCv('contextlost', e => { e.preventDefault(); app.gfxLost = true; gfxLostAt = performance.now(); if (app.state === 'play' && !app.paused) togglePause(); logError('contextlost', 'graphics context lost'); });
+onCv('contextrestored', () => { if (!app.gfxLost) return; gfxBack(); logError('contextrestored', 'graphics context restored'); });
 
 let deckMask = null;
 function onDeck(ox, oy) {
@@ -8679,7 +8696,7 @@ addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 let drag = null, scale = 2;
-cv.addEventListener('pointerdown', e => {
+onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
   if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
@@ -8705,8 +8722,8 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mousemove', e => { if (p2Mode() !== 'mouse') return; const r = cv.getBoundingClientRect(); p2Mouse = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; });
 document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== cv && app.state === 'play' && !app.paused) togglePause(); });
-cv.addEventListener('contextmenu', e => { if (settings.mouseMode === 'click') e.preventDefault(); });
-cv.addEventListener('pointermove', e => {
+onCv('contextmenu', e => { if (settings.mouseMode === 'click') e.preventDefault(); });
+onCv('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return;
   const dx = (e.clientX - drag.x) / scale * 1.3, dy = (e.clientY - drag.y) / scale * 1.3;
   drag.x = e.clientX; drag.y = e.clientY;
@@ -8716,8 +8733,8 @@ cv.addEventListener('pointermove', e => {
   }
 });
 const endDrag = e => { if (drag && e.pointerId === drag.id) drag = null; };
-cv.addEventListener('pointerup', endDrag);
-cv.addEventListener('pointercancel', endDrag);
+onCv('pointerup', endDrag);
+onCv('pointercancel', endDrag);
 for (const b of [pauseBtn, soundBtn, bombBtn]) b.addEventListener('pointerdown', e => e.stopPropagation());
 setInterval(setPauseIcon, 300);
 bombBtn.addEventListener('pointerdown', e => { e.preventDefault(); audio(); if (app.results || app.congrats) skipResults(); else if (app.cont > 0) doContinue(); else bomb(); });
@@ -8814,6 +8831,7 @@ function frameLoop(now) {
   requestAnimationFrame(frameLoop);
   if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
   const dtf = now - last;
+  if (app.gfxLost) { if (dtf > 1000) gfxLostAt = now; else if (now - gfxLostAt > 2000) newCanvas(); }
   acc += Math.min(100, dtf); last = now;
   fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
   const work0 = performance.now();

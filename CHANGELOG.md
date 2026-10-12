@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Android fix: the game could freeze mid-run (reported in Stage 7) when the phone's graphics driver dropped the game screen and Chrome never gave it back. On Android the game now draws in ordinary memory, which can't be dropped. On any device, if the screen is lost the run pauses, and if it isn't back within 2 seconds the game builds a new screen and carries on from the pause menu. Gameplay, scoring and the leaderboard are unchanged.
 - Under the hood (no game change): a new run's starting values come from one place, `createRun()`. The replay test now blocks a pull request when a change would alter how the Campaign (or any tested mode) plays.
 - Under the hood (no game change): the short screen effects of game feel (shake, flashes, the Nova's flash, hit-stop, slow motion) now live in one `feel` object.
 - Under the hood (no game change): which screen the game is on and how it got there (boot, title, pause, results, continue, game over scene, tutorial, leaderboard panel, resume) now lives in one `app` object instead of 41 separate variables.
