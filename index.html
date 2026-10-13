@@ -7166,7 +7166,7 @@ function update() {
   }
 
   if (world.quiet) for (const e of world.enemies) if (e.t === 0 && !ENT[e.type].harmless) e.dead = true;
-  for (const e of world.enemies) if (!e.big && e.type !== 'troop' && e.type !== 'boss' && !e.crash && e.y > -10 && e.y < H + 10 && !lowFX) fx(() => {
+  for (const e of world.enemies) if (!e.big && e.type !== 'troop' && e.type !== 'boss' && !e.crash && !(e.type === 'sub' && e.st !== 'up') && e.y > -10 && e.y < H + 10 && !lowFX) fx(() => {
     if (e.mhp === undefined) e.mhp = e.hp;
     const f = e.hp / e.mhp, lay = e.ground ? 'g' : 'a';
     if (f < 0.5 && gf % 9 === 0) smokePuff(e.x + rnd(-3, 3), e.y + rnd(-3, 3), lay);
@@ -7215,7 +7215,7 @@ function update() {
     if (bad) { e.dead = true; for (const o of world.enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
   for (const e of world.enemies) if (!e.seenC && !ENT[e.type].uncounted && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; run.stats.seen++; }
-  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
+  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); checkProto();
   for (const b of world.ebul) {
