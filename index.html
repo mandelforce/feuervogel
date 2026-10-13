@@ -7325,7 +7325,7 @@ function update() {
         if (it.kind === 'B') { run.bombs = Math.min(6, run.bombs + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
         else {
           if (app.tut) app.tut.got++;
-          if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else addScore(2000); } else p.wpn = it.w;
+          if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else { addScore(1000); label(it.x, it.y - 22, '1000'); } } else p.wpn = it.w;
           label(it.x, it.y - 8, WPN[it.w].name + ' ' + p.lvl);
         }
         if (app.rr) app.rr.pk[it.kind === 'B' ? 'B' : it.w] = (app.rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
@@ -8528,7 +8528,7 @@ function buildHelp() {
     [wpn('L'), 'Lance', 'Piercing, straight ahead'],
     [wpn('H'), 'Seekers', 'Homing missiles'],
     [wpn('A'), 'Arc', 'Chain lightning (Stage 3+)']]);
-  add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4.').className = 'hint';
+  add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4, then 1000 bonus points.').className = 'hint';
   add('h3', 'Pickups');
   list([
     [nova(), 'Nova', 'Extra bomb'],
