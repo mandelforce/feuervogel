@@ -5730,7 +5730,11 @@ function drawProtoPlane(e, rot, sc, flames) {
   ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y));
   ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(16, 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
   ctx.rotate(rot);
-  if (flames) for (const [ex, ey] of protoEngines(P, sc)) { const fl = 20 + ((gf >> 1) & 1) * 4; ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - fl, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(ex), Math.round(ey) - fl + 2, 1, fl - 2); }
+  if (flames && !(e.blink && (gf & 4))) for (const [ex, ey] of protoEngines(P, sc)) { // thrusters; before a lunge they blink, during it they flare out longer and wider toward the tip
+    const fa = e.flare || 0, fl = Math.round(20 + ((gf >> 1) & 1) * 4 + fa * 26), x0 = Math.round(ex), y0 = Math.round(ey);
+    for (let j = 0; j < fl; j++) { const w = 3 + Math.round(fa * 4 * j / fl); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(x0 - (w >> 1), y0 - 1 - j, w, 1); }
+    const cl = Math.round(fl * (0.5 + fa * 0.2)); ctx.fillStyle = '#fff0a0'; ctx.fillRect(x0, y0 - cl, 1 + (fa > 0.5 ? 1 : 0), cl - 2);
+  }
   ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -w / 2, -h / 2, w, h);
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
@@ -6283,6 +6287,7 @@ const ENT = {
     if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20, 20), e.y + rnd(-10, 10), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
     // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
+    e.blink = ph === 2 && lt >= 235 && lt < 270; e.flare = lunge / 75; // thrusters: blink in the 35 frames before the lunge, flare through it
     e.x = 112 + Math.sin(k * (0.013 + ph * 0.004)) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16 + lunge;
     if (ph === 2 && lt === 270 + 45 && !player.dead) { const gx = e.x, gy = e.y + 20; for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
     if (player.dead) return;
