@@ -5048,11 +5048,15 @@ function drawSkyLaser(e) {
   }
   const C = F.clash, env = C ? 1 : Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
-  ctx.globalAlpha = 0.3; ctx.fillStyle = '#8466dc'; ctx.fillRect(-w / 2 - 5, 6, w + 10, L); ctx.globalAlpha = 1;
-  ctx.fillStyle = '#a8241a'; ctx.fillRect(-w / 2 - 2, 6, w + 4, L);
-  ctx.fillStyle = '#ff6a1a'; ctx.fillRect(-w / 2, 6, w, L);
-  ctx.fillStyle = '#ffb030'; ctx.fillRect(-w / 3, 6, w * 2 / 3, L);
-  ctx.fillStyle = '#fff2b0'; ctx.fillRect(-w / 6, 6, Math.max(1, w / 3), L);
+  // like the player's super laser: a triangle flaring out of the muzzle (y 6..FLARE), then the straight column
+  const FLARE = 34, tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(1, 6); ctx.lineTo(ww / 2, FLARE); ctx.lineTo(-ww / 2, FLARE); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
+  const cl = Math.max(0, L - (FLARE - 6));
+  tri(w + 10, '#8466dc', 0.3); tri(w + 4, '#a8241a', 1); tri(w, '#ff6a1a', 1); tri(w * 2 / 3, '#ffb030', 1); tri(w / 3, '#fff2b0', 1);
+  ctx.globalAlpha = 0.3; ctx.fillStyle = '#8466dc'; ctx.fillRect(-w / 2 - 5, FLARE, w + 10, cl); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#a8241a'; ctx.fillRect(-w / 2 - 2, FLARE, w + 4, cl);
+  ctx.fillStyle = '#ff6a1a'; ctx.fillRect(-w / 2, FLARE, w, cl);
+  ctx.fillStyle = '#ffb030'; ctx.fillRect(-w / 3, FLARE, w * 2 / 3, cl);
+  ctx.fillStyle = '#fff2b0'; ctx.fillRect(-w / 6, FLARE, Math.max(1, w / 3), cl);
   // flame tongues licking off both edges, moving outward along the beam
   for (let k = 0; k < 70; k++) {
     const yy = 10 + k * 6 + ((gf * 3) % 6); if (yy > L) break; const n = Math.sin(k * 2.3 + gf * 0.7) * Math.sin(k * 0.9 - gf * 0.4), o = (2 + Math.abs(n) * 7) * env;
