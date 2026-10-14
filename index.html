@@ -3858,7 +3858,7 @@ function setDiffStage(n) {
   note.classList.toggle('prac', n !== 1);
 }
 function openDiff(kind, n) {
-  app.diffNext = { kind, n };
+  app.diffNext = { kind, n }; app.diffDown = false;
   setDiffView(kind === 'camp' && n > 1);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
   document.getElementById('diffAsk').classList.add('open');
@@ -4253,7 +4253,7 @@ async function lbStatus() {
 }
 setTimeout(lbStatus, 1500);
 function openLB(kind) {
-  app.lbOpen = true; lbEl('lbPanel').classList.add('open'); lbMsg('');
+  app.lbOpen = true; app.lbDown = false; lbEl('lbPanel').classList.add('open'); lbMsg('');
   if (kind === 'submit') {
     app.lbRun = { score: run.score, stage: run.stage, conts: Math.min(run.conts, 2), start: run.start, mode: run.endless ? 'endless' : 'camp', plat: LB_PLAT, diff: run.diff, dur: Math.round(run.frames / 60) };
     app.lbView = { src: LB_URL ? 'online' : 'local', mode: app.lbRun.mode, plat: LB_PLAT, diff: app.lbRun.diff, period: 'all' }; lbEl('lbSend').textContent = LB_URL ? 'Submit' : 'Save';
@@ -4319,7 +4319,9 @@ lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.pre
 lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (app.lbRun) saveLocal(app.lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (store.get(KEY.name) || 'PLAYER')); closeLB(); });
 lbEl('lbClose').addEventListener('click', closeLB);
 for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { app.lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
-lbEl('lbPanel').addEventListener('pointerdown', e => e.stopPropagation());
+lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
+lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
+
 function toTitle() { app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; }
 function doContinue() {
   if (app.cont <= 0 || !player) return;
@@ -8793,7 +8795,10 @@ for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListene
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
 document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
 document.getElementById('dPrac').addEventListener('click', () => { if (!app.diffNext) return; setDiffView(true); const b = document.querySelector('#dStage [aria-pressed="true"]'); if (b) b.focus(); });
-document.getElementById('diffAsk').addEventListener('pointerdown', e => e.stopPropagation());
+document.getElementById('diffAsk').addEventListener('pointerdown', e => { app.diffDown = true; e.stopPropagation(); });
+// The panel opens on the title's pointerdown, so on touch screens the click synthesized when that same finger lifts lands on whatever
+// sits under it (Back, a difficulty): swallow pointer clicks until a press has actually started inside the panel. Keyboard/pad clicks (detail 0) pass.
+document.getElementById('diffAsk').addEventListener('click', e => { if (e.detail > 0 && !app.diffDown) { e.stopPropagation(); e.preventDefault(); } }, true);
 { // phones held sideways: pause, and show the ship in the current skin on the "turn upright" screen
   const mq = matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:500px)');
   const onTurn = () => {
