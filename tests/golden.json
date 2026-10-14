@@ -88,18 +88,18 @@
     "hard-endless-real": {
       "H": 408,
       "status": "continue-screen",
-      "score": 745350,
+      "score": 740660,
       "stage": 2,
       "lives": 0,
-      "bombs": 5,
-      "frames": 29118,
-      "kills": 457,
-      "medals": 60,
+      "bombs": 4,
+      "frames": 29602,
+      "kills": 452,
+      "medals": 57,
       "hits": 6,
-      "enemies": 19,
-      "bullets": 0,
+      "enemies": 16,
+      "bullets": 5,
       "errors": 0,
-      "trace": "ed46660c 49af73dd c41e8987 c91115db aa989253 40002fe3 5e55dadf dbf497dc 89dc5cf5 38a521ee e4fc607c 832f4452 aba39b89 f8552921 1bf4cab4 6354cefb c7f75d3b 0868fa53 3cb81897 7ac6ad89 5eca47c9 ba48e686 5e9b2f8c 7d8c35a6 700a9246 167c02c1 6e79a565 d248cff3 2ea4b0eb 866aa971 a192c77c b8c8a63e 07c44d17 afe4d656 7d718b50 34b3e012 4435b2d7 cb36450d 9831d21c 03766167 c7640657 d8974e71 acabf515 3d4eae4a dd6a5727 d9a61137 7639b430 f1055221 5d683e39 0752325e c0696980 2941b9ee 21de28dd 768775b0 c85cd3aa 0f6009fe 6a329a03 c36934a7 a6cef199"
+      "trace": "ed46660c 49af73dd c41e8987 c91115db aa989253 40002fe3 5e55dadf dbf497dc 89dc5cf5 38a521ee e4fc607c 832f4452 aba39b89 f8552921 1bf4cab4 6354cefb c7f75d3b 0868fa53 3cb81897 7ac6ad89 5eca47c9 ba48e686 5e9b2f8c 7d8c35a6 700a9246 167c02c1 6e79a565 d248cff3 2ea4b0eb 866aa971 a192c77c b8c8a63e 07c44d17 afe4d656 7d718b50 34b3e012 4435b2d7 cb36450d 9831d21c 03766167 48661808 e23d4e1d ec2c7f68 60e1584b bf22b763 a4896e95 699e5a64 7c9dccb3 0f864e8f 89bdef39 ae9b8a9d 204e501e 0d2aa752 c27980e7 91034854 d95f01c1 65fd33f0 d8077a57 26138ded 89629f0b"
     },
     "normal-2p-stage2-immortal": {
       "H": 408,

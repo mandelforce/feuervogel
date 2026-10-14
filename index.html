@@ -5742,7 +5742,7 @@ const PROTO_DUEL_T = 7200; // frames of the duel (2 minutes) before it escapes i
 function protoEngines(P, sc) { return [[62, 65], [142, 65], [26, 69], [178, 69]].map(([a, b]) => [(a / 204 - 0.5) * P.w * sc, (b / 144 - 0.5) * P.h * sc]); }
 function spawnProtoFly() { world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true })); world.later.push({ at: gf + 20, fn: boostOutSfx }); }
 function spawnProtoDuel(done) {
-  const base = 260 * hpm(), hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
+  const base = 260 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   const e = E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true });
   world.enemies.push(e); world.duelWatch = { e, done }; sfx('flyin');
 }
@@ -6547,7 +6547,7 @@ function updBeam() {
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
     if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
-    else if (Math.abs(e.x - bx) < e.hw + half) { damage(e, beam.dmg); beam.hit = true; }
+    else if (Math.abs(e.x - bx) < e.hw + half) { damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); beam.hit = true; } // a full laser would take a fifth of the duel's health at once
   }
   if (beam && beam.t === beam.max - 1 && beam.hit) run.stats.hits++;
   if (gf % 2 === 0) world.parts.push({ kind: 'spark', layer: 'a', x: bx + rnd(-half, half), y: rnd(0, top), vx: 0, vy: -1, life: 10, max: 10, col: Math.random() < 0.5 ? '#ffffff' : '#a8f6dc' });
