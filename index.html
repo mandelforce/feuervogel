@@ -4261,7 +4261,7 @@ function openLB(kind) {
     lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
     lbEl('lbScore').textContent = 'Score ' + app.lbRun.score + ', stage ' + stageLabel(app.lbRun.stage);
     let nm = store.get(KEY.name, '');
-    lbEl('lbName').value = nm; setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
+    lbEl('lbName').value = String(nm || '').slice(0, 12); setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
   } else {
     app.lbRun = null; app.lbView.diff = settings.diff; app.lbView.plat = LB_PLAT; if (app.lbAlertBoard) { const [m2, p2, d2] = app.lbAlertBoard.split('|'); app.lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
   }
@@ -4314,6 +4314,7 @@ async function lbSend() {
   lbEl('lbSend').disabled = false;
 }
 lbEl('lbSend').addEventListener('click', lbSend);
+lbEl('lbName').addEventListener('input', e => { const el = e.target; if (el.value.length > 12) el.value = el.value.slice(0, 12); });
 lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lbSend(); } });
 lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (app.lbRun) saveLocal(app.lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (store.get(KEY.name) || 'PLAYER')); closeLB(); });
 lbEl('lbClose').addEventListener('click', closeLB);
