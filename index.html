@@ -290,6 +290,7 @@ body[data-state="play"] #bombBtn{display:block}
 @keyframes tutHi{0%,100%{outline-color:rgba(168,246,220,.45);outline-offset:4px}50%{outline-color:#a8f6dc;outline-offset:8px}}
 @media (prefers-reduced-motion: reduce){#bombBtn.tutHi{animation:none}}
 body[data-results="1"] #bombBtn{display:none !important}
+@media not all and (pointer:coarse){body #bombBtn{display:none !important}} /* PC: X, Space or the right mouse button sets off the Nova */
 @media (pointer:coarse){#sMouseRow,#sP2Row,body:not([data-pad]) #sRumbleRow{display:none}}
 #rotate{display:none;position:fixed;inset:0;z-index:20;place-items:center;text-align:center;background:#120e1a;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace;padding:16px}
 #rotate h2{margin:14px 0 6px;font-size:22px;font-weight:400;color:#fff0a0;text-shadow:2px 2px 0 #000}#rotate p{margin:0;color:#a99cc8}
@@ -436,7 +437,7 @@ body[data-results="1"] #bombBtn{display:none !important}
     </div>
     <button class="btn" id="bombBtn" type="button">Nova</button>
   </div>
-  <p id="hint">Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space sets off a Nova bomb. P pauses. Controllers work too.</p>
+  <p id="hint">Mouse, arrow keys or WASD to fly. Guns fire on their own. X, Space or the right mouse button sets off a Nova bomb. P pauses. Controllers work too.</p>
 </div>
 <script type="text/plain" id="gameSrc">
 (() => {
@@ -3612,7 +3613,7 @@ function sfx(n) {
 /* ================= state ================= */
 let gf = 0;
 // The run: everything that belongs to one playthrough, from the first stage to game over. The high score and credits outlive a run and stay outside; the player's ship is still its own object.
-const run = { score: 0, lives: 2, bombs: 3, loop: 0, stage: 1, nextExtend: 80000, extendsGot: 0, gameOverPending: false, conts: 0, start: 1, diff: 1, frames: 0, seed: 0, endless: false, twoP: false, camp: null, stats: null, medalLv: 0, medalMul: 1, medalT: 0, medalLost: 0, proto: { dmg: 0 } };
+const run = { score: 0, lives: 2, bombs: 3, loop: 0, stage: 1, nextExtend: 80000, extendsGot: 0, gameOverPending: false, conts: 0, start: 1, diff: 1, frames: 0, seed: 0, endless: false, twoP: false, camp: null, stats: null, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, medalLost: 0, proto: { dmg: 0 } };
 let hi = 0;
 let player = null;
 // Game feel: short-lived screen effects that sell a hit. Screen shake, the white flash, the Nova bomb's flash (and where it went off), hit-stop (a few frozen frames on a big hit) and slow motion.
@@ -3640,14 +3641,15 @@ let guardCount = 0;
 run.stats = newStats();
 let arts = new Set(store.getJSON(KEY.arts, []));
 let beam = null, gpad = null, padPrev = {};
-// 2nd player (PC only): flies with the mouse or a controller, mirrors player 1's weapon and respawns on its own
+// 2nd player (PC only): flies with the mouse or a controller. Has its own weapon, score, lives and Nova bombs; respawns on its own while it has lives
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
+let scorer = 1; // whose points the next addScore() is: 1 or 2. Player 2's shots, bomb and pickups set it to 2 while they resolve
 const P2_OK = !matchMedia('(pointer:coarse)').matches;
 const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
 const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
 function setP2() {
   if (p2Mode() === 'off') { p2 = null; return; }
-  if (!p2 && player) { p2 = { x: W / 2 + 34, y: Math.round(H * 0.71) + 8, inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2 + 34, tagT: 180 }; run.twoP = true; }
+  if (!p2 && player) { p2 = { x: W / 2 + 34, y: Math.round(H * 0.71) + 8, inv: 150, dead: 0, out: false, wpn: player.wpn, lvl: player.lvl, cd: 0, mcd: 0, bank: 0, lx: W / 2 + 34, tagT: 180 }; run.twoP = true; run.lives2 = run.lives; run.bombs2 = run.bombs; run.score2 = 0; }
 }
 const props = [], towerRows = new Set(), towerCells = new Set(), critters = [];
 function propFree(x, y, w, d, h) { for (const q of props) if (Math.abs(q.wx - x) < (q.w + w) / 2 + 6 && Math.abs(q.wy - y) < (q.d + d) / 2 + 6 + Math.max(q.h, h) * 0.35) return false; for (const e of world.enemies) if (!e.dead && (e.type === 'aatower' || e.type === 'tower') && Math.abs(e.wx - x) < (e.hw || 15) + w / 2 + 6 && Math.abs(e.wy - y) < (e.hh || 15) + d / 2 + 6 + h * 0.35) return false; return true; }
@@ -3704,7 +3706,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
   return { seed, proto: { dmg: 0 }, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
-    gameOverPending: false, twoP: false, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
+    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
@@ -3789,7 +3791,7 @@ const TUT_TEXT = () => {
     '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
     '<b>Collect medals quickly, one after another:</b> the multiplier rises up to x10. Wait too long and it resets.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
-    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the Nova button in the bottom right corner</b>') + ': it wipes out all enemy bullets.',
+    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets.',
     '<b>Hold still to charge the laser</b>, then ' + (touch ? 'touch the screen again' : pad ? 'press X' : 'move') + ' to fire. It breaks armoured targets. Fire it too often and it <b>overheats</b>: watch for steam at the nose.',
     'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Schneevogel skin.</b>',
     "<b>You're ready!</b>"
@@ -4363,7 +4365,7 @@ function resumeRun(r) {
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
   { const k = rrParked(); if (k && k.rr) { app.rr = k.rr; if (app.rr.cur) app.rr.cur = app.rr.st[app.rr.st.length - 1]; } rrUnpark(); } // the resumed run keeps adding to the report it had
-  run.score = r.score; run.lives = r.lives; run.bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run.twoP = true;
+  run.score = r.score; run.lives = r.lives; run.bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run.twoP = true; if (p2) { run.lives2 = r.lives; run.bombs2 = r.bombs; run.score2 = 0; p2.out = false; p2.dead = 0; p2.wpn = r.wpn; p2.lvl = r.lvl; }
   run.start = r.runStart; run.diff = r.diff; run.conts = r.conts; app.credits = r.credits; run.frames = r.frames;
   run.nextExtend = r.nextExtend; run.extendsGot = r.extendsGot; run.camp = Object.assign(newCamp(), r.camp);
   markStage();
@@ -4399,7 +4401,9 @@ window.addEventListener('appinstalled', () => store.setJSON(KEY.install, Object.
 
 /* ================= helpers ================= */
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
-function aim(x, y) { return Math.atan2(player.y - y, player.x - x); }
+// Enemies aim at the nearer of the two ships (player 1 if it is a tie, or if player 2 is not in the game or is down)
+function target(x, y) { const q = p2; if (!q || q.dead) return player; if (player.dead) return q; return (q.x - x) ** 2 + (q.y - y) ** 2 < (player.x - x) ** 2 + (player.y - y) ** 2 ? q : player; }
+function aim(x, y) { const t = target(x, y); return Math.atan2(t.y - y, t.x - x); }
 function bspeed() { return (1.2 + run.loop * 0.18) * DIFF.bs[settings.diff]; }
 function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
@@ -4409,8 +4413,8 @@ function eshot(x, y, a, sp, kind = 's') {
   world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
 }
 function flakShot(x, y, spread = 1) {
-  if (player.dead) return;
-  const tx = player.x + rnd(-14, 14) * spread, ty = player.y + rnd(-20, 6) * spread;
+  if (player.dead && !(p2 && !p2.dead)) return;
+  const t = target(x, y), tx = t.x + rnd(-14, 14) * spread, ty = t.y + rnd(-20, 6) * spread;
   eshot(x, y, Math.atan2(ty - y, tx - x), bspeed() * 1.15, 'shell');
 }
 function ring(x, y, n, sp, off, kind = 's') { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) eshot(x, y, off + i * TAU / n, sp, kind); }
@@ -5106,8 +5110,8 @@ function spawnBoss() {
   world.enemies.push(bossE);
 }
 function mortarShot(x, y, off = 0) {
-  if (player.dead) return;
-  const tx = player.x + off + rnd(-10, 10), ty = player.y + rnd(-10, 10), life = 80;
+  if (player.dead && !(p2 && !p2.dead)) return;
+  const t = target(x, y), tx = t.x + off + rnd(-10, 10), ty = t.y + rnd(-10, 10), life = 80;
   world.ebul.push({ x, y, sx: x, sy: y, tx, ty, vx: 0, vy: 0, r: 0, kind: 'mortar', life, max: life, a: 0 });
 }
 function rewardSfx() {
@@ -6672,13 +6676,13 @@ function die(cause) {
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
-  if (run.lives === 0) run.gameOverPending = true; else run.lives--;
+  if (run.lives > 0) run.lives--; else if (p2 && run.lives2 > 0) run.lives2--; else run.gameOverPending = true; // a ship with no lives left spends a spare one of its partner
 }
 function updP2() {
   const q = p2, p = player; if (!q || !p) return;
   if (q.tagT > 0) q.tagT--;
   if (p.fly > 0 || p.exitT > 0 || p.y < -40) { // fly-ins and stage exits: player 2 rides on player 1's wing
-    const k = p.flyK || 1; q.dead = 0; q.x = p.x + 30 * k; q.y = p.y + 8 * k; q.bank = p.bank; q.lx = q.x; q.inv = 150; q.tagT = Math.max(q.tagT, 120); return;
+    const k = p.flyK || 1; if (!q.out) q.dead = 0; q.x = p.x + 30 * k; q.y = p.y + 8 * k; q.bank = p.bank; q.lx = q.x; q.inv = 150; q.tagT = Math.max(q.tagT, 120); return;
   }
   if (q.dead > 0) { if (--q.dead === 0) { q.x = clamp(p.x + 34, 12, W - 12); q.y = Math.round(H * 0.71) + 8; q.lx = q.x; q.inv = 150; q.tagT = 120; } return; }
   if (q.inv > 0) q.inv--;
@@ -6687,16 +6691,43 @@ function updP2() {
   else if (mode === 'mouse' && p2Mouse) { const vx = p2Mouse.x - q.x, vy = p2Mouse.y - q.y, d = Math.hypot(vx, vy); if (d > 0.5) { const sp = Math.min(d, 3); q.x += vx / d * sp; q.y += vy / d * sp; } }
   q.x = clamp(q.x, 8, W - 8); q.y = clamp(q.y, 18, H - 14);
   q.bank += ((q.x - q.lx) * 0.6 - q.bank) * 0.25; q.lx = q.x;
-  q.wpn = p.wpn; q.lvl = p.lvl;
-  firing(q, true);
+  if (p2In && p2In.bomb) bomb(q);
+  const n0 = world.shots.length; scorer = 2; firing(q, true); p2Pickups(q); scorer = 1;
+  for (let i = n0; i < world.shots.length; i++) world.shots[i].o = 2;
   if (q.inv > 0) return;
   let hit = false;
   for (const b of world.ebul) { if (b.kind === 'mortar') continue; if ((b.x - q.x) ** 2 + (b.y - q.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
   if (!hit) for (const e of world.enemies) {
     if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
-    if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) damage(e, 5); break; }
+    if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) { scorer = 2; damage(e, 5); scorer = 1; } break; }
   }
-  if (hit) { q.dead = 150; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); }
+  if (hit) {
+    q.dead = 150; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+    if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
+  }
+}
+// What player 2 can pick up: weapons, Nova bombs, medals, sparkles, the artifact. A Talon drone is worth points instead (only player 1 carries drones)
+function p2Pickups(q) {
+  for (let i = world.items.length - 1; i >= 0; i--) {
+    const it = world.items[i], d2 = (it.x - q.x) ** 2 + (it.y - q.y) ** 2;
+    if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
+    if (it.flee !== undefined && it.t < 30) continue;
+    if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'M') {
+      run.medalMul = run.medalT > 0 ? Math.min(MEDAL_MAX, run.medalMul + 1) : 1; run.medalT = MEDAL_WIN;
+      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+      if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
+      run.stats.medals++; medalSfx(Math.min(6, run.medalMul - 1)); checkExtend(); world.items.splice(i, 1); continue;
+    }
+    if (it.kind === 'T') { addScore(3000); label(it.x, it.y - 8, '3000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'B') { run.bombs2 = Math.min(6, run.bombs2 + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
+    else {
+      if (it.w === q.wpn) { if (q.lvl < 4) q.lvl++; else { addScore(1000); label(it.x, it.y - 22, '1000'); } } else q.wpn = it.w;
+      label(it.x, it.y - 8, WPN[it.w].name + ' ' + q.lvl);
+    }
+    checkExtend(); sfx('power'); world.items.splice(i, 1);
+  }
 }
 function drawP2() {
   const q = p2; if (!q || q.dead || app.state !== 'play' || !player) return;
@@ -6711,10 +6742,13 @@ function drawP2() {
 }
 // the player has the ship only while it is live: not paused, not in the GET READY countdown, not flying in or out of a stage
 function canSteer() { const p = player; return app.state === 'play' && !app.paused && app.resumeT <= 0 && !!p && !p.dead && !(p.fly > 0) && !(p.exitT > 0) && p.y >= -40; }
-function bomb() {
-  if (!canSteer() || run.bombs <= 0 || feel.bombFx > 0) return;
-  run.bombs--; run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; feel.bombFx = 64; feel.flashFx = 8; feel.shake = 10; feel.bombX = player.x; feel.bombY = player.y;
-  player.inv = Math.max(player.inv, 110);
+function bomb(q) { // q: player 2's ship, or nothing for player 1
+  const who = q || player;
+  if (q ? !(canSteer() && !q.dead && run.bombs2 > 0) : (!canSteer() || run.bombs <= 0)) return;
+  if (feel.bombFx > 0) return;
+  if (q) run.bombs2--; else run.bombs--;
+  run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; feel.bombFx = 64; feel.flashFx = 8; feel.shake = 10; feel.bombX = who.x; feel.bombY = who.y;
+  who.inv = Math.max(who.inv, 110); scorer = q ? 2 : 1;
   for (const b of world.ebul) world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   world.ebul.length = 0;
   // a Nova snuffs out the Black Fortress's fire laser, charging or firing
@@ -6724,14 +6758,14 @@ function bomb() {
     if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
     else damage(e, e.big ? 45 : 40);
   }
-  sfx('nova'); haptic('nova');
+  scorer = 1; sfx('nova'); haptic('nova');
 }
 // Every change to the score goes through addScore, so scoring has one home. The callers check for an extra life (checkExtend)
 // at the moment they always did, so a 1UP comes exactly when it used to.
-function addScore(v) { run.score += v; if (run.score > hi) hi = run.score; }
+function addScore(v) { run.score += v; if (scorer === 2) run.score2 += v; if (run.score > hi) hi = run.score; }
 function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
-  if (run.score >= run.nextExtend) { if (run.lives < LIFE_CAP) run.lives++; run.extendsGot++; run.nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, run.extendsGot - 1))); sfx('extend'); haptic('extend'); if (player) label(player.x, player.y - 14, '1UP'); }
+  if (run.score >= run.nextExtend) { if (scorer === 2 && p2) { if (run.lives2 < LIFE_CAP) run.lives2++; } else if (run.lives < LIFE_CAP) run.lives++; run.extendsGot++; run.nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, run.extendsGot - 1))); sfx('extend'); haptic('extend'); const who = scorer === 2 && p2 ? p2 : player; if (who) label(who.x, who.y - 14, '1UP'); }
 }
 function popTurret(e) {
   e.turDead = true;
@@ -7046,8 +7080,8 @@ function pollPad() {
   if (p2 && p2Mode() === 'pad' && cps.length) {
     const g2 = cps[cps.length > 1 ? 1 : 0], b2 = i => !!(g2.buttons[i] && g2.buttons[i].pressed);
     const ax = Math.abs(g2.axes[0] || 0) > 0.22 ? g2.axes[0] : 0, ay = Math.abs(g2.axes[1] || 0) > 0.22 ? g2.axes[1] : 0;
-    p2In = { dx: (b2(15) ? 1 : 0) - (b2(14) ? 1 : 0) || ax, dy: (b2(13) ? 1 : 0) - (b2(12) ? 1 : 0) || ay, start: b2(9) && !p2Prev[9] };
-    p2Prev[9] = b2(9); p2Pad = g2.index;
+    p2In = { dx: (b2(15) ? 1 : 0) - (b2(14) ? 1 : 0) || ax, dy: (b2(13) ? 1 : 0) - (b2(12) ? 1 : 0) || ay, start: b2(9) && !p2Prev[9], bomb: (b2(0) && !p2Prev[0]) || (b2(4) && !p2Prev[4]) || (b2(5) && !p2Prev[5]) };
+    p2Prev[9] = b2(9); p2Prev[0] = b2(0); p2Prev[4] = b2(4); p2Prev[5] = b2(5); p2Pad = g2.index;
   }
   const own = app.state === 'play' && !app.paused && p2Pad >= 0, lent = p2Lent && !own; p2Lent = own; // menus and pauses use any pad
   if (own && p2In.start) { togglePause(); return; }
@@ -7292,6 +7326,7 @@ function update() {
 
   for (const s of world.shots) {
     if (s.dead) continue;
+    scorer = s.o || 1;
     for (const e of world.enemies) {
       if (e.dead || e.dying || (e.y < 4 && e.type !== 'boss') || e.untarget) continue;
       if (e.type === 'boss') {
@@ -7308,6 +7343,7 @@ function update() {
       }
     }
   }
+  scorer = 1;
   world.shots = world.shots.filter(s => !s.dead);
 
   const p = player;
@@ -8215,7 +8251,7 @@ function drawHitbox() {
 function drawHUD() { ctx.save(); ctx.translate(0, SAFE_T); drawHUDBody(HFULL - SAFE_T - SAFE_B); ctx.restore(); }
 function drawHUDBody(H) {
   textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc');
-  textS(pad(run.score, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce');
+  textS(pad(p2 ? run.score - run.score2 : run.score, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce');
   textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
   textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
   if (player) {
@@ -8224,6 +8260,15 @@ function drawHUDBody(H) {
       textS('x' + run.medalMul, 59, 4, '#fff0a0', 1, 'left', '#d0a020');
       const bw = 20, f = run.medalT / MEDAL_WIN; ctx.fillStyle = OUT; ctx.fillRect(59, 11, bw + 2, 3); ctx.fillStyle = '#3a2a10'; ctx.fillRect(60, 12, bw, 1); ctx.fillStyle = f < 0.3 && (gf >> 2) & 1 ? '#ff8a60' : '#f4d050'; ctx.fillRect(60, 12, Math.round(bw * f), 1);
     } else textS(String(MEDAL_BASE), 59, 4, '#fff0a0', 1, 'left', '#d0a020');
+  }
+  if (p2) { // player 2's corner mirrors player 1's: score, weapon, Nova bombs and lives, right-aligned at the bottom
+    textS('2P', W - 4, H - 43, '#dde1e7', 1, 'right', '#8c919b');
+    textS(pad(run.score2, 8), W - 14, H - 43, '#ffffff', 1, 'right', '#c4c9ce');
+    const w2 = WPN[p2.wpn] || WPN.S;
+    textS(w2.name + ' ' + p2.lvl, W - 4, H - 31, w2.hud[0], 1, 'right', w2.hud[1]);
+    for (let i = 0; i < Math.min(run.bombs2, 6); i++) spr(SPR.novaIcon, W - 7 - i * 8, H - 18);
+    for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 8 - i * 11, H - 9);
+    if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
   }
   for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
   for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
@@ -8530,9 +8575,9 @@ function buildHelp() {
   add('h3', 'Controls');
   add('p', touch
     ? 'Slide a finger anywhere below the ship. It follows your movement. Guns fire on their own.'
-    : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X or Space: Nova bomb. P: pause.');
+    : 'Mouse, arrow keys or WASD to fly. Guns fire on their own. X, Space or right click: Nova bomb. P: pause.');
   list([
-    [nova(), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X or Space.')],
+    [nova(), 'Nova bomb', 'Clears all bullets. ' + (touch ? 'Tap the button.' : 'X, Space or right click.')],
     [orb('#1a3a5a', '#a8f6dc', '!'), 'Super laser', 'Hold still, then ' + (touch ? 'touch again' : 'move') + ' to fire.']]);
   add('h3', 'Weapons');
   list([
@@ -8732,6 +8777,7 @@ onCv('pointerdown', e => {
   else if (app.paused) { togglePause(); return; }
   else if (app.results || app.congrats) { skipResults(); return; }
   else if (app.cont > 0) { doContinue(); return; }
+  if (app.state === 'play' && e.pointerType === 'mouse' && e.button === 2) { if (p2 && p2Mode() === 'mouse') bomb(p2); else bomb(); return; } // right click: Nova (player 2's, when the mouse flies player 2)
   if (app.state === 'play' && p2 && p2Mode() === 'mouse' && e.pointerType === 'mouse') return; // the mouse flies the 2nd player
   if (canSteer() && (player.charge || 0) >= 100) { fireBeam(1); player.charge = 0; player.lx = player.x; player.ly = player.y; }
   if (app.state === 'play' && mouseClickMode(e)) {
@@ -8749,7 +8795,7 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mousemove', e => { if (p2Mode() !== 'mouse') return; const r = cv.getBoundingClientRect(); p2Mouse = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; });
 document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== cv && app.state === 'play' && !app.paused) togglePause(); });
-onCv('contextmenu', e => { if (settings.mouseMode === 'click') e.preventDefault(); });
+onCv('contextmenu', e => { if (settings.mouseMode === 'click' || app.state === 'play') e.preventDefault(); });
 onCv('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return;
   const dx = (e.clientX - drag.x) / scale * 1.3, dy = (e.clientY - drag.y) / scale * 1.3;
