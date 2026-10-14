@@ -4402,7 +4402,11 @@ window.addEventListener('appinstalled', () => store.setJSON(KEY.install, Object.
 /* ================= helpers ================= */
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
 // Enemies aim at the nearer of the two ships (player 1 if it is a tie, or if player 2 is not in the game or is down)
-function target(x, y) { const q = p2; if (!q || q.dead) return player; if (player.dead) return q; return (q.x - x) ** 2 + (q.y - y) ** 2 < (player.x - x) ** 2 + (player.y - y) ** 2 ? q : player; }
+let aimOv = null; // set while a boss part takes its turn: that part's own ship, so a boss splits its fire between the two ships
+function target(x, y) { const q = p2; if (!q || q.dead) return player; if (player.dead) return q; if (aimOv && !aimOv.dead) return aimOv; return (q.x - x) ** 2 + (q.y - y) ** 2 < (player.x - x) ** 2 + (player.y - y) ** 2 ? q : player; }
+const hasT = () => !player.dead || !!(p2 && !p2.dead); // is any ship alive for the enemies to shoot at
+const liveShips = () => p2 && !p2.dead ? (player.dead ? [p2] : [player, p2]) : [player]; // the ships still flying (just player 1 when it is the only one, even if down)
+function lightShip(i) { const a = player, b = p2; if (!b || b.dead) return a; if (a.dead) return b; return i ? b : a; } // searchlight 0 follows player 1, searchlight 1 player 2
 function aim(x, y) { const t = target(x, y); return Math.atan2(t.y - y, t.x - x); }
 function bspeed() { return (1.2 + run.loop * 0.18) * DIFF.bs[settings.diff]; }
 function eshotPos(x, y) { setPos(x, y); }
@@ -4413,7 +4417,7 @@ function eshot(x, y, a, sp, kind = 's') {
   world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
 }
 function flakShot(x, y, spread = 1) {
-  if (player.dead && !(p2 && !p2.dead)) return;
+  if (!hasT()) return;
   const t = target(x, y), tx = t.x + rnd(-14, 14) * spread, ty = t.y + rnd(-20, 6) * spread;
   eshot(x, y, Math.atan2(ty - y, tx - x), bspeed() * 1.15, 'shell');
 }
@@ -4991,29 +4995,30 @@ function castleUnits(e, grp) {
 // The first shot comes when the second engine goes, the core drops below 75% or 25 seconds pass; then every 11 seconds,
 // and every 8 seconds, slowly following the player, once all engines are gone. A Nova cuts it short.
 const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
+function laserAim(F, cx, cy) { const t = F.who && !F.who.dead ? F.who : target(cx, cy); return Math.atan2(t.y - cy, t.x - cx); }
 function skyLaser(e, ea) {
   const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
   const cx = e.x + core.ox, cy = e.y + core.oy;
   if (e.stun > 0 && !e.fl) { e.stun--; if (gf % 4 === 0) world.parts.push({ kind: 'spark', layer: 'a', x: cx + rnd(-30, 30), y: cy + rnd(-30, 10), vx: 0, vy: -0.4, life: 12, max: 12, col: '#bba4ff' }); return; } // staggered after losing a beam clash
   if (!e.fl) {
-    if (player.dead) return;
+    if (!hasT()) return;
     e.flT = (e.flT || 0) + 1;
     if (ea === 0 && !e.lastAct) { e.lastAct = true; if (e.foreDone) e.flT = Math.max(e.flT, FL_GAP3 - 150); } // the last act opens with a shot
     let go = false;
     if (!e.foreDone) { if (ea <= 2 || core.hp < core.maxhp * 0.75 || e.flT >= 1500) { e.foreDone = true; go = true; } }
     else if (e.flT >= (ea === 0 ? FL_GAP3 : FL_GAP)) go = true;
-    if (go) { e.fl = { ph: 'charge', t: 0 }; e.flT = 0; sfx('fcharge'); }
+    if (go) { const sh = liveShips(); e.flN = (e.flN || 0) + 1; e.fl = { ph: 'charge', t: 0, who: sh[(e.flN - 1) % sh.length] }; e.flT = 0; sfx('fcharge'); } // with two ships the shots alternate between them
     return;
   }
   const F = e.fl; F.t++;
   if (F.ph === 'charge') {
     if (gf % 2 === 0) { const a = Math.random() * TAU, d = rnd(22, 34); world.parts.push({ kind: 'spark', layer: 'a', x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, vx: -Math.cos(a) * 1.1, vy: -Math.sin(a) * 0.9, life: 16, max: 16, col: Math.random() < 0.5 ? '#bba4ff' : '#e8dcff' }); }
-    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(player.dead ? PI / 2 : aim(cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); feel.shake = Math.max(feel.shake, 7); flash(cx, cy + 6, 10); }
+    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(!hasT() ? PI / 2 : laserAim(F, cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); feel.shake = Math.max(feel.shake, 7); flash(cx, cy + 6, 10); }
     return;
   }
   // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
   // the player's beam pushes the meeting point up into the orb, which overloads (8% of the core) and the fortress staggers
-  const under = !player.dead && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
+  const under = !player.dead && F.who === player && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
   if (!F.clash && beam && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + player.y - 26) / 2 }; sfx('clash'); }
   if (F.clash) {
     const C = F.clash;
@@ -5033,7 +5038,7 @@ function skyLaser(e, ea) {
       return;
     }
   }
-  if (F.sweep && !player.dead) F.a = clamp(F.a + clamp(angDiff(F.a, aim(cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
+  if (F.sweep && hasT()) F.a = clamp(F.a + clamp(angDiff(F.a, laserAim(F, cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
   feel.shake = Math.max(feel.shake, 2);
   const env = Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
   if (gf % 2 === 0) { const d = rnd(30, 400); world.parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
@@ -5041,6 +5046,10 @@ function skyLaser(e, ea) {
   if (env > 0.5 && !player.dead && player.inv === 0) {
     const dx = player.x - cx, dy = player.y - cy;
     if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) die('flame');
+  }
+  if (env > 0.5 && p2 && !p2.dead && p2.inv === 0) {
+    const dx = p2.x - cx, dy = p2.y - cy;
+    if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half - 2) hurtP2();
   }
   if (F.t >= FL_FIRE) e.fl = null;
 }
@@ -5110,7 +5119,7 @@ function spawnBoss() {
   world.enemies.push(bossE);
 }
 function mortarShot(x, y, off = 0) {
-  if (player.dead && !(p2 && !p2.dead)) return;
+  if (!hasT()) return;
   const t = target(x, y), tx = t.x + off + rnd(-10, 10), ty = t.y + rnd(-10, 10), life = 80;
   world.ebul.push({ x, y, sx: x, sy: y, tx, ty, vx: 0, vy: 0, r: 0, kind: 'mortar', life, max: life, a: 0 });
 }
@@ -5299,11 +5308,12 @@ function searchSpot(e, p, px, py) {
   if (p.sx === undefined) { p.sx = px; p.sy = py + 60; }
   const ph = e.mt * 0.006 + (p.ox < 0 ? 0 : 2.4), bx = W / 2 + Math.sin(ph * 1.7) * (W / 2 - 30), by = H * 0.55 + Math.sin(ph * 1.1 + 1) * H * 0.3;
   const W0 = e.reactLights && app.flyby ? [app.flyby.x, flyY(app.flyby)] : null; // game over reaction: both lights go to the wreck and settle on the orb
-  const near = W0 ? Math.hypot(W0[0] - p.sx, W0[1] - p.sy) < 90 : !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < 90, tx = W0 ? W0[0] : near ? player.x : bx, ty = W0 ? W0[1] : near ? player.y : by;
+  const S = p.who = lightShip(p.ox < 0 ? 0 : 1); // each lamp hunts its own ship (both lamps hunt player 1 when it flies alone)
+  const near = W0 ? Math.hypot(W0[0] - p.sx, W0[1] - p.sy) < 90 : !S.dead && Math.hypot(S.x - p.sx, S.y - p.sy) < 90, tx = W0 ? W0[0] : near ? S.x : bx, ty = W0 ? W0[1] : near ? S.y : by;
   const d = Math.hypot(tx - p.sx, ty - p.sy), v = Math.min(d, near ? SPOT_V : 1.4);
   if (d > 0.01) { p.sx += (tx - p.sx) / d * v; p.sy += (ty - p.sy) / d * v; }
   p.ang = Math.atan2(p.sy - py, p.sx - px);
-  return !player.dead && Math.hypot(player.x - p.sx, player.y - p.sy) < SPOT_R;
+  return !S.dead && Math.hypot(S.x - p.sx, S.y - p.sy) < SPOT_R;
 }
 function drawSpot(x0, y0, x, y, red) {
   // a soft cone from the lamp out to the full width of the pool (several faint nested cones, so the edges feather out),
@@ -5321,7 +5331,7 @@ function drawSpot(x0, y0, x, y, red) {
   g = ctx.createRadialGradient(x0, y0, 0, x0, y0, 9); g.addColorStop(0, `rgba(${rgb},0.8)`); g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x0, y0, 9, 0, TAU); ctx.fill();
 }
-function caughtRing() { world.parts.push({ kind: 'ring', layer: 'a', x: player.x, y: player.y, vx: 0, vy: 0, life: 18, max: 18, r: 40, col: '#ff4a3a' }); }
+function caughtRing(s = player) { world.parts.push({ kind: 'ring', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 18, max: 18, r: 40, col: '#ff4a3a' }); }
 function inBeam(sx, sy, ang, len, half, px, py) {
   const dx = px - sx, dy = py - sy, d = Math.hypot(dx, dy);
   return d < len && Math.abs(angDiff(ang, Math.atan2(dy, dx))) < half + 6 / Math.max(d, 1);
@@ -5337,7 +5347,7 @@ function trainMove(e) {
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
 }
 function groundPos(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); }
-function canFire(e, margin = 80) { return !player.dead && !e.turDead && e.y > 10 && e.y < H - margin; }
+function canFire(e, margin = 80) { return hasT() && !e.turDead && e.y > 10 && e.y < H - margin; }
 // What each boss leaves when it is gone (craters, oil, swimmers; D(ox, oy, kind, r, smoke) places one, wyb is its world y),
 // put on BOSS[kind].remains.
 const BOSS_REMAINS = {
@@ -5437,12 +5447,12 @@ function wolfPack(e) {
     const core = e.parts.find(p => p.tr === ti && p.k === 'core'), rk = e.parts.find(p => p.tr === ti && p.k === 'rocket');
     if (!core || core.dead || !rk || rk.dead) { t.pack = null; return; }
     t.packN = t.packN || 0;
-    if (!t.pack && t.packN < 2 && core.hp < core.maxhp * (t.packN ? 0.35 : 0.7) && !e.trains.some(o => o.pack) && !player.dead) { t.pack = { t: 0, n: 0 }; t.packN++; sfx('howl'); haptic('warn'); }
+    if (!t.pack && t.packN < 2 && core.hp < core.maxhp * (t.packN ? 0.35 : 0.7) && !e.trains.some(o => o.pack) && hasT()) { t.pack = { t: 0, n: 0 }; t.packN++; sfx('howl'); haptic('warn'); }
     const P = t.pack; if (!P) return;
     P.t++;
     const rx = e.x + rk.ox, ry = e.y + rk.oy;
     if (P.t >= 70 && (P.t - 70) % 14 === 0) {
-      if (!player.dead && world.ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); world.ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: player.x + rnd(-8, 8), ty: player.y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
+      if (hasT() && world.ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); world.ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: target(rx, ry).x + rnd(-8, 8), ty: target(rx, ry).y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
       if (++P.n >= 6) t.pack = null;
     }
   });
@@ -5484,12 +5494,12 @@ function bossIntro(e) {
 function railLock(e, core) {
   e.lockCd = Math.max(0, (e.lockCd ?? 120) - 1);
   if (!e.lock) {
-    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && !player.dead && core && !core.dead && (e.parts.some(q => q.k === 'light' && !q.dead) || count('flare'))) { e.lock = { t: 60, x: player.x, y: player.y }; sfx('tick'); }
+    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && hasT() && core && !core.dead && (e.parts.some(q => q.k === 'light' && !q.dead) || count('flare'))) { const S = e.spotWho && !e.spotWho.dead ? e.spotWho : target(e.x, e.y); e.lock = { t: 60, x: S.x, y: S.y, s: S }; sfx('tick'); }
     return;
   }
   const L = e.lock;
-  if (player.dead || !core || core.dead) { e.lock = null; return; }
-  if (--L.t > 20) { L.x = player.x; L.y = player.y; }
+  if (!hasT() || !core || core.dead) { e.lock = null; return; }
+  if (--L.t > 20) { const S = L.s && !L.s.dead ? L.s : target(e.x, e.y); L.s = S; L.x = S.x; L.y = S.y; }
   if (L.t === 20) sfx('charge');
   if (L.t > 0) return;
   const bx = e.x + core.ox, by = e.y + core.oy, a = Math.atan2(L.y - by, L.x - bx);
@@ -5501,11 +5511,11 @@ function railLock(e, core) {
 // each lighting a circle for about 5 seconds. Inside the light the player is spotted (lock-on and burst). Flares can be shot down.
 function starShells(e, core) {
   e.ssN = e.ssN || 0;
-  if (e.ssN >= 2 || !core || core.dead || player.dead || core.hp > core.maxhp * (e.ssN ? 0.3 : 0.6)) return;
+  if (e.ssN >= 2 || !core || core.dead || !hasT() || core.hp > core.maxhp * (e.ssN ? 0.3 : 0.6)) return;
   e.ssN++; const bx = e.x + core.ox, by = e.y + core.oy;
   [-1, 0, 1].forEach((k, i) => world.later.push({ at: gf + i * 12, fn: () => {
     if (e.dying) return;
-    const tx = clamp(player.x + k * 62 + rnd(-10, 10), 24, W - 24), ty = clamp(player.y - 70 + rnd(-30, 20) - Math.abs(k) * 10, 60, H - 90);
+    const sh = lightShip(i & 1), tx = clamp(sh.x + k * 62 + rnd(-10, 10), 24, W - 24), ty = clamp(sh.y - 70 + rnd(-30, 20) - Math.abs(k) * 10, 60, H - 90);
     world.enemies.push(E('flare', { x: bx, y: by, sx: bx, sy: by, tx, ty, ft: 0, ghost: true, boss: e, r: 0, life: 330 }));
     flash(bx, by - 10, 5); sfx('rocket');
   } }));
@@ -5517,7 +5527,7 @@ function hammerBlow(e, core, p, px, py) {
   const B = e.hb; B.t++;
   p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.02, 0.02), PI / 2 - 0.6, PI / 2 + 0.6);
   if (B.t < 120) { e.recoil = Math.max(e.recoil || 0, B.t / 120 * 5); if (gf % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'a', white: true, x: px + rnd(-8, 8), y: py + rnd(-6, 10), vx: rnd(-0.5, 0.5), vy: rnd(-0.6, -0.1), r: rnd(2, 4), life: 30, max: 30 }); if (B.t % 30 === 0) sfx('charge'); p.cd = 1; return; }
-  const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(player.x - bx, player.y - by);
+  const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(target(bx, by).x - bx, target(bx, by).y - by);
   world.ebul.push({ x: bx, y: by, vx: Math.cos(p.ang) * 2.4, vy: Math.sin(p.ang) * 2.4, r: 5, kind: 'mega', a: p.ang, fuse: Math.max(8, Math.round((d - 85) / 2.4)), hb: true, close: d < 145 });
   flash(bx, by, 12); boom(bx, by, 14, 'a'); feel.shake = 14; feel.flashFx = Math.max(feel.flashFx, 4); sfx('bigboom'); sfx('cannon'); haptic('big');
   e.recoil = -34; for (let k = 0; k < 10; k++) smokePuff(px + rnd(-14, 14), py + rnd(-10, 30));
@@ -5542,15 +5552,15 @@ function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
   if (!e.ram && e.reactRam && !e.reactDone) { // game over reaction: it comes about and fires a rippling salvo with nobody to hit
-    e.reactDone = true; e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
+    e.reactDone = true; e.ram = { t: 0, dir: target(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
   }
   if (!e.ram) {
-    if (!core || core.dead || player.dead) return false;
+    if (!core || core.dead || !hasT()) return false;
     const due = e.ramN === 0 ? (!armored || core.hp < core.maxhp * 0.7) : e.ramN === 1 && core.hp < core.maxhp * 0.35;
     if (!due) return false;
     if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
     // turn away from the player's side, so the broadside ends up facing them
-    e.ram = { t: 0, dir: player.x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
+    e.ram = { t: 0, dir: target(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
   }
   const R = e.ram; R.t++;
   // heading with momentum: the rudder pulls towards the target angle, the hull's inertia lags and overshoots a little
@@ -5600,7 +5610,7 @@ function sandstorm(e) {
   e.stormN = e.stormN || 0;
   if (!e.storm && e.reactStorm && !e.reactDone) { e.reactDone = true; e.storm = { t: 0, dir: app.flyby && app.flyby.x < e.x ? -1 : 1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big'); world.scrollTarget = 0; } // game over reaction
   if (!e.storm) {
-    if (!core || core.dead || player.dead) return false;
+    if (!core || core.dead || !hasT()) return false;
     const due = !e.last && ((e.stormN === 0 && core.hp < core.maxhp * 0.85) || (e.stormN === 1 && core.hp < core.maxhp * 0.45));
     if (!due) return false;
     e.storm = { t: 0, dir: e.stormN === 0 ? 1 : -1, x: e.x, y: e.y }; e.stormN++; sfx('roar'); haptic('big'); world.scrollTarget = 0;
@@ -5691,7 +5701,7 @@ function castleWheel(e) {
     const corners = e.parts.filter(p => p.k === 'main' && p.dead).length;
     if (e.wheelGap > 0) { e.wheelGap--; if (core.hp < core.maxhp * 0.12) core.hp = core.maxhp * 0.12; return; } // a breather between the two wheels
     const due = e.wheelN === 0 ? (corners >= 2 || e.mt > 900) : e.wheelN === 1 && e.open && core.hp < core.maxhp * 0.75;
-    if (!due || player.dead) return;
+    if (!due || !hasT()) return;
     e.wheel = { t: 0, dir: e.wheelN === 0 ? 1 : -1, a: aim(e.x + core.ox, e.y + core.oy) + PI / 2, crows: [] }; e.wheelN++;
     sfx('toll'); haptic('warn');
     for (let i = 0; i < 12; i++) { const b = { x: 0, y: 0, vx: 0, vy: 0, ph: Math.random() * 6, orb: { r: rnd(26, 46), a: i * TAU / 12 + rnd(-0.2, 0.2) } }; birds.push(b); e.wheel.crows.push(b); }
@@ -5905,7 +5915,7 @@ const BOSS_FIGHT = {
   fortress: {
     mainFire(e, p, mz, sp) {
       const [bx, by] = mz(12);
-      for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && !player.dead) eshot(bx, by, aim(bx, by), sp * 1.15); } });
+      for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!p.dead && !e.dying && hasT()) eshot(bx, by, aim(bx, by), sp * 1.15); } });
       flash(bx, by, 3); sfx('gun');
     },
     coreFire(e, p, px, py, core, others, sp, mz) {
@@ -5917,21 +5927,21 @@ const BOSS_FIGHT = {
         p.cd = Math.round((100) * fireSlow());
         const [bx, by] = mz(34);
         for (let k = -2; k <= 2; k++) eshot(bx, by, p.ang + k * 0.13, sp * 1.05, 'B');
-        if (p.hp < p.maxhp * 0.5) world.later.push({ at: gf + 40, fn: () => { if (!e.dying && !player.dead) ring(px, py, 16 + run.loop * 2, sp * 0.75, gf * 0.1); } });
+        if (p.hp < p.maxhp * 0.5) world.later.push({ at: gf + 40, fn: () => { if (!e.dying && hasT()) ring(px, py, 16 + run.loop * 2, sp * 0.75, gf * 0.1); } });
         flash(bx, by, 6); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 4); sfx('cannon');
       }
     },
   },
   railgun: {
     tick(e, core) { railLock(e, core); starShells(e, core); },
-    aimCore(e, p, px, py) { if (!e.chargeT && !player.dead) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6); },
+    aimCore(e, p, px, py) { if (!e.chargeT && hasT()) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6); },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if ((others === 0 || p.hp < p.maxhp * 0.45) && !e.lock) { hammerBlow(e, core, p, px, py); return; }
       if (e.lock && !e.chargeT) p.cd = 1;
       else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
       else if (--e.chargeT <= 0) {
         e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
-        const [bx, by] = mz(58), d = Math.max(60, player.y - by);
+        const [bx, by] = mz(58), d = Math.max(60, target(bx, by).y - by);
         eshot(bx, by, p.ang, 2.2, 'mega');
         flash(bx, by, 8); boom(bx, by, 10, 'a'); feel.shake = 10; sfx('bigboom'); haptic('big');
       } else p.cd = 1;
@@ -5991,7 +6001,7 @@ const ENT = {
   fighter: { update(e) {
     if (e.lead && !e.crash) {
       const L = e.lead;
-      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && !player.dead) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
+      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
       e.lead = null; e.scatter = true; e.fireAt = -1; e.turn = rnd(-0.04, 0.04); e.v *= 1.15;
     }
     if (e.leader && !e.chased && e.t > 30 && !e.crash && !world.enemies.some(o => o.lead === e && !o.dead && !o.crash)) { e.chased = true; e.homeT = 140; e.fireAt = e.t + 30; }
@@ -6009,18 +6019,18 @@ const ENT = {
       }
       return;
     }
-    if (e.homeT > 0) { e.homeT--; if (!player.dead) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.035, 0.035); }
-    if (e.boom && !e.lead && !e.back && e.t > 30 && (e.y > H - 20 || e.x < -10 || e.x > W + 10 || (!player.dead && e.y > player.y + 24))) { e.back = 1; e.turn = 0; e.homeT = 0; }
+    if (e.homeT > 0) { e.homeT--; if (hasT()) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.035, 0.035); }
+    if (e.boom && !e.lead && !e.back && e.t > 30 && (e.y > H - 20 || e.x < -10 || e.x > W + 10 || (hasT() && e.y > target(e.x, e.y).y + 24))) { e.back = 1; e.turn = 0; e.homeT = 0; }
     if (e.back === 1) {
-      const tgt = player.dead ? -PI / 2 : Math.atan2(player.y - 60 - e.y, player.x - e.x);
+      const tg = target(e.x, e.y), tgt = !hasT() ? -PI / 2 : Math.atan2(tg.y - 60 - e.y, tg.x - e.x);
       e.h += clamp(angDiff(e.h, tgt), -0.055, 0.055); e.v = Math.min(2.2, e.v + 0.01);
       if (gf % 2 === 0) world.parts.push({ kind: 'trail', layer: 'a', x: e.x - Math.cos(e.h) * 7, y: e.y - Math.sin(e.h) * 7, vx: 0, vy: 0, life: 16, max: 16 });
-      if (Math.abs(angDiff(e.h, tgt)) < 0.25 && e.y < H - 10) { e.back = 2; if (!player.dead && e.y > 0) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } }
+      if (Math.abs(angDiff(e.h, tgt)) < 0.25 && e.y < H - 10) { e.back = 2; if (hasT() && e.y > 0) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } }
     }
     e.h += e.back ? 0 : e.turn; e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (e.back === 1) { e.x = clamp(e.x, -26, W + 26); e.y = Math.min(e.y, H + 26); }
-    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && !player.dead) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); }
-    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && !player.dead) {
+    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); }
+    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && hasT()) {
       e.fired = true; const a = aim(e.x, e.y);
       eshot(e.x, e.y, a, bspeed()); if (run.loop >= 1) { eshot(e.x, e.y, a - 0.2, bspeed()); eshot(e.x, e.y, a + 0.2, bspeed()); }
     }
@@ -6028,7 +6038,7 @@ const ENT = {
   } },
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
     e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
-    if (e.pause > 0) { e.pause--; if (e.pause === 12 && !player.dead) { const a = aim(e.x, e.y + 10); for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } }
+    if (e.pause > 0) { e.pause--; if (e.pause === 12 && hasT()) { const a = aim(e.x, e.y + 10); for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } }
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of [-14, 14]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
@@ -6050,7 +6060,7 @@ const ENT = {
   } },
   missile: { uncounted: true, medals: 0.2, stats: { fixedHp: 2, hw: 3, hh: 3, score: 200 }, update(e) {
     e.life--; e.v = Math.min(1.7, e.v + 0.012);
-    if (!player.dead && e.t > 14) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.028, 0.028);
+    if (hasT() && e.t > 14) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.028, 0.028);
     e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (gf % 2 === 0) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x - Math.cos(e.h) * 16, y: e.y - Math.sin(e.h) * 16, vx: rnd(-0.1, 0.1), vy: rnd(-0.1, 0.1), r: rnd(1.5, 2.5), life: 26, max: 26 });
     if (e.life <= 0 || e.x < -20 || e.x > W + 20 || e.y < -40 || e.y > H + 20) { if (e.life <= 0) { boom(e.x, e.y, 14, 'a'); if (e.y > 0 && e.y < H) sfx('gboom'); } e.dead = true; }
@@ -6062,16 +6072,17 @@ const ENT = {
     e.y += 0.12; e.x += Math.sin(e.ft * 0.03) * 0.15; e.life--;
     e.r = Math.min(46, (e.ft - 40) * 3) * Math.min(1, e.life / 40);
     if (e.life <= 0) { e.dead = true; return; }
-    if (!player.dead && Math.hypot(player.x - e.x, player.y - e.y) < e.r) { const B = e.boss; if (B && !B.dying) { B.spot = 40; if (!(e.caught > 0)) caughtRing(); e.caught = 40; } e.lit = true; } else e.lit = false;
+    const S = liveShips().find(sh => Math.hypot(sh.x - e.x, sh.y - e.y) < e.r);
+    if (S) { const B = e.boss; if (B && !B.dying) { B.spot = 40; B.spotWho = S; if (!(e.caught > 0)) caughtRing(S); e.caught = 40; } e.lit = true; } else e.lit = false;
     if (e.caught > 0) e.caught--;
   } },
   // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
   rdrone: { stats: { hp: 3, hw: 5, hh: 5, score: 200 }, update(e) {
-    const tx = player.dead ? e.x : player.x, ty = player.dead ? H * 0.5 : player.y - 90;
+    const tg = target(e.x, e.y), tx = !hasT() ? e.x : tg.x, ty = !hasT() ? H * 0.5 : tg.y - 90;
     const want = e.t < 28 ? (e.side > 0 ? 0.3 : PI - 0.3) : e.t < 72 ? Math.atan2(ty - e.y, tx - e.x) : PI / 2 + e.side * 0.45;
     e.h += clamp(angDiff(e.h, want), -0.07, 0.07);
     const sp = e.t < 28 ? 1.5 : 2.1; e.x += Math.cos(e.h) * sp; e.y += Math.sin(e.h) * sp;
-    if (e.t === 72 && !player.dead && e.y < player.y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
+    if (e.t === 72 && hasT() && e.y < target(e.x, e.y).y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
   } },
   pod: { stats: { hp: 5, hw: 9, hh: 10, score: 300 }, update(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; } },
   wing: { stats: { hw: 44, hh: 12, score: 10000 }, update(e) {
@@ -6081,7 +6092,7 @@ const ENT = {
     e.x = W / 2 + Math.sin(e.mt * 0.011) * 50; e.y = 70 + Math.sin(e.mt * 0.02) * 8;
     if (e.mt % 4 === 0) { smokePuff(e.x - 10, e.y - 14, 'a'); smokePuff(e.x + 10, e.y - 14, 'a'); }
     if (e.mt > 1600) { e.leaving = true; e.y = 70 - (e.mt - 1600) * 0.8; return; }
-    if (player.dead) return;
+    if (!hasT()) return;
     const sp = bspeed();
     if (e.mt % 48 === 0) { const s = (e.mt >> 5) & 1 ? 1 : -1, gx = e.x + s * 18, gy = e.y; for (let k = 0; k < 2; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, aim(gx, gy), sp * 1.1); } }); sfx('gun'); }
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
@@ -6104,7 +6115,7 @@ const ENT = {
       } else e.moving = false;
     }
     groundPos(e);
-    if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -0.04, 0.04);
+    if (hasT()) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -0.04, 0.04);
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(80, 150 - run.loop * 20) + rnd(0, 30)) * fireSlow());
       const a = e.ta, L = e.heavy ? 18 : 14, bx = e.x + Math.cos(a) * L, by = e.y + Math.sin(a) * L;
@@ -6121,22 +6132,22 @@ const ENT = {
   } },
   flak: { turret: true, revenge: 2, guarded: true, medals: 0.5, treesInFront: true, stats: { hp: 8, hw: 9, hh: 9, score: 400, rad: 13 }, update(e) {
     groundPos(e);
-    if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
+    if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (world.spotted > 0) e.cd--;
     if (e.rd === undefined) e.rd = world.enemies.find(o => o.type === 'radar' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 140) || null;
     const tight = e.rd && !e.rd.dead ? 0.3 : 1;
-    if (--e.cd <= 0 && (e.rear ? !player.dead && !e.turDead && e.y < H - 4 : canFire(e, 90))) {
+    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90))) {
       e.cd = Math.round((Math.max(90, 150 - run.loop * 20)) * fireSlow() * (e.barrels === 4 ? 1.15 : 1) * (e.rear ? 0.6 : 1));
       const bx = e.x + Math.cos(e.ga) * 12, by = e.y + Math.sin(e.ga) * 12, nb = e.barrels || 1;
       flakShot(bx, by, tight); flash(bx, by, 2); sfx('gun');
       if (nb >= 2) flakShot(bx, by, tight * 1.6);
-      if (nb >= 4) world.later.push({ at: gf + 9, fn: () => { if (!e.dead && !e.turDead && !player.dead) { const cx = e.x + Math.cos(e.ga) * 12, cy = e.y + Math.sin(e.ga) * 12; flakShot(cx, cy, tight); flakShot(cx, cy, tight * 1.6); flash(cx, cy, 2); sfx('gun'); } } });
-      if (world.nightF > 0.5) for (let k = 1; k <= 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
+      if (nb >= 4) world.later.push({ at: gf + 9, fn: () => { if (!e.dead && !e.turDead && hasT()) { const cx = e.x + Math.cos(e.ga) * 12, cy = e.y + Math.sin(e.ga) * 12; flakShot(cx, cy, tight); flakShot(cx, cy, tight * 1.6); flash(cx, cy, 2); sfx('gun'); } } });
+      if (world.nightF > 0.5) for (let k = 1; k <= 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
     }
   } },
   bunker: { turret: true, revenge: 2, guarded: true, medals: 0.7, treesInFront: true, update(e) {
     groundPos(e);
-    if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.05, 0.05);
+    if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.05, 0.05);
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(70, 115 - run.loop * 15)) * fireSlow());
       const bx = e.x + Math.cos(e.ga) * 14, by = e.y + Math.sin(e.ga) * 14;
@@ -6149,7 +6160,7 @@ const ENT = {
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
     const gx = e.x, gy = e.y + 7;
-    if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
+    if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
   destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, stats: { hw: 12, hh: 36, score: 3000, rad: 34 }, update(e) {
@@ -6158,7 +6169,7 @@ const ENT = {
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
     if (gf % 7 === 0) smokePuff(e.x, e.y - 14);
     const A = [e.x, e.y + 22], B = [e.x, e.y - 24];
-    if (!player.dead) { e.ta += clamp(angDiff(e.ta, aim(A[0], A[1])), -0.04, 0.04); e.tb += clamp(angDiff(e.tb, aim(B[0], B[1])), -0.04, 0.04); }
+    if (hasT()) { e.ta += clamp(angDiff(e.ta, aim(A[0], A[1])), -0.04, 0.04); e.tb += clamp(angDiff(e.tb, aim(B[0], B[1])), -0.04, 0.04); }
     if (--e.cdA <= 0 && canFire(e, 60)) { e.cdA = Math.round((Math.max(70, 110 - run.loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12, e.ta + (k - 0.5) * 0.1, bspeed()); flash(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12); sfx('cannon'); }
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - run.loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
   } },
@@ -6166,7 +6177,7 @@ const ENT = {
   bridge: { harmless: true, uncounted: true, medals: 1, stats: { hp: 18, hw: 8, score: 800, rad: 10 }, update(e) { groundPos(e); } },
   secret: { harmless: true, uncounted: true, stats: { fixedHp: 4, hw: 7, hh: 7, score: 0, rad: 1 }, update(e) {
     groundPos(e); e.untarget = true;
-    const near = !player.dead && Math.abs(player.x - e.x) < 15 && Math.abs(player.y - e.y) < 18;
+    const near = liveShips().some(sh => !sh.dead && Math.abs(sh.x - e.x) < 15 && Math.abs(sh.y - e.y) < 18);
     if (near) { e.prog = (e.prog || 0) + 1; if (e.prog % 10 === 0) sfx('tick'); if (e.prog >= 48) { revealSecret(e); return; } } else e.prog = Math.max(0, (e.prog || 0) - 2);
   } },
   troop: { harmless: true, uncounted: true, arcLow: true, stats: { fixedHp: 1, hw: 3, hh: 3, score: 50, rad: 2 }, update(e) {
@@ -6224,11 +6235,11 @@ const ENT = {
     } else if (e.st === 'up') {
       if (gf % 6 === 0) foam(e.wx + (Math.random() < 0.5 ? -7 : 7), e.wy + Math.floor(world.scroll) + rnd(-20, 20));
       const gx = e.x, gy = e.y + 10;
-      if (e.mslT > 0 && --e.mslT === 0 && !player.dead && e.y > 0 && e.y < H - 40) { hatchLaunchSfx(); world.enemies.push(E('missile', { x: e.x, y: e.y - 14, h: -PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y - 14, 5); smokePuff(e.x, e.y - 12); sfx('rocket'); }
-      if (!player.dead) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
+      if (e.mslT > 0 && --e.mslT === 0 && hasT() && e.y > 0 && e.y < H - 40) { hatchLaunchSfx(); world.enemies.push(E('missile', { x: e.x, y: e.y - 14, h: -PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y - 14, 5); smokePuff(e.x, e.y - 12); sfx('rocket'); }
+      if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
       if (--e.cd <= 0 && canFire(e, 80)) {
         e.cd = Math.round((Math.max(50, 80 - run.loop * 10)) * fireSlow());
-        for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!e.dead && e.st === 'up' && !player.dead) eshot(gx, gy, e.ta + rnd(-0.06, 0.06), bspeed() * 1.1); } });
+        for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!e.dead && e.st === 'up' && hasT()) eshot(gx, gy, e.ta + rnd(-0.06, 0.06), bspeed() * 1.1); } });
         if (Math.random() < 0.4) flakShot(e.x, e.y - 4);
         flash(gx, gy, 3); sfx('cannon');
       }
@@ -6242,7 +6253,7 @@ const ENT = {
   } },
   casemate: { turret: true, turretAt: [0, 8], revenge: 2, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 20, hh: 14, score: 3000, rad: 24 }, update(e) {
     groundPos(e);
-    if (!player.dead) e.ga = clamp(e.ga + clamp(angDiff(e.ga, aim(e.x, e.y + 8)), -0.03, 0.03), PI / 2 - 1.1, PI / 2 + 1.1);
+    if (hasT()) e.ga = clamp(e.ga + clamp(angDiff(e.ga, aim(e.x, e.y + 8)), -0.03, 0.03), PI / 2 - 1.1, PI / 2 + 1.1);
     if (--e.cd <= 0 && canFire(e, 100)) {
       e.cd = Math.round((Math.max(80, 120 - run.loop * 15)) * fireSlow());
       const bx = e.x + Math.cos(e.ga) * 16, by = e.y + 8 + Math.sin(e.ga) * 16;
@@ -6254,7 +6265,7 @@ const ENT = {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
-    for (let i = 0; i < 4; i++) if (!player.dead) e.gas[i] += clamp(angDiff(e.gas[i], aim(e.x + cs[i][0], e.y + cs[i][1])), -0.05, 0.05);
+    for (let i = 0; i < 4; i++) if (hasT()) e.gas[i] += clamp(angDiff(e.gas[i], aim(e.x + cs[i][0], e.y + cs[i][1])), -0.05, 0.05);
     if (world.spotted > 0) e.cd--;
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(34, 50 - run.loop * 5)) * fireSlow()); const i = e.gi = ((e.gi || 0) + 1) % 4, gx = e.x + cs[i][0], gy = e.y + cs[i][1];
@@ -6266,22 +6277,22 @@ const ENT = {
     groundPos(e);
     if (e.gen === undefined) e.gen = world.enemies.find(o => o.type === 'gen' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 190) || null;
     if (e.gen && e.gen.dead) { e.off = (e.off || 0) + 1; if (e.off > 60) return; }
-    if (!player.dead && !e.off && inBeam(e.x, e.y, e.ba, 150, 0.2, player.x, player.y)) { world.spotted = 45; if (e.lock > 0) e.lock = 150; else if (!e.wait) e.wait = 36; }
+    if (!e.off && liveShips().some(sh => !sh.dead && inBeam(e.x, e.y, e.ba, 150, 0.2, sh.x, sh.y))) { world.spotted = 45; if (e.lock > 0) e.lock = 150; else if (!e.wait) e.wait = 36; }
     if (e.wait > 0 && --e.wait === 0) e.lock = 150;
-    if (e.lock > 0 && !player.dead) { e.lock--; e.ba += clamp(angDiff(e.ba, aim(e.x, e.y)) * 0.05, -0.012, 0.012); }
+    if (e.lock > 0 && hasT()) { e.lock--; e.ba += clamp(angDiff(e.ba, aim(e.x, e.y)) * 0.05, -0.012, 0.012); }
     else { const tgt = PI / 2 + Math.sin(e.t * 0.018 + e.ph) * 0.95; e.ba += angDiff(e.ba, tgt) * 0.05; }
   } },
   loco: { medals: 1, stats: { hw: 7, score: 1500, rad: 12 }, update(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: world.scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } } },
   boxcar: { medals: 2, update(e) { trainMove(e); } },
   flatcar: { turret: true, medals: 0.6, update(e) {
     trainMove(e);
-    if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
+    if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - run.loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
   } },
   hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 2500, rad: 26 }, update(e) { groundPos(e); } },
   cgate: { medals: 1.5, treesInFront: true, stats: { hw: 34, hh: 13, rad: 30 }, update(e) {
     groundPos(e);
-    if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && !player.dead) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
+    if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && hasT()) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) world.later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) world.enemies.push(G('acar', e.wx + dx, e.wy + 14, { v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
   } },
   protoFly: { stats: { hw: 40, hh: 30, score: 0 }, update(e) {
@@ -6300,8 +6311,8 @@ const ENT = {
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
     e.blink = ph === 2 && lt >= 235 && lt < 270; e.flare = lunge / 75; // thrusters: blink in the 35 frames before the lunge, flare through it
     e.x = 112 + Math.sin(k * (0.013 + ph * 0.004)) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16 + lunge;
-    if (ph === 2 && lt === 270 + 45 && !player.dead) { const gx = e.x, gy = e.y + 20; for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
-    if (player.dead) return;
+    if (ph === 2 && lt === 270 + 45 && hasT()) { const gx = e.x, gy = e.y + 20; for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
+    if (!hasT()) return;
     const burst = Math.round((46 - ph * 6) * fireSlow());
     if (k % burst === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) world.later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
     // a slow fan of shells from the nose, wider with every phase
@@ -6324,7 +6335,7 @@ const ENT = {
   bldg: { arcLow: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
   camo: { harmless: true, guarded: true, uncounted: true, stats: { fixedHp: 1, score: 0 }, update(e) {
     groundPos(e); e.untarget = true;
-    if (e.cv === 'hay') { e.warn = !player.dead && e.y > player.y - 40; if ((!player.dead && e.y > player.y - 4) || e.y > H - 50) revealCamo(e, false); }
+    if (e.cv === 'hay') { const tg = target(e.x, e.y); e.warn = hasT() && e.y > tg.y - 40; if ((hasT() && e.y > tg.y - 4) || e.y > H - 50) revealCamo(e, false); }
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
   } },
@@ -6333,25 +6344,25 @@ const ENT = {
     if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
     else if (e.st === 'up') {
-      if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.08, 0.08);
-      if (e.rocket) { if (e.stT === 44 && !player.dead) { world.enemies.push(E('missile', { x: e.x, y: e.y - 6, h: -PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y - 6, 5); smokePuff(e.x, e.y - 4); sfx('rocket'); } }
-      else if ((e.stT === 50 || e.stT === 34 || e.stT === 18) && !player.dead) { const bx = e.x + Math.cos(e.ga) * 9, by = e.y + Math.sin(e.ga) * 9; for (const o of [-0.08, 0.08]) eshot(bx, by, e.ga + o, bspeed()); flash(bx, by, 2); sfx('gun'); }
+      if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.08, 0.08);
+      if (e.rocket) { if (e.stT === 44 && hasT()) { world.enemies.push(E('missile', { x: e.x, y: e.y - 6, h: -PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y - 6, 5); smokePuff(e.x, e.y - 4); sfx('rocket'); } }
+      else if ((e.stT === 50 || e.stT === 34 || e.stT === 18) && hasT()) { const bx = e.x + Math.cos(e.ga) * 9, by = e.y + Math.sin(e.ga) * 9; for (const o of [-0.08, 0.08]) eshot(bx, by, e.ga + o, bspeed()); flash(bx, by, 2); sfx('gun'); }
       if (e.stT <= 0) { e.st = 'sink'; e.stT = 18; }
     } else if (e.st === 'sink') { if (e.stT <= 0) { e.st = 'down'; e.stT = (rnd(70, 130)) | 0; e.untarget = true; } }
   } },
   radar: { harmless: true, guarded: true, medals: 1.5, treesInFront: true, stats: { hp: 12, hw: 10, hh: 10, score: 1500, rad: 12 }, update(e) { groundPos(e); e.rot += 0.05; } },
   gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, stats: { hp: 8, hw: 10, hh: 8, score: 1200, rad: 11 }, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
   arty: { revenge: 2, guarded: true, medals: 1, treesInFront: true, stats: { hp: 10, hw: 10, hh: 10, score: 1000, rad: 12 }, update(e) {
-    groundPos(e); if (!player.dead) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
+    groundPos(e); if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
       const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
-      markers.push({ wx: player.x, wy: player.y - Math.floor(world.scroll), t: 72, max: 72 });
+      markers.push({ wx: target(e.x, e.y).x, wy: target(e.x, e.y).y - Math.floor(world.scroll), t: 72, max: 72 });
     }
   } },
   acar: { revenge: 2, treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 700, rad: 9 }, update(e) {
-    if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && !player.dead) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
-    if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && !player.dead) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
+    if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
+    if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && hasT()) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
     ENT.truck.update(e);
   } },
@@ -6385,23 +6396,25 @@ const ENT = {
     const others = e.parts.filter(p => p.k !== 'core' && p.k !== 'light' && !p.dead).length;
     if (e.spot > 0) e.spot--;
     if (BOSS[e.kind].tick) BOSS[e.kind].tick(e, core);
-    for (const p of e.parts) {
-      const px = e.x + p.ox, py = e.y + p.oy;
+    const two = liveShips().length > 1, pn = e.parts.length;
+    for (let pi = 0; pi < pn; pi++) {
+      const p = e.parts[pi], px = e.x + p.ox, py = e.y + p.oy;
+      aimOv = two ? liveShips()[(pi + (gf / 600 | 0)) & 1] : null; // each part keeps one ship for ten seconds, then they swap
       if (p.hit > 0) p.hit--;
       if (p.off) continue;
       if (p.dead) { if (gf % 9 === 0) smokePuff(px + rnd(-3, 3), py, e.air ? 'a' : 'g'); if (gf % 6 === 0) fireAt(px + rnd(-4, 4), py + 3, e.air ? 'a' : 'g', p.k === 'main' || p.k === 'core' || p.k === 'engine'); continue; }
       if (p.k === 'light') {
         const lit = (e.lightT === undefined || e.lightT > (p.ox < 0 ? 1 : 25)) && searchSpot(e, p, px, py);
-        if (lit) { e.spot = 40; if (!(p.caught > 0)) caughtRing(); p.caught = 40; } // the light stays bright red while it has the player; a red ring marks the catch
+        if (lit) { e.spot = 40; e.spotWho = p.who; if (!(p.caught > 0)) caughtRing(p.who); p.caught = 40; } // the light stays bright red while it has the player; a red ring marks the catch
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
       if (p.k === 'core' && BOSS[e.kind].aimCore) {
         BOSS[e.kind].aimCore(e, p, px, py);
       } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
-        if (!player.dead) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
+        if (hasT()) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
-      if (player.dead) continue;
+      if (!hasT()) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
       if ((e.fl && p.k === 'core') || e.stun > 0) { p.cd = Math.max(p.cd, 20); continue; }
       if (e.wheel) { p.cd = Math.max(p.cd, 30); continue; }
@@ -6701,10 +6714,12 @@ function updP2() {
     if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
     if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) { scorer = 2; damage(e, 5); scorer = 1; } break; }
   }
-  if (hit) {
-    q.dead = 150; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
-    if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
-  }
+  if (hit) hurtP2();
+}
+function hurtP2() {
+  const q = p2; if (!q || q.dead) return;
+  q.dead = 150; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
 }
 // What player 2 can pick up: weapons, Nova bombs, medals, sparkles, the artifact. A Talon drone is worth points instead (only player 1 carries drones)
 function p2Pickups(q) {
@@ -7256,7 +7271,7 @@ function update() {
     if (bad) { e.dead = true; for (const o of world.enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
   for (const e of world.enemies) if (!e.seenC && !ENT[e.type].uncounted && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; run.stats.seen++; }
-  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
+  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); aimOv = null; SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); checkProto();
   for (const b of world.ebul) {
@@ -7288,7 +7303,7 @@ function update() {
     if (b.hb && --b.fuse <= 0 && !b.dead) {
       b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); feel.shake = Math.max(feel.shake, 8); sfx('bigboom');
       // the gap is random; when the player was close it faces them, so a burst just ahead is never unavoidable
-      const gap = b.close && !player.dead ? Math.atan2(player.y - b.y, player.x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
+      const gap = b.close && hasT() ? Math.atan2(target(b.x, b.y).y - b.y, target(b.x, b.y).x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
       for (let k = 0; k < n; k++) { const a = gap + (k + 0.5) * TAU / n; if (Math.abs(angDiff(a, gap)) < 0.42) continue; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.9, vy: Math.sin(a) * bspeed() * 0.9, r: 3, kind: 'B', a, shrapnel: true }); }
     }
     if (b.kind === 'mega' && gf % 2 === 0) world.parts.push({ kind: 'fire', layer: 'a', x: b.x + rnd(-2, 2), y: b.y - 4, vx: 0, vy: -0.2, r: rnd(2, 3), life: 10, max: 10 });
