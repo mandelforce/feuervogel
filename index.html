@@ -4403,11 +4403,11 @@ window.addEventListener('appinstalled', () => store.setJSON(KEY.install, Object.
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
 // Enemies aim at the nearer of the two ships (player 1 if it is a tie, or if player 2 is not in the game or is down)
 let aimOv = null; // set while a boss part takes its turn: that part's own ship, so a boss splits its fire between the two ships
-function target(x, y) { const q = p2; if (!q || q.dead) return player; if (player.dead) return q; if (aimOv && !aimOv.dead) return aimOv; return (q.x - x) ** 2 + (q.y - y) ** 2 < (player.x - x) ** 2 + (player.y - y) ** 2 ? q : player; }
+function nearShip(x, y) { const q = p2; if (!q || q.dead) return player; if (player.dead) return q; if (aimOv && !aimOv.dead) return aimOv; return (q.x - x) ** 2 + (q.y - y) ** 2 < (player.x - x) ** 2 + (player.y - y) ** 2 ? q : player; }
 const hasT = () => !player.dead || !!(p2 && !p2.dead); // is any ship alive for the enemies to shoot at
 const liveShips = () => p2 && !p2.dead ? (player.dead ? [p2] : [player, p2]) : [player]; // the ships still flying (just player 1 when it is the only one, even if down)
 function lightShip(i) { const a = player, b = p2; if (!b || b.dead) return a; if (a.dead) return b; return i ? b : a; } // searchlight 0 follows player 1, searchlight 1 player 2
-function aim(x, y) { const t = target(x, y); return Math.atan2(t.y - y, t.x - x); }
+function aim(x, y) { const t = nearShip(x, y); return Math.atan2(t.y - y, t.x - x); }
 function bspeed() { return (1.2 + run.loop * 0.18) * DIFF.bs[settings.diff]; }
 function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
@@ -4418,7 +4418,7 @@ function eshot(x, y, a, sp, kind = 's') {
 }
 function flakShot(x, y, spread = 1) {
   if (!hasT()) return;
-  const t = target(x, y), tx = t.x + rnd(-14, 14) * spread, ty = t.y + rnd(-20, 6) * spread;
+  const t = nearShip(x, y), tx = t.x + rnd(-14, 14) * spread, ty = t.y + rnd(-20, 6) * spread;
   eshot(x, y, Math.atan2(ty - y, tx - x), bspeed() * 1.15, 'shell');
 }
 function ring(x, y, n, sp, off, kind = 's') { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) eshot(x, y, off + i * TAU / n, sp, kind); }
@@ -4995,7 +4995,7 @@ function castleUnits(e, grp) {
 // The first shot comes when the second engine goes, the core drops below 75% or 25 seconds pass; then every 11 seconds,
 // and every 8 seconds, slowly following the player, once all engines are gone. A Nova cuts it short.
 const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
-function laserAim(F, cx, cy) { const t = F.who && !F.who.dead ? F.who : target(cx, cy); return Math.atan2(t.y - cy, t.x - cx); }
+function laserAim(F, cx, cy) { const t = F.who && !F.who.dead ? F.who : nearShip(cx, cy); return Math.atan2(t.y - cy, t.x - cx); }
 function skyLaser(e, ea) {
   const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
   const cx = e.x + core.ox, cy = e.y + core.oy;
@@ -5120,7 +5120,7 @@ function spawnBoss() {
 }
 function mortarShot(x, y, off = 0) {
   if (!hasT()) return;
-  const t = target(x, y), tx = t.x + off + rnd(-10, 10), ty = t.y + rnd(-10, 10), life = 80;
+  const t = nearShip(x, y), tx = t.x + off + rnd(-10, 10), ty = t.y + rnd(-10, 10), life = 80;
   world.ebul.push({ x, y, sx: x, sy: y, tx, ty, vx: 0, vy: 0, r: 0, kind: 'mortar', life, max: life, a: 0 });
 }
 function rewardSfx() {
@@ -5452,7 +5452,7 @@ function wolfPack(e) {
     P.t++;
     const rx = e.x + rk.ox, ry = e.y + rk.oy;
     if (P.t >= 70 && (P.t - 70) % 14 === 0) {
-      if (hasT() && world.ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); world.ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: target(rx, ry).x + rnd(-8, 8), ty: target(rx, ry).y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
+      if (hasT() && world.ebul.length < 420) { const sd = P.n % 2 ? 1 : -1; const a0 = aim(rx, ry) + sd * (0.7 + 0.12 * P.n); world.ebul.push({ x: rx + sd * 4, y: ry - 4, vx: Math.cos(a0) * 1.1, vy: Math.sin(a0) * 1.1, r: 2, kind: 'srocket', a: a0, tx: nearShip(rx, ry).x + rnd(-8, 8), ty: nearShip(rx, ry).y + rnd(-8, 8), life: 150 }); smokePuff(rx, ry - 4, 'g'); flash(rx, ry - 6, 3); sfx('rocket'); }
       if (++P.n >= 6) t.pack = null;
     }
   });
@@ -5494,12 +5494,12 @@ function bossIntro(e) {
 function railLock(e, core) {
   e.lockCd = Math.max(0, (e.lockCd ?? 120) - 1);
   if (!e.lock) {
-    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && hasT() && core && !core.dead && (e.parts.some(q => q.k === 'light' && !q.dead) || count('flare'))) { const S = e.spotWho && !e.spotWho.dead ? e.spotWho : target(e.x, e.y); e.lock = { t: 60, x: S.x, y: S.y, s: S }; sfx('tick'); }
+    if (e.spot > 0 && e.lockCd === 0 && !e.chargeT && hasT() && core && !core.dead && (e.parts.some(q => q.k === 'light' && !q.dead) || count('flare'))) { const S = e.spotWho && !e.spotWho.dead ? e.spotWho : nearShip(e.x, e.y); e.lock = { t: 60, x: S.x, y: S.y, s: S }; sfx('tick'); }
     return;
   }
   const L = e.lock;
   if (!hasT() || !core || core.dead) { e.lock = null; return; }
-  if (--L.t > 20) { const S = L.s && !L.s.dead ? L.s : target(e.x, e.y); L.s = S; L.x = S.x; L.y = S.y; }
+  if (--L.t > 20) { const S = L.s && !L.s.dead ? L.s : nearShip(e.x, e.y); L.s = S; L.x = S.x; L.y = S.y; }
   if (L.t === 20) sfx('charge');
   if (L.t > 0) return;
   const bx = e.x + core.ox, by = e.y + core.oy, a = Math.atan2(L.y - by, L.x - bx);
@@ -5527,7 +5527,7 @@ function hammerBlow(e, core, p, px, py) {
   const B = e.hb; B.t++;
   p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.02, 0.02), PI / 2 - 0.6, PI / 2 + 0.6);
   if (B.t < 120) { e.recoil = Math.max(e.recoil || 0, B.t / 120 * 5); if (gf % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'a', white: true, x: px + rnd(-8, 8), y: py + rnd(-6, 10), vx: rnd(-0.5, 0.5), vy: rnd(-0.6, -0.1), r: rnd(2, 4), life: 30, max: 30 }); if (B.t % 30 === 0) sfx('charge'); p.cd = 1; return; }
-  const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(target(bx, by).x - bx, target(bx, by).y - by);
+  const bx = px + Math.cos(p.ang) * 58, by = py + Math.sin(p.ang) * 58, d = Math.hypot(nearShip(bx, by).x - bx, nearShip(bx, by).y - by);
   world.ebul.push({ x: bx, y: by, vx: Math.cos(p.ang) * 2.4, vy: Math.sin(p.ang) * 2.4, r: 5, kind: 'mega', a: p.ang, fuse: Math.max(8, Math.round((d - 85) / 2.4)), hb: true, close: d < 145 });
   flash(bx, by, 12); boom(bx, by, 14, 'a'); feel.shake = 14; feel.flashFx = Math.max(feel.flashFx, 4); sfx('bigboom'); sfx('cannon'); haptic('big');
   e.recoil = -34; for (let k = 0; k < 10; k++) smokePuff(px + rnd(-14, 14), py + rnd(-10, 30));
@@ -5552,7 +5552,7 @@ function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
   if (!e.ram && e.reactRam && !e.reactDone) { // game over reaction: it comes about and fires a rippling salvo with nobody to hit
-    e.reactDone = true; e.ram = { t: 0, dir: target(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
+    e.reactDone = true; e.ram = { t: 0, dir: nearShip(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn');
   }
   if (!e.ram) {
     if (!core || core.dead || !hasT()) return false;
@@ -5560,7 +5560,7 @@ function shipRam(e) {
     if (!due) return false;
     if ((e.ramCd = (e.ramCd ?? 60) - 1) > 0) return false;
     // turn away from the player's side, so the broadside ends up facing them
-    e.ram = { t: 0, dir: target(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
+    e.ram = { t: 0, dir: nearShip(e.x, e.y).x < e.x ? -1 : 1, w: 0, bx: e.x, by: e.y, px: e.x, py: e.y + RAM_PIVOT, adv: 0 }; e.hd = 0; e.ramN++; sfx('horn'); haptic('warn');
   }
   const R = e.ram; R.t++;
   // heading with momentum: the rudder pulls towards the target angle, the hull's inertia lags and overshoots a little
@@ -5941,7 +5941,7 @@ const BOSS_FIGHT = {
       else if (!e.chargeT) { e.chargeT = 75; p.cd = 1; sfx('charge'); haptic('charge'); }
       else if (--e.chargeT <= 0) {
         e.chargeT = 0; p.cd = Math.round((others === 0 ? 150 : 230) * fireSlow());
-        const [bx, by] = mz(58), d = Math.max(60, target(bx, by).y - by);
+        const [bx, by] = mz(58), d = Math.max(60, nearShip(bx, by).y - by);
         eshot(bx, by, p.ang, 2.2, 'mega');
         flash(bx, by, 8); boom(bx, by, 10, 'a'); feel.shake = 10; sfx('bigboom'); haptic('big');
       } else p.cd = 1;
@@ -6020,9 +6020,9 @@ const ENT = {
       return;
     }
     if (e.homeT > 0) { e.homeT--; if (hasT()) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.035, 0.035); }
-    if (e.boom && !e.lead && !e.back && e.t > 30 && (e.y > H - 20 || e.x < -10 || e.x > W + 10 || (hasT() && e.y > target(e.x, e.y).y + 24))) { e.back = 1; e.turn = 0; e.homeT = 0; }
+    if (e.boom && !e.lead && !e.back && e.t > 30 && (e.y > H - 20 || e.x < -10 || e.x > W + 10 || (hasT() && e.y > nearShip(e.x, e.y).y + 24))) { e.back = 1; e.turn = 0; e.homeT = 0; }
     if (e.back === 1) {
-      const tg = target(e.x, e.y), tgt = !hasT() ? -PI / 2 : Math.atan2(tg.y - 60 - e.y, tg.x - e.x);
+      const tg = nearShip(e.x, e.y), tgt = !hasT() ? -PI / 2 : Math.atan2(tg.y - 60 - e.y, tg.x - e.x);
       e.h += clamp(angDiff(e.h, tgt), -0.055, 0.055); e.v = Math.min(2.2, e.v + 0.01);
       if (gf % 2 === 0) world.parts.push({ kind: 'trail', layer: 'a', x: e.x - Math.cos(e.h) * 7, y: e.y - Math.sin(e.h) * 7, vx: 0, vy: 0, life: 16, max: 16 });
       if (Math.abs(angDiff(e.h, tgt)) < 0.25 && e.y < H - 10) { e.back = 2; if (hasT() && e.y > 0) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } }
@@ -6078,11 +6078,11 @@ const ENT = {
   } },
   // Raven drones from the Black Fortress's hangar: peel out sideways, swing in above the player, fire once, then dive away past them
   rdrone: { stats: { hp: 3, hw: 5, hh: 5, score: 200 }, update(e) {
-    const tg = target(e.x, e.y), tx = !hasT() ? e.x : tg.x, ty = !hasT() ? H * 0.5 : tg.y - 90;
+    const tg = nearShip(e.x, e.y), tx = !hasT() ? e.x : tg.x, ty = !hasT() ? H * 0.5 : tg.y - 90;
     const want = e.t < 28 ? (e.side > 0 ? 0.3 : PI - 0.3) : e.t < 72 ? Math.atan2(ty - e.y, tx - e.x) : PI / 2 + e.side * 0.45;
     e.h += clamp(angDiff(e.h, want), -0.07, 0.07);
     const sp = e.t < 28 ? 1.5 : 2.1; e.x += Math.cos(e.h) * sp; e.y += Math.sin(e.h) * sp;
-    if (e.t === 72 && hasT() && e.y < target(e.x, e.y).y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
+    if (e.t === 72 && hasT() && e.y < nearShip(e.x, e.y).y - 30) { eshot(e.x, e.y, aim(e.x, e.y), bspeed() * 1.1, 'B'); flash(e.x, e.y, 3); sfx('gun'); }
   } },
   pod: { stats: { hp: 5, hw: 9, hh: 10, score: 300 }, update(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; } },
   wing: { stats: { hw: 44, hh: 12, score: 10000 }, update(e) {
@@ -6335,7 +6335,7 @@ const ENT = {
   bldg: { arcLow: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
   camo: { harmless: true, guarded: true, uncounted: true, stats: { fixedHp: 1, score: 0 }, update(e) {
     groundPos(e); e.untarget = true;
-    if (e.cv === 'hay') { const tg = target(e.x, e.y); e.warn = hasT() && e.y > tg.y - 40; if ((hasT() && e.y > tg.y - 4) || e.y > H - 50) revealCamo(e, false); }
+    if (e.cv === 'hay') { const tg = nearShip(e.x, e.y); e.warn = hasT() && e.y > tg.y - 40; if ((hasT() && e.y > tg.y - 4) || e.y > H - 50) revealCamo(e, false); }
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
   } },
@@ -6357,7 +6357,7 @@ const ENT = {
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
       const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
-      markers.push({ wx: target(e.x, e.y).x, wy: target(e.x, e.y).y - Math.floor(world.scroll), t: 72, max: 72 });
+      markers.push({ wx: nearShip(e.x, e.y).x, wy: nearShip(e.x, e.y).y - Math.floor(world.scroll), t: 72, max: 72 });
     }
   } },
   acar: { revenge: 2, treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 700, rad: 9 }, update(e) {
@@ -7303,7 +7303,7 @@ function update() {
     if (b.hb && --b.fuse <= 0 && !b.dead) {
       b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); feel.shake = Math.max(feel.shake, 8); sfx('bigboom');
       // the gap is random; when the player was close it faces them, so a burst just ahead is never unavoidable
-      const gap = b.close && hasT() ? Math.atan2(target(b.x, b.y).y - b.y, target(b.x, b.y).x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
+      const gap = b.close && hasT() ? Math.atan2(nearShip(b.x, b.y).y - b.y, nearShip(b.x, b.y).x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
       for (let k = 0; k < n; k++) { const a = gap + (k + 0.5) * TAU / n; if (Math.abs(angDiff(a, gap)) < 0.42) continue; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.9, vy: Math.sin(a) * bspeed() * 0.9, r: 3, kind: 'B', a, shrapnel: true }); }
     }
     if (b.kind === 'mega' && gf % 2 === 0) world.parts.push({ kind: 'fire', layer: 'a', x: b.x + rnd(-2, 2), y: b.y - 4, vx: 0, vy: -0.2, r: rnd(2, 3), life: 10, max: 10 });
