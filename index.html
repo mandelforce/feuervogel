@@ -2044,6 +2044,7 @@ function biomeForQ(q, th) {
 const STAGE_LEN = 1.3;
 function predictInfo(p) {
   const qr = p - world.stageBaseP, q = qr < 0 ? qr : Math.floor(qr / STAGE_LEN);
+  { const S = run.sortie; if (S && S.gen && qr >= 0) return sortieInfo(S, p, qr); } // an Enigma Run level with its own ground: the sortie decides the biome
   let b, th;
   if (q < 0) { th = world.prevTheme; b = world.prevLand ? (q === -1 ? 'coastDown' : world.prevTheme === 5 ? 'secret' : world.prevTheme === 4 ? 'castle' : 'bossland') : 'sea'; }
   else { th = world.curTheme; b = biomeForQ(q, th); }
@@ -2053,6 +2054,10 @@ function predictInfo(p) {
   if (big) { const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; }
   let lake = null;
   if (b === 'country' && th === 1 && q >= 11 && q <= 19 && !river && hash(p, 771) < 0.3) { const rc = roadX(-p * CH + 32); lake = { cx: rc > 112 ? 64 : 162, cy: 32, rx: 26 + hash(p, 772) * 10, ry: 14 + hash(p, 773) * 6 }; }
+  return infoRails(b, th, river, rw, island, lake, q);
+}
+// The rails of a chunk and the info object itself (shared by the Campaign and the Enigma Run levels, so both have exactly the same shape).
+function infoRails(b, th, river, rw, island, lake, q) {
   const rails = [];
   if (th < 4 && ['country', 'forest', 'base', 'bossland', 'coastUp', 'coastDown'].includes(b)) rails.push(RAILX);
   if (b === 'factory') rails.push(RAILX);
@@ -2060,6 +2065,18 @@ function predictInfo(p) {
   if (bossy && th === 1) rails.push(...YARD_T.slice(1));
   if ((bossy || (b === 'country' && q >= 33)) && th === 3) rails.push(BOSSRAIL - 19, BOSSRAIL + 19);
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
+}
+// Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
+const SORTIE_BIOME = { open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
+function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
+// Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
+// open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
+function sortieInfo(S, p, c) {
+  const m = S.infos || (S.infos = new Map()); let I = m.get(p); if (I) return I;
+  const g = c >= S.len ? null : sortieSeg(S, c);
+  const b = !g ? 'secret' : g.t === 'coast_plain' && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
+  I = infoRails(b, S.theme, false, 7, null, null, c);
+  if (m.size > 400) m.clear(); m.set(p, I); return I;
 }
 function info(p) { return world.chunkInfo.get(p) || predictInfo(p); }
 function biomeOf(p) { return info(p).b; }
@@ -3899,7 +3916,9 @@ function buildSortie(level, seed) {
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
-    bossQ: null, // null: the Campaign's rule for when the boss comes (directorInner). Phase 2 replaces it once the ground is the sortie's own.
+    // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
+    // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
+    gen: level === 6 ? 6 : 0, bossAt: level === 6 ? at + 5 : null, arcLen: level === 6 ? at + 5 : null,
     name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k) };
 }
 // Every cache and shared value that the terrain and placement code keeps between calls. Called when any run starts (a run must never see
@@ -4515,7 +4534,8 @@ for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
-function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; run.sortie = null; }
+function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null;
+  if (run.sortie) { run.sortie = null; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2; } } // the title keeps scrolling: rebuild it without the sortie
 function doContinue() {
   if (app.cont <= 0 || !player) return;
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
@@ -4731,6 +4751,8 @@ function director() {
   if (settings.mode === 'gen') return directorInner();
   const rr = Math.random; Math.random = drand; try { directorInner(); } finally { Math.random = rr; }
 }
+// Pacing of a stage, in chunks, relative to the Campaign's 48: an Enigma Run level with its own ground stretches it to its length (1 everywhere else).
+function arcScale() { const S = run.sortie; return S && S.arcLen ? S.arcLen / Math.round(37 * STAGE_LEN) : 1; }
 function directorInner() {
   const sc = Math.floor(world.scroll), qTop = Math.floor(sc / CH) - world.stageBaseP;
   if (world.curTheme === 0 || world.prevTheme === 0 || world.curTheme === 4) for (let cj = Math.floor((-110 - sc) / 150); cj <= Math.floor((-40 - sc) / 150); cj++) {
@@ -4752,7 +4774,7 @@ function directorInner() {
     for (let i = 0; i < 2; i++) world.enemies.push(G('troop', re.r + 9, cy + rnd(-10, 10), { hd: PI / 2, scared: 0, home: [re.r + 9, cy], carry: true }));
   }
   { const pc = -Math.floor((-70 - sc) / CH), key = 'w' + pc; if (!towerRows.has(key)) { towerRows.add(key); worldLife(pc); } }
-  if (world.secret && !world.secret.spawned && qTop >= world.secret.q * STAGE_LEN) {
+  if (world.secret && !world.secret.spawned && qTop >= world.secret.q * STAGE_LEN * arcScale()) {
     world.secret.spawned = true; const wy = -40 - sc;
     let wx = null; for (let k = 0; k < 16 && wx === null; k++) { const x = rnd(24, W - 24), tt = terrainType(Math.floor(x), Math.floor(wy)); if (!WATER.has(tt) && tt !== 'road' && tt !== 'rail' && !critterHouse(x, wy, 10) && !inTent(x, wy, 6) && !inFarm(x, wy, 4)) wx = x; }
     if (wx !== null) world.enemies.push(G('secret', wx, wy, { untarget: true, keep: true }));
@@ -4777,7 +4799,7 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = world.enemies.some(e => e.big && !e.dead);
-  if (!world.midDone && qTop >= Math.round(14 * STAGE_LEN)) { world.midDone = true; spawnWing(); }
+  if (!world.midDone && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); }
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -4788,7 +4810,7 @@ function directorInner() {
     if (I.island) { for (const [sd, key] of [[-1, pc], [1, pc + 'b']]) { const by = wy + sd * 10 * (I.rw || 7) / 7; world.enemies.push(G('bridge', roadX(by), by, { hh: 8, bkey: key, small: true })); } }
     else world.enemies.push(G('bridge', roadX(wy), wy, { hh: 10 }));
   }
-  if (!world.bossSpawned && qTop >= (run.sortie && run.sortie.bossQ != null ? run.sortie.bossQ : Math.round(37 * STAGE_LEN) + Math.ceil(XH / CH) + (world.curTheme === 1 ? Math.max(0, Math.ceil(36 * STAGE_LEN) + Math.ceil(H / CH) - 2 - Math.round(37 * STAGE_LEN) - Math.ceil(XH / CH)) : 0))) { // an Enigma Run sortie can set its own trigger (null: the Campaign's)
+  if (!world.bossSpawned && qTop >= (run.sortie && run.sortie.bossAt != null ? run.sortie.bossAt + Math.ceil(XH / CH) : Math.round(37 * STAGE_LEN) + Math.ceil(XH / CH) + (world.curTheme === 1 ? Math.max(0, Math.ceil(36 * STAGE_LEN) + Math.ceil(H / CH) - 2 - Math.round(37 * STAGE_LEN) - Math.ceil(XH / CH)) : 0))) { // an Enigma Run sortie can set its own trigger (null: the Campaign's)
     world.bossSpawned = true; prewarmBoss(world.curTheme);
     fadeMusicOut(1.0);
     if (world.curTheme === 2) for (let i = 0; i < 14; i++) world.later.push({ at: gf + 205 + i * 10, fn: () => { feel.shake = Math.max(feel.shake, 1.5 + i * 0.2); } });
@@ -4802,7 +4824,7 @@ function directorInner() {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
     return;
   }
-  const u = clamp(qTop / Math.round(37 * STAGE_LEN), 0, 1);
+  const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
   for (const [until, z, d] of ARC) if (u < until) { zone = z; dens = d; break; }

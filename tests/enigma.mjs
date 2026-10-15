@@ -54,8 +54,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const page = await freshPage();
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 6; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossQ: a.bossQ }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossQ === null && x.len === [56, 56, 58, 60, 62, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5][x.lv - 1], `sortie level ${x.lv}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 ? x.len + 5 : null) && x.gen === (x.lv === 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5][x.lv - 1], `sortie level ${x.lv}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -130,6 +130,26 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const after = await peek(page, `(() => { startEnigma(6); return ${hashL6}; })()`);
   const resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return ${hashL6}; })()`);
   ok(fresh === after && fresh === resumed, `level 6 ground is identical fresh, after a Campaign run and after a resume (${fresh}${fresh === after && fresh === resumed ? '' : ' / ' + after + ' / ' + resumed})`);
+  await page.close();
+}
+
+// 3e. Level 6 flown through by the bot: the boss comes when the bottom of the screen reaches the secret ground (the final airfield the sky fortress
+// duel needs), the final airfield is found, and the level ends at the picker. Immortal bot, so it always gets there.
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => {
+    const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(6)');
+    const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) {
+      o.status = SF.run(o.bottomC === undefined ? 5 : 100); // fine steps until the boss comes, so the measured position is exact to 2 px
+      if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH);
+        return { bottomC: p - world.stageBaseP, bottomB: info(p).b, len: run.sortie.len, final: finalStartY() !== null, arc: arcScale() }; })()`));
+    }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, errs: SF.R.errs.slice(0, 2) })`));
+    return o;
+  });
+  ok(r.bottomC !== undefined && r.bottomB === 'secret' && r.bottomC === r.len + 1 && r.final, `level 6 boss comes where the Campaign's does: screen bottom one chunk into the secret ground (bottom chunk ${r.bottomC}, secret from ${r.len}; Campaign stage 6: 44 and 43)`);
+  ok(r.state === 'title' && r.picker && r.kind === 'enigma' && r.errs.length === 0, `level 6 flown to the end returns to the picker (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
   await page.close();
 }
 
