@@ -53,7 +53,7 @@ The sortie carries the fields that the campaign hides in `th`:
 
 1. For a whole Enigma level, `curTheme`, `prevTheme` and `featTheme` are set to the matching **legacy theme** (level 1 -> 0, 2 -> 2, 3 -> 3, 4 -> 4, 5 -> 1, 6 -> 5). Enemies, set pieces, boss, music and night behaviour then work as in the Campaign.
 2. The **terrain and look code branches on the sortie, not on `th`**: `predictInfo`/`info`, `classify`, `pixelColor`, `drawFeatures`, the palette choice, the winter blend, the tree and house sets. When `run.sortie` is set they read `sortie.climate` and the segment; when it is null the old code runs unchanged.
-3. **Night fire is local to the searchlight** (owner decision, refined). What the Campaign code does today, as I read it (not play-tested): at night (`nightF > 0.5`) **every** flak gun fires an extra burst of 3 fast shells (speed x1.4) after each normal shot, wherever it stands; separately, when a searchlight beam catches the player, `world.spotted` is set for 45 frames and then **every** flak gun and flatcar on screen reloads at double speed; a generator within 190 px powers each searchlight, and a radar within 140 px makes a flak gun's aim tighter. None of this depends on how close a gun is to a beam. **Enigma Run rule:** the faster, better-aimed shots (the burst, the double shot, the tighter aim) only come from **turrets within a set distance of a searchlight's origin** (start: 70 px) **while that searchlight is on**. Destroy the searchlight or its generator and its turrets lose the bonus. This gives the player something to attack, makes the beam readable, and gives the generator a reason to place turrets in clusters around searchlights (a slot type `searchlight_post`). It is a sortie parameter, `nightFire`, used only in Enigma Run, tuned with `tests/balance.mjs`; the Campaign keeps its global behaviour and its checksums. Level 3 keeps `curTheme = 3` so it still has the global Campaign night behaviour **unless** `nightFire` replaces it for that level. [you] choose which. [verify] where flak, flatcar and searchlight code reads `nightF` and `spotted` (`ENT.flak`, `ENT.flatcar`, `ENT.search`).
+3. **Night fire is local to the searchlight** (owner decision, refined). What the Campaign code does today, as I read it (not play-tested): at night (`nightF > 0.5`) **every** flak gun fires an extra burst of 3 fast shells (speed x1.4) after each normal shot, wherever it stands; separately, when a searchlight beam catches the player, `world.spotted` is set for 45 frames and then **every** flak gun and flatcar on screen reloads at double speed; a generator within 190 px powers each searchlight, and a radar within 140 px makes a flak gun's aim tighter. None of this depends on how close a gun is to a beam. **Enigma Run rule:** the faster, better-aimed shots (the burst, the double shot, the tighter aim) only come from **turrets within a set distance of a searchlight's origin** (start: 70 px) **while that searchlight is on**. Destroy the searchlight or its generator and its turrets lose the bonus. This gives the player something to attack, makes the beam readable, and gives the generator a reason to place turrets in clusters around searchlights (a slot type `searchlight_post`). It is a sortie parameter, `nightFire`, used only in Enigma Run, tuned with `tests/balance.mjs`; the Campaign keeps its global behaviour and its checksums. **Level 3 uses the same local rule** (owner decision, for consistency): in Enigma Run the global night burst and the global `spotted` reload bonus are replaced by `nightFire` everywhere. It applies to flak guns (the gun type that has the burst today). [verify] where flak, flatcar and searchlight code reads `nightF` and `spotted` (`ENT.flak`, `ENT.flatcar`, `ENT.search`).
 4. **Boss arenas follow the campaign's terrain contract exactly**, with the campaign's biome name and theme, because the boss code expects specific ground (audit "Campaign-only"): `sea` for the ship; `bossland` with `th 1` giving `ryard` with `YARD_T` for the train; `BOSSRAIL` +/- 19 for the railgun (`th 3`); `castle` with `th 4` for the castle; `secret` with `th 5` for `finalAirfield`/`finalStartY` for the sky fortress. The fortress arena (`th 2`) uses the campaign's `bossland`. Making these arenas free-form is a later project. [verify]
 
 ## 2. Roads and rails as lists of lines (decision: lists; two tiers after review)
@@ -226,6 +226,10 @@ Every site and template exposes the same small interface to the director. This r
 The **carrier** example (changed by the owner): it is the **opening scene of level 1**, not a gate. The player steals the Feuervogel from the carrier at the start, the ship is shown launching from the deck amid panic, and the carrier cannot be destroyed because the player is leaving it behind. `role: scripted-start + landmark`; `slots: deck_guns[], launch_points[]`; `clear` around the deck. Fighters launch from `launch_points` for a fixed time and pursue the player; the carrier scrolls off the bottom. Owner details: the deck has **turrets that can be destroyed**; the hull cannot. The pursuit lasts **15 to 25 seconds** (to be tuned; start at 20). At the start the carrier is **large and nearly fills the screen**, and it **shrinks and slides off** as the Feuervogel climbs away (a scale-down from about 1.0 to 0.5 while it scrolls off the bottom; this is a drawn scale, not terrain). Launch fighters use the existing `fighter` entity; the turrets reuse `flak` or `main` turret logic. The scene belongs to the `carrier_start` segment and must not change the Campaign's own intro.
 
 Rule from the review request: the director must never place a gun where a large building blocks its line of fire, nor a boss on a visually busy area. Boss arenas have density at most 15 percent and no scatter inside the clear rectangle.
+
+### 5.1 Generators and power (current state and options)
+
+Today the only game mechanic tied to a generator (`G('gen')`: 8 hp, 1200 points, harmless, puffs smoke) is **powering a searchlight**: a searchlight finds the nearest generator within 190 px, and when that generator is destroyed the searchlight goes dark after about 60 frames. Generators are spawned only beside searchlights in the night stage (campaign stage 4 or later, or in Endless). I found no generator on air bases and no other effect. In Enigma Run a `generator` site carries `powers: [siteIds]` so the link is data, not a distance search. The first use is `searchlight_post`: a searchlight, a generator and the turrets near it. Possible later uses, none of them decided: runway lights and flak at an air base, a radar, factory machinery, a harbour crane. [you]
 
 ## 6. Ground, relief and water
 
@@ -401,6 +405,10 @@ Each phase ends with a contact sheet of the six levels and a full test run.
 6. **Level length** matches a Campaign stage at least, later levels longer (section 10).
 7. **Level 6** starts simple and grows into a real city with its own new river, a small city island and connecting bridges (section 10).
 
+**Resolved**
+- **Level order stays as the Campaign order** (levels 4 and 5 are not swapped; the landmarks stay attached by theme as written in section 10).
+- **Level 3 follows the local night rule** like every other night level.
+
 **Changed by the owner in the latest round**
 - The carrier is **not a gate**. It is the opening scene of level 1: the player steals the Feuervogel from it and cannot destroy it. Pursuing planes launch from it (section 5).
 - **Night has a gameplay effect** in any night level: better-aimed shots and some double shots (1.1, item 3).
@@ -409,8 +417,6 @@ Each phase ends with a contact sheet of the six levels and a full test run.
 - **Levels may be longer** (section 10).
 
 **Still open [you]**
-- A. **Level 4 / level 5 order** (section 10): keep the Campaign order, or swap so that the frozen-sea level (train boss) comes before the castle level?
-- B. **Level 3 night behaviour:** should level 3 switch to the local `nightFire` rule too (draft preference: yes, for consistency, since nothing else in Enigma Run should be global), or keep the Campaign's global night shots?
 - C. **Carrier numbers:** answered (turrets destroyable, 15 to 25 seconds, large then smaller). Fine-tune when it can be played.
 - D. Anything else you want each level to contain; the landmarks above are recorded as given.
 
@@ -418,7 +424,6 @@ Each phase ends with a contact sheet of the six levels and a full test run.
 
 - **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1.
 - **Local best score per level**: not now. Revisit after the first playable level.
-- **Level 4 / 5 order**: pending (open question A).
 
 ## 14. Changes from review (draft 1 -> draft 2)
 
