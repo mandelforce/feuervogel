@@ -457,7 +457,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -1127,9 +1127,9 @@ const ENIGMA = {
   snow: 0.92, spill: 0.45, snowHalf: 0.5,        // winter hedges: snow on the hedge, spill onto the field next to it, strength s = min(1, T / snowHalf)
   snowCol: [236, 240, 248], snowScale: 0.045, snowCut: 0.28, snowGain: 9,
   thin: 0.5, farm: 6,                            // meadow and grass trees: h * (1 + thin * T); fields: meadow trees keep farm px off non-meadow
-  puffs: [[34, 18, 0], [26, 14, 1]],             // low cloud puffs: width, height, the classic cloud shape they copy
-  puffGrow: 0.6, puffA: 0.8, puffAT: 0.2,        // puffs scale by 1 + puffGrow * (1 - T), baked opacity puffA + puffAT * (1 - T)
-  wisps: [[80, 9, 0.75], [56, 8, 0.7]],          // low cloud wisps: width, height, baked opacity
+  puffs: [[34, 18, 0], [26, 14, 1], [46, 21, 2], [20, 11, 1]],   // low cloud puffs: width, height, the classic cloud shape they copy
+  puffGrow: 0.6, puffA: 0.62, puffAT: 0.2,        // puffs scale by 1 + puffGrow * (1 - T), baked opacity puffA + puffAT * (1 - T)
+  wisps: [[80, 9, 0.5], [56, 8, 0.45], [104, 10, 0.4], [40, 6, 0.55]],   // low cloud wisps: width, height, baked opacity (see-through)
   puffSteps: [0.3, 0.6, 0.85, 1], puffCut: [0.3, 0.55, 0.8],   // soft rim: alpha steps by how many pixels of the 5x5 window are opaque
   wispSteps: [0.35, 0.65, 1], wispCut: [0.45, 0.75],
   shadeSteps: [0.18, 0.4, 0.65, 0.85, 1], shadeCut: [0.2, 0.4, 0.6, 0.8],   // soft shadows over a 9x9 window
@@ -1173,11 +1173,11 @@ function enigmaSprites(pct) {
   let S = ENIGMA_SPR.get(pct); if (S) return S;
   const T = pct / 100, f = 1 + ENIGMA.puffGrow * (1 - T), low = [];
   for (const [pw, ph, from] of ENIGMA.puffs) {
-    const base = [[60, 30, [[14, 18, 12, 9], [30, 12, 16, 11], [46, 18, 13, 10], [30, 21, 18, 8]]], [44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]]][from], k = pw / base[0] * f;
+    const base = [[60, 30, [[14, 18, 12, 9], [30, 12, 16, 11], [46, 18, 13, 10], [30, 21, 18, 8]]], [44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]], [80, 36, [[16, 22, 14, 11], [36, 14, 18, 13], [58, 20, 16, 12], [40, 26, 22, 9]]]][from], k = pw / base[0] * f;
     const sp = cloudSprite(Math.round(pw * f), Math.round(ph * f), base[2].map(b => b.map(v => v * k)));
     low.push(softCloud(sp.c, ENIGMA.puffSteps, ENIGMA.puffCut, ENIGMA.puffA + ENIGMA.puffAT * (1 - T)));
   }
-  const wb = [[[12, 5, 12, 3.5], [30, 4, 14, 3.8], [50, 5, 16, 3.5], [68, 4, 12, 3.5]], [[10, 4, 10, 3], [26, 3.5, 12, 3.2], [42, 4.5, 12, 3], [50, 4, 6, 2.6]]];
+  const wb = [[[12, 5, 12, 3.5], [30, 4, 14, 3.8], [50, 5, 16, 3.5], [68, 4, 12, 3.5]], [[10, 4, 10, 3], [26, 3.5, 12, 3.2], [42, 4.5, 12, 3], [50, 4, 6, 2.6]], [[14, 5, 14, 3.5], [36, 4, 16, 4], [58, 5, 18, 3.8], [80, 4, 16, 3.5], [94, 5, 8, 3]], [[8, 3, 8, 2.4], [20, 2.5, 10, 2.4], [32, 3.2, 8, 2.2]]];
   ENIGMA.wisps.forEach(([ww, wh, al], i) => low.push(softCloud(cloudSprite(ww, wh, wb[i]).c, ENIGMA.wispSteps, ENIGMA.wispCut, al)));
   const big = [0, 2].map(i => softCloud(SPR.clouds[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
   S = { low, big }; ENIGMA_SPR.set(pct, S); return S;
@@ -7279,7 +7279,7 @@ function update() {
   const ck = 0.12 + 0.88 * clamp(world.scrollV / SCROLL, 0, 1);
   const simWas = simOn; simOn = false; // clouds, weather and birds are cosmetic: free stream (restored below)
   for (const c of hiClouds) { c.y += c.v * ck; if (c.y > H + 90) { c.y = rnd(-300, -90); c.x = rnd(0, W); c.s = (Math.random() * 3) | 0; } }
-  for (const c of clouds) { c.y += c.v * ck; if (c.y > H + 50) { c.y = rnd(-200, -50); c.x = rnd(-20, W + 20); c.s = (Math.random() * (ENIGMA_T ? 4 : 3)) | 0; c.v = rnd(0.9, 1.2); const bb = app.state === 'play' ? biomeAtSpawn() : 'sea'; c.hide = Math.random() > (bb === 'sea' ? 0.7 : world.curTheme === 4 ? 0.85 : bb === 'forest' ? 0.6 : 0.15); } }
+  for (const c of clouds) { c.y += c.v * ck; if (c.y > H + 50) { c.y = rnd(-200, -50); c.x = rnd(-20, W + 20); c.s = (Math.random() * (ENIGMA_T ? ENG_S.low.length : 3)) | 0; c.v = rnd(0.9, 1.2); const bb = app.state === 'play' ? biomeAtSpawn() : 'sea'; c.hide = Math.random() > (bb === 'sea' ? 0.7 : world.curTheme === 4 ? 0.85 : bb === 'forest' ? 0.6 : 0.15); } }
   for (const g of glints) { g.y += world.scrollV; g.life--; if (g.life <= 0 || g.y > H) { g.x = rnd(0, W); g.y = rnd(0, H); g.life = (rnd(30, 70)) | 0; } }
   {
     const thS = info(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)).th;
@@ -8303,10 +8303,10 @@ function drawProps() {
 function drawEnigmaClouds() {
   const T = ENIGMA_T, S = ENG_S;
   if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = S.big[c.s === 2 ? 1 : 0]; ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
-  ctx.globalAlpha = 0.14;
-  for (const c of clouds) if (!c.hide) { const s = S.low[c.s & 3]; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
+  ctx.globalAlpha = 0.1;
+  for (const c of clouds) if (!c.hide) { const s = S.low[c.s % S.low.length]; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
   ctx.globalAlpha = 1 - 0.45 * world.nightF;
-  for (const c of clouds) if (!c.hide) spr(S.low[c.s & 3], c.x, c.y);
+  for (const c of clouds) if (!c.hide) spr(S.low[c.s % S.low.length], c.x, c.y);
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
