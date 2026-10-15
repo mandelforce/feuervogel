@@ -77,8 +77,11 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 ```
 node tests/enigma.mjs            # all checks
-node tests/enigma.mjs --bench    # also print chunk build times per level (a baseline for the ground work)
+node tests/enigma.mjs --bench    # also print chunk build times per level, and level 6 by template (pixel pass and features apart)
+node tests/enigma.mjs --pixels   # also compare finished Campaign chunks (pixels and features) with tests/enigma-pixels.json
 ```
+
+It also checks that level 6's ground is identical on a fresh page, after a Campaign run in the same page, and after a resume. `--pixels` is a by-hand check (canvas blending can differ between browser builds, so it is not in CI): run it before and after any change to shared terrain code (`drawFeatures`, `pixelColor`, the city functions), because the replay test's terrain fingerprint sees only terrain types. `--pixels --update` rewrites the file and is only for a Campaign look change that is meant.
 
 `contact.mjs` writes screenshots of each level at several points along it, for looking at the ground by eye:
 

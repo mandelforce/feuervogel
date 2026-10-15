@@ -1,18 +1,23 @@
 // Enigma Run test (phase 1: the plumbing around a sortie). Needs Node and Playwright, like tests/replay.mjs; serve the folder first
 // (python3 -m http.server 8000).
 //   node tests/enigma.mjs            all checks
-//   node tests/enigma.mjs --bench    also print how long chunks take to build for each level (a baseline for the later phases)
+//   node tests/enigma.mjs --bench    also print how long chunks take to build for each level, and level 6 by template (pixels and features apart)
+//   node tests/enigma.mjs --pixels   also compare the finished Campaign chunks (pixels, features included) with tests/enigma-pixels.json
+//   node tests/enigma.mjs --pixels --update   write tests/enigma-pixels.json (only when a Campaign look change is meant)
+// The pixel check is by hand, not in CI: canvas blending can differ between browser builds. Run it before and after every change to shared
+// terrain code (drawFeatures, pixelColor, the city functions): the replay test's terrain fingerprint sees only terrain types, not pixels.
 // Checks: every level's sortie is well formed and rebuilt identically; an Enigma Run level never counts (board, best, play data, loops);
 // its end returns to the level picker; it is saved and resumed; the Settings button and the picker work; and above all that an Enigma Run
 // level played first leaves nothing behind: the Campaign scenario played afterwards in the same page must equal tests/golden.json.
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const golden = JSON.parse(readFileSync(new URL('./golden.json', import.meta.url), 'utf8'));
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const replay = readFileSync(new URL('./replay.js', import.meta.url), 'utf8');
-const bench = process.argv.includes('--bench');
+const bench = process.argv.includes('--bench'), pixels = process.argv.includes('--pixels'), update = process.argv.includes('--update');
+const pixUrl = new URL('./enigma-pixels.json', import.meta.url);
 
 // Same start as tests/replay.mjs: a seeded Math.random and no frame loop, so only the test moves the game.
 const initScript = () => {
@@ -34,6 +39,12 @@ async function freshPage() {
   await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
+  // SF.chunkHash(p0, p1): build chunks p0..p1 completely (pixels and features) and hash their pixels. SF.segAt(p): the sortie template of chunk p.
+  await page.evaluate(() => window.SF.peek(`SF.chunkHash = (p0, p1) => { world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; let h = 2166136261;
+    for (let p = p0; p <= p1; p++) { startChunk(p); const j = world.chunkJobs.pop(); let n = 0; while (!workChunk(j, CH) && n++ < 9); const d = j.x.getImageData(0, 0, W, CH).data;
+      for (let i = 0; i < d.length; i += 4) { h ^= d[i] | (d[i + 1] << 8) | (d[i + 2] << 16); h = Math.imul(h, 16777619); } }
+    return (h >>> 0).toString(16); };
+    SF.segAt = p => { const c = p - world.stageBaseP, s = run.sortie; if (!s) return '-'; if (c < 0) return 'before'; if (c >= s.len) return 'secret'; for (const g of s.segs) if (c >= g.start && c < g.start + g.n) return g.t; return '?'; }; 0`));
   return page;
 }
 const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
@@ -110,6 +121,28 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 3c. Level 6 is the same ground every time: a fresh page, after a Campaign run in the same page, and after a resume give the same chunk pixels.
+{
+  const page = await freshPage();
+  const hashL6 = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { settings.diff = 1; startEnigma(6); return ${hashL6}; })()`);
+  await page.evaluate(() => { window.SF.setMode('immortal'); window.SF.start(1, 1); window.SF.run(3000); });
+  const after = await peek(page, `(() => { startEnigma(6); return ${hashL6}; })()`);
+  const resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return ${hashL6}; })()`);
+  ok(fresh === after && fresh === resumed, `level 6 ground is identical fresh, after a Campaign run and after a resume (${fresh}${fresh === after && fresh === resumed ? '' : ' / ' + after + ' / ' + resumed})`);
+  await page.close();
+}
+
+// 3d. By hand (--pixels): the finished Campaign chunks of all six stages, pixels and features, against tests/enigma-pixels.json.
+if (pixels) {
+  const page = await freshPage();
+  const got = await peek(page, `(() => { const o = {}; for (let n = 1; n <= 6; n++) { SF.start(1, n); o['stage' + n] = SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + 60); } return o; })()`);
+  await page.close();
+  if (update) { writeFileSync(pixUrl, JSON.stringify(got, null, 1) + '\n'); console.log('wrote tests/enigma-pixels.json'); }
+  else if (!existsSync(pixUrl)) ok(false, 'tests/enigma-pixels.json is missing (make it with --pixels --update on the unchanged code)');
+  else { const want = JSON.parse(readFileSync(pixUrl, 'utf8')); for (const k of Object.keys(want)) ok(want[k] === got[k], `Campaign ${k} chunk pixels unchanged` + (want[k] === got[k] ? '' : ` (was ${want[k]}, now ${got[k]})`)); }
+}
+
 // 4. Optional: how long chunks take to build for each level's ground (the Campaign code for now). A baseline for phases 2 to 5.
 if (bench) {
   const page = await freshPage();
@@ -124,6 +157,14 @@ if (bench) {
     return out;
   });
   console.log('chunk build time per level (ms per 224x64 chunk, this machine):\n' + JSON.stringify(res, null, 1));
+  // level 6 over its whole length, by template, with the pixel pass and drawFeatures timed apart
+  const l6 = await page.evaluate(() => window.SF.peek(`(() => { settings.diff = 1; startEnigma(6); const df = drawFeatures; let ft = 0; drawFeatures = function () { const a = performance.now(); df.apply(this, arguments); ft += performance.now() - a; };
+    const by = {}; try { world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = [];
+      for (let p = world.stageBaseP - 2; p <= world.stageBaseP + run.sortie.len + 6; p++) { startChunk(p); const j = world.chunkJobs.pop(); ft = 0; const a = performance.now(); let n = 0; while (!workChunk(j, CH) && n++ < 9);
+        const all = performance.now() - a, t = SF.segAt(p); (by[t] = by[t] || []).push([all - ft, ft]); } } finally { drawFeatures = df; }
+    const out = {}; for (const t in by) { const px = by[t].map(v => v[0]).sort((a, b) => a - b), fe = by[t].map(v => v[1]); out[t] = { chunks: px.length, pixMean: +(px.reduce((s, x) => s + x, 0) / px.length).toFixed(1), pixP95: +px[Math.min(px.length - 1, Math.floor(px.length * 0.95))].toFixed(1), featMean: +(fe.reduce((s, x) => s + x, 0) / fe.length).toFixed(2) }; } return out; })()`));
+  console.log('level 6 by template (ms per chunk: pixel pass mean and p95, drawFeatures mean):');
+  for (const [t, v] of Object.entries(l6)) console.log(`  ${t.padEnd(20)} ${String(v.chunks).padStart(3)} chunks  pixels ${String(v.pixMean).padStart(5)} / p95 ${String(v.pixP95).padStart(5)}  features ${v.featMean}`);
   await page.close();
 }
 
