@@ -444,3 +444,66 @@ The Opus review was run against `index.html` without edits. I checked these clai
 
 Findings folded in: end-of-level and boss-trigger rework (10); theme plan changed (1.1); state leaks and the reset list (9a); leaderboard and progress flags (0); two-tier roads and the `CL.rd` drawing fix (2); perf rules (9a); reordered phases (12); PRNG rule (9a); density and rhythm metrics (3.2, 9); missing template names and compatibility fixes (3.2, 4.4); `rock` terrain (6); naming `run.sortie` (0); audit corrections (audit file).
 
+
+## 15. Phase 2: level 6 ground design (draft, before code)
+
+Scope: the **ground of level 6 only** (The Burning City), as a vertical slice. Other levels keep the Campaign ground. No new routes or street lists yet (phase 3 does those properly); no new enemy types; the bridges reuse the existing bridge target. Boss, music and enemies are the Campaign's.
+
+### 15.1 How it plugs in
+
+- `buildSortie(6)` gets `gen: 6`. When `run.sortie && run.sortie.gen`, `predictInfo(p)` (via `info(p)`) returns, for a chunk `p` at sortie chunk `c = p - world.stageBaseP`, an info object `{ b, th: 5, q: c, e: { t, i, f, c } }`: `t` the template, `i` the segment index, `f` the position inside the segment (0 to 1), `c` the sortie chunk. `b` is the **legacy biome name** the old director and placement code understand (section 9a): open_sea -> `sea`; the first chunk of coast_plain -> `coastUp`; farmland, village, suburb, town, city_river, city_centre, ruins -> `country` or `city` as listed in 15.3; industrial_power, station_main -> `factory`. Chunks before the start are `sea`; chunks from `c >= len` on are **`secret` with `th 5`** (the Campaign's final airfield, which the boss code requires, see 1.1 item 4).
+- `classify` and `pixelColor` branch at the top: `if (I.e) return classifyE(...)` / `colorE(...)`. With no sortie (the Campaign) the code path and the result are unchanged (checked by the replay test and its terrain fingerprints). `classifyE` returns the same terrain-type vocabulary (`sea surf sand grass field forest road river bridge street roof park yard concrete`) so placement, critters and the director keep working. For templates that are the legacy ground (open_sea, the coast chunk, farmland, industrial_power, station_main) `classifyE` simply calls the legacy branch with `th 5`.
+- The director paces the level from the sortie: `sortie.arcLen = len + 5` replaces the Campaign's fixed 48 for the progress `u`, for the wing spawn (18 chunks) and for the artifact's position; the boss trigger is `sortie.bossAt = len + 5` (plus the same screen-height term as the Campaign) so the boss comes the same distance after the secret ground begins as in the Campaign. With no sortie all factors are 1 and nothing changes.
+
+### 15.2 The urbanisation field
+
+One smooth value `U(c)` from 0 (open farmland) to 1 (city centre), a piecewise-linear curve over the level's chunks through these control points (each segment's own value at its middle, linear between, so there are no hard changes at segment borders):
+
+| Segment | U | damage D |
+|---|---|---|
+| open_sea, coast_plain | 0 | 0 |
+| farmland | 0.05 | 0 |
+| village | 0.30 | 0 |
+| city_suburb | 0.50 | 0.15 |
+| city_town | 0.65 | 0.25 |
+| city_river | 0.80 | 0.40 |
+| city_centre | 1.00 | 0.60 |
+| industrial_power | n/a (legacy factory) | 0.75 |
+| ruins | 0.90 | 1.00 |
+| station_main | n/a (legacy factory) | 0.80 |
+
+`U` drives house density, how many city blocks are built, and block kinds. `D` drives battle scars, fires and rubble (15.6). Both are functions of `c` and `wy` only (plus hash noise), so a chunk looks the same whenever it is built.
+
+### 15.3 Farmland, villages, suburb, town
+
+- **Farmland (U about 0.05):** the legacy `country` ground with `th 5` (fields, hedges, copses, farms, the main road). The legacy river and lake are not used (`th 5` already excludes them), so there is **no river** here (owner decision).
+- **Villages (U 0.15 to 0.4):** still the legacy field ground, but houses **cluster**. A village centre is placed every 2 to 4 chunks on the main road by hash; within about 45 px of a centre the house chance is raised to about 0.9 and houses sit on both sides of the road in a loose row with gaps, plus a small green; outside the clusters the house chance falls to a low value. Church spire and a few lit windows are added later. Implemented as a change to the chance in `houseCand`/`houseOK` for sortie chunks only.
+- **Suburb and town (U 0.4 to 0.7):** the legacy city **block grid** (56 x 48 cells, `cityCell`, the same building and roof drawing) but each cell has a **state** from `U` and noise: built (the existing kinds), garden (green plot with one or two houses), or open (field or grass). The probability of "built" rises with `U`; street lanes are drawn only where at least one neighbouring cell is built, otherwise the cell is field. Result: the city fades into the fields instead of starting at a straight line, and the grid becomes dense gradually. The kind mix also changes with `U`: row houses and gardens in the suburb, perimeter blocks, squares and churches toward the town.
+
+### 15.4 The river city
+
+A **new** river, not `riverY`/`riverD`:
+
+- It runs **east to west across the strip** (so the main road and the grid's vertical streets cross it, and the existing bridge target, a vertical deck on a horizontal river, can be reused). Its centre line is `yc(wx) = y0 + 9 sin(wx * 0.021 + ph) + 5 sin(wx * 0.07)`, width **26 px** away from the island (the Campaign's is 7 to 11), banks with an irregular edge (noise of about 2 px), shallow edge colour, and a **quay wall** (stone band 3 px) on both banks with a **riverside street** along it.
+- At one place in the segment the river **splits around a small island**: an ellipse about 70 px wide and 36 px tall (the old town), with a channel of about 11 px on each side. The island is covered by `perim` and `church` cells of the city grid (a church and a square in the middle), clipped to the ellipse, with its own quay.
+- **Bridges:** at the main road and at two vertical grid streets, one bridge across each channel (north channel: bank to island; south channel: island to bank), i.e. up to **three pairs**. Each bridge is the existing `G('bridge')` target placed by the director from the sortie (`world.enemies.push(G('bridge', x, y, { hh, bkey, small }))`), and breaks through the existing `bridgeDown` mechanism; the terrain under a bridge is `bridge` (`river` after it is broken), as in the Campaign.
+- Terrain types: `river` (counts as water for placement and critters), `bridge`, quay as `street`.
+- Placement of the river and island is fixed by the sortie from `rng`, not from `Math.random`, so it is the same every run; it is stored as `sortie.river = { c0, y0, ph, ix, iy, iw, ih, bridges: [x...] }`.
+
+### 15.5 Centre, industry, ruins, station
+
+- **City centre (U 1.0):** the densest blocks: perimeter blocks, squares with fountains, churches, parks; the main road becomes the boulevard (legacy `cityColorBase` already draws it with tram rails).
+- **Industrial power (legacy factory with `th 5`):** the halls, tanks and yards of the Campaign's factory zone; chimneys with smoke exist. Pylons and cooling towers are later assets.
+- **Ruins:** the city cells forced to `rubble` with a weighted mix of `perim` ruins; the damage overlay is at 1.0.
+- **Station main:** mapped to the legacy factory ground for now; the terminus design is later.
+
+### 15.6 Damage (visual and fires, no new enemy)
+
+The static battle scars (`drawFeatures`, 15 percent of 46 px cells on field, grass, mud and forest) become a function of `D`: density `0.15 * D / 0.6` capped at 0.35, and also drawn on city ground. Fires and smoke columns use the existing `chunkFires` and `smokePuff` at a budget that rises with `D` (up to 6 columns per screen, never in the boss arena). Burning houses are rubble cells with a fire. Plane wrecks are a later asset (new sprites).
+
+### 15.7 Limits, performance and tests
+
+- Per-pixel cost: the river and island are analytic (O(1)); cell state is cached per cell (a `Map` keyed by cell, cleared in `resetTerrainState`); no per-pixel loops over lists. **Budget:** mean chunk build time at most 1.3 times the Campaign's level 6 (about 21 ms, so at most 28 ms mean, 55 ms p95), measured by `node tests/enigma.mjs --bench`.
+- `classifyE` and everything it calls must not call `terrainType`/`classify` re-entrantly (shared `CL` object) and must test the unwarped `wy` for river and island checks, with the chunk lookup widened by the warp (about 15 px).
+- Tests: the level-6 contact sheet (reviewed by eye), a **terrain fingerprint of level 6** (like the Campaign's, stored in a new `tests/enigma.json`, because the world must be deterministic), the bench, the same-page Enigma-then-Campaign check, and the unchanged Campaign replay.
+- **Out of scope:** street and route lists (phase 3), radial streets, plane wrecks, pylons and cooling towers, the real station terminus, other levels.
