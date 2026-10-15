@@ -507,3 +507,34 @@ The static battle scars (`drawFeatures`, 15 percent of 46 px cells on field, gra
 - `classifyE` and everything it calls must not call `terrainType`/`classify` re-entrantly (shared `CL` object) and must test the unwarped `wy` for river and island checks, with the chunk lookup widened by the warp (about 15 px).
 - Tests: the level-6 contact sheet (reviewed by eye), a **terrain fingerprint of level 6** (like the Campaign's, stored in a new `tests/enigma.json`, because the world must be deterministic), the bench, the same-page Enigma-then-Campaign check, and the unchanged Campaign replay.
 - **Out of scope:** street and route lists (phase 3), radial streets, plane wrecks, pylons and cooling towers, the real station terminus, other levels.
+
+### 15.8 Review of section 15 (Opus, against the code) and the revised plan
+
+Verified by me before accepting: the bridge sprite is 24 x 32 px (5 px abutments, deck between) and the short variant is squashed to 20 px; the Campaign terrain fingerprint (`SF.terrainPrints`) hashes only `terrainType`, so it cannot see changes to colours, features, houses or trees; my phase-1 boss override replaced the whole trigger expression including the screen-height term. The rest is the reviewer's evidence; each step below re-checks what it touches.
+
+Changes to the design:
+
+1. **Boss trigger:** the sortie stores `bossAt = len + 5`; `directorInner` adds the Campaign's `ceil(XH / CH)` term itself (device-dependent, never stored in the sortie, so resume stays device-independent).
+2. **Info objects:** sortie chunks get the **full `predictInfo` shape** (`b, th, q, river: false, rw: 7, island: null, lake: null, rails, rail`), memoised on the sortie object. Sea, secret and every legacy-ground template carry **no `e`** and take the unchanged path. The new river lives in `I.e.river`, never in `I.river` (the legacy river code assumes `riverY`).
+3. **No recursion:** `classify`'s body is split into `classifyLegacy`; the `I.e` branch runs after `CL` is reset. `colorE` sets `engSat` like `pixelColor` does.
+4. **Title after a level:** `classifyE`/`colorE` take the sortie from `I.e`, not `run.sortie`, and `toTitle` drops the chunks when it clears a sortie.
+5. **River and bridges:** no `5 sin(0.07 wx)` term; the river is flattened within 20 px of each bridge; a new **long bridge** variant (`squash(SPR.bridge, 38)` and its broken version) chosen by `e.long` in the bridge's look and death (the Campaign never sets it); bridge terrain covers the full road width and convoy lanes.
+6. **Island:** snapped to **one grid cell** (about 84 x 60, centre at `ci * 56 + 32, ri * 48 + 28`) so a whole church or square cell fits; the main road does not cross it. Bridges: **one pair** to the island (north and south channel) on a grid street, plus **one or two full-river crossings** (the main road and one street). "Up to three pairs" was impossible.
+7. **Buildings never touch water:** `cityBldAt` returns null for a building whose rectangle meets the river band; the river edges are precomputed per column (`riverTop[wx]`, `riverBot[wx]`), with bank noise depending on `wx` only.
+8. **Placement guards (sortie runs only):** spires and blocks need a built cell and no river; `avenueTrees` need dry ground; `convoy`, `march`, `lightVehicle` refuse water; garden houses are drawn as cell pixels **or** as `houseAt` sprites, not both (decision: sprites, so `chunkHouses`, `critterHouse` and `worldDamage` keep working); the city spawn lists also accept `field` and `grass` in sortie runs.
+9. **Mapping written out:** farmland, village -> `country`; suburb, town, river, centre, ruins -> `city`; industrial, station -> `factory`. **The template decides how a cell is drawn; `U` only changes density inside it.** `U` across the industrial and station segments is defined as the value of the city segment before them.
+10. **Seams:** road width and style become a function of `U` (the 12 px country road widens into the 28 px boulevard over a few chunks); open city cells use the same `fieldColor` as farmland; the river is tested **before** the template dispatch, so it is never cut along the warped chunk line.
+11. **Villages:** inside a village cluster the `vnoise` gate of `houseOK` is bypassed and houses go into road-relative slots.
+12. **Pacing:** `u`, `flakBarrels`, the subs check, the wing (`14 * STAGE_LEN`) and the artifact position all scale by `arcLen / 48`. `len` must stay below about 85 chunks (`finalStartY` scans 90).
+13. **Safety net first:** a **Campaign pixel hash** of finished chunks (features included) for all six stages, so changes to shared functions (`drawFeatures`, `pixelColor`, `cityBldAt`) are caught.
+14. **Performance budget per template:** city chunks p95 at most 1.15 x the legacy city chunk; legacy grounds within 5 percent; the bench covers chunks 0 to `len + 5`, split into pixel pass and features. The reviewer measured today: city 33.5 ms mean (49 max) per chunk for the pixel pass, country 11.7, factory and secret 9.6; `drawFeatures` under 1 ms. Cell state goes in a typed array per sortie (not a `Map`); open and garden cells skip the facade and shadow lookups.
+15. **Determinism:** fires are chosen per chunk by hash and `D` (not per screen); houses are registered in a deterministic first pass. Level 6 is checked by **identity** (fresh page vs after a Campaign run vs after resume, same chunk pixel hash) rather than a golden file that would change with every look tweak.
+16. Minor: scar density formula fixed (farmland keeps the Campaign's 15 percent; city cells get scars only on yard, rubble and street); the new river gets ducks and flow lines later.
+
+**Step order** (each step ends with a contact sheet, `replay.mjs`, `enigma.mjs` and the bench):
+1. Safety net: Campaign pixel-hash golden; bench over the whole level split by template and pass; level-6 identity check.
+2. Plumbing, no new pixels: full infos with the legacy ground for every template, `bossAt` plus the screen term, arc scaling, secret from `len`, the `toTitle` reset. A bot run must reach the duel and the picker.
+3. City cell state and `U`: built / garden / open, the lane rule, road style by `U`, gates for props, avenue trees, trees and spawn lists.
+4. Villages: road-relative clusters.
+5. River and bridges: column arrays, quays, building clipping, long bridge, the sortie bridge spawner, convoy guards; then the island and its bridge pair.
+6. Damage: scars, fires and ruins by `D`.
