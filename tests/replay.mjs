@@ -70,9 +70,10 @@ for (const name of names) {
 
 // Isolation: sound, visual effects, idle weather and drawing must never change a run. Replay one scenario under conditions that must
 // not matter (another page-level random seed; the speed setting lowFX forced on; a frame drawn every 250 frames, which must also
-// draw without errors) and require the very same result as the golden one.
-if (!onlyTerrain && !update) for (const [label, pageSeed, pre] of [['other page seed', 777, ''], ['lowFX on', 1944, 'lowFX = true'], ['drawing on', 1944, 'window.__drawEvery = 250']]) {
-  const name = 'hard-stage3-real';
+// draw without errors; Enigma look at strength 50) and require the very same result as the golden one.
+if (!onlyTerrain && !update) for (const [label, pageSeed, pre, nm] of [['other page seed', 777, ''], ['lowFX on', 1944, 'lowFX = true'], ['drawing on', 1944, 'window.__drawEvery = 250'],
+  ['Enigma 50, drawing on', 1944, 'settings.enigma = 50; window.__drawEvery = 250'], ['Enigma 50, Stage 1', 1944, 'settings.enigma = 50; window.__drawEvery = 250', 'normal-stage1-immortal']]) {
+  const name = nm || 'hard-stage3-real'; // the Enigma look must not change the simulation either
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   await page.addInitScript(initScript, pageSeed);
