@@ -2135,8 +2135,40 @@ const C2 = {
 function cityCell(wx, wy) {
   const ci = Math.floor(wx / 56), ri = Math.floor(wy / 48), h = hash(ci * 3 + 1, ri * 7 + 2);
   const forceChurch = ((ri % 7) + 7) % 7 === 3 && ci === (hash(ri, 333) < 0.5 ? 0 : 3);
+  { const S = run.sortie; if (S && S.gen) return { ci, ri, fx: ((wx % 56) + 56) % 56, fy: ((wy % 48) + 48) % 48, kind: cellKind(S, ci, ri) }; } // Enigma Run level 6: blocks fade in with U
   return { ci, ri, fx: ((wx % 56) + 56) % 56, fy: ((wy % 48) + 48) % 48, kind: forceChurch ? 'church' : h < 0.08 ? 'park' : h < 0.13 ? 'square' : h < 0.16 ? 'church' : h < 0.25 ? 'rubble' : h < 0.45 ? 'row' : 'perim' };
 }
+// Enigma Run level 6 (spec 15.3): every block of the 56 x 48 grid is open (field), a garden plot (detached houses), or built (the Campaign's kinds),
+// with the chance of being built rising with U, and rubble with D. Cached per block on the sortie (a block is looked up about 8 times per pixel).
+const CELL_KINDS = ['', 'open', 'garden', 'row', 'perim', 'park', 'square', 'church', 'rubble'];
+function cellKind(S, ci, ri) {
+  const cc = ci < 0 ? 0 : ci > 3 ? 3 : ci, idx = (((-ri) & 1023) << 2) | cc, cache = S.cellK || (S.cellK = new Uint8Array(4096));
+  let k = cache[idx];
+  if (!k) { k = cellKindC(S, cc, ri); cache[idx] = k; }
+  return CELL_KINDS[k];
+}
+function cellKindC(S, ci, ri) {
+  const u = uAt(S, ri * 48 + 28), d = dAt(S, ri * 48 + 28), ruins = d >= 0.95;
+  const pB = ruins ? 1 : clamp((u - 0.35) / 0.5, 0, 1); // suburb (U 0.5) about 30 percent built, town 60, river city 90
+  if (hash(ci * 13 + 5, ri * 17 + 11) >= pB) return hash(ci * 7 + 1, ri * 3 + 5) < clamp((u - 0.2) / 0.35, 0, 1) * 0.75 ? 2 : 1;
+  const sv = clamp((u - 0.45) / 0.5, 0, 1);
+  if (sv > 0.3 && ((ri % 7) + 7) % 7 === 3 && ci === (hash(ri, 333) < 0.5 ? 0 : 3) && !ruins) return 7;
+  const w = [0.5 * (1 - sv) + 0.08 * sv, 0.2 + 0.45 * sv, 0.07, 0.02 + 0.07 * sv, 0.02 + 0.04 * sv, ruins ? 1.4 : 0.03 + 0.5 * d * d]; // row perim park square church rubble
+  let t = hash(ci * 7 + 3, ri * 5 + 9) * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < w.length; i++) { t -= w[i]; if (t < 0) return 3 + i; }
+  return 8;
+}
+// Is the street band at this point of a block drawn? Only where a neighbouring block is not open land (so the city frays into the fields).
+function laneOK(S, c) {
+  const v = c.fx < 8, h = c.fy < 8, ci = c.ci, ri = c.ri;
+  if (v && h) return cellBuilt(S, ci, ri) || cellBuilt(S, ci - 1, ri) || cellBuilt(S, ci, ri - 1) || cellBuilt(S, ci - 1, ri - 1);
+  if (v) return cellBuilt(S, ci, ri) || (ci > 0 && cellBuilt(S, ci - 1, ri));
+  return cellBuilt(S, ci, ri) || cellBuilt(S, ci, ri - 1);
+}
+function cellBuilt(S, ci, ri) { return cellKind(S, ci, ri) !== 'open'; }
+// Half the width of the main road: the 6 px country road widens into the 14 px boulevard as U rises (Campaign city: always 14).
+let rhW = NaN, rhV = 14; // one-entry memo, like roadX's (cleared with it in resetTerrainState)
+function roadHalf(wy) { const S = run.sortie; if (!(S && S.gen)) return 14; if (wy === rhW) return rhV; rhW = wy; return (rhV = 6 + 8 * clamp((uAt(S, wy) - 0.35) / 0.4, 0, 1)); }
 function houseSeg(pos, len, sA, sB) {
   let st = 0, k = 0;
   for (;;) { let w = 7 + ((hash(sA + k * 17, sB) * 8) | 0); if (len - (st + w) < 6) w = len - st; if (pos < st + w) return { st, w, k }; st += w; k++; }
@@ -2144,6 +2176,12 @@ function houseSeg(pos, len, sA, sB) {
 // returns building info for block-local coords, or null
 function cityBuilding(c, bx, by) {
   const s = c.ci * 31 + c.ri * 97;
+  if (c.kind === 'open') return null;
+  if (c.kind === 'garden') { // detached houses in 16 px plots along the top, a few at the back
+    const top = by < 12, back = by >= 27 && by < 37; if (!top && !back) return null;
+    const k = Math.floor(bx / 16), lx = bx - k * 16; if (lx < 2 || lx > 12 || hash(s + k * 5, top ? 7 : 8) > (top ? 0.7 : 0.25)) return null;
+    return { x0: k * 16 + 2, y0: top ? 1 : 27, w: 11, h: 10, ori: 'h', seed: s * 7 + k + (top ? 0 : 50) };
+  }
   if (c.kind === 'perim') {
     const D = 11;
     if (by < D || by >= 40 - D) { const top = by < D, g = houseSeg(bx, 48, s + (top ? 1 : 2), 5); return { x0: g.st, y0: top ? 0 : 40 - D, w: g.w, h: D, ori: 'h', seed: s * 7 + g.k + (top ? 0 : 50) }; }
@@ -2165,9 +2203,10 @@ function cityBuilding(c, bx, by) {
   return null;
 }
 function cityType(wx, wy) {
-  if (Math.abs(wx - roadX(wy)) < 14) return 'road';
-  const c = cityCell(wx, wy);
-  if (c.fx < 8 || c.fy < 8) return 'street';
+  if (Math.abs(wx - roadX(wy)) < roadHalf(wy)) return 'road';
+  const c = cityCell(wx, wy), S = run.sortie;
+  if (c.fx < 8 || c.fy < 8) return S && S.gen && !laneOK(S, c) ? 'field' : 'street';
+  if (c.kind === 'open') return 'field';
   if (c.kind === 'park') return 'park';
   if (c.kind === 'rubble') return 'rubble';
   if (c.kind === 'square') return 'yard';
@@ -2192,13 +2231,15 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
 }
 const FACADE = [HX(['#5e5444', '#8a7e6a', '#a69a82']), HX(['#3e1c14', '#5e2a1c', '#7a3a26']), HX(['#3e3c38', '#5a5852', '#74726a'])];
 function cityBldAt(wx, wy) {
-  if (Math.abs(wx - roadX(wy)) < 10) return null;
+  if (Math.abs(wx - roadX(wy)) < roadHalf(wy) - 4) return null;
   const c = cityCell(wx, wy);
   if (c.fx < 8 || c.fy < 8) return null;
   return cityBuilding(c, c.fx - 8, c.fy - 8);
 }
 const CARS = HX(['#2a2a30', '#5a1a14', '#1e2e44', '#3a3a2a', '#6a6a6e', '#2a3a26']);
 function cityColor(wx, wy, rx) {
+  { const S = run.sortie; if (S && S.gen) { // Enigma Run: inside open land and empty garden lawns no building can cast a facade or shadow here (they look 3 px up and 2 px left), so skip those lookups
+    const c = cityCell(wx, wy), by = c.fy - 8; if (c.fx >= 10 && c.fy >= 11 && (c.kind === 'open' || c.kind === 'rubble' || c.kind === 'park' || c.kind === 'square' || (c.kind === 'garden' && by >= 15 && by < 27))) return cityColorBase(wx, wy, rx); } } // block kinds with no buildings
   const own = cityBldAt(wx, wy);
   if (!own) {
     for (let k = 1; k <= 3; k++) {
@@ -2228,14 +2269,20 @@ function streetCar(c, wx, wy) {
   return CARS[(hsh * 19 | 0) % CARS.length];
 }
 function cityColorBase(wx, wy, rx) {
-  const d = Math.abs(wx - rx);
-  if (d < 14) {
-    if (d > 6.5) return d > 13.3 ? C2.shadow : C2.side[pickI(3, 0.55 + (hash(wx, wy) - 0.5) * 0.4, wx, wy)];
+  const d = Math.abs(wx - rx), S = run.sortie, E = S && S.gen, bw = E ? roadHalf(wy) : 14;
+  if (E && d < bw && bw < 10) { // the narrow road where the city begins: the country road's look
+    if (d > bw - 1.5 && hash(wx, wy) < 0.5) return TRGB.grass[2];
+    let l = 0.55 + (vnoise(wx * 0.3, wy * 0.3) - 0.5) * 0.4; if (Math.abs(d - 2.5) < 0.7) l -= 0.35;
+    return TRGB.dirt[pickI(4, l, wx, wy)];
+  }
+  if (d < bw) {
+    if (d > bw - 7.5) return d > bw - 0.7 ? C2.shadow : C2.side[pickI(3, 0.55 + (hash(wx, wy) - 0.5) * 0.4, wx, wy)];
     const dd = Math.abs(d - 3.2);
-    if (dd > 0.9 && dd < 1.6) return C2.steel;
+    if (dd > 0.9 && dd < 1.6 && bw >= 13) return C2.steel; // tram rails on the full boulevard only
     return C2.cobble[pickI(4, 0.45 + (((wx >> 1) + (wy >> 1)) & 1 ? 0.12 : -0.08) + (hash(wx, wy) - 0.5) * 0.25, wx, wy)];
   }
   const c = cityCell(wx, wy);
+  if (E && (c.kind === 'open' || ((c.fx < 8 || c.fy < 8) && !laneOK(S, c)))) return fieldColor(wx, wy); // open land between and around the blocks: the farmland's own fields
   if (c.fx < 8 || c.fy < 8) {
     const car = streetCar(c, wx, wy); if (car) return car;
     const e = (c.fx < 8 && (c.fx < 1 || c.fx > 6)) || (c.fy < 8 && (c.fy < 1 || c.fy > 6));
@@ -2271,6 +2318,13 @@ function cityColorBase(wx, wy, rx) {
     return roofPix(lx, ly, b, C2.roofs[idx], wx, wy);
   }
   // courtyards, gardens, churchyards
+  if (c.kind === 'garden') { // lawns with fences between the plots, a path to each house, a few vegetable beds
+    const lx = bx % 16;
+    if (lx === 0 || by === 39) return C2.fence;
+    if (by < 16 && lx >= 6 && lx <= 8) return C2.pave[1];
+    if (by > 20 && by < 25 && hash(Math.floor(bx / 16), c.ri * 3 + c.ci) < 0.4) return C2.soil[pickI(3, by % 2 ? 0.3 : 0.7, wx, wy)];
+    return C2.grass[pickI(4, 0.5 + (vnoise(wx * 0.12, wy * 0.12) - 0.5) * 0.5, wx, wy)];
+  }
   if (c.kind === 'row') {
     const plot = Math.floor(bx / 8);
     if (bx % 8 === 0) return C2.fence;
@@ -2735,7 +2789,7 @@ function treeOk0(tt, tx, ty, h, th) {
   return ok;
 }
 const burntTrees = new Set(), damagedHouses = new Set();
-function avenueTrees(y0, y1) { const out = []; for (let ty = Math.floor(y0 / 18) * 18; ty <= y1; ty += 18) for (const sd of [-10, 10]) { const tx = roadX(ty) + sd, C = classify(tx, ty); if (C.I.b === 'city' && hash(ty, sd) < 0.85) out.push({ x: tx, y: ty, s: SPR.trees[2] }); } return out; }
+function avenueTrees(y0, y1) { const out = []; for (let ty = Math.floor(y0 / 18) * 18; ty <= y1; ty += 18) for (const sd of [-10, 10]) { const tx = roadX(ty) + sd, C = classify(tx, ty); if (C.I.b === 'city' && hash(ty, sd) < 0.85 && roadHalf(ty) >= 13) out.push({ x: tx, y: ty, s: SPR.trees[2] }); } return out; }
 // classic: the trees of the classic look, for code that runs in the simulation (explosion scorching, picking spots for ground targets); t.vis says if Enigma draws the tree
 function treeList(wx, wy, r, classic) {
   const out = [], cs = 9;
@@ -2828,7 +2882,7 @@ function drawFeatures(x, p, wy0) {
   }
   if (world.featTheme === 5) for (let ty = Math.floor(y0 / 12) * 12; ty <= y1; ty += 12) for (const sd of [-1, 1]) {
     const tx = roadX(ty) + sd * 8.2;
-    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city') stamp(x, SPR.trees[2], tx, ty - wy0);
+    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city' && roadHalf(ty) >= 13) stamp(x, SPR.trees[2], tx, ty - wy0);
   }
   cs = 34;
   for (let cj = Math.floor(y0 / cs) - 1; cj <= Math.floor(y1 / cs) + 1; cj++) for (let ci = 0; ci <= Math.ceil(W / cs); ci++) {
@@ -3919,15 +3973,34 @@ function buildSortie(level, seed) {
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     gen: level === 6 ? 6 : 0, bossAt: level === 6 ? at + 5 : null, arcLen: level === 6 ? at + 5 : null,
-    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k) };
+    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level === 6 ? sortieUD(segs, at) : null };
 }
+// Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
+// in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
+const SORTIE_UD = { open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] };
+function sortieUD(segs, len) {
+  const pts = []; let lastU = 0;
+  for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }
+  const n = len + 12, U = new Float32Array(n), D = new Float32Array(n);
+  for (let c = 0; c < n; c++) {
+    let k = 0; while (k < pts.length - 1 && pts[k + 1][0] <= c + 0.5) k++;
+    const a = pts[k], b = pts[Math.min(k + 1, pts.length - 1)], f = b[0] > a[0] ? clamp((c + 0.5 - a[0]) / (b[0] - a[0]), 0, 1) : 0;
+    U[c] = c + 0.5 < pts[0][0] ? pts[0][1] : a[1] + (b[1] - a[1]) * f; D[c] = c + 0.5 < pts[0][0] ? pts[0][2] : a[2] + (b[2] - a[2]) * f;
+  }
+  return { U, D, n };
+}
+// U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
+// No allocations: these run several times per pixel.
+function udF(S, wy) { return clamp(-wy / CH - world.stageBaseP - 0.5, 0, S.ud.n - 1.001); }
+function uAt(S, wy) { const f = udF(S, wy), c = f | 0, U = S.ud.U; return U[c] + (U[c + 1] - U[c]) * (f - c); }
+function dAt(S, wy) { const f = udF(S, wy), c = f | 0, D = S.ud.D; return D[c] + (D[c + 1] - D[c]) * (f - c); }
 // Every cache and shared value that the terrain and placement code keeps between calls. Called when any run starts (a run must never see
 // what an earlier run, Campaign or Enigma, left behind) and when the sortie changes. Add new terrain caches here.
 function resetTerrainState() {
   for (const m of [roadCache, farmCache, tentCache, houseCache, fieldOkCache, railEndCache, parcelRowCache, parcelBlkCache, flowCache, canopyCache]) m.clear();
   castleCache = { base: null, v: null }; finalCache = { k: null, y: null };
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
-  critters.length = 0; props.length = 0; rxW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
+  critters.length = 0; props.length = 0; rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level) {
   app.enigmaLast = level; startAt(level, false, level);
@@ -4984,11 +5057,12 @@ function spawnGround(b) {
     else if (r < 0.86) squad(wy, ['street', 'yard']);
     else { const wx = tryLand(['yard', 'roof']); if (wx !== null) bunker(wx); }
   } else if (b === 'city') {
+    const S6 = run.sortie && run.sortie.gen; // Enigma Run level 6: the city's open and garden blocks are fields, so guns also stand on them
     if (r < 0.3 && count('tank') + count('htank') < 3 + run.loop) convoy(wy, Math.random() < 0.3);
-    else if (r < 0.5) { const wx = tryLand(['roof']); if (wx !== null) flak(wx); }
+    else if (r < 0.5) { const wx = tryLand(S6 ? ['roof', 'field', 'grass'] : ['roof']); if (wx !== null) flak(wx); }
     else if (r < 0.62 && count('aatower') < 1 + run.loop) { const wx = tryLand(['park', 'yard'], 20); if (wx !== null) world.enemies.push(G('aatower', wx, wy - 8, { cd: 60 })); }
-    else if (r < 0.82) squad(wy, ['street', 'park', 'yard']);
-    else { const wx = tryLand(['roof', 'rubble']); if (wx !== null) bunker(wx); }
+    else if (r < 0.82) squad(wy, S6 ? ['street', 'park', 'yard', 'field'] : ['street', 'park', 'yard']);
+    else { const wx = tryLand(S6 ? ['roof', 'rubble', 'field'] : ['roof', 'rubble']); if (wx !== null) bunker(wx); }
   } else if (b === 'bossland') {
     const wx = tryLand(['grass']);
     if (wx !== null) (r < 0.5 ? bunker : flak)(wx);
