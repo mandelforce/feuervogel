@@ -1,12 +1,15 @@
-# Enigma Run: world generator specification (draft 1)
+# Enigma Run: world generator specification (draft 2)
 
-Status: first draft, Sonnet-written, **not yet reviewed**. It builds on `docs/enigma-world-audit.md` (read that first). Numbers in this file are starting values to tune, not decisions. Items marked **[you]** are for the owner to add or decide.
+Status: draft 2. Draft 1 was written by Sonnet and then reviewed adversarially by an Opus agent against `index.html`; its findings are folded in below (see "Changes from review" at the end, which also lists what I verified myself and what is still the reviewer's claim). It builds on `docs/enigma-world-audit.md` (read that first). Numbers in this file are starting values to tune, not decisions. Items marked **[you]** are for the owner to add or decide. Items marked **[verify]** are claims from the review that phase 1 must confirm in code before anything depends on them.
 
 ## 0. Scope
 
 - **Enigma Run** is a separate mode: a Settings button opens a level picker (levels 1 to 6, one at a time), modelled on the existing practice picker (`#diffAsk` with the stage row `#dStage`). The Campaign, its stages, scoring, leaderboard and the golden replay checksums stay untouched.
 - The new levels are produced by a **world generator** that is also meant to feed generative mode later.
 - Visual and structural redesign comes first. Enemies, bosses and set pieces are reused from the campaign and are only attached to the new places through "slots" (section 5). New enemy types are out of scope for now except those listed in section 11.
+- **Naming:** the existing Enigma slider is the "Enigma look" (`ENIGMA_T`, `run.enigma`). To avoid a collision the mode's run data is `run.sortie` (null for the Campaign), and the user-facing button is still called "Enigma Run".
+- **Enigma runs never count.** They do not reach the leaderboard, `saveHi`, `loopsWon` or the Campaign progress. A flag on the run (`run.sortie != null`) is checked in `lbEligible`, `saveHi` and the stage-complete path (phase 1). The resume record stores `{level, seed}` and `resumeRun` rebuilds the sortie. [you] may later want a local best per level.
+- **Enigma levels end in their own way.** Finishing a level shows results and returns to the level picker: no `run.stage++`, no `loopsWon++`, no hand-over to the next Campaign stage.
 - Hard rules carried over from `ARCHITECTURE.md`: visuals use the free random stream and never the run's seeded stream; the dither (`bay`, `pickI`) stays as it is; bump `VERSION` in `index.html` and `sw.js`; add a `CHANGELOG.md` line.
 
 ## 1. Architecture in one picture
@@ -34,7 +37,7 @@ Three ideas:
 2. **Two kinds of content.** *Sites* are planned, validated landmarks (harbour, air base, station, castle, carrier, factory complex, village, city district). *Scatter* is the existing stateless cell-hash decoration (trees, single houses, fields, scars), now filtered by masks that the sites provide.
 3. **Same pipeline.** Chunks are still `W x CH` (224 x 64) canvases built by `workChunk`, then `drawFeatures`. The new code supplies `classify`, `pixelColor` and a feature pass for Enigma Run; the campaign code path is selected by `run.enigmaRun == null`.
 
-### 1.1 Decoupling theme (from audit finding 2)
+### 1.1 Decoupling theme
 
 The sortie carries the fields that the campaign hides in `th`:
 
@@ -42,36 +45,46 @@ The sortie carries the fields that the campaign hides in `th`:
 |---|---|---|
 | `climate` | `temperate`, `desert`, `winter`, `forest` (dark conifer) | palette, tree set, house set, field style |
 | `weather` | a weather plan (section 8) | `snowF`, `dustF`, rain by theme |
-| `timeOfDay` | `day`, `dusk`, `night`, `dawn` | night tint |
+| `timeOfDay` | `day`, `dusk`, `night`, `dawn` | night tint (but see below) |
 | `bossKind` | key into `BOSS` | `BOSS_KINDS[curTheme]` |
 | `song` | key into `STAGE_SONGS` | `STAGE_SONGS[curTheme]` |
 
-For the six Enigma levels these start with the campaign's values so music and bosses are unchanged. New-mode code reads the sortie; old code keeps reading `curTheme`, which Enigma Run sets to the matching legacy theme **only for the code paths that still need it** (boss, set pieces, weather overlays). The list of those paths is part of the work in phase 1.
+**How the old code is handled (changed after review).** `curTheme` is one global that `predictInfo`, the director, `spawnGround`, `worldLife`, `SET_PIECES`, `BOSS_KINDS`, the night shots of searchlights and about 80 other places read, and many of them affect the simulation, not only the look. So:
 
-## 2. Roads and rails as lists of lines (decision made)
+1. For a whole Enigma level, `curTheme`, `prevTheme` and `featTheme` are set to the matching **legacy theme** (level 1 -> 0, 2 -> 2, 3 -> 3, 4 -> 4, 5 -> 1, 6 -> 5). Enemies, set pieces, boss, music and night behaviour then work as in the Campaign.
+2. The **terrain and look code branches on the sortie, not on `th`**: `predictInfo`/`info`, `classify`, `pixelColor`, `drawFeatures`, the palette choice, the winter blend, the tree and house sets. When `run.sortie` is set they read `sortie.climate` and the segment; when it is null the old code runs unchanged.
+3. `timeOfDay: night` is **not only a tint**: `nightF` comes from `th === 3` and gives searchlights extra shots. Level 3 keeps `curTheme = 3`. A night in another level is visual only unless [you] want the extra shots as well.
+4. **Boss arenas follow the campaign's terrain contract exactly**, with the campaign's biome name and theme, because the boss code expects specific ground (audit "Campaign-only"): `sea` for the ship; `bossland` with `th 1` giving `ryard` with `YARD_T` for the train; `BOSSRAIL` +/- 19 for the railgun (`th 3`); `castle` with `th 4` for the castle; `secret` with `th 5` for `finalAirfield`/`finalStartY` for the sky fortress. The fortress arena (`th 2`) uses the campaign's `bossland`. Making these arenas free-form is a later project. [verify]
 
-The campaign has one road, `roadX(wy)`. Enigma Run has `sortie.roads`, a list. `roadX` keeps working as "the main road" (`roads[0]` at that `wy`), so every old helper that calls it stays valid for the first road. New code uses the list.
+## 2. Roads and rails as lists of lines (decision: lists; two tiers after review)
+
+The campaign has one road, `roadX(wy)`. Enigma Run has `sortie.roads`, a list. The review showed that one kind of line cannot serve both convoys and town streets, so there are **two tiers**.
+
+### Tier A: routes (the roads that vehicles use)
 
 ```
-road   = { id, kind, w, pts:[[x,y],...], from, to, bridgeIds }
-rail   = { id, w, pts:[[x,y],...], from, to, stations:[siteId] }
-kind   ∈ track | country | highway | street | runway | taxi
+route = { id, kind, w, pts:[[x,y],...], from, to }
+kind  ∈ track | country | highway
 ```
 
-Rules:
+- A route is **monotone in y**: x is a function of y. It can drift, curve and fork (a fork is a second route with `from` on the first), but not loop back.
+- At most **2 routes per chunk**. Only routes carry road-following enemies (`convoy`, `march`, `lightVehicle`, tanks with `road: true`), which need x as a function of y.
+- `roadX(wy)` returns the **first route active at that y**. Where no route exists (open sea, an island, a boss arena) it returns a fixed fallback x **and `routeActive(wy)` is false**; the director and placement helpers must check `routeActive` before they spawn anything on the road. This replaces the old assumption that a road always exists. (Today `convoy` and `march` spawn at `roadX` without checking terrain.)
+- Rails are routes with `kind: rail`, with a gentler minimum curve and the same monotone rule. Sidings are short rails with `from`/`to` on the main rail. Level crossings are a site connector.
+- Bridges are **connectors**: a route that meets water gets a `bridge` span, drawn by the existing `bridge` and `railbridge` terrain types and attacked by the existing `G('bridge')`.
 
-1. **Vertical roads are functions x(y).** Points are ordered by decreasing y (up the screen) and must be monotone in y. A road can drift, curve and fork, but not loop back. Smooth interpolation is a Catmull-Rom spline sampled into a 4 px lookup table per road at build time, so `roadsAt(wy)` is a table read.
-2. **Cross streets are short horizontal roads, `axis:'h'`**, functions y(x) over an x range. They exist inside towns, cities, camps and air bases.
-3. **Junctions are explicit.** A road's `from` or `to` can name another road and a position along it. Junctions are drawn as a small circular patch; no free-form crossings.
-4. **Rails** follow the same rule, but with a gentler minimum curve radius and no cross streets. Sidings are short rails with `from`/`to` on the main rail. Level crossings are a site connector between a road and a rail.
-5. **Bridges are connectors, not terrain.** A road or rail that meets water gets a `bridge` span in its `bridgeIds`, drawn by the existing `bridge` and `railbridge` terrain types and attacked by the existing `G('bridge')`.
-6. **Queries** (used by `classify`, placement and the director):
-   - `roadDist(wx, wy)` = smallest distance to any road (so `Math.abs(wx - roadX(wy))` becomes `roadDist` in new code).
-   - `roadNear(wx, wy, r)` = the road, or none.
-   - `onRoad(wx, wy)` is `roadDist < w/2`. Cost: a table read per road active in that chunk. Each chunk keeps a short list of its active roads, built when the chunk is made.
-7. **Budget:** at most 4 roads and 3 rails active in one chunk. This limit is what keeps per-pixel cost close to today's.
+### Tier B: streets (the roads inside a site)
 
-Open point [you]: should enemies that drive on roads (convoy, tanks) get "route" objects (a road id plus a lane), or keep using `roadX`-based lanes on the main road only? Proposal: route objects, with `road: true` enemies reading `route.x(wy)`.
+Streets in villages, cities, harbours (quays, harbour-front), air bases (runway, taxiways), camps and industrial yards belong to the **site's `ground()`**, as `cityCell` does today. They are plain lists of straight segments `[x0,y0,x1,y1,w,kind]`, indexed per chunk, with perpendicular point-to-segment distance, so they can be diagonal, radial or horizontal. A city may have dozens per chunk; they do not count toward the route budget.
+
+### Drawing and queries
+
+- `classify` records the signed offset to the matched route or street in `CL.rd` and `pixelColor` uses that offset. It no longer assumes the main road at `rx` (today `pixelColor` draws every road relative to `rx`, so a second road would be drawn wrongly).
+- "On road" for routes is `|wx - x(wy)| < w/2` as today; routes are therefore limited to a gentle slope. The builder rejects any route that turns more than about 35 degrees from vertical. Steeper lines are streets (Tier B).
+- Queries for new code: `routeDist(wx, wy)`, `routeNear(wx, wy, r)`, `streetDist(wx, wy)`. They read the chunk's pre-built lists of active routes and streets (built when the chunk starts), not the global list.
+- Cost: one table read per active route (4 px lookup table per route, built at sortie time) plus one distance check per street in the chunk's list.
+
+[you] Enemies that drive on routes could later get "route objects" (a route id plus a lane). For now they keep the `roadX`-lane logic on the first route.
 
 ## 3. Composition: segments
 
@@ -119,7 +132,24 @@ Each template lists: what the ground is, how the screen is arranged (the "rhythm
 | `boss_arena_*` | A flat, low-detail area sized for one boss (sea, harbour basin, rail yard, salt pan, castle court, air). | 5 to 15 percent | inherits |
 | `pass` / `valley` | Relief that narrows the playfield: cliff walls, river valley, desert canyon. | 15 to 30 percent | road, river |
 
-Density is a **maximum**: the validator in section 9 rejects segments that go over it.
+**Density is defined as the area share of a chunk covered by built structures**: buildings, runways, hangars, quays, platforms, factory halls, tanks, fortifications and roads' paved width. Trees, fields, hedges, water and scatter decoration do **not** count. The range in the table is the allowed average over the segment; the **peak** of any single chunk may exceed it by at most 10 percentage points. Where a cell says "fading to 10", the first value applies to the centre of the segment and the second to its edges, and the validator checks both.
+
+Templates used by the level sequences in section 10 and not listed above are variants of the listed ones with the same rules, defined here so the names resolve:
+
+| Variant | Based on | Difference |
+|---|---|---|
+| `beach_cliff` | `beach_fortified` | cliff coast with clifftop batteries, no sand strip |
+| `open_sea_ice` | `open_sea` | ice floes, winter palette |
+| `harbour_winter`, `industrial_harbour` | `harbour_*` | winter palette; industrial hinterland |
+| `farmland_winter`, `farmland_approach` | `farmland` | winter palette; a road leading to a castle gate |
+| `clearing_village` | `village` | in a forest clearing, logging camp |
+| `lake_valley` | `valley` | a lake and river instead of a canyon |
+| `rail_corridor` | `station_*` | two parallel rails and no platform |
+| `airbase_searchlight` | `airbase_*` | searchlights; night |
+| `castle_forest` | `castle_*` | forest variant (new; see 4.4) |
+| `city_suburb`, `city_centre` | `city_*` | density fade ends (low, high) |
+| `station_main` | `station_*` | large terminus |
+| `ruins` | any built template | **an overlay, not a template**: segments in section 10 written as `ruins N` mean "the previous template at damage `ruined`" |
 
 ### 3.3 Transitions
 
@@ -158,14 +188,14 @@ Three states per combination: **S** supported (designed and tested), **A** adapt
 
 | Feature | temperate | desert | winter | forest (dark conifer) | Notes |
 |---|---|---|---|---|---|
-| Farmland, farmstead | S | A (irrigated, terraced) | S | F | |
+| Farmland, farmstead | S | A (irrigated, terraced) | S | A (small fields near a castle or village only) | |
 | Village | S | A (flat roofs) | S | A | |
 | Harbour | S | A | A (ice, icebreaker) | A | needs navigable water on one side |
 | Airbase | S | S | A | A (camouflaged) | runway needs 30 px clear margin |
 | Station | S | A | S | A | needs rail |
 | Industry | S | A (oil field) | A | F | needs road |
 | City | S | A | A | F | |
-| Castle | S | A | S | S | |
+| Castle | S | A | S | S (forest variant: new asset) | |
 | Forest deciduous | S | F | A | F | |
 | Forest conifer | A | F | S | S | needs a new conifer sprite |
 | Island fort, carrier | S | S | A (ice floes) | A | needs open sea |
@@ -177,9 +207,9 @@ Hard rules (the builder rejects the sortie if one fails):
 2. A station needs a rail; a level crossing needs a road and a rail.
 3. A bridge is only generated where a road or rail crosses water.
 4. The carrier and ships only appear on open sea at least 80 px wide in x.
-5. No two sites overlap; every site keeps its `clear` rectangles free of any other site, road, rail or scatter object.
+5. No two sites overlap; every site keeps its `clear` rectangles free of any other site, route, rail or scatter object. **Exception:** the site's own streets, runway and taxiways, and the route or rail that enters it through its declared connector.
 6. Palm trees only in desert, snow trees only in winter. Conifers not in desert.
-7. No spawner within 40 px of the screen edge at the moment it comes on screen (checked as a scrolling sequence, section 9).
+7. No spawner is placed where it first appears within 24 px of the left or right screen edge (everything comes on from the top edge, so the side margin is what matters), checked as a scrolling sequence (section 9).
 
 ## 5. Gameplay semantics
 
@@ -201,7 +231,7 @@ Rule from the review request: the director must never place a gun where a large 
 
 - **Sea:** depth bands (shoal, mid, deep) from noise, drawn with the existing sea palette steps. Islands are a field `landMask(wx, wy)` from a few metaballs placed by `island_chain`, with a beach ring (existing `sand` + `surf`). Reefs are decoration on shoals.
 - **Coast:** `coastLine` is kept for straight coasts. Bays and harbour basins come from sites that override `ground`. Cliffs are a coast variant with a 3 to 5 px dark band.
-- **Relief is visual only.** A relief value in `[0,1]` per pixel from noise and authored ridges shifts the ground colour one palette step (light from the upper left). It never changes `terrainType`. `pass` and `valley` templates use the same value to place cliff walls as a drawn edge, not as a gameplay barrier. This keeps the simulation and the replay checksums independent of relief.
+- **Relief is visual only.** A relief value in `[0,1]` per pixel from noise and authored ridges shifts the ground colour one palette step (light from the upper left). Relief shading itself never changes `terrainType`. Cliff walls and bare rock are the exception: they get their own terrain type `rock`, which ground enemies and scatter treat like water (never placed on it), so `tryLand` cannot put a gun on a drawn cliff. `rock` is new vocabulary only inside Enigma Run; the Campaign never produces it, so the replay checksums stay independent.
 - **Rivers:** polylines like roads (monotone in y), width 5 to 11, with estuary and canal kinds. Bridges per section 2.
 - **Ground cover** (grass, scrub, bare earth, rock, snow) is a separate layer from landform, so one landform can be reused in several climates.
 
@@ -245,20 +275,49 @@ Hard rule: every weather effect is drawn **under** bullets, enemies, pickups and
 
 ## 9. Validation
 
-Run at build time (in a test harness, over many seeds) and optionally in a debug overlay.
+Run at build time in a test harness over many seeds, and optionally as a debug overlay. Every rule has a metric; the numbers are starting values.
 
-1. **Hard constraints** (section 4.4): fail the seed.
-2. **Density:** per template max (section 3.2), measured as the area share of non-open ground in each chunk; plus a minimum **negative space** (starting value: in every 224 x 120 px window, an open lane at least 40 px wide).
-3. **Scroll sequence:** a simulated view scrolls the whole level; check that no landmark pops in within 1 second of the screen's top edge without a clear approach, that dense stretches (above 50 percent) are at most 3 chunks long without a quieter one after, and that rhythm alternates (dense, sparse, landmark, sparse).
-4. **Readability:** each climate palette is tested against the enemy bullet colours: minimum luminance difference and hue difference of the darkest and brightest ground steps. Effects (smoke, mist, rain, snowstorm, heat) are tested stacked at their maximum on each climate and must keep the bullet colours distinguishable.
-5. **Connectivity:** every road and rail has both ends on a seam or the level edge; every site's connectors meet a road, rail or water.
-6. **Performance:** chunk generation time per template vs. the campaign baseline (`tests/perf.mjs`, a few percent allowed); per-chunk active roads, rails, sites within the budgets.
-7. **Determinism:** same seed gives the same sortie and same chunk pixels; `node tests/replay.mjs` is unchanged for the campaign.
-8. **Visual review:** a contact sheet of N seeds for each level and each template (Playwright, as described in `docs/enigma-prompt.md`).
+1. **Hard constraints** (section 4.4): any failure rejects the seed.
+2. **Density:** per chunk, `structure area / chunk area` as defined in 3.2, against the template's range (average) and range + 10 points (peak).
+3. **Negative space:** in every 224 x 120 px window of the level, an open lane at least 40 px wide with no structure, route-side object or site `clear` violation. Boss arenas: at most 15 percent structure and none in the clear rectangle.
+4. **Rhythm:** over a sliding window of 6 chunks, the density must vary: the difference between the densest and the sparsest chunk is at least 15 points; no more than 3 consecutive chunks above 50 percent; at least one chunk under 25 percent in every 8; each landmark site has at least 1 chunk of density under 30 percent before it ("approach").
+5. **Readability:** for every climate palette, take the 3 darkest, 3 brightest and the mean ground colours and compare each with every enemy bullet colour: luminance difference of at least a set amount (start: 25 of 255) **or** hue difference of at least 40 degrees. Stack the maximum of every weather effect, smoke and fire on top (alpha-composite) and re-run; the bullet colours must still pass. This is a table test on palettes, not a screenshot test.
+6. **Connectivity:** every route and rail has both ends at a seam or a level edge; every site connector meets a route, street, rail or water.
+7. **Performance:** a **chunk micro-benchmark per template** (new; `tests/perf.mjs` only measures frame times against `perf-baseline.json`, it does not measure chunk build time). Compare with the Campaign baseline; a few percent allowed. Also `drawFeatures` time per chunk, which today runs in one call.
+8. **Determinism:** same seed gives the same sortie and the same chunk pixels, in a fresh page and in a page that previously ran another level. `node tests/replay.mjs` is unchanged.
+9. **State hygiene (new):** a replay case that plays an Enigma level and then the golden Campaign scenario **in the same page** and checks the golden checksums. The existing `tests/replay.mjs` opens a fresh page per scenario and cannot see leaks.
+10. **Visual review:** a contact sheet of N seeds for each level and template (Playwright, as in `docs/enigma-prompt.md`).
+
+## 9a. Engineering rules for the generator (new, from review)
+
+**State.** Starting an Enigma level must call one `resetTerrainState()` (also called when a Campaign run starts, and by `toTitle`) that clears everything the terrain code caches: `roadCache`, `farmCache`, `tentCache`, `houseCache`, `fieldOkCache`, `railEndCache`, `parcelRowCache`, `parcelBlkCache`, `flowCache`, `canopyCache`, `castleCache`, `finalCache` (its key omits the seed), `chunkHouses`, `chunkFires`, `rxW`, `towerRows`, `towerCells`, `setPieceDone`, `bridgeDown`, `bridgeSpawned`, `critters`, `props`, `burntTrees`, `damagedHouses`; and must reset the shared singletons `CL`, `TRGB`, `engSat`, `world.featTheme`, `world.curTheme`/`prevTheme`/`prevLand`/`blendFrom`/`blendTo`/`blendY`/`stageBaseP` and `world.SEED`. `createRun` gets a `sortie: null` key so a stale value cannot leak into the next Campaign run. `toTitle` clears the sortie, and the tutorial and title screen always use the original terrain. [verify] each name against the code in phase 1; the list is the reviewer's.
+
+**Randomness.** `buildSortie` uses only a pure hash or splitmix sequence from `(seed, level, segmentIndex)`. It never uses `Math.random`, so lazily extended sorties (later, for generative mode) give the same result whenever they are built.
+
+**Build limits.** `buildSortie` rejects and re-rolls a placement at most N times (start: 8) and then falls back to a fixed, hand-checked layout for that segment. It never loops without a limit while the game is running.
+
+**Per-pixel and per-chunk rules.**
+- `classify` returns the shared `CL` object. A site's `ground()` must **not** call `terrainType` or `classify`; it gets plain coordinates and returns a type, so it cannot overwrite `CL` mid-call.
+- `classify` warps `wy` by `wob(wx, wy)` (up to about 14.5 px). Site rectangles are tested on the **unwarped** `wy`, against sites indexed for chunks p-1 to p+1.
+- Do not copy `castleInfo`'s per-call string cache key; use a numeric sortie id.
+- `drawFeatures` is split into passes (ground details, trees, buildings, effects) that `workChunk` can spread over several frames in Enigma Run. Urgent chunks (level start, `setLook`) ignore the budget, so the first chunks use a cheaper first pass.
+- Masks (`mask(wx, wy)`) used by scatter are looked up per cell, not per pixel.
+
+**Compatibility with the director.** Phase 1 maps every template to a legacy `info.b` string (`country`, `forest`, `base`, `city`, `factory`, ...). The old director only spawns by those strings, so an unmapped template would get no ground enemies, and a mapped one must never imply a road that does not exist (see `routeActive`). [verify] the full list of `info(p).b` consumers (about 18 direct checks).
 
 ## 10. The six levels as segment sequences (draft, for you to change) [you]
 
-Lengths in chunks (a campaign stage is about 48 chunks). "Density" is the planned peak. Order is the Campaign order. Bosses and music are the campaign's.
+Lengths in chunks. Order is the Campaign order. Bosses and music are the campaign's.
+
+**How a level ends (changed after review).** In the Campaign the boss spawns when the chunk counter `qTop` reaches `round(37 * 1.3) + ceil(XH / CH)` = 48 plus a margin (theme 1 gets extra), set pieces and the "still" zone use a progress `u = qTop / 48`, a wing spawns at chunk 18, and the **last biome never ends** (`biomeForQ` returns the boss ground for every later q). The castle boss is reported to need about 19 chunks of castle ground after its trigger because it is anchored far above where it spawns. [verify] Therefore:
+
+- `buildSortie` emits `bossQ` (the chunk at which the boss triggers) and `len`. `directorInner` takes the trigger and the `u` normalisation from the sortie when one exists.
+- The **last segment is open-ended** (it never ends, like the campaign's last biome), and its `lengthChunks` is only its minimum.
+- Seams are **counted inside** the lengths below.
+- A level's `bossQ` is about 44 to 48 unless a sequence is deliberately shorter; the wing spawn and set-piece positions are derived from `bossQ`, not from the fixed 18 and 48. Boss arenas use the campaign contract from 1.1 (their length is whatever the campaign's boss needs).
+
+Sums of the draft sequences (to be checked against `bossQ` in phase 1): L1 40, L2 35, L3 39, L4 40, L5 39, L6 42, all before the open-ended arena. They are shorter than a campaign stage on purpose and can be lengthened. [you]
+
 
 **Level 1: Cross the Channel** (temperate, day, scattered cloud, rain showers in the second half). Boss: the flagship.
 `open_sea 3` -> `island_chain 6` (carrier mini-boss as `fleet 4`) -> `beach_fortified 3` -> `farmland 6` (river with bridge) -> `village 3` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 3` -> `boss_arena_sea 4`.
@@ -297,17 +356,18 @@ Each level also needs: one named landmark, one "quiet" stretch of at least 2 chu
 | 2 | Air base variants | 1 to 5 | |
 | 3 | Everything else from the catalogue | generative mode | vineyards, stadium, chemical plant, monastery, oil terminal, ... |
 
-## 12. Implementation phases
+## 12. Implementation phases (reordered after review)
 
-1. **Foundations** (no visible change): the `SORTIE` object and `buildSortie`, road and rail lists with `roadsAt`/`roadDist`, `info(p)` fed by the sortie, a way to start a level in Enigma Run from the Settings button and level picker, a debug page that renders a contact sheet.
-2. **Ground**: sea, islands, coast, rivers, relief, climate palettes, conifers.
-3. **Settlements**: farmland, village, forest templates, then the city and industry.
-4. **Sites with slots**: harbour, air base, station, castle; wiring to the director.
-5. **Atmosphere and damage**: weather plan, fog, damage levels.
-6. **Validator and tuning**: all of section 9 in the test suite.
-7. **Gen mode hook**: lazily extended sortie for endless/generative play.
+1. **Foundations and safety** (no visible change to the Campaign): `run.sortie`, `buildSortie` skeleton with `bossQ` and `len`, the Enigma end-of-level path, the leaderboard/progress flags, `resetTerrainState()`, the legacy-theme mapping per level, the template-to-`info.b` mapping, the hard constraints (9.1) and the determinism and state-hygiene tests (9.8, 9.9), Settings button and level picker, a debug contact-sheet page, and the chunk micro-benchmark (9.7). Also confirm every **[verify]** item.
+2. **Ground**: sea, islands, coast, rivers, `rock`, relief, climate palettes, conifers.
+3. **Routes, rails and streets**: Tier A and Tier B, drawn by `CL.rd`, with the director's `routeActive` check.
+4. **Settlements and forests**: farmland, villages, forest templates, then the city and industry.
+5. **Sites with slots**: harbour, air base, station, castle; wiring to the director.
+6. **Atmosphere and damage**: weather plan, fog, damage levels.
+7. **Tuning**: densities, rhythm, readability thresholds, performance.
+8. **Generative mode**: note that `settings.mode` is forced to `'camp'` at load (line 508 of `index.html`), so generative mode is currently unreachable. This phase first has to decide how the mode is switched on. Lazy sortie extension comes after that.
 
-Each phase ends with a contact sheet of the six levels and a test run.
+Each phase ends with a contact sheet of the six levels and a full test run.
 
 ## 13. Open questions [you]
 
@@ -316,3 +376,13 @@ Each phase ends with a contact sheet of the six levels and a test run.
 3. Are the proposed density ceilings (section 3.2) the right order of magnitude, or should levels feel much emptier?
 4. Do scores in Enigma Run count anywhere (a local best per level), or are they like Practice?
 5. Level order: Campaign order as above, or the theme order of the README?
+6. Should a night in a level other than level 3 also give the searchlights their extra shots (1.1, item 3), or stay purely visual?
+7. Local best score per level for Enigma Run (see section 0)?
+8. Enemy route objects (section 2): do now or later?
+
+## 14. Changes from review (draft 1 -> draft 2)
+
+The Opus review was run against `index.html` without edits. I checked these claims myself before accepting them: generative mode is unreachable (`settings.mode = 'camp'` at line 508); `lbEligible` is `run.endless || run.start === 1`; `createRun` has no key for the new mode so a stale flag would survive into the next run; the boss trigger is `round(37*STAGE_LEN) + ...` and `loopsWon++` is tied to completing a stage. Everything else in this file marked **[verify]** is still the reviewer's claim.
+
+Findings folded in: end-of-level and boss-trigger rework (10); theme plan changed (1.1); state leaks and the reset list (9a); leaderboard and progress flags (0); two-tier roads and the `CL.rd` drawing fix (2); perf rules (9a); reordered phases (12); PRNG rule (9a); density and rhythm metrics (3.2, 9); missing template names and compatibility fixes (3.2, 4.4); `rock` terrain (6); naming `run.sortie` (0); audit corrections (audit file).
+

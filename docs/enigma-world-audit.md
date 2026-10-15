@@ -17,7 +17,7 @@ Line numbers drift; search for the function name.
 | Theme `th` | A number 0 to 5 that also selects the palette (`THEME_RGB`), tree and house sprite sets, weather, music (`STAGE_SONGS`), set pieces (`SET_PIECES`) and the boss (`BOSS_KINDS`). |
 | Feature placement | Stateless: every feature is a hash of a world-space grid cell (trees 9 px, houses 34 px, tents 100x90, farms 150 px rows, scars 46 px). A cell can ask `terrainType`, `railDist`, `waterIn` and its neighbours. This is why the same chunk looks the same every time. |
 | Randomness | Terrain and features use `hash`/`vnoise` (seeded by `world.SEED`). The campaign seed is fixed at 1944; Endless and generative mode (`settings.mode === 'gen'`) use a random seed per run. Enemy spawning uses the per-run seeded `Math.random` stream. |
-| Tests that pin behaviour | `tests/replay.mjs` and `tests/golden.json` (simulation checksums), `tests/perf.mjs` (chunk generation speed). |
+| Tests that pin behaviour | `tests/replay.mjs` and `tests/golden.json` (simulation checksums), `tests/perf.mjs` (frame times against `perf-baseline.json`; it does not time chunk building). |
 
 ## 2. Hard-wired assumptions that block a new generator (read, counts by grep)
 
@@ -62,7 +62,7 @@ Verdict key: **Reuse** (as it is), **Parametrise** (reuse with the theme/climate
 | Boss arenas | `bossland`, `ryard`, `BOSS`, `BOSS_KINDS` | Campaign-only | The boss is chosen by `BOSS_KINDS[curTheme]`. Mini-bosses as a generic concept are missing. |
 | Naval enemies | `G('pt')`, `G('destroyer')`, `G('sub')`, `boatNear`, `worldLife` boats | Reuse | Small ships and a sub exist as targets. Carrier, convoy formation and a respawning ship are missing. |
 | Ground enemies | about 30 types via `G()` (flak, tank, bunker, radar, search, gen, aatower, casemate, sandbag, arty, popup, camo, loco, station, hangar, parked, fuel, ...) | Reuse | Placed with `tryLand`, `placeOK` and `terrainType`, not with a feature "slot". |
-| Director | `director`, `directorInner`, `spawnGround`, `spawnWave`, `ARC`, `SET_PIECES` | Parametrise | Spawns by biome name and theme. Generative mode (`settings.mode === 'gen'`) already picks set pieces from a random pool, so a hook exists. |
+| Director | `director`, `directorInner`, `spawnGround`, `spawnWave`, `ARC`, `SET_PIECES` | Parametrise | Spawns by biome name and theme. Code for generative mode (`settings.mode === 'gen'`) picks set pieces from a random pool, **but `settings.mode` is set to `'camp'` at load (line 508), so the mode is currently unreachable.** The hook exists only in code. |
 | Battle damage, static | `drawFeatures` "old battle scars" (scorch, wrecks) | Parametrise | About 15 percent of 46 px cells on field, grass, mud, forest: the same density in every stage. Not a damage level. |
 | Battle damage, live | `worldDamage`, `burntTrees`, `damagedHouses`, `decals`, `bridgeDown` | Reuse | Explosions scorch trees and houses and break bridges. Persistent for the run. |
 | Weather | `rainT`, `snowF`, `dustF`, `nightF`, lightning, `windX`, `stormK`, `drawWeather`, `flakes` | Refactor | Selected by theme (rain in 0 and 4, snow in 1, dust in 2, night in 3). `windX` and the sandstorm already push the plane and the bullets, so wind as gameplay has precedent. Fog, heat shimmer and snowstorm do not exist. |
@@ -76,7 +76,7 @@ Verdict key: **Reuse** (as it is), **Parametrise** (reuse with the theme/climate
 2. **Decouple `th` before anything else.** A new mode needs climate (palette, tree set, house set), weather and stage (boss, music, set pieces) as separate fields. The cheapest way is a descriptor object for Enigma Run that provides these fields and a thin adapter that turns the old `th` checks into `desc.climate` checks only where the new code needs it. The campaign code can stay as it is.
 3. **Single road is the largest structural limit** for "several roads with tanks" and for believable city and village layouts. Options to decide in the spec: a list of road polylines in the descriptor (with `roadX` kept as "the main road"), or a road field function.
 4. **Villages, conifers, islands, harbours, a carrier and multi-road forests are all genuinely new.** Everything else on your list has a seed in the code (stations, farms, camps, factories, bases, castles, city blocks, damage, weather).
-5. **Gen mode is the natural consumer.** It already randomises the seed and the set-piece pool; it does not randomise the terrain.
+5. **Gen mode is the intended consumer, but is currently switched off** (`settings.mode` is forced to `'camp'`). Its code randomises the seed and the set-piece pool; it does not randomise the terrain.
 6. **Performance is a real budget.** The chunk build already runs a pure-JS per-pixel function under a few ms per frame (`ensureChunks`, `tEnd = 1.6 to 2.6 ms`) on phones. New terrain types must not add per-pixel cost that scales with the number of features (use the same cell-hash lookups).
 
 ## 5. Not yet checked (to do before the spec is final)
@@ -85,5 +85,15 @@ Verdict key: **Reuse** (as it is), **Parametrise** (reuse with the theme/climate
 - Whether `drawFeatures` needs `world.featTheme` in a way a descriptor cannot supply.
 - How `worldLife` and the director depend on `info(p).b` strings (about 18 direct checks) when a new segment type is introduced.
 - Exactly which of the ~80 theme checks affect only visuals and which affect the simulation (replay).
-- A measured baseline of chunk-generation time per theme, using `tests/perf.mjs`.
+- A measured baseline of chunk-generation time per theme. `tests/perf.mjs` does not provide it, so a micro-benchmark is needed.
 - A visual baseline of each stage (screenshots), which the Enigma prompt already describes how to take.
+
+## 6. Review corrections (from the Opus review of the spec)
+
+- Generative mode is unreachable today (see above).
+- `tests/perf.mjs` does not measure chunk build time.
+- `curTheme` cannot be set "only for some code paths": it is one global read by terrain, director, set pieces and bosses, many of which affect the simulation (spec 1.1).
+- Enigma runs would currently be eligible for the leaderboard and would increment `loopsWon` (`lbEligible`, stage-complete path); the new mode needs flags (spec 0).
+- Terrain caches and singletons that survive between runs are listed in spec 9a; `tests/replay.mjs` uses a fresh page per scenario and cannot detect leaks.
+- `drawFeatures` runs whole in one call (it is not time-sliced like the pixel pass).
+- `classify` returns a shared `CL` object, and `wob` shifts chunk lookups by up to about 14.5 px.
