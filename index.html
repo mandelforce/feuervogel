@@ -139,6 +139,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #diffAsk .dextra button:hover{background:#34226a}
 #diffAsk .dextra button:active{transform:translateY(3px);box-shadow:inset 2px 2px 0 #170f2c,inset -2px -2px 0 #4a3e90}
 #diffAsk [hidden]{display:none}
+#settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
@@ -429,6 +430,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row"><label for="sEnigma">Enigma</label><input type="range" id="sEnigma" min="0" max="100" step="5"><span id="sEnigmaV" class="val">Off</span></div>
         <p class="note">Calmer backgrounds. Off is the classic look.</p>
+        <div class="row" id="sEnigmaRunRow"><span>Enigma Run</span><span class="seg"><button type="button" id="sEnigmaRun">Choose level</button></span></div>
+        <p class="note" id="sEnigmaRunNote">Six redesigned levels, one at a time. Not part of the Campaign: scores do not count.</p>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
@@ -457,7 +460,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.9'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3846,7 +3849,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // A fresh run's starting values on a difficulty, from a seed. newGame() puts them in run. run.endless (chosen before the run starts)
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
-  return { seed, proto: { dmg: 0 }, enigma: 0, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
+  return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
     gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
@@ -3858,6 +3861,7 @@ function newGame() {
   world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
+  resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
   world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = [];
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
@@ -3871,6 +3875,49 @@ function newGame() {
 }
 const STAGE_ORDER = [0, 2, 3, 4, 1, 5];
 const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a34']; // per theme, as on the Endless button and the stage picker
+/* ================= Enigma Run: the sortie =================
+   Enigma Run is a separate mode (Settings > Enigma Run): six redesigned levels, flown one at a time. A level is described by a "sortie", plain data
+   built once when the level starts (run.sortie; null in the Campaign). docs/enigma-world-spec.md is the specification; docs/enigma-world-audit.md the audit.
+   Phase 1: the sortie is carried and saved, ends its own way and never counts, but the ground still comes from the legacy theme of the level.
+   The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
+const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate']; // per level 1-6: the look the level will get (the Campaign's theme palettes for now)
+const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk'];
+const ENIGMA_LEN = [56, 56, 58, 60, 62, 70]; // chunks before the open-ended boss arena (the Campaign is about 48)
+// Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
+const ENIGMA_SEQ = [
+  [['carrier_start', 4], ['open_sea', 3], ['island_chain', 6], ['island_large', 5], ['beach_fortified', 3], ['farmland', 7], ['village', 4], ['forest_deciduous', 4], ['airbase_forest', 5], ['farmland', 3], ['harbour_small', 4], ['open_sea', 4]],
+  [['harbour_commercial', 4], ['beach_town', 3], ['valley', 7], ['village', 4], ['station_junction', 6], ['desert_open', 4], ['airbase_desert', 6], ['pass', 7], ['desert_open', 7]],
+  [['beach_fortified', 3], ['industrial_power', 7], ['station_marshalling', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6]],
+  [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
+  [['open_sea_ice', 3], ['harbour_winter', 4], ['farmland_winter', 7], ['village', 4], ['lake_valley', 6], ['station_winter', 8], ['airbase_snow', 6], ['forest_conifer', 6], ['pass', 6], ['farmland_winter', 4]],
+  [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]]
+];
+// Only a pure hash is used here: a sortie must come out the same whenever and wherever it is built (never Math.random).
+function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
+function buildSortie(level, seed) {
+  const i = level - 1, theme = STAGE_ORDER[i], len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  let at = 0;
+  seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
+  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
+    bossQ: null, // null: the Campaign's rule for when the boss comes (directorInner). Phase 2 replaces it once the ground is the sortie's own.
+    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k) };
+}
+// Every cache and shared value that the terrain and placement code keeps between calls. Called when any run starts (a run must never see
+// what an earlier run, Campaign or Enigma, left behind) and when the sortie changes. Add new terrain caches here.
+function resetTerrainState() {
+  for (const m of [roadCache, farmCache, tentCache, houseCache, fieldOkCache, railEndCache, parcelRowCache, parcelBlkCache, flowCache, canopyCache]) m.clear();
+  castleCache = { base: null, v: null }; finalCache = { k: null, y: null };
+  chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
+  critters.length = 0; props.length = 0; rxW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
+}
+function startEnigma(level) {
+  app.enigmaLast = level; startAt(level, false, level);
+}
+// The level is over (results shown): back to the level picker. No next stage, no congratulations, nothing is counted.
+function endEnigmaLevel() {
+  const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1;
+  stopMusic(); toTitle(); openDiff('enigma', lv);
+}
 // ================= tutorial =================
 
 const tutTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -3961,16 +4008,17 @@ function tutTap(gx, gy) {
   if (!app.tut) return false;
   return false;
 }
-function startAt(n, keepEndless) {
+function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
   if (!keepEndless) run.endless = false;
   newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
-  if (n <= 1) { markStage(); return; }
+  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); }
+  if (n <= 1) { if (run.sortie) showMsg('STAGE 1', STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); markStage(); return; }
   run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  showMsg('STAGE ' + stageLabel(n), STAGE_NAMES[world.curTheme] + (n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
+  showMsg('STAGE ' + stageLabel(n), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
 function startEndless() {
@@ -3985,21 +4033,22 @@ const ENDLESS_BTN = { w: 96, h: 16 };
 // Two views: the campaign (difficulty only, tutorial and practice offered underneath) and practice (a stage row above the difficulties).
 function setDiffView(prac) {
   app.diffNext.prac = prac;
-  const camp = app.diffNext.kind === 'camp';
-  document.getElementById('dStage').hidden = !prac;
+  const camp = app.diffNext.kind === 'camp', eni = app.diffNext.kind === 'enigma'; // 'enigma': the Enigma Run level picker (Settings > Enigma Run)
+  document.getElementById('dStage').hidden = !prac && !eni;
   document.getElementById('dExtra').hidden = !camp || prac;
-  document.getElementById('diffTitle').textContent = prac ? 'Practice a stage' : camp ? 'Choose difficulty' : 'Endless';
-  if (prac) {
-    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.style.setProperty('--acc', STAGE_ACC[STAGE_ORDER[i]]); b.classList.toggle('art', arts.has(STAGE_ORDER[i])); b.setAttribute('aria-label', 'Stage ' + (i + 1) + (arts.has(STAGE_ORDER[i]) ? ', artifact found' : '')); });
+  document.getElementById('diffTitle').textContent = eni ? 'Enigma Run' : prac ? 'Practice a stage' : camp ? 'Choose difficulty' : 'Endless';
+  document.getElementById('dStageLbl').textContent = eni ? 'Level' : 'Start at stage';
+  if (prac || eni) {
+    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.style.setProperty('--acc', STAGE_ACC[STAGE_ORDER[i]]); b.classList.toggle('art', !eni && arts.has(STAGE_ORDER[i])); b.setAttribute('aria-label', (eni ? 'Level ' : 'Stage ') + (i + 1) + (!eni && arts.has(STAGE_ORDER[i]) ? ', artifact found' : '')); });
     setDiffStage(app.diffNext.n || 1);
   } else app.diffNext.n = 1;
 }
 function setDiffStage(n) {
   app.diffNext.n = n;
   for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
-  const note = document.getElementById('dNote');
-  note.textContent = n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
-  note.classList.toggle('prac', n !== 1);
+  const note = document.getElementById('dNote'), eni = app.diffNext.kind === 'enigma';
+  note.textContent = eni ? n + '. ' + STAGE_NAMES[STAGE_ORDER[n - 1]] + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
+  note.classList.toggle('prac', eni || n !== 1);
 }
 function openDiff(kind, n) {
   app.diffNext = { kind, n }; app.diffDown = false;
@@ -4018,7 +4067,7 @@ function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORE
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
-function lbEligible() { return run.score > 0 && (run.endless || run.start === 1) && !run.twoP; } // 2-player runs stay off the boards
+function lbEligible() { return run.score > 0 && (run.endless || run.start === 1) && !run.twoP && !run.sortie; } // 2-player runs stay off the boards
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
 const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100, ORB_BREAK = 26, SINK_T = 170; // ORB_BREAK: frames after release when the orb comes out of the water
@@ -4351,11 +4400,11 @@ function rrPost(p) { // p.n: how many reported runs this device has played, this
 }
 function rrSend(end) { // the run is over
   if (!app.rr) return;
-  if (run.start !== 99 && run.frames > 0) rrPost(rrPayload(end)); // tutorial runs are not reported
+  if (run.start !== 99 && !run.sortie && run.frames > 0) rrPost(rrPayload(end)); // tutorial and Enigma Run runs are not reported
   app.rr = null;
 }
 function rrPark() { // the page is hidden mid-run: keep the report in case the browser closes it
-  if (!app.rr || app.state !== 'play' || run.start === 99) return;
+  if (!app.rr || app.state !== 'play' || run.start === 99 || run.sortie) return;
   store.setJSON(KEY.report, { p: rrPayload('left'), rr: app.rr });
 }
 function rrUnpark() { store.remove(KEY.report); }
@@ -4466,7 +4515,7 @@ for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
-function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; }
+function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; run.sortie = null; }
 function doContinue() {
   if (app.cont <= 0 || !player) return;
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
@@ -4483,13 +4532,13 @@ function markStage() { app.stageMark = { score: run.score, nextExtend: run.nextE
 function saveResume() {
   if (app.state !== 'play' || app.tut || !player || !app.stageMark) return;
   let st = run.stage, theme = world.curTheme, mark = app.stageMark, lv = run.lives, cn = run.conts;
-  if (app.results || app.congrats) { // the stage is already cleared: pick up at the next one with the bonus banked
+  if ((app.results || app.congrats) && !run.sortie) { // the stage is already cleared: pick up at the next one with the bonus banked
     st = run.stage + 1; theme = run.endless ? (world.curTheme + 1 + ((Math.random() * 5) | 0)) % 6 : STAGE_ORDER[(st - 1) % 6];
     mark = { score: run.score + (app.results ? app.results.total - app.results.counted : 0), nextExtend: run.nextExtend, extendsGot: run.extendsGot, camp: Object.assign({}, run.camp) };
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null };
   store.setJSON(KEY.resume, r);
 }
 function clearResume() { store.remove(KEY.resume); }
@@ -4502,6 +4551,7 @@ function resumeRun(r) {
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
   newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
+  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= 6) run.sortie = buildSortie(r.sortie.level, r.sortie.seed); // an Enigma Run level is rebuilt from {level, seed}
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -4516,7 +4566,7 @@ function resumeRun(r) {
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
+  document.getElementById('resInfo').textContent = (r.sortie ? 'Enigma Run level ' + r.sortie.level : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -4738,7 +4788,7 @@ function directorInner() {
     if (I.island) { for (const [sd, key] of [[-1, pc], [1, pc + 'b']]) { const by = wy + sd * 10 * (I.rw || 7) / 7; world.enemies.push(G('bridge', roadX(by), by, { hh: 8, bkey: key, small: true })); } }
     else world.enemies.push(G('bridge', roadX(wy), wy, { hh: 10 }));
   }
-  if (!world.bossSpawned && qTop >= Math.round(37 * STAGE_LEN) + Math.ceil(XH / CH) + (world.curTheme === 1 ? Math.max(0, Math.ceil(36 * STAGE_LEN) + Math.ceil(H / CH) - 2 - Math.round(37 * STAGE_LEN) - Math.ceil(XH / CH)) : 0)) {
+  if (!world.bossSpawned && qTop >= (run.sortie && run.sortie.bossQ != null ? run.sortie.bossQ : Math.round(37 * STAGE_LEN) + Math.ceil(XH / CH) + (world.curTheme === 1 ? Math.max(0, Math.ceil(36 * STAGE_LEN) + Math.ceil(H / CH) - 2 - Math.round(37 * STAGE_LEN) - Math.ceil(XH / CH)) : 0))) { // an Enigma Run sortie can set its own trigger (null: the Campaign's)
     world.bossSpawned = true; prewarmBoss(world.curTheme);
     fadeMusicOut(1.0);
     if (world.curTheme === 2) for (let i = 0; i < 14; i++) world.later.push({ at: gf + 205 + i * 10, fn: () => { feel.shake = Math.max(feel.shake, 1.5 + i * 0.2); } });
@@ -5329,6 +5379,7 @@ function skipResults() {
 }
 function finishResults() {
   if (app.fade) return;
+  if (run.sortie) { app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; } // Enigma Run: results, then back to the level picker (no next stage, no loop counted)
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
     loopsWon++; store.set(KEY.loops, loopsWon);
@@ -6919,7 +6970,7 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
 }
 // Every change to the score goes through addScore, so scoring has one home. The callers check for an extra life (checkExtend)
 // at the moment they always did, so a 1UP comes exactly when it used to.
-function addScore(v) { run.score += v; if (scorer === 2) run.score2 += v; if (run.score > hi) hi = run.score; }
+function addScore(v) { run.score += v; if (scorer === 2) run.score2 += v; if (run.score > hi && !run.sortie) hi = run.score; } // Enigma Run never counts toward the best
 function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
   if (run.score >= run.nextExtend) { if (scorer === 2 && p2) { if (run.lives2 < LIFE_CAP) run.lives2++; } else if (run.lives < LIFE_CAP) run.lives++; run.extendsGot++; run.nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, run.extendsGot - 1))); sfx('extend'); haptic('extend'); const who = scorer === 2 && p2 ? p2 : player; if (who) label(who.x, who.y - 14, '1UP'); }
@@ -7318,7 +7369,7 @@ function update() {
   simOn = simWas;
   if (app.state === 'title') { if (app.flyby) endFlyby(); return; }
   if (app.state === 'over') { if (!app.lbOpen) app.overT++; if (app.overT > 900) leaveOver(true); }
-  if (app.state === 'play' && !app.paused && !app.results) { run.frames++; rrTick(); if (app.localBest < 0) computeLocalBest(); if (!app.newBestDone && app.localBest > 0 && run.score > app.localBest && (run.endless || run.start === 1)) { app.newBestDone = true; app.newBestT = 150; medalSfx(6); } if (app.newBestT > 0) app.newBestT--; }
+  if (app.state === 'play' && !app.paused && !app.results) { run.frames++; rrTick(); if (app.localBest < 0) computeLocalBest(); if (!app.newBestDone && app.localBest > 0 && run.score > app.localBest && (run.endless || run.start === 1) && !run.sortie) { app.newBestDone = true; app.newBestT = 150; medalSfx(6); } if (app.newBestT > 0) app.newBestT--; }
 
   updFlyby();
   director();
@@ -7638,7 +7689,7 @@ function update() {
   if (feel.flashFx > 0) feel.flashFx--;
   if (feel.shake > 0) feel.shake = feel.shake < 0.5 ? 0 : feel.shake * 0.88;
   if (app.msg) { app.msg.t--; if (app.msg.t <= 0) app.msg = null; }
-  if (run.score > hi) hi = run.score;
+  if (run.score > hi && !run.sortie) hi = run.score;
 }
 const PART_CAP = 300, PART_SOFT = new Set(['trail', 'smoke', 'spark']);
 function updParts() {
@@ -8883,12 +8934,13 @@ function closeCredits() { Credits.close(); showPauseMenu(true); }
 document.getElementById('pmCredits').addEventListener('click', openCredits);
 document.getElementById('crClose').addEventListener('click', closeCredits);
 document.getElementById('credits').addEventListener('pointerdown', e => e.stopPropagation());
-function openSettings() { updateErr(); syncSettingsUI(); setPanel.classList.add('open'); if (app.state === 'play' && !app.paused) { app.paused = true; app.panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
+function openSettings() { updateErr(); syncSettingsUI(); document.getElementById('sEnigmaRunRow').hidden = document.getElementById('sEnigmaRunNote').hidden = app.state !== 'title'; /* a new run can only start from the title */ setPanel.classList.add('open'); if (app.state === 'play' && !app.paused) { app.paused = true; app.panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
 function closeSettings() { setPanel.classList.remove('open'); saveSettings(); if (app.panelPaused) { app.panelPaused = false; app.paused = false; app.resumeT = 180; setPauseIcon(); } else showPauseMenu(true); }
 setPanel.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === setPanel) closeSettings(); });
 setBtn.addEventListener('pointerdown', e => e.stopPropagation());
 setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('open') ? closeSettings() : openSettings(); setBtn.blur(); });
 document.getElementById('sClose').addEventListener('click', closeSettings);
+document.getElementById('sEnigmaRun').addEventListener('click', () => { if (app.state !== 'title') return; setPanel.classList.remove('open'); saveSettings(); audio(); openDiff('enigma', app.enigmaLast || 1); });
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
 function rangeFill(r) { r.style.setProperty('--v', r.value + '%'); } // the pixel bar fills up to the handle
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
@@ -9008,11 +9060,11 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else startAt(nx.n > 1 ? nx.n : 1); // a camp run from stage 2-6 is practice
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'enigma') startEnigma(nx.n || 1); else startAt(nx.n > 1 ? nx.n : 1); // a camp run from stage 2-6 is practice
 });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
-document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
+document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.kind === 'enigma') closeDiff(); else if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
 document.getElementById('dPrac').addEventListener('click', () => { if (!app.diffNext) return; setDiffView(true); const b = document.querySelector('#dStage [aria-pressed="true"]'); if (b) b.focus(); });
 document.getElementById('diffAsk').addEventListener('pointerdown', e => { app.diffDown = true; e.stopPropagation(); });
 // The panel opens on the title's pointerdown, so on touch screens the click synthesized when that same finger lifts lands on whatever

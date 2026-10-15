@@ -394,6 +394,19 @@ Each level also needs: one named landmark, one "quiet" stretch of at least 2 chu
 
 Each phase ends with a contact sheet of the six levels and a full test run.
 
+## 12a. Phase 1 status (done on branch `claude/kind-mccarthy-g4g06h`)
+
+Built: `run.sortie` and `buildSortie` (pure hash, segments scaled to the level lengths, `bossQ: null`); the legacy-theme mapping (level n -> `STAGE_ORDER[n-1]`); Settings > Enigma Run (title screen only) and a level picker that reuses the practice picker; the flags (no board, best, play data, loops, new-best banner); the Enigma end of level (results, then the picker; no congratulations, no next stage); resume as `{level, seed}`; `resetTerrainState()` called by `newGame`; `tests/enigma.mjs`, `tests/contact.mjs` and a chunk-build benchmark; the CI step. The Campaign is unchanged: `node tests/replay.mjs` matches `golden.json` and the smoke test passes.
+
+Findings from building it:
+- **The review's leak list is real.** With the reset disabled, `parcelRowCache`, `parcelBlkCache`, `flowCache`, `chunkHouses`, `chunkFires`, `castleCache`, `finalCache`, `featTheme` and `TRGB` survived into the next run. These leaks already exist in the Campaign (a fresh page is never affected, so the golden test could not see them); the reset removes them, which is the only Campaign-side change and it only touches second and later runs in one session. Not detected by the same-page golden test alone (it passed even without the reset), hence the separate marker test.
+- **Artifacts** found in Enigma Run levels behave as in Practice (they are stored); only the board, best score, loops, play data and resume rules were changed. [you] say if artifacts should not count either.
+- **Level 1 as Campaign stage 1:** `run.start` is 1 for level 1, so the flags check `run.sortie` and not `run.start`.
+- **Chunk build time (this machine, ms per 224x64 chunk, mean / p95):** level 1 13.4 / 19.4, level 2 12.3 / 22.0, level 3 12.3 / 17.3, level 4 12.0 / 19.7, level 5 11.8 / 19.6, **level 6 20.8 / 43.4** (the city and factory ground costs about twice the others). This is the baseline the new ground must stay near.
+- Confirmed from the review: generative mode is unreachable; the boss trigger is a fixed chunk count (so `bossQ` is left `null` until the ground is the sortie's own).
+- Still **[verify]** for phase 2: the castle boss's ground length, the `info(p).b` consumers, which theme checks affect the simulation.
+- The first picture of today's level 6 (contact sheet, `tests/contact.mjs`): sea, plain farmland, a uniform red-roof city grid with a tree-lined road and a few squares, a grey factory block, then the concrete airfield hall. This is what phase 2 onwards replaces.
+
 ## 13. Decisions and open questions
 
 **Decided by the owner**

@@ -71,6 +71,22 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 `golden.json` comes from CI: run the workflow by hand (Actions > Smoke test > Run workflow, on your branch) and copy the printed block between `GOLDEN-BEGIN` and `GOLDEN-END`; the same run prints machine details (`--diag`). CI results have been identical across runs, and a local run (Node, a 400x700 window) gives the same numbers. The CI step is blocking: a change made on purpose to how the game plays (balance, spawns, scoring) must refresh `golden.json` in the same pull request and say why; any other difference is a bug, and the PR stays red until it is fixed.
 
+## Enigma Run test (runs in CI, blocking)
+
+`enigma.mjs` checks the plumbing of the Enigma Run mode (`docs/enigma-world-spec.md`): every level's sortie is well formed and rebuilt identically; Settings > Enigma Run opens the level picker and starts the chosen level; an Enigma Run level never counts (board eligibility, best score, loop count); it is saved and resumed as `{level, seed}`; its end returns to the picker; starting any run clears every terrain cache (it fills them with markers and looks for what is left); and an Enigma Run level played first leaves nothing behind: the Campaign scenario played afterwards **in the same page** equals `golden.json` (`replay.mjs` uses a fresh page per scenario and cannot see leaks). Serve the folder first:
+
+```
+node tests/enigma.mjs            # all checks
+node tests/enigma.mjs --bench    # also print chunk build times per level (a baseline for the ground work)
+```
+
+`contact.mjs` writes screenshots of each level at several points along it, for looking at the ground by eye:
+
+```
+node tests/contact.mjs OUTDIR        # all six levels, 8 points each, plus an HTML sheet per level
+node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
+```
+
 ## Performance test (runs in CI, warning only)
 
 `perf.mjs` checks how the game runs on slower phones. It slows Chrome's CPU down 4x ("mid-range phone") and 6x ("older phone"), plays with the bot on a phone-sized touch window, and measures: the cost of every frame (average, p95, p99, worst), frames over the 16.7 ms budget, the real frame loop (fps, hitches, whether lite mode switches on), start-up time, heap growth over a long run (leaks), and page weight. The table appears in the CI job summary; changes against `perf-baseline.json` raise yellow warnings and never fail the build.
