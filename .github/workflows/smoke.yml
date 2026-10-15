@@ -17,6 +17,8 @@ jobs:
           node-version: 20
       - name: Unit tests (leaderboard Worker rules)
         run: node --test tests/
+      - name: City generator (settlement rules over many seeds)
+        run: node tests/citygen.mjs
       - name: Install headless browser
         run: |
           npm install --no-save playwright@1

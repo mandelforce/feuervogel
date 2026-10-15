@@ -1,0 +1,310 @@
+<title>Feuervogel City Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a map-room planning table. Controls on the left, the town strip in the middle at game scale, readings on the right; stacks on phones.
+   Single dark look on purpose: the pixel art is judged against the game's own dark frame. */
+:root {
+  color-scheme: dark;
+  --bg: #11181b;          /* the table */
+  --panel: #182226;       /* instrument panels */
+  --line: #2a3a3f;        /* rules and frames */
+  --ink: #dbe4de;         /* text */
+  --muted: #8ea29a;       /* labels */
+  --brass: #d6a24a;       /* accent: the main road, active controls */
+  --ok: #78c27d; --warn: #e3b341; --bad: #e0644e;
+  --display: 'Silkscreen', ui-monospace, monospace;
+  --body: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.4 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; box-sizing: border-box; }
+* { box-sizing: border-box; }
+h1 { font: 18px var(--display); letter-spacing: .06em; margin: 0; color: var(--ink); text-wrap: balance; }
+h2 { font: 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 12px; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.app { display: grid; grid-template-columns: 250px minmax(0, 1fr) 330px; gap: 14px; height: calc(100% - 52px); min-height: 520px; }
+.col { min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+section.box { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 12px; }
+label.row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; margin: 0 0 9px; color: var(--muted); font-size: 13px; }
+label.row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--brass); }
+label.row output { font: 12px var(--data); color: var(--ink); font-variant-numeric: tabular-nums; }
+.seed { display: flex; gap: 6px; align-items: center; }
+.seed input { width: 0; flex: 1; font: 15px var(--data); background: var(--bg); color: var(--ink); border: 1px solid var(--line); padding: 5px 7px; border-radius: 2px; }
+button, select { font: 13px var(--body); background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 2px; padding: 5px 9px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--brass); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+button.primary { border-color: var(--brass); color: var(--brass); }
+select { width: 100%; margin-bottom: 9px; }
+.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.toggles label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); cursor: pointer; }
+.toggles input { accent-color: var(--brass); }
+.mapwrap { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.mapbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
+.mapbar .sp { flex: 1; }
+.mapbar output { font: 12px var(--data); color: var(--ink); }
+.viewport { position: relative; flex: 1; overflow: auto; background: #0b0f11; border: 1px solid var(--line); border-radius: 3px; min-height: 360px; }
+.stage { position: relative; margin: 0 auto; display: grid; grid-template-columns: 46px auto; gap: 6px; padding: 8px; width: max-content; }
+.stage canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+#graph { image-rendering: auto; }
+#over { position: absolute; left: 0; top: 0; pointer-events: none; image-rendering: auto; }
+.mapcell { position: relative; }
+#tip { position: absolute; pointer-events: none; background: rgba(17,24,27,.94); border: 1px solid var(--line); padding: 6px 8px; font: 11.5px/1.45 var(--data); color: var(--ink); white-space: pre; border-radius: 2px; z-index: 3; }
+dl.metrics { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; margin: 0; font-size: 13px; }
+dl.metrics dt { color: var(--muted); }
+dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabular-nums; text-align: right; }
+.chip { display: inline-block; padding: 1px 7px; border-radius: 9px; font: 11px var(--data); border: 1px solid currentColor; }
+.chip.ok { color: var(--ok); } .chip.bad { color: var(--bad); } .chip.warn { color: var(--warn); }
+.verdict { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font: 12px var(--display); letter-spacing: .08em; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; color: var(--muted); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; display: inline-block; border: 1px solid rgba(255,255,255,.18); flex: none; }
+.sweep table { width: 100%; border-collapse: collapse; font: 11.5px var(--data); font-variant-numeric: tabular-nums; }
+.sweep th, .sweep td { text-align: right; padding: 2px 4px; border-bottom: 1px solid var(--line); }
+.sweep th:first-child, .sweep td:first-child { text-align: left; }
+.sweep tbody tr { cursor: pointer; } .sweep tbody tr:hover { background: rgba(214,162,74,.08); }
+.sweepwrap { max-height: 220px; overflow: auto; }
+.note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 1100px) { .app { grid-template-columns: 230px minmax(0, 1fr); height: auto; } .col.right { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); overflow: visible; } .viewport { height: 78vh; } }
+@media (max-width: 700px) { .app { grid-template-columns: 1fr; } .col { overflow: visible; } .viewport { height: 70vh; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<header>
+  <h1>FEUERVOGEL CITY LAB</h1>
+  <p>The settlement generator, at game scale. Every plan is built from the seed and the settings; the readings on the right check it.</p>
+</header>
+
+<div class="app">
+  <div class="col left">
+    <section class="box" aria-labelledby="h-seed">
+      <h2 id="h-seed">Seed</h2>
+      <div class="seed"><button id="prev" aria-label="Previous seed">&#9664;</button><input id="seed" type="number" value="5" aria-label="Seed"><button id="next" aria-label="Next seed">&#9654;</button><button id="rand" title="Random seed">Dice</button></div>
+    </section>
+    <section class="box" aria-labelledby="h-town">
+      <h2 id="h-town">Town</h2>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option></select>
+      <select id="curve" aria-label="Density along the strip">
+        <option value="town">Fields, town, centre, fading out</option>
+        <option value="approach">Fields, then the town grows to the end</option>
+        <option value="centre">All centre</option>
+        <option value="fringe">Fringe only (village edge)</option>
+      </select>
+      <label class="row" for="len">Length <output id="lenV"></output><input id="len" type="range" min="900" max="3200" step="100" value="1800"></label>
+      <label class="row" for="dmg">Damage at the centre <output id="dmgV"></output><input id="dmg" type="range" min="0" max="100" step="5" value="25"></label>
+      <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="80" step="2" value="46"></label>
+      <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>
+      <label class="row" for="lots">Vacant lots <output id="lotsV"></output><input id="lots" type="range" min="0" max="20" step="1" value="5"></label>
+      <label class="row" for="trees">Trees <output id="treesV"></output><input id="trees" type="range" min="0" max="200" step="10" value="100"></label>
+      <label class="row" for="parish">Church spacing <output id="parishV"></output><input id="parish" type="range" min="300" max="1200" step="20" value="560"></label>
+    </section>
+    <section class="box" aria-labelledby="h-show">
+      <h2 id="h-show">Overlays</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="oStreets"> Streets</label>
+        <label><input type="checkbox" id="oTank" checked> Tank routes</label>
+        <label><input type="checkbox" id="oSlots" checked> Gun slots</label>
+        <label><input type="checkbox" id="oKinds"> Ground kinds</label>
+        <label><input type="checkbox" id="oChunks"> Chunks</label>
+        <label><input type="checkbox" id="oScreen" checked> Screen</label>
+      </div>
+    </section>
+    <section class="box" aria-labelledby="h-legend">
+      <h2 id="h-legend">Legend</h2>
+      <div class="legend" id="legend"></div>
+    </section>
+  </div>
+
+  <div class="mapwrap">
+    <div class="mapbar">
+      <label for="scale">Scale</label><select id="scale" style="width:auto;margin:0"><option value="2">2&times;</option><option value="3" selected>3&times;</option><option value="4">4&times;</option></select>
+      <span class="sp"></span>
+      <span>built in <output id="genMs">-</output></span>
+    </div>
+    <div class="viewport" id="vp">
+      <div class="stage">
+        <canvas id="graph" aria-label="Urbanisation, damage and built share along the town"></canvas>
+        <div class="mapcell"><canvas id="map" aria-label="The town plan"></canvas><canvas id="over" aria-hidden="true"></canvas><div id="tip" hidden></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col right">
+    <section class="box" aria-labelledby="h-check">
+      <h2 id="h-check">Checks</h2>
+      <div class="verdict" id="verdict"></div>
+      <dl class="metrics" id="metrics"></dl>
+    </section>
+    <section class="box" aria-labelledby="h-time">
+      <h2 id="h-time">Speed</h2>
+      <dl class="metrics" id="timing"></dl>
+      <p class="note">Painting a 224 &times; 64 chunk on this machine. The Campaign's legacy city costs about 33 ms per chunk on the reference machine.</p>
+    </section>
+    <section class="box sweep" aria-labelledby="h-sweep">
+      <h2 id="h-sweep">Seed sweep</h2>
+      <div class="btnrow"><button class="primary" id="sweep20">Run 20 seeds</button><button id="sweep100">Run 100</button><button id="copy">Copy settings</button></div>
+      <p class="note" id="sweepNote">Runs the current settings over many seeds and lists the worst first. Click a row to open that seed.</p>
+      <div class="sweepwrap"><table><thead><tr><th>seed</th><th>ok</th><th>ms</th><th>dens</th><th>ch</th><th>slots</th></tr></thead><tbody id="sweepBody"></tbody></table></div>
+    </section>
+  </div>
+</div>
+
+<script src="citygen.js"></script>
+<script>
+(() => {
+const CG = window.CityGen, K = CG.K;
+const $ = id => document.getElementById(id);
+const CURVES = {
+  town: [[0, 0.04], [0.16, 0.28], [0.38, 0.66], [0.58, 1], [0.8, 0.86], [1, 0.6]],
+  approach: [[0, 0.03], [0.2, 0.22], [0.45, 0.5], [0.7, 0.8], [1, 1]],
+  centre: [[0, 0.85], [0.5, 1], [1, 0.9]],
+  fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]],
+};
+const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6' };
+const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water' };
+const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff' };
+$('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="background:${KIND_COL[k]}"></i>${KIND_LABEL[k]}</span>`).join('') +
+  Object.entries(SLOT_COL).filter(([k]) => k !== 'bunker').map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot' }[k]}</span>`).join('');
+
+// ---------- settings ----------
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen'];
+try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
+function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
+function params() {
+  return { L: +$('len').value, density: CURVES[$('curve').value], damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
+    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value };
+}
+function showVals() {
+  $('lenV').textContent = $('len').value + ' px'; $('dmgV').textContent = $('dmg').value + '%'; $('spacingV').textContent = $('spacing').value + ' px'; $('collV').textContent = $('coll').value + ' px';
+  $('lotsV').textContent = $('lots').value + '%'; $('treesV').textContent = $('trees').value + '%'; $('parishV').textContent = $('parish').value + ' px';
+}
+
+// ---------- build and draw ----------
+let plan = null, metrics = null, img = null;
+const map = $('map'), over = $('over'), graph = $('graph');
+function build() {
+  showVals(); save();
+  const t0 = performance.now();
+  plan = CG.generate({ seed: +$('seed').value | 0, preset: $('preset').value, params: params() });
+  const gen = performance.now() - t0;
+  metrics = CG.validate(plan);
+  // paint chunk by chunk, timing each (the game paints one 64-row chunk at a time)
+  const { W, L } = plan; map.width = W; map.height = L; const ctx = map.getContext('2d'); img = ctx.createImageData(W, L);
+  const times = []; const tmp = new ImageData(W, 64);
+  for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt); times.push(performance.now() - t);
+    img.data.set(part.data.subarray(0, W * hgt * 4), (L - y0 - hgt) * W * 4); }
+  ctx.putImageData(img, 0, 0);
+  times.sort((a, b) => a - b);
+  $('genMs').textContent = gen.toFixed(0) + ' ms';
+  $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length);
+  showMetrics(); layout(); drawOverlay(); drawGraph();
+}
+const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
+function chip(ok, text, warn) { return `<span class="chip ${ok ? 'ok' : warn ? 'warn' : 'bad'}">${text}</span>`; }
+function showMetrics() {
+  const m = metrics;
+  $('verdict').innerHTML = m.pass ? chip(true, 'PASS') + '<span>All hard rules hold</span>' : chip(false, 'FAIL') + '<span>A hard rule is broken</span>';
+  const slots = Object.entries(m.slots).map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
+  $('metrics').innerHTML =
+    row('Overlapping pixels', chip(m.overlapPx === 0, m.overlapPx)) +
+    row('Buildings off the street', chip(m.noFrontage === 0, m.noFrontage + ' / ' + m.buildings)) +
+    row('Tank routes joined', chip(m.tankReach === 1, Math.round(m.tankReach * 100) + '%')) +
+    row('Streets (tank)', `${m.streets} (${m.tankStreets})`) +
+    row('Churches, closest gap', `${m.churches}${m.churchMinGap !== null ? ', ' + m.churchMinGap + ' px' : ''}`) +
+    row('Square, parks', `${m.squares}, ${m.parks}`) +
+    row('Density error', chip(m.densityErr < 6, m.densityErr + ' pts', m.densityErr < 9)) +
+    row('Gun slots', slots) +
+    row('Slots per 1000 px', m.slotsPer1000) +
+    row('Vacant lots, ruins', `${m.lots}, ${m.ruins}`) +
+    row('Trees', m.trees);
+}
+function layout() {
+  const s = +$('scale').value, { W, L } = plan;
+  map.style.width = W * s + 'px'; map.style.height = L * s + 'px';
+  over.width = W * s; over.height = L * s; over.style.width = W * s + 'px'; over.style.height = L * s + 'px';
+  graph.width = 46 * 2; graph.height = L * s; graph.style.width = '46px'; graph.style.height = L * s + 'px';
+}
+function drawOverlay() {
+  const s = +$('scale').value, { W, L } = plan, g = over.getContext('2d'); g.clearRect(0, 0, over.width, over.height);
+  const Y = y => (L - y) * s, X = x => x * s;
+  if ($('oKinds').checked) { const id = g.createImageData(W, L); for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const k = plan.K[y * W + x], c = KIND_COL[k] || '#000'; const o = ((L - 1 - y) * W + x) * 4; id.data[o] = parseInt(c.slice(1, 3), 16); id.data[o + 1] = parseInt(c.slice(3, 5), 16); id.data[o + 2] = parseInt(c.slice(5, 7), 16); id.data[o + 3] = k ? 150 : 0; }
+    const c2 = document.createElement('canvas'); c2.width = W; c2.height = L; c2.getContext('2d').putImageData(id, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(c2, 0, 0, W * s, L * s); }
+  const line = (st, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); st.pts.forEach((p, i) => { const x = X(p[0] + 0.5), y = Y(p[1] + 0.5); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+  if ($('oTank').checked) for (const st of plan.streets) if (st.tank) line(st, 'rgba(120,194,125,.55)', 3);
+  if ($('oStreets').checked) for (const st of plan.streets) line(st, st.cls === 'arterial' ? '#d6a24a' : st.cls === 'collector' ? '#6ad2c8' : '#c8c2b4', st.cls === 'local' ? 1 : 1.6);
+  if ($('oChunks').checked) { g.strokeStyle = 'rgba(255,255,255,.25)'; g.setLineDash([4, 4]); g.lineWidth = 1; for (let y = 0; y < L; y += 64) { g.beginPath(); g.moveTo(0, Y(y)); g.lineTo(W * s, Y(y)); g.stroke(); } g.setLineDash([]); }
+  if ($('oSlots').checked) for (const sl of plan.slots) {
+    const x = X(sl.x), y = Y(sl.y), r = Math.max(5, sl.r * s * 0.55), c = SLOT_COL[sl.kind]; g.lineWidth = 2; g.strokeStyle = '#0b0f11'; g.fillStyle = c;
+    g.beginPath(); if (sl.kind === 'arty') { g.moveTo(x, y - r); g.lineTo(x + r, y + r * 0.8); g.lineTo(x - r, y + r * 0.8); g.closePath(); } else if (sl.kind === 'aatower') g.rect(x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6); else g.arc(x, y, r * 0.8, 0, 6.283);
+    g.globalAlpha = 0.85; g.fill(); g.globalAlpha = 1; g.stroke();
+  }
+  drawScreen();
+}
+function drawScreen() {
+  const vp = $('vp'), s = +$('scale').value; let fr = document.getElementById('scrFrame');
+  if (!$('oScreen').checked) { if (fr) fr.remove(); return; }
+  if (!fr) { fr = document.createElement('div'); fr.id = 'scrFrame'; fr.style.cssText = 'position:absolute;left:0;border:2px solid rgba(214,162,74,.9);box-shadow:0 0 0 9999px rgba(0,0,0,.18);pointer-events:none;'; over.parentNode.appendChild(fr); }
+  const h = 408 * s, cell = over.parentNode, top = clamp(vp.scrollTop + vp.clientHeight / 2 - cell.offsetTop - h / 2, 0, plan.L * s - h);
+  fr.style.top = top + 'px'; fr.style.width = plan.W * s + 'px'; fr.style.height = h + 'px';
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function drawGraph() {
+  const s = +$('scale').value, { L } = plan, g = graph.getContext('2d'), w = graph.width; g.clearRect(0, 0, w, graph.height);
+  const Y = y => (L - y) * s;
+  g.fillStyle = 'rgba(42,58,63,.6)'; for (let x = 0; x <= 4; x++) g.fillRect(Math.round(x * (w - 2) / 4), 0, 1, graph.height);
+  for (const b of metrics.bands) { g.fillStyle = 'rgba(194,90,60,.55)'; g.fillRect(0, Y(b.y0 + 128), (w - 2) * b.built / 0.4, 128 * s - 2); g.fillStyle = 'rgba(219,228,222,.85)'; g.fillRect((w - 2) * b.want / 0.4 - 1, Y(b.y0 + 128), 2, 128 * s - 2); }
+  const plot = (arr, col) => { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); for (let y = 0; y < L; y += 4) { const x = arr[y] * (w - 2); y ? g.lineTo(x, Y(y)) : g.moveTo(x, Y(y)); } g.stroke(); };
+  plot(plan.U, '#d6a24a'); plot(plan.D, '#e0644e');
+  g.font = '18px IBM Plex Mono, monospace'; g.fillStyle = '#8ea29a'; g.fillText('U', 4, 18); g.fillStyle = '#e0644e'; g.fillText('D', 26, 18);
+}
+// hover: what is here
+const tip = $('tip');
+map.addEventListener('mousemove', e => {
+  if (!plan) return; const s = +$('scale').value, r = map.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / s), y = plan.L - 1 - Math.floor((e.clientY - r.top) / s);
+  if (x < 0 || x >= plan.W || y < 0 || y >= plan.L) { tip.hidden = true; return; }
+  const i = y * plan.W + x, k = plan.K[i], b = plan.B[i], it = b >= 0 ? plan.items[b] : null, st = b <= -2 ? plan.streets[-2 - b] : null;
+  const sl = plan.slots.find(q => Math.hypot(q.x - x, q.y - y) < Math.max(5, q.r));
+  tip.textContent = `x ${x}  y ${y}\n${KIND_LABEL[k] || 'Open'}  (game: ${CG.TT[k]})\nU ${plan.U[y].toFixed(2)}  D ${plan.D[y].toFixed(2)}` +
+    (it ? `\n${it.church ? (it.big ? 'Church (main) ' : 'Parish church ') + it.part : it.t}  ${it.w}x${it.h}${it.style ? ' ' + it.style : ''}${it.dmg ? '  damage ' + it.dmg : ''}` : '') +
+    (st ? `\n${st.cls} street${st.tank ? ', tank route' : ''}` : '') + (sl ? `\nslot: ${sl.kind} on ${sl.on}` : '');
+  tip.hidden = false; tip.style.left = Math.min((e.clientX - r.left) + 14, plan.W * s - 180) + 'px'; tip.style.top = ((e.clientY - r.top) + 14) + 'px';
+});
+map.addEventListener('mouseleave', () => { tip.hidden = true; });
+$('vp').addEventListener('scroll', drawScreen, { passive: true });
+
+// ---------- seed sweep ----------
+function sweep(n) {
+  const base = params(), rows = []; let s0 = 1; $('sweepBody').innerHTML = ''; $('sweepNote').textContent = `Running ${n} seeds...`;
+  const step = () => {
+    const end = Math.min(n, s0 + 4);
+    for (; s0 <= end; s0++) { const t = performance.now(); const p = CG.generate({ seed: s0, preset: $('preset').value, params: base }); const ms = performance.now() - t; const m = CG.validate(p); rows.push({ seed: s0, m, ms }); }
+    $('sweepNote').textContent = `Running ${n} seeds... ${rows.length}`;
+    if (s0 <= n) return setTimeout(step, 0);
+    rows.sort((a, b) => (a.m.pass - b.m.pass) || (b.m.densityErr - a.m.densityErr));
+    const fails = rows.filter(r => !r.m.pass).length, ms = rows.map(r => r.ms).sort((a, b) => a - b);
+    $('sweepNote').textContent = `${n} seeds: ${n - fails} pass, ${fails} fail. Plan time median ${ms[n >> 1].toFixed(0)} ms, max ${ms[n - 1].toFixed(0)} ms. Mean density error ${(rows.reduce((s, r) => s + r.m.densityErr, 0) / n).toFixed(1)} pts.`;
+    $('sweepBody').innerHTML = rows.map(r => `<tr data-seed="${r.seed}"><td>${r.seed}</td><td>${r.m.pass ? '<span class="chip ok">ok</span>' : '<span class="chip bad">fail</span>'}</td><td>${r.ms.toFixed(0)}</td><td>${r.m.densityErr}</td><td>${r.m.churches}</td><td>${Object.values(r.m.slots).reduce((a, b) => a + b, 0)}</td></tr>`).join('');
+  };
+  step();
+}
+$('sweepBody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) { $('seed').value = tr.dataset.seed; build(); } });
+$('sweep20').addEventListener('click', () => sweep(20)); $('sweep100').addEventListener('click', () => sweep(100));
+$('copy').addEventListener('click', () => { const txt = JSON.stringify({ seed: +$('seed').value, preset: $('preset').value, params: params() }); navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy settings', 1200); }).catch(() => { $('sweepNote').textContent = txt; }); });
+
+// ---------- wiring ----------
+for (const id of ['preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish']) $(id).addEventListener('change', build);
+for (const id of ['len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish']) $(id).addEventListener('input', showVals);
+$('seed').addEventListener('change', build);
+$('prev').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) - 1; build(); });
+$('next').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) + 1; build(); });
+$('rand').addEventListener('click', () => { $('seed').value = (Math.random() * 99999) | 0; build(); });
+$('scale').addEventListener('change', () => { save(); layout(); drawOverlay(); drawGraph(); });
+for (const id of ['oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen']) $(id).addEventListener('change', () => { save(); drawOverlay(); });
+if (innerWidth < 700 && $('scale').value === '3') $('scale').value = '2';
+build();
+requestAnimationFrame(() => { const vp = $('vp'); vp.scrollTop = vp.scrollHeight * 0.45; drawScreen(); }); // open on the town centre
+})();
+</script>

@@ -538,3 +538,15 @@ Changes to the design:
 4. Villages: road-relative clusters.
 5. River and bridges: column arrays, quays, building clipping, long bridge, the sortie bridge spawner, convoy guards; then the island and its bridge pair.
 6. Damage: scars, fires and ruins by `D`.
+
+## 16. The settlement generator and the city lab (replaces the grid city of 15.3 to 15.5)
+
+The owner judged the grid-based city of phase 2 unrealistic (too many churches, the avenue cutting through blocks, edges along chunk lines cutting houses, overlapping houses). The city is rebuilt as a **settlement generator** that is reusable for every level and for generative mode: `tools/citygen.js` (pure, deterministic, no DOM), with a lab page `tools/citylab.html` (published as a private artifact) and a Node test `tests/citygen.mjs`.
+
+**Method** (best practice from procedural city work): streets first, buildings second; constraints first; density from a centre; landmarks by quota; nothing overlaps by construction (an occupancy raster); one random stream per kind of decision. Pipeline: urbanisation and damage fields (with lateral fray from the main road) -> streets (main road as arterial and tank route, horizontal cross streets with staggered crossroads outside the centre, collectors and local streets parallel to the main road, every street ending in a T-junction) -> landmarks (market square at the densest point, the big church facing it, parish churches spaced at least 560 px, parks) -> frontage plots along every street in order of importance (detached houses with front and back gardens, terraces, closed perimeter blocks; rows share roof material and depth and their roofs join; vacant lots left on purpose; a second pass closes gaps and corners) -> interiors (courtyards with sheds, back gardens, meadow; fields outside the town) -> trees, damage (shell holes in roofs, ruins, fires, craters, never on carriageways) and **slots** for the game's guns: flak on lots and flat roofs (sandbagged roof platforms), artillery on large lots next to tank streets and in courtyards, AA towers on the square and in parks.
+
+**Gameplay contract:** tank routes are carriageways at least 10 px wide (main road, collectors, collector cross streets), all connected to the main road (checked). Slots are spaced (44 px flak, 72 px artillery) with a quota per 300 px rising with U. The plan answers `CityGen.typeAt(plan, x, y)` in the game's terrain-type vocabulary.
+
+**Performance (measured):** plan about 30 ms median per 1800 px town in Node (built once per level); painting about 2.3 ms per 224 x 64 chunk in the browser (the legacy city chunk costs about 33 ms). 800 plans (4 density curves x 2 damage levels x 100 seeds) all pass the hard rules.
+
+**Next:** tune the look in the lab with the owner (new building and street assets are allowed), then presets (village, old town with a radial core, river town with island and bridges, harbour front, industrial estate), then the integration into level 6 (the plan as the sortie's settlement layer, chunks painted from it, the director placing guns in the slots).

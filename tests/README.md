@@ -90,6 +90,17 @@ node tests/contact.mjs OUTDIR        # all six levels, 8 points each, plus an HT
 node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
 ```
 
+## City generator test (runs in CI, blocking)
+
+`citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also prints plan time and density error.
+
+```
+node tests/citygen.mjs
+node tests/citylab-shot.mjs OUTDIR [seed]   # screenshot of the lab and the raw town map (serve the folder first)
+```
+
+The lab itself is opened in a browser (`http://localhost:8000/tools/citylab.html` while the folder is served): seed, settings, overlays (streets, tank routes, gun slots, ground kinds, chunks, a game-sized screen), the rule checks, painting speed per chunk and a seed sweep.
+
 ## Performance test (runs in CI, warning only)
 
 `perf.mjs` checks how the game runs on slower phones. It slows Chrome's CPU down 4x ("mid-range phone") and 6x ("older phone"), plays with the bot on a phone-sized touch window, and measures: the cost of every frame (average, p95, p99, worst), frames over the 16.7 ms budget, the real frame loop (fps, hitches, whether lite mode switches on), start-up time, heap growth over a long run (leaks), and page weight. The table appears in the CI job summary; changes against `perf-baseline.json` raise yellow warnings and never fail the build.

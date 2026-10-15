@@ -1,0 +1,23 @@
+// City generator test (tools/citygen.js, the settlement generator behind tools/citylab.html). Node only, no browser:
+//   node tests/citygen.mjs          100 seeds of every preset and density curve the lab offers; every hard rule must hold
+// Hard rules: no overlapping buildings, every house fronts a street, every tank carriageway joins the main road, churches spaced out,
+// and the same seed always gives the same plan. Also prints plan time and density error per curve.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const CG = require('../tools/citygen.js');
+const CURVES = { town: [[0, 0.04], [0.16, 0.28], [0.38, 0.66], [0.58, 1], [0.8, 0.86], [1, 0.6]], approach: [[0, 0.03], [0.2, 0.22], [0.45, 0.5], [0.7, 0.8], [1, 1]], centre: [[0, 0.85], [0.5, 1], [1, 0.9]], fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]] };
+let bad = 0; const fail = m => { bad++; console.error('FAIL ' + m); };
+const hash = p => { let h = 2166136261; for (const a of [p.K, p.B]) for (let i = 0; i < a.length; i += 7) { h ^= a[i] & 0xffff; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16) + ':' + p.items.length + ':' + p.slots.length; };
+for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0.6]) {
+  const ms = [], errs = []; let fails = 0, sq = 0, slots = 0;
+  for (let seed = 1; seed <= 100; seed++) {
+    const t = performance.now(), p = CG.generate({ seed, params: { density, damage } }); ms.push(performance.now() - t);
+    const m = CG.validate(p); errs.push(m.densityErr); slots += p.slots.length; sq += m.squares;
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${name} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, church gap ${m.churchMinGap}`); }
+    if (seed <= 5 && hash(p) !== hash(CG.generate({ seed, params: { density, damage } }))) fail(`${name} seed ${seed}: the same seed gave a different plan`);
+  }
+  ms.sort((a, b) => a - b);
+  console.log(`${fails ? 'FAIL' : 'ok  '} ${name.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median / ${ms[99].toFixed(0)} max, density error ${(errs.reduce((a, b) => a + b, 0) / 100).toFixed(1)} pts, squares ${sq}, slots ${(slots / 100).toFixed(1)} per town`);
+}
+if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
+console.log('\nCity generator checks pass.');
