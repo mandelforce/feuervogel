@@ -53,7 +53,7 @@ The sortie carries the fields that the campaign hides in `th`:
 
 1. For a whole Enigma level, `curTheme`, `prevTheme` and `featTheme` are set to the matching **legacy theme** (level 1 -> 0, 2 -> 2, 3 -> 3, 4 -> 4, 5 -> 1, 6 -> 5). Enemies, set pieces, boss, music and night behaviour then work as in the Campaign.
 2. The **terrain and look code branches on the sortie, not on `th`**: `predictInfo`/`info`, `classify`, `pixelColor`, `drawFeatures`, the palette choice, the winter blend, the tree and house sets. When `run.sortie` is set they read `sortie.climate` and the segment; when it is null the old code runs unchanged.
-3. `timeOfDay: night` is **not only a tint**: `nightF` comes from `th === 3` and gives searchlights extra shots. Level 3 keeps `curTheme = 3`. A night in another level is visual only unless [you] want the extra shots as well.
+3. `timeOfDay: night` is **not only a tint** (owner decision: night must have a gameplay effect). Today `nightF` comes from `th === 3` and gives searchlights extra shots. For Enigma Run the effect becomes a sortie parameter `nightFire` that works in any level that is at night: enemy shots are **better aimed at the player** and a share of single shots become **double shots**. Starting values: aim error reduced by 50 percent, 20 percent of single shots doubled, both scaled by difficulty; tuned with `tests/balance.mjs`. Level 3 keeps `curTheme = 3` and its existing searchlight behaviour; `nightFire` adds to it and is off in daylight levels. Because it changes the simulation it only exists in Enigma Run, so the Campaign checksums are unaffected. [verify] where the shot-aiming code lives (`eshot`, enemy `update` functions).
 4. **Boss arenas follow the campaign's terrain contract exactly**, with the campaign's biome name and theme, because the boss code expects specific ground (audit "Campaign-only"): `sea` for the ship; `bossland` with `th 1` giving `ryard` with `YARD_T` for the train; `BOSSRAIL` +/- 19 for the railgun (`th 3`); `castle` with `th 4` for the castle; `secret` with `th 5` for `finalAirfield`/`finalStartY` for the sky fortress. The fortress arena (`th 2`) uses the campaign's `bossland`. Making these arenas free-form is a later project. [verify]
 
 ## 2. Roads and rails as lists of lines (decision: lists; two tiers after review)
@@ -223,7 +223,7 @@ Every site and template exposes the same small interface to the director. This r
 | `onDestroy` | what changes: a spawner stops, a bridge breaks (existing `bridgeDown`), a chimney stops smoking, rubble appears |
 | `threat` | small number the director uses to balance a screen (a flak gun adds more than a hangar) |
 
-The **carrier** example: `role: spawner + landmark + boss-arena`; `slots: deck_guns[], launch_points[]`; `clear` around the deck; `onDestroy` for the deck stops fighter launches. If the deck is destroyed, no new fighters appear; the hull stays as a wreck.
+The **carrier** example (changed by the owner): it is the **opening scene of level 1**, not a gate. The player steals the Feuervogel from the carrier at the start, the ship is shown launching from the deck amid panic, and the carrier cannot be destroyed because the player is leaving it behind. `role: scripted-start + landmark`; `slots: deck_guns[], launch_points[]`; `clear` around the deck. Fighters launch from `launch_points` for a fixed time and pursue the player; the carrier scrolls off the bottom. Assumption [you]: its deck guns may be shot (they are targets) but the hull is not destroyable.
 
 Rule from the review request: the director must never place a gun where a large building blocks its line of fire, nor a boss on a visually busy area. Boss arenas have density at most 15 percent and no scatter inside the clear rectangle.
 
@@ -318,25 +318,36 @@ Lengths in chunks. Order is the Campaign order. Bosses and music are the campaig
 
 
 
-**Target lengths (owner decision):** at least a Campaign stage (about 48 chunks), later levels longer: L1 48, L2 48, L3 50, L4 52, L5 54, L6 58, all before the open-ended boss arena. Waves are time-driven in the Campaign (`waveCd`), so a longer level simply has more waves; the ARC pacing is normalised by `bossQ` (see above). [verify]
+**Story frame (owner):** at the start of level 1 the player steals the Feuervogel from the enemy carrier, which causes panic, and many planes launch after the player. Then the player decides to go against the raven clan and its hideouts. The six levels are the hunt for those hideouts.
+
+**Target lengths (owner decision):** levels may be longer than a Campaign stage (about 48 chunks) so they can hold the new content and feel less dense: **L1 56, L2 56, L3 58, L4 60, L5 62, L6 70**, all before the open-ended boss arena. The chunk counts written in the sequences below are **weights**: `buildSortie` scales them to the target length (rounding, keeping each segment at its minimum). Waves are time-driven in the Campaign (`waveCd`), so a longer level has more waves; the ARC pacing is normalised by `bossQ` (see above). [verify] The wave rate per second may need to be lowered so the longer levels do not feel denser; tune in phase 7.
+
+**Order conflict to resolve [you]:** the landmarks you gave for levels 4 and 5 are the reverse of the Campaign order (Campaign stage 4 is the Iron Forest with the castle, stage 5 is the Winter Line with the train). The sequences below keep the Campaign order and the landmarks are attached to the matching level by theme (frozen sea and submarines -> Winter Line, castle and dense forest -> Iron Forest). If you want the order swapped, the bosses swap with it (the train in level 4, the castle in level 5).
 
 **Level 1: Cross the Channel** (temperate, day, scattered cloud, rain showers in the second half). Boss: the flagship. Total 48.
-`open_sea 3` -> `island_chain 6` -> `fleet 5` (**carrier gate**, see 13) -> `beach_fortified 3` -> `farmland 7` (river with bridge) -> `village 4` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 4` -> `open_sea 4` -> boss arena (sea).
+`carrier_start 4` (**opening scene**) -> `open_sea 3` -> `island_chain 6` -> `island_large 5` (one large island with farmland, fields and a farmstead) -> `beach_fortified 3` -> `farmland 7` (river with bridge) -> `village 4` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 4` -> `open_sea 4` -> boss arena (sea).
+*Landmarks:* the carrier start and the ship boss; many small islands; one large island with farmland.
 
 **Level 2: Sea of Sand** (desert, heat shimmer, dust, sandstorm gusts at the boss). Boss: Sand Colossus. Total 48.
 `harbour_commercial 4` (desert) -> `beach_town 3` -> `valley 7` (oil field, wadi) -> `village 4` (desert) -> `station_junction 6` (convoy on the road) -> `desert_open 4` (oasis, irrigated fields) -> `airbase_desert 6` -> `pass 7` (fortified) -> `desert_open 7` (quiet approach) -> boss arena.
+*Landmark:* a small oasis (`oasis`) with a pool of water, palm trees, a few houses and a well. It is placed in the `desert_open 4` segment.
 
 **Level 3: The Long Night** (night, lightning, then low mist). Boss: the supergun. Total 50.
-`beach_fortified 3` (searchlights) -> `industrial_power 7` (pylons, smoke) -> `station_marshalling 7` -> `farmland 7` (night, mist) -> `village 3` (lit windows) -> `airbase_searchlight 6` -> `forest_deciduous 5` -> `industrial_light 6` -> `rail_corridor 6` (two rails) -> boss arena.
+`beach_fortified 3` (searchlights) -> `industrial_power 7` (pylons, smoke) -> `station_marshalling 7` -> `farmland 7` (night, mist) -> `city_small 4` (lit windows, searchlights, burning houses) -> `airbase_searchlight 6` -> `forest_deciduous 5` -> `industrial_light 6` -> `rail_corridor 6` (two rails) -> boss arena.
+*Landmark:* a small city (`city_small`, replaces the `village 3`) with searchlights and **some burning houses**: it has been attacked recently (damage `heavy` with active fires, within the fire budget of section 7). Night shots apply (1.1, item 3).
 
 **Level 4: The Iron Forest** (dark conifer, rain, mist). Boss: Ravenhold castle. Total 52.
 `beach_cliff 3` -> `forest_conifer 8` (several roads, convoys) -> `forest_fortified 7` -> `clearing_village 4` (logging camp) -> `airbase_forest_hidden 6` (camouflaged) -> `forest_fortified 7` -> `forest_conifer 5` -> `valley 6` (river valley) -> `farmland_approach 6` -> `castle_forest` (boss; reported to need about 19 chunks of castle ground, [verify]).
+*Landmarks (owner, listed as level 5):* the **castle at the end**, a fortification line before it, **dense forest with mist**.
 
 **Level 5: The Winter Line** (winter, light snow rising to a snowstorm). Boss: the armoured train. Total 54.
 `open_sea_ice 3` -> `harbour_winter 4` -> `farmland_winter 7` -> `village 4` -> `lake_valley 6` -> `station_winter 8` (train convoy) -> `airbase_snow 6` -> `forest_conifer 6` (snowstorm) -> `pass 6` -> `farmland_winter 4` -> boss arena (rail yard).
+*Landmarks (owner, listed as level 4):* **part of the sea is frozen** (`open_sea_ice`), **submarines come up through holes in the ice** (`ice_hole`, with a surfacing animation, built on the existing `ice` terrain and `G('sub')`), and **it begins to snow partway through** (weather plan: clear -> light snow -> snow -> snowstorm).
 
 **Level 6: The Burning City** (temperate, dusk, smoke; damage grows from none to ruined). Boss: the skyfortress duel. Total 58. **It starts simple and grows into a city** (owner decision):
 `open_sea 2` -> `coast_plain 2` -> `farmland 7` (**no river**) -> `village 5` -> `city_suburb 6` (light damage) -> `city_town 5` -> `city_river 12` -> `city_centre 6` (heavy damage) -> `industrial_power 5` (smoke) -> `ruins 4` (ruined) -> `station_main 4` -> boss arena (air).
+
+*Landmarks:* **damage around the industry, the airfield and the base**; **burning parts of the city**; the story is that the allies fought a big battle here and **lost**, so **shot-down planes lie on the ground** (`wreck_plane`: allied fighters and bombers, plus a few of the player's own side), with craters, burnt vehicles and smoke columns. Damage grows along the level: none in the farmland, light in the suburb, heavy in the centre and industry, ruined near the base.
 
 `city_river` is a **new river, not the campaign's** (`riverY`/`riverD`): a wide river drawn as a polyline (section 6, monotone in y, width about 14 to 20 px), with quays, and a **small city island** in the middle (old town: streets, a church and a square) connected by **3 to 4 bridges**. The bridges are real bridges (`bridge` terrain, attackable `G('bridge')`, breakable via `bridgeDown`) and are also the only crossings for the city routes. Density rises smoothly from the village (about 35 percent) through suburb and town to the centre (up to 60 percent) and the street layout changes with it: a main road with houses along it, then a grid with an irregular old centre, then radial streets around the island's square.
 
@@ -356,7 +367,12 @@ Each level also needs: one named landmark, one "quiet" stretch of at least 2 chu
 | 1 | Weather plan and fog | all | |
 | 1 | Damage levels | 6 | |
 | 2 | Harbour (small, commercial, naval) | 1, 2, 5, 6 | |
-| 2 | Carrier (spawner mini-boss) | 1 | |
+| 1 | Carrier start scene (deck, launch points, pursuit fighters, scroll-off) | 1 | scripted opening, not a gate |
+| 1 | Ice holes with surfacing submarines | 4/5 (winter) | builds on `ice` terrain and `G('sub')` |
+| 1 | Oasis (pool, palms, well, houses) | 2 | palms exist (`palm()`); well and pool are new |
+| 1 | Small city with searchlights and burning houses | 3 | uses the damage overlay and `chunkFires` |
+| 1 | Plane wrecks (allied fighters and bombers on the ground) | 6 | new sprites; the Campaign has tank and truck wrecks only |
+| 1 | Large farmland island | 1 | island template with its own fields |
 | 2 | Giant submarine boss | later | needs a naval pen |
 | 2 | Air base variants | 1 to 5 | |
 | 3 | Everything else from the catalogue | generative mode | vineyards, stadium, chemical plant, monastery, oil terminal, ... |
@@ -385,12 +401,24 @@ Each phase ends with a contact sheet of the six levels and a full test run.
 6. **Level length** matches a Campaign stage at least, later levels longer (section 10).
 7. **Level 6** starts simple and grows into a real city with its own new river, a small city island and connecting bridges (section 10).
 
+**Changed by the owner in the latest round**
+- The carrier is **not a gate**. It is the opening scene of level 1: the player steals the Feuervogel from it and cannot destroy it. Pursuing planes launch from it (section 5).
+- **Night has a gameplay effect** in any night level: better-aimed shots and some double shots (1.1, item 3).
+- **Route objects are deferred** (see Reminders below).
+- **Level 6 is built first** (vertical slice).
+- **Levels may be longer** (section 10).
+
 **Still open [you]**
-- A. **Carrier gate mechanics.** Options: (a) the scroll stops while the carrier is alive, like a boss; (b) the carrier follows the screen and the segment after it only starts when it is destroyed; (c) the boss trigger is blocked until it is destroyed, but the scroll continues and the carrier sails back into view. Draft preference: (a), the simplest and the same as a boss.
-- B. Should a night in a level other than level 3 also give searchlights their extra shots (1.1, item 3), or stay visual?
-- C. Enemy route objects (section 2): now or later? Draft preference: later.
-- D. What each level should additionally have (named landmark, special moments, a favourite thing you want to see). Section 10 is waiting for this.
-- E. Which level is built first as the vertical slice? Draft preference: level 6, because it is the hardest and the most visibly broken today; otherwise level 1.
+- A. **Level 4 / level 5 order** (section 10): keep the Campaign order, or swap so that the frozen-sea level (train boss) comes before the castle level?
+- B. **Night shots scope:** all enemies at night, or only enemies inside a searchlight beam? Draft: all enemies, scaled by `nightFire`, because the beam logic only exists for searchlights.
+- C. **Carrier details:** may the deck guns be destroyed, and how long should the pursuit last (draft: about 25 seconds, then the carrier is off screen)?
+- D. Anything else you want each level to contain; the landmarks above are recorded as given.
+
+## 13a. Reminders for the owner
+
+- **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1.
+- **Local best score per level**: not now. Revisit after the first playable level.
+- **Level 4 / 5 order**: pending (open question A).
 
 ## 14. Changes from review (draft 1 -> draft 2)
 
