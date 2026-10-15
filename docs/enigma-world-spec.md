@@ -316,26 +316,31 @@ Lengths in chunks. Order is the Campaign order. Bosses and music are the campaig
 - Seams are **counted inside** the lengths below.
 - A level's `bossQ` is about 44 to 48 unless a sequence is deliberately shorter; the wing spawn and set-piece positions are derived from `bossQ`, not from the fixed 18 and 48. Boss arenas use the campaign contract from 1.1 (their length is whatever the campaign's boss needs).
 
-Sums of the draft sequences (to be checked against `bossQ` in phase 1): L1 40, L2 35, L3 39, L4 40, L5 39, L6 42, all before the open-ended arena. They are shorter than a campaign stage on purpose and can be lengthened. [you]
 
 
-**Level 1: Cross the Channel** (temperate, day, scattered cloud, rain showers in the second half). Boss: the flagship.
-`open_sea 3` -> `island_chain 6` (carrier mini-boss as `fleet 4`) -> `beach_fortified 3` -> `farmland 6` (river with bridge) -> `village 3` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 3` -> `boss_arena_sea 4`.
+**Target lengths (owner decision):** at least a Campaign stage (about 48 chunks), later levels longer: L1 48, L2 48, L3 50, L4 52, L5 54, L6 58, all before the open-ended boss arena. Waves are time-driven in the Campaign (`waveCd`), so a longer level simply has more waves; the ARC pacing is normalised by `bossQ` (see above). [verify]
 
-**Level 2: Sea of Sand** (desert, heat shimmer, dust, sandstorm gusts at the boss). Boss: Sand Colossus.
-`harbour_commercial 4` (desert) -> `beach_town 3` -> `valley 5` (oil field, wadi) -> `village 3` (desert) -> `station_junction 5` (desert; convoy on the road) -> `airbase_desert 6` -> `pass 5` (fortified) -> `boss_arena_saltpan 4`.
+**Level 1: Cross the Channel** (temperate, day, scattered cloud, rain showers in the second half). Boss: the flagship. Total 48.
+`open_sea 3` -> `island_chain 6` -> `fleet 5` (**carrier gate**, see 13) -> `beach_fortified 3` -> `farmland 7` (river with bridge) -> `village 4` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 4` -> `open_sea 4` -> boss arena (sea).
 
-**Level 3: The Long Night** (night, lightning, then low mist). Boss: the supergun.
-`beach_fortified 3` (searchlights) -> `industrial_power 6` (pylons, smoke) -> `station_marshalling 6` -> `farmland 6` (night, mist) -> `airbase_searchlight 5` -> `forest_deciduous 4` -> `rail_corridor 5` (two rails) -> `boss_arena_rail 4`.
+**Level 2: Sea of Sand** (desert, heat shimmer, dust, sandstorm gusts at the boss). Boss: Sand Colossus. Total 48.
+`harbour_commercial 4` (desert) -> `beach_town 3` -> `valley 7` (oil field, wadi) -> `village 4` (desert) -> `station_junction 6` (convoy on the road) -> `desert_open 4` (oasis, irrigated fields) -> `airbase_desert 6` -> `pass 7` (fortified) -> `desert_open 7` (quiet approach) -> boss arena.
 
-**Level 4: The Iron Forest** (dark conifer, rain, mist). Boss: Ravenhold castle.
-`beach_cliff 3` -> `forest_conifer 7` (roads, convoys) -> `forest_fortified 6` -> `clearing_village 4` (logging camp) -> `airbase_forest_hidden 5` (camouflaged) -> `forest_fortified 6` -> `farmland_approach 5` -> `castle_forest 4` (boss).
+**Level 3: The Long Night** (night, lightning, then low mist). Boss: the supergun. Total 50.
+`beach_fortified 3` (searchlights) -> `industrial_power 7` (pylons, smoke) -> `station_marshalling 7` -> `farmland 7` (night, mist) -> `village 3` (lit windows) -> `airbase_searchlight 6` -> `forest_deciduous 5` -> `industrial_light 6` -> `rail_corridor 6` (two rails) -> boss arena.
 
-**Level 5: The Winter Line** (winter, light snow rising to a snowstorm). Boss: the armoured train.
-`open_sea_ice 3` -> `harbour_winter 4` -> `farmland_winter 6` (villages) -> `lake_valley 5` -> `station_winter 7` (train convoy) -> `airbase_snow 5` -> `forest_conifer 4` (snowstorm) -> `boss_arena_yard 5`.
+**Level 4: The Iron Forest** (dark conifer, rain, mist). Boss: Ravenhold castle. Total 52.
+`beach_cliff 3` -> `forest_conifer 8` (several roads, convoys) -> `forest_fortified 7` -> `clearing_village 4` (logging camp) -> `airbase_forest_hidden 6` (camouflaged) -> `forest_fortified 7` -> `forest_conifer 5` -> `valley 6` (river valley) -> `farmland_approach 6` -> `castle_forest` (boss; reported to need about 19 chunks of castle ground, [verify]).
 
-**Level 6: The Burning City** (temperate, dusk, smoke; damage grows from light to ruined). Boss: the skyfortress duel.
-`harbour_commercial 4` (wrecks) -> `industrial_harbour 5` -> `city_suburb 5` (light damage) -> `city_centre 9` (river with bridges, squares, churches, grid broken by a ring road; heavy damage) -> `industrial_power 5` (smoke) -> `ruins 5` (ruined) -> `station_main 4` -> `boss_arena_air 5`.
+**Level 5: The Winter Line** (winter, light snow rising to a snowstorm). Boss: the armoured train. Total 54.
+`open_sea_ice 3` -> `harbour_winter 4` -> `farmland_winter 7` -> `village 4` -> `lake_valley 6` -> `station_winter 8` (train convoy) -> `airbase_snow 6` -> `forest_conifer 6` (snowstorm) -> `pass 6` -> `farmland_winter 4` -> boss arena (rail yard).
+
+**Level 6: The Burning City** (temperate, dusk, smoke; damage grows from none to ruined). Boss: the skyfortress duel. Total 58. **It starts simple and grows into a city** (owner decision):
+`open_sea 2` -> `coast_plain 2` -> `farmland 7` (**no river**) -> `village 5` -> `city_suburb 6` (light damage) -> `city_town 5` -> `city_river 12` -> `city_centre 6` (heavy damage) -> `industrial_power 5` (smoke) -> `ruins 4` (ruined) -> `station_main 4` -> boss arena (air).
+
+`city_river` is a **new river, not the campaign's** (`riverY`/`riverD`): a wide river drawn as a polyline (section 6, monotone in y, width about 14 to 20 px), with quays, and a **small city island** in the middle (old town: streets, a church and a square) connected by **3 to 4 bridges**. The bridges are real bridges (`bridge` terrain, attackable `G('bridge')`, breakable via `bridgeDown`) and are also the only crossings for the city routes. Density rises smoothly from the village (about 35 percent) through suburb and town to the centre (up to 60 percent) and the street layout changes with it: a main road with houses along it, then a grid with an irregular old centre, then radial streets around the island's square.
+
+New templates this needs: `desert_open`, `industrial_light`, `coast_plain`, `city_town`, `city_river` (variants defined in 3.2, add to the table when phase 1 starts).
 
 Each level also needs: one named landmark, one "quiet" stretch of at least 2 chunks, and a pre-boss approach. **[you]** add what each level should have in your mind that I have not written.
 
@@ -369,16 +374,23 @@ Each level also needs: one named landmark, one "quiet" stretch of at least 2 chu
 
 Each phase ends with a contact sheet of the six levels and a full test run.
 
-## 13. Open questions [you]
+## 13. Decisions and open questions
 
-1. Is the carrier a mini-boss that must be destroyed to continue, or a threat the player may ignore (its spawns stop only when it is destroyed)?
-2. Should each Enigma level keep the campaign's boss unchanged, or is the new boss arena allowed to change the fight?
-3. Are the proposed density ceilings (section 3.2) the right order of magnitude, or should levels feel much emptier?
-4. Do scores in Enigma Run count anywhere (a local best per level), or are they like Practice?
-5. Level order: Campaign order as above, or the theme order of the README?
-6. Should a night in a level other than level 3 also give the searchlights their extra shots (1.1, item 3), or stay purely visual?
-7. Local best score per level for Enigma Run (see section 0)?
-8. Enemy route objects (section 2): do now or later?
+**Decided by the owner**
+1. The **carrier must be destroyed to continue** (a gate). Mechanism still open, see below.
+2. **Every level keeps the Campaign's boss fight unchanged.**
+3. Density ceilings: roughly the right direction; to be checked on contact sheets in phase 7.
+4. **Scores do not count anywhere** for now (no local best).
+5. **Campaign order** for levels 1 to 6.
+6. **Level length** matches a Campaign stage at least, later levels longer (section 10).
+7. **Level 6** starts simple and grows into a real city with its own new river, a small city island and connecting bridges (section 10).
+
+**Still open [you]**
+- A. **Carrier gate mechanics.** Options: (a) the scroll stops while the carrier is alive, like a boss; (b) the carrier follows the screen and the segment after it only starts when it is destroyed; (c) the boss trigger is blocked until it is destroyed, but the scroll continues and the carrier sails back into view. Draft preference: (a), the simplest and the same as a boss.
+- B. Should a night in a level other than level 3 also give searchlights their extra shots (1.1, item 3), or stay visual?
+- C. Enemy route objects (section 2): now or later? Draft preference: later.
+- D. What each level should additionally have (named landmark, special moments, a favourite thing you want to see). Section 10 is waiting for this.
+- E. Which level is built first as the vertical slice? Draft preference: level 6, because it is the hardest and the most visibly broken today; otherwise level 1.
 
 ## 14. Changes from review (draft 1 -> draft 2)
 
