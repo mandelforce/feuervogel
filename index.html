@@ -256,6 +256,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:22px;background:#fff0a0;border:2px solid #120e1a;box-shadow:inset -2px -2px 0 #d0a020}
 #settings input[type=range]::-moz-range-track{background:transparent}#settings input[type=range]::-moz-range-thumb{width:8px;height:18px;border-radius:0;background:#fff0a0;border:2px solid #120e1a}
 #settings .note{font-size:11px;color:#7a6ea0}
+#settings .val{min-width:34px;text-align:right;font-size:12px;color:#fff0a0}
 #settings .wide{background:#2a2050;color:#a8f6dc;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:8px}
 /* leaderboard: filters keep their underlines; the list gets arcade rows */
 #lbList li{background:rgba(18,14,36,.75);border-left:0;padding:7px 10px}
@@ -426,6 +427,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
+        <div class="row"><label for="sEnigma">Enigma</label><input type="range" id="sEnigma" min="0" max="100" step="5"><span id="sEnigmaV" class="val">Off</span></div>
+        <p class="note">Calmer backgrounds. Off is the classic look.</p>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
@@ -454,7 +457,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.6'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -499,8 +502,9 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
+settings.enigma = Math.max(0, Math.min(100, Math.round((+settings.enigma || 0) / 5) * 5)); // Enigma look strength, 0 = classic
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs +1, heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
@@ -1108,6 +1112,84 @@ SPR.clouds = [
   cloudSprite(44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]),
   cloudSprite(80, 36, [[16, 22, 14, 11], [36, 14, 18, 13], [58, 20, 16, 12], [40, 26, 22, 9]])
 ];
+/* ================= enigma: the calmer Campaign look =================
+   A visual-only alternative look, controlled by the Enigma slider in Settings. ENIGMA_T is the strength (0 to 1) of the run being flown:
+   run.enigma / 100, copied into the run when it starts and changed only by setLook(). At 0 every function below is skipped and the
+   classic code paths run. Nothing here may touch the run's seeded random stream, the layout the director places enemies on, or the
+   dither (bay / pickI). Every number of the look is in ENIGMA, so it can be tuned in one place. */
+const ENIGMA = {
+  sat: 0.14, warm: 0.35,                         // pull ground colours toward grey by sat * T; wheat, soil and sand (warm tones) take only warm of that
+  prom: 0.25, promK: 0.3, promW: 0.15,           // share of fields that stay prominent, their strength (x T) and their hedge weight (x T)
+  hedgeW: 0.8,                                   // hedge softening weight of a normal field (x T)
+  furrow: 0.21,                                  // furrow lines on ploughed soil: offset 0.35 - furrow * Tf
+  flower: 0.0065, flower2: 0.0032,               // meadow flowers get rarer: thresholds 0.992 and 0.996 rise by these (x T)
+  fence: 0.35, postsFrom: 0.5,                   // farm fences blend toward the ground by fence * T; every second post goes at T >= postsFrom
+  snow: 0.92, spill: 0.45, snowHalf: 0.5,        // winter hedges: snow on the hedge, spill onto the field next to it, strength s = min(1, T / snowHalf)
+  snowCol: [236, 240, 248], snowScale: 0.045, snowCut: 0.28, snowGain: 9,
+  thin: 0.5, farm: 6,                            // meadow and grass trees: h * (1 + thin * T); fields: meadow trees keep farm px off non-meadow
+  puffs: [[34, 18, 0], [26, 14, 1]],             // low cloud puffs: width, height, the classic cloud shape they copy
+  puffGrow: 0.6, puffA: 0.8, puffAT: 0.2,        // puffs scale by 1 + puffGrow * (1 - T), baked opacity puffA + puffAT * (1 - T)
+  wisps: [[80, 9, 0.75], [56, 8, 0.7]],          // low cloud wisps: width, height, baked opacity
+  puffSteps: [0.3, 0.6, 0.85, 1], puffCut: [0.3, 0.55, 0.8],   // soft rim: alpha steps by how many pixels of the 5x5 window are opaque
+  wispSteps: [0.35, 0.65, 1], wispCut: [0.45, 0.75],
+  shadeSteps: [0.18, 0.4, 0.65, 0.85, 1], shadeCut: [0.2, 0.4, 0.6, 0.8],   // soft shadows over a 9x9 window
+  hiFade: 0.24, bigShadow: 0.07, bigShadowT: 0.05  // the see-through overlay fades to hiFade * (1 - T); ground shadows of the big clouds: alpha bigShadow + bigShadowT * T
+};
+let ENIGMA_T = 0, eTf = 0, eW = 0, engSat = false;
+const ENIGMA_SPR = new Map(); // cloud sprites, cached per strength (percent)
+const mixC = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const _engC = [0, 0, 0];
+// ground colour pulled toward its grey; warm tones (wheat, soil, sand) only a little. Returns a shared array: read it at once.
+function engDesat(c) {
+  const r = c[0], g = c[1], b = c[2], l = 0.299 * r + 0.587 * g + 0.114 * b, k = ENIGMA.sat * ENIGMA_T * (r > b + 40 && r >= g ? ENIGMA.warm : 1);
+  _engC[0] = r + (l - r) * k; _engC[1] = g + (l - g) * k; _engC[2] = b + (l - b) * k; return _engC;
+}
+// per-field strength: eTf for stripes and furrows, eW for the hedge; a quarter of the fields stay prominent (not in winter)
+function enigmaField(key, winter) {
+  if (!winter && hash(key, 29) < ENIGMA.prom) { eTf = ENIGMA.promK * ENIGMA_T; eW = ENIGMA.promW * ENIGMA_T; }
+  else { eTf = ENIGMA_T; eW = ENIGMA.hedgeW * ENIGMA_T; }
+}
+// soft cloud sprites. mask: the opaque pixels of a classic cloud shape. A rim of stepped alpha, and a soft shadow on a canvas padded by 4.
+function softCloud(src, steps, cuts, alpha) {
+  const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h), a = d.data, op = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) op[i] = a[i * 4 + 3] ? 1 : 0;
+  const cover = (i, j, r, ox) => { let n = 0; for (let v = -r; v <= r; v++) for (let u = -r; u <= r; u++) { const x = i + u - ox, y = j + v - ox; if (x >= 0 && y >= 0 && x < w && y < h) n += op[y * w + x]; } return n / ((2 * r + 1) ** 2); };
+  const step = (cov, st, ct) => { let s = 0; while (s < ct.length && cov >= ct[s]) s++; return st[s]; };
+  const [c, x] = mk(w, h), o = x.createImageData(w, h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = (j * w + i) * 4; if (!op[j * w + i]) continue; o.data[k] = a[k]; o.data[k + 1] = a[k + 1]; o.data[k + 2] = a[k + 2]; o.data[k + 3] = Math.round(255 * alpha * step(cover(i, j, 2, 0), steps, cuts)); }
+  x.putImageData(o, 0, 0);
+  return { c, k: softShade(op, w, h), w, h };
+}
+function softShade(op, w, h) {
+  const P = 4, W2 = w + 2 * P, H2 = h + 2 * P, [c, x] = mk(W2, H2), o = x.createImageData(W2, H2);
+  for (let j = 0; j < H2; j++) for (let i = 0; i < W2; i++) {
+    let n = 0; for (let v = -4; v <= 4; v++) for (let u = -4; u <= 4; u++) { const px = i + u - P, py = j + v - P; if (px >= 0 && py >= 0 && px < w && py < h) n += op[py * w + px]; }
+    if (!n) continue; let s = 0; const cov = n / 81; while (s < ENIGMA.shadeCut.length && cov >= ENIGMA.shadeCut[s]) s++;
+    const k = (j * W2 + i) * 4; o.data[k] = 10; o.data[k + 1] = 8; o.data[k + 2] = 18; o.data[k + 3] = Math.round(255 * ENIGMA.shadeSteps[s]);
+  }
+  x.putImageData(o, 0, 0); return c;
+}
+function enigmaSprites(pct) {
+  let S = ENIGMA_SPR.get(pct); if (S) return S;
+  const T = pct / 100, f = 1 + ENIGMA.puffGrow * (1 - T), low = [];
+  for (const [pw, ph, from] of ENIGMA.puffs) {
+    const base = [[60, 30, [[14, 18, 12, 9], [30, 12, 16, 11], [46, 18, 13, 10], [30, 21, 18, 8]]], [44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]]][from], k = pw / base[0] * f;
+    const sp = cloudSprite(Math.round(pw * f), Math.round(ph * f), base[2].map(b => b.map(v => v * k)));
+    low.push(softCloud(sp.c, ENIGMA.puffSteps, ENIGMA.puffCut, ENIGMA.puffA + ENIGMA.puffAT * (1 - T)));
+  }
+  const wb = [[[12, 5, 12, 3.5], [30, 4, 14, 3.8], [50, 5, 16, 3.5], [68, 4, 12, 3.5]], [[10, 4, 10, 3], [26, 3.5, 12, 3.2], [42, 4.5, 12, 3], [50, 4, 6, 2.6]]];
+  ENIGMA.wisps.forEach(([ww, wh, al], i) => low.push(softCloud(cloudSprite(ww, wh, wb[i]).c, ENIGMA.wispSteps, ENIGMA.wispCut, al)));
+  const big = [0, 2].map(i => softCloud(SPR.clouds[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
+  S = { low, big }; ENIGMA_SPR.set(pct, S); return S;
+}
+let ENG_S = null;
+// the strength of the look for the run now starting (or none, on the title screen and in the tutorial). Rebuilds what depends on it.
+function setLook(pct) {
+  const t = pct / 100; if (t === ENIGMA_T) return;
+  ENIGMA_T = t; ENG_S = t ? enigmaSprites(pct) : null;
+  world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2;
+  fieldOkCache.clear(); parcelRowCache.clear(); parcelBlkCache.clear(); canopyCache.clear(); chunkHouses.clear(); chunkFires.clear();
+}
 // enemy bullets look the same everywhere: a steady deep orange with a hot core, darker than the gold medals
 { const eb = (n, rr, core) => sprite(n, n, x => { ellS(x, RP.fire, rr, rr, rr, rr, 0.02); x.fillStyle = '#fff2a8'; x.fillRect(core[0], core[1], core[2], core[2]); });
   const s = eb(5, 2.5, [2, 2, 1]), b = eb(7, 3.5, [2, 2, 2]); SPR.eb = [s, s]; SPR.ebB = [b, b]; }
@@ -2353,11 +2435,13 @@ function parcel(wx, wy) {
   if (B.split === 'v') { if (Math.abs(lx - B.sp) < gap / 2) return { meadow: true, trail: Math.abs(lx - B.sp) < 1 }; if (lx > B.sp) { rx0 = B.sp + gap / 2; id = 1; } else rx1 = B.sp - gap / 2; }
   else if (B.split === 'h') { if (Math.abs(ly - B.spy) < gap / 2) return { meadow: true, trail: Math.abs(ly - B.spy) < 1 }; if (ly > B.spy) { ry0 = B.spy + gap / 2; id = 1; } else ry1 = B.spy - gap / 2; }
   const ox = bi * BW - off, oy = bj * BH;
-  if (!fieldFits(bj * 4096 + (bi + 64) * 4 + id, ox + rx0, oy + ry0, ox + rx1, oy + ry1)) return { meadow: true, trail: false };
-  return { meadow: false, ft: B.ft[id], fx: lx - rx0, fy: ly - ry0, edge: lx - rx0 < 1 || rx1 - lx < 1 || ly - ry0 < 1 || ry1 - ly < 1 };
+  const key = bj * 4096 + (bi + 64) * 4 + id; // stable per field (Enigma picks its prominent fields by it)
+  if (!fieldFits(key, ox + rx0, oy + ry0, ox + rx1, oy + ry1)) return { meadow: true, trail: false };
+  return { meadow: false, ft: B.ft[id], fx: lx - rx0, fy: ly - ry0, edge: lx - rx0 < 1 || rx1 - lx < 1 || ly - ry0 < 1 || ry1 - ly < 1, key };
 }
 function isMeadow(wx, wy) { return themeAtWy(wy) === 0 ? parcel(wx, wy).meadow : false; }
 function fieldColor(wx, wy) {
+  if (ENIGMA_T) return fieldColorE(wx, wy);
   if (nearRiver(wx, wy)) return TRGB.grass[pickI(5, 0.62 + (vnoise(wx * 0.09, wy * 0.09) - 0.5) * 0.5, wx, wy)];
   if (themeAtWy(wy) === 0) {
     const P = parcel(wx, wy), n = vnoise(wx * 0.09, wy * 0.09) - 0.5;
@@ -2384,10 +2468,51 @@ function fieldColor(wx, wy) {
     default: { const st = ((fx | 0) % 4) < 2; return TRGB.crop[pickI(4, 0.5 + n * 0.4 + (st ? 0.15 : -0.2), wx, wy)]; }
   }
 }
+// The Enigma version of fieldColor: calmer stripes, softened hedges, fewer flowers, snow on the winter hedges. Same field layout.
+function fieldColorE(wx, wy) {
+  const T = ENIGMA_T, E = ENIGMA;
+  if (nearRiver(wx, wy)) return TRGB.grass[pickI(5, 0.62 + (vnoise(wx * 0.09, wy * 0.09) - 0.5) * 0.5, wx, wy)];
+  if (themeAtWy(wy) === 0) {
+    const P = parcel(wx, wy), n = vnoise(wx * 0.09, wy * 0.09) - 0.5;
+    if (P.meadow) {
+      if (P.trail) return TRGB.dirt[pickI(4, 0.55 + (hash(wx, wy) - 0.5) * 0.4, wx, wy)];
+      const fl = hash(wx * 7, wy * 3); if (fl > 0.992 + E.flower * T) return hexRGB(fl > 0.996 + E.flower2 * T ? '#f0e070' : '#f4f0f0');
+      return TRGB.grass[pickI(5, 0.62 + n * 0.5, wx, wy)];
+    }
+    enigmaField(P.key, false);
+    const kS = 1 - eTf, fx = P.fx | 0, fy = P.fy | 0;
+    let c;
+    if (P.ft === 0) c = TRGB.wheat[pickI(5, 0.6 + n * 0.4 - ((fy % 4) < 1 ? 0.3 * kS : 0), wx, wy)];
+    else if (P.ft === 1) c = TRGB.soil[pickI(4, 0.55 + n * 0.4 - ((fx % 3) < 1 ? 0.35 - E.furrow * eTf : 0), wx, wy)];
+    else if (P.ft === 2) c = TRGB.grass[pickI(5, 0.35 + n * 0.3 - ((fy % 3) < 1 ? 0.2 * kS : 0), wx, wy)];
+    else c = TRGB.wheat[pickI(5, 0.4 + n * 0.3 - ((fx % 4) < 1 ? 0.25 * kS : 0), wx, wy)];
+    if (P.edge) return mixC(TRGB.hedge[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.8, wx, wy)], mixC(c, TRGB.grass[pickI(5, 0.5, wx, wy)], 0.5), eW);
+    return c;
+  }
+  const { ri, ci, fx, fy } = fieldCell(wx, wy), winter = themeAtWy(wy) === 1;
+  { const FW = 56, FH = 44, off = hash(ri, 77) * FW, x0 = ci * FW - off, y0 = ri * FH; if (themeAtWy(wy) !== 4 && !fieldFits(-(ri * 4096 + (ci + 64) * 4 + 3) - 0.5, x0 + 3, y0 + 2, x0 + FW - 1, y0 + FH - 1)) return TRGB.grass[pickI(5, 0.55 + (vnoise(wx * 0.09, wy * 0.09) - 0.5) * 0.5, wx, wy)]; }
+  enigmaField(ri * 4096 + ci, winter);
+  const kS = 1 - eTf, ft = (hash(ci, ri * 3 + 1) * 5) | 0, n = vnoise(wx * 0.09, wy * 0.09) - 0.5, v = hash(ci + 5, ri);
+  let c;
+  switch (ft) {
+    case 0: case 4: c = TRGB.grass[pickI(5, 0.5 + n * 0.6 + (ft === 4 ? 0.15 : 0), wx, wy)]; break;
+    case 1: { const st = ((fy | 0) % 4) < 1; c = TRGB.wheat[pickI(5, 0.6 + n * 0.4 - (st ? 0.3 * kS : 0), wx, wy)]; break; }
+    case 2: { const st = v < 0.5 ? ((fx | 0) % 3) < 1 : ((fy | 0) % 3) < 1; c = TRGB.soil[pickI(4, 0.55 + n * 0.4 - (st ? 0.35 - E.furrow * eTf : 0), wx, wy)]; break; }
+    default: { const st = ((fx | 0) % 4) < 2; c = TRGB.crop[pickI(4, 0.5 + n * 0.4 + (st ? 0.15 * kS : -0.2 * kS), wx, wy)]; }
+  }
+  const hedge = fx < 2.5 || fy < 2;
+  if (hedge) c = mixC(TRGB.hedge[pickI(3, 0.4 + (hash(wx, wy) - 0.5) * 0.8, wx, wy)], mixC(c, TRGB.grass[pickI(5, 0.4, wx, wy)], 0.5), eW);
+  if (winter && (hedge || fx < 4.5 || fy < 3.8)) {
+    const s = Math.min(1, T / E.snowHalf), amt = clamp((vnoise(wx * E.snowScale + ci * 3.1, wy * E.snowScale + ri * 1.7) - E.snowCut) * E.snowGain, 0, 1);
+    c = mixC(c, E.snowCol, (hedge ? E.snow : E.spill) * amt * s);
+  }
+  return c;
+}
 function pixelColor(wx, wy, rx) {
   const C = classify(wx, wy), p = C.p, ly = C.ly, I = C.I, b = I.b;
   let tt = C.tt, coastD = C.coastD;
   TRGB = THEME_RGB[I.th];
+  if (ENIGMA_T) engSat = b !== 'city' && b !== 'factory' && b !== 'secret' && b !== 'fortline' && b !== 'castle' && (tt === 'field' || tt === 'grass' || tt === 'sand' || tt === 'road'); // ground that Enigma pulls toward grey
   if (b === 'city') return cityColor(wx, wy, rx);
   if (b === 'factory' && tt !== 'rail') return factoryColor(wx, wy, rx);
   if (b === 'secret') return secretColor(wx, wy);
@@ -2561,7 +2686,19 @@ function inStation(x, y, m = 4) {
   }
   return false;
 }
-function treeOk(tt, tx, ty, h, th) {
+// Enigma only ever removes trees (never adds): a tree that Enigma keeps is one the classic look has too
+function treeOk(tt, tx, ty, h, th) { return treeOk0(tt, tx, ty, h, th) && (!ENIGMA_T || treeKeepE(tt, tx, ty, h, th)); }
+function treeKeepE(tt, tx, ty, h, th) {
+  const T = ENIGMA_T, E = ENIGMA;
+  if (tt === 'grass') return h * (1 + E.thin * T) < 0.06;
+  if (tt !== 'field') return true;
+  if (th !== 0) return hash(tx * 3, ty * 5) >= T;
+  if (!parcel(tx, ty).meadow) return true;
+  if (!(h * (1 + E.thin * T) < 0.2)) return false;
+  if (hash(tx * 3, ty * 5) < T) for (const [dx, dy] of [[-E.farm, 0], [E.farm, 0], [0, -E.farm], [0, E.farm]]) if (!parcel(tx + dx, ty + dy).meadow) return false;
+  return true;
+}
+function treeOk0(tt, tx, ty, h, th) {
   let ok = false;
   if (tt === 'forest') ok = Math.abs(tx - roadX(ty)) > 11;
   else if (tt === 'field' && th === 0) { const P = parcel(tx, ty); ok = P.meadow ? !P.trail && h < 0.2 : h < 0.004; }
@@ -2579,7 +2716,8 @@ function treeOk(tt, tx, ty, h, th) {
 }
 const burntTrees = new Set(), damagedHouses = new Set();
 function avenueTrees(y0, y1) { const out = []; for (let ty = Math.floor(y0 / 18) * 18; ty <= y1; ty += 18) for (const sd of [-10, 10]) { const tx = roadX(ty) + sd, C = classify(tx, ty); if (C.I.b === 'city' && hash(ty, sd) < 0.85) out.push({ x: tx, y: ty, s: SPR.trees[2] }); } return out; }
-function treeList(wx, wy, r) {
+// classic: the trees of the classic look, for code that runs in the simulation (explosion scorching, picking spots for ground targets); t.vis says if Enigma draws the tree
+function treeList(wx, wy, r, classic) {
   const out = [], cs = 9;
   if (themeAtWy(wy) === 5) for (const t of avenueTrees(wy - r - 18, wy + r + 18)) if ((t.x - wx) ** 2 + (t.y - wy) ** 2 <= (r + 6) ** 2) out.push(t);
   for (let cj = Math.floor((wy - r) / cs) - 1; cj <= Math.floor((wy + r) / cs) + 1; cj++) for (let ci = Math.floor((wx - r) / cs) - 1; ci <= Math.floor((wx + r) / cs) + 1; ci++) {
@@ -2588,7 +2726,9 @@ function treeList(wx, wy, r) {
     if ((tx - wx) ** 2 + (ty - wy) ** 2 > r * r) continue;
     const th = themeAtWy(ty);
     if (burntTrees.has((tx | 0) + ',' + (ty | 0))) continue;
-    if (treeOk(terrainType(tx, ty), tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0] });
+    const tt = terrainType(tx, ty);
+    if (classic) { if (treeOk0(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], vis: !ENIGMA_T || treeKeepE(tt, tx, ty, h, th) }); }
+    else if (treeOk(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0] });
   }
   return out;
 }
@@ -2686,8 +2826,9 @@ function drawFeatures(x, p, wy0) {
     const ox = f.x0, oy = f.y0 - wy0;
     for (let j = -2; j < 26; j++) for (let i = -2; i < 50; i++) if (hash(ox + i, f.y0 + j) < 0.92) rect(x, pick(['#5a4a32', '#6e5c40', '#86704e', '#9c8660'], 0.4 + hash(i, j) * 0.4, ox + i, f.y0 + j), ox + i, oy + j, 1, 1);
     for (let j = 28; j < 66; j++) for (let i = 0; i < 72; i++) rect(x, pick(TR.grass, 0.6 + (vnoise((ox + i) * 0.2, (f.y0 + j) * 0.2) - 0.5) * 0.5, ox + i, f.y0 + j), ox + i, oy + j, 1, 1);
-    x.fillStyle = '#6a4a2a'; x.fillRect(ox, oy + 28, 72, 1); x.fillRect(ox, oy + 65, 72, 1); x.fillRect(ox, oy + 28, 1, 38); x.fillRect(ox + 71, oy + 28, 1, 38);
-    x.fillStyle = '#3a2614'; for (let i = 0; i < 72; i += 4) { x.fillRect(ox + i, oy + 27, 1, 2); x.fillRect(ox + i, oy + 64, 1, 2); } for (let j = 28; j < 66; j += 4) { x.fillRect(ox - 1, oy + j, 2, 1); x.fillRect(ox + 70, oy + j, 2, 1); }
+    { const T = ENIGMA_T, soft = (hex) => { if (!T) return hex; const c = mixC(hexRGB(hex), hexRGB(TR.grass[3]), ENIGMA.fence * T); return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; }, st = T >= ENIGMA.postsFrom ? 8 : 4; // Enigma: fainter fence, every second post
+      x.fillStyle = soft('#6a4a2a'); x.fillRect(ox, oy + 28, 72, 1); x.fillRect(ox, oy + 65, 72, 1); x.fillRect(ox, oy + 28, 1, 38); x.fillRect(ox + 71, oy + 28, 1, 38);
+      x.fillStyle = soft('#3a2614'); for (let i = 0; i < 72; i += st) { x.fillRect(ox + i, oy + 27, 1, 2); x.fillRect(ox + i, oy + 64, 1, 2); } for (let j = 28; j < 66; j += st) { x.fillRect(ox - 1, oy + j, 2, 1); x.fillRect(ox + 70, oy + j, 2, 1); } }
     x.fillStyle = '#86704e'; x.fillRect(ox + 22, oy + 28, 6, 1);
     stamp(x, SPR.barn, ox + 12, oy + 8); stamp(x, SPR.farmhouse, ox + 40, oy + 7); stamp(x, SPR.silo, ox + 28, oy + 20);
     disk(x, '#3a6a8a', ox + 62, oy + 56, 3); x.fillStyle = '#8cc0e0'; x.fillRect(ox + 61, oy + 55, 2, 1);
@@ -2727,7 +2868,7 @@ function workChunk(job, rows) {
   for (; job.ly < end; job.ly++) {
     const ly = job.ly, wy = wy0 + ly, rx = roadX(wy);
     const band = world.blendFrom !== world.blendTo && (world.blendFrom === 1 || world.blendTo === 1), bf = clamp((world.blendY - wy) / 220 + 0.5, 0, 1);
-    for (let wx = 0; wx < W; wx++) { const col = pixelColor(wx, wy, rx), o = (ly * W + wx) * 4, wint = band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1; if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
+    for (let wx = 0; wx < W; wx++) { let col = pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1; if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
     if (!job.painted) { job.painted = true; job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
@@ -3705,12 +3846,13 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // A fresh run's starting values on a difficulty, from a seed. newGame() puts them in run. run.endless (chosen before the run starts)
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
-  return { seed, proto: { dmg: 0 }, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
+  return { seed, proto: { dmg: 0 }, enigma: 0, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
     gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
   Object.assign(run, createRun(settings.diff, seed)); simS = run.seed | 0;
+  run.enigma = settings.enigma; setLook(run.enigma); // the look is fixed for the run: moving the slider later applies from the next one
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
   world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
@@ -3735,7 +3877,7 @@ const tutTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer:
 const tutPad = () => gf - app.padSeen < 1800;
 function startTutorial() {
   closeAllPanels();
-  startAt(1); app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
+  startAt(1); run.enigma = 0; setLook(0); app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
   run.start = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
@@ -4324,7 +4466,7 @@ for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
-function toTitle() { app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; }
+function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null; }
 function doContinue() {
   if (app.cont <= 0 || !player) return;
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
@@ -4347,7 +4489,7 @@ function saveResume() {
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma };
   store.setJSON(KEY.resume, r);
 }
 function clearResume() { store.remove(KEY.resume); }
@@ -4359,7 +4501,7 @@ function resumeRun(r) {
   clearResume(); closeAllPanels();
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
-  newGame();
+  newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -4486,9 +4628,9 @@ function paintWorld(wx, wy, rad, fn) {
   for (const pp of new Set([-Math.floor((wy - rad) / CH), -Math.floor((wy + rad) / CH)])) { const c = world.chunks.get(pp); if (!c) continue; const x = c.getContext('2d'); fn(x, wy - (-pp * CH)); }
 }
 function worldDamage(wx, wy, r) {
-  for (const t of treeList(wx, wy, r + 4)) {
+  for (const t of treeList(wx, wy, r + 4, true)) { // the classic trees: how many there are feeds the seeded stream below, so Enigma may not change it
     const key = (t.x | 0) + ',' + (t.y | 0); if (burntTrees.has(key)) continue; burntTrees.add(key);
-    paintWorld(t.x, t.y, 8, (x, ly) => { for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = Math.hypot(i, j) + (hash(t.x + i, t.y + j) - 0.5) * 2.5; if (d > 6) continue; x.fillStyle = d < 2 ? '#3a2a1a' : hash(t.x * 3 + i, t.y + j) < 0.08 ? '#c04a1a' : d < 4 ? '#1e1612' : '#2e241a'; x.fillRect(Math.round(t.x + i), Math.round(ly + j), 1, 1); } x.fillStyle = '#5a3a22'; x.fillRect(Math.round(t.x), Math.round(ly), 1, 2); });
+    if (t.vis) paintWorld(t.x, t.y, 8, (x, ly) => { for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = Math.hypot(i, j) + (hash(t.x + i, t.y + j) - 0.5) * 2.5; if (d > 6) continue; x.fillStyle = d < 2 ? '#3a2a1a' : hash(t.x * 3 + i, t.y + j) < 0.08 ? '#c04a1a' : d < 4 ? '#1e1612' : '#2e241a'; x.fillRect(Math.round(t.x + i), Math.round(ly + j), 1, 1); } x.fillStyle = '#5a3a22'; x.fillRect(Math.round(t.x), Math.round(ly), 1, 2); });
     world.decals.push({ kind: 'burnt', wx: t.x, wy: t.y, r: 5, smokeT: (rnd(200, 320)) | 0 });
   }
   for (let dp = -1; dp <= 1; dp++) for (const [hx, hy] of (chunkHouses.get(-Math.floor(wy / CH) + dp) || [])) {
@@ -4720,7 +4862,7 @@ function spawnGround(b) {
   const tryLand = (types, rad = 12) => {
     for (let k = 0; k < 10; k++) {
       const wx = rnd(18, W - 18);
-      if (types.includes(terrainType(wx, wy)) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3).length === 0 && treeList(wx, wy, rad + 9).length <= 3) return wx;
+      if (types.includes(terrainType(wx, wy)) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
     }
     return null;
   };
@@ -7137,7 +7279,7 @@ function update() {
   const ck = 0.12 + 0.88 * clamp(world.scrollV / SCROLL, 0, 1);
   const simWas = simOn; simOn = false; // clouds, weather and birds are cosmetic: free stream (restored below)
   for (const c of hiClouds) { c.y += c.v * ck; if (c.y > H + 90) { c.y = rnd(-300, -90); c.x = rnd(0, W); c.s = (Math.random() * 3) | 0; } }
-  for (const c of clouds) { c.y += c.v * ck; if (c.y > H + 50) { c.y = rnd(-200, -50); c.x = rnd(-20, W + 20); c.s = (Math.random() * 3) | 0; c.v = rnd(0.9, 1.2); const bb = app.state === 'play' ? biomeAtSpawn() : 'sea'; c.hide = Math.random() > (bb === 'sea' ? 0.7 : world.curTheme === 4 ? 0.85 : bb === 'forest' ? 0.6 : 0.15); } }
+  for (const c of clouds) { c.y += c.v * ck; if (c.y > H + 50) { c.y = rnd(-200, -50); c.x = rnd(-20, W + 20); c.s = (Math.random() * (ENIGMA_T ? 4 : 3)) | 0; c.v = rnd(0.9, 1.2); const bb = app.state === 'play' ? biomeAtSpawn() : 'sea'; c.hide = Math.random() > (bb === 'sea' ? 0.7 : world.curTheme === 4 ? 0.85 : bb === 'forest' ? 0.6 : 0.15); } }
   for (const g of glints) { g.y += world.scrollV; g.life--; if (g.life <= 0 || g.y > H) { g.x = rnd(0, W); g.y = rnd(0, H); g.life = (rnd(30, 70)) | 0; } }
   {
     const thS = info(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)).th;
@@ -8157,9 +8299,20 @@ function drawProps() {
     } else drawBlock(pr.wx, y, pr.w, pr.d, pr.h, pr.brick ? BRICKW : CONCW, TOWER_ROOFS[pr.rr < 0.7 ? 0 : 1], pr.rr);
   }
 }
+// Enigma: soft low clouds with soft shadows, and the soft ground shadows of the two big clouds above the screen (drawn under everything that moves)
+function drawEnigmaClouds() {
+  const T = ENIGMA_T, S = ENG_S;
+  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = S.big[c.s === 2 ? 1 : 0]; ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
+  ctx.globalAlpha = 0.14;
+  for (const c of clouds) if (!c.hide) { const s = S.low[c.s & 3]; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
+  ctx.globalAlpha = 1 - 0.45 * world.nightF;
+  for (const c of clouds) if (!c.hide) spr(S.low[c.s & 3], c.x, c.y);
+  ctx.globalAlpha = 1;
+}
 function drawHiClouds() {
   if (lowFX) return;
-  for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.24 * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
+  const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
+  for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
 }
 function drawWeather() {
@@ -8384,9 +8537,12 @@ function renderMain() {
   drawProps();
   drawParts('g');
   drawBirds();
-  for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
-  for (const c of clouds) if (!c.hide) shadow(SPR.clouds[c.s], c.x, c.y, 20, 30, 0.14);
-  for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(SPR.clouds[c.s], c.x, c.y); ctx.globalAlpha = 1; }
+  if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
+  if (ENIGMA_T) drawEnigmaClouds();
+  else {
+    for (const c of clouds) if (!c.hide) shadow(SPR.clouds[c.s], c.x, c.y, 20, 30, 0.14);
+    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(SPR.clouds[c.s], c.x, c.y); ctx.globalAlpha = 1; }
+  }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
@@ -8570,6 +8726,7 @@ for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-p
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
+  { const r = document.getElementById('sEnigma'); r.value = settings.enigma; rangeFill(r); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; }
 }
 function buildHelp() {
   const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
@@ -8737,6 +8894,7 @@ function rangeFill(r) { r.style.setProperty('--v', r.value + '%'); } // the pixe
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
+document.getElementById('sEnigma').addEventListener('input', e => { settings.enigma = +e.target.value; rangeFill(e.target); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; saveSettings(); }); // a run in progress keeps its own run.enigma; this applies from the next run
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
