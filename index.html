@@ -2825,9 +2825,34 @@ function houseCand(ci, cj) {
   const key = -(cj * 64 + ci + 8) - 0.25; if (houseCache.has(key)) return houseCache.get(key);
   const cs = 34, h = hash(ci * 11 + 1, cj * 17 + 9), X = ci * cs + hash(ci + 3, cj + 7) * cs, Y = cj * cs + hash(ci + 21, cj) * cs;
   let r = null;
-  if (h < 0.35) { const featTheme = themeAtWy(Y), d = Math.abs(X - roadX(Y)); if (houseOK(X, Y, featTheme, d)) { const kind = h < 0.17 ? 0 : 1, sp = SPR.houseSets[featTheme][kind]; r = { tx: X, ty: Y, kind, w: sp.w, h: sp.h, th: featTheme }; } }
+  if (h < 0.35 && !(run.sortie && run.sortie.gen && villageAt(run.sortie, Y, 22))) { const featTheme = themeAtWy(Y), d = Math.abs(X - roadX(Y)); if (houseOK(X, Y, featTheme, d)) { const kind = h < 0.17 ? 0 : 1, sp = SPR.houseSets[featTheme][kind]; r = { tx: X, ty: Y, kind, w: sp.w, h: sp.h, th: featTheme }; } }
   if (houseCache.size > 4000) houseCache.clear();
   houseCache.set(key, r); return r;
+}
+// Enigma Run level 6 (spec 15.3, 15.8 item 11): villages. Centres on the main road every 3 chunks through each village segment; houses stand in
+// road-side slots on both sides of the road, denser toward the centre. Pure functions of the sortie and position, memoised on the sortie.
+function villageList(S) {
+  if (S.vil) return S.vil;
+  const out = [];
+  for (const g of S.segs) if (g.t === 'village') for (let c = g.start + 1.5; c < g.start + g.n - 0.5; c += 3) out.push({ c, r: 48 + S.rng(Math.round(c * 10)) * 22 });
+  return (S.vil = out);
+}
+function villageAt(S, wy, m = 0) { for (const v of villageList(S)) { const vy = -(v.c + world.stageBaseP) * CH; if (Math.abs(wy - vy) < v.r + m) return v; } return null; }
+function villageHouses(S, v) {
+  const memo = S.vilH || (S.vilH = new Map()); let out = memo.get(v); if (out) return out; out = [];
+  const vy = -(v.c + world.stageBaseP) * CH;
+  for (const sd of [-1, 1]) for (let y = vy - v.r, n = 0; y <= vy + v.r; n++) { // walk along each side of the road: house, small gap, house; gaps grow away from the centre
+    const k = Math.round(vy) * 7 + n * 2 + (sd > 0 ? 1 : 0), kind = hash(k, 613) < 0.65 ? 1 : 0, sp = SPR.houseSets[5][kind], near = 1 - Math.abs(y + sp.h / 2 - vy) / v.r;
+    const ty = Math.round(y + sp.h / 2); y += sp.h + 2 + Math.round(hash(k, 612) * 3 + (1 - near) * 8);
+    if (hash(k, 611) > 0.5 + 0.5 * near) continue;
+    const tx = Math.round(roadX(ty) + sd * (10 + sp.w / 2 + hash(k, 614) * 3));
+    if (tx < 10 || tx > W - 10) continue;
+    let ok = true;
+    for (const [a, b] of [[0, 0], [-sp.w / 2, -sp.h / 2], [sp.w / 2, -sp.h / 2], [-sp.w / 2, sp.h / 2], [sp.w / 2, sp.h / 2]]) { const t = terrainType(tx + a, ty + b); if (t !== 'field' && t !== 'grass') { ok = false; break; } }
+    if (ok && (railDist(tx, ty) < 16 || waterIn(tx - 12, ty - 10, tx + 12, ty + 10, 4) || inTent(tx, ty, 10))) ok = false;
+    if (ok) out.push({ tx, ty, kind, w: sp.w, h: sp.h, th: 5 });
+  }
+  memo.set(v, out); return out;
 }
 function houseOK(X, Y, featTheme, d) {
   return d > 15 && d < 48 && vnoise(Y * 0.006, 3.3) > 0.42 && railDist(X, Y) > 16 && (featTheme !== 0 || [[-9, -6], [9, -6], [-9, 6], [9, 6], [0, 0]].every(([a, c]) => isMeadow(X + a, Y + c))) && !waterIn(X - 12, Y - 10, X + 20, Y + 10, 4) && !(featTheme === 0 && inFarm(X, Y, 14)) && terrainType(X, Y) === 'field' && terrainType(X - 9, Y) === 'field' && terrainType(X + 9, Y) === 'field' && terrainType(X, Y - 9) === 'field' && terrainType(X, Y + 9) === 'field' && !inTent(X, Y, 16) && !inFarm(X, Y, 12) && !inStation(X, Y, 12);
@@ -2895,6 +2920,9 @@ function drawFeatures(x, p, wy0) {
       if (ty >= wy0 && ty < wy0 + CH) { if (!chunkHouses.has(p)) chunkHouses.set(p, []); chunkHouses.get(p).push([tx, ty, Hs.w, Hs.h]); }
     }
   }
+  { const S = run.sortie; if (S && S.gen) for (const v of villageList(S)) { const vy = -(v.c + world.stageBaseP) * CH; if (vy + v.r < y0 - 12 || vy - v.r > y1 + 12) continue;
+    for (const Hs of villageHouses(S, v)) { if (Hs.ty < y0 - 12 || Hs.ty > y1 + 12) continue; stamp(x, SPR.houseSets[5][Hs.kind], Hs.tx, Hs.ty - wy0);
+      if (Hs.ty >= wy0 && Hs.ty < wy0 + CH) { if (!chunkHouses.has(p)) chunkHouses.set(p, []); chunkHouses.get(p).push([Hs.tx, Hs.ty, Hs.w, Hs.h]); } } } }
   if (world.featTheme === 0 || world.featTheme === 4) for (let cj = Math.floor((y0 - 60) / 150); cj <= Math.floor((y1 + 10) / 150); cj++) for (let ci = 0; ci <= 1; ci++) {
     const f = farmAt(ci, cj); if (!f) continue;
     const ox = f.x0, oy = f.y0 - wy0;
