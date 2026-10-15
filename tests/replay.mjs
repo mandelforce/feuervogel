@@ -89,6 +89,30 @@ if (!onlyTerrain && !update) for (const [label, pageSeed, pre, nm] of [['other p
   if (JSON.stringify(got) !== JSON.stringify(want)) { bad++; console.error(`FAIL isolation (${label}): ${name} changed. Something outside the simulation (sound, effects, weather, a speed setting) now affects how a run plays.`); } else console.log(`ok   isolation (${label})`);
 }
 
+// Look switch: an Enigma run, then the title screen, then a classic run (and back), drawing every step. Left-over state of one look
+// (for example a cloud shape that only the other look has) must never break drawing in the other. A fresh page cannot find that.
+if (!onlyTerrain && !update) {
+  const page = await browser.newPage({ viewport: golden.viewport });
+  await page.route(/workers\.dev/, r => r.abort());
+  await page.addInitScript(initScript, 1944);
+  await page.goto(PAGE);
+  await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
+  await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
+  const errs = await page.evaluate(() => window.__sf(`(() => {
+    const errs = [], draw = what => { try { SF.draw(); } catch (e) { errs.push(what + ': ' + String(e && e.message || e)); } };
+    if (app.booting) finishBoot(); SF.setMode('immortal');
+    for (const [pct, stage] of [[60, 1], [0, 1], [100, 5], [0, 3], [35, 2]]) {
+      settings.enigma = pct; SF.start(1, stage); SF.run(400);
+      if (pct) { for (const c of clouds) c.s = 3; hiClouds[0].s = 2; } // every shape the Enigma look can hand out
+      draw('Enigma ' + pct + ' stage ' + stage);
+      toTitle(); for (let i = 0; i < 3; i++) draw('title after Enigma ' + pct);
+    }
+    settings.enigma = 0; return errs;
+  })()`));
+  await page.close();
+  if (errs.length) { bad++; console.error(`FAIL look switch: drawing threw after changing between the Enigma and the classic look: ${errs[0]}`); } else console.log('ok   look switch (Enigma <-> classic)');
+}
+
 // Terrain fingerprint for every campaign stage, on its own fresh page.
 {
   const page = await browser.newPage({ viewport: golden.viewport });
