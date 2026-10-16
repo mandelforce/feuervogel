@@ -21,9 +21,9 @@
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20 };
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -48,6 +48,9 @@ const PRESETS = {
     slots: { flakSpacing: 44, artySpacing: 72, flakPer300: 2.2, artyPer300: 1.1 },
   },
 };
+// River town: the town core with a river across it at the denser end, quays and riverside streets in town, natural banks outside,
+// an old-town island on the main road reached by two bridges, and one more bridge for a collector.
+PRESETS.river = Object.assign({}, PRESETS.town, { label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
 
 // ---------- deterministic randomness ----------
 function h32(a, b) { let h = Math.imul((a | 0) ^ 0x7F4A7C15, 0x9E3779B1) ^ Math.imul(((b | 0) + 0x165667B1) | 0, 0x85EBCA6B); h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; h = Math.imul(h, 0x297A2D39); h ^= h >>> 15; return h >>> 0; }
@@ -73,7 +76,7 @@ function generate(opts) {
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), stage = {}; let tLap = now();
   const lap = name => { if (name === 'setup') { tLap = now(); } const t = now(); stage[name] = +(t - tLap).toFixed(2); tLap = t; }; // time per stage, shown in the lab
   const plan = { v: 1, seed, preset: opts.preset || 'town', W, L, P, K: Kr, B: Br, U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L),
-    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], stage };
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage };
 
   // 1. fields
   const road = P.road || { c: 82 + rnd(T.ROAD, 1) * 60, amp: 18 + rnd(T.ROAD, 2) * 26, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 };
@@ -110,6 +113,7 @@ function generate(opts) {
       const half = w / 2, car = st.tank ? P.widths.carriage / 2 : Math.min(half, 3.5);
       for (let x = Math.floor(xc - half); x < Math.ceil(xc + half); x++) {
         if (!inB(x, y)) continue; const i = idx(x, y), cur = Kr[i], d = Math.abs(x + 0.5 - xc);
+        if (cur === K.RIVER || cur === K.BRIDGE) { Kr[i] = K.BRIDGE; Br[i] = -2 - st.id; continue; } // the deck of a bridge
         const k = d < car ? (st.tank ? K.ROAD : K.STREET) : K.WALK;
         if (cur === K.ROAD || (cur === K.STREET && k === K.WALK)) continue; Kr[i] = k; Br[i] = -2 - st.id;
       }
@@ -130,6 +134,24 @@ function generate(opts) {
   // 2a. the main road, the whole length: the arterial and the tanks' main route
   { const pts = []; for (let y = 0; y < L; y++) pts.push([plan.mx[y], y, plan.aw[y]]); addStreet({ cls: 'arterial', axis: 'v', tank: true, pts, y0: 0, y1: L - 1 }); }
 
+  // 2a'. the river (river preset): planned before the other streets, so the town adapts to it. Water first, then quays (in town) or natural
+  // banks (outside), the island's quay ring; the arterial will cross on bridges, other streets end at the riverside streets.
+  let RV = null;
+  if (P.river) {
+    const R0 = P.river, Y0 = Math.round(L * R0.at), ph = rnd(T.INT, 950, 1) * 6.283, yc = new Float32Array(W), hw = new Float32Array(W);
+    const ix = clamp(Math.round(MX(Y0)), 70, W - 70), iy0 = Y0 + R0.amp * Math.sin(ix * 0.022 + ph), rx = Math.min(R0.rx + ((rnd(T.INT, 950, 2) * 8) | 0), Math.min(ix, W - ix) - 22), ry = R0.ry + ((rnd(T.INT, 950, 3) * 3) | 0); // the island never reaches the strip's edge
+    for (let x = 0; x < W; x++) { const dx = Math.abs(x - ix), wgt = R0.island ? smooth(0, 1, clamp((rx + 36 - dx) / (36 + rx * 0.35), 0, 1)) : 0; // the river widens gently over a long stretch
+      yc[x] = Y0 + R0.amp * Math.sin(x * 0.022 + ph) - (R0.island ? (iy0 - Y0) * wgt : 0); hw[x] = R0.width / 2 + (ry + R0.channel - R0.width / 2) * wgt + (uAt(x, Y0) < 0.3 ? (noise1(T.INT, x * 0.2) - 0.5) * 3 : 0); }
+    const iy = R0.island ? Math.round(yc[ix]) : 0, isl = (x, y) => R0.island && ((x + 0.5 - ix) / rx) ** 2 + ((y + 0.5 - iy) / ry) ** 2 < 1;
+    let yMin = L, yMax = 0;
+    for (let x = 0; x < W; x++) {
+      const town = uAt(x, Y0) >= 0.3, top = yc[x] + hw[x], bot = yc[x] - hw[x]; yMin = Math.min(yMin, bot); yMax = Math.max(yMax, top);
+      for (let y = Math.floor(bot) - 3; y <= Math.ceil(top) + 3; y++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.max(bot - (y + 0.5), (y + 0.5) - top);
+        if (isl(x, y)) continue; Kr[i] = d < 0 ? K.RIVER : d < (town ? 2 : 3) ? (town ? K.QUAY : K.BANK) : Kr[i]; }
+    }
+    if (R0.island) for (let y = iy - ry; y <= iy + ry; y++) for (let x = ix - rx; x <= ix + rx; x++) { if (!inB(x, y) || !isl(x, y)) continue; const e = ((x + 0.5 - ix) / (rx - 2)) ** 2 + ((y + 0.5 - iy) / (ry - 2)) ** 2; if (e >= 1) Kr[idx(x, y)] = K.QUAY; }
+    RV = plan.river = { Y0, yc, hw, ix, iy, rx, ry, island: !!R0.island, yMin: yMin - 16, yMax: yMax + 16 };
+  }
   // 2b. cross streets: horizontal, spacing shrinking with U; each side of the main road has its own (staggered crossroads outside the centre)
   const cross = { '-1': [], '1': [] };
   { let y = 0, n = 0;
@@ -138,7 +160,7 @@ function generate(opts) {
       const U = Uy(y);
       for (const s of [-1, 1]) {
         const st = Math.round(U < 0.75 ? (rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger : 0), yc = y + st;
-        if (yc < 6 || yc > L - 7) continue;
+        if (yc < 6 || yc > L - 7 || (RV && yc > RV.yMin && yc < RV.yMax)) continue; // no cross street in the river (the riverside streets take their place)
         const xEdge = MX(yc) + s * AW(yc) / 2; let x = xEdge, ext = 0;
         while (x > 2 && x < W - 3 && uAt(x, yc) >= P.crossEndU) { x += s; ext++; }
         if (x <= 2 || x >= W - 3) ext += 8; // reaches the edge of the strip: run off it
@@ -152,6 +174,19 @@ function generate(opts) {
       y += Math.max(30, lerp(P.crossSpacing[0], P.crossSpacing[1], smooth(0.15, 1, U)) * (0.85 + 0.3 * rnd(T.CROSS, n, 9))); n++;
     }
   }
+  // riverside streets: along both banks, from the main road outward while in town, joined into the cross streets so that the streets
+  // parallel to the main road end on them; collectors (tank routes) where the town is dense
+  if (RV) {
+    for (const bank of ['S', 'N']) for (const s of [-1, 1]) {
+      const U = Uy(RV.Y0), coll = U >= 0.6, w = coll ? P.widths.collector : P.widths.local, yAt = x => bank === 'N' ? RV.yc[x] + RV.hw[x] + 2 + w / 2 : RV.yc[x] - RV.hw[x] - 2 - w / 2;
+      const x0 = Math.round(MX(RV.Y0)), pts = []; let x = x0;
+      while (x >= 0 && x < W && uAt(x, yAt(x)) >= 0.33) { pts.push([x, yAt(x), w]); x += s; }
+      if (pts.length < 24) continue; pts.sort((a, b) => a[0] - b[0]);
+      const S = addStreet({ cls: coll ? 'collector' : 'local', axis: 'h', tank: coll, pts, yc: yAt(x0), side: s, x0: pts[0][0], x1: pts[pts.length - 1][0], w, quay: bank });
+      cross[s].push(S);
+    }
+    for (const s of ['-1', '1']) cross[s].sort((a, b) => a.yc - b.yc);
+  }
   // the y of a cross street at an x (the bend), or null if it does not reach that x
   const crossYat = (S, x) => { const p = S.pts.find(q => q[0] === Math.round(x)); return p ? p[1] : null; };
 
@@ -160,16 +195,18 @@ function generate(opts) {
   function parallel(s, offAt, cls, minU, chance, tag) {
     const list = cross[s];
     for (let k = 0; k + 1 < list.length; k++) {
-      const A = list[k], Bc = list[k + 1], ym = (A.yc + Bc.yc) / 2, U = Uy(ym);
-      if (U < minU || rnd(tag, k, s + 3) > chance) continue;
+      const A = list[k], Bc = list[k + 1], ym = (A.yc + Bc.yc) / 2, U = Uy(ym), overRiver = A.quay === 'S' && Bc.quay === 'N';
+      if (overRiver && plan.bridges.length > 0) continue; // one more street crosses the river on a bridge: a collector, or the outer street past the island
+      if (!overRiver && (U < minU || rnd(tag, k, s + 3) > chance)) continue;
       const xm = MX(ym) + s * offAt(ym); if (xm < 8 || xm > W - 9 || uAt(xm, ym) < 0.42) continue;
+      if (overRiver && RV.island && Math.abs(xm - RV.ix) < RV.rx + 16) continue; // the collector's bridge must be clear of the island
       const ya = crossYat(A, MX(A.yc) + s * offAt(A.yc)), yb = crossYat(Bc, MX(Bc.yc) + s * offAt(Bc.yc));
       if (ya === null || yb === null) continue;
-      const tank = cls === 'collector' && U >= 0.65 && A.tank && Bc.tank, w = tank ? P.widths.collector : P.widths.local, pts = []; // a tank route must join tank routes at both ends
+      const tank = (cls === 'collector' || overRiver) && U >= 0.65 && A.tank && Bc.tank, w = tank ? P.widths.collector : P.widths.local, pts = []; // a tank route must join tank routes at both ends
       const y0 = Math.round(ya), y1 = Math.round(yb);
       let ok = true;
       for (let y = y0; y <= y1; y++) { const x = MX(y) + s * offAt(y); if (x < 6 || x > W - 7) { ok = false; break; } pts.push([x, y, w]); }
-      if (ok && pts.length > 12) addStreet({ cls: tank ? 'collector' : 'local', axis: 'v', tank, pts, y0, y1, side: s, off: offAt(ym) });
+      if (ok && pts.length > 12) { const S = addStreet({ cls: tank ? 'collector' : 'local', axis: 'v', tank, pts, y0, y1, side: s, off: offAt(ym) }); if (overRiver) plan.bridges.push({ street: S.id, x: Math.round(pts[(pts.length / 2) | 0][0]), kind: 'collector' }); }
     }
   }
   const phC = rnd(T.COL, 1) * 6.283;
@@ -178,6 +215,11 @@ function generate(opts) {
   for (const s of [-1, 1]) { parallel(s, colOff, 'collector', P.collectorMinU, 1 - P.blockMergeChance, T.COL); parallel(s, outOff, 'local', P.outerLocalMinU, P.outerLocalChance, T.LOC); }
 
   for (const st of plan.streets) (st.axis === 'v' ? paintV : paintH)(st);
+  if (RV) { // the main road's bridges: each run of deck under it
+    let run = null; for (let y = 0; y < L; y++) { const x = Math.round(plan.mx[y]), b = Kr[idx(x, y)] === K.BRIDGE;
+      if (b && !run) run = { y0: y, x }; if (!b && run) { plan.bridges.push({ street: 0, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial' }); run = null; } }
+    for (const b of plan.bridges) if (b.y0 === undefined) { const st = plan.streets[b.street]; let y0 = null, y1 = null; for (const [x, y] of st.pts) if (Kr[idx(Math.round(x), y)] === K.BRIDGE) { if (y0 === null) y0 = y; y1 = y; } b.y0 = y0; b.y1 = y1; }
+  }
 
   lap('streets');
   // 3. landmarks
@@ -199,13 +241,15 @@ function generate(opts) {
       }
     }
   }
-  // 3b. churches. Parts in church space: u across, v along from the front (tower) to the apse.
+  // 3b. churches. Parts in church space: u across, v along from the front (tower) to the apse. big: true (the main church), false (parish), 'chapel'.
+  const it0 = 0;
   function churchParts(big) {
+    if (big === 'chapel') return [{ p: 'tower', u0: -3, v0: 0, w: 6, h: 6 }, { p: 'nave', u0: -5, v0: 6, w: 10, h: 14 }, { p: 'apse', u0: -5, v0: 20, w: 10, h: 4, r: 5 }];
     return big ? [{ p: 'tower', u0: -5, v0: 0, w: 10, h: 11 }, { p: 'nave', u0: -7, v0: 11, w: 14, h: 30 }, { p: 'trans', u0: -15, v0: 26, w: 30, h: 8 }, { p: 'apse', u0: -7, v0: 41, w: 14, h: 7, r: 7 }]
       : [{ p: 'tower', u0: -4, v0: 0, w: 8, h: 8 }, { p: 'nave', u0: -6, v0: 8, w: 12, h: 22 }, { p: 'trans', u0: -11, v0: 19, w: 22, h: 6 }, { p: 'apse', u0: -6, v0: 30, w: 12, h: 5, r: 6 }];
   }
   function placeChurch(cx, yFront, dir, big) { // dir 1: the church extends up (north) from its front at yFront, -1: down
-    const parts = churchParts(big), len = big ? 48 : 35, half = big ? 16 : 12, m = 3;
+    const parts = churchParts(big), len = big === 'chapel' ? 24 : big ? 48 : 35, half = big === 'chapel' ? 8 : big ? 16 : 12, m = big === 'chapel' ? 1 : 3;
     // the churchyard starts right at the street (the front steps), with a margin at the sides and the back
     const x0 = Math.round(cx - half - m), y0 = Math.round(dir > 0 ? yFront : yFront - len - m - 1), hh0 = len + m + 2;
     if (!rectFree(x0, y0, half * 2 + 2 * m, hh0, 0)) return null;
@@ -232,6 +276,18 @@ function generate(opts) {
       const yF = Math.ceil(S.yc + S.w / 2) + 1;
       if (plan.churches.some(c => Math.abs(c.yFront - yF) < P.parishSpacing)) continue;
       for (let q = 0; q <= S.x1 - S.x0; q += 3) { const cx = S.side > 0 ? S.x1 - 16 - q : S.x0 + 16 + q; if (Math.abs(cx - MX(yF)) < 26 || cx < 16 || cx > W - 17) continue; if (placeChurch(cx, yF, 1, false)) break; } // the first spot along the street with room
+    }
+  }
+  // 3b'. the island's old town: a chapel beside the main road, then a ring of houses facing the water from the quay
+  if (RV && RV.island) {
+    for (const sd of [1, -1]) { const ch = placeChurch(RV.ix + sd * (AW(RV.iy) / 2 + 13), RV.iy - 12, 1, 'chapel'); if (ch) { ch.island = true; break; } }
+    for (let a = 0; a < 6.283; a += 0.11) {
+      const ex = RV.ix + Math.cos(a) * (RV.rx - 2.5), ey = RV.iy + Math.sin(a) * (RV.ry - 2.5), horiz = Math.abs(Math.cos(a)) * RV.ry < Math.abs(Math.sin(a)) * RV.rx; // facing north or south, or east or west
+      const w = 8 + ((rnd(T.BLD, Math.round(a * 100), 7) * 4) | 0), d = 9 + ((rnd(T.BLD, Math.round(a * 100), 8) * 2) | 0);
+      let x0, y0, bw, bh; if (horiz) { bw = w; bh = d; x0 = Math.round(ex - w / 2); y0 = Math.sin(a) > 0 ? Math.round(ey - d) : Math.round(ey); } else { bw = d; bh = w; y0 = Math.round(ey - w / 2); x0 = Math.cos(a) > 0 ? Math.round(ex - d) : Math.round(ex); }
+      if (!rectFree(x0, y0, bw, bh, 0)) continue;
+      const it = addItem({ t: 'block', x0, y0, w: bw, h: bh, ori: horiz ? 'h' : 'v', front: horiz ? (Math.sin(a) > 0 ? 'N' : 'S') : (Math.cos(a) > 0 ? 'E' : 'W'), style: rnd(T.ROOF, it0 + a * 10 | 0) < 0.3 ? 'hip' : 'gable', roof: [0, 1, 2, 0, 3][(rnd(T.ROOF, a * 100 | 0, 5) * 5) | 0], seed: h32(seed, 50000 + Math.round(a * 100)), dmg: 0, run: -9000 - Math.round(a * 100), quayFront: true });
+      fill(x0, y0, bw, bh, K.BLDG, it.id);
     }
   }
   // 3c. parks: one block between the main road and a collector, now and then, away from the square
@@ -365,7 +421,9 @@ function generate(opts) {
     const depth = (x, y) => dep[Math.floor(y / 56) * 2 + (x < MX(y) ? 0 : 1)];
     const mark = [];
     for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.GARDEN) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const dp = depth(x, y); if (!dp) continue;
+      if (!((x > 0 && Kr[i - 1] === K.FIELD) || (x < W - 1 && Kr[i + 1] === K.FIELD) || (y > 0 && Kr[i - W] === K.FIELD) || (y < L - 1 && Kr[i + W] === K.FIELD))) continue; // only the garden's edge onto a field
+      const dp = depth(x, y); if (!dp) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         for (let k = 1; k <= dp; k++) { const xx = x + dx * k, yy = y + dy * k; if (!inB(xx, yy)) break; const j = idx(xx, yy); if (Kr[j] !== K.FIELD) break; mark.push(j); } } }
     for (const j of mark) Kr[j] = K.ORCHARD;
   }
@@ -437,11 +495,21 @@ function generate(opts) {
     if (ok) { plan.craters.push({ x: cx, y: cy, r }); n++; }
   } }
 
+  // 6a'. the river: barges moored at the quays (not near a bridge), and bunker slots at every bridgehead
+  if (RV) {
+    for (const bank of ['S', 'N']) for (let x = 6; x < W - 20; x += 34) {
+      if (rnd(T.INT, 960 + (bank === 'N' ? 1 : 0), x) < 0.45 || plan.bridges.some(b => Math.abs(b.x - x - 6) < 22)) continue;
+      const w = 12 + ((rnd(T.INT, 961, x) * 5) | 0), h = 5, xx = x + ((rnd(T.INT, 962, x) * 8) | 0), edge = bank === 'N' ? Math.floor(RV.yc[xx] + RV.hw[xx]) - 1 : Math.ceil(RV.yc[xx] - RV.hw[xx]) + 1;
+      const y0 = bank === 'N' ? edge - h + 1 : edge; let ok = Kr[idx(xx, bank === 'N' ? edge + 2 : edge - 2)] === K.QUAY;
+      for (let y = y0 - 1; ok && y < y0 + h + 1; y++) for (let q = xx - 1; q < xx + w + 1; q++) if (!inB(q, y) || Kr[idx(q, y)] !== K.RIVER) { ok = false; break; }
+      if (ok) plan.boats.push({ x0: xx, y0, w, h, cargo: (rnd(T.INT, 963, x) * 3) | 0, dmg: rnd(T.INT, 964, x) < Dy(y0) * 0.5 });
+    }
+  }
   lap('damage');
   // 6b. trees: gardens, parks, churchyards, front gardens, the meadow; avenue trees on the main road's wide pavements.
   // A tree needs its whole crown on open ground, so none stands on a street, a building or a lot.
   { const okK = new Uint8Array(24); for (const k of [K.GARDEN, K.PARK, K.CHYARD, K.FRONT, K.MEADOW, K.COURT]) okK[k] = 1;
-    const dens = [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.05, 0.55, 0, 0.3, 0, 0.1, 0, 0, 0];
+    okK[K.BANK] = 1; const dens = [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.05, 0.55, 0, 0.3, 0, 0.1, 0, 0, 0, 0, 0, 0, 0.5]; // willows on the natural banks
     const taken = new Uint8Array(N);
     // orchard: fruit trees in loose rows, every 6 px, staggered
     for (let y = 3; y < L - 3; y += 6) for (let x = 3 + ((y / 6) & 1) * 3; x < W - 3; x += 6) {
@@ -457,7 +525,7 @@ function generate(opts) {
       for (let yy = ty - r; ok && yy <= ty + r; yy++) for (let xx = tx - r; xx <= tx + r; xx++) { if (!inB(xx, yy) || taken[idx(xx, yy)] || !okK[Kr[idx(xx, yy)]]) { ok = false; break; } }
       if (!ok) continue;
       for (let yy = ty - r; yy <= ty + r; yy++) for (let xx = tx - r; xx <= tx + r; xx++) taken[idx(xx, yy)] = 1;
-      plan.trees.push({ x: tx, y: ty, r, v: (rnd(T.TREE, x, y + 4) * 3) | 0 });
+      plan.trees.push({ x: tx, y: ty, r, v: k === K.BANK ? 4 : (rnd(T.TREE, x, y + 4) * 3) | 0 });
     }
     for (let y = 6; y < L - 6; y += 14) { if (plan.aw[y] < 17) continue; for (const s of [-1, 1]) { const tx = Math.round(plan.mx[y] + s * (plan.aw[y] / 2 - 2)); let ok = true; for (let yy = y - 3; ok && yy <= y + 3; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.WALK) { ok = false; break; } if (ok) plan.trees.push({ x: tx, y, r: 3, v: 2, avenue: true }); } }
   }
@@ -468,18 +536,21 @@ function generate(opts) {
   { const cands = [];
     for (const l of plan.lots) cands.push({ kind: l.w >= 16 && l.h >= 16 && l.tank ? 'arty' : 'flak', on: 'lot', x: l.x0 + l.w / 2, y: l.y0 + l.h / 2, r: Math.min(l.w, l.h) / 2 });
     for (const it of plan.items) if (it.t === 'block' && it.style === 'flat' && it.dmg < 2 && it.w >= 11 && it.h >= 11) cands.push({ kind: 'flak', on: 'roof', x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, r: Math.min(it.w, it.h) / 2, item: it.id });
+    for (const b of plan.bridges) if (b.y0 !== null) for (const [yy, sd] of [[b.y0 - 6, -1], [b.y1 + 6, 1]]) for (const dx of [-1, 1]) { // bridgeheads are defended
+      const st = plan.streets[b.street], p = st.pts.find(q => Math.round(q[1]) === yy) || st.pts[0], x = Math.round(p[0] + dx * (p[2] / 2 + 5));
+      if (inB(x, yy) && Kr[idx(x, yy)] !== K.ROAD && Kr[idx(x, yy)] !== K.RIVER) cands.push({ kind: 'bunker', on: 'bridgehead', x, y: yy, r: 4, prio: true }); }
     for (const sq of plan.squares) cands.push({ kind: 'aatower', on: 'plaza', x: sq.x0 + (sq.side > 0 ? sq.w - 7 : 7), y: sq.y0 + sq.h - 7, r: 6 });
     for (const pk of plan.parks) cands.push({ kind: 'aatower', on: 'park', x: Math.round(plan.mx[(pk.ya + pk.yb) >> 1] + pk.s * 34), y: (pk.ya + pk.yb) >> 1, r: 8 });
     for (let y = 10; y < L - 10; y += 12) for (let x = 10; x < W - 10; x += 12) if (Kr[idx(x, y)] === K.COURT && rectFreeK(x - 8, y - 8, 16, 16, K.COURT)) cands.push({ kind: 'arty', on: 'court', x, y, r: 8 });
     function rectFreeK(x0, y0, w, h, k) { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== k) return false; return true; }
-    cands.forEach((c, i) => { c.o = rnd(T.SLOT, i); });
+    cands.forEach((c, i) => { c.o = c.prio ? -1 + rnd(T.SLOT, i) * 0.01 : rnd(T.SLOT, i); });
     cands.sort((a, b) => a.o - b.o);
     const band = 300, quota = {};
     for (const c of cands) {
       const U = Uy(c.y), q = c.kind === 'arty' ? P.slots.artyPer300 : P.slots.flakPer300, b = (c.y / band) | 0, key = c.kind + b;
-      if ((quota[key] || 0) >= Math.max(c.kind === 'aatower' ? 1 : 0, Math.round(q * U))) continue;
-      const sp = c.kind === 'arty' ? P.slots.artySpacing : P.slots.flakSpacing;
-      if (plan.slots.some(o => (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
+      if (c.kind !== 'bunker' && (quota[key] || 0) >= Math.max(c.kind === 'aatower' ? 1 : 0, Math.round(q * U))) continue;
+      const sp = c.kind === 'arty' ? P.slots.artySpacing : c.kind === 'bunker' ? 14 : P.slots.flakSpacing;
+      if (plan.slots.some(o => (o.kind === 'bunker') === (c.kind === 'bunker') && (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
       quota[key] = (quota[key] || 0) + 1; delete c.o; c.id = plan.slots.length; plan.slots.push(c);
     }
   }
@@ -503,7 +574,7 @@ function validate(plan) {
     if (!(o === it || (it.church && o && o.church === it.church)) || (Kr[i] !== K.BLDG && Kr[i] !== K.RUBBLE)) ov++; } } // a church's parts cross each other on purpose
   m.overlapPx = ov;
   // frontage: a house, terrace or block must have a street, pavement or square within 6 px in front of it
-  let nf = 0, nb = 0; for (const it of plan.items) { if (it.t !== 'house' && it.t !== 'terrace' && it.t !== 'block') continue; nb++;
+  let nf = 0, nb = 0; for (const it of plan.items) { if (it.t !== 'house' && it.t !== 'terrace' && it.t !== 'block') continue; nb++; if (it.quayFront) continue; // island houses face the quay
     const cx = (it.x0 + it.w / 2) | 0, cy = (it.y0 + it.h / 2) | 0, dir = { W: [-1, 0, it.x0 - 1, cy], E: [1, 0, it.x0 + it.w, cy], S: [0, -1, cx, it.y0 - 1], N: [0, 1, cx, it.y0 + it.h] }[it.front];
     let ok = false; for (let k = 0; k < 8 && !ok; k++) { const x = dir[2] + dir[0] * k, y = dir[3] + dir[1] * k; if (x >= 0 && x < W && y >= 0 && y < L) { const kk = Kr[y * W + x]; if (kk === K.ROAD || kk === K.STREET || kk === K.WALK || kk === K.PLAZA) ok = true; else if (kk !== K.FRONT && kk !== K.RUBBLE) break; } } // rubble spilled into a front yard still faces the street
     if (!ok) nf++; }
@@ -511,12 +582,15 @@ function validate(plan) {
   // tank network: every tank-carriageway pixel reachable from the main road at the bottom, through tank carriageway only
   { const seen = new Uint8Array(W * L), st = []; let tot = 0, got = 0; for (let i = 0; i < W * L; i++) if (Kr[i] === K.ROAD) tot++;
     for (let x = 0; x < W; x++) if (Kr[x] === K.ROAD) { seen[x] = 1; st.push(x); }
-    while (st.length) { const i = st.pop(); got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && Kr[j] === K.ROAD) { seen[j] = 1; st.push(j); } }
-    m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length; }
+    while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
+    m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
+    if (plan.river && plan.river.island) { const R = plan.river, i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
+  m.bridges = plan.bridges.length; m.boats = plan.boats.length;
   m.streets = plan.streets.length;
   // churches: how many, and the closest two
   m.churches = plan.churches.length; m.churchMinGap = Infinity;
-  for (let i = 0; i < plan.churches.length; i++) for (let j = i + 1; j < plan.churches.length; j++) m.churchMinGap = Math.min(m.churchMinGap, Math.abs(plan.churches[i].yFront - plan.churches[j].yFront));
+  const spaced = plan.churches.filter(c => !c.island); // the island chapel stands apart from the parish rule
+  for (let i = 0; i < spaced.length; i++) for (let j = i + 1; j < spaced.length; j++) m.churchMinGap = Math.min(m.churchMinGap, Math.abs(spaced[i].yFront - spaced[j].yFront));
   if (!isFinite(m.churchMinGap)) m.churchMinGap = null;
   // density: share of built ground per 128 px band against a target from U, mean absolute error in percentage points
   let err = 0, nbd = 0; m.bands = [];
@@ -526,7 +600,7 @@ function validate(plan) {
   const by = {}; for (const s of plan.slots) by[s.kind] = (by[s.kind] || 0) + 1; m.slots = by;
   m.slotsPer1000 = +(plan.slots.length * 1000 / L).toFixed(1);
   m.squares = plan.squares.length; m.parks = plan.parks.length; m.trees = plan.trees.length; m.lots = plan.lots.length; m.ruins = plan.items.filter(i => i.dmg >= 2).length;
-  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9);
+  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && (!plan.river || (m.bridges >= 2 && m.islandReach !== false));
   return m;
 }
 
@@ -543,7 +617,7 @@ const C = {
   facade: [HX(['#5e5444', '#8a7e6a', '#a69a82']), HX(['#3e1c14', '#5e2a1c', '#7a3a26']), HX(['#3e3c38', '#5a5852', '#74726a'])],
   tree: HX(['#0e1e0a', '#183014', '#22441a', '#2f5a22', '#40722c', '#58903a']),
   field: { grass: HX(['#24401a', '#2e5220', '#3a6428', '#4a7832', '#5e8e40']), wheat: HX(['#7a6428', '#9a8236', '#b8a048', '#d4bc64', '#e8d488']), soil: HX(['#3a2818', '#523a22', '#6c4e30', '#86643e']), crop: HX(['#1e3a14', '#2a4e1a', '#3a6424', '#4e7c30']), hedge: HX(['#12240e', '#1a3214', '#24421a']) },
-  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), beam: HX(['#5a3a20'])[0], char: HX(['#1a1612', '#241e18', '#30281e']), fruit: HX(['#c8483a', '#e0c04a']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
+  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), river: HX(['#12303a', '#173c48', '#1e4a56', '#285a66', '#3a6e78', '#5a8a90']), hull: HX(['#2a2018', '#4a3826', '#6a543a']), beam: HX(['#5a3a20'])[0], char: HX(['#1a1612', '#241e18', '#30281e']), fruit: HX(['#c8483a', '#e0c04a']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
 };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
@@ -647,6 +721,21 @@ function paint(plan, img, y0, h, opts) {
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
         case K.MEADOW: c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
+        case K.RIVER: { const R = plan.river, cx2 = clamp(x, 0, W - 1); let e = R.hw[cx2] - Math.abs(y + 0.5 - R.yc[cx2]);
+          if (R.island) e = Math.min(e, (Math.sqrt(((x + 0.5 - R.ix) / R.rx) ** 2 + ((y + 0.5 - R.iy) / R.ry) ** 2) - 1) * R.ry);
+          let l = 0.32 + (vn(x * 0.06, y * 0.25) - 0.5) * 0.18 + Math.sin(x * 0.11 + y * 0.9) * 0.04; // slow current
+          if (((x + Math.floor(y * 7.3)) % 17) < 3 && hh(x >> 2, y) < 0.35) l += 0.16; // streaks of the current
+          if (e < 1.5) l += 0.4; else if (e < 3.5) l += 0.2; // the shallow edge
+          const sh = [at(x - 1, y + 1), at(x - 2, y + 1), at(x - 3, y + 2)].some(j => j >= 0 && Kr[j] === K.BRIDGE); if (sh) l -= 0.45; // the bridge's shadow on the water
+          const pl = at(x - 1, y), pr = at(x + 1, y); if (((pl >= 0 && Kr[pl] === K.BRIDGE) || (pr >= 0 && Kr[pr] === K.BRIDGE)) && (y % 9) < 3) { c = C.conc[2]; break; } // a pier
+          c = C.river[pickI(6, l, x, y)]; break; }
+        case K.BRIDGE: { const st = streetOf(i), sp = st && st.cls !== 'arterial' ? (st.pts.find(q => q[1] === y) || st.pts[0]) : null, xc = st ? (sp ? sp[0] : plan.mx[y]) : x, wd = st ? (sp ? sp[2] : plan.aw[y]) : 8, dd = Math.abs(x + 0.5 - xc);
+          if (dd > wd / 2 - 1) { c = (y % 3) === 0 ? C.shadow : x < xc ? C.conc[3] : C.conc[2]; break; } // balustrade: stone posts, lit on the left
+          if (dd > (st && st.tank ? 5 : 3.5)) { c = C.side[pickI(3, 0.6, x, y)]; break; }
+          c = st && st.tank ? C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)] : C.cobble[pickI(4, 0.45 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
+        case K.QUAY: { const nW = (j => j >= 0 && Kr[j] === K.RIVER); if (nW(at(x, y - 1)) || nW(at(x, y + 1)) || nW(at(x - 1, y)) || nW(at(x + 1, y))) { c = hh(x, y) < 0.06 ? C.shadow : C.conc[0]; break; } // the wall face above the water
+          c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
+        case K.BANK: c = hh(x, y) < 0.22 ? C.field.wheat[1] : (y + x * 3) % 5 === 0 ? C.field.hedge[2] : C.soil[pickI(3, 0.4 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.5, x, y)]; break; // mud and reeds
         case K.ORCHARD: c = (hh(x, y) < 0.02) ? C.field.wheat[4] : C.field.grass[pickI(5, 0.62 + (vn(x * 0.09, y * 0.09) - 0.5) * 0.35, x, y)]; break; // mown meadow, a few flowers
         default: c = parcelPix(plan, i, x, y);
       }
@@ -664,12 +753,17 @@ function paint(plan, img, y0, h, opts) {
   const put = (x, y, c, a = 1) => { const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
   for (const cr of plan.craters) { if (cr.y + cr.r < y0 || cr.y - cr.r >= y0 + h) continue;
     for (let yy = Math.floor(cr.y - cr.r - 2); yy <= cr.y + cr.r + 2; yy++) for (let xx = Math.floor(cr.x - cr.r - 2); xx <= cr.x + cr.r + 2; xx++) { const rr = Math.hypot(xx + 0.5 - cr.x, yy + 0.5 - cr.y); if (rr < cr.r) put(xx, yy, rr < cr.r - 1.2 ? C.rubble[0] : C.rubble[2]); else if (rr < cr.r + 2 && hh(xx, yy) < 0.6) put(xx, yy, C.shadow, 0.45); } }
+  for (const b of plan.boats) { if (b.y0 + b.h < y0 || b.y0 >= y0 + h) continue; // a barge: dark hull, a lighter deck, cargo, a cabin at the stern
+    for (let yy = b.y0; yy < b.y0 + b.h; yy++) for (let xx = b.x0; xx < b.x0 + b.w; xx++) { const lx = xx - b.x0, ly = yy - b.y0, edge = lx === 0 || ly === 0 || lx === b.w - 1 || ly === b.h - 1;
+      let c = edge ? C.hull[0] : lx >= b.w - 4 ? (ly === 1 ? C.conc[3] : C.conc[1]) : b.cargo === 0 ? C.char[pickI(3, 0.5 + hh(xx, yy) * 0.4, xx, yy)] : b.cargo === 1 ? C.hull[pickI(3, 0.6 + ((lx % 4 === 0) ? -0.4 : 0), xx, yy)] : C.gravel[pickI(3, 0.6, xx, yy)];
+      if (b.dmg && hh(xx * 3, yy) < 0.25) c = C.shadow; put(xx, yy, c); }
+    for (let xx = b.x0 + 1; xx < b.x0 + b.w + 1; xx++) put(xx, b.y0 - 1, C.shadow, 0.4); }
   for (const t of plan.trees) { if (t.y + t.r + 4 < y0 || t.y - t.r - 4 >= y0 + h) continue;
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) if (xx * xx + yy * yy <= t.r * t.r) put(t.x + xx + 2, t.y + yy - 2, C.shadow, 0.4);
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) { const dd = (xx * xx + yy * yy) / (t.r * t.r); if (dd > 1) continue;
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
       if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
-      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : t.v === 4 ? 0.2 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
   // soot around gutted and burning houses
   for (const it of items) { if (!(it.dmg >= 3 || it.fire) || it.y0 + it.h + 4 < y0 || it.y0 - 4 >= y0 + h) continue;
     for (let yy = it.y0 - 4; yy < it.y0 + it.h + 4; yy++) for (let xx = it.x0 - 4; xx < it.x0 + it.w + 4; xx++) { const o = at(xx, yy); if (o < 0 || Kr[o] === K.BLDG || Br[o] === it.id) continue;

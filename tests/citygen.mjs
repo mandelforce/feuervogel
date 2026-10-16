@@ -19,5 +19,11 @@ for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0
   ms.sort((a, b) => a - b);
   console.log(`${fails ? 'FAIL' : 'ok  '} ${name.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median / ${ms[99].toFixed(0)} max, density error ${(errs.reduce((a, b) => a + b, 0) / 100).toFixed(1)} pts, squares ${sq}, slots ${(slots / 100).toFixed(1)} per town`);
 }
+// the river town: every hard rule, at least two bridges, the island reached by tanks
+for (const damage of [0, 0.6]) { let fails = 0, bridges = 0;
+  for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset: 'river', params: { damage } }), m = CG.validate(p); bridges += m.bridges;
+    if (!m.pass) { fails++; if (fails <= 3) fail(`river damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}, island reached ${m.islandReach}`); } }
+  console.log(`${fails ? 'FAIL' : 'ok  '} river     damage ${damage}: ${100 - fails}/100 pass, ${(bridges / 100).toFixed(2)} bridges per town`);
+}
 if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
 console.log('\nCity generator checks pass.');
