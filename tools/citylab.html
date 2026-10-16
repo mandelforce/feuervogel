@@ -199,7 +199,7 @@ function build() {
   ctx.putImageData(img, 0, 0);
   times.sort((a, b) => a - b);
   $('genMs').textContent = gen.toFixed(0) + ' ms';
-  $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length);
+  $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k]) => k !== 'setup').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join('');
   showMetrics(); layout(); drawOverlay(); drawGraph();
 }
 const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
