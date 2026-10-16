@@ -21,9 +21,9 @@
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16 };
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -284,7 +284,9 @@ function generate(opts) {
       if (lot) { fill(x0, y, d, w, K.LOT, -1); plan.lots.push({ x0, y0: y, w: d, h: w, street: st.id, tank: st.tank }); y += w + gap; continue; }
       const b = building(t, x0, y, d, w, 'v', s > 0 ? 'W' : 'E', rn); rn.end = 'v' + st.id + ':' + s + ':' + (y + w + gap);
       for (let yy = y; yy < y + w; yy++) { const p = st.pts[clamp(yy - st.y0, 0, st.pts.length - 1)]; const e = s > 0 ? Math.ceil(p[0] + p[2] / 2) : Math.floor(p[0] - p[2] / 2); for (let x = Math.min(e, xf); x <= Math.max(e, xf); x++) if (free(x, yy)) { Kr[idx(x, yy)] = K.FRONT; Br[idx(x, yy)] = b.id; } }
-      if (gd > 0) { const gx0 = s > 0 ? x0 + d : x0 - gd; for (let yy = y; yy < y + w + (gap > 0 && gap < 9 ? gap : 0); yy++) for (let x = gx0; x < gx0 + gd; x++) if (free(x, yy)) { Kr[idx(x, yy)] = K.GARDEN; Br[idx(x, yy)] = b.id; } }
+      if (gd > 0) { const back = sideBack(st, s, t); // the gardens of a street side end together on one back line that follows the street
+        for (let yy = y; yy < y + w + (gap > 0 && gap < 9 ? gap : 0); yy++) { const p = st.pts[clamp(yy - st.y0, 0, st.pts.length - 1)], bl = Math.round(p[0] + s * (p[2] / 2 + back));
+          for (let x = s > 0 ? x0 + d : x0 - 1; s > 0 ? x < bl : x > bl; x += s) { if (!free(x, yy)) break; Kr[idx(x, yy)] = K.GARDEN; Br[idx(x, yy)] = b.id; } } }
       y += w + gap;
     }
   }
@@ -310,10 +312,14 @@ function generate(opts) {
       if (lot) { fill(x, y0, w, d, K.LOT, -1); plan.lots.push({ x0: x, y0, w, h: d, street: st.id, tank: st.tank }); i += w + gap; continue; }
       const b = building(t, x, y0, w, d, 'h', s > 0 ? 'S' : 'N', rn); rn.end = 'h' + st.id + ':' + s + ':' + (i + w + gap);
       for (let q = i; q < i + w; q++) { const e = s > 0 ? Math.ceil(pts[q][1] + pts[q][2] / 2) : Math.floor(pts[q][1] - pts[q][2] / 2), xx = pts[q][0]; for (let y = Math.min(e, yf); y <= Math.max(e, yf); y++) if (free(xx, y)) { Kr[idx(xx, y)] = K.FRONT; Br[idx(xx, y)] = b.id; } }
-      if (gd > 0) { const gy0 = s > 0 ? y0 + d : y0 - gd; for (let y = gy0; y < gy0 + gd; y++) for (let xx = x; xx < x + w + (gap > 0 && gap < 9 ? gap : 0); xx++) if (free(xx, y)) { Kr[idx(xx, y)] = K.GARDEN; Br[idx(xx, y)] = b.id; } }
+      if (gd > 0) { const back = sideBack(st, s, t);
+        for (let xx = x; xx < x + w + (gap > 0 && gap < 9 ? gap : 0); xx++) { const p = pts[clamp(i + xx - x, 0, pts.length - 1)], bl = Math.round(p[1] + s * (p[2] / 2 + back));
+          for (let y = s > 0 ? y0 + d : y0 - 1; s > 0 ? y < bl : y > bl; y += s) { if (!free(xx, y)) break; Kr[idx(xx, y)] = K.GARDEN; Br[idx(xx, y)] = b.id; } } }
       i += w + gap;
     }
   }
+  // how far behind the street the gardens of one street side end (detached houses have longer gardens than terraces)
+  function sideBack(st, s, t) { return (t === 'house' ? 31 : 26) + (h32(st.id * 31 + s + 7, seed) % 8); }
   const order = { arterial: 0, collector: 1, local: 2 };
   const sorted = plan.streets.slice().sort((a, b) => order[a.cls] - order[b.cls] || (a.axis === 'v' ? 0 : 1) - (b.axis === 'v' ? 0 : 1) || a.id - b.id);
   for (const st of sorted) for (const s of [-1, 1]) (st.axis === 'v' ? frontV : frontH)(st, s, false);
@@ -344,6 +350,21 @@ function generate(opts) {
     }
   }
 
+  // 5b. the village edge: where back gardens meet the fields, some stretches have a belt of orchard (fruit trees on meadow), the others a hedge
+  { // the belt's depth is measured straight across rows and columns, so it has straight edges like a real plot, not a staircase
+    const depth = (x, y) => { const r = rnd(T.INT, Math.floor(y / 56) * 2 + (x < MX(y) ? 0 : 1), 77); return r < 0.35 ? 0 : 6 + Math.floor(r * 9); }; // stretches of about 56 px
+    const mark = [];
+    for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.GARDEN) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const dp = depth(x, y); if (!dp) continue;
+        for (let k = 1; k <= dp; k++) { const xx = x + dx * k, yy = y + dy * k; if (!inB(xx, yy)) break; const j = idx(xx, yy); if (Kr[j] !== K.FIELD) break; mark.push(j); } } }
+    for (const j of mark) Kr[j] = K.ORCHARD;
+  }
+  // 5c. fields: long strips running away from the main road, grouped into field blocks with hedges between them (a strip field system),
+  // so field edges follow the village instead of a fixed grid
+  { const fRow = new Int32Array(L), fGrp = new Int32Array(L), fRowEdge = new Uint8Array(L), fGrpEdge = new Uint8Array(L); let y = 0, r = 0, g = 0, inG = 0, gLen = 3 + (rnd(T.INT, 902, 0) * 4 | 0);
+    while (y < L) { const hgt = 8 + (rnd(T.INT, 901, r) * 15 | 0); for (let k = 0; k < hgt && y < L; k++, y++) { fRow[y] = r; fGrp[y] = g; fRowEdge[y] = k === 0 ? 1 : 0; fGrpEdge[y] = k === 0 && inG === 0 ? 1 : 0; } r++; if (++inG >= gLen) { inG = 0; g++; gLen = 3 + (rnd(T.INT, 902, g) * 4 | 0); } }
+    Object.assign(plan, { fRow, fGrp, fRowEdge, fGrpEdge, fPhase: Array.from({ length: g + 1 }, (_, k) => rnd(T.INT, 903, k) * 40), fBand: Array.from({ length: g + 1 }, (_, k) => 64 + rnd(T.INT, 904, k) * 34) });
+  }
   // 6a. damage: roofs damaged, ruins (rubble with the walls standing), some burning; craters off the carriageways
   for (const it of plan.items) {
     const d = Dy(it.y0 + it.h / 2), v = d + (rnd(T.DMG, it.id) - 0.5) * 0.55 - (it.t === 'church' ? 0.25 : 0);
@@ -360,9 +381,16 @@ function generate(opts) {
 
   // 6b. trees: gardens, parks, churchyards, front gardens, the meadow; avenue trees on the main road's wide pavements.
   // A tree needs its whole crown on open ground, so none stands on a street, a building or a lot.
-  { const okK = new Uint8Array(16); for (const k of [K.GARDEN, K.PARK, K.CHYARD, K.FRONT, K.MEADOW, K.COURT]) okK[k] = 1;
-    const dens = [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.05, 0.55, 0, 0.3, 0, 0.1, 0, 0];
+  { const okK = new Uint8Array(24); for (const k of [K.GARDEN, K.PARK, K.CHYARD, K.FRONT, K.MEADOW, K.COURT]) okK[k] = 1;
+    const dens = [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.05, 0.55, 0, 0.3, 0, 0.1, 0, 0, 0];
     const taken = new Uint8Array(N);
+    // orchard: fruit trees in loose rows, every 6 px, staggered
+    for (let y = 3; y < L - 3; y += 6) for (let x = 3 + ((y / 6) & 1) * 3; x < W - 3; x += 6) {
+      const tx = x + ((rnd(T.TREE, x, y + 9) * 2) | 0), ty = y; if (!inB(tx, ty) || Kr[idx(tx, ty)] !== K.ORCHARD || rnd(T.TREE, x, y + 8) < 0.12) continue; let ok = true;
+      for (let yy = ty - 2; ok && yy <= ty + 2; yy++) for (let xx = tx - 2; xx <= tx + 2; xx++) if (!inB(xx, yy) || taken[idx(xx, yy)] || Kr[idx(xx, yy)] !== K.ORCHARD) { ok = false; break; }
+      if (!ok) continue; for (let yy = ty - 2; yy <= ty + 2; yy++) for (let xx = tx - 2; xx <= tx + 2; xx++) taken[idx(xx, yy)] = 1;
+      plan.trees.push({ x: tx, y: ty, r: 2, v: 3, fruit: true });
+    }
     for (let y = 4; y < L - 4; y += 6) for (let x = 3; x < W - 3; x += 6) {
       const tx = Math.round(x + (rnd(T.TREE, x, y) - 0.5) * 5), ty = Math.round(y + (rnd(T.TREE, x, y + 1) - 0.5) * 5); if (!inB(tx, ty)) continue;
       const k = Kr[idx(tx, ty)]; if (!okK[k] || rnd(T.TREE, x, y + 2) > dens[k] * P.trees) continue;
@@ -449,7 +477,7 @@ const C = {
   facade: [HX(['#5e5444', '#8a7e6a', '#a69a82']), HX(['#3e1c14', '#5e2a1c', '#7a3a26']), HX(['#3e3c38', '#5a5852', '#74726a'])],
   tree: HX(['#0e1e0a', '#183014', '#22441a', '#2f5a22', '#40722c', '#58903a']),
   field: { grass: HX(['#24401a', '#2e5220', '#3a6428', '#4a7832', '#5e8e40']), wheat: HX(['#7a6428', '#9a8236', '#b8a048', '#d4bc64', '#e8d488']), soil: HX(['#3a2818', '#523a22', '#6c4e30', '#86643e']), crop: HX(['#1e3a14', '#2a4e1a', '#3a6424', '#4e7c30']), hedge: HX(['#12240e', '#1a3214', '#24421a']) },
-  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
+  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), fruit: HX(['#c8483a', '#e0c04a']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
 };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
@@ -477,7 +505,17 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
   return ramp[pickI(5, l, wx, wy)];
 }
-function fieldPix(x, y) { // farmland outside the town (in the game, the farmland generator draws this)
+// fields as strips running away from the main road, in blocks separated by hedges (5c)
+function stripPix(plan, x, y) {
+  const r = plan.fRow[y], g = plan.fGrp[y], side = x < plan.mx[y] ? 0 : 1, dd = Math.abs(x - plan.mx[y]) + plan.fPhase[g], band = Math.floor(dd / plan.fBand[g]), bpos = dd - band * plan.fBand[g];
+  if (plan.fGrpEdge[y] || bpos < 1.5) return C.field.hedge[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.7, x, y)];
+  const t = hh(r * 7 + band * 131 + side * 977, 5), edge = plan.fRowEdge[y] ? -0.22 : 0;
+  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (y % 3 === 0 ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
+  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + (y % 2 === 0 ? 0.25 : -0.05), x, y)];
+  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (y % 3 === 0 ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
+  return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
+}
+function fieldPix(x, y) { // (unused: the old grid fields)
   const fw = 52, fh = 40, ri = Math.floor(y / fh), off = hh(ri, 77) * fw, ci = Math.floor((x + off) / fw), fx = ((x + off) % fw + fw) % fw, fy = ((y % fh) + fh) % fh, t = hh(ci * 3 + 1, ri * 5 + 2);
   if (fx < 2 || fy < 2) return C.field.hedge[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)];
   if (t < 0.3) return C.field.wheat[pickI(5, 0.55 + (fx % 4 === 0 ? -0.3 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
@@ -517,7 +555,9 @@ function paint(plan, img, y0, h) {
         case K.PLAZA: c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
         case K.WATER: c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
         case K.FRONT: { const b = Br[i] >= 0 ? items[Br[i]] : null; c = b && b.t === 'house' ? C.grass[pickI(4, 0.55 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)] : C.pave[pickI(4, 0.35 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
-        case K.GARDEN: { const o = Br[i]; if (o >= 0 && ((x > 0 && Br[i - 1] !== o && Kr[i - 1] === K.GARDEN) || (y > 0 && Br[i - W] !== o && Kr[i - W] === K.GARDEN))) { c = C.fence; break; }
+        case K.GARDEN: { const o = Br[i];
+          if ((x > 0 && Kr[i - 1] === K.FIELD) || (x < W - 1 && Kr[i + 1] === K.FIELD) || (y > 0 && Kr[i - W] === K.FIELD) || (y < L - 1 && Kr[i + W] === K.FIELD)) { c = C.field.hedge[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.7, x, y)]; break; } // the hedge along the village edge
+          if ((x > 0 && Kr[i - 1] === K.ORCHARD) || (x < W - 1 && Kr[i + 1] === K.ORCHARD) || (y > 0 && Kr[i - W] === K.ORCHARD) || (y < L - 1 && Kr[i + W] === K.ORCHARD)) { c = C.fence; break; } // the garden fence onto the orchard if (o >= 0 && ((x > 0 && Br[i - 1] !== o && Kr[i - 1] === K.GARDEN) || (y > 0 && Br[i - W] !== o && Kr[i - W] === K.GARDEN))) { c = C.fence; break; }
           const bed = o >= 0 && hh(o, 5) < 0.35 && ((x + (o & 3)) % 9 < 4) && ((y + o) % 11 < 5); c = bed ? C.soil[pickI(3, y % 2 ? 0.3 : 0.7, x, y)] : C.grass[pickI(4, 0.5 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.5, x, y)]; break; }
         case K.COURT: c = (vn(x * 0.18, y * 0.18) > 0.62) ? C.grass[pickI(4, 0.35, x, y)] : C.yard[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.5, x, y)]; break;
         case K.PARK: { const pk = plan.parks.find(p => y >= p.ya && y <= p.yb); const px = pk ? x - plan.mx[(pk.ya + pk.yb) >> 1] : x, py = pk ? y - pk.ya : y;
@@ -527,7 +567,8 @@ function paint(plan, img, y0, h) {
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
         case K.MEADOW: c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
-        default: c = fieldPix(x, y);
+        case K.ORCHARD: c = (hh(x, y) < 0.02) ? C.field.wheat[4] : C.field.grass[pickI(5, 0.62 + (vn(x * 0.09, y * 0.09) - 0.5) * 0.35, x, y)]; break; // mown meadow, a few flowers
+        default: c = stripPix(plan, x, y);
       }
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
       if (k !== K.BLDG) {
@@ -547,7 +588,8 @@ function paint(plan, img, y0, h) {
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) if (xx * xx + yy * yy <= t.r * t.r) put(t.x + xx + 2, t.y + yy - 2, C.shadow, 0.4);
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) { const dd = (xx * xx + yy * yy) / (t.r * t.r); if (dd > 1) continue;
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
-      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.v - 1) * 0.05; put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+      if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
+      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
   for (const f of plan.fires) { if (f.y + 6 < y0 || f.y - 6 >= y0 + h) continue; for (let yy = -2; yy <= 3; yy++) for (let xx = -2; xx <= 2; xx++) if (hh(f.x * 3 + xx, f.y * 5 + yy) < 0.7 - Math.abs(xx) * 0.15 - yy * 0.06) put(Math.round(f.x) + xx, Math.round(f.y) + yy, C.fire[Math.min(2, Math.abs(xx) + (yy > 1 ? 1 : 0))]); }
   // flat roofs that carry a flak slot: mark the gun platform (painted above via b.slot)
 }
