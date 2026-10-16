@@ -19,12 +19,16 @@ for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0
   ms.sort((a, b) => a - b);
   console.log(`${fails ? 'FAIL' : 'ok  '} ${name.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median / ${ms[99].toFixed(0)} max, density error ${(errs.reduce((a, b) => a + b, 0) / 100).toFixed(1)} pts, squares ${sq}, slots ${(slots / 100).toFixed(1)} per town`);
 }
-// the river town: every hard rule, at least two bridges, the island reached by tanks
-for (const damage of [0, 0.6]) { let fails = 0, bridges = 0;
-  for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset: 'river', params: { damage } }), m = CG.validate(p); bridges += m.bridges;
-    if (!m.pass) { fails++; if (fails <= 3) fail(`river damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}, island reached ${m.islandReach}`); } }
-  console.log(`${fails ? 'FAIL' : 'ok  '} river     damage ${damage}: ${100 - fails}/100 pass, ${(bridges / 100).toFixed(2)} bridges per town`);
+// the river towns: every hard rule, at least two bridges over an island river and one over any other, the island reached by tanks
+for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let fails = 0, bridges = 0;
+  for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p); bridges += m.bridges;
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}, island reached ${m.islandReach}`); }
+    if (p.craters.some(c => { const k = p.K[Math.round(c.y) * p.W + Math.round(c.x)]; return k === CG.K.RIVER || k === CG.K.BRIDGE; })) { fails++; fail(`${preset} seed ${seed}: a bomb crater in the river`); } }
+  console.log(`${fails ? 'FAIL' : 'ok  '} ${preset.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, ${(bridges / 100).toFixed(2)} bridges per town`);
 }
+// the river animation gives streaks on the water only
+{ const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
+  if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
 // quarters: steep planned grids everywhere (the lab's extreme) still keep every hard rule; the default mix gives all three street patterns
 for (const preset of ['town', 'river']) { let fails = 0;
   for (let seed = 1; seed <= 100; seed++) { const m = CG.validate(CG.generate({ seed, preset, params: { gridChance: 1, gridTilt: [0.3, 0.4] } }));
@@ -37,13 +41,12 @@ for (const preset of ['town', 'river']) { let fails = 0;
   if (!okMix) fail(`quarters: the default town lacks a street pattern (${JSON.stringify(styles)}, ${tilted} tilted streets, ${tracks} farm tracks)`);
   else console.log(`ok   quarters: ${styles.fields} field-lane, ${styles.grid} grid, ${styles.follow} follow quarters in 100 towns; ${tilted} tilted streets, ${tracks} farm tracks`);
 }
-// road markings: paint whole towns and look for two marking pixels side by side (a marking is one pixel wide)
-{ const mark = CG.palette.mark; let pairs = 0, marks = 0;
-  for (const [seed, preset] of [[1, 'town'], [5, 'town'], [9, 'river'], [12, 'river']]) {
+// no road markings in town: paint whole towns and look for the marking colour
+{ const mark = CG.palette.mark; let marks = 0;
+  for (const [seed, preset] of [[1, 'town'], [5, 'town'], [9, 'river'], [12, 'rivers']]) {
     const p = CG.generate({ seed, preset }), img = { data: new Uint8ClampedArray(p.W * p.L * 4) }; CG.paint(p, img, 0, p.L, { noFx: true });
-    const d = img.data, isM = o => d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2];
-    for (let r = 0; r < p.L; r++) for (let x = 0; x < p.W; x++) { const o = (r * p.W + x) * 4; if (!isM(o)) continue; marks++; if (x + 1 < p.W && isM(o + 4)) pairs++; } }
-  if (pairs) fail(`road markings: ${pairs} pairs of marking pixels side by side`); else console.log(`ok   road markings: ${marks} marking pixels in 4 towns, none side by side`);
+    const d = img.data; for (let o = 0; o < d.length; o += 4) if (d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2]) marks++; }
+  if (marks) fail(`road markings: ${marks} marking pixels painted`); else console.log('ok   road markings: none in 4 painted towns');
 }
 if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
 console.log('\nCity generator checks pass.');

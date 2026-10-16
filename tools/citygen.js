@@ -39,7 +39,7 @@ const PRESETS = {
     coreBase: 26, coreGrow: 150, fray: 46, // lateral town width: core half-width = coreBase + coreGrow * U^1.4, then a fray zone
     crossSpacing: [150, 46], // cross street spacing at U 0 and U 1
     crossMinU: 0.22, crossEndU: 0.3, stagger: 10,
-    quarterLen: [220, 420], fieldLanesU: 0.6, gridChance: 0.65, gridTilt: [0.1, 0.24], followSkew: 0.08, followJog: 0.1, blockScale: [0.8, 1.25], crossMinGap: 26, minBlockDepth: 30, // quarters (2a'')
+    quarterLen: [220, 420], fieldLanesU: 0.6, gridChance: 0.65, gridTilt: [0.02, 0.32], gridTiltBias: 2.2, followSkew: 0.08, followJog: 0.1, blockScale: [0.8, 1.25], crossMinGap: 26, minBlockDepth: 30, // quarters (2a'')
     collectorOffset: [70, 56], collectorMinU: 0.5, outerLocalMinU: 0.7, outerLocalChance: 0.72, blockMergeChance: 0.08,
     widths: { arterialLow: 9, arterialHigh: 18, collector: 12, local: 7, carriage: 10 },
     houses: { detached: [0.3], terraceTo: 0.62 },
@@ -52,6 +52,8 @@ const PRESETS = {
 // River town: the town core with a river across it at the denser end, quays and riverside streets in town, natural banks outside,
 // an old-town island on the main road reached by two bridges, and one more bridge for a collector.
 PRESETS.river = Object.assign({}, PRESETS.town, { label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
+// Two rivers: the river town plus a narrower second river (a tributary, no island) further along
+PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
 function h32(a, b) { let h = Math.imul((a | 0) ^ 0x7F4A7C15, 0x9E3779B1) ^ Math.imul(((b | 0) + 0x165667B1) | 0, 0x85EBCA6B); h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; h = Math.imul(h, 0x297A2D39); h ^= h >>> 15; return h >>> 0; }
@@ -140,14 +142,14 @@ function generate(opts) {
   // 2a. the main road, the whole length: the arterial and the tanks' main route
   { const pts = []; for (let y = 0; y < L; y++) pts.push([plan.mx[y], y, plan.aw[y]]); addStreet({ cls: 'arterial', axis: 'v', tank: true, pts, y0: 0, y1: L - 1 }); }
 
-  // 2a'. the river (river preset): planned before the other streets, so the town adapts to it. Water first, then quays (in town) or natural
-  // banks (outside), the island's quay ring; the arterial will cross on bridges, other streets end at the riverside streets.
-  let RV = null;
-  if (P.river) {
-    const R0 = P.river, Y0 = Math.round(L * R0.at), ph = rnd(T.INT, 950, 1) * 6.283, yc = new Float32Array(W), hw = new Float32Array(W);
-    const ix = clamp(Math.round(MX(Y0)), 70, W - 70), iy0 = Y0 + R0.amp * Math.sin(ix * 0.022 + ph), rx = Math.min(R0.rx + ((rnd(T.INT, 950, 2) * 8) | 0), Math.min(ix, W - ix) - 22), ry = R0.ry + ((rnd(T.INT, 950, 3) * 3) | 0); // the island never reaches the strip's edge
+  // 2a'. rivers (river presets): planned before the other streets, so the town adapts to them. Water first, then quays (in town) or natural
+  // banks (outside), an island's quay ring; the arterial will cross on bridges, other streets end at the riverside streets.
+  const RVs = [];
+  (P.rivers || (P.river ? [P.river] : [])).forEach((R0, ri) => {
+    const tg = 950 + ri * 20, Y0 = Math.round(L * R0.at), ph = rnd(T.INT, tg, 1) * 6.283, yc = new Float32Array(W), hw = new Float32Array(W);
+    const ix = clamp(Math.round(MX(Y0)), 70, W - 70), iy0 = Y0 + R0.amp * Math.sin(ix * 0.022 + ph), rx = Math.min(R0.rx + ((rnd(T.INT, tg, 2) * 8) | 0), Math.min(ix, W - ix) - 22), ry = R0.ry + ((rnd(T.INT, tg, 3) * 3) | 0); // the island never reaches the strip's edge
     for (let x = 0; x < W; x++) { const dx = Math.abs(x - ix), wgt = R0.island ? smooth(0, 1, clamp((rx + 36 - dx) / (36 + rx * 0.35), 0, 1)) : 0; // the river widens gently over a long stretch
-      yc[x] = Y0 + R0.amp * Math.sin(x * 0.022 + ph) - (R0.island ? (iy0 - Y0) * wgt : 0); hw[x] = R0.width / 2 + (ry + R0.channel - R0.width / 2) * wgt + (uAt(x, Y0) < 0.3 ? (noise1(T.INT, x * 0.2) - 0.5) * 3 : 0); }
+      yc[x] = Y0 + R0.amp * Math.sin(x * 0.022 + ph) - (R0.island ? (iy0 - Y0) * wgt : 0); hw[x] = R0.width / 2 + (ry + R0.channel - R0.width / 2) * wgt + (uAt(x, Y0) < 0.3 ? (noise1(T.INT + ri, x * 0.2) - 0.5) * 3 : 0); }
     const iy = R0.island ? Math.round(yc[ix]) : 0, isl = (x, y) => R0.island && ((x + 0.5 - ix) / rx) ** 2 + ((y + 0.5 - iy) / ry) ** 2 < 1;
     let yMin = L, yMax = 0;
     for (let x = 0; x < W; x++) {
@@ -156,8 +158,10 @@ function generate(opts) {
         if (isl(x, y)) continue; Kr[i] = d < 0 ? K.RIVER : d < (town ? 2 : 3) ? (town ? K.QUAY : K.BANK) : Kr[i]; }
     }
     if (R0.island) for (let y = iy - ry; y <= iy + ry; y++) for (let x = ix - rx; x <= ix + rx; x++) { if (!inB(x, y) || !isl(x, y)) continue; const e = ((x + 0.5 - ix) / (rx - 2)) ** 2 + ((y + 0.5 - iy) / (ry - 2)) ** 2; if (e >= 1) Kr[idx(x, y)] = K.QUAY; }
-    RV = plan.river = { Y0, yc, hw, ix, iy, rx, ry, island: !!R0.island, yMin: yMin - 16, yMax: yMax + 16 };
-  }
+    RVs.push({ id: ri, Y0, yc, hw, ix, iy, rx, ry, island: !!R0.island, flow: rnd(T.INT, tg, 4) < 0.5 ? -1 : 1, yMin: yMin - 16, yMax: yMax + 16 });
+  });
+  const RV = RVs.find(R => R.island) || null; plan.rivers = RVs; plan.river = RVs[0] || null; // RV: the river with the old-town island
+  const riverAt = y => RVs.find(R => y > R.yMin && y < R.yMax) || null; // a river band, where no cross street goes
   // 2a''. quarters. A town grows in stretches of different age, and each stretch has its own street pattern, so the blocks are not copies of
   // each other and the seams between quarters give skewed junctions and odd-shaped blocks, as in a real town:
   //   'fields'  the suburb's lanes lie on the old field strips' edges, straight and square to the main road, and run on into the fields as farm tracks
@@ -168,9 +172,9 @@ function generate(opts) {
     while (y < L) {
       const len = Math.round(lerp(P.quarterLen[0], P.quarterLen[1], rnd(T.QTR, q))), U = Uy(y + len / 2), r = rnd(T.QTR, q, 1);
       let style = U < P.fieldLanesU ? 'fields' : r < P.gridChance ? 'grid' : 'follow';
-      if (style === 'grid' && RV && y < RV.yMax + 30 && y + len > RV.yMin - 30) style = 'follow'; // the riverside streets set the pattern there
+      if (style === 'grid' && RVs.some(R => y < R.yMax + 30 && y + len > R.yMin - 30)) style = 'follow'; // the riverside streets set the pattern there
       if (style === 'grid' && y < yPk + 130 && y + len > yPk - 130) style = 'follow';
-      const slope = style === 'grid' ? (rnd(T.QTR, q, 2) < 0.5 ? -1 : 1) * lerp(P.gridTilt[0], P.gridTilt[1], rnd(T.QTR, q, 3)) : 0;
+      const slope = style === 'grid' ? (rnd(T.QTR, q, 2) < 0.5 ? -1 : 1) * lerp(P.gridTilt[0], P.gridTilt[1], Math.pow(rnd(T.QTR, q, 3), P.gridTiltBias)) : 0; // most grids lean a little, steep ones are rare
       quarters.push({ id: q, y0: y, y1: Math.min(L, y + len), style, slope, lean: (rnd(T.QTR, q, 6) - 0.5) * 0.1, scale: lerp(P.blockScale[0], P.blockScale[1], rnd(T.QTR, q, 4)), off: 0.88 + rnd(T.QTR, q, 5) * 0.24 });
       y += len; q++;
     }
@@ -202,7 +206,7 @@ function generate(opts) {
         const pts = [], xb = Math.round(clamp(xEdge + s * ext, -1, W)), xr = Math.round(xa); // from the main road's centre, so the carriageways join
         for (let xx = Math.min(xr, xb); xx <= Math.max(xr, xb); xx++) { if (xx < 0 || xx >= W) continue; const f = clamp(Math.abs(xx - xEdge) / Math.max(1, ext), 0, 1); pts.push([xx, line(xx, f), w]); }
         // inside the strip, out of the river, and never too close to the previous cross street on this side (where a tilted quarter meets a straight one)
-        let ok = pts.every(p => p[1] >= 6 && p[1] <= L - 7 && !(RV && p[1] > RV.yMin && p[1] < RV.yMax));
+        let ok = pts.every(p => p[1] >= 6 && p[1] <= L - 7 && !riverAt(p[1]));
         const prev = cross[s][cross[s].length - 1];
         if (ok && prev) for (const p of pts) { const yp = crossYat(prev, p[0]); if (yp !== null && p[1] - yp < P.crossMinGap) { ok = false; break; } }
         if (!ok) continue;
@@ -215,17 +219,17 @@ function generate(opts) {
   }
   // riverside streets: along both banks, from the main road outward while in town, joined into the cross streets so that the streets
   // parallel to the main road end on them; collectors (tank routes) where the town is dense
-  if (RV) {
+  for (const R of RVs) {
     for (const bank of ['S', 'N']) for (const s of [-1, 1]) {
-      const U = Uy(RV.Y0), coll = U >= 0.6, w = coll ? P.widths.collector : P.widths.local, yAt = x => bank === 'N' ? RV.yc[x] + RV.hw[x] + 2 + w / 2 : RV.yc[x] - RV.hw[x] - 2 - w / 2;
-      const x0 = Math.round(MX(RV.Y0)), pts = []; let x = x0;
+      const U = Uy(R.Y0), coll = U >= 0.6, w = coll ? P.widths.collector : P.widths.local, yAt = x => bank === 'N' ? R.yc[x] + R.hw[x] + 2 + w / 2 : R.yc[x] - R.hw[x] - 2 - w / 2;
+      const x0 = Math.round(MX(R.Y0)), pts = []; let x = x0;
       while (x >= 0 && x < W && uAt(x, yAt(x)) >= 0.33) { pts.push([x, yAt(x), w]); x += s; }
       if (pts.length < 24) continue; pts.sort((a, b) => a[0] - b[0]);
-      const S = addStreet({ cls: coll ? 'collector' : 'local', axis: 'h', tank: coll, pts, yc: yAt(x0), side: s, x0: pts[0][0], x1: pts[pts.length - 1][0], w, quay: bank });
+      const S = addStreet({ cls: coll ? 'collector' : 'local', axis: 'h', tank: coll, pts, yc: yAt(x0), side: s, x0: pts[0][0], x1: pts[pts.length - 1][0], w, quay: bank, river: R.id });
       cross[s].push(S);
     }
-    for (const s of ['-1', '1']) cross[s].sort((a, b) => a.yc - b.yc);
   }
+  for (const s of ['-1', '1']) cross[s].sort((a, b) => a.yc - b.yc);
 
   // 2c. streets along the main road between pairs of cross streets on the same side: collectors, then outer local streets.
   // A segment exists only where both cross streets reach it, so every one ends in a T-junction; some are left out so blocks vary.
@@ -234,11 +238,11 @@ function generate(opts) {
   function parallel(s, lineAt, cls, minU, chance, tag) {
     const list = cross[s];
     for (let k = 0; k + 1 < list.length; k++) {
-      const A = list[k], Bc = list[k + 1], ym = (A.yc + Bc.yc) / 2, U = Uy(ym), overRiver = A.quay === 'S' && Bc.quay === 'N', Q = qAt(ym), jog = Q.style === 'follow' ? 1 + (rnd(tag, k, s + 5) - 0.5) * 2 * P.followJog : 1, lx = y => MX(y) + (lineAt(s, y, Q) - MX(y)) * jog; // old streets jog a little at each junction
-      if (overRiver && plan.bridges.length > 0) continue; // one more street crosses the river on a bridge: a collector, or the outer street past the island
+      const A = list[k], Bc = list[k + 1], ym = (A.yc + Bc.yc) / 2, U = Uy(ym), overRiver = A.quay === 'S' && Bc.quay === 'N' && A.river === Bc.river, OR = overRiver ? RVs[A.river] : null, Q = qAt(ym), jog = Q.style === 'follow' ? 1 + (rnd(tag, k, s + 5) - 0.5) * 2 * P.followJog : 1, lx = y => MX(y) + (lineAt(s, y, Q) - MX(y)) * jog; // old streets jog a little at each junction
+      if (overRiver && plan.bridges.some(b => b.river === OR.id)) continue; // one more street crosses each river on a bridge: a collector, or the outer street past the island
       if (!overRiver && (U < minU || rnd(tag, k, s + 3) > chance)) continue;
       const xm = lx(ym); if (xm < 8 || xm > W - 9 || uAt(xm, ym) < 0.42) continue;
-      if (overRiver && RV.island && Math.abs(xm - RV.ix) < RV.rx + 16) continue; // the collector's bridge must be clear of the island
+      if (overRiver && OR.island && Math.abs(xm - OR.ix) < OR.rx + 16) continue; // the collector's bridge must be clear of the island
       let ya = crossYat(A, lx(A.yc)), yb = crossYat(Bc, lx(Bc.yc));
       if (ya === null || yb === null) continue;
       ya = crossYat(A, lx(ya)) ?? ya; yb = crossYat(Bc, lx(yb)) ?? yb; // where the line actually meets a tilted cross street
@@ -246,7 +250,7 @@ function generate(opts) {
       const y0 = Math.round(ya), y1 = Math.round(yb);
       let ok = y1 - y0 > 12;
       for (let y = y0; ok && y <= y1; y++) { const x = lx(y); if (x < 6 || x > W - 7 || Math.abs(x - MX(y)) < AW(y) / 2 + P.minBlockDepth) { ok = false; break; } pts.push([x, y, w]); }
-      if (ok) { const S = addStreet({ cls: tank ? 'collector' : 'local', axis: 'v', tank, pts, y0, y1, side: s, off: Math.abs(xm - MX(ym)), quarter: Q.id }); if (overRiver) plan.bridges.push({ street: S.id, x: Math.round(pts[(pts.length / 2) | 0][0]), kind: 'collector' }); }
+      if (ok) { const S = addStreet({ cls: tank ? 'collector' : 'local', axis: 'v', tank, pts, y0, y1, side: s, off: Math.abs(xm - MX(ym)), quarter: Q.id }); if (overRiver) plan.bridges.push({ street: S.id, x: Math.round(pts[(pts.length / 2) | 0][0]), kind: 'collector', river: OR.id }); }
     }
   }
   const phC = rnd(T.COL, 1) * 6.283;
@@ -258,9 +262,9 @@ function generate(opts) {
 
   for (const st of plan.streets) (st.axis === 'v' ? paintV : paintH)(st);
   for (const tp of plan.tracks) for (const [x, yc] of tp) for (let y = Math.round(yc) - 1; y <= Math.round(yc) + 1; y++) if (free(x, y)) Kr[idx(x, y)] = K.TRACK; // farm tracks: 3 px of dirt
-  if (RV) { // the main road's bridges: each run of deck under it
+  if (RVs.length) { // the main road's bridges: each run of deck under it
     let run = null; for (let y = 0; y < L; y++) { const x = Math.round(plan.mx[y]), b = Kr[idx(x, y)] === K.BRIDGE;
-      if (b && !run) run = { y0: y, x }; if (!b && run) { plan.bridges.push({ street: 0, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial' }); run = null; } }
+      if (b && !run) run = { y0: y, x }; if (!b && run) { plan.bridges.push({ street: 0, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial', river: (riverAt(run.y0) || RVs[0]).id }); run = null; } }
     for (const b of plan.bridges) if (b.y0 === undefined) { const st = plan.streets[b.street]; let y0 = null, y1 = null; for (const [x, y] of st.pts) if (Kr[idx(Math.round(x), y)] === K.BRIDGE) { if (y0 === null) y0 = y; y1 = y; } b.y0 = y0; b.y1 = y1; }
   }
 
@@ -547,15 +551,15 @@ function generate(opts) {
   { let n = 0; for (let y = 8; y < L - 8; y += 9) for (let x = 8; x < W - 8; x += 9) {
     const d = Dy(y); if (rnd(T.CRATER, x, y) > d * 0.09) continue;
     const r = 2 + rnd(T.CRATER, x, y + 1) * 3, cx = x + (rnd(T.CRATER, x + 1, y) - 0.5) * 6, cy = y + (rnd(T.CRATER, x + 2, y) - 0.5) * 6; let ok = true;
-    for (let yy = Math.floor(cy - r); ok && yy <= cy + r; yy++) for (let xx = Math.floor(cx - r); ok && xx <= cx + r; xx++) { if (!inB(xx, yy)) { ok = false; break; } const k = Kr[idx(xx, yy)]; if (k === K.ROAD || k === K.STREET || k === K.BLDG || k === K.PLAZA || k === K.WATER) ok = false; }
+    for (let yy = Math.floor(cy - r); ok && yy <= cy + r; yy++) for (let xx = Math.floor(cx - r); ok && xx <= cx + r; xx++) { if (!inB(xx, yy)) { ok = false; break; } const k = Kr[idx(xx, yy)]; if (k === K.ROAD || k === K.STREET || k === K.BLDG || k === K.PLAZA || k === K.WATER || k === K.RIVER || k === K.BRIDGE || k === K.QUAY) ok = false; }
     if (ok) { plan.craters.push({ x: cx, y: cy, r }); n++; }
   } }
 
   // 6a'. the river: barges moored at the quays (not near a bridge), and bunker slots at every bridgehead
-  if (RV) {
+  for (const R of RVs) {
     for (const bank of ['S', 'N']) for (let x = 6; x < W - 20; x += 34) {
-      if (rnd(T.INT, 960 + (bank === 'N' ? 1 : 0), x) < 0.45 || plan.bridges.some(b => Math.abs(b.x - x - 6) < 22)) continue;
-      const w = 12 + ((rnd(T.INT, 961, x) * 5) | 0), h = 5, xx = x + ((rnd(T.INT, 962, x) * 8) | 0), edge = bank === 'N' ? Math.floor(RV.yc[xx] + RV.hw[xx]) - 1 : Math.ceil(RV.yc[xx] - RV.hw[xx]) + 1;
+      if (rnd(T.INT, 960 + (bank === 'N' ? 1 : 0) + R.id * 20, x) < 0.45 || plan.bridges.some(b => b.river === R.id && Math.abs(b.x - x - 6) < 22)) continue;
+      const w = 12 + ((rnd(T.INT, 961, x) * 5) | 0), h = 5, xx = x + ((rnd(T.INT, 962, x) * 8) | 0), edge = bank === 'N' ? Math.floor(R.yc[xx] + R.hw[xx]) - 1 : Math.ceil(R.yc[xx] - R.hw[xx]) + 1;
       const y0 = bank === 'N' ? edge - h + 1 : edge; let ok = Kr[idx(xx, bank === 'N' ? edge + 2 : edge - 2)] === K.QUAY;
       for (let y = y0 - 1; ok && y < y0 + h + 1; y++) for (let q = xx - 1; q < xx + w + 1; q++) if (!inB(q, y) || Kr[idx(q, y)] !== K.RIVER) { ok = false; break; }
       if (ok) plan.boats.push({ x0: xx, y0, w, h, cargo: (rnd(T.INT, 963, x) * 3) | 0, dmg: rnd(T.INT, 964, x) < Dy(y0) * 0.5 });
@@ -614,8 +618,6 @@ function generate(opts) {
   return plan;
 }
 
-// The main road's centre line: one dashed line, exactly one pixel wide in every row (never two marking pixels side by side), everywhere along the road.
-function centreMark(plan, x, y) { return x === Math.floor(plan.mx[y]) && (y % 12) < 6; }
 // the fallen end of a half-collapsed roof (lx, ly inside the building, ly down the screen); the break line is jagged
 function inCut(b, lx, ly) {
   const along = b.ori === 'h' ? lx : ly, across = b.ori === 'h' ? ly : lx, Lg = b.ori === 'h' ? b.w : b.h, j = ((hh(b.seed, across * 7 + 3) * 3) | 0) - 1;
@@ -642,7 +644,7 @@ function validate(plan) {
     for (let x = 0; x < W; x++) if (Kr[x] === K.ROAD) { seen[x] = 1; st.push(x); }
     while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
     m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
-    if (plan.river && plan.river.island) { const R = plan.river, i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
+    for (const R of plan.rivers || []) if (R.island) { const i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
   m.bridges = plan.bridges.length; m.boats = plan.boats.length;
   m.streets = plan.streets.length;
   // churches: how many, and the closest two
@@ -658,10 +660,11 @@ function validate(plan) {
   const by = {}; for (const s of plan.slots) by[s.kind] = (by[s.kind] || 0) + 1; m.slots = by;
   m.slotsPer1000 = +(plan.slots.length * 1000 / L).toFixed(1);
   m.squares = plan.squares.length; m.parks = plan.parks.length; m.trees = plan.trees.length; m.lots = plan.lots.length; m.ruins = plan.items.filter(i => i.dmg >= 2).length;
-  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && (!plan.river || (m.bridges >= 2 && m.islandReach !== false));
+  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && (plan.rivers || []).every(R => plan.bridges.filter(b => b.river === R.id).length >= (R.island ? 2 : 1)) && m.islandReach !== false;
   return m;
 }
 
+const riverOf = (plan, y) => { let best = plan.rivers[0], bd = 1e9; for (const R of plan.rivers) { const d = Math.abs(y - R.Y0); if (d < bd) { bd = d; best = R; } } return best; };
 // ---------- painting, in the game's pixel style ----------
 // The palettes and the dither are the game's own (index.html: C2, RP.tree, TR, BAYER/pickI), so a plan looks the same in the lab and in the game.
 const HX = a => a.map(h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
@@ -760,8 +763,7 @@ function paint(plan, img, y0, h, opts) {
             c = hh(x * 3, y * 7) < 0.05 ? C.roofs[b.roof || 0][pickI(5, 0.25 + hh(x, y) * 0.4, x, y)] : C.rubble[pickI(5, lit, x, y)];
           } else { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; }
           break; }
-        case K.ROAD: { const st = streetOf(i); if (st && st.cls === 'arterial' && centreMark(plan, x, y)) { c = C.mark; break; }
-          c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
+        case K.ROAD: { c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
         case K.STREET: c = C.cobble[pickI(4, 0.45 + (((x >> 1) + (y >> 1)) & 1 ? 0.1 : -0.06) + (hh(x, y) - 0.5) * 0.3, x, y)]; break;
         case K.WALK: c = C.side[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.4, x, y)]; break;
         case K.PLAZA: c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
@@ -779,7 +781,7 @@ function paint(plan, img, y0, h, opts) {
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
         case K.MEADOW: c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
-        case K.RIVER: { const R = plan.river, cx2 = clamp(x, 0, W - 1); let e = R.hw[cx2] - Math.abs(y + 0.5 - R.yc[cx2]);
+        case K.RIVER: { const R = riverOf(plan, y), cx2 = clamp(x, 0, W - 1); let e = R.hw[cx2] - Math.abs(y + 0.5 - R.yc[cx2]);
           if (R.island) e = Math.min(e, (Math.sqrt(((x + 0.5 - R.ix) / R.rx) ** 2 + ((y + 0.5 - R.iy) / R.ry) ** 2) - 1) * R.ry);
           let l = 0.32 + (vn(x * 0.06, y * 0.25) - 0.5) * 0.18 + Math.sin(x * 0.11 + y * 0.9) * 0.04; // slow current
           if (((x + Math.floor(y * 7.3)) % 17) < 3 && hh(x >> 2, y) < 0.35) l += 0.16; // streaks of the current
@@ -790,7 +792,6 @@ function paint(plan, img, y0, h, opts) {
         case K.BRIDGE: { const st = streetOf(i), sp = st && st.cls !== 'arterial' ? (st.pts.find(q => q[1] === y) || st.pts[0]) : null, xc = st ? (sp ? sp[0] : plan.mx[y]) : x, wd = st ? (sp ? sp[2] : plan.aw[y]) : 8, dd = Math.abs(x + 0.5 - xc);
           if (dd > wd / 2 - 1) { c = (y % 3) === 0 ? C.shadow : x < xc ? C.conc[3] : C.conc[2]; break; } // balustrade: stone posts, lit on the left
           if (dd > (st && st.tank ? 5 : 3.5)) { c = C.side[pickI(3, 0.6, x, y)]; break; }
-          if (st && st.cls === 'arterial' && centreMark(plan, x, y)) { c = C.mark; break; } // the main road's centre line continues over the bridge
           c = st && st.tank ? C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)] : C.cobble[pickI(4, 0.45 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
         case K.QUAY: { const nW = (j => j >= 0 && Kr[j] === K.RIVER); if (nW(at(x, y - 1)) || nW(at(x, y + 1)) || nW(at(x - 1, y)) || nW(at(x + 1, y))) { c = hh(x, y) < 0.06 ? C.shadow : C.conc[0]; break; } // the wall face above the water
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
@@ -852,6 +853,26 @@ function fireFx(plan, f, t, put) {
       if (bay(xx, yy) + 0.5 + (hh(xx * 7 + k, yy * 3 + Math.floor(t * 4)) - 0.5) * 0.45 < a * (1 - q * 0.6) * 1.15) put(xx, yy, ph < 0.12 ? SMOKE[0] : q > 0.55 ? SMOKE[3] : ph < 0.45 ? SMOKE[1] : SMOKE[2], ph < 0.12 ? 0.55 : 0.4); } } // see-through: the ground shows through the column // dark at the source, a lighter rim, greyer downwind
 }
 // The box a fire draws into (plan coordinates), for the animated layer.
+// The rivers' flow for one moment t (seconds), as the game's drawRiverFlow does it: light streaks drifting with the current in four lanes
+// (faster in the middle), plus glints that flash about four times a second. Returns small rectangles in plan coordinates for the caller
+// to draw over the painted ground: { x, y, w, a (alpha), c (colour) }, one pixel high. Only rows y0 .. y1 are looked at.
+function riverFx(plan, t, y0, y1) {
+  const out = [], W = plan.W, Kr = plan.K, lo = y0 === undefined ? 0 : y0, hi = y1 === undefined ? plan.L : y1, wet = (x, y) => x >= 0 && x < W && y >= lo && y < hi && Kr[y * W + x] === K.RIVER;
+  for (const R of plan.rivers || []) { if (R.yMax < lo || R.yMin > hi) continue;
+    for (const lane of [-0.62, -0.22, 0.22, 0.62]) { const spd = Math.abs(lane) < 0.4 ? 20 : 12;
+      for (let i = 0; i < 10; i++) {
+        const x = Math.round((((i * 26 + R.flow * t * spd + lane * 97) % (W + 24)) + W + 24) % (W + 24) - 12); if (x < 0 || x >= W) continue;
+        const y = Math.round(R.yc[x] + lane * R.hw[x]); if (!wet(x, y) || !wet(x + 3, y)) continue;
+        const ph = (i + Math.round(lane * 10) + 8) & 3;
+        out.push({ x, y, w: ph === 0 ? 4 : 3, a: ph === 0 ? 0.75 : 0.45, c: ph === 0 ? '#e4f4fa' : '#9fd3e8' });
+        if (ph === 0 && wet(R.flow > 0 ? x - 3 : x + 5, y)) out.push({ x: R.flow > 0 ? x - 3 : x + 5, y, w: 2, a: 0.35, c: '#e4f4fa' }); // a fading tail behind it
+      } }
+    const fr = Math.floor(t * 4);
+    for (let j = 0; j < 10; j++) { const hx = h32(R.id * 977 + j, fr), x = hx % W, y = Math.round(R.yc[x] + (((hx >>> 12) % 1000) / 1000 - 0.5) * 1.6 * R.hw[x]);
+      if (wet(x, y) && wet(x + 1, y)) out.push({ x, y, w: 2, a: 0.7, c: (hx & 1) ? '#a8d4ee' : '#5a9ac8' }); }
+  }
+  return out;
+}
 function fireBox(f) { return { x0: Math.floor(f.x0 - 12), y0: Math.floor(f.y0 - 14), x1: Math.ceil(f.x0 + f.w + 30), y1: Math.ceil(f.y0 + f.h + 62) }; }
 // Animated fire into a transparent ImageData covering the plan box bx (from fireBox), at time t.
 function paintFx(plan, f, img, bx, t) {
@@ -863,7 +884,7 @@ function paintFx(plan, f, img, bx, t) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = generate(o); markSlotRoofs(p); return p; }, validate, typeAt, paint, paintFx, fireBox, palette: C };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = generate(o); markSlotRoofs(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, palette: C };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

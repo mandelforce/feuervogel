@@ -87,7 +87,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option></select>
       <select id="curve" aria-label="Density along the strip">
         <option value="town">Fields, town, centre, fading out</option>
         <option value="approach">Fields, then the town grows to the end</option>
@@ -99,7 +99,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="80" step="2" value="46"></label>
       <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>
       <label class="row" for="grid">Planned grid quarters <output id="gridV"></output><input id="grid" type="range" min="0" max="100" step="5" value="65"></label>
-      <label class="row" for="tilt">Grid tilt up to <output id="tiltV"></output><input id="tilt" type="range" min="0" max="40" step="2" value="24"></label>
+      <label class="row" for="tilt">Grid tilt up to <output id="tiltV"></output><input id="tilt" type="range" min="0" max="40" step="2" value="32"></label>
       <label class="row" for="lots">Vacant lots <output id="lotsV"></output><input id="lots" type="range" min="0" max="20" step="1" value="5"></label>
       <label class="row" for="trees">Trees <output id="treesV"></output><input id="trees" type="range" min="0" max="200" step="10" value="100"></label>
       <label class="row" for="parish">Church spacing <output id="parishV"></output><input id="parish" type="range" min="300" max="1200" step="20" value="560"></label>
@@ -114,7 +114,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
         <label><input type="checkbox" id="oQuarters" checked> Quarters</label>
         <label><input type="checkbox" id="oChunks"> Chunks</label>
         <label><input type="checkbox" id="oScreen" checked> Screen</label>
-        <label><input type="checkbox" id="oFire" checked> Animate fire</label>
+        <label><input type="checkbox" id="oFire" checked> Animate fire and water</label>
       </div>
     </section>
     <section class="box" aria-labelledby="h-legend">
@@ -181,7 +181,7 @@ try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (co
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
 function params() {
   return { L: +$('len').value, density: CURVES[$('curve').value], damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
-    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.1, +$('tilt').value / 100), +$('tilt').value / 100] };
+    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.02, +$('tilt').value / 100), +$('tilt').value / 100] };
 }
 function showVals() {
   $('lenV').textContent = $('len').value + ' px'; $('dmgV').textContent = $('dmg').value + '%'; $('spacingV').textContent = $('spacing').value + ' px'; $('collV').textContent = $('coll').value + ' px';
@@ -279,12 +279,15 @@ let fireTimer = 0, fires = [];
 function startFire() {
   clearInterval(fireTimer); const fx = $('fx'), g = fx.getContext('2d'); g.clearRect(0, 0, fx.width, fx.height);
   if (!$('oFire').checked || !plan) return;
+  let flow = []; // the river streaks drawn last tick, cleared before the next
   fires = plan.fires.map(f => { const bx = CG.fireBox(f), w = bx.x1 - bx.x0, h = bx.y1 - bx.y0, c = document.createElement('canvas'); c.width = w; c.height = h; return { f, bx, c, img: new ImageData(w, h) }; });
   const t0 = performance.now();
   const tick = () => { const t = (performance.now() - t0) / 1000;
+    for (const r of flow) g.clearRect(r.x, plan.L - 1 - r.y, r.w, 1);
+    flow = CG.riverFx(plan, t); for (const r of flow) { g.globalAlpha = r.a; g.fillStyle = r.c; g.fillRect(r.x, plan.L - 1 - r.y, r.w, 1); } g.globalAlpha = 1;
     for (const o of fires) g.clearRect(o.bx.x0, plan.L - o.bx.y1, o.c.width, o.c.height);
     for (const o of fires) { CG.paintFx(plan, o.f, o.img, o.bx, t + (o.f.seed % 7)); o.c.getContext('2d').putImageData(o.img, 0, 0); g.drawImage(o.c, o.bx.x0, plan.L - o.bx.y1); } };
-  tick(); fireTimer = setInterval(tick, 83);
+  tick(); fireTimer = setInterval(tick, 50);
 }
 $('oFire').addEventListener('change', () => { save(); build(); });
 // hover: what is here
