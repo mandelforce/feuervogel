@@ -70,8 +70,10 @@ function generate(opts) {
   const noise1 = (tag, t) => { const i = Math.floor(t), f = t - i, a = rnd(tag, i), b = rnd(tag, i + 1); return a + (b - a) * f * f * (3 - 2 * f); };
 
   const N = W * L, Kr = new Uint8Array(N), Br = new Int32Array(N).fill(-1);
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), stage = {}; let tLap = now();
+  const lap = name => { if (name === 'setup') { tLap = now(); } const t = now(); stage[name] = +(t - tLap).toFixed(2); tLap = t; }; // time per stage, shown in the lab
   const plan = { v: 1, seed, preset: opts.preset || 'town', W, L, P, K: Kr, B: Br, U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L),
-    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [] };
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], stage };
 
   // 1. fields
   const road = P.road || { c: 82 + rnd(T.ROAD, 1) * 60, amp: 18 + rnd(T.ROAD, 2) * 26, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 };
@@ -100,6 +102,7 @@ function generate(opts) {
   }
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
 
+  lap('setup');
   // 2. streets
   // a street: { cls: 'arterial' | 'collector' | 'local', axis: 'v' | 'h', tank, pts: [[x, y, w]] (v: one point per y; h: per x), y0, y1 | x0, x1, side }
   function paintV(st) { // x of the centre and width per row
@@ -176,6 +179,7 @@ function generate(opts) {
 
   for (const st of plan.streets) (st.axis === 'v' ? paintV : paintH)(st);
 
+  lap('streets');
   // 3. landmarks
   // 3a. the market square: at the densest point, on the wider side of the main road, its south edge on a cross street
   let peakY = 0; for (let y = 0; y < L; y++) if (plan.U[y] > plan.U[peakY] + 1e-6) peakY = y;
@@ -245,6 +249,7 @@ function generate(opts) {
     }
   }
 
+  lap('landmarks');
   // 4. frontage: plots along every street, most important streets first; nothing overlaps because each plot claims the raster
   const typeAt = u => u < P.houses.detached[0] ? 'house' : u < P.houses.terraceTo ? 'terrace' : 'block';
   let plotN = 0;
@@ -325,46 +330,82 @@ function generate(opts) {
   for (const st of sorted) for (const s of [-1, 1]) (st.axis === 'v' ? frontV : frontH)(st, s, false);
   for (const st of sorted) for (const s of [-1, 1]) (st.axis === 'v' ? frontV : frontH)(st, s, true); // close the gaps in rows and at corners
 
+  lap('frontage');
   // 5. interiors: every enclosed region left over. Outside the town (touching the strip's sides at low U) it is fields;
   // inside, paved courtyards with sheds where dense, shared back gardens in between, meadow at the fringe.
-  { const seen = new Uint8Array(N), stack = new Int32Array(N); let reg = 0;
+  { // label each region in one flood fill, keeping only its statistics; then one pass over the raster gives every pixel its region's kind
+    const RG = new Int32Array(N).fill(-1), stack = new Int32Array(N), regs = [];
     for (let start = 0; start < N; start++) {
-      if (Kr[start] !== K.NONE || seen[start]) continue;
-      let sp = 0, n = 0, su = 0, edge = false; stack[sp++] = start; seen[start] = 1; const cells = [];
-      while (sp) { const i = stack[--sp], x = i % W, y = (i / W) | 0; cells.push(i); n++; if (n % 7 === 0) su += uAt(x, y); if (x === 0 || x === W - 1) edge = true;
-        if (x > 0 && !seen[i - 1] && Kr[i - 1] === K.NONE) { seen[i - 1] = 1; stack[sp++] = i - 1; }
-        if (x < W - 1 && !seen[i + 1] && Kr[i + 1] === K.NONE) { seen[i + 1] = 1; stack[sp++] = i + 1; }
-        if (y > 0 && !seen[i - W] && Kr[i - W] === K.NONE) { seen[i - W] = 1; stack[sp++] = i - W; }
-        if (y < L - 1 && !seen[i + W] && Kr[i + W] === K.NONE) { seen[i + W] = 1; stack[sp++] = i + W; } }
-      const um = n >= 7 ? su / Math.floor(n / 7) : uAt(start % W, (start / W) | 0);
-      const k = (edge && um < 0.5) || um < 0.12 ? K.FIELD : um >= 0.62 ? K.COURT : um >= 0.28 ? K.GARDEN : K.MEADOW;
-      for (const i of cells) Kr[i] = k;
-      if (k === K.COURT && n > 260) { // sheds and workshops against the back walls of the block
-        for (let q = 0; q < Math.min(4, n / 260); q++) {
-          const i0 = cells[(rnd(T.SHED, reg, q) * cells.length) | 0], x0 = i0 % W, y0 = (i0 / W) | 0, w = 6 + (rnd(T.SHED, reg, q + 9) * 4 | 0), h = 5 + (rnd(T.SHED, reg, q + 19) * 3 | 0);
-          let ok = x0 + w < W && y0 + h < L; for (let y = y0 - 1; ok && y <= y0 + h; y++) for (let x = x0 - 1; ok && x <= x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.COURT) ok = false;
-          if (ok) { const it = addItem({ t: 'shed', x0, y0, w, h, ori: w >= h ? 'h' : 'v', style: rnd(T.SHED, reg, q + 29) < 0.5 ? 'flat' : 'gable', roof: 3, seed: h32(seed, 9000 + reg * 8 + q), dmg: 0 }); fill(x0, y0, w, h, K.BLDG, it.id); }
-        }
-      }
-      reg++;
+      if (Kr[start] !== K.NONE || RG[start] >= 0) continue;
+      const r = regs.length; let sp = 0, n = 0, su = 0, ns = 0, edge = false, x0 = W, x1 = 0, y0 = L, y1 = 0; stack[sp++] = start; RG[start] = r;
+      while (sp) { const i = stack[--sp], x = i % W, y = (i / W) | 0; n++; if ((n & 7) === 0) { su += uAt(x, y); ns++; } if (x === 0 || x === W - 1) edge = true;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && RG[i - 1] < 0 && Kr[i - 1] === K.NONE) { RG[i - 1] = r; stack[sp++] = i - 1; }
+        if (x < W - 1 && RG[i + 1] < 0 && Kr[i + 1] === K.NONE) { RG[i + 1] = r; stack[sp++] = i + 1; }
+        if (y > 0 && RG[i - W] < 0 && Kr[i - W] === K.NONE) { RG[i - W] = r; stack[sp++] = i - W; }
+        if (y < L - 1 && RG[i + W] < 0 && Kr[i + W] === K.NONE) { RG[i + W] = r; stack[sp++] = i + W; } }
+      const um = ns ? su / ns : uAt(start % W, (start / W) | 0);
+      regs.push({ k: (edge && um < 0.5) || um < 0.12 ? K.FIELD : um >= 0.62 ? K.COURT : um >= 0.28 ? K.GARDEN : K.MEADOW, n, x0, x1, y0, y1 });
     }
+    for (let i = 0; i < N; i++) if (RG[i] >= 0) Kr[i] = regs[RG[i]].k;
+    regs.forEach((R, reg) => { // sheds and workshops in large courtyards
+      if (R.k !== K.COURT || R.n <= 260) return;
+      for (let q = 0; q < Math.min(4, R.n / 260); q++) {
+        const x0 = R.x0 + ((rnd(T.SHED, reg, q) * (R.x1 - R.x0 + 1)) | 0), y0 = R.y0 + ((rnd(T.SHED, reg, q + 40) * (R.y1 - R.y0 + 1)) | 0), w = 6 + (rnd(T.SHED, reg, q + 9) * 4 | 0), h = 5 + (rnd(T.SHED, reg, q + 19) * 3 | 0);
+        let ok = x0 + w < W && y0 + h < L && RG[idx(x0, y0)] === reg; for (let y = y0 - 1; ok && y <= y0 + h; y++) for (let x = x0 - 1; ok && x <= x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.COURT) ok = false;
+        if (ok) { const it = addItem({ t: 'shed', x0, y0, w, h, ori: w >= h ? 'h' : 'v', style: rnd(T.SHED, reg, q + 29) < 0.5 ? 'flat' : 'gable', roof: 3, seed: h32(seed, 9000 + reg * 8 + q), dmg: 0 }); fill(x0, y0, w, h, K.BLDG, it.id); }
+      }
+    });
   }
 
+  lap('interiors');
   // 5b. the village edge: where back gardens meet the fields, some stretches have a belt of orchard (fruit trees on meadow), the others a hedge
   { // the belt's depth is measured straight across rows and columns, so it has straight edges like a real plot, not a staircase
-    const depth = (x, y) => { const r = rnd(T.INT, Math.floor(y / 56) * 2 + (x < MX(y) ? 0 : 1), 77); return r < 0.35 ? 0 : 6 + Math.floor(r * 9); }; // stretches of about 56 px
+    const dep = new Uint8Array((Math.ceil(L / 56) + 1) * 2); for (let k = 0; k < dep.length; k++) { const r = rnd(T.INT, k, 77); dep[k] = r < 0.35 ? 0 : 6 + Math.floor(r * 9); } // per stretch of 56 px and side
+    const depth = (x, y) => dep[Math.floor(y / 56) * 2 + (x < MX(y) ? 0 : 1)];
     const mark = [];
     for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.GARDEN) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const dp = depth(x, y); if (!dp) continue;
         for (let k = 1; k <= dp; k++) { const xx = x + dx * k, yy = y + dy * k; if (!inB(xx, yy)) break; const j = idx(xx, yy); if (Kr[j] !== K.FIELD) break; mark.push(j); } } }
     for (const j of mark) Kr[j] = K.ORCHARD;
   }
-  // 5c. fields: long strips running away from the main road, grouped into field blocks with hedges between them (a strip field system),
-  // so field edges follow the village instead of a fixed grid
-  { const fRow = new Int32Array(L), fGrp = new Int32Array(L), fRowEdge = new Uint8Array(L), fGrpEdge = new Uint8Array(L); let y = 0, r = 0, g = 0, inG = 0, gLen = 3 + (rnd(T.INT, 902, 0) * 4 | 0);
-    while (y < L) { const hgt = 8 + (rnd(T.INT, 901, r) * 15 | 0); for (let k = 0; k < hgt && y < L; k++, y++) { fRow[y] = r; fGrp[y] = g; fRowEdge[y] = k === 0 ? 1 : 0; fGrpEdge[y] = k === 0 && inG === 0 ? 1 : 0; } r++; if (++inG >= gLen) { inG = 0; g++; gLen = 3 + (rnd(T.INT, 902, g) * 4 | 0); } }
-    Object.assign(plan, { fRow, fGrp, fRowEdge, fGrpEdge, fPhase: Array.from({ length: g + 1 }, (_, k) => rnd(T.INT, 903, k) * 40), fBand: Array.from({ length: g + 1 }, (_, k) => 64 + rnd(T.INT, 904, k) * 34) });
+  lap('orchards');
+  // 5c. fields: parcels in field blocks. Blocks are bands at a distance from the main road, in groups of rows, with hedges between them.
+  // Near the village the strips run away from the road; in some blocks at the far edge they run parallel to it. Every strip is a parcel,
+  // and parcels that come out too small or too thin (cut off by gardens, orchards or a block edge) are merged into a neighbour, so there
+  // are no slivers of field.
+  { const fRow = new Int32Array(L), fGrp = new Int32Array(L); let y = 0, r = 0, g = 0, inG = 0, gLen = 3 + (rnd(T.INT, 902, 0) * 4 | 0);
+    while (y < L) { const hgt = 10 + (rnd(T.INT, 901, r) * 14 | 0); for (let k = 0; k < hgt && y < L; k++, y++) { fRow[y] = r; fGrp[y] = g; } r++; if (++inG >= gLen) { inG = 0; g++; gLen = 3 + (rnd(T.INT, 902, g) * 4 | 0); } }
+    const phase = k => rnd(T.INT, 903, k) * 40, bandW = k => 64 + rnd(T.INT, 904, k) * 34;
+    const F = new Int32Array(N).fill(-1), keyId = new Map(), parcels = [], blocks = new Map();
+    const blockOf = block => { let bi = blocks.get(block); if (bi) return bi; // per block: strips parallel or not, and the parallel strips' edges
+      const par = (block & 31) >= 1 && rnd(T.INT, 905, block) < 0.5, edges = []; if (par) { let acc = 0; for (let q = 0; q < 16; q++) { acc += 10 + (rnd(T.INT, 906, block * 16 + q) * 12 | 0); edges.push(acc); } }
+      blocks.set(block, bi = { par, edges }); return bi; };
+    let lastKey = -1, lastId = -1, lastBlock = -1, lastBi = null; // neighbouring pixels nearly always share a parcel and a block
+    for (let y = 0; y < L; y++) { const gg = fGrp[y], ph = phase(gg), bw = bandW(gg), mx = MX(y);
+      for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.FIELD) continue;
+        const side = x < mx ? 0 : 1, dd = Math.abs(x - mx) + ph, band = Math.floor(dd / bw), bpos = dd - band * bw, block = gg * 64 + side * 32 + band;
+        const bi = block === lastBlock ? lastBi : (lastBi = blockOf(block)), par = bi.par; lastBlock = block; // a far block (band 1 or more) may have strips parallel to the road
+        let sub; if (par) { let q = 0; while (q < 15 && bpos >= bi.edges[q]) q++; sub = 1000 + q; } else sub = fRow[y];
+        const key = block * 4096 + sub; let id = key === lastKey ? lastId : keyId.get(key);
+        if (id === undefined) { id = parcels.length; keyId.set(key, id); parcels.push({ block, par, crop: rnd(T.INT, 907, key % 1000003), n: 0, x0: x, x1: x, y0: y, y1: y }); }
+        lastKey = key; lastId = id; F[i] = id; const P0 = parcels[id]; P0.n++; if (x < P0.x0) P0.x0 = x; if (x > P0.x1) P0.x1 = x; if (y < P0.y0) P0.y0 = y; if (y > P0.y1) P0.y1 = y; } }
+    // merge small or thin parcels into the neighbour they share the most border with (same block first)
+    for (let pass = 0; pass < 2; pass++) {
+      const cells = new Map(); // the pixels of every small or thin parcel, found inside its own bounding box
+      parcels.forEach((P0, id) => { if (P0.n === 0 || (P0.n >= 170 && Math.min(P0.x1 - P0.x0, P0.y1 - P0.y0) >= 6)) return; const a = [];
+        for (let y = P0.y0; y <= P0.y1; y++) for (let x = P0.x0; x <= P0.x1; x++) { const i = idx(x, y); if (F[i] === id) a.push(i); } if (a.length) cells.set(id, a); });
+      for (const [id, list] of cells) {
+        const votes = new Map(); for (const i of list) { const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < N && F[j] >= 0 && F[j] !== id) { const o = F[j]; votes.set(o, (votes.get(o) || 0) + (parcels[o].block === parcels[id].block ? 3 : 1)); } }
+        let best = -1, bv = 0; for (const [o, v] of votes) if (v > bv || (v === bv && o < best)) { best = o; bv = v; }
+        for (const i of list) { if (best >= 0) F[i] = best; else { F[i] = -1; Kr[i] = K.MEADOW; } }
+        if (best >= 0) { const B0 = parcels[best], P0 = parcels[id]; B0.n += P0.n; B0.x0 = Math.min(B0.x0, P0.x0); B0.x1 = Math.max(B0.x1, P0.x1); B0.y0 = Math.min(B0.y0, P0.y0); B0.y1 = Math.max(B0.y1, P0.y1); }
+        parcels[id].n = 0;
+      }
+    }
+    plan.F = F; plan.parcels = parcels;
   }
+  lap('fields');
   // 6a. damage: roofs damaged, ruins (rubble with the walls standing), some burning; craters off the carriageways
   for (const it of plan.items) {
     const d = Dy(it.y0 + it.h / 2), v = d + (rnd(T.DMG, it.id) - 0.5) * 0.55 - (it.t === 'church' ? 0.25 : 0);
@@ -379,6 +420,7 @@ function generate(opts) {
     if (ok) { plan.craters.push({ x: cx, y: cy, r }); n++; }
   } }
 
+  lap('damage');
   // 6b. trees: gardens, parks, churchyards, front gardens, the meadow; avenue trees on the main road's wide pavements.
   // A tree needs its whole crown on open ground, so none stands on a street, a building or a lot.
   { const okK = new Uint8Array(24); for (const k of [K.GARDEN, K.PARK, K.CHYARD, K.FRONT, K.MEADOW, K.COURT]) okK[k] = 1;
@@ -403,6 +445,7 @@ function generate(opts) {
     for (let y = 6; y < L - 6; y += 14) { if (plan.aw[y] < 17) continue; for (const s of [-1, 1]) { const tx = Math.round(plan.mx[y] + s * (plan.aw[y] / 2 - 2)); let ok = true; for (let yy = y - 3; ok && yy <= y + 3; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.WALK) { ok = false; break; } if (ok) plan.trees.push({ x: tx, y, r: 3, v: 2, avenue: true }); } }
   }
 
+  lap('trees');
   // 6c. slots: places the game may fill with flak, artillery, AA towers and bunkers. Lots next to tank streets suit artillery; lots and flat roofs
   // suit flak; squares and parks suit AA towers; large courtyards hide artillery. Spaced out; the number per 300 px rises with U.
   { const cands = [];
@@ -423,6 +466,7 @@ function generate(opts) {
       quota[key] = (quota[key] || 0) + 1; delete c.o; c.id = plan.slots.length; plan.slots.push(c);
     }
   }
+  lap('slots');
   return plan;
 }
 
@@ -505,23 +549,17 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
   return ramp[pickI(5, l, wx, wy)];
 }
-// fields as strips running away from the main road, in blocks separated by hedges (5c)
-function stripPix(plan, x, y) {
-  const r = plan.fRow[y], g = plan.fGrp[y], side = x < plan.mx[y] ? 0 : 1, dd = Math.abs(x - plan.mx[y]) + plan.fPhase[g], band = Math.floor(dd / plan.fBand[g]), bpos = dd - band * plan.fBand[g];
-  if (plan.fGrpEdge[y] || bpos < 1.5) return C.field.hedge[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.7, x, y)];
-  const t = hh(r * 7 + band * 131 + side * 977, 5), edge = plan.fRowEdge[y] ? -0.22 : 0;
-  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (y % 3 === 0 ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
-  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + (y % 2 === 0 ? 0.25 : -0.05), x, y)];
-  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (y % 3 === 0 ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
+// a field pixel from its parcel (5c): a hedge where the field block changes, a furrow line between strips, the crop's own pattern
+function parcelPix(plan, i, x, y) {
+  const F = plan.F, W = plan.W, id = F[i]; if (id < 0) return C.field.grass[pickI(5, 0.5, x, y)];
+  const P = plan.parcels[id], nb = j => j >= 0 && j < F.length && F[j] >= 0 && F[j] !== id ? plan.parcels[F[j]] : null;
+  const a = nb(x > 0 ? i - 1 : -1), b2 = nb(i - W), c2 = nb(x < W - 1 ? i + 1 : -1), d2 = nb(i + W);
+  if ([a, b2, c2, d2].some(o => o && o.block !== P.block)) return C.field.hedge[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.7, x, y)];
+  const edge = (a || b2) ? -0.22 : 0, lines = P.par ? x % 3 === 0 : y % 3 === 0, t = P.crop;
+  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (lines ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
+  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + ((P.par ? x : y) % 2 === 0 ? 0.25 : -0.05), x, y)];
+  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (lines ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
   return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
-}
-function fieldPix(x, y) { // (unused: the old grid fields)
-  const fw = 52, fh = 40, ri = Math.floor(y / fh), off = hh(ri, 77) * fw, ci = Math.floor((x + off) / fw), fx = ((x + off) % fw + fw) % fw, fy = ((y % fh) + fh) % fh, t = hh(ci * 3 + 1, ri * 5 + 2);
-  if (fx < 2 || fy < 2) return C.field.hedge[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)];
-  if (t < 0.3) return C.field.wheat[pickI(5, 0.55 + (fx % 4 === 0 ? -0.3 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
-  if (t < 0.5) return C.field.soil[pickI(4, 0.5 + (fy % 3 === 0 ? 0.3 : -0.05), x, y)];
-  if (t < 0.75) return C.field.crop[pickI(4, 0.5 + (fx % 3 === 0 ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
-  return C.field.grass[pickI(5, 0.5 + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
 }
 // Paint plan rows y0 .. y0 + h - 1 into an ImageData that is W wide and h tall (screen row 0 = plan row y0 + h - 1, so north is up).
 function paint(plan, img, y0, h) {
@@ -568,7 +606,7 @@ function paint(plan, img, y0, h) {
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
         case K.MEADOW: c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
         case K.ORCHARD: c = (hh(x, y) < 0.02) ? C.field.wheat[4] : C.field.grass[pickI(5, 0.62 + (vn(x * 0.09, y * 0.09) - 0.5) * 0.35, x, y)]; break; // mown meadow, a few flowers
-        default: c = stripPix(plan, x, y);
+        default: c = parcelPix(plan, i, x, y);
       }
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
       if (k !== K.BLDG) {
