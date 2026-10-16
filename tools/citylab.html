@@ -98,6 +98,8 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <label class="row" for="dmg">Damage at the centre <output id="dmgV"></output><input id="dmg" type="range" min="0" max="100" step="5" value="25"></label>
       <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="80" step="2" value="46"></label>
       <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>
+      <label class="row" for="grid">Planned grid quarters <output id="gridV"></output><input id="grid" type="range" min="0" max="100" step="5" value="65"></label>
+      <label class="row" for="tilt">Grid tilt up to <output id="tiltV"></output><input id="tilt" type="range" min="0" max="40" step="2" value="24"></label>
       <label class="row" for="lots">Vacant lots <output id="lotsV"></output><input id="lots" type="range" min="0" max="20" step="1" value="5"></label>
       <label class="row" for="trees">Trees <output id="treesV"></output><input id="trees" type="range" min="0" max="200" step="10" value="100"></label>
       <label class="row" for="parish">Church spacing <output id="parishV"></output><input id="parish" type="range" min="300" max="1200" step="20" value="560"></label>
@@ -109,6 +111,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
         <label><input type="checkbox" id="oTank" checked> Tank routes</label>
         <label><input type="checkbox" id="oSlots" checked> Gun slots</label>
         <label><input type="checkbox" id="oKinds"> Ground kinds</label>
+        <label><input type="checkbox" id="oQuarters" checked> Quarters</label>
         <label><input type="checkbox" id="oChunks"> Chunks</label>
         <label><input type="checkbox" id="oScreen" checked> Screen</label>
         <label><input type="checkbox" id="oFire" checked> Animate fire</label>
@@ -165,24 +168,25 @@ const CURVES = {
   centre: [[0, 0.85], [0.5, 1], [1, 0.9]],
   fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]],
 };
-const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a' };
-const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank' };
+const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40' };
+const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track' };
 const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff' };
 $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="background:${KIND_COL[k]}"></i>${KIND_LABEL[k]}</span>`).join('') +
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)' }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen', 'oFire'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
 function params() {
   return { L: +$('len').value, density: CURVES[$('curve').value], damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
-    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value };
+    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.1, +$('tilt').value / 100), +$('tilt').value / 100] };
 }
 function showVals() {
   $('lenV').textContent = $('len').value + ' px'; $('dmgV').textContent = $('dmg').value + '%'; $('spacingV').textContent = $('spacing').value + ' px'; $('collV').textContent = $('coll').value + ' px';
   $('lotsV').textContent = $('lots').value + '%'; $('treesV').textContent = $('trees').value + '%'; $('parishV').textContent = $('parish').value + ' px';
+  $('gridV').textContent = $('grid').value + '%'; $('tiltV').textContent = Math.round(Math.atan($('tilt').value / 100) * 180 / Math.PI) + '\u00b0';
 }
 
 // ---------- build and draw ----------
@@ -239,6 +243,12 @@ function drawOverlay() {
   const line = (st, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); st.pts.forEach((p, i) => { const x = X(p[0] + 0.5), y = Y(p[1] + 0.5); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
   if ($('oTank').checked) for (const st of plan.streets) if (st.tank) line(st, 'rgba(120,194,125,.55)', 3);
   if ($('oStreets').checked) for (const st of plan.streets) line(st, st.cls === 'arterial' ? '#d6a24a' : st.cls === 'collector' ? '#6ad2c8' : '#c8c2b4', st.cls === 'local' ? 1 : 1.6);
+  if ($('oQuarters').checked && plan.quarters) { // where each quarter starts, and its street pattern
+    const name = { fields: 'Field lanes', grid: 'Planned grid', follow: 'Follows the main road' };
+    g.font = `600 ${Math.max(10, 4 * s)}px IBM Plex Mono, monospace`; g.textBaseline = 'bottom';
+    for (const q of plan.quarters) { const y = Y(q.y0); g.strokeStyle = 'rgba(214,162,74,.8)'; g.setLineDash([8, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y); g.lineTo(W * s, y); g.stroke(); g.setLineDash([]);
+      const t = name[q.style] + (q.style === 'grid' ? ` ${Math.round(Math.atan(Math.abs(q.slope)) * 180 / Math.PI)}\u00b0` : ''), tw = g.measureText(t).width;
+      g.fillStyle = 'rgba(11,15,17,.78)'; g.fillRect(4, y - 4 * s - 8, tw + 10, 4 * s + 6); g.fillStyle = '#e9c27a'; g.fillText(t, 9, y - 4); } }
   if ($('oChunks').checked) { g.strokeStyle = 'rgba(255,255,255,.25)'; g.setLineDash([4, 4]); g.lineWidth = 1; for (let y = 0; y < L; y += 64) { g.beginPath(); g.moveTo(0, Y(y)); g.lineTo(W * s, Y(y)); g.stroke(); } g.setLineDash([]); }
   if ($('oSlots').checked) for (const sl of plan.slots) {
     const x = X(sl.x), y = Y(sl.y), r = Math.max(5, sl.r * s * 0.55), c = SLOT_COL[sl.kind]; g.lineWidth = 2; g.strokeStyle = '#0b0f11'; g.fillStyle = c;
@@ -312,15 +322,15 @@ $('sweep20').addEventListener('click', () => sweep(20)); $('sweep100').addEventL
 $('copy').addEventListener('click', () => { const txt = JSON.stringify({ seed: +$('seed').value, preset: $('preset').value, params: params() }); navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy settings', 1200); }).catch(() => { $('sweepNote').textContent = txt; }); });
 
 // ---------- wiring ----------
-for (const id of ['preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish']) $(id).addEventListener('change', build);
+for (const id of ['preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('change', build);
 $('preset').addEventListener('change', () => { if (plan && plan.river) { const vp = $('vp'), sc = +$('scale').value; vp.scrollTop = (plan.L - plan.river.Y0) * sc + 8 - vp.clientHeight / 2; drawScreen(); } }); // open the river town on its river
-for (const id of ['len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish']) $(id).addEventListener('input', showVals);
+for (const id of ['len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('input', showVals);
 $('seed').addEventListener('change', build);
 $('prev').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) - 1; build(); });
 $('next').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) + 1; build(); });
 $('rand').addEventListener('click', () => { $('seed').value = (Math.random() * 99999) | 0; build(); });
 $('scale').addEventListener('change', () => { save(); layout(); drawOverlay(); drawGraph(); });
-for (const id of ['oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen']) $(id).addEventListener('change', () => { save(); drawOverlay(); });
+for (const id of ['oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen']) $(id).addEventListener('change', () => { save(); drawOverlay(); });
 if (innerWidth < 700 && $('scale').value === '3') $('scale').value = '2';
 build();
 requestAnimationFrame(() => { const vp = $('vp'); vp.scrollTop = vp.scrollHeight * 0.45; drawScreen(); }); // open on the town centre
