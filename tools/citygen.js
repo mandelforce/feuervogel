@@ -406,12 +406,29 @@ function generate(opts) {
     plan.F = F; plan.parcels = parcels;
   }
   lap('fields');
-  // 6a. damage: roofs damaged, ruins (rubble with the walls standing), some burning; craters off the carriageways
+  // 6a. damage. Kinds of destruction: 1 shell hole in the roof, 2 half collapsed (one end of the roof has fallen in), 3 gutted shell (roof gone,
+  // walls standing), 4 collapsed into a mound. Damage comes in clusters (a bomb hits a block), churches only lose part of a roof, and some ruins
+  // burn. A collapsed house spills into yards and gardens but never onto a street, so tank routes stay open.
+  const noise2 = (tag, x, y) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a = rnd(tag, xi, yi), b = rnd(tag, xi + 1, yi), c = rnd(tag, xi, yi + 1), dd = rnd(tag, xi + 1, yi + 1); return a + (b - a) * sx + (c - a) * sy + (a - b - c + dd) * sx * sy; };
+  const spillOK = new Uint8Array(24); for (const k of [K.FRONT, K.GARDEN, K.COURT, K.MEADOW, K.LOT, K.CHYARD, K.PARK, K.ORCHARD]) spillOK[k] = 1;
   for (const it of plan.items) {
-    const d = Dy(it.y0 + it.h / 2), v = d + (rnd(T.DMG, it.id) - 0.5) * 0.55 - (it.t === 'church' ? 0.25 : 0);
-    it.dmg = d < 0.05 ? 0 : v < 0.38 ? 0 : v < 0.62 ? 1 : v < 0.86 ? 2 : 3;
-    if (it.dmg >= 2 && it.part !== 'apse') { for (let y = it.y0 + 1; y < it.y0 + it.h - 1; y++) for (let x = it.x0 + 1; x < it.x0 + it.w - 1; x++) if (Br[idx(x, y)] === it.id) Kr[idx(x, y)] = K.RUBBLE; }
-    if (it.dmg === 3) plan.fires.push({ x: it.x0 + it.w / 2, y: it.y0 + it.h / 2 });
+    const cx = it.x0 + it.w / 2, cy = it.y0 + it.h / 2, d = Dy(cy);
+    // even at full damage the houses are a mix (about 10 intact, 15 holed, 20 half collapsed, 25 gutted, 30 collapsed in 100)
+    const v = 0.12 + d * 0.62 + (noise2(T.DMG, cx * 0.03, cy * 0.03) - 0.5) * 0.7 * Math.min(1, d * 3) + (rnd(T.DMG, it.id) - 0.5) * 0.3 - (it.church ? 0.25 : 0);
+    let t = d < 0.04 ? 0 : v < 0.40 ? 0 : v < 0.55 ? 1 : v < 0.67 ? 2 : v < 0.79 ? 3 : 4;
+    if (it.church) t = Math.min(t, it.part === 'nave' || it.part === 'trans' ? 2 : 1);
+    if (t >= 2 && t < 4 && (it.w < 6 || it.h < 6)) t = 4;
+    it.dmg = t;
+    if (t === 2) { const along = it.ori === 'h' ? it.w : it.h; it.cut = { end: rnd(T.DMG, it.id, 2) < 0.5 ? 0 : 1, at: Math.max(2, Math.round(along * (0.35 + rnd(T.DMG, it.id, 3) * 0.3))) }; }
+    it.fire = t > 0 && rnd(T.DMG, it.id, 5) < [0, 0.04, 0.2, 0.26, 0.05][t] * clamp(d * 1.8, 0, 1);
+    if (t >= 2) for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const i = idx(x, y); if (Br[i] !== it.id) continue; // the ground the game sees: rubble
+      const lx = x - it.x0, ly = it.y0 + it.h - 1 - y, inner = lx > 0 && ly > 0 && lx < it.w - 1 && ly < it.h - 1;
+      if (t === 4 || (t === 3 && inner) || (t === 2 && inCut(it, lx, ly))) Kr[i] = K.RUBBLE; }
+    if (t === 4) for (let y = it.y0 - 3; y < it.y0 + it.h + 3; y++) for (let x = it.x0 - 3; x < it.x0 + it.w + 3; x++) {
+      if (!inB(x, y)) continue; const i = idx(x, y); if (!spillOK[Kr[i]]) continue;
+      const dd = Math.max(it.x0 - x, x - (it.x0 + it.w - 1), it.y0 - y, y - (it.y0 + it.h - 1)); if (rnd(T.DMG, x * 3 + 1, y * 5 + it.id) < 0.85 - dd * 0.27) { Kr[i] = K.RUBBLE; Br[i] = it.id; } }
+    if (it.fire) plan.fires.push({ x: cx, y: cy, w: it.w, h: it.h, x0: it.x0, y0: it.y0, item: it.id, seed: h32(seed, 77000 + it.id) % 100000 });
   }
   { let n = 0; for (let y = 8; y < L - 8; y += 9) for (let x = 8; x < W - 8; x += 9) {
     const d = Dy(y); if (rnd(T.CRATER, x, y) > d * 0.09) continue;
@@ -470,6 +487,11 @@ function generate(opts) {
   return plan;
 }
 
+// the fallen end of a half-collapsed roof (lx, ly inside the building, ly down the screen); the break line is jagged
+function inCut(b, lx, ly) {
+  const along = b.ori === 'h' ? lx : ly, across = b.ori === 'h' ? ly : lx, Lg = b.ori === 'h' ? b.w : b.h, j = ((hh(b.seed, across * 7 + 3) * 3) | 0) - 1;
+  return b.cut.end === 0 ? along + j < b.cut.at : along - j >= Lg - b.cut.at;
+}
 // ---------- what the game asks ----------
 function typeAt(plan, x, y) { x |= 0; y |= 0; if (x < 0 || x >= plan.W || y < 0 || y >= plan.L) return 'field'; return TT[plan.K[y * plan.W + x]]; }
 
@@ -483,7 +505,7 @@ function validate(plan) {
   // frontage: a house, terrace or block must have a street, pavement or square within 6 px in front of it
   let nf = 0, nb = 0; for (const it of plan.items) { if (it.t !== 'house' && it.t !== 'terrace' && it.t !== 'block') continue; nb++;
     const cx = (it.x0 + it.w / 2) | 0, cy = (it.y0 + it.h / 2) | 0, dir = { W: [-1, 0, it.x0 - 1, cy], E: [1, 0, it.x0 + it.w, cy], S: [0, -1, cx, it.y0 - 1], N: [0, 1, cx, it.y0 + it.h] }[it.front];
-    let ok = false; for (let k = 0; k < 8 && !ok; k++) { const x = dir[2] + dir[0] * k, y = dir[3] + dir[1] * k; if (x >= 0 && x < W && y >= 0 && y < L) { const kk = Kr[y * W + x]; if (kk === K.ROAD || kk === K.STREET || kk === K.WALK || kk === K.PLAZA) ok = true; else if (kk !== K.FRONT) break; } }
+    let ok = false; for (let k = 0; k < 8 && !ok; k++) { const x = dir[2] + dir[0] * k, y = dir[3] + dir[1] * k; if (x >= 0 && x < W && y >= 0 && y < L) { const kk = Kr[y * W + x]; if (kk === K.ROAD || kk === K.STREET || kk === K.WALK || kk === K.PLAZA) ok = true; else if (kk !== K.FRONT && kk !== K.RUBBLE) break; } } // rubble spilled into a front yard still faces the street
     if (!ok) nf++; }
   m.buildings = nb; m.noFrontage = nf;
   // tank network: every tank-carriageway pixel reachable from the main road at the bottom, through tank carriageway only
@@ -521,7 +543,7 @@ const C = {
   facade: [HX(['#5e5444', '#8a7e6a', '#a69a82']), HX(['#3e1c14', '#5e2a1c', '#7a3a26']), HX(['#3e3c38', '#5a5852', '#74726a'])],
   tree: HX(['#0e1e0a', '#183014', '#22441a', '#2f5a22', '#40722c', '#58903a']),
   field: { grass: HX(['#24401a', '#2e5220', '#3a6428', '#4a7832', '#5e8e40']), wheat: HX(['#7a6428', '#9a8236', '#b8a048', '#d4bc64', '#e8d488']), soil: HX(['#3a2818', '#523a22', '#6c4e30', '#86643e']), crop: HX(['#1e3a14', '#2a4e1a', '#3a6424', '#4e7c30']), hedge: HX(['#12240e', '#1a3214', '#24421a']) },
-  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), fruit: HX(['#c8483a', '#e0c04a']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
+  gravel: HX(['#4a4638', '#5a5546', '#6a6454']), beam: HX(['#5a3a20'])[0], char: HX(['#1a1612', '#241e18', '#30281e']), fruit: HX(['#c8483a', '#e0c04a']), conc: HX(['#4e4c48', '#5e5c58', '#6e6c68', '#7e7c78']), sand: HX(['#6e6448', '#86795a']), lit: HX(['#e8c870'])[0], dark: HX(['#1a1c22'])[0], fire: HX(['#f4d050', '#f08a30', '#c84020']),
 };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
@@ -562,7 +584,7 @@ function parcelPix(plan, i, x, y) {
   return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
 }
 // Paint plan rows y0 .. y0 + h - 1 into an ImageData that is W wide and h tall (screen row 0 = plan row y0 + h - 1, so north is up).
-function paint(plan, img, y0, h) {
+function paint(plan, img, y0, h, opts) {
   const { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null;
@@ -576,16 +598,36 @@ function paint(plan, img, y0, h) {
           if (b.part === 'tower') { const lx = x - b.x0, ly = b.y0 + b.h - 1 - y; c = (lx === 0 || ly === 0 || lx === b.w - 1 || ly === b.h - 1) ? C.roofs[5][0] : C.roofs[5][pickI(5, 0.3 + 0.5 * (1 - Math.max(Math.abs(lx - b.w / 2), Math.abs(ly - b.h / 2)) / (b.w / 2)), x, y)]; break; }
           const ramp = b.church ? C.roofs[5] : C.roofs[b.roof || 0], lx = x - b.x0, ly = b.y0 + b.h - 1 - y;
           // a roof joins its neighbour in the same row: no outline on that side, a soft party-wall seam instead
-          const join = (xx, yy) => { const o = at(xx, yy); if (o < 0 || Kr[o] !== K.BLDG) return false; const n = items[Br[o]]; return n && n !== b && n.run === b.run && n.ori === b.ori; };
+          const join = (xx, yy) => { const o = at(xx, yy); if (o < 0 || Kr[o] !== K.BLDG) return false; const n = items[Br[o]]; return n && n !== b && n.run === b.run && n.ori === b.ori && n.dmg < 2 && b.dmg < 2; };
           const jl = lx === 0 && join(x - 1, y), jr = lx === b.w - 1 && join(x + 1, y), jt = ly === 0 && join(x, y + 1), jb = ly === b.h - 1 && join(x, y - 1);
           if (jl || jr || jt || jb) { const bb = { w: b.w + 2, h: b.h + 2, ori: b.ori, style: b.style === 'hip' ? 'gable' : b.style, seed: b.seed, church: true }; c = roofPix(lx + 1, ly + 1, bb, ramp, x, y); if (jl || jt) c = [c[0] * 0.82 | 0, c[1] * 0.82 | 0, c[2] * 0.82 | 0]; }
           else c = roofPix(lx, ly, b, ramp, x, y);
-          if (b.dmg === 1 && lx > 0 && ly > 0 && lx < b.w - 1 && ly < b.h - 1) { // one shell hole: charred rafters around a dark opening
-            const hx = 1.5 + hh(b.seed, 1) * (b.w - 3), hy = 1.5 + hh(b.seed, 2) * (b.h - 3), rr = Math.hypot(lx - hx, ly - hy), rh = 1.6 + hh(b.seed, 3) * 1.4;
-            if (rr < rh) c = (lx + ly) % 3 === 0 ? C.rubble[1] : C.shadow; else if (rr < rh + 1.2) c = [c[0] * 0.55 | 0, c[1] * 0.5 | 0, c[2] * 0.5 | 0]; }
-          if (b.dmg >= 2) c = C.side[0]; // standing walls of a ruin
+          const along = b.ori === 'h' ? lx : ly;
+          if (b.dmg === 1 && lx > 0 && ly > 0 && lx < b.w - 1 && ly < b.h - 1) { // a shell hole: rafters across a dark opening, scorched tiles around it
+            const hx = 1.5 + hh(b.seed, 1) * (b.w - 3), hy = 1.5 + hh(b.seed, 2) * (b.h - 3), rr = Math.hypot(lx - hx, ly - hy), rh = 1.5 + hh(b.seed, 3) * 1.6;
+            if (rr < rh) c = along % 2 === 0 ? C.beam : C.shadow; else if (rr < rh + 1.5 && hh(x, y) < 0.8) c = [c[0] * 0.5 | 0, c[1] * 0.42 | 0, c[2] * 0.4 | 0]; }
+          if (b.dmg === 2) { // the standing part of a half-collapsed roof: torn tiles and rafter stubs along the break
+            const near = inCut(b, b.ori === 'h' ? lx - (b.cut.end ? -1 : 1) : lx, b.ori === 'h' ? ly : ly - (b.cut.end ? -1 : 1));
+            if (near) c = hh(x, y) < 0.45 ? C.beam : hh(x + 9, y) < 0.5 ? C.shadow : [c[0] * 0.6 | 0, c[1] * 0.5 | 0, c[2] * 0.5 | 0]; }
+          if (b.dmg === 3) { // a gutted shell: the tops of the walls, lit on the upper and left sides, with breaches
+            c = hh(x * 5, y * 3) < 0.1 ? C.shadow : (ly === 0 || lx === 0) ? C.conc[3] : C.conc[1]; }
           break; }
-        case K.RUBBLE: { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; break; }
+        case K.RUBBLE: { const b = Br[i] >= 0 ? items[Br[i]] : null;
+          if (b && b.dmg === 3) { // inside a gutted shell: charred floor, rubble heaps, the stub of an inner wall, fallen beams
+            const lx = x - b.x0, ly = b.y0 + b.h - 1 - y, n = vn(x * 0.35 + b.id, y * 0.35);
+            const wall = (b.ori === 'h' ? lx === (b.w >> 1) : ly === (b.h >> 1)) && hh(x, y) < 0.7, beam = Math.abs(((lx - ly * 0.7 + hh(b.seed, 4) * 6) % 6 + 6) % 6) < 0.7 && hh(x >> 1, y) < 0.75;
+            c = wall ? C.conc[2] : beam ? C.beam : n > 0.56 ? C.rubble[pickI(5, 0.35 + (n - 0.56) * 2.2, x, y)] : C.char[pickI(3, 0.45 + (hh(x, y) - 0.5) * 0.7, x, y)];
+          } else if (b && b.dmg === 2) { // the fallen end of a roof: debris with broken rafters
+            c = hh(x, y) < 0.14 ? C.beam : hh(x * 3, y * 5) < 0.12 ? C.roofs[b.roof || 0][2] : C.rubble[pickI(5, 0.25 + vn(x * 0.4, y * 0.4) * 0.6, x, y)];
+          } else if (b && b.dmg === 4) { // a mound: highest in the middle, lit from the upper left, roof-tile shards, a chimney stub still standing
+            const mx = b.x0 + b.w / 2, my = b.y0 + b.h / 2, dx = (x + 0.5 - mx) / (b.w / 2 + 3), dy = (y + 0.5 - my) / (b.h / 2 + 3), hgt = Math.max(0, 1 - dx * dx - dy * dy);
+            const sx = Math.round(b.x0 + 1 + hh(b.seed, 11) * Math.max(0, b.w - 4)), sy = Math.round(b.y0 + 1 + hh(b.seed, 12) * Math.max(0, b.h - 4));
+            if ((x === sx || x === sx + 1) && (y === sy || y === sy + 1)) { c = x === sx ? C.facade[1][2] : C.facade[1][1]; break; }
+            if (x === sx + 2 && (y === sy || y === sy - 1)) { c = C.shadow; break; }
+            const lit = 0.28 + hgt * 0.42 + (-dx * 0.35 + dy * 0.35) * (0.4 + hgt) + (vn(x * 0.45, y * 0.45) - 0.5) * 0.28; // the lower right side is in shade
+            c = hh(x * 3, y * 7) < 0.05 ? C.roofs[b.roof || 0][pickI(5, 0.25 + hh(x, y) * 0.4, x, y)] : C.rubble[pickI(5, lit, x, y)];
+          } else { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; }
+          break; }
         case K.ROAD: { const st = streetOf(i); if (st && st.cls === 'arterial') { const dx = Math.abs(x + 0.5 - plan.mx[y]); if (plan.aw[y] >= 17 && Math.abs(dx - 3.2) > 0.8 && Math.abs(dx - 3.2) < 1.5) { c = C.steel; break; } if (dx < 0.6 && plan.aw[y] < 17 && (y % 12) < 6) { c = C.mark; break; } }
           c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
         case K.STREET: c = C.cobble[pickI(4, 0.45 + (((x >> 1) + (y >> 1)) & 1 ? 0.1 : -0.06) + (hh(x, y) - 0.5) * 0.3, x, y)]; break;
@@ -611,7 +653,7 @@ function paint(plan, img, y0, h) {
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
       if (k !== K.BLDG) {
         let f = null; for (let kk = 1; kk <= 3; kk++) { const b = bAt(x, y + kk); if (b) { f = [b, kk]; break; } }
-        if (f) { const [b, kk] = f; if (b.part === 'apse' || b.dmg >= 2) { if (kk === 1) c = C.shadow; }
+        if (f) { const [b, kk] = f; if (b.part === 'apse' || b.dmg >= 3) { if (kk === 1) c = C.shadow; }
           else if (kk === 3) c = C.shadow; else { const pal = C.facade[b.church ? 2 : (hh(b.seed, 51) * 3) | 0]; c = x % 3 === 1 ? (hh(x >> 1, b.seed + kk) < (b.dmg ? 0.04 : 0.12) ? C.lit : C.dark) : pal[kk === 1 ? 2 : 1]; } }
         else if (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4)) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
       }
@@ -628,13 +670,45 @@ function paint(plan, img, y0, h) {
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
       if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
       const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
-  for (const f of plan.fires) { if (f.y + 6 < y0 || f.y - 6 >= y0 + h) continue; for (let yy = -2; yy <= 3; yy++) for (let xx = -2; xx <= 2; xx++) if (hh(f.x * 3 + xx, f.y * 5 + yy) < 0.7 - Math.abs(xx) * 0.15 - yy * 0.06) put(Math.round(f.x) + xx, Math.round(f.y) + yy, C.fire[Math.min(2, Math.abs(xx) + (yy > 1 ? 1 : 0))]); }
+  // soot around gutted and burning houses
+  for (const it of items) { if (!(it.dmg >= 3 || it.fire) || it.y0 + it.h + 4 < y0 || it.y0 - 4 >= y0 + h) continue;
+    for (let yy = it.y0 - 4; yy < it.y0 + it.h + 4; yy++) for (let xx = it.x0 - 4; xx < it.x0 + it.w + 4; xx++) { const o = at(xx, yy); if (o < 0 || Kr[o] === K.BLDG || Br[o] === it.id) continue;
+      const dd = Math.max(it.x0 - xx, xx - (it.x0 + it.w - 1), it.y0 - yy, yy - (it.y0 + it.h - 1)); if (dd > 0 && hh(xx * 3, yy * 7) < 0.75 - dd * 0.17) put(xx, yy, C.char[0], 0.42); } }
+  if (!(opts && opts.noFx)) for (const f of plan.fires) { if (f.y0 + f.h + 60 < y0 || f.y0 - 14 >= y0 + h) continue; fireFx(plan, f, 0, put); }
+}
+// A burning house (spec: convincing fire): an orange glow on its surroundings, flames from the core licking past the roof edge and leaning with
+// the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
+const FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
+function fireFx(plan, f, t, put) {
+  const s = f.seed, cx = f.x, cy = f.y, w = f.w, x0 = f.x0, y0 = f.y0, x1 = x0 + w - 1, y1 = y0 + f.h - 1, R = Math.max(w, f.h) / 2 + 9;
+  for (let yy = Math.floor(cy - R); yy <= cy + R; yy++) for (let xx = Math.floor(cx - R); xx <= cx + R; xx++) { const r = Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) / R; if (r < 1) put(xx, yy, GLOW, 0.18 * (1 - r) * (1 - r) * (0.8 + 0.2 * Math.sin(t * 9 + s))); }
+  // flames break through at one to three hot spots, with a small white core, and lick a few pixels past the roof, leaning with the wind
+  const nh = 1 + (s % 3), hot = []; for (let k = 0; k < nh; k++) hot.push([x0 + 1 + hh(s, k) * Math.max(1, w - 2), y0 + 1 + hh(s, k + 5) * Math.max(1, f.h - 2), 1.6 + Math.min(w, f.h) * (0.18 + hh(s, k + 9) * 0.14)]);
+  for (let yy = y0 - 1; yy <= y1 + 7; yy++) for (let xx = x0 - 2; xx <= x1 + 5; xx++) {
+    let heat = 0; for (const [hx, hy, hr] of hot) { const up = Math.max(0, yy - hy), dx = xx + 0.5 - hx - up * 0.4, dy = (yy + 0.5 - hy) * (yy > hy ? 0.55 : 1.2); heat = Math.max(heat, 1 - Math.hypot(dx, dy) / hr); }
+    if (heat <= 0) continue;
+    const v = heat * 0.95 + (vn(xx * 0.8 + (s % 97), yy * 0.6 - t * 7) - 0.5) * 0.55 - (yy > y1 ? (yy - y1) * 0.06 : 0);
+    if (v > 0.82) put(xx, yy, FIRE[0]); else if (v > 0.66) put(xx, yy, FIRE[1]); else if (v > 0.5) put(xx, yy, FIRE[2]); else if (v > 0.36) put(xx, yy, FIRE[3]);
+  }
+  for (let k = 0; k < 4; k++) { const ph = (t * 0.8 + k / 4 + (s % 13) / 13) % 1, ex = cx + WIND[0] * ph * 14 + Math.sin(k * 3 + t * 5) * 2, ey = y1 + ph * 16; if (hh(k + s, Math.floor(t * 8)) < 0.7) put(Math.round(ex), Math.round(ey), FIRE[1]); }
+  // the smoke column: dense and dark near the fire, spreading and thinning downwind
+  for (let k = 0; k < 12; k++) { const ph = ((k + t * 1.4) % 12) / 12, d = ph * 64, px = cx + WIND[0] * d + Math.sin(ph * 7 + s) * 2.5, py = y1 + 2 + WIND[1] * d, r = 2.6 + ph * 8, a = 0.92 * (1 - ph * 0.85);
+    for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) { const q = ((xx + 0.5 - px) ** 2 + (yy + 0.5 - py) ** 2) / (r * r); if (q > 1) continue;
+      if (bay(xx, yy) + 0.5 + (hh(xx * 7 + k, yy * 3 + Math.floor(t * 4)) - 0.5) * 0.45 < a * (1 - q * 0.6) * 1.3) put(xx, yy, ph < 0.12 ? SMOKE[0] : q > 0.55 ? SMOKE[3] : ph < 0.45 ? SMOKE[1] : SMOKE[2], 0.85); } } // dark at the source, a lighter rim, greyer downwind
+}
+// The box a fire draws into (plan coordinates), for the animated layer.
+function fireBox(f) { return { x0: Math.floor(f.x0 - 12), y0: Math.floor(f.y0 - 14), x1: Math.ceil(f.x0 + f.w + 30), y1: Math.ceil(f.y0 + f.h + 62) }; }
+// Animated fire into a transparent ImageData covering the plan box bx (from fireBox), at time t.
+function paintFx(plan, f, img, bx, t) {
+  const d = img.data, w = bx.x1 - bx.x0, hgt = bx.y1 - bx.y0; d.fill(0);
+  fireFx(plan, f, t, (x, y, c, a = 1) => { const col = x - bx.x0, row = bx.y1 - 1 - y; if (col < 0 || col >= w || row < 0 || row >= hgt) return; const o = (row * w + col) * 4, ea = d[o + 3] / 255, na = a + ea * (1 - a);
+    if (na <= 0) return; d[o] = (c[0] * a + d[o] * ea * (1 - a)) / na; d[o + 1] = (c[1] * a + d[o + 1] * ea * (1 - a)) / na; d[o + 2] = (c[2] * a + d[o + 2] * ea * (1 - a)) / na; d[o + 3] = na * 255; });
   // flat roofs that carry a flak slot: mark the gun platform (painted above via b.slot)
 }
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = generate(o); markSlotRoofs(p); return p; }, validate, typeAt, paint, palette: C };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = generate(o); markSlotRoofs(p); return p; }, validate, typeAt, paint, paintFx, fireBox, palette: C };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

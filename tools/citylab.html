@@ -50,6 +50,7 @@ select { width: 100%; margin-bottom: 9px; }
 .stage canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 #graph { image-rendering: auto; }
 #over { position: absolute; left: 0; top: 0; pointer-events: none; image-rendering: auto; }
+#fx { position: absolute; left: 0; top: 0; pointer-events: none; }
 .mapcell { position: relative; }
 #tip { position: absolute; pointer-events: none; background: rgba(17,24,27,.94); border: 1px solid var(--line); padding: 6px 8px; font: 11.5px/1.45 var(--data); color: var(--ink); white-space: pre; border-radius: 2px; z-index: 3; }
 dl.metrics { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; margin: 0; font-size: 13px; }
@@ -110,6 +111,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
         <label><input type="checkbox" id="oKinds"> Ground kinds</label>
         <label><input type="checkbox" id="oChunks"> Chunks</label>
         <label><input type="checkbox" id="oScreen" checked> Screen</label>
+        <label><input type="checkbox" id="oFire" checked> Animate fire</label>
       </div>
     </section>
     <section class="box" aria-labelledby="h-legend">
@@ -127,7 +129,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     <div class="viewport" id="vp">
       <div class="stage">
         <canvas id="graph" aria-label="Urbanisation, damage and built share along the town"></canvas>
-        <div class="mapcell"><canvas id="map" aria-label="The town plan"></canvas><canvas id="over" aria-hidden="true"></canvas><div id="tip" hidden></div></div>
+        <div class="mapcell"><canvas id="map" aria-label="The town plan"></canvas><canvas id="fx" aria-hidden="true"></canvas><canvas id="over" aria-hidden="true"></canvas><div id="tip" hidden></div></div>
       </div>
     </div>
   </div>
@@ -170,7 +172,8 @@ $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="backgr
   Object.entries(SLOT_COL).filter(([k]) => k !== 'bunker').map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot' }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oChunks', 'oScreen', 'oFire'];
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
 function params() {
@@ -194,13 +197,13 @@ function build() {
   // paint chunk by chunk, timing each (the game paints one 64-row chunk at a time)
   const { W, L } = plan; map.width = W; map.height = L; const ctx = map.getContext('2d'); img = ctx.createImageData(W, L);
   const times = []; const tmp = new ImageData(W, 64);
-  for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt); times.push(performance.now() - t);
+  for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt, { noFx: $('oFire').checked }); times.push(performance.now() - t);
     img.data.set(part.data.subarray(0, W * hgt * 4), (L - y0 - hgt) * W * 4); }
   ctx.putImageData(img, 0, 0);
   times.sort((a, b) => a - b);
   $('genMs').textContent = gen.toFixed(0) + ' ms';
   $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k]) => k !== 'setup').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join('');
-  showMetrics(); layout(); drawOverlay(); drawGraph();
+  showMetrics(); layout(); drawOverlay(); drawGraph(); startFire();
 }
 const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
 function chip(ok, text, warn) { return `<span class="chip ${ok ? 'ok' : warn ? 'warn' : 'bad'}">${text}</span>`; }
@@ -224,6 +227,7 @@ function showMetrics() {
 function layout() {
   const s = +$('scale').value, { W, L } = plan;
   map.style.width = W * s + 'px'; map.style.height = L * s + 'px';
+  const fx = $('fx'); fx.width = W; fx.height = L; fx.style.width = W * s + 'px'; fx.style.height = L * s + 'px'; fx.style.imageRendering = 'pixelated';
   over.width = W * s; over.height = L * s; over.style.width = W * s + 'px'; over.style.height = L * s + 'px';
   graph.width = 46 * 2; graph.height = L * s; graph.style.width = '46px'; graph.style.height = L * s + 'px';
 }
@@ -260,6 +264,19 @@ function drawGraph() {
   plot(plan.U, '#d6a24a'); plot(plan.D, '#e0644e');
   g.font = '18px IBM Plex Mono, monospace'; g.fillStyle = '#8ea29a'; g.fillText('U', 4, 18); g.fillStyle = '#e0644e'; g.fillText('D', 26, 18);
 }
+// animated fire and smoke: each burning house draws into its own small box, about 12 times a second (the game would do the same per frame)
+let fireTimer = 0, fires = [];
+function startFire() {
+  clearInterval(fireTimer); const fx = $('fx'), g = fx.getContext('2d'); g.clearRect(0, 0, fx.width, fx.height);
+  if (!$('oFire').checked || !plan) return;
+  fires = plan.fires.map(f => { const bx = CG.fireBox(f), w = bx.x1 - bx.x0, h = bx.y1 - bx.y0, c = document.createElement('canvas'); c.width = w; c.height = h; return { f, bx, c, img: new ImageData(w, h) }; });
+  const t0 = performance.now();
+  const tick = () => { const t = (performance.now() - t0) / 1000;
+    for (const o of fires) g.clearRect(o.bx.x0, plan.L - o.bx.y1, o.c.width, o.c.height);
+    for (const o of fires) { CG.paintFx(plan, o.f, o.img, o.bx, t + (o.f.seed % 7)); o.c.getContext('2d').putImageData(o.img, 0, 0); g.drawImage(o.c, o.bx.x0, plan.L - o.bx.y1); } };
+  tick(); fireTimer = setInterval(tick, 83);
+}
+$('oFire').addEventListener('change', () => { save(); build(); });
 // hover: what is here
 const tip = $('tip');
 map.addEventListener('mousemove', e => {
