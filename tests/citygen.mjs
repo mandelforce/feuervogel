@@ -25,5 +25,13 @@ for (const damage of [0, 0.6]) { let fails = 0, bridges = 0;
     if (!m.pass) { fails++; if (fails <= 3) fail(`river damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}, island reached ${m.islandReach}`); } }
   console.log(`${fails ? 'FAIL' : 'ok  '} river     damage ${damage}: ${100 - fails}/100 pass, ${(bridges / 100).toFixed(2)} bridges per town`);
 }
+// road markings: paint whole towns and look for two marking pixels side by side (a marking is one pixel wide)
+{ const mark = CG.palette.mark; let pairs = 0, marks = 0;
+  for (const [seed, preset] of [[1, 'town'], [5, 'town'], [9, 'river'], [12, 'river']]) {
+    const p = CG.generate({ seed, preset }), img = { data: new Uint8ClampedArray(p.W * p.L * 4) }; CG.paint(p, img, 0, p.L, { noFx: true });
+    const d = img.data, isM = o => d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2];
+    for (let r = 0; r < p.L; r++) for (let x = 0; x < p.W; x++) { const o = (r * p.W + x) * 4; if (!isM(o)) continue; marks++; if (x + 1 < p.W && isM(o + 4)) pairs++; } }
+  if (pairs) fail(`road markings: ${pairs} pairs of marking pixels side by side`); else console.log(`ok   road markings: ${marks} marking pixels in 4 towns, none side by side`);
+}
 if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
 console.log('\nCity generator checks pass.');

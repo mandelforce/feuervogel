@@ -558,6 +558,8 @@ function generate(opts) {
   return plan;
 }
 
+// The main road's centre line: one dashed line, exactly one pixel wide in every row (never two marking pixels side by side), everywhere along the road.
+function centreMark(plan, x, y) { return x === Math.floor(plan.mx[y]) && (y % 12) < 6; }
 // the fallen end of a half-collapsed roof (lx, ly inside the building, ly down the screen); the break line is jagged
 function inCut(b, lx, ly) {
   const along = b.ori === 'h' ? lx : ly, across = b.ori === 'h' ? ly : lx, Lg = b.ori === 'h' ? b.w : b.h, j = ((hh(b.seed, across * 7 + 3) * 3) | 0) - 1;
@@ -702,7 +704,7 @@ function paint(plan, img, y0, h, opts) {
             c = hh(x * 3, y * 7) < 0.05 ? C.roofs[b.roof || 0][pickI(5, 0.25 + hh(x, y) * 0.4, x, y)] : C.rubble[pickI(5, lit, x, y)];
           } else { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; }
           break; }
-        case K.ROAD: { const st = streetOf(i); if (st && st.cls === 'arterial') { const dx = Math.abs(x + 0.5 - plan.mx[y]); if (plan.aw[y] >= 17 && Math.abs(dx - 3.2) > 0.8 && Math.abs(dx - 3.2) < 1.5) { c = C.steel; break; } if (dx < 0.6 && plan.aw[y] < 17 && (y % 12) < 6) { c = C.mark; break; } }
+        case K.ROAD: { const st = streetOf(i); if (st && st.cls === 'arterial' && centreMark(plan, x, y)) { c = C.mark; break; }
           c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
         case K.STREET: c = C.cobble[pickI(4, 0.45 + (((x >> 1) + (y >> 1)) & 1 ? 0.1 : -0.06) + (hh(x, y) - 0.5) * 0.3, x, y)]; break;
         case K.WALK: c = C.side[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.4, x, y)]; break;
@@ -732,6 +734,7 @@ function paint(plan, img, y0, h, opts) {
         case K.BRIDGE: { const st = streetOf(i), sp = st && st.cls !== 'arterial' ? (st.pts.find(q => q[1] === y) || st.pts[0]) : null, xc = st ? (sp ? sp[0] : plan.mx[y]) : x, wd = st ? (sp ? sp[2] : plan.aw[y]) : 8, dd = Math.abs(x + 0.5 - xc);
           if (dd > wd / 2 - 1) { c = (y % 3) === 0 ? C.shadow : x < xc ? C.conc[3] : C.conc[2]; break; } // balustrade: stone posts, lit on the left
           if (dd > (st && st.tank ? 5 : 3.5)) { c = C.side[pickI(3, 0.6, x, y)]; break; }
+          if (st && st.cls === 'arterial' && centreMark(plan, x, y)) { c = C.mark; break; } // the main road's centre line continues over the bridge
           c = st && st.tank ? C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)] : C.cobble[pickI(4, 0.45 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
         case K.QUAY: { const nW = (j => j >= 0 && Kr[j] === K.RIVER); if (nW(at(x, y - 1)) || nW(at(x, y + 1)) || nW(at(x - 1, y)) || nW(at(x + 1, y))) { c = hh(x, y) < 0.06 ? C.shadow : C.conc[0]; break; } // the wall face above the water
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
