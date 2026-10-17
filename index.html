@@ -142,7 +142,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-#diffAsk .dsel.eni{grid-template-columns:repeat(7,1fr)}
+#diffAsk .dsel.eni{grid-template-columns:repeat(8,1fr)}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
 #diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
 @keyframes dframe{50%{outline-color:#d0a020}}
@@ -369,7 +369,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6B</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1A</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6B</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -2342,7 +2342,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.25'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3956,11 +3956,12 @@ function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.sta
 function sortieInfo(S, p, c) {
   const m = S.infos || (S.infos = new Map()); let I = m.get(p); if (I) return I;
   const g = c >= S.len ? null : sortieSeg(S, c);
-  const b = !g ? (S.seq ? 'sea' : 'secret') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
+  let b = !g ? (S.seq ? 'sea' : 'secret') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
+  const planned = (S.gen || S.isles) && sortiePlan(S) && c >= S.planC0 && c < S.planC1; if (planned && S.planBiome) b = S.planBiome[c - S.planC0]; // level 1A: land or sea by the plan
   let river = false, rw = 7, island = null; // level 1's farmland keeps the Campaign's rivers (from its third chunk on), with their bridges and river islands
   if (S.seq && g && g.t === 'farmland' && c - g.start >= 2 && (((p % 5) + 5) % 5) === 0 && hash(p, 991) < 0.7) { river = true; if (hash(p, 333) < 0.5) { rw = 11; const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; } }
   I = infoRails(b, S.theme, river, rw, island, null, c);
-  if (S.gen && sortiePlan(S) && c >= S.planC0 && c < S.len) { I.plan = true; I.rails = []; I.rail = null; } // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
+  if (planned) { I.plan = true; I.rails = []; I.rail = null; } // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
   if (m.size > 400) m.clear(); m.set(p, I); return I;
 }
 function info(p) { return world.chunkInfo.get(p) || predictInfo(p); }
@@ -3999,7 +4000,7 @@ function roadX(wy) {
   if (wy === rxW) return rxV; rxW = wy; return (rxV = roadXc(wy));
 }
 function roadXc(wy) {
-  const S = run.sortie, P = S && S.gen ? sortiePlan(S) : null;
+  const S = run.sortie, P = S && (S.gen || S.isles) ? sortiePlan(S) : null;
   if (P) { const y = Math.floor(S.planY0 - wy); if (y >= 0 && y < P.L) return P.mx[y]; // inside the settlement plan its own main road, after it back to the legacy road
     if (y >= P.L && y < P.L + 200) { const f = (y - P.L + 1) / 200, s2 = f * f * (3 - 2 * f); return P.mx[P.L - 1] * (1 - s2) + roadXl(wy) * s2; } }
   return roadXl(wy);
@@ -4613,7 +4614,7 @@ function farmAt(ci, cj) {
   let f = null;
   if (ci >= 0 && ci <= 1 && hash(ci * 11 + 5, cj * 17 + 3) < 0.45 && themeAtWy(cj * 150 + 80) === 0) {
     const x0 = Math.round(ci * 112 + 6 + hash(ci + 3, cj) * 32), y0 = Math.round(cj * 150 + 14 + hash(ci, cj + 9) * 56), cx = x0 + 36;
-    let ok = themeAtWy(y0) === 0 && themeAtWy(y0 + 68) === 0 && x0 + 74 < W;
+    let ok = themeAtWy(y0) === 0 && themeAtWy(y0 + 68) === 0 && x0 + 74 < W && !info(-Math.floor(y0 / CH)).plan && !info(-Math.floor((y0 + 68) / CH)).plan; // (not on a settlement plan's ground: level 1A's island has its own farms)
     if (ok) for (let yy = y0 - 2; yy <= y0 + 68 && ok; yy += 10) for (let xx = x0 - 2; xx <= x0 + 74; xx += 12) if (terrainType(xx, yy) !== 'field') { ok = false; break; }
     if (ok) for (const yy of [y0, y0 + 34, y0 + 68]) if (Math.abs(roadX(yy) - cx) < 56) { ok = false; break; }
     if (ok && waterIn(x0 - 4, y0 - 4, x0 + 76, y0 + 70, 4)) ok = false;
@@ -5881,12 +5882,13 @@ const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a
    built once when the level starts (run.sortie; null in the Campaign). docs/enigma-world-spec.md is the specification; docs/enigma-world-audit.md the audit.
    Phase 1: the sortie is carried and saved, ends its own way and never counts, but the ground still comes from the legacy theme of the level.
    The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
-// Levels 1 to 6, and level 7 shown as "6B": a second level 6, the harbour city (the Campaign's stage 6 theme and boss, its own ground).
-const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B'], ENIGMA_N = ENIGMA_LABEL.length;
-function enigmaTheme(level) { return STAGE_ORDER[Math.min(level, 6) - 1]; }
-const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
-const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk'];
-const ENIGMA_LEN = [56, 56, 58, 60, 62, 70, 70]; // chunks before the open-ended boss arena (the Campaign is about 48)
+// Levels 1 to 6; level 7 shown as "6B", a second level 6, the harbour city; level 8 shown as "1A", level 1 with its islands (spec 17.4).
+// ENIGMA_BASE: the Campaign stage each level flies (its theme, music and boss).
+const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B', '1A'], ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
+function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
+const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
+const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
+const ENIGMA_LEN = [56, 56, 58, 60, 62, 70, 70, 56]; // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
   [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 4], ['coast_down', 1], ['open_sea', 4]], // owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
@@ -5895,20 +5897,23 @@ const ENIGMA_SEQ = [
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
   [['open_sea_ice', 3], ['harbour_winter', 4], ['farmland_winter', 7], ['village', 4], ['lake_valley', 6], ['station_winter', 8], ['airbase_snow', 6], ['forest_conifer', 6], ['pass', 6], ['farmland_winter', 4]],
   [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]],
-  [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]] // 6B: in over the sea to the south harbour (with the east harbour beside it)
+  [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]], // 6B: in over the sea to the south harbour (with the east harbour beside it)
+  null // 1A: level 1's sequence (filled in below)
 ];
+ENIGMA_SEQ[7] = ENIGMA_SEQ[0];
 // Only a pure hash is used here: a sortie must come out the same whenever and wherever it is built (never Math.random).
 function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
 function buildSortie(level, seed) {
-  const i = level - 1, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  const i = level - 1, city = level === 6 || level === 7, one = level === 1 || level === 8, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
-    gen: level >= 6 ? 6 : 0, seq: level === 1, bossAt: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null, arcLen: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null,
-    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level >= 6 ? sortieUD(segs, at) : null };
+    // isles: level 1A, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
+    gen: city ? 6 : 0, seq: one, isles: level === 8, bossAt: city ? at + 5 : one ? segs[segs.length - 1].start + 1 : null, arcLen: city ? at + 5 : one ? segs[segs.length - 1].start + 1 : null,
+    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: city ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
@@ -5933,7 +5938,9 @@ function sortieUD(segs, len) {
 function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
-  if (S.level < 6 || typeof CityGen === 'undefined') return null;
+  if (typeof CityGen === 'undefined') return null;
+  if (S.isles) return sortiePlanIslands(S);
+  if (!S.gen) return null;
   if (S.level === 7) return sortiePlanHarbour(S);
   const c0 = S.segs.find(g => g.t === 'farmland').start, n = S.len - c0, dens = [], dmg = [];
   let lastU = 0;
@@ -5943,7 +5950,7 @@ function sortiePlan(S) {
   const fr = t => { const g = S.segs.find(q => q.t === t); return [(g.start - c0) / n, (g.start + g.n - c0) / n]; }; // a segment's share of the plan
   const params = { L: n * CH, density: dens, damageCurve: dmg, damage: 1, farms: 0.4, road0: roadXl(y0w), river: Object.assign({}, CityGen.PRESETS.river.river, { at: (rv.start + rv.n / 2 - c0) / n }),
     stationAt: [fr('station_main')[0], 1 - 170 / (n * CH)], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH }; // the station and its yard in the last segment, the works and power station in theirs, the airfield's fence at the end
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'river', params }); S.planC0 = c0; S.planY0 = y0w;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'river', params }); S.planC0 = c0; S.planC1 = S.len; S.planY0 = y0w;
   return S.plan;
 }
 // Level 6B (S.level 7): the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
@@ -5956,7 +5963,19 @@ function sortiePlanHarbour(S) {
   const fr = t => { const g = S.segs.find(q => q.t === t); return [g.start / n, (g.start + g.n) / n]; }, sea = S.segs.find(g => g.t === 'open_sea'), hb = S.segs.find(g => g.t === 'harbour_south');
   const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
     coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }) }; // the end quay just past the sea segment, the east harbour along most of the harbour segment
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  return S.plan;
+}
+// Level 1A (S.level 8): level 1 with its islands. One plan of the islands preset from the level's first chunk to the fortified beach: the
+// carrier's open sea, the chain of islets in the island_chain segment, the large island (jetty, village, wood, pond, farmstead, airbase) from
+// the start of island_airbase (running about 1.5 chunks into the open sea after it), then sea up to the beach. Its water is the game's own sea.
+// A plan chunk that is mostly land plays as 'country', the others as 'sea' (S.planBiome). From the beach on, the legacy ground (S.seq).
+function sortiePlanIslands(S) {
+  const seg = t => S.segs.find(g => g.t === t), n = seg('beach_fortified').start, L = n * CH, ch = seg('island_chain'), ab = seg('island_airbase');
+  const params = { L, chain: [ch.start / n, (ch.start + ch.n) / n], big: [ab.start / n, Math.min(0.94, (ab.start * CH + 620) / L)] };
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'islands', params }); S.planC0 = 0; S.planC1 = n; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  const P = S.plan, bio = S.planBiome = [];
+  for (let c = 0; c < n; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P.W; x += 4) if (P.K[y * P.W + x] !== CityGen.K.SEA) land++; bio.push(land / (CH * P.W / 4) > 0.45 ? 'country' : 'sea'); }
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -5973,7 +5992,7 @@ function resetTerrainState() {
   critters.length = 0; props.length = 0; rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level) {
-  app.enigmaLast = level; startAt(Math.min(level, 6), false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground
+  app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground, 1A stage 1
 }
 // The level is over (results shown): back to the level picker. No next stage, no congratulations, nothing is counted.
 function endEnigmaLevel() {
@@ -6075,7 +6094,7 @@ function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma 
   if (!keepEndless) run.endless = false;
   newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
   if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); }
-  if (n <= 1) { if (run.sortie) { showMsg('LEVEL 1', STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') carrierStart(); } markStage(); return; } // level 1 opens on the carrier's deck
+  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + ENIGMA_LABEL[run.sortie.level - 1], STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') carrierStart(); } markStage(); return; } // level 1 opens on the carrier's deck
   run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -6102,7 +6121,7 @@ function setDiffView(prac) {
   document.getElementById('dStageLbl').textContent = eni ? 'Level' : 'Start at stage';
   if (prac || eni) {
     document.querySelector('#dStage .dsel').classList.toggle('eni', eni); // Enigma Run has a 7th button, 6B (the harbour city)
-    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.hidden = !eni && i >= 6; const th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.toggle('art', !eni && arts.has(th)); b.setAttribute('aria-label', (eni ? 'Level ' + ENIGMA_LABEL[i] : 'Stage ' + (i + 1)) + (!eni && arts.has(th) ? ', artifact found' : '')); });
+    document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1; b.hidden = !eni && i >= 6; const th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.toggle('art', !eni && arts.has(th)); b.setAttribute('aria-label', (eni ? 'Level ' + ENIGMA_LABEL[i] : 'Stage ' + (i + 1)) + (!eni && arts.has(th) ? ', artifact found' : '')); });
     if (!eni && (app.diffNext.n || 1) > 6) app.diffNext.n = 6;
     setDiffStage(app.diffNext.n || 1);
   } else app.diffNext.n = 1;
@@ -6111,7 +6130,7 @@ function setDiffStage(n) {
   app.diffNext.n = n;
   for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
   const note = document.getElementById('dNote'), eni = app.diffNext.kind === 'enigma';
-  note.textContent = eni ? ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : '') + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
+  note.textContent = eni ? ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : n === 8 ? ': the islands' : '') + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
   note.classList.toggle('prac', eni || n !== 1);
 }
 function openDiff(kind, n) {
@@ -6870,7 +6889,7 @@ function directorInner() {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
     return;
   }
-  planBerths(sc);
+  planBerths(sc); planGuns(sc); planCows(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -6977,6 +6996,26 @@ function planBerths(sc) {
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i]; if (sl.kind !== 'sub' || used.has(i)) continue; const y = S.planY0 - sl.y; if (y < wy - 48 || y > wy + 12) continue;
     used.add(i); world.enemies.push(G('sub', sl.x, y, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true })); }
+}
+// Level 1A: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
+function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && S.isles)) return true; for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
+function roadOK(x, y) { const S = run.sortie; return !(S && S.isles) || terrainType(Math.floor(x), Math.floor(y)) === 'road'; }
+// Level 1A: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
+// planBerths does for submarines): turrets (the game's bunker) and flak on the islets, flak pits, an AA tower and planes in their blast pens at the airbase.
+function planGuns(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP) return;
+  const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set()), m = hpm();
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 10)) continue;
+    if (sl.kind === 'flak') makeFlak(sl.x, y); else if (sl.kind === 'arty') spawnArty(sl.x, y); else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, y - 8, { cd: 60 }));
+    else if (sl.kind === 'parked') world.enemies.push(G('parked', sl.x, y, { hd: PI / 2 }));
+    else if (sl.kind === 'bunker') world.enemies.push(G('bunker', sl.x, y, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 })); }
+}
+// Level 1A: the game's cows in the plan's paddocks, each paddock once as it comes up above the screen; they graze inside its fence (c.box).
+function planCows(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP || !P.pastures) return;
+  const done = S.cowsDone || (S.cowsDone = new Set());
+  for (let i = 0; i < P.pastures.length; i++) { const q = P.pastures[i], top = S.planY0 - q.y1, bot = S.planY0 - q.y0; if (done.has(i) || bot + sc < -60 || top + sc > -10) continue; done.add(i);
+    for (let k = 0; k < q.n; k++) critters.push({ var: Math.random() < 0.7 ? 0 : 1, f: null, box: [q.x0 + 3, q.x1 - 5, top + 3, bot - 2], wx: rnd(q.x0 + 4, q.x1 - 6), wy: rnd(top + 4, bot - 3), vx: 0, vy: 0, t: (Math.random() * 200) | 0, fl: Math.random() < 0.5 }); }
 }
 /* Enigma Run level 1: the carrier start (spec 5 and 10). The player steals the Feuervogel from the enemy carrier: it stands on the deck amid
    the panic, rolls down the deck and lifts off over the bow, and fighters launch from the catapults after it for CV.PURSUIT frames. The carrier
@@ -7113,7 +7152,7 @@ function spawnGround(b) {
   const flakRaw = wx => makeFlak(wx, wy);
   const flak = wx => { if (capF) return; makeFlak(wx, wy); };
   { const rr = Math.random(), landT = ['field', 'grass', 'mud', 'forest', 'sand', 'yard'];
-    if (avail('acar') && (b === 'country' || b === 'forest' || b === 'fortline' || b === 'city') && rr < 0.06 && count('acar') < 2) { const wx = roadX(wy) + 3; if (placeOK(wx, wy, 8)) { world.enemies.push(G('acar', wx, wy, { road: true, dir: 1, lane: 3, v: 0.85, v0: 0.85, hd: PI / 2, cd: 70 })); return; } }
+    if (avail('acar') && (b === 'country' || b === 'forest' || b === 'fortline' || b === 'city') && rr < 0.06 && count('acar') < 2) { const wx = roadX(wy) + 3; if (placeOK(wx, wy, 8) && roadOK(wx, wy)) { world.enemies.push(G('acar', wx, wy, { road: true, dir: 1, lane: 3, v: 0.85, v0: 0.85, hd: PI / 2, cd: 70 })); return; } }
     if (avail('hay') && b === 'country' && (world.curTheme === 0 || world.curTheme === 1 || world.curTheme === 4) && rr >= 0.06 && rr < 0.14) { const wx = tryLand(['field'], 20); if (wx !== null) { world.enemies.push(G('camo', wx, wy, { hw: 10, hh: 8, rad: 18, cv: 'hay' })); return; } }
     if (avail('bush') && (b === 'forest' || b === 'country') && world.curTheme !== 2 && rr >= 0.14 && rr < 0.2) { const wx = tryLand(['field', 'grass', 'forest'], 20); if (wx !== null) { world.enemies.push(G('camo', wx, wy, { hw: 11, hh: 10, rad: 20, cv: 'bush' })); return; } }
     if (avail('popup') && (b === 'fortline' || b === 'base' || b === 'bossland' || b === 'city' || b === 'factory' || b === 'country') && rr >= 0.2 && rr < 0.27 && count('popup') < 3) { const wx = tryLand(['concrete', 'grass', 'field', 'mud', 'apron', 'yard', 'sand'], 12); if (wx !== null) { world.enemies.push(G('popup', wx, wy, { score: 600, st: 'down', stT: (rnd(20, 70)) | 0, ga: PI / 2, untarget: true })); return; } }
@@ -7124,14 +7163,14 @@ function spawnGround(b) {
   const bunker = wx => { if (capB) return; world.enemies.push(G('bunker', wx, wy, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 })); for (const sx of [-10, 10]) if (placeOK(wx + sx, wy + 18, 4) && !critterHouse(wx + sx, wy + 18, 8)) world.enemies.push(G('sandbag', wx + sx, wy + 18, {})); };
   if (b === 'sea' && r < 0.22 && count('sub') < (world.ARC_U < 0.15 ? 1 : 2)) {
     const wx = rnd(26, W - 26);
-    if (placeOK(wx, wy, 26)) world.enemies.push(G('sub', wx, wy, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true }));
+    if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) world.enemies.push(G('sub', wx, wy, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true }));
   } else if (b === 'sea') {
     if (r < 0.32 && count('destroyer') < 1 + (run.loop >= 1 ? 1 : 0)) {
       const wx = rnd(40, W - 40);
-      if (placeOK(wx, wy - 30, 34)) world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 }));
+      if (placeOK(wx, wy - 30, 34) && seaOK(wx, wy - 30, 16, 46)) world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 }));
     } else if (count('pt') < 3) {
       const wx = rnd(20, W - 20);
-      if (placeOK(wx, wy, 16)) world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) }));
+      if (placeOK(wx, wy, 16) && seaOK(wx, wy, 6, 16)) world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) }));
     }
   } else if (b === 'coastUp' || b === 'coastDown') {
     const wx = tryLand(['grass', 'sand']);
@@ -7250,7 +7289,7 @@ function worldLife(p) {
     for (const [hx, hy] of (chunkHouses.get(p) || [])) if (Math.random() < 0.4) critters.push({ kind: 'civ', wx: hx + rnd(-6, 6), wy: hy + 8, home: [hx, hy + 6], t: (Math.random() * 80) | 0, vx: 0, vy: 0, v: (Math.random() * 2) | 0 });
     if (false) critters.push({ kind: 'cart', wx: roadX(wy0) - 9, wy: wy0, lane: -9, t: 0, hd: PI / 2 });
   }
-  if (b === 'sea' && th !== 3) { const bx0 = rnd(30, W - 30); if (Math.random() < 0.06 && !critters.some(c => c.kind === 'boat') && !world.enemies.some(o => !o.dead && (o.ground || o.surface) && Math.hypot((o.type === 'boss' ? o.x : o.wx) - bx0, (o.type === 'boss' ? o.y - Math.floor(world.scroll) : o.wy) - (wy0 + 30)) < 60) && !(world.carrier && !world.carrier.gone)) critters.push({ kind: 'boat', wx: bx0, wy: wy0 + 30, vx: rnd(-0.03, 0.03), vy: -0.05, t: 0 }); if (false) critters.push({ kind: 'row', wx: rnd(20, W - 20), wy: wy0 + 20, vx: rnd(-0.1, 0.1), vy: rnd(-0.05, 0.05), t: 0 }); }
+  if (b === 'sea' && th !== 3) { const bx0 = rnd(30, W - 30); if (Math.random() < 0.06 && !critters.some(c => c.kind === 'boat') && !world.enemies.some(o => !o.dead && (o.ground || o.surface) && Math.hypot((o.type === 'boss' ? o.x : o.wx) - bx0, (o.type === 'boss' ? o.y - Math.floor(world.scroll) : o.wy) - (wy0 + 30)) < 60) && !(world.carrier && !world.carrier.gone) && seaOK(bx0, wy0 + 30, 6, 10)) critters.push({ kind: 'boat', wx: bx0, wy: wy0 + 30, vx: rnd(-0.03, 0.03), vy: -0.05, t: 0 }); if (false) critters.push({ kind: 'row', wx: rnd(20, W - 20), wy: wy0 + 20, vx: rnd(-0.1, 0.1), vy: rnd(-0.05, 0.05), t: 0 }); }
   const L = lighthouseAt(p); if (L) for (let i = 0; i < 3; i++) critters.push({ kind: 'gull', cx: L[0], cy: L[1], r: rnd(14, 26), a: Math.random() * TAU, wx: L[0], wy: L[1], t: 0 });
 }
 function march(wy) {
@@ -7259,7 +7298,7 @@ function march(wy) {
 }
 function lightVehicle(wy) {
   const moto = Math.random() < 0.55, lane = 2.5, wx = roadX(wy) + lane;
-  if (!placeOK(wx, wy, 8)) return;
+  if (!placeOK(wx, wy, 8) || !roadOK(wx, wy)) return;
   world.enemies.push(G(moto ? 'moto' : 'staff', wx, wy, { hp: (moto ? 1.5 : 2.5) * hpm(), hw: moto ? 3 : 4, hh: moto ? 5 : 6, score: moto ? 300 : 500, rad: 6, road: true, dir: 1, lane, v: moto ? 0.85 : 0.65, hd: PI / 2 }));
 }
 function squad(wy, types) {
@@ -7281,7 +7320,7 @@ function convoy(wy, trucks) {
   const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0;
   for (let i = 0; i < n; i++) {
     const twy = wy - i * 26, wx = roadX(twy) + lane;
-    if (!placeOK(wx, twy, 16)) continue;
+    if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2 }));
     else {
       const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18);
@@ -9830,7 +9869,7 @@ function update() {
     if (k === 'cow') {
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
-      if (nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
+      const bx = c.box; if (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (box: a plan's paddock, level 1A)
     } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
       let bx = 0, by = 0; for (const o of world.enemies) if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < 24 && Math.abs(o.wy - c.wy) < 24) { bx += c.wx - o.wx; by += c.wy - o.wy; }
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }

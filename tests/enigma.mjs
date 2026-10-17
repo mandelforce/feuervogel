@@ -52,10 +52,10 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 // 1. The sortie of every level: well formed, and the same every time it is built.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
+  const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 8; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
     out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 ? x.len + 5 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -216,6 +216,42 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
+// 3b'''''. Level 1A (internal level 8): level 1 with its islands. One islands plan from the first chunk to the fortified beach (the islets in
+// island_chain, the large island from island_airbase on), the legacy ground after it; the picker offers it; types and pixels are the plan's;
+// the same ground after a resume. Flown through by the bot: it opens on the carrier, the islets' turrets and the airbase's guns and planes take
+// their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the level returns to the picker on 1A.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1A'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
+    settings.diff = 1; startEnigma(8); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), beach = S.segs.find(g => g.t === 'beach_fortified').start; let types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const p = world.stageBaseP + 20; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
+    const bio = S.planBiome.join(''), after = info(world.stageBaseP + beach);
+    return { shown, hiddenCamp, pass: v.pass, L: P.L, want: beach * CH, types, n, pix, isles: P.isles.length, airbase: !!P.airbase, land: S.planBiome.filter(b => b === 'country').length, sea: S.planBiome.filter(b => b === 'sea').length, after: after.b, afterPlan: !!after.plan, carrier: !!world.carrier, lvl1: (() => { startEnigma(1); return !!run.sortie.isles || !!sortiePlan(run.sortie); })() }; })()`);
+  ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 1A (the practice picker does not)');
+  ok(r.pass && r.L === r.want && r.isles >= 5 && r.airbase, `level 1A plan passes the generator's hard rules and runs from the first chunk to the fortified beach (${r.L} px, ${r.isles} islets, the airbase)`);
+  ok(r.land >= 8 && r.sea >= 14 && r.after === 'coastUp' && !r.afterPlan && r.carrier && !r.lvl1, `level 1A plays the large island as land (${r.land} chunks) and the rest as sea (${r.sea}), the legacy coast after it, opens on the carrier; level 1 keeps the old ground`);
+  ok(r.types === 0 && r.pix === 0, `level 1A ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { startEnigma(8); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
+  ok('8:' + fresh === resumed, `level 1A is the same ground after a resume (${fresh})`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(8)'); const o = { status: 'ok', wet: 0, ships: 0, cows: 0 };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100);
+      const v = SF.peek(`(() => { const sc = Math.floor(world.scroll); let wet = 0, n = 0; for (const e of world.enemies) if (!e.dead && (e.type === 'destroyer' || e.type === 'sub' || e.type === 'pt') && e.y > 0 && e.y < H) { n++; if (terrainType(Math.floor(e.wx), Math.floor(e.wy)) !== 'sea') wet++; } return { wet, n, cows: critters.filter(c => c.box).length }; })()`);
+      o.wet += v.wet; o.ships += v.n; o.cows = Math.max(o.cows, v.cows);
+      if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP');
+      if (o.used === undefined && SF.peek('!!(run.sortie && run.sortie.slotUsed && run.sortie.slotUsed.size)') && SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP') > 30) o.used = SF.peek(`(() => { const P = run.sortie.plan, k = {}; for (const i of run.sortie.slotUsed) k[P.slots[i].kind] = (k[P.slots[i].kind] || 0) + 1; return { k, of: P.slots.length }; })()`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.used && f.used.k.bunker >= 1 && f.used.k.flak >= 2 && f.used.k.parked >= 1, `on the way the islands' guns took their slots (${f.used ? Object.entries(f.used.k).map(([k, v]) => v + ' ' + k).join(', ') + ' of ' + f.used.of : 'none'})`);
+  ok(f.cows >= 3, `cows grazed in the paddocks (${f.cows} at once)`);
+  ok(f.wet === 0, `no ship stood on land (${f.ships} ship sightings)`);
+  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 8 && f.errs.length === 0, `level 1A flown through: the flagship comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 1A (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 

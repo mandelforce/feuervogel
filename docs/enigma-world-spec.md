@@ -812,3 +812,32 @@ The owner's brief:
 
 All 100 test seeds still pass every rule and every count.
 
+### 17.4 Level 1A: level 1 with its islands (in the game)
+
+The owner asked for the islets in a level **1A**. Like 6B, it is a separate entry in the picker (internal sortie level 8, `ENIGMA_LABEL` '1A', the button after 1). `ENIGMA_BASE` gives the Campaign stage each level flies (1A flies stage 1: theme, music, the flagship). Level 1 is unchanged: the carrier on the old ground.
+- **Sortie:** level 1's sequence, length and `bossAt`. Flags `seq` (legacy biomes from the sortie, as level 1) and `isles` (the islands plan). `gen` stays 0, because many of level 6's city functions read `S.gen`. The checks that took "level 6 or higher" to mean the city levels now name levels 6 and 7.
+- **Plan** (`sortiePlanIslands`): the `islands` preset from the level's first chunk to the start of `beach_fortified` (28 chunks, 1792 px).
+  - The chain spans the `island_chain` segment.
+  - The large island starts with `island_airbase` and is 620 px long, running about 1.5 chunks into the open sea after it.
+  - Plan rows are world rows `S.planY0 - y`, as for 6B. `S.planC1` marks the end of a plan; for levels 6 and 6B it is the level's end.
+  - The water is the game's own sea (`seaPix`), so the plan meets the open sea and the Campaign's coast after it without a seam.
+- **Biomes:** a plan chunk that is at least 45 percent land is `country`, the rest `sea` (`S.planBiome`; 9 and 19 chunks in the test seed). From the beach on, level 1's legacy ground.
+- **Guns** (`planGuns`, every frame, outside the director's pacing, as `planBerths`): each slot of the plan gets its gun once, as it comes up above the screen:
+  - `bunker` slots get the game's bunker (the islets' turrets);
+  - `flak` slots get flak (the islets' and the airbase's gun pits);
+  - `aatower` gets the AA tower;
+  - `parked` gets a parked plane in its blast pen.
+  A bot flight filled all 11 slots.
+- **Cows** (`planCows`): each paddock gets its cows (the game's farm cows) as it comes up; they graze inside its fence (`critter.box`). The Campaign's own farms (`farmAt`) are never placed on plan ground.
+- **Water and roads:** in 1A, submarines, destroyers, PT boats and the small boats spawn only where the water is open (`seaOK` samples the hull), and convoys, armoured cars and light vehicles only on a road (`roadOK`). Both are always true elsewhere, so the Campaign's random stream is untouched.
+- **Tests (`tests/enigma.mjs`):**
+  - the picker offers 1A (the practice picker does not);
+  - the plan passes the hard rules and runs to the beach;
+  - land and sea chunks, with the legacy coast after the plan;
+  - it opens on the carrier, and level 1 keeps the old ground;
+  - types and pixels come from the plan;
+  - the same ground after a resume;
+  - a bot flight: the slots filled, cows in the paddocks, no ship ever on land, and the flagship comes and the level returns to the picker on 1A.
+  `node tests/carrier-shots.mjs OUTDIR 2000,3000 - play 8` films 1A.
+- **Still to do:** road traffic on the island ends at the jetty, because vehicles that drive along a road do not stop where it ends. This is the deferred route objects (13a). Also open: the islets' look in play, the airbase's own director spawns (it plays as `country`), and a better seam between the island's tip and the beach.
+
