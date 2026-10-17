@@ -49,13 +49,15 @@ for (const preset of ['town', 'river']) { let fails = 0;
   else console.log(`ok   step 2 in 100 towns: old town ${n.old}, roundabout ${n.star}, ${Object.entries(civ).map(([k, v]) => k.toLowerCase() + ' ' + v).join(', ')}`);
 }
 // the village and the industrial estate: every hard rule, a village green with farmsteads, industrial quarters with a power station
-for (const preset of ['village', 'industrial']) for (const damage of [0, 0.6]) { let fails = 0, green = 0, farms = 0, ind = 0, power = 0;
+for (const preset of ['village', 'crossroads', 'industrial']) for (const damage of [0, 0.6]) { let fails = 0, green = 0, farms = 0, ind = 0, power = 0;
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}`); }
     if (p.oldTown && p.oldTown.green) green++; farms += p.farms.length; if (p.quarters.some(q => q.style === 'industry')) ind++; if (m.civic.includes('Power station')) power++; }
-  const want = preset === 'village' ? green >= 90 && farms >= 2000 : ind >= 95 && power >= 85;
-  if (!want) fail(`${preset}: green ${green}, farms ${farms}, industrial ${ind}, power stations ${power}`);
-  console.log(`${fails || !want ? 'FAIL' : 'ok  '} ${preset.padEnd(10)} damage ${damage}: ${100 - fails}/100 pass, ` + (preset === 'village' ? `village green in ${green}, ${(farms / 100).toFixed(1)} farmsteads per village` : `industrial quarters in ${ind}, power station in ${power}`));
+  let centre = 0, inInd = 0; if (preset === 'crossroads') for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }); if (p.crossroads && p.squares.length && p.churches.length) centre++; }
+  if (preset === 'industrial') for (let seed = 1; seed <= 50; seed++) { const p = CG.generate({ seed, preset, params: { damage } }); inInd += p.churches.filter(c => p.quarters.some(q => q.style === 'industry' && c.yFront >= q.y0 - 40 && c.yFront < q.y1)).length; }
+  const want = preset === 'village' ? green >= 90 && farms >= 2000 : preset === 'crossroads' ? centre >= 90 && farms >= 1500 : ind >= 95 && power >= 85 && inInd === 0;
+  if (!want) fail(`${preset}: green ${green}, farms ${farms}, industrial ${ind}, power stations ${power}, centres ${centre}, churches among works ${inInd}`);
+  console.log(`${fails || !want ? 'FAIL' : 'ok  '} ${preset.padEnd(10)} damage ${damage}: ${100 - fails}/100 pass, ` + (preset === 'village' ? `village green in ${green}, ${(farms / 100).toFixed(1)} farmsteads per village` : preset === 'crossroads' ? `crossroads with square and church in ${centre}, ${(farms / 100).toFixed(1)} farmsteads` : `industrial quarters in ${ind}, power station in ${power}, no church among the works`));
 }
 // harbours and railways: harbours in most river towns, stations in most towns, and the railway never over water or under a house
 { const n = { hb: 0, st: 0, stR: 0 }; let wet = 0, under = 0;

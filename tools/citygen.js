@@ -66,6 +66,9 @@ PRESETS.village = Object.assign({}, PRESETS.town, { label: 'Village', L: 1200,
   crossSpacing: [150, 90], crossMinU: 0.2, squares: false, cathedral: false, parishMinU: 2, parkSpacing: 1e9, lotChance: 0.02,
   oldTown: { green: true, rx: [30, 40], rxMin: 28, ry: [62, 90], ring: 10, lane: 6, belt: [0, 0], minU: 0.25 },
   stars: 0, civic: {}, railway: false, harbour: false, industry: 0, farms: 0.62, houses: { detached: [0.45], terraceTo: 0.8 } });
+// A crossroads village (Haufendorf at a crossing): a second main road crosses the strip, the village grows along both roads, and its centre
+// at the crossing has a square with a lime tree and a well, the church and the inn
+PRESETS.crossroads = Object.assign({}, PRESETS.village, { label: 'Crossroads village', oldTown: null, crossroads: { w: 10 }, villageCentre: true, farms: 0.55 });
 // An industrial estate: industrial quarters with wide service roads, halls, tank farms, coal yards and a power station; workers' terraces between
 PRESETS.industrial = Object.assign({}, PRESETS.town, { label: 'Industrial estate', L: 1800,
   density: [[0, 0.05], [0.15, 0.4], [0.5, 0.62], [0.85, 0.58], [1, 0.3]], damage: 0.3, squares: false, cathedral: false, parishSpacing: 900,
@@ -108,7 +111,13 @@ function generate(opts) {
   }
   const Uy = y => plan.U[clamp(y | 0, 0, L - 1)], Dy = y => plan.D[clamp(y | 0, 0, L - 1)], MX = y => plan.mx[clamp(y | 0, 0, L - 1)], AW = y => plan.aw[clamp(y | 0, 0, L - 1)];
   // urbanisation at a point: full inside the core around the main road, fading through the fray zone
-  const uAt = (x, y) => { const U = Uy(y), cw = P.coreBase + P.coreGrow * Math.pow(U, 1.4), d = Math.abs(x - MX(y)); return U * clamp(1 - (d - cw) / P.fray, 0, 1); };
+  const uBase = (x, y) => { const U = Uy(y), cw = P.coreBase + P.coreGrow * Math.pow(U, 1.4), d = Math.abs(x - MX(y)); return U * clamp(1 - (d - cw) / P.fray, 0, 1); };
+  // a crossroads village: a second main road crosses the strip at the densest point, and the village grows along it as well
+  let XR = null;
+  if (P.crossroads) { let yPk = 0; for (let y = 0; y < L; y++) if (plan.U[y] > plan.U[yPk] + 1e-6) yPk = y; yPk = clamp(yPk, 120, L - 120);
+    const ph = rnd(T.STAR, 7) * 6.283, sl = (rnd(T.STAR, 8) - 0.5) * 0.16, x0 = MX(yPk);
+    XR = { y: yPk, U: plan.U[yPk], yAt: x => yPk + sl * (x - x0) + 3 * (Math.sin(x * 0.028 + ph) - Math.sin(x0 * 0.028 + ph)), done: false }; plan.crossroads = XR; }
+  const uAt = XR ? (x, y) => Math.max(uBase(x, y), XR.U * clamp(1 - (Math.abs(y - XR.yAt(clamp(x, 0, W - 1))) - 16) / 26, 0, 1) * (1 - 0.45 * Math.min(1, Math.abs(x - MX(XR.y)) / 110))) : uBase;
   plan.uAt = uAt;
 
   // raster helpers
@@ -195,11 +204,11 @@ function generate(opts) {
     const ry = Math.round(lerp(O.ry[0], O.ry[1], rnd(T.OLD, 1))), cand = [yPk]; for (const R of RVs) cand.push(Math.round(R.yMin - ry - 24), Math.round(R.yMax + ry + 24));
     for (const cy of cand) { if (OT) break; if (cy < ry + 40 || cy > L - ry - 40 || Uy(cy) < O.minU || RVs.some(R => cy + ry + 20 > R.yMin && cy - ry - 20 < R.yMax)) continue;
       for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
-        const cx = clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
-        for (let y = cy - ry * (O.green ? 0.7 : 0.85); ok && y <= cy + ry * (O.green ? 0.7 : 0.85); y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * (O.green ? 0.7 : 0.55)) ok = false; } // the main road runs well inside
+        const cx = O.green ? MX(cy) : clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
+        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * (1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the lens in the strip
+        else for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
         if (ok) OT = { cx, cy, rx, ry, rw: O.ring, green: !!O.green };
       } }
-    if (OT && OT.green) for (const p of plan.streets[0].pts) if (((p[0] - OT.cx) / (OT.rx - OT.rw / 2 - 1)) ** 2 + ((p[1] - OT.cy) / (OT.ry - OT.rw / 2 - 1)) ** 2 < 1) p[2] = 0; // the main road gives way to the green: traffic goes round it
     if (OT && !OT.green) { // the zone for the square and its buildings, on the roomier side of the main road
       const room = s => OT.rx - s * (MX(OT.cy) - OT.cx) - AW(OT.cy) / 2 - OT.rw / 2, zs = room(1) >= room(-1) ? 1 : -1, xe = MX(OT.cy) + zs * (AW(OT.cy) / 2 + 1);
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
@@ -240,8 +249,11 @@ function generate(opts) {
   const railX = y => RL.xL + RL.sr * ((Math.max(0, RL.ya - y) ** 2 + Math.max(0, y - RL.yb) ** 2) / RL.Rc); // the line's x at y (beyond the strip where it has curved away)
   const zones = []; if (HB) zones.push({ x0: HB.x0, x1: HB.x1, y0: HB.yLo, y1: HB.yHi }); if (ST) zones.push(ST); // ground that streets stop at
   const inZone = (x, y, m) => zones.some(z => x >= z.x0 - m && x <= z.x1 + m && y >= z.y0 - m && y <= z.y1 + m);
-  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + ex); return t * t >= 1 ? 0 : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half the oval's width at y, grown by ex
-  const inOval = (x, y, ex) => !!OT && ((x - OT.cx) / (OT.rx + ex)) ** 2 + ((y - OT.cy) / (OT.ry + ex)) ** 2 < 1;
+  // the old town is an oval round a fixed centre; a village green is a lens that the main road forks round, so its centre follows the road
+  const octr = y => OT.green ? MX(y) : OT.cx;
+  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * (1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
+  const inOval = (x, y, ex) => !!OT && Math.abs(x - octr(y)) < ovalHalf(y, ex);
+  if (OT && OT.green) for (const p of plan.streets[0].pts) if (ovalHalf(p[1], 0) > OT.rw / 2 + 2) p[2] = 0; // the main road gives way to the green: traffic forks round it
   // 2a''. quarters. A town grows in stretches of different age, and each stretch has its own street pattern, so the blocks are not copies of
   // each other and the seams between quarters give skewed junctions and odd-shaped blocks, as in a real town:
   //   'fields'  the suburb's lanes lie on the old field strips' edges, straight and square to the main road, and run on into the fields as farm tracks
@@ -282,23 +294,24 @@ function generate(opts) {
     while (y < L - 20) {
       const star = plan.stars.find(o => !o.done && o.y < y + 30); if (star) { star.done = true; y = star.y; } // a roundabout's own cross streets
       const stn = !star && ST && !ST.done && ST.y < y + 30; if (stn) { ST.done = true; y = ST.y; } // the station street, to the station's square
+      const xing = !star && !stn && XR && !XR.done && XR.y < y + 30; if (xing) { XR.done = true; y = XR.y; } // the crossing main road, right across the strip
       const U = Uy(y), Q = qAt(y);
       for (const s of [-1, 1]) {
-        let yc = star ? star.y : stn ? ST.y : y + (Q.style === 'grid' || Q.style === 'industry' ? 0 : Math.round((rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger * (U < 0.75 ? 1 : 0.6))); // staggered crossroads, except in a planned grid
-        if (!star && !stn && Q.style === 'fields') { let best = yc, bd = 1e9; for (const e of rowEdges) { const dd = Math.abs(e - yc); if (dd < bd) { bd = dd; best = e; } } yc = best; } // on the edge between two field strips
-        if (yc < 6 || yc > L - 7 || (!star && plan.stars.some(o => Math.abs(o.y - yc) < P.crossMinGap + 4)) || (!stn && ST && Math.abs(ST.y - yc) < P.crossMinGap + 4)) continue;
+        let yc = star ? star.y : stn ? ST.y : xing ? XR.y : y + (Q.style === 'grid' || Q.style === 'industry' ? 0 : Math.round((rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger * (U < 0.75 ? 1 : 0.6))); // staggered crossroads, except in a planned grid
+        if (!star && !stn && !xing && Q.style === 'fields') { let best = yc, bd = 1e9; for (const e of rowEdges) { const dd = Math.abs(e - yc); if (dd < bd) { bd = dd; best = e; } } yc = best; } // on the edge between two field strips
+        if (yc < 6 || yc > L - 7 || (!star && plan.stars.some(o => Math.abs(o.y - yc) < P.crossMinGap + 4)) || (!stn && ST && Math.abs(ST.y - yc) < P.crossMinGap + 4) || (!xing && XR && Math.abs(XR.y - yc) < P.crossMinGap + 4)) continue;
         let xa = MX(yc), xEdge = xa + s * AW(yc) / 2;
         if (star) { xa = star.x + s * (star.ro - 2); xEdge = star.x + s * (star.ro + 2); }
         if (OT && !star) { const dy = Math.abs(yc - OT.cy); if (dy < OT.ry + OT.rw / 2 + 16) { if (dy > OT.ry * 0.72) continue; // none across the old town: they start at the ring, and none near its ends
-          xa = OT.cx + s * ovalHalf(yc, 0); xEdge = OT.cx + s * (ovalHalf(yc, OT.rw / 2) + 1); if (xEdge < 3 || xEdge > W - 4) continue; } }
+          xa = octr(yc) + s * ovalHalf(yc, 0); xEdge = octr(yc) + s * (ovalHalf(yc, OT.rw / 2) + 1); if (xEdge < 3 || xEdge > W - 4) continue; } }
         const slope = star || stn ? 0 : Q.style === 'grid' ? Q.slope : Q.style === 'follow' ? (rnd(T.CROSS, n, s + 11) - 0.5) * 2 * P.followSkew : 0;
         const bend = !star && !stn && Q.style === 'follow' && U < 0.8 ? (rnd(T.CROSS, n, s + 7) - 0.5) * 4 : 0;
-        const line = (xx, f) => yc + slope * (xx - xa) + bend * Math.sin(f * Math.PI);
+        const line = xing ? xx => XR.yAt(clamp(xx, 0, W - 1)) : (xx, f) => yc + slope * (xx - xa) + bend * Math.sin(f * Math.PI);
         let x = xEdge, ext = 0;
-        while (x > 2 && x < W - 3 && uAt(x, line(x, ext / 80)) >= P.crossEndU) { x += s; ext++; }
+        while (x > 2 && x < W - 3 && (xing || uAt(x, line(x, ext / 80)) >= P.crossEndU)) { x += s; ext++; }
         const runsOff = x <= 2 || x >= W - 3; if (runsOff) ext += 8; // reaches the edge of the strip: run off it
         if (ext < 22) continue;
-        const coll = U >= 0.6 || Q.style === 'industry', w = coll ? P.widths.collector : P.widths.local; // service roads take lorries and tanks
+        const coll = U >= 0.6 || Q.style === 'industry' || xing, w = xing ? P.crossroads.w : coll ? P.widths.collector : P.widths.local; // service roads and the crossing road take lorries and tanks
         const pts = [], xb = Math.round(clamp(xEdge + s * ext, -1, W)), xr = Math.round(xa); // from the main road's centre, so the carriageways join
         for (let xx = Math.min(xr, xb); xx <= Math.max(xr, xb); xx++) { if (xx < 0 || xx >= W) continue; const f = clamp(Math.abs(xx - xEdge) / Math.max(1, ext), 0, 1); pts.push([xx, line(xx, f), w]); }
         // inside the strip, out of the river, and never too close to the previous cross street on this side (where a tilted quarter meets a straight one)
@@ -310,7 +323,7 @@ function generate(opts) {
         const prev = cross[s][cross[s].length - 1];
         if (ok && prev) for (const p of pts) { const yp = crossYat(prev, p[0]); if (yp !== null && p[1] - yp < P.crossMinGap) { if (star) { prev.dead = true; cross[s].pop(); } else ok = false; break; } } // a roundabout's street wins
         if (!ok) continue;
-        const S = addStreet({ cls: coll ? 'collector' : 'local', axis: 'h', tank: coll, pts, yc, side: s, x0: pts[0][0], x1: pts[pts.length - 1][0], w, slope, quarter: Q.id, station: stn || undefined });
+        const S = addStreet({ cls: coll ? 'collector' : 'local', axis: 'h', tank: coll, pts, yc, side: s, x0: pts[0][0], x1: pts[pts.length - 1][0], w, slope, quarter: Q.id, station: stn || undefined, xroad: xing || undefined });
         cross[s].push(S);
         if (Q.style === 'fields' && !runsOff && !clipped) { const tp = []; for (let xx = xb + s; xx >= 0 && xx < W; xx += s) tp.push([xx, line(xx, 1)]); if (tp.length > 12) plan.tracks.push(tp); } // on into the fields as a farm track
       }
@@ -363,9 +376,11 @@ function generate(opts) {
 
   (() => { if (OT) { // the ring boulevard, in four arcs (two along x at the ends, two along y at the sides) so each is a plain street; a tank route
     const th = Math.atan(OT.ry / OT.rx), a = OT.rx * Math.cos(th), b = OT.ry * Math.sin(th);
-    for (const sy of [-1, 1]) { const pts = []; for (let x = Math.floor(OT.cx - a - 3); x <= Math.ceil(OT.cx + a + 3); x++) { const t = (x - OT.cx) / OT.rx; if (t * t < 1) pts.push([x, OT.cy + sy * OT.ry * Math.sqrt(1 - t * t), OT.rw]); }
+    if (OT.green) for (const sx of [-1, 1]) { const pts = [], y0 = OT.cy - OT.ry, y1 = OT.cy + OT.ry; for (let y = y0; y <= y1; y++) pts.push([MX(y) + sx * ovalHalf(y, 0), y, OT.rw]); // the green's two lanes leave the main road and meet it again
+      addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
+    else for (const sy of [-1, 1]) { const pts = []; for (let x = Math.floor(OT.cx - a - 3); x <= Math.ceil(OT.cx + a + 3); x++) { const t = (x - OT.cx) / OT.rx; if (t * t < 1) pts.push([x, OT.cy + sy * OT.ry * Math.sqrt(1 - t * t), OT.rw]); }
       addStreet({ cls: 'ring', axis: 'h', tank: true, pts, yc: OT.cy + sy * OT.ry, side: sy, x0: pts[0][0], x1: pts[pts.length - 1][0], w: OT.rw }); }
-    for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
+    if (!OT.green) for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     // the old town's lanes: narrow and winding, from the main road out to the ring, a few joined by lanes along the main road; none in the zone
     const Z = OT.zone, lanes = { '-1': [], '1': [] }; let y = OT.cy - OT.ry + OT.rw + 6 + rnd(T.OLD, 3) * 8, n = 0;
@@ -386,7 +401,7 @@ function generate(opts) {
     }
     for (const s of [-1, 1]) for (let k = 0; k + 1 < lanes[s].length; k++) { // lanes along the main road, between two lanes, winding a little
       const A = lanes[s][k], Bc = lanes[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (rnd(T.OLD, k, s + 20) > 0.85) continue;
-      const xe = MX(ym) + s * AW(ym) / 2, xr = OT.cx + s * ovalHalf(ym, -OT.rw / 2); if ((xr - xe) * s < 40) continue;
+      const xe = MX(ym) + s * AW(ym) / 2, xr = octr(ym) + s * ovalHalf(ym, -OT.rw / 2); if ((xr - xe) * s < 40) continue;
       const xm = (xe + xr) / 2 + (rnd(T.OLD, k, s + 22) - 0.5) * 10, ph = rnd(T.OLD, k, s + 24) * 6.283, lx = yy => xm + 2.2 * Math.sin(yy * 0.11 + ph);
       if (s === Z.s && xm > Z.x0 - 6 && xm < Z.x1 + 6 && Bc.yc > Z.y0 - 6 && A.yc < Z.y1 + 6) continue;
       let ya = crossYat(A, xm), yb = crossYat(Bc, xm); if (ya === null || yb === null) continue; ya = Math.round(crossYat(A, lx(ya)) ?? ya); yb = Math.round(crossYat(Bc, lx(yb)) ?? yb);
@@ -550,7 +565,7 @@ function generate(opts) {
   }
   { // parish churches: on the north side of a cross street, facing it, spaced out, where the town is dense enough
     const spots = [];
-    for (const s of [-1, 1]) for (const S of cross[s]) if (Uy(S.yc) >= P.parishMinU) spots.push(S);
+    for (const s of [-1, 1]) for (const S of cross[s]) if (Uy(S.yc) >= P.parishMinU && !isInd(S.yc) && !isInd(S.yc + 40)) spots.push(S); // never among the works
     spots.sort((a, b) => rnd(T.CH, a.id) - rnd(T.CH, b.id));
     for (const S of spots) {
       const yF = Math.ceil(S.yc + S.w / 2) + 1;
@@ -619,10 +634,31 @@ function generate(opts) {
   }
   // 3c''. the village green (Angerdorf): the church in the middle with its churchyard, a pond with reeds, and grass (lime trees come with the trees)
   if (OT && OT.green) {
-    for (const dx of [0, -6, 6, -12, 12]) if (placeChurch(OT.cx + dx, Math.round(OT.cy - 18), 1, false)) break;
-    const pcx = OT.cx + (rnd(T.OLD, 50) - 0.5) * 8, pcy = OT.cy - OT.ry * 0.58, prx = 7 + rnd(T.OLD, 51) * 3, pry = 4.5;
+    for (const dx of [0, -6, 6, -12, 12]) if (placeChurch(Math.round(MX(OT.cy - 18) + dx), Math.round(OT.cy - 18), 1, false)) break;
+    const pcx = MX(OT.cy - OT.ry * 0.58) + (rnd(T.OLD, 50) - 0.5) * 8, pcy = OT.cy - OT.ry * 0.58, prx = 7 + rnd(T.OLD, 51) * 3, pry = 4.5;
     for (let y = Math.floor(pcy - pry - 1); y <= pcy + pry + 1; y++) for (let x = Math.floor(pcx - prx - 1); x <= pcx + prx + 1; x++) if (free(x, y) && ((x + 0.5 - pcx) / prx) ** 2 + ((y + 0.5 - pcy) / pry) ** 2 < 1) { Kr[idx(x, y)] = K.WATER; Br[idx(x, y)] = -7; }
-    for (let y = Math.floor(OT.cy - OT.ry); y <= OT.cy + OT.ry; y++) for (let x = Math.floor(OT.cx - OT.rx); x <= OT.cx + OT.rx; x++) if (free(x, y) && inOval(x, y, -OT.rw / 2)) { Kr[idx(x, y)] = K.PARK; Br[idx(x, y)] = -6; }
+    for (let y = Math.floor(OT.cy - OT.ry); y <= OT.cy + OT.ry; y++) for (let x = Math.floor(octr(y) - OT.rx); x <= octr(y) + OT.rx; x++) if (free(x, y) && inOval(x, y, -OT.rw / 2)) { Kr[idx(x, y)] = K.PARK; Br[idx(x, y)] = -6; }
+  }
+  // 3c''''. the village centre at the crossroads: a square with a big lime tree and a well in one corner of the crossing, the church facing the
+  // crossing road in another, the inn on a third corner
+  if (P.villageCentre && XR) { const yc = XR.y, xm = MX(yc), hw = P.crossroads.w / 2, quads = [[1, 1], [-1, 1], [1, -1], [-1, -1]].sort((a, b) => rnd(T.SQ, a[0] + 3, a[1] + 3) - rnd(T.SQ, b[0] + 3, b[1] + 3));
+    const roadEdge = (xa, xb, up) => { let e = up > 0 ? -1e9 : 1e9; for (let x = Math.floor(xa); x <= xb; x++) { const yy = XR.yAt(clamp(x, 0, W - 1)) + up * hw; e = up > 0 ? Math.max(e, yy) : Math.min(e, yy); } return e; };
+    let stage = 0;
+    for (const [s, up] of quads) { const xe = xm + s * (AW(yc) / 2 + 1);
+      if (stage === 0) { const w = 30, h = 24, x0 = s > 0 ? Math.ceil(xe) : Math.floor(xe) - w + 1, ye = roadEdge(x0, x0 + w - 1, up), y0 = up > 0 ? Math.ceil(ye) + 1 : Math.floor(ye) - h;
+        if (!rectFree(x0 + 3, y0 + 1, w - 5, h - 2, 0)) continue;
+        fill(x0, y0, w, h, K.PLAZA, -1, true);
+        for (let x = x0; x < x0 + w; x++) { const e = XR.yAt(clamp(x, 0, W - 1)) + up * hw; for (let y = up > 0 ? Math.ceil(e) : y0 + h; up > 0 ? y < y0 : y <= Math.floor(e); y++) if (free(x, y)) { Kr[idx(x, y)] = K.PLAZA; Br[idx(x, y)] = -1; } } // down to the road
+        const sq = { x0, y0, w, h, cx: x0 + w / 2, cy: y0 + h / 2, side: s, village: true }; plan.squares.push(sq);
+        plan.trees.push({ x: Math.round(sq.cx + s * 4), y: Math.round(sq.cy), r: 5, v: 2, lime: true });
+        for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 4) { const i = idx(Math.round(sq.cx - s * 8) + x, Math.round(sq.cy) + y); Kr[i] = x * x + y * y <= 1 ? K.WATER : K.WALK; } // the village well
+        stage = 1; continue; }
+      if (stage === 1) { let done = false; for (let q = 0; q <= 30 && !done; q += 3) { const cx = Math.round(xm + s * (AW(yc) / 2 + 16 + q)), e = roadEdge(cx - 15, cx + 15, up);
+          done = !!placeChurch(cx, up > 0 ? Math.ceil(e) + 1 : Math.floor(e) - 1, up, false); }
+        if (done) { stage = 2; continue; } }
+      if (stage === 2) for (let dx = 0; dx <= 36 && stage === 2; dx += 3) { const w = 16, h = 11, x0 = s > 0 ? Math.ceil(xe) + dx : Math.floor(xe) - w + 1 - dx, ye = roadEdge(x0, x0 + w - 1, up), y0 = up > 0 ? Math.ceil(ye) : Math.floor(ye) - h + 1; // at the corner, or a little along the road
+        if (rectFree(x0, y0, w, h, 0)) { const it = addItem({ t: 'block', label: 'Inn', x0, y0, w, h, ori: 'h', front: up > 0 ? 'S' : 'N', style: 'hip', roof: 1, seed: h32(seed, 63000), dmg: 0, run: -300000 }); fill(x0, y0, w, h, K.BLDG, it.id); stage = 3;
+          for (let x = x0; x < x0 + w; x++) { const e = XR.yAt(clamp(x, 0, W - 1)) + up * hw; for (let y = up > 0 ? Math.ceil(e) : y0 + h; up > 0 ? y < y0 : y <= Math.floor(e); y++) if (free(x, y)) { Kr[idx(x, y)] = K.FRONT; Br[idx(x, y)] = it.id; } } } } } // its forecourt down to the road
   }
   // 3c'''. the power station, on a large block of an industrial quarter: turbine hall towards the street, boiler house, two tall chimneys and,
   // where there is room, two cooling towers with their steam
@@ -798,7 +834,7 @@ function generate(opts) {
         if (y > 0 && RG[i - W] < 0 && Kr[i - W] === K.NONE) { RG[i - W] = r; stack[sp++] = i - W; }
         if (y < L - 1 && RG[i + W] < 0 && Kr[i + W] === K.NONE) { RG[i + W] = r; stack[sp++] = i + W; } }
       const um = ns ? su / ns : uAt(start % W, (start / W) | 0);
-      const indR = isInd((y0 + y1) >> 1) && um >= 0.12; // inside an industrial quarter: yards, or waste ground at its edge
+      const indR = isInd((y0 + y1) >> 1) && um >= 0.22 && !(edge && um < 0.5); // inside an industrial quarter: waste ground (beyond its edge, fields as anywhere)
       regs.push({ waste: indR, k: indR ? K.MEADOW : (edge && um < 0.5) || um < 0.12 ? K.FIELD : um >= 0.62 ? K.COURT : um >= 0.28 ? K.GARDEN : K.MEADOW, n, x0, x1, y0, y1 });
     }
     for (let i = 0; i < N; i++) if (RG[i] >= 0) { const R = regs[RG[i]]; Kr[i] = R.k; if (R.waste) Br[i] = -8; } // -8: waste ground between the works
@@ -878,6 +914,7 @@ function generate(opts) {
     it.dmg = t;
     if (t === 2) { const along = it.ori === 'h' ? it.w : it.h; it.cut = { end: rnd(T.DMG, it.id, 2) < 0.5 ? 0 : 1, at: Math.max(2, Math.round(along * (0.35 + rnd(T.DMG, it.id, 3) * 0.3))) }; }
     it.fire = t > 0 && rnd(T.DMG, it.id, 5) < [0, 0.04, 0.2, 0.26, 0.05][t] * clamp(d * 1.8, 0, 1);
+    if (it.round && it.part !== 'tank') it.fire = false; // of the round buildings only an oil tank burns
     if (t >= 2) for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const i = idx(x, y); if (Br[i] !== it.id) continue; // the ground the game sees: rubble
       const lx = x - it.x0, ly = it.y0 + it.h - 1 - y, inner = lx > 0 && ly > 0 && lx < it.w - 1 && ly < it.h - 1;
       if (t === 4 || (t === 3 && inner) || (t === 2 && inCut(it, lx, ly))) Kr[i] = K.RUBBLE; }
@@ -1153,7 +1190,7 @@ function paint(plan, img, y0, h, opts) {
           if (sl) { const rr = Math.hypot(x + 0.5 - sl.x, y + 0.5 - sl.y), ring = sl.kind === 'arty' ? 6 : 4.5; if (Math.abs(rr - ring) < 1.1) { c = ((Math.atan2(y - sl.y, x - sl.x) * 3 | 0) & 1) ? C.sand[1] : C.sand[0]; break; } } // sandbag ring of a gun pit
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
-        case K.MEADOW: if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.58 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
+        case K.MEADOW: if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.64 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
           c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
         case K.RIVER: { const R = riverOf(plan, y), cx2 = clamp(x, 0, W - 1), bs = plan.basins && plan.basins.find(q => x >= q.x0 && x <= q.x1 && y >= q.ya && y <= q.yb);
           let e = bs ? Math.min(x - bs.x0 + 0.5, bs.x1 - x + 0.5, bs.dir > 0 ? bs.yb - y + 0.5 : y - bs.ya + 0.5) : R.hw[cx2] - Math.abs(y + 0.5 - R.yc[cx2]); // a harbour basin's still water
