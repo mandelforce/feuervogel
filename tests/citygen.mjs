@@ -74,6 +74,18 @@ for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.
   if (!ok) fail(`${preset}: piers ${piers}, ships ${ships}, lighthouses ${lights}, bunkers ${bunker}, channels ${chan}/${side}, rail in the sea ${wetRail}, forms ${JSON.stringify(forms)}`);
   console.log(`${fails || !ok ? 'FAIL' : 'ok  '} ${preset.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass (${Object.entries(forms).map(([k, v]) => k + ' ' + v).join(', ')}), ${(piers / 100).toFixed(1)} piers and ${(ships / 100).toFixed(1)} ships per port, lighthouses and U-boat bunker in every one, fairways for destroyers and submarines (40 px, 30 in a side channel) clear in every one${preset === 'coast' ? '' : ', a fleet area for the flagship beyond every breakwater'}, a ship passing in every side channel, old town in ${ot}`);
 }
+// the beach landing: every hard rule, beach exits from the coastal road, a bunker line in the dunes (at least four bunkers), a coastal battery
+// with its radar, obstacles and wire on the sand, the sea before the beach open for the flagship, nothing standing in the sea
+for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 99, bat = 0, radar = 0, obst = 0, fleet = 0, wet = 0;
+  for (let seed = 1; seed <= 60; seed++) { const p = CG.generate({ seed, preset: 'beach', params: { damage } }), m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`beach damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}`); }
+    const nb = p.beachSlots.filter(b => b.kind === 'bunker' && b.on !== 'radar').length; bunkers += nb; minB = Math.min(minB, nb); if (p.battery >= 3) bat++; if (p.beachSlots.some(b => b.on === 'radar')) radar++;
+    if ((p.coast.exits || []).length >= 2) exits++; if (p.obstacles.length > 40 && p.wires.length) obst++; if (p.fleetArea) fleet++;
+    for (const it of p.items) for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (p.K[y * p.W + x] === CG.K.SEA && p.B[y * p.W + x] === it.id) wet++; }
+  const ok = !fails && exits === 60 && minB >= 4 && bat === 60 && radar >= 50 && obst === 60 && fleet === 60 && !wet;
+  if (!ok) fail(`beach damage ${damage}: exits ${exits}, bunkers min ${minB}, batteries ${bat}, radar ${radar}, obstacles ${obst}, fleet ${fleet}, in the sea ${wet}`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} beach     damage ${damage}: ${60 - fails}/60 pass, two or more exits in ${exits}, ${(bunkers / 60).toFixed(1)} bunkers in the dunes (at least ${minB}), a battery in ${bat} and a radar in ${radar}, obstacles and wire in ${obst}, the flagship's sea open in ${fleet}`);
+}
 // harbours and railways: harbours in most river towns, a straight main line in every town, stations and second lines in most, rail bridges
 // wherever a line crosses a river, no rail under a building other than the train shed, and the game's trains (16 px wide, about 200 px long)
 // fit their runs: nothing within 8 px of the track (validate's trainBlocked, part of every pass above)

@@ -614,3 +614,14 @@ The quarter around the densest point (the market square, the old core) and the q
 Validation counts any pixel in a fairway or the fleet area that is not open water or that a moored or passing ship covers (`lanesBlocked`, part of every pass). The lab draws the fairways and the fleet area with the tank and train routes.
 
 The **south port** (`preset: 'portSouth'`) mirrors the port along the strip: the level begins over the sea, and the town starts at a quay at 20 percent of its length. The breakwater, fairway and fleet area lie south of the quay, the main road and the railway's main line begin at the end waterfront street, and the density is highest near the harbour. It comes as an end or a corner harbour, the side coast swinging out again after its side harbour. The tank-route check now starts from the lowest row the tank routes reach, since the strip may begin over water. 600 ports (port, south port, coastal city; two damage levels) pass every rule.
+
+The **beach landing** (`preset: 'beach'`, 1600 px) begins over the sea, the flagship's fleet area open before the beach. A curving natural shoreline (`coast.ycol`, one row per column) runs into a beach 52 to 64 px deep and 28 px of dunes, with a coastal road behind them; two or three exits lead from the road down onto the sand. On the beach:
+
+- hedgehogs in the shallows and on the wet sand, a row of mined stakes above them, barbed wire along the top of the beach that opens at the exits;
+- each exit closed by anti-tank walls either side of the road with dragon's teeth in front, and a casemate either side;
+- between the exits a bunker line in the dunes: casemates with their embrasures and guns facing the sea, round pillboxes and Tobruk pits, spaced 14 to 21 px with room to their neighbours (about six per beach, at least four), joined by a zigzag trench;
+- wrecked landing craft at the waterline, shell craters on the sand;
+- behind the road a coastal battery of three or four big casemates with a trench and a radar dish;
+- inland, bocage: small fields edged with hedgerows, and a village.
+
+Bunkers become the game's `bunker` slots and the battery its `arty` slots (`plan.beachSlots`, taken before the quota). Concrete takes only shell holes and is drawn with a bare low wall, with no windows.
