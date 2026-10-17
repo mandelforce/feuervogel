@@ -697,3 +697,5 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
   - types and pixels from the plan;
   - the same ground after a resume;
   - a bot flight in which the submarine takes its berth, the boss comes, and the level returns to the picker on 6B.
+
+**Harbour water (owner feedback: make it match the ocean).** `CityGen.paint` takes `opts.seaPix(x, y, harbour)`, the host's own water colour. The game passes `planSeaColor`: its own sea noise and palette, for the open sea and, calmer (weaker waves, a shade darker), for harbour basins. The plan's surf on the shore and everything drawn over the water (ships, cranes, lighthouses) stay as they are. This replaces the repaint of the open sea after painting, which would also have painted over ships lying in open water. The lab keeps the generator's own water.

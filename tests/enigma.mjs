@@ -129,7 +129,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(6); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let road = 0, types = 0, n = 0;
     for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; if (Math.abs(roadX(wy) - P.mx[y]) > 0.01) road++; for (let x = 3; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + S.planC0 + 20; startChunk(p); const job = world.chunkJobs[world.chunkJobs.length - 1]; workChunk(job, CH); world.chunkJobs.pop();
-    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
     startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop(); for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++; /* painted in bands as a frame budget does */
     const R = P.rivers[0], sc0 = world.scroll; let flow = 0, fires = 0; // the moving parts: river streaks where the river is on screen, flames where fires are
     if (R) { world.scroll = Math.round(R.yMin + 60 - S.planY0); flow = CityGen.riverFx(P, 1.5, Math.max(0, S.planY0 + world.scroll - H), S.planY0 + world.scroll + 1).length; drawPlanFx(world.scroll); }
@@ -154,15 +154,14 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     settings.diff = 1; startEnigma(7); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 41) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 31) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 30; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
-    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0, openSea = 0;
-    for (let i = 0; i < img.data.length; i++) { const q = i >> 2, j = (S.planY0 - (-p * CH + Math.floor(q / W))) * W + q % W; if (P.K[j] === CityGen.K.SEA && P.B[j] === -1) { openSea++; continue; } if (img.data[i] !== jb.img.data[i]) pix++; } // the open sea is the game's own sea colour
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).b === 'sea' && info(world.stageBaseP).plan === true;
     return { shown, hiddenCamp, pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, mode: P.coast.mode, cs: P.coast.cs, side: !!P.port.side, piers: P.port.piers, sub: P.slots.some(q => q.kind === 'sub'), per: P.perimeter && P.perimeter.y0, st: P.station && P.station.y1, msg: app.msg && app.msg.a }; })()`);
   ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 6B (the practice picker does not)');
   ok(r.pass && r.L === r.len && r.seaFirst, `level 6B plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
   ok(r.mode === 'corner' && r.cs === 1 && r.side && r.piers >= 3 && r.sub, `level 6B has the south harbour (${r.piers} piers, a submarine berth) with the east harbour opening into it`);
   ok(r.per === r.L - 64 && r.st !== null && r.st < r.per, `level 6B ends at the airfield's perimeter, its station before it (station to ${r.st}, perimeter from ${r.per})`);
-  ok(r.types === 0 && r.pix === 0, `level 6B ground types and pixels come from its plan, the open sea in the game's own sea colour (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  ok(r.types === 0 && r.pix === 0, `level 6B ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
   const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
   const fresh = await peek(page, `(() => { startEnigma(7); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
   ok('7:' + fresh === resumed, `level 6B is the same ground after a resume (${fresh})`);
