@@ -131,9 +131,14 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     const p = world.stageBaseP + S.planC0 + 20; startChunk(p); const job = world.chunkJobs[world.chunkJobs.length - 1]; workChunk(job, CH); world.chunkJobs.pop();
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
     startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop(); for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++; /* painted in bands as a frame budget does */
+    const R = P.rivers[0], sc0 = world.scroll; let flow = 0, fires = 0; // the moving parts: river streaks where the river is on screen, flames where fires are
+    if (R) { world.scroll = Math.round(R.yMin + 60 - S.planY0); flow = CityGen.riverFx(P, 1.5, Math.max(0, S.planY0 + world.scroll - H), S.planY0 + world.scroll + 1).length; drawPlanFx(world.scroll); }
+    const f0 = P.fires[Math.floor(P.fires.length / 2)]; if (f0) { world.scroll = Math.round(f0.y0 + 120 - S.planY0); drawPlanFx(world.scroll); fires = S.fireFx ? S.fireFx.size : 0; } world.scroll = sc0;
     const entry = Math.abs(P.mx[0] - roadXl(S.planY0));
-    return { pass: v.pass, L: P.L, len: (S.len - S.planC0) * CH, road, types, n, pix, entry, slots: P.slots.length, plan: info(p).plan === true }; })()`);
+    return { pass: v.pass, L: P.L, len: (S.len - S.planC0) * CH, road, types, n, pix, entry, slots: P.slots.length, plan: info(p).plan === true, flow, fires, per: P.perimeter ? P.perimeter.y0 : null, st: P.station ? P.station.y1 : null }; })()`);
   ok(r.pass && r.L === r.len && r.plan, `level 6 plan passes the generator's hard rules and covers the farmland to the level's end (${r.L} px, ${r.slots} gun slots)`);
+  ok(r.flow > 0 && r.fires > 0, `the river and the fires move (${r.flow} streaks on screen over the river, ${r.fires} fires animated)`);
+  ok(r.per === r.L - 64 && r.st !== null && r.st < r.per, `the town ends at the airfield's perimeter in the last chunk, the station before it (perimeter from row ${r.per}, station to ${r.st})`);
   ok(r.road === 0 && r.entry < 0.5, `the game's road is the plan's main road, starting where the legacy road enters (${r.road} rows off, entry gap ${r.entry.toFixed(2)} px)`);
   ok(r.types === 0, `ground types come from the plan (${r.types} of ${r.n} samples differ)`);
   ok(r.pix === 0, `a plan chunk's pixels are the plan's painting, whole or in bands (${r.pix} bytes differ)`);

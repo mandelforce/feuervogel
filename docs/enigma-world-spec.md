@@ -645,10 +645,25 @@ Enigma Run level 6 now takes its ground from one settlement plan. The game carri
   - level 6 overall: 12.3 ms mean, against 20.8 ms before.
 - **Tests:** `tests/enigma.mjs` checks that the plan passes the hard rules and covers the level; that the road is the plan's (entry gap 0); that the ground types are the plan's; that the chunk pixels are the plan's, whole and in bands; that slots get used on a bot flight; and the determinism and hygiene checks as before. `tests/contact.mjs OUT 6 c4,69` puts the screen's bottom at chosen chunks, for looking at seams.
 
+**Level 6, second step (station, works, perimeter, motion):**
+- **By segment:**
+  - `stationAt` keeps the station in a share of the length; level 6 uses the `station_main` segment, ending 170 px before the plan's end. With a station stretch, the main road swings to the middle there (room either side), and the railway takes the edge with more room.
+  - `industryAt` makes every quarter in its share works, and none elsewhere; level 6 uses `industrial_power`, with the power station on.
+  - In 60 seeds the station was in its stretch every time, with no works outside theirs.
+- **The airfield's perimeter** (`perimeter`: 64 rows). The town is generated 64 rows shorter, its shares of the length scaled to match, then the last chunk is added after it:
+  - a perimeter road along the town's end (a tank route joined to the main road);
+  - the fence, a grass verge, and the concrete apron (`K.APRON`, game type `apron`, the final airfield's own concrete look);
+  - the main road through a gate between two guard houses;
+  - every track running on over the perimeter road to a buffer stop before the fence.
+  The final airfield then carries straight on from the apron.
+- **Moving parts in the game** (`drawPlanFx`, drawn after the chunks, drawing only):
+  - river streaks and glints from `CityGen.riverFx`;
+  - flames from `CityGen.paintFx`, each fire in its own small canvas, repainted every 3 frames (6 with low effects), staggered across frames;
+  - cost over the densest stretch: 27 fires, 1.75 ms mean, 2.7 ms p95.
+- **Guns:** in plan chunks, any city or factory ground-gun spawn first fills a gun slot of the plan that is coming up. A bot flight used 16 of 38 slots.
+- **Tests:** the whole-level sweep in `tests/citygen.mjs` (30 seeds: rules, station stretch, works, perimeter, buffer stops); in `tests/enigma.mjs`, the moving parts and the perimeter.
+
 **Next for level 6:**
-- Place features by segment: the station and rail yard in `station_main` at the end (now wherever the generator puts it), the works in `industrial_power`.
-- Soften the hard line where the city meets the final airfield, perhaps with the station's yard as the transition.
-- Animated layers in the game: river streaks (`CityGen.riverFx`) and fires (`CityGen.paintFx`).
 - Trains on the plan's `trainRuns`, boats on the river.
 - Route objects for road traffic (deferred, see 13a).
 - Phone timing of the plan build; a Worker if it stalls.

@@ -107,6 +107,19 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     const d = img.data; for (let o = 0; o < d.length; o += 4) if (d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2]) marks++; }
   if (marks) fail(`road markings: ${marks} marking pixels painted`); else console.log('ok   road markings: none in 4 painted towns');
 }
+// a whole level (as Enigma Run level 6 builds it): 4224 px of river town with the station kept to its stretch near the end, works only in
+// theirs, and the airfield's perimeter in the last 64 rows (perimeter road, fence, gate, apron, tracks ending at buffer stops)
+{ const L = 4224, params = { L, density: [[0, 0.05], [0.061, 0.05], [0.212, 0.3], [0.333, 0.5], [0.44, 0.65], [0.576, 0.8], [0.674, 1], [0.773, 1], [0.856, 0.9], [0.947, 0.9], [1, 0.9]], damageCurve: [[0, 0], [0.33, 0.09], [0.576, 0.24], [0.674, 0.36], [0.773, 0.45], [0.856, 0.6], [1, 0.48]], damage: 1, farms: 0.4,
+    road0: 120, stationAt: [0.894, 1 - 170 / L], stationRoom: 64, industryAt: [0.727, 0.818], power: true, perimeter: 64, river: Object.assign({}, CG.PRESETS.river.river, { at: 0.52 }) };
+  let fails = 0, st = 0, ind = 0, out = 0, per = 0, stops = 0;
+  for (let seed = 1; seed <= 30; seed++) { const p = CG.generate({ seed, preset: 'river', params }), m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`level seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
+    if (p.station && p.station.y >= 0.87 * L && p.station.y1 < p.perimeter.y0) st++;
+    for (const q of p.quarters) if (q.style === 'industry') { const f = (q.y0 + q.y1) / 2 / L; if (f > 0.7 && f < 0.84) ind++; else out++; }
+    const pm = p.perimeter; if (p.L === L && pm && p.K[(pm.apron + 5) * p.W + 3] === CG.K.APRON && p.K[pm.road * p.W + 3] === CG.K.ROAD && Math.abs(p.mx[L - 1] - p.mx[pm.y0 - 1]) < 1) per++; if (pm && pm.stops.length >= 1) stops++; }
+  const ok = !fails && st === 30 && !out && ind >= 20 && per === 30 && stops === 30;
+  if (!ok) fail(`level: station in its stretch ${st}/30, works in theirs ${ind} (outside ${out}), perimeter ${per}/30, buffer stops ${stops}/30`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} whole level (4224 px): ${30 - fails}/30 pass, station in its stretch in ${st}, ${ind} works quarters in theirs and ${out} outside, the airfield's perimeter in ${per}, buffer stops in ${stops}`); }
 // the game carries a copy of the generator (index.html, cityGenSrc): it must be the current one (node scripts/embed-citygen.mjs)
 { const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../tools/citygen.js', import.meta.url), 'utf8'), open = '<script type="text/plain" id="cityGenSrc">\n';
   const a = html.indexOf(open), b = html.indexOf('</script>', a), same = a >= 0 && html.slice(a + open.length, b) === src;
