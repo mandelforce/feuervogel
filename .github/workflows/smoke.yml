@@ -17,6 +17,8 @@ jobs:
           node-version: 20
       - name: Unit tests (leaderboard Worker rules)
         run: node --test tests/
+      - name: City generator (settlement rules over many seeds)
+        run: node tests/citygen.mjs
       - name: Install headless browser
         run: |
           npm install --no-save playwright@1
@@ -35,6 +37,9 @@ jobs:
       # tests/golden.json exactly, so no change can alter how the Campaign plays without the PR turning red.
       - name: Replay test
         run: node tests/replay.mjs
+      # Enigma Run plumbing (docs/enigma-world-spec.md): sorties, flags, level end, resume, picker, and no state left behind by an Enigma Run level.
+      - name: Enigma Run test
+        run: node tests/enigma.mjs
       - name: Performance check (warning only)
         continue-on-error: true
         run: node tests/perf.mjs --warn
