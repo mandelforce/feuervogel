@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- The railway tunnel fits its place: the portal is centred on the track and stays off the street. The hill over it is symmetric about the track and only covers open ground. The last warehouse on the quay is shorter, leaving room in front of the portal.
 - The railway tunnel is now sandstone, with a round-topped portal and a mound of sandy rock, and big enough for the game's trains: a 20 px mouth for a 16 px train.
 - Enigma Run level 6B: the east harbour has no breakwater any more. Its calm water runs out to the edge, with a 50 px lane where warships can sail, and fades smoothly into the open sea. The quayside railway now ends in a tunnel instead of stopping dead. (The tower seen on the old breakwater was an AA tower enemy; with the wall gone it can no longer stand in the water.)
 - Enigma Run harbours: the harbour water now has the same colour and texture as the open sea, a little calmer behind the breakwater, instead of a flat darker blue. Ships lying in open water are no longer painted over.

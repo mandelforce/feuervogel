@@ -678,7 +678,7 @@ function generate(opts) {
         for (let q = 0; q < n; q++) { const y0 = ys0 + q * 16; fillR(X(-12), X(PL - 4), y0, y0 + 10, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'h', bow: cs, x0: Math.round(Math.min(X(-6), X(PL - 6))), y0: y0 + 1, w: PL - 2, h: 9 }); }
         if (n) for (const d of [4, PL - 10]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
       for (let y = hy0 + 60; y < hy1 - 6; y += 22) plan.cranes.push({ x: Math.round(X(-3)), y, dx: cs, dy: 0.25 });
-      for (let y = hy0 + 58; y + 30 < hy1; ) { const len = 28 + ((rnd(T.SEA, y, 3) * 10) | 0), x0 = Math.round(Math.min(X(-16), X(-4))); if (rectIs(x0, y, 13, len, K.WORKS)) { const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: y, w: 13, h: len, ori: 'v', style: rnd(T.SEA, y, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, y, 5) < 0.5 ? 1 : 3, seed: h32(seed, 66000 + y), dmg: 0 }); fill(x0, y, 13, len, K.BLDG, it.id); } y += len + 4; }
+      for (let y = hy0 + 58; y + 30 < hy1; ) { const len = Math.min(28 + ((rnd(T.SEA, y, 3) * 10) | 0), hy1 - 16 - y), x0 = Math.round(Math.min(X(-16), X(-4))); if (len >= 14 && rectIs(x0, y, 13, len, K.WORKS)) { /* the last one stops short of the tunnel portal */ const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: y, w: 13, h: len, ori: 'v', style: rnd(T.SEA, y, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, y, 5) < 0.5 ? 1 : 3, seed: h32(seed, 66000 + y), dmg: 0 }); fill(x0, y, 13, len, K.BLDG, it.id); } y += len + 4; }
       if (!(RL && RL.branch)) { for (let y = hy0 + 56; y < hy1 - 4; y++) layTrack(X(-26), y); plan.tunnels.push({ x: Math.round(X(-26)), y: hy1 - 5, dir: 1 }); } // the quayside track runs on into a tunnel
       // the fairway along the channel: from the closed end out of the harbour (past its head, or into the end harbour and through its entrance)
       const lx = Math.round(sideLaneX), ly0 = Math.min(yClosed + 4, corner ? yM : L - 1), ly1 = Math.max(yClosed + 4, corner ? (hd > 0 ? L - 1 : 0) : L - 1);
@@ -1547,15 +1547,21 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour) -> [r, g,
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = Math.round(pm.gate - pm.gw / 2); x <= pm.gate + pm.gw / 2 - 2; x++) put(x, pm.fence, ((x >> 1) % 2) ? C.lit : C.fire[1]);
     for (const b of pm.stops) { if (b.y < y0 - 3 || b.y > y0 + h + 3) continue; for (let x = b.x0; x <= b.x1; x++) { put(x, b.y, C.fire[1]); put(x, b.y + 1, C.dark); } } }
-  for (const tn of plan.tunnels || []) { if (tn.y + 26 < y0 || tn.y - 26 >= y0 + h) continue; const { x: tx, y: ty, dir } = tn, soft = k => k === K.BEACH || k === K.MEADOW || k === K.FRONT || k === K.GARDEN || k === K.LOT || k === K.WORKS || k === K.NONE || k === K.FIELD || k === K.PARK || k === K.RUBBLE || k === K.RAIL || k === K.TRACK;
-    // sized for the game's trains (16 px wide): a 20 px round-topped mouth in a 28 x 7 px sandstone face, under a mound of sandy rock 36 px across
-    for (let k = 1; k <= 18; k++) { const yy = ty + dir * (k + 6), hw = 18 - k * 0.45; for (let xx = Math.floor(tx - hw); xx <= tx + hw; xx++) { const j = at(xx, yy); if (j < 0 || !soft(Kr[j])) continue; const e = Math.abs(xx + 0.5 - tx) / hw, n = hh(xx * 3, yy * 5);
-      put(xx, yy, e > 0.9 || k === 18 ? TUN[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : TUN[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
-    for (let r = 0; r <= 6; r++) for (let xx = tx - 14; xx <= tx + 13; xx++) { const yy = ty + dir * r, dx = xx + 0.5 - tx, inner = Math.abs(dx) < [10, 10, 10, 10, 9, 6.5, 0][r], arch = true; // a round-topped arch
-      let c; if (inner && arch) c = r === 0 ? C.dark : r <= 2 ? C.shadow : TUN_IN; // the mouth, darkening into the tunnel
-      else { const course = r % 2 ? (xx + 2) % 6 === 0 : xx % 6 === 0; c = r === 6 || Math.abs(dx) > 13 ? TUN[0] : Math.abs(dx) < [10, 10, 10, 10, 9, 6.5, 0][r] + 1.6 ? TUN[4] : course ? TUN[1] : TUN[pickI(5, 0.62 + (hh(xx, yy) - 0.5) * 0.3 + (r <= 1 ? -0.15 : 0), xx, yy)]; } // dressed sandstone blocks, a light arch ring, the face darker at its foot
-      const j = at(xx, yy); if (j >= 0 && Kr[j] === K.BLDG && !(inner && arch)) continue; put(xx, yy, c); } // a building beside it stays in front
-    for (let xx = tx - 14; xx <= tx + 13; xx++) { const j = at(xx, ty - dir); if (j >= 0 && Kr[j] !== K.BLDG) put(xx, ty - dir, C.shadow, 0.4); } }
+  for (const tn of plan.tunnels || []) { if (tn.y + 26 < y0 || tn.y - 26 >= y0 + h) continue; const { x: tx, y: ty, dir } = tn, soft = k => k === K.BEACH || k === K.MEADOW || k === K.FRONT || k === K.GARDEN || k === K.LOT || k === K.WORKS || k === K.NONE || k === K.FIELD || k === K.PARK || k === K.RUBBLE || k === K.RAIL || k === K.TRACK || k === K.BANK;
+    // sized for the game's trains (16 px wide): an 18 px round-topped mouth in a 22 x 7 px sandstone face, the track's centre its axis; over it a
+    // mound of sandy rock, symmetric about the track and as wide as the open ground allows on both sides (never over a street or a building)
+    const open = (xx, yy) => { const j = at(xx, yy); return j >= 0 && soft(Kr[j]); };
+    let hwPrev = 11;
+    for (let k = 1; k <= 18; k++) { const yy = ty + dir * (k + 6); let hw = Math.min(hwPrev + 1, 11 + k * 0.6, 19 - Math.max(0, k - 10) * 1.2); let free = 0; while (free < hw && open(tx - 1 - free, yy) && open(tx + free, yy)) free++; hw = Math.min(hw, free); if (hw < 4) break; hwPrev = hw;
+      for (let xx = tx - Math.floor(hw); xx < tx + Math.floor(hw); xx++) { const e = Math.abs(xx + 0.5 - tx) / hw, n = hh(xx * 3, yy * 5);
+        put(xx, yy, e > 0.88 ? TUN[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : TUN[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
+    const MW = [9, 9, 9, 9, 8, 5.5, 0]; // the mouth's half-width per row: straight sides, a round top
+    for (let r = 0; r <= 6; r++) for (let xx = tx - 11; xx <= tx + 10; xx++) { const yy = ty + dir * r, dx = xx + 0.5 - tx, inner = Math.abs(dx) < MW[r], j = at(xx, yy);
+      if (!inner && j >= 0 && (Kr[j] === K.BLDG || Kr[j] === K.ROAD || Kr[j] === K.STREET)) continue; // never over a building or a carriageway
+      let c; if (inner) c = r === 0 ? C.dark : r <= 2 ? C.shadow : TUN_IN; // the mouth, darkening into the tunnel
+      else { const course = r % 2 ? (xx + 2) % 6 === 0 : xx % 6 === 0; c = r === 6 || Math.abs(dx) > 10 ? TUN[0] : Math.abs(dx) < MW[r] + 1.6 ? TUN[4] : course ? TUN[1] : TUN[pickI(5, 0.62 + (hh(xx, yy) - 0.5) * 0.3 + (r <= 1 ? -0.15 : 0), xx, yy)]; } // dressed sandstone blocks, a light arch ring
+      put(xx, yy, c); }
+    for (let xx = tx - 11; xx <= tx + 10; xx++) { const j = at(xx, ty - dir); if (j >= 0 && soft(Kr[j])) put(xx, ty - dir, C.shadow, 0.4); } }
   for (const o of plan.obstacles || []) { if (o.y < y0 - 4 || o.y > y0 + h + 4) continue; // Czech hedgehogs, mined stakes, dragon's teeth
     if (o.kind === 'hedgehog') { for (let k = -2; k <= 2; k++) { put(o.x + k, o.y + k, C.shadow); put(o.x + k, o.y - k, C.shadow); } put(o.x + 1, o.y - 1, C.conc[3]); put(o.x - 1, o.y + 1, C.conc[3]); put(o.x + 3, o.y - 2, C.shadow, 0.35); }
     else if (o.kind === 'stake') { put(o.x, o.y, C.beam); put(o.x, o.y + 1, C.beam); put(o.x, o.y + 2, C.fence); put(o.x + 1, o.y + 2, C.dark); put(o.x + 1, o.y - 1, C.shadow, 0.35); }
