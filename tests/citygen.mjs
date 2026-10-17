@@ -48,6 +48,15 @@ for (const preset of ['town', 'river']) { let fails = 0;
   if (n.old < 80 || n.star < 85 || short.length) fail(`step 2: old towns ${n.old}, roundabouts ${n.star}, ${JSON.stringify(civ)}`);
   else console.log(`ok   step 2 in 100 towns: old town ${n.old}, roundabout ${n.star}, ${Object.entries(civ).map(([k, v]) => k.toLowerCase() + ' ' + v).join(', ')}`);
 }
+// the village and the industrial estate: every hard rule, a village green with farmsteads, industrial quarters with a power station
+for (const preset of ['village', 'industrial']) for (const damage of [0, 0.6]) { let fails = 0, green = 0, farms = 0, ind = 0, power = 0;
+  for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}`); }
+    if (p.oldTown && p.oldTown.green) green++; farms += p.farms.length; if (p.quarters.some(q => q.style === 'industry')) ind++; if (m.civic.includes('Power station')) power++; }
+  const want = preset === 'village' ? green >= 90 && farms >= 2000 : ind >= 95 && power >= 85;
+  if (!want) fail(`${preset}: green ${green}, farms ${farms}, industrial ${ind}, power stations ${power}`);
+  console.log(`${fails || !want ? 'FAIL' : 'ok  '} ${preset.padEnd(10)} damage ${damage}: ${100 - fails}/100 pass, ` + (preset === 'village' ? `village green in ${green}, ${(farms / 100).toFixed(1)} farmsteads per village` : `industrial quarters in ${ind}, power station in ${power}`));
+}
 // harbours and railways: harbours in most river towns, stations in most towns, and the railway never over water or under a house
 { const n = { hb: 0, st: 0, stR: 0 }; let wet = 0, under = 0;
   for (let seed = 1; seed <= 100; seed++) for (const preset of ['town', 'river']) { const p = CG.generate({ seed, preset }); if (preset === 'river' && p.harbour) n.hb++; if (p.station) preset === 'town' ? n.st++ : n.stR++;

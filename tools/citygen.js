@@ -51,6 +51,7 @@ const PRESETS = {
     stars: 1, star: { ro: 17, ri: 8, rays: true },
     civic: { townHall: true, government: true, domedHall: true, store: true, gasworks: true },
     railway: true, harbour: false, // a railway line along the town's edge with a station; a harbour district on a river bank (river presets)
+    industry: 0.2, industryMaxU: 0.75, power: false, farms: 0, // industrial quarters (chance per quarter), a power station, courtyard farmsteads
     slots: { flakSpacing: 44, artySpacing: 72, flakPer300: 2.2, artyPer300: 1.1 },
   },
 };
@@ -58,6 +59,17 @@ const PRESETS = {
 // an old-town island on the main road reached by two bridges, and one more bridge for a collector.
 PRESETS.river = Object.assign({}, PRESETS.town, { harbour: true, label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
 // Two rivers: the river town plus a narrower second river (a tributary, no island) further along
+// A village (Angerdorf): the main road splits round a lens-shaped green with the church and a pond; courtyard farmsteads along the roads,
+// fields all round, farm tracks; no old town, no public buildings, no railway
+PRESETS.village = Object.assign({}, PRESETS.town, { label: 'Village', L: 1200,
+  density: [[0, 0.02], [0.25, 0.14], [0.45, 0.36], [0.62, 0.4], [0.8, 0.22], [1, 0.03]], damage: 0.15, coreBase: 18, coreGrow: 90, fray: 34,
+  crossSpacing: [150, 90], crossMinU: 0.2, squares: false, cathedral: false, parishMinU: 2, parkSpacing: 1e9, lotChance: 0.02,
+  oldTown: { green: true, rx: [30, 40], rxMin: 28, ry: [62, 90], ring: 10, lane: 6, belt: [0, 0], minU: 0.25 },
+  stars: 0, civic: {}, railway: false, harbour: false, industry: 0, farms: 0.62, houses: { detached: [0.45], terraceTo: 0.8 } });
+// An industrial estate: industrial quarters with wide service roads, halls, tank farms, coal yards and a power station; workers' terraces between
+PRESETS.industrial = Object.assign({}, PRESETS.town, { label: 'Industrial estate', L: 1800,
+  density: [[0, 0.05], [0.15, 0.4], [0.5, 0.62], [0.85, 0.58], [1, 0.3]], damage: 0.3, squares: false, cathedral: false, parishSpacing: 900,
+  oldTown: null, stars: 0, civic: { gasworks: true }, railway: true, harbour: false, industry: 0.8, industryMaxU: 1, power: true });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -130,7 +142,7 @@ function generate(opts) {
   // 2. streets
   // a street: { cls: 'arterial' | 'collector' | 'local', axis: 'v' | 'h', tank, pts: [[x, y, w]] (v: one point per y; h: per x), y0, y1 | x0, x1, side }
   function paintV(st) { // x of the centre and width per row
-    const pp = st.pts; for (let q = 0; q < pp.length; q++) { const [xc, y, w] = pp[q], dd = (pp[Math.min(q + 1, pp.length - 1)][0] - pp[Math.max(q - 1, 0)][0]) / Math.max(1, Math.min(q + 1, pp.length - 1) - Math.max(q - 1, 0)), sf = Math.sqrt(1 + dd * dd); // wider across a slanted row, so the street keeps its width
+    const pp = st.pts; for (let q = 0; q < pp.length; q++) { if (!pp[q][2]) continue; const [xc, y, w] = pp[q], dd = (pp[Math.min(q + 1, pp.length - 1)][0] - pp[Math.max(q - 1, 0)][0]) / Math.max(1, Math.min(q + 1, pp.length - 1) - Math.max(q - 1, 0)), sf = Math.sqrt(1 + dd * dd); // wider across a slanted row, so the street keeps its width
       const half = w / 2 * sf, car = (st.tank ? P.widths.carriage / 2 : Math.min(w / 2, 3.5)) * sf;
       for (let x = Math.floor(xc - half); x < Math.ceil(xc + half); x++) {
         if (!inB(x, y)) continue; const i = idx(x, y), cur = Kr[i], d = Math.abs(x + 0.5 - xc);
@@ -182,12 +194,13 @@ function generate(opts) {
   if (P.oldTown) { const O = P.oldTown; let yPk = 0; for (let y = 0; y < L; y++) if (plan.U[y] > plan.U[yPk] + 1e-6) yPk = y;
     const ry = Math.round(lerp(O.ry[0], O.ry[1], rnd(T.OLD, 1))), cand = [yPk]; for (const R of RVs) cand.push(Math.round(R.yMin - ry - 24), Math.round(R.yMax + ry + 24));
     for (const cy of cand) { if (OT) break; if (cy < ry + 40 || cy > L - ry - 40 || Uy(cy) < O.minU || RVs.some(R => cy + ry + 20 > R.yMin && cy - ry - 20 < R.yMax)) continue;
-      for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= 54 && !OT; rx -= 6) {
+      for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
         const cx = clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
-        for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
-        if (ok) OT = { cx, cy, rx, ry, rw: O.ring };
+        for (let y = cy - ry * (O.green ? 0.7 : 0.85); ok && y <= cy + ry * (O.green ? 0.7 : 0.85); y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * (O.green ? 0.7 : 0.55)) ok = false; } // the main road runs well inside
+        if (ok) OT = { cx, cy, rx, ry, rw: O.ring, green: !!O.green };
       } }
-    if (OT) { // the zone for the square and its buildings, on the roomier side of the main road
+    if (OT && OT.green) for (const p of plan.streets[0].pts) if (((p[0] - OT.cx) / (OT.rx - OT.rw / 2 - 1)) ** 2 + ((p[1] - OT.cy) / (OT.ry - OT.rw / 2 - 1)) ** 2 < 1) p[2] = 0; // the main road gives way to the green: traffic goes round it
+    if (OT && !OT.green) { // the zone for the square and its buildings, on the roomier side of the main road
       const room = s => OT.rx - s * (MX(OT.cy) - OT.cx) - AW(OT.cy) / 2 - OT.rw / 2, zs = room(1) >= room(-1) ? 1 : -1, xe = MX(OT.cy) + zs * (AW(OT.cy) / 2 + 1);
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
     plan.oldTown = OT; }
@@ -239,11 +252,12 @@ function generate(opts) {
     while (y < L) {
       const len = Math.round(lerp(P.quarterLen[0], P.quarterLen[1], rnd(T.QTR, q))), U = Uy(y + len / 2), r = rnd(T.QTR, q, 1);
       let style = U < P.fieldLanesU ? 'fields' : r < P.gridChance ? 'grid' : 'follow';
+      if (P.industry && U >= 0.25 && U <= P.industryMaxU && rnd(T.QTR, q, 7) < P.industry && (P.industry >= 0.7 || Math.abs(y + len / 2 - yPk) > len / 2 + 160) && !(OT && y < OT.cy + OT.ry + 60 && y + len > OT.cy - OT.ry - 60)) style = 'industry'; // an industrial estate: wide straight service roads
       if (style === 'grid' && RVs.some(R => y < R.yMax + 30 && y + len > R.yMin - 30)) style = 'follow'; // the riverside streets set the pattern there
       if (style === 'grid' && y < yPk + 130 && y + len > yPk - 130) style = 'follow';
       if (style === 'grid' && OT && y < OT.cy + OT.ry + 60 && y + len > OT.cy - OT.ry - 60) style = 'follow';
       const slope = style === 'grid' ? (rnd(T.QTR, q, 2) < 0.5 ? -1 : 1) * lerp(P.gridTilt[0], P.gridTilt[1], Math.pow(rnd(T.QTR, q, 3), P.gridTiltBias)) : 0; // most grids lean a little, steep ones are rare
-      quarters.push({ id: q, y0: y, y1: Math.min(L, y + len), style, slope, lean: (rnd(T.QTR, q, 6) - 0.5) * 0.1, scale: lerp(P.blockScale[0], P.blockScale[1], rnd(T.QTR, q, 4)), off: 0.88 + rnd(T.QTR, q, 5) * 0.24 });
+      quarters.push({ id: q, y0: y, y1: Math.min(L, y + len), style, slope, lean: (rnd(T.QTR, q, 6) - 0.5) * 0.1, scale: style === 'industry' ? 1.5 + rnd(T.QTR, q, 4) * 0.4 : lerp(P.blockScale[0], P.blockScale[1], rnd(T.QTR, q, 4)), off: 0.88 + rnd(T.QTR, q, 5) * 0.24 });
       y += len; q++;
     }
   }
@@ -270,7 +284,7 @@ function generate(opts) {
       const stn = !star && ST && !ST.done && ST.y < y + 30; if (stn) { ST.done = true; y = ST.y; } // the station street, to the station's square
       const U = Uy(y), Q = qAt(y);
       for (const s of [-1, 1]) {
-        let yc = star ? star.y : stn ? ST.y : y + (Q.style === 'grid' ? 0 : Math.round((rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger * (U < 0.75 ? 1 : 0.6))); // staggered crossroads, except in a planned grid
+        let yc = star ? star.y : stn ? ST.y : y + (Q.style === 'grid' || Q.style === 'industry' ? 0 : Math.round((rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger * (U < 0.75 ? 1 : 0.6))); // staggered crossroads, except in a planned grid
         if (!star && !stn && Q.style === 'fields') { let best = yc, bd = 1e9; for (const e of rowEdges) { const dd = Math.abs(e - yc); if (dd < bd) { bd = dd; best = e; } } yc = best; } // on the edge between two field strips
         if (yc < 6 || yc > L - 7 || (!star && plan.stars.some(o => Math.abs(o.y - yc) < P.crossMinGap + 4)) || (!stn && ST && Math.abs(ST.y - yc) < P.crossMinGap + 4)) continue;
         let xa = MX(yc), xEdge = xa + s * AW(yc) / 2;
@@ -284,7 +298,7 @@ function generate(opts) {
         while (x > 2 && x < W - 3 && uAt(x, line(x, ext / 80)) >= P.crossEndU) { x += s; ext++; }
         const runsOff = x <= 2 || x >= W - 3; if (runsOff) ext += 8; // reaches the edge of the strip: run off it
         if (ext < 22) continue;
-        const coll = U >= 0.6, w = coll ? P.widths.collector : P.widths.local;
+        const coll = U >= 0.6 || Q.style === 'industry', w = coll ? P.widths.collector : P.widths.local; // service roads take lorries and tanks
         const pts = [], xb = Math.round(clamp(xEdge + s * ext, -1, W)), xr = Math.round(xa); // from the main road's centre, so the carriageways join
         for (let xx = Math.min(xr, xb); xx <= Math.max(xr, xb); xx++) { if (xx < 0 || xx >= W) continue; const f = clamp(Math.abs(xx - xEdge) / Math.max(1, ext), 0, 1); pts.push([xx, line(xx, f), w]); }
         // inside the strip, out of the river, and never too close to the previous cross street on this side (where a tilted quarter meets a straight one)
@@ -327,7 +341,7 @@ function generate(opts) {
     for (let k = 0; k + 1 < list.length; k++) {
       const A = list[k], Bc = list[k + 1], ym = (A.yc + Bc.yc) / 2, U = Uy(ym), overRiver = A.quay === 'S' && Bc.quay === 'N' && A.river === Bc.river, OR = overRiver ? RVs[A.river] : null, Q = qAt(ym), jog = Q.style === 'follow' ? 1 + (rnd(tag, k, s + 5) - 0.5) * 2 * P.followJog : 1, lx = y => MX(y) + (lineAt(s, y, Q) - MX(y)) * jog; // old streets jog a little at each junction
       if (overRiver && plan.bridges.some(b => b.river === OR.id)) continue; // one more street crosses each river on a bridge: a collector, or the outer street past the island
-      if (!overRiver && (U < minU || rnd(tag, k, s + 3) > chance)) continue;
+      if (!overRiver && (U < minU || rnd(tag, k, s + 3) > chance || (Q.style === 'industry' && cls === 'local'))) continue;
       const xm = lx(ym); if (xm < 8 || xm > W - 9 || uAt(xm, ym) < 0.42) continue;
       if (overRiver && OR.island && Math.abs(xm - OR.ix) < OR.rx + 16) continue; // the collector's bridge must be clear of the island
       let ya = crossYat(A, lx(A.yc)), yb = crossYat(Bc, lx(Bc.yc));
@@ -355,7 +369,7 @@ function generate(opts) {
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     // the old town's lanes: narrow and winding, from the main road out to the ring, a few joined by lanes along the main road; none in the zone
     const Z = OT.zone, lanes = { '-1': [], '1': [] }; let y = OT.cy - OT.ry + OT.rw + 6 + rnd(T.OLD, 3) * 8, n = 0;
-    while (y < OT.cy + OT.ry - OT.rw - 6) {
+    while (!OT.green && y < OT.cy + OT.ry - OT.rw - 6) {
       for (const s of [-1, 1]) {
         const yc = Math.round(y + (rnd(T.OLD, n, s + 5) - 0.5) * 9); if (s === Z.s && yc > Z.y0 - 5 && yc < Z.y1 + 5) continue;
         const xa = MX(yc), slope = (rnd(T.OLD, n, s + 7) - 0.5) * 0.36, amp = 1.2 + rnd(T.OLD, n, s + 9) * 2.4, ph = rnd(T.OLD, n, s + 11) * 6.283;
@@ -438,7 +452,8 @@ function generate(opts) {
     for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; }
     return it;
   }
-  plan.civic = []; plan.works = [];
+  plan.civic = []; plan.works = []; plan.farms = []; plan.heaps = []; plan.steam = [];
+  const isInd = y => qAt(y).style === 'industry';
   const civ = P.civic || {};
   const rectIs = (x0, y0, w, h, k) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== k) return false; return true; };
   // 3a''. the harbour district: a works yard behind a quay wall, a basin cut into the bank with a quay round it, warehouses along the basin,
@@ -567,7 +582,7 @@ function generate(opts) {
       for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + bk.s * (AW(y) / 2 + 1)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 80) x += bk.s; rows.push([y, Math.min(xs, x - bk.s), Math.max(xs, x - bk.s)]); }
       while (rows.length && rows[0][2] - rows[0][1] < 24) rows.shift(); while (rows.length && rows[rows.length - 1][2] - rows[rows.length - 1][1] < 24) rows.pop();
       if (rows.length < 20) return null; return { y0: rows[0][0], y1: rows[rows.length - 1][0], x0: Math.max(...rows.map(r => r[1])), x1: Math.min(...rows.map(r => r[2])) }; };
-    const take = (tag, minU, fn) => { const list = blocks.filter(bk => Uy(bk.ym) >= minU).sort((a, b) => rnd(T.CIV, a.A.id, tag) - rnd(T.CIV, b.A.id, tag));
+    const take = (tag, minU, fn) => { const list = blocks.filter(bk => Uy(bk.ym) >= minU && !isInd(bk.ym)).sort((a, b) => rnd(T.CIV, a.A.id, tag) - rnd(T.CIV, b.A.id, tag));
       for (const bk of list) { if (plan.civic.some(c => Math.abs(c.y0 + c.h / 2 - bk.ym) < 130) || plan.squares.some(q => Math.abs(q.cy - bk.ym) < 120) || plan.churches.some(c => Math.abs(c.yFront - bk.ym) < 60) || plan.stars.some(o => Math.abs(o.y - bk.ym) < 30)) continue;
         const R = rectOf(bk); if (R && fn(bk, R, R.x1 - R.x0 + 1, R.y1 - R.y0 + 1)) return true; } return false; };
     if (civ.government) take(1, 0.62, (bk, R, w, h) => { const s = bk.s, fd = 9, bw = Math.min(62, w - fd - 1), bh = Math.min(50, h - 2); if (bw < 34 || bh < 30) return false;
@@ -592,7 +607,7 @@ function generate(opts) {
     for (const s of [-1, 1]) for (let k = 0; k + 1 < cross[s].length; k++) { const A = cross[s][k], Bc = cross[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (Uy(ym) >= 0.5 && Uy(ym) <= 0.93 && Bc.yc - A.yc < 80) blocks.push({ s, A, B: Bc, ym }); }
     blocks.sort((a, b) => rnd(T.PARK, a.A.id) - rnd(T.PARK, b.A.id));
     for (const bk of blocks) {
-      if (plan.parks.some(p => Math.abs(p.ym - bk.ym) < P.parkSpacing) || plan.squares.some(q => Math.abs(q.cy - bk.ym) < 160) || plan.churches.some(c => Math.abs(c.yFront - bk.ym) < 70) || (OT && Math.abs(bk.ym - OT.cy) < OT.ry + OT.rw) || plan.civic.some(c => Math.abs(c.y0 + c.h / 2 - bk.ym) < 90)) continue;
+      if (isInd(bk.ym) || plan.parks.some(p => Math.abs(p.ym - bk.ym) < P.parkSpacing) || plan.squares.some(q => Math.abs(q.cy - bk.ym) < 160) || plan.churches.some(c => Math.abs(c.yFront - bk.ym) < 70) || (OT && Math.abs(bk.ym - OT.cy) < OT.ry + OT.rw) || plan.civic.some(c => Math.abs(c.y0 + c.h / 2 - bk.ym) < 90)) continue;
       const ya = Math.ceil(bk.A.yc + bk.A.w / 2) + 1, yb = Math.floor(bk.B.yc - bk.B.w / 2) - 1; let n = 0;
       const rows = [];
       for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + bk.s * (AW(y) / 2 + 1)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 90) x += bk.s; rows.push([y, Math.min(xs, x - bk.s), Math.max(xs, x - bk.s)]); }
@@ -602,6 +617,28 @@ function generate(opts) {
       plan.parks.push({ s: bk.s, ym: bk.ym, ya, yb, area: n });
     }
   }
+  // 3c''. the village green (Angerdorf): the church in the middle with its churchyard, a pond with reeds, and grass (lime trees come with the trees)
+  if (OT && OT.green) {
+    for (const dx of [0, -6, 6, -12, 12]) if (placeChurch(OT.cx + dx, Math.round(OT.cy - 18), 1, false)) break;
+    const pcx = OT.cx + (rnd(T.OLD, 50) - 0.5) * 8, pcy = OT.cy - OT.ry * 0.58, prx = 7 + rnd(T.OLD, 51) * 3, pry = 4.5;
+    for (let y = Math.floor(pcy - pry - 1); y <= pcy + pry + 1; y++) for (let x = Math.floor(pcx - prx - 1); x <= pcx + prx + 1; x++) if (free(x, y) && ((x + 0.5 - pcx) / prx) ** 2 + ((y + 0.5 - pcy) / pry) ** 2 < 1) { Kr[idx(x, y)] = K.WATER; Br[idx(x, y)] = -7; }
+    for (let y = Math.floor(OT.cy - OT.ry); y <= OT.cy + OT.ry; y++) for (let x = Math.floor(OT.cx - OT.rx); x <= OT.cx + OT.rx; x++) if (free(x, y) && inOval(x, y, -OT.rw / 2)) { Kr[idx(x, y)] = K.PARK; Br[idx(x, y)] = -6; }
+  }
+  // 3c'''. the power station, on a large block of an industrial quarter: turbine hall towards the street, boiler house, two tall chimneys and,
+  // where there is room, two cooling towers with their steam
+  if (P.power) { const cand = [];
+    for (const s of [-1, 1]) for (let k = 0; k + 1 < cross[s].length; k++) { const A = cross[s][k], Bc = cross[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (!A.dead && !Bc.dead && isInd(ym) && Bc.yc - A.yc >= 60) cand.push({ s, A, B: Bc, ym }); }
+    cand.sort((a, b) => rnd(T.CIV, a.A.id, 30) - rnd(T.CIV, b.A.id, 30));
+    for (const bk of cand) { const s = bk.s, ya = Math.ceil(bk.A.yc + bk.A.w / 2) + 2, yb = Math.floor(bk.B.yc - bk.B.w / 2) - 2; let x0 = -1e9, x1 = 1e9;
+      for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + s * (AW(y) / 2 + 2)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 110) x += s; const a = Math.min(xs, x - s), b = Math.max(xs, x - s); x0 = Math.max(x0, a); x1 = Math.min(x1, b); }
+      const w = x1 - x0 + 1, h = yb - ya + 1; if (w < 46 || h < 48) continue;
+      fill(x0, ya, w, h, K.WORKS, -1); const g = ++grpN, near = s > 0 ? x0 : x1, xo = (o, ww) => s > 0 ? near + o : near - o - ww + 1;
+      const mk = (o, ww, y0, hh, ori, style, roof, label) => { const it = addItem({ t: 'works', label, x0: xo(o, ww), y0, w: ww, h: hh, ori, style, roof, seed: h32(seed, 61000 + plan.items.length), dmg: 0, group: g }); fill(it.x0, y0, ww, hh, K.BLDG, it.id); return it; };
+      mk(2, 13, ya + 3, h - 6, 'v', 'flat', 3, 'Turbine hall'); mk(15, 15, ya + Math.round(h * 0.2), Math.round(h * 0.6), 'v', 'gable', 4, 'Boiler house');
+      for (const f of [0.3, 0.7]) { const cx = xo(35, 0) + 0.5, cy = ya + h * f; roundBuilding(cx, cy, 3.6, { t: 'works', label: 'Chimney', part: 'chimney', group: g }); plan.stacks.push({ x: cx, y: cy, big: true }); }
+      const cr = Math.min(12, Math.floor((w - 44) / 2), Math.floor(h / 4) - 1); if (cr >= 8) for (const f of [0.27, 0.73]) { const cx = xo(42 + cr, 0) + 0.5, cy = ya + h * f; roundBuilding(cx, cy, cr, { t: 'works', label: 'Cooling tower', part: 'cooling', group: g }); plan.steam.push({ x: cx, y: cy, r: cr }); }
+      plan.heaps.push({ x: xo(24, 0), y: ya + h * 0.1 + 4, r: 5, coal: true }, { x: xo(24, 0), y: yb - h * 0.1 - 4, r: 4.5, coal: true });
+      plan.civic.push({ label: 'Power station', x0: Math.min(x0, x1), y0: ya, w, h, group: g }); break; } }
   // 3d. the gasworks at the edge of the town: a yard on a cross street with two round gas holders and a small works building
   if (civ.gasworks) { const cands = [...cross['-1'], ...cross['1']].filter(S => !S.dead && !S.quay && Uy(S.yc) >= 0.25 && Uy(S.yc) <= 0.66).sort((a, b) => rnd(T.CIV, a.id, 9) - rnd(T.CIV, b.id, 9));
     for (const S of cands) { if (plan.works.length) break;
@@ -637,7 +674,10 @@ function generate(opts) {
     let y = st.y0 + 2, run = 0, n = 0, last = null;
     while (y < st.y1 - 4) {
       const xc0 = st.pts[clamp(y - st.y0, 0, st.pts.length - 1)][0], u = uAt(xc0 + s * 14, y), t = typeAt(u), k = h32(st.id * 977 + (s > 0 ? 1 : 0) + (fillMode ? 7777 : 0), n++);
-      const r = (i) => h32(k, i) / 4294967296, old = !!OT && inOval(xc0 + s * 8, y, -OT.rw / 2);
+      const r = (i) => h32(k, i) / 4294967296, old = !!OT && !OT.green && inOval(xc0 + s * 8, y, -OT.rw / 2);
+      if (OT && OT.green && inOval(xc0 + s * 8, y, -OT.rw / 2)) { y += 4; continue; } // nothing is built on the village green
+      if (!fillMode) { const sp = special(st, s, 'v', y, u, t, r); if (sp) { y += sp; continue; } }
+      if (isInd(y)) { y += 4; continue; } // in an industrial quarter only industrial plots
       if (u < 0.06 || (t === 'house' && !old && (fillMode || r(1) > clamp((u - 0.05) * 4, 0, 0.92)))) { y += 6; continue; }
       const lot = !fillMode && r(2) < P.lotChance + P.lotChanceDamage * Dy(y);
       let w, d, sb, gap, gd;
@@ -668,7 +708,10 @@ function generate(opts) {
     let i = 2, run = 0, n = 0;
     while (i < pts.length - 4) {
       const x = pts[i][0], yc = pts[i][1], u = uAt(x, yc + s * 12), t = typeAt(u), k = h32(st.id * 977 + 500 + (s > 0 ? 1 : 0) + (fillMode ? 7777 : 0), n++);
-      const r = (q) => h32(k, q) / 4294967296, old = !!OT && inOval(x, yc + s * 8, -OT.rw / 2);
+      const r = (q) => h32(k, q) / 4294967296, old = !!OT && !OT.green && inOval(x, yc + s * 8, -OT.rw / 2);
+      if (OT && OT.green && inOval(x, yc + s * 8, -OT.rw / 2)) { i += 4; continue; }
+      if (!fillMode) { const sp = special(st, s, 'h', i, u, t, r); if (sp) { i += sp; continue; } }
+      if (isInd(yc)) { i += 4; continue; }
       if (u < 0.06 || (t === 'house' && !old && (fillMode || r(1) > clamp((u - 0.05) * 4, 0, 0.92)))) { i += 6; continue; }
       const lot = !fillMode && r(2) < P.lotChance + P.lotChanceDamage * Dy(yc);
       let w, d, sb, gap, gd;
@@ -693,6 +736,38 @@ function generate(opts) {
           for (let y = s > 0 ? y0 + d : y0 - 1; s > 0 ? y < bl : y > bl; y += s) { if (!free(xx, y)) break; Kr[idx(xx, y)] = K.GARDEN; Br[idx(xx, y)] = b.id; } } }
       i += w + gap;
     }
+  }
+  // A special plot in the street's own frame (u along the street from a, v away from its edge): a courtyard farmstead (farmhouse gable to the
+  // street, stable along one side, barn across the back, a farmyard between) or an industrial plot (a sawtooth hall, a warehouse, oil tanks,
+  // works with a chimney, or a coal yard) on a works yard. Returns the length it used along the street, or 0.
+  function special(st, s, axis, a, u, t, r) {
+    const pts = st.pts, pAt = q => axis === 'v' ? pts[clamp(q - st.y0, 0, pts.length - 1)] : pts[clamp(q, 0, pts.length - 1)], yHere = axis === 'v' ? a : pAt(a)[1];
+    const ind = isInd(yHere), farm = !ind && P.farms && t === 'house' && r(11) < P.farms; if (!ind && !farm) return 0;
+    const PL = ind ? 30 + (r(12) * 18 | 0) : 26 + (r(12) * 8 | 0), PD = ind ? 24 + (r(13) * 12 | 0) : 27 + (r(13) * 7 | 0);
+    if (axis === 'v' ? a + PL > st.y1 - 2 : a + PL > pts.length - 3) return 0;
+    let edge = s > 0 ? -1e9 : 1e9, near = s > 0 ? 1e9 : -1e9; for (let q = a; q < a + PL; q++) { const p = pAt(q), e = (axis === 'v' ? p[0] : p[1]) + s * p[2] / 2; edge = s > 0 ? Math.max(edge, e) : Math.min(edge, e); near = s > 0 ? Math.min(near, e) : Math.max(near, e); }
+    if (Math.abs(edge - near) > 6) return 0; // too steep a curve for one long straight front
+    const f = s > 0 ? Math.ceil(edge) : Math.floor(edge), u0 = axis === 'v' ? a : pAt(a)[0];
+    const R = (uu, v0, du, dv) => axis === 'v' ? { x0: s > 0 ? f + v0 : f - v0 - dv, y0: u0 + uu, w: dv, h: du } : { x0: u0 + uu, y0: s > 0 ? f + v0 : f - v0 - dv, w: du, h: dv };
+    const at2 = (uu, vv) => axis === 'v' ? [s > 0 ? f + vv : f - vv, u0 + uu] : [u0 + uu, s > 0 ? f + vv : f - vv];
+    const all = R(0, 0, PL, PD); if (!rectFree(all.x0, all.y0, all.w, all.h, 0) || !frontClear(st, s, axis, a, PL, f)) return 0;
+    const along = axis, across = axis === 'v' ? 'h' : 'v', front = axis === 'v' ? (s > 0 ? 'W' : 'E') : (s > 0 ? 'S' : 'N'), g = ++grpN;
+    const mk = (rr, tt, ori, style, roof, label) => { const it = addItem({ t: tt, label, x0: rr.x0, y0: rr.y0, w: rr.w, h: rr.h, ori, front, style, roof, seed: h32(seed, 62000 + plan.items.length), dmg: 0, group: g, run: -200000 - plan.items.length }); fill(rr.x0, rr.y0, rr.w, rr.h, K.BLDG, it.id); return it; };
+    const apron = (k, id) => { for (let q = a; q < a + PL; q++) { const p = pAt(q), e = (axis === 'v' ? p[0] : p[1]) + s * p[2] / 2, eq = s > 0 ? Math.ceil(e) : Math.floor(e) - 1, w0 = axis === 'v' ? q : p[0]; // between the curving street and the plot's straight front
+      for (let v = Math.min(eq, s > 0 ? f : f - 1); v <= Math.max(eq, s > 0 ? f - 1 : f); v++) { const xx = axis === 'v' ? v : w0, yy = axis === 'v' ? w0 : v; if (free(xx, yy)) { Kr[idx(xx, yy)] = k; Br[idx(xx, yy)] = id; } } } };
+    if (farm) { fill(all.x0, all.y0, all.w, all.h, K.COURT, -1); const sd = r(14) < 0.5;
+      const fh = mk(R(sd ? PL - 11 : 1, 0, 10, 12), 'house', across, 'gable', [0, 0, 2, 0, 1][(r(15) * 5) | 0], 'Farmhouse'); apron(K.FRONT, fh.id);
+      mk(R(sd ? 1 : PL - 9, 3, 8, PD - 12), 'farm', across, 'gable', [0, 2, 7][(r(16) * 3) | 0], 'Stable');
+      mk(R(0, PD - 9, PL, 9), 'farm', along, 'gable', [2, 7, 7, 0][(r(17) * 4) | 0], 'Barn');
+      plan.farms.push(all); return PL + 2 + (r(18) * 7 | 0); }
+    fill(all.x0, all.y0, all.w, all.h, K.WORKS, -1); apron(K.WORKS, -1); const kind = r(16);
+    if (kind < 0.3) { mk(R(2, 6, PL - 4, PD - 8), 'works', along, 'saw', 3, 'Factory hall'); mk(R(2, 0, 9, 5), 'works', along, 'flat', 3, 'Office'); }
+    else if (kind < 0.5) mk(R(2, 3, PL - 4, PD - 6), 'works', along, 'flat', 3, 'Warehouse');
+    else if (kind < 0.68) { const rr = Math.min(6.5, (PD - 6) / 2), n = Math.max(1, Math.floor((PL - 4) / (2 * rr + 3)));
+      for (let q = 0; q < n; q++) { const [cx, cy] = at2(3 + rr + q * (2 * rr + 3), PD / 2); roundBuilding(cx, cy, rr, { t: 'works', label: 'Oil tank', part: 'tank', group: g }); } }
+    else if (kind < 0.85) { mk(R(2, 4, PL - 13, PD - 7), 'works', along, 'gable', 1, 'Works'); const [cx, cy] = at2(PL - 6, PD / 2); roundBuilding(cx + 0.5, cy + 0.5, 2.7, { t: 'works', label: 'Chimney', part: 'chimney', group: g }); plan.stacks.push({ x: cx + 0.5, y: cy + 0.5 }); }
+    else { mk(R(1, 1, 9, 7), 'works', along, 'gable', 3, 'Coal shed'); for (let q = 0; q < 2; q++) { const [cx, cy] = at2(15 + q * 13, PD / 2 + 2); plan.heaps.push({ x: cx, y: cy, r: 5 + r(19 + q) * 2, coal: r(21) < 0.7 }); } }
+    return PL + 3 + (r(18) * 4 | 0);
   }
   // the strip between the street's edge and a plot's front must still be open (on a tilted street it is a wedge, and a neighbour's garden may have taken it)
   function frontClear(st, s, axis, a, w, f) {
@@ -723,9 +798,10 @@ function generate(opts) {
         if (y > 0 && RG[i - W] < 0 && Kr[i - W] === K.NONE) { RG[i - W] = r; stack[sp++] = i - W; }
         if (y < L - 1 && RG[i + W] < 0 && Kr[i + W] === K.NONE) { RG[i + W] = r; stack[sp++] = i + W; } }
       const um = ns ? su / ns : uAt(start % W, (start / W) | 0);
-      regs.push({ k: (edge && um < 0.5) || um < 0.12 ? K.FIELD : um >= 0.62 ? K.COURT : um >= 0.28 ? K.GARDEN : K.MEADOW, n, x0, x1, y0, y1 });
+      const indR = isInd((y0 + y1) >> 1) && um >= 0.12; // inside an industrial quarter: yards, or waste ground at its edge
+      regs.push({ waste: indR, k: indR ? K.MEADOW : (edge && um < 0.5) || um < 0.12 ? K.FIELD : um >= 0.62 ? K.COURT : um >= 0.28 ? K.GARDEN : K.MEADOW, n, x0, x1, y0, y1 });
     }
-    for (let i = 0; i < N; i++) if (RG[i] >= 0) Kr[i] = regs[RG[i]].k;
+    for (let i = 0; i < N; i++) if (RG[i] >= 0) { const R = regs[RG[i]]; Kr[i] = R.k; if (R.waste) Br[i] = -8; } // -8: waste ground between the works
     regs.forEach((R, reg) => { // sheds and workshops in large courtyards
       if (R.k !== K.COURT || R.n <= 260) return;
       for (let q = 0; q < Math.min(4, R.n / 260); q++) {
@@ -934,7 +1010,7 @@ const riverOf = (plan, y) => { let best = plan.rivers[0], bd = 1e9; for (const R
 const HX = a => a.map(h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
 const C = {
   roofs: [HX(['#4e160e', '#701f14', '#93301e', '#b2472e', '#cc6644']), HX(['#3e120c', '#561a12', '#70261a', '#8a3624', '#a44a34']), HX(['#3a2618', '#523622', '#6c482e', '#86603e', '#a07a54']),
-    HX(['#22262e', '#323844', '#46505c', '#5e6a78', '#7c8896']), HX(['#1a1c22', '#262a32', '#343a44', '#464e5a', '#5c6672']), HX(['#1a4236', '#24584a', '#30705e', '#448a76', '#62a690']), HX(['#4a3a16', '#665020', '#82682c', '#9e823c', '#b89c52'])],
+    HX(['#22262e', '#323844', '#46505c', '#5e6a78', '#7c8896']), HX(['#1a1c22', '#262a32', '#343a44', '#464e5a', '#5c6672']), HX(['#1a4236', '#24584a', '#30705e', '#448a76', '#62a690']), HX(['#4a3a16', '#665020', '#82682c', '#9e823c', '#b89c52']), HX(['#3e3420', '#5a4c2c', '#76663c', '#92824e', '#ac9c66'])], // 7: straw thatch
   tar: HX(['#202024', '#2a2a30', '#34343a', '#3e3e46']), cobble: HX(['#34322f', '#3e3b37', '#48443f', '#524e48']), side: HX(['#66625c', '#7a766f', '#8e8a82']),
   pave: HX(['#6e685e', '#7e786c', '#8e887c', '#9e988c']), water: HX(['#1e4a66', '#2c6684', '#4a88a6']), yard: HX(['#3a3a30', '#46463a', '#525244']),
   grass: HX(['#2e4a22', '#38582a', '#446832', '#52783c']), soil: HX(['#3e3020', '#4e3e2a', '#5e4c34']), steel: HX(['#b8bcc4'])[0], fence: HX(['#2a241c'])[0], shadow: HX(['#16141a'])[0],
@@ -976,6 +1052,8 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
 function roundPix(b, x, y) {
   const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = (-dx + dy) / b.r; // lit from the upper left
   if (b.t === 'monument') { if (rr < 1.3) return C.fire[0]; if (rr < 1.9) return C.fire[1]; return e > 0.86 ? C.shadow : C.side[light > 0 ? 2 : 1]; }
+  if (b.part === 'cooling') { if (e > 0.94) return C.shadow; if (e > 0.78) return C.conc[pickI(4, 0.55 + light * 0.5, x, y)]; if (e > 0.72) return C.shadow; return SMOKE[pickI(4, 0.1 + (vn(x * 0.35, y * 0.35) - 0.5) * 0.5 + (1 - e) * 0.5, x, y)]; } // a cooling tower: a lit concrete rim round a shaft full of steam // a cooling tower: a lit concrete rim, the dark shaft inside
+  if (b.part === 'tank') { if (e > 0.88) return C.shadow; if (rr < 1.1) return C.conc[0]; return C.side[pickI(3, 0.6 - e * 0.25 + light * 0.4 - (Math.abs(e - 0.6) < 0.06 ? 0.3 : 0) - (b.dmg ? (hh(x, y) < 0.3 ? 0.4 : 0) : 0), x, y)]; } // an oil tank: a light steel roof with a ring seam and a vent
   if (b.part === 'chimney') return e > 0.55 ? C.roofs[1][pickI(5, 0.45 + light * 0.3, x, y)] : C.shadow; // a brick stack, black inside
   if (b.part === 'watertower') { if (rr < 1.2) return C.conc[3]; if (e > 0.88) return C.shadow; return C.roofs[0][pickI(5, 0.6 - e * 0.3 + light * 0.35 - ((((an / 6.283 + 1) * 12) % 1) < 0.15 ? 0.2 : 0), x, y)]; } // a conical tiled roof on a brick drum
   if (b.part === 'gasometer') {
@@ -1058,14 +1136,16 @@ function paint(plan, img, y0, h, opts) {
           if (Br[i] === -4) { const st = plan.stars.reduce((a, o) => Math.abs(o.y - y) < Math.abs(a.y - y) ? o : a), r = Math.hypot(x + 0.5 - st.x, y + 0.5 - st.y); // the roundabout's lawn with a ring of flowers and a stone kerb
             c = r > st.ri - 1 ? C.side[2] : Math.abs(r - st.ri + 2.6) < 0.7 ? C.fruit[(x + y) & 1] : r < 3.6 ? C.pave[2] : C.grass[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
           c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
-        case K.WATER: c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
+        case K.WATER: if (Br[i] === -7) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.river[pickI(6, 0.35 + Math.sin(x * 0.5 + y) * 0.08, x, y)]; break; } // the pond, reeds round its edge
+          c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
         case K.FRONT: { const b = Br[i] >= 0 ? items[Br[i]] : null; c = b && b.t === 'house' ? C.grass[pickI(4, 0.55 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)] : C.pave[pickI(4, 0.35 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
         case K.GARDEN: { const o = Br[i];
           if ((x > 0 && Kr[i - 1] === K.FIELD) || (x < W - 1 && Kr[i + 1] === K.FIELD) || (y > 0 && Kr[i - W] === K.FIELD) || (y < L - 1 && Kr[i + W] === K.FIELD)) { c = C.field.hedge[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.7, x, y)]; break; } // the hedge along the village edge
           if ((x > 0 && Kr[i - 1] === K.ORCHARD) || (x < W - 1 && Kr[i + 1] === K.ORCHARD) || (y > 0 && Kr[i - W] === K.ORCHARD) || (y < L - 1 && Kr[i + W] === K.ORCHARD)) { c = C.fence; break; } // the garden fence onto the orchard if (o >= 0 && ((x > 0 && Br[i - 1] !== o && Kr[i - 1] === K.GARDEN) || (y > 0 && Br[i - W] !== o && Kr[i - W] === K.GARDEN))) { c = C.fence; break; }
           const bed = o >= 0 && hh(o, 5) < 0.35 && ((x + (o & 3)) % 9 < 4) && ((y + o) % 11 < 5); c = bed ? C.soil[pickI(3, y % 2 ? 0.3 : 0.7, x, y)] : C.grass[pickI(4, 0.5 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.5, x, y)]; break; }
         case K.COURT: c = (vn(x * 0.18, y * 0.18) > 0.62) ? C.grass[pickI(4, 0.35, x, y)] : C.yard[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.5, x, y)]; break;
-        case K.PARK: if (Br[i] === -3 && plan.oldTown) { const O = plan.oldTown, mid = O.rw / 2 + O.belt / 2, e = Math.hypot((x + 0.5 - O.cx) / (O.rx + mid), (y + 0.5 - O.cy) / (O.ry + mid)); // the green belt and its promenade
+        case K.PARK: if (Br[i] === -6) { c = hh(x, y) < 0.012 ? C.field.wheat[4] : C.grass[pickI(4, 0.62 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.4, x, y)]; break; } // the village green
+          if (Br[i] === -3 && plan.oldTown) { const O = plan.oldTown, mid = O.rw / 2 + O.belt / 2, e = Math.hypot((x + 0.5 - O.cx) / (O.rx + mid), (y + 0.5 - O.cy) / (O.ry + mid)); // the green belt and its promenade
             c = Math.abs(e - 1) * (O.rx + mid) < 1.1 ? C.gravel[pickI(3, 0.6, x, y)] : C.grass[pickI(4, 0.52 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.5, x, y)]; break; }
           { const pk = plan.parks.find(p => y >= p.ya && y <= p.yb); const px = pk ? x - plan.mx[(pk.ya + pk.yb) >> 1] : x, py = pk ? y - pk.ya : y;
           if (pk && Math.abs(Math.abs(px) - 20 - (py * 0.6) % 20) < 1.1) { c = C.pave[1]; break; } c = C.grass[pickI(4, 0.55 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.6, x, y)]; break; }
@@ -1073,7 +1153,8 @@ function paint(plan, img, y0, h, opts) {
           if (sl) { const rr = Math.hypot(x + 0.5 - sl.x, y + 0.5 - sl.y), ring = sl.kind === 'arty' ? 6 : 4.5; if (Math.abs(rr - ring) < 1.1) { c = ((Math.atan2(y - sl.y, x - sl.x) * 3 | 0) & 1) ? C.sand[1] : C.sand[0]; break; } } // sandbag ring of a gun pit
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
-        case K.MEADOW: c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
+        case K.MEADOW: if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.58 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
+          c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
         case K.RIVER: { const R = riverOf(plan, y), cx2 = clamp(x, 0, W - 1), bs = plan.basins && plan.basins.find(q => x >= q.x0 && x <= q.x1 && y >= q.ya && y <= q.yb);
           let e = bs ? Math.min(x - bs.x0 + 0.5, bs.x1 - x + 0.5, bs.dir > 0 ? bs.yb - y + 0.5 : y - bs.ya + 0.5) : R.hw[cx2] - Math.abs(y + 0.5 - R.yc[cx2]); // a harbour basin's still water
           if (R.island) e = Math.min(e, (Math.sqrt(((x + 0.5 - R.ix) / R.rx) ** 2 + ((y + 0.5 - R.iy) / R.ry) ** 2) - 1) * R.ry);
@@ -1089,7 +1170,8 @@ function paint(plan, img, y0, h, opts) {
           c = st && st.tank ? C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)] : C.cobble[pickI(4, 0.45 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
         case K.QUAY: { const nW = (j => j >= 0 && Kr[j] === K.RIVER); if (nW(at(x, y - 1)) || nW(at(x, y + 1)) || nW(at(x - 1, y)) || nW(at(x + 1, y))) { c = hh(x, y) < 0.06 ? C.shadow : C.conc[0]; break; } // the wall face above the water
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
-        case K.WORKS: c = hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : (y % 11 === 0 && x % 3 !== 0) ? C.conc[2] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; // a cinder yard with oil stains and kerbs
+        case K.WORKS: { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && (Kr[j] === K.MEADOW || Kr[j] === K.FIELD || Kr[j] === K.GARDEN || Kr[j] === K.COURT)); // a cinder yard with oil stains, fenced where it meets open ground
+          c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
         case K.RAIL: { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers and rails
         case K.TRACK: { const up = y + 1 < L && Kr[i + W] === K.TRACK, dn = y > 0 && Kr[i - W] === K.TRACK; // two wheel ruts with grass between them
           c = up && dn ? C.field.grass[pickI(5, 0.3 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.sand[hh(x, y) < 0.7 ? 0 : 1]; break; }
@@ -1120,7 +1202,12 @@ function paint(plan, img, y0, h, opts) {
     for (let k = 1; k <= 11; k++) put(Math.round(cr.x + cr.dx * k) + 2, Math.round(cr.y + cr.dy * k) - 2, C.shadow, 0.35);
     for (let yy = -1; yy <= 1; yy++) for (let xx = -1; xx <= 1; xx++) put(cr.x + xx, cr.y + yy, C.hull[0]);
     for (let k = 1; k <= 11; k++) put(Math.round(cr.x + cr.dx * k), Math.round(cr.y + cr.dy * k), C.crane[k % 2]); put(Math.round(cr.x + cr.dx * 11), Math.round(cr.y + cr.dy * 11) - 1, C.shadow); }
-  for (const sk of plan.stacks || []) for (let k = 1; k <= 5; k++) { const px = sk.x + WIND[0] * k * 3, py = sk.y + WIND[1] * k * 3, r = 1.2 + k * 0.5; // a thin smoke plume from the chimney
+  for (const hp of plan.heaps || []) for (let yy = Math.floor(hp.y - hp.r); yy <= hp.y + hp.r; yy++) for (let xx = Math.floor(hp.x - hp.r); xx <= hp.x + hp.r; xx++) { // coal or gravel heaps
+    const dx = (xx + 0.5 - hp.x) / hp.r, dy = (yy + 0.5 - hp.y) / hp.r, q = 1 - dx * dx - dy * dy; if (q <= 0) continue; const l = 0.2 + q * 0.4 + (-dx + dy) * 0.25;
+    put(xx, yy, hp.coal ? C.char[pickI(3, l, xx, yy)] : C.gravel[pickI(3, l, xx, yy)]); }
+  for (const sm of plan.steam || []) for (let k = 0; k <= 6; k++) { const px = sm.x + WIND[0] * k * 4, py = sm.y + WIND[1] * k * 4, r = sm.r * (0.7 + k * 0.12); // steam from a cooling tower, white and dissolving downwind
+    for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) { const dd = Math.hypot(xx + 0.5 - px, yy + 0.5 - py) / r; if (dd < 1 && hh(xx * 5, yy * 3) < 0.8 - dd * 0.3) put(xx, yy, SMOKE[3], (0.36 - k * 0.045) * (1 - dd * 0.5)); } }
+  for (const sk of plan.stacks || []) for (let k = 1; k <= (sk.big ? 8 : 5); k++) { const px = sk.x + WIND[0] * k * 3, py = sk.y + WIND[1] * k * 3, r = 1.2 + k * 0.5; // a thin smoke plume from the chimney
     for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) if (Math.hypot(xx + 0.5 - px, yy + 0.5 - py) < r && hh(xx * 7, yy * 3) < 0.7) put(xx, yy, SMOKE[Math.min(3, 1 + (k >> 1))], 0.34 - k * 0.04); }
   for (const t of plan.trees) { if (t.y + t.r + 4 < y0 || t.y - t.r - 4 >= y0 + h) continue;
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) if (xx * xx + yy * yy <= t.r * t.r) put(t.x + xx + 2, t.y + yy - 2, C.shadow, 0.4);

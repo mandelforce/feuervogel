@@ -87,8 +87,9 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="village">Village (green and farmsteads)</option><option value="industrial">Industrial estate (works and a power station)</option></select>
       <select id="curve" aria-label="Density along the strip">
+        <option value="preset">The preset's own density</option>
         <option value="town">Fields, town, centre, fading out</option>
         <option value="approach">Fields, then the town grows to the end</option>
         <option value="centre">All centre</option>
@@ -96,7 +97,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       </select>
       <label class="row" for="len">Length <output id="lenV"></output><input id="len" type="range" min="900" max="3200" step="100" value="1800"></label>
       <label class="row" for="dmg">Damage at the centre <output id="dmgV"></output><input id="dmg" type="range" min="0" max="100" step="5" value="25"></label>
-      <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="80" step="2" value="46"></label>
+      <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="120" step="2" value="46"></label>
       <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>
       <label class="row" for="grid">Planned grid quarters <output id="gridV"></output><input id="grid" type="range" min="0" max="100" step="5" value="65"></label>
       <label class="row" for="tilt">Grid tilt up to <output id="tiltV"></output><input id="tilt" type="range" min="0" max="40" step="2" value="32"></label>
@@ -180,7 +181,7 @@ if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked =
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
 function params() {
-  return { L: +$('len').value, density: CURVES[$('curve').value], damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
+  return { L: +$('len').value, density: CURVES[$('curve').value] || CG.PRESETS[$('preset').value].density, damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
     lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.02, +$('tilt').value / 100), +$('tilt').value / 100] };
 }
 function showVals() {
@@ -221,7 +222,7 @@ function showMetrics() {
     row('Tank routes joined', chip(m.tankReach === 1, Math.round(m.tankReach * 100) + '%')) +
     row('Streets (tank)', `${m.streets} (${m.tankStreets})`) +
     row('Churches, closest gap', `${m.churches}${m.churchMinGap !== null ? ', ' + m.churchMinGap + ' px' : ''}`) +
-    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? 'yes' : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
+    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? (plan.oldTown.green ? 'village green' : 'yes') : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + row('Farmsteads, industrial quarters', `${plan.farms.length}, ${plan.quarters.filter(q => q.style === 'industry').length}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
     row('Density error', chip(m.densityErr < 6, m.densityErr + ' pts', m.densityErr < 9)) +
     row('Gun slots', slots) +
     row('Slots per 1000 px', m.slotsPer1000) +
@@ -244,7 +245,7 @@ function drawOverlay() {
   if ($('oTank').checked) for (const st of plan.streets) if (st.tank) line(st, 'rgba(120,194,125,.55)', 3);
   if ($('oStreets').checked) for (const st of plan.streets) line(st, st.cls === 'arterial' ? '#d6a24a' : st.cls === 'collector' ? '#6ad2c8' : '#c8c2b4', st.cls === 'local' ? 1 : 1.6);
   if ($('oQuarters').checked && plan.quarters) { // where each quarter starts, and its street pattern
-    const name = { fields: 'Field lanes', grid: 'Planned grid', follow: 'Follows the main road' };
+    const name = { fields: 'Field lanes', grid: 'Planned grid', follow: 'Follows the main road', industry: 'Industrial estate' };
     g.font = `600 ${Math.max(10, 4 * s)}px IBM Plex Mono, monospace`; g.textBaseline = 'bottom';
     for (const q of plan.quarters) { const y = Y(q.y0); g.strokeStyle = 'rgba(214,162,74,.8)'; g.setLineDash([8, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y); g.lineTo(W * s, y); g.stroke(); g.setLineDash([]);
       const t = name[q.style] + (q.style === 'grid' ? ` ${Math.round(Math.atan(Math.abs(q.slope)) * 180 / Math.PI)}\u00b0` : ''), tw = g.measureText(t).width;
@@ -325,7 +326,10 @@ $('sweep20').addEventListener('click', () => sweep(20)); $('sweep100').addEventL
 $('copy').addEventListener('click', () => { const txt = JSON.stringify({ seed: +$('seed').value, preset: $('preset').value, params: params() }); navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy settings', 1200); }).catch(() => { $('sweepNote').textContent = txt; }); });
 
 // ---------- wiring ----------
-for (const id of ['preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('change', build);
+$('preset').addEventListener('change', () => { const P = CG.PRESETS[$('preset').value]; // a preset brings its own length, density and street settings
+  $('len').value = P.L; $('dmg').value = Math.round(P.damage * 100); $('curve').value = 'preset'; $('spacing').value = P.crossSpacing[1]; $('coll').value = P.collectorOffset[1];
+  $('lots').value = Math.round(P.lotChance * 100); $('parish').value = Math.min(1200, P.parishSpacing); $('grid').value = Math.round(P.gridChance * 100); showVals(); build(); });
+for (const id of ['curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('change', build);
 $('preset').addEventListener('change', () => { if (plan && plan.river) { const vp = $('vp'), sc = +$('scale').value; vp.scrollTop = (plan.L - plan.river.Y0) * sc + 8 - vp.clientHeight / 2; drawScreen(); } }); // open the river town on its river
 for (const id of ['len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('input', showVals);
 $('seed').addEventListener('change', build);
