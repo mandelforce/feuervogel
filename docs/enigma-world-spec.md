@@ -668,3 +668,11 @@ Enigma Run level 6 now takes its ground from one settlement plan. The game carri
 - Route objects for road traffic (deferred, see 13a).
 - Phone timing of the plan build; a Worker if it stalls.
 - The phase 2b grid-city code (`cellKind`, `villageList`, `roadHalf` for the sortie) is now unused by level 6 and can go once the plan path settles.
+
+**Submarine berth (owner feedback: no painted submarine in the harbour; place one of the game's own submarines).** The generator no longer paints a U-boat beside the U-boat bunker. Instead it finds a berth for the game's submarine (12 x 46 px, upright) and emits it as a `sub` slot (`plan.subSlots`, also in `plan.slots`, kept apart only from other submarines). The berth is on harbour water, with a pixel of water either side; bow and stern may touch. It is chosen in this order:
+1. at the pens (at most 8 px from the bunker), clear of the fairways and moored ships;
+2. at the pens, reaching into a fairway (the submarine is an enemy, not traffic);
+3. at the pens, where a moored ship moves off;
+4. the nearest berth further off.
+
+In 100 seeds every port, south port and coastal city has its berth: all coastal cities and 73 of 100 ports at the pens, the rest within 20 px (where only 43 rows of water separate the pens from the breakwater). In the game, `slotGun` puts the game's submarine there (`G('sub')`, submerged at first, as at sea) when a sub slot comes up and fewer than two are about. The lab draws the berth to scale.

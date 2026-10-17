@@ -63,17 +63,18 @@ for (const preset of ['village', 'crossroads', 'industrial']) for (const damage 
 // the port city (a horizontal harbour at the end quay, alone or with a side harbour opening into it) and the coastal city (a side harbour):
 // every hard rule, piers, ships, two lighthouses, the U-boat bunker, a channel of at least 28 px beside a side harbour's piers with a ship
 // passing, the railway clear of the sea
-for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.6]) { let fails = 0, piers = 0, ships = 0, lights = 0, bunker = 0, wetRail = 0, ot = 0, chan = 0, side = 0; const forms = {};
+for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.6]) { let fails = 0, piers = 0, ships = 0, lights = 0, bunker = 0, berth = 0, painted = 0, wetRail = 0, ot = 0, chan = 0, side = 0; const forms = {};
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p); forms[p.coast.mode] = (forms[p.coast.mode] || 0) + 1;
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
-    piers += p.port.piers; ships += p.ships.length; lights += p.items.filter(i => i.part === 'lighthouse').length; if (p.items.some(i => i.part === 'bunker')) bunker++; if (p.oldTown) ot++;
+    piers += p.port.piers; ships += p.ships.length; lights += p.items.filter(i => i.part === 'lighthouse').length; if (p.items.some(i => i.part === 'bunker')) bunker++; if (p.ships.some(sh => sh.kind === 'uboat')) painted++;
+    { const sl = p.slots.find(q => q.kind === 'sub'); let wet = !!sl; if (sl) for (let y = sl.y - sl.h / 2; y < sl.y + sl.h / 2; y++) for (let x = sl.x - sl.w / 2; x < sl.x + sl.w / 2; x++) if (p.K[y * p.W + x] !== CG.K.SEA) wet = false; if (wet) berth++; } if (p.oldTown) ot++;
     if (p.port.side) { side++; if (p.port.side.channel >= 28 && p.ships.some(sh => sh.kind === 'coaster' && sh.ori === 'v')) chan++; }
     for (let i = 0; i < p.K.length; i++) if (p.RM[i] && p.K[i] === CG.K.SEA) wetRail++; }
     // (lanesBlocked is part of every pass: the fairways and the fleet area are open water with no ship in them)
   let fleet = 0; for (let seed = 1; seed <= 30; seed++) if (CG.generate({ seed, preset, params: { damage } }).fleetArea) fleet++;
-  const ok = piers >= 300 && ships >= 900 && lights === 200 && bunker === 100 && chan === side && !wetRail && (preset === 'coast' || (forms.end > 20 && forms.corner > 20 && fleet === 30));
-  if (!ok) fail(`${preset}: piers ${piers}, ships ${ships}, lighthouses ${lights}, bunkers ${bunker}, channels ${chan}/${side}, rail in the sea ${wetRail}, forms ${JSON.stringify(forms)}`);
-  console.log(`${fails || !ok ? 'FAIL' : 'ok  '} ${preset.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass (${Object.entries(forms).map(([k, v]) => k + ' ' + v).join(', ')}), ${(piers / 100).toFixed(1)} piers and ${(ships / 100).toFixed(1)} ships per port, lighthouses and U-boat bunker in every one, fairways for destroyers and submarines (40 px, 30 in a side channel) clear in every one${preset === 'coast' ? '' : ', a fleet area for the flagship beyond every breakwater'}, a ship passing in every side channel, old town in ${ot}`);
+  const ok = piers >= 300 && ships >= 900 && lights === 200 && bunker === 100 && berth === 100 && !painted && chan === side && !wetRail && (preset === 'coast' || (forms.end > 20 && forms.corner > 20 && fleet === 30));
+  if (!ok) fail(`${preset}: piers ${piers}, ships ${ships}, lighthouses ${lights}, bunkers ${bunker}, submarine berths ${berth}, painted submarines ${painted}, channels ${chan}/${side}, rail in the sea ${wetRail}, forms ${JSON.stringify(forms)}`);
+  console.log(`${fails || !ok ? 'FAIL' : 'ok  '} ${preset.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass (${Object.entries(forms).map(([k, v]) => k + ' ' + v).join(', ')}), ${(piers / 100).toFixed(1)} piers and ${(ships / 100).toFixed(1)} ships per port, lighthouses, U-boat bunker and a berth of open water for the game's submarine (12 x 46 px) in every one, fairways for destroyers and submarines (40 px, 30 in a side channel) clear in every one${preset === 'coast' ? '' : ', a fleet area for the flagship beyond every breakwater'}, a ship passing in every side channel, old town in ${ot}`);
 }
 // the beach landing: every hard rule, beach exits from the coastal road, a bunker line in the dunes (at least four bunkers), a coastal battery
 // with its radar, obstacles and wire on the sand, the sea before the beach open for the flagship, nothing standing in the sea

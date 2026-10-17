@@ -171,9 +171,9 @@ const CURVES = {
 };
 const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40', [K.WORKS]: '#6a6a72', [K.RAIL]: '#8a7a6a', [K.RBRIDGE]: '#b06a4a', [K.SEA]: '#1c4a6e', [K.BEACH]: '#c8b47a', [K.TRENCH]: '#5a4630', [K.APRON]: '#8e8c84' };
 const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track', [K.WORKS]: 'Works yard', [K.RAIL]: 'Railway', [K.RBRIDGE]: 'Rail bridge', [K.SEA]: 'Sea', [K.BEACH]: 'Beach and dunes', [K.TRENCH]: 'Trench', [K.APRON]: 'Apron' };
-const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff' };
+const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff', sub: '#4dffb0' };
 $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="background:${KIND_COL[k]}"></i>${KIND_LABEL[k]}</span>`).join('') +
-  Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)' }[k]}</span>`).join('');
+  Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
 const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
@@ -257,6 +257,7 @@ function drawOverlay() {
   if ($('oChunks').checked) { g.strokeStyle = 'rgba(255,255,255,.25)'; g.setLineDash([4, 4]); g.lineWidth = 1; for (let y = 0; y < L; y += 64) { g.beginPath(); g.moveTo(0, Y(y)); g.lineTo(W * s, Y(y)); g.stroke(); } g.setLineDash([]); }
   if ($('oSlots').checked) for (const sl of plan.slots) {
     const x = X(sl.x), y = Y(sl.y), r = Math.max(5, sl.r * s * 0.55), c = SLOT_COL[sl.kind]; g.lineWidth = 2; g.strokeStyle = '#0b0f11'; g.fillStyle = c;
+    if (sl.kind === 'sub') { g.beginPath(); g.rect(X(sl.x - sl.w / 2), Y(sl.y + sl.h / 2), sl.w * s, sl.h * s); g.setLineDash([4, 3]); g.strokeStyle = c; g.stroke(); g.setLineDash([]); g.strokeStyle = '#0b0f11'; } // the game's submarine, to scale
     g.beginPath(); if (sl.kind === 'arty') { g.moveTo(x, y - r); g.lineTo(x + r, y + r * 0.8); g.lineTo(x - r, y + r * 0.8); g.closePath(); } else if (sl.kind === 'aatower') g.rect(x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6); else g.arc(x, y, r * 0.8, 0, 6.283);
     g.globalAlpha = 0.85; g.fill(); g.globalAlpha = 1; g.stroke();
   }

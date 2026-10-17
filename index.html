@@ -1076,7 +1076,7 @@ function generate(opts) {
       // the U-boat bunker at the land-side end, astride the quay, its four pens open to the sea
       { const bx0 = Math.round(Math.min(XA(4), XA(50))), by0 = Math.round(Math.min(Y(-16), Y(25))), it = bunker(bx0, by0, 47, 42);
         for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = bx0; x < bx0 + it.w; x++) { const k = Math.floor((x - bx0 - 4) / 11), pen = (y - yQ) * hd > 14 && k >= 0 && k < 4 && (x - bx0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
-        plan.ships.push({ kind: 'uboat', ori: 'v', bow: hd, x0: bx0 + 4 + 11 + 1, y0: Math.round(Math.min(Y(28), Y(54))), w: 5, h: 26 }); }
+      }
       // piers out from the quay, ships along them
       const piers = []; for (let d = CO.side ? 62 : 120; d < span - (CO.side ? 30 : 46); d += 38) { const px = Math.round(XA(d)); if (laneFree(px - 19, px + 18)) piers.push(d); }
       piers.forEach((d, k) => { const px = Math.round(XA(d)); fillR(px - 7, px + 6, yQ, Y(PLh), K.WORKS, -1, [K.SEA]);
@@ -1109,7 +1109,7 @@ function generate(opts) {
       let pStart = hy0 + 30, pEnd = corner ? hy1 - 30 : yHead - 34;
       if (!corner) { const x0 = Math.round(Math.min(X(-16), X(PL - 4))), w = Math.abs(Math.round(X(PL - 4)) - Math.round(X(-16))) + 1, it = bunker(x0, hy0 + 6, w, 47);
         for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = x0; x < x0 + it.w; x++) { const d = cs * (x - qx), k = Math.floor((y - it.y0 - 4) / 11), pen = d > PL - 14 && k >= 0 && k < 4 && (y - it.y0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
-        plan.ships.push({ kind: 'uboat', ori: 'v', bow: 1, x0: Math.round(Math.min(X(PL - 3), X(PL + 1))), y0: it.y0 + 6, w: 5, h: 26 }); pStart = hy0 + 80; } // the submarine waits by the bunker, beside the fairway
+        pStart = hy0 + 80; }
       const piers = []; for (let py = pStart; py < pEnd; py += 64 + ((rnd(T.SEA, py) * 10) | 0)) piers.push(py);
       piers.forEach((py, k) => { fillR(X(0), X(PL), py - 9, py + 8, K.WORKS, -1, [K.SEA]);
         for (let y = py - 9; y <= py + 8; y++) for (let x = Math.round(Math.min(X(0), X(PL))); x <= Math.max(X(0), X(PL)); x++) { const d = cs * (x - qx); if (inB(x, y) && d > 0 && (y === py - 9 || y === py + 8 || d >= PL - 1)) Kr[idx(x, y)] = K.QUAY; }
@@ -1131,6 +1131,23 @@ function generate(opts) {
       const lx = Math.round(sideLaneX), ly0 = Math.min(yClosed + 4, corner ? yM : L - 1), ly1 = Math.max(yClosed + 4, corner ? (hd > 0 ? L - 1 : 0) : L - 1);
       plan.shipLanes.push({ x: lx, w: 30, y0: corner && hd < 0 ? 0 : Math.min(ly0, ly1), y1: corner && hd < 0 ? yClosed - 4 : Math.max(ly0, ly1), kind: 'channel' });
       port.side = { PL, moleD, channel: CS }; }
+    // the game's submarine (12 x 46 px, upright) waits by each U-boat bunker, on the harbour's own water: at the pens (at most 8 px from the
+    // bunker) clear of the fairways and the moored ships, or else reaching into a fairway there (the submarine is an enemy, not traffic),
+    // or else where a ship lying at the pens moves off; failing all, the nearest berth further off. It becomes a 'sub' slot: the game puts its own submarine there (no painted one).
+    plan.subSlots = [];
+    { const SW = 12, SH = 46, box = sh => ({ x0: sh.x0 - 2, x1: sh.x0 + sh.w + 1, y0: sh.y0 - 2, y1: sh.y0 + sh.h + 1 }), hit = (a, x0, y0) => x0 <= a.x1 && x0 + SW - 1 >= a.x0 && y0 <= a.y1 && y0 + SH - 1 >= a.y0;
+      const lanes = plan.shipLanes.map(l => ({ x0: Math.round(l.x - l.w / 2), x1: Math.round(l.x + l.w / 2) - 1, y0: l.y0, y1: l.y1 })), taken = [];
+      const water = (x0, y0) => { if (x0 < 1 || x0 + SW > W - 1 || y0 < 1 || y0 + SH > L - 1) return false; for (let y = y0; y < y0 + SH; y++) for (let x = x0 - 1; x <= x0 + SW; x++) { const i = idx(x, y); if (Kr[i] !== K.SEA || Br[i] !== -10) return false; } return true; }; // a pixel of water either side; bow and stern may touch
+      for (const bk of plan.items.filter(it => it.label === 'U-boat bunker')) { let best = null;
+        for (const [inLane, moveShip, near] of [[false, false, 8], [true, false, 8], [true, true, 8], [false, true, 1e9], [true, true, 1e9]]) { if (best) break;
+          for (let y0 = bk.y0 - SH - 60; y0 <= bk.y0 + bk.h + 60; y0 += 2) for (let x0 = bk.x0 - SW - 40; x0 <= bk.x0 + bk.w + 40; x0 += 2) {
+            const dx = Math.max(bk.x0 - (x0 + SW), 0, x0 - (bk.x0 + bk.w)), dy = Math.max(bk.y0 - (y0 + SH), 0, y0 - (bk.y0 + bk.h)), d = dx * dx + dy * dy + Math.abs(x0 + SW / 2 - (bk.x0 + bk.w / 2)) * 0.01; // the gap to the bunker (then nearest its middle)
+            if (d > near * near || (best && d >= best.d)) continue; if (taken.some(a => hit(a, x0, y0)) || (!inLane && lanes.some(a => hit(a, x0, y0))) || (!moveShip && plan.ships.some(sh => hit(box(sh), x0, y0))) || !water(x0, y0)) continue;
+            best = { x0, y0, d }; } }
+        if (!best) continue;
+        plan.ships = plan.ships.filter(sh => !hit(box(sh), best.x0, best.y0)); // a moored ship that was in the way moves off
+        taken.push({ x0: best.x0 - 2, x1: best.x0 + SW + 1, y0: best.y0 - 2, y1: best.y0 + SH + 1 });
+        plan.subSlots.push({ kind: 'sub', on: 'pen', x: best.x0 + SW / 2, y: best.y0 + SH / 2, w: SW, h: SH, r: 6, item: bk.id }); } }
     plan.port = port;
   })();
   // 3a0'. the beach landing (Atlantic Wall): obstacles in the shallows and on the wet sand (Czech hedgehogs, mined stakes), barbed wire along the
@@ -1662,6 +1679,7 @@ function generate(opts) {
     for (let y = 8; y < L - 8; y += 10) for (let x = 8; x < W - 8; x += 10) if (Kr[idx(x, y)] === K.WORKS && rectFreeK(x - 5, y - 5, 10, 10, K.WORKS)) cands.push({ kind: 'flak', on: 'yard', x, y, r: 5 }); // harbour, rail and gas works yards
     if (plan.port && plan.port.mole) for (const m of plan.port.mole) cands.push({ kind: 'arty', on: 'mole', x: m.x, y: m.y, r: 3, prio: true }); // coastal guns on the breakwater heads
     for (const b of plan.beachSlots || []) cands.push(Object.assign({ prio: true }, b));
+    for (const b of plan.subSlots || []) cands.push(Object.assign({ prio: true }, b));
     for (const it of plan.items) if (it.part === 'bunker' && it.dmg < 2) cands.push({ kind: 'flak', on: 'roof', x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, r: 8, item: it.id, prio: true });
     for (const sq of plan.squares) cands.push({ kind: 'aatower', on: 'plaza', x: sq.x0 + (sq.side > 0 ? sq.w - 7 : 7), y: sq.y0 + sq.h - 7, r: 6 });
     for (const pk of plan.parks) cands.push({ kind: 'aatower', on: 'park', x: Math.round(plan.mx[(pk.ya + pk.yb) >> 1] + pk.s * 34), y: (pk.ya + pk.yb) >> 1, r: 8 });
@@ -1674,7 +1692,7 @@ function generate(opts) {
       const U = Uy(c.y), q = c.kind === 'arty' ? P.slots.artyPer300 : P.slots.flakPer300, b = (c.y / band) | 0, key = c.kind + b;
       if (c.kind !== 'bunker' && !c.prio && (quota[key] || 0) >= Math.max(c.kind === 'aatower' ? 1 : 0, Math.round(q * U))) continue;
       const sp = c.on === 'battery' ? 30 : c.kind === 'arty' ? P.slots.artySpacing : c.kind === 'bunker' ? 14 : P.slots.flakSpacing; // a battery's guns stand close together
-      if (plan.slots.some(o => (o.kind === 'bunker') === (c.kind === 'bunker') && (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
+      const grp = k => k === 'bunker' ? 1 : k === 'sub' ? 2 : 0; /* bunkers, submarines and guns are spaced apart only within their own kind */ if (plan.slots.some(o => grp(o.kind) === grp(c.kind) && (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
       quota[key] = (quota[key] || 0) + 1; delete c.o; c.id = plan.slots.length; plan.slots.push(c);
     }
   })(); // its own function, so the engine optimises it (generate is too big to be optimised whole)
@@ -6728,12 +6746,13 @@ function spawnGround(b) {
   };
   const capF = count('flak') >= 2 + run.loop, capB = count('bunker') >= 2 + run.loop;
   // Enigma Run level 6: ground guns stand first in the settlement plan's slots (flak on roofs and lots, artillery in courts and lots, AA towers
-  // in parks and squares, bunkers at bridgeheads), each slot once, when it is just above the screen; otherwise anywhere that fits, as before
+  // in parks and squares, bunkers at bridgeheads, submarines at their berths by U-boat bunkers), each slot once, when it is just above the screen; otherwise anywhere that fits, as before
   const slotAt = kinds => { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !info(-Math.floor(wy / CH)).plan) return null; const used = S.slotUsed || (S.slotUsed = new Set());
     for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i]; if (used.has(i) || !kinds.includes(sl.kind)) continue; const y = S.planY0 - sl.y; if (y < wy - 48 || y > wy + 12 || !placeOK(sl.x, y, 12)) continue; used.add(i); return { x: sl.x, y, kind: sl.kind }; }
     return null; };
-  const slotGun = () => { const ks = []; if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (count('aatower') < 1 + run.loop) ks.push('aatower'); if (!capB) ks.push('bunker');
+  const slotGun = () => { const ks = []; if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (count('aatower') < 1 + run.loop) ks.push('aatower'); if (!capB) ks.push('bunker'); if (count('sub') < 2) ks.push('sub');
     const sl = ks.length ? slotAt(ks) : null; if (!sl) return false;
+    if (sl.kind === 'sub') { world.enemies.push(G('sub', sl.x, sl.y, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true })); return true; } // the game's submarine at its berth by the U-boat bunker
     if (sl.kind === 'flak' || (sl.kind === 'arty' && !avail('arty'))) makeFlak(sl.x, sl.y); else if (sl.kind === 'arty') spawnArty(sl.x, sl.y);
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
     else world.enemies.push(G('bunker', sl.x, sl.y, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 }));
