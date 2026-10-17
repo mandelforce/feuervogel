@@ -87,7 +87,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="coast">Coastal city (a side harbour)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option></select>
       <select id="curve" aria-label="Density along the strip">
         <option value="preset">The preset's own density</option>
         <option value="town">Fields, town, centre, fading out</option>
@@ -109,7 +109,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <h2 id="h-show">Overlays</h2>
       <div class="toggles">
         <label><input type="checkbox" id="oStreets"> Streets</label>
-        <label><input type="checkbox" id="oTank" checked> Tank and train routes</label>
+        <label><input type="checkbox" id="oTank" checked> Tank, train and ship routes</label>
         <label><input type="checkbox" id="oSlots" checked> Gun slots</label>
         <label><input type="checkbox" id="oKinds"> Ground kinds</label>
         <label><input type="checkbox" id="oQuarters" checked> Quarters</label>
@@ -222,7 +222,7 @@ function showMetrics() {
     row('Tank routes joined', chip(m.tankReach === 1, Math.round(m.tankReach * 100) + '%')) +
     row('Streets (tank)', `${m.streets} (${m.tankStreets})`) +
     row('Churches, closest gap', `${m.churches}${m.churchMinGap !== null ? ', ' + m.churchMinGap + ' px' : ''}`) +
-    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? (plan.oldTown.green ? 'village green' : 'yes') : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : plan.port ? plan.port.piers + ' piers, ' + plan.ships.length + ' ships' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + row('Train runs (clear)', chip(m.trainBlocked === 0, (plan.trainRuns || []).map(r => r.line + ' ' + (r.y1 - r.y0) + ' px').join(', ') || 'none')) + row('Farmsteads, industrial quarters', `${plan.farms.length}, ${plan.quarters.filter(q => q.style === 'industry').length}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
+    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? (plan.oldTown.green ? 'village green' : 'yes') : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : plan.port ? plan.port.piers + ' piers, ' + plan.ships.length + ' ships' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + (plan.coast ? row('Fairways, fleet area (clear)', chip(m.lanesBlocked === 0, `${m.shipLanes}, ${m.fleetArea ? 'yes' : 'no'}`)) : '') + row('Train runs (clear)', chip(m.trainBlocked === 0, (plan.trainRuns || []).map(r => r.line + ' ' + (r.y1 - r.y0) + ' px').join(', ') || 'none')) + row('Farmsteads, industrial quarters', `${plan.farms.length}, ${plan.quarters.filter(q => q.style === 'industry').length}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
     row('Density error', chip(m.densityErr < 6, m.densityErr + ' pts', m.densityErr < 9)) +
     row('Gun slots', slots) +
     row('Slots per 1000 px', m.slotsPer1000) +
@@ -243,6 +243,9 @@ function drawOverlay() {
     const c2 = document.createElement('canvas'); c2.width = W; c2.height = L; c2.getContext('2d').putImageData(id, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(c2, 0, 0, W * s, L * s); }
   const line = (st, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); let on = false; st.pts.forEach(p => { if (!p[2]) { on = false; return; } const x = X(p[0] + 0.5), y = Y(p[1] + 0.5); on ? g.lineTo(x, y) : g.moveTo(x, y); on = true; }); g.stroke(); }; // a gap where the road gives way (a village green)
   if ($('oTank').checked) for (const st of plan.streets) if (st.tank) line(st, 'rgba(120,194,125,.55)', 3);
+  if ($('oTank').checked) { g.lineWidth = 2; g.setLineDash([6, 5]); g.strokeStyle = 'rgba(110,190,240,.85)'; // fairways for the warships, and the flagship's fleet area
+    for (const l of plan.shipLanes || []) g.strokeRect(X(l.x - l.w / 2), Y(l.y1 + 1), l.w * s, (l.y1 - l.y0 + 1) * s);
+    if (plan.fleetArea) { const f = plan.fleetArea; g.strokeStyle = 'rgba(240,200,110,.8)'; g.strokeRect(X(f.x0), Y(f.y1 + 1), (f.x1 - f.x0 + 1) * s, (f.y1 - f.y0 + 1) * s); } g.setLineDash([]); }
   if ($('oTank').checked) for (const r of plan.trainRuns || []) { g.strokeStyle = 'rgba(232,120,90,.75)'; g.lineWidth = 2; g.setLineDash([10, 6]); g.beginPath(); g.moveTo(X(r.x + 0.5), Y(r.y0)); g.lineTo(X(r.x + 0.5), Y(r.y1)); g.stroke(); g.setLineDash([]); } // where the game's trains can run
   if ($('oStreets').checked) for (const st of plan.streets) line(st, st.cls === 'arterial' ? '#d6a24a' : st.cls === 'collector' ? '#6ad2c8' : '#c8c2b4', st.cls === 'local' ? 1 : 1.6);
   if ($('oQuarters').checked && plan.quarters) { // where each quarter starts, and its street pattern

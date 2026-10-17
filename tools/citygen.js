@@ -74,6 +74,8 @@ PRESETS.crossroads = Object.assign({}, PRESETS.village, { label: 'Crossroads vil
 PRESETS.port = Object.assign({}, PRESETS.town, { label: 'Port city', density: [[0, 0.04], [0.2, 0.3], [0.45, 0.7], [0.62, 1], [0.8, 0.95], [1, 0.9]],
   coast: { mode: 'mix', land: 0.67, amp: 8, end: 0.8, side: [0.16, 0.22], harbour: [0.32, 0.4], pier: [26, 40], channel: 28 }, harbour: false, rivers: null, river: null, industry: 0.12,
   oldTown: Object.assign({}, PRESETS.town.oldTown, { rx: [34, 42], rxMin: 30, ry: [96, 124], minU: 0.6 }), collectorOffset: [58, 46], stationRoom: 64 });
+// A south port: the same, mirrored along the strip: the level begins over the sea and the town starts at a quay near the south end
+PRESETS.portSouth = Object.assign({}, PRESETS.port, { label: 'South port', density: [[0, 0.9], [0.2, 1], [0.38, 0.95], [0.55, 0.7], [0.8, 0.3], [1, 0.04]], coast: Object.assign({}, PRESETS.port.coast, { end: 0.2, dir: -1 }) });
 // A coastal city with only the side harbour (the sea along one side the whole way)
 PRESETS.coast = Object.assign({}, PRESETS.port, { label: 'Coastal city', density: PRESETS.town.density, coast: Object.assign({}, PRESETS.port.coast, { mode: 'side' }) });
 // An industrial estate: industrial quarters with wide service roads, halls, tank farms, coal yards and a power station; workers' terraces between
@@ -115,18 +117,19 @@ function generate(opts) {
   let CO = null;
   if (P.coast) { const c0 = P.coast, mode = c0.mode === 'mix' ? (rnd(T.SEA, 9) < 0.5 ? 'end' : 'corner') : (c0.mode || 'side');
     const cs = rnd(T.SEA, 1) < 0.5 ? 1 : -1, qx = cs > 0 ? W * c0.land : W * (1 - c0.land), ph = rnd(T.SEA, 2) * 6.283, ph2 = rnd(T.SEA, 3) * 6.283, out = cs > 0 ? W + 40 : -40;
-    const yC = mode === 'side' ? null : Math.round(L * c0.end), wfH = yC === null ? Infinity : yC - 34;
+    const hd = c0.dir || 1, yC = mode === 'side' ? null : Math.round(L * c0.end), wfH = yC === null ? (hd > 0 ? Infinity : -Infinity) : yC - hd * 34; // hd: +1 the sea beyond the end quay is north, -1 south
     let hy0 = null, hy1 = null, from = 0;
     if (mode === 'side') { const hl = Math.round(L * lerp(c0.harbour[0], c0.harbour[1], rnd(T.SEA, 4))); hy0 = Math.round(clamp(L * (0.5 + (rnd(T.SEA, 5) - 0.5) * 0.2) - hl / 2, 120, L - hl - 120)); hy1 = hy0 + hl; }
-    if (mode === 'corner') { const hl = Math.round(L * lerp(c0.side[0], c0.side[1], rnd(T.SEA, 4))); hy1 = yC - 2; hy0 = hy1 - hl; from = hy0 - 170; } // the side coast begins well before its harbour
+    if (mode === 'corner') { const hl = Math.round(L * lerp(c0.side[0], c0.side[1], rnd(T.SEA, 4))); if (hd > 0) { hy1 = yC - 2; hy0 = hy1 - hl; from = hy0 - 170; } else { hy0 = yC + 2; hy1 = hy0 + hl; from = hy1 + 170; } } // the side coast begins well before its harbour
     const xs = new Float32Array(L), wf = new Float32Array(L);
     for (let y = 0; y < L; y++) { const nat = qx + cs * (c0.amp * Math.sin(y * 0.004 + ph) + 4 * Math.sin(y * 0.013 + ph2) + 6), b = hy0 === null ? 0 : smooth(hy0 - 50, hy0 - 10, y) * (1 - smooth(hy1 + 10, hy1 + 50, y));
-      let x = lerp(nat, qx, mode === 'corner' && y > hy1 ? 1 : b); if (mode === 'end') x = out; if (mode === 'corner') x = lerp(out, x, smooth(from - 70, from, y)); // in a corner the coast swings in from the strip's side
-      xs[y] = x; wf[y] = x - cs * lerp(16, 42, mode === 'corner' && y > hy1 ? 1 : b); } // the quayside behind a harbour is 30 px deep, the beach elsewhere 9
-    CO = { mode, cs, qx, xs, wf, hy0, hy1, yC, wfH, side: mode !== 'end' }; plan.coast = CO; }
+      const pastH = mode === 'corner' && (hd > 0 ? y > hy1 : y < hy0); let x = lerp(nat, qx, pastH ? 1 : b); if (mode === 'end') x = out; if (mode === 'corner') x = lerp(out, x, hd > 0 ? smooth(from - 70, from, y) : 1 - smooth(from, from + 70, y)); // in a corner the coast swings in from the strip's side
+      xs[y] = x; wf[y] = x - cs * lerp(16, 42, pastH ? 1 : b); } // the quayside behind a harbour is 30 px deep, the beach elsewhere 9
+    CO = { mode, cs, hd, qx, xs, wf, hy0, hy1, yC, wfH, side: mode !== 'end' }; plan.coast = CO; }
+  const past = (y, m) => !!CO && (CO.hd > 0 ? y > CO.wfH - m : y < CO.wfH + m); // beyond the end waterfront street (towards the end quay), with a margin
   const sideSea = (x, y, m) => !!CO && CO.cs * (x - CO.wf[clamp(Math.round(y), 0, L - 1)]) > -m; // beyond the side waterfront street
-  const seaSide = (x, y, m) => sideSea(x, y, m) || (!!CO && y > CO.wfH - m); // ... or beyond the end waterfront street
-  const isSea = (x, y) => !!CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) >= 0 || (CO.yC !== null && y >= CO.yC));
+  const seaSide = (x, y, m) => sideSea(x, y, m) || past(y, m); // ... or beyond the end waterfront street
+  const isSea = (x, y) => !!CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) >= 0 || (CO.yC !== null && (CO.hd > 0 ? y >= CO.yC : y <= CO.yC)));
   // 1. fields
   const road = P.road || CO && CO.side && { c: CO.cs > 0 ? CO.qx * 0.6 : W - (W - CO.qx) * 0.6, amp: 6 + rnd(T.ROAD, 2) * 8, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 } || { c: 82 + rnd(T.ROAD, 1) * 60, amp: 18 + rnd(T.ROAD, 2) * 26, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 };
   for (let y = 0; y < L; y++) {
@@ -220,17 +223,17 @@ function generate(opts) {
   // along the end quay (across the strip, joining the main road, which ends there)
   if (CO) { const cs = CO.cs;
     for (let y = 0; y < L; y++) { const hb = CO.hy0 !== null && y >= CO.hy0 - 30 && y <= CO.hy1 + 30;
-      for (let x = 0; x < W; x++) { const i = idx(x, y); if (isSea(x, y)) { Kr[i] = K.SEA; continue; } if (CO.yC !== null && y > CO.wfH + 6) { Kr[i] = K.WORKS; continue; }
+      for (let x = 0; x < W; x++) { const i = idx(x, y); if (isSea(x, y)) { Kr[i] = K.SEA; continue; } if (CO.yC !== null && past(y, -6)) { Kr[i] = K.WORKS; continue; }
         const d = cs * (x - CO.xs[y]), dw = cs * (x - CO.wf[y]);
         if (dw > (hb ? 7 : 6)) Kr[i] = hb && y >= CO.hy0 && y <= CO.hy1 ? K.WORKS : d > -3 && Uy(y) >= 0.55 ? K.QUAY : K.BEACH; } } // a sea wall where the town is dense
     if (CO.side) { let y0, y1; const mid = (CO.hy0 + CO.hy1) >> 1; for (y0 = mid; y0 > 0 && uAt(CO.wf[y0], y0) >= 0.2; y0--); for (y1 = mid; y1 < L - 1 && uAt(CO.wf[y1], y1) >= 0.2; y1++);
-      y0 = Math.max(0, Math.min(y0, CO.hy0 - 40)); y1 = Math.min(L - 1, Math.max(y1, CO.hy1 + 40)); if (CO.yC !== null) { y0 = Math.max(y0, (CO.mode === 'corner' ? CO.hy0 - 120 : y0)); y1 = Math.round(CO.wfH); }
+      y0 = Math.max(0, Math.min(y0, CO.hy0 - 40)); y1 = Math.min(L - 1, Math.max(y1, CO.hy1 + 40)); if (CO.yC !== null) { if (CO.hd > 0) { y0 = Math.max(y0, CO.hy0 - 120); y1 = Math.round(CO.wfH); } else { y0 = Math.round(CO.wfH); y1 = Math.min(y1, CO.hy1 + 120); } }
       const pts = []; for (let y = y0; y <= y1; y++) if (cs * (CO.wf[y] - (cs > 0 ? W - 4 : 3)) < 0) pts.push([CO.wf[y], y, P.widths.collector]);
       if (pts.length > 30) CO.street = addStreet({ cls: 'collector', axis: 'v', tank: true, pts, y0: pts[0][1], y1: pts[pts.length - 1][1], side: cs, waterfront: true }); }
     if (CO.yC !== null) { const yH = Math.round(CO.wfH), xe = CO.side ? Math.round(CO.wf[yH]) : (cs > 0 ? W - 1 : 0), xa = cs > 0 ? 0 : W - 1, pts = [];
       for (let x = Math.min(xa, xe); x <= Math.max(xa, xe); x++) pts.push([x, yH, P.widths.collector]);
       CO.endStreet = addStreet({ cls: 'collector', axis: 'h', tank: true, pts, yc: yH, side: 1, x0: pts[0][0], x1: pts[pts.length - 1][0], w: P.widths.collector, waterfront: true });
-      for (const p of plan.streets[0].pts) if (p[1] > yH + 1) p[2] = 0; } } // the main road ends at the end quay
+      for (const p of plan.streets[0].pts) if (past(p[1], -1)) p[2] = 0; } } // the main road ends at the end quay
   // 2a'. rivers (river presets): planned before the other streets, so the town adapts to them. Water first, then quays (in town) or natural
   // banks (outside), an island's quay ring; the arterial will cross on bridges, other streets end at the riverside streets.
   const RVs = [];
@@ -257,14 +260,14 @@ function generate(opts) {
   let OT = null;
   if (P.oldTown) { const O = P.oldTown; let yPk = 0; for (let y = 0; y < L; y++) if (plan.U[y] > plan.U[yPk] + 1e-6) yPk = y;
     const ry = Math.round(lerp(O.ry[0], O.ry[1], rnd(T.OLD, 1))), cand = [yPk]; for (const R of RVs) cand.push(Math.round(R.yMin - ry - 24), Math.round(R.yMax + ry + 24));
-    if (CO && CO.hy0 !== null) cand.push(CO.hy1 + ry + 50, CO.hy0 - ry - 50, CO.hy1 + ry + 120, CO.hy0 - ry - 120); if (CO && CO.yC !== null) cand.push(Math.round(CO.wfH - ry - 50), Math.round(CO.wfH - ry - 140)); // a port's old town beside the harbour, where the shore leaves more land
+    if (CO && CO.hy0 !== null) cand.push(CO.hy1 + ry + 50, CO.hy0 - ry - 50, CO.hy1 + ry + 120, CO.hy0 - ry - 120); if (CO && CO.yC !== null) cand.push(Math.round(CO.wfH - CO.hd * (ry + 50)), Math.round(CO.wfH - CO.hd * (ry + 140))); // a port's old town beside the harbour, where the shore leaves more land
     for (const cy of cand) { if (OT) break; if (cy < ry + 40 || cy > L - ry - 40 || Uy(cy) < O.minU || RVs.some(R => cy + ry + 20 > R.yMin && cy - ry - 20 < R.yMax)) continue;
       for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
         let cx = O.green ? MX(cy) : clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
         if (CO && !O.green) { const lim = CO.cs > 0 ? CO.wf[cy] - rx - O.ring / 2 - 16 : CO.wf[cy] + rx + O.ring / 2 + 16, lim2 = rx + O.ring / 2 + 27; cx = CO.cs > 0 ? clamp(cx, lim2, lim) : clamp(cx, lim, W - 1 - lim2); } // between the railway's edge and the waterfront
         if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * (1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the lens in the strip
         else for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
-        if (ok && CO && cy + ry + O.ring + 24 > CO.wfH) ok = false;
+        if (ok && CO && (past(cy + ry + O.ring + 24, 0) || past(cy - ry - O.ring - 24, 0))) ok = false;
         if (ok && CO) for (let y = Math.max(0, cy - ry); ok && y <= Math.min(L - 1, cy + ry); y += 4) if (CO.cs * (cx + CO.cs * (rx + O.ring / 2 + 10) - CO.wf[y]) > 0) ok = false; // inland of the waterfront, a row of houses between
         if (ok && P.railway && !O.green && cx - rx - O.ring / 2 < 27 && W - 1 - (cx + rx + O.ring / 2) < 27) ok = false; // leave one edge for the railway
         if (ok) OT = { cx, cy, rx, ry, rw: O.ring, green: !!O.green };
@@ -306,18 +309,18 @@ function generate(opts) {
   // straight stretches where trains can run.
   let RL = null, ST = null;
   (() => { if (!P.railway) return; const belt = P.oldTown && P.oldTown.belt ? P.oldTown.belt[1] : 0;
-    const clearOf = (x, y, m) => x > 9 && x < W - 10 && !(CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) > -6 || y > CO.wfH - 10)) && !(OT && inOval(x, y, OT.rw / 2 + m)) /* through the green belt is fine */ && !(HB && x >= HB.x0 - m && x <= HB.x1 + m && y >= HB.yLo - m && y <= HB.yHi + m);
+    const clearOf = (x, y, m) => x > 9 && x < W - 10 && !(CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) > -6 || past(y, 10))) && !(OT && inOval(x, y, OT.rw / 2 + m)) /* through the green belt is fine */ && !(HB && x >= HB.x0 - m && x <= HB.x1 + m && y >= HB.yLo - m && y <= HB.yHi + m);
     for (const sr of railSide ? [railSide] : []) { if (RL) break; const xA = sr > 0 ? W - 19 : 18; let ok = true;
-      const yTop = CO ? Math.min(L, Math.round(CO.wfH) - 12) : L; // in a port the line ends at a buffer stop before the end quay's street
-      for (let y = 0; ok && y < yTop; y += 3) if (!clearOf(xA, y, 8)) ok = false; // the 8 px corridor
+      const yTop = CO && CO.hd > 0 ? Math.min(L, Math.round(CO.wfH) - 12) : L, yBot = CO && CO.hd < 0 && CO.yC !== null ? Math.max(0, Math.round(CO.wfH) + 12) : 0; // in a port the line ends at a buffer stop before the end quay's street
+      for (let y = yBot; ok && y < yTop; y += 3) if (!clearOf(xA, y, 8)) ok = false; // the 8 px corridor
       if (!ok) continue;
-      RL = { sr, xA, lines: [] }; plan.trainRuns = [{ x: xA, y0: 0, y1: yTop - 1, line: 'main' }];
+      RL = { sr, xA, lines: [] }; plan.trainRuns = [{ x: xA, y0: yBot, y1: yTop - 1, line: 'main' }];
       const cands = []; for (let y = Math.round(L * 0.25); y < L * 0.9; y += 16) cands.push(y); cands.sort((a, b) => rnd(T.RAIL, a) - rnd(T.RAIL, b));
       for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < 0.5 || U > 0.97 || ys < 90 || ys > L - 110) continue;
-        if (OT && Math.abs(ys - OT.cy) < OT.ry + OT.rw + 80) continue; if (CO && ys + 100 > CO.wfH) continue; if (RVs.some(R => ys > R.yMin - 90 && ys < R.yMax + 100)) continue; if (HB && ys > HB.yLo - 90 && ys < HB.yHi + 100) continue;
+        if (OT && Math.abs(ys - OT.cy) < OT.ry + OT.rw + 80) continue; if (CO && (past(ys + 100, 0) || past(ys - 90, 0))) continue; if (RVs.some(R => ys > R.yMin - 90 && ys < R.yMax + 100)) continue; if (HB && ys > HB.yLo - 90 && ys < HB.yHi + 100) continue;
         let room = true; for (let y = ys - 70; room && y <= ys + 90; y += 4) if (Math.abs(xA - MX(y)) - AW(y) / 2 < (P.stationRoom || 90)) room = false; // the station, its square and a row of blocks
         if (room) ST = { y: ys, sr, xL: xA, x0: Math.min(xA + sr * 10, xA - sr * 62), x1: Math.max(xA + sr * 10, xA - sr * 62), y0: ys - 70, y1: ys + 90, done: false }; }
-      const lineA = new Float32Array(L).fill(xA); for (let y = yTop; y < L; y++) lineA[y] = NaN; RL.lines.push({ id: 'main', xs: lineA });
+      const lineA = new Float32Array(L).fill(xA); for (let y = 0; y < L; y++) if (y >= yTop || y < yBot) lineA[y] = NaN; RL.lines.push({ id: 'main', xs: lineA });
       if (!ST) break;
       const ys = ST.y, xP = xA - sr * 22, xE = CO && CO.hy0 !== null ? CO.qx - CO.cs * 26 : sr > 0 ? 18 : W - 19; let B = null; // in a port the branch is the harbour railway along the quayside
       for (const dir of [1, -1]) { const y0 = dir > 0 ? ST.y1 + 2 : ST.y0 - 2; let Lc = 280 + ((rnd(T.RAIL, 5) * 60) | 0);
@@ -370,7 +373,7 @@ function generate(opts) {
   if (P.stars) { const cands = []; for (const q of quarters) cands.push(q.y0, Math.round((q.y0 + q.y1) / 2));
     cands.sort((a, b) => rnd(T.STAR, a) - rnd(T.STAR, b));
     for (const y of cands) { if (plan.stars.length >= P.stars * Math.max(1, Math.floor(L / 1800))) break;
-      if (y < 80 || y > L - 80 || Uy(y) < 0.6 || (CO && y > CO.wfH - 100) || (OT && Math.abs(y - OT.cy) < OT.ry + 80) || RVs.some(R => y > R.yMin - 70 && y < R.yMax + 70) || plan.stars.some(o => Math.abs(o.y - y) < 420) || (ST && y > ST.y0 - 60 && y < ST.y1 + 60) || (RL && RL.branch && y > Math.min(RL.branch.y0, RL.branch.y1) - 40 && y < Math.max(RL.branch.y0, RL.branch.y1) + 40) || (HB && y > HB.yLo - 60 && y < HB.yHi + 60)) continue;
+      if (y < 80 || y > L - 80 || Uy(y) < 0.6 || past(y, 100) || (OT && Math.abs(y - OT.cy) < OT.ry + 80) || RVs.some(R => y > R.yMin - 70 && y < R.yMax + 70) || plan.stars.some(o => Math.abs(o.y - y) < 420) || (ST && y > ST.y0 - 60 && y < ST.y1 + 60) || (RL && RL.branch && y > Math.min(RL.branch.y0, RL.branch.y1) - 40 && y < Math.max(RL.branch.y0, RL.branch.y1) + 40) || (HB && y > HB.yLo - 60 && y < HB.yHi + 60)) continue;
       const x = MX(y); if (x < 44 || x > W - 44) continue;
       plan.stars.push({ x, y, ro: P.star.ro, ri: P.star.ri, k: 0.55 + rnd(T.STAR, y, 1) * 0.25, done: false }); } }
   // 2b. cross streets, across the main road; spacing shrinks with U and with the quarter's block size. Each side of the main road has its own
@@ -386,7 +389,7 @@ function generate(opts) {
       for (const s of [-1, 1]) {
         let yc = star ? star.y : stn ? ST.y : xing ? XR.y : y + (Q.style === 'grid' || Q.style === 'industry' ? 0 : Math.round((rnd(T.CROSS, n, s + 2) - 0.5) * P.stagger * (U < 0.75 ? 1 : 0.6))); // staggered crossroads, except in a planned grid
         if (!star && !stn && !xing && Q.style === 'fields') { let best = yc, bd = 1e9; for (const e of rowEdges) { const dd = Math.abs(e - yc); if (dd < bd) { bd = dd; best = e; } } yc = best; } // on the edge between two field strips
-        if (yc < 6 || yc > L - 7 || (!star && plan.stars.some(o => Math.abs(o.y - yc) < P.crossMinGap + 4)) || (!stn && ST && Math.abs(ST.y - yc) < P.crossMinGap + 4) || (!xing && XR && Math.abs(XR.y - yc) < P.crossMinGap + 4) || (CO && yc > CO.wfH - P.crossMinGap)) continue;
+        if (yc < 6 || yc > L - 7 || (!star && plan.stars.some(o => Math.abs(o.y - yc) < P.crossMinGap + 4)) || (!stn && ST && Math.abs(ST.y - yc) < P.crossMinGap + 4) || (!xing && XR && Math.abs(XR.y - yc) < P.crossMinGap + 4) || past(yc, P.crossMinGap)) continue;
         let xa = MX(yc), xEdge = xa + s * AW(yc) / 2;
         if (star) { xa = star.x + s * (star.ro - 2); xEdge = star.x + s * (star.ro + 2); }
         if (OT && !star) { const dy = Math.abs(yc - OT.cy); if (dy < OT.ry + OT.rw / 2 + 16) { if (dy > OT.ry * 0.72) continue; // none across the old town: they start at the ring, and none near its ends
@@ -407,7 +410,7 @@ function generate(opts) {
           if (k < ord.length && CO && s === CO.cs && seaSide(ord[k][0], ord[k][1], 0) && k + 1 < ord.length) k++; // onto its carriageway
           if (k < ord.length) { clipped = true; const keep = ord.slice(0, k); pts.length = 0; for (const p of (s > 0 ? keep : keep.reverse())) pts.push(p); } }
         if (pts.length < 2 || (clipped && Math.abs(pts[s > 0 ? pts.length - 1 : 0][0] - xa) < AW(yc) / 2 + 22)) continue;
-        let ok = pts.every(p => p[1] >= 6 && p[1] <= L - 7 && !riverAt(p[1]) && !(CO && p[1] > CO.wfH - 14));
+        let ok = pts.every(p => p[1] >= 6 && p[1] <= L - 7 && !riverAt(p[1]) && !past(p[1], 14));
         const prev = cross[s][cross[s].length - 1];
         if (ok && prev) for (const p of pts) { const yp = crossYat(prev, p[0]); if (yp !== null && p[1] - yp < P.crossMinGap) { if (star) { prev.dead = true; cross[s].pop(); } else ok = false; break; } } // a roundabout's street wins
         if (!ok) continue;
@@ -452,7 +455,7 @@ function generate(opts) {
       const tank = (cls === 'collector' || overRiver) && U >= 0.65 && A.tank && Bc.tank, w = tank ? P.widths.collector : P.widths.local, pts = []; // a tank route must join tank routes at both ends
       const y0 = Math.round(ya), y1 = Math.round(yb);
       let ok = y1 - y0 > 12;
-      for (let y = y0; ok && y <= y1; y++) { const x = lx(y); if (x < 6 || x > W - 7 || Math.abs(x - MX(y)) < AW(y) / 2 + P.minBlockDepth || inOval(x, y, OT ? OT.rw / 2 + P.minBlockDepth : 0) || inZone(x, y, 6) || railNear(x, y, 16) || sideSea(x, y, 22) || (CO && y > CO.wfH + 2)) { ok = false; break; } pts.push([x, y, w]); }
+      for (let y = y0; ok && y <= y1; y++) { const x = lx(y); if (x < 6 || x > W - 7 || Math.abs(x - MX(y)) < AW(y) / 2 + P.minBlockDepth || inOval(x, y, OT ? OT.rw / 2 + P.minBlockDepth : 0) || inZone(x, y, 6) || railNear(x, y, 16) || sideSea(x, y, 22) || past(y, -2)) { ok = false; break; } pts.push([x, y, w]); }
       if (ok) { const S = addStreet({ cls: tank ? 'collector' : 'local', axis: 'v', tank, pts, y0, y1, side: s, off: Math.abs(xm - MX(ym)), quarter: Q.id }); if (overRiver) plan.bridges.push({ street: S.id, x: Math.round(pts[(pts.length / 2) | 0][0]), kind: 'collector', river: OR.id }); }
     }
   }
@@ -580,78 +583,88 @@ function generate(opts) {
           plan.cranes.push({ x: Math.round(hx + hw / 2), y: Math.round(ee) + dir * 3, dx: 0.3, dy: -dir }); } } } // a crane on the river quay, its jib over the river
     for (let x = HB.x0; x <= HB.x1; x++) { if (x >= bx - 3 && x <= bx + bw + 2) continue; const y = e(x) + dir * (HB.D - 6); if (inB(x, Math.round(y)) && (Kr[idx(x, Math.round(y))] === K.WORKS || Kr[idx(x, Math.round(y))] === K.RAIL)) layTrackH(x, y); } // the harbour railway along the land side
   } })();
-  // 3a0. the port. The end harbour (horizontal): finger piers reach north from the straight quay with ships moored along them, a channel at
-  // least 28 px wide beyond the pier heads, then a breakwater across with an entrance between two lighthouses; the U-boat bunker at the
-  // land-side end of the quay, a shipyard at the other (in the 'end' form); warehouses, cranes and the harbour railway on the quayside.
-  // The side harbour: piers out from the side quay, the same channel between their heads and the breakwater (room for ships to pass, one
-  // under way), the breakwater an L from the shore; in the 'side' form with its own bunker, shipyard and lighthouses, in the 'corner' form
-  // opening into the end harbour.
-  plan.ships = []; plan.gantries = [];
-  (() => { if (!CO) return; const cs = CO.cs, mw = 5, CH = P.coast.channel || 28, kinds = ['freighter', 'freighter', 'tanker', 'coaster'];
+  // 3a0. the port, with room for the game's warships, which sail straight north or south on the water: a destroyer is 28 px wide and 80 long,
+  // a submarine 12 by 46, the flagship (the battleship boss) 80 by 232 in the middle of the strip. Every harbour keeps a straight fairway
+  // 40 px wide clear from its quay out to the open sea (plan.shipLanes), and beyond the end breakwater a fleet area of at least 96 by 240 px
+  // stays open (plan.fleetArea). The end harbour (horizontal, the sea north or south of the quay): finger piers out from the quay with ships
+  // moored along them, a channel at least 28 px wide beyond their heads, a breakwater across with a 40 px entrance (on the fairway) between two
+  // lighthouses; the U-boat bunker at the land-side end, a shipyard at the other ('end' form); warehouses, cranes and the harbour railway on the
+  // quayside. The side harbour: short piers, a channel 36 px wide between their heads and the breakwater (the fairway: a destroyer passes),
+  // open at its far end; in the 'side' form with its own bunker, shipyard and lighthouses, in the 'corner' form opening into the end harbour.
+  plan.ships = []; plan.gantries = []; plan.shipLanes = []; plan.fleetArea = null;
+  (() => { if (!CO) return; const cs = CO.cs, hd = CO.hd, mw = 5, CH = 28, CS = P.coast.sideChannel || 41, FW = 40, kinds = ['freighter', 'freighter', 'tanker', 'coaster'];
     const fillR = (x0, x1, y0, y1, k, br, only) => { for (let y = Math.round(Math.min(y0, y1)); y <= Math.max(y0, y1); y++) for (let x = Math.round(Math.min(x0, x1)); x <= Math.max(x0, x1); x++) { if (!inB(x, y)) continue; const i = idx(x, y); if (only && !only.includes(Kr[i])) continue; Kr[i] = k; Br[i] = br; } };
-    const bunker = (x0, y0, w, h, open) => { const it = addItem({ t: 'works', label: 'U-boat bunker', part: 'bunker', x0, y0, w, h, ori: open === 'x' ? 'v' : 'h', style: 'flat', roof: 3, seed: h32(seed, 64000 + x0 + y0), dmg: 0 }); return it; };
-    const port = { piers: 0 }; let yM = null, sideMoleX = null;
+    const bunker = (x0, y0, w, h) => addItem({ t: 'works', label: 'U-boat bunker', part: 'bunker', x0, y0, w, h, ori: 'v', style: 'flat', roof: 3, seed: h32(seed, 64000 + x0 + y0), dmg: 0 });
+    const port = { piers: 0 }, seaWs = cs > 0 ? W - CO.qx : CO.qx, PLs = Math.max(20, Math.min(P.coast.pier[1], Math.floor(seaWs - CS - mw - 6))), sideLaneX = CO.side ? CO.qx + cs * (PLs + 17) : null; // the side fairway: 30 px of the channel next to the pier heads (a destroyer is 28)
+    let yM = null;
     // the end harbour
-    if (CO.yC !== null) { const yQ = CO.yC, PLh = 40 + ((rnd(T.SEA, 6) * 10) | 0); yM = yQ + PLh + CH;
-      const xLand = cs > 0 ? 0 : W - 1, xCorner = CO.side ? CO.qx : (cs > 0 ? W - 1 : 0), XA = d => xLand + cs * d, span = Math.abs(xCorner - xLand);
-      if (CO.side) { const seaW = cs > 0 ? W - CO.qx : CO.qx; sideMoleX = CO.qx + cs * (Math.max(24, Math.min(P.coast.pier[1], seaW - CH - mw - 6)) + CH); } // where the side breakwater will run
-      const xEndMole = sideMoleX !== null ? sideMoleX : (cs > 0 ? W - 1 : 0), gap = 30, gx = Math.round(lerp(Math.min(xLand, xEndMole) + 40, Math.max(xLand, xEndMole) - 40 - gap, rnd(T.SEA, 7)));
-      fillR(xLand, xEndMole, yM, yM + mw - 1, K.QUAY, -11, [K.SEA]); fillR(gx, gx + gap - 1, yM, yM + mw - 1, K.SEA, -10);
-      for (let y = yQ; y < yM; y++) for (let x = 0; x < W; x++) if (Kr[idx(x, y)] === K.SEA && (x - xEndMole) * cs <= 0) Br[idx(x, y)] = -10; // calm water in the harbour
-      roundBuilding(gx - 2, yM + 2, 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(gx + gap + 1, yM + 2, 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false });
-      port.mole = [{ x: gx - 8, y: yM + 2 }, { x: gx + gap + 8, y: yM + 2 }];
-      // the U-boat bunker at the land-side end: astride the quay, four pens open to the north
-      { const bx0 = Math.round(Math.min(XA(4), XA(50))), it = bunker(bx0, yQ - 16, 47, 42, 'y');
-        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = bx0; x < bx0 + it.w; x++) { const k = Math.floor((x - bx0 - 4) / 11), pen = y > yQ + 14 && k >= 0 && k < 4 && (x - bx0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
-        plan.ships.push({ kind: 'uboat', ori: 'v', bow: 1, x0: bx0 + 4 + 11 + 1, y0: yQ + 28, w: 5, h: 26 }); }
-      // piers north from the quay, ships along them
-      const p0 = 62, p1 = span - (CO.side ? 40 : 64), piers = []; for (let d = p0; d < p1; d += 40) piers.push(d); // basins 26 px: two ships and a gap
-      piers.forEach((d, k) => { const px = Math.round(XA(d)); fillR(px - 7, px + 6, yQ, yQ + PLh, K.WORKS, -1, [K.SEA]);
-        for (let y = yQ; y <= yQ + PLh; y++) for (const x of [px - 7, px + 6]) if (inB(x, y)) Kr[idx(x, y)] = K.QUAY; fillR(px - 7, px + 6, yQ + PLh, yQ + PLh, K.QUAY, -1);
-        const it = addItem({ t: 'works', label: 'Pier shed', x0: px - 3, y0: yQ + 4, w: 7, h: PLh - 9, ori: 'v', style: rnd(T.SEA, px, 1) < 0.5 ? 'gable' : 'flat', roof: rnd(T.SEA, px, 2) < 0.5 ? 1 : 3, seed: h32(seed, 65000 + k), dmg: 0 }); fill(it.x0, it.y0, it.w, it.h, K.BLDG, it.id);
-        for (const yy of [yQ + 8, yQ + 22, yQ + 36]) { plan.cranes.push({ x: px - 6, y: yy, dx: -1, dy: 0.3 }); plan.cranes.push({ x: px + 5, y: yy + 5, dx: 1, dy: 0.3 }); }
-        for (const [x0, sd] of [[px + 8, 1], [px - 18, -1]]) { if (sd < 0 && k === 0 && d - 50 < 26) continue; /* no ship against the bunker */ if (rnd(T.SEA, px, sd + 5) < 0.2) continue; const len = Math.min(PLh - 2, 30 + ((rnd(T.SEA, px, sd + 7) * 10) | 0));
-          plan.ships.push({ kind: kinds[(rnd(T.SEA, px, sd + 9) * 4) | 0], ori: 'v', bow: 1, x0, y0: yQ + 2, w: 10, h: len, dmg: rnd(T.SEA, px, sd + 11) < Dy(yQ) * 0.5 }); } });
+    if (CO.yC !== null) { const yQ = CO.yC, PLh = 40 + ((rnd(T.SEA, 6) * 10) | 0), Y = d => yQ + hd * d; yM = Y(PLh + CH); // Y: d px from the quay out to sea
+      const xLand = cs > 0 ? 0 : W - 1, xMoleEnd = CO.side ? CO.qx + cs * (PLs + CS) : (cs > 0 ? W - 1 : 0), XA = d => xLand + cs * d, span = Math.abs(xMoleEnd - xLand);
+      // the fairway: on the side channel in a corner harbour (ships sail straight on), otherwise somewhere along the quay clear of the bunker
+      const fx = CO.side ? Math.round(sideLaneX) : Math.round(XA(74)), gx0 = fx - FW / 2, gx1 = fx + FW / 2 - 1; // in the 'end' form right beside the bunker, the piers beyond
+      fillR(xLand, xMoleEnd, yM, Y(PLh + CH + mw - 1), K.QUAY, -11, [K.SEA]); fillR(gx0, gx1, yM, Y(PLh + CH + mw - 1), K.SEA, -10);
+      for (let y = Math.min(yQ, yM); y <= Math.max(yQ, yM); y++) for (let x = 0; x < W; x++) if (Kr[idx(x, y)] === K.SEA && (x - xMoleEnd) * cs <= 0) Br[idx(x, y)] = -10; // calm water in the harbour
+      roundBuilding(gx0 - 3, Y(PLh + CH + 2), 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(gx1 + 4, Y(PLh + CH + 2), 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false });
+      port.mole = [{ x: gx0 - 10, y: Y(PLh + CH + 2) }, { x: gx1 + 10, y: Y(PLh + CH + 2) }];
+      const laneFree = (xa, xb) => Math.max(xa, xb) < gx0 - 4 || Math.min(xa, xb) > gx1 + 4; // keep piers and their ships off the fairway
+      // the U-boat bunker at the land-side end, astride the quay, its four pens open to the sea
+      { const bx0 = Math.round(Math.min(XA(4), XA(50))), by0 = Math.round(Math.min(Y(-16), Y(25))), it = bunker(bx0, by0, 47, 42);
+        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = bx0; x < bx0 + it.w; x++) { const k = Math.floor((x - bx0 - 4) / 11), pen = (y - yQ) * hd > 14 && k >= 0 && k < 4 && (x - bx0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
+        plan.ships.push({ kind: 'uboat', ori: 'v', bow: hd, x0: bx0 + 4 + 11 + 1, y0: Math.round(Math.min(Y(28), Y(54))), w: 5, h: 26 }); }
+      // piers out from the quay, ships along them
+      const piers = []; for (let d = CO.side ? 62 : 120; d < span - (CO.side ? 30 : 46); d += 38) { const px = Math.round(XA(d)); if (laneFree(px - 19, px + 18)) piers.push(d); }
+      piers.forEach((d, k) => { const px = Math.round(XA(d)); fillR(px - 7, px + 6, yQ, Y(PLh), K.WORKS, -1, [K.SEA]);
+        for (let q = 0; q <= PLh; q++) for (const x of [px - 7, px + 6]) if (inB(x, Y(q))) Kr[idx(x, Y(q))] = K.QUAY; fillR(px - 7, px + 6, Y(PLh), Y(PLh), K.QUAY, -1);
+        const it = addItem({ t: 'works', label: 'Pier shed', x0: px - 3, y0: Math.round(Math.min(Y(4), Y(PLh - 5))), w: 7, h: PLh - 9, ori: 'v', style: rnd(T.SEA, px, 1) < 0.5 ? 'gable' : 'flat', roof: rnd(T.SEA, px, 2) < 0.5 ? 1 : 3, seed: h32(seed, 65000 + k), dmg: 0 }); fill(it.x0, it.y0, it.w, it.h, K.BLDG, it.id);
+        for (const q of [8, 22, 36]) { plan.cranes.push({ x: px - 6, y: Y(q), dx: -1, dy: 0.3 * hd }); plan.cranes.push({ x: px + 5, y: Y(q + 5), dx: 1, dy: 0.3 * hd }); }
+        for (const [x0, sd] of [[px + 8, 1], [px - 18, -1]]) { if (rnd(T.SEA, px, sd + 5) < 0.2 || (sd < 0 && k === 0 && d - 50 < 26)) continue; const len = Math.min(PLh - 2, 30 + ((rnd(T.SEA, px, sd + 7) * 10) | 0));
+          plan.ships.push({ kind: kinds[(rnd(T.SEA, px, sd + 9) * 4) | 0], ori: 'v', bow: hd, x0, y0: Math.round(Math.min(Y(2), Y(1 + len))), w: 10, h: len, dmg: rnd(T.SEA, px, sd + 11) < Dy(yQ) * 0.5 }); } });
       port.piers += piers.length;
-      plan.ships.push({ kind: 'freighter', ori: 'h', bow: -cs, x0: Math.round(Math.min(XA(span * 0.5), XA(span * 0.5 + 38))), y0: yQ + PLh + (CH >> 1) - 5, w: 38, h: 10 }); // a ship under way in the channel
-      // the shipyard at the far end (the 'end' form)
-      if (!CO.side) { for (let q = 0; q < 3; q++) { const sx = Math.round(XA(span - 60 + q * 16)); fillR(sx, sx + 9, yQ - 12, yQ + 38, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'v', bow: 1, x0: sx, y0: yQ - 6, w: 9, h: 40 }); }
-        for (const yy of [yQ + 2, yQ + 26]) plan.gantries.push({ h: true, y: yy, x0: Math.round(Math.min(XA(span - 62), XA(span - 14))), x1: Math.round(Math.max(XA(span - 62), XA(span - 14))) }); }
-      // the quayside: cranes on the quay's edge, warehouses, the harbour railway
-      for (let d = 56; d < span - 8; d += 22) plan.cranes.push({ x: Math.round(XA(d)), y: yQ - 3, dx: 0.25, dy: 1 });
-      for (let d = 56; d + 30 < span; ) { const len = 28 + ((rnd(T.SEA, d, 3) * 10) | 0), x0 = Math.round(Math.min(XA(d), XA(d + len - 1))); if (rectIs(x0, yQ - 16, len, 12, K.WORKS)) { const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: yQ - 16, w: len, h: 12, ori: 'h', style: rnd(T.SEA, d, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, d, 5) < 0.5 ? 1 : 3, seed: h32(seed, 67000 + d), dmg: 0 }); fill(x0, yQ - 16, len, 12, K.BLDG, it.id); } d += len + 4; }
-      for (let x = 0; x < W; x++) { const y = yQ - 24; if (inB(x, y) && (Kr[idx(x, y)] === K.WORKS || Kr[idx(x, y)] === K.RAIL)) layTrackH(x, y); }
-      for (const xx of [0.25, 0.7]) { const x0 = Math.round(W * xx); if (rnd(T.SEA, x0) < 0.8 && yM + 20 + 40 < L) plan.ships.push({ kind: rnd(T.SEA, x0, 1) < 0.6 ? 'freighter' : 'tanker', ori: 'v', bow: 1, x0, y0: yM + 20 + ((rnd(T.SEA, x0, 2) * 30) | 0), w: 10, h: 40 }); } // at anchor outside
+      { const sx = Math.round(Math.min(XA(span * 0.3), XA(span * 0.3 + 34))); if (laneFree(sx, sx + 34)) plan.ships.push({ kind: 'freighter', ori: 'h', bow: -cs, x0: sx, y0: Math.round(Y(PLh + CH / 2)) - 5, w: 34, h: 10 }); } // a ship under way in the channel, off the fairway
+      if (!CO.side) { for (let q = 0; q < 2; q++) { const sx = Math.round(XA(span - 44 + q * 16)); if (!laneFree(sx, sx + 9)) continue; fillR(sx, sx + 9, Y(-12), Y(38), K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'v', bow: hd, x0: sx, y0: Math.round(Math.min(Y(-6), Y(33))), w: 9, h: 40 }); }
+        for (const q of [2, 26]) plan.gantries.push({ h: true, y: Y(q), x0: Math.round(Math.min(XA(span - 46), XA(span - 14))), x1: Math.round(Math.max(XA(span - 46), XA(span - 14))) }); }
+      for (let d = 56; d < span - 8; d += 22) plan.cranes.push({ x: Math.round(XA(d)), y: Y(-3), dx: 0.25, dy: hd });
+      const wy0 = hd > 0 ? yQ - 16 : yQ + 5;
+      for (let d = 56; d + 30 < span; ) { const len = 28 + ((rnd(T.SEA, d, 3) * 10) | 0), x0 = Math.round(Math.min(XA(d), XA(d + len - 1))); if (rectIs(x0, wy0, len, 12, K.WORKS)) { const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: wy0, w: len, h: 12, ori: 'h', style: rnd(T.SEA, d, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, d, 5) < 0.5 ? 1 : 3, seed: h32(seed, 67000 + d), dmg: 0 }); fill(x0, wy0, len, 12, K.BLDG, it.id); } d += len + 4; }
+      for (let x = 0; x < W; x++) { const y = Y(-24); if (inB(x, y) && (Kr[idx(x, y)] === K.WORKS || Kr[idx(x, y)] === K.RAIL)) layTrackH(x, y); }
+      // the fairway from the quay out through the entrance to the strip's end, and the fleet area beyond the breakwater (no ship at anchor in it)
+      plan.shipLanes.push({ x: fx, w: FW, y0: Math.min(Y(4), hd > 0 ? L - 1 : 0), y1: Math.max(Y(4), hd > 0 ? L - 1 : 0), kind: 'fairway' });
+      const fa0 = Y(PLh + CH + mw + 6), fa1 = hd > 0 ? L - 1 : 0; if (Math.abs(fa1 - fa0) >= 240) plan.fleetArea = { x0: 64, x1: 159, y0: Math.min(fa0, fa1), y1: Math.max(fa0, fa1) };
+      for (const x0 of [cs > 0 ? 6 : W - 16, cs > 0 ? W - 16 : 6]) if (rnd(T.SEA, x0) < 0.8) { const ya = Y(PLh + CH + mw + 20 + ((rnd(T.SEA, x0, 2) * 40) | 0)); if (ya > 0 && ya < L - 42) plan.ships.push({ kind: rnd(T.SEA, x0, 1) < 0.6 ? 'freighter' : 'tanker', ori: 'v', bow: hd, x0, y0: Math.min(ya, ya + hd * 40), w: 10, h: 40 }); } // at anchor, at the edges
       port.yM = yM; }
     // the side harbour
-    if (CO.side && CO.hy0 !== null) { const qx = CO.qx, hy0 = CO.hy0, hy1 = CO.hy1, X = d => qx + cs * d, seaW = cs > 0 ? W - qx : qx, corner = CO.mode === 'corner';
-      const PL = Math.max(24, Math.min(P.coast.pier[1], seaW - CH - mw - 6)), moleD = PL + CH, yA = hy0 - 16, yH = corner ? yM : hy1 - 34, yB = hy1 + 16;
-      fillR(X(-40), X(moleD + mw - 1), yA - 2, yA + 2, K.QUAY, -11, [K.SEA, K.BEACH]); fillR(X(moleD), X(moleD + mw - 1), yA, yH + (corner ? mw - 1 : 0), K.QUAY, -11, [K.SEA]);
-      if (!corner) fillR(X(-40), X(moleD - 14), yB - 2, yB + 2, K.QUAY, -11, [K.SEA, K.BEACH]);
-      for (let y = yA + 3; y <= (corner ? yM : yB - 3); y++) for (let x = 0; x < W; x++) { const d = cs * (x - qx); if (d >= 0 && d < moleD && Kr[idx(x, y)] === K.SEA) Br[idx(x, y)] = -10; }
-      if (!corner) { roundBuilding(X(moleD + mw / 2), yH, 3.2, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(X(moleD - 14), yB, 2.8, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false }); port.mole = [{ x: Math.round(X(moleD + 2)), y: yH - 12 }, { x: Math.round(X(moleD - 24)), y: yB }]; }
-      let pStart = hy0 + 30;
-      if (!corner) { const x0 = Math.round(Math.min(X(-16), X(26))), it = bunker(x0, hy0 + 6, 43, 47, 'x');
-        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = x0; x < x0 + it.w; x++) { const d = cs * (x - qx), k = Math.floor((y - it.y0 - 4) / 11), pen = d > 14 && k >= 0 && k < 4 && (y - it.y0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
-        plan.ships.push({ kind: 'uboat', ori: 'h', bow: cs, x0: Math.round(Math.min(X(28), X(54))), y0: it.y0 + 4 + 11 + 1, w: 26, h: 5 }); pStart = hy0 + 80; }
-      const piers = []; for (let py = pStart; py < (corner ? hy1 - 30 : yH - 34); py += 64 + ((rnd(T.SEA, py) * 10) | 0)) piers.push(py);
+    if (CO.side && CO.hy0 !== null) { const qx = CO.qx, hy0 = CO.hy0, hy1 = CO.hy1, X = d => qx + cs * d, corner = CO.mode === 'corner', PL = PLs, moleD = PL + CS;
+      // its closed end: the end away from the end harbour (the near end in the 'side' form); the breakwater runs from there to its head, or to the end breakwater
+      const yClosed = corner ? (hd > 0 ? hy0 - 16 : hy1 + 16) : hy0 - 16, yHead = corner ? yM : hy1 - 34, yOpen = hy1 + 16;
+      fillR(X(-40), X(moleD + mw - 1), yClosed - 2, yClosed + 2, K.QUAY, -11, [K.SEA, K.BEACH]); fillR(X(moleD), X(moleD + mw - 1), Math.min(yClosed, yHead), Math.max(yClosed, yHead), K.QUAY, -11, [K.SEA]);
+      if (!corner) fillR(X(-40), X(PL - 2), yOpen - 2, yOpen + 2, K.QUAY, -11, [K.SEA, K.BEACH]); // the far arm covers the pier heads only: the channel stays open
+      for (let y = Math.min(yClosed, yHead) + 3; y <= Math.max(yClosed, corner ? yHead : yOpen - 3); y++) for (let x = 0; x < W; x++) { const d = cs * (x - qx); if (d >= 0 && d < moleD && Kr[idx(x, y)] === K.SEA) Br[idx(x, y)] = -10; }
+      if (!corner) { roundBuilding(X(moleD + mw / 2), yHead, 3.2, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(X(PL - 3), yOpen, 2.8, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false }); port.mole = [{ x: Math.round(X(moleD + 2)), y: yHead - 12 }, { x: Math.round(X(PL - 12)), y: yOpen }]; }
+      let pStart = hy0 + 30, pEnd = corner ? hy1 - 30 : yHead - 34;
+      if (!corner) { const x0 = Math.round(Math.min(X(-16), X(PL - 4))), w = Math.abs(Math.round(X(PL - 4)) - Math.round(X(-16))) + 1, it = bunker(x0, hy0 + 6, w, 47);
+        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = x0; x < x0 + it.w; x++) { const d = cs * (x - qx), k = Math.floor((y - it.y0 - 4) / 11), pen = d > PL - 14 && k >= 0 && k < 4 && (y - it.y0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
+        plan.ships.push({ kind: 'uboat', ori: 'v', bow: 1, x0: Math.round(Math.min(X(PL - 3), X(PL + 1))), y0: it.y0 + 6, w: 5, h: 26 }); pStart = hy0 + 80; } // the submarine waits by the bunker, beside the fairway
+      const piers = []; for (let py = pStart; py < pEnd; py += 64 + ((rnd(T.SEA, py) * 10) | 0)) piers.push(py);
       piers.forEach((py, k) => { fillR(X(0), X(PL), py - 9, py + 8, K.WORKS, -1, [K.SEA]);
         for (let y = py - 9; y <= py + 8; y++) for (let x = Math.round(Math.min(X(0), X(PL))); x <= Math.max(X(0), X(PL)); x++) { const d = cs * (x - qx); if (inB(x, y) && d > 0 && (y === py - 9 || y === py + 8 || d >= PL - 1)) Kr[idx(x, y)] = K.QUAY; }
-        const x0 = Math.round(Math.min(X(4), X(PL - 5))), it = addItem({ t: 'works', label: 'Pier shed', x0, y0: py - 4, w: PL - 8, h: 9, ori: 'h', style: rnd(T.SEA, py, 1) < 0.5 ? 'gable' : 'flat', roof: rnd(T.SEA, py, 2) < 0.5 ? 1 : 3, seed: h32(seed, 68000 + k), dmg: 0 }); fill(it.x0, it.y0, it.w, it.h, K.BLDG, it.id);
-        for (const d of [8, 20]) { plan.cranes.push({ x: Math.round(X(d)), y: py - 7, dx: 0.3 * cs, dy: -1 }); plan.cranes.push({ x: Math.round(X(d + 6)), y: py + 6, dx: 0.3 * cs, dy: 1 }); }
-        const next = piers[k + 1] || (corner ? hy1 + 30 : yH + 6);
-        for (const [y0, sd] of [[py + 11, 1], [next - 9 - 2 - 10, -1]]) { if (rnd(T.SEA, py, sd + 5) < 0.2 || next - py < 44) continue; const len = Math.min(PL - 2, 30 + ((rnd(T.SEA, py, sd + 7) * 8) | 0));
-          plan.ships.push({ kind: kinds[(rnd(T.SEA, py, sd + 9) * 4) | 0], ori: 'h', bow: cs, x0: Math.round(Math.min(X(2), X(2 + len))), y0, w: len, h: 10, dmg: rnd(T.SEA, py, sd + 11) < Dy(y0) * 0.5 }); } });
+        const x0 = Math.round(Math.min(X(3), X(PL - 4))), it = addItem({ t: 'works', label: 'Pier shed', x0, y0: py - 4, w: Math.max(6, PL - 7), h: 9, ori: 'h', style: rnd(T.SEA, py, 1) < 0.5 ? 'gable' : 'flat', roof: rnd(T.SEA, py, 2) < 0.5 ? 1 : 3, seed: h32(seed, 68000 + k), dmg: 0 }); fill(it.x0, it.y0, it.w, it.h, K.BLDG, it.id);
+        for (const d of [6, PL - 8]) { plan.cranes.push({ x: Math.round(X(d)), y: py - 7, dx: 0.3 * cs, dy: -1 }); plan.cranes.push({ x: Math.round(X(d + 3)), y: py + 6, dx: 0.3 * cs, dy: 1 }); }
+        const next = piers[k + 1] || pEnd + 20;
+        for (const [y0, sd] of [[py + 11, 1], [next - 9 - 2 - 9, -1]]) { if (rnd(T.SEA, py, sd + 5) < 0.2 || next - py < 44) continue; const len = Math.min(PL - 1, 26 + ((rnd(T.SEA, py, sd + 7) * 6) | 0)); // coasters along the short piers
+          plan.ships.push({ kind: len < 24 ? 'coaster' : kinds[(rnd(T.SEA, py, sd + 9) * 4) | 0], ori: 'h', bow: cs, x0: Math.round(Math.min(X(1), X(1 + len))), y0, w: len, h: 9, dmg: rnd(T.SEA, py, sd + 11) < Dy(y0) * 0.5 }); } });
       port.piers += piers.length;
-      plan.ships.push({ kind: 'coaster', ori: 'v', bow: corner ? 1 : -1, x0: Math.round(X(PL + (CH >> 1)) - 5), y0: Math.round(lerp(hy0 + 60, hy1 - 60, rnd(T.SEA, 12))), w: 10, h: 32 }); // a ship passing in the channel
-      if (!corner) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yH - 4), n = Math.min(3, Math.floor((yB - 8 - ys0) / 16));
-        for (let q = 0; q < n; q++) { const y0 = ys0 + q * 16; fillR(X(-12), X(PL - 4), y0, y0 + 10, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'h', bow: cs, x0: Math.round(Math.min(X(-6), X(PL - 8))), y0: y0 + 1, w: PL - 2, h: 9 }); }
-        if (n) for (const d of [4, PL - 12]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
+      const lxa = Math.round(sideLaneX - 15), lxb = Math.round(sideLaneX + 15) - 1;
+      plan.ships.push({ kind: 'coaster', ori: 'v', bow: corner ? hd : 1, x0: cs > 0 ? lxb + 1 : lxa - 9, y0: Math.round(lerp(hy0 + 60, hy1 - 60, rnd(T.SEA, 12))), w: 9, h: 30 }); // a coaster passing along the breakwater, leaving the fairway clear
+      if (!corner) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yHead - 4), n = Math.min(3, Math.floor((yOpen - 8 - ys0) / 16));
+        for (let q = 0; q < n; q++) { const y0 = ys0 + q * 16; fillR(X(-12), X(PL - 4), y0, y0 + 10, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'h', bow: cs, x0: Math.round(Math.min(X(-6), X(PL - 6))), y0: y0 + 1, w: PL - 2, h: 9 }); }
+        if (n) for (const d of [4, PL - 10]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
       for (let y = hy0 + 60; y < hy1 - 6; y += 22) plan.cranes.push({ x: Math.round(X(-3)), y, dx: cs, dy: 0.25 });
       for (let y = hy0 + 58; y + 30 < hy1; ) { const len = 28 + ((rnd(T.SEA, y, 3) * 10) | 0), x0 = Math.round(Math.min(X(-16), X(-4))); if (rectIs(x0, y, 13, len, K.WORKS)) { const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: y, w: 13, h: len, ori: 'v', style: rnd(T.SEA, y, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, y, 5) < 0.5 ? 1 : 3, seed: h32(seed, 66000 + y), dmg: 0 }); fill(x0, y, 13, len, K.BLDG, it.id); } y += len + 4; }
       if (!(RL && RL.branch)) for (let y = hy0 + 56; y < hy1 - 4; y++) layTrack(X(-26), y);
-      if (!corner) for (const yy of [yA - 90, yB + 60]) if (yy > 20 && yy < L - 60 && rnd(T.SEA, yy) < 0.75) plan.ships.push({ kind: rnd(T.SEA, yy, 1) < 0.6 ? 'freighter' : 'tanker', ori: 'v', bow: 1, x0: Math.round(X(moleD + mw + 8) - (cs < 0 ? 10 : 0)), y0: yy, w: 10, h: 40 });
-      port.side = { PL, moleD, channel: CH }; }
+      // the fairway along the channel: from the closed end out of the harbour (past its head, or into the end harbour and through its entrance)
+      const lx = Math.round(sideLaneX), ly0 = Math.min(yClosed + 4, corner ? yM : L - 1), ly1 = Math.max(yClosed + 4, corner ? (hd > 0 ? L - 1 : 0) : L - 1);
+      plan.shipLanes.push({ x: lx, w: 30, y0: corner && hd < 0 ? 0 : Math.min(ly0, ly1), y1: corner && hd < 0 ? yClosed - 4 : Math.max(ly0, ly1), kind: 'channel' });
+      port.side = { PL, moleD, channel: CS }; }
     plan.port = port;
   })();
   // 3a'''. the station: platforms between the tracks, a glass train shed, the station building with a clock tower facing its square, a goods
@@ -1179,7 +1192,8 @@ function validate(plan) {
   m.buildings = nb; m.noFrontage = nf;
   // tank network: every tank-carriageway pixel reachable from the main road at the bottom, through tank carriageway only
   { const seen = new Uint8Array(W * L), st = []; let tot = 0, got = 0; for (let i = 0; i < W * L; i++) if (Kr[i] === K.ROAD) tot++;
-    for (let x = 0; x < W; x++) if (Kr[x] === K.ROAD) { seen[x] = 1; st.push(x); }
+    let y0r = 0; while (y0r < L - 1 && !Kr.subarray(y0r * W, y0r * W + W).includes(K.ROAD)) y0r++; // from the lowest row the tank routes reach (the strip may begin over the sea)
+    for (let x = 0; x < W; x++) if (Kr[y0r * W + x] === K.ROAD) { seen[y0r * W + x] = 1; st.push(y0r * W + x); }
     while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
     m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
     for (const R of plan.rivers || []) if (R.island) { const i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
@@ -1201,9 +1215,14 @@ function validate(plan) {
   { let blk = 0; for (const r of plan.trainRuns || []) for (let y = r.y0; y <= r.y1; y++) for (let x = r.x - 8; x <= r.x + 8; x++) { if (x < 0 || x >= W) continue; const i = y * W + x; if (Kr[i] === K.BLDG && !(plan.items[Br[i]] && plan.items[Br[i]].part === 'shed')) blk++; }
     for (const t of plan.trees) for (const r of plan.trainRuns || []) if (t.y >= r.y0 - t.r && t.y <= r.y1 + t.r && Math.abs(t.x - r.x) < 8 + t.r) blk++;
     m.trainBlocked = blk; m.trainRuns = (plan.trainRuns || []).length; }
+  // the game's warships fit: every fairway and the fleet area are open water, with no moored or passing ship in them
+  { let blk = 0; const ships = plan.ships || [], inShip = (x, y) => ships.some(sh => x >= sh.x0 && x < sh.x0 + sh.w && y >= sh.y0 && y < sh.y0 + sh.h);
+    const areas = (plan.shipLanes || []).map(l => ({ x0: Math.round(l.x - l.w / 2), x1: Math.round(l.x + l.w / 2) - 1, y0: l.y0, y1: l.y1 })).concat(plan.fleetArea ? [plan.fleetArea] : []);
+    for (const a of areas) for (let y = Math.max(0, a.y0); y <= Math.min(L - 1, a.y1); y++) for (let x = Math.max(0, a.x0); x <= Math.min(W - 1, a.x1); x++) { const k = Kr[y * W + x]; if (k !== K.SEA || inShip(x, y)) blk++; }
+    m.lanesBlocked = blk; m.shipLanes = (plan.shipLanes || []).length; m.fleetArea = !!plan.fleetArea; }
   m.oldTown = !!plan.oldTown; m.stars = (plan.stars || []).length; m.civic = (plan.civic || []).map(c => c.label);
   m.squares = plan.squares.length; m.parks = plan.parks.length; m.trees = plan.trees.length; m.lots = plan.lots.length; m.ruins = plan.items.filter(i => i.dmg >= 2).length;
-  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && m.trainBlocked === 0 && (plan.rivers || []).every(R => plan.bridges.filter(b => b.river === R.id).length >= (R.island ? 2 : 1)) && m.islandReach !== false;
+  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && m.trainBlocked === 0 && m.lanesBlocked === 0 && (plan.rivers || []).every(R => plan.bridges.filter(b => b.river === R.id).length >= (R.island ? 2 : 1)) && m.islandReach !== false;
   return m;
 }
 
@@ -1384,7 +1403,7 @@ function paint(plan, img, y0, h, opts) {
         case K.RAIL: { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
         case K.RBRIDGE: { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (Br[i] === -10) { c = C.sea[pickI(6, 0.26 + (vn(x * 0.08, y * 0.08) - 0.5) * 0.12 + Math.sin(x * 0.4 + y * 0.9) * 0.03, x, y)]; break; } // calm water in the harbour
-          const cs = plan.coast.cs, d = Math.max(cs * (x - plan.coast.xs[y]), plan.coast.yC !== null ? y - plan.coast.yC : -1e9), j = at(x - cs, y);
+          const cs = plan.coast.cs, d = Math.max(cs * (x - plan.coast.xs[y]), plan.coast.yC !== null ? (y - plan.coast.yC) * plan.coast.hd : -1e9), j = at(x - cs, y);
           if (d < 1.5 && j >= 0 && Kr[j] === K.BEACH) { c = C.foam; break; } if (d < 3.5 && j >= 0 && hh(x, y >> 1) < 0.4) { c = C.sea[5]; break; } // the surf on the beach
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
         case K.BEACH: { const cs = plan.coast ? plan.coast.cs : 1, j = at(x + cs, y), wet = j >= 0 && Kr[j] === K.SEA; c = wet ? C.sand[0] : hh(x, y) < 0.05 ? C.field.hedge[2] : C.sand[pickI(2, 0.55 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.6, x, y)]; break; } // sand, wet at the waterline, tufts of dune grass
