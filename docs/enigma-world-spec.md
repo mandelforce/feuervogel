@@ -706,3 +706,5 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 - **Calm water fades out:** `calmWater` gives every open-sea pixel within 28 px of a basin a calmness 0..1 (`plan.calm`, two chamfer passes). `seaPix` gets it, so with no breakwater the calm water fades into the open sea.
 - **Tunnels:** a port's harbour railway (the quayside track, or the station's branch in a port) ends at a tunnel portal (`plan.tunnels`): a stone face round a dark arch, and a low grassy mound over the tunnel, drawn only on open ground.
 - **Owner question about the tower on the old breakwater:** it was the game's AA tower enemy, placed by the director on the breakwater (which counts as yard ground). With the wall gone that cannot happen there.
+
+**Tunnel, revised (owner: sandy and stony, big enough for our trains).** The portal is a 28 x 7 px face of dressed sandstone (`TUN` palette) with a light arch ring round a 20 px round-topped mouth that darkens inward. The game's trains are 16 px wide. Over the tunnel lies a mound of sandy rock about 36 px across, with stones and a few grass tufts. A building beside the portal stays in front of it.

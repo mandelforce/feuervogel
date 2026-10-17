@@ -1997,12 +1997,15 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour) -> [r, g,
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = Math.round(pm.gate - pm.gw / 2); x <= pm.gate + pm.gw / 2 - 2; x++) put(x, pm.fence, ((x >> 1) % 2) ? C.lit : C.fire[1]);
     for (const b of pm.stops) { if (b.y < y0 - 3 || b.y > y0 + h + 3) continue; for (let x = b.x0; x <= b.x1; x++) { put(x, b.y, C.fire[1]); put(x, b.y + 1, C.dark); } } }
-  for (const tn of plan.tunnels || []) { if (tn.y + 16 < y0 || tn.y - 16 >= y0 + h) continue; const { x: tx, y: ty, dir } = tn, soft = k => k === K.BEACH || k === K.MEADOW || k === K.FRONT || k === K.GARDEN || k === K.LOT || k === K.WORKS || k === K.NONE || k === K.FIELD || k === K.PARK || k === K.RUBBLE || k === K.RAIL || k === K.TRACK;
-    for (let k = 1; k <= 13; k++) { const yy = ty + dir * k, hw = 10 - k * 0.35; for (let xx = Math.floor(tx - hw); xx <= tx + hw; xx++) { const j = at(xx, yy); if (j < 0 || !soft(Kr[j])) continue; const e = Math.abs(xx + 0.5 - tx) / hw; // the mound over the tunnel: grass, lit on one side
-      put(xx, yy, e > 0.86 || k === 13 ? C.field.hedge[2] : C.field.grass[pickI(5, 0.8 - e * 0.55 - k * 0.02 + (hh(xx, yy) - 0.5) * 0.2, xx, yy)]); } }
-    for (let r = 0; r < 3; r++) for (let xx = tx - 6; xx <= tx + 6; xx++) { const yy = ty + dir * r, dx = xx - tx, mouth = dx >= -3 && dx <= 2 && r < 2 + (Math.abs(dx + 0.5) < 2.5 ? 1 : 0); // the portal: stone face round a dark arch
-      put(xx, yy, mouth ? (r === 0 ? C.dark : C.shadow) : r === 2 || Math.abs(dx) === 6 ? C.conc[0] : C.conc[(xx + r) % 2 ? 2 : 3]); }
-    for (let xx = tx - 6; xx <= tx + 6; xx++) put(xx, ty - dir, C.shadow, 0.35); }
+  for (const tn of plan.tunnels || []) { if (tn.y + 26 < y0 || tn.y - 26 >= y0 + h) continue; const { x: tx, y: ty, dir } = tn, soft = k => k === K.BEACH || k === K.MEADOW || k === K.FRONT || k === K.GARDEN || k === K.LOT || k === K.WORKS || k === K.NONE || k === K.FIELD || k === K.PARK || k === K.RUBBLE || k === K.RAIL || k === K.TRACK;
+    // sized for the game's trains (16 px wide): a 20 px round-topped mouth in a 28 x 7 px sandstone face, under a mound of sandy rock 36 px across
+    for (let k = 1; k <= 18; k++) { const yy = ty + dir * (k + 6), hw = 18 - k * 0.45; for (let xx = Math.floor(tx - hw); xx <= tx + hw; xx++) { const j = at(xx, yy); if (j < 0 || !soft(Kr[j])) continue; const e = Math.abs(xx + 0.5 - tx) / hw, n = hh(xx * 3, yy * 5);
+      put(xx, yy, e > 0.9 || k === 18 ? TUN[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : TUN[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
+    for (let r = 0; r <= 6; r++) for (let xx = tx - 14; xx <= tx + 13; xx++) { const yy = ty + dir * r, dx = xx + 0.5 - tx, inner = Math.abs(dx) < [10, 10, 10, 10, 9, 6.5, 0][r], arch = true; // a round-topped arch
+      let c; if (inner && arch) c = r === 0 ? C.dark : r <= 2 ? C.shadow : TUN_IN; // the mouth, darkening into the tunnel
+      else { const course = r % 2 ? (xx + 2) % 6 === 0 : xx % 6 === 0; c = r === 6 || Math.abs(dx) > 13 ? TUN[0] : Math.abs(dx) < [10, 10, 10, 10, 9, 6.5, 0][r] + 1.6 ? TUN[4] : course ? TUN[1] : TUN[pickI(5, 0.62 + (hh(xx, yy) - 0.5) * 0.3 + (r <= 1 ? -0.15 : 0), xx, yy)]; } // dressed sandstone blocks, a light arch ring, the face darker at its foot
+      const j = at(xx, yy); if (j >= 0 && Kr[j] === K.BLDG && !(inner && arch)) continue; put(xx, yy, c); } // a building beside it stays in front
+    for (let xx = tx - 14; xx <= tx + 13; xx++) { const j = at(xx, ty - dir); if (j >= 0 && Kr[j] !== K.BLDG) put(xx, ty - dir, C.shadow, 0.4); } }
   for (const o of plan.obstacles || []) { if (o.y < y0 - 4 || o.y > y0 + h + 4) continue; // Czech hedgehogs, mined stakes, dragon's teeth
     if (o.kind === 'hedgehog') { for (let k = -2; k <= 2; k++) { put(o.x + k, o.y + k, C.shadow); put(o.x + k, o.y - k, C.shadow); } put(o.x + 1, o.y - 1, C.conc[3]); put(o.x - 1, o.y + 1, C.conc[3]); put(o.x + 3, o.y - 2, C.shadow, 0.35); }
     else if (o.kind === 'stake') { put(o.x, o.y, C.beam); put(o.x, o.y + 1, C.beam); put(o.x, o.y + 2, C.fence); put(o.x + 1, o.y + 2, C.dark); put(o.x + 1, o.y - 1, C.shadow, 0.35); }
@@ -2035,6 +2038,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour) -> [r, g,
 }
 // A burning house (spec: convincing fire): an orange glow on its surroundings, flames from the core licking past the roof edge and leaning with
 // the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
+const TUN = HX(['#5a4a32', '#7a6644', '#968058', '#b29a6c', '#ccb486']), TUN_IN = HX(['#241c14'])[0]; // a tunnel portal's sandstone
 const FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
 function fireFx(plan, f, t, put) {
   const s = f.seed, cx = f.x, cy = f.y, w = f.w, x0 = f.x0, y0 = f.y0, x1 = x0 + w - 1, y1 = y0 + f.h - 1, R = Math.max(w, f.h) / 2 + 9;
@@ -2153,7 +2157,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.14'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.15'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
