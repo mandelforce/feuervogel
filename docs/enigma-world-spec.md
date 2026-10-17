@@ -332,6 +332,8 @@ Lengths in chunks. Order is the Campaign order. Bosses and music are the campaig
 `carrier_start 4` (**opening scene**) -> `open_sea 3` -> `island_chain 6` -> `island_large 5` (one large island with farmland, fields and a farmstead) -> `beach_fortified 3` -> `farmland 7` (river with bridge) -> `village 4` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 4` -> `open_sea 4` -> boss arena (sea).
 *Landmarks:* the carrier start and the ship boss; many small islands; one large island with farmland.
 
+**Level 1, revised by the owner:** the carrier, then a lot of ocean, then islands (small ones first, then a larger one with the airbase), then ocean, then the beach fortifications, which are basically the reworked land of the old stage 1, then ocean again. As weights (length 56): `carrier_start` 4, `open_sea` 6, `island_chain` 6, `island_airbase` 9, `open_sea` 3, `beach_fortified` 3, `farmland` 8, `village` 4, `forest_deciduous` 4, `farmland` 4, `coast_down` 1, `open_sea` 4. The forest airbase and the small harbour are gone; the airbase is on the large island.
+
 **Level 2: Sea of Sand** (desert, heat shimmer, dust, sandstorm gusts at the boss). Boss: Sand Colossus. Total 48.
 `harbour_commercial 4` (desert) -> `beach_town 3` -> `valley 7` (oil field, wadi) -> `village 4` (desert) -> `station_junction 6` (convoy on the road) -> `desert_open 4` (oasis, irrigated fields) -> `airbase_desert 6` -> `pass 7` (fortified) -> `desert_open 7` (quiet approach) -> boss arena.
 *Landmark:* a small oasis (`oasis`) with a pool of water, palm trees, a few houses and a well. It is placed in the `desert_open 4` segment.
@@ -697,3 +699,116 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
   - types and pixels from the plan;
   - the same ground after a resume;
   - a bot flight in which the submarine takes its berth, the boss comes, and the level returns to the picker on 6B.
+
+**Harbour water (owner feedback: make it match the ocean).** `CityGen.paint` takes `opts.seaPix(x, y, harbour)`, the host's own water colour. The game passes `planSeaColor`: its own sea noise and palette, for the open sea and, calmer (weaker waves, a shade darker), for harbour basins. The plan's surf on the shore and everything drawn over the water (ships, cranes, lighthouses) stay as they are. This replaces the repaint of the open sea after painting, which would also have painted over ships lying in open water. The lab keeps the generator's own water.
+
+**Open east harbour, tunnels (owner feedback on 6B).**
+- **No breakwater:** the new coast option `openSide` leaves out the side harbour's breakwater (the long arm, the cross wall at its closed end, and in the side form the far arm and its lighthouses). Its calm harbour water reaches the strip's edge.
+- **Warship lane:** the channel and the freed water become a `warships` lane (about 50 px, clear of the end breakwater; checked as a fairway, `lanesBlocked`). The coaster that passed along the breakwater is left out there.
+- **Calm water fades out:** `calmWater` gives every open-sea pixel within 28 px of a basin a calmness 0..1 (`plan.calm`, two chamfer passes). `seaPix` gets it, so with no breakwater the calm water fades into the open sea.
+- **Tunnels:** a port's harbour railway (the quayside track, or the station's branch in a port) ends at a tunnel portal (`plan.tunnels`): a stone face round a dark arch, and a low grassy mound over the tunnel, drawn only on open ground.
+- **Owner question about the tower on the old breakwater:** it was the game's AA tower enemy, placed by the director on the breakwater (which counts as yard ground). With the wall gone that cannot happen there.
+
+**Tunnel, revised (owner: sandy and stony, big enough for our trains).** The portal is a 28 x 7 px face of dressed sandstone (`TUN` palette) with a light arch ring round a 20 px round-topped mouth that darkens inward. The game's trains are 16 px wide. Over the tunnel lies a mound of sandy rock about 36 px across, with stones and a few grass tufts. A building beside the portal stays in front of it.
+
+**Tunnel fit (owner: the opening was not in line with the hill and overlapped the street).** The quay track runs 8 px from the street, so the portal is now 22 px wide (an 18 px mouth, still 1 px clear of a 16 px train each side). It never draws over a carriageway or a building. The mound is symmetric about the track: each row is as wide as the open ground on both sides allows, and it ends where that drops below 4 px. The quay's warehouses stop 16 rows short of the harbour's end, so the last one is shortened and leaves open quay before the portal (at least 11 rows in 20 seeds).
+
+**Bigger tunnel hill (owner).** The quayside track bends 6 px out to sea over its last 16 rows, past the shortened last warehouse. The portal then sits on the open ground at the harbour's end instead of 8 px from the street. The mound grows quickly from the portal to up to 36 px across and up to 24 rows long, rounding off at its far end. It stays symmetric about the track and clear of streets and buildings.
+
+**Wider tunnel opening (owner: 3 px wider on both sides).** The mouth is now 24 px (round-topped) in a 28 x 7 px face. The side walls keep their thickness, and the mound and track are unchanged.
+
+**Tunnel mouth, adjusted (owner: one pixel too wide on each side).** The mouth is now 22 px in the 28 px face, so each side wall is 1 px thicker toward the inside.
+
+## 17. Level 1, Cross the Channel
+
+Level 1 is built in steps, beginning with its opening. Its ground is still the Campaign's stage 1 (`gen: 0`). That ground opens with about 6.5 chunks of open sea, which covers the `carrier_start` and `open_sea` segments. The island chain, the large island, the forest, the forest airbase and the small harbour come in later steps (proposed plan: one settlement plan over the whole level, as for 6B).
+
+### 17.1 The carrier start (first step)
+
+The carrier is a **scene object drawn over the sea, not ground** (spec 5): `world.carrier`, null in every other run. `carrierStart()` sets it up when the sortie's first segment is `carrier_start`; `carrierTick()` runs it inside the director (the run's own random stream). The constants are in `CV`, in native units (scale 1 pixels, origin at the carrier's centre, bow up).
+
+- **Picture:** 124 × 364 px at scale 1 (on a 408 px screen it reaches from near the top to the bottom edge). It shows a shadow on the water, a grey bow with anchors, and a planked flight deck with hazard stripes at both ends. On the deck: a dashed centre line, two bow catapults, the fore elevator up and the aft one lowered, arrester wires, and the raven clan's mark (a white raven in a red ring). Six gun sponsons line the deck's edges. The island on the starboard side has bridge windows, radar and a funnel that smokes. The picture is painted from pixel-snapped rectangles once per scale step (1/128) and cached, so it stays crisp while it shrinks. Drawn live on top: the parked planes (six behind the Feuervogel, one fewer per catapult launch), 16 crew running about, blinking red alarm lights, and stubs where guns were destroyed. Foam marks the bow wave, the hull sides and the wake behind the stern.
+- **Timeline (frames, 60 per second):**
+  - 0 to 50: the Feuervogel stands on the deck. The horn sounds.
+  - 50 to 160: it rolls down the centre line and lifts off over the bow. On screen it rises from 0.86 H to 0.5 H while the deck runs down under it. The sea scrolls 0.15 px per frame faster than the carrier moves, as if the ship sails forward.
+  - 160 to 200: it climbs on, slowing, and its shadow draws away. Then the player steers. `player.fly` counts the 200 frames, so steering, firing and invulnerability work as in the Campaign's fly-in.
+  - From 160: the carrier slows to 0.25 px per frame down the screen and shrinks from 1 to 0.5 over 500 frames, about its centre, until its bow passes the bottom edge (about frame 700).
+- **Pursuit:** for `CV.PURSUIT` = 1200 frames (20 s, inside the owner's 15 to 25 s) from lift-off. The first launch comes during the take-off.
+  - A launch every 70 frames in the first 400, then every 95. Easy is 1.4 times slower; each loop is 10 frames faster.
+  - At most 3 chasers at once (2 on Easy, plus the loop).
+  - While the bow is on screen, a fighter (`cfighter`, not a target yet) waits at a catapult, rolls down it at the carrier's scale, climbs to full size over 30 frames, and becomes an ordinary `fighter` heading north. It homes on the player for 150 frames (`chase: true`) and does not dive-bomb.
+  - Once the carrier is off screen, chasers come up from below the screen.
+  - While the scene lasts, the director holds its own waves and ground spawns (and the pods until lift-off), and no boats spawn under the carrier. After it, pacing is the Campaign's.
+- **Guns (`cgun`):** six deck guns on the sponsons, using the destroyer's gun turret at the carrier's scale. Each has 8 hp, is worth 400 points and fires flak once airborne. Destroyed, a gun leaves a stub on the deck. The hull is not an entity, so shots pass over it.
+- **Campaign:** unchanged (`replay.mjs` matches `golden.json`, the six Campaign pixel hashes are unchanged). The only shared-code changes are a no-op guard on the boat spawn and the player's shadow offset, which is 12, 20 as before when not on a deck.
+- **Tests:** a level 1 block in `tests/enigma.mjs` checks that the Campaign has no carrier, the deck start (scale 1, six guns, no steering), lift-off and launches, that a gun can be destroyed, the shrink to 0.5 and the slide-off, at least 8 launches and no ships during the scene, and that the director takes over afterwards. `tests/carrier-shots.mjs OUTDIR [frames]` films the scene for review by eye.
+- **Open for the owner:** the timings above, the number of launches, and whether the raven mark and the deck colour suit the clan.
+
+**Bigger carrier (owner: half again as big).** Three mockups were filmed with `tests/carrier-shots.mjs`, whose third argument sets the carrier constants (for example `K=1.5,END=0.5,PLANE=true`):
+- **A (the default now):** `K` 1.5 and `END` 0.5. The carrier starts at 1.5 times its old size and shrinks to 0.75. The planes, guns and crew grow with it, and so does the Feuervogel while on the deck (`player.flyK`, back to 1 as it climbs away).
+- **B:** `END` 1/3. Same start, but it shrinks to 0.5, the old end size.
+- **C:** `PLANE: true`. A bigger ship, with the planes, guns and crew at their ordinary size, so the deck looks roomier.
+
+To keep the bigger ship in view:
+- the Feuervogel starts mid-deck (`V0` 40) and lifts off at 0.42 H;
+- the ship's run-out after lift-off fades within about 12 frames;
+- it drifts at 0.2 px per frame;
+- it shrinks about a point 120 px forward of its centre (`PIV`), so the bow stays near its place.
+
+It leaves the screen at about frame 1000 (the pursuit still ends at frame 1360). The aft elevator, the arrester wires and the six parked planes moved aft to make room.
+
+**Owner's choice: mockup C** (`CV.PLANE: true`): the ship at 1.5 times its old size, its planes, guns and crew at their ordinary size.
+
+### 17.2 Level 1's route on the legacy ground (second step)
+
+The sortie has the owner's new sequence (section 10, revised). Until the islands are built, it is flown on the Campaign's stage 1 ground, in that order. A new sortie flag `seq` (level 1 only) makes `predictInfo` take the biome from the sortie (`sortieInfo`) without a settlement plan. `gen` stays level 6's, because the city code reads `S.gen` in many places.
+- **Biomes:** the carrier, the open seas, `island_chain` and `island_airbase` are `sea`. The first chunk of `beach_fortified` is `coastUp` (the Campaign's coast with its anti-tank obstacles), the rest of it and the farmland and village are `country`, and the forest is `forest`. `coast_down` is `coastDown`, and after the level the ground stays `sea` (the flagship's arena). The theme is 0 throughout.
+- **Rivers:** the farmland keeps the Campaign's rivers, from its third chunk on, with their bridges and river islands.
+- **Pacing:** the boss triggers one chunk into the last open sea (`bossAt` = its start + 1 = 53), and `arcLen` is the same, so the director's arc runs over the level.
+- **Tests:** `tests/enigma.mjs` checks the biome order and a bot flight in which the flagship comes over the sea and the level returns to the picker.
+
+### 17.3 The islands preset (generator, for review in the city lab)
+
+The owner's brief:
+- The large island has the airbase, fields, a farmstead, a village, a pond and a tiny forest.
+- The small islands have flak and turrets, sometimes a few houses, and a tiny farm with cows.
+
+`CityGen.generate({ preset: 'islands' })` runs its own function, `islands()`. It returns a plan of the usual shape, so `paint`, `typeAt`, `validate` and the lab work unchanged. The default length is 1792 px: chunks 0 to 27 of level 1, up to the fortified beach.
+
+**The chain** (`P.chain`, shares 0.36 to 0.56) holds 6 to 9 islets. Each is a rounded blob whose outline wanders by up to 23 percent.
+- **Placement:** the islets keep open water between them and stay clear of a 44 px lane (`plan.shipLanes`, checked by `validate`) for the game's warships. The lane ends 50 px before the large island's jetty.
+- **The largest islet is a farm:** a farmhouse and two barns round a yard, a fenced paddock for cows (`plan.pastures`; the game places its own cows there) and a small field.
+- **The next one has houses:** a lane with up to five houses facing it, gardens behind, and a lighthouse on the shore in 60 percent of plans.
+- **The third is always a gun islet:** a concrete pad with a `bunker` slot (the game's turret), a flak gun pit and sometimes a casemate.
+- **The rest:** smaller islets are rocks (mostly rocky shore, a flak pit if there is room) or more gun islets, and medium ones sometimes houses. The chain always has a flak slot.
+- **Shores:** beaches and rocks along every shore (new ground kind `ROCK`, game type `sand`; rockier on the gun islets and rocks). The sea foams on them (`plan.shore`: each sea pixel's distance to land).
+
+**The large island** (`P.big`, 0.565 to 0.935, 186 px wide) is a long rounded body with two wandering shores. From the south:
+- **A jetty** where the main road meets the shore, with a barge moored beside it.
+- **The village:** the village preset generated on its own (290 px, a road on the island's axis), copied in and clipped to the shore. Anything that would reach the beach is left out whole: a farmstead with all its buildings, a church with all its parts, and a house that would lose the street it fronts. It keeps its green, church and pond in 100 of 100 plans.
+- **Between the village and the airbase (72 px):**
+  - a small wood on the roomier side of the road (a dark floor under trees 4 px apart);
+  - on the other side, a pond with reeds and willows, a farmstead and a fenced cow paddock beside it;
+  - hedged fields in what is left.
+- **The airbase:**
+  - a concrete runway along the strip (new ground kind `RUNWAY`, game type `concrete`), 218 to 255 px long, with edge lines, a dashed centre line, threshold bars and tyre marks;
+  - a taxiway joined to it at both ends and in the middle;
+  - an apron with two hangars, a control tower and a fuel dump of three tanks;
+  - blast pens beside the runway (earth walls, `parked` slots);
+  - gun pits (`flak` slots) and an AA tower slot by the apron;
+  - the main road runs up to the apron.
+
+**Tests** (`tests/citygen.mjs`, 100 seeds): every hard rule holds, and the same seed gives the same plan. Of 100 plans: a farm islet with a paddock 100, a paddock by the farmstead 100, houses on an islet 98, a turret and a flak slot in the chain 100, the village green 100, the wood 100, the pond 100, the jetty 100, a runway of at least 200 px 100, two hangars 100, blast pens 100. A plan takes about 50 ms.
+
+**Not in the game yet.** The next step, after the owner's review, is level 1's plan from chunk 0 to the beach, as for 6B, plus:
+- islet-aware sea spawns (ships only on open water);
+- the slots filled by the director (turrets, flak, AA towers, parked planes);
+- cows in the paddocks;
+- the airbase played as the `base` biome.
+
+**Larger islets (owner).** The chain now runs from 0.33 to 0.56 of the plan with 5 to 7 islets. Radii are set by `P.isleR`: 34 to 42 px for the two largest and 16 to 30 for the rest; the farm islet's radius is typically 37 px, against 25 to 32 before. Islets under 21 px are rocks or gun islets. An islet that will not fit gets smaller with each try, down to half size, so the chain is never empty. The warships' lane may lie anywhere from near the strip's edge to its middle, which leaves room for the big islets. The contents grow with them:
+- the farm islet: a 22 x 15 paddock on large islets, and crop fields sized to the islet (never grass);
+- the house islet: up to eight houses along the lane.
+
+All 100 test seeds still pass every rule and every count.
+

@@ -81,13 +81,20 @@ node tests/enigma.mjs --bench    # also print chunk build times per level, and l
 node tests/enigma.mjs --pixels   # also compare finished Campaign chunks (pixels and features) with tests/enigma-pixels.json
 ```
 
-It also checks that level 6's ground is identical on a fresh page, after a Campaign run in the same page, and after a resume. `--pixels` is a by-hand check (canvas blending can differ between browser builds, so it is not in CI): run it before and after any change to shared terrain code (`drawFeatures`, `pixelColor`, the city functions), because the replay test's terrain fingerprint sees only terrain types. `--pixels --update` rewrites the file and is only for a Campaign look change that is meant.
+It also checks that level 6's ground is identical on a fresh page, after a Campaign run in the same page, and after a resume. It also checks level 1's opening on the carrier: the deck start, lift-off, launches, deck guns that can be destroyed, the shrink and slide-off, and the director taking over afterwards. `--pixels` is a by-hand check (canvas blending can differ between browser builds, so it is not in CI): run it before and after any change to shared terrain code (`drawFeatures`, `pixelColor`, the city functions), because the replay test's terrain fingerprint sees only terrain types. `--pixels --update` rewrites the file and is only for a Campaign look change that is meant.
 
 `contact.mjs` writes screenshots of each level at several points along it, for looking at the ground by eye:
 
 ```
 node tests/contact.mjs OUTDIR        # all six levels, 8 points each, plus an HTML sheet per level
 node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
+```
+
+`carrier-shots.mjs` films level 1's opening on the carrier: the playfield at chosen frames after the level begins, with the bot flying (immortal):
+
+```
+node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 230, 330, 480, 700, 1000, plus an HTML sheet
+node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
 ```
 
 ## City generator test (runs in CI, blocking)

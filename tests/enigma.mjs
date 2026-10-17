@@ -54,8 +54,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const page = await freshPage();
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -129,7 +129,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(6); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let road = 0, types = 0, n = 0;
     for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; if (Math.abs(roadX(wy) - P.mx[y]) > 0.01) road++; for (let x = 3; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + S.planC0 + 20; startChunk(p); const job = world.chunkJobs[world.chunkJobs.length - 1]; workChunk(job, CH); world.chunkJobs.pop();
-    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
     startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop(); for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++; /* painted in bands as a frame budget does */
     const R = P.rivers[0], sc0 = world.scroll; let flow = 0, fires = 0; // the moving parts: river streaks where the river is on screen, flames where fires are
     if (R) { world.scroll = Math.round(R.yMin + 60 - S.planY0); flow = CityGen.riverFx(P, 1.5, Math.max(0, S.planY0 + world.scroll - H), S.planY0 + world.scroll + 1).length; drawPlanFx(world.scroll); }
@@ -154,15 +154,15 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     settings.diff = 1; startEnigma(7); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 41) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 31) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 30; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
-    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0, openSea = 0;
-    for (let i = 0; i < img.data.length; i++) { const q = i >> 2, j = (S.planY0 - (-p * CH + Math.floor(q / W))) * W + q % W; if (P.K[j] === CityGen.K.SEA && P.B[j] === -1) { openSea++; continue; } if (img.data[i] !== jb.img.data[i]) pix++; } // the open sea is the game's own sea colour
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).b === 'sea' && info(world.stageBaseP).plan === true;
-    return { shown, hiddenCamp, pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, mode: P.coast.mode, cs: P.coast.cs, side: !!P.port.side, piers: P.port.piers, sub: P.slots.some(q => q.kind === 'sub'), per: P.perimeter && P.perimeter.y0, st: P.station && P.station.y1, msg: app.msg && app.msg.a }; })()`);
+    return { shown, hiddenCamp, pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, mode: P.coast.mode, cs: P.coast.cs, side: !!P.port.side, piers: P.port.piers, sub: P.slots.some(q => q.kind === 'sub'), war: (P.shipLanes.find(l => l.kind === 'warships') || {}).w || 0, tunnel: P.tunnels.length, wall: (() => { const l = P.shipLanes.find(q => q.kind === 'warships'); if (!l) return -1; let n = 0; for (let y = l.y0; y <= l.y1; y++) for (let x = Math.round(l.x - l.w / 2); x < l.x + l.w / 2; x++) if (P.K[y * P.W + x] === CityGen.K.QUAY) n++; return n; })(), per: P.perimeter && P.perimeter.y0, st: P.station && P.station.y1, msg: app.msg && app.msg.a }; })()`);
   ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 6B (the practice picker does not)');
   ok(r.pass && r.L === r.len && r.seaFirst, `level 6B plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
   ok(r.mode === 'corner' && r.cs === 1 && r.side && r.piers >= 3 && r.sub, `level 6B has the south harbour (${r.piers} piers, a submarine berth) with the east harbour opening into it`);
+  ok(r.war >= 30 && r.wall === 0 && r.tunnel >= 1, `level 6B's east harbour is open water, no breakwater, a ${r.war} px lane for the warships; the quayside track runs into a tunnel`);
   ok(r.per === r.L - 64 && r.st !== null && r.st < r.per, `level 6B ends at the airfield's perimeter, its station before it (station to ${r.st}, perimeter from ${r.per})`);
-  ok(r.types === 0 && r.pix === 0, `level 6B ground types and pixels come from its plan, the open sea in the game's own sea colour (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  ok(r.types === 0 && r.pix === 0, `level 6B ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
   const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
   const fresh = await peek(page, `(() => { startEnigma(7); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
   ok('7:' + fresh === resumed, `level 6B is the same ground after a resume (${fresh})`);
@@ -173,6 +173,49 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.sub, `on the way the game's submarine took its berth by the U-boat bunker`);
   ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 7 && f.errs.length === 0, `level 6B flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 6B (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
+// 3b'''. Level 1's carrier start: the Feuervogel stands on the deck of a carrier that nearly fills the screen and cannot steer until it has
+// lifted off; the carrier carries six deck guns that can be destroyed (and no hull target); fighters launch from its catapults and chase the
+// player; it shrinks to half size and slides off the bottom; the pursuit ends and the director takes over. A Campaign run has no carrier.
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal');
+    const o = SF.peek(`(() => { settings.diff = 1; startAt(1); const camp = world.carrier === null; settings.diff = 1; startEnigma(1); const C = world.carrier;
+      return { camp, on: !!C, s: C && C.s, K: CV.K, sEnd: Math.round(CV.K * CV.END * 128) / 128, deck: player.deck, steer: canSteer(), guns: world.enemies.filter(e => e.type === 'cgun').length, len: C && Math.round(-CV.BOW * 2 * C.s), H, top: C && Math.round(C.y + CV.BOW * C.s) }; })()`);
+    SF.run(30); o.steer30 = SF.peek('canSteer()'); o.shotsBefore = SF.peek('world.shots.length');
+    SF.run(SF.peek('CV.FLY') - 30 + 2); Object.assign(o, SF.peek(`({ deckAfter: player.deck, alt: player.alt, steerAfter: canSteer(), cf: world.enemies.filter(e => e.type === 'cfighter').length + world.enemies.filter(e => e.chase).length })`));
+    o.gunKill = SF.peek(`(() => { const g = world.enemies.find(e => e.type === 'cgun' && !e.dead); if (!g) return false; damage(g, 999); return g.dead && world.carrier.gunDead[g.gi] === true; })()`);
+    o.ships = 0; o.minS = 9; o.chase = 0;
+    for (let i = 0; i < 50; i++) { SF.run(50); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
+      if (!v.over) o.ships += v.ships; o.minS = Math.min(o.minS, v.s); o.chase = Math.max(o.chase, v.chase); o.gone = v.gone; o.over = v.over; }
+    o.launched = SF.peek('world.carrier.launched'); o.t = SF.peek('world.carrier.t'); SF.run(1500); o.later = SF.peek(`world.enemies.filter(e => !e.chase && !e.dead && ['fighter', 'bomber', 'heavy', 'sub', 'destroyer', 'pt', 'flak'].includes(e.type)).length + run.stats.seen`); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(r.camp, 'a Campaign run has no carrier');
+  ok(r.on && r.s === r.K && r.len >= r.H * 0.7 && r.deck && !r.steer && !r.steer30 && r.guns === 6, `level 1 opens on the carrier's deck: scale ${r.K}, ${r.len} px long on a ${r.H} px screen, six deck guns, no steering while on the deck`);
+  ok(!r.deckAfter && r.alt === 1 && r.steerAfter && r.cf >= 1, `the Feuervogel lifts off over the bow and can steer; fighters are launching after it (${r.cf})`);
+  ok(r.gunKill, 'a deck gun can be destroyed and leaves its stub on the deck');
+  ok(r.minS === r.sEnd && r.gone && r.over, `the carrier shrinks to ${r.sEnd} and slides off the bottom, and the pursuit ends (scene over at frame ${r.t})`);
+  ok(r.launched >= 8 && r.chase >= 2 && r.ships === 0, `${r.launched} fighters launched in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
+  ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+
+// 3b''''. Level 1's sequence (owner): the carrier, open sea, the small islands, the large island with the airbase, open sea (all sea for
+// now), the fortified beach and the old land (coast, farmland with the Campaign's rivers, village, forest, farmland), the coast down, open sea.
+// Flown through by the bot, the flagship comes over the last open sea and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1); const S = run.sortie, want = { carrier_start: 'sea', open_sea: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', farmland: 'country', village: 'country', forest_deciduous: 'forest', coast_down: 'coastDown' };
+    let bad = 0, rivers = 0; for (let c = 0; c < S.len + 8; c++) { const I = info(world.stageBaseP + c), g = sortieSeg(S, c), w = !g ? 'sea' : g.t === 'beach_fortified' && c === g.start ? 'coastUp' : want[g.t]; if (I.b !== w || I.th !== 0) bad++; if (I.river) rivers++; }
+    return { bad, rivers, seq: S.seq, gen: S.gen, segs: S.segs.map(g => g.t + ' ' + g.n).join(', ') }; })()`);
+  ok(r.bad === 0 && r.seq && !r.gen && r.rivers >= 1, `level 1 follows its own sequence on the Campaign's stage 1 ground (${r.segs}; ${r.rivers} rivers in the farmland)`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(1)'); const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
