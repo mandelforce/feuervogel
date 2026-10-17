@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run levels 6 and 6B: the final airfield now begins with a complete hangar and its black and yellow warning stripes, instead of a hangar cut off at the city's edge.
 - Enigma Run levels 6 and 6B: the city's airfield edge now runs seamlessly into the final airfield. The dark jagged band along the bottom of the first hangar is gone, and the apron has the airfield's own concrete.
 - The tunnel opening is 2 px wider on each side: a 22 px mouth in a 28 px sandstone face with thicker sides. The hill and track are unchanged.
 - The tunnel's hill is bigger: the quay track bends out past the last warehouse, so the tunnel sits on the open ground at the harbour's end. Its hill (up to 36 px across) is wider than the portal and in line with it.

@@ -2163,7 +2163,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.20'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4050,14 +4050,20 @@ function cityColorBase(wx, wy, rx) {
   return n > 0.58 ? C2.grass[pickI(4, 0.4 + n * 0.3, wx, wy)] : C2.yard[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.5, wx, wy)];
 }
 const SEC_P = 300;
+// The final airfield's pattern (a hangar every SEC_P px) is laid on world rows; in the Campaign at offset 0. In an Enigma Run level with its own
+// ground the pattern is shifted so the airfield begins (its bottom row, where the level's ground ends) just below a complete hangar with its
+// warning stripes, not with a hangar cut in half.
+function secOff() { const S = run.sortie; if (!(S && S.gen)) return 0; if (S.secFor === world.stageBaseP) return S.secOff;
+  const yS = -(world.stageBaseP + S.len) * CH + CH - 1; S.secFor = world.stageBaseP; return (S.secOff = (((160 - yS) % SEC_P) + SEC_P) % SEC_P); }
+function secM(wy) { return (((wy + secOff()) % SEC_P) + SEC_P) % SEC_P; }
 function secretType(wx, wy) {
-  const m = ((wy % SEC_P) + SEC_P) % SEC_P;
+  const m = secM(wy);
   if (wx >= 36 && wx < 188 && m >= 10 && m < 150) return 'roof';
   if (wx < 36 || wx >= 188) { for (const ty of [40, 120, 200, 270]) if ((wx - (wx < 36 ? 18 : 206)) ** 2 + (m - ty) ** 2 < 144) return 'roof'; }
   return 'apron';
 }
 function secretColor(wx, wy) {
-  const m = ((wy % SEC_P) + SEC_P) % SEC_P;
+  const m = secM(wy);
   if (wx >= 36 && wx < 188 && m >= 10 && m < 150) {
     if (m >= 142) { const hz = (((wx + m) >> 2) & 1); return hz ? hexRGB('#d8b020') : hexRGB('#16141a'); }
     if (wx === 36 || wx === 187 || m === 10) return C2.shadow;
@@ -4076,7 +4082,7 @@ function secretColor(wx, wy) {
 }
 // The final airfield's concrete apron (also the apron of an Enigma Run settlement plan's airfield perimeter, so the two meet without a seam)
 function secretApron(wx, wy) {
-  const m = ((wy % SEC_P) + SEC_P) % SEC_P; let l = 0.58 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.25;
+  const m = secM(wy); let l = 0.58 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.25;
   if ((wx - 4) % 24 === 0 || m % 24 === 0) l -= 0.3;
   if (vnoise(wx * 0.05 + 70, wy * 0.05) > 0.72) l -= 0.15;
   return C2.conc[pickI(4, l, wx, wy)];
@@ -6943,15 +6949,15 @@ let finalCache = { k: null, y: null };
 function finalStartY() { const ck = world.stageBaseP + '|' + world.curTheme; if (finalCache.k === ck) return finalCache.y; let y = null; for (let q = world.stageBaseP; q < world.stageBaseP + 90; q++) { const I = info(q); if (I.b === 'secret' && I.th === 5) { y = -q * CH + CH; break; } } finalCache = { k: ck, y }; return y; }
 function finalAirfield(p) {
   const I = info(p); if (I.th !== 5 || I.b !== 'secret') return;
-  const wy0 = -p * CH, m = hpm(), K = o => Object.assign(o, { keep: true, noGuard: true }), y0 = finalStartY();
-  for (let k = Math.floor(wy0 / SEC_P); k <= Math.floor((wy0 + CH) / SEC_P); k++) {
-    [40, 120, 200, 270].forEach((mm, ri) => { const y = k * SEC_P + mm; if (y < wy0 || y >= wy0 + CH) return; const idx = k * 4 + ri;
+  const wy0 = -p * CH, m = hpm(), K = o => Object.assign(o, { keep: true, noGuard: true }), y0 = finalStartY(), off = secOff();
+  for (let k = Math.floor((wy0 + off) / SEC_P); k <= Math.floor((wy0 + CH + off) / SEC_P); k++) { const kP = k * SEC_P - off; // (the pattern's offset, see secOff)
+    [40, 120, 200, 270].forEach((mm, ri) => { const y = kP + mm; if (y < wy0 || y >= wy0 + CH) return; const idx = k * 4 + ri;
       for (const [x, gun] of [[18, idx % 2 === 0], [206, idx % 2 !== 0]]) world.enemies.push(gun ? G('flak', x, y, K({ ga: PI / 2, cd: rnd(60, 140) | 0, barrels: flakBarrels() })) : G('fuel', x, y, K({}))); });
-    const yt = k * SEC_P + 168;
+    const yt = kP + 168;
     if (yt >= wy0 && yt < wy0 + CH && hash(k, 919) < 0.55) world.enemies.push(G('tank', 60, yt, tankStats(false, K({ road: false, hd: 0, v: 0.25, patrol: [[46, yt], [178, yt]], pi: 1 }))));
-    if (y0 !== null && k * SEC_P + 225 < y0 && k * SEC_P + 225 > y0 - 2 * SEC_P) {
-      for (const x of [62, 162]) { const yp = k * SEC_P + 225; if (yp >= wy0 && yp < wy0 + CH) world.enemies.push(G('parked', x, yp, K({ hd: PI / 2 }))); }
-      for (const [x, dy] of [[56, 0], [64, 9], [168, 0]]) { const yc = k * SEC_P + 290 + dy; if (yc >= wy0 && yc < wy0 + CH) world.enemies.push(G(dy ? 'drums' : 'crate', x, yc, K({ hp: 3 * m, hw: 4, hh: 4, score: 150, rad: 6 }))); }
+    if (y0 !== null && kP + 225 < y0 && kP + 225 > y0 - 2 * SEC_P) {
+      for (const x of [62, 162]) { const yp = kP + 225; if (yp >= wy0 && yp < wy0 + CH) world.enemies.push(G('parked', x, yp, K({ hd: PI / 2 }))); }
+      for (const [x, dy] of [[56, 0], [64, 9], [168, 0]]) { const yc = kP + 290 + dy; if (yc >= wy0 && yc < wy0 + CH) world.enemies.push(G(dy ? 'drums' : 'crate', x, yc, K({ hp: 3 * m, hw: 4, hh: 4, score: 150, rad: 6 }))); }
     }
   }
 }
@@ -8084,7 +8090,7 @@ const BOSS_FIGHT = {
     },
     damageScale(e, p) { return p.k === 'core' && e.fl && e.fl.ph === 'charge' ? 1.6 : 1; }, // the open orb is vulnerable while it charges
     setup(e, sc) {
-      const wyPad = Math.floor((-30 - sc - 225) / SEC_P) * SEC_P + 225;
+      const off = secOff(), wyPad = Math.floor((-30 - sc - 225 + off) / SEC_P) * SEC_P + 225 - off; // the landing pad (pattern offset: secOff)
       Object.assign(e, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
     },
   },
