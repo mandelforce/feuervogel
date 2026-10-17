@@ -4000,7 +4000,7 @@ function roadX(wy) {
 }
 function roadXc(wy) {
   const S = run.sortie, P = S && S.gen ? sortiePlan(S) : null;
-  if (P) { const y = Math.floor(S.planY0 - wy); if (y >= 0 && y < P.L) return P.mx[y]; // inside the settlement plan its own main road, after it back to the legacy road
+  if (P) { const yf = S.planY0 - wy, y = Math.floor(yf); if (y >= 0 && y < P.L) return y + 1 < P.L ? P.mx[y] + (P.mx[y + 1] - P.mx[y]) * (yf - y) : P.mx[y]; // inside the settlement plan its own main road (between rows interpolated, so a vehicle on it never steps sideways), after it back to the legacy road
     if (y >= P.L && y < P.L + 200) { const f = (y - P.L + 1) / 200, s2 = f * f * (3 - 2 * f); return P.mx[P.L - 1] * (1 - s2) + roadXl(wy) * s2; } }
   return roadXl(wy);
 }
@@ -4683,19 +4683,21 @@ function treeOk0(tt, tx, ty, h, th) {
 }
 const burntTrees = new Set(), damagedHouses = new Set();
 function avenueTrees(y0, y1) { const out = []; for (let ty = Math.floor(y0 / 18) * 18; ty <= y1; ty += 18) for (const sd of [-10, 10]) { const tx = roadX(ty) + sd, C = classify(tx, ty); if (C.I.b === 'city' && hash(ty, sd) < 0.85 && roadHalf(ty) >= 13) out.push({ x: tx, y: ty, s: SPR.trees[2] }); } return out; }
+// inside the settlement plan of an Enigma Run level (it draws its own ground, trees included)
+function inPlan(wy) { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return false; const y = S.planY0 - wy; return y >= 0 && y < P.L; }
 // classic: the trees of the classic look, for code that runs in the simulation (explosion scorching, picking spots for ground targets); t.vis says if Enigma draws the tree
 function treeList(wx, wy, r, classic) {
   const out = [], cs = 9;
-  if (themeAtWy(wy) === 5) for (const t of avenueTrees(wy - r - 18, wy + r + 18)) if ((t.x - wx) ** 2 + (t.y - wy) ** 2 <= (r + 6) ** 2) out.push(t);
+  if (themeAtWy(wy) === 5) for (const t of avenueTrees(wy - r - 18, wy + r + 18)) if (!inPlan(t.y) && (t.x - wx) ** 2 + (t.y - wy) ** 2 <= (r + 6) ** 2) out.push(t);
   for (let cj = Math.floor((wy - r) / cs) - 1; cj <= Math.floor((wy + r) / cs) + 1; cj++) for (let ci = Math.floor((wx - r) / cs) - 1; ci <= Math.floor((wx + r) / cs) + 1; ci++) {
     const h = hash(ci * 7 + 3, cj * 13 + 5); if (h > 0.82) continue;
     const tx = ci * cs + hash(ci, cj + 101) * cs, ty = cj * cs + hash(ci + 55, cj) * cs;
     if ((tx - wx) ** 2 + (ty - wy) ** 2 > r * r) continue;
     const th = themeAtWy(ty);
     if (burntTrees.has((tx | 0) + ',' + (ty | 0))) continue;
-    const tt = terrainType(tx, ty);
-    if (classic) { if (treeOk0(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], vis: !ENIGMA_T || treeKeepE(tt, tx, ty, h, th) }); }
-    else if (treeOk(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0] });
+    const tt = terrainType(tx, ty), plan = inPlan(ty); // the settlement plan paints its own trees into the ground: no hashed trees there
+    if (classic) { if (treeOk0(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], vis: !plan && (!ENIGMA_T || treeKeepE(tt, tx, ty, h, th)), ghost: plan }); }
+    else if (!plan && treeOk(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0] });
   }
   return out;
 }
@@ -6746,7 +6748,7 @@ function worldDamage(wx, wy, r) {
   for (const t of treeList(wx, wy, r + 4, true)) { // the classic trees: how many there are feeds the seeded stream below, so Enigma may not change it
     const key = (t.x | 0) + ',' + (t.y | 0); if (burntTrees.has(key)) continue; burntTrees.add(key);
     if (t.vis) paintWorld(t.x, t.y, 8, (x, ly) => { for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = Math.hypot(i, j) + (hash(t.x + i, t.y + j) - 0.5) * 2.5; if (d > 6) continue; x.fillStyle = d < 2 ? '#3a2a1a' : hash(t.x * 3 + i, t.y + j) < 0.08 ? '#c04a1a' : d < 4 ? '#1e1612' : '#2e241a'; x.fillRect(Math.round(t.x + i), Math.round(ly + j), 1, 1); } x.fillStyle = '#5a3a22'; x.fillRect(Math.round(t.x), Math.round(ly), 1, 2); });
-    world.decals.push({ kind: 'burnt', wx: t.x, wy: t.y, r: 5, smokeT: (rnd(200, 320)) | 0 });
+    const smokeT = (rnd(200, 320)) | 0; if (!t.ghost) world.decals.push({ kind: 'burnt', wx: t.x, wy: t.y, r: 5, smokeT }); // a hashed tree inside the settlement plan was never there: no scorch, but the same draw from the stream
   }
   for (let dp = -1; dp <= 1; dp++) for (const [hx, hy] of (chunkHouses.get(-Math.floor(wy / CH) + dp) || [])) {
     if (Math.hypot(hx - wx, hy - wy) > r + 9) continue;
