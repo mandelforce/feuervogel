@@ -48,6 +48,13 @@ for (const preset of ['town', 'river']) { let fails = 0;
   if (n.old < 80 || n.star < 85 || short.length) fail(`step 2: old towns ${n.old}, roundabouts ${n.star}, ${JSON.stringify(civ)}`);
   else console.log(`ok   step 2 in 100 towns: old town ${n.old}, roundabout ${n.star}, ${Object.entries(civ).map(([k, v]) => k.toLowerCase() + ' ' + v).join(', ')}`);
 }
+// harbours and railways: harbours in most river towns, stations in most towns, and the railway never over water or under a house
+{ const n = { hb: 0, st: 0, stR: 0 }; let wet = 0, under = 0;
+  for (let seed = 1; seed <= 100; seed++) for (const preset of ['town', 'river']) { const p = CG.generate({ seed, preset }); if (preset === 'river' && p.harbour) n.hb++; if (p.station) preset === 'town' ? n.st++ : n.stR++;
+    for (let i = 0; i < p.K.length; i++) { if (!p.RM[i]) continue; const k = p.K[i]; if (k === CG.K.RIVER || k === CG.K.BRIDGE) wet++; else if (k === CG.K.BLDG && p.RM[i] === 2 && p.items[p.B[i]].part !== 'shed') under++; } }
+  if (n.hb < 80 || n.st < 85 || n.stR < 70 || wet || under) fail(`harbour and railway: harbours ${n.hb}, stations ${n.st} + ${n.stR}, rail over water ${wet}, rail under buildings ${under}`);
+  else console.log(`ok   harbour in ${n.hb} of 100 river towns, station in ${n.st} towns and ${n.stR} river towns; no rail over water or under a building`);
+}
 // no road markings in town: paint whole towns and look for the marking colour
 { const mark = CG.palette.mark; let marks = 0;
   for (const [seed, preset] of [[1, 'town'], [5, 'town'], [9, 'river'], [12, 'rivers']]) {
