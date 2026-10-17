@@ -54,8 +54,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const page = await freshPage();
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -199,6 +199,24 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   ok(r.launched >= 8 && r.chase >= 2 && r.ships === 0, `${r.launched} fighters launched in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
   ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
   await page.close();
+}
+
+// 3b''''. Level 1's sequence (owner): the carrier, open sea, the small islands, the large island with the airbase, open sea (all sea for
+// now), the fortified beach and the old land (coast, farmland with the Campaign's rivers, village, forest, farmland), the coast down, open sea.
+// Flown through by the bot, the flagship comes over the last open sea and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1); const S = run.sortie, want = { carrier_start: 'sea', open_sea: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', farmland: 'country', village: 'country', forest_deciduous: 'forest', coast_down: 'coastDown' };
+    let bad = 0, rivers = 0; for (let c = 0; c < S.len + 8; c++) { const I = info(world.stageBaseP + c), g = sortieSeg(S, c), w = !g ? 'sea' : g.t === 'beach_fortified' && c === g.start ? 'coastUp' : want[g.t]; if (I.b !== w || I.th !== 0) bad++; if (I.river) rivers++; }
+    return { bad, rivers, seq: S.seq, gen: S.gen, segs: S.segs.map(g => g.t + ' ' + g.n).join(', ') }; })()`);
+  ok(r.bad === 0 && r.seq && !r.gen && r.rivers >= 1, `level 1 follows its own sequence on the Campaign's stage 1 ground (${r.segs}; ${r.rivers} rivers in the farmland)`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(1)'); const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
 }
 
 // 3c. Level 6 is the same ground every time: a fresh page, after a Campaign run in the same page, and after a resume give the same chunk pixels.

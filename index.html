@@ -2163,7 +2163,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3747,7 +3747,7 @@ function biomeForQ(q, th) {
 const STAGE_LEN = 1.3;
 function predictInfo(p) {
   const qr = p - world.stageBaseP, q = qr < 0 ? qr : Math.floor(qr / STAGE_LEN);
-  { const S = run.sortie; if (S && S.gen && qr >= 0) return sortieInfo(S, p, qr); } // an Enigma Run level with its own ground: the sortie decides the biome
+  { const S = run.sortie; if (S && (S.gen || S.seq) && qr >= 0) return sortieInfo(S, p, qr); } // an Enigma Run level with its own ground: the sortie decides the biome
   let b, th;
   if (q < 0) { th = world.prevTheme; b = world.prevLand ? (q === -1 ? 'coastDown' : world.prevTheme === 5 ? 'secret' : world.prevTheme === 4 ? 'castle' : 'bossland') : 'sea'; }
   else { th = world.curTheme; b = biomeForQ(q, th); }
@@ -3770,15 +3770,17 @@ function infoRails(b, th, river, rw, island, lake, q) {
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
 }
 // Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
-const SORTIE_BIOME = { harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
+const SORTIE_BIOME = { carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
 function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
 // Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
 // open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
 function sortieInfo(S, p, c) {
   const m = S.infos || (S.infos = new Map()); let I = m.get(p); if (I) return I;
   const g = c >= S.len ? null : sortieSeg(S, c);
-  const b = !g ? 'secret' : g.t === 'coast_plain' && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
-  I = infoRails(b, S.theme, false, 7, null, null, c);
+  const b = !g ? (S.seq ? 'sea' : 'secret') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
+  let river = false, rw = 7, island = null; // level 1's farmland keeps the Campaign's rivers (from its third chunk on), with their bridges and river islands
+  if (S.seq && g && g.t === 'farmland' && c - g.start >= 2 && (((p % 5) + 5) % 5) === 0 && hash(p, 991) < 0.7) { river = true; if (hash(p, 333) < 0.5) { rw = 11; const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; } }
+  I = infoRails(b, S.theme, river, rw, island, null, c);
   if (S.gen && sortiePlan(S) && c >= S.planC0 && c < S.len) { I.plan = true; I.rails = []; I.rail = null; } // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
   if (m.size > 400) m.clear(); m.set(p, I); return I;
 }
@@ -5708,7 +5710,7 @@ const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk'];
 const ENIGMA_LEN = [56, 56, 58, 60, 62, 70, 70]; // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
-  [['carrier_start', 4], ['open_sea', 3], ['island_chain', 6], ['island_large', 5], ['beach_fortified', 3], ['farmland', 7], ['village', 4], ['forest_deciduous', 4], ['airbase_forest', 5], ['farmland', 3], ['harbour_small', 4], ['open_sea', 4]],
+  [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 4], ['coast_down', 1], ['open_sea', 4]], // owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
   [['harbour_commercial', 4], ['beach_town', 3], ['valley', 7], ['village', 4], ['station_junction', 6], ['desert_open', 4], ['airbase_desert', 6], ['pass', 7], ['desert_open', 7]],
   [['beach_fortified', 3], ['industrial_power', 7], ['station_marshalling', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6]],
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
@@ -5725,7 +5727,8 @@ function buildSortie(level, seed) {
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
-    gen: level >= 6 ? 6 : 0, bossAt: level >= 6 ? at + 5 : null, arcLen: level >= 6 ? at + 5 : null,
+    // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
+    gen: level >= 6 ? 6 : 0, seq: level === 1, bossAt: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null, arcLen: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null,
     name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level >= 6 ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
@@ -6803,7 +6806,7 @@ function planBerths(sc) {
    the origin at the carrier's centre, bow up (v < 0). world.carrier is null in every other run, so none of this touches the Campaign. */
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
-const CV = { K: 1.5, END: 0.5, PLANE: false, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
+const CV = { K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {

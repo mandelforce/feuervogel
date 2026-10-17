@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 1 follows its new route. After the carrier comes a long stretch of open sea, where the small islands and then the large island with the airbase will go (open sea for now). After more sea come the fortified beach and the old stage 1 land: farmland with rivers and bridges, the village, the forest and more farmland. Then the coast and the open sea, where the flagship fights. The carrier keeps its planes, guns and crew at their ordinary size while the ship itself is 1.5 times as big (mockup C).
 - Enigma Run level 1: the carrier is half again as big (1.5 times). It starts larger than the screen, the Feuervogel and the planes on its deck at the same scale, and shrinks to three quarters of its old size. The Feuervogel now starts mid-deck and lifts off higher up the screen. The carrier shrinks about a point near its bow, so it stays in view for about 17 seconds as it slides off.
 - Enigma Run level 1 now opens on the enemy carrier: the Feuervogel stands on its deck amid the panic, rolls down the deck and lifts off over the bow. Fighters launch from the catapults after it for about 20 seconds and chase it from behind. The carrier, nearly the size of the screen at first, shrinks to half size and slides off the bottom as you climb away. Its six deck guns fire back and can be destroyed; the hull cannot. After the chase the level goes on as before. The Campaign is unchanged.
 - The tunnel opening is 2 px wider on each side: a 22 px mouth in a 28 px sandstone face with thicker sides. The hill and track are unchanged.

@@ -332,6 +332,8 @@ Lengths in chunks. Order is the Campaign order. Bosses and music are the campaig
 `carrier_start 4` (**opening scene**) -> `open_sea 3` -> `island_chain 6` -> `island_large 5` (one large island with farmland, fields and a farmstead) -> `beach_fortified 3` -> `farmland 7` (river with bridge) -> `village 4` -> `forest_deciduous 4` -> `airbase_forest 5` -> `farmland 3` -> `harbour_small 4` -> `open_sea 4` -> boss arena (sea).
 *Landmarks:* the carrier start and the ship boss; many small islands; one large island with farmland.
 
+**Level 1, revised by the owner:** the carrier, then a lot of ocean, then islands (small ones first, then a larger one with the airbase), then ocean, then the beach fortifications, which are basically the reworked land of the old stage 1, then ocean again. As weights (length 56): `carrier_start` 4, `open_sea` 6, `island_chain` 6, `island_airbase` 9, `open_sea` 3, `beach_fortified` 3, `farmland` 8, `village` 4, `forest_deciduous` 4, `farmland` 4, `coast_down` 1, `open_sea` 4. The forest airbase and the small harbour are gone; the airbase is on the large island.
+
 **Level 2: Sea of Sand** (desert, heat shimmer, dust, sandstorm gusts at the boss). Boss: Sand Colossus. Total 48.
 `harbour_commercial 4` (desert) -> `beach_town 3` -> `valley 7` (oil field, wadi) -> `village 4` (desert) -> `station_junction 6` (convoy on the road) -> `desert_open 4` (oasis, irrigated fields) -> `airbase_desert 6` -> `pass 7` (fortified) -> `desert_open 7` (quiet approach) -> boss arena.
 *Landmark:* a small oasis (`oasis`) with a pool of water, palm trees, a few houses and a well. It is placed in the `desert_open 4` segment.
@@ -754,4 +756,14 @@ To keep the bigger ship in view:
 - it shrinks about a point 120 px forward of its centre (`PIV`), so the bow stays near its place.
 
 It leaves the screen at about frame 1000 (the pursuit still ends at frame 1360). The aft elevator, the arrester wires and the six parked planes moved aft to make room.
+
+**Owner's choice: mockup C** (`CV.PLANE: true`): the ship at 1.5 times its old size, its planes, guns and crew at their ordinary size.
+
+### 17.2 Level 1's route on the legacy ground (second step)
+
+The sortie has the owner's new sequence (section 10, revised). Until the islands are built, it is flown on the Campaign's stage 1 ground, in that order. A new sortie flag `seq` (level 1 only) makes `predictInfo` take the biome from the sortie (`sortieInfo`) without a settlement plan. `gen` stays level 6's, because the city code reads `S.gen` in many places.
+- **Biomes:** the carrier, the open seas, `island_chain` and `island_airbase` are `sea`. The first chunk of `beach_fortified` is `coastUp` (the Campaign's coast with its anti-tank obstacles), the rest of it and the farmland and village are `country`, and the forest is `forest`. `coast_down` is `coastDown`, and after the level the ground stays `sea` (the flagship's arena). The theme is 0 throughout.
+- **Rivers:** the farmland keeps the Campaign's rivers, from its third chunk on, with their bridges and river islands.
+- **Pacing:** the boss triggers one chunk into the last open sea (`bossAt` = its start + 1 = 53), and `arcLen` is the same, so the director's arc runs over the level.
+- **Tests:** `tests/enigma.mjs` checks the biome order and a bot flight in which the flagship comes over the sea and the level returns to the picker.
 
