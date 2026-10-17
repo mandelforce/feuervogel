@@ -716,3 +716,28 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 **Wider tunnel opening (owner: 3 px wider on both sides).** The mouth is now 24 px (round-topped) in a 28 x 7 px face. The side walls keep their thickness, and the mound and track are unchanged.
 
 **Tunnel mouth, adjusted (owner: one pixel too wide on each side).** The mouth is now 22 px in the 28 px face, so each side wall is 1 px thicker toward the inside.
+
+## 17. Level 1, Cross the Channel
+
+Level 1 is built in steps, beginning with its opening. Its ground is still the Campaign's stage 1 (`gen: 0`). That ground opens with about 6.5 chunks of open sea, which covers the `carrier_start` and `open_sea` segments. The island chain, the large island, the forest, the forest airbase and the small harbour come in later steps (proposed plan: one settlement plan over the whole level, as for 6B).
+
+### 17.1 The carrier start (first step)
+
+The carrier is a **scene object drawn over the sea, not ground** (spec 5): `world.carrier`, null in every other run. `carrierStart()` sets it up when the sortie's first segment is `carrier_start`; `carrierTick()` runs it inside the director (the run's own random stream). The constants are in `CV`, in native units (scale 1 pixels, origin at the carrier's centre, bow up).
+
+- **Picture:** 124 × 364 px at scale 1 (on a 408 px screen it reaches from near the top to the bottom edge). It shows a shadow on the water, a grey bow with anchors, and a planked flight deck with hazard stripes at both ends. On the deck: a dashed centre line, two bow catapults, the fore elevator up and the aft one lowered, arrester wires, and the raven clan's mark (a white raven in a red ring). Six gun sponsons line the deck's edges. The island on the starboard side has bridge windows, radar and a funnel that smokes. The picture is painted from pixel-snapped rectangles once per scale step (1/128) and cached, so it stays crisp while it shrinks. Drawn live on top: the parked planes (six behind the Feuervogel, one fewer per catapult launch), 16 crew running about, blinking red alarm lights, and stubs where guns were destroyed. Foam marks the bow wave, the hull sides and the wake behind the stern.
+- **Timeline (frames, 60 per second):**
+  - 0 to 50: the Feuervogel stands on the deck. The horn sounds.
+  - 50 to 160: it rolls down the centre line and lifts off over the bow. On screen it rises from 0.86 H to 0.5 H while the deck runs down under it. The sea scrolls 0.15 px per frame faster than the carrier moves, as if the ship sails forward.
+  - 160 to 200: it climbs on, slowing, and its shadow draws away. Then the player steers. `player.fly` counts the 200 frames, so steering, firing and invulnerability work as in the Campaign's fly-in.
+  - From 160: the carrier slows to 0.25 px per frame down the screen and shrinks from 1 to 0.5 over 500 frames, about its centre, until its bow passes the bottom edge (about frame 700).
+- **Pursuit:** for `CV.PURSUIT` = 1200 frames (20 s, inside the owner's 15 to 25 s) from lift-off. The first launch comes during the take-off.
+  - A launch every 70 frames in the first 400, then every 95. Easy is 1.4 times slower; each loop is 10 frames faster.
+  - At most 3 chasers at once (2 on Easy, plus the loop).
+  - While the bow is on screen, a fighter (`cfighter`, not a target yet) waits at a catapult, rolls down it at the carrier's scale, climbs to full size over 30 frames, and becomes an ordinary `fighter` heading north. It homes on the player for 150 frames (`chase: true`) and does not dive-bomb.
+  - Once the carrier is off screen, chasers come up from below the screen.
+  - While the scene lasts, the director holds its own waves and ground spawns (and the pods until lift-off), and no boats spawn under the carrier. After it, pacing is the Campaign's.
+- **Guns (`cgun`):** six deck guns on the sponsons, using the destroyer's gun turret at the carrier's scale. Each has 8 hp, is worth 400 points and fires flak once airborne. Destroyed, a gun leaves a stub on the deck. The hull is not an entity, so shots pass over it.
+- **Campaign:** unchanged (`replay.mjs` matches `golden.json`, the six Campaign pixel hashes are unchanged). The only shared-code changes are a no-op guard on the boat spawn and the player's shadow offset, which is 12, 20 as before when not on a deck.
+- **Tests:** a level 1 block in `tests/enigma.mjs` checks that the Campaign has no carrier, the deck start (scale 1, six guns, no steering), lift-off and launches, that a gun can be destroyed, the shrink to 0.5 and the slide-off, at least 8 launches and no ships during the scene, and that the director takes over afterwards. `tests/carrier-shots.mjs OUTDIR [frames]` films the scene for review by eye.
+- **Open for the owner:** the timings above, the number of launches, and whether the raven mark and the deck colour suit the clan.
