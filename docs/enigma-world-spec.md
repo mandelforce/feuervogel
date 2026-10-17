@@ -841,3 +841,9 @@ The owner asked for the islets in a level **1A**. Like 6B, it is a separate entr
   `node tests/carrier-shots.mjs OUTDIR 2000,3000 - play 8` films 1A.
 - **Still to do:** road traffic on the island ends at the jetty, because vehicles that drive along a road do not stop where it ends. This is the deferred route objects (13a). Also open: the islets' look in play, the airbase's own director spawns (it plays as `country`), and a better seam between the island's tip and the beach.
 
+**No small fields at the edges (owner).** Clipping the village to the shore, and laying the field grid round the wood, the pond and the farmstead, left slivers along the beach. A last pass now checks every field on the large island. A field joins the field it shares the most border with (smallest first), or becomes meadow if it has no field neighbour, when it is:
+- under 400 px;
+- thinner than 12 px;
+- mostly edge: under 35 percent of its pixels lie 2 px inside its outline.
+That is about 37 remnants per plan. The farm islets' fields are placed whole and are left alone. `tests/citygen.mjs` checks that no field under 400 px or thinner than 12 px remains on the large island in 100 seeds.
+

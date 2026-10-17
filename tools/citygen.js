@@ -1827,6 +1827,15 @@ function islands(o) {
       for (const [fx, fy] of [[q.cx, q.cy + q.ry * 0.55], [q.cx, q.cy - q.ry * 0.6]]) { const fw = Math.min(34, Math.round(q.rx * 0.7)), fh = Math.min(14, Math.round(q.ry * 0.38)), fd = near(fw, fh, fx, fy, q.rx, isle); if (fd) parcel(fd[0], fd[1], fw, fh, 900 + q.id * 3 + (fy > q.cy ? 1 : 0)); } } // fields, as large as the islet allows
     for (const p of pts) if (on(p[0], p[1], 4) && rnd(T.TREE, p[0] * 3, p[1]) < (q.type === 'houses' ? 0.012 : 0.006)) tree(p[0], p[1], 2 + ((rnd(T.TREE, p[1], p[0]) * 2) | 0)); // a few trees on the grass
     plan.isles.push({ cx: q.cx, cy: q.cy, rx: q.rx, ry: q.ry, type: q.type }); }
+  // 8. no small fields: a field cut down by the shore, the wood, the pond or a farmstead to less than 400 px, thinner than 12 px, or mostly edge
+  // (under 35 percent of it 2 px inside its own outline) joins the field it shares most border with, or becomes meadow; smallest first.
+  { const st = new Map(); for (let i = 0; i < N; i++) { const id = F[i]; if (id < 0 || Kr[i] !== K.FIELD || land[i] !== 1) continue; /* the large island's fields; an islet's field is placed whole */ const x = i % W, y = (i / W) | 0; let o = st.get(id); if (!o) st.set(id, o = { id, n: 0, core: 0, x0: x, x1: x, y0: y, y1: y, px: [] });
+      o.n++; o.px.push(i); if (x < o.x0) o.x0 = x; if (x > o.x1) o.x1 = x; if (y < o.y0) o.y0 = y; if (y > o.y1) o.y1 = y; if (x > 1 && x < W - 2 && y > 1 && y < L - 2 && F[i - 2] === id && F[i + 2] === id && F[i - 2 * W] === id && F[i + 2 * W] === id) o.core++; }
+    const small = [...st.values()].filter(o => o.n < 400 || Math.min(o.x1 - o.x0, o.y1 - o.y0) + 1 < 12 || o.core < o.n * 0.35).sort((a, b) => a.n - b.n), gone = new Set(small.map(o => o.id));
+    for (const o of small) { const nb = new Map(); for (const i of o.px) { const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < N && Kr[j] === K.FIELD && F[j] >= 0 && F[j] !== o.id && !gone.has(F[j])) nb.set(F[j], (nb.get(F[j]) || 0) + 1); }
+      let to = -1, best = 0; for (const [id, c] of nb) if (c > best) { best = c; to = id; }
+      for (const i of o.px) { if (to >= 0) F[i] = to; else { Kr[i] = K.MEADOW; Br[i] = -1; F[i] = -1; } } }
+    plan.fieldsMerged = small.length; }
   if (!plan.slots.some(c => c.kind === 'flak' && c.y < by0)) for (const q of isl) { const g = near(9, 9, q.cx, q.cy, q.rx * 1.2, (x, y) => land[idx(x, y)] === q.id + 2); if (g) { gunPit(g[0] + 5, g[1] + 5); break; } } // the chain always has a flak gun
   plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
