@@ -2163,7 +2163,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.20'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6801,25 +6801,28 @@ function planBerths(sc) {
    is a drawn scene object over the sea, not ground: large at first (scale 1, nearly the whole screen), it shrinks to 0.5 and slides off the
    bottom as the Feuervogel climbs away. Its deck guns can be destroyed (entity 'cgun'); the hull cannot. Native units: scale 1 pixels with
    the origin at the carrier's centre, bow up (v < 0). world.carrier is null in every other run, so none of this touches the Campaign. */
-const CV = { T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 96, V1: -165, SHRINK: 500, DRIFT: 0.25, X: 4, BOW: -182,
+// K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
+// planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
+const CV = { K: 1.5, END: 0.5, PLANE: false, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158,
-  PARKED: [[-28, 138], [-4, 138], [20, 138], [-28, 160], [-4, 160], [20, 160]] }; // parked behind the Feuervogel, which stands at v = V0
+  PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
-  const ys0 = H * 0.86, yl = H * 0.5, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0, y0: ys0 - CV.V0, s: 1, ys0, yl, vy: 0,
-    A: (CV.V0 - CV.V1) - (ys0 - yl), parked: CV.PARKED.length, gunDead: [], nextL: CV.T1 - 40, cat: 0, launched: 0, gone: false, over: false };
+  const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
+    A: (CV.V0 - CV.V1) * CV.K - (ys0 - yl), parked: CV.PARKED.length, gunDead: [], nextL: CV.T1 - 40, cat: 0, launched: 0, gone: false, over: false };
   CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0 })));
-  const p = player; p.fly = CV.FLY; p.deck = true; p.alt = 0; p.x = C.x - 4; p.y = ys0; p.lx = p.x; p.ly = p.y; p.bank = 0;
+  const p = player; p.fly = CV.FLY; p.deck = true; p.alt = 0; p.x = C.x - 4 * CV.K; p.y = ys0; p.lx = p.x; p.ly = p.y; p.bank = 0;
   world.scrollV = world.scrollTarget = 0.15; sfx('horn');
 }
 function carrierXY(C, u, v) { return [C.x + u * C.s, C.y + v * C.s]; }
+function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of the planes, guns and crew on the deck
 // One frame of the scene, inside the director (the run's own random stream): the carrier's motion and scale, the scroll while the Feuervogel
 // rolls (the sea passes a little faster than the ship sails), wake and funnel smoke, and the launches.
 function carrierTick() {
   const C = world.carrier; if (C.over) return;
   const t = ++C.t;
   if (t >= CV.T0 && t < CV.T1) { const f = (t - CV.T0) / (CV.T1 - CV.T0), y = C.y0 + C.A * f * f; C.vy = y - C.y; C.y = y; }
-  else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 25); C.y += C.vy;
-    const f = clamp((t - CV.T1) / CV.SHRINK, 0, 1); C.s = Math.round((1 - 0.5 * f * f * (3 - 2 * f)) * 128) / 128; } // scale in 1/128 steps (one picture per step)
+  else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 12); C.y += C.vy;
+    const f = clamp((t - CV.T1) / CV.SHRINK, 0, 1), s0 = C.s; C.s = Math.round(CV.K * (1 - (1 - CV.END) * f * f * (3 - 2 * f)) * 128) / 128; C.y += CV.PIV * (s0 - C.s); } // it shrinks about a point near the bow (CV.PIV), so it stays in view while it shrinks // scale in 1/128 steps (one picture per step)
   if (t < CV.T1 + 60) world.scrollV = world.scrollTarget = C.vy + 0.15; else if (t === CV.T1 + 60) world.scrollTarget = SCROLL;
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) C.gone = true;
   if (!C.gone) {
@@ -6844,7 +6847,7 @@ function carrierPlayer(p) {
   const C = world.carrier, t = C.t;
   if (t < CV.T1) { const f = t < CV.T0 ? 0 : (t - CV.T0) / (CV.T1 - CV.T0); p.y = C.ys0 + (C.yl - C.ys0) * f * f; p.alt = 0; if (t === CV.T0) sfx('spool'); }
   else { const v0 = 2 * (C.yl - C.ys0) / (CV.T1 - CV.T0); p.y += v0 * Math.exp(-(t - CV.T1) / 15); p.alt = clamp((t - CV.T1) / 40, 0, 1); if (t === CV.T1) { sfx('liftoff'); feel.shake = Math.max(feel.shake, 2); } }
-  p.x = C.x - 4 * C.s; p.bank = 0; p.lx = p.x; p.ly = p.y; p.charge = 0; p.inv = Math.max(p.inv, 70); p.flyK = 1;
+  p.x = C.x - 4 * C.s; p.bank = 0; p.lx = p.x; p.ly = p.y; p.charge = 0; p.inv = Math.max(p.inv, 70); p.flyK = lerp(carrierPK(C), 1, p.alt); // on the deck at the deck's scale, ordinary size once climbed away
   if (t >= CV.T0 && t < CV.T1 + 20 && gf % 2 === 0) for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: p.x + sd * 13, y: p.y + 4, vx: 0, vy: 0.3, life: 20, max: 20 });
   if (--p.fly <= 0) { p.fly = 0; p.deck = false; p.alt = 1; }
   for (let i = 0; i < p.drones; i++) { p.dr[i].x = p.x + (i ? 17 : -17); p.dr[i].y = p.y + 7; }
@@ -6870,8 +6873,8 @@ function carrierPic(q) {
   for (let u = -40; u < 34; u += 6) { R(u, -158, u + 3, -155, '#e8c040'); R(u + 3, -158, u + 6, -155, '#1c1c20'); R(u, 167, u + 3, 170, '#e8c040'); R(u + 3, 167, u + 6, 170, '#1c1c20'); }
   for (let v = -146; v < 160; v += 18) R(-5, v, -3, v + 10, '#d8d4c8');
   for (const u of CV.CATS) { R(u - 1, CV.CAT1 + 2, u + 1, CV.CAT0, '#2a2c32'); R(u - 2, CV.CAT0 - 4, u + 2, CV.CAT0, '#8a8e96'); }
-  R(-32, -70, -4, -42, '#3e3a32'); R(-31, -69, -5, -43, '#7a7264'); R(-32, 62, -4, 90, '#1c1d22'); R(-31, 63, -5, 67, '#121216'); // fore elevator up, aft one lowered
-  for (const v of [118, 128, 138, 148, 158]) R(-40, v, 34, v + 1, '#4a4438');
+  R(-32, -70, -4, -42, '#3e3a32'); R(-31, -69, -5, -43, '#7a7264'); R(-32, 108, -4, 136, '#1c1d22'); R(-31, 109, -5, 113, '#121216'); // fore elevator up, aft one lowered
+  for (const v of [144, 152, 160]) R(-40, v, 34, v + 1, '#4a4438');
   { const cx = -3, cy = 12; for (let dy = -13; dy <= 13; dy++) { const w = Math.sqrt(169 - dy * dy); R(cx - w, cy + dy, cx + w, cy + dy + 1, '#a83028'); const w2 = Math.sqrt(Math.max(0, 100 - dy * dy)); if (w2) R(cx - w2, cy + dy, cx + w2, cy + dy + 1, '#1a1416'); }
     for (let i = 0; i < 8; i++) { R(cx - 1 - i, cy - 2 + i * 0.6, cx - i + 1, cy + i * 0.6, '#e8e4d8'); R(cx + i - 1, cy - 2 + i * 0.6, cx + i + 1, cy + i * 0.6, '#e8e4d8'); }
     R(cx - 2, cy - 5, cx + 2, cy - 1, '#e8e4d8'); R(cx - 1, cy - 7, cx + 1, cy - 5, '#e8e4d8'); R(cx - 2, cy, cx + 2, cy + 6, '#e8e4d8'); R(cx - 3, cy + 6, cx + 3, cy + 8, '#e8e4d8'); } // the raven clan's mark: a raven, wings spread
@@ -6886,11 +6889,11 @@ function drawCarrier() {
   const C = world.carrier; if (!C || C.gone) return;
   const q = C.s, P = carrierPic(q), x0 = Math.round(C.x), y0 = Math.round(C.y), at = (u, v) => [x0 + Math.round(u * q), y0 + Math.round(v * q)];
   ctx.drawImage(P.c, x0 - P.ox, y0 - P.oy);
-  const ps = SPR.fighter[dirIdx(-PI / 2)], pw = Math.round(ps.w * q), ph = Math.round(ps.h * q);
+  const pk = carrierPK(C), ps = SPR.fighter[dirIdx(-PI / 2)], pw = Math.round(ps.w * pk), ph = Math.round(ps.h * pk);
   for (let i = CV.PARKED.length - C.parked; i < CV.PARKED.length; i++) { const [px, py] = at(CV.PARKED[i][0], CV.PARKED[i][1]); ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, px - (pw >> 1) + 1, py - (ph >> 1) + 2, pw, ph); ctx.globalAlpha = 1; ctx.drawImage(ps.c, px - (pw >> 1), py - (ph >> 1), pw, ph); }
-  for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * q)); }
+  for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
-  const cs = Math.max(1, Math.round(2 * q)), T = C.t;
+  const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
   for (let i = 0; i < 16; i++) { // the deck crew, running about in the panic
     const dur = 34 + ((hash(i, 3) * 40) | 0), k = Math.floor((T + i * 13) / dur), f = Math.min(1, ((T + i * 13) % dur) / dur * 1.7);
     const tg = j => [-40 + 72 * hash(i * 31 + j, 7), -140 + 300 * hash(i * 17 + j, 9)], a = tg(k), b = tg(k + 1), [cx, cy] = at(lerp(a[0], b[0], f), lerp(a[1], b[1], f));
@@ -10111,16 +10114,16 @@ for (const t in LOOKS) ENT[t].draw = LOOKS[t];
 Object.assign(ENT, {
   cgun: { revenge: 2, medals: 0.5, stats: { hp: 8, hw: 9, hh: 9, score: 400, rad: 13 }, update(e) {
     const C = world.carrier; if (!C || C.gone) { e.dead = true; return; }
-    [e.x, e.y] = carrierXY(C, e.u, e.v); e.wx = e.x; e.wy = e.y - Math.floor(world.scroll); e.hw = e.hh = Math.max(4, 9 * C.s); e.rad = Math.max(6, 13 * C.s);
+    [e.x, e.y] = carrierXY(C, e.u, e.v); e.wx = e.x; e.wy = e.y - Math.floor(world.scroll); const k = carrierPK(C); e.hw = e.hh = Math.max(4, 9 * k); e.rad = Math.max(6, 13 * k);
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
-    if (--e.cd <= 0 && canFire(e, 60)) { e.cd = Math.round(Math.max(90, 150 - run.loop * 20) * fireSlow()); const r = 14 * C.s, bx = e.x + Math.cos(e.ga) * r, by = e.y + Math.sin(e.ga) * r; flakShot(bx, by, 1); flash(bx, by, 2); sfx('gun'); }
+    if (--e.cd <= 0 && canFire(e, 60)) { e.cd = Math.round(Math.max(90, 150 - run.loop * 20) * fireSlow()); const r = 14 * k, bx = e.x + Math.cos(e.ga) * r, by = e.y + Math.sin(e.ga) * r; flakShot(bx, by, 1); flash(bx, by, 2); sfx('gun'); }
   }, wreck(e) { if (world.carrier) world.carrier.gunDead[e.gi] = true; },
-  draw(e, fl) { const k = world.carrier ? world.carrier.s : 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); dk(0, 0, 7, '#2e3036'); dk(0, 0, 6, '#6a6e76'); spr(SPR.dGun[dirIdx(e.ga)], 0, 0, fl); ctx.restore(); } },
+  draw(e, fl) { const k = world.carrier ? carrierPK(world.carrier) : 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); dk(0, 0, 7, '#2e3036'); dk(0, 0, 6, '#6a6e76'); spr(SPR.dGun[dirIdx(e.ga)], 0, 0, fl); ctx.restore(); } },
   cfighter: { harmless: true, uncounted: true, stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
     const C = world.carrier; if (!C) { e.dead = true; return; }
     if (!e.air) { if (e.wait > 0) { if (--e.wait === 0) sfx('whistle'); } else { e.vv += 0.09; e.v -= e.vv; }
-      [e.x, e.y] = carrierXY(C, e.u, e.v); e.k = C.s;
-      if (e.v <= CV.CAT1) { e.air = 1; e.k0 = C.s; e.cy0 = C.vy - e.vv * C.s; } }
+      [e.x, e.y] = carrierXY(C, e.u, e.v); e.k = carrierPK(C);
+      if (e.v <= CV.CAT1) { e.air = 1; e.k0 = e.k; e.cy0 = C.vy - e.vv * C.s; } }
     else { const f = Math.min(1, ++e.air / 30); e.y += lerp(e.cy0, -2, f); e.k = lerp(e.k0, 1, f);
       if (e.air >= 30) { e.dead = true; world.enemies.push(mkFighter(e.x, e.y, -PI / 2, 2, { homeT: 150, fireAt: (rnd(30, 80)) | 0, boom: false, chase: true })); } }
     e.wx = e.x; e.wy = e.y - Math.floor(world.scroll);

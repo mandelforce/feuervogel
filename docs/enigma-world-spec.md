@@ -741,3 +741,17 @@ The carrier is a **scene object drawn over the sea, not ground** (spec 5): `worl
 - **Campaign:** unchanged (`replay.mjs` matches `golden.json`, the six Campaign pixel hashes are unchanged). The only shared-code changes are a no-op guard on the boat spawn and the player's shadow offset, which is 12, 20 as before when not on a deck.
 - **Tests:** a level 1 block in `tests/enigma.mjs` checks that the Campaign has no carrier, the deck start (scale 1, six guns, no steering), lift-off and launches, that a gun can be destroyed, the shrink to 0.5 and the slide-off, at least 8 launches and no ships during the scene, and that the director takes over afterwards. `tests/carrier-shots.mjs OUTDIR [frames]` films the scene for review by eye.
 - **Open for the owner:** the timings above, the number of launches, and whether the raven mark and the deck colour suit the clan.
+
+**Bigger carrier (owner: half again as big).** Three mockups were filmed with `tests/carrier-shots.mjs`, whose third argument sets the carrier constants (for example `K=1.5,END=0.5,PLANE=true`):
+- **A (the default now):** `K` 1.5 and `END` 0.5. The carrier starts at 1.5 times its old size and shrinks to 0.75. The planes, guns and crew grow with it, and so does the Feuervogel while on the deck (`player.flyK`, back to 1 as it climbs away).
+- **B:** `END` 1/3. Same start, but it shrinks to 0.5, the old end size.
+- **C:** `PLANE: true`. A bigger ship, with the planes, guns and crew at their ordinary size, so the deck looks roomier.
+
+To keep the bigger ship in view:
+- the Feuervogel starts mid-deck (`V0` 40) and lifts off at 0.42 H;
+- the ship's run-out after lift-off fades within about 12 frames;
+- it drifts at 0.2 px per frame;
+- it shrinks about a point 120 px forward of its centre (`PIV`), so the bow stays near its place.
+
+It leaves the screen at about frame 1000 (the pursuit still ends at frame 1360). The aft elevator, the arrester wires and the six parked planes moved aft to make room.
+
