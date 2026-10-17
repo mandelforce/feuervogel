@@ -767,3 +767,42 @@ The sortie has the owner's new sequence (section 10, revised). Until the islands
 - **Pacing:** the boss triggers one chunk into the last open sea (`bossAt` = its start + 1 = 53), and `arcLen` is the same, so the director's arc runs over the level.
 - **Tests:** `tests/enigma.mjs` checks the biome order and a bot flight in which the flagship comes over the sea and the level returns to the picker.
 
+### 17.3 The islands preset (generator, for review in the city lab)
+
+The owner's brief:
+- The large island has the airbase, fields, a farmstead, a village, a pond and a tiny forest.
+- The small islands have flak and turrets, sometimes a few houses, and a tiny farm with cows.
+
+`CityGen.generate({ preset: 'islands' })` runs its own function, `islands()`. It returns a plan of the usual shape, so `paint`, `typeAt`, `validate` and the lab work unchanged. The default length is 1792 px: chunks 0 to 27 of level 1, up to the fortified beach.
+
+**The chain** (`P.chain`, shares 0.36 to 0.56) holds 6 to 9 islets. Each is a rounded blob whose outline wanders by up to 23 percent.
+- **Placement:** the islets keep open water between them and stay clear of a 44 px lane (`plan.shipLanes`, checked by `validate`) for the game's warships. The lane ends 50 px before the large island's jetty.
+- **The largest islet is a farm:** a farmhouse and two barns round a yard, a fenced paddock for cows (`plan.pastures`; the game places its own cows there) and a small field.
+- **The next one has houses:** a lane with up to five houses facing it, gardens behind, and a lighthouse on the shore in 60 percent of plans.
+- **The third is always a gun islet:** a concrete pad with a `bunker` slot (the game's turret), a flak gun pit and sometimes a casemate.
+- **The rest:** smaller islets are rocks (mostly rocky shore, a flak pit if there is room) or more gun islets, and medium ones sometimes houses. The chain always has a flak slot.
+- **Shores:** beaches and rocks along every shore (new ground kind `ROCK`, game type `sand`; rockier on the gun islets and rocks). The sea foams on them (`plan.shore`: each sea pixel's distance to land).
+
+**The large island** (`P.big`, 0.565 to 0.935, 186 px wide) is a long rounded body with two wandering shores. From the south:
+- **A jetty** where the main road meets the shore, with a barge moored beside it.
+- **The village:** the village preset generated on its own (290 px, a road on the island's axis), copied in and clipped to the shore. Anything that would reach the beach is left out whole: a farmstead with all its buildings, a church with all its parts, and a house that would lose the street it fronts. It keeps its green, church and pond in 100 of 100 plans.
+- **Between the village and the airbase (72 px):**
+  - a small wood on the roomier side of the road (a dark floor under trees 4 px apart);
+  - on the other side, a pond with reeds and willows, a farmstead and a fenced cow paddock beside it;
+  - hedged fields in what is left.
+- **The airbase:**
+  - a concrete runway along the strip (new ground kind `RUNWAY`, game type `concrete`), 218 to 255 px long, with edge lines, a dashed centre line, threshold bars and tyre marks;
+  - a taxiway joined to it at both ends and in the middle;
+  - an apron with two hangars, a control tower and a fuel dump of three tanks;
+  - blast pens beside the runway (earth walls, `parked` slots);
+  - gun pits (`flak` slots) and an AA tower slot by the apron;
+  - the main road runs up to the apron.
+
+**Tests** (`tests/citygen.mjs`, 100 seeds): every hard rule holds, and the same seed gives the same plan. Of 100 plans: a farm islet with a paddock 100, a paddock by the farmstead 100, houses on an islet 98, a turret and a flak slot in the chain 100, the village green 100, the wood 100, the pond 100, the jetty 100, a runway of at least 200 px 100, two hangars 100, blast pens 100. A plan takes about 50 ms.
+
+**Not in the game yet.** The next step, after the owner's review, is level 1's plan from chunk 0 to the beach, as for 6B, plus:
+- islet-aware sea spawns (ships only on open water);
+- the slots filled by the director (turrets, flak, AA towers, parked planes);
+- cows in the paddocks;
+- the airbase played as the `base` biome.
+

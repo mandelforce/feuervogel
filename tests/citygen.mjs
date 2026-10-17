@@ -27,6 +27,20 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
     if (p.craters.some(c => { const k = p.K[Math.round(c.y) * p.W + Math.round(c.x)]; return k === CG.K.RIVER || k === CG.K.BRIDGE; })) { fails++; fail(`${preset} seed ${seed}: a bomb crater in the river`); } }
   console.log(`${fails ? 'FAIL' : 'ok  '} ${preset.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, ${(bridges / 100).toFixed(2)} bridges per town`);
 }
+// islands (Enigma Run level 1): every hard rule; the warships' lane through the chain is open water; the islets include a farm with a paddock,
+// houses and gun islets with turret and flak slots; the large island has its village (with the green), a farmstead and paddock beyond it, the
+// wood, the pond, the jetty and the airbase (a runway of at least 200 px, hangars, blast pens, gun pits); the same seed gives the same plan
+{ let fails = 0; const c = { farmIsle: 0, paddock: 0, houses: 0, guns: 0, green: 0, wood: 0, pond: 0, jetty: 0, runway: 0, hangars: 0, pens: 0 }, ms = [];
+  for (let seed = 1; seed <= 100; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'islands' }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`islands seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lane blocked ${m.lanesBlocked}`); }
+    const isleY = Math.round(p.L * p.P.big[0]), kinds = new Set(p.slots.filter(s => s.y < isleY).map(s => s.kind));
+    if (p.farms.some(f => f.y0 < isleY)) c.farmIsle++; if (p.pastures.some(q => q.y0 > p.village.y1)) c.paddock++; if (p.items.some(i => i.t === 'house' && i.y0 < isleY)) c.houses++;
+    if (kinds.has('bunker') && kinds.has('flak')) c.guns++; if (p.village.green) c.green++; if (p.wood.n > 400) c.wood++; if (p.pond) c.pond++; if (p.jetty && p.jetty.y1 - p.jetty.y0 > 12) c.jetty++;
+    if (p.airbase && p.airbase.y1 - p.airbase.y0 >= 200) c.runway++; if (p.airbase && p.airbase.hangars >= 2) c.hangars++; if (p.slots.some(s => s.kind === 'parked')) c.pens++;
+    if (seed <= 3 && hash(p) !== hash(CG.generate({ seed, preset: 'islands' }))) fail(`islands seed ${seed}: the same seed gave a different plan`); }
+  const low = Object.entries(c).filter(([k, v]) => v < (k === 'paddock' || k === 'pens' || k === 'houses' ? 90 : 100));
+  if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
+  console.log(`${fails || low.length ? 'FAIL' : 'ok  '} islands: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median; of 100: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
