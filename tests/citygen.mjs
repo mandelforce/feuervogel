@@ -59,12 +59,18 @@ for (const preset of ['village', 'crossroads', 'industrial']) for (const damage 
   if (!want) fail(`${preset}: green ${green}, farms ${farms}, industrial ${ind}, power stations ${power}, centres ${centre}, churches among works ${inInd}`);
   console.log(`${fails || !want ? 'FAIL' : 'ok  '} ${preset.padEnd(10)} damage ${damage}: ${100 - fails}/100 pass, ` + (preset === 'village' ? `village green in ${green}, ${(farms / 100).toFixed(1)} farmsteads per village` : preset === 'crossroads' ? `crossroads with square and church in ${centre}, ${(farms / 100).toFixed(1)} farmsteads` : `industrial quarters in ${ind}, power station in ${power}, no church among the works`));
 }
-// harbours and railways: harbours in most river towns, stations in most towns, and the railway never over water or under a house
-{ const n = { hb: 0, st: 0, stR: 0 }; let wet = 0, under = 0;
-  for (let seed = 1; seed <= 100; seed++) for (const preset of ['town', 'river']) { const p = CG.generate({ seed, preset }); if (preset === 'river' && p.harbour) n.hb++; if (p.station) preset === 'town' ? n.st++ : n.stR++;
-    for (let i = 0; i < p.K.length; i++) { if (!p.RM[i]) continue; const k = p.K[i]; if (k === CG.K.RIVER || k === CG.K.BRIDGE) wet++; else if (k === CG.K.BLDG && p.RM[i] === 2 && p.items[p.B[i]].part !== 'shed') under++; } }
-  if (n.hb < 80 || n.st < 85 || n.stR < 70 || wet || under) fail(`harbour and railway: harbours ${n.hb}, stations ${n.st} + ${n.stR}, rail over water ${wet}, rail under buildings ${under}`);
-  else console.log(`ok   harbour in ${n.hb} of 100 river towns, station in ${n.st} towns and ${n.stR} river towns; no rail over water or under a building`);
+// harbours and railways: harbours in most river towns, a straight main line in every town, stations and second lines in most, rail bridges
+// wherever a line crosses a river, no rail under a building other than the train shed, and the game's trains (16 px wide, about 200 px long)
+// fit their runs: nothing within 8 px of the track (validate's trainBlocked, part of every pass above)
+{ const n = { hb: 0, st: 0, stR: 0, br: 0, run: 0, rb: 0, rbNeed: 0 }; let wet = 0, under = 0, blocked = 0, mainShort = 0;
+  for (let seed = 1; seed <= 100; seed++) for (const preset of ['town', 'river']) { const p = CG.generate({ seed, preset }), m = CG.validate(p);
+    if (preset === 'river' && p.harbour) n.hb++; if (p.station) preset === 'town' ? n.st++ : n.stR++; if (p.railway && p.railway.branch) n.br++; if (p.trainRuns.some(r => r.line === 'branch')) n.run++;
+    blocked += m.trainBlocked; const main = p.trainRuns.find(r => r.line === 'main'); if (!main || main.y1 - main.y0 < p.L - 1) mainShort++;
+    let rbp = 0; for (let i = 0; i < p.K.length; i++) { if (p.K[i] === CG.K.RBRIDGE) rbp++; if (!p.RM[i]) continue; const k = p.K[i]; if (k === CG.K.RIVER || k === CG.K.BRIDGE) wet++; else if (k === CG.K.BLDG && p.RM[i] === 2 && p.items[p.B[i]].part !== 'shed') under++; }
+    if (preset === 'river') { n.rbNeed++; if (rbp > 40) n.rb++; } }
+  const ok = n.hb >= 55 && n.st >= 80 && n.stR >= 65 && n.br >= 100 && n.run >= 40 && n.rb === n.rbNeed && !wet && !under && !blocked && !mainShort;
+  if (!ok) fail(`railway and harbour: ${JSON.stringify(n)}, rail on water ${wet}, under buildings ${under}, blocked for trains ${blocked}, main line short ${mainShort}`);
+  else console.log(`ok   railway: a straight main line in 200 of 200 towns, stations in ${n.st} towns and ${n.stR} river towns, a second line in ${n.br} (a straight train run on it in ${n.run}), rail bridges in every river town, trains clear everywhere; harbour in ${n.hb} river towns`);
 }
 // no road markings in town: paint whole towns and look for the marking colour
 { const mark = CG.palette.mark; let marks = 0;

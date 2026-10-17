@@ -109,7 +109,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <h2 id="h-show">Overlays</h2>
       <div class="toggles">
         <label><input type="checkbox" id="oStreets"> Streets</label>
-        <label><input type="checkbox" id="oTank" checked> Tank routes</label>
+        <label><input type="checkbox" id="oTank" checked> Tank and train routes</label>
         <label><input type="checkbox" id="oSlots" checked> Gun slots</label>
         <label><input type="checkbox" id="oKinds"> Ground kinds</label>
         <label><input type="checkbox" id="oQuarters" checked> Quarters</label>
@@ -169,8 +169,8 @@ const CURVES = {
   centre: [[0, 0.85], [0.5, 1], [1, 0.9]],
   fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]],
 };
-const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40', [K.WORKS]: '#6a6a72', [K.RAIL]: '#8a7a6a' };
-const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track', [K.WORKS]: 'Works yard', [K.RAIL]: 'Railway' };
+const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40', [K.WORKS]: '#6a6a72', [K.RAIL]: '#8a7a6a', [K.RBRIDGE]: '#b06a4a' };
+const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track', [K.WORKS]: 'Works yard', [K.RAIL]: 'Railway', [K.RBRIDGE]: 'Rail bridge' };
 const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff' };
 $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="background:${KIND_COL[k]}"></i>${KIND_LABEL[k]}</span>`).join('') +
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)' }[k]}</span>`).join('');
@@ -222,7 +222,7 @@ function showMetrics() {
     row('Tank routes joined', chip(m.tankReach === 1, Math.round(m.tankReach * 100) + '%')) +
     row('Streets (tank)', `${m.streets} (${m.tankStreets})`) +
     row('Churches, closest gap', `${m.churches}${m.churchMinGap !== null ? ', ' + m.churchMinGap + ' px' : ''}`) +
-    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? (plan.oldTown.green ? 'village green' : 'yes') : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + row('Farmsteads, industrial quarters', `${plan.farms.length}, ${plan.quarters.filter(q => q.style === 'industry').length}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
+    row('Square, parks', `${m.squares}, ${m.parks}`) + row('Old town, roundabouts', `${m.oldTown ? (plan.oldTown.green ? 'village green' : 'yes') : 'no'}, ${m.stars}`) + row('Harbour, station', `${plan.harbour ? 'yes' : 'no'}, ${plan.station ? 'yes' : 'no'}`) + row('Train runs (clear)', chip(m.trainBlocked === 0, (plan.trainRuns || []).map(r => r.line + ' ' + (r.y1 - r.y0) + ' px').join(', ') || 'none')) + row('Farmsteads, industrial quarters', `${plan.farms.length}, ${plan.quarters.filter(q => q.style === 'industry').length}`) + row('Public buildings', m.civic.length ? m.civic.join(', ') : 'none') + (plan.river ? row('Bridges, barges', `${m.bridges}, ${m.boats}`) + row('Island reached by tanks', chip(m.islandReach !== false, m.islandReach === undefined ? 'no island' : m.islandReach ? 'yes' : 'no')) : '') +
     row('Density error', chip(m.densityErr < 6, m.densityErr + ' pts', m.densityErr < 9)) +
     row('Gun slots', slots) +
     row('Slots per 1000 px', m.slotsPer1000) +
@@ -243,6 +243,7 @@ function drawOverlay() {
     const c2 = document.createElement('canvas'); c2.width = W; c2.height = L; c2.getContext('2d').putImageData(id, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(c2, 0, 0, W * s, L * s); }
   const line = (st, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); let on = false; st.pts.forEach(p => { if (!p[2]) { on = false; return; } const x = X(p[0] + 0.5), y = Y(p[1] + 0.5); on ? g.lineTo(x, y) : g.moveTo(x, y); on = true; }); g.stroke(); }; // a gap where the road gives way (a village green)
   if ($('oTank').checked) for (const st of plan.streets) if (st.tank) line(st, 'rgba(120,194,125,.55)', 3);
+  if ($('oTank').checked) for (const r of plan.trainRuns || []) { g.strokeStyle = 'rgba(232,120,90,.75)'; g.lineWidth = 2; g.setLineDash([10, 6]); g.beginPath(); g.moveTo(X(r.x + 0.5), Y(r.y0)); g.lineTo(X(r.x + 0.5), Y(r.y1)); g.stroke(); g.setLineDash([]); } // where the game's trains can run
   if ($('oStreets').checked) for (const st of plan.streets) line(st, st.cls === 'arterial' ? '#d6a24a' : st.cls === 'collector' ? '#6ad2c8' : '#c8c2b4', st.cls === 'local' ? 1 : 1.6);
   if ($('oQuarters').checked && plan.quarters) { // where each quarter starts, and its street pattern
     const name = { fields: 'Field lanes', grid: 'Planned grid', follow: 'Follows the main road', industry: 'Industrial estate' };
