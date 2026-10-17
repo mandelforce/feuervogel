@@ -714,3 +714,5 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 **Bigger tunnel hill (owner).** The quayside track bends 6 px out to sea over its last 16 rows, past the shortened last warehouse. The portal then sits on the open ground at the harbour's end instead of 8 px from the street. The mound grows quickly from the portal to up to 36 px across and up to 24 rows long, rounding off at its far end. It stays symmetric about the track and clear of streets and buildings.
 
 **Wider tunnel opening (owner: 3 px wider on both sides).** The mouth is now 24 px (round-topped) in a 28 x 7 px face. The side walls keep their thickness, and the mound and track are unchanged.
+
+**Tunnel mouth, adjusted (owner: one pixel too wide on each side).** The mouth is now 22 px in the 28 px face, so each side wall is 1 px thicker toward the inside.
