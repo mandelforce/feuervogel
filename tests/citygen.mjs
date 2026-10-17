@@ -59,6 +59,16 @@ for (const preset of ['village', 'crossroads', 'industrial']) for (const damage 
   if (!want) fail(`${preset}: green ${green}, farms ${farms}, industrial ${ind}, power stations ${power}, centres ${centre}, churches among works ${inInd}`);
   console.log(`${fails || !want ? 'FAIL' : 'ok  '} ${preset.padEnd(10)} damage ${damage}: ${100 - fails}/100 pass, ` + (preset === 'village' ? `village green in ${green}, ${(farms / 100).toFixed(1)} farmsteads per village` : preset === 'crossroads' ? `crossroads with square and church in ${centre}, ${(farms / 100).toFixed(1)} farmsteads` : `industrial quarters in ${ind}, power station in ${power}, no church among the works`));
 }
+// the port city: every hard rule, a huge harbour (piers, ships, breakwaters with lighthouses, the U-boat bunker), the railway clear of the sea
+for (const damage of [0, 0.6]) { let fails = 0, piers = 0, ships = 0, lights = 0, bunker = 0, branch = 0, wetRail = 0, ot = 0;
+  for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset: 'port', params: { damage } }), m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`port damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
+    piers += p.port.piers; ships += p.ships.length; lights += p.items.filter(i => i.part === 'lighthouse').length; if (p.items.some(i => i.part === 'bunker')) bunker++; if (p.railway && p.railway.branch) branch++; if (p.oldTown) ot++;
+    for (let i = 0; i < p.K.length; i++) if (p.RM[i] && p.K[i] === CG.K.SEA) wetRail++; }
+  const ok = piers >= 600 && ships >= 1200 && lights === 200 && bunker === 100 && branch >= 70 && !wetRail;
+  if (!ok) fail(`port: piers ${piers}, ships ${ships}, lighthouses ${lights}, bunkers ${bunker}, harbour railway ${branch}, rail in the sea ${wetRail}`);
+  console.log(`${fails || !ok ? 'FAIL' : 'ok  '} port      damage ${damage}: ${100 - fails}/100 pass, ${(piers / 100).toFixed(1)} piers and ${(ships / 100).toFixed(1)} ships per port, lighthouses and U-boat bunker in every one, harbour railway in ${branch}, old town in ${ot}`);
+}
 // harbours and railways: harbours in most river towns, a straight main line in every town, stations and second lines in most, rail bridges
 // wherever a line crosses a river, no rail under a building other than the train shed, and the game's trains (16 px wide, about 200 px long)
 // fit their runs: nothing within 8 px of the track (validate's trainBlocked, part of every pass above)
