@@ -699,3 +699,10 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
   - a bot flight in which the submarine takes its berth, the boss comes, and the level returns to the picker on 6B.
 
 **Harbour water (owner feedback: make it match the ocean).** `CityGen.paint` takes `opts.seaPix(x, y, harbour)`, the host's own water colour. The game passes `planSeaColor`: its own sea noise and palette, for the open sea and, calmer (weaker waves, a shade darker), for harbour basins. The plan's surf on the shore and everything drawn over the water (ships, cranes, lighthouses) stay as they are. This replaces the repaint of the open sea after painting, which would also have painted over ships lying in open water. The lab keeps the generator's own water.
+
+**Open east harbour, tunnels (owner feedback on 6B).**
+- **No breakwater:** the new coast option `openSide` leaves out the side harbour's breakwater (the long arm, the cross wall at its closed end, and in the side form the far arm and its lighthouses). Its calm harbour water reaches the strip's edge.
+- **Warship lane:** the channel and the freed water become a `warships` lane (about 50 px, clear of the end breakwater; checked as a fairway, `lanesBlocked`). The coaster that passed along the breakwater is left out there.
+- **Calm water fades out:** `calmWater` gives every open-sea pixel within 28 px of a basin a calmness 0..1 (`plan.calm`, two chamfer passes). `seaPix` gets it, so with no breakwater the calm water fades into the open sea.
+- **Tunnels:** a port's harbour railway (the quayside track, or the station's branch in a port) ends at a tunnel portal (`plan.tunnels`): a stone face round a dark arch, and a low grassy mound over the tunnel, drawn only on open ground.
+- **Owner question about the tower on the old breakwater:** it was the game's AA tower enemy, placed by the director on the breakwater (which counts as yard ground). With the wall gone that cannot happen there.
