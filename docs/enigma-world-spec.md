@@ -676,3 +676,24 @@ Enigma Run level 6 now takes its ground from one settlement plan. The game carri
 4. the nearest berth further off.
 
 In 100 seeds every port, south port and coastal city has its berth: all coastal cities and 73 of 100 ports at the pens, the rest within 20 px (where only 43 rows of water separate the pens from the breakwater). In the game, `slotGun` puts the game's submarine there (`G('sub')`, submerged at first, as at sea) when a sub slot comes up and fewer than two are about. The lab draws the berth to scale.
+
+### 16.y Level 6B, the harbour city (owner request: a new level 6 with a south and an east harbour)
+
+A second level 6, shown as **6B** in the Enigma Run picker (internally sortie level 7, with `ENIGMA_LABEL` for the display). It flies the Campaign's stage 6: theme, music, the sky fortress boss, and the open-ended final airfield after the level. Level 6 is unchanged.
+
+- **Sequence** (70 chunks): `open_sea` 5, `harbour_south` 14, `city_centre` 8, `city_town` 7, `industrial_power` 6, `ruins` 5, `station_main` 6. `harbour_south` has U 0.85, D 0.35 and plays as `city`.
+- **One plan over the whole level**, from its first chunk (`sortiePlanHarbour`): the `portSouth` preset in its corner form with the sea to the east (new coast option `cs: +1`).
+  - The end quay lies just past the sea segment.
+  - The east side harbour runs along about 55 to 70 percent of the harbour segment and opens into the south harbour.
+  - Then come the old town, the works (`industryAt`), the station (`stationAt`) and the airfield's perimeter in the last chunk.
+  - The plan's open sea is repainted in the game's own sea colour (`openSeaColor`), so it meets the sea before the level without a seam. The harbour basins keep the plan's calmer water.
+- **Submarine:** a berth by the U-boat bunker always gets the game's submarine as it comes up above the screen (`planBerths`, every frame, outside the director's pacing, which keeps the opening of a level free of ground units).
+- **Fix found on the way:** the fire overlay's box (`fireBox`) now covers the whole glow and the 64 px smoke column, and craters cull at their rim. Before, painting a chunk in bands could differ slightly from painting it whole, and an on-screen fire's smoke could be cut off.
+- **Tests (`tests/enigma.mjs`):**
+  - the picker offers 6B (the practice picker does not);
+  - the plan passes the hard rules and covers the level, beginning over sea;
+  - corner harbour to the east, with piers and a submarine berth;
+  - perimeter, with the station before it;
+  - types and pixels from the plan;
+  - the same ground after a resume;
+  - a bot flight in which the submarine takes its berth, the boss comes, and the level returns to the picker on 6B.

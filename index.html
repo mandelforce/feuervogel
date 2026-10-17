@@ -142,6 +142,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+#diffAsk .dsel.eni{grid-template-columns:repeat(7,1fr)}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
 #diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
 @keyframes dframe{50%{outline-color:#d0a020}}
@@ -368,7 +369,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6B</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -571,7 +572,7 @@ function generate(opts) {
   // (beyond the strip where there is none), wf: the side waterfront street's line; yC: the end quay's y, wfH: the end waterfront street's y.
   let CO = null;
   if (P.coast) { const c0 = P.coast, mode = c0.mode === 'mix' ? (rnd(T.SEA, 9) < 0.5 ? 'end' : 'corner') : (c0.mode || 'side');
-    const cs = rnd(T.SEA, 1) < 0.5 ? 1 : -1, qx = cs > 0 ? W * c0.land : W * (1 - c0.land), ph = rnd(T.SEA, 2) * 6.283, ph2 = rnd(T.SEA, 3) * 6.283, out = cs > 0 ? W + 40 : -40;
+    const cs = c0.cs || (rnd(T.SEA, 1) < 0.5 ? 1 : -1), /* cs: the side the sea lies on (+1 east), random unless given */ qx = cs > 0 ? W * c0.land : W * (1 - c0.land), ph = rnd(T.SEA, 2) * 6.283, ph2 = rnd(T.SEA, 3) * 6.283, out = cs > 0 ? W + 40 : -40;
     const hd = c0.dir || 1, yC = mode === 'side' ? null : Math.round(L * c0.end), ycol = new Float32Array(W).fill(yC === null ? NaN : yC);
     let wfH = yC === null ? (hd > 0 ? Infinity : -Infinity) : yC - hd * 34, beachD = 0, duneD = 0;
     if (mode === 'beach') { beachD = Math.round(lerp(c0.beach[0], c0.beach[1], rnd(T.SEA, 10))); duneD = c0.dune; const pb = rnd(T.SEA, 11) * 6.283, pb2 = rnd(T.SEA, 12) * 6.283; let far = hd > 0 ? 1e9 : -1e9; // a natural shoreline, gently curving
@@ -1967,7 +1968,7 @@ function paint(plan, img, y0, h, opts) {
   }
   // craters, trees (shadow first), fires: drawn over the ground
   const put = (x, y, c, a = 1) => { const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
-  for (const cr of plan.craters) { if (cr.y + cr.r < y0 || cr.y - cr.r >= y0 + h) continue;
+  for (const cr of plan.craters) { if (cr.y + cr.r + 3 < y0 || cr.y - cr.r - 3 >= y0 + h) continue; // its rim reaches 2 px past r
     for (let yy = Math.floor(cr.y - cr.r - 2); yy <= cr.y + cr.r + 2; yy++) for (let xx = Math.floor(cr.x - cr.r - 2); xx <= cr.x + cr.r + 2; xx++) { const rr = Math.hypot(xx + 0.5 - cr.x, yy + 0.5 - cr.y); if (rr < cr.r) put(xx, yy, rr < cr.r - 1.2 ? C.rubble[0] : C.rubble[2]); else if (rr < cr.r + 2 && hh(xx, yy) < 0.6) put(xx, yy, C.shadow, 0.45); } }
   for (const b of plan.boats) { if (b.y0 + b.h < y0 || b.y0 >= y0 + h) continue; // a barge: dark hull, a lighter deck, cargo, a cabin at the stern
     for (let yy = b.y0; yy < b.y0 + b.h; yy++) for (let xx = b.x0; xx < b.x0 + b.w; xx++) { const lx = xx - b.x0, ly = yy - b.y0, edge = lx === 0 || ly === 0 || lx === b.w - 1 || ly === b.h - 1;
@@ -2019,7 +2020,7 @@ function paint(plan, img, y0, h, opts) {
   for (const it of items) { if (!(it.dmg >= 3 || it.fire) || it.y0 + it.h + 4 < y0 || it.y0 - 4 >= y0 + h) continue;
     for (let yy = it.y0 - 4; yy < it.y0 + it.h + 4; yy++) for (let xx = it.x0 - 4; xx < it.x0 + it.w + 4; xx++) { const o = at(xx, yy); if (o < 0 || Kr[o] === K.BLDG || Br[o] === it.id) continue;
       const dd = Math.max(it.x0 - xx, xx - (it.x0 + it.w - 1), it.y0 - yy, yy - (it.y0 + it.h - 1)); if (dd > 0 && hh(xx * 3, yy * 7) < 0.75 - dd * 0.17) put(xx, yy, C.char[0], 0.42); } }
-  if (!(opts && opts.noFx)) for (const f of plan.fires) { if (f.y0 + f.h + 60 < y0 || f.y0 - 14 >= y0 + h) continue; fireFx(plan, f, 0, put); }
+  if (!(opts && opts.noFx)) for (const f of plan.fires) { const bx = fireBox(f); if (bx.y1 < y0 || bx.y0 >= y0 + h) continue; fireFx(plan, f, 0, put); }
 }
 // A burning house (spec: convincing fire): an orange glow on its surroundings, flames from the core licking past the roof edge and leaning with
 // the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
@@ -2068,7 +2069,7 @@ function riverFx(plan, t, y0, y1) {
   }
   return out;
 }
-function fireBox(f) { return { x0: Math.floor(f.x0 - 12), y0: Math.floor(f.y0 - 14), x1: Math.ceil(f.x0 + f.w + 30), y1: Math.ceil(f.y0 + f.h + 62) }; }
+function fireBox(f) { const R = Math.max(f.w, f.h) / 2 + 10; return { x0: Math.floor(Math.min(f.x0 - 12, f.x - R)), y0: Math.floor(Math.min(f.y0 - 14, f.y - R)), x1: Math.ceil(Math.max(f.x0 + f.w + 30, f.x + R, f.x + WIND[0] * 64 + 14)), y1: Math.ceil(f.y0 + f.h + WIND[1] * 64 + 15) }; } // everything a fire draws: its glow reaches R around it, its smoke column 64 px downwind
 // Animated fire into a transparent ImageData covering the plan box bx (from fireBox), at time t.
 function paintFx(plan, f, img, bx, t) {
   const d = img.data, w = bx.x1 - bx.x0, hgt = bx.y1 - bx.y0; d.fill(0);
@@ -2132,7 +2133,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.11'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.12'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3739,7 +3740,7 @@ function infoRails(b, th, river, rw, island, lake, q) {
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
 }
 // Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
-const SORTIE_BIOME = { open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
+const SORTIE_BIOME = { harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
 function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
 // Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
 // open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
@@ -4646,10 +4647,15 @@ function startChunk(p) {
   const [c, x] = mk(W, CH);
   world.chunkJobs.push({ p, I, c, x, img: x.createImageData(W, CH), ly: 0 });
 }
+// The game's open sea colour (pixelColor's sea, without a legacy coast), for the open sea inside a settlement plan
+function openSeaColor(wx, wy) { const n = vnoise(wx * 0.035, wy * 0.05), wv = Math.sin(wx * 0.19 + wy * 0.11 + n * 8) * 0.5 + 0.5; return THEME_RGB[run.sortie.theme].sea[pickI(7, 0.12 + n * 0.42 + wv * 0.18, wx, wy)]; }
 function workChunk(job, rows) {
   const wy0 = -job.p * CH, a = job.img.data;
   if (job.I.plan && job.ly < CH) { // Enigma Run level 6: the settlement plan paints the chunk (buildings, trees and fires included), in bands of at least 16 rows
-    const S = run.sortie, n = Math.min(CH - job.ly, Math.max(rows, 16)); CityGen.paint(S.plan, { data: a.subarray(job.ly * W * 4) }, S.planY0 - (wy0 + job.ly + n - 1), n, {}); job.ly += n; if (job.ly < CH) return false; }
+    const S = run.sortie, P = S.plan, n = Math.min(CH - job.ly, Math.max(rows, 16)); CityGen.paint(P, { data: a.subarray(job.ly * W * 4) }, S.planY0 - (wy0 + job.ly + n - 1), n, {});
+    for (let ly = job.ly; ly < job.ly + n; ly++) { const wy = wy0 + ly, r0 = (S.planY0 - wy) * W; // the open sea (not a harbour basin) looks as the game's sea does, so it meets the sea before the plan without a seam
+      for (let wx = 0; wx < W; wx++) if (P.K[r0 + wx] === CityGen.K.SEA && P.B[r0 + wx] === -1) { const c = openSeaColor(wx, wy), o = (ly * W + wx) * 4; a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; } }
+    job.ly += n; if (job.ly < CH) return false; }
   const end = Math.min(CH, job.ly + rows);
   for (; job.ly < end; job.ly++) {
     const ly = job.ly, wy = wy0 + ly, rx = roadX(wy);
@@ -5663,9 +5669,12 @@ const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a
    built once when the level starts (run.sortie; null in the Campaign). docs/enigma-world-spec.md is the specification; docs/enigma-world-audit.md the audit.
    Phase 1: the sortie is carried and saved, ends its own way and never counts, but the ground still comes from the legacy theme of the level.
    The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
-const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate']; // per level 1-6: the look the level will get (the Campaign's theme palettes for now)
-const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk'];
-const ENIGMA_LEN = [56, 56, 58, 60, 62, 70]; // chunks before the open-ended boss arena (the Campaign is about 48)
+// Levels 1 to 6, and level 7 shown as "6B": a second level 6, the harbour city (the Campaign's stage 6 theme and boss, its own ground).
+const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B'], ENIGMA_N = ENIGMA_LABEL.length;
+function enigmaTheme(level) { return STAGE_ORDER[Math.min(level, 6) - 1]; }
+const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
+const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk'];
+const ENIGMA_LEN = [56, 56, 58, 60, 62, 70, 70]; // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
   [['carrier_start', 4], ['open_sea', 3], ['island_chain', 6], ['island_large', 5], ['beach_fortified', 3], ['farmland', 7], ['village', 4], ['forest_deciduous', 4], ['airbase_forest', 5], ['farmland', 3], ['harbour_small', 4], ['open_sea', 4]],
@@ -5673,23 +5682,24 @@ const ENIGMA_SEQ = [
   [['beach_fortified', 3], ['industrial_power', 7], ['station_marshalling', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6]],
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
   [['open_sea_ice', 3], ['harbour_winter', 4], ['farmland_winter', 7], ['village', 4], ['lake_valley', 6], ['station_winter', 8], ['airbase_snow', 6], ['forest_conifer', 6], ['pass', 6], ['farmland_winter', 4]],
-  [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]]
+  [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]],
+  [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]] // 6B: in over the sea to the south harbour (with the east harbour beside it)
 ];
 // Only a pure hash is used here: a sortie must come out the same whenever and wherever it is built (never Math.random).
 function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
 function buildSortie(level, seed) {
-  const i = level - 1, theme = STAGE_ORDER[i], len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  const i = level - 1, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
-    gen: level === 6 ? 6 : 0, bossAt: level === 6 ? at + 5 : null, arcLen: level === 6 ? at + 5 : null,
-    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level === 6 ? sortieUD(segs, at) : null };
+    gen: level >= 6 ? 6 : 0, bossAt: level >= 6 ? at + 5 : null, arcLen: level >= 6 ? at + 5 : null,
+    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level >= 6 ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
-const SORTIE_UD = { open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] };
+const SORTIE_UD = { harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] };
 function sortieUD(segs, len) {
   const pts = []; let lastU = 0;
   for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }
@@ -5710,7 +5720,8 @@ function sortieUD(segs, len) {
 function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
-  if (S.level !== 6 || typeof CityGen === 'undefined') return null;
+  if (S.level < 6 || typeof CityGen === 'undefined') return null;
+  if (S.level === 7) return sortiePlanHarbour(S);
   const c0 = S.segs.find(g => g.t === 'farmland').start, n = S.len - c0, dens = [], dmg = [];
   let lastU = 0;
   for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; if (g.start < c0) continue; const f = (g.start + g.n / 2 - c0) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
@@ -5720,6 +5731,19 @@ function sortiePlan(S) {
   const params = { L: n * CH, density: dens, damageCurve: dmg, damage: 1, farms: 0.4, road0: roadXl(y0w), river: Object.assign({}, CityGen.PRESETS.river.river, { at: (rv.start + rv.n / 2 - c0) / n }),
     stationAt: [fr('station_main')[0], 1 - 170 / (n * CH)], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH }; // the station and its yard in the last segment, the works and power station in theirs, the airfield's fence at the end
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'river', params }); S.planC0 = c0; S.planY0 = y0w;
+  return S.plan;
+}
+// Level 6B (S.level 7): the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
+// harbour (piers, U-boat bunker, breakwater, fairway) with the east side harbour opening into it (portSouth preset, corner form, sea to
+// the east), the old town, the works in their segment, the station in the last one, and the airfield's perimeter in the last chunk.
+function sortiePlanHarbour(S) {
+  const n = S.len, L = n * CH, dens = [], dmg = []; let lastU = 0;
+  for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
+  dens.unshift([0, dens[1][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
+  const fr = t => { const g = S.segs.find(q => q.t === t); return [g.start / n, (g.start + g.n) / n]; }, sea = S.segs.find(g => g.t === 'open_sea'), hb = S.segs.find(g => g.t === 'harbour_south');
+  const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
+    coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }) }; // the end quay just past the sea segment, the east harbour along most of the harbour segment
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -5736,7 +5760,7 @@ function resetTerrainState() {
   critters.length = 0; props.length = 0; rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level) {
-  app.enigmaLast = level; startAt(level, false, level);
+  app.enigmaLast = level; startAt(Math.min(level, 6), false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground
 }
 // The level is over (results shown): back to the level picker. No next stage, no congratulations, nothing is counted.
 function endEnigmaLevel() {
@@ -5838,12 +5862,12 @@ function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma 
   if (!keepEndless) run.endless = false;
   newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
   if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); }
-  if (n <= 1) { if (run.sortie) showMsg('STAGE 1', STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); markStage(); return; }
+  if (n <= 1) { if (run.sortie) showMsg('LEVEL 1', STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); markStage(); return; }
   run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  showMsg('STAGE ' + stageLabel(n), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
+  showMsg((run.sortie ? 'LEVEL ' + ENIGMA_LABEL[run.sortie.level - 1] : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
 function startEndless() {
@@ -5864,7 +5888,9 @@ function setDiffView(prac) {
   document.getElementById('diffTitle').textContent = eni ? 'Enigma Run' : prac ? 'Practice a stage' : camp ? 'Choose difficulty' : 'Endless';
   document.getElementById('dStageLbl').textContent = eni ? 'Level' : 'Start at stage';
   if (prac || eni) {
-    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.style.setProperty('--acc', STAGE_ACC[STAGE_ORDER[i]]); b.classList.toggle('art', !eni && arts.has(STAGE_ORDER[i])); b.setAttribute('aria-label', (eni ? 'Level ' : 'Stage ') + (i + 1) + (!eni && arts.has(STAGE_ORDER[i]) ? ', artifact found' : '')); });
+    document.querySelector('#dStage .dsel').classList.toggle('eni', eni); // Enigma Run has a 7th button, 6B (the harbour city)
+    document.querySelectorAll('#dStage [data-s]').forEach((b, i) => { b.hidden = !eni && i >= 6; const th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.toggle('art', !eni && arts.has(th)); b.setAttribute('aria-label', (eni ? 'Level ' + ENIGMA_LABEL[i] : 'Stage ' + (i + 1)) + (!eni && arts.has(th) ? ', artifact found' : '')); });
+    if (!eni && (app.diffNext.n || 1) > 6) app.diffNext.n = 6;
     setDiffStage(app.diffNext.n || 1);
   } else app.diffNext.n = 1;
 }
@@ -5872,7 +5898,7 @@ function setDiffStage(n) {
   app.diffNext.n = n;
   for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
   const note = document.getElementById('dNote'), eni = app.diffNext.kind === 'enigma';
-  note.textContent = eni ? n + '. ' + STAGE_NAMES[STAGE_ORDER[n - 1]] + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
+  note.textContent = eni ? ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : '') + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
   note.classList.toggle('prac', eni || n !== 1);
 }
 function openDiff(kind, n) {
@@ -6377,7 +6403,7 @@ function resumeRun(r) {
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
   newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
-  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= 6) run.sortie = buildSortie(r.sortie.level, r.sortie.seed); // an Enigma Run level is rebuilt from {level, seed}
+  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) run.sortie = buildSortie(r.sortie.level, r.sortie.seed); // an Enigma Run level is rebuilt from {level, seed}
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -6630,6 +6656,7 @@ function directorInner() {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
     return;
   }
+  planBerths(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -6728,6 +6755,14 @@ function spawnWave(b, big) {
   else if (r < 0.8) waveStrafe();
   else waveChase();
 }
+// Enigma Run: a submarine berth of the settlement plan (by a U-boat bunker) always gets the game's submarine as it comes up above the screen,
+// whatever the director's pacing (its quiet opening included); each berth once.
+function planBerths(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.subSlots || !P.subSlots.length) return;
+  const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i]; if (sl.kind !== 'sub' || used.has(i)) continue; const y = S.planY0 - sl.y; if (y < wy - 48 || y > wy + 12) continue;
+    used.add(i); world.enemies.push(G('sub', sl.x, y, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true })); }
+}
 function spawnGround(b) {
   const sc = Math.floor(world.scroll), wy = -34 - sc, m = hpm(), r = Math.random();
   if (world.curTheme === 1 && b === 'bossland') {
@@ -6746,13 +6781,12 @@ function spawnGround(b) {
   };
   const capF = count('flak') >= 2 + run.loop, capB = count('bunker') >= 2 + run.loop;
   // Enigma Run level 6: ground guns stand first in the settlement plan's slots (flak on roofs and lots, artillery in courts and lots, AA towers
-  // in parks and squares, bunkers at bridgeheads, submarines at their berths by U-boat bunkers), each slot once, when it is just above the screen; otherwise anywhere that fits, as before
+  // in parks and squares, bunkers at bridgeheads; submarine berths are filled by planBerths), each slot once, when it is just above the screen; otherwise anywhere that fits, as before
   const slotAt = kinds => { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !info(-Math.floor(wy / CH)).plan) return null; const used = S.slotUsed || (S.slotUsed = new Set());
     for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i]; if (used.has(i) || !kinds.includes(sl.kind)) continue; const y = S.planY0 - sl.y; if (y < wy - 48 || y > wy + 12 || !placeOK(sl.x, y, 12)) continue; used.add(i); return { x: sl.x, y, kind: sl.kind }; }
     return null; };
-  const slotGun = () => { const ks = []; if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (count('aatower') < 1 + run.loop) ks.push('aatower'); if (!capB) ks.push('bunker'); if (count('sub') < 2) ks.push('sub');
-    const sl = ks.length ? slotAt(ks) : null; if (!sl) return false;
-    if (sl.kind === 'sub') { world.enemies.push(G('sub', sl.x, sl.y, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true })); return true; } // the game's submarine at its berth by the U-boat bunker
+  const slotGun = () => { const ks = []; if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (count('aatower') < 1 + run.loop) ks.push('aatower'); if (!capB) ks.push('bunker');
+    const sl = ks.length ? slotAt(ks) : null; if (!sl) return false; // (submarine berths are planBerths' own)
     if (sl.kind === 'flak' || (sl.kind === 'arty' && !avail('arty'))) makeFlak(sl.x, sl.y); else if (sl.kind === 'arty') spawnArty(sl.x, sl.y);
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
     else world.enemies.push(G('bunker', sl.x, sl.y, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 }));
@@ -9583,8 +9617,8 @@ function drawPlanFx(sc) {
   ctx.globalAlpha = 1;
   const fc = S.fireFx || (S.fireFx = new Map()), every = lowFX ? 6 : 3;
   if (fc.size > 60) fc.clear();
-  for (const f of P.fires) { if (f.y0 + f.h + 62 < yLo || f.y0 - 14 > yHi) continue;
-    let o = fc.get(f); if (!o) { const bx = CityGen.fireBox(f), [c, x] = mk(bx.x1 - bx.x0, bx.y1 - bx.y0); o = { bx, c, x, img: x.createImageData(bx.x1 - bx.x0, bx.y1 - bx.y0), t: -99 }; fc.set(f, o); }
+  for (const f of P.fires) { let o = fc.get(f); const fb = o ? o.bx : CityGen.fireBox(f); if (fb.y1 < yLo || fb.y0 > yHi) continue;
+    if (!o) { const bx = fb, [c, x] = mk(bx.x1 - bx.x0, bx.y1 - bx.y0); o = { bx, c, x, img: x.createImageData(bx.x1 - bx.x0, bx.y1 - bx.y0), t: -99 }; fc.set(f, o); }
     if (o.t < 0 || (run.frames + f.seed) % every === 0) { CityGen.paintFx(P, f, o.img, o.bx, t + (f.seed % 7)); o.x.putImageData(o.img, 0, 0); o.t = run.frames; }
     ctx.drawImage(o.c, o.bx.x0, S.planY0 - o.bx.y1 + 1 + sc); }
 }
