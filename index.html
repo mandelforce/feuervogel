@@ -536,8 +536,8 @@ PRESETS.beach = Object.assign({}, PRESETS.town, { label: 'Beach landing', L: 160
 // and sometimes a lighthouse, tiny farms with a paddock of cows and a field), then one large island: a village (the village preset, clipped to
 // the shore) with its green, pond and farmsteads, then fields with a small wood, a pond and a paddock, then an airbase (runway along the strip,
 // taxiway, apron with hangars, control tower, fuel dump, blast pens, gun pits), a jetty where the road meets the shore. A lane stays open for warships.
-PRESETS.islands = Object.assign({}, PRESETS.town, { label: 'Islands', L: 1792, density: [[0, 0], [1, 0]], damage: 0, chain: [0.36, 0.56], big: [0.565, 0.935], bigW: 186,
-  isles: [6, 9], lane: 44, villageL: 290, gapL: 72, oldTown: null, railway: false, harbour: false, civic: {} });
+PRESETS.islands = Object.assign({}, PRESETS.town, { label: 'Islands', L: 1792, density: [[0, 0], [1, 0]], damage: 0, chain: [0.33, 0.56], big: [0.565, 0.935], bigW: 186,
+  isles: [5, 7], isleR: [[34, 42], [16, 30]], lane: 44, /* islets: how many, the radius of the two largest and of the others */ villageL: 290, gapL: 72, oldTown: null, railway: false, harbour: false, civic: {} });
 // A coastal city with only the side harbour (the sea along one side the whole way)
 PRESETS.coast = Object.assign({}, PRESETS.port, { label: 'Coastal city', density: PRESETS.town.density, coast: Object.assign({}, PRESETS.port.coast, { mode: 'side' }) });
 // An industrial estate: industrial quarters with wide service roads, halls, tank farms, coal yards and a power station; workers' terraces between
@@ -2147,7 +2147,7 @@ function islands(o) {
   const tree = (x, y, r, v) => plan.trees.push({ x: Math.round(x), y: Math.round(y), r, v: v === undefined ? (rnd(T.TREE, x * 7 + 3, y) * 4) | 0 : v });
   const slot = (kind, on, x, y, r) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; plan.slots.push(c); return c; };
   const gunPit = (x, y) => { const x0 = Math.round(x) - 6, y0 = Math.round(y) - 6; fillR(x0, y0, 12, 12, K.LOT); plan.lots.push({ x0, y0, w: 12, h: 12 }); return slot('flak', 'lot', x0 + 6, y0 + 6, 4.5); }; // a gun pit in a sandbag ring
-  const parcel = (x0, y0, w, h, block) => { const id = plan.parcels.length; plan.parcels.push({ block, crop: rnd(T.ISLE, 700, id), par: rnd(T.ISLE, 800, id) < 0.5 }); let n = 0;
+  const parcel = (x0, y0, w, h, block) => { const id = plan.parcels.length; plan.parcels.push({ block, crop: rnd(T.ISLE, 700, id) * (block >= 900 ? 0.7 : 1), /* an islet's field is never grass */ par: rnd(T.ISLE, 800, id) < 0.5 }); let n = 0;
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (free(x, y)) { const i = idx(x, y); Kr[i] = K.FIELD; F[i] = id; n++; } return n; };
 
   // 1. shapes. The large island: a long rounded body, its two shores wandering a little; the islets: rounded blobs with a wavy outline.
@@ -2156,17 +2156,17 @@ function islands(o) {
   for (let y = Math.max(0, by0); y <= Math.min(L - 1, by1); y++) { const f = Math.abs((y - by0) / BL * 2 - 1), e = Math.pow(Math.max(0, 1 - f * f * f), 1 / 3), hw = P.bigW / 2 * e;
     const a = bc(y) - hw + 5 * Math.sin(y * 0.031 + ph2) + 3 * Math.sin(y * 0.09 + ph), b = bc(y) + hw + 5 * Math.sin(y * 0.027 + ph) + 3 * Math.sin(y * 0.11 + ph2);
     for (let x = Math.max(0, Math.ceil(a)); x <= Math.min(W - 1, Math.floor(b)); x++) land[idx(x, y)] = 1; }
-  const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane, lx = Math.round(lerp(58 + lw / 2, W - 58 - lw / 2, rnd(T.ISLE, 3)));
+  const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane, lx = Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3)));
   plan.shipLanes.push({ x: lx, w: lw, y0: cy0, y1: Math.min(cy1, by0 - 50), kind: 'fairway' }); // (it ends before the jetty)
-  const want = P.isles[0] + ((rnd(T.ISLE, 4) * (P.isles[1] - P.isles[0] + 1)) | 0), isl = [];
-  for (let k = 0; k < 600 && isl.length < want; k++) {
-    const bigOne = isl.length < 2, rx = Math.round(bigOne ? lerp(25, 32, rnd(T.ISLE, 10, k)) : lerp(11, 24, rnd(T.ISLE, 11, k))), ry = Math.round(rx * lerp(0.62, 0.95, rnd(T.ISLE, 12, k)));
+  const want = P.isles[0] + ((rnd(T.ISLE, 4) * (P.isles[1] - P.isles[0] + 1)) | 0), isl = []; let lastOk = 0;
+  for (let k = 0; k < 900 && isl.length < want; k++) { const shrink = Math.max(0.5, 1 - (k - lastOk) * 0.004); // an islet that will not fit gets smaller, try by try
+    const bigOne = isl.length < 2, R = P.isleR[bigOne ? 0 : 1], rx = Math.round(lerp(R[0], R[1], rnd(T.ISLE, bigOne ? 10 : 11, k)) * shrink), ry = Math.round(rx * lerp(0.62, 0.95, rnd(T.ISLE, 12, k)));
     const cx = Math.round(lerp(rx * 1.25 + 6, W - rx * 1.25 - 6, rnd(T.ISLE, 13, k))), cy = Math.round(lerp(cy0 + ry * 1.25 + 6, cy1 - ry * 1.25 - 6, rnd(T.ISLE, 14, k)));
     if (Math.abs(cx - lx) < lw / 2 + rx * 1.25 + 4) continue; // the warships' lane stays open
     if (isl.some(q => Math.hypot((q.cx - cx) / (q.rx * 1.25 + rx * 1.25 + 18), (q.cy - cy) / (q.ry * 1.25 + ry * 1.25 + 18)) < 1)) continue; // open water between islets
-    isl.push({ cx, cy, rx, ry, a: [rnd(T.ISLE, 15, k) * 6.283, rnd(T.ISLE, 16, k) * 6.283, rnd(T.ISLE, 17, k) * 6.283] }); }
+    lastOk = k; isl.push({ cx, cy, rx, ry, a: [rnd(T.ISLE, 15, k) * 6.283, rnd(T.ISLE, 16, k) * 6.283, rnd(T.ISLE, 17, k) * 6.283] }); }
   isl.sort((a, b) => b.rx * b.ry - a.rx * a.ry); // the largest islet is the farm, the next one has houses, the rest are mostly gun islets and rocks
-  isl.forEach((q, n) => { q.id = n; q.type = n === 0 ? 'farm' : n === 1 ? 'houses' : n === 2 ? 'guns' : q.rx < 15 ? (rnd(T.ISLE, 20, n) < 0.6 ? 'rock' : 'guns') : rnd(T.ISLE, 21, n) < 0.3 ? 'houses' : 'guns';
+  isl.forEach((q, n) => { q.id = n; q.type = n === 0 ? 'farm' : n === 1 ? 'houses' : n === 2 ? 'guns' : q.rx < 21 ? (rnd(T.ISLE, 20, n) < 0.6 ? 'rock' : 'guns') : rnd(T.ISLE, 21, n) < 0.3 ? 'houses' : 'guns';
     const lim = th => 1 + 0.12 * Math.sin(3 * th + q.a[0]) + 0.07 * Math.sin(5 * th + q.a[1]) + 0.04 * Math.sin(8 * th + q.a[2]);
     for (let y = Math.floor(q.cy - q.ry * 1.3); y <= q.cy + q.ry * 1.3; y++) for (let x = Math.floor(q.cx - q.rx * 1.3); x <= q.cx + q.rx * 1.3; x++) { if (!inB(x, y)) continue; const dx = (x + 0.5 - q.cx) / q.rx, dy = (y + 0.5 - q.cy) / q.ry; if (Math.hypot(dx, dy) < lim(Math.atan2(dy, dx))) land[idx(x, y)] = 2 + n; } });
   if (isl.length > 2 && !isl.some(q => q.type === 'guns')) isl[2].type = 'guns';
@@ -2266,15 +2266,15 @@ function islands(o) {
     if (q.type === 'houses') { // a lane across the islet, a few houses facing it with gardens behind, sometimes a lighthouse on the shore
       const ly = q.cy - 2; let xa = null, xb = null; for (let x = q.cx - q.rx * 1.3; x <= q.cx + q.rx * 1.3; x++) if (on(Math.round(x), ly, 3) && on(Math.round(x), ly + 3, 3)) { if (xa === null) xa = Math.round(x); xb = Math.round(x); }
       if (xa !== null && xb - xa > 16) { const st = { cls: 'local', axis: 'h', tank: false, pts: [], yc: ly + 2, x0: xa, x1: xb, w: 4, id: plan.streets.length }; plan.streets.push(st); for (let x = xa; x <= xb; x++) { st.pts.push([x, ly + 2, 4]); for (let y = ly; y < ly + 4; y++) set(x, y, K.STREET, -2 - st.id); }
-        let n = 0; for (let x = xa + 2; x + 8 <= xb; x += 11) for (const up of [1, -1]) { const w = 7 + ((rnd(T.ISLE, 30, x * 3 + up) * 3) | 0), h = 7, y0 = up > 0 ? ly + 4 : ly - h; if (n >= 5 || rnd(T.ISLE, 31, x * 5 + up) < 0.12 || !rectFree(x - 1, up > 0 ? y0 : y0 - 3, w + 2, h + 3)) continue;
+        let n = 0; for (let x = xa + 2; x + 8 <= xb; x += 11) for (const up of [1, -1]) { const w = 7 + ((rnd(T.ISLE, 30, x * 3 + up) * 3) | 0), h = 7, y0 = up > 0 ? ly + 4 : ly - h; if (n >= 8 || rnd(T.ISLE, 31, x * 5 + up) < 0.12 || !rectFree(x - 1, up > 0 ? y0 : y0 - 3, w + 2, h + 3)) continue;
           const it = building('house', x, y0, w, h, 'h', up > 0 ? 'S' : 'N'); n++; for (let y = up > 0 ? y0 + h : y0 - 3; y < (up > 0 ? y0 + h + 3 : y0); y++) for (let xx = x; xx < x + w; xx++) if (free(xx, y)) set(xx, y, K.GARDEN, it.id); tree(x + w / 2, up > 0 ? y0 + h + 2 : y0 - 2, 2, 4); } }
       if (rnd(T.ISLE, 32, q.id) < 0.6) { let tip = null; for (let y = Math.floor(q.cy - q.ry * 1.3); y <= q.cy + q.ry * 1.3; y++) for (let x = Math.floor(q.cx - q.rx * 1.3); x <= q.cx + q.rx * 1.3; x++) if (inB(x, y) && land[idx(x, y)] === q.id + 2 && dL[idx(x, y)] >= 3 && dL[idx(x, y)] < 5 && (!tip || x > tip[0])) tip = [x, y];
         if (tip) round(tip[0], tip[1], 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: rnd(T.ISLE, 33, q.id) < 0.5 }); } }
     if (q.type === 'farm') { // a tiny farm: the farmhouse and the barn round a yard, a paddock with cows, a field
       const isle = (x, y) => land[idx(x, y)] === q.id + 2, fm = near(18, 15, q.cx - 19, q.cy - 7, q.rx, isle);
       if (fm) { const [fx0, fy0] = fm; fillR(fx0, fy0 + 6, 18, 4, K.COURT); building('farmhouse', fx0, fy0 + 10, 9, 5, 'h', 'S'); building('barn', fx0 + 10, fy0 + 10, 8, 5, 'h', 'S', { roof: 2 }); building('barn', fx0, fy0, 18, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy0, w: 18, h: 15 }); }
-      const pd = near(16, 12, q.cx + 10, q.cy - 6, q.rx, isle); if (pd) { fillR(pd[0], pd[1], 16, 12, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + 15, y1: pd[1] + 11, n: 3 }); }
-      const fd = near(18, 10, q.cx, q.cy - q.ry * 0.5, q.rx, isle); if (fd) parcel(fd[0], fd[1], 18, 10, 900 + q.id); }
+      const pw = q.rx > 30 ? 22 : 16, ph = q.rx > 30 ? 15 : 12, pd = near(pw, ph, q.cx + 10, q.cy - 6, q.rx, isle); if (pd) { fillR(pd[0], pd[1], pw, ph, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + pw - 1, y1: pd[1] + ph - 1, n: q.rx > 30 ? 4 : 3 }); }
+      for (const [fx, fy] of [[q.cx, q.cy + q.ry * 0.55], [q.cx, q.cy - q.ry * 0.6]]) { const fw = Math.min(34, Math.round(q.rx * 0.7)), fh = Math.min(14, Math.round(q.ry * 0.38)), fd = near(fw, fh, fx, fy, q.rx, isle); if (fd) parcel(fd[0], fd[1], fw, fh, 900 + q.id * 3 + (fy > q.cy ? 1 : 0)); } } // fields, as large as the islet allows
     for (const p of pts) if (on(p[0], p[1], 4) && rnd(T.TREE, p[0] * 3, p[1]) < (q.type === 'houses' ? 0.012 : 0.006)) tree(p[0], p[1], 2 + ((rnd(T.TREE, p[1], p[0]) * 2) | 0)); // a few trees on the grass
     plan.isles.push({ cx: q.cx, cy: q.cy, rx: q.rx, ry: q.ry, type: q.type }); }
   if (!plan.slots.some(c => c.kind === 'flak' && c.y < by0)) for (const q of isl) { const g = near(9, 9, q.cx, q.cy, q.rx * 1.2, (x, y) => land[idx(x, y)] === q.id + 2); if (g) { gunPit(g[0] + 5, g[1] + 5); break; } } // the chain always has a flak gun
@@ -2342,7 +2342,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.23'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width

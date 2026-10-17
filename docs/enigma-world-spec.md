@@ -806,3 +806,9 @@ The owner's brief:
 - cows in the paddocks;
 - the airbase played as the `base` biome.
 
+**Larger islets (owner).** The chain now runs from 0.33 to 0.56 of the plan with 5 to 7 islets. Radii are set by `P.isleR`: 34 to 42 px for the two largest and 16 to 30 for the rest; the farm islet's radius is typically 37 px, against 25 to 32 before. Islets under 21 px are rocks or gun islets. An islet that will not fit gets smaller with each try, down to half size, so the chain is never empty. The warships' lane may lie anywhere from near the strip's edge to its middle, which leaves room for the big islets. The contents grow with them:
+- the farm islet: a 22 x 15 paddock on large islets, and crop fields sized to the islet (never grass);
+- the house islet: up to eight houses along the lane.
+
+All 100 test seeds still pass every rule and every count.
+
