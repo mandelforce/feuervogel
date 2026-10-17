@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- The tunnel opening is 3 px wider on each side: a 24 px mouth in a 28 px sandstone face. The hill and track are unchanged.
 - The tunnel's hill is bigger: the quay track bends out past the last warehouse, so the tunnel sits on the open ground at the harbour's end. Its hill (up to 36 px across) is wider than the portal and in line with it.
 - The railway tunnel fits its place: the portal is centred on the track and stays off the street. The hill over it is symmetric about the track and only covers open ground. The last warehouse on the quay is shorter, leaving room in front of the portal.
 - The railway tunnel is now sandstone, with a round-topped portal and a mound of sandy rock, and big enough for the game's trains: a 20 px mouth for a 16 px train.
