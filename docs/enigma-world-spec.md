@@ -437,7 +437,7 @@ Findings from building it:
 
 ## 13a. Reminders for the owner
 
-- **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1.
+- **Route objects** for enemies that drive on roads (section 2): built (owner decision, section 17.5).
 - **Local best score per level**: not now. Revisit after the first playable level.
 
 ## 14. Changes from review (draft 1 -> draft 2)
@@ -846,4 +846,25 @@ The owner asked for the islets in a level **1A**. Like 6B, it is a separate entr
 - thinner than 12 px;
 - mostly edge: under 35 percent of its pixels lie 2 px inside its outline.
 That is about 37 remnants per plan. The farm islets' fields are placed whole and are left alone. `tests/citygen.mjs` checks that no field under 400 px or thinner than 12 px remains on the large island in 100 seeds.
+
+### 17.5 Route objects (owner decision: build them; keep convoys spaced)
+
+Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic, random stream and golden replay are unchanged.
+- **Routes** (`sortieRoutes(S)`, built once per sortie and stage base): route 0 is the legacy road (`roadX`), active wherever the ground under it is a road or a bridge outside a plan. Every tank street of the plan that runs along the strip (`axis: 'v'`) becomes a route.
+  - A street is split where it gives way (`pts` width 0, as at a village green) or skips rows.
+  - Each route holds x per world row (`xs`, from `wyLo` to `wyHi`); the main road is flagged `main`.
+  - At a roundabout the route swings round the ring on the vehicle's right (the west side, heading south) instead of crossing the lawn and the column.
+  - The generator records 1A's road extensions as streets: south to the jetty, north to the apron.
+- **Vehicles** carry `route` and `lane`. Tanks with `road`, trucks, armoured cars, motorbikes and staff cars move with `routeStep`:
+  - **Next step:** the vehicle takes the next row on its route. Past the route's end it takes any route that goes on within 8 px (at a fork, either one at random); if there is none, it stops (`atEnd`).
+  - **Keeping distance:** it waits while a road vehicle ahead of it on the same route, or just ahead in line (within 9 px across), is closer than both half-lengths plus `ROUTE_GAP` (10 px).
+  - **Terrain:** the old checks still hold. Tanks and trucks never move with sea, surf or river just ahead, so at the island's jetty the lead tank halts where the road meets the water.
+  - A tank that drives onto the road from a patrol takes the route under it.
+- **Spawns:** convoys and light vehicles pick a route active at the spawn row: the main road, or another route one time in four. If there is none, they don't spawn. A convoy's vehicles start `ROUTE_SPACE` (34 px) apart (the Campaign: 26).
+- **Results:**
+  - in 1A: 6 routes, all on the road;
+  - in level 6: 51 routes, every sampled row on the road;
+  - a mixed convoy (two tanks, two trucks) drives the island from the airbase to the jetty (304 px, splitting round the green), and level 6's town from its north end to the south (4136 px, round the roundabouts);
+  - it never leaves the road, keeps at least 10 px between vehicles, and stops at the end. This is tested in `tests/enigma.mjs`.
+- **Not yet:** traffic in the other direction, turns onto cross streets (streets along x are not routes), and marching troops (still `roadX`).
 

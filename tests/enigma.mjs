@@ -255,6 +255,30 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page2.close();
 }
 
+// 3b''''''. Route objects (spec 2, Tier A): a mixed convoy put on a route drives along it, switching routes where one route ends and another
+// goes on (the lanes round a village green, the plan's edge), never leaves the road, keeps its distance (at least both half-lengths and
+// ROUTE_GAP minus a pixel), and stops at a dead end: in 1A from the airbase down the island's road to the jetty; in level 6 from the town's
+// north end south through the city. Only the convoy moves (its own update, no frame loop), so the test sees the route logic alone.
+{
+  const page = await freshPage();
+  for (const [lv, name, frames] of [[8, '1A', 4000], [6, '6', 26000]]) {
+    const r = await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const S = run.sortie, R = sortieRoutes(S), plan = R.filter(q => !q.legacy);
+      let bad = 0, n = 0; for (const q of plan) for (let wy = q.wyLo; wy <= q.wyHi; wy += 3) { n++; const t = terrainType(Math.floor(routeX(q, wy)), wy); if (t !== 'road' && t !== 'bridge') bad++; }
+      const start = plan.filter(q => q.main && q.wyHi - q.wyLo > 3 * ROUTE_SPACE + 16).sort((a, b) => a.wyLo - b.wyLo)[0], wy0 = start.wyLo + 3 * ROUTE_SPACE + 8; /* the northernmost main road with room for the convoy */
+      world.enemies = []; world.scroll = -wy0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+      const mk = (type, k) => { const o = type === 'truck' ? G('truck', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, { road: true, dir: 1, lane: 0, v: 0.32, hd: PI / 2, route: start.id }) : G('tank', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: start.id })); world.enemies.push(o); return o; };
+      const cv = [mk('tank', 0), mk('truck', 1), mk('tank', 2), mk('truck', 3)];
+      let seen = {}, minGap = 1e9, offRoad = 0, switches = 0, last = cv.map(o => o.route);
+      let late = 0; for (let f = 0; f < ${frames}; f++) { for (const o of cv) ENT[o.type].update(o); if (f === ${frames} - 400) late = cv[0].wy;
+        if (f % 10 === 0) { const srt = cv.slice().sort((a, b) => b.wy - a.wy); for (let i = 1; i < srt.length; i++) if (Math.abs(srt[i].wx - srt[i - 1].wx) < 9) minGap = Math.min(minGap, srt[i - 1].wy - srt[i].wy - srt[i - 1].hh - srt[i].hh);
+          for (const o of cv) { const t = terrainType(Math.floor(o.wx), Math.floor(o.wy)); if (t !== 'road' && t !== 'bridge') { offRoad++; const P = S.plan, py = Math.round(S.planY0 - o.wy), pi = py * P.W + Math.round(o.wx), key = t + ':' + (py >= 0 && py < P.L ? CityGen.KIND_NAMES[P.K[pi]] + P.B[pi] : 'out') + (o.atEnd ? '@end' : ''); seen[key] = (seen[key] || 0) + 1; } } cv.forEach((o, i) => { if (o.route !== last[i]) { switches++; last[i] = o.route; } }); } }
+      return { seen: JSON.stringify(seen), routes: plan.length, bad, n, minGap: Math.round(minGap), offRoad, switches, end: cv.every(o => o.atEnd || !o.moving), front: Math.round(cv[0].wy - wy0), stopped: cv[0].atEnd || cv[0].wy === late }; })()`); // at a dead end, or held where the road meets the water
+    ok(r.routes >= 3 && r.bad <= r.n * 0.02, `level ${name}: ${r.routes} routes from the plan's tank streets, on the road (${r.bad} of ${r.n} samples off it)`);
+    ok(r.offRoad === 0 && r.minGap >= 9 && r.switches >= 1 && r.stopped && r.front > 300, `level ${name}: a convoy drove ${r.front} px along its routes (${r.switches} route changes), never off the road, at least ${r.minGap} px between vehicles, and stopped at the end (off the road ${r.offRoad} ${r.seen}, stopped ${r.stopped})`);
+  }
+  await page.close();
+}
+
 // 3c. Level 6 is the same ground every time: a fresh page, after a Campaign run in the same page, and after a resume give the same chunk pixels.
 {
   const page = await freshPage();

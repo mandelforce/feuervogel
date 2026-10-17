@@ -2213,12 +2213,13 @@ function islands(o) {
   // 4. the main road beyond the village: south to the shore and out on a jetty (a barge moored beside it), north through the fields to the airbase
   const rowOf = y => { const out = []; for (let x = 0; x < W; x++) { const k = v.K[y * W + x]; if (k === K.ROAD || k === K.WALK) out.push([x, k]); } return out; };
   const ay0 = vy0 + VL + P.gapL, ay1 = by1 - 6, rwX = Math.round(W / 2 - 42), txX = rwX + 32, apX0 = txX + 6, apX1 = apX0 + 44, roadTo = apX0 + 12; // the airbase's lines (runway, taxiway, apron)
-  { const r0 = rowOf(0), m0 = v.mx[0]; let y = vy0 - 1;
-    for (; y > by0; y--) { let cut = false; for (const [x, k] of r0) { if (inner(x, y)) set(x, y, k, -1); else if (Math.abs(x + 0.5 - m0) < 5) cut = true; } if (cut) break; plan.mx[y] = m0; plan.aw[y] = v.aw[0]; }
+  const extend = () => { const st = { cls: 'arterial', axis: 'v', tank: true, pts: [], island: true, id: plan.streets.length }; plan.streets.push(st); return st; }; // the main road beyond the village, a tank route (the game's vehicles follow it)
+  { const r0 = rowOf(0), m0 = v.mx[0], sS = extend(); let y = vy0 - 1;
+    for (; y > by0; y--) { let cut = false; for (const [x, k] of r0) { if (inner(x, y)) set(x, y, k, -1); else if (Math.abs(x + 0.5 - m0) < 5) cut = true; } if (cut) break; plan.mx[y] = m0; plan.aw[y] = v.aw[0]; sS.pts.push([m0, y, v.aw[0]]); }
     const jx0 = Math.round(m0) - 5, jw = 10; let jy = y; for (; jy > by0 - 40 && jy > 0; jy--) { let wet = 0; for (let x = jx0; x < jx0 + jw; x++) { if (inB(x, jy) && Kr[idx(x, jy)] === K.SEA) wet++; set(x, jy, K.QUAY, -1); } if (wet === jw && jy < y - 24) break; } // the jetty runs out past the surf
     plan.jetty = { x0: jx0, w: jw, y0: jy, y1: y }; plan.boats.push({ x0: jx0 + jw + 2, y0: jy + 2, w: 18, h: 7, cargo: 1, dmg: 0 }); }
-  { const r1 = rowOf(VL - 1), m1 = v.mx[VL - 1];
-    for (let y = vy0 + VL; y < ay0 + 60; y++) { if (Kr[idx(Math.round(plan.mx[y - 1]), y)] === K.APRON) break; const f = smooth(vy0 + VL + 10, ay0 - 10, y), m = lerp(m1, roadTo, f); plan.mx[y] = m; plan.aw[y] = v.aw[VL - 1];
+  { const r1 = rowOf(VL - 1), m1 = v.mx[VL - 1], sN = extend();
+    for (let y = vy0 + VL; y < ay0 + 60; y++) { if (Kr[idx(Math.round(plan.mx[y - 1]), y)] === K.APRON) break; const f = smooth(vy0 + VL + 10, ay0 - 10, y), m = lerp(m1, roadTo, f); plan.mx[y] = m; plan.aw[y] = v.aw[VL - 1]; sN.pts.push([m, y, v.aw[VL - 1]]);
       for (const [x0, k] of r1) { const x = Math.round(x0 - m1 + m); if (inner(x, y) || (inB(x, y) && land[idx(x, y)] === 1 && Kr[idx(x, y)] !== K.BEACH && Kr[idx(x, y)] !== K.ROCK)) set(x, y, k, -1); } } }
   // 5. between the village and the airbase: a small wood on the roomier side of the road, a pond and a fenced paddock with a farmstead on the
   // other, fields (hedged parcels) in what is left
@@ -2351,7 +2352,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.26'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.27'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -7009,6 +7010,45 @@ function planBerths(sc) {
 // Level 1A: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
 function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && S.isles)) return true; for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
 function roadOK(x, y) { const S = run.sortie; return !(S && S.isles) || terrainType(Math.floor(x), Math.floor(y)) === 'road'; }
+/* Enigma Run: route objects (spec 2, Tier A; owner decision). A route is a road that vehicles follow, x a function of the world row: each tank
+   street of the settlement plan that runs along the strip (the main road, the lanes round a village green, collectors, the island's road to
+   the jetty and to the apron), split where it gives way, and outside a plan the legacy road (route 0, roadX, wherever the ground there is a
+   road). A road vehicle carries its route and lane (e.route, e.lane). When the next row is past its route's end it takes a route that goes on
+   from there (at a fork either one), or stops at the end. It keeps its distance: it waits while the vehicle ahead of it on the road is
+   closer than both their half-lengths and ROUTE_GAP. Convoys start ROUTE_SPACE apart. The Campaign has no sortie, so none of this runs there. */
+const ROUTE_GAP = 10, ROUTE_SPACE = 34;
+function sortieRoutes(S) {
+  if (S.routes && S.routesFor === world.stageBaseP) return S.routes;
+  const P = sortiePlan(S) && S.planFor === world.stageBaseP ? S.plan : null, R = [{ id: 0, legacy: true }];
+  S.routesFor = world.stageBaseP; S.routes = R;
+  if (P) for (const st of P.streets) { if (!st.tank || st.axis !== 'v') continue;
+    const pts = st.pts.slice().sort((a, b) => a[1] - b[1]); let run = null;
+    const flush = () => { if (run && run.ys.length >= 6) { const wyLo = Math.round(S.planY0 - run.ys[run.ys.length - 1]), wyHi = Math.round(S.planY0 - run.ys[0]), xs = new Float32Array(wyHi - wyLo + 1).fill(NaN);
+      run.ys.forEach((y, k) => { xs[Math.round(S.planY0 - y) - wyLo] = run.xs[k]; }); for (let i = 1; i < xs.length; i++) if (isNaN(xs[i])) xs[i] = xs[i - 1]; for (let i = xs.length - 2; i >= 0; i--) if (isNaN(xs[i])) xs[i] = xs[i + 1];
+      for (const sr of P.stars || []) { const ro = (P.P.star && P.P.star.ro) || 17, rm = (ro + sr.ri) / 2; // a roundabout: round its ring on the vehicle's right (the west side, heading south), not across the lawn
+        for (let i = 0; i < xs.length; i++) { const dy = (S.planY0 - (wyLo + i)) - sr.y; if (Math.abs(dy) < ro && Math.abs(xs[i] - sr.x) < ro) xs[i] = sr.x - Math.sqrt(Math.max(0, rm * rm - dy * dy)); } }
+      R.push({ id: R.length, wyLo, wyHi, xs, main: st.cls === 'arterial' }); } run = null; };
+    for (const q of pts) { const y = Math.round(q[1]); if (!q[2] || (run && y - run.last > 3)) flush(); if (!q[2]) continue; if (!run) run = { ys: [], xs: [] }; run.ys.push(y); run.xs.push(q[0]); run.last = y; }
+    flush(); }
+  return R;
+}
+function inPlanRows(S, wy) { const P = S.plan; return !!P && S.planFor === world.stageBaseP && S.planY0 - wy >= 0 && S.planY0 - wy < P.L; }
+function routeX(rt, wy) { return rt.legacy ? roadX(wy) : rt.xs[clamp(Math.round(wy) - rt.wyLo, 0, rt.xs.length - 1)]; }
+function routeOn(S, rt, wy) { wy = Math.round(wy); if (!rt.legacy) return wy >= rt.wyLo && wy <= rt.wyHi; /* whole rows, as routeX */ if (inPlanRows(S, wy)) return false; const t = terrainType(Math.floor(roadX(wy)), Math.floor(wy)); return t === 'road' || t === 'bridge'; }
+// the routes a vehicle could be on at a world row; the main road first
+function routesAt(S, wy) { return sortieRoutes(S).filter(rt => routeOn(S, rt, wy)).sort((a, b) => (b.legacy || b.main ? 1 : 0) - (a.legacy || a.main ? 1 : 0)); }
+function routePick(S, wy) { const c = routesAt(S, wy); if (!c.length) return null; return c.length > 1 && Math.random() < 0.25 ? c[1 + ((Math.random() * (c.length - 1)) | 0)] : c[0]; } // mostly the main road
+// One step along the route: the next position, or null when the vehicle waits (the one ahead is too close) or has reached a dead end.
+function routeStep(e) {
+  const S = run.sortie, R = sortieRoutes(S); let rt = R[e.route];
+  if (!rt) { const c = routesAt(S, e.wy).filter(r => Math.abs(routeX(r, e.wy) + e.lane - e.wx) < 10); if (!c.length) { e.atEnd = true; return null; } rt = c[0]; e.route = rt.id; } // (a tank that drove onto the road)
+  const nwy = e.wy + e.dir * e.v;
+  if (!routeOn(S, rt, nwy)) { const x0 = routeX(rt, e.wy), c = sortieRoutes(S).filter(r => r !== rt && routeOn(S, r, nwy) && Math.abs(routeX(r, nwy) - x0) < 8);
+    if (!c.length) { e.atEnd = true; return null; } rt = c.length > 1 ? c[(Math.random() * c.length) | 0] : c[0]; e.route = rt.id; } // a fork: either way
+  const reach = e.hh + ROUTE_GAP;
+  for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined || (o.route !== rt.id && Math.abs(o.wx - e.wx) > 9)) continue; /* on the same route (round a bend too), or just ahead in line */ const ahead = (o.wy - e.wy) * e.dir; if (ahead > 0 && ahead < reach + o.hh) return null; }
+  e.atEnd = false; return [routeX(rt, nwy) + e.lane, nwy];
+}
 // Level 1A: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
 // planBerths does for submarines): turrets (the game's bunker) and flak on the islets, flak pits, an AA tower and planes in their blast pens at the airbase.
 function planGuns(sc) {
@@ -7306,9 +7346,9 @@ function march(wy) {
   for (let i = 0; i < n; i++) world.enemies.push(G('troop', roadX(wy - i * 7) + lane, wy - i * 7, { hd: PI / 2, scared: 0, march: true, lane, v: 0.22 }));
 }
 function lightVehicle(wy) {
-  const moto = Math.random() < 0.55, lane = 2.5, wx = roadX(wy) + lane;
+  const moto = Math.random() < 0.55, lane = 2.5, S = run.sortie, rt = S ? routePick(S, wy) : null; if (S && !rt) return; const wx = (rt ? routeX(rt, wy) : roadX(wy)) + lane;
   if (!placeOK(wx, wy, 8) || !roadOK(wx, wy)) return;
-  world.enemies.push(G(moto ? 'moto' : 'staff', wx, wy, { hp: (moto ? 1.5 : 2.5) * hpm(), hw: moto ? 3 : 4, hh: moto ? 5 : 6, score: moto ? 300 : 500, rad: 6, road: true, dir: 1, lane, v: moto ? 0.85 : 0.65, hd: PI / 2 }));
+  world.enemies.push(G(moto ? 'moto' : 'staff', wx, wy, { hp: (moto ? 1.5 : 2.5) * hpm(), hw: moto ? 3 : 4, hh: moto ? 5 : 6, score: moto ? 300 : 500, rad: 6, road: true, dir: 1, lane, v: moto ? 0.85 : 0.65, hd: PI / 2, route: rt ? rt.id : undefined }));
 }
 function squad(wy, types) {
   for (let k = 0; k < 8; k++) {
@@ -7326,14 +7366,15 @@ function tankStats(heavy, o) {
     : { hp: 10 * m, hw: 7, hh: 9, score: 500, rad: 11 }, { ta: PI / 2, cd: rnd(60, 140) | 0 }, o);
 }
 function convoy(wy, trucks) {
-  const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0;
+  const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0, S = run.sortie, rt = S ? routePick(S, wy) : null; if (S && !rt) return; // Enigma Run: on a route, its vehicles further apart
   for (let i = 0; i < n; i++) {
-    const twy = wy - i * 26, wx = roadX(twy) + lane;
+    const twy = wy - i * (S ? ROUTE_SPACE : 26), wx = (rt ? routeX(rt, twy) : roadX(twy)) + lane;
+    if (rt && !routeOn(S, rt, twy)) continue;
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
-    if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2 }));
+    if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
       const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18);
-      world.enemies.push(G(heavy ? 'htank' : 'tank', wx, twy, tankStats(heavy, { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2 })));
+      world.enemies.push(G(heavy ? 'htank' : 'tank', wx, twy, tankStats(heavy, { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined })));
     }
   }
 }
@@ -8542,11 +8583,13 @@ const ENT = {
       if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
       else { const mx = dx / d * e.v, my = dy / d * e.v; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; e.moving = true; } else e.moving = false; }
     } else if (e.v > 0) {
-      let nwx, nwy;
-      if (e.road) { nwy = e.wy + e.dir * e.v; nwx = roadX(nwy) + e.lane; }
+      let nwx, nwy, wait = false;
+      if (e.road && run.sortie) { const st = routeStep(e); if (st) [nwx, nwy] = st; else wait = true; } // Enigma Run: along its route, keeping its distance
+      else if (e.road) { nwy = e.wy + e.dir * e.v; nwx = roadX(nwy) + e.lane; }
       else { nwx = e.wx + Math.cos(e.hd) * e.v; nwy = e.wy + Math.sin(e.hd) * e.v; }
-      const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx + Math.cos(nh) * 10, nwy + Math.sin(nh) * 10);
-      if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) {
+      const nh = wait ? 0 : Math.atan2(nwy - e.wy, nwx - e.wx), ahead = wait ? '' : terrainType(nwx + Math.cos(nh) * 10, nwy + Math.sin(nh) * 10);
+      if (wait) e.moving = false;
+      else if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) {
         e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; e.moving = true;
         if (gf % 12 === 0) world.parts.push({ kind: 'dust', layer: 'w', x: e.wx - Math.cos(e.hd) * 10, y: e.wy + Math.floor(world.scroll) - Math.sin(e.hd) * 10, vx: rnd(-0.2, 0.2), vy: world.scrollV, life: 26, max: 26, r: 2 });
       } else e.moving = false;
@@ -8562,7 +8605,7 @@ const ENT = {
     }
   } },
   truck: { treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 200, rad: 10 }, update(e) {
-    const nwy = e.wy + e.dir * e.v, nwx = roadX(nwy) + e.lane;
+    let nwy = e.wy + e.dir * e.v, nwx; if (run.sortie) { const st = routeStep(e); if (!st) { groundPos(e); return; } [nwx, nwy] = st; } else nwx = roadX(nwy) + e.lane; // Enigma Run: along its route, keeping its distance
     const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx, nwy + e.dir * 12);
     if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
     groundPos(e);
