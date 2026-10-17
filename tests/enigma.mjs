@@ -69,7 +69,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     o.note = q('dNote').textContent; q('dStage').querySelector('[data-s="6"]').click(); o.pressed = q('dStage').querySelector('[aria-pressed="true"]').dataset.s;
     q('diffAsk').querySelector('[data-d="1"]').click(); o.level = run.sortie && run.sortie.level; o.theme = world.curTheme; o.stage = run.stage; o.state = app.state; o.start = run.start; return o; })()`);
   ok(ui.rowShown && ui.pickerOpen && ui.title === 'Enigma Run' && ui.stageRow && ui.settingsClosed, 'Settings > Enigma Run opens the level picker');
-  ok(ui.pressed === '6' && ui.level === 6 && ui.theme === 5 && ui.stage === 6 && ui.state === 'play', 'choosing level 6 and a difficulty starts it (Campaign stage 6 ground for now)');
+  ok(ui.pressed === '6' && ui.level === 6 && ui.theme === 5 && ui.stage === 6 && ui.state === 'play', 'choosing level 6 and a difficulty starts it');
 
   const hide = await peek(page, `(() => { openSettings(); const h = document.getElementById('sEnigmaRunRow').hidden; setPanel.classList.remove('open'); return h; })()`);
   ok(hide, 'the Settings button is hidden while a run is on');
@@ -121,6 +121,25 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 3b'. Level 6 takes its ground from the settlement plan (tools/citygen.js, embedded as CityGen): the plan passes the generator's hard rules,
+// the game's road is the plan's main road (meeting the legacy road where the plan begins), the ground types are the plan's, a plan chunk's
+// pixels are the plan's own painting.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(6); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let road = 0, types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; if (Math.abs(roadX(wy) - P.mx[y]) > 0.01) road++; for (let x = 3; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const p = world.stageBaseP + S.planC0 + 20; startChunk(p); const job = world.chunkJobs[world.chunkJobs.length - 1]; workChunk(job, CH); world.chunkJobs.pop();
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, {}); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== job.img.data[i]) pix++;
+    startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop(); for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++; /* painted in bands as a frame budget does */
+    const entry = Math.abs(P.mx[0] - roadXl(S.planY0));
+    return { pass: v.pass, L: P.L, len: (S.len - S.planC0) * CH, road, types, n, pix, entry, slots: P.slots.length, plan: info(p).plan === true }; })()`);
+  ok(r.pass && r.L === r.len && r.plan, `level 6 plan passes the generator's hard rules and covers the farmland to the level's end (${r.L} px, ${r.slots} gun slots)`);
+  ok(r.road === 0 && r.entry < 0.5, `the game's road is the plan's main road, starting where the legacy road enters (${r.road} rows off, entry gap ${r.entry.toFixed(2)} px)`);
+  ok(r.types === 0, `ground types come from the plan (${r.types} of ${r.n} samples differ)`);
+  ok(r.pix === 0, `a plan chunk's pixels are the plan's painting, whole or in bands (${r.pix} bytes differ)`);
+  await page.close();
+}
+
 // 3c. Level 6 is the same ground every time: a fresh page, after a Campaign run in the same page, and after a resume give the same chunk pixels.
 {
   const page = await freshPage();
@@ -143,12 +162,13 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) {
       o.status = SF.run(o.bottomC === undefined ? 5 : 100); // fine steps until the boss comes, so the measured position is exact to 2 px
       if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH);
-        return { bottomC: p - world.stageBaseP, bottomB: info(p).b, len: run.sortie.len, final: finalStartY() !== null, arc: arcScale() }; })()`));
+        return { bottomC: p - world.stageBaseP, bottomB: info(p).b, len: run.sortie.len, final: finalStartY() !== null, arc: arcScale(), slots: (run.sortie.slotUsed || new Set()).size, nSlots: run.sortie.plan.slots.length }; })()`));
     }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, errs: SF.R.errs.slice(0, 2) })`));
     return o;
   });
   ok(r.bottomC !== undefined && r.bottomB === 'secret' && r.bottomC === r.len + 1 && r.final, `level 6 boss comes where the Campaign's does: screen bottom one chunk into the secret ground (bottom chunk ${r.bottomC}, secret from ${r.len}; Campaign stage 6: 44 and 43)`);
+  ok(r.slots >= 8, `ground guns stood in the plan's slots on the way (${r.slots} of ${r.nSlots} slots used)`);
   ok(r.state === 'title' && r.picker && r.kind === 'enigma' && r.errs.length === 0, `level 6 flown to the end returns to the picker (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
   await page.close();
 }

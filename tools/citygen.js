@@ -146,6 +146,7 @@ function generate(opts) {
     plan.U[y] = clamp(curve(P.density, y / (L - 1)), 0, 1);
     plan.D[y] = clamp(curve(P.damageCurve, y / (L - 1)) * P.damage * (0.4 + 0.6 * plan.U[y]) / 0.6, 0, 1);
     plan.mx[y] = clamp(road.c + road.amp * Math.sin(y * road.fr + road.ph) + 2.5 * Math.sin(y * 0.021 + road.ph), 34, W - 34);
+    if (P.road0 != null && y < 200) plan.mx[y] = lerp(clamp(P.road0, 34, W - 34), plan.mx[y], smooth(0, 200, y)); // the game's road enters here: start where it is
     const u = plan.U[y]; plan.aw[y] = u < 0.35 ? P.widths.arterialLow : lerp(P.widths.arterialLow, P.widths.arterialHigh, smooth(0.35, 0.75, u));
   }
   const Uy = y => plan.U[clamp(y | 0, 0, L - 1)], Dy = y => plan.D[clamp(y | 0, 0, L - 1)], MX = y => plan.mx[clamp(y | 0, 0, L - 1)], AW = y => plan.aw[clamp(y | 0, 0, L - 1)];
@@ -296,14 +297,14 @@ function generate(opts) {
   if (OT && OT.green) for (const p of plan.streets[0].pts) if (ovalHalf(p[1], 0) > OT.rw / 2 + 2) p[2] = 0; // the main road gives way to the green: traffic forks round it
   // the railway's side (2a''''' builds the line): the edge the old town leaves free, away from the main road's side; the harbour takes the other
   const railOK = []; // the edges a straight line could take (the old town leaves them free)
-  if (P.railway) for (const sr of (MX(L / 2) < W / 2 ? [1, -1] : [-1, 1])) { if (CO && CO.side && sr === CO.cs) continue; const xA = sr > 0 ? W - 19 : 18; let ok = true; for (let y = 0; ok && y < L; y += 3) if (OT && inOval(xA, y, OT.rw / 2 + 8)) ok = false; if (ok) railOK.push(sr); }
+  if (P.railway) for (const sr of (P.railSide ? [P.railSide, -P.railSide] : MX(L / 2) < W / 2 ? [1, -1] : [-1, 1])) { /* railSide: the edge a game's rail arrives on */ if (CO && CO.side && sr === CO.cs) continue; const xA = sr > 0 ? W - 19 : 18; let ok = true; for (let y = 0; ok && y < L; y += 3) if (OT && inOval(xA, y, OT.rw / 2 + 8)) ok = false; if (ok) railOK.push(sr); }
   let railSide = railOK[0] || 0;
   // 2a''''. the harbour district (river presets): on one bank, from the strip's edge inward, D px deep behind the quay: a basin cut into the
   // bank, warehouses, cranes, works with chimneys and a harbour railway. The riverside street on that bank bends round its land side, and
   // other streets end at it.
   let HB = null;
   if (P.harbour && RVs.length) for (const R of RVs.slice().sort((a, b) => a.island - b.island)) { const D = 52, len = 104 + ((rnd(T.HB, 1) * 26) | 0);
-    for (const bank of rnd(T.HB, 2) < 0.5 ? ['N', 'S'] : ['S', 'N']) for (const [s, eo] of [[1, 0], [-1, 0], [1, 31], [-1, 31]].filter(([q, o]) => o ? railOK.includes(q) : !(railOK.length === 1 && railOK[0] === q))) { if (HB) continue; // the edge the railway does not need; or the railway's edge, clear of its corridor
+    for (const bank of rnd(T.HB, 2) < 0.5 ? ['N', 'S'] : ['S', 'N']) for (const [s, eo] of (P.railSide ? [[-P.railSide, 0], [P.railSide, 31], [P.railSide, 0], [-P.railSide, 31]] : [[1, 0], [-1, 0], [1, 31], [-1, 31]]).filter(([q, o]) => o ? railOK.includes(q) : !(railOK.length === 1 && railOK[0] === q))) { if (HB) continue; // the edge the railway does not need; or the railway's edge, clear of its corridor
       let mxr = -1e9, mxl = 1e9; for (let y = Math.round(R.Y0 - 90); y <= R.Y0 + 90; y += 6) { mxr = Math.max(mxr, MX(y) + AW(y) / 2); mxl = Math.min(mxl, MX(y) - AW(y) / 2); }
       let room = (s > 0 ? W - 1 - (mxr + 40) : mxl - 40) - eo; if (R.island) room = Math.min(room, (s > 0 ? W - 1 - (R.ix + R.rx + 8) : R.ix - R.rx - 8) - eo); // clear of the main road (a row of blocks between) and of the island
       const ln = Math.min(len, Math.floor(room)); if (ln < (eo ? 48 : 56)) continue; // beside the railway a narrower harbour will do

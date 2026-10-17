@@ -3,6 +3,7 @@
 //   node tests/contact.mjs OUTDIR                 all six levels, 8 points each
 //   node tests/contact.mjs OUTDIR 6               only level 6
 //   node tests/contact.mjs OUTDIR 6 12            level 6, 12 points
+//   node tests/contact.mjs OUTDIR 6 c2,66         level 6 with the screen's bottom at chunks 2 and 66 (for looking at seams)
 // Writes OUTDIR/level<N>-<k>.png (the playfield, 224 px wide, drawn 3x) and OUTDIR/sheet-level<N>.html (all of a level on one page).
 // The frame is built as in docs/enigma-prompt.md: no enemies, chunks built to the end, the frame drawn once. A point is a share of the level's length.
 import { chromium } from 'playwright';
@@ -11,7 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 const [out, only, pointsArg] = process.argv.slice(2);
 if (!out) { console.error('usage: node tests/contact.mjs OUTDIR [level] [points]'); process.exit(2); }
 mkdirSync(out, { recursive: true });
-const levels = only ? [+only] : [1, 2, 3, 4, 5, 6], points = +pointsArg || 8;
+const levels = only ? [+only] : [1, 2, 3, 4, 5, 6], at = pointsArg && pointsArg[0] === 'c' ? pointsArg.slice(1).split(',').map(Number) : null, points = at ? at.length : +pointsArg || 8;
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 
 const browser = await chromium.launch();
@@ -26,11 +27,11 @@ await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
 for (const lv of levels) {
   const files = [];
   for (let k = 0; k < points; k++) {
-    const frac = points === 1 ? 0.5 : k / (points - 1) * 0.97, name = `level${lv}-${k + 1}.png`;
+    const frac = at ? -at[k] - 1e-9 : points === 1 ? 0.5 : k / (points - 1) * 0.97, name = `level${lv}-${k + 1}.png`;
     const url = await page.evaluate(([lv, frac]) => window.SF.peek(`(() => {
       settings.diff = 1; startEnigma(${lv});
       world.enemies = []; world.ebul = []; world.parts = []; world.decals = []; world.shots = []; world.items = []; critters.length = 0; props.length = 0;
-      const sc = Math.round(${frac} * run.sortie.len * CH); world.scroll = sc; world.scrollV = world.scrollTarget = 0;
+      const sc = Math.round((${frac}) < 0 ? -(${frac}) * CH : (${frac}) * run.sortie.len * CH); /* a negative share is a chunk number */ world.scroll = sc; world.scrollV = world.scrollTarget = 0;
       world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2;
       for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; }
       app.fade = null; app.msg = null; app.state = 'play'; if (player) { player.fly = 0; player.inv = 0; player.x = -60; }

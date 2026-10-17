@@ -625,3 +625,31 @@ The **beach landing** (`preset: 'beach'`, 1600 px) begins over the sea, the flag
 - inland, bocage: small fields edged with hedgerows, and a village.
 
 Bunkers become the game's `bunker` slots and the battery its `arty` slots (`plan.beachSlots`, taken before the quota). Concrete takes only shell holes and is drawn with a bare low wall, with no windows.
+
+### 16.x Level 6 in the game (integration, first step)
+
+Enigma Run level 6 now takes its ground from one settlement plan. The game carries a copy of `tools/citygen.js` in `index.html` (`cityGenSrc`, refreshed by `node scripts/embed-citygen.mjs`; `tests/citygen.mjs` fails while it is old), so players still get one file.
+
+- **The plan** (`sortiePlan(S)`): built once per sortie and stage base. It is the `river` preset, `L` = 66 chunks (4224 px) from the start of the farmland to the level's end. The sortie's U and D give the density and damage curves (each segment's value at its middle); the river sits at the middle of the river segment; farmsteads are on (0.4). Two new generator parameters: `road0` (the main road starts at the legacy road's x and blends into its own curve over 200 rows) and `railSide` (the edge the main line prefers). The seed comes from the sortie's random stream. Plan time is about 0.2 s warm and 0.5 s cold in Node, paid when the level starts.
+- **Rows:** plan row y is world row `S.planY0 - y`, row 0 being the bottom row of the first farmland chunk. Plan chunks are aligned with game chunks.
+- **What the plan drives:**
+  - `roadX` returns the plan's main road inside the plan, blending back to the legacy road over 200 px after it.
+  - `classify` returns `CityGen.typeAt` (no chunk-edge wobble inside the plan).
+  - `sortieInfo` marks plan chunks (`I.plan`, no legacy rails; theme 5 has none before the plan either).
+  - `workChunk` paints plan chunks with `CityGen.paint` in bands of at least 16 rows; the result is identical to painting the whole chunk.
+  - `drawFeatures` draws nothing legacy on plan chunks.
+- **Guns:** the director's city and factory branches take the plan's slots first. Each slot is used once, when it is just above the screen: flak (or artillery when unlocked) for flak and arty slots, AA towers for aatower slots, bunkers for bunker slots. Otherwise they fall back to the old random placement. A bot flight used 11 of 35 slots.
+- **Speed (this machine, ms per chunk):**
+  - farmland to river: 3 to 4.5 ms;
+  - centre, industry and ruins: 10 to 18 ms (p95 37 ms in the industrial stretch, now spread over frames by the bands);
+  - level 6 overall: 12.3 ms mean, against 20.8 ms before.
+- **Tests:** `tests/enigma.mjs` checks that the plan passes the hard rules and covers the level; that the road is the plan's (entry gap 0); that the ground types are the plan's; that the chunk pixels are the plan's, whole and in bands; that slots get used on a bot flight; and the determinism and hygiene checks as before. `tests/contact.mjs OUT 6 c4,69` puts the screen's bottom at chosen chunks, for looking at seams.
+
+**Next for level 6:**
+- Place features by segment: the station and rail yard in `station_main` at the end (now wherever the generator puts it), the works in `industrial_power`.
+- Soften the hard line where the city meets the final airfield, perhaps with the station's yard as the transition.
+- Animated layers in the game: river streaks (`CityGen.riverFx`) and fires (`CityGen.paintFx`).
+- Trains on the plan's `trainRuns`, boats on the river.
+- Route objects for road traffic (deferred, see 13a).
+- Phone timing of the plan build; a Worker if it stalls.
+- The phase 2b grid-city code (`cellKind`, `villageList`, `roadHalf` for the sortie) is now unused by level 6 and can go once the plan path settles.

@@ -2,6 +2,7 @@
 //   node tests/citygen.mjs          100 seeds of every preset and density curve the lab offers; every hard rule must hold
 // Hard rules: no overlapping buildings, every house fronts a street, every tank carriageway joins the main road, churches spaced out,
 // and the same seed always gives the same plan. Also prints plan time and density error per curve.
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const CG = require('../tools/citygen.js');
@@ -106,5 +107,9 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     const d = img.data; for (let o = 0; o < d.length; o += 4) if (d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2]) marks++; }
   if (marks) fail(`road markings: ${marks} marking pixels painted`); else console.log('ok   road markings: none in 4 painted towns');
 }
+// the game carries a copy of the generator (index.html, cityGenSrc): it must be the current one (node scripts/embed-citygen.mjs)
+{ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../tools/citygen.js', import.meta.url), 'utf8'), open = '<script type="text/plain" id="cityGenSrc">\n';
+  const a = html.indexOf(open), b = html.indexOf('</script>', a), same = a >= 0 && html.slice(a + open.length, b) === src;
+  if (!same) fail('index.html carries an old copy of tools/citygen.js: run node scripts/embed-citygen.mjs'); console.log(`${same ? 'ok  ' : 'FAIL'} the game's copy of the generator is current`); }
 if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
 console.log('\nCity generator checks pass.');
