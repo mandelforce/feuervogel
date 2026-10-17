@@ -1393,7 +1393,7 @@ function parcelPix(plan, i, x, y) {
   return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
 }
 // Paint plan rows y0 .. y0 + h - 1 into an ImageData that is W wide and h tall (screen row 0 = plan row y0 + h - 1, so north is up).
-function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays)
+function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
   const seaPix = opts && opts.seaPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
@@ -1500,7 +1500,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour) -> [r, g,
           const jh = plan.coast.yC !== null ? at(x, y - plan.coast.hd) : -1; if (d < 1.5 && ((j >= 0 && Kr[j] === K.BEACH) || (jh >= 0 && Kr[jh] === K.BEACH))) { c = C.foam; break; } if (d < 3.5 && j >= 0 && hh(x, y >> 1) < 0.4) { c = C.sea[5]; break; } // the surf on the beach
           if (seaPix) { c = seaPix(x, y, false, plan.calm ? plan.calm[i] / 255 : 0); break; } // (calm: how close a harbour basin is)
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
-        case K.APRON: { let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
+        case K.APRON: { if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
         case K.TRENCH: { const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? C.sand[1] : C.char[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.4, x, y)]; break; } // a trench: dark, a sandbag rim
         case K.BEACH: if (Br[i] === -13) { c = hh(x, y) < 0.16 || vn(x * 0.15, y * 0.15) > 0.62 ? C.field.hedge[pickI(3, 0.5 + hh(x, y) * 0.4, x, y)] : C.sand[pickI(2, 0.45 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.6, x, y)]; break; } // dunes: sand under marram grass
         { const cs = plan.coast ? plan.coast.cs : 1, j = at(x + cs, y), wet = j >= 0 && Kr[j] === K.SEA; c = wet ? C.sand[0] : hh(x, y) < 0.05 ? C.field.hedge[2] : C.sand[pickI(2, 0.55 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.6, x, y)]; break; } // sand, wet at the waterline, tufts of dune grass

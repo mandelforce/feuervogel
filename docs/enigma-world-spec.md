@@ -716,3 +716,7 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 **Wider tunnel opening (owner: 3 px wider on both sides).** The mouth is now 24 px (round-topped) in a 28 x 7 px face. The side walls keep their thickness, and the mound and track are unchanged.
 
 **Tunnel mouth, adjusted (owner: one pixel too wide on each side).** The mouth is now 22 px in the 28 px face, so each side wall is 1 px thicker toward the inside.
+
+**Seam into the final airfield (owner: the transition did not look natural).** Two causes, both fixed:
+- `classify` wobbles chunk edges for legacy ground, so the bottom rows of the first secret chunk took their ground from the plan chunk below it. That chunk's biome is `factory` (`station_main`), so they were painted as factory asphalt, a dark jagged band across the hangar. The wobble now never reaches into a plan chunk.
+- The plan's apron was a shade lighter than the airfield. `CityGen.paint` takes `opts.apronPix`, and the game passes `secretApron`, the final airfield's own concrete formula (factored out of `secretColor`), so the apron and the airfield are one surface.
