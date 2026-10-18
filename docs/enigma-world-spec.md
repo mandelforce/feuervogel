@@ -337,7 +337,7 @@ Lengths in chunks. Order is the Campaign order. Bosses and music are the campaig
 *Landmark:* a small oasis (`oasis`) with a pool of water, palm trees, a few houses and a well. It is placed in the `desert_open 4` segment.
 
 **Level 3: The Long Night** (night, lightning, then low mist). Boss: the supergun. Total 50.
-`beach_fortified 3` (searchlights) -> `industrial_power 7` (pylons, smoke) -> `station_marshalling 7` -> `farmland 7` (night, mist) -> `city_small 4` (lit windows, searchlights, burning houses) -> `airbase_searchlight 6` -> `forest_deciduous 5` -> `industrial_light 6` -> `rail_corridor 6` (two rails) -> boss arena.
+`beach_fortified 3` (searchlights) -> `industrial_power 7` (pylons, smoke) -> `farmland 7` (night, mist) -> `city_small 4` (lit windows, searchlights, burning houses) -> `airbase_searchlight 6` -> `forest_deciduous 5` -> `industrial_light 6` -> `rail_corridor 6` (two rails) -> `station_marshalling 7` (right before the boss, its tracks running into the arena) -> boss arena. (Order changed by the owner after the mockup, see 16.z.)
 *Landmark:* a small city (`city_small`, replaces the `village 3`) with searchlights and **some burning houses**: it has been attacked recently (damage `heavy` with active fires, within the fire budget of section 7). Night shots apply (1.1, item 3).
 
 **Level 4: The Iron Forest** (dark conifer, rain, mist). Boss: Ravenhold castle. Total 52.
@@ -435,7 +435,7 @@ Findings from building it:
 
 ## 13a. Reminders for the owner
 
-- **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1.
+- **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1. **Owner, level 3 round: create them** (built with level 3's roads, 16.z).
 - **Local best score per level**: not now. Revisit after the first playable level.
 
 ## 14. Changes from review (draft 1 -> draft 2)
@@ -722,3 +722,18 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 - The plan's apron was a shade lighter than the airfield. `CityGen.paint` takes `opts.apronPix`, and the game passes `secretApron`, the final airfield's own concrete formula (factored out of `secretColor`), so the apron and the airfield are one surface.
 
 **The final airfield begins with a whole hangar (owner).** The final airfield's pattern (`secretType`, `secretColor`, `secretApron`, `finalAirfield`, and the sky fortress's landing pad) is laid on world rows every `SEC_P` (300) px. Where a level's own ground ends therefore decided where the first hangar was cut. In an Enigma Run level with its own ground, the pattern is shifted (`secOff`, `secM`) so that the airfield's first row is 10 px below a complete hangar's warning stripes. The Campaign keeps offset 0.
+
+### 16.z Level 3, The Long Night (owner decisions after the plan and the mockup)
+
+**Decisions.**
+- **Night look, option C (hybrid):** the generator paints the night (a moonlit grade, the blackout, baked lights), the plan lists its lights, and the game adds moving light (fires, searchlights) in its own night pass. Over plan chunks the game's flat night layer (60 percent navy) is reduced to about a quarter so the ground is not darkened twice.
+- **Sequence:** the marshalling yard moved to the end, right before the boss: `beach_fortified` 3, `industrial_power` 7, `farmland` 7, `city_small` 4, `airbase_searchlight` 6, `forest_deciduous` 5, `industrial_light` 6, `rail_corridor` 6, `station_marshalling` 7 (58 chunks: 3, 8, 8, 5, 7, 6, 7, 7, 7).
+- **Marshalling yard:** gentle points (ladders at about 1 in 3.3, not a steep fan), several ladders staggered left and right, a crossover pair in the middle, tracks 19 px apart. The yard gathers into the arena's rails (the main line at x 18, the supergun's pair at x 93 and 131), and two more tracks (x 55 and 169) run on into the boss arena. A siding between the pair ends at a buffer stop short of the supergun (x 112).
+- **Live trains:** the game's own trains run in the yard on clear sidings and through lines, and **also on the extra arena tracks during the boss fight** (Enigma Run only; the Campaign's arena is unchanged).
+- **Mist:** a weather-plan effect (section 8), drawn under bullets, enemies and the player.
+- **Route objects** for road traffic: build them with this level's roads.
+- Mockup: the published page "The Long Night Mockup" (day and night per segment, real generator ground where it exists, hand-built panels for the new ground).
+
+**Night paint (`CityGen.paint` with `opts.night`).** Everything painted before the fires is graded per pixel: luminance l, colour pulled 60 percent toward l, then r x 0.42 + 6, g x 0.48 + 9, b x 0.66 + 24. The facade windows the day paint lights are blacked out. Then the plan's lights (`CityGen.nightLights(plan)`, built once per plan) are added: about one house in ten has one lit facade window (blocks, public buildings and stations up to three) with a small warm glow; about 45 percent of sawtooth halls glow through their north lights (a night shift); chimneys glow; cooling-tower steam is lit orange from below; every fire lights a circle of its size plus 16 px. Fires are drawn after the grade at full brightness, and their smoke is graded like the ground (also in `paintFx(..., night)`). Every light comes from plan data, never from pixels, so a chunk painted in bands equals one painted whole (checked). Cost, warm, in Node: about 0.4 to 1.9 ms more per chunk than by day. The city lab has a Night switch; the lab's river streaks are drawn faint at night.
+
+**Next:** the new ground in the generator (marshalling yard, searchlight airbase, deciduous forest, rail corridor, pylon line, searchlight slots), then the game wiring (`sortiePlanLevel3`, the arena's extra tracks and their trains, the local night rule `nightFire`, mist, route objects) and the level 3 tests.

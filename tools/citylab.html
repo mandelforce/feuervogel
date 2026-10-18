@@ -116,6 +116,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
         <label><input type="checkbox" id="oChunks"> Chunks</label>
         <label><input type="checkbox" id="oScreen" checked> Screen</label>
         <label><input type="checkbox" id="oFire" checked> Animate fire and water</label>
+        <label><input type="checkbox" id="oNight"> Night (Enigma level 3)</label>
       </div>
     </section>
     <section class="box" aria-labelledby="h-legend">
@@ -176,7 +177,7 @@ $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="backgr
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire', 'oNight'];
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
@@ -202,7 +203,7 @@ function build() {
   // paint chunk by chunk, timing each (the game paints one 64-row chunk at a time)
   const { W, L } = plan; map.width = W; map.height = L; const ctx = map.getContext('2d'); img = ctx.createImageData(W, L);
   const times = []; const tmp = new ImageData(W, 64);
-  for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt, { noFx: $('oFire').checked }); times.push(performance.now() - t);
+  for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt, { noFx: $('oFire').checked, night: $('oNight').checked }); times.push(performance.now() - t);
     img.data.set(part.data.subarray(0, W * hgt * 4), (L - y0 - hgt) * W * 4); }
   ctx.putImageData(img, 0, 0);
   times.sort((a, b) => a - b);
@@ -287,15 +288,16 @@ function startFire() {
   if (!$('oFire').checked || !plan) return;
   let flow = []; // the river streaks drawn last tick, cleared before the next
   fires = plan.fires.map(f => { const bx = CG.fireBox(f), w = bx.x1 - bx.x0, h = bx.y1 - bx.y0, c = document.createElement('canvas'); c.width = w; c.height = h; return { f, bx, c, img: new ImageData(w, h) }; });
-  const t0 = performance.now();
+  const t0 = performance.now(), night = $('oNight').checked; // at night the river's streaks are faint and the smoke dark
   const tick = () => { const t = (performance.now() - t0) / 1000;
     for (const r of flow) g.clearRect(r.x, plan.L - 1 - r.y, r.w, 1);
-    flow = CG.riverFx(plan, t); for (const r of flow) { g.globalAlpha = r.a; g.fillStyle = r.c; g.fillRect(r.x, plan.L - 1 - r.y, r.w, 1); } g.globalAlpha = 1;
+    flow = CG.riverFx(plan, t); for (const r of flow) { g.globalAlpha = r.a * (night ? 0.4 : 1); g.fillStyle = r.c; g.fillRect(r.x, plan.L - 1 - r.y, r.w, 1); } g.globalAlpha = 1;
     for (const o of fires) g.clearRect(o.bx.x0, plan.L - o.bx.y1, o.c.width, o.c.height);
-    for (const o of fires) { CG.paintFx(plan, o.f, o.img, o.bx, t + (o.f.seed % 7)); o.c.getContext('2d').putImageData(o.img, 0, 0); g.drawImage(o.c, o.bx.x0, plan.L - o.bx.y1); } };
+    for (const o of fires) { CG.paintFx(plan, o.f, o.img, o.bx, t + (o.f.seed % 7), night); o.c.getContext('2d').putImageData(o.img, 0, 0); g.drawImage(o.c, o.bx.x0, plan.L - o.bx.y1); } };
   tick(); fireTimer = setInterval(tick, 50);
 }
 $('oFire').addEventListener('change', () => { save(); build(); });
+$('oNight').addEventListener('change', () => { save(); build(); });
 // hover: what is here
 const tip = $('tip');
 map.addEventListener('mousemove', e => {

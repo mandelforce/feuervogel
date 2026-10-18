@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Settlement generator (for Enigma Run level 3): a night look. The ground is moonlit (darker, bluer, less colourful), the blackout darkens almost every window, and about one house in ten shows a crack of light. Fires light the streets around them and their smoke is dark against the night, furnaces glow, cooling-tower steam is lit from below, and halls on a night shift glow through their roof lights. The city lab has a Night switch. Nothing changes in the game yet.
 - Enigma Run levels 6 and 6B: the final airfield now begins with a complete hangar and its black and yellow warning stripes, instead of a hangar cut off at the city's edge.
 - Enigma Run levels 6 and 6B: the city's airfield edge now runs seamlessly into the final airfield. The dark jagged band along the bottom of the first hangar is gone, and the apron has the airfield's own concrete.
 - The tunnel opening is 2 px wider on each side: a 22 px mouth in a 28 px sandstone face with thicker sides. The hill and track are unchanged.

@@ -2040,7 +2040,48 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
   for (const it of items) { if (!(it.dmg >= 3 || it.fire) || it.y0 + it.h + 4 < y0 || it.y0 - 4 >= y0 + h) continue;
     for (let yy = it.y0 - 4; yy < it.y0 + it.h + 4; yy++) for (let xx = it.x0 - 4; xx < it.x0 + it.w + 4; xx++) { const o = at(xx, yy); if (o < 0 || Kr[o] === K.BLDG || Br[o] === it.id) continue;
       const dd = Math.max(it.x0 - xx, xx - (it.x0 + it.w - 1), it.y0 - yy, yy - (it.y0 + it.h - 1)); if (dd > 0 && hh(xx * 3, yy * 7) < 0.75 - dd * 0.17) put(xx, yy, C.char[0], 0.42); } }
-  if (!(opts && opts.noFx)) for (const f of plan.fires) { const bx = fireBox(f); if (bx.y1 < y0 || bx.y0 >= y0 + h) continue; fireFx(plan, f, 0, put); }
+  if (opts && opts.night) paintNight(plan, d, y0, h);
+  const fput = opts && opts.night ? (x, y, c, a) => put(x, y, nightC(c), a) : put; // at night the smoke is graded like the ground, the flames stay bright
+  if (!(opts && opts.noFx)) for (const f of plan.fires) { const bx = fireBox(f); if (bx.y1 < y0 || bx.y0 >= y0 + h) continue; fireFx(plan, f, 0, fput); }
+}
+// Night (opts.night, Enigma level 3): a moonlit grade over everything painted so far (darker, less saturated, blue), with the blackout's
+// lit windows turned dark, then the plan's own lights added on top (nightLights). Fires are drawn after it, at full brightness. Every light
+// comes from the plan, not from pixels, so a chunk painted in bands is the same as one painted whole.
+const nightC = c => { if (c[0] > 190) return c; const l = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; return [(l + (c[0] - l) * 0.4) * 0.42 + 6, (l + (c[1] - l) * 0.4) * 0.48 + 9, (l + (c[2] - l) * 0.4) * 0.66 + 24]; }; // the grade for one colour; fire colours pass
+function paintNight(plan, d, y0, h) {
+  const W = plan.W, L = plan.L, lit = C.lit, dk = C.dark;
+  for (let sr = 0; sr < h; sr++) { const y = y0 + h - 1 - sr; if (y < 0 || y >= L) continue;
+    for (let x = 0, o = sr * W * 4; x < W; x++, o += 4) { let r = d[o], g = d[o + 1], b = d[o + 2];
+      if (r === lit[0] && g === lit[1] && b === lit[2]) { r = dk[0]; g = dk[1]; b = dk[2]; } // blacked out
+      const l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
+  const add = (x, y, c, a) => { const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; d[o] += c[0] * a; d[o + 1] += c[1] * a; d[o + 2] += c[2] * a; }; // Uint8Clamped: saturates
+  for (const q of nightLights(plan)) { if (q.y + q.r < y0 || q.y - q.r >= y0 + h) continue;
+    if (q.r > 0) for (let yy = Math.floor(q.y - q.r); yy <= q.y + q.r; yy++) for (let xx = Math.floor(q.x - q.r); xx <= q.x + q.r; xx++) { const e = Math.hypot(xx + 0.5 - q.x, yy + 0.5 - q.y) / q.r; if (e < 1) add(xx, yy, q.c, q.a * (1 - e) * (1 - e)); }
+    if (q.px) for (const [xx, yy, c] of q.px) add(xx, yy, c, 1); }
+}
+const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0] };
+// The plan's lights at night, built once per plan: about one house in ten shows a crack of light in a facade window (blocks and public buildings up
+// to three), halls on a night shift glow through their painted-over north lights, chimneys and furnaces glow, cooling-tower steam is lit from
+// below, and every fire lights the street around it. { x, y, r, c, a } is a glow (plan coordinates), px a list of bright pixels [x, y, colour].
+function nightLights(plan) {
+  if (plan.lights) return plan.lights;
+  const out = [], { W, L, K: Kr, B: Br, items } = plan, kAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= L) ? -1 : Kr[y * W + x];
+  const facadeOf = (x, y) => { for (let kk = 1; kk <= 3; kk++) { const j = kAt(x, y + kk); if (j === K.BLDG) return items[Br[(y + kk) * W + x]]; } return null; };
+  for (const it of items) {
+    if (it.t === 'works') { const cx = it.x0 + it.w / 2, cy = it.y0 + it.h / 2;
+      if (it.style === 'saw' && hh(it.id, 9) < 0.45) { const px = []; for (let y = it.y0 + 1; y < it.y0 + it.h - 1; y += 3) for (let x = it.x0 + 1; x < it.x0 + it.w - 1; x++) px.push([x, y, NL.shift.map(v => v * 0.45)]); out.push({ x: cx, y: cy, r: 0, px }); }
+      if (it.style === 'chimney' || it.part === 'chimney') out.push({ x: cx, y: cy, r: 12, c: NL.furnace, a: 0.7 });
+      if (it.part === 'cooling') out.push({ x: cx, y: cy, r: it.w * 0.9, c: NL.steam, a: 0.35 });
+      continue; }
+    if (!['house', 'terrace', 'block', 'farm', 'civic', 'store', 'station'].includes(it.t) || it.dmg >= 2 || it.fire || it.round) continue;
+    const n = it.t === 'block' || it.t === 'civic' || it.t === 'station' ? 3 : 1;
+    for (let k = 0; k < n; k++) { if (hh(it.id, 50 + k) > 0.1) continue;
+      for (let tries = 0; tries < 4; tries++) { // a window on the south facade: the column every third pixel, one or two rows below the wall
+        const x = it.x0 + 1 + 3 * Math.floor(hh(it.id, 60 + k * 4 + tries) * Math.max(1, (it.w - 2) / 3)), y = it.y0 - 1 - (hh(it.id, 70 + k) < 0.5 ? 0 : 1);
+        if (x % 3 !== 1 || x >= it.x0 + it.w || kAt(x, y) === K.BLDG || kAt(x, y) < 0 || facadeOf(x, y) !== it) continue;
+        out.push({ x: x + 0.5, y: y + 0.5, r: 6, c: NL.warm, a: 0.45, px: [[x, y, NL.warm]] }); break; } } }
+  for (const f of plan.fires) out.push({ x: f.x, y: f.y, r: Math.max(f.w, f.h) + 16, c: NL.fire, a: 0.42 });
+  return (plan.lights = out);
 }
 // A burning house (spec: convincing fire): an orange glow on its surroundings, flames from the core licking past the roof edge and leaning with
 // the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
@@ -2092,9 +2133,9 @@ function riverFx(plan, t, y0, y1) {
 }
 function fireBox(f) { const R = Math.max(f.w, f.h) / 2 + 10; return { x0: Math.floor(Math.min(f.x0 - 12, f.x - R)), y0: Math.floor(Math.min(f.y0 - 14, f.y - R)), x1: Math.ceil(Math.max(f.x0 + f.w + 30, f.x + R, f.x + WIND[0] * 64 + 14)), y1: Math.ceil(f.y0 + f.h + WIND[1] * 64 + 15) }; } // everything a fire draws: its glow reaches R around it, its smoke column 64 px downwind
 // Animated fire into a transparent ImageData covering the plan box bx (from fireBox), at time t.
-function paintFx(plan, f, img, bx, t) {
+function paintFx(plan, f, img, bx, t, night) { // night: smoke graded as in paint(opts.night)
   const d = img.data, w = bx.x1 - bx.x0, hgt = bx.y1 - bx.y0; d.fill(0);
-  fireFx(plan, f, t, (x, y, c, a = 1) => { const col = x - bx.x0, row = bx.y1 - 1 - y; if (col < 0 || col >= w || row < 0 || row >= hgt) return; const o = (row * w + col) * 4, ea = d[o + 3] / 255, na = a + ea * (1 - a);
+  fireFx(plan, f, t, (x, y, c, a = 1) => { if (night) c = nightC(c); const col = x - bx.x0, row = bx.y1 - 1 - y; if (col < 0 || col >= w || row < 0 || row >= hgt) return; const o = (row * w + col) * 4, ea = d[o + 3] / 255, na = a + ea * (1 - a);
     if (na <= 0) return; d[o] = (c[0] * a + d[o] * ea * (1 - a)) / na; d[o + 1] = (c[1] * a + d[o + 1] * ea * (1 - a)) / na; d[o + 2] = (c[2] * a + d[o + 2] * ea * (1 - a)) / na; d[o + 3] = na * 255; });
   // flat roofs that carry a flak slot: mark the gun platform (painted above via b.slot)
 }
@@ -2143,7 +2184,7 @@ function calmWater(plan) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, palette: C };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, palette: C };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -2163,7 +2204,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
