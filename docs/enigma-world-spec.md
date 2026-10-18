@@ -1094,3 +1094,59 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
 - `tests/enigma.mjs`: a bot flight through levels 2, 6 and 6B each runs trains on the plan's railway (3, 6 and 5 trains). In 6 and 6B tanks turn into side roads and drive along them (10 and 11 side roads used).
 - In level 2 a tank placed above a desert junction turns into the side track, drives along it on the road and stops at its end. The desert's tanks drive only about 40 px in their life, and the desert has only about eight junctions, so a single flight is not a reliable check there.
 - `tests/citygen.mjs`: 20 whole level-2 plans pass every rule with every feature and at least four side tracks.
+
+### 18.7 Weather (owner: after the weather mockups)
+
+**Owner decisions:**
+- Heat shimmer at the airbase and a little inland.
+- Dust (mockup B) and sandstorm gusts (mockup D), both at varying strength.
+- The gusts build over the approach. Stronger gusts push the plane a little, less than the boss sandstorm.
+- The proposed order along the level stands.
+
+**Along the level** (`WX2`, `wx2Chunk`): dust and shimmer per segment, linear between chunk middles, read at the middle of the screen (`wx2At`):
+
+| Segment | Dust | Shimmer | Gusts |
+|---|---|---|---|
+| Harbour | 0.15 | – | – |
+| Beach town | 0.25 | – | – |
+| Valley | 0.4 | 0.6 | – |
+| Village | 0.35 | – | – |
+| Junction | 0.5 | – | – |
+| Small oasis (first open desert) | 0.45 | 0.65 | – (a dust devil) |
+| Airbase | 0.3 | 1 | – |
+| Pass | 0.7 | – | 0.25 (they blow, too weak to push) |
+| Approach (last open desert) | 0.5 to 0.8 | 0.3 to 0 | 0.15 to 0.8 |
+| Boss arena | 0.8 | – | 0.8 |
+
+**Heat shimmer** (`shimmer2`, drawn in `drawGround` over the painted chunks only, under every unit and the plan's fires, so aiming is not affected):
+- Patches of hot air sit on a 72 × 52 px world grid, so they ride with the ground; more of them where the shimmer is stronger. Each drifts a little.
+- A patch shows only on open ground (sand, apron, runway, road and the like). Along each row only the open ground moves, so the rails, rock and walls stay still.
+- Inside a patch, rows of the ground picture shift sideways by a pixel, two in the middle of a patch where the shimmer is strongest (the airbase). Bright mirage glints flicker on them.
+
+**Dust** (drawing only, free random stream):
+- **Flecks:** the Campaign's desert flecks; in level 2 there are more of them and they fly faster as the dust and the gusts grow.
+- **Veils:** up to ten large, faint sand veils drift with the wind.
+- **Trails:** moving tracked vehicles kick up dust behind them, most where the dust is thickest (the junction's convoys).
+- **Dust devil:** in the small oasis's stretch, up to two dust devils (mockup C, part of the proposed order): a dithered, turning funnel (lit on the right, shaded on the left) with a long shadow, riding with the ground as it wanders.
+
+**Gusts** (`updGust2` in the simulation, next to `updStorm`; `drawGust2` where the boss storm is drawn, under the player and the bullets):
+- **Timing:** a gust every 7.5 s (`GUST_P`). Its front sweeps in from the left, holds, dies away, and a calm follows. Each gust's peak varies (a pure hash of the sortie seed and the gust's number).
+- **Determinism:** the gusts come from `run.frames` and the scroll, never `Math.random`, so runs replay.
+- **Look:** ochre light, rolling sand clouds and sharp streaks, built like the boss storm but weaker.
+- **Push:** only the part of a gust above 0.4 (`GUST_FELT`) pushes the plane, up to 0.3 px a frame (`GUST_PUSH`) at full strength, against the boss storm's 0.85. At the approach's strongest gusts this is about 0.2 px a frame. Enemy shells are not bent: only the boss storm bends them.
+- **Boss storm:** while the boss's storm blows, the gusts drop out.
+
+**Shared changes** (no effect outside level 2):
+- `world.gustX` and `world.gustK` are new; both stay 0 outside level 2.
+- The player's movement adds `world.gustX` next to `world.windX`.
+- In the weather block, the flecks' speed and count read the level 2 weather only when `wx2On()` (level 2's generated ground, not on the title screen).
+- `resetTerrainState` also clears the weather's cosmetic lists.
+
+**Tests** (`tests/enigma.mjs`):
+- Dust grows along the level.
+- Shimmer appears only in the valley, the oasis and the airbase (strongest at the airbase).
+- There are no gusts before the pass, and they build over the approach.
+- A strong gust pushes the plane, by less than 0.4 of the boss storm's push. The pass's gusts do not push, the port has none, and the boss storm replaces them.
+- The shimmer moves ground pixels at the airbase.
+- The shimmer, dust, devil and gusts draw without errors.
+- None of it happens outside level 2.

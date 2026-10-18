@@ -195,6 +195,33 @@ for (const lv of [2, 6, 7]) {
     const q = JSON.parse(d); ok(q.n >= 4 && q.side && q.drove >= 20 && q.off === 0 && q.end, `level ${name}: ${q.n} side tracks; a tank turns off the desert track into one, drives ${q.drove} px along it on the road, and stops at its end`); }
   await page2.close();
 }
+// 3e. Level 2 weather (spec 18.7): light dust by the sea, heat shimmer over the valley, the oasis and (strongest) the airbase, more dust in
+// the pass, and gusts only from the pass on, building over the last stretch. A strong gust pushes the plane, less than the boss storm; the
+// boss storm replaces the gusts; the Campaign gets none of it. Drawn at the airbase, the shimmer moves ground pixels, and drawing the
+// shimmer, dust, devil and gusts throws nothing.
+{
+  const page2 = await freshPage();
+  const q = JSON.parse(await page2.evaluate(() => window.SF.peek(`(() => { settings.diff = 1; startEnigma(2); const S = run.sortie, o = { d: 0, s: 0, g: 0 }, by = {};
+    for (let c = 0; c < S.len; c++) { const g = sortieSeg(S, c), k = g === S.segs[S.segs.length - 1] ? 'approach' : g.t; wx2Chunk(S, c, o); const b = by[k] || (by[k] = { d: [], s: [], g: [] }); b.d.push(o.d); b.s.push(o.s); b.g.push(o.g); }
+    const mx = a => Math.max(...a), last = S.segs[S.segs.length - 1], at = c => { world.scroll = (c + world.stageBaseP + 0.5) * CH + H / 2; };
+    const gustAt = (c, stormK) => { at(c); app.state = 'play'; let x = 0, k = 0; const sk = world.stormK; world.stormK = stormK; for (let f = 0; f < GUST_P; f++) { run.frames = f + 3 * GUST_P; updGust2(); x = Math.max(x, world.gustX); k = Math.max(k, world.gustK); } world.stormK = sk; return [x, k]; };
+    const late = gustAt(S.len - 1, 0), pass = gustAt(S.segs.find(g => g.t === 'pass').start + 2, 0), port = gustAt(1, 0), storm = gustAt(S.len - 1, 1);
+    const ab = S.segs.find(g => g.t === 'airbase_desert'); at(ab.start + 3); ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+    const grab = () => { drawGround(); return ctx.getImageData(0, 0, W, H).data; }; let diff = 0, err = '';
+    for (let f = 0; f < 120 && !diff; f += 7) { run.frames = f; lowFX = true; const a = grab(); lowFX = false; const b = grab(); for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1]) diff++; }
+    try { const oz = S.segs.find(g => g.t === 'desert_open'); at(oz.start + 2); for (let f = 0; f < 900; f++) { run.frames = f; if (f === 10) { wx2.devil = { wx: 100, wy: -world.scroll - 40, a: 0, trail: [] }; } wx2Tick(); world.gustK = 0.7; drawGround(); drawWx2Low(); drawGust2(); } } catch (e) { err = String(e); }
+    world.gustK = 0; world.gustX = 0;
+    run.sortie = null; updGust2(); const camp = [world.gustX, world.gustK, wx2On()];
+    return JSON.stringify({ by: Object.fromEntries(Object.entries(by).map(([k, b]) => [k, { d: mx(b.d), s: mx(b.s), g: mx(b.g), g0: b.g[0], g1: b.g[b.g.length - 1] }])), late, pass, port, storm, diff, err, camp, push: STORM_PUSH }); })()`)));
+  const b = q.by;
+  ok(b.harbour_commercial.d < b.pass.d && b.beach_town.d < b.pass.d && b.approach.d >= b.pass.d, `level 2 weather: dust grows along the level (port ${b.harbour_commercial.d}, pass ${b.pass.d}, approach ${b.approach.d.toFixed(2)})`);
+  ok(b.harbour_commercial.s === 0 && b.beach_town.s === 0 && b.valley.s > 0 && b.desert_open.s > 0 && b.airbase_desert.s === 1 && b.pass.s === 0, 'level 2 weather: heat shimmer over the valley, the oasis and (strongest) the airbase, not by the sea or in the pass');
+  ok(['harbour_commercial', 'beach_town', 'valley', 'village', 'station_junction', 'desert_open', 'airbase_desert'].every(k => b[k].g === 0) && b.approach.g1 > b.approach.g0 + 0.4, `level 2 weather: no gusts before the pass, building over the approach (${b.approach.g0.toFixed(2)} to ${b.approach.g1.toFixed(2)})`);
+  ok(q.late[0] > 0 && q.late[0] < q.push * 0.4 && q.pass[0] === 0 && q.pass[1] > 0 && q.port[1] === 0 && q.storm[1] === 0, `level 2 weather: a strong gust pushes the plane ${q.late[0].toFixed(2)} px a frame (the boss storm ${q.push}); the pass's gusts only blow, the port has none, and the boss storm replaces them`);
+  ok(q.diff > 50 && !q.err, `level 2 weather: the shimmer moves ${q.diff} ground pixels at the airbase; shimmer, dust, the dust devil and gusts draw without errors ${q.err}`);
+  ok(q.camp[0] === 0 && q.camp[1] === 0 && q.camp[2] === null, 'level 2 weather: none of it outside level 2 (the Campaign)');
+  await page2.close();
+}
 // 3b''. Level 6B (internal level 7), the harbour city: one plan from the level's first chunk (sea, the south harbour with the east harbour
 // opening into it, the town, works, station, the airfield's perimeter); the picker offers it, the ground types and pixels are the plan's,
 // it is the same after a resume, and flown through by the bot it reaches the boss and returns to the picker without errors.

@@ -2785,7 +2785,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.29'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.30'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -2843,7 +2843,7 @@ let eshotN = 0;
 
 /* ================= noise ================= */
 // The world: the stage being flown. Scrolling, the terrain (its seed, chunks and theme), everything in it (enemies, bullets, shots, items, particles, decals, delayed effects), the director's timers and flags, and the weather.
-const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
+const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, gustX: 0, gustK: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
 
 function hash(x, y) {
   let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ world.SEED;
@@ -6461,7 +6461,7 @@ function resetTerrainState() {
   for (const m of [roadCache, farmCache, tentCache, houseCache, fieldOkCache, railEndCache, parcelRowCache, parcelBlkCache, flowCache, canopyCache]) m.clear();
   castleCache = { base: null, v: null }; finalCache = { k: null, y: null };
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
-  critters.length = 0; props.length = 0; rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
+  critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level) {
   app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground, 1A stage 1
@@ -8653,6 +8653,139 @@ function drawStorm() {
   for (const st of world.stormStreaks) if (!st.puff) { ctx.globalAlpha = 0.75 * world.stormK; ctx.fillRect(Math.round(st.x), Math.round(st.y), Math.round(st.l), 2); }
   ctx.globalAlpha = 1;
 }
+// Enigma Run level 2 weather (spec 18.7): it grows along the level. Light dust by the sea, heat shimmer at midday over the valley, the oasis
+// and the airbase (with one dust devil by the oasis), dust in the pass, and sandstorm gusts over the last stretch that build towards the
+// Sand Colossus, whose own storm attack then comes out of weather that is already there. Per segment [dust, shimmer]; the gust strength
+// ramps over the last open desert. Linear between chunk middles, so nothing steps at a segment border.
+// The gusts are simulation: their timing comes from run.frames and the scroll (never Math.random), and a strong gust pushes the plane a
+// little (GUST_PUSH, about a third of the boss storm's push). Everything else here is drawing only.
+const WX2 = { harbour_commercial: [0.15, 0], beach_town: [0.25, 0], valley: [0.4, 0.6], village: [0.35, 0], station_junction: [0.5, 0], desert_open: [0.45, 0.65], airbase_desert: [0.3, 1], pass: [0.7, 0] };
+const GUST_P = 450, GUST_PUSH = 0.3, GUST_FELT = 0.4; // a gust every 7.5 s; only the part of a gust above GUST_FELT pushes
+const BAY4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16); // a 4 x 4 ordered dither
+const SHIM_OK = new Set(['sand', 'apron', 'concrete', 'runway', 'taxi', 'road', 'mud', 'field', 'yard']);
+function wx2Chunk(S, c, o) {
+  const last = S.segs[S.segs.length - 1], g = c >= S.len ? null : sortieSeg(S, c);
+  if (!g) { o.d = 0.8; o.s = 0; o.g = 0.8; return o; } // the boss arena: the gusts at their strongest
+  if (g === last && g.t === 'desert_open') { const f = (c - g.start + 0.5) / g.n; o.d = 0.5 + 0.3 * f; o.s = 0.3 * (1 - f); o.g = 0.15 + 0.65 * f; return o; } // the approach
+  const v = WX2[g.t] || [0.3, 0]; o.d = v[0]; o.s = v[1]; o.g = g.t === 'pass' ? 0.25 : 0; return o; // the gorge funnels the wind (gusts too weak to push)
+}
+const WXA = { d: 0, s: 0, g: 0 }, WXB = { d: 0, s: 0, g: 0 }, WXO = { d: 0, s: 0, g: 0, dev: false };
+function wx2On() { const S = run.sortie; return S && S.level === 2 && S.gen && app.state !== 'title' ? S : null; }
+// The weather at the middle of the screen (the sortie chunk there, fractional).
+function wx2At(S) {
+  const cf = Math.max(0, -(H / 2 - world.scroll) / CH - world.stageBaseP - 0.5), c = Math.floor(cf), f = cf - c;
+  wx2Chunk(S, c, WXA); wx2Chunk(S, c + 1, WXB);
+  WXO.d = WXA.d + (WXB.d - WXA.d) * f; WXO.s = WXA.s + (WXB.s - WXA.s) * f; WXO.g = WXA.g + (WXB.g - WXA.g) * f;
+  const g = sortieSeg(S, Math.round(cf)); WXO.dev = !!g && g.t === 'desert_open' && g !== S.segs[S.segs.length - 1]; // the oasis stretch
+  return WXO;
+}
+// One gust: the front sweeps in from the left (a fifth of the cycle), holds, dies away, then a calm. Each gust's peak varies.
+function gustPhase() { return (run.frames % GUST_P) / GUST_P; }
+function gustK(S, amp) {
+  const ph = gustPhase(), peak = amp * (0.6 + 0.4 * sortieHash((S.seed | 0) + 4021, Math.floor(run.frames / GUST_P)));
+  const k = ph < 0.2 ? ph / 0.2 : ph < 0.47 ? 1 : ph < 0.75 ? 1 - (ph - 0.47) / 0.28 : 0;
+  return k * k * (3 - 2 * k) * peak;
+}
+// Simulation step (next to updStorm): the gust strength and its push. The boss storm replaces the gusts while it blows.
+function updGust2() {
+  world.gustK = 0; world.gustX = 0;
+  const S = wx2On(); if (!S || app.state !== 'play') return;
+  const K = gustK(S, wx2At(S).g) * Math.max(0, 1 - world.stormK * 4);
+  world.gustK = K; world.gustX = K > GUST_FELT ? GUST_PUSH * (K - GUST_FELT) / (1 - GUST_FELT) : 0;
+}
+// Cosmetic step (in the free-stream weather block): dust veils, gust clouds and streaks, the dust devil, dust behind moving vehicles.
+const wx2 = { veils: [], clouds: [], streaks: [], trail: [], devil: null, devils: 0, seen: new Map() };
+function wx2Reset() { wx2.veils.length = 0; wx2.clouds.length = 0; wx2.streaks.length = 0; wx2.trail.length = 0; wx2.devil = null; wx2.devils = 0; wx2.seen.clear(); }
+function wx2Tick() {
+  const S = wx2On(); if (!S) { if (wx2.veils.length || wx2.devil) wx2Reset(); return; }
+  const w = wx2At(S), K = world.gustK, sv = world.scrollV || 0, sc = Math.floor(world.scroll);
+  const nV = lowFX ? 0 : Math.round(w.d * 6 + K * 4);
+  while (wx2.veils.length < nV) wx2.veils.push({ x: rnd(-60, W), y: rnd(-20, H), rx: rnd(40, 90), ry: rnd(12, 26), v: rnd(0.25, 0.55) });
+  wx2.veils.length = Math.min(wx2.veils.length, nV);
+  for (const v of wx2.veils) { v.x += v.v * (1 + w.d + K * 3); v.y += sv * 0.7; if (v.x - v.rx > W) { v.x = -v.rx; v.y = rnd(-20, H); } if (v.y - v.ry > H) { v.y = -v.ry; v.x = rnd(-60, W); } }
+  if (K > 0.02 && !lowFX) {
+    while (wx2.clouds.length < 8) wx2.clouds.push({ x: rnd(-60, W), y: rnd(0, H), r: rnd(18, 40), v: rnd(2, 4) });
+    while (wx2.streaks.length < 70) wx2.streaks.push({ x: rnd(0, W), y: rnd(0, H), l: rnd(8, 30), v: rnd(3, 8) });
+  } else if (K <= 0.02) { wx2.clouds.length = 0; wx2.streaks.length = 0; }
+  for (const c of wx2.clouds) { c.x += c.v * (0.4 + K); c.y += 0.3; if (c.x - c.r > W) { c.x = -c.r * 2; c.y = rnd(0, H); } }
+  for (const s of wx2.streaks) { s.x += s.v * (0.4 + K); s.y += 0.3; if (s.x > W + 20) { s.x = -20; s.y = rnd(0, H); } }
+  // the dust devil: by the oasis, up to two, each riding with the ground while it wanders
+  if (w.dev && !wx2.devil && wx2.devils < 2 && app.state === 'play' && Math.random() < 0.004) { wx2.devils++; wx2.devil = { wx: rnd(30, W - 50), wy: -sc - 50, a: 0, trail: [] }; }
+  const D = wx2.devil; if (D) { const t = run.frames / 60; D.a += 0.35; D.wx += Math.sin(t * 0.4) * 0.35 + 0.15; D.wy -= Math.cos(t * 0.3) * 0.2; D.trail.push([D.wx, D.wy]); if (D.trail.length > 90) D.trail.shift(); if (D.wy + sc > H + 60 || D.wx > W + 30) wx2.devil = null; }
+  if (!w.dev && D && D.wy + sc > H) wx2.devil = null;
+  // dust kicked up by moving vehicles (most on the junction's convoys, where the dust is thickest)
+  if (!lowFX) for (const e of world.enemies) {
+    if (!e.ground || e.dead || !ENT[e.type].treads || e.wx === undefined || e.y < -10 || e.y > H + 10) { continue; }
+    const p = wx2.seen.get(e); wx2.seen.set(e, [e.wx, e.wy]); if (!p) continue;
+    const mx = e.wx - p[0], my = e.wy - p[1]; if (mx * mx + my * my < 0.04 || Math.random() > 0.25 + w.d * 0.5) continue;
+    const m = Math.hypot(mx, my), back = (e.hh || 8) + 1;
+    wx2.trail.push({ wx: e.wx - mx / m * back + rnd(-2, 2), wy: e.wy - my / m * back + rnd(-2, 2), r: 1.5, life: 0, max: 50 + w.d * 40 });
+  }
+  if (wx2.seen.size > 80) wx2.seen.clear();
+  for (const q of wx2.trail) { q.life++; q.r += 0.1; q.wx += 0.3 + w.d * 0.3 + K; }
+  if (wx2.trail.length && wx2.trail[0].life >= wx2.trail[0].max) wx2.trail = wx2.trail.filter(q => q.life < q.max);
+}
+// Heat shimmer (in drawGround, over the painted ground only, under every unit, so aiming is never affected): patches of hot air drift
+// over the sand; inside them rows of the ground picture shift sideways by a pixel (two in the airbase's strongest), and bright ground
+// (the runway, the tracks) shows mirage glints. The patches sit on a world grid, so they ride with the ground.
+function shimmer2(sc) {
+  const S = wx2On(); if (!S || lowFX) return; const s = wx2At(S).s; if (s < 0.05) return;
+  const t = run.frames / 60, CW = 72, CHh = 52, gy0 = Math.floor((-sc - 30) / CHh), gy1 = Math.floor((H - sc + 30) / CHh);
+  for (let gy = gy0; gy <= gy1; gy++) for (let gx = -1; gx <= Math.floor(W / CW); gx++) {
+    const h = hash(gx * 7 + 3, gy * 13 + 1); if (h > 0.25 + 0.5 * s) continue;
+    const cx = gx * CW + CW / 2 + Math.sin(t * 0.3 + h * 40) * 16, cy = gy * CHh + CHh / 2 + Math.cos(t * 0.2 + h * 30) * 8;
+    if (!SHIM_OK.has(terrainType(Math.floor(clamp(cx, 0, W - 1)), Math.floor(cy)))) continue;
+    const rx = 20 + h * 40, ry = 9 + h * 18, A = s > 0.95 ? 2 : 1;
+    for (let yy = -Math.floor(ry); yy <= ry; yy++) {
+      const wy = Math.floor(cy) + yy, y = wy + sc; if (y < 0 || y >= H) continue;
+      const e = 1 - (yy * yy) / (ry * ry), half = rx * Math.sqrt(e), wv = Math.sin(wy * 0.6 + t * 7 + h * 9);
+      if (Math.abs(wv) < 0.45) continue;
+      const dx = Math.round(wv * (e > 0.7 ? A : 1)); if (!dx) continue;
+      const k = Math.floor((y - sc) / CH), c = world.chunks.get(-k); if (!c) continue;
+      const xa = Math.max(0, Math.round(cx - half)), xb = Math.min(W, Math.round(cx + half)); let x0 = -1; // only the open ground along the row moves (never the rails, rock or walls)
+      for (let x = xa; x <= xb; x += 3) { const on = x < xb && SHIM_OK.has(terrainType(x, wy)); if (on && x0 < 0) x0 = x; else if (!on && x0 >= 0) { const x1 = Math.min(xb, x) - 2; if (x1 - x0 >= 4) ctx.drawImage(c, x0, y - sc - k * CH, x1 - x0, 1, x0 + dx, y, x1 - x0, 1); x0 = -1; } }
+      if (Math.sin(t * 9 + wy * 1.3 + h * 50) > 0.93) { ctx.fillStyle = 'rgba(255,248,226,0.35)'; ctx.fillRect(Math.round(cx + Math.sin(wy + t) * half * 0.6), y, 2, 1); } // a mirage glint
+    }
+  }
+}
+// Ground-layer weather (after the ground parts): dust trails, dust veils, the dust devil.
+function drawWx2Low() {
+  const S = wx2On(); if (!S || lowFX) return; const sc = Math.floor(world.scroll);
+  for (const q of wx2.trail) { ctx.globalAlpha = 0.45 * (1 - q.life / q.max); dk(q.wx, q.wy + sc, q.r, '#dcbe88'); }
+  const va = 0.05 + 0.13 * wx2At(S).d; ctx.fillStyle = '#d8b880';
+  for (const v of wx2.veils) for (let yy = -Math.floor(v.ry); yy <= v.ry; yy += 2) {
+    const e = 1 - (yy * yy) / (v.ry * v.ry), half = v.rx * Math.sqrt(e); ctx.globalAlpha = va * e;
+    ctx.fillRect(Math.round(v.x - half), Math.round(v.y + yy), Math.round(half * 2), 2);
+  }
+  const D = wx2.devil; if (D) {
+    const t = run.frames / 60, x = D.wx, y = D.wy + sc;
+    for (const [tx, ty] of D.trail) { ctx.globalAlpha = 0.18; ctx.fillStyle = '#e6ce9e'; ctx.fillRect(Math.round(tx), Math.round(ty + sc + 2), 1, 1); }
+    ctx.globalAlpha = 0.3; ctx.fillStyle = '#120e1a'; for (let yy = -3; yy <= 3; yy++) { const hw = Math.round(10 * Math.sqrt(1 - yy * yy / 9)); ctx.fillRect(Math.round(x + 9 - hw), Math.round(y + 3 + yy), hw * 2, 1); } // its shadow, long in the low sun
+    ctx.globalAlpha = 0.85; dk(x, y, 8, '#9a764a'); dk(x - 1, y - 2, 6, '#f4e2b4'); // the cloud of sand at its foot
+    ctx.globalAlpha = 0.92;
+    for (let hh = 0; hh < 44; hh++) { // a turning funnel widening upwards, dithered as in the mockup: lit on the right, shaded on the left, thinning at the top
+      const r = 3 + hh * 0.36, cx = x + hh * 0.5 + Math.sin(t * 2 + hh * 0.15) * 1.5, py = Math.round(y - hh * 0.95), fade = hh / 44;
+      for (let xx = -Math.ceil(r); xx <= r; xx++) {
+        const u = xx / r, px = Math.round(cx + xx), b = BAY4[((py & 3) << 2) | (px & 3)];
+        if (Math.abs(u) > 0.82) { if (b < 0.7 - fade * 0.4) { ctx.fillStyle = u > 0 ? '#faecc8' : '#96704a'; ctx.fillRect(px, py, 1, 1); } continue; }
+        const band = Math.sin(D.a * 1.4 - hh * 0.35 + Math.asin(u) * 2), al = (0.8 - fade * 0.55) * (0.55 + 0.45 * band) * Math.sqrt(1 - u * u);
+        if (b < al * 2.4) { ctx.fillStyle = u > 0.1 ? '#f8e8be' : '#a8825a'; ctx.fillRect(px, py, 1, 1); }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+// The gusts (drawn where the boss storm is drawn, under the player and the bullets): ochre light, rolling sand clouds and sharp streaks,
+// coming in behind a front that sweeps across from the left.
+function drawGust2() {
+  const K = world.gustK; if (K < 0.02 || !wx2On()) return;
+  const ph = gustPhase(), front = ph < 0.2 ? W * (ph / 0.2) * 1.3 - 40 : W + 60;
+  for (let x = 0; x < Math.min(W, front); x += 8) { const edge = clamp((front - x) / 50, 0, 1); ctx.globalAlpha = 0.32 * K * edge; ctx.fillStyle = '#c89a52'; ctx.fillRect(x, 0, 8, H); }
+  for (const c of wx2.clouds) { if (c.x > front) continue; ctx.globalAlpha = 0.24 * K; dk(c.x, c.y, c.r * 0.5, '#e0b878'); dk(c.x + c.r * 0.4, c.y + 4, c.r * 0.38, '#e8c890'); }
+  ctx.fillStyle = '#fff0c8';
+  for (const s of wx2.streaks) { if (s.x > front) continue; ctx.globalAlpha = 0.7 * K; ctx.fillRect(Math.round(s.x), Math.round(s.y), Math.round(s.l), 1); ctx.globalAlpha = 0.35 * K; ctx.fillRect(Math.round(s.x), Math.round(s.y) + 1, Math.round(s.l), 1); }
+  ctx.globalAlpha = 1;
+}
 // The Sand Colossus fights a retreat: it faces the player and reverses up the screen as fast as the ground scrolls,
 // so it holds its place while its tracks turn. It shifts lanes by angling a little while reversing (it can only move
 // along its heading) and now and then pulls away or lets the player catch up.
@@ -9632,7 +9765,7 @@ function updPlayer() {
   if (kd('arrowup', 'w')) dy--; if (kd('arrowdown', 's')) dy++;
   if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
   if (gpad) { dx += gpad.dx; dy += gpad.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } }
-  p.x += dx * 2.6 + world.windX; p.y += dy * 2.6;
+  p.x += dx * 2.6 + world.windX + world.gustX; p.y += dy * 2.6;
   p.x = clamp(p.x, 8, W - 8); p.y = clamp(p.y, 18, H - 14);
   const moved = Math.abs(p.x - p.lx) + Math.abs(p.y - (p.ly ?? p.y));
   if (moved < 0.5 && !app.results) {
@@ -9710,7 +9843,7 @@ function updP2() {
   if (q.dead > 0) { if (--q.dead === 0) { q.x = clamp(p.x + 34, 12, W - 12); q.y = Math.round(H * 0.71) + 8; q.lx = q.x; q.inv = 150; q.tagT = 120; } return; }
   if (q.inv > 0) q.inv--;
   const mode = p2Mode();
-  if (mode === 'pad' && p2In) { let dx = p2In.dx, dy = p2In.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } q.x += dx * 2.6 + world.windX; q.y += dy * 2.6; }
+  if (mode === 'pad' && p2In) { let dx = p2In.dx, dy = p2In.dy; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } q.x += dx * 2.6 + world.windX + world.gustX; q.y += dy * 2.6; }
   else if (mode === 'mouse' && p2Mouse) { const vx = p2Mouse.x - q.x, vy = p2Mouse.y - q.y, d = Math.hypot(vx, vy); if (d > 0.5) { const sp = Math.min(d, 3); q.x += vx / d * sp; q.y += vy / d * sp; } }
   q.x = clamp(q.x, 8, W - 8); q.y = clamp(q.y, 18, H - 14);
   q.bank += ((q.x - q.lx) * 0.6 - q.bank) * 0.25; q.lx = q.x;
@@ -10152,9 +10285,10 @@ function update() {
   {
     const thS = info(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)).th;
     world.nightF += ((thS === 3 ? 1 : 0) - world.nightF) * 0.01; world.snowF += ((thS === 1 ? 1 : 0) - world.snowF) * 0.01; world.dustF += ((thS === 2 ? 1 : 0) - world.dustF) * 0.01;
+    const S2 = wx2On(), fv = S2 ? 0.7 + wx2At(S2).d + world.gustK * 2 : 1; // level 2: the flecks speed up with the dust and the gusts
     for (const f of flakes) {
       if (world.snowF > world.dustF) { f.y += 0.4 + f.z * 0.9; f.x += Math.sin(gf * 0.02 + f.z * 9) * 0.3 - 0.1; }
-      else { f.x += 0.8 + f.z * 1.4; f.y += 0.4 + Math.sin(gf * 0.03 + f.z * 7) * 0.3; }
+      else { f.x += (0.8 + f.z * 1.4) * fv; f.y += 0.4 + Math.sin(gf * 0.03 + f.z * 7) * 0.3; }
       if (f.y > H + 2) { f.y = -2; f.x = Math.random() * W; } if (f.x > W + 2) { f.x = -2; f.y = Math.random() * H; } if (f.x < -2) f.x = W + 1;
     }
     if (world.spotted > 0) world.spotted--;
@@ -10183,6 +10317,7 @@ function update() {
     for (const b of birds) { if (b.perch) continue; b.x += b.vx; b.y += b.vy; b.ph += 0.25; } // a perched crow sits still
     for (let i = birds.length - 1; i >= 0; i--) if (birds[i].x < -30 || birds[i].x > W + 30 || birds[i].y > H + 20 || birds[i].y < -40) birds.splice(i, 1);
   }
+  wx2Tick();
   simOn = simWas;
   if (app.state === 'title') { if (app.flyby) endFlyby(); return; }
   if (app.state === 'over') { if (!app.lbOpen) app.overT++; if (app.overT > 900) leaveOver(true); }
@@ -10283,7 +10418,7 @@ function update() {
   for (const e of world.enemies) if (!e.seenC && !ENT[e.type].uncounted && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; run.stats.seen++; }
   for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); aimOv = null; SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
-  updStorm(); checkProto();
+  updStorm(); updGust2(); checkProto();
   for (const b of world.ebul) {
     if (world.windX && (b.kind === 's' || b.kind === 'B')) b.vx += world.windX * 0.012;
     b.x += b.vx; b.y += b.vy;
@@ -10537,6 +10672,7 @@ function drawGround() {
   const sc = Math.floor(world.scroll);
   const kTop = Math.floor(-sc / CH), kBot = Math.floor((H - 1 - sc) / CH);
   for (let k = kTop; k <= kBot; k++) { const c = world.chunks.get(-k); if (c) ctx.drawImage(c, 0, k * CH + sc); }
+  shimmer2(sc);
   drawPlanFx(sc);
   for (const g of glints) {
     if (g.life < 8) continue;
@@ -11227,7 +11363,7 @@ function drawHiClouds() {
 function drawWeather() {
   if (lowFX) return;
   if (world.snowF > 0.05) { ctx.fillStyle = `rgba(255,255,255,${0.42 * world.snowF})`; for (let fi = 0; fi < flakes.length; fi += 2) { const f = flakes[fi]; ctx.fillRect(Math.round(f.x), Math.round(f.y), f.z > 0.7 ? 2 : 1, f.z > 0.7 ? 2 : 1); } }
-  if (world.dustF > 0.05) { ctx.fillStyle = `rgba(240,216,168,${0.5 * world.dustF})`; for (const f of flakes) if (f.z > 0.4) ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 1); }
+  if (world.dustF > 0.05) { const S2 = wx2On(), zt = S2 ? 0.75 - 0.6 * wx2At(S2).d - 0.3 * world.gustK : 0.4; ctx.fillStyle = `rgba(240,216,168,${0.5 * world.dustF})`; for (const f of flakes) if (f.z > zt) ctx.fillRect(Math.round(f.x), Math.round(f.y), 2, 1); }
 }
 function airShadow(e) {
   let s = null;
@@ -11446,6 +11582,7 @@ function renderMain() {
   drawCanopy();
   drawProps();
   drawParts('g');
+  drawWx2Low();
   drawBirds();
   if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
@@ -11475,7 +11612,7 @@ function renderMain() {
   }
   drawBeam();
   drawPlayerArcs();
-  drawStorm();
+  drawStorm(); drawGust2();
   drawP2(); // under player 1 and the Talons
   drawPlayer();
   drawLocks();
