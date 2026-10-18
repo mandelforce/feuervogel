@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 2, desert ground in the settlement generator after the owner's mockups. Oasis villages come in three sizes: a pool in a grove of date palms, packed flat-roofed houses sharing their walls, a square with the white domed hall and a well. The larger the village, the heavier its damage. A held oasis village and a strongpoint in the open desert carry a fortification kit:
+  - fire trenches with traverses and spoil heaps;
+  - dug-in pits with sandbag rings (gun slots), concertina wire, and a marked minefield with a lane for the track;
+  - an anti-tank ditch with a roadblock;
+  - sand-coloured camouflage nets, a dug-in tank, MG nests on roofs and a bunker.
+- The desert port and beach town is now at war. Hedgehogs stand in the shallows, stakes and wire on the beach, and casemates and bunkers face the sea. The pier is cut through, the promenade's palms are shot off, and the town is heavily damaged. A new port density setting runs from low to high (middle for level 2).
+- The generator's desert has no farmland: fields become open sand. Desert houses are drawn like the game's own desert houses, with sprite shadows and no facades, on the Campaign's desert ground. The city lab offers all the new presets and the port density.
 - The settlement generator has a desert climate, for Enigma Run level 2, and the city lab has two desert presets. Houses and farmsteads have flat plastered roofs in several washes. The church is replaced by a whitewashed domed hall (no minaret). Trees are date palms, the village pond is a well, and open desert begins beyond the irrigated plots. The desert port has its commercial harbour at the south end and the east harbour beside it. Past the harbour it runs on into a beach town: a wide beach with a promenade and palms, rows of bathing huts, and a pleasure pier with a white pavilion at its head. Temperate towns, levels 6 and 6B, and the Campaign are unchanged.
 - Enigma Run levels 6 and 6B: the final airfield now begins with a complete hangar and its black and yellow warning stripes, instead of a hangar cut off at the city's edge.
 - Enigma Run levels 6 and 6B: the city's airfield edge now runs seamlessly into the final airfield. The dark jagged band along the bottom of the first hangar is gone, and the apron has the airfield's own concrete.

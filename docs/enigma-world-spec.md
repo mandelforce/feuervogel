@@ -851,3 +851,73 @@ Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Co
 - `villageDesert` (Desert village): the village preset in the desert.
 
 **Checks** (`tests/citygen.mjs`): 60 seeds of each pass every hard rule. Every house has a flat roof, every church is a domed hall and every tree is a palm. Each plan has open desert. Each port has its promenade, at least six bathing huts, and a pier reaching at least 30 px over the sea. Each village has its well. The palette does not leak. Plan time is about 36 ms (median).
+
+### 18.2 Owner feedback on step 1, and the mockups
+
+**Owner feedback on step 1:** the villages should look fundamentally different, with no typical farmland. The owner asked for mockups in the simplicity of the original Campaign desert. The city should clearly be in the war, with destroyed villages and fortifications at the beach.
+
+**Mockups:** a page of mockups drawn in the game page with the game's own desert ground, palette and sprites, at game scale (artifact "Sea of Sand Mockups"). There were three rounds:
+1. Four village ideas (a walled ksar, a roadside hamlet, a burnt oasis, a strongpoint), the beach town at war (E) and the harbour at war (F).
+2. Oasis villages, C and E mixed: a small hamlet (G), a medium village (H) and a large oasis town (I), with damage growing with size.
+3. The fortifications reworked: the held oasis village (D2), a strongpoint in the open (D3) and the element kit. The owner then had the communication trenches taken out.
+
+**Owner decisions:**
+- Village H is the reference, but the generator may make all three sizes. Smaller villages take less damage.
+- The city at war is E.
+- D2 and D3 work.
+- The port has density variations, with middle density for level 2.
+- No communication trenches.
+
+### 18.3 The desert in the generator (step 1b, for review in the city lab)
+
+**The desert's open land** (`desertLand`, its own builder as the islands are; presets `oasisSmall`, `oasis`, `oasisLarge`, `oasisHeld`, `desertPost`).
+- **The track:** a dirt track 9 px wide (a tank route, `st.dirt`, drawn as packed dirt with two ruts) along the strip.
+- **Features** are placed by share of the length (`P.features`).
+- **An oasis village** (G, H, I):
+  - a pool (`K.WATER`, -16) in a grove of date palms on watered ground (`K.OASIS`, game type `grass`) on one side of the track;
+  - packed blocks of flat-roofed houses on the other side: a guillotine split, every house at least 9 px across, sharing walls (`t: 'cube'`), now and then a courtyard with a palm. A large village has blocks all round the grove.
+  - a square with the white domed hall (a flat hall and a round dome, one group) and a well.
+- **Damage by size:** houses, the share in ruins, fires and shell holes grow with the size (60 seeds: 5.4, 21 and 43 houses; 6, 15 and 31 percent ruined).
+- **The fortification kit** (a held village: D2; a strongpoint in the open: D3):
+  - **fire trenches** in fire bays and traverses, 3 px wide, with their spoil on the enemy side (`K.SPOIL`, game type `sand`, shaded by `Br`);
+  - **dug-in pits** with a ring of sandbags, each bag drawn (`plan.pits`; gun slots `flak` and `arty`);
+  - **concertina wire** belts on iron pickets (`plan.coils`);
+  - a **minefield** behind marker posts with warning signs, with a lane for the track (`plan.mines`, `plan.signs`);
+  - an **anti-tank ditch** with steep shaded sides and its spoil on the defenders' side (`K.DITCH`, game type `mud`), with a **roadblock** where the track crosses it (concrete blocks, a barrier pole, hedgehogs);
+  - sand-coloured **camouflage nets** (`plan.nets`);
+  - a **tank dug in** hull-down (slot `tank`, new);
+  - **MG nests on flat roofs** (roof slots), and a **bunker** slot on a concrete pad.
+  - No communication trenches (owner).
+- **The held village** faces an attack from the south. Going north (towards the village):
+  1. the ditch and the roadblock;
+  2. the minefield;
+  3. two wire belts;
+  4. the fire trench with its pits, the bunker by the track and the tank on the flank;
+  5. a flak pit under a net at the grove.
+- **The strongpoint** is a ring of six pits joined by fire trenches round a command bunker, with two flak pits under nets, a tank dug in and ammunition under a net. Wire and mines run all round it, with one gap towards the track.
+- **The track** stays free in every plan: no trench, ditch, pit or spoil is on it.
+
+**The desert port at war** (`portDesert`, owner mockup E).
+- **Density:** the port's density is a parameter, `portDensity`, from 0 (half the preset's U) through 0.5 (middle, used by level 2) to 1 (the preset's own). The lab has a Port density slider. Damage is 0.6, highest in the beach town.
+- **The beach town at war** (`coast.war`):
+  - hedgehogs in three staggered rows in the shallows, and stakes at the waterline;
+  - a belt of concertina wire along the top of the beach;
+  - two casemates on the sand with their embrasures facing the sea (`seaX`), and two bunker slots on concrete pads;
+  - the pleasure pier cut through, and about half the promenade's palms shot off;
+  - no bathing huts.
+- The obstacles go in before the town's obstacle list is reset (`plan.beachTown.obs`).
+- The roundabout and the government buildings are left out of the desert town (owner: simpler).
+
+**The desert look, closer to the Campaign.**
+- **Houses:** every flat desert roof is drawn like the game's desert house sprites: light top and left edges, a darker bottom and right, and a dark roof hatch. The washes are the sprite's own sand colours and a white, a pink and a buff.
+- **Shadows:** there are no facades in the desert, only the sprite's shadow, 3 px right and 3 px down.
+- **Ground:** the open desert uses the Campaign's own desert formula and colours.
+- **No farmland:** `desertize` turns every field into open sand.
+- **Scrub:** scrub dots the open sand.
+- **Rubble:** a collapsed desert house shows shards in its own wash, not roof tiles.
+
+**Checks** (`tests/citygen.mjs`):
+- 120 desert ports and villages pass every rule. They have no fields, the war beach is complete, the pier is cut through to the sea, the built area grows with `portDensity`, and the palette does not leak.
+- 300 desert-land plans (60 of each preset) pass every rule, with every feature and the free track. Houses and ruins grow with size.
+- Plan time is under 2 ms for the open land and about 35 ms for the port.
+- Temperate presets still paint identically.

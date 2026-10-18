@@ -42,23 +42,45 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
   if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} islands: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median; of 100: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
 // the desert (Enigma Run level 2): every hard rule in 60 desert ports with their beach towns and 60 desert villages; houses and farmsteads
-// have flat roofs, every church is a domed hall, every tree a palm, open desert beyond the irrigated land; the beach town has its promenade,
-// bathing huts and a pleasure pier running out over the sea; the village pond is a well. The desert palette must not leak: a temperate
-// town painted after a desert one is the same as painted on its own.
-{ let fails = 0; const c = { desert: 0, flat: 0, domes: 0, palms: 0, prom: 0, huts: 0, pier: 0, wells: 0 }, ms = [];
+// have flat roofs, every church is a domed hall, every tree a palm, open desert and no fields (owner: no farmland in the desert); the beach
+// town is at war (owner mockup E): its promenade, obstacles in the shallows, wire, casemates and bunker slots on the beach, the pier cut
+// through; the village pond is a well; the port's density follows portDensity. The desert palette must not leak: a temperate town painted
+// after a desert one is the same as painted on its own.
+{ let fails = 0; const c = { desert: 0, flat: 0, domes: 0, palms: 0, noFields: 0, prom: 0, war: 0, pier: 0, wells: 0 }, ms = [];
   for (const preset of ['portDesert', 'villageDesert']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}, trains blocked ${m.trainBlocked}`); }
-    let nd = 0, prom = 0; for (let i = 0; i < p.K.length; i++) { if (p.K[i] === CG.K.DESERT) nd++; if (p.K[i] === CG.K.WALK && p.B[i] === -15) prom++; }
-    if (nd > 15000) c.desert++; if (p.items.every(b => !['house', 'terrace', 'block', 'farm', 'farmhouse'].includes(b.t) || b.part || b.style === 'flat')) c.flat++;
+    let nd = 0, prom = 0, nf = 0; for (let i = 0; i < p.K.length; i++) { if (p.K[i] === CG.K.DESERT) nd++; if (p.K[i] === CG.K.FIELD) nf++; if (p.K[i] === CG.K.WALK && p.B[i] === -15) prom++; }
+    if (nd > 15000) c.desert++; if (!nf) c.noFields++; if (p.items.every(b => !['house', 'terrace', 'block', 'farm', 'farmhouse'].includes(b.t) || b.part || b.style === 'flat')) c.flat++;
     if (p.churches.every(ch => ch.dome)) c.domes++; if (p.trees.length && p.trees.every(t => t.palm)) c.palms++;
-    if (preset === 'portDesert') { const bt = p.beachTown, pr = bt && bt.pier; if (prom > 500) c.prom++; if (bt && bt.huts >= 6) c.huts++;
-      if (pr && p.coast.cs * (pr.x1 * (p.coast.cs > 0 ? 1 : 0) + pr.x0 * (p.coast.cs > 0 ? 0 : 1) - p.coast.xs[pr.y0]) >= 30) c.pier++; }
+    if (preset === 'portDesert') { const bt = p.beachTown, pr = bt && bt.pier, w = bt && bt.war; if (prom > 500) c.prom++; if (w && w.hedgehogs >= 20 && w.casemates >= 1 && w.bunkers >= 1 && p.coils.length >= 1) c.war++;
+      if (pr && pr.cut && p.K[(pr.y0 + 2) * p.W + pr.cut] === CG.K.SEA) c.pier++; }
     else if (p.wells && p.wells.length === 1 && !p.K.some((k, i) => k === CG.K.WATER && p.B[i] === -7)) c.wells++; }
-  const need = { desert: 120, flat: 120, domes: 120, palms: 120, prom: 60, huts: 54, pier: 60, wells: 60 }, low = Object.entries(c).filter(([k, v]) => v < need[k]);
+  const need = { desert: 120, flat: 120, domes: 120, palms: 120, noFields: 120, prom: 60, war: 60, pier: 60, wells: 60 }, low = Object.entries(c).filter(([k, v]) => v < need[k]);
   if (low.length) fail(`desert: too few of ${low.map(([k, v]) => k + ' ' + v + '/' + need[k]).join(', ')}`); ms.sort((a, b) => a - b);
+  const built = pd => { let n = 0; for (let seed = 1; seed <= 10; seed++) { const p = CG.generate({ seed, preset: 'portDesert', params: { portDensity: pd } }); for (const k of p.K) if (k === CG.K.BLDG) n++; } return n; }, bl = [0, 0.5, 1].map(built), dens = bl[0] < bl[1] && bl[1] < bl[2];
+  if (!dens) fail(`desert: the port's built area does not grow with portDensity (${bl.join(', ')})`);
   const pnt = p => { const img = { data: new Uint8ClampedArray(p.W * 600 * 4) }; CG.paint(p, img, 300, 600, { noFx: true }); return img.data; }, town = CG.generate({ seed: 4, preset: 'town' }), a = pnt(town);
   pnt(CG.generate({ seed: 4, preset: 'villageDesert' })); const b = pnt(town), leak = a.some((v, i) => v !== b[i]); if (leak) fail('desert: the desert palette leaked into a temperate town painted after it');
-  console.log(`${fails || low.length || leak ? 'FAIL' : 'ok  '} desert: ${120 - fails}/120 pass, plan ${ms[60].toFixed(0)} ms median; ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}; no palette leak`); }
+  console.log(`${fails || low.length || leak || !dens ? 'FAIL' : 'ok  '} desert: ${120 - fails}/120 pass, plan ${ms[60].toFixed(0)} ms median; ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}; built area by port density ${bl.join(' < ')}; no palette leak`); }
+// the desert's open land (desertLand): oasis villages of three sizes (damage grows with size), a held village and a strongpoint in the open
+// (owner mockups G, H, I, D2, D3), 60 seeds each. Every hard rule; the grove, pool, square with the domed hall and the well; houses and ruins by
+// size; in a held village every part of the kit (trench, pits, wire, mines with signs, the ditch, the roadblock, the bunker and tank slots, a
+// net, roof nests); in a strongpoint six pits, two nets, the tank slot and wire with a gap; and the track always free: no trench, ditch, pit or
+// spoil on it, so tanks pass
+{ let fails = 0; const c = { grove: 0, hall: 0, sizes: 0, held: 0, post: 0, track: 0 }, ms = [], ruinShare = { oasisSmall: 0, oasis: 0, oasisLarge: 0 }, houses = { oasisSmall: 0, oasis: 0, oasisLarge: 0 };
+  for (const preset of ['oasisSmall', 'oasis', 'oasisLarge', 'oasisHeld', 'desertPost']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}`); }
+    let bad = 0; for (let y = 0; y < p.L; y++) for (let x = Math.round(p.mx[y] - 4); x <= p.mx[y] + 4; x++) if ([CG.K.TRENCH, CG.K.DITCH, CG.K.SPOIL].includes(p.K[y * p.W + x])) bad++; if (!bad) c.track++;
+    const O = p.oasis[0]; if (O) { let pool = 0, palms = p.trees.filter(t => t.palm).length; for (let i = 0; i < p.K.length; i++) if (p.K[i] === CG.K.WATER && p.B[i] === -16) pool++; if (pool > 60 && palms >= 12) c.grove++; if (O.hall && p.wells.length) c.hall++;
+      if (ruinShare[preset] !== undefined) { ruinShare[preset] += O.houses ? O.ruins / O.houses : 0; houses[preset] += O.houses; } }
+    const kinds = p.slots.map(s => s.kind);
+    if (preset === 'oasisHeld' && p.K.includes(CG.K.TRENCH) && p.K.includes(CG.K.DITCH) && p.pits.length >= 4 && p.coils.length >= 2 && p.mines.length > 40 && p.signs.length > 6 && p.barriers.length && kinds.includes('bunker') && kinds.includes('tank') && p.nets.length && p.slots.some(s => s.on === 'roof')) c.held++;
+    if (preset === 'desertPost' && p.pits.length >= 8 && p.nets.length >= 3 && kinds.includes('tank') && p.coils.length >= 1 && p.mines.length > 40) c.post++; }
+  for (const k in ruinShare) ruinShare[k] = +(ruinShare[k] / 60).toFixed(2), houses[k] = +(houses[k] / 60).toFixed(1);
+  if (ruinShare.oasisSmall < ruinShare.oasis && ruinShare.oasis < ruinShare.oasisLarge && houses.oasisSmall < houses.oasis && houses.oasis < houses.oasisLarge) c.sizes = 1;
+  const low = Object.entries(c).filter(([k, v]) => v < ({ grove: 240, hall: 240, sizes: 1, held: 60, post: 60, track: 300 })[k]); ms.sort((a, b) => a - b);
+  if (low.length) fail(`desert land: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`);
+  console.log(`${fails || low.length ? 'FAIL' : 'ok  '} desert land: ${300 - fails}/300 pass, plan ${ms[150].toFixed(1)} ms median; ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}; houses by size ${Object.values(houses).join(' < ')}, ruined share ${Object.values(ruinShare).join(' < ')}`); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
