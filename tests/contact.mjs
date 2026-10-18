@@ -30,7 +30,7 @@ for (const lv of levels) {
     const frac = at ? -at[k] - 1e-9 : points === 1 ? 0.5 : k / (points - 1) * 0.97, name = `level${lv}-${k + 1}.png`;
     const url = await page.evaluate(([lv, frac]) => window.SF.peek(`(() => {
       settings.diff = 1; startEnigma(${lv});
-      world.enemies = []; world.ebul = []; world.parts = []; world.decals = []; world.shots = []; world.items = []; critters.length = 0; props.length = 0;
+      world.enemies = []; world.ebul = []; world.parts = []; world.decals = []; world.shots = []; world.items = []; critters.length = 0; props.length = 0; world.carrier = null; /* the ground only: no carrier scene */
       const sc = Math.round((${frac}) < 0 ? -(${frac}) * CH : (${frac}) * run.sortie.len * CH); /* a negative share is a chunk number */ world.scroll = sc; world.scrollV = world.scrollTarget = 0;
       world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2;
       for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; }

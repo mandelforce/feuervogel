@@ -40,6 +40,9 @@ jobs:
       # Enigma Run plumbing (docs/enigma-world-spec.md): sorties, flags, level end, resume, picker, and no state left behind by an Enigma Run level.
       - name: Enigma Run test
         run: node tests/enigma.mjs
+      # Road vehicles move smoothly: every Campaign stage and Enigma Run level, no tank or truck may flick its heading, shake or jump.
+      - name: Vehicle jitter test
+        run: node tests/jitter.mjs
       - name: Performance check (warning only)
         continue-on-error: true
         run: node tests/perf.mjs --warn

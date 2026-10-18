@@ -83,13 +83,35 @@ node tests/enigma.mjs --bench    # also print chunk build times per level, and l
 node tests/enigma.mjs --pixels   # also compare finished Campaign chunks (pixels and features) with tests/enigma-pixels.json
 ```
 
-It also checks that level 6's ground is identical on a fresh page, after a Campaign run in the same page, and after a resume. `--pixels` is a by-hand check (canvas blending can differ between browser builds, so it is not in CI): run it before and after any change to shared terrain code (`drawFeatures`, `pixelColor`, the city functions), because the replay test's terrain fingerprint sees only terrain types. `--pixels --update` rewrites the file and is only for a Campaign look change that is meant.
+It also checks that level 6's ground is identical on a fresh page, after a Campaign run in the same page, and after a resume. It also checks level 1's opening on the carrier: the deck start, lift-off, launches, deck guns that can be destroyed, the shrink and slide-off, and the director taking over afterwards. `--pixels` is a by-hand check (canvas blending can differ between browser builds, so it is not in CI): run it before and after any change to shared terrain code (`drawFeatures`, `pixelColor`, the city functions), because the replay test's terrain fingerprint sees only terrain types. `--pixels --update` rewrites the file and is only for a Campaign look change that is meant.
 
 `contact.mjs` writes screenshots of each level at several points along it, for looking at the ground by eye:
 
 ```
 node tests/contact.mjs OUTDIR        # all six levels, 8 points each, plus an HTML sheet per level
 node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
+```
+
+`carrier-shots.mjs` films level 1's opening on the carrier: the playfield at chosen frames after the level begins, with the bot flying (immortal):
+
+```
+node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 230, 330, 480, 700, 1000, plus an HTML sheet
+node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
+```
+
+## Vehicle jitter test (runs in CI, blocking)
+
+`jitter.mjs` plays every Campaign stage and every Enigma Run level (1, 1A, 2–6, 6B) with the bot for 9000 frames each and watches every road vehicle (tanks, trucks, armoured cars, carts) frame by frame. It fails when one
+
+- **swings**: its heading turns more than 0.2 rad and back within 8 frames (the sprite flicks to the side and back: a vehicle reading its road per whole row, then stepping),
+- **wobbles**: it moves sideways more than 0.6 px and back within 8 frames (a shake),
+- **jumps**: it moves more than 2.6 px in one frame (a snap onto another road or route).
+
+A real turn (a corner, a side road, a patrol's end) turns once and stays, so it never counts. The game's guards are `steer` (a vehicle turns at most `VEH_TURN` a frame) and `capStep` (one frame's move at most `VEH_STEP` times its speed, Enigma Run only); a new kind of vehicle or road should move through them. About a minute:
+
+```
+node tests/jitter.mjs              # all stages and levels
+node tests/jitter.mjs --frames N   # frames per stage
 ```
 
 ## City generator test (runs in CI, blocking)

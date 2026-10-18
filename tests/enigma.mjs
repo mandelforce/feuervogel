@@ -52,11 +52,10 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 // 1. The sortie of every level: well formed, and the same every time it is built.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
+  const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 8; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen }); } return out; })()`);
-  const OWN = { 3: [3, 3], 6: [6, 5], 7: [6, 5] }; // levels with their own ground: [gen, boss chunks after the level]
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (OWN[x.lv] ? x.len + OWN[x.lv][1] : null) && x.gen === (OWN[x.lv] ? OWN[x.lv][0] : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 ? x.len + 3 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -146,6 +145,83 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 3c. Level 2, Sea of Sand (spec 18): one plan from the level's first chunk (the desert port beginning over the sea, the beach town at war,
+// the oil valley, the held oasis village, the junction, the small oasis, the airbase, the pass with its viaduct, the quiet desert); the ground
+// types and pixels are the plan's, the open desert in the Campaign's own desert colours; past the level the Campaign's boss ground (bossland,
+// theme 2); the same after a resume; flown through by the bot, the viaduct comes up as a bridge target, the boss (the land fortress) comes
+// and the level returns to the picker on level 2 without errors
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(2); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const pix = [12, 30, 44].map(c => { const p = world.stageBaseP + c; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
+      const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let d = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) d++; return d; }).reduce((a, b) => a + b, 0);
+    const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).plan === true, after = info(world.stageBaseP + S.len + 2), feats = { oasis: P.oasis.map(o => o.size + (o.held ? '+held' : '')).join(','), viaduct: P.viaducts.length, airbase: !!P.airbase, junction: P.trainRuns.some(q => q.line === 'branch'), valley: P.derricks.length, war: !!(P.beachTown && P.beachTown.war) };
+    return { pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, afterB: after.b, afterTh: after.th, afterPlan: !!after.plan, feats, gen: S.gen }; })()`);
+  ok(r.pass && r.L === r.len && r.seaFirst && r.gen === 2, `level 2 plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
+  const F = r.feats; ok(F.war && F.valley >= 2 && F.oasis === 'medium+held,small' && F.junction && F.airbase && F.viaduct === 1, `level 2 has every segment's ground: the beach town at war, the oil valley, the held oasis village and the small oasis, the junction, the airbase, the pass with its viaduct`);
+  ok(r.types === 0 && r.pix === 0, `level 2 ground types and pixels come from its plan, its sand in the Campaign's desert colours (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  ok(r.afterB === 'bossland' && r.afterTh === 2 && !r.afterPlan, `past level 2 the ground is the Campaign's desert boss ground (${r.afterB}, theme ${r.afterTh})`);
+  const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { startEnigma(2); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
+  ok('2:' + fresh === resumed, `level 2 is the same ground after a resume (${fresh})`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(2)'); const o = { status: 'ok', via: false };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.via) o.via = SF.peek('world.enemies.some(e => e.type === "bridge" && e.via)'); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.via, 'on the way the viaduct came up as a bridge target');
+  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 2 && f.errs.length === 0, `level 2 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+// 3d. Trains and side roads (owner): flown through by the bot, levels 2, 6 and 6B each get trains on their plan's train runs (they move along
+// the line) and tanks that turn off the main road into a side road and drive along it
+for (const lv of [2, 6, 7]) {
+  const page2 = await freshPage();
+  const f = await page2.evaluate(lv => { const SF = window.SF; SF.setMode('immortal'); SF.peek(`settings.diff = 1; startEnigma(${lv})`); let st = 'ok'; const o = { trains: new Set(), moved: 0, side: new Set(), sideMoved: 0 }, last = {};
+    for (let i = 0; i < 20000 && st === 'ok'; i++) { st = SF.run(50); const v = JSON.parse(SF.peek(`JSON.stringify({ locos: world.enemies.filter(e => e.type === 'loco' && !e.dead).map(e => [e.train, Math.round(e.wy)]), side: world.enemies.filter(e => (e.type === 'tank' || e.type === 'htank') && e.side && !e.dead).map(e => [e.side.s + ':' + Math.round(e.wx * 0) , Math.round(e.side.k), e.wx | 0]), boss: world.bossSpawned })`));
+      for (const [t, y] of v.locos) { if (last['t' + t] !== undefined && last['t' + t] !== y) o.moved++; last['t' + t] = y; o.trains.add(t); }
+      for (const [s2, k, x] of v.side) { o.side.add(s2); if (last['s' + s2] !== undefined && last['s' + s2] !== k) o.sideMoved++; last['s' + s2] = k; }
+      if (v.boss) break; }
+    return { st, trains: o.trains.size, moved: o.moved, side: o.side.size, sideMoved: o.sideMoved, errs: SF.R.errs.slice(0, 2) }; }, lv);
+  const name = { 2: '2', 6: '6', 7: '6B' }[lv];
+  ok(f.trains >= 1 && f.moved > 5 && f.errs.length === 0, `level ${name}: trains run on the plan's railway (${f.trains} trains)`);
+  if (lv !== 2) ok(f.side >= 1 && f.sideMoved > 5, `level ${name}: tanks turn into side roads and drive along them (${f.side} side roads used)`);
+  else { const d = await page2.evaluate(() => window.SF.peek(`(() => { startEnigma(2); SIDE.turn = 1; const S = run.sortie, sides = sideRoutes(S), sd = sides.find(q => q.path.length >= 30 && q.path[0][1] < S.planY0 - 700), j = sd.junc[0], rt = sortieRoutes(S)[j.rt], y0 = sd.path[j.k][1] - 6; /* a desert side track */
+      world.enemies = []; world.scroll = -y0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+      const t = G('tank', routeX(rt, y0), y0, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: rt.id })); world.enemies.push(t); let side = false, off = 0;
+      for (let f = 0; f < 600; f++) { ENT.tank.update(t); if (t.side) side = true; const tt = terrainType(Math.floor(t.wx), Math.floor(t.wy)); if (tt !== 'road' && tt !== 'bridge') off++; }
+      SIDE.turn = 0.35; return JSON.stringify({ n: sides.length, side, drove: Math.round(Math.abs(t.wx - routeX(rt, y0))), off, end: !!t.atEnd }); })()`));
+    const q = JSON.parse(d); ok(q.n >= 4 && q.side && q.drove >= 20 && q.off === 0 && q.end, `level ${name}: ${q.n} side tracks; a tank turns off the desert track into one, drives ${q.drove} px along it on the road, and stops at its end`); }
+  await page2.close();
+}
+// 3e. Level 2 weather (spec 18.7): light dust by the sea, heat shimmer over the valley, the oasis and (strongest) the airbase, more dust in
+// the pass, and gusts only from the pass on, building over the last stretch. A strong gust pushes the plane, less than the boss storm; the
+// boss storm replaces the gusts; the Campaign gets none of it. Drawn at the airbase, the shimmer moves ground pixels, and drawing the
+// shimmer, dust, devil and gusts throws nothing.
+{
+  const page2 = await freshPage();
+  const q = JSON.parse(await page2.evaluate(() => window.SF.peek(`(() => { settings.diff = 1; startEnigma(2); const S = run.sortie, o = { d: 0, s: 0, g: 0 }, by = {};
+    for (let c = 0; c < S.len; c++) { const g = sortieSeg(S, c), k = g === S.segs[S.segs.length - 1] ? 'approach' : g.t; wx2Chunk(S, c, o); const b = by[k] || (by[k] = { d: [], s: [], g: [] }); b.d.push(o.d); b.s.push(o.s); b.g.push(o.g); }
+    const mx = a => Math.max(...a), last = S.segs[S.segs.length - 1], at = c => { world.scroll = (c + world.stageBaseP + 0.5) * CH + H / 2; };
+    const gustAt = (c, stormK) => { at(c); app.state = 'play'; let x = 0, k = 0; const sk = world.stormK; world.stormK = stormK; for (let f = 0; f < GUST_P; f++) { run.frames = f + 3 * GUST_P; updGust2(); x = Math.max(x, world.gustX); k = Math.max(k, world.gustK); } world.stormK = sk; return [x, k]; };
+    const late = gustAt(S.len - 1, 0), pass = gustAt(S.segs.find(g => g.t === 'pass').start + 2, 0), port = gustAt(1, 0), storm = gustAt(S.len - 1, 1);
+    const ab = S.segs.find(g => g.t === 'airbase_desert'); at(ab.start + 3); ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+    const grab = () => { drawGround(); return ctx.getImageData(0, 0, W, H).data; }; let diff = 0, err = '';
+    for (let f = 0; f < 120 && !diff; f += 7) { run.frames = f; lowFX = true; const a = grab(); lowFX = false; const b = grab(); for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1]) diff++; }
+    try { const oz = S.segs.find(g => g.t === 'desert_open'); at(oz.start + 2); for (let f = 0; f < 900; f++) { run.frames = f; if (f === 10) { wx2.devil = { wx: 100, wy: -world.scroll - 40, a: 0, trail: [] }; } wx2Tick(); world.gustK = 0.7; drawGround(); drawWx2Low(); drawGust2(); } } catch (e) { err = String(e); }
+    world.gustK = 0; world.gustX = 0;
+    run.sortie = null; updGust2(); const camp = [world.gustX, world.gustK, wx2On()];
+    return JSON.stringify({ by: Object.fromEntries(Object.entries(by).map(([k, b]) => [k, { d: mx(b.d), s: mx(b.s), g: mx(b.g), g0: b.g[0], g1: b.g[b.g.length - 1] }])), late, pass, port, storm, diff, err, camp, push: STORM_PUSH }); })()`)));
+  const b = q.by;
+  ok(b.harbour_commercial.d < b.pass.d && b.beach_town.d < b.pass.d && b.approach.d >= b.pass.d, `level 2 weather: dust grows along the level (port ${b.harbour_commercial.d}, pass ${b.pass.d}, approach ${b.approach.d.toFixed(2)})`);
+  ok(b.harbour_commercial.s === 0 && b.beach_town.s === 0 && b.valley.s > 0 && b.desert_open.s > 0 && b.airbase_desert.s === 1 && b.pass.s === 0, 'level 2 weather: heat shimmer over the valley, the oasis and (strongest) the airbase, not by the sea or in the pass');
+  ok(['harbour_commercial', 'beach_town', 'valley', 'village', 'station_junction', 'desert_open', 'airbase_desert'].every(k => b[k].g === 0) && b.approach.g1 > b.approach.g0 + 0.4, `level 2 weather: no gusts before the pass, building over the approach (${b.approach.g0.toFixed(2)} to ${b.approach.g1.toFixed(2)})`);
+  ok(q.late[0] > 0 && q.late[0] < q.push * 0.4 && q.pass[0] === 0 && q.pass[1] > 0 && q.port[1] === 0 && q.storm[1] === 0, `level 2 weather: a strong gust pushes the plane ${q.late[0].toFixed(2)} px a frame (the boss storm ${q.push}); the pass's gusts only blow, the port has none, and the boss storm replaces them`);
+  ok(q.diff > 50 && !q.err, `level 2 weather: the shimmer moves ${q.diff} ground pixels at the airbase; shimmer, dust, the dust devil and gusts draw without errors ${q.err}`);
+  ok(q.camp[0] === 0 && q.camp[1] === 0 && q.camp[2] === null, 'level 2 weather: none of it outside level 2 (the Campaign)');
+  await page2.close();
+}
 // 3b''. Level 6B (internal level 7), the harbour city: one plan from the level's first chunk (sea, the south harbour with the east harbour
 // opening into it, the town, works, station, the airfield's perimeter); the picker offers it, the ground types and pixels are the plan's,
 // it is the same after a resume, and flown through by the bot it reaches the boss and returns to the picker without errors.
@@ -190,18 +266,18 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const A = info(world.stageBaseP + S.len + 2), wyA = -(world.stageBaseP + S.len + 2) * CH + 30, runEnd = x => P.trainRuns.some(q => q.x === x && q.y1 === P.L - 1);
     const fl = { x: 130, y: 100 }, far = { x: 200, y: 100 }; world.enemies = [{ type: 'search', x: 100, y: 100 }]; const lit = nightLit(fl), unlit = nightLit(far); const S0 = run.sortie; run.sortie = null; const camp = nightLit({ x: 200, y: 100 }); run.sortie = S0; world.enemies = [];
-    const R = planRoutes(S), seg = t => S.segs.find(g => g.t === t), mid = t => -(world.stageBaseP + seg(t).start + seg(t).n / 2) * CH;
+    const R = sortieRoutes(S).filter(q => !q.legacy), SR = sideRoutes(S), seg = t => S.segs.find(g => g.t === t), mid = t => -(world.stageBaseP + seg(t).start + seg(t).n / 2) * CH;
     return { pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, night: planPaintOpts(S).night, seaFirst: info(world.stageBaseP).b === 'sea' && terrainType(112, S.planY0 - 10) === 'sea',
       wagons: P.yard ? P.yard.wagons.length : 0, ab: !!P.airbase && P.airbase.planes.length, fo: !!P.forest && P.trees.length, pyl: (P.pylons || []).filter(q => q.ok).length, posts: (P.searchPosts || []).length, gens: P.slots.filter(q => q.kind === 'gen').length,
       runs: runEnd(93) && runEnd(131) && runEnd(55) && runEnd(169), arena: A.b, arenaRails: [18, 55, 93, 131, 169].every(x => A.rails.includes(x)), railAt: terrainType(55, wyA) === 'rail' && terrainType(169, wyA) === 'rail',
-      lit, unlit, camp, routes: R.length, joins: R.filter(q => q.joins).length, mistF: weatherAt(S, 'mist', mid('farmland')), mistY: weatherAt(S, 'mist', mid('station_marshalling')) }; })()`);
+      lit, unlit, camp, routes: R.length, sides: SR.length, mistF: weatherAt(S, 'mist', mid('farmland')), mistY: weatherAt(S, 'mist', mid('station_marshalling')) }; })()`);
   ok(r.pass && r.L === r.len && r.seaFirst && r.night, `level 3 plan passes the generator's hard rules, covers the whole level (${r.L} px), begins over the sea and is painted at night`);
   ok(r.wagons >= 20 && r.ab >= 4 && r.fo > 500 && r.pyl >= 4, `level 3 has the marshalling yard (${r.wagons} wagons), the airbase (${r.ab} parked planes), the forest (${r.fo} trees) and the pylon line (${r.pyl} pylons)`);
   ok(r.posts >= 4 && r.gens >= 3, `level 3 has searchlight posts with flak and generators (${r.posts} posts, ${r.gens} generators)`);
   ok(r.runs && r.arena === 'bossland' && r.arenaRails && r.railAt, `level 3's yard tracks (x 55, 93, 131, 169) run to the plan's end and on through the supergun's arena (${r.arena})`);
   ok(r.types === 0 && r.pix === 0, `level 3 ground types and pixels come from its night plan (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
   ok(r.lit && !r.unlit && r.camp, 'night rule: in Enigma Run only a gun within 70 px of a lit searchlight gets the night bonuses; in the Campaign every gun keeps them');
-  ok(r.routes >= 3 && r.joins >= 1, `level 3 has route objects along its tank streets (${r.routes} routes, ${r.joins} joining the main road)`);
+  ok(r.routes >= 1 && r.sides >= 3, `level 3's tank streets are route objects (${r.routes} along the strip, ${r.sides} side roads)`);
   ok(r.mistF > 0.5 && r.mistY === 0, `level 3's weather plan: mist over the farmland (${r.mistF.toFixed(2)}), none over the yard`);
   const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
   const fresh = await peek(page, `(() => { startEnigma(3); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
@@ -216,6 +292,110 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   ok(f.train && f.posts >= 3, `on the way trains ran on the plan's tracks and ${f.posts} searchlight posts were manned${f.route ? ', and a convoy drove along a route' : ''}`);
   ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 3 && f.errs.length === 0, `level 3 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 3 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
+}
+
+
+// 3b'''. Level 1's carrier start: the Feuervogel stands on the deck of a carrier that nearly fills the screen and cannot steer until it has
+// lifted off; the carrier carries six deck guns that can be destroyed (and no hull target); fighters launch from its catapults and chase the
+// player; it shrinks to half size and slides off the bottom; the pursuit ends and the director takes over. A Campaign run has no carrier.
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal');
+    const o = SF.peek(`(() => { settings.diff = 1; startAt(1); const camp = world.carrier === null; settings.diff = 1; startEnigma(1); const C = world.carrier;
+      return { camp, on: !!C, s: C && C.s, K: CV.K, sEnd: Math.round(CV.K * CV.END * 128) / 128, deck: player.deck, steer: canSteer(), guns: world.enemies.filter(e => e.type === 'cgun').length, len: C && Math.round(-CV.BOW * 2 * C.s), H, top: C && Math.round(C.y + CV.BOW * C.s) }; })()`);
+    SF.run(30); o.steer30 = SF.peek('canSteer()'); o.shotsBefore = SF.peek('world.shots.length');
+    SF.run(SF.peek('CV.FLY') - 30 + 2); Object.assign(o, SF.peek(`({ deckAfter: player.deck, alt: player.alt, steerAfter: canSteer(), cf: world.enemies.filter(e => e.type === 'cfighter').length + world.enemies.filter(e => e.chase).length })`));
+    o.gunKill = SF.peek(`(() => { const g = world.enemies.find(e => e.type === 'cgun' && !e.dead); if (!g) return false; damage(g, 999); return g.dead && world.carrier.gunDead[g.gi] === true; })()`);
+    o.ships = 0; o.minS = 9; o.chase = 0;
+    for (let i = 0; i < 50; i++) { SF.run(50); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
+      if (!v.over) o.ships += v.ships; o.minS = Math.min(o.minS, v.s); o.chase = Math.max(o.chase, v.chase); o.gone = v.gone; o.over = v.over; }
+    o.launched = SF.peek('world.carrier.launched'); o.t = SF.peek('world.carrier.t'); SF.run(1500); o.later = SF.peek(`world.enemies.filter(e => !e.chase && !e.dead && ['fighter', 'bomber', 'heavy', 'sub', 'destroyer', 'pt', 'flak'].includes(e.type)).length + run.stats.seen`); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(r.camp, 'a Campaign run has no carrier');
+  ok(r.on && r.s === r.K && r.len >= r.H * 0.7 && r.deck && !r.steer && !r.steer30 && r.guns === 6, `level 1 opens on the carrier's deck: scale ${r.K}, ${r.len} px long on a ${r.H} px screen, six deck guns, no steering while on the deck`);
+  ok(!r.deckAfter && r.alt === 1 && r.steerAfter && r.cf >= 1, `the Feuervogel lifts off over the bow and can steer; fighters are launching after it (${r.cf})`);
+  ok(r.gunKill, 'a deck gun can be destroyed and leaves its stub on the deck');
+  ok(r.minS === r.sEnd && r.gone && r.over, `the carrier shrinks to ${r.sEnd} and slides off the bottom, and the pursuit ends (scene over at frame ${r.t})`);
+  ok(r.launched >= 8 && r.chase >= 2 && r.ships === 0, `${r.launched} fighters launched in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
+  ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+
+// 3b''''. Level 1's sequence (owner): the carrier, open sea, the small islands, the large island with the airbase, open sea (all sea for
+// now), the fortified beach and the old land (coast, farmland with the Campaign's rivers, village, forest, farmland), the coast down, open sea.
+// Flown through by the bot, the flagship comes over the last open sea and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1); const S = run.sortie, want = { carrier_start: 'sea', open_sea: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', farmland: 'country', village: 'country', forest_deciduous: 'forest', coast_down: 'coastDown' };
+    let bad = 0, rivers = 0; for (let c = 0; c < S.len + 8; c++) { const I = info(world.stageBaseP + c), g = sortieSeg(S, c), w = !g ? 'sea' : g.t === 'beach_fortified' && c === g.start ? 'coastUp' : want[g.t]; if (I.b !== w || I.th !== 0) bad++; if (I.river) rivers++; }
+    return { bad, rivers, seq: S.seq, gen: S.gen, segs: S.segs.map(g => g.t + ' ' + g.n).join(', ') }; })()`);
+  ok(r.bad === 0 && r.seq && !r.gen && r.rivers >= 1, `level 1 follows its own sequence on the Campaign's stage 1 ground (${r.segs}; ${r.rivers} rivers in the farmland)`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(1)'); const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
+// 3b'''''. Level 1A (internal level 8): level 1 with its islands. One islands plan from the first chunk to the fortified beach (the islets in
+// island_chain, the large island from island_airbase on), the legacy ground after it; the picker offers it; types and pixels are the plan's;
+// the same ground after a resume. Flown through by the bot: it opens on the carrier, the islets' turrets and the airbase's guns and planes take
+// their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the level returns to the picker on 1A.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1A'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
+    settings.diff = 1; startEnigma(8); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), beach = S.segs.find(g => g.t === 'beach_fortified').start; let types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const p = world.stageBaseP + 20; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
+    const bio = S.planBiome.join(''), after = info(world.stageBaseP + beach);
+    return { shown, hiddenCamp, pass: v.pass, L: P.L, want: beach * CH, types, n, pix, isles: P.isles.length, airbase: !!P.airbase, land: S.planBiome.filter(b => b === 'country').length, sea: S.planBiome.filter(b => b === 'sea').length, after: after.b, afterPlan: !!after.plan, carrier: !!world.carrier, lvl1: (() => { startEnigma(1); return !!run.sortie.isles || !!sortiePlan(run.sortie); })() }; })()`);
+  ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 1A (the practice picker does not)');
+  ok(r.pass && r.L === r.want && r.isles >= 5 && r.airbase, `level 1A plan passes the generator's hard rules and runs from the first chunk to the fortified beach (${r.L} px, ${r.isles} islets, the airbase)`);
+  ok(r.land >= 8 && r.sea >= 14 && r.after === 'coastUp' && !r.afterPlan && r.carrier && !r.lvl1, `level 1A plays the large island as land (${r.land} chunks) and the rest as sea (${r.sea}), the legacy coast after it, opens on the carrier; level 1 keeps the old ground`);
+  ok(r.types === 0 && r.pix === 0, `level 1A ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { startEnigma(8); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
+  ok('8:' + fresh === resumed, `level 1A is the same ground after a resume (${fresh})`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(8)'); const o = { status: 'ok', wet: 0, ships: 0, cows: 0 };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100);
+      const v = SF.peek(`(() => { const sc = Math.floor(world.scroll); let wet = 0, n = 0; for (const e of world.enemies) if (!e.dead && (e.type === 'destroyer' || e.type === 'sub' || e.type === 'pt') && e.y > 0 && e.y < H) { n++; if (terrainType(Math.floor(e.wx), Math.floor(e.wy)) !== 'sea') wet++; } return { wet, n, cows: critters.filter(c => c.box).length }; })()`);
+      o.wet += v.wet; o.ships += v.n; o.cows = Math.max(o.cows, v.cows);
+      if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP');
+      if (o.used === undefined && SF.peek('!!(run.sortie && run.sortie.slotUsed && run.sortie.slotUsed.size)') && SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP') > 30) o.used = SF.peek(`(() => { const P = run.sortie.plan, k = {}; for (const i of run.sortie.slotUsed) k[P.slots[i].kind] = (k[P.slots[i].kind] || 0) + 1; return { k, of: P.slots.length }; })()`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.used && f.used.k.bunker >= 1 && f.used.k.flak >= 2 && f.used.k.parked >= 1, `on the way the islands' guns took their slots (${f.used ? Object.entries(f.used.k).map(([k, v]) => v + ' ' + k).join(', ') + ' of ' + f.used.of : 'none'})`);
+  ok(f.cows >= 3, `cows grazed in the paddocks (${f.cows} at once)`);
+  ok(f.wet === 0, `no ship stood on land (${f.ships} ship sightings)`);
+  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 8 && f.errs.length === 0, `level 1A flown through: the flagship comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 1A (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
+// 3b''''''. Route objects (spec 2, Tier A): a mixed convoy put on a route drives along it, switching routes where one route ends and another
+// goes on (the lanes round a village green, the plan's edge), never leaves the road, keeps its distance (at least both half-lengths and
+// ROUTE_GAP minus a pixel), and stops at a dead end: in 1A from the airbase down the island's road to the jetty; in level 6 from the town's
+// north end south through the city. Only the convoy moves (its own update, no frame loop), so the test sees the route logic alone.
+{
+  const page = await freshPage();
+  for (const [lv, name, frames] of [[8, '1A', 4000], [6, '6', 26000]]) {
+    const r = await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); SIDE.turn = 0; /* this test follows the routes alone (side roads have their own check) */ const S = run.sortie, R = sortieRoutes(S), plan = R.filter(q => !q.legacy);
+      let bad = 0, n = 0; for (const q of plan) for (let wy = q.wyLo; wy <= q.wyHi; wy += 3) { n++; const t = terrainType(Math.floor(routeX(q, wy)), wy); if (t !== 'road' && t !== 'bridge') bad++; }
+      const start = plan.filter(q => q.main && q.wyHi - q.wyLo > 3 * ROUTE_SPACE + 16).sort((a, b) => a.wyLo - b.wyLo)[0], wy0 = start.wyLo + 3 * ROUTE_SPACE + 8; /* the northernmost main road with room for the convoy */
+      world.enemies = []; world.scroll = -wy0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+      const mk = (type, k) => { const o = type === 'truck' ? G('truck', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, { road: true, dir: 1, lane: 0, v: 0.32, hd: PI / 2, route: start.id }) : G('tank', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: start.id })); world.enemies.push(o); return o; };
+      const cv = [mk('tank', 0), mk('truck', 1), mk('tank', 2), mk('truck', 3)];
+      let seen = {}, minGap = 1e9, offRoad = 0, switches = 0, last = cv.map(o => o.route);
+      let late = 0; for (let f = 0; f < ${frames}; f++) { for (const o of cv) ENT[o.type].update(o); if (f === ${frames} - 400) late = cv[0].wy;
+        if (f % 10 === 0) { const srt = cv.slice().sort((a, b) => b.wy - a.wy); for (let i = 1; i < srt.length; i++) if (Math.abs(srt[i].wx - srt[i - 1].wx) < 9) minGap = Math.min(minGap, srt[i - 1].wy - srt[i].wy - srt[i - 1].hh - srt[i].hh);
+          for (const o of cv) { const t = terrainType(Math.floor(o.wx), Math.floor(o.wy)); if (t !== 'road' && t !== 'bridge') { offRoad++; const P = S.plan, py = Math.round(S.planY0 - o.wy), pi = py * P.W + Math.round(o.wx), key = t + ':' + (py >= 0 && py < P.L ? CityGen.KIND_NAMES[P.K[pi]] + P.B[pi] : 'out') + (o.atEnd ? '@end' : ''); seen[key] = (seen[key] || 0) + 1; } } cv.forEach((o, i) => { if (o.route !== last[i]) { switches++; last[i] = o.route; } }); } }
+      SIDE.turn = 0.35; return { seen: JSON.stringify(seen), routes: plan.length, bad, n, minGap: Math.round(minGap), offRoad, switches, end: cv.every(o => o.atEnd || !o.moving), front: Math.round(cv[0].wy - wy0), stopped: cv[0].atEnd || cv[0].wy === late }; })()`); // at a dead end, or held where the road meets the water
+    ok(r.routes >= 3 && r.bad <= r.n * 0.02, `level ${name}: ${r.routes} routes from the plan's tank streets, on the road (${r.bad} of ${r.n} samples off it)`);
+    ok(r.offRoad === 0 && r.minGap >= 9 && r.switches >= 1 && r.stopped && r.front > 300, `level ${name}: a convoy drove ${r.front} px along its routes (${r.switches} route changes), never off the road, at least ${r.minGap} px between vehicles, and stopped at the end (off the road ${r.offRoad} ${r.seen}, stopped ${r.stopped})`);
+  }
+  await page.close();
 }
 
 // 3c. Level 6 is the same ground every time: a fresh page, after a Campaign run in the same page, and after a resume give the same chunk pixels.
