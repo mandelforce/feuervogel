@@ -211,6 +211,23 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     if (p.yard && p.yard.wagons.length >= 20 && runs && p.airbase && p.airbase.planes.length >= 4 && p.forest && p.pylons && p.pylons.filter(q => q.ok).length >= 4 && p.searchPosts.length >= 4 && p.slots.filter(q => q.kind === 'gen').length >= 3) have++; posts += p.searchPosts.length; }
   const ok = !fails && have === 30; if (!ok) fail(`level 3: ${fails} fail the rules, ${have}/30 have all their parts`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 (The Long Night): ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} searchlight posts per level`); }
+// Enigma level 4, the Iron Forest (forest land): every hard rule; on the cliff coast the sea, stacks, coves, three tiers of cliff with the road's
+// gorge from the slipway to the plateau, the clifftop battery (three casemates with arty slots), a lighthouse, a radar, a pillbox and a flak pit on
+// the ledges; in the conifer forest crowns of every size class and all three kinds, two forest roads that are tank routes, firebreaks, plantations,
+// clearings and clear-cuts. The same seed gives the same plan, and painting in bands equals painting whole.
+{ let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('forest land: ' + m); } };
+  for (const preset of ['cliffCoast', 'coniferForest']) for (let seed = 1; seed <= 60; seed++) { const p = CG.generate({ seed, preset }), m = CG.validate(p); if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach}`); }
+    need(p.conifers.every(c => c.length > 100) && [0, 1, 2].every(sp => p.conifers.some(c => c.some(t => t.sp === sp))), `${preset} ${seed}: conifers of every size and kind`);
+    if (preset === 'cliffCoast') { const CL = p.cliffs, n = k => p.K.reduce((a, v) => a + (v === k), 0), parts = new Set(p.items.map(i => i.part));
+      need(CL && CL.foot.length === 3 && CL.stacks.length >= 2 && n(CG.K.SEA) > 3000 && n(CG.K.CRAG) > 8000 && n(CG.K.LEDGE) > 3000, `cliffCoast ${seed}: sea, stacks and three tiers`);
+      const st = p.streets[0]; need(st.y0 === CL.gorge.y0 && p.K[st.y0 * p.W + Math.round(p.mx[st.y0])] === CG.K.ROAD, `cliffCoast ${seed}: the road begins at the slipway`);
+      need(p.items.filter(i => i.part === 'casemate').length >= 2 && parts.has('lighthouse') && parts.has('radar') && parts.has('pillbox') && p.slots.some(s => s.kind === 'flak') && p.slots.filter(s => s.kind === 'arty').length >= 2, `cliffCoast ${seed}: the battery, lighthouse, radar and ledge guns`); }
+    else need(p.forest.roads.length === 2 && p.streets.filter(s => s.tank).length === 3 && p.forest.rides.length >= 2 && p.forest.plantations.length >= 1 && p.forest.clearings.length >= 1 && p.forest.cuts.length >= 1, `coniferForest ${seed}: roads, rides, plantations, clearings, cuts`);
+    if (seed <= 3) { if (hash(p) !== hash(CG.generate({ seed, preset }))) fail(`${preset} seed ${seed}: the same seed gave a different plan`);
+      const whole = { data: new Uint8ClampedArray(p.W * 64 * 4) }, part = { data: new Uint8ClampedArray(p.W * 16 * 4) }, y0 = 192; CG.paint(p, whole, y0, 64, {}); let diff = 0;
+      for (let b = 0; b < 4; b++) { CG.paint(p, part, y0 + b * 16, 16, {}); for (let r = 0; r < 16; r++) for (let q = 0; q < p.W * 4; q++) if (part.data[r * p.W * 4 + q] !== whole.data[((3 - b) * 16 + r) * p.W * 4 + q]) diff++; }
+      if (diff) fail(`${preset} seed ${seed}: painting in bands differs from painting whole (${diff})`); } }
+  console.log(`ok   forest land: 120 plans, ${fails} failing a hard rule, ${miss} missing a feature`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
 { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;

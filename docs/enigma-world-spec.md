@@ -1190,3 +1190,44 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
 - The shimmer moves ground pixels at the airbase.
 - The shimmer, dust, devil and gusts draw without errors.
 - None of it happens outside level 2.
+
+## 19. Level 4, The Iron Forest
+
+**What the castle boss needs (checked in code; settles the [verify] in section 10).** The castle boss spawns with its gate 1,120 px above where it appears, 1,200 px above the screen's top (`bossE.wy = -sc - 1200`), so its approach is about 19 chunks of the Campaign's `castle` ground with theme 4: grass, the castle road (`croad`) down the middle at x 112, fields, and the small castle on its farm (`castleInfo` finds the first `castle` chunk). The castle grounds themselves are a sprite (`drawRaven`) drawn over the ground. In the Campaign the castle ground begins about 2.5 chunks before the boss trigger and never ends. So level 4 ends as levels 2 and 3 do: past the level, the open-ended Campaign boss ground of its theme (`castle`, theme 4), and the plan's main road runs into the castle road at x 112.
+
+**Owner decisions (plan review):**
+- **Cliff coast:** a ragged cliff with coves and sea stacks, and a **very high coast**: climbing it should feel like going up a mountain.
+- **Conifer forest:** single crowns, **in different sizes**.
+- **Clearing village:** a crossroads village, but a **new variation of its own**, added to the generator.
+- **Hidden airbase:** placed freely by the generator; its hangars and guns come from the plan's slots.
+- **Mist:** now, as a **weather effect of its own** (not level 3's mist).
+- **Valley:** the river runs along the strip and winds a little. It is **wide, with room for the game's ships**, and has **harbour structures at one side**, near a village.
+- **Road traffic:** the route objects already built (17.5, 18.6) carry the level's roads; convoys use them.
+- **Order of work:** the generator first, reviewed in the city lab (City Lab Level 4); then the game.
+
+### 19.1 Step 1: the cliff coast and the conifer forest (generator, for review in the city lab)
+
+**Forest land** (`forestLand`, its own builder as the desert's and the islands' are; `builder: 'forest'`, `climate: 'forest'`; presets `cliffCoast` (900 px) and `coniferForest` (1280 px), in the city lab and in the published **City Lab Level 4**). Features by share of the length (`P.features`), as in the desert.
+
+- **Climate** (`C_FOREST`): the Campaign's stage 4 colours (`THEME_TR[4]`) for grass and the forest floor; three conifer ramps (spruce, pine, larch); grey crag; heath (heather, dead bracken); grey shingle.
+- **New ground kinds:** `CRAG` (41, game type `rock`: cliff faces, the gorge's walls, sea stacks; the plane flies over, ground units keep off) and `LEDGE` (42, `grass`: ledges between the tiers, the gorge's floor, a stack's top). The forest floor is level 3's `WOOD` (`forest`).
+
+**The cliff coast** (feature `cliffs`, owner: a very high coast, like going up a mountain):
+- The level opens over the sea (56 rows by default), with two to four **sea stacks**: a ragged outline extruded upward into a face of 9 to 18 rows, a grassy top, surf round the foot.
+- **Coves:** the main one (46 to 60 rows deep) in the middle of the strip with a shingle beach, often a second, smaller one beside it. They bite into every tier, shallower and wider the higher the tier.
+- **Three tiers of cliff** with **ledges** between them. The faces are about 46, 36 and 30 rows high (varying along the coast), the ledges 15 and 19. Each face is south-facing rock in strata, buttresses lighter and gullies darker, lit at the rim and dark at the foot; a face that turns west catches more of the light; gullies are notched into the rims; grass grows on small ledges in the faces. Each face shades the ledge (or the sea) at its foot. Scree lies at the foot of each face. In all about 200 rows from the sea to the plateau.
+- **The road** begins at a concrete **slipway** on the main cove's shingle, with a landing barge moored off it, and climbs to the plateau through a **gorge** cut through all three tiers (24 px floor of scree and grass, walls of 6 px: the left wall faces east and is in shade, the right wall faces west and is lit), winding a little. Above the gorge it becomes the forest road.
+- **The clifftop:** a strip of heath (22 to 32 rows) along the rim with small wind-bent pines; a **battery** of three casemates with their embrasures to the sea (`arty` slots), a **radar**, and a **lighthouse** on the most seaward headland, both clear of the road.
+- **On the ledges:** two **pillboxes** facing the sea on the first ledge (`bunker` slots) and two **flak pits** in sandbag rings on the second (`flak` slots).
+
+**The conifer forest** (feature `conifer`; owner: single crowns in different sizes):
+- **Crowns** in six sizes (radius 2 to 7 px), each drawn from above with its shadow to the lower right: **spruce** as a dark star of branches with gaps between them, **pine** as a rounder crown of olive tufts round a middle one, **larch** (about 2.5 percent) a lighter star. Slow noise fields make **old stands** of big spruces, **young growth** and **pine stands**. Large crowns are placed first, then medium and small ones fill the gaps (crowns may overlap a little, so the forest is dense but every crown reads). Painted per size class (small, medium, large), each class's shadows before its crowns, so a taller tree's shadow falls on the smaller ones.
+- **Plantations:** blocks of young trees (radius 2, 5 px apart) or pole-stage trees (radius 3, 7 px apart) in rows.
+- **Firebreaks:** straight rides of heath across the strip, a two-rut track along most of them.
+- **Clearings** (a meadow with flowers and a forester's hut) and **clear-cuts** (slash, stumps, log piles) on the roomier side of the road.
+- **Forest roads** (`gravel`, 8 px, tank routes, `axis 'v'`): they leave the main road, run along the strip's far side and join it again, or end at a **timber depot** (stacked logs on a clear-cut). They become routes in the game as they are (spec 17.5): vehicles spawn on them and take the main road where they end.
+- The main road is asphalt, 9 px, with a gravel verge.
+
+**Checks** (`tests/citygen.mjs`): 60 seeds of each preset pass every hard rule, with every feature; the same seed gives the same plan; painting in bands equals painting whole. Plan time is about 20 to 30 ms (median, Node). Painting costs about 7.3 ms per chunk warm in Node, about the same as the town (6.3) and the islands (8.2); the conifers add about 0.5 ms (each crown is a cached pixel list per kind, size and turn).
+
+**Next** (after the owner's review): the fortified forest, the crossroads village of its own in a clearing, the hidden airbase, the valley with its wide river and harbour, and the approach to the castle; then the whole level as one plan; then mist as a weather effect of its own.

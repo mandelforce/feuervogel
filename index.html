@@ -471,9 +471,9 @@ body[data-results="1"] #bombBtn{display:none !important}
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42 };
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -576,6 +576,10 @@ PRESETS.desertValley = Object.assign({}, PRESETS.oasis, { label: 'Valley with oi
 PRESETS.desertPass = Object.assign({}, PRESETS.oasis, { label: 'Fortified pass with viaduct', L: 700, rail: { x: 74 }, features: [{ kind: 'pass', at0: 0.06, at1: 0.94 }] });
 PRESETS.desertJunction = Object.assign({}, PRESETS.oasis, { label: 'Railway junction', rail: { x: 74 }, features: [{ kind: 'junction', at0: 0.05, at1: 0.95 }] });
 PRESETS.desertAirbase = Object.assign({}, PRESETS.oasis, { label: 'Desert airbase', rail: { x: 74 }, features: [{ kind: 'airbase', at0: 0.05, at1: 0.95 }] });
+// The Iron Forest (Enigma Run level 4; builder 'forest', climate 'forest'): the high cliff coast with the forest on its plateau, and the conifer forest
+PRESETS.cliffCoast = Object.assign({}, PRESETS.town, { label: 'Iron Forest: high cliff coast', builder: 'forest', climate: 'forest', L: 900, damage: 0, density: [[0, 0], [1, 0]],
+  features: [{ kind: 'cliffs', at0: 0, at1: 0.3 }, { kind: 'conifer', at0: 0.3, at1: 1, rides: 1, plantations: 1, clearings: 1 }] });
+PRESETS.coniferForest = Object.assign({}, PRESETS.cliffCoast, { label: 'Iron Forest: conifer forest', L: 1280, features: [{ kind: 'conifer', at0: 0, at1: 1, roads: 2, rides: 3, plantations: 3, clearings: 2, cuts: 2 }] });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -1988,7 +1992,7 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : C_TEMP; };
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : C_TEMP; };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -2117,7 +2121,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
             c = hh(x * 3, y * 7) < 0.05 ? (b.wash !== undefined ? C.wash[b.wash][3] : C.roofs[b.roof || 0][pickI(5, 0.25 + hh(x, y) * 0.4, x, y)]) : C.rubble[pickI(5, lit, x, y)];
           } else { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; }
           break; }
-        case K.ROAD: { const st = streetOf(i); if (st && st.dirt) { const rut = st.axis === 'h' ? Math.abs(Math.abs(y + 0.5 - st.yc - 0.5) - st.w / 4) < 0.8 : Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8; c = rut ? C.dirt[0] : C.dirt[pickI(4, 0.55 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // a desert track: packed dirt, two ruts
+        case K.ROAD: { const st = streetOf(i); if (st && st.gravel) { c = C.gravel[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.6 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.3, x, y)]; break; } // a gravel forest road
+          if (st && st.dirt) { const rut = st.axis === 'h' ? Math.abs(Math.abs(y + 0.5 - st.yc - 0.5) - st.w / 4) < 0.8 : Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8; c = rut ? C.dirt[0] : C.dirt[pickI(4, 0.55 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // a desert track: packed dirt, two ruts
           c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
         case K.STREET: { const st = streetOf(i); if (st && st.old) { c = C.sett[pickI(4, 0.55 + ((x + (y >> 1)) % 3 === 0 ? -0.3 : 0.08) + (hh(x, y) - 0.5) * 0.35, x, y)]; break; } } // the old town's light setts
           c = C.cobble[pickI(4, 0.45 + (((x >> 1) + (y >> 1)) & 1 ? 0.1 : -0.06) + (hh(x, y) - 0.5) * 0.3, x, y)]; break;
@@ -2145,7 +2150,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (sl) { const rr = Math.hypot(x + 0.5 - sl.x, y + 0.5 - sl.y), ring = sl.kind === 'arty' ? 6 : 4.5; if (Math.abs(rr - ring) < 1.1) { c = ((Math.atan2(y - sl.y, x - sl.x) * 3 | 0) & 1) ? C.sand[1] : C.sand[0]; break; } } // sandbag ring of a gun pit
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
-        case K.MEADOW: if (Br[i] === -30) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Br[q] !== -30); c = ed ? ((x + y) % 3 === 0 ? C.beam : C.fence) : C.grass[pickI(4, 0.62 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)]; break; } // a paddock: grazed grass inside a post-and-rail fence
+        case K.MEADOW: if (Br[i] <= -32 && Br[i] >= -35 && C === C_FOREST) { c = forestMeadowPix(x, y, Br[i]); break; } // the Iron Forest's heath, clearings, clear-cuts and verges
+          if (Br[i] === -30) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Br[q] !== -30); c = ed ? ((x + y) % 3 === 0 ? C.beam : C.fence) : C.grass[pickI(4, 0.62 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)]; break; } // a paddock: grazed grass inside a post-and-rail fence
           if (Br[i] === -31) { c = C.field.grass[pickI(5, 0.12 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3, x, y)]; break; } // the floor of a wood, dark under the trees
           if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.64 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
           c = C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; break;
@@ -2214,6 +2220,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.TURF: { const st = (((x >> 3) + (y >> 6)) & 1) ? 0.12 : 0; c = C.grass[pickI(4, 0.42 + st + (vn(x * 0.06, y * 0.06) - 0.5) * 0.3, x, y)]; break; } // an airfield's mown grass, in stripes
         case K.BERM: { const up = at(x, y + 1) >= 0 && Kr[at(x, y + 1)] !== K.BERM, lf = at(x - 1, y) >= 0 && Kr[at(x - 1, y)] !== K.BERM, dn = at(x, y - 1) >= 0 && Kr[at(x, y - 1)] !== K.BERM, rt = at(x + 1, y) >= 0 && Kr[at(x + 1, y)] !== K.BERM;
           c = up || lf ? C.grass[3] : dn || rt ? C.soil[0] : hh(x, y) < 0.35 ? C.grass[1] : C.soil[pickI(3, 0.6, x, y)]; break; } // an earth bank: grassed on top, lit from the north-west
+        case K.CRAG: c = cragPix(plan, x, y, Br[i]); break; // the Iron Forest's cliffs, gorge walls and sea stacks
+        case K.LEDGE: c = ledgePix(plan, x, y, Br[i]); break; // ledges between the cliffs' tiers, the gorge's floor, a stack's top
         case K.WOOD: c = C.tree[pickI(6, 0.12 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.3, x, y)]; break; // the forest floor in the shade under the crowns
         default: c = parcelPix(plan, i, x, y);
       }
@@ -2319,6 +2327,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
       if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
       const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : t.v === 4 ? 0.2 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, (t.autumn ? AUTUMN : C.tree)[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+  if (plan.cliffs) paintCliffShade(plan, put, y0, h); // (Iron Forest) each cliff shades the ledge below it
+  if (plan.conifers) paintConifers(plan, put, y0, h);
   if (plan.wallL) for (let sr = 0; sr < h; sr++) { const y = y0 + h - 1 - sr, e = plan.wallL[y]; if (e < 0) continue; const n = 5 + Math.round(vn(y * 0.05, 3) * 4); for (let k = 1; k <= n; k++) { const x = Math.round(e) + k; if (x >= 0 && x < W && Kr[y * W + x] !== K.CLIFF && Kr[y * W + x] !== K.RAVINE) put(x, y, C.shadow, 0.35); } } // a left wall throws its shadow on the floor
   for (const sp of plan.spills || []) for (let yy = -sp.r; yy <= sp.r; yy++) for (let xx = Math.round(-sp.r * 1.4); xx <= sp.r * 1.4; xx++) { const e = Math.hypot(xx / 1.4, yy) / sp.r + (vn((sp.x + xx) * 0.2, (sp.y + yy) * 0.2) - 0.5) * 0.5; if (e < 1) put(sp.x + xx, sp.y + yy, e < 0.6 ? C.deep[0] : C.char[1]); } // spilt oil
   for (const pp of plan.pipes || []) for (let q = 0; q + 1 < pp.length; q++) { const [ax, ay] = pp[q], [bx, by] = pp[q + 1], n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2); if (Math.max(ay, by) < y0 - 2 || Math.min(ay, by) > y0 + h + 2) continue; // a pipeline on low supports
@@ -3028,7 +3038,249 @@ function desertize(plan) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT };
+// ---------- Enigma Run level 4 (The Iron Forest): forest land ----------
+// The Iron Forest's climate (P.climate 'forest'): the Campaign's stage 4 colours (index.html THEME_TR[4]) for grass and the forest floor,
+// dark conifers of three kinds (spruce, pine, larch), grey crag for the cliffs, heath, shingle.
+const C_FOREST = Object.assign({}, C_TEMP, {
+  grass: HX(['#1e3a1a', '#264a20', '#305a28', '#3c6c30']), soil: HX(['#2e2618', '#3c3220', '#4c402a']),
+  field: Object.assign({}, C_TEMP.field, { grass: HX(['#1e3a1a', '#264a20', '#305a28', '#3c6c30', '#4a7e3a']), hedge: HX(['#0e1e0c', '#162a12', '#203a18']) }),
+  tree: HX(['#060e07', '#09140a', '#0c1a0d', '#102010', '#152814', '#1a3018']), // the forest floor in deep shade: needles and moss
+  spruce: HX(['#030a07', '#06130c', '#0b1e13', '#122a1b', '#1a3824', '#244a30', '#336040']),
+  pine: HX(['#0c1208', '#161e0c', '#212a12', '#2d3818', '#3a481e', '#4a5a26', '#5e6e30']),
+  larch: HX(['#0c1608', '#14220c', '#1e3010', '#2a4016', '#38521e', '#486626', '#5a7a30']),
+  crag: HX(['#121214', '#1c1c1e', '#272727', '#343230', '#43403c', '#54504a', '#68635b', '#7e786e', '#969086']),
+  heath: HX(['#2a2216', '#3a2e1c', '#4c3c24', '#3e2a3c', '#58405a']), // dead bracken, heather
+  sand: HX(['#4a463e', '#5e594e']), dirt: HX(['#3a3020', '#4c402c', '#5e523a', '#72664a']), gravel: HX(['#3e3c34', '#4c4a40', '#5c5a4e']),
+  sea: HX(['#0c2026', '#102c34', '#163a44', '#1e4a56', '#2a5c6a', '#3e7282']), deep: HX(['#06100e', '#0a1614', '#0e1c1a', '#122220']),
+  stone: HX(['#4a4844', '#64605a', '#7c7870', '#948e84']), bag: HX(['#8a8466', '#767052', '#5e5a42', '#3a3826']), net: HX(['#1a2414', '#24301a', '#2c3a20', '#38482a', '#4a5a36']),
+  wire: HX(['#141412', '#3a3832', '#221e18']), trench: HX(['#16120c', '#241e14']), spoil: HX(['#2a2216', '#3a3020', '#4c402a', '#5e523a', '#72664a']),
+  hatch: HX(['#2a2016'])[0], canvas: HX(['#3a3c2a', '#4a4c34', '#5a5c3e', '#6a6c48']),
+});
+// one conifer crown seen from above: a cone of branches round its tip, lit from the upper left (dy is up). Returns the light 0..1, or -1 off the crown.
+// Spruce and larch are stars of branches with dark gaps between them; a pine is a rounder, clumpy crown.
+function coniferLit(t, dx, dy) {
+  const rr = Math.hypot(dx, dy); if (rr > t.r + 0.6) return -1;
+  if (t.sp === 1) { const m = t.r >= 4 ? 5 : t.r >= 3 ? 4 : 3, cr = t.r * (t.r >= 4 ? 0.48 : 0.56) + 0.5, off = t.r - cr + 0.3; let best = -1, bx = 0, by = 0; // a pine: tufts round a middle one, each lit on its own
+    for (let k = 0; k <= m; k++) { const a = t.rot + k * 6.283 / m, cx = k === m ? 0 : Math.cos(a) * off, cy = k === m ? 0 : Math.sin(a) * off, e = 1 - Math.hypot(dx - cx, dy - cy) / (k === m ? cr * 0.9 : cr); if (e > best) { best = e; bx = dx - cx; by = dy - cy; } }
+    if (best < 0) return -1; const l = 0.26 + 0.34 * (-0.55 * bx + 0.75 * by) / cr + 0.34 * best - (best < 0.18 ? 0.12 : 0) + (rr < 1 ? 0.06 : 0); return l < 0 ? 0 : l > 1 ? 1 : l; }
+  const br = Math.abs(Math.cos((Math.atan2(dy, dx) - t.rot) * t.n / 2)); // 1 along a branch, 0 between two
+  const R = t.sp === 1 ? t.r * (0.8 + 0.2 * br) + 0.4 : t.r * (0.58 + 0.42 * Math.pow(br, 0.8)) + 0.45; if (rr > R) return -1;
+  const q = rr / R; let l = 0.3 + 0.3 * (-0.55 * dx + 0.75 * dy) / (t.r + 0.5) + 0.32 * (1 - q) + (br - 0.5) * (t.sp === 1 ? 0.14 : 0.32) * q;
+  if (q > 0.86) l -= 0.12; if (rr < 0.8) l += 0.18; return l < 0 ? 0 : l > 1 ? 1 : l;
+}
+const CONIF = ['spruce', 'pine', 'larch'];
+// the conifers of a band of rows: per size class (small, medium, large) its shadows, then its crowns, so a taller tree's shadow falls on the smaller ones
+const crownCache = new Map();
+function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = t.sp * 1000 + t.r * 10 + rq; let c = crownCache.get(key); if (c) return c; c = [];
+  const u = Object.assign({}, t, { rot: rq * 6.283 / 8 }); for (let dy = -t.r - 1; dy <= t.r + 1; dy++) for (let dx = -t.r - 1; dx <= t.r + 1; dx++) { const l = coniferLit(u, dx, dy); if (l >= 0) c.push(dx, dy, l); } crownCache.set(key, c); return c; }
+function paintConifers(plan, put, y0, h) {
+  for (const cls of plan.conifers) { let lo = 0, hi = cls.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cls[m].y < y0 - 12) lo = m + 1; else hi = m; } let k1 = lo; while (k1 < cls.length && cls[k1].y <= y0 + h + 12) k1++;
+    for (let k = lo; k < k1; k++) { const t = cls[k], s = Math.round(t.r * 0.55) + 1 + t.lean, c = crownOf(t); for (let q = 0; q < c.length; q += 3) put(t.x + c[q] + s, t.y + c[q + 1] - s, C.shadow, 0.5); }
+    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, ramp[pickI(7, c[q + 2], px, py)]); } } }
+}
+// a cliff pixel (K.CRAG). Br -40 - k: the south face of tier k, rows from its foot to its rim; -50 / -51: the road gorge's left and right
+// walls; -60 - s: sea stack s. Rock in strata, buttresses lighter and gullies darker, lit at the rim, darkening to the foot; a face that turns
+// west catches more of the light from the upper left; tufts of grass on small ledges.
+function cragPix(plan, x, y, b) {
+  const CL = plan.cliffs; let l, t;
+  if (b <= -60) { const s = CL.stacks[-60 - b], u = (x + 0.5 - s.x) / s.r, e = s.e[x - s.x + s.r]; t = clamp((s.y - e + s.hgt - y - 0.5) / s.hgt, 0, 1); l = 0.62 - t * 0.42 - u * 0.12; }
+  else if (b === -50 || b === -51) { const G = CL.gorge, rx = G.rx[y], d = Math.abs(x + 0.5 - rx) - G.gw, wd = G.ww[y] || 1; t = clamp(1 - d / wd, 0, 1); l = (b === -51 ? 0.6 : 0.32) - t * 0.22; // the right wall faces west, into the light
+    if (Math.floor(d * 1.4 + vn(y * 0.08, x * 0.1) * 2) % 3 === 0) l -= 0.1; if (d > wd - 1) l += 0.22; return C.crag[pickI(9, clamp(l, 0, 1), x, y)]; }
+  else { const k = -40 - b, rim = CL.rim[k], foot = CL.foot[k], sl = (rim[Math.min(plan.W - 1, x + 1)] - rim[Math.max(0, x - 1)]) / 2; t = clamp((rim[x] - y - 0.5) / Math.max(1, rim[x] - foot[x]), 0, 1); l = 0.6 - t * 0.38 - clamp(sl, -1.5, 1.5) * 0.1 + k * 0.03; }
+  const rib = vn(x * 0.32 + (b <= -60 ? b * 3 : 0), y * 0.04 + 11) - 0.5; l += rib * 0.4; // buttresses and gullies down the face
+  if (((y + Math.round(x * 0.18) + Math.round(vn(x * 0.06, y * 0.2) * 5)) % 5) === 0) l -= 0.12; // strata
+  if (t < 0.07) l += 0.24; else if (t > 0.92) l -= 0.15; // the lit rim, the dark foot
+  if (t > 0.15 && t < 0.85 && vn(x * 0.45 + 3, y * 0.6) > 0.84) return C.grass[pickI(4, 0.25 + hh(x, y) * 0.3, x, y)]; // grass on a small ledge in the face
+  return C.crag[pickI(9, clamp(l, 0, 1), x, y)];
+}
+// a ledge pixel (K.LEDGE): Br -36 the gorge's floor (scree and grass), -61 - s the top of sea stack s; otherwise a ledge between two tiers:
+// grass and moss on rock, scree heaped at the foot of the face above it
+function ledgePix(plan, x, y, b) {
+  const n = vn(x * 0.22, y * 0.22), r = hh(x, y);
+  if (b === -36) return n > 0.55 || r < 0.12 ? C.crag[pickI(9, 0.35 + n * 0.4 + (r - 0.5) * 0.3, x, y)] : C.grass[pickI(4, 0.2 + n * 0.4, x, y)];
+  if (b <= -61) return n > 0.6 ? C.crag[pickI(9, 0.6 + (r - 0.5) * 0.3, x, y)] : C.grass[pickI(4, 0.4 + (r - 0.5) * 0.4, x, y)];
+  const CL = plan.cliffs; let up = 99; for (let k = 1; k < CL.foot.length; k++) { const d = CL.foot[k][x] - y; if (d >= 0 && d < up) up = d; }
+  if (up < 3 + n * 4) return C.crag[pickI(9, 0.4 + (r - 0.5) * 0.5 + (up < 2 ? -0.1 : 0.08), x, y)]; // scree
+  return n > 0.66 ? C.crag[pickI(9, 0.45 + (r - 0.5) * 0.3, x, y)] : C.grass[pickI(4, 0.3 + (n - 0.5) * 0.6 + (r - 0.5) * 0.3, x, y)];
+}
+// open ground in the forest (K.MEADOW): Br -32 heath on the clifftop and in firebreaks (grass, heather, dead bracken), -33 a clearing's meadow
+// with flowers, -34 a clear-cut (slash and stumps), -35 a road's verge
+function forestMeadowPix(x, y, b) {
+  const n = vn(x * 0.18, y * 0.18), r = hh(x, y);
+  if (b === -32) return n > 0.64 ? C.heath[pickI(5, 0.75 + (r - 0.5) * 0.5, x, y)] : n < 0.3 ? C.heath[pickI(5, 0.3 + (r - 0.5) * 0.5, x, y)] : C.grass[pickI(4, 0.35 + (n - 0.5) * 0.6, x, y)];
+  if (b === -33) return r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
+  if (b === -34) return r < 0.035 ? C.stone[3] : r < 0.06 ? C.char[1] : n > 0.5 ? C.heath[pickI(5, 0.4 + (r - 0.5) * 0.4, x, y)] : C.grass[pickI(4, 0.2 + (r - 0.5) * 0.4, x, y)];
+  return r < 0.35 ? C.gravel[pickI(3, 0.5 + (r - 0.2), x, y)] : C.grass[pickI(4, 0.3 + (n - 0.5) * 0.4, x, y)]; // -35
+}
+// the cliffs' shadows: each face shades the ledge (or the sea) at its foot, the light coming from behind the cliff
+function paintCliffShade(plan, put, y0, h) {
+  const CL = plan.cliffs, Kr = plan.K;
+  for (let k = 0; k < CL.foot.length; k++) for (let x = 0; x < plan.W; x++) { const f = CL.foot[k][x], len = (CL.rim[k][x] - f) * 0.35; if (f - len > y0 + h || f < y0) continue;
+    for (let y = Math.floor(f - len); y < f; y++) { if (y < y0 || y >= y0 + h || y < 0) continue; const kk = Kr[y * plan.W + x]; if (kk === K.CRAG || kk === K.ROAD) continue; put(x, y, C.shadow, 0.42 * (1 - (f - y) / (len + 1))); } }
+}
+// The forest land (presets cliffCoast, coniferForest): its own builder, as the desert's is. Features by share of the length (P.features):
+// - cliffs: the level opens over the sea; a ragged, very high coast climbs in three tiers of cliff with ledges between them, coves bitten
+//   into it and sea stacks standing in the water. The road comes up from a slipway on the shingle of the main cove through a gorge cut into the
+//   cliffs; a heath strip runs along the clifftop with a battery of casemates (arty slots), a radar, a lighthouse on a headland, and pillboxes and
+//   flak pits on the ledges.
+// - conifer: dense conifer forest. Single crowns in six sizes (old stands of big spruces, young growth, pine stands, a few larches), plantations of
+//   young trees in rows, firebreaks with a track, clearings, clear-cuts with stumps and log piles, and forest roads (tank routes) that leave the
+//   main road and join it again, or end at a timber depot.
+function forestLand(o) {
+  const P = Object.assign({}, PRESETS[o.preset] || PRESETS.cliffCoast, o.params || {}), seed = o.seed | 0, W = P.W, L = P.L | 0, N = W * L;
+  const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296, TF = 41;
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now();
+  const Kr = new Uint8Array(N).fill(K.WOOD), Br = new Int32Array(N).fill(-1);
+  const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
+  const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [],
+    pits: [], coils: [], nets: [], conifers: [[], [], []], cliffs: null, forest: { rides: [], clearings: [], cuts: [], plantations: [], roads: [] } };
+  const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
+  const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
+  const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; plan.slots.push(c); return c; };
+  let nSeed = 0; const sd = () => h32(seed, 94000 + nSeed++);
+  const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
+  const isWood = (x, y) => inB(x, y) && Kr[idx(x, y)] === K.WOOD;
+  const lap = name => { plan.stage[name] = +(now() - t0).toFixed(2); };
+
+  // 1. the cliff coast (decides where the road begins)
+  let road0y = 0, roadX0 = null, rimTop = null; const RX = new Float32Array(L).fill(NaN);
+  const CF = feats.find(F => F.kind === 'cliffs');
+  if (CF) {
+    const a = Math.round(L * CF.at0), seaRows = CF.sea || 56, ph = rnd(TF, 1) * 6.283, NT = 3, FH = CF.faces || [46, 36, 30], LW = CF.ledges || [15, 19];
+    // coves: the main one with the shingle, the slipway and the road (in the middle of the strip), often a smaller one beside it
+    const coves = [{ x: Math.round(lerp(72, 152, rnd(TF, 2))), w: 28 + rnd(TF, 3) * 8, d: 46 + rnd(TF, 4) * 14, road: true }];
+    if (rnd(TF, 5) < 0.8) { const s = coves[0].x < 112 ? 1 : -1; coves.push({ x: Math.round(clamp(coves[0].x + s * (68 + rnd(TF, 6) * 34), 28, 196)), w: 16 + rnd(TF, 7) * 8, d: 26 + rnd(TF, 8) * 14 }); }
+    const coveAt = (x, k) => coves.reduce((s, cv) => { const u = (x + 0.5 - cv.x) / (cv.w * (1 + k * 0.4)); return s + (Math.abs(u) < 1 ? cv.d * (1 - k * 0.3) * (0.5 + 0.5 * Math.cos(u * Math.PI)) : 0); }, 0); // shallower and wider in the upper tiers
+    const sh = new Float32Array(W), foot = [], rim = [];
+    for (let x = 0; x < W; x++) sh[x] = a + seaRows + (vn(x * 0.05, 3 + ph) - 0.5) * 16 + Math.sin(x * 0.09 + ph) * 2 + coveAt(x, 0);
+    let base = 0;
+    for (let k = 0; k < NT; k++) { const fo = new Float32Array(W), ri = new Float32Array(W);
+      for (let x = 0; x < W; x++) { const notch = Math.max(0, vn(x * 0.28, 10 + k * 7 + ph) - 0.7) * 34; // gullies notched into the rim
+        fo[x] = k === 0 ? sh[x] : Math.max(rim[k - 1][x] + 3, a + seaRows + base + (vn(x * 0.04, 20 + k * 5 + ph) - 0.5) * 18 + coveAt(x, k));
+        ri[x] = fo[x] + Math.max(10, FH[k] * (0.72 + 0.56 * vn(x * 0.06, 30 + k * 3 + ph)) - notch); }
+      foot.push(fo); rim.push(ri); base += FH[k] + (LW[k] || 0); }
+    // stacks in the sea, clear of the main cove's approach
+    const stacks = []; for (let q = 0; q < 40 && stacks.length < 2 + Math.floor(rnd(TF, 9) * 3); q++) { const r = 4 + Math.round(rnd(TF, 10, q) * 5), x = Math.round(lerp(12, W - 12, rnd(TF, 11, q))), hgt = 9 + Math.round(rnd(TF, 12, q) * 9), ry = r * 0.6;
+      const y = Math.round(lerp(a + 14, a + seaRows - 8, rnd(TF, 13, q))); if (Math.abs(x - coves[0].x) < 34) continue;
+      let ok = true; for (let xx = x - r - 3; ok && xx <= x + r + 3; xx++) { if (xx < 0 || xx >= W) { ok = false; break; } if (y + hgt + ry + 7 > sh[xx]) ok = false; } if (!ok || stacks.some(s => Math.abs(s.x - x) < s.r + r + 8 && Math.abs(s.y - y) < s.hgt + hgt)) continue;
+      stacks.push({ x, y, r, ry, hgt }); }
+    // rasterise: sea, the rocky foot or the shingle, the tiers' faces and the ledges between them; the plateau above stays forest
+    const top = rim[NT - 1]; rimTop = top;
+    for (let x = 0; x < W; x++) { const cv = coves[0], u = (x + 0.5 - cv.x) / cv.w, shingle = Math.abs(u) < 0.8 ? Math.round(14 * Math.cos(u * 1.95)) : 0, rk = 2 + Math.round(vn(x * 0.2, 5) * 3);
+      for (let y = 0; y < Math.ceil(top[x]); y++) { if (y < a) continue; const i = idx(x, y); Br[i] = -1;
+        if (y < sh[x] - Math.max(rk, shingle)) Kr[i] = K.SEA; else if (y < sh[x]) Kr[i] = shingle > rk ? K.BEACH : K.ROCK;
+        else { let kk = K.LEDGE, bb = -1; for (let k = 0; k < NT; k++) if (y >= foot[k][x] && y < rim[k][x]) { kk = K.CRAG; bb = -40 - k; break; } Kr[i] = kk; Br[i] = bb; } } }
+    stacks.forEach((s, si) => { s.e = new Float32Array(2 * s.r + 1); for (let x = s.x - s.r; x <= s.x + s.r; x++) { const u = (x + 0.5 - s.x) / s.r; if (Math.abs(u) >= 1) continue; const e = Math.sqrt(1 - u * u) * s.ry * (0.75 + 0.5 * vn(x * 0.45, si * 9 + 1)); s.e[x - s.x + s.r] = e;
+      for (let y = Math.round(s.y - e); y < Math.round(s.y + s.hgt + e); y++) set(x, y, y < Math.round(s.y - e + s.hgt) ? K.CRAG : K.LEDGE, y < Math.round(s.y - e + s.hgt) ? -60 - si : -61 - si); } });
+    // the road's gorge: from the main cove's shingle up through every tier to the plateau, winding a little; walls either side
+    const cv = coves[0], yR0 = Math.round(sh[cv.x] - 6), yR1 = Math.round(top[cv.x] + 14), ph2 = rnd(TF, 14) * 6.283, gw = 12, G = { rx: new Float32Array(L).fill(NaN), ww: new Float32Array(L), gw, y0: yR0, y1: yR1 };
+    for (let y = yR0; y <= Math.min(L - 1, yR1 + 40); y++) { RX[y] = cv.x + 9 * Math.sin((y - yR0) * 0.03 + ph2) - 9 * Math.sin(ph2); G.rx[y] = RX[y]; }
+    for (let y = yR0; y <= yR1; y++) { const rx = G.rx[y], ww = 6 * smooth(yR0, yR0 + 10, y) * (1 - smooth(yR1 - 18, yR1, y)); G.ww[y] = ww;
+      for (let x = Math.floor(rx - gw - 7); x <= rx + gw + 7; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - rx); if (Kr[i] === K.SEA || Kr[i] === K.BEACH) continue;
+        if (d < gw) { Kr[i] = K.LEDGE; Br[i] = -36; } else if (d < gw + ww && (Kr[i] === K.CRAG || Kr[i] === K.LEDGE || Kr[i] === K.WOOD || Kr[i] === K.ROCK)) { Kr[i] = K.CRAG; Br[i] = x < rx ? -50 : -51; } } }
+    plan.cliffs = { NT, foot, rim, sh, coves, stacks, gorge: G, a, seaRows };
+    road0y = yR0; roadX0 = cv.x;
+    // the slipway: concrete from the road down into the water, a landing barge moored beside it
+    for (let y = yR0 - 9; y < yR0 + 2; y++) for (let x = Math.round(RX[yR0] - 4); x <= RX[yR0] + 4; x++) if (inB(x, y) && (Kr[idx(x, y)] === K.SEA || Kr[idx(x, y)] === K.BEACH || Kr[idx(x, y)] === K.ROCK)) set(x, y, K.APRON);
+    for (let dy = 14, done = false; !done && dy < 70; dy += 3) for (const sd2 of [1, -1]) { const bx = sd2 > 0 ? Math.round(RX[yR0] + 7) : Math.round(RX[yR0] - 27), by = yR0 - dy; let ok = by > a + 2; // (the first berth on open water out from the slipway)
+      for (let y = by - 2; ok && y < by + 9; y++) for (let x = bx - 2; x < bx + 22; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.SEA) { ok = false; break; } if (ok) { plan.boats.push({ x0: bx, y0: by, w: 20, h: 7, cargo: 2, dmg: 0 }); done = true; break; } }
+    // the clifftop: a heath strip along the rim, then the forest
+    const hs = CF.heath || 22; for (let x = 0; x < W; x++) for (let y = Math.ceil(top[x]); y < top[x] + hs + vn(x * 0.07, 40) * 10; y++) if (isWood(x, y)) set(x, y, K.MEADOW, -32);
+    lap('cliffs');
+  }
+
+  // 2. the main road: up the gorge, then a forest road along the strip (a tank route, 9 px), with a verge
+  { const c0 = 70 + rnd(TF, 20) * 84, amp = 10 + rnd(TF, 21) * 16, fr = 0.004 + rnd(TF, 22) * 0.004, ph = rnd(TF, 23) * 6.283;
+    for (let y = 0; y < L; y++) { let m = clamp(c0 + amp * Math.sin(y * fr + ph) + 6 * Math.sin(y * 0.017 + ph * 2), 34, W - 34);
+      if (!isNaN(RX[y])) { const yr = plan.cliffs.gorge.y1; m = lerp(RX[y], m, smooth(yr, yr + 40, y)); } else if (y < road0y && roadX0 !== null) m = RX[road0y];
+      plan.mx[y] = P.road0 !== undefined && !CF ? lerp(P.road0, m, smooth(0, 200, y)) : m; }
+    const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: road0y, y1: L - 1 }; ar.id = plan.streets.length; plan.streets.push(ar);
+    for (let y = road0y; y < L; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 6); x <= plan.mx[y] + 6; x++) { if (!inB(x, y)) continue; const d = Math.abs(x + 0.5 - plan.mx[y]), k = Kr[idx(x, y)];
+      if (d < 4.5) set(x, y, K.ROAD, -2 - ar.id); else if (d < 6 && (k === K.WOOD || k === K.MEADOW)) set(x, y, K.MEADOW, -35); } } }
+  const MX = y => plan.mx[clamp(Math.round(y), 0, L - 1)];
+
+  // 3. the clifftop's defences: casemates along the rim (arty), a radar, a lighthouse on a headland; on the ledges pillboxes and flak pits
+  if (plan.cliffs) { const CL = plan.cliffs, top = CL.rim[CL.NT - 1];
+    const heathRect = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.MEADOW || Br[idx(x, y)] !== -32) return false; return true; };
+    let nCas = 0; for (const fx of [0.16, 0.5, 0.84, 0.33, 0.67]) { if (nCas >= 3) break; const cx = Math.round(fx * W); if (Math.abs(cx - MX(top[cx] + 8)) < 22) continue; const y0 = Math.round(Math.max(top[cx - 7] || 0, top[cx], top[cx + 6] || 0) + 4);
+      if (!heathRect(cx - 7, y0, 14, 10)) continue; const it = addItem({ t: 'works', label: 'Casemate', part: 'casemate', x0: cx - 7, y0, w: 14, h: 10, ori: 'h', style: 'flat', sea: -1, seed: sd(), dmg: 0 });
+      for (let y = y0; y < y0 + 10; y++) for (let x = cx - 7; x < cx + 7; x++) set(x, y, K.BLDG, it.id); slot('arty', 'pad', cx, y0 + 5, 6, it.id); nCas++; }
+    { const cands = []; for (let x = 20; x < W - 20; x += 4) if (Math.abs(x - MX(top[x])) > 30) cands.push(x); cands.sort((p, q) => top[p] - top[q]); // the lighthouse on the most seaward headland; the radar on the heath
+      for (const lx of cands) { const ly = [6, 9, 12, 15].map(d => Math.round(top[lx] + d)).find(yy => heathRect(lx - 5, yy - 5, 11, 11)); if (ly === undefined) continue; const it = addItem({ t: 'works', label: 'Lighthouse', part: 'lighthouse', round: true, x0: lx - 5, y0: ly - 5, w: 11, h: 11, acx: lx, acy: ly, r: 5, seed: sd(), dmg: 0 });
+        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (Math.hypot(x + 0.5 - lx, y + 0.5 - ly) < 5.5) set(x, y, K.BLDG, it.id); break; }
+      for (const rx of Array.from({ length: 31 }, (_, k) => k % 2 ? 112 + (k + 1) * 3 : 112 - k * 3)) { const ry = Math.round(top[rx] + 14); if (rx < 10 || rx > W - 10 || Math.abs(rx - MX(ry)) < 22 || !heathRect(rx - 6, ry - 6, 13, 13)) continue; const it = addItem({ t: 'works', label: 'Radar', part: 'radar', round: true, x0: rx - 6, y0: ry - 6, w: 13, h: 13, acx: rx, acy: ry, r: 6, seed: sd(), dmg: 0 });
+        for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (Math.hypot(x + 0.5 - rx, y + 0.5 - ry) < 6.5) set(x, y, K.BLDG, it.id); break; } }
+    // on the ledges (the widest stretches, clear of the gorge): a pillbox facing the sea, flak pits in their sandbag rings
+    const ledgeOK = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.LEDGE || Br[idx(x, y)] !== -1) return false; return true; };
+    let nPb = 0, nFl = 0; for (let k = 0; k < CL.NT - 1; k++) for (let q = 0; q < 40; q++) { const x = Math.round(lerp(14, W - 14, rnd(TF, 30 + k, q))), cy = Math.round((CL.rim[k][x] + CL.foot[k + 1][x]) / 2); if (Math.abs(x - CL.gorge.rx[clamp(cy, CL.gorge.y0, CL.gorge.y1)]) < 24) continue;
+      if (k === 0 && nPb < 2 && ledgeOK(x, cy, 4)) { const it = addItem({ t: 'works', label: 'Pillbox', part: 'pillbox', round: true, x0: x - 4, y0: cy - 4, w: 9, h: 9, acx: x, acy: cy, r: 4, sea: -1, seed: sd(), dmg: 0 }); for (let y = it.y0; y < it.y0 + 9; y++) for (let xx = it.x0; xx < it.x0 + 9; xx++) if (Math.hypot(xx + 0.5 - x, y + 0.5 - cy) < 4.5) set(xx, y, K.BLDG, it.id); slot('bunker', 'ledge', x, cy, 5, it.id); nPb++; continue; }
+      if (k === 1 && nFl < 2 && ledgeOK(x, cy, 5) && !plan.pits.some(p => Math.abs(p.x - x) < 40)) { plan.pits.push({ x, y: cy, r: 5 }); slot('flak', 'pit', x, cy, 5); nFl++; } }
+    lap('defences'); }
+
+  // 4. the forest's open ground and its roads, per conifer feature: firebreaks with a track, clearings, clear-cuts with log piles, plantations
+  // of young trees in rows, and forest roads (tank routes) that leave the main road and join it again, or end at a timber depot
+  const blob = (cx, cy, rx, ry, tag, fn) => { for (let y = Math.floor(cy - ry - 4); y <= cy + ry + 4; y++) for (let x = Math.floor(cx - rx - 4); x <= cx + rx + 4; x++) { if (!inB(x, y)) continue; const e = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry) + (vn(x * 0.12 + tag, y * 0.12) - 0.5) * 0.45; if (e < 1) fn(x, y); } };
+  const sideOf = y => (W - MX(y) > MX(y) ? 1 : -1); // the roomier side of the main road
+  feats.forEach((F, fi) => { if (F.kind !== 'conifer') return; const [a, b] = span(F), len = b - a, FT = 100 + fi * 20;
+    // forest roads first, so the rest keeps clear of them
+    for (let q = 0; q < (F.roads || 0); q++) { const ya = Math.round(lerp(a, b, (q + 0.12) / F.roads)) + 20, yb = Math.min(b - 30, ya + Math.round(lerp(220, 340, rnd(FT, 1, q)))), s = sideOf((ya + yb) / 2), dead = q % 2 === 1 && rnd(FT, 2, q) < 0.6;
+      if (yb - ya < 140) continue; const tx = s > 0 ? lerp(W - 36, W - 22, rnd(FT, 3, q)) : lerp(22, 36, rnd(FT, 3, q));
+      const st = { cls: 'collector', axis: 'v', tank: true, gravel: true, pts: [], y0: ya, y1: dead ? yb - 60 : yb }; st.id = plan.streets.length; plan.streets.push(st);
+      for (let y = ya; y <= st.y1; y++) { const f = smooth(ya, ya + 80, y) * (dead ? 1 : 1 - smooth(yb - 80, yb, y)), x0 = lerp(MX(y), tx + 5 * Math.sin(y * 0.02 + q), f); if (Math.abs(x0 - MX(y)) < 2 && y > ya + 40) continue; st.pts.push([x0, y, 8]);
+        for (let x = Math.floor(x0 - 6); x <= x0 + 6; x++) { if (!inB(x, y)) continue; const d = Math.abs(x + 0.5 - x0), k = Kr[idx(x, y)]; if (k === K.ROAD) continue; if (d < 4) set(x, y, K.ROAD, -2 - st.id); else if (d < 5.5 && (k === K.WOOD || k === K.MEADOW)) set(x, y, K.MEADOW, -35); } }
+      plan.forest.roads.push({ id: st.id, ya, yb: st.y1, dead });
+      if (dead) { const dy = st.y1, dx = Math.round(st.pts[st.pts.length - 1][0]); blob(dx, dy + 14, 22, 18, 7 + q, (x, y) => { if (isWood(x, y)) set(x, y, K.MEADOW, -34); }); // a timber depot at the road's end: stacked logs in rows
+        for (let k = 0; k < 6; k++) { const hx = dx - 14 + (k % 3) * 14, hy = dy + 8 + Math.floor(k / 3) * 12; if (inB(hx, hy) && Kr[idx(hx, hy)] === K.MEADOW) plan.heaps.push({ x: hx, y: hy, r: 4, logs: true }); } } }
+    // firebreaks: straight cleared rides across the strip, a track along some of them
+    for (let y = a + 90 + Math.round(rnd(FT, 10) * 80), q = 0; y < b - 40 && (F.rides === undefined || q < F.rides); y += 190 + Math.round(rnd(FT, 11, q) * 120), q++) {
+      const sl = (rnd(FT, 12, q) - 0.5) * 0.5, hw = 3 + Math.round(rnd(FT, 13, q) * 1.5), trk = rnd(FT, 14, q) < 0.6; plan.forest.rides.push({ y, sl, hw, track: trk });
+      for (let x = 0; x < W; x++) { const yc = y + (x - W / 2) * sl; for (let yy = Math.floor(yc - hw - 1); yy <= yc + hw + 1; yy++) { if (!inB(x, yy) || !isWood(x, yy)) continue; const d = Math.abs(yy + 0.5 - yc); if (d < hw) set(x, yy, trk && d < 1.6 ? K.TRACK : K.MEADOW, trk && d < 1.6 ? -1 : -32); } } }
+    // plantations: blocks of young trees in rows (marked on the forest floor, Br -37 young, -38 pole stage)
+    for (let q = 0, got = 0; q < 6 * (F.plantations || 0) && got < (F.plantations || 0); q++) { const pw = Math.round(lerp(48, 84, rnd(FT, 20, q))), ph2 = Math.round(lerp(40, 80, rnd(FT, 21, q))), y0 = Math.round(lerp(a + 20, b - ph2 - 20, rnd(FT, 22, q))), s = (rnd(FT, 23, q) < 0.5 ? 1 : -1) * (q % 2 ? -1 : 1);
+      const x0 = s > 0 ? Math.round(Math.max(MX(y0), MX(y0 + ph2)) + 12) : Math.round(Math.min(MX(y0), MX(y0 + ph2)) - 12 - pw), age = rnd(FT, 24, q) < 0.5 ? -37 : -38; if (x0 < 2 || x0 + pw > W - 2 || plan.forest.plantations.some(o => o.y0 < y0 + ph2 + 20 && y0 < o.y0 + o.h + 20)) continue; got++;
+      for (let y = y0; y < y0 + ph2; y++) for (let x = x0; x < x0 + pw; x++) if (isWood(x, y)) Br[idx(x, y)] = age; plan.forest.plantations.push({ x0, y0, w: pw, h: ph2, age }); }
+    // clearings and clear-cuts on the roomier side
+    const nCl = F.clearings || 0, nCu = F.cuts || 0, c0n = plan.forest.clearings.length, u0n = plan.forest.cuts.length, hasCl = () => plan.forest.clearings.length - c0n, hasCu = () => plan.forest.cuts.length - u0n; // (counted per feature)
+    for (let q = 0; q < 5 * (nCl + nCu) && (hasCl() < nCl || hasCu() < nCu); q++) { const cut = hasCl() >= nCl || (hasCu() < nCu && q % 2 === 1); const cy = Math.round(lerp(a + 40, b - 40, rnd(FT, 30, q))), s = sideOf(cy), m = MX(cy), rx = Math.round(lerp(16, 26, rnd(FT, 31, q))), ry = Math.round(lerp(18, 34, rnd(FT, 32, q)));
+      const cx = Math.round(clamp(m + s * (rx + 18 + rnd(FT, 33, q) * 20), rx + 4, W - rx - 4)); let n = 0; blob(cx, cy, rx, ry, 30 + q, (x, y) => { if (isWood(x, y) && Br[idx(x, y)] === -1) { set(x, y, K.MEADOW, cut ? -34 : -33); n++; } }); if (n < 200) continue;
+      (cut ? plan.forest.cuts : plan.forest.clearings).push({ x: cx, y: cy, rx, ry });
+      if (cut) for (let k = 0; k < 3; k++) { const hx = cx + Math.round((rnd(FT, 34, q * 3 + k) - 0.5) * rx), hy = cy + Math.round((rnd(FT, 35, q * 3 + k) - 0.5) * ry); if (inB(hx, hy) && Kr[idx(hx, hy)] === K.MEADOW) plan.heaps.push({ x: hx, y: hy, r: 3, logs: true }); }
+      else { const hx = cx - 4, hy = cy - 3; let ok = true; for (let y = hy - 1; y < hy + 8; y++) for (let x = hx - 1; x < hx + 10; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.MEADOW) ok = false; // a forester's hut
+        if (ok) { const it = addItem({ t: 'works', label: "Forester's hut", x0: hx, y0: hy, w: 9, h: 7, ori: 'h', style: 'gable', roof: 2, seed: sd(), dmg: 0 }); for (let y = hy; y < hy + 7; y++) for (let x = hx; x < hx + 9; x++) set(x, y, K.BLDG, it.id); } } } });
+  lap('forest');
+
+  // 5. the trees: single conifer crowns of six sizes. Old stands (big spruces), young growth and pine stands follow slow noise fields; a few
+  // larches; young trees in rows in the plantations; small wind-bent pines on the ledges and the heath; now and then one in a clearing.
+  { const cell = 16, cw = Math.ceil(W / cell), grid = new Map(), all = [];
+    const near = (x, y, r, sp) => { const c0 = Math.floor((x - 16) / cell), c1 = Math.floor((x + 16) / cell), r0 = Math.floor((y - 16) / cell), r1 = Math.floor((y + 16) / cell);
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) { const g = grid.get(cy * cw + cx); if (g) for (const t of g) if (Math.hypot(t.x - x, t.y - y) < (t.r + r) * sp) return true; } return false; };
+    const add = t => { const key = Math.floor(t.y / cell) * cw + Math.floor(t.x / cell); let g = grid.get(key); if (!g) grid.set(key, g = []); g.push(t); all.push(t); };
+    const okAt = (x, y, r, ground) => { for (const [dx, dy] of [[0, 0], [r - 1, 0], [1 - r, 0], [0, r - 1], [0, 1 - r]]) { const xx = x + dx, yy = y + dy; if (!inB(xx, yy)) return false; const i = idx(xx, yy); if (!ground(Kr[i], Br[i])) return false; } return true; };
+    const species = (x, y) => { const p = vn(x * 0.011 + 30, y * 0.011); return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
+    const tree = (x, y, r, sp, lean = 0) => ({ x, y, r, sp, lean, rot: hh(x, y * 3) * 6.283, n: sp === 1 ? 5 : r >= 4 ? 8 : 6 });
+    const wood = (k, b) => k === K.WOOD && b === -1, any = (k) => k === K.WOOD;
+    // plantations: rows of young trees (r 2, 5 px) or pole-stage trees (r 3, 7 px)
+    for (const pl of plan.forest.plantations) { const r = pl.age === -37 ? 2 : 3, sp = r === 2 ? 5 : 7; for (let y = pl.y0 + r; y < pl.y0 + pl.h - r; y += sp) for (let x = pl.x0 + r; x < pl.x0 + pl.w - r; x += sp) { const i = idx(x, y); if (Kr[i] !== K.WOOD || Br[i] !== pl.age || hh(x, y) < 0.06) continue; add(tree(x, y, r, 0)); } }
+    // the natural stands: large first, then medium and small filling the gaps
+    const passes = [{ step: 10, sizes: [5, 6, 7], p: (age) => 0.15 + age * 0.75 }, { step: 6, sizes: [3, 4], p: (age) => 0.75 - age * 0.2 }, { step: 4, sizes: [2], p: () => 0.85 }];
+    passes.forEach((ps, pi) => { for (let gy = 0; gy < L; gy += ps.step) for (let gx = 0; gx < W; gx += ps.step) { const x = gx + Math.floor(hh(gx + pi * 977, gy) * ps.step), y = gy + Math.floor(hh(gy + pi * 331, gx * 3) * ps.step); if (!inB(x, y)) continue;
+      const k = Kr[idx(x, y)], b = Br[idx(x, y)], age = vn(x * 0.014 + 7, y * 0.014); let r = ps.sizes[Math.floor(hh(x * 5, y * 11) * ps.sizes.length)];
+      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y))); continue; }
+      if (pi === 2 && ((k === K.LEDGE && b === -1) || (k === K.MEADOW && b === -32))) { if (hh(x * 17, y * 5) > 0.07 || !okAt(x, y, 2, (kk, bb) => kk === k && bb === b) || near(x, y, 2, 1.4)) continue; add(tree(x, y, hh(x, y) < 0.7 ? 2 : 3, 1, 1)); continue; } // wind-bent pines
+      if (pi === 0 && k === K.MEADOW && b === -33 && hh(x * 19, y * 3) < 0.05 && okAt(x, y, r, (kk, bb) => kk === K.MEADOW && bb === -33) && !near(x, y, r, 1.6)) add(tree(x, y, r, 0)); } });
+    for (const t of all) plan.conifers[t.r <= 2 ? 0 : t.r <= 4 ? 1 : 2].push(t);
+    for (const cls of plan.conifers) cls.sort((p, q) => p.y - q.y || p.x - q.x);
+    lap('trees'); }
+
+  // 6. the sea's surf: each sea pixel's distance to land (foam where the waves break on the rocks, the shingle and the stacks)
+  if (plan.cliffs) { const sh = plan.shore = new Uint8Array(N).fill(255), q = []; for (let i = 0; i < N; i++) if (Kr[i] === K.SEA && [i - 1, i + 1, i - W, i + W].some(j => j >= 0 && j < N && Math.abs((j % W) - (i % W)) <= 1 && Kr[j] !== K.SEA)) { sh[i] = 1; q.push(i); }
+    for (let h = 0; h < q.length; h++) { const i = q[h], d = sh[i]; if (d >= 90) continue; for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - (i % W)) <= 1 && Kr[j] === K.SEA && sh[j] > d + 1) { sh[j] = d + 1; q.push(j); } } }
+  for (let y = 0; y < L; y++) { plan.U[y] = 0.05; plan.D[y] = 0; }
+  plan.stage.total = +(now() - t0).toFixed(2);
+  return plan;
+}
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -3048,7 +3300,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.31'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.32'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
