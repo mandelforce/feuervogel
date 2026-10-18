@@ -21,9 +21,9 @@
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, BERM: 29, RUNWAY: 30, TURF: 31, WOOD: 32 };
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'mud', 'apron', 'grass', 'forest'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -83,6 +83,16 @@ PRESETS.beach = Object.assign({}, PRESETS.town, { label: 'Beach landing', L: 160
   coast: { mode: 'beach', dir: -1, end: 0.18, land: 0.67, amp: 12, beach: [52, 64], dune: 28, pier: [26, 40] }, oldTown: null, harbour: false, railway: false, industry: 0, bocage: true, stars: 0,
   civic: {}, cathedral: false, farms: 0.4, houses: { detached: [0.42], terraceTo: 0.75 } });
 // A coastal city with only the side harbour (the sea along one side the whole way)
+// Enigma Run level 3, The Long Night: the whole level as one plan (58 chunks of 64 px). The fortified beach, the power works with a pylon line
+// over the farmland, the small burning town, the searchlight airbase, the deciduous forest, light industry, the rail corridor and the
+// marshalling yard, whose tracks run on into the boss arena. Shares of the length per segment: 0-3, 3-11, 11-19, 19-24, 24-31, 31-37,
+// 37-44, 44-51, 51-58 chunks. Painted at night (paint opts.night).
+{ const c = n => n / 58; PRESETS.longNight = Object.assign({}, PRESETS.beach, { label: 'The Long Night (level 3)', L: 3712, railway: true, railSide: -1, searchlights: true,
+  coast: Object.assign({}, PRESETS.beach.coast, { end: 0.021 }),
+  density: [[0, 0.1], [c(2), 0.15], [c(5), 0.5], [c(9), 0.55], [c(12), 0.08], [c(17), 0.05], [c(20.5), 0.55], [c(22.5), 0.6], [c(25), 0.12], [c(30), 0.08], [c(34), 0.02], [c(38.5), 0.62], [c(42.5), 0.66], [c(46), 0.08], [c(52), 0.15], [1, 0.2]],
+  damage: 1, damageCurve: [[0, 0.3], [c(8), 0.35], [c(15), 0.1], [c(19.5), 0.6], [c(21.5), 0.9], [c(24.5), 0.5], [c(28), 0.3], [c(40), 0.3], [c(55), 0.4], [1, 0.4]],
+  industryAt: [[c(3), c(11)], [c(37), c(44)]], powerAt: [c(3), c(11)], power: true, pylons: { to: c(19) }, industry: 0,
+  airbase: { at: [c(24), c(31)] }, forestAt: [c(31), c(37)], railCorridor: { at: [c(44), c(51)] }, yard: { at: [c(51), 1] }, farms: 0.3 }); }
 PRESETS.coast = Object.assign({}, PRESETS.port, { label: 'Coastal city', density: PRESETS.town.density, coast: Object.assign({}, PRESETS.port.coast, { mode: 'side' }) });
 // An industrial estate: industrial quarters with wide service roads, halls, tank farms, coal yards and a power station; workers' terraces between
 PRESETS.industrial = Object.assign({}, PRESETS.town, { label: 'Industrial estate', L: 1800,
@@ -142,11 +152,15 @@ function generate(opts) {
   const isSea = (x, y) => !!CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) >= 0 || (CO.yC !== null && (CO.hd > 0 ? y >= CO.ycol[clamp(Math.round(x), 0, W - 1)] : y <= CO.ycol[clamp(Math.round(x), 0, W - 1)])));
   // 1. fields
   const road = P.road || CO && CO.side && { c: CO.cs > 0 ? CO.qx * 0.6 : W - (W - CO.qx) * 0.6, amp: 6 + rnd(T.ROAD, 2) * 8, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 } || { c: 82 + rnd(T.ROAD, 1) * 60, amp: 18 + rnd(T.ROAD, 2) * 26, fr: 0.0026 + rnd(T.ROAD, 3) * 0.0034, ph: rnd(T.ROAD, 4) * 6.283 };
+  const edgeW = new Float32Array(L); // how far the main road has swung to the strip's far edge (rail corridor, yard, airbase)
   for (let y = 0; y < L; y++) {
     plan.U[y] = clamp(curve(P.density, y / (L - 1)), 0, 1);
     plan.D[y] = clamp(curve(P.damageCurve, y / (L - 1)) * P.damage * (0.4 + 0.6 * plan.U[y]) / 0.6, 0, 1);
     plan.mx[y] = clamp(road.c + road.amp * Math.sin(y * road.fr + road.ph) + 2.5 * Math.sin(y * 0.021 + road.ph), 34, W - 34);
     if (P.stationAt) plan.mx[y] = lerp(plan.mx[y], W / 2 + 5 * Math.sin(y * 0.011), smooth(L * P.stationAt[0] - 260, L * P.stationAt[0] - 20, y)); // room for the station either side: the road swings to the middle
+    { let wE = 0; if (P.railCorridor || P.yard) { const yS = P.railCorridor ? L * P.railCorridor.at[0] - 200 : L * P.yard.at[0] - 640; wE = smooth(yS - 300, yS - 40, y); } // the corridor's junction and the yard take the strip to its end
+      if (P.airbase) { const a = L * P.airbase.at[0], b = L * P.airbase.at[1]; wE = Math.max(wE, smooth(a - 300, a - 40, y) * (1 - smooth(b + 40, b + 300, y))); } // the airbase takes it for a stretch
+      edgeW[y] = wE; if (wE > 0) plan.mx[y] = lerp(plan.mx[y], ((P.railSide || -1) < 0 ? W - 17 : 16) + 2 * Math.sin(y * 0.013), wE); } // there the road keeps to the strip's far edge
     if (P.road0 != null && y < 200) plan.mx[y] = lerp(clamp(P.road0, 34, W - 34), plan.mx[y], smooth(0, 200, y)); // the game's road enters here: start where it is
     const u = plan.U[y]; plan.aw[y] = u < 0.35 ? P.widths.arterialLow : lerp(P.widths.arterialLow, P.widths.arterialHigh, smooth(0.35, 0.75, u));
   }
@@ -323,7 +337,7 @@ function generate(opts) {
   // corridor either side. At the station it gets a second platform track 22 px away (room for two trains side by side); that track leaves
   // the station as a second line that curves across the town to the other edge and runs on straight from there. plan.trainRuns lists the
   // straight stretches where trains can run.
-  let RL = null, ST = null;
+  let RL = null, ST = null; const edgeBusy = (ya, yb) => { for (let y = Math.max(0, Math.floor(ya)); y <= Math.min(L - 1, yb); y += 4) if (edgeW[y] > 0.001) return true; return false; }; // the road is at the far edge there: no station, no branch line
   (() => { if (!P.railway) return; const belt = P.oldTown && P.oldTown.belt ? P.oldTown.belt[1] : 0;
     const clearOf = (x, y, m) => x > 9 && x < W - 10 && !(CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) > -6 || past(y, 10))) && !(OT && inOval(x, y, OT.rw / 2 + m)) /* through the green belt is fine */ && !(HB && x >= HB.x0 - m && x <= HB.x1 + m && y >= HB.yLo - m && y <= HB.yHi + m);
     for (const sr of railSide ? [railSide] : []) { if (RL) break; const xA = sr > 0 ? W - 19 : 18; let ok = true;
@@ -332,7 +346,7 @@ function generate(opts) {
       if (!ok) continue;
       RL = { sr, xA, lines: [] }; plan.trainRuns = [{ x: xA, y0: yBot, y1: yTop - 1, line: 'main' }];
       const cands = [], sA = P.stationAt || [0.25, 0.9]; for (let y = Math.round(L * sA[0]); y < L * sA[1]; y += 16) cands.push(y); /* stationAt: the share of the length the station may stand in */ cands.sort((a, b) => rnd(T.RAIL, a) - rnd(T.RAIL, b));
-      for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < 0.5 || U > 0.97 || ys < 90 || ys > L - 110) continue;
+      for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < 0.5 || U > 0.97 || ys < 90 || ys > L - 110 || edgeBusy(ys - 450, ys + 450)) continue;
         if (OT && Math.abs(ys - OT.cy) < OT.ry + OT.rw + 80) continue; if (CO && (past(ys + 100, 0) || past(ys - 90, 0))) continue; if (RVs.some(R => ys > R.yMin - 90 && ys < R.yMax + 100)) continue; if (HB && ys > HB.yLo - 90 && ys < HB.yHi + 100) continue;
         let room = true; for (let y = ys - 70; room && y <= ys + 90; y += 4) if (Math.abs(xA - MX(y)) - AW(y) / 2 < (P.stationRoom || 90)) room = false; // the station, its square and a row of blocks
         if (room) ST = { y: ys, sr, xL: xA, x0: Math.min(xA + sr * 10, xA - sr * 62), x1: Math.max(xA + sr * 10, xA - sr * 62), y0: ys - 70, y1: ys + 90, done: false }; }
@@ -345,7 +359,7 @@ function generate(opts) {
         const xs = new Float32Array(L).fill(NaN); let good = true, yEnd = dir > 0 ? L - 1 : 0;
         for (let k = 0; good && k <= Lc; k++) { const y = y0 + dir * k, x = xP + (xE - xP) * smooth(0, 1, k / Lc); if (k % 3 === 0 && (!clearOf(x, y, 10) || (riverAt(y) && Math.abs(x - MX(y)) < AW(y) / 2 + 14))) good = false; xs[y] = x; } // never across the main road over water
         if (!good) continue;
-        for (let y = y1 + dir; dir > 0 ? y < L : y >= 0; y += dir) { if (!clearOf(xE, y, 10) || (CO && CO.hy0 !== null && (y < CO.hy0 + 56 || y > CO.hy1 - 4))) { yEnd = y - dir * 14; break; } xs[y] = xE; } // straight on along the far edge, to a buffer stop before anything in its way
+        for (let y = y1 + dir; dir > 0 ? y < L : y >= 0; y += dir) { if (!clearOf(xE, y, 10) || (CO && CO.hy0 !== null && (y < CO.hy0 + 56 || y > CO.hy1 - 4)) || edgeW[y] > 0.001) { yEnd = y - dir * 14; break; } xs[y] = xE; } // straight on along the far edge, to a buffer stop before anything in its way
         for (let y = yEnd + dir; dir > 0 ? y < L : y >= 0; y += dir) xs[y] = NaN;
         const cand = { id: 'branch', xs, dir, y0, y1, yEnd }; if (!B || Math.abs(yEnd - y1) > Math.abs(B.yEnd - B.y1)) B = cand; } // the direction with the longer straight run
       // the platform track: from the station's throats (where it fans out of the main line over 28 px) along the platforms, and on into the branch
@@ -358,8 +372,83 @@ function generate(opts) {
       RL.branch = B ? { dir: B.dir, y0: B.y0, y1: B.y1, yEnd: B.yEnd, xE } : null;
     } })();
   plan.railway = RL; plan.station = ST; if (!plan.trainRuns) plan.trainRuns = [];
+  const YD = railYard(); plan.yard = YD;
+  const AB = airfield(); plan.airbase = AB;
+  // 2a''''''''. woodland (params.forestAt: [from, to] shares of the length): a deciduous forest across the strip, the main road through it and a
+  // forest track into a clearing with a woodcutter's hut. Claimed before the streets, so no town grows there; the trees are planted after the
+  // town's (6b').
+  const FO = (() => { const fa = P.forestAt; if (!fa) return null; const sr = (RL && RL.sr) || P.railSide || -1, ya = Math.round(L * fa[0]), yb = Math.min(L - 1, Math.round(L * fa[1]));
+    const x0 = sr < 0 ? 27 : 0, x1 = sr < 0 ? W - 1 : W - 28; for (let x = x0; x <= x1; x++) { const ea = ya + Math.round(noise1(T.TREE + 7, x * 0.12) * 16 - 4), eb = yb - Math.round(noise1(T.TREE + 8, x * 0.12) * 16 - 4); // ragged ends
+      for (let y = Math.max(0, ea); y <= Math.min(L - 1, eb); y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WOOD; Br[i] = -1; } } }
+    const cy = Math.round(lerp(ya, yb, 0.55 + (rnd(T.TREE, 1, 70) - 0.5) * 0.2)), side = MX(cy) > W / 2 ? -1 : 1, cx = Math.round(clamp(MX(cy) + side * (48 + rnd(T.TREE, 1, 71) * 16), x0 + 26, x1 - 26)), rx = 22 + ((rnd(T.TREE, 1, 72) * 8) | 0), ry = 18 + ((rnd(T.TREE, 1, 73) * 6) | 0);
+    for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) if (inB(x, y) && ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1 && Kr[idx(x, y)] === K.WOOD) Kr[idx(x, y)] = K.MEADOW;
+    const tp = []; { const xa = Math.round(MX(cy) + side * (AW(cy) / 2 + 1)), xb = cx - side * (rx - 4); for (let x = xa; side > 0 ? x <= xb : x >= xb; x += side) tp.push([x, cy + 4 * Math.sin((x - xa) * 0.06)]); } // the forest track from the road to the clearing
+    return { ya, yb, x0, x1, track: tp, clearing: { x: cx, y: cy, rx, ry, side } }; })(); plan.forest = FO;
+  // 2a'''''''. a searchlight airbase (Enigma level 3; params.airbase): a grass field across the strip between the main line's corridor and the
+  // road (which keeps to the far edge there), a runway along it, a parallel taxiway with the hangars, the control tower and the fuel tanks
+  // beside it, and on the rail side a dispersal lane with earth blast pens, a plane in each. The flarepath's lamps line the runway; four
+  // searchlight posts stand on the grass (each with two flak positions and a generator; see the slots).
+  function airfield() {
+    const AP = P.airbase; if (!AP) return null;
+    const sr = (RL && RL.sr) || P.railSide || -1, X = o => sr < 0 ? o : W - 1 - o, xr = (o0, o1) => [Math.min(X(o0), X(o1)), Math.max(X(o0), X(o1))];
+    const ya = Math.round(L * AP.at[0]), yb = Math.min(L - 1, Math.round(L * AP.at[1])), set = (o0, o1, y0, y1, k) => { const [a, b] = xr(o0, o1); for (let y = Math.max(0, y0); y <= Math.min(L - 1, y1); y++) for (let x = a; x <= b; x++) { const i = idx(x, y); Kr[i] = k; Br[i] = -1; } };
+    const out = { sr, ya, yb, x0: xr(27, 199)[0], x1: xr(27, 199)[1], pens: [], planes: [], lamps: [], posts: [], run: xr(96, 127) };
+    set(27, 199, ya, yb, K.TURF);
+    set(96, 127, ya + 16, yb - 16, K.RUNWAY); // the runway
+    set(150, 159, ya + 28, yb - 28, K.APRON); for (const y of [ya + 36, yb - 46]) set(128, 150, y, y + 9, K.APRON); // the parallel taxiway and its links
+    set(160, 170, ya + 80, ya + 300, K.APRON); // the apron before the hangars
+    set(66, 69, ya + 24, yb - 24, K.APRON); for (const y of [ya + 24, yb - 31]) set(70, 95, y, y + 7, K.APRON); // the dispersal lane on the rail side
+    for (let y = ya + 44, k = 0; y + 28 < yb - 40; y += 66, k++) { // blast pens: an earth bank on three sides, open to the lane, a plane inside
+      const yy = y + ((rnd(T.SQ, k, 90) * 10) | 0); set(32, 62, yy, yy + 3, K.BERM); set(32, 62, yy + 23, yy + 26, K.BERM); set(32, 35, yy, yy + 26, K.BERM); set(63, 65, yy + 9, yy + 17, K.APRON);
+      out.pens.push({ x: X(48), y: yy + 13 }); const big = rnd(T.SQ, k, 91) < 0.3; out.planes.push({ x: X(big ? 49 : 50), y: yy + 13, dir: -sr, kind: big ? 'bomber' : 'fighter', dmg: rnd(T.SQ, k, 92) < Dy(yy) * 0.6 }); }
+    for (let y = ya + 18; y <= yb - 18; y += 14) for (const o of [95, 128]) out.lamps.push({ x: X(o), y }); // the flarepath
+    for (const [o, f] of [[80, 0.2], [140, 0.36], [80, 0.66], [140, 0.84]]) out.posts.push({ x: X(o), y: Math.round(lerp(ya, yb, f)) }); // searchlight posts on the grass
+    return out;
+  }
+  // 2a''''''. a rail corridor and a marshalling yard (Enigma level 3; params.railCorridor, params.yard). The corridor's pair of lines (at
+  // offsets 93 and 131 from the strip's rail edge: the supergun's rails in the boss arena) leaves the main line on two long, gentle curves and
+  // runs on straight. The yard lies on them: ladders at about 1 in 3.3 fan the pair out into eight sidings 19 px apart, staggered left and
+  // right, with a crossover pair in the middle; ladders at the far end gather them back, and four tracks (the pair and two more, at 55 and
+  // 169) run on to the plan's end, into the boss arena. Wagons stand on the sidings; the through lines stay clear for the game's trains.
+  function railYard() {
+    const RC = P.railCorridor, YP = P.yard; if (!RL || !(RC || YP)) return null;
+    const sr = RL.sr, X = o => sr < 0 ? o : W - 1 - o, line = () => new Float32Array(L).fill(NaN), lines = [];
+    const put = (xs, y, o) => { if (y >= 0 && y < L) xs[y] = X(o); };
+    const run = (o, ya, yb) => { const xs = line(); for (let y = Math.max(0, ya); y <= Math.min(L - 1, yb); y++) put(xs, y, o); lines.push(xs); return xs; };
+    const bend = (oa, ya, ob, yb, xs) => { xs = xs || line(); const n = yb - ya; for (let k = 0; k <= n; k++) put(xs, ya + k, oa + (ob - oa) * smooth(0, 1, k / n)); if (!lines.includes(xs)) lines.push(xs); return xs; }; // a curve between two parallel tracks
+    const diag = (oa, ya, ob, yb) => { const xs = line(); for (let y = ya; y <= yb; y++) put(xs, y, oa + (ob - oa) * (y - ya) / (yb - ya)); lines.push(xs); return xs; }; // a ladder or crossover: straight at about 1 in 3.3
+    const out = { sr, signals: [], lamps: [], wagons: [], x0: Math.min(X(27), X(199)), x1: Math.max(X(27), X(199)) };
+    const yC0 = RC ? Math.round(L * RC.at[0]) : null, yA = YP ? Math.round(L * YP.at[0]) : null, yB = YP ? Math.min(L - 1, Math.round(L * YP.at[1])) : null;
+    // the pair: from the main line on curves of about 1 in 3.5 (the far line first), then straight to the plan's end
+    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, pA = bend(18, y0, 131, y0 + 520), pB = bend(18, y0 + 150, 93, y0 + 520);
+    for (let y = y0 + 521; y < L; y++) { put(pA, y, 131); put(pB, y, 93); }
+    out.pair = [X(93), X(131)]; out.y0 = y0;
+    if (yC0 !== null) { // a signal gantry over the pair after the junction, and the corridor's lamps
+      const yg = y0 + 560; out.gantry = { x0: Math.min(X(82), X(142)), x1: Math.max(X(82), X(142)), y: yg }; out.signals.push({ x: X(87), y: yg, red: true }, { x: X(125), y: yg, red: false }); }
+    if (YP) { const a = o => yA + o, b = o => yB - o; // offsets from the yard's near (a) and far (b) end
+      out.y0y = yA; out.y1y = yB; out.yLo = a(-48);
+      diag(93, a(-48), 36, a(142)); run(74, a(15), b(66)); run(55, a(79), L - 1); run(36, a(142), b(186)); // the near-left ladder, its sidings; 55 runs on into the arena
+      diag(36, b(186), 93, b(6)); // the far-left ladder gathers 36 and 74 back into the pair
+      diag(131, a(12), 169, a(139)); run(150, a(75), b(69)); run(169, a(139), L - 1); // the near-right ladder, a little further on than the left one; 169 runs on into the arena
+      diag(150, b(69), 131, b(6)); // the far-right ladder
+      bend(93, a(-36), 112, a(28)); run(112, a(28), b(56)); out.buffer = { x: X(112), y: b(56) }; // a siding between the pair, to a buffer stop short of the boss's pad
+      diag(74, a(149), 93, a(212)); diag(93, a(149), 74, a(212)); diag(131, a(109), 150, a(172)); diag(150, a(109), 131, a(172)); // crossovers
+      // the yard's ground (cinder), from the main line's corridor to the strip's far side road
+      out.top = new Int32Array(W); for (let x = 0; x < W; x++) out.top[x] = yB - 24 - Math.round(noise1(T.RAIL + 9, x * 0.09) * 20); // the cinder ends raggedly before the plan's end, grass beyond (as the arena's ground)
+      for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y <= out.top[x]; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } }
+      // rolling stock on the sidings, never on the through lines or the tracks that run on into the arena
+      for (const [o, lo, hi] of [[36, a(146), b(190)], [74, a(20), a(144)], [74, a(218), b(72)], [112, a(34), b(60)], [150, a(80), a(104)], [150, a(178), b(74)], [55, a(84), b(134)]]) {
+        for (let y = lo, k = 0; y + 26 <= hi; y += 28, k++) if (rnd(T.RAIL, o * 31 + k, 80) < 0.86) out.wagons.push({ x: X(o), y0: y, h: 26, kind: (rnd(T.RAIL, o * 31 + k, 81) * 3) | 0, dmg: rnd(T.RAIL, o * 31 + k, 82) < Dy(y) * 0.5 }); }
+      for (const [o, y, red] of [[74, a(15), true], [55, a(79), false], [36, a(142), true], [150, a(75), false], [169, a(139), true], [112, a(28), true], [36, b(186), true], [74, b(66), true], [150, b(69), false]]) out.signals.push({ x: X(o + 7), y: y - 2, red });
+      for (const o of [93, 131, 55, 169]) out.signals.push({ x: X(o + 7), y: b(2), red: o === 93 || o === 169 }); // the exit signals into the arena
+      for (const [o, y] of [[46, a(300)], [84, a(240)], [122, a(60)], [122, a(330)], [160, a(260)], [64, a(90)]]) out.lamps.push({ x: X(o), y }); // hooded yard lamps between the tracks
+      plan.trainRuns.push({ x: X(93), y0: y0 + 521, y1: L - 1, line: 'pair' }, { x: X(131), y0: y0 + 521, y1: L - 1, line: 'pair' }, { x: X(55), y0: b(120), y1: L - 1, line: 'yard' }, { x: X(169), y0: a(139), y1: L - 1, line: 'yard' });
+    } else plan.trainRuns.push({ x: X(93), y0: y0 + 521, y1: L - 1, line: 'pair' }, { x: X(131), y0: y0 + 521, y1: L - 1, line: 'pair' });
+    for (const xs of lines) RL.lines.push({ id: 'yard', xs });
+    return out;
+  }
   const railNear = (x, y, m) => !!RL && RL.lines.some(l => { const xx = l.xs[clamp(Math.round(y), 0, L - 1)]; return xx === xx && Math.abs(x - xx) < m; });
-  const zones = []; if (HB) zones.push({ x0: HB.x0, x1: HB.x1, y0: HB.yLo, y1: HB.yHi }); if (ST) zones.push(ST); // ground that streets stop at
+  const zones = []; if (HB) zones.push({ x0: HB.x0, x1: HB.x1, y0: HB.yLo, y1: HB.yHi }); if (ST) zones.push(ST); if (YD && YD.y0y != null) zones.push({ x0: YD.x0, x1: YD.x1, y0: YD.yLo, y1: L - 1 }); if (AB) zones.push({ x0: AB.x0, x1: AB.x1, y0: AB.ya, y1: AB.yb }); if (FO) zones.push({ x0: FO.x0, x1: FO.x1, y0: FO.ya, y1: FO.yb }); // ground that streets stop at
   const inZone = (x, y, m) => zones.some(z => x >= z.x0 - m && x <= z.x1 + m && y >= z.y0 - m && y <= z.y1 + m);
   // 2a''. quarters. A town grows in stretches of different age, and each stretch has its own street pattern, so the blocks are not copies of
   // each other and the seams between quarters give skewed junctions and odd-shaped blocks, as in a real town:
@@ -371,7 +460,7 @@ function generate(opts) {
     while (y < L) {
       const len = Math.round(lerp(P.quarterLen[0], P.quarterLen[1], rnd(T.QTR, q))), U = Uy(y + len / 2), r = rnd(T.QTR, q, 1);
       let style = U < P.fieldLanesU ? 'fields' : r < P.gridChance ? 'grid' : 'follow';
-      const iA = P.industryAt, inA = iA && (y + len / 2) / L >= iA[0] && (y + len / 2) / L <= iA[1]; // industryAt: the share of the length where every quarter is works (and nowhere else)
+      const iA = P.industryAt, inA = iA && (Array.isArray(iA[0]) ? iA : [iA]).some(r => (y + len / 2) / L >= r[0] && (y + len / 2) / L <= r[1]); // industryAt: the share of the length where every quarter is works (and nowhere else); a list of ranges for several stretches
       if (iA ? inA && !(OT && y < OT.cy + OT.ry + 60 && y + len > OT.cy - OT.ry - 60) : P.industry && U >= 0.25 && U <= P.industryMaxU && rnd(T.QTR, q, 7) < P.industry && (P.industry >= 0.7 || Math.abs(y + len / 2 - yPk) > len / 2 + 160) && !(OT && y < OT.cy + OT.ry + 60 && y + len > OT.cy - OT.ry - 60)) style = 'industry'; // an industrial estate: wide straight service roads
       if (style === 'grid' && RVs.some(R => y < R.yMax + 30 && y + len > R.yMin - 30)) style = 'follow'; // the riverside streets set the pattern there
       if (style === 'grid' && y < yPk + 130 && y + len > yPk - 130) style = 'follow';
@@ -382,7 +471,7 @@ function generate(opts) {
     }
   }
   const qAt = y => { for (const q of quarters) if (y < q.y1) return q; return quarters[quarters.length - 1]; };
-  plan.quarters = quarters; plan.tracks = [];
+  plan.quarters = quarters; plan.tracks = []; if (FO) plan.tracks.push(FO.track);
   // the y of a cross street at an x, or null if it does not reach that x
   const crossYat = (S, x) => { const i = Math.round(x) - S.pts[0][0]; return i >= 0 && i < S.pts.length ? S.pts[i][1] : null; };
   // 2b'. roundabouts (Stern): a round place on the main road with a column on a lawn in the middle; a cross street leaves it on each side and
@@ -526,6 +615,7 @@ function generate(opts) {
     addStreet({ cls: 'local', axis: 'h', tank: false, pts, yc: st.y, side: sx, x0: pts[0][0], x1: pts[pts.length - 1][0], w: 8, ray: true, slope: sy * sx * st.k });
   }
   (() => { if (RL) for (const l of RL.lines) layLine(l.xs); })(); // every line with its corridor, and rail bridges over the water
+  if (YD && YD.y0y != null) for (let y = Math.max(0, YD.yLo); y < L; y++) for (let x = YD.x0; x <= YD.x1; x++) { if (y > YD.top[x]) continue; const i = idx(x, y); if (RM[i] === 4) RM[i] = 0; if (Kr[i] === K.NONE && y >= YD.y0y - 8) { Kr[i] = K.WORKS; Br[i] = -1; } } // cinder between the yard's tracks, no grass verges
   for (const st of plan.streets) if (!st.dead) (st.axis === 'v' ? paintV : paintH)(st);
   for (const st of plan.stars) { // the roundabout: a carriageway ring round a lawn with a column, a pavement outside
     for (let y = Math.floor(st.y - st.ro - 3); y <= st.y + st.ro + 3; y++) for (let x = Math.floor(st.x - st.ro - 3); x <= st.x + st.ro + 3; x++) { if (!inB(x, y)) continue;
@@ -542,7 +632,7 @@ function generate(opts) {
       let an = Math.atan2((y - OT.cy) / OT.ry, (x - OT.cx) / OT.rx); if (an < 0) an += 6.283;
       if (arcs.some(([p, q]) => (an >= p && an <= q) || (an + 6.283 >= p && an + 6.283 <= q))) { Kr[idx(x, y)] = K.PARK; Br[idx(x, y)] = -3; } }
   } })();
-  for (const tp of plan.tracks) for (const [x, yc] of tp) for (let y = Math.round(yc) - 1; y <= Math.round(yc) + 1; y++) if (free(x, y)) Kr[idx(x, y)] = K.TRACK; // farm tracks: 3 px of dirt
+  for (const tp of plan.tracks) for (const [x, yc] of tp) for (let y = Math.round(yc) - 1; y <= Math.round(yc) + 1; y++) if (free(x, y) || (inB(x, y) && Kr[idx(x, y)] === K.WOOD)) Kr[idx(x, y)] = K.TRACK; // farm tracks: 3 px of dirt
   if (RVs.length) { // the main road's bridges: each run of deck under it
     let run = null; for (let y = 0; y < L; y++) { const x = Math.round(plan.mx[y]), b = Kr[idx(x, y)] === K.BRIDGE;
       if (b && !run) run = { y0: y, x }; if (!b && run) { plan.bridges.push({ street: 0, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial', river: (riverAt(run.y0) || RVs[0]).id }); run = null; } }
@@ -761,6 +851,22 @@ function generate(opts) {
     { const [a, b] = R(-10, 47); for (let y = ST.y0; y <= ST.y1; y++) for (let x = a; x <= b; x++) if (inB(x, y) && Kr[idx(x, y)] === K.NONE) { Kr[idx(x, y)] = K.WORKS; Br[idx(x, y)] = -1; } }
     plan.civic.push({ label: 'Station', x0: R(-9, 62)[0], y0: ST.y0, w: R(-9, 62)[1] - R(-9, 62)[0], h: ST.y1 - ST.y0, group: g });
   } })();
+  (() => { if (!YD || YD.y0y == null) return; const g = ++grpN, sr = YD.sr, X = o => sr < 0 ? o : W - 1 - o; // the yard's buildings on the strip between the sidings and the road
+    const rectK = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.WORKS) return false; return true; };
+    const box = (o, y, w, h, label, style, roof) => { const x0 = Math.min(X(o), X(o + w - 1)); if (!rectK(x0, y, w, h)) return null; const it = addItem({ t: 'works', label, x0, y0: y, w, h, ori: 'v', style, roof, seed: h32(seed, 57000 + y), dmg: 0, group: g }); fill(x0, y, w, h, K.BLDG, it.id); return it; };
+    YD.box = box(181, YD.y0y + 14, 13, 10, 'Signal box', 'flat', 2);
+    box(181, YD.y0y + 300, 12, 20, 'Coaling stage', 'flat', 3); box(180, YD.y0y + 120, 14, 30, 'Wagon shed', 'gable', 1);
+    { const cx = X(187) + 0.5, cy = YD.y0y + 230; if (rectK(Math.floor(cx - 5), cy - 5, 10, 10)) roundBuilding(cx, cy, 4.2, { t: 'works', label: 'Water tower', part: 'watertower', group: g }); }
+  })();
+  (() => { if (!AB) return; const g = ++grpN, X = o => AB.sr < 0 ? o : W - 1 - o; // the airbase's hangars, control tower and fuel tanks, on the grass beside the taxiway
+    const rectK = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.TURF) return false; return true; };
+    const box = (o, y, w, h, label, style, roof) => { const x0 = Math.min(X(o), X(o + w - 1)); if (!rectK(x0, y, w, h)) return null; const it = addItem({ t: 'works', label, x0, y0: y, w, h, ori: 'h', style, roof, seed: h32(seed, 58000 + y), dmg: 0, group: g }); fill(x0, y, w, h, K.BLDG, it.id); return it; };
+    box(172, AB.ya + 92, 22, 34, 'Hangar', 'gable', 3); box(172, AB.ya + 210, 22, 34, 'Hangar', 'gable', 3); box(175, AB.ya + 160, 12, 12, 'Control tower', 'flat', 2); AB.tower = plan.items[plan.items.length - 1];
+    for (const dy of [0, 13]) { const cx = X(186) + 0.5, cy = AB.yb - 70 + dy; if (rectK(Math.floor(cx - 5), cy - 5, 10, 10)) roundBuilding(cx, cy, 4.5, { t: 'works', label: 'Fuel tank', part: 'tank', group: g }); }
+  })();
+  (() => { if (!FO) return; const c = FO.clearing, x0 = c.x - 8, y0 = c.y + 6; let ok = true; for (let y = y0; ok && y < y0 + 8; y++) for (let x = x0; x < x0 + 11; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.MEADOW) { ok = false; break; }
+    if (ok) { const it = addItem({ t: 'works', label: "Woodcutter's hut", x0, y0, w: 11, h: 8, ori: 'h', style: 'gable', roof: 1, seed: h32(seed, 59000), dmg: 0, group: ++grpN }); fill(x0, y0, 11, 8, K.BLDG, it.id); FO.hut = it; }
+    for (let k = 0; k < 4; k++) plan.heaps.push({ x: c.x + 6 + k * 4, y: c.y - 6, r: 2, coal: false, logs: true }); })(); // log piles
   // 3a'. the old town's market square, in its zone beside the main road, with the town hall on its north side and a tower over the entrance
   if (OT && P.squares) { const Z = OT.zone, s = Z.s, h = 28 + ((rnd(T.SQ, 1) * 7) | 0), w = Math.min(44, Z.x1 - Z.x0 - 6), y0 = Math.round(OT.cy - h / 2);
     if (w >= 28) { const x0 = s > 0 ? Z.x0 : Z.x1 - w + 1;
@@ -916,7 +1022,7 @@ function generate(opts) {
   // 3c'''. the power station, on a large block of an industrial quarter: turbine hall towards the street, boiler house, two tall chimneys and,
   // where there is room, two cooling towers with their steam
   if (P.power) { const cand = [];
-    for (const s of [-1, 1]) for (let k = 0; k + 1 < cross[s].length; k++) { const A = cross[s][k], Bc = cross[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (!A.dead && !Bc.dead && isInd(ym) && Bc.yc - A.yc >= 60) cand.push({ s, A, B: Bc, ym }); }
+    for (const s of [-1, 1]) for (let k = 0; k + 1 < cross[s].length; k++) { const A = cross[s][k], Bc = cross[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (!A.dead && !Bc.dead && isInd(ym) && Bc.yc - A.yc >= 60 && !(P.powerAt && (ym / L < P.powerAt[0] || ym / L > P.powerAt[1]))) cand.push({ s, A, B: Bc, ym }); } // powerAt: the share of the length it may stand in
     cand.sort((a, b) => rnd(T.CIV, a.A.id, 30) - rnd(T.CIV, b.A.id, 30));
     for (const bk of cand) { const s = bk.s, ya = Math.ceil(bk.A.yc + bk.A.w / 2) + 2, yb = Math.floor(bk.B.yc - bk.B.w / 2) - 2; let x0 = -1e9, x1 = 1e9;
       for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + s * (AW(y) / 2 + 2)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 110) x += s; const a = Math.min(xs, x - s), b = Math.max(xs, x - s); x0 = Math.max(x0, a); x1 = Math.min(x1, b); }
@@ -927,7 +1033,11 @@ function generate(opts) {
       for (const f of [0.3, 0.7]) { const cx = xo(35, 0) + 0.5, cy = ya + h * f; roundBuilding(cx, cy, 3.6, { t: 'works', label: 'Chimney', part: 'chimney', group: g }); plan.stacks.push({ x: cx, y: cy, big: true }); }
       const cr = Math.min(12, Math.floor((w - 44) / 2), Math.floor(h / 4) - 1); if (cr >= 8) for (const f of [0.27, 0.73]) { const cx = xo(42 + cr, 0) + 0.5, cy = ya + h * f; roundBuilding(cx, cy, cr, { t: 'works', label: 'Cooling tower', part: 'cooling', group: g }); plan.steam.push({ x: cx, y: cy, r: cr }); }
       plan.heaps.push({ x: xo(24, 0), y: ya + h * 0.1 + 4, r: 5, coal: true }, { x: xo(24, 0), y: yb - h * 0.1 - 4, r: 4.5, coal: true });
-      plan.civic.push({ label: 'Power station', x0: Math.min(x0, x1), y0: ya, w, h, group: g }); break; } }
+      plan.civic.push({ label: 'Power station', x0: Math.min(x0, x1), y0: ya, w, h, group: g });
+      if (P.pylons) { const to = Math.min(L - 1, Math.round(L * P.pylons.to)), sx = xo(Math.round(w / 2), 0), tx = s > 0 ? W - 30 : 30, py = []; // a power line on lattice pylons from the station across the land to the north
+        for (let y = yb + 10, k = 0; y < to; y += 64, k++) { const f = clamp((y - yb) / 400, 0, 1), x = Math.round(lerp(sx, tx, smooth(0, 1, f)) + (rnd(T.CIV, k, 40) - 0.5) * 6); py.push({ x, y, ok: free(x, y) || [K.FIELD, K.MEADOW, K.WORKS, K.TURF].includes(Kr[idx(x, y)]) }); }
+        plan.pylons = py; }
+      break; } }
   // 3d. the gasworks at the edge of the town: a yard on a cross street with two round gas holders and a small works building
   if (civ.gasworks) { const cands = [...cross['-1'], ...cross['1']].filter(S => !S.dead && !S.quay && Uy(S.yc) >= 0.25 && Uy(S.yc) <= 0.66).sort((a, b) => rnd(T.CIV, a.id, 9) - rnd(T.CIV, b.id, 9));
     for (const S of cands) { if (plan.works.length) break;
@@ -1222,6 +1332,13 @@ function generate(opts) {
     for (let y = 4; y < L - 4; y += 7) for (let x = 3; x < W - 3; x += 7) { const tx = x + ((rnd(T.TREE, x, y + 40) * 4) | 0), ty = y + ((rnd(T.TREE, x, y + 41) * 4) | 0), i = idx(tx, ty); if (!inB(tx, ty) || F[i] < 0 || rnd(T.TREE, x, y + 42) > 0.55) continue;
       if (![i - 2, i + 2, i - 2 * W, i + 2 * W].some(j => j >= 0 && j < N && F[j] >= 0 && F[j] !== F[i])) continue; plan.trees.push({ x: tx, y: ty, r: 2 + ((rnd(T.TREE, x, y + 43) * 2) | 0), v: (rnd(T.TREE, x, y + 44) * 3) | 0 }); } }
   lap('trees');
+  // 6b'. the forest's trees: broad crowns of 3 to 6 px close together (beech, oak, a few lighter birches and an autumn-yellow one now and then),
+  // planted on a jittered grid, each crown on woodland with at most a pixel over its edge
+  (() => { if (!FO) return; for (let y = FO.ya - 9; y <= FO.yb + 9; y += 6) for (let x = FO.x0 + 3 + ((y / 6) & 1) * 3; x <= FO.x1 - 3; x += 6) {
+      const tx = Math.round(x + (rnd(T.TREE, x, y + 31) - 0.5) * 4), ty = Math.round(y + (rnd(T.TREE, x, y + 32) - 0.5) * 4), r = 3 + ((rnd(T.TREE, x, y + 33) * 4) | 0);
+      if (!inB(tx, ty) || Kr[idx(tx, ty)] !== K.WOOD) continue; let bad = 0; for (let yy = ty - r; yy <= ty + r; yy++) for (let xx = tx - r; xx <= tx + r; xx++) if ((xx - tx) ** 2 + (yy - ty) ** 2 <= r * r && (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.WOOD)) bad++;
+      if (bad > r) continue; const q = rnd(T.TREE, x, y + 34); plan.trees.push({ x: tx, y: ty, r, v: q < 0.08 ? 4 : q < 0.5 ? 1 : 2, autumn: q > 0.96 }); } })();
+  if (YD || AB || FO) plan.trees = plan.trees.filter(t => !plan.trainRuns.some(r => t.y >= r.y0 - t.r && t.y <= r.y1 + t.r && Math.abs(t.x - r.x) < 8 + t.r)); // the game's trains need their corridor clear (hedgerow trees included)
   // 6c. slots: places the game may fill with flak, artillery, AA towers and bunkers. Lots next to tank streets suit artillery; lots and flat roofs
   // suit flak; squares and parks suit AA towers; large courtyards hide artillery. Spaced out; the number per 300 px rises with U.
   (() => { const cands = [];
@@ -1239,14 +1356,27 @@ function generate(opts) {
     for (const pk of plan.parks) cands.push({ kind: 'aatower', on: 'park', x: Math.round(plan.mx[(pk.ya + pk.yb) >> 1] + pk.s * 34), y: (pk.ya + pk.yb) >> 1, r: 8 });
     for (let y = 10; y < L - 10; y += 12) for (let x = 10; x < W - 10; x += 12) if (Kr[idx(x, y)] === K.COURT && rectFreeK(x - 8, y - 8, 16, 16, K.COURT)) cands.push({ kind: 'arty', on: 'court', x, y, r: 8 });
     function rectFreeK(x0, y0, w, h, k) { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== k) return false; return true; }
+    // searchlight posts (params.searchlights, Enigma level 3): the light on its post, two flak positions close beside it (the local night rule
+    // gives guns near a lit searchlight better aim) and a generator within reach. On the airbase grass, in the forest clearing, beside the
+    // yard, on the beach's dunes, on squares and in parks.
+    if (P.searchlights) { const posts = [], open = new Uint8Array(40); for (const k of [K.TURF, K.MEADOW, K.PARK, K.PLAZA, K.WORKS, K.BEACH, K.FIELD, K.GARDEN, K.LOT, K.COURT]) open[k] = 1;
+      const okAt = (x, y, r) => { for (let yy = Math.round(y - r); yy <= y + r; yy++) for (let xx = Math.round(x - r); xx <= x + r; xx++) if (!inB(xx, yy) || !open[Kr[idx(xx, yy)]]) return false; return true; };
+      if (AB) posts.push(...AB.posts); if (FO) posts.push({ x: FO.clearing.x + FO.clearing.side * 8, y: FO.clearing.y - 4 }); if (YD && YD.y0y != null) posts.push({ x: YD.sr < 0 ? 188 : W - 189, y: YD.y0y + 180 });
+      if (CO && CO.mode === 'beach') for (const f of [0.2, 0.5, 0.8]) { const x = Math.round(W * f); for (let d = 4; d < CO.duneD + 6; d += 2) { const y = Math.round(CO.wfH + CO.hd * d); if (inB(x, y) && Kr[idx(x, y)] === K.BEACH && Br[idx(x, y)] === -13 && okAt(x, y, 3)) { posts.push({ x, y }); break; } } } // on the dunes behind the beach
+      for (const sq of plan.squares) posts.push({ x: sq.x0 + sq.w / 2, y: sq.y0 + sq.h / 2 }); for (const pk of plan.parks) posts.push({ x: Math.round(plan.mx[(pk.ya + pk.yb) >> 1] + pk.s * 30), y: (pk.ya + pk.yb) >> 1 });
+      const used = []; for (const pt of posts) { if (!okAt(pt.x, pt.y, 3) || used.some(u => Math.hypot(u.x - pt.x, u.y - pt.y) < 70)) continue; used.push(pt);
+        cands.push({ kind: 'search', on: 'post', x: pt.x, y: pt.y, r: 4, prio: true }); let nf = 0;
+        for (let k = 0; k < 12 && nf < 2; k++) { const a = k * 2.618 + rnd(T.SLOT, pt.x, pt.y) * 6.283, x = Math.round(pt.x + Math.cos(a) * 14), y = Math.round(pt.y + Math.sin(a) * 14); if (okAt(x, y, 3)) { cands.push({ kind: 'flak', on: 'post', x, y, r: 4, prio: true, post: used.length - 1 }); nf++; } }
+        for (let k = 0; k < 16; k++) { const a = k * 2.4 + rnd(T.SLOT, pt.y, pt.x) * 6.283, d = 26 + (k % 4) * 8, x = Math.round(pt.x + Math.cos(a) * d), y = Math.round(pt.y + Math.sin(a) * d); if (okAt(x, y, 4)) { cands.push({ kind: 'gen', on: 'post', x, y, r: 5, prio: true }); break; } } }
+      plan.searchPosts = used; }
     cands.forEach((c, i) => { c.o = c.prio ? -1 + rnd(T.SLOT, i) * 0.01 : rnd(T.SLOT, i); });
     cands.sort((a, b) => a.o - b.o);
     const band = 300, quota = {};
     for (const c of cands) {
       const U = Uy(c.y), q = c.kind === 'arty' ? P.slots.artyPer300 : P.slots.flakPer300, b = (c.y / band) | 0, key = c.kind + b;
       if (c.kind !== 'bunker' && !c.prio && (quota[key] || 0) >= Math.max(c.kind === 'aatower' ? 1 : 0, Math.round(q * U))) continue;
-      const sp = c.on === 'battery' ? 30 : c.kind === 'arty' ? P.slots.artySpacing : c.kind === 'bunker' ? 14 : P.slots.flakSpacing; // a battery's guns stand close together
-      const grp = k => k === 'bunker' ? 1 : k === 'sub' ? 2 : 0; /* bunkers, submarines and guns are spaced apart only within their own kind */ if (plan.slots.some(o => grp(o.kind) === grp(c.kind) && (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
+      const sp = c.on === 'post' ? 16 : c.on === 'battery' ? 30 : c.kind === 'arty' ? P.slots.artySpacing : c.kind === 'bunker' ? 14 : P.slots.flakSpacing; // a battery's guns stand close together
+      const grp = k => k === 'bunker' ? 1 : k === 'sub' ? 2 : k === 'search' ? 3 : k === 'gen' ? 4 : 0; /* bunkers, submarines and guns are spaced apart only within their own kind */ if (plan.slots.some(o => grp(o.kind) === grp(c.kind) && (o.x - c.x) ** 2 + (o.y - c.y) ** 2 < sp * sp)) continue;
       quota[key] = (quota[key] || 0) + 1; delete c.o; c.id = plan.slots.length; plan.slots.push(c);
     }
   })(); // its own function, so the engine optimises it (generate is too big to be optimised whole)
@@ -1508,6 +1638,12 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = up && dn ? C.field.grass[pickI(5, 0.3 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.sand[hh(x, y) < 0.7 ? 0 : 1]; break; }
         case K.BANK: c = hh(x, y) < 0.22 ? C.field.wheat[1] : (y + x * 3) % 5 === 0 ? C.field.hedge[2] : C.soil[pickI(3, 0.4 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.5, x, y)]; break; // mud and reeds
         case K.ORCHARD: c = (hh(x, y) < 0.02) ? C.field.wheat[4] : C.field.grass[pickI(5, 0.62 + (vn(x * 0.09, y * 0.09) - 0.5) * 0.35, x, y)]; break; // mown meadow, a few flowers
+        case K.TURF: { const st = (((x >> 3) + (y >> 6)) & 1) ? 0.12 : 0; c = C.grass[pickI(4, 0.42 + st + (vn(x * 0.06, y * 0.06) - 0.5) * 0.3, x, y)]; break; } // an airfield's mown grass, in stripes
+        case K.RUNWAY: { const AB = plan.airbase, [a, b] = AB ? AB.run : [x, x], mid = (a + b) / 2, end = AB ? Math.min(y - AB.ya - 16, AB.yb - 16 - y) : 99; let l = 0.45 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.3 - (hh(x, y >> 2) < 0.05 ? 0.2 : 0);
+          c = C.asph[pickI(4, l, x, y)]; if (x === a || x === b) c = C.side[0]; else if (Math.abs(x + 0.5 - mid) < 1 && (y % 24) < 12 && end > 14) c = C.mark; else if (end >= 2 && end < 10 && (x - a) % 4 >= 2 && x > a + 1 && x < b - 1) c = C.mark; break; } // a runway: tarmac, edge lines, the centre line's dashes, threshold bars
+        case K.BERM: { const up = at(x, y + 1) >= 0 && Kr[at(x, y + 1)] !== K.BERM, lf = at(x - 1, y) >= 0 && Kr[at(x - 1, y)] !== K.BERM, dn = at(x, y - 1) >= 0 && Kr[at(x, y - 1)] !== K.BERM, rt = at(x + 1, y) >= 0 && Kr[at(x + 1, y)] !== K.BERM;
+          c = up || lf ? C.grass[3] : dn || rt ? C.soil[0] : hh(x, y) < 0.35 ? C.grass[1] : C.soil[pickI(3, 0.6, x, y)]; break; } // an earth bank: grassed on top, lit from the north-west
+        case K.WOOD: c = C.tree[pickI(6, 0.12 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.3, x, y)]; break; // the forest floor in the shade under the crowns
         default: c = parcelPix(plan, i, x, y);
       }
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
@@ -1543,6 +1679,27 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           : sh.kind === 'tanker' ? (cb < 0.6 ? C.conc[3] : C.roofs[1][1]) : (f > 0.3 && f < 0.92 && (u % 7) > 1 && cb < half - 1) ? C.char[1] : C.conc[1];
         if (sh.dmg && hh(px * 3, py * 5) < 0.18) c = C.char[0]; }
       put(px, py, c); } }
+  if (plan.yard) { const YD = plan.yard; // the marshalling yard's rolling stock, signals, lamp posts, the corridor's gantry and the siding's buffer stop
+    for (const wg of YD.wagons) { if (wg.y0 + wg.h + 2 < y0 || wg.y0 - 2 >= y0 + h) continue; const x0 = wg.x - 7;
+      for (let yy = wg.y0; yy < wg.y0 + wg.h; yy++) put(x0 + 14, yy - 1, C.shadow, 0.35);
+      for (let yy = wg.y0; yy < wg.y0 + wg.h; yy++) for (let lx = 0; lx < 14; lx++) { const ly = yy - wg.y0, edge = lx === 0 || lx === 13 || ly === 0 || ly === wg.h - 1; let c;
+        if (wg.kind === 0) c = edge ? C.hull[0] : (ly % 4 === 0 ? C.roofs[2][1] : C.roofs[2][2]); // a box van: a brown roof with its ribs
+        else if (wg.kind === 1) c = edge ? C.hull[0] : lx === 1 || lx === 12 || ly === 1 || ly === wg.h - 2 ? C.hull[1] : C.char[pickI(3, 0.3 + (vn(lx * 0.6 + wg.x, yy * 0.6) - 0.5) * 0.8, lx, yy)]; // an open wagon full of coal
+        else { const e = Math.abs(lx - 6.5) / 6.5; c = edge ? C.shadow : ly < 2 || ly > wg.h - 3 ? C.hull[1] : C.conc[pickI(4, 0.85 - e * 0.7, lx, yy)]; if (Math.hypot(lx - 6.5, ly - wg.h / 2) < 2.2) c = C.conc[3]; } // a tank wagon: a round barrel, a dome on top
+        if (wg.dmg && hh(x0 + lx, yy * 3) < 0.3 && Math.hypot(lx - 6.5, ly - wg.h * 0.4) < 6) c = C.char[0];
+        put(x0 + lx, yy, c); } }
+    for (const sg of YD.signals) { if (sg.y < y0 - 3 || sg.y > y0 + h + 3) continue; put(sg.x, sg.y, C.dark); put(sg.x, sg.y + 1, C.dark); put(sg.x, sg.y + 2, sg.red ? C.fire[2] : C.field.crop[2]); put(sg.x + 1, sg.y + 1, C.shadow, 0.35); } // a signal post with its lamp
+    for (const lp of YD.lamps) { if (lp.y < y0 - 2 || lp.y > y0 + h + 2) continue; put(lp.x, lp.y, C.dark); put(lp.x, lp.y + 1, C.conc[1]); put(lp.x + 1, lp.y, C.shadow, 0.35); } // a hooded lamp post
+    if (YD.gantry && YD.gantry.y >= y0 - 3 && YD.gantry.y <= y0 + h + 3) { const gt = YD.gantry; for (let x = gt.x0; x <= gt.x1; x++) { put(x, gt.y, x % 3 ? C.dark : C.conc[1]); put(x + 1, gt.y - 1, C.shadow, 0.35); } for (const x of [gt.x0, gt.x1]) for (let k = -1; k <= 1; k++) put(x, gt.y + k, C.dark); }
+    if (YD.buffer && YD.buffer.y >= y0 - 2 && YD.buffer.y <= y0 + h + 2) { const bf = YD.buffer; for (let x = bf.x - 4; x <= bf.x + 4; x++) { put(x, bf.y, (x >> 1) % 2 ? C.fire[2] : C.lit); put(x, bf.y + 1, C.dark); } } }
+  if (plan.airbase) { const AB = plan.airbase; // parked planes seen from above (nose toward the lane), the flarepath's lamp posts
+    const OL = [[62, 68, 50], [78, 84, 62], [96, 102, 78]], plane = (pl, pass) => { const big = pl.kind === 'bomber', Lh = big ? 10 : 7, S = big ? 13 : 9, d = pl.dir;
+      for (let u = -Lh; u <= Lh; u++) for (let v = -S; v <= S; v++) { const fus = Math.abs(v) <= (big ? 1.5 : 1) && u > -Lh, wing = u >= (big ? -2 : -1) && u <= (big ? 3 : 2) && Math.abs(v) <= S - Math.max(0, u) * 0.4, tail = u <= -Lh + 2 && Math.abs(v) <= (big ? 5 : 3), eng = big && Math.abs(Math.abs(v) - 5) < 1.2 && u >= 1 && u <= 5;
+        if (!(fus || wing || tail || eng)) continue; const px = Math.round(pl.x + d * u), py = Math.round(pl.y + v);
+        if (pass === 0) { put(px + 2, py - 2, C.shadow, 0.35); continue; }
+        let c = eng ? C.dark : fus ? OL[u === Lh - 2 ? 0 : 2] : (Math.abs(v) >= S - 1 || u === (big ? -2 : -1)) ? OL[0] : OL[1]; if (fus && u === Lh - 3) c = C.dark; if (pl.dmg && hh(px * 3, py) < 0.35) c = C.char[0]; put(px, py, c); } };
+    for (const pl of AB.planes) { if (pl.y + 16 < y0 || pl.y - 16 >= y0 + h) continue; plane(pl, 0); plane(pl, 1); }
+    for (const lp of AB.lamps) { if (lp.y < y0 - 1 || lp.y > y0 + h + 1) continue; put(lp.x, lp.y, C.side[2]); } }
   if (plan.perimeter) { const pm = plan.perimeter; // the airfield's fence (posts and wire), the gate's barrier, buffer stops at the end of the tracks
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = Math.round(pm.gate - pm.gw / 2); x <= pm.gate + pm.gw / 2 - 2; x++) put(x, pm.fence, ((x >> 1) % 2) ? C.lit : C.fire[1]);
@@ -1575,7 +1732,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     for (let k = 1; k <= 11; k++) put(Math.round(cr.x + cr.dx * k), Math.round(cr.y + cr.dy * k), C.crane[k % 2]); put(Math.round(cr.x + cr.dx * 11), Math.round(cr.y + cr.dy * 11) - 1, C.shadow); }
   for (const hp of plan.heaps || []) for (let yy = Math.floor(hp.y - hp.r); yy <= hp.y + hp.r; yy++) for (let xx = Math.floor(hp.x - hp.r); xx <= hp.x + hp.r; xx++) { // coal or gravel heaps
     const dx = (xx + 0.5 - hp.x) / hp.r, dy = (yy + 0.5 - hp.y) / hp.r, q = 1 - dx * dx - dy * dy; if (q <= 0) continue; const l = 0.2 + q * 0.4 + (-dx + dy) * 0.25;
-    put(xx, yy, hp.coal ? C.char[pickI(3, l, xx, yy)] : C.gravel[pickI(3, l, xx, yy)]); }
+    put(xx, yy, hp.logs ? C.hull[pickI(3, l + ((xx + yy) % 3 === 0 ? 0.25 : 0), xx, yy)] : hp.coal ? C.char[pickI(3, l, xx, yy)] : C.gravel[pickI(3, l, xx, yy)]); }
   for (const sm of plan.steam || []) for (let k = 0; k <= 6; k++) { const px = sm.x + WIND[0] * k * 4, py = sm.y + WIND[1] * k * 4, r = sm.r * (0.7 + k * 0.12); // steam from a cooling tower, white and dissolving downwind
     for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) { const dd = Math.hypot(xx + 0.5 - px, yy + 0.5 - py) / r; if (dd < 1 && hh(xx * 5, yy * 3) < 0.8 - dd * 0.3) put(xx, yy, SMOKE[3], (0.36 - k * 0.045) * (1 - dd * 0.5)); } }
   for (const sk of plan.stacks || []) for (let k = 1; k <= (sk.big ? 8 : 5); k++) { const px = sk.x + WIND[0] * k * 3, py = sk.y + WIND[1] * k * 3, r = 1.2 + k * 0.5; // a thin smoke plume from the chimney
@@ -1585,7 +1742,11 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) { const dd = (xx * xx + yy * yy) / (t.r * t.r); if (dd > 1) continue;
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
       if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
-      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : t.v === 4 ? 0.2 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, C.tree[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+      const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : t.v === 4 ? 0.2 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, (t.autumn ? AUTUMN : C.tree)[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+  if (plan.pylons) { const py = plan.pylons; for (let k = 0; k + 1 < py.length; k++) { const a = py[k], b = py[k + 1]; if (Math.max(a.y, b.y) < y0 - 4 || Math.min(a.y, b.y) > y0 + h + 4) continue; // the cables, sagging a little, their shadow on the ground
+      for (const dx of [-3, 3]) for (let yy = a.y; yy <= b.y; yy++) { const t = (yy - a.y) / (b.y - a.y), xx = Math.round(lerp(a.x, b.x, t) + dx); put(xx + 2, yy - 2, C.shadow, 0.18); put(xx, yy, C.dark, 0.55); } }
+    for (const p of py) { if (!p.ok || p.y < y0 - 6 || p.y > y0 + h + 6) continue; for (let d = -3; d <= 3; d++) { put(p.x + d + 2, p.y + d - 2, C.shadow, 0.3); put(p.x + d, p.y + d, C.conc[0]); put(p.x + d, p.y - d, C.conc[0]); } // a lattice pylon: its square base, the cross bracing, the crossarm
+      for (let d = -3; d <= 3; d++) { put(p.x - 3, p.y + d, C.dark); put(p.x + 3, p.y + d, C.dark); } for (let d = -6; d <= 6; d++) put(p.x + d, p.y, C.conc[1]); } }
   // soot around gutted and burning houses
   for (const it of items) { if (!(it.dmg >= 3 || it.fire) || it.y0 + it.h + 4 < y0 || it.y0 - 4 >= y0 + h) continue;
     for (let yy = it.y0 - 4; yy < it.y0 + it.h + 4; yy++) for (let xx = it.x0 - 4; xx < it.x0 + it.w + 4; xx++) { const o = at(xx, yy); if (o < 0 || Kr[o] === K.BLDG || Br[o] === it.id) continue;
@@ -1609,7 +1770,9 @@ function paintNight(plan, d, y0, h) {
     if (q.r > 0) for (let yy = Math.floor(q.y - q.r); yy <= q.y + q.r; yy++) for (let xx = Math.floor(q.x - q.r); xx <= q.x + q.r; xx++) { const e = Math.hypot(xx + 0.5 - q.x, yy + 0.5 - q.y) / q.r; if (e < 1) add(xx, yy, q.c, q.a * (1 - e) * (1 - e)); }
     if (q.px) for (const [xx, yy, c] of q.px) add(xx, yy, c, 1); }
 }
-const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0] };
+// the night grade alone, over a whole RGBA buffer: for a host's own ground painted by day (the game's legacy chunks in a night level)
+function nightGrade(d) { for (let o = 0; o < d.length; o += 4) { const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
+const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0], red: HX(['#ff3428'])[0], green: HX(['#3cff78'])[0], lamp: HX(['#aaa078'])[0], flare: HX(['#ffc46e'])[0] };
 // The plan's lights at night, built once per plan: about one house in ten shows a crack of light in a facade window (blocks and public buildings up
 // to three), halls on a night shift glow through their painted-over north lights, chimneys and furnaces glow, cooling-tower steam is lit from
 // below, and every fire lights the street around it. { x, y, r, c, a } is a glow (plan coordinates), px a list of bright pixels [x, y, colour].
@@ -1631,10 +1794,18 @@ function nightLights(plan) {
         if (x % 3 !== 1 || x >= it.x0 + it.w || kAt(x, y) === K.BLDG || kAt(x, y) < 0 || facadeOf(x, y) !== it) continue;
         out.push({ x: x + 0.5, y: y + 0.5, r: 6, c: NL.warm, a: 0.45, px: [[x, y, NL.warm]] }); break; } } }
   for (const f of plan.fires) out.push({ x: f.x, y: f.y, r: Math.max(f.w, f.h) + 16, c: NL.fire, a: 0.42 });
+  if (plan.pylons) for (const p of plan.pylons) if (p.ok) out.push({ x: p.x + 0.5, y: p.y + 3.5, r: 3, c: NL.red, a: 0.45, px: [[p.x, p.y + 3, NL.red]] }); // a red lamp on each pylon
+  if (plan.airbase) { const AB = plan.airbase; for (const lp of AB.lamps) out.push({ x: lp.x + 0.5, y: lp.y + 0.5, r: 3.5, c: NL.flare, a: 0.4, px: [[lp.x, lp.y, NL.flare]] }); // the flarepath, the control tower's windows
+    if (AB.tower) { const b = AB.tower; out.push({ x: b.x0 + b.w / 2, y: b.y0 - 1, r: 6, c: NL.warm, a: 0.35, px: [[b.x0 + 3, b.y0 - 1, NL.warm], [b.x0 + 8, b.y0 - 1, NL.warm]] }); } }
+  if (plan.yard) { const YD = plan.yard; // signal lamps, hooded yard lamps, the signal box's windows
+    for (const sg of YD.signals) out.push({ x: sg.x + 0.5, y: sg.y + 2.5, r: 3.5, c: sg.red ? NL.red : NL.green, a: 0.5, px: [[sg.x, sg.y + 2, sg.red ? NL.red : NL.green]] });
+    for (const lp of YD.lamps) out.push({ x: lp.x + 0.5, y: lp.y - 1, r: 15, c: NL.lamp, a: 0.17 });
+    if (YD.box) { const b = YD.box; out.push({ x: b.x0 + b.w / 2, y: b.y0 - 1, r: 6, c: NL.warm, a: 0.35, px: [[b.x0 + 3, b.y0 - 1, NL.warm], [b.x0 + 7, b.y0 - 1, NL.warm]] }); } }
   return (plan.lights = out);
 }
 // A burning house (spec: convincing fire): an orange glow on its surroundings, flames from the core licking past the roof edge and leaning with
 // the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
+const AUTUMN = HX(['#3a2a10', '#5a3c14', '#7a5418', '#9a6c1e', '#b88a2a', '#d4a83c']); // a beech turning in autumn
 const TUN = HX(['#5a4a32', '#7a6644', '#968058', '#b29a6c', '#ccb486']), TUN_IN = HX(['#241c14'])[0]; // a tunnel portal's sandstone
 const FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
 function fireFx(plan, f, t, put) {
@@ -1697,7 +1868,7 @@ function withPerimeter(o) {
   const P0 = Object.assign({}, PRESETS[o.preset || 'town'], o.params || {}), h = P0.perimeter | 0; if (!h) return generate(o);
   const L = P0.L | 0, L1 = L - h, k = L / L1, sc = f => f * k, cv = c => c && c.map(([f, v]) => [sc(f), v]), q = Object.assign({}, o.params, { L: L1, perimeter: 0 });
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
-  for (const key of ['stationAt', 'industryAt']) if (P0[key]) q[key] = P0[key].map(sc);
+  for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
   const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); return plan;
 }
@@ -1734,7 +1905,7 @@ function calmWater(plan) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, palette: C };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, palette: C };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

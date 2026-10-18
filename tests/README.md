@@ -75,6 +75,8 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 `enigma.mjs` checks the plumbing of the Enigma Run mode (`docs/enigma-world-spec.md`): every level's sortie is well formed and rebuilt identically; Settings > Enigma Run opens the level picker and starts the chosen level; an Enigma Run level never counts (board eligibility, best score, loop count); it is saved and resumed as `{level, seed}`; its end returns to the picker; starting any run clears every terrain cache (it fills them with markers and looks for what is left); and an Enigma Run level played first leaves nothing behind: the Campaign scenario played afterwards **in the same page** equals `golden.json` (`replay.mjs` uses a fresh page per scenario and cannot see leaks). Serve the folder first:
 
+Level 3 (The Long Night) has its own block: its night plan passes the generator's rules and holds the yard, airbase, forest, pylons and searchlight posts; the yard's tracks run on through the supergun's arena; ground types and pixels are the plan's; the local night rule; route objects; the weather plan's mist; the same ground after a resume; and a bot flight that meets trains and manned searchlight posts, reaches the boss and returns to the picker.
+
 ```
 node tests/enigma.mjs            # all checks
 node tests/enigma.mjs --bench    # also print chunk build times per level, and level 6 by template (pixel pass and features apart)

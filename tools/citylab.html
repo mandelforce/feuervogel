@@ -87,7 +87,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option><option value="longNight">The Long Night (Enigma level 3, the whole level)</option></select>
       <select id="curve" aria-label="Density along the strip">
         <option value="preset">The preset's own density</option>
         <option value="town">Fields, town, centre, fading out</option>
@@ -95,7 +95,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
         <option value="centre">All centre</option>
         <option value="fringe">Fringe only (village edge)</option>
       </select>
-      <label class="row" for="len">Length <output id="lenV"></output><input id="len" type="range" min="900" max="3200" step="100" value="1800"></label>
+      <label class="row" for="len">Length <output id="lenV"></output><input id="len" type="range" min="900" max="3800" step="2" value="1800"></label>
       <label class="row" for="dmg">Damage at the centre <output id="dmgV"></output><input id="dmg" type="range" min="0" max="100" step="5" value="25"></label>
       <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="120" step="2" value="46"></label>
       <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>

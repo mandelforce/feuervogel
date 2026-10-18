@@ -9,7 +9,7 @@ Line numbers drift as the file changes; search for the section comment (for exam
 | File | What it is |
 |---|---|
 | `index.html` | The whole game: markup, CSS and one script (about 7,400 lines inside a single function). No build step, no dependencies. |
-| `tools/citygen.js` | The settlement generator (towns, villages, ports, beaches) behind the city lab `tools/citylab.html`. The game carries a copy in `index.html` (`<script type="text/plain" id="cityGenSrc">`, run by the loader before the game script); `node scripts/embed-citygen.mjs` refreshes it after every change, and `tests/citygen.mjs` fails while the copy is old. Enigma Run level 6 takes its ground from it. |
+| `tools/citygen.js` | The settlement generator (towns, villages, ports, beaches) behind the city lab `tools/citylab.html`. The game carries a copy in `index.html` (`<script type="text/plain" id="cityGenSrc">`, run by the loader before the game script); `node scripts/embed-citygen.mjs` refreshes it after every change, and `tests/citygen.mjs` fails while the copy is old. Enigma Run levels 3 and 6 (and 6B) take their ground from it; level 3's is painted at night (`paint` with `opts.night`). |
 | `sw.js` | Service worker: offline play. `VERSION` here must match `VERSION` in `index.html`. |
 | `manifest.json`, `icons/` | Install-to-home-screen data. |
 | `worker.js`, `schema.sql` | Leaderboard backend (Cloudflare Worker + D1). The repo copy lags the deployed Worker; see the note in the roadmap. |
