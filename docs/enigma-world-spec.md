@@ -1231,3 +1231,10 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
 **Checks** (`tests/citygen.mjs`): 60 seeds of each preset pass every hard rule, with every feature; the same seed gives the same plan; painting in bands equals painting whole. Plan time is about 20 to 30 ms (median, Node). Painting costs about 7.3 ms per chunk warm in Node, about the same as the town (6.3) and the islands (8.2); the conifers add about 0.5 ms (each crown is a cached pixel list per kind, size and turn).
 
 **Next** (after the owner's review): the fortified forest, the crossroads village of its own in a clearing, the hidden airbase, the valley with its wide river and harbour, and the approach to the castle; then the whole level as one plan; then mist as a weather effect of its own.
+
+**A fiercer forest (owner: bunkers and flak in the open parts).** Per conifer feature (`F.guns`, gun sites per 1000 px, default 4; 0 turns them off):
+- **Flak sites** beside the main road, alternating sides: a patch of trampled earth (`MEADOW`, Br -39) 30 to 38 px across cut into the trees (a plantation may give way), with two or three flak pits in sandbag rings (`flak` slots), ammunition under a net and shell craters round them. The patch is only cut where at least two pits fit.
+- **Firebreak crossings:** barbed wire along the firebreak's south edge for about 55 px either side of the road; behind it, on a cleared pad, a **pillbox** (`bunker` slot, its slit to the south) on one side of the road and a **Tobruk pit** on the other.
+- **Clearings:** a flak pit and a crater in each, an **AA tower** slot in the largest. **Clear-cuts:** an **artillery pit** under a net (`arty` slot).
+- Sandbags are lighter in the forest palette, so the rings read on the dark ground.
+- 60 seeds of the conifer forest: about 15 flak, 2 bunker, 1.5 arty and 0.8 AA tower slots per 1280 px; the cliff coast's forest adds about 7 flak. Every plan passes every rule with every feature (`tests/citygen.mjs` checks at least four flak sites, six flak slots, a bunker and an artillery pit in the conifer forest).
