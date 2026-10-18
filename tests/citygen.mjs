@@ -102,6 +102,13 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
   const low = Object.entries(c).filter(([k, v]) => v < 60); ms.sort((a, b) => a - b);
   if (low.length) fail(`desert segments: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} desert segments: ${240 - fails}/240 pass, plan ${ms[120].toFixed(1)} ms median; of 60 each: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
+// Level 2 as one plan (sandSea, 20 seeds): every hard rule, the port and the desert joined (one track, trains clear), every segment's feature,
+// and side tracks (tank routes off the main track, at least four per level) for the game's tanks to turn into
+{ let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'sandSea' }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`sandSea seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}, lanes blocked ${m.lanesBlocked}`); }
+    const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 2 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
+  ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
+  console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 whole plan: ${20 - fails}/20 pass, every feature and side tracks in ${20 - low}, plan ${ms[10].toFixed(0)} ms median`); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }

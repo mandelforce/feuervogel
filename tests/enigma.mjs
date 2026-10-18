@@ -174,6 +174,27 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 2 && f.errs.length === 0, `level 2 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
+// 3d. Trains and side roads (owner): flown through by the bot, levels 2, 6 and 6B each get trains on their plan's train runs (they move along
+// the line) and tanks that turn off the main road into a side road and drive along it
+for (const lv of [2, 6, 7]) {
+  const page2 = await freshPage();
+  const f = await page2.evaluate(lv => { const SF = window.SF; SF.setMode('immortal'); SF.peek(`settings.diff = 1; startEnigma(${lv})`); let st = 'ok'; const o = { trains: new Set(), moved: 0, side: new Set(), sideMoved: 0 }, last = {};
+    for (let i = 0; i < 20000 && st === 'ok'; i++) { st = SF.run(50); const v = JSON.parse(SF.peek(`JSON.stringify({ locos: world.enemies.filter(e => e.type === 'loco' && !e.dead).map(e => [e.train, Math.round(e.wy)]), side: world.enemies.filter(e => (e.type === 'tank' || e.type === 'htank') && e.side && !e.dead).map(e => [e.side.s + ':' + Math.round(e.wx * 0) , Math.round(e.side.k), e.wx | 0]), boss: world.bossSpawned })`));
+      for (const [t, y] of v.locos) { if (last['t' + t] !== undefined && last['t' + t] !== y) o.moved++; last['t' + t] = y; o.trains.add(t); }
+      for (const [s2, k, x] of v.side) { o.side.add(s2); if (last['s' + s2] !== undefined && last['s' + s2] !== k) o.sideMoved++; last['s' + s2] = k; }
+      if (v.boss) break; }
+    return { st, trains: o.trains.size, moved: o.moved, side: o.side.size, sideMoved: o.sideMoved, errs: SF.R.errs.slice(0, 2) }; }, lv);
+  const name = { 2: '2', 6: '6', 7: '6B' }[lv];
+  ok(f.trains >= 1 && f.moved > 5 && f.errs.length === 0, `level ${name}: trains run on the plan's railway (${f.trains} trains)`);
+  if (lv !== 2) ok(f.side >= 1 && f.sideMoved > 5, `level ${name}: tanks turn into side roads and drive along them (${f.side} side roads used)`);
+  else { const d = await page2.evaluate(() => window.SF.peek(`(() => { startEnigma(2); SIDE.turn = 1; const S = run.sortie, sides = sideRoutes(S), sd = sides.find(q => q.path.length >= 30 && q.path[0][1] < S.planY0 - 700), j = sd.junc[0], rt = sortieRoutes(S)[j.rt], y0 = sd.path[j.k][1] - 6; /* a desert side track */
+      world.enemies = []; world.scroll = -y0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
+      const t = G('tank', routeX(rt, y0), y0, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: rt.id })); world.enemies.push(t); let side = false, off = 0;
+      for (let f = 0; f < 600; f++) { ENT.tank.update(t); if (t.side) side = true; const tt = terrainType(Math.floor(t.wx), Math.floor(t.wy)); if (tt !== 'road' && tt !== 'bridge') off++; }
+      SIDE.turn = 0.35; return JSON.stringify({ n: sides.length, side, drove: Math.round(Math.abs(t.wx - routeX(rt, y0))), off, end: !!t.atEnd }); })()`));
+    const q = JSON.parse(d); ok(q.n >= 4 && q.side && q.drove >= 20 && q.off === 0 && q.end, `level ${name}: ${q.n} side tracks; a tank turns off the desert track into one, drives ${q.drove} px along it on the road, and stops at its end`); }
+  await page2.close();
+}
 // 3b''. Level 6B (internal level 7), the harbour city: one plan from the level's first chunk (sea, the south harbour with the east harbour
 // opening into it, the town, works, station, the airfield's perimeter); the picker offers it, the ground types and pixels are the plan's,
 // it is the same after a resume, and flown through by the bot it reaches the boss and returns to the picker without errors.
@@ -291,7 +312,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 {
   const page = await freshPage();
   for (const [lv, name, frames] of [[8, '1A', 4000], [6, '6', 26000]]) {
-    const r = await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const S = run.sortie, R = sortieRoutes(S), plan = R.filter(q => !q.legacy);
+    const r = await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); SIDE.turn = 0; /* this test follows the routes alone (side roads have their own check) */ const S = run.sortie, R = sortieRoutes(S), plan = R.filter(q => !q.legacy);
       let bad = 0, n = 0; for (const q of plan) for (let wy = q.wyLo; wy <= q.wyHi; wy += 3) { n++; const t = terrainType(Math.floor(routeX(q, wy)), wy); if (t !== 'road' && t !== 'bridge') bad++; }
       const start = plan.filter(q => q.main && q.wyHi - q.wyLo > 3 * ROUTE_SPACE + 16).sort((a, b) => a.wyLo - b.wyLo)[0], wy0 = start.wyLo + 3 * ROUTE_SPACE + 8; /* the northernmost main road with room for the convoy */
       world.enemies = []; world.scroll = -wy0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
@@ -301,7 +322,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
       let late = 0; for (let f = 0; f < ${frames}; f++) { for (const o of cv) ENT[o.type].update(o); if (f === ${frames} - 400) late = cv[0].wy;
         if (f % 10 === 0) { const srt = cv.slice().sort((a, b) => b.wy - a.wy); for (let i = 1; i < srt.length; i++) if (Math.abs(srt[i].wx - srt[i - 1].wx) < 9) minGap = Math.min(minGap, srt[i - 1].wy - srt[i].wy - srt[i - 1].hh - srt[i].hh);
           for (const o of cv) { const t = terrainType(Math.floor(o.wx), Math.floor(o.wy)); if (t !== 'road' && t !== 'bridge') { offRoad++; const P = S.plan, py = Math.round(S.planY0 - o.wy), pi = py * P.W + Math.round(o.wx), key = t + ':' + (py >= 0 && py < P.L ? CityGen.KIND_NAMES[P.K[pi]] + P.B[pi] : 'out') + (o.atEnd ? '@end' : ''); seen[key] = (seen[key] || 0) + 1; } } cv.forEach((o, i) => { if (o.route !== last[i]) { switches++; last[i] = o.route; } }); } }
-      return { seen: JSON.stringify(seen), routes: plan.length, bad, n, minGap: Math.round(minGap), offRoad, switches, end: cv.every(o => o.atEnd || !o.moving), front: Math.round(cv[0].wy - wy0), stopped: cv[0].atEnd || cv[0].wy === late }; })()`); // at a dead end, or held where the road meets the water
+      SIDE.turn = 0.35; return { seen: JSON.stringify(seen), routes: plan.length, bad, n, minGap: Math.round(minGap), offRoad, switches, end: cv.every(o => o.atEnd || !o.moving), front: Math.round(cv[0].wy - wy0), stopped: cv[0].atEnd || cv[0].wy === late }; })()`); // at a dead end, or held where the road meets the water
     ok(r.routes >= 3 && r.bad <= r.n * 0.02, `level ${name}: ${r.routes} routes from the plan's tank streets, on the road (${r.bad} of ${r.n} samples off it)`);
     ok(r.offRoad === 0 && r.minGap >= 9 && r.switches >= 1 && r.stopped && r.front > 300, `level ${name}: a convoy drove ${r.front} px along its routes (${r.switches} route changes), never off the road, at least ${r.minGap} px between vehicles, and stopped at the end (off the road ${r.offRoad} ${r.seen}, stopped ${r.stopped})`);
   }

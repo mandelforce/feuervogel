@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Trains in Enigma Run levels 2, 6 and 6B. Trains run on the railways of the generated ground as their straight stretches come into view: a locomotive (a diesel in the desert) and three to five cars, one train at a time. They roll through level crossings and stop where the rails end, or at the gap of a destroyed viaduct.
+- Tanks also take side roads. A tank on the main road sometimes turns into a cross street, drives along it, and joins the next road it meets or stops at the street's end, keeping its distance from other vehicles. In level 2 the desert has dirt side tracks for this: to the derricks and the tank farm, into the oasis villages, to the station, and to the airbase.
 - Enigma Run level 2 (Sea of Sand) now flies on its own ground. In order: the desert port (the level opens over the sea, close to the quay) and the beach town at war, the oil valley, the held oasis village, the railway junction, the small oasis, the desert airbase, the fortified pass with its viaduct, then the quiet desert. The boss, the land fortress, waits on the Campaign's desert boss ground.
   - The open sand is in the Campaign's own desert colours and blends into the boss ground without a seam.
   - Gun pits, sangars, bunkers, roof nests, a dug-in tank and planes in the blast pens get the game's units as they come up.

@@ -827,7 +827,7 @@ Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Co
 - The pass narrows the ground to a gorge about 120 px wide. The railway crosses on a **viaduct** that can be destroyed and is wide enough for the game's trains (16 px).
 - In the desert the church is a **domed building, not a mosque** (no minaret).
 - Light damage overall, with craters and wrecks around the pass and the airbase.
-- Route objects for road traffic are done: built by the level 1 work and merged to main. Level 2's roads (the junction's convoy road, the road through the pass) use them.
+- Route objects for road traffic: built by the level 1 work. They are on the branch `claude/enigma-level-1`, not yet on main (an earlier note here said they were merged; it was wrong). This branch merged that branch to build on them (18.6).
 - Heat shimmer, dust and sandstorms come later, first as animated mockups for review.
 
 **Order of work** (the owner reviews after each step): (1) the desert climate and the desert port, beach town and village presets in the city lab; (2) relief, wadi, dunes, oil field and oasis; (3) the junction, the desert airbase and the pass; (4) the game integration (`sortiePlanLevel2`, the seam into the boss ground, slots, tests, contact sheets).
@@ -1067,3 +1067,30 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
   - it never leaves the road, keeps at least 10 px between vehicles, and stops at the end. This is tested in `tests/enigma.mjs`.
 - **Not yet:** traffic in the other direction, turns onto cross streets (streets along x are not routes), and marching troops (still `roadX`).
 
+### 18.6 Trains, and tanks into side roads (owner request)
+
+**Merge:** the route objects (spec 2, Tier A) are on `claude/enigma-level-1`, not yet on main. This branch merged that branch (with level 1A, its islands plan) to build on them.
+
+**Trains** (`planTrain`, levels 2, 6 and 6B):
+- **Spawn:** in the director's ground spawns, a train is placed on one of the plan's train runs (`plan.trainRuns`: the main lines, the branches and the junction's branch) as the run comes up above the screen. One train is about at a time, and each 900 px of a run gets at most one.
+- **The train:** a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, boxcars or flatcars with a flak gun, scored as the Campaign's trains.
+- **Movement:** they roll south along the run as the Campaign's do (`trainMove`). Inside a plan they also roll through a level crossing, where the plan has rails under the road (`planRail`; the Campaign is unchanged). They stop where the rails end.
+- **The viaduct:** a destroyed viaduct's span reads as `ravine` (shared `classify`, plan branch), so a train stops at the gap.
+
+**Side roads** (owner: tanks also move into side roads):
+- **Side roads** (`sideRoutes`) are the plan's tank streets that run across the strip (`axis 'h'`): the collectors' cross streets and the perimeter road in the towns, and the side tracks in the desert. A junction is wherever a route (a road along the strip) passes one of their points.
+- **Turning:** a tank (not a dug-in one) driving along a route turns into a side road at a junction `SIDE.turn` of the time (0.35), either way along it.
+- **Following:** it follows the street point by point (`sideStep`). At the next junction it takes that route `SIDE.join` of the time (0.6), otherwise it drives on to the street's end and stops. It keeps its distance from the vehicle ahead (both half-lengths plus `ROUTE_GAP`).
+- **Desert side tracks** (generator, `sideTrack`): in level 2's desert, dirt side tracks 7 px wide run off the main track as tank routes, about eight per level:
+  - to each derrick and to the tank farm in the valley;
+  - into each oasis village along the first gap between its blocks;
+  - to the station at the junction;
+  - to both ends of the airfield.
+
+  Each ends where the ground is no longer open: at houses, a wall or the railway's corridor.
+- **Level 1's convoy test** (shared): it turns side roads off for its convoy (`SIDE.turn = 0`), since it checks route following alone.
+
+**Tests:**
+- `tests/enigma.mjs`: a bot flight through levels 2, 6 and 6B each runs trains on the plan's railway (3, 6 and 5 trains). In 6 and 6B tanks turn into side roads and drive along them (10 and 11 side roads used).
+- In level 2 a tank placed above a desert junction turns into the side track, drives along it on the road and stops at its end. The desert's tanks drive only about 40 px in their life, and the desert has only about eight junctions, so a single flight is not a reliable check there.
+- `tests/citygen.mjs`: 20 whole level-2 plans pass every rule with every feature and at least four side tracks.
