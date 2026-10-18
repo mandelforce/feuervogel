@@ -1190,3 +1190,81 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
 - The shimmer moves ground pixels at the airbase.
 - The shimmer, dust, devil and gusts draw without errors.
 - None of it happens outside level 2.
+
+## 19. Level 4, The Iron Forest
+
+**What the castle boss needs (checked in code; settles the [verify] in section 10).** The castle boss spawns with its gate 1,120 px above where it appears, 1,200 px above the screen's top (`bossE.wy = -sc - 1200`), so its approach is about 19 chunks of the Campaign's `castle` ground with theme 4: grass, the castle road (`croad`) down the middle at x 112, fields, and the small castle on its farm (`castleInfo` finds the first `castle` chunk). The castle grounds themselves are a sprite (`drawRaven`) drawn over the ground. In the Campaign the castle ground begins about 2.5 chunks before the boss trigger and never ends. So level 4 ends as levels 2 and 3 do: past the level, the open-ended Campaign boss ground of its theme (`castle`, theme 4), and the plan's main road runs into the castle road at x 112.
+
+**Owner decisions (plan review):**
+- **Cliff coast:** a ragged cliff with coves and sea stacks, and a **very high coast**: climbing it should feel like going up a mountain.
+- **Conifer forest:** single crowns, **in different sizes**.
+- **Clearing village:** a crossroads village, but a **new variation of its own**, added to the generator.
+- **Hidden airbase:** placed freely by the generator; its hangars and guns come from the plan's slots.
+- **Mist:** now, as a **weather effect of its own** (not level 3's mist).
+- **Valley:** the river runs along the strip and winds a little. It is **wide, with room for the game's ships**, and has **harbour structures at one side**, near a village.
+- **Road traffic:** the route objects already built (17.5, 18.6) carry the level's roads; convoys use them.
+- **Order of work:** the generator first, reviewed in the city lab (City Lab Level 4); then the game.
+
+### 19.1 Step 1: the cliff coast and the conifer forest (generator, for review in the city lab)
+
+**Forest land** (`forestLand`, its own builder as the desert's and the islands' are; `builder: 'forest'`, `climate: 'forest'`; presets `cliffCoast` (900 px) and `coniferForest` (1280 px), in the city lab and in the published **City Lab Level 4**). Features by share of the length (`P.features`), as in the desert.
+
+- **Climate** (`C_FOREST`): the Campaign's stage 4 colours (`THEME_TR[4]`) for grass and the forest floor; three conifer ramps (spruce, pine, larch); grey crag; heath (heather, dead bracken); grey shingle.
+- **New ground kinds:** `CRAG` (41, game type `rock`: cliff faces, the gorge's walls, sea stacks; the plane flies over, ground units keep off) and `LEDGE` (42, `grass`: ledges between the tiers, the gorge's floor, a stack's top). The forest floor is level 3's `WOOD` (`forest`).
+
+**The cliff coast** (feature `cliffs`, owner: a very high coast, like going up a mountain):
+- The level opens over the sea (56 rows by default), with two to four **sea stacks**: a ragged outline extruded upward into a face of 9 to 18 rows, a grassy top, surf round the foot.
+- **Coves:** the main one (46 to 60 rows deep) in the middle of the strip with a shingle beach, often a second, smaller one beside it. They bite into every tier, shallower and wider the higher the tier.
+- **Three tiers of cliff** with **ledges** between them. The faces are about 46, 36 and 30 rows high (varying along the coast), the ledges 15 and 19. Each face is south-facing rock in strata, buttresses lighter and gullies darker, lit at the rim and dark at the foot; a face that turns west catches more of the light; gullies are notched into the rims; grass grows on small ledges in the faces. Each face shades the ledge (or the sea) at its foot. Scree lies at the foot of each face. In all about 200 rows from the sea to the plateau.
+- **The road** begins at a concrete **slipway** on the main cove's shingle, with a landing barge moored off it, and climbs to the plateau through a **gorge** cut through all three tiers (24 px floor of scree and grass, walls of 6 px: the left wall faces east and is in shade, the right wall faces west and is lit), winding a little. Above the gorge it becomes the forest road.
+- **The clifftop:** a strip of heath (22 to 32 rows) along the rim with small wind-bent pines; a **battery** of three casemates with their embrasures to the sea (`arty` slots), a **radar**, and a **lighthouse** on the most seaward headland, both clear of the road.
+- **On the ledges:** two **pillboxes** facing the sea on the first ledge (`bunker` slots) and two **flak pits** in sandbag rings on the second (`flak` slots).
+
+**The conifer forest** (feature `conifer`; owner: single crowns in different sizes):
+- **Crowns** in six sizes (radius 2 to 7 px), each drawn from above with its shadow to the lower right: **spruce** as a dark star of branches with gaps between them, **pine** as a rounder crown of olive tufts round a middle one, **larch** (about 2.5 percent) a lighter star. Slow noise fields make **old stands** of big spruces, **young growth** and **pine stands**. Large crowns are placed first, then medium and small ones fill the gaps (crowns may overlap a little, so the forest is dense but every crown reads). Painted per size class (small, medium, large), each class's shadows before its crowns, so a taller tree's shadow falls on the smaller ones.
+- **Plantations:** blocks of young trees (radius 2, 5 px apart) or pole-stage trees (radius 3, 7 px apart) in rows.
+- **Firebreaks:** straight rides of heath across the strip, a two-rut track along most of them.
+- **Clearings** (a meadow with flowers and a forester's hut) and **clear-cuts** (slash, stumps, log piles) on the roomier side of the road.
+- **Forest roads** (`gravel`, 8 px, tank routes, `axis 'v'`): they leave the main road, run along the strip's far side and join it again, or end at a **timber depot** (stacked logs on a clear-cut). They become routes in the game as they are (spec 17.5): vehicles spawn on them and take the main road where they end.
+- The main road is asphalt, 9 px, with a gravel verge.
+
+**Checks** (`tests/citygen.mjs`): 60 seeds of each preset pass every hard rule, with every feature; the same seed gives the same plan; painting in bands equals painting whole. Plan time is about 20 to 30 ms (median, Node). Painting costs about 7.3 ms per chunk warm in Node, about the same as the town (6.3) and the islands (8.2); the conifers add about 0.5 ms (each crown is a cached pixel list per kind, size and turn).
+
+**Next** (after the owner's review): the fortified forest, the crossroads village of its own in a clearing, the hidden airbase, the valley with its wide river and harbour, and the approach to the castle; then the whole level as one plan; then mist as a weather effect of its own.
+
+**A fiercer forest (owner: bunkers and flak in the open parts).** Per conifer feature (`F.guns`, gun sites per 1000 px, default 4; 0 turns them off):
+- **Flak sites** beside the main road, alternating sides: a patch of trampled earth (`MEADOW`, Br -39) 30 to 38 px across cut into the trees (a plantation may give way), with two or three flak pits in sandbag rings (`flak` slots), ammunition under a net and shell craters round them. The patch is only cut where at least two pits fit.
+- **Firebreak crossings:** barbed wire along the firebreak's south edge for about 55 px either side of the road; behind it, on a cleared pad, a **pillbox** (`bunker` slot, its slit to the south) on one side of the road and a **Tobruk pit** on the other.
+- **Clearings:** a flak pit and a crater in each, an **AA tower** slot in the largest. **Clear-cuts:** an **artillery pit** under a net (`arty` slot).
+- Sandbags are lighter in the forest palette, so the rings read on the dark ground.
+- 60 seeds of the conifer forest: about 15 flak, 2 bunker, 1.5 arty and 0.8 AA tower slots per 1280 px; the cliff coast's forest adds about 7 flak. Every plan passes every rule with every feature (`tests/citygen.mjs` checks at least four flak sites, six flak slots, a bunker and an artillery pit in the conifer forest).
+
+### 19.2 The Sower (owner: a new enemy plane over the forest)
+
+The owner asked for a plane that flies ahead of the player and leaves bullets behind, so the player keeps to the sides or higher up, and that drops flying bombs bursting like flak. Built from the owner's picture (a twin-engine bomber seen from above, nose up, grey and khaki splinter camouflage, glazed nose, yellow spinners, elliptic tailplane). Enigma Run level 4 only; the Campaign never spawns it (golden replay unchanged).
+
+- **Sprite** `SPR.sower` (52 x 40, drawn in code), two propeller discs flickering ahead of the engines, narrower when it banks, a shadow like the big bomber's.
+- **Spawn** (`sowerTick`, every frame, outside the director's pacing): while the screen's spawn row is `forest` ground, `SOWER.first` (360) frames into a forest stretch, then `SOWER.gap` (1800) frames after the last one has gone; one at a time, never once the boss has come. A red arrowhead blinks at the bottom edge for `SOWER.warn` (70) frames on the side away from the player, then it comes from below the screen on that side (`SOWER.climb` 1.5 px a frame).
+- **Ahead of the player** (`SOWER.hold`, 840 frames, 14 s): about 58 px from the top, weaving across the middle (`SOWER.weave` ±50 px round the centre, about 9.5 s a sweep), so the strip's sides stay free.
+  - **Aerial mines** (`ebul` kind `amine`): one every 7 frames from its tail. They hang in the air and drift down with the ground (0.62 px a frame) for 250 frames, then fizzle out (they blink for their last 40). The trail is a snaking curtain under the plane: keep to the sides, or get up beside it where the curtain has moved on.
+  - **Flying bombs** (kind `fbomb`): one every 95 frames from the bomb bay, falling back (accelerating to 1.25 px a frame) with a smoke trail; they burst into a ring of 8 shots on a fuse of 52 to 80 frames, or once their fuse is under 40 and the player is within 30 px.
+- **Then** it climbs away and is gone (no score).
+- **Shot down:** 100 hit points on Normal (scaled by difficulty and loop; the four-engine bomber has 42), 4000 points, two medals, a last burst on Hard (`revenge` 4). It breaks up like the other big planes, which clears the bullets about it (its mines too); crew bail out; it may drop a bomb pickup.
+- **Tests** (`tests/enigma.mjs`, 3f): in level 4 (made too tough to shoot down) it is announced, comes from below, holds ahead and sows at least 20 mines drifting down, its bombs burst, and it climbs away, without errors; it never comes in level 6.
+- All its numbers are in `SOWER` for tuning after the owner has played it.
+
+**Round 2 (owner: no warning, double its size, rework the drawing, it can come as a pair).**
+- **No warning:** the marker at the bottom edge is gone. It comes up from below the screen on the side away from the player and passes over the player while climbing in and away (`ghost`, no ram); it can ram only while it holds ahead.
+- **Twice the size:** `SPR.sower` is 104 x 80, redrawn: a tapered wing with rounded tips, ailerons and flaps; engine nacelles forward of the wing with cowling rings, exhaust stubs and oil coolers, yellow spinners; a fully glazed nose on a frame; the dorsal gunner's glazing and the radio mast; an elliptic tailplane with its elevators and the fin edge-on; angular splinter camouflage (crossed slanted bands); panel lines; landing lights in the wings. Propeller discs with a blade drawn over the engines. Hit box 88 x 60 (`hw` 44, `hh` 30); it holds 72 px from the top; mines fall from its tail, bombs from its bay, trails from both engines. 140 hit points on Normal.
+- **As a pair:** still flying `SOWER.pairAfter` (300) frames after it settled, it calls a second one, which climbs in from behind on the other side. Then each holds one half of the screen (`laneX` 52 px either side of the middle, weaving `laneWeave` 14 px), wingtip to wingtip, each sowing its own mine curtain and dropping bombs; when one leaves, the other leaves with it. If one is shot down, the other weaves across the middle again. A single Sower calls at most one partner.
+- Tests (3f): no warning, it comes from behind; mines and bombs; the pair (at least 50 steps as a pair, split into the two halves); they climb away; not in level 6.
+
+### 19.3 Level 4 in the game (first version, owner: add it to Enigma Run)
+
+- **Plan** (`sortiePlanLevel4`; the generator's `ironForest` preset, `ironForestFeatures`): one forest-land plan over the whole level (60 chunks, 3840 px) from its first chunk. `beach_cliff` is the cliff coast (the level opens over the sea); `forest_conifer` the conifer forest (3 gun sites per 1000 px); `forest_fortified` the same with 7 gun sites per 1000 px and more firebreaks; `clearing_village`, `airbase_forest_hidden` and `valley` are forest for now (more clearings, more roads, fewer guns) until their own ground is built; `farmland_approach` (new feature `approach`) opens into meadow with copses, with a defence line across it (wire, a zigzag trench, a pillbox either side of the road, two flak pits). The road ends at x 112 (`roadEnd`), on the castle road.
+- **Sortie:** `gen: 4`, the boss 3 chunks past the level (`bossAt`, `arcLen`), as in the Campaign where the castle boss comes about 2.5 chunks into the castle ground. U and D are zero (no town).
+- **Past the level** (shared, `sortieInfo`): a level with its own ground on theme 4 continues on the Campaign's `castle` ground (the castle boss's approach, spec 19); other themes as before.
+- **Biomes** (`SORTIE_BIOME`): the cliff coast's first chunk `sea`, the rest `fortline`; the conifer forest, the village, the airbase and (in level 4) the valley `forest` (so the Sower comes over them); the fortified forest `fortline`; the approach `country`.
+- **Guns:** level 4 fills its plan's gun slots as they come up, as level 2 does (flak, artillery, bunkers, and AA towers, within the director's usual caps).
+- **Tests** (`tests/enigma.mjs` 3g): the plan passes the hard rules and covers the level, begins with the cliffs, its road ends at x 112; ground types from the plan; the first chunk is sea and the castle ground lies past the level; flown through by the bot, the castle boss comes and the level returns to the picker.
+- **Not yet:** the clearing village (crossroads, its own variant), the hidden airbase, the river valley with its harbour, the fiercer forest's trench lines, the forest mist, and a softer seam from the meadow into the castle ground.
