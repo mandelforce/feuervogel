@@ -81,6 +81,25 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
   const low = Object.entries(c).filter(([k, v]) => v < ({ grove: 240, hall: 240, sizes: 1, held: 60, post: 60, track: 300 })[k]); ms.sort((a, b) => a - b);
   if (low.length) fail(`desert land: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} desert land: ${300 - fails}/300 pass, plan ${ms[150].toFixed(1)} ms median; ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}; houses by size ${Object.values(houses).join(' < ')}, ruined share ${Object.values(ruinShare).join(' < ')}`); }
+// the rest of level 2 (owner mockups V, P, J, A), 60 seeds each, with the railway straight down the strip: every hard rule (trains clear, tanks
+// reach every track pixel); the valley's wadi and oil field (derricks, pumpjacks, tanks, a well burning); the pass's 120 px gorge, its deep
+// ravine with the stone viaduct (20 px across, the rails over the whole ravine) and the road bridge, sangars and the fort with four towers; the
+// junction's branch (a straight train run of 150 px or more), platform, station and wagons; the airbase's runway, pens, hangar and tower
+{ let fails = 0; const c = { valley: 0, pass: 0, gorge: 0, junction: 0, airbase: 0 }, ms = [];
+  for (const preset of ['desertValley', 'desertPass', 'desertJunction', 'desertAirbase']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass || m.trainBlocked) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
+    const n = k => { let q = 0; for (const v of p.K) if (v === k) q++; return q; };
+    if (preset === 'desertValley' && n(CG.K.WADI) > 3000 && n(CG.K.CLIFF) > 30000 && p.derricks.length >= 2 && p.pumps.length >= 3 && p.derricks.some(d => d.burn) && p.items.filter(i => i.label === 'Oil tank').length >= 2) c.valley++;
+    if (preset === 'desertPass') { const rv = p.ravines[0], vd = p.viaducts[0], W = p.W; let deck = 0; for (let x = 0; x < W; x++) if (p.K[(rv.y0 + 20) * W + x] === CG.K.RBRIDGE) deck++;
+      let railOver = true; for (let y = vd.y0; y <= vd.y1; y++) if (p.RM[y * W + vd.x - 3] !== 2 || p.RM[y * W + vd.x + 2] !== 2) railOver = false;
+      const bridge = p.K.some(k => k === CG.K.BRIDGE), towers = p.items.filter(i => i.label === 'Fort tower').length;
+      if (n(CG.K.RAVINE) > 4000 && deck === 20 && railOver && bridge && p.sangars.length >= 2 && towers === 4) c.pass++;
+      const mid = Math.round((rv.y0 + p.L * 0.94) / 2), gw = p.wallR[mid] - p.wallL[mid]; if (gw >= 104 && gw <= 136) c.gorge++; }
+    if (preset === 'desertJunction') { const br = p.trainRuns.find(r => r.line === 'branch'); if (br && br.y1 - br.y0 >= 150 && p.K.some((k, i) => k === CG.K.PLAZA && p.B[i] === -5) && p.items.some(i => i.t === 'station') && p.wagons.length >= 3) c.junction++; }
+    if (preset === 'desertAirbase') { const A = p.airbase; if (A && A.y1 - A.y0 >= 400 && p.slots.filter(s2 => s2.kind === 'parked').length >= 3 && p.items.some(i => i.part === 'tenthangar') && p.items.some(i => i.label === 'Control tower') && p.slots.filter(s2 => s2.kind === 'flak').length >= 1) c.airbase++; } }
+  const low = Object.entries(c).filter(([k, v]) => v < 60); ms.sort((a, b) => a - b);
+  if (low.length) fail(`desert segments: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`);
+  console.log(`${fails || low.length ? 'FAIL' : 'ok  '} desert segments: ${240 - fails}/240 pass, plan ${ms[120].toFixed(1)} ms median; of 60 each: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }

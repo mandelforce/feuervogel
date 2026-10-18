@@ -921,3 +921,51 @@ Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Co
 - 300 desert-land plans (60 of each preset) pass every rule, with every feature and the free track. Houses and ruins grow with size.
 - Plan time is under 2 ms for the open land and about 35 ms for the port.
 - Temperate presets still paint identically.
+
+### 18.4 The rest of the level (step 2, for review in the city lab)
+
+**Mockups, round 4** (owner: they work):
+- V: the valley with the oil field and the wadi;
+- P: the fortified pass with the viaduct;
+- J: the railway junction;
+- A: the desert airbase.
+
+**Owner decisions:**
+- The plane flies over the rock walls.
+- The viaduct is stone.
+- The ravine must look deep.
+
+**In the generator,** these are new `desertLand` features (`kind` with `at0`/`at1`), with presets `desertValley`, `desertPass`, `desertJunction` and `desertAirbase`.
+- **Railway** (`P.rail: { x }`): a main line straight down the strip at x 74, inside the pass's gorge. A 16 px corridor either side is kept clear (`Br -50`), it is a straight train run, and it has level crossings where the track crosses it. The track follows each feature's target: x 142 beside the valley and the pass, and x 34 at the airbase, crossing the line to get there.
+- **Rock walls** (valley, pass; `K.CLIFF`, game type `rock`):
+  - their edges are per row (`plan.wallL`, `plan.wallR`);
+  - they are big masses lit from the upper left in a few flat tones, with dark crevices;
+  - a cliff face along the edge: a left wall's face looks east, away from the light, a right wall's face is lit, both with strata;
+  - a left wall throws its shadow on the floor.
+  - The plane flies over them (owner); ground units keep off them, since nothing spawns on `rock`.
+- **The valley:**
+  - a dry wadi (`K.WADI`, game type `sand`) winds between the railway and the track;
+  - an oil field: lattice derricks with long shadows (one burning, with an oil spill and a fire), pumpjacks with oil stains, and a pipeline on low supports along the track;
+  - a tank farm of three tanks in a column on a fenced pad, wherever the floor has room beside the wadi, with a flak pit under a net.
+- **The pass:**
+  - the walls close in to a 120 px gorge (60 seeds: 104 to 136 px at its middle);
+  - a **deep ravine** (`K.RAVINE`, 44 px across, game type `ravine`) crosses the whole strip. Its far wall's face is lit at the rim and darkens downward in strata and buttresses; below it are black depths and a near lip in shadow.
+  - the railway crosses on a **stone viaduct** (`K.RBRIDGE` with `Br -21`): 20 px across, so the game's 16 px trains fit between its parapets, with sleepers and rails, piers either side, and the deck's shadow down into the ravine. The track crosses on its own bridge (`K.BRIDGE`, a tank route).
+  - stone sangars on the ledges of both walls, which are flak slots;
+  - at the top, a **fort** astride the track: thick stone walls with battlements and the inner face in shadow (`part: 'fort'`), four corner towers in stone, gates north and south, a flak pit and a building inside, and a roadblock at the south gate.
+- **The junction:**
+  - a branch leaves the main line from the south and curves to x 24. It is a straight train run of at least 150 px with its own clear corridor, ending at a buffer stop.
+  - a siding with four wagons, one burning, runs into an engine shed with smoke vents and a chimney;
+  - an island platform between the branch and the siding;
+  - a side platform with a canvas canopy along the main line, the station (a long flat roof with a small dome), a water tower in plaster, and a flak pit under a net.
+- **The airbase** (`plan.airbase.desert`):
+  - a runway 20 px wide of rolled sand with dark edges, white markers and tyre marks, and a taxiway joined at both ends and in the middle;
+  - four blast pens: sand banks 5 px thick, the north bank lit and the others shaded with a dark foot, a rolled floor joined to the taxiway, and a parked-plane slot inside;
+  - six tents, a canvas hangar on hoops with its door to the taxiway, and the tower in a ring of sandbags;
+  - fuel drums under a net, and two flak pits under nets;
+  - shell holes on the runway, and a fire where a plane burns.
+- **Pits** are now dug only on open ground, and `pitAt` looks for the first open spot, so a pit never cuts into a building.
+
+**Checks:** 240 plans (60 each) pass every hard rule, with the trains clear and tanks reaching every track pixel. Every valley has its wadi, cliffs, derricks, pumpjacks, a burning well and its tanks. Every pass has its gorge, ravine, a 20 px viaduct with the rails over the whole ravine, the road bridge, sangars and the fort with four towers. Every junction has its branch run, platform, station and wagons. Every airbase has its runway, pens, hangar, tower and a flak pit. Plan time is about 1.5 ms.
+
+**Found on the way (older code, not changed; for the owner):** two lines in `tools/citygen.js` have a `//` comment in the middle that turns the rest of the line into a comment. One disables a garden-fence check in the town painter. The other drops the tunnel hill's free-space limit (`let free = 0; while ...`), so the hill over 6B's tunnel is not kept off streets as its comment says. Fixing either changes level 6 and 6B pixels, so I left them for the owner to decide.

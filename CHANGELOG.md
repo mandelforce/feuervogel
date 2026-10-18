@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 2, the rest of the level's ground in the settlement generator, after the owner's mockups. Each has a railway straight down the strip with a clear corridor for the game's trains. The plane flies over the rock walls; only ground units are kept off them.
+  - The valley: rock walls along both edges, a dry wadi, and an oil field with derricks, pumpjacks, tanks and a pipeline. One well is burning.
+  - The fortified pass: the walls close in to a 120 px gorge. A deep ravine crosses it: the railway runs on a stone viaduct with the game's trains fitting between its parapets, and the road on its own bridge. Stone sangars stand on the ledges, and a fort sits astride the road with a roadblock at its gate.
+  - The railway junction: a branch line, an island and a side platform with a canopy, the station with its dome, a siding with wagons (one burning), an engine shed and a water tower.
+  - The desert airbase: a runway of rolled sand with white markers and a taxiway, blast pens with parked-plane slots, tents, a canvas hangar, the tower in sandbags, and fuel drums and flak pits under nets. There are shell holes on the runway and a plane burning on it.
 - Enigma Run level 2, desert ground in the settlement generator after the owner's mockups. Oasis villages come in three sizes: a pool in a grove of date palms, packed flat-roofed houses sharing their walls, a square with the white domed hall and a well. The larger the village, the heavier its damage. A held oasis village and a strongpoint in the open desert carry a fortification kit:
   - fire trenches with traverses and spoil heaps;
   - dug-in pits with sandbag rings (gun slots), concertina wire, and a marked minefield with a lane for the track;
