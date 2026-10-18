@@ -87,7 +87,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option><option value="islands">Islands (islets with guns and farms, a large island with a village and an airbase)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option><option value="portDesert">Desert port and beach town at war (level 2)</option><option value="oasisSmall">Oasis hamlet, small (level 2)</option><option value="oasis">Oasis village (level 2)</option><option value="oasisLarge">Oasis town, large (level 2)</option><option value="oasisHeld">Oasis village, held (level 2)</option><option value="desertPost">Strongpoint in the desert (level 2)</option><option value="desertValley">Valley with oil field and wadi (level 2)</option><option value="desertPass">Fortified pass with viaduct (level 2)</option><option value="desertJunction">Railway junction (level 2)</option><option value="desertAirbase">Desert airbase (level 2)</option><option value="villageDesert">Desert village with fields (step 1, replaced)</option><option value="islands">Islands (islets with guns and farms, a large island with a village and an airbase)</option></select>
       <select id="curve" aria-label="Density along the strip">
         <option value="preset">The preset's own density</option>
         <option value="town">Fields, town, centre, fading out</option>
@@ -97,6 +97,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       </select>
       <label class="row" for="len">Length <output id="lenV"></output><input id="len" type="range" min="900" max="3200" step="100" value="1800"></label>
       <label class="row" for="dmg">Damage at the centre <output id="dmgV"></output><input id="dmg" type="range" min="0" max="100" step="5" value="25"></label>
+      <label class="row" for="pden">Port density (ports only) <output id="pdenV"></output><input id="pden" type="range" min="0" max="100" step="5" value="50"></label>
       <label class="row" for="spacing">Block length in the centre <output id="spacingV"></output><input id="spacing" type="range" min="36" max="120" step="2" value="46"></label>
       <label class="row" for="coll">Collector distance from the main road <output id="collV"></output><input id="coll" type="range" min="44" max="80" step="2" value="56"></label>
       <label class="row" for="grid">Planned grid quarters <output id="gridV"></output><input id="grid" type="range" min="0" max="100" step="5" value="65"></label>
@@ -176,16 +177,16 @@ $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="backgr
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker or turret slot', parked: 'Parked plane (blast pen)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
 function params() {
   return { L: +$('len').value, density: CURVES[$('curve').value] || CG.PRESETS[$('preset').value].density, damage: +$('dmg').value / 100, crossSpacing: [150, +$('spacing').value], collectorOffset: [Math.max(+$('coll').value + 14, 64), +$('coll').value],
-    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.02, +$('tilt').value / 100), +$('tilt').value / 100] };
+    lotChance: +$('lots').value / 100, trees: +$('trees').value / 100, parishSpacing: +$('parish').value, gridChance: +$('grid').value / 100, gridTilt: [Math.min(0.02, +$('tilt').value / 100), +$('tilt').value / 100], ...(CG.PRESETS[$('preset').value].portDensity !== undefined ? { portDensity: +$('pden').value / 100 } : {}) };
 }
 function showVals() {
-  $('lenV').textContent = $('len').value + ' px'; $('dmgV').textContent = $('dmg').value + '%'; $('spacingV').textContent = $('spacing').value + ' px'; $('collV').textContent = $('coll').value + ' px';
+  $('lenV').textContent = $('len').value + ' px'; $('pdenV').textContent = $('pden').value < 34 ? 'low' : $('pden').value < 67 ? 'middle' : 'high'; $('dmgV').textContent = $('dmg').value + '%'; $('spacingV').textContent = $('spacing').value + ' px'; $('collV').textContent = $('coll').value + ' px';
   $('lotsV').textContent = $('lots').value + '%'; $('treesV').textContent = $('trees').value + '%'; $('parishV').textContent = $('parish').value + ' px';
   $('gridV').textContent = $('grid').value + '%'; $('tiltV').textContent = Math.round(Math.atan($('tilt').value / 100) * 180 / Math.PI) + '\u00b0';
 }
@@ -338,10 +339,10 @@ $('copy').addEventListener('click', () => { const txt = JSON.stringify({ seed: +
 // ---------- wiring ----------
 $('preset').addEventListener('change', () => { const P = CG.PRESETS[$('preset').value]; // a preset brings its own length, density and street settings
   $('len').value = P.L; $('dmg').value = Math.round(P.damage * 100); $('curve').value = 'preset'; $('spacing').value = P.crossSpacing[1]; $('coll').value = P.collectorOffset[1];
-  $('lots').value = Math.round(P.lotChance * 100); $('parish').value = Math.min(1200, P.parishSpacing); $('grid').value = Math.round(P.gridChance * 100); showVals(); build(); });
-for (const id of ['curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('change', build);
+  if (P.portDensity !== undefined) $('pden').value = Math.round(P.portDensity * 100); $('lots').value = Math.round(P.lotChance * 100); $('parish').value = Math.min(1200, P.parishSpacing); $('grid').value = Math.round(P.gridChance * 100); showVals(); build(); });
+for (const id of ['curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('change', build);
 $('preset').addEventListener('change', () => { if (plan && plan.river) { const vp = $('vp'), sc = +$('scale').value; vp.scrollTop = (plan.L - plan.river.Y0) * sc + 8 - vp.clientHeight / 2; drawScreen(); } }); // open the river town on its river
-for (const id of ['len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('input', showVals);
+for (const id of ['len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt']) $(id).addEventListener('input', showVals);
 $('seed').addEventListener('change', build);
 $('prev').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) - 1; build(); });
 $('next').addEventListener('click', () => { $('seed').value = (+$('seed').value | 0) + 1; build(); });

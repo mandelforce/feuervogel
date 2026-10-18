@@ -437,7 +437,7 @@ Findings from building it:
 
 ## 13a. Reminders for the owner
 
-- **Route objects** for enemies that drive on roads (section 2): deferred. I will bring this up again at the start of phase 3 (routes, rails and streets), and at the end of phase 1.
+- **Route objects** for enemies that drive on roads (section 2): built (owner decision, section 17.5).
 - **Local best score per level**: not now. Revisit after the first playable level.
 
 ## 14. Changes from review (draft 1 -> draft 2)
@@ -719,6 +719,12 @@ A second level 6, shown as **6B** in the Enigma Run picker (internally sortie le
 
 **Tunnel mouth, adjusted (owner: one pixel too wide on each side).** The mouth is now 22 px in the 28 px face, so each side wall is 1 px thicker toward the inside.
 
+**Seam into the final airfield (owner: the transition did not look natural).** Two causes, both fixed:
+- `classify` wobbles chunk edges for legacy ground, so the bottom rows of the first secret chunk took their ground from the plan chunk below it. That chunk's biome is `factory` (`station_main`), so they were painted as factory asphalt, a dark jagged band across the hangar. The wobble now never reaches into a plan chunk.
+- The plan's apron was a shade lighter than the airfield. `CityGen.paint` takes `opts.apronPix`, and the game passes `secretApron`, the final airfield's own concrete formula (factored out of `secretColor`), so the apron and the airfield are one surface.
+
+**The final airfield begins with a whole hangar (owner).** The final airfield's pattern (`secretType`, `secretColor`, `secretApron`, `finalAirfield`, and the sky fortress's landing pad) is laid on world rows every `SEC_P` (300) px. Where a level's own ground ends therefore decided where the first hangar was cut. In an Enigma Run level with its own ground, the pattern is shifted (`secOff`, `secM`) so that the airfield's first row is 10 px below a complete hangar's warning stripes. The Campaign keeps offset 0.
+
 ## 17. Level 1, Cross the Channel
 
 Level 1 is built in steps, beginning with its opening. Its ground is still the Campaign's stage 1 (`gen: 0`). That ground opens with about 6.5 chunks of open sea, which covers the `carrier_start` and `open_sea` segments. The island chain, the large island, the forest, the forest airbase and the small harbour come in later steps (proposed plan: one settlement plan over the whole level, as for 6B).
@@ -812,3 +818,335 @@ The owner's brief:
 
 All 100 test seeds still pass every rule and every count.
 
+## 18. Level 2, Sea of Sand
+
+Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Colossus (the land fortress) on the Campaign's own boss ground after the level (`bossland` with theme 2, open-ended). The level's own ground, 56 chunks, comes from one settlement plan over the whole level, as in 6B. It is a composite: the desert port and its beach town, then a valley with the oil field and the wadi, the desert village, the railway junction, the oasis, the desert airbase, the fortified pass, and the quiet desert before the boss. The plan's open desert is painted in the game's own desert sand, so the level's start and its boss ground meet without a seam.
+
+**Owner decisions (plan review):**
+- The level opens over open water, close to the quay.
+- The pass narrows the ground to a gorge about 120 px wide. The railway crosses on a **viaduct** that can be destroyed and is wide enough for the game's trains (16 px).
+- In the desert the church is a **domed building, not a mosque** (no minaret).
+- Light damage overall, with craters and wrecks around the pass and the airbase.
+- Route objects for road traffic: built by the level 1 work. They are on the branch `claude/enigma-level-1`, not yet on main (an earlier note here said they were merged; it was wrong). This branch merged that branch to build on them (18.6).
+- Heat shimmer, dust and sandstorms come later, first as animated mockups for review.
+
+**Order of work** (the owner reviews after each step): (1) the desert climate and the desert port, beach town and village presets in the city lab; (2) relief, wadi, dunes, oil field and oasis; (3) the junction, the desert airbase and the pass; (4) the game integration (`sortiePlanLevel2`, the seam into the boss ground, slots, tests, contact sheets).
+
+### 18.1 The desert climate and the first desert presets (step 1, for review in the city lab)
+
+`P.climate: 'desert'` is a generator parameter. `desertize(plan)` runs over the finished plan, so a temperate plan is never touched (checked: every existing preset paints identically, two seeds each). Painting picks the palette per plan (`C_TEMP` or `C_DESERT`; `paint` and `paintFx` select it, and a test paints a temperate town after a desert one to show nothing leaks).
+- **Palette:** the game's own desert sand, scrub, soil and dirt (index.html `THEME_TR[2]`). Irrigated crops are green, palms olive. Paving is sandstone, the road packed dusty asphalt. Walls and roofs are plaster in four washes (white, ochre, pink, buff). Domes are white.
+- **Buildings:** houses, terraces, blocks and courtyard farmsteads get flat plastered roofs with a parapet, each in its own wash (`b.wash`). Works, warehouses and the station keep their roofs.
+- **The domed hall:** the church keeps its footprint and becomes a whitewashed hall: a big dome over the crossing (it overhangs the nave into the churchyard), a small dome on the front tower, a half dome over the apse, and flat roofs on the nave and transepts. There is no minaret. In the desert the civic domed hall's dome is white too.
+- **Palms:** every tree is a date palm (6 or 7 fronds from a dark heart, lit from the upper left). Orchards become palm groves on watered earth with irrigation channels.
+- **Well:** the village green's pond becomes a well (a stone ring round dark water, a wooden frame across it) on a paved spot (`plan.wells`).
+- **Open desert:** fields and open meadow farther than about 20 to 46 px from the nearest house, garden, yard or street become `K.DESERT` (game type `sand`): dunes in long ripples with a few tufts of scrub. A host can pass its own sand as `opts.sandPix`, as it passes `seaPix` and `apronPix`.
+
+**Beach town (coast options, corner form):** `beachRun` is how far the side coast runs on past the side harbour before it swings out (default 170, as before). `beachW` is the beach's width there (24 px), and `prom` a promenade between the waterfront street and the sand (7 px, palms every 13 px). In that stretch the sand never becomes a sea wall, and the waterfront street runs its whole length. Also in the stretch:
+- rows of 3 to 5 bathing huts (4 x 5 px, striped canvas roofs) just below the promenade;
+- a **pleasure pier** 6 px wide on piles, running about 44 px out over the sea, with a round white pavilion on a deck at its head (`plan.beachTown`).
+
+**Presets:**
+- `portDesert` (Desert port and beach town): the south port in its corner form with the sea to the east and an open side harbour, as in 6B, the end quay at 12 percent of the length, then the beach town and the town thinning out into the desert.
+- `villageDesert` (Desert village): the village preset in the desert.
+
+**Checks** (`tests/citygen.mjs`): 60 seeds of each pass every hard rule. Every house has a flat roof, every church is a domed hall and every tree is a palm. Each plan has open desert. Each port has its promenade, at least six bathing huts, and a pier reaching at least 30 px over the sea. Each village has its well. The palette does not leak. Plan time is about 36 ms (median).
+
+### 18.2 Owner feedback on step 1, and the mockups
+
+**Owner feedback on step 1:** the villages should look fundamentally different, with no typical farmland. The owner asked for mockups in the simplicity of the original Campaign desert. The city should clearly be in the war, with destroyed villages and fortifications at the beach.
+
+**Mockups:** a page of mockups drawn in the game page with the game's own desert ground, palette and sprites, at game scale (artifact "Sea of Sand Mockups"). There were three rounds:
+1. Four village ideas (a walled ksar, a roadside hamlet, a burnt oasis, a strongpoint), the beach town at war (E) and the harbour at war (F).
+2. Oasis villages, C and E mixed: a small hamlet (G), a medium village (H) and a large oasis town (I), with damage growing with size.
+3. The fortifications reworked: the held oasis village (D2), a strongpoint in the open (D3) and the element kit. The owner then had the communication trenches taken out.
+
+**Owner decisions:**
+- Village H is the reference, but the generator may make all three sizes. Smaller villages take less damage.
+- The city at war is E.
+- D2 and D3 work.
+- The port has density variations, with middle density for level 2.
+- No communication trenches.
+
+### 18.3 The desert in the generator (step 1b, for review in the city lab)
+
+**The desert's open land** (`desertLand`, its own builder as the islands are; presets `oasisSmall`, `oasis`, `oasisLarge`, `oasisHeld`, `desertPost`).
+- **The track:** a dirt track 9 px wide (a tank route, `st.dirt`, drawn as packed dirt with two ruts) along the strip.
+- **Features** are placed by share of the length (`P.features`).
+- **An oasis village** (G, H, I):
+  - a pool (`K.WATER`, -16) in a grove of date palms on watered ground (`K.OASIS`, game type `grass`) on one side of the track;
+  - packed blocks of flat-roofed houses on the other side: a guillotine split, every house at least 9 px across, sharing walls (`t: 'cube'`), now and then a courtyard with a palm. A large village has blocks all round the grove.
+  - a square with the white domed hall (a flat hall and a round dome, one group) and a well.
+- **Damage by size:** houses, the share in ruins, fires and shell holes grow with the size (60 seeds: 5.4, 21 and 43 houses; 6, 15 and 31 percent ruined).
+- **The fortification kit** (a held village: D2; a strongpoint in the open: D3):
+  - **fire trenches** in fire bays and traverses, 3 px wide, with their spoil on the enemy side (`K.SPOIL`, game type `sand`, shaded by `Br`);
+  - **dug-in pits** with a ring of sandbags, each bag drawn (`plan.pits`; gun slots `flak` and `arty`);
+  - **concertina wire** belts on iron pickets (`plan.coils`);
+  - a **minefield** behind marker posts with warning signs, with a lane for the track (`plan.mines`, `plan.signs`);
+  - an **anti-tank ditch** with steep shaded sides and its spoil on the defenders' side (`K.DITCH`, game type `mud`), with a **roadblock** where the track crosses it (concrete blocks, a barrier pole, hedgehogs);
+  - sand-coloured **camouflage nets** (`plan.nets`);
+  - a **tank dug in** hull-down (slot `tank`, new);
+  - **MG nests on flat roofs** (roof slots), and a **bunker** slot on a concrete pad.
+  - No communication trenches (owner).
+- **The held village** faces an attack from the south. Going north (towards the village):
+  1. the ditch and the roadblock;
+  2. the minefield;
+  3. two wire belts;
+  4. the fire trench with its pits, the bunker by the track and the tank on the flank;
+  5. a flak pit under a net at the grove.
+- **The strongpoint** is a ring of six pits joined by fire trenches round a command bunker, with two flak pits under nets, a tank dug in and ammunition under a net. Wire and mines run all round it, with one gap towards the track.
+- **The track** stays free in every plan: no trench, ditch, pit or spoil is on it.
+
+**The desert port at war** (`portDesert`, owner mockup E).
+- **Density:** the port's density is a parameter, `portDensity`, from 0 (half the preset's U) through 0.5 (middle, used by level 2) to 1 (the preset's own). The lab has a Port density slider. Damage is 0.6, highest in the beach town.
+- **The beach town at war** (`coast.war`):
+  - hedgehogs in three staggered rows in the shallows, and stakes at the waterline;
+  - a belt of concertina wire along the top of the beach;
+  - two casemates on the sand with their embrasures facing the sea (`seaX`), and two bunker slots on concrete pads;
+  - the pleasure pier cut through, and about half the promenade's palms shot off;
+  - no bathing huts.
+- The obstacles go in before the town's obstacle list is reset (`plan.beachTown.obs`).
+- The roundabout and the government buildings are left out of the desert town (owner: simpler).
+
+**The desert look, closer to the Campaign.**
+- **Houses:** every flat desert roof is drawn like the game's desert house sprites: light top and left edges, a darker bottom and right, and a dark roof hatch. The washes are the sprite's own sand colours and a white, a pink and a buff.
+- **Shadows:** there are no facades in the desert, only the sprite's shadow, 3 px right and 3 px down.
+- **Ground:** the open desert uses the Campaign's own desert formula and colours.
+- **No farmland:** `desertize` turns every field into open sand.
+- **Scrub:** scrub dots the open sand.
+- **Rubble:** a collapsed desert house shows shards in its own wash, not roof tiles.
+
+**Checks** (`tests/citygen.mjs`):
+- 120 desert ports and villages pass every rule. They have no fields, the war beach is complete, the pier is cut through to the sea, the built area grows with `portDensity`, and the palette does not leak.
+- 300 desert-land plans (60 of each preset) pass every rule, with every feature and the free track. Houses and ruins grow with size.
+- Plan time is under 2 ms for the open land and about 35 ms for the port.
+- Temperate presets still paint identically.
+
+### 18.4 The rest of the level (step 2, for review in the city lab)
+
+**Mockups, round 4** (owner: they work):
+- V: the valley with the oil field and the wadi;
+- P: the fortified pass with the viaduct;
+- J: the railway junction;
+- A: the desert airbase.
+
+**Owner decisions:**
+- The plane flies over the rock walls.
+- The viaduct is stone.
+- The ravine must look deep.
+
+**In the generator,** these are new `desertLand` features (`kind` with `at0`/`at1`), with presets `desertValley`, `desertPass`, `desertJunction` and `desertAirbase`.
+- **Railway** (`P.rail: { x }`): a main line straight down the strip at x 74, inside the pass's gorge. A 16 px corridor either side is kept clear (`Br -50`), it is a straight train run, and it has level crossings where the track crosses it. The track follows each feature's target: x 142 beside the valley and the pass, and x 34 at the airbase, crossing the line to get there.
+- **Rock walls** (valley, pass; `K.CLIFF`, game type `rock`):
+  - their edges are per row (`plan.wallL`, `plan.wallR`);
+  - they are big masses lit from the upper left in a few flat tones, with dark crevices;
+  - a cliff face along the edge: a left wall's face looks east, away from the light, a right wall's face is lit, both with strata;
+  - a left wall throws its shadow on the floor.
+  - The plane flies over them (owner); ground units keep off them, since nothing spawns on `rock`.
+- **The valley:**
+  - a dry wadi (`K.WADI`, game type `sand`) winds between the railway and the track;
+  - an oil field: lattice derricks with long shadows (one burning, with an oil spill and a fire), pumpjacks with oil stains, and a pipeline on low supports along the track;
+  - a tank farm of three tanks in a column on a fenced pad, wherever the floor has room beside the wadi, with a flak pit under a net.
+- **The pass:**
+  - the walls close in to a 120 px gorge (60 seeds: 104 to 136 px at its middle);
+  - a **deep ravine** (`K.RAVINE`, 44 px across, game type `ravine`) crosses the whole strip. Its far wall's face is lit at the rim and darkens downward in strata and buttresses; below it are black depths and a near lip in shadow.
+  - the railway crosses on a **stone viaduct** (`K.RBRIDGE` with `Br -21`): 20 px across, so the game's 16 px trains fit between its parapets, with sleepers and rails, piers either side, and the deck's shadow down into the ravine. The track crosses on its own bridge (`K.BRIDGE`, a tank route).
+  - stone sangars on the ledges of both walls, which are flak slots;
+  - at the top, a **fort** astride the track: thick stone walls with battlements and the inner face in shadow (`part: 'fort'`), four corner towers in stone, gates north and south, a flak pit and a building inside, and a roadblock at the south gate.
+- **The junction:**
+  - a branch leaves the main line from the south and curves to x 24. It is a straight train run of at least 150 px with its own clear corridor, ending at a buffer stop.
+  - a siding with four wagons, one burning, runs into an engine shed with smoke vents and a chimney;
+  - an island platform between the branch and the siding;
+  - a side platform with a canvas canopy along the main line, the station (a long flat roof with a small dome), a water tower in plaster, and a flak pit under a net.
+- **The airbase** (`plan.airbase.desert`):
+  - a runway 20 px wide of rolled sand with dark edges, white markers and tyre marks, and a taxiway joined at both ends and in the middle;
+  - four blast pens: sand banks 5 px thick, the north bank lit and the others shaded with a dark foot, a rolled floor joined to the taxiway, and a parked-plane slot inside;
+  - six tents, a canvas hangar on hoops with its door to the taxiway, and the tower in a ring of sandbags;
+  - fuel drums under a net, and two flak pits under nets;
+  - shell holes on the runway, and a fire where a plane burns.
+- **Pits** are now dug only on open ground, and `pitAt` looks for the first open spot, so a pit never cuts into a building.
+
+**Checks:** 240 plans (60 each) pass every hard rule, with the trains clear and tanks reaching every track pixel. Every valley has its wadi, cliffs, derricks, pumpjacks, a burning well and its tanks. Every pass has its gorge, ravine, a 20 px viaduct with the rails over the whole ravine, the road bridge, sangars and the fort with four towers. Every junction has its branch run, platform, station and wagons. Every airbase has its runway, pens, hangar, tower and a flak pit. Plan time is about 1.5 ms.
+
+**Found on the way (older code, not changed; for the owner):** two lines in `tools/citygen.js` have a `//` comment in the middle that turns the rest of the line into a comment. One disables a garden-fence check in the town painter. The other drops the tunnel hill's free-space limit (`let free = 0; while ...`), so the hill over 6B's tunnel is not kept off streets as its comment says. Fixing either changes level 6 and 6B pixels, so I left them for the owner to decide.
+
+### 18.5 Level 2 in the game (step 3)
+
+**Fixed first (owner):** the two lines in `tools/citygen.js` where a mid-line `//` comment hid the rest of the line.
+- The fence between neighbouring gardens is drawn again (every town paints a little differently).
+- The tunnel hill over 6B's quayside track is limited to the open ground beside it again, so it stays off streets.
+
+**The plan** (`sortiePlanLevel2`; the generator's `sandSea`): one plan over the whole level, 56 chunks (3584 px), from its first chunk.
+- **Port:** the harbour and beach-town segments are the desert port (`portDesert`, middle density, at war). The end quay is 1.5 chunks in, so the level opens over the sea close to the quay; the east harbour runs along about 62 percent of the harbour segment; the beach town follows to the end of the beach segment.
+- **The rest** is desert land with each segment's feature: the oil valley, the held oasis village (`village`: the medium oasis, held), the junction, the small oasis (the first `desert_open`: the level's landmark), the airbase, the pass, and the quiet desert (the second `desert_open`, nothing built).
+- **Joining:** the two plans are joined row on row. Buildings and streets are renumbered, and every position, group and row array moves up by the port's length. The track carries on from the port's main road.
+- **Railway:** the line leaves the port along its west edge (x 18), curves to x 74 for the desert (inside the gorge) and back to x 18 over the last 160 px, where the Campaign's boss ground has its line.
+- **Track:** where two features meet, their targets blend, so the track swings across smoothly (the airbase's track runs west of the line, the others east of it).
+- In 20 seeds every plan passes every hard rule. Plan time is 80 to 320 ms.
+
+**In the game:**
+- **`buildSortie`:** level 2 has `gen: 2`, `bossAt` and `arcLen` at its length + 5 (as levels 6 and 6B), and the U and D curves.
+- **`SORTIE_BIOME`:** harbour and beach town play as `city`, valley, village and open desert as `country`, the junction as `factory`, the airbase as `base`, the pass as `fortline`. `SORTIE_UD` has their density and damage.
+- **Past the level** (shared, `sortieInfo`): a level with its own ground continues on the Campaign's boss ground of its theme: `bossland` with theme 2 for the desert (the land fortress's ground). Levels 6 and 6B keep `secret`.
+- **`classify`** (shared): the Campaign's runway shortcut for `base` chunks (x 60 to 104) no longer applies inside a plan, where the plan says what is there.
+- **Paint:** `planPaintOpts` passes `sandPix` for level 2 (`planSandColor`). The open desert is drawn in the Campaign's desert ground colours (theme 2 `field`) and dithers over the plan's last 128 rows into the boss ground's look (theme 2 `grass`), so the two meet without a seam.
+- **Guns:** in level 2 every plan slot is filled as it comes up, before the biome's own spawns:
+  - flak and artillery slots get flak or artillery (pits, sangars, roof nests);
+  - bunker slots get bunkers;
+  - the new `tank` slot gets a tank dug in, standing still;
+  - `parked` slots in the blast pens get parked planes.
+
+  A bot flight filled 12 of 27 slots (level 6: 16 of 38).
+- **Viaduct:** `planViaducts` places the stone viaduct as a bridge target (`G('bridge', ..., { via: true })`, 20 px wide, as long as the ravine is deep, 30 hit points) as it comes up. Its look is the plan's own deck. Destroyed, it leaves a broken span (`viaBroken`).
+- **Chunk build time:** level 2 averages 10.9 ms (p95 30.9 ms, the dense port painted in bands), against 12.3 ms for the legacy ground.
+- **Tests** (`tests/enigma.mjs`):
+  - the plan passes the hard rules, covers the level and begins over the sea, with every segment's ground present;
+  - its types and pixels match the plan in the game;
+  - past it lies the Campaign's desert boss ground;
+  - the ground is the same after a resume;
+  - a bot flight sees the viaduct come up as a bridge target, meets the boss, and returns to the picker on level 2.
+
+**Not yet:**
+- trains on the plan's train runs (the same as level 6);
+- road traffic on the plan's tracks with the route objects;
+- the weather (heat shimmer, dust, sandstorms): first as animated mockups, as the owner decided.
+
+### 17.4 Level 1A: level 1 with its islands (in the game)
+
+The owner asked for the islets in a level **1A**. Like 6B, it is a separate entry in the picker (internal sortie level 8, `ENIGMA_LABEL` '1A', the button after 1). `ENIGMA_BASE` gives the Campaign stage each level flies (1A flies stage 1: theme, music, the flagship). Level 1 is unchanged: the carrier on the old ground.
+- **Sortie:** level 1's sequence, length and `bossAt`. Flags `seq` (legacy biomes from the sortie, as level 1) and `isles` (the islands plan). `gen` stays 0, because many of level 6's city functions read `S.gen`. The checks that took "level 6 or higher" to mean the city levels now name levels 6 and 7.
+- **Plan** (`sortiePlanIslands`): the `islands` preset from the level's first chunk to the start of `beach_fortified` (28 chunks, 1792 px).
+  - The chain spans the `island_chain` segment.
+  - The large island starts with `island_airbase` and is 620 px long, running about 1.5 chunks into the open sea after it.
+  - Plan rows are world rows `S.planY0 - y`, as for 6B. `S.planC1` marks the end of a plan; for levels 6 and 6B it is the level's end.
+  - The water is the game's own sea (`seaPix`), so the plan meets the open sea and the Campaign's coast after it without a seam.
+- **Biomes:** a plan chunk that is at least 45 percent land is `country`, the rest `sea` (`S.planBiome`; 9 and 19 chunks in the test seed). From the beach on, level 1's legacy ground.
+- **Guns** (`planGuns`, every frame, outside the director's pacing, as `planBerths`): each slot of the plan gets its gun once, as it comes up above the screen:
+  - `bunker` slots get the game's bunker (the islets' turrets);
+  - `flak` slots get flak (the islets' and the airbase's gun pits);
+  - `aatower` gets the AA tower;
+  - `parked` gets a parked plane in its blast pen.
+  A bot flight filled all 11 slots.
+- **Cows** (`planCows`): each paddock gets its cows (the game's farm cows) as it comes up; they graze inside its fence (`critter.box`). The Campaign's own farms (`farmAt`) are never placed on plan ground.
+- **Water and roads:** in 1A, submarines, destroyers, PT boats and the small boats spawn only where the water is open (`seaOK` samples the hull), and convoys, armoured cars and light vehicles only on a road (`roadOK`). Both are always true elsewhere, so the Campaign's random stream is untouched.
+- **Tests (`tests/enigma.mjs`):**
+  - the picker offers 1A (the practice picker does not);
+  - the plan passes the hard rules and runs to the beach;
+  - land and sea chunks, with the legacy coast after the plan;
+  - it opens on the carrier, and level 1 keeps the old ground;
+  - types and pixels come from the plan;
+  - the same ground after a resume;
+  - a bot flight: the slots filled, cows in the paddocks, no ship ever on land, and the flagship comes and the level returns to the picker on 1A.
+  `node tests/carrier-shots.mjs OUTDIR 2000,3000 - play 8` films 1A.
+- **Still to do:** road traffic on the island ends at the jetty, because vehicles that drive along a road do not stop where it ends. This is the deferred route objects (13a). Also open: the islets' look in play, the airbase's own director spawns (it plays as `country`), and a better seam between the island's tip and the beach.
+
+**No small fields at the edges (owner).** Clipping the village to the shore, and laying the field grid round the wood, the pond and the farmstead, left slivers along the beach. A last pass now checks every field on the large island. A field joins the field it shares the most border with (smallest first), or becomes meadow if it has no field neighbour, when it is:
+- under 400 px;
+- thinner than 12 px;
+- mostly edge: under 35 percent of its pixels lie 2 px inside its outline.
+That is about 37 remnants per plan. The farm islets' fields are placed whole and are left alone. `tests/citygen.mjs` checks that no field under 400 px or thinner than 12 px remains on the large island in 100 seeds.
+
+### 17.5 Route objects (owner decision: build them; keep convoys spaced)
+
+Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic, random stream and golden replay are unchanged.
+- **Routes** (`sortieRoutes(S)`, built once per sortie and stage base): route 0 is the legacy road (`roadX`), active wherever the ground under it is a road or a bridge outside a plan. Every tank street of the plan that runs along the strip (`axis: 'v'`) becomes a route.
+  - A street is split where it gives way (`pts` width 0, as at a village green) or skips rows.
+  - Each route holds x per world row (`xs`, from `wyLo` to `wyHi`); the main road is flagged `main`.
+  - At a roundabout the route swings round the ring on the vehicle's right (the west side, heading south) instead of crossing the lawn and the column.
+  - The generator records 1A's road extensions as streets: south to the jetty, north to the apron.
+- **Vehicles** carry `route` and `lane`. Tanks with `road`, trucks, armoured cars, motorbikes and staff cars move with `routeStep`:
+  - **Next step:** the vehicle takes the next row on its route. Past the route's end it takes any route that goes on within 8 px (at a fork, either one at random); if there is none, it stops (`atEnd`).
+  - **Keeping distance:** it waits while a road vehicle ahead of it on the same route, or just ahead in line (within 9 px across), is closer than both half-lengths plus `ROUTE_GAP` (10 px).
+  - **Terrain:** the old checks still hold. Tanks and trucks never move with sea, surf or river just ahead, so at the island's jetty the lead tank halts where the road meets the water.
+  - A tank that drives onto the road from a patrol takes the route under it.
+- **Spawns:** convoys and light vehicles pick a route active at the spawn row: the main road, or another route one time in four. If there is none, they don't spawn. A convoy's vehicles start `ROUTE_SPACE` (34 px) apart (the Campaign: 26).
+- **Results:**
+  - in 1A: 6 routes, all on the road;
+  - in level 6: 51 routes, every sampled row on the road;
+  - a mixed convoy (two tanks, two trucks) drives the island from the airbase to the jetty (304 px, splitting round the green), and level 6's town from its north end to the south (4136 px, round the roundabouts);
+  - it never leaves the road, keeps at least 10 px between vehicles, and stops at the end. This is tested in `tests/enigma.mjs`.
+- **Not yet:** traffic in the other direction, turns onto cross streets (streets along x are not routes), and marching troops (still `roadX`).
+
+### 18.6 Trains, and tanks into side roads (owner request)
+
+**Merge:** the route objects (spec 2, Tier A) are on `claude/enigma-level-1`, not yet on main. This branch merged that branch (with level 1A, its islands plan) to build on them.
+
+**Trains** (`planTrain`, levels 2, 6 and 6B):
+- **Spawn:** in the director's ground spawns, a train is placed on one of the plan's train runs (`plan.trainRuns`: the main lines, the branches and the junction's branch) as the run comes up above the screen. One train is about at a time, and each 900 px of a run gets at most one.
+- **The train:** a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, boxcars or flatcars with a flak gun, scored as the Campaign's trains.
+- **Movement:** they roll south along the run as the Campaign's do (`trainMove`). Inside a plan they also roll through a level crossing, where the plan has rails under the road (`planRail`; the Campaign is unchanged). They stop where the rails end.
+- **The viaduct:** a destroyed viaduct's span reads as `ravine` (shared `classify`, plan branch), so a train stops at the gap.
+
+**Side roads** (owner: tanks also move into side roads):
+- **Side roads** (`sideRoutes`) are the plan's tank streets that run across the strip (`axis 'h'`): the collectors' cross streets and the perimeter road in the towns, and the side tracks in the desert. A junction is wherever a route (a road along the strip) passes one of their points.
+- **Turning:** a tank (not a dug-in one) driving along a route turns into a side road at a junction `SIDE.turn` of the time (0.35), either way along it.
+- **Following:** it follows the street point by point (`sideStep`). At the next junction it takes that route `SIDE.join` of the time (0.6), otherwise it drives on to the street's end and stops. It keeps its distance from the vehicle ahead (both half-lengths plus `ROUTE_GAP`).
+- **Desert side tracks** (generator, `sideTrack`): in level 2's desert, dirt side tracks 7 px wide run off the main track as tank routes, about eight per level:
+  - to each derrick and to the tank farm in the valley;
+  - into each oasis village along the first gap between its blocks;
+  - to the station at the junction;
+  - to both ends of the airfield.
+
+  Each ends where the ground is no longer open: at houses, a wall or the railway's corridor.
+- **Level 1's convoy test** (shared): it turns side roads off for its convoy (`SIDE.turn = 0`), since it checks route following alone.
+
+**Tests:**
+- `tests/enigma.mjs`: a bot flight through levels 2, 6 and 6B each runs trains on the plan's railway (3, 6 and 5 trains). In 6 and 6B tanks turn into side roads and drive along them (10 and 11 side roads used).
+- In level 2 a tank placed above a desert junction turns into the side track, drives along it on the road and stops at its end. The desert's tanks drive only about 40 px in their life, and the desert has only about eight junctions, so a single flight is not a reliable check there.
+- `tests/citygen.mjs`: 20 whole level-2 plans pass every rule with every feature and at least four side tracks.
+
+### 18.7 Weather (owner: after the weather mockups)
+
+**Owner decisions:**
+- Heat shimmer at the airbase and a little inland.
+- Dust (mockup B) and sandstorm gusts (mockup D), both at varying strength.
+- The gusts build over the approach. Stronger gusts push the plane a little, less than the boss sandstorm.
+- The proposed order along the level stands.
+
+**Along the level** (`WX2`, `wx2Chunk`): dust and shimmer per segment, linear between chunk middles, read at the middle of the screen (`wx2At`):
+
+| Segment | Dust | Shimmer | Gusts |
+|---|---|---|---|
+| Harbour | 0.15 | – | – |
+| Beach town | 0.25 | – | – |
+| Valley | 0.4 | 0.6 | – |
+| Village | 0.35 | – | – |
+| Junction | 0.5 | – | – |
+| Small oasis (first open desert) | 0.45 | 0.65 | – (a dust devil) |
+| Airbase | 0.3 | 1 | – |
+| Pass | 0.7 | – | 0.25 (they blow, too weak to push) |
+| Approach (last open desert) | 0.5 to 0.8 | 0.3 to 0 | 0.15 to 0.8 |
+| Boss arena | 0.8 | – | 0.8 |
+
+**Heat shimmer** (`shimmer2`, drawn in `drawGround` over the painted chunks only, under every unit and the plan's fires, so aiming is not affected):
+- Patches of hot air sit on a 72 × 52 px world grid, so they ride with the ground; more of them where the shimmer is stronger. Each drifts a little.
+- A patch shows only on open ground (sand, apron, runway, road and the like). Along each row only the open ground moves, so the rails, rock and walls stay still.
+- Inside a patch, rows of the ground picture shift sideways by a pixel, two in the middle of a patch where the shimmer is strongest (the airbase). Bright mirage glints flicker on them.
+
+**Dust** (drawing only, free random stream):
+- **Flecks:** the Campaign's desert flecks; in level 2 there are more of them and they fly faster as the dust and the gusts grow.
+- **Veils:** up to ten large, faint sand veils drift with the wind.
+- **Trails:** moving tracked vehicles kick up dust behind them, most where the dust is thickest (the junction's convoys).
+- **Dust devil:** in the small oasis's stretch, up to two dust devils (mockup C, part of the proposed order): a dithered, turning funnel (lit on the right, shaded on the left) with a long shadow, riding with the ground as it wanders.
+
+**Gusts** (`updGust2` in the simulation, next to `updStorm`; `drawGust2` where the boss storm is drawn, under the player and the bullets):
+- **Timing:** a gust every 7.5 s (`GUST_P`). Its front sweeps in from the left, holds, dies away, and a calm follows. Each gust's peak varies (a pure hash of the sortie seed and the gust's number).
+- **Determinism:** the gusts come from `run.frames` and the scroll, never `Math.random`, so runs replay.
+- **Look:** ochre light, rolling sand clouds and sharp streaks, built like the boss storm but weaker.
+- **Push:** only the part of a gust above 0.4 (`GUST_FELT`) pushes the plane, up to 0.3 px a frame (`GUST_PUSH`) at full strength, against the boss storm's 0.85. At the approach's strongest gusts this is about 0.2 px a frame. Enemy shells are not bent: only the boss storm bends them.
+- **Boss storm:** while the boss's storm blows, the gusts drop out.
+
+**Shared changes** (no effect outside level 2):
+- `world.gustX` and `world.gustK` are new; both stay 0 outside level 2.
+- The player's movement adds `world.gustX` next to `world.windX`.
+- In the weather block, the flecks' speed and count read the level 2 weather only when `wx2On()` (level 2's generated ground, not on the title screen).
+- `resetTerrainState` also clears the weather's cosmetic lists.
+
+**Tests** (`tests/enigma.mjs`):
+- Dust grows along the level.
+- Shimmer appears only in the valley, the oasis and the airbase (strongest at the airbase).
+- There are no gusts before the pass, and they build over the approach.
+- A strong gust pushes the plane, by less than 0.4 of the boss storm's push. The pass's gusts do not push, the port has none, and the boss storm replaces them.
+- The shimmer moves ground pixels at the airbase.
+- The shimmer, dust, devil and gusts draw without errors.
+- None of it happens outside level 2.
