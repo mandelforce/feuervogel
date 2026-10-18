@@ -3331,7 +3331,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.35'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3798,20 +3798,41 @@ SPR.wing = sprite(100, 40, x => {
 
 // the Sower (Enigma Run level 4): a twin-engine bomber seen from above, nose up (it flies ahead of the player, the same way), in grey and
 // khaki splinter camouflage, a glazed nose, yellow spinners, an elliptic tailplane
-const SOWER_RP = ['#22252a', '#3a3e44', '#5a5e60', '#7c7c72', '#9e9a86', '#bdb8a0'];
-SPR.sower = sprite(52, 40, x => {
-  polyS(x, SOWER_RP, [[1, 15], [6, 12], [20, 10], [32, 10], [46, 12], [51, 15], [50, 19], [44, 21], [8, 21], [2, 19]], 0.05, 0.45);
-  ellS(x, SOWER_RP, 26, 36, 9, 3.2, 0.05);
-  ellS(x, SOWER_RP, 26, 19, 3.6, 17, 0.12);
-  for (const nx of [15, 37]) { ellS(x, SOWER_RP, nx, 11, 3, 7, 0.1); rect(x, '#1a1c20', nx - 1, 16, 2, 2); }
-  { const c = x.canvas, d = x.getImageData(0, 0, c.width, c.height), a = d.data; // splinter camouflage: dark grey wedges over the khaki grey
-    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) { const k = (j * c.width + i) * 4; if (!a[k + 3]) continue; const v = Math.sin(i * 0.45 + j * 0.9) + Math.sin(i * 0.22 - j * 0.5 + 2) + (vnoise(i * 0.25, j * 0.25 + 9) - 0.5) * 1.2;
-      if (v > 0.55) { a[k] *= 0.62; a[k + 1] *= 0.64; a[k + 2] *= 0.7; } }
+const SOWER_RP = ['#1c1f24', '#30343a', '#4a4e50', '#686a64', '#8a8878', '#aaa690', '#c6c2aa'];
+SPR.sower = sprite(104, 80, x => {
+  const ramp = SOWER_RP, dark = '#14161a';
+  // the wing: tapered, rounded tips, a little sweep to the leading edge; flaps and ailerons along its trailing edge
+  const wing = [[1, 33], [4, 29], [12, 26], [28, 23], [44, 21], [60, 21], [76, 23], [92, 26], [100, 29], [103, 33], [102, 37], [96, 39], [80, 41], [62, 44], [42, 44], [24, 41], [8, 39], [2, 37]];
+  polyS(x, ramp, wing, 0.08, 0.35);
+  // the tailplane, elliptic, its elevators; the fin seen edge-on along the middle
+  ellS(x, ramp, 52, 71, 21, 5.5, 0.05);
+  // the fuselage: a long body tapering to the tail
+  polyS(x, ramp, [[47, 6], [57, 6], [58, 14], [58, 36], [57, 50], [55, 66], [54, 76], [50, 76], [49, 66], [47, 50], [46, 36], [46, 14]], 0.15, 0.3);
+  // the engine nacelles: forward of the wing, cowling rings, running back past the trailing edge
+  for (const nx of [29, 75]) { polyS(x, ramp, [[nx - 4, 12], [nx + 4, 12], [nx + 5, 18], [nx + 5, 40], [nx + 3, 49], [nx - 3, 49], [nx - 5, 40], [nx - 5, 18]], 0.12, 0.35); }
+  // splinter camouflage: angular dark grey patches (two sets of slanted bands crossed) over the khaki grey
+  { const c = x.canvas, d = x.getImageData(0, 0, c.width, c.height), a = d.data;
+    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) { const k = (j * c.width + i) * 4; if (!a[k + 3]) continue;
+      const u = Math.floor((i * 0.82 + j * 0.57) / 13), v = Math.floor((i * -0.47 + j * 0.88 + 200) / 11), w2 = Math.floor((i * 0.2 - j * 0.98 + 300) / 17);
+      if (((u + v * 2 + w2) % 3 + 3) % 3 === 0) { a[k] *= 0.6; a[k + 1] *= 0.62; a[k + 2] *= 0.68; } }
     x.putImageData(d, 0, 0); }
-  ellS(x, RP.glass, 26, 4, 3, 3.6, 0.15); for (const [gx, gy] of [[25, 2], [27, 2], [24, 4], [28, 4], [26, 6]]) rect(x, '#1a1c22', gx, gy, 1, 1); // the glazed nose and its frames
-  ellS(x, RP.glass, 26, 15, 2, 2.4, 0.1); ellS(x, RP.glass, 26, 24, 1.4, 1.8, 0.1); // the cockpit's rear glazing, the dorsal gunner
-  for (const nx of [15, 37]) { ellS(x, RP.yel, nx, 4, 1.4, 1.6, 0.2); rect(x, '#1a1c20', nx, 6, 1, 2); }
-  rect(x, '#1a1c20', 26, 33, 1, 6);
+  // panel lines: the ailerons and flaps, the wing root, the elevators, the fuselage frames
+  const ln = (x0, y0, x1, y1, col = 'rgba(16,18,22,0.55)') => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); x.fillStyle = col; for (let q = 0; q <= n; q++) x.fillRect(Math.round(x0 + (x1 - x0) * q / n), Math.round(y0 + (y1 - y0) * q / n), 1, 1); };
+  ln(6, 36, 24, 38); ln(24, 38, 24, 40); ln(80, 38, 98, 36); ln(80, 38, 80, 40); ln(36, 40, 44, 41); ln(60, 41, 68, 40); // ailerons, flaps
+  ln(45, 22, 45, 44); ln(59, 22, 59, 44); ln(34, 70, 46, 71); ln(58, 71, 70, 70); // the wing root, the elevators' hinge
+  for (const fy of [20, 30, 46, 58]) ln(47, fy, 57, fy, 'rgba(16,18,22,0.35)');
+  rect(x, dark, 51, 64, 2, 14); rect(x, '#5a5e60', 51, 64, 1, 12); // the fin, edge-on
+  // the engines: cowling rings, exhaust stubs, the oil cooler under each
+  for (const nx of [29, 75]) { rect(x, dark, nx - 4, 16, 9, 1); rect(x, '#787a74', nx - 3, 13, 7, 1); for (const ex of [nx - 5, nx + 5]) { rect(x, '#3a2a20', ex, 20, 1, 6); rect(x, '#6a3a24', ex, 21, 1, 1); } rect(x, dark, nx - 2, 44, 5, 2); }
+  // the spinners, yellow, ahead of the cowlings
+  for (const nx of [29, 75]) { rect(x, dark, nx - 2, 11, 6, 1); ellS(x, RP.yel, nx + 0.5, 9.5, 1.8, 2, 0.2); }
+  // the fully glazed nose: a dome of panes on a frame
+  ellS(x, RP.glass, 52, 11, 5.6, 8, 0.2);
+  for (const gy of [6, 10, 14]) ln(48, gy, 56, gy, 'rgba(40,46,52,0.6)'); ln(52, 3, 52, 18, 'rgba(40,46,52,0.6)'); ln(49, 7, 49, 16, 'rgba(40,46,52,0.4)'); ln(55, 7, 55, 16, 'rgba(40,46,52,0.4)');
+  rect(x, '#e8f6ff', 50, 6, 2, 1); rect(x, '#e8f6ff', 49, 9, 1, 2); // glints
+  // the dorsal gunner's glazing, the radio mast, the wing's landing lights
+  ellS(x, RP.glass, 52, 33, 2.4, 3.2, 0.15); rect(x, '#18181c', 52, 30, 1, 3); rect(x, dark, 52, 40, 1, 3);
+  rect(x, '#e8f0f0', 16, 26, 2, 1); rect(x, '#e8f0f0', 86, 26, 2, 1);
 });
 
 function tankHull(frame, ramp, w, h) {
@@ -8124,18 +8145,18 @@ function viaBroken() { // the broken viaduct: the middle of the span fallen into
 }
 // Enigma Run: a submarine berth of the settlement plan (by a U-boat bunker) always gets the game's submarine as it comes up above the screen,
 // whatever the director's pacing (its quiet opening included); each berth once.
-// The Sower (Enigma Run level 4 only): over the forest (the segments that play as 'forest'), one at a time, the first SOWER.first frames
-// into a forest stretch and then SOWER.gap frames after the last one left. A marker blinks at the bottom edge on its side before it comes.
-const SOWER = { first: 360, gap: 1800, warn: 70, hold: 840, y: 58, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 100 };
+// The Sower (Enigma Run level 4 only): over the forest (the segments that play as 'forest'), the first SOWER.first frames into a forest
+// stretch and then SOWER.gap frames after the last one (or pair) has gone. No warning (owner): it comes up from below the screen on the side
+// away from the player.
+const SOWER = { first: 360, gap: 1800, hold: 840, y: 72, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 140, pairAfter: 300, laneX: 52, laneWeave: 14 };
 function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
-  const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, warn: 0, side: 0 }), live = world.enemies.some(e => e.type === 'sower' && !e.dead);
+  const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = world.enemies.some(e => e.type === 'sower' && !e.dead);
   if (live) { z.cd = SOWER.gap; return; }
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
-  if (z.warn > 0) { if (--z.warn === 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff]; world.enemies.push(E('sower', { x: z.side, y: H + 34, side: z.side, hp, maxhp: hp, big: true, air: true })); sfx('drone'); } return; }
-  if (--z.cd <= 0) { z.warn = SOWER.warn; z.side = player && !player.dead && player.x < W / 2 ? W - 46 : 46; }
+  if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff], side = player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX;
+    world.enemies.push(E('sower', { x: side, y: H + 50, side, hp, maxhp: hp, big: true, air: true, up: true })); /* (up: kept while it is still below the screen) */ z.n++; sfx('drone'); z.cd = SOWER.gap; }
 }
-function drawSowerWarn() { const z = run.sortie && run.sortie.sowerZ; if (!z || z.warn <= 0 || !((gf >> 3) & 1)) return; ctx.fillStyle = '#ff3a2a'; const x = Math.round(z.side), y = H - 4; for (let k = 0; k < 5; k++) ctx.fillRect(x - k, y - 4 + k, 2 * k + 1, 1); } // a red arrowhead pointing up at the bottom edge
 function planBerths(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.subSlots || !P.subSlots.length) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
@@ -9882,20 +9903,26 @@ const ENT = {
       sfx('gun');
     }
   } },
-  // The Sower (Enigma Run level 4, the forest): it overtakes the player from behind on the far side, settles ahead of the player near the top
-  // of the screen and weaves across the middle for SOWER.hold frames, sowing a trail of aerial mines that hang in the air and drift down with
-  // the ground (keep to the sides, or get up beside it) and dropping flying bombs that fall back and burst into a ring of flak shots. Then it
-  // climbs away. Shot down, it breaks up like the big bomber.
-  sower: { revenge: 4, medals: 2, stats: { hw: 22, hh: 15, score: 4000, rad: 22 }, update(e) {
+  // The Sower (Enigma Run level 4, the forest; no warning, owner): it overtakes the player from behind on the far side, settles ahead of the
+  // player near the top of the screen and weaves across the middle for SOWER.hold frames, sowing a trail of aerial mines that hang in the air
+  // and drift down with the ground (keep to the sides, or get up beside it) and dropping flying bombs that fall back and burst into a ring of
+  // flak shots. Then it climbs away. Still flying SOWER.pairAfter frames after it settled, it calls a second one (owner): the second comes up
+  // from behind on the other side and each holds its half of the screen (lane -1 or 1), weaving a little, until they climb away together;
+  // with one shot down the other weaves across the middle again. Shot down, it breaks up like the big bomber.
+  sower: { revenge: 4, medals: 2, stats: { hw: 44, hh: 30, score: 4000, rad: 44 }, update(e) {
     if (e.dying) return dyingTick(e);
     const S0 = SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
+    if (e.partner && (e.partner.dead || e.partner.dying)) { e.lane = undefined; e.partner = null; }
+    e.ghost = e.st !== 'hold'; // it passes over the player while it climbs in from behind and away again (no ram: there is no warning)
     if (e.st === 'in') { e.y -= S0.climb; e.x += (e.side - e.x) * 0.02; if (e.y <= S0.y) { e.st = 'hold'; e.ht = 0; } }
-    else if (e.st === 'hold') { e.ht++; const tx = W / 2 + S0.weave * Math.sin(e.ht * 0.011 + e.ph) + 10 * Math.sin(e.ht * 0.031 + e.ph * 2); const vx = clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = vx; e.y += (S0.y + 8 * Math.sin(e.ht * 0.02) - e.y) * 0.05;
-      if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 19, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
-      if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 6, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
-      if (e.ht >= S0.hold) e.st = 'out'; }
-    else { e.y -= 1.1; e.bank = 0; if (e.y < -40) e.dead = true; }
-    if (gf % 2 === 0) for (const ox of [-11, 11]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y + 2, vx: 0, vy: 0.3, life: 26, max: 26 });
+    else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? S0.laneWeave : S0.weave;
+      const tx = cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = vx; e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
+      if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 38, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
+      if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 8, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
+      if (!e.second && !e.called && e.ht === S0.pairAfter) { e.called = true; e.lane = e.x < W / 2 ? -1 : 1; const sx = W / 2 - e.lane * S0.laneX, P2 = E('sower', { x: sx, y: H + 50, side: sx, hp: e.maxhp, maxhp: e.maxhp, big: true, air: true, up: true, second: true, lane: -e.lane, partner: e, hold: (e.hold || S0.hold) - S0.pairAfter, ph: e.ph + PI }); e.partner = P2; world.enemies.push(P2); sfx('drone'); }
+      if (e.ht >= (e.hold || S0.hold)) { e.st = 'out'; if (e.partner && e.partner.st === 'hold') e.partner.st = 'out'; } } // (a pair leaves together)
+    else { e.y -= 1.1; e.bank = 0; if (e.y < -50) e.dead = true; }
+    if (gf % 2 === 0) for (const ox of [-23, 23]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y + 10, vx: 0, vy: 0.3, life: 28, max: 28 });
   } },
   missile: { uncounted: true, medals: 0.2, stats: { fixedHp: 2, hw: 3, hh: 3, score: 200 }, update(e) {
     e.life--; e.v = Math.min(1.7, e.v + 0.012);
@@ -11730,7 +11757,7 @@ const LOOKS = {
     ctx.restore();
   },
   sower(e, fl) { const b = e.bank || 0, s2 = SPR.sower, w = Math.round(s2.w * (1 - Math.abs(b) * 0.1)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h);
-    const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.globalAlpha = 0.75; for (const nx of [-11, 11]) ctx.fillRect(Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2) - (ph ? 4 : 0), Math.round(e.y - s2.h / 2) + 2, ph ? 9 : 1, 1); ctx.globalAlpha = 1; },
+    const ph = (gf >> 1) & 1, py = Math.round(e.y - s2.h / 2) + 8; ctx.fillStyle = '#c8ccd0'; for (const nx of [-23, 23]) { const px = Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2); ctx.globalAlpha = 0.22; ctx.fillRect(px - 7, py, 15, 2); ctx.globalAlpha = 0.8; if (ph) ctx.fillRect(px - 7, py, 15, 1); else ctx.fillRect(px, py - 1, 1, 4); } ctx.globalAlpha = 1; }, // propeller discs and a blade
   heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + 6, ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
   bomber(e, fl) {
     { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
@@ -12332,7 +12359,6 @@ function renderMain() {
   drawLocks();
   drawParts('a');
   drawHitbox();
-  drawSowerWarn();
   drawHiClouds();
 
   const fr = (gf >> 2) & 1;
