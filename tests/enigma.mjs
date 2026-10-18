@@ -55,7 +55,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 8; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
     out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 ? x.len + 3 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 || x.lv === 4 ? x.len + 3 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : x.lv === 4 ? 4 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -428,6 +428,25 @@ for (const lv of [2, 6, 7]) {
   ok(r.bottomC !== undefined && r.bottomB === 'secret' && r.bottomC === r.len + 1 && r.final, `level 6 boss comes where the Campaign's does: screen bottom one chunk into the secret ground (bottom chunk ${r.bottomC}, secret from ${r.len}; Campaign stage 6: 44 and 43)`);
   ok(r.slots >= 8, `ground guns stood in the plan's slots on the way (${r.slots} of ${r.nSlots} slots used)`);
   ok(r.state === 'title' && r.picker && r.kind === 'enigma' && r.errs.length === 0, `level 6 flown to the end returns to the picker (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
+  await page.close();
+}
+
+// 3g. Level 4, The Iron Forest (spec 19): one forest plan over the whole level from its first chunk (ironForest), passing the hard rules,
+// opening over the sea onto the cliffs, its road ending at x 112 on the castle road; types and pixels from the plan; past it the Campaign's
+// castle ground (theme 4). Flown through by the bot: guns take the plan's slots, the castle boss comes, and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(4); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P);
+    let types = 0, n = 0; for (let k = 0; k < 400; k++) { const x = (k * 37) % W, y = (k * 97) % P.L, wy = S.planY0 - y; n++; if (classify(x, wy).tt === CityGen.typeAt(P, x, y)) types++; }
+    const c0 = info(world.stageBaseP).b, past = info(world.stageBaseP + S.len + 1), cliffs = !!P.cliffs;
+    return { pass: v.pass, L: P.L, want: S.len * CH, end: Math.round(P.mx[P.L - 1]), types, n, c0, pastB: past.b, pastTh: past.th, cliffs, slots: P.slots.length }; })()`);
+  ok(r.pass && r.L === r.want && r.cliffs && r.end === 112, `level 4: the forest plan passes the hard rules, covers the level (${r.L} px), begins with the cliff coast, and its road ends at x ${r.end} for the castle road`);
+  ok(r.types === r.n && r.c0 === 'sea' && r.pastB === 'castle' && r.pastTh === 4, `level 4: ground types from the plan (${r.types}/${r.n}), the first chunk sea, the castle ground past the level`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4)'); const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'castle')"); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.boss === true, 'level 4: the castle boss comes');
+  ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 4 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }
 

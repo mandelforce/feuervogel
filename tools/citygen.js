@@ -129,6 +129,7 @@ PRESETS.desertAirbase = Object.assign({}, PRESETS.oasis, { label: 'Desert airbas
 // The Iron Forest (Enigma Run level 4; builder 'forest', climate 'forest'): the high cliff coast with the forest on its plateau, and the conifer forest
 PRESETS.cliffCoast = Object.assign({}, PRESETS.town, { label: 'Iron Forest: high cliff coast', builder: 'forest', climate: 'forest', L: 900, damage: 0, density: [[0, 0], [1, 0]],
   features: [{ kind: 'cliffs', at0: 0, at1: 0.3 }, { kind: 'conifer', at0: 0.3, at1: 1, rides: 1, plantations: 1, clearings: 1 }] });
+PRESETS.ironForest = Object.assign({}, PRESETS.cliffCoast, { label: 'Level 4, The Iron Forest (whole level)', L: 3840, roadEnd: 112, segs: [{ t: 'beach_cliff', n: 3 }, { t: 'forest_conifer', n: 9 }, { t: 'forest_fortified', n: 8 }, { t: 'clearing_village', n: 5 }, { t: 'airbase_forest_hidden', n: 7 }, { t: 'forest_fortified', n: 8 }, { t: 'forest_conifer', n: 6 }, { t: 'valley', n: 7 }, { t: 'farmland_approach', n: 7 }] });
 PRESETS.coniferForest = Object.assign({}, PRESETS.cliffCoast, { label: 'Iron Forest: conifer forest', L: 1280, features: [{ kind: 'conifer', at0: 0, at1: 1, roads: 2, rides: 3, plantations: 3, clearings: 2, cuts: 2 }] });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
@@ -2677,6 +2678,19 @@ function paintCliffShade(plan, put, y0, h) {
 // - conifer: dense conifer forest. Single crowns in six sizes (old stands of big spruces, young growth, pine stands, a few larches), plantations of
 //   young trees in rows, firebreaks with a track, clearings, clear-cuts with stumps and log piles, and forest roads (tank routes) that leave the
 //   main road and join it again, or end at a timber depot.
+// Enigma Run level 4 (preset ironForest, params.segs: the sortie's segments in order, { t, n }): each segment's feature at its share of the
+// length. The fortified forest is the conifer forest with more guns and firebreaks. Until their own ground is built the clearing village,
+// the hidden airbase and the valley are forest too (with more clearings, more roads, fewer guns); the approach opens into meadow before the castle.
+function ironForestFeatures(segs) {
+  const n = segs.reduce((a, g) => a + g.n, 0), out = []; let at = 0;
+  for (const g of segs) { const a0 = at / n, a1 = (at + g.n) / n; at += g.n;
+    if (g.t === 'beach_cliff') out.push({ kind: 'cliffs', at0: a0, at1: a1 });
+    else if (g.t === 'farmland_approach') out.push({ kind: 'approach', at0: a0, at1: a1 });
+    else { const o = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clearings: 1, cuts: 1, guns: 3 }, forest_fortified: { roads: 1, rides: 4, plantations: 1, clearings: 1, cuts: 2, guns: 7 }, clearing_village: { roads: 0, rides: 1, clearings: 3, cuts: 2, guns: 2 },
+        airbase_forest_hidden: { roads: 2, rides: 2, plantations: 2, clearings: 1, cuts: 1, guns: 4 }, valley: { roads: 1, rides: 2, plantations: 1, clearings: 2, cuts: 1, guns: 3 } }[g.t] || { roads: 1, rides: 2, clearings: 1, guns: 3 };
+      out.push(Object.assign({ kind: 'conifer', at0: a0, at1: a1, seg: g.t }, o)); } }
+  return out;
+}
 function forestLand(o) {
   const P = Object.assign({}, PRESETS[o.preset] || PRESETS.cliffCoast, o.params || {}), seed = o.seed | 0, W = P.W, L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296, TF = 41;
@@ -2690,7 +2704,7 @@ function forestLand(o) {
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; plan.slots.push(c); return c; };
   let nSeed = 0; const sd = () => h32(seed, 94000 + nSeed++);
-  const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
+  const feats = P.segs ? ironForestFeatures(P.segs) : P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
   const isWood = (x, y) => inB(x, y) && Kr[idx(x, y)] === K.WOOD;
   const lap = name => { plan.stage[name] = +(now() - t0).toFixed(2); };
 
@@ -2741,10 +2755,17 @@ function forestLand(o) {
     lap('cliffs');
   }
 
+  // 1b. the approach to the castle (feature approach): the forest opens into meadow with copses; a defence line across it (wire, a trench,
+  // pillboxes either side of the road)
+  for (const F of feats) { if (F.kind !== 'approach') continue; const [a, b] = span(F);
+    for (let y = Math.max(0, a - 30); y < Math.min(L, b); y++) { for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.WOOD) continue; const e = y - a + (vn(x * 0.06, 71) - 0.5) * 50; if (e < 0) continue; if (vn(x * 0.05 + 3, y * 0.05) > 0.7 - Math.min(0.12, e * 0.0005)) continue; Kr[i] = K.MEADOW; Br[i] = -33; } }
+    F.line = Math.round(lerp(a, b, 0.45)); }
+
   // 2. the main road: up the gorge, then a forest road along the strip (a tank route, 9 px), with a verge
   { const c0 = 70 + rnd(TF, 20) * 84, amp = 10 + rnd(TF, 21) * 16, fr = 0.004 + rnd(TF, 22) * 0.004, ph = rnd(TF, 23) * 6.283;
     for (let y = 0; y < L; y++) { let m = clamp(c0 + amp * Math.sin(y * fr + ph) + 6 * Math.sin(y * 0.017 + ph * 2), 34, W - 34);
       if (!isNaN(RX[y])) { const yr = plan.cliffs.gorge.y1; m = lerp(RX[y], m, smooth(yr, yr + 40, y)); } else if (y < road0y && roadX0 !== null) m = RX[road0y];
+      if (P.roadEnd !== undefined) m = lerp(m, P.roadEnd, smooth(L - 260, L - 40, y)); // (the castle road's x at the plan's end)
       plan.mx[y] = P.road0 !== undefined && !CF ? lerp(P.road0, m, smooth(0, 200, y)) : m; }
     const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: road0y, y1: L - 1 }; ar.id = plan.streets.length; plan.streets.push(ar);
     for (let y = road0y; y < L; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 6); x <= plan.mx[y] + 6; x++) { if (!inB(x, y)) continue; const d = Math.abs(x + 0.5 - plan.mx[y]), k = Kr[idx(x, y)];
@@ -2829,6 +2850,11 @@ function forestLand(o) {
     let big = null; for (const c of plan.forest.clearings) { if (c.y < a || c.y > b) continue; if (!big || c.rx * c.ry > big.rx * big.ry) big = c; const p = pit(Math.round(c.x + c.rx * 0.4), Math.round(c.y - c.ry * 0.35), 4, 'flak'); if (p) crater(c.x - Math.round(c.rx * 0.4), c.y - Math.round(c.ry * 0.4), 3); }
     if (big && pitOK(big.x, Math.round(big.y + big.ry * 0.4), 4)) { slot('aatower', 'clearing', big.x, Math.round(big.y + big.ry * 0.4), 6); plan.forest.sites.push({ kind: 'aatower', x: big.x, y: Math.round(big.y + big.ry * 0.4) }); }
     for (const c of plan.forest.cuts) { if (c.y < a || c.y > b) continue; let p = null; for (const [dx, dy] of [[0, 0], [0.3, 0.2], [-0.3, -0.2], [0.3, -0.3], [-0.3, 0.3]]) if (!p) p = pit(Math.round(c.x + dx * c.rx), Math.round(c.y + dy * c.ry), 5, 'arty'); if (p) { net(p.x, p.y, 7, 6, true); plan.forest.sites.push({ kind: 'arty', x: p.x, y: p.y }); } } });
+  for (const F of feats) { if (F.kind !== 'approach' || F.line === undefined) continue; const ly = F.line, m = MX(ly); // the fortification line before the castle
+    for (const s of [1, -1]) { const pts = []; for (let x = Math.round(m + s * 8); s > 0 ? x < W - 2 : x > 1; x += s * 3) pts.push([x, ly - 4]); plan.coils.push(pts); }
+    for (let x = 4; x < W - 4; x++) { if (Math.abs(x - m) < 9) continue; const yy = ly + 4 + Math.round(Math.abs(((x >> 3) & 1) ? (x & 7) : 7 - (x & 7)) * 0.5); for (const d of [0, 1]) { const i = idx(x, yy + d); if (Kr[i] === K.MEADOW || Kr[i] === K.WOOD) { Kr[i] = K.TRENCH; Br[i] = -1; } } }
+    for (const s of [1, -1]) { const cx = Math.round(m + s * 16), cy = ly + 12; const it = round('pillbox', 'Pillbox', cx, cy, 3, { sea: -1 }); if (it) slot('bunker', 'line', cx, cy, 4, it.id); }
+    for (const fx of [0.15, 0.85]) pit(Math.round(fx * W), ly + 20, 4, 'flak'); }
   lap('forest');
 
   // 5. the trees: single conifer crowns of six sizes. Old stands (big spruces), young growth and pine stands follow slow noise fields; a few
