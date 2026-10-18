@@ -2375,7 +2375,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.23'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5948,7 +5948,7 @@ const ENIGMA_SEQ = [
 const ENIGMA_ARENA = { 3: { arena: 'bossland', arenaRails: [55, 169] } };
 // Weather plans (spec 8), per level: the strength of each effect by segment, blended between segment middles. Level 3: low mist over the
 // farmland and among the forest's trees.
-const ENIGMA_WEATHER = { 3: { mist: { farmland: 0.6, forest_deciduous: 0.45 } } };
+const ENIGMA_WEATHER = { 3: { mist: { farmland: 0.6, forest_deciduous: 0.45 }, clouds: 'mist' } }; // clouds: 'mist' draws the level's clouds as see-through banks of mist (owner)
 // a weather effect's strength at a world y (0 where the level has none)
 function weatherAt(S, key, wy) {
   const W8 = ENIGMA_WEATHER[S.level], tab = W8 && W8[key]; if (!tab) return 0;
@@ -5956,6 +5956,24 @@ function weatherAt(S, key, wy) {
   for (const g of S.segs) { const m = g.start + g.n / 2, v = tab[g.t] || 0; if (m <= c) a = [m, v]; else if (!b) b = [m, v]; }
   if (!a) return b ? b[1] : 0; if (!b) return c - a[0] < 1 ? a[1] : 0;
   const f = clamp((c - a[0]) / (b[0] - a[0]), 0, 1); return a[1] + (b[1] - a[1]) * f * f * (3 - 2 * f);
+}
+// Mist clouds (weather plan, clouds: 'mist'): each cloud shape stretched wide, softened (drawn at a quarter size and scaled up smoothly) and
+// tinted the mist's blue-grey, so the clouds read as see-through banks of mist rather than white puffs. Made once.
+let mistClouds = null;
+function mistCloudSprites() {
+  if (mistClouds) return mistClouds;
+  return (mistClouds = SPR.clouds.map(s => { const w = Math.round(s.w * 1.8), h = Math.round(s.h * 1.15), q = 4, [sc, sx] = mk(Math.ceil(w / q) + 4, Math.ceil(h / q) + 4);
+    sx.imageSmoothingEnabled = true; sx.drawImage(s.c, 2, 2, Math.ceil(w / q), Math.ceil(h / q)); sx.globalAlpha = 0.6; sx.drawImage(s.c, 2 + Math.ceil(w / q) * 0.25, 1, Math.ceil(w / q) * 0.7, Math.ceil(h / q) * 0.8); // a second lobe, so it trails
+    sx.globalAlpha = 1; sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#8a98b4'; sx.fillRect(0, 0, sc.width, sc.height);
+    const [c, x] = mk(w + 16, h + 16); x.imageSmoothingEnabled = true; x.drawImage(sc, 0, 0, w + 16, h + 16); return { c, w: w + 16, h: h + 16 }; }));
+}
+// draws the low and high clouds as mist banks; true if the level's weather plan asks for it (then the usual clouds are skipped)
+function drawMistClouds(high) {
+  const S = run.sortie, W8 = S && ENIGMA_WEATHER[S.level]; if (!W8 || W8.clouds !== 'mist') return false;
+  const M = mistCloudSprites();
+  if (high) { if (!lowFX) for (const c of hiClouds) { const s = M[c.s % M.length]; ctx.globalAlpha = 0.16; ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); } }
+  else for (const c of clouds) { if (c.hide) continue; const s = M[c.s % M.length]; ctx.globalAlpha = 0.34; ctx.drawImage(s.c, Math.round(c.x - s.w / 2), Math.round(c.y - s.h / 2)); }
+  ctx.globalAlpha = 1; return true;
 }
 // Low mist (weather plan): a soft, patchy layer of pale blue-grey over the ground, drifting slowly, drawn over the ground and under every
 // bullet, enemy and the player. One noise tile, made once, drawn in four bands with the strength at each band's middle.
@@ -10633,7 +10651,7 @@ function drawEnigmaClouds() {
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
-  if (lowFX) return;
+  if (lowFX || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
   for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
@@ -10860,12 +10878,13 @@ function renderMain() {
   drawProps();
   drawParts('g');
   drawBirds();
-  if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
+  if (drawMistClouds(false)) { /* level 3: mist banks instead of clouds, no hard shadows */ }
+  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
   else {
     for (const c of clouds) if (!c.hide) shadow(SPR.clouds[c.s], c.x, c.y, 20, 30, 0.14);
     for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(SPR.clouds[c.s], c.x, c.y); ctx.globalAlpha = 1; }
-  }
+  } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
