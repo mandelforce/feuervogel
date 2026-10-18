@@ -55,7 +55,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 8; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
     out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 ? x.len + 3 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -252,6 +252,48 @@ for (const lv of [2, 6, 7]) {
   ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 7 && f.errs.length === 0, `level 6B flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 6B (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
+
+// 3b'''. Level 3, The Long Night: one night plan over the whole level (the beach, the power works with their pylon line, farmland, the
+// burning town, the searchlight airbase, the forest, light industry, the rail corridor and the marshalling yard), then the supergun's arena
+// with the yard's outer tracks running on through it. Ground types and pixels are the plan's (painted at night), the local night rule
+// holds, the plan's routes and the mist are there, it is the same after a resume, and flown through by the bot it reaches the boss with
+// trains and searchlight posts on the way and returns to the picker without errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(3); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 41) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 31) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const p = world.stageBaseP + 21; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
+    const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
+    const A = info(world.stageBaseP + S.len + 2), wyA = -(world.stageBaseP + S.len + 2) * CH + 30, runEnd = x => P.trainRuns.some(q => q.x === x && q.y1 === P.L - 1);
+    const fl = { x: 130, y: 100 }, far = { x: 200, y: 100 }; world.enemies = [{ type: 'search', x: 100, y: 100 }]; const lit = nightLit(fl), unlit = nightLit(far); const S0 = run.sortie; run.sortie = null; const camp = nightLit({ x: 200, y: 100 }); run.sortie = S0; world.enemies = [];
+    const R = sortieRoutes(S).filter(q => !q.legacy), SR = sideRoutes(S), seg = t => S.segs.find(g => g.t === t), mid = t => -(world.stageBaseP + seg(t).start + seg(t).n / 2) * CH;
+    return { pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, night: planPaintOpts(S).night, seaFirst: info(world.stageBaseP).b === 'sea' && terrainType(112, S.planY0 - 10) === 'sea',
+      wagons: P.yard ? P.yard.wagons.length : 0, ab: !!P.airbase && P.airbase.planes.length, fo: !!P.forest && P.trees.length, pyl: (P.pylons || []).filter(q => q.ok).length, posts: (P.searchPosts || []).length, gens: P.slots.filter(q => q.kind === 'gen').length,
+      runs: runEnd(93) && runEnd(131) && runEnd(55) && runEnd(169), arena: A.b, arenaRails: [18, 55, 93, 131, 169].every(x => A.rails.includes(x)), railAt: terrainType(55, wyA) === 'rail' && terrainType(169, wyA) === 'rail',
+      lit, unlit, camp, routes: R.length, sides: SR.length, mistF: weatherAt(S, 'mist', mid('farmland')), mistY: weatherAt(S, 'mist', mid('station_marshalling')) }; })()`);
+  ok(r.pass && r.L === r.len && r.seaFirst && r.night, `level 3 plan passes the generator's hard rules, covers the whole level (${r.L} px), begins over the sea and is painted at night`);
+  ok(r.wagons >= 20 && r.ab >= 4 && r.fo > 500 && r.pyl >= 4, `level 3 has the marshalling yard (${r.wagons} wagons), the airbase (${r.ab} parked planes), the forest (${r.fo} trees) and the pylon line (${r.pyl} pylons)`);
+  ok(r.posts >= 4 && r.gens >= 3, `level 3 has searchlight posts with flak and generators (${r.posts} posts, ${r.gens} generators)`);
+  ok(r.runs && r.arena === 'bossland' && r.arenaRails && r.railAt, `level 3's yard tracks (x 55, 93, 131, 169) run to the plan's end and on through the supergun's arena (${r.arena})`);
+  ok(r.types === 0 && r.pix === 0, `level 3 ground types and pixels come from its night plan (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  ok(r.lit && !r.unlit && r.camp, 'night rule: in Enigma Run only a gun within 70 px of a lit searchlight gets the night bonuses; in the Campaign every gun keeps them');
+  ok(r.routes >= 1 && r.sides >= 3, `level 3's tank streets are route objects (${r.routes} along the strip, ${r.sides} side roads)`);
+  ok(r.mistF > 0.5 && r.mistY === 0, `level 3's weather plan: mist over the farmland (${r.mistF.toFixed(2)}), none over the yard`);
+  const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { startEnigma(3); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
+  ok('3:' + fresh === resumed, `level 3 is the same ground after a resume (${fresh})`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(3)'); const o = { status: 'ok', train: false, posts: 0, route: false };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); const q = SF.peek(`(() => { const S = run.sortie; if (!S || !S.plan) return null; const P = S.plan; return { train: world.enemies.some(e => e.type === 'loco' && !e.dead && info(-Math.floor(e.wy / CH)).plan), posts: P.slots.filter((s, i) => s.kind === 'search' && S.slotUsed && S.slotUsed.has(i)).length, route: world.enemies.some(e => e.route) }; })()`);
+      if (q) { o.train = o.train || q.train; o.posts = Math.max(o.posts, q.posts); o.route = o.route || q.route; }
+      if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.train && f.posts >= 3, `on the way trains ran on the plan's tracks and ${f.posts} searchlight posts were manned${f.route ? ', and a convoy drove along a route' : ''}`);
+  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 3 && f.errs.length === 0, `level 3 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 3 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
 
 // 3b'''. Level 1's carrier start: the Feuervogel stands on the deck of a carrier that nearly fills the screen and cannot steer until it has
 // lifted off; the carrier carries six deck guns that can be destroyed (and no hull target); fighters launch from its catapults and chase the

@@ -75,6 +75,8 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 `enigma.mjs` checks the plumbing of the Enigma Run mode (`docs/enigma-world-spec.md`): every level's sortie is well formed and rebuilt identically; Settings > Enigma Run opens the level picker and starts the chosen level; an Enigma Run level never counts (board eligibility, best score, loop count); it is saved and resumed as `{level, seed}`; its end returns to the picker; starting any run clears every terrain cache (it fills them with markers and looks for what is left); and an Enigma Run level played first leaves nothing behind: the Campaign scenario played afterwards **in the same page** equals `golden.json` (`replay.mjs` uses a fresh page per scenario and cannot see leaks). Serve the folder first:
 
+Level 3 (The Long Night) has its own block: its night plan passes the generator's rules and holds the yard, airbase, forest, pylons and searchlight posts; the yard's tracks run on through the supergun's arena; ground types and pixels are the plan's; the local night rule; route objects; the weather plan's mist; the same ground after a resume; and a bot flight that meets trains and manned searchlight posts, reaches the boss and returns to the picker.
+
 ```
 node tests/enigma.mjs            # all checks
 node tests/enigma.mjs --bench    # also print chunk build times per level, and level 6 by template (pixel pass and features apart)
@@ -114,7 +116,7 @@ node tests/jitter.mjs --frames N   # frames per stage
 
 ## City generator test (runs in CI, blocking)
 
-`citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also prints plan time and density error, and checks that the copy of the generator in `index.html` is current (refresh it with `node scripts/embed-citygen.mjs`).
+`citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also sweeps Enigma level 3's whole plan (30 seeds: every rule and every part: yard, airbase, forest, power line, searchlight posts), checks the cloud types (deterministic and visible, shadows only for the solid ones), prints plan time and density error, and checks that the copy of the generator in `index.html` is current (refresh it with `node scripts/embed-citygen.mjs`).
 
 ```
 node tests/citygen.mjs
