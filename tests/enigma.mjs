@@ -54,8 +54,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const page = await freshPage();
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -173,6 +173,49 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.sub, `on the way the game's submarine took its berth by the U-boat bunker`);
   ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 7 && f.errs.length === 0, `level 6B flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 6B (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
+
+// 3b'''. Level 1's carrier start: the Feuervogel stands on the deck of a carrier that nearly fills the screen and cannot steer until it has
+// lifted off; the carrier carries six deck guns that can be destroyed (and no hull target); fighters launch from its catapults and chase the
+// player; it shrinks to half size and slides off the bottom; the pursuit ends and the director takes over. A Campaign run has no carrier.
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal');
+    const o = SF.peek(`(() => { settings.diff = 1; startAt(1); const camp = world.carrier === null; settings.diff = 1; startEnigma(1); const C = world.carrier;
+      return { camp, on: !!C, s: C && C.s, K: CV.K, sEnd: Math.round(CV.K * CV.END * 128) / 128, deck: player.deck, steer: canSteer(), guns: world.enemies.filter(e => e.type === 'cgun').length, len: C && Math.round(-CV.BOW * 2 * C.s), H, top: C && Math.round(C.y + CV.BOW * C.s) }; })()`);
+    SF.run(30); o.steer30 = SF.peek('canSteer()'); o.shotsBefore = SF.peek('world.shots.length');
+    SF.run(SF.peek('CV.FLY') - 30 + 2); Object.assign(o, SF.peek(`({ deckAfter: player.deck, alt: player.alt, steerAfter: canSteer(), cf: world.enemies.filter(e => e.type === 'cfighter').length + world.enemies.filter(e => e.chase).length })`));
+    o.gunKill = SF.peek(`(() => { const g = world.enemies.find(e => e.type === 'cgun' && !e.dead); if (!g) return false; damage(g, 999); return g.dead && world.carrier.gunDead[g.gi] === true; })()`);
+    o.ships = 0; o.minS = 9; o.chase = 0;
+    for (let i = 0; i < 50; i++) { SF.run(50); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
+      if (!v.over) o.ships += v.ships; o.minS = Math.min(o.minS, v.s); o.chase = Math.max(o.chase, v.chase); o.gone = v.gone; o.over = v.over; }
+    o.launched = SF.peek('world.carrier.launched'); o.t = SF.peek('world.carrier.t'); SF.run(1500); o.later = SF.peek(`world.enemies.filter(e => !e.chase && !e.dead && ['fighter', 'bomber', 'heavy', 'sub', 'destroyer', 'pt', 'flak'].includes(e.type)).length + run.stats.seen`); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(r.camp, 'a Campaign run has no carrier');
+  ok(r.on && r.s === r.K && r.len >= r.H * 0.7 && r.deck && !r.steer && !r.steer30 && r.guns === 6, `level 1 opens on the carrier's deck: scale ${r.K}, ${r.len} px long on a ${r.H} px screen, six deck guns, no steering while on the deck`);
+  ok(!r.deckAfter && r.alt === 1 && r.steerAfter && r.cf >= 1, `the Feuervogel lifts off over the bow and can steer; fighters are launching after it (${r.cf})`);
+  ok(r.gunKill, 'a deck gun can be destroyed and leaves its stub on the deck');
+  ok(r.minS === r.sEnd && r.gone && r.over, `the carrier shrinks to ${r.sEnd} and slides off the bottom, and the pursuit ends (scene over at frame ${r.t})`);
+  ok(r.launched >= 8 && r.chase >= 2 && r.ships === 0, `${r.launched} fighters launched in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
+  ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+
+// 3b''''. Level 1's sequence (owner): the carrier, open sea, the small islands, the large island with the airbase, open sea (all sea for
+// now), the fortified beach and the old land (coast, farmland with the Campaign's rivers, village, forest, farmland), the coast down, open sea.
+// Flown through by the bot, the flagship comes over the last open sea and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1); const S = run.sortie, want = { carrier_start: 'sea', open_sea: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', farmland: 'country', village: 'country', forest_deciduous: 'forest', coast_down: 'coastDown' };
+    let bad = 0, rivers = 0; for (let c = 0; c < S.len + 8; c++) { const I = info(world.stageBaseP + c), g = sortieSeg(S, c), w = !g ? 'sea' : g.t === 'beach_fortified' && c === g.start ? 'coastUp' : want[g.t]; if (I.b !== w || I.th !== 0) bad++; if (I.river) rivers++; }
+    return { bad, rivers, seq: S.seq, gen: S.gen, segs: S.segs.map(g => g.t + ' ' + g.n).join(', ') }; })()`);
+  ok(r.bad === 0 && r.seq && !r.gen && r.rivers >= 1, `level 1 follows its own sequence on the Campaign's stage 1 ground (${r.segs}; ${r.rivers} rivers in the farmland)`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(1)'); const o = { status: 'ok' };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 

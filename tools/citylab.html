@@ -87,7 +87,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
     </section>
     <section class="box" aria-labelledby="h-town">
       <h2 id="h-town">Town</h2>
-      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option></select>
+      <select id="preset" aria-label="Preset"><option value="town">Town core</option><option value="river">River town (island and bridges)</option><option value="rivers">Two rivers (island, and a tributary)</option><option value="port">Port city (a harbour across the end, or in a corner)</option><option value="portSouth">South port (the town begins at the harbour)</option><option value="coast">Coastal city (a side harbour)</option><option value="beach">Beach landing (the Atlantic Wall in the dunes)</option><option value="village">Village (green and farmsteads)</option><option value="crossroads">Crossroads village (a village centre)</option><option value="industrial">Industrial estate (works and a power station)</option><option value="islands">Islands (islets with guns and farms, a large island with a village and an airbase)</option></select>
       <select id="curve" aria-label="Density along the strip">
         <option value="preset">The preset's own density</option>
         <option value="town">Fields, town, centre, fading out</option>
@@ -169,11 +169,11 @@ const CURVES = {
   centre: [[0, 0.85], [0.5, 1], [1, 0.9]],
   fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]],
 };
-const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40', [K.WORKS]: '#6a6a72', [K.RAIL]: '#8a7a6a', [K.RBRIDGE]: '#b06a4a', [K.SEA]: '#1c4a6e', [K.BEACH]: '#c8b47a', [K.TRENCH]: '#5a4630', [K.APRON]: '#8e8c84' };
-const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track', [K.WORKS]: 'Works yard', [K.RAIL]: 'Railway', [K.RBRIDGE]: 'Rail bridge', [K.SEA]: 'Sea', [K.BEACH]: 'Beach and dunes', [K.TRENCH]: 'Trench', [K.APRON]: 'Apron' };
-const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff', sub: '#4dffb0' };
+const KIND_COL = { [K.ROAD]: '#d6a24a', [K.STREET]: '#9a8a70', [K.WALK]: '#6d6a64', [K.BLDG]: '#c25a3c', [K.PLAZA]: '#c9c0a8', [K.FRONT]: '#7d9a6a', [K.GARDEN]: '#4f8a3f', [K.COURT]: '#5d5d4e', [K.PARK]: '#2f9a55', [K.LOT]: '#e0d37a', [K.CHYARD]: '#8fb59a', [K.FIELD]: '#3a4a2a', [K.MEADOW]: '#5a7a3a', [K.RUBBLE]: '#7a6a5a', [K.WATER]: '#3a86b6', [K.ORCHARD]: '#9ac46a', [K.RIVER]: '#2a6a8a', [K.BRIDGE]: '#e8e0c8', [K.QUAY]: '#b0a890', [K.BANK]: '#7a6a3a', [K.TRACK]: '#8a6a40', [K.WORKS]: '#6a6a72', [K.RAIL]: '#8a7a6a', [K.RBRIDGE]: '#b06a4a', [K.SEA]: '#1c4a6e', [K.BEACH]: '#c8b47a', [K.TRENCH]: '#5a4630', [K.APRON]: '#8e8c84', [K.ROCK]: '#8a8478', [K.RUNWAY]: '#d0ccc0' };
+const KIND_LABEL = { [K.ROAD]: 'Tank carriageway', [K.STREET]: 'Local street', [K.WALK]: 'Pavement', [K.BLDG]: 'Building', [K.PLAZA]: 'Square', [K.FRONT]: 'Front yard', [K.GARDEN]: 'Garden', [K.COURT]: 'Courtyard', [K.PARK]: 'Park', [K.LOT]: 'Vacant lot', [K.CHYARD]: 'Churchyard', [K.FIELD]: 'Field', [K.MEADOW]: 'Meadow', [K.RUBBLE]: 'Rubble', [K.WATER]: 'Water', [K.ORCHARD]: 'Orchard', [K.RIVER]: 'River', [K.BRIDGE]: 'Bridge', [K.QUAY]: 'Quay', [K.BANK]: 'River bank', [K.TRACK]: 'Farm track', [K.WORKS]: 'Works yard', [K.RAIL]: 'Railway', [K.RBRIDGE]: 'Rail bridge', [K.SEA]: 'Sea', [K.BEACH]: 'Beach and dunes', [K.TRENCH]: 'Trench', [K.APRON]: 'Apron', [K.ROCK]: 'Rocky shore', [K.RUNWAY]: 'Runway' };
+const SLOT_COL = { flak: '#ff6a4d', arty: '#ffd24d', aatower: '#6ad2ff', bunker: '#c58bff', sub: '#4dffb0', parked: '#f0f0f0' };
 $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="background:${KIND_COL[k]}"></i>${KIND_LABEL[k]}</span>`).join('') +
-  Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker slot (bridgehead)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
+  Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker or turret slot', parked: 'Parked plane (blast pen)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
 const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire'];
@@ -204,13 +204,18 @@ function build() {
   const times = []; const tmp = new ImageData(W, 64);
   for (let y0 = 0; y0 < L; y0 += 64) { const hgt = Math.min(64, L - y0); const t = performance.now(); const part = hgt === 64 ? tmp : new ImageData(W, hgt); CG.paint(plan, part, y0, hgt, { noFx: $('oFire').checked }); times.push(performance.now() - t);
     img.data.set(part.data.subarray(0, W * hgt * 4), (L - y0 - hgt) * W * 4); }
-  ctx.putImageData(img, 0, 0);
+  ctx.putImageData(img, 0, 0); drawCows(ctx);
   times.sort((a, b) => a - b);
   $('genMs').textContent = gen.toFixed(0) + ' ms';
   $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k]) => k !== 'setup').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join('');
   showMetrics(); layout(); drawOverlay(); drawGraph(); startFire();
 }
 const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
+// the game puts its own cows in a plan's paddocks (plan.pastures); the lab draws a few standing ones so the paddocks read as such
+function drawCows(ctx) { const L = plan.L; let k = 0;
+  for (const q of plan.pastures || []) for (let n = 0; n < q.n; n++, k++) { const h = (a, b) => { let v = Math.sin(a * 12.9898 + b * 78.233 + plan.seed) * 43758.5453; return v - Math.floor(v); };
+    const x = Math.round(q.x0 + 3 + h(k, 1) * (q.x1 - q.x0 - 9)), y = Math.round(q.y0 + 3 + h(k, 2) * (q.y1 - q.y0 - 6)), r = L - 1 - y, brown = h(k, 3) < 0.35;
+    ctx.fillStyle = 'rgba(16,14,20,0.4)'; ctx.fillRect(x + 1, r - 2, 6, 3); ctx.fillStyle = brown ? '#7a4a26' : '#f2efe6'; ctx.fillRect(x, r - 3, 5, 3); ctx.fillStyle = brown ? '#5a3418' : '#1e1a18'; ctx.fillRect(x + 1, r - 3, 2, 1); ctx.fillRect(x + 5, r - 3, 1, 2); } }
 function chip(ok, text, warn) { return `<span class="chip ${ok ? 'ok' : warn ? 'warn' : 'bad'}">${text}</span>`; }
 function showMetrics() {
   const m = metrics;
@@ -227,7 +232,7 @@ function showMetrics() {
     row('Gun slots', slots) +
     row('Slots per 1000 px', m.slotsPer1000) +
     row('Vacant lots, ruins', `${m.lots}, ${m.ruins}`) +
-    row('Trees', m.trees);
+    row('Trees', m.trees) + (plan.isles ? row('Islets', plan.isles.map(q => q.type).join(', ')) + row('Large island', `village ${plan.village.items} buildings, ${plan.farms.length} farmsteads, ${plan.pastures.length} paddocks, wood ${plan.wood.n} px, runway ${plan.airbase ? plan.airbase.y1 - plan.airbase.y0 + ' px, ' + plan.airbase.hangars + ' hangars' : 'none'}`) : '');
 }
 function layout() {
   const s = +$('scale').value, { W, L } = plan;
