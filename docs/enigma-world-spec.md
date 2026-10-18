@@ -969,3 +969,44 @@ Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Co
 **Checks:** 240 plans (60 each) pass every hard rule, with the trains clear and tanks reaching every track pixel. Every valley has its wadi, cliffs, derricks, pumpjacks, a burning well and its tanks. Every pass has its gorge, ravine, a 20 px viaduct with the rails over the whole ravine, the road bridge, sangars and the fort with four towers. Every junction has its branch run, platform, station and wagons. Every airbase has its runway, pens, hangar, tower and a flak pit. Plan time is about 1.5 ms.
 
 **Found on the way (older code, not changed; for the owner):** two lines in `tools/citygen.js` have a `//` comment in the middle that turns the rest of the line into a comment. One disables a garden-fence check in the town painter. The other drops the tunnel hill's free-space limit (`let free = 0; while ...`), so the hill over 6B's tunnel is not kept off streets as its comment says. Fixing either changes level 6 and 6B pixels, so I left them for the owner to decide.
+
+### 18.5 Level 2 in the game (step 3)
+
+**Fixed first (owner):** the two lines in `tools/citygen.js` where a mid-line `//` comment hid the rest of the line.
+- The fence between neighbouring gardens is drawn again (every town paints a little differently).
+- The tunnel hill over 6B's quayside track is limited to the open ground beside it again, so it stays off streets.
+
+**The plan** (`sortiePlanLevel2`; the generator's `sandSea`): one plan over the whole level, 56 chunks (3584 px), from its first chunk.
+- **Port:** the harbour and beach-town segments are the desert port (`portDesert`, middle density, at war). The end quay is 1.5 chunks in, so the level opens over the sea close to the quay; the east harbour runs along about 62 percent of the harbour segment; the beach town follows to the end of the beach segment.
+- **The rest** is desert land with each segment's feature: the oil valley, the held oasis village (`village`: the medium oasis, held), the junction, the small oasis (the first `desert_open`: the level's landmark), the airbase, the pass, and the quiet desert (the second `desert_open`, nothing built).
+- **Joining:** the two plans are joined row on row. Buildings and streets are renumbered, and every position, group and row array moves up by the port's length. The track carries on from the port's main road.
+- **Railway:** the line leaves the port along its west edge (x 18), curves to x 74 for the desert (inside the gorge) and back to x 18 over the last 160 px, where the Campaign's boss ground has its line.
+- **Track:** where two features meet, their targets blend, so the track swings across smoothly (the airbase's track runs west of the line, the others east of it).
+- In 20 seeds every plan passes every hard rule. Plan time is 80 to 320 ms.
+
+**In the game:**
+- **`buildSortie`:** level 2 has `gen: 2`, `bossAt` and `arcLen` at its length + 5 (as levels 6 and 6B), and the U and D curves.
+- **`SORTIE_BIOME`:** harbour and beach town play as `city`, valley, village and open desert as `country`, the junction as `factory`, the airbase as `base`, the pass as `fortline`. `SORTIE_UD` has their density and damage.
+- **Past the level** (shared, `sortieInfo`): a level with its own ground continues on the Campaign's boss ground of its theme: `bossland` with theme 2 for the desert (the land fortress's ground). Levels 6 and 6B keep `secret`.
+- **`classify`** (shared): the Campaign's runway shortcut for `base` chunks (x 60 to 104) no longer applies inside a plan, where the plan says what is there.
+- **Paint:** `planPaintOpts` passes `sandPix` for level 2 (`planSandColor`). The open desert is drawn in the Campaign's desert ground colours (theme 2 `field`) and dithers over the plan's last 128 rows into the boss ground's look (theme 2 `grass`), so the two meet without a seam.
+- **Guns:** in level 2 every plan slot is filled as it comes up, before the biome's own spawns:
+  - flak and artillery slots get flak or artillery (pits, sangars, roof nests);
+  - bunker slots get bunkers;
+  - the new `tank` slot gets a tank dug in, standing still;
+  - `parked` slots in the blast pens get parked planes.
+
+  A bot flight filled 12 of 27 slots (level 6: 16 of 38).
+- **Viaduct:** `planViaducts` places the stone viaduct as a bridge target (`G('bridge', ..., { via: true })`, 20 px wide, as long as the ravine is deep, 30 hit points) as it comes up. Its look is the plan's own deck. Destroyed, it leaves a broken span (`viaBroken`).
+- **Chunk build time:** level 2 averages 10.9 ms (p95 30.9 ms, the dense port painted in bands), against 12.3 ms for the legacy ground.
+- **Tests** (`tests/enigma.mjs`):
+  - the plan passes the hard rules, covers the level and begins over the sea, with every segment's ground present;
+  - its types and pixels match the plan in the game;
+  - past it lies the Campaign's desert boss ground;
+  - the ground is the same after a resume;
+  - a bot flight sees the viaduct come up as a bridge target, meets the boss, and returns to the picker on level 2.
+
+**Not yet:**
+- trains on the plan's train runs (the same as level 6);
+- road traffic on the plan's tracks with the route objects;
+- the weather (heat shimmer, dust, sandstorms): first as animated mockups, as the owner decided.

@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 2 (Sea of Sand) now flies on its own ground. In order: the desert port (the level opens over the sea, close to the quay) and the beach town at war, the oil valley, the held oasis village, the railway junction, the small oasis, the desert airbase, the fortified pass with its viaduct, then the quiet desert. The boss, the land fortress, waits on the Campaign's desert boss ground.
+  - The open sand is in the Campaign's own desert colours and blends into the boss ground without a seam.
+  - Gun pits, sangars, bunkers, roof nests, a dug-in tank and planes in the blast pens get the game's units as they come up.
+  - The stone viaduct can be destroyed, and leaves a broken span over the ravine.
+- Two fixes in the settlement generator. Fences between neighbouring gardens are drawn again. The hill over 6B's railway tunnel keeps off streets again, as intended. Both lines had been switched off by a misplaced comment. Levels 6 and 6B change a little; the Campaign does not.
 - Enigma Run level 2, the rest of the level's ground in the settlement generator, after the owner's mockups. Each has a railway straight down the strip with a clear corridor for the game's trains. The plane flies over the rock walls; only ground units are kept off them.
   - The valley: rock walls along both edges, a dry wadi, and an oil field with derricks, pumpjacks, tanks and a pipeline. One well is burning.
   - The fortified pass: the walls close in to a 120 px gorge. A deep ravine crosses it: the railway runs on a stone viaduct with the game's trains fitting between its parapets, and the road on its own bridge. Stone sangars stand on the ledges, and a fort sits astride the road with a roadblock at its gate.

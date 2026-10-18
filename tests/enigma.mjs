@@ -55,7 +55,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 7; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
     out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv >= 6 || x.lv === 2 ? x.len + 5 : x.lv === 1 ? x.seaLast + 1 : null) && x.gen === (x.lv >= 6 ? 6 : x.lv === 2 ? 2 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -145,6 +145,35 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 3c. Level 2, Sea of Sand (spec 18): one plan from the level's first chunk (the desert port beginning over the sea, the beach town at war,
+// the oil valley, the held oasis village, the junction, the small oasis, the airbase, the pass with its viaduct, the quiet desert); the ground
+// types and pixels are the plan's, the open desert in the Campaign's own desert colours; past the level the Campaign's boss ground (bossland,
+// theme 2); the same after a resume; flown through by the bot, the viaduct comes up as a bridge target, the boss (the land fortress) comes
+// and the level returns to the picker on level 2 without errors
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(2); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
+    for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
+    const pix = [12, 30, 44].map(c => { const p = world.stageBaseP + c; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
+      const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let d = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) d++; return d; }).reduce((a, b) => a + b, 0);
+    const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).plan === true, after = info(world.stageBaseP + S.len + 2), feats = { oasis: P.oasis.map(o => o.size + (o.held ? '+held' : '')).join(','), viaduct: P.viaducts.length, airbase: !!P.airbase, junction: P.trainRuns.some(q => q.line === 'branch'), valley: P.derricks.length, war: !!(P.beachTown && P.beachTown.war) };
+    return { pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, afterB: after.b, afterTh: after.th, afterPlan: !!after.plan, feats, gen: S.gen }; })()`);
+  ok(r.pass && r.L === r.len && r.seaFirst && r.gen === 2, `level 2 plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
+  const F = r.feats; ok(F.war && F.valley >= 2 && F.oasis === 'medium+held,small' && F.junction && F.airbase && F.viaduct === 1, `level 2 has every segment's ground: the beach town at war, the oil valley, the held oasis village and the small oasis, the junction, the airbase, the pass with its viaduct`);
+  ok(r.types === 0 && r.pix === 0, `level 2 ground types and pixels come from its plan, its sand in the Campaign's desert colours (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
+  ok(r.afterB === 'bossland' && r.afterTh === 2 && !r.afterPlan, `past level 2 the ground is the Campaign's desert boss ground (${r.afterB}, theme ${r.afterTh})`);
+  const hashL = 'SF.chunkHash(world.stageBaseP - 2, world.stageBaseP + run.sortie.len + 6)';
+  const fresh = await peek(page, `(() => { startEnigma(2); return ${hashL}; })()`), resumed = await peek(page, `(() => { saveResume(); resumeRun(store.getJSON(KEY.resume)); return run.sortie.level + ':' + ${hashL}; })()`);
+  ok('2:' + fresh === resumed, `level 2 is the same ground after a resume (${fresh})`);
+  await page.close();
+  const page2 = await freshPage();
+  const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(2)'); const o = { status: 'ok', via: false };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.via) o.via = SF.peek('world.enemies.some(e => e.type === "bridge" && e.via)'); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.via, 'on the way the viaduct came up as a bridge target');
+  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 2 && f.errs.length === 0, `level 2 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page2.close();
+}
 // 3b''. Level 6B (internal level 7), the harbour city: one plan from the level's first chunk (sea, the south harbour with the east harbour
 // opening into it, the town, works, station, the airfield's perimeter); the picker offers it, the ground types and pixels are the plan's,
 // it is the same after a resume, and flown through by the bot it reaches the boss and returns to the picker without errors.

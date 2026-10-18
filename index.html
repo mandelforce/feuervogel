@@ -559,6 +559,9 @@ PRESETS.oasisLarge = Object.assign({}, PRESETS.oasis, { label: 'Oasis town (larg
 PRESETS.oasisHeld = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, held', features: [{ kind: 'oasis', at: 0.58, size: 'medium', held: true }] });
 PRESETS.desertPost = Object.assign({}, PRESETS.oasis, { label: 'Strongpoint in the desert', damage: 0.1, features: [{ kind: 'post', at: 0.5 }] });
 // the rest of level 2 (owner mockups V, P, J, A), each with the railway straight down the strip (x 74, inside the pass's gorge)
+// Enigma Run level 2 as one plan (sandSea): the sortie's segment sequence, scaled to 56 chunks (the lab shows it at the level's length)
+PRESETS.sandSea = Object.assign({}, PRESETS.oasis, { label: 'Level 2, Sea of Sand (whole level)', builder: 'sandSea', L: 3584, portDensity: 0.5,
+  segs: [{ t: 'harbour_commercial', n: 5 }, { t: 'beach_town', n: 4 }, { t: 'valley', n: 8 }, { t: 'village', n: 5 }, { t: 'station_junction', n: 7 }, { t: 'desert_open', n: 5 }, { t: 'airbase_desert', n: 7 }, { t: 'pass', n: 8 }, { t: 'desert_open', n: 7 }] });
 PRESETS.desertValley = Object.assign({}, PRESETS.oasis, { label: 'Valley with oil field and wadi', rail: { x: 74 }, features: [{ kind: 'valley', at0: 0.08, at1: 0.92 }] });
 PRESETS.desertPass = Object.assign({}, PRESETS.oasis, { label: 'Fortified pass with viaduct', L: 700, rail: { x: 74 }, features: [{ kind: 'pass', at0: 0.06, at1: 0.94 }] });
 PRESETS.desertJunction = Object.assign({}, PRESETS.oasis, { label: 'Railway junction', rail: { x: 74 }, features: [{ kind: 'junction', at0: 0.05, at1: 0.95 }] });
@@ -1992,7 +1995,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.FRONT: { const b = Br[i] >= 0 ? items[Br[i]] : null; c = b && b.t === 'house' ? C.grass[pickI(4, 0.55 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)] : C.pave[pickI(4, 0.35 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
         case K.GARDEN: { const o = Br[i];
           if ((x > 0 && Kr[i - 1] === K.FIELD) || (x < W - 1 && Kr[i + 1] === K.FIELD) || (y > 0 && Kr[i - W] === K.FIELD) || (y < L - 1 && Kr[i + W] === K.FIELD)) { c = C.field.hedge[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.7, x, y)]; break; } // the hedge along the village edge
-          if ((x > 0 && Kr[i - 1] === K.ORCHARD) || (x < W - 1 && Kr[i + 1] === K.ORCHARD) || (y > 0 && Kr[i - W] === K.ORCHARD) || (y < L - 1 && Kr[i + W] === K.ORCHARD)) { c = C.fence; break; } // the garden fence onto the orchard if (o >= 0 && ((x > 0 && Br[i - 1] !== o && Kr[i - 1] === K.GARDEN) || (y > 0 && Br[i - W] !== o && Kr[i - W] === K.GARDEN))) { c = C.fence; break; }
+          if ((x > 0 && Kr[i - 1] === K.ORCHARD) || (x < W - 1 && Kr[i + 1] === K.ORCHARD) || (y > 0 && Kr[i - W] === K.ORCHARD) || (y < L - 1 && Kr[i + W] === K.ORCHARD)) { c = C.fence; break; } /* the garden fence onto the orchard */
+          if (o >= 0 && ((x > 0 && Br[i - 1] !== o && Kr[i - 1] === K.GARDEN) || (y > 0 && Br[i - W] !== o && Kr[i - W] === K.GARDEN))) { c = C.fence; break; }
           const bed = o >= 0 && hh(o, 5) < 0.35 && ((x + (o & 3)) % 9 < 4) && ((y + o) % 11 < 5); c = bed ? C.soil[pickI(3, y % 2 ? 0.3 : 0.7, x, y)] : C.grass[pickI(4, 0.5 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.5, x, y)]; break; }
         case K.COURT: if (desert && plan.oasis) { c = C.dirt[pickI(4, 0.62 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } c = (vn(x * 0.18, y * 0.18) > 0.62) ? C.grass[pickI(4, 0.35, x, y)] : C.yard[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.5, x, y)]; break;
         case K.PARK: if (Br[i] === -6) { c = hh(x, y) < 0.012 ? C.field.wheat[4] : C.grass[pickI(4, 0.62 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.4, x, y)]; break; } // the village green
@@ -2115,7 +2119,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     // mound of sandy rock up to 36 px across and 24 rows long, symmetric about the track, as wide as the open ground allows on both sides (never over a street or a building)
     const open = (xx, yy) => { const j = at(xx, yy); return j >= 0 && soft(Kr[j]); };
     let hwPrev = 12;
-    for (let k = 1; k <= 24; k++) { const yy = ty + dir * (k + 6); let hw = Math.min(hwPrev + 1.5, 12 + k * 1.2, 18, 18 - Math.max(0, k - 14) * 1.6); // wider than the portal, round at its far end let free = 0; while (free < hw && open(tx - 1 - free, yy) && open(tx + free, yy)) free++; hw = Math.min(hw, free); if (hw < 4) break; hwPrev = hw;
+    for (let k = 1; k <= 24; k++) { const yy = ty + dir * (k + 6); let hw = Math.min(hwPrev + 1.5, 12 + k * 1.2, 18, 18 - Math.max(0, k - 14) * 1.6); /* wider than the portal, round at its far end */ let free = 0; while (free < hw && open(tx - 1 - free, yy) && open(tx + free, yy)) free++; hw = Math.min(hw, free); if (hw < 4) break; hwPrev = hw;
       for (let xx = tx - Math.floor(hw); xx < tx + Math.floor(hw); xx++) { const e = Math.abs(xx + 0.5 - tx) / hw, n = hh(xx * 3, yy * 5);
         put(xx, yy, e > 0.88 ? TUN[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : TUN[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
     const MW = [11, 11, 11, 11, 10, 7.5, 0]; // the mouth's half-width per row: straight sides, a round top
@@ -2464,16 +2468,17 @@ function desertLand(o) {
   // 1. the track
   const c0 = 70 + rnd(TD, 1) * 84, amp = 6 + rnd(TD, 2) * 10, fr = 0.005 + rnd(TD, 3) * 0.006, ph = rnd(TD, 4) * 6.283;
   const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
-  const roadT = y => { let t = null, w = 0; for (const F of feats) { if (F.at0 === undefined) continue; const [a, b] = span(F), f = smooth(a - 70, a, y) * (1 - smooth(b, b + 70, y)); if (f > w) { w = f; t = F.roadX !== undefined ? F.roadX : F.kind === 'airbase' ? 34 : 142; } } return [t, w]; }; // a valley, pass, junction or airbase sets where the track runs
+  const roadT = y => { let sw = 0, st = 0; for (const F of feats) { if (F.at0 === undefined) continue; const [a, b] = span(F), f = smooth(a - 70, a, y) * (1 - smooth(b, b + 70, y)); sw += f; st += f * (F.roadX !== undefined ? F.roadX : F.kind === 'airbase' ? 34 : 142); } return [sw ? st / sw : null, Math.min(1, sw)]; }; /* neighbouring features blend, so the track swings across smoothly */ // a valley, pass, junction or airbase sets where the track runs
   for (let y = 0; y < L; y++) { let m = clamp(c0 + amp * Math.sin(y * fr + ph), 34, W - 34); const [t, w] = roadT(y); if (w > 0) m = lerp(m, t + 4 * Math.sin(y * 0.02 + ph), w); plan.mx[y] = P.road0 !== undefined ? lerp(P.road0, m, smooth(0, 200, y)) : m; }
   const ar = { cls: 'arterial', axis: 'v', tank: true, dirt: true, pts: [], y0: 0, y1: L - 1 }; ar.id = plan.streets.length; plan.streets.push(ar);
   for (let y = 0; y < L; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (Math.abs(x + 0.5 - plan.mx[y]) < 4.5) set(x, y, K.ROAD, -2 - ar.id); }
   const MX = y => plan.mx[clamp(Math.round(y), 0, L - 1)];
   // the railway (P.rail): a main line straight down the strip, a 16 px corridor kept clear for the game's trains, level crossings where the track crosses it
-  const RM = plan.RM = new Uint8Array(N), RX = P.rail ? P.rail.x : null;
+  const RM = plan.RM = new Uint8Array(N), RX = P.rail ? P.rail.x : null, RA = P.rail && P.rail.x0 !== undefined ? P.rail.x0 : RX, RB = P.rail && P.rail.x1 !== undefined ? P.rail.x1 : RX;
+  const RXat = y => y < 160 ? lerp(RA, RX, smooth(0, 160, y)) : y > L - 161 ? lerp(RX, RB, smooth(L - 161, L - 1, y)) : RX; // (the line can come in and leave at another x, curving over 160 px)
   const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)); for (let k = -6; k <= 5; k++) { const x = c + k; if (!inB(x, y)) continue; const i = idx(x, y), m = (k === -3 || k === 2) ? 2 : (y % 3 === 0 && k >= -5 && k <= 4) ? 3 : 1;
       if (Kr[i] === K.ROAD) { if (m === 2) RM[i] = 2; continue; } if (Kr[i] === K.RBRIDGE) { RM[i] = Math.max(RM[i], m); continue; } Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; } } };
-  if (RX !== null) { for (let y = 0; y < L; y++) for (let x = RX - 8; x <= RX + 8; x++) if (Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; plan.trainRuns.push({ x: RX, y0: 0, y1: L - 1, line: 'main' }); plan.rail = { x: RX }; }
+  if (RX !== null) { for (let y = 0; y < L; y++) { const c = Math.round(RXat(y)); for (let x = c - 8; x <= c + 8; x++) if (inB(x, y) && Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; } const r0 = RA === RX ? 0 : 160, r1 = RB === RX ? L - 1 : L - 161; plan.trainRuns.push({ x: RX, y0: r0, y1: r1, line: 'main' }); plan.rail = { x: RX }; }
   // rock walls (valley, pass): the strip's edges rise as rock (K.CLIFF, game type 'rock': the plane flies over, ground units keep off); edges per row in plan.walls
   const WL = plan.wallL = new Float32Array(L).fill(-1), WR = plan.wallR = new Float32Array(L).fill(W);
   for (const F of feats) { if (F.kind !== 'valley' && F.kind !== 'pass') continue; const [a, b] = span(F), ph2 = rnd(TD, 90, a);
@@ -2502,7 +2507,7 @@ function desertLand(o) {
       const prx = Math.max(8, Math.round(rx * 0.36)), pry = Math.max(7, Math.round(Math.min(ry * 0.26, prx * 1.3)));
       for (let y = gy - pry - 1; y <= gy + pry + 1; y++) for (let x = gx - prx - 1; x <= gx + prx + 1; x++) { const e = Math.hypot((x + 0.5 - gx) / prx, (y + 0.5 - gy) / pry) + (vn(x * 0.2, y * 0.2 + 7) - 0.5) * 0.2; if (e < 1 && inB(x, y) && Br[idx(x, y)] === -1 && (Kr[idx(x, y)] === K.OASIS || Kr[idx(x, y)] === K.DESERT)) set(x, y, K.WATER, -16); }
       const nP = Math.round(rx * ry * 0.034); for (let k = 0; k < nP; k++) { const a = k * 2.399 + rnd(TD, 20, fi) * 6, rr = Math.sqrt(0.12 + 0.88 * rnd(TD, 21, k + fi * 300)), px = Math.round(gx + Math.cos(a) * rx * rr * 0.92), py = Math.round(gy + Math.sin(a) * ry * rr * 0.92);
-        if (!inB(px, py) || Kr[idx(px, py)] !== K.OASIS || [[-2, 0], [2, 0], [0, -2], [0, 2]].some(([dx, dy]) => inB(px + dx, py + dy) && Kr[idx(px + dx, py + dy)] === K.WATER)) continue; plan.trees.push({ x: px, y: py, r: 2 + (rnd(TD, 22, k) < 0.35 ? 1 : 0), v: 1, palm: true }); }
+        if (!inB(px, py) || Kr[idx(px, py)] !== K.OASIS || (RX !== null && Math.abs(px - RXat(py)) < 12) || [[-2, 0], [2, 0], [0, -2], [0, 2]].some(([dx, dy]) => inB(px + dx, py + dy) && Kr[idx(px + dx, py + dy)] === K.WATER)) continue; plan.trees.push({ x: px, y: py, r: 2 + (rnd(TD, 22, k) < 0.35 ? 1 : 0), v: 1, palm: true }); }
       // the houses: packed blocks on the other side of the track (all round the grove when the village is large), the square with the hall
       const hs = -sGr, span = F.size === 'large' ? 150 : F.size === 'small' ? 70 : 120, sq = { w: 30, h: 24 };
       const xsAt = y => Math.round(MX(y) + hs * 8), blocks = [];
@@ -2525,7 +2530,7 @@ function desertLand(o) {
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'post') strongpoint(yc, fi);
     else if (F.kind === 'valley') oilValley(F, fi); else if (F.kind === 'pass') fortPass(F, fi); else if (F.kind === 'junction') junction(F, fi); else if (F.kind === 'airbase') airbase(F, fi); }
-  if (RX !== null) layRail(() => RX, 0, L - 1);
+  if (RX !== null) layRail(RXat, 0, L - 1);
   // the fortification kit
   function zigTrench(pts, side, gapX) { // a fire trench along a polyline: fire bays and traverses (a square zigzag), 3 px wide, its spoil on the enemy side (side: +1 the left of the direction of travel)
     const cells = []; for (let q = 0; q + 1 < pts.length; q++) { const [ax, ay] = pts[q], [bx, by] = pts[q + 1], Lg = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / Lg, uy = (by - ay) / Lg, nx = -uy * side, ny = ux * side;
@@ -2615,8 +2620,9 @@ function desertLand(o) {
   // the airbase (owner mockup A): a runway of rolled sand with white edge markers, a taxiway joined at both ends, blast pens of heaped sand with
   // parked-plane slots, tents, a canvas hangar, the tower in a ring of sandbags, fuel drums under a net, flak pits under nets; shell holes on the runway, a plane burning
   function airbase(F, fi) { const [a, b] = span(F), rx = RX !== null ? RX + 40 : 112, tx = rx + 30, y0 = a + 40, y1 = b - 40; plan.tents = plan.tents || []; plan.drums = plan.drums || [];
-    for (let y = y0; y <= y1; y++) { for (let x = rx - 10; x < rx + 10; x++) set(x, y, K.RUNWAY); for (let x = tx - 4; x < tx + 4; x++) set(x, y, K.APRON); }
-    for (const yy of [y0, (y0 + y1) >> 1, y1 - 7]) for (let y = yy; y < yy + 8; y++) for (let x = rx + 10; x < tx - 4; x++) set(x, y, K.APRON);
+    const pave = (x, y, k) => { if (inB(x, y) && Kr[idx(x, y)] !== K.ROAD && Kr[idx(x, y)] !== K.RAIL && Br[idx(x, y)] !== -50) set(x, y, k); }; // (never over the track or the railway)
+    for (let y = y0; y <= y1; y++) { for (let x = rx - 10; x < rx + 10; x++) pave(x, y, K.RUNWAY); for (let x = tx - 4; x < tx + 4; x++) pave(x, y, K.APRON); }
+    for (const yy of [y0, (y0 + y1) >> 1, y1 - 7]) for (let y = yy; y < yy + 8; y++) for (let x = rx + 10; x < tx - 4; x++) pave(x, y, K.APRON);
     plan.airbase = { rx, rw: 20, y0, y1, tx, desert: true };
     for (let k = 0; k < 4; k++) { const py = Math.round(lerp(y0 + 30, y1 - 30, k / 3)), px = tx + 22; if (px + 14 > W - 2) break; // a blast pen: sand heaped on three sides, open to the taxiway
       for (let y = py - 15; y <= py + 15; y++) for (let x = tx + 4; x <= px + 15; x++) { if (!inB(x, y)) continue; const dE = x - (px + 10), dN = y - (py + 10), dS = (py - 10) - y, edge = dE > 0 || dN > 0 || dS > 0; if (!open(x, y)) continue; if (!edge) { if (Math.abs(y - py) <= 10) set(x, y, K.APRON); continue; } if (x < px - 10) continue; const t = Math.max(dE, dN, dS), lv = dN > 0 ? (t >= 5 ? 9 : t >= 3 ? 20 : 15) : t >= 5 ? 0 : t >= 3 ? (dS > 0 ? 3 : 6) : 11; set(x, y, K.SPOIL, -40 - lv); } // banks 5 px thick: the north bank lit, the south and east banks in shade, a dark foot; the floor rolled hard
@@ -2632,6 +2638,47 @@ function desertLand(o) {
   for (let y = 4; y < L - 4; y += 11) for (let x = 4; x < W - 4; x += 11) { if (rnd(TD, 80, x * 7 + y) > 0.04) continue; const px = x + Math.round(rnd(TD, 81, x + y * 3) * 8), py = y + Math.round(rnd(TD, 82, x * 5 + y) * 8); let ok = true; for (let yy = py - 3; ok && yy <= py + 3; yy++) for (let xx = px - 3; xx <= px + 3; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok && !plan.mines.some(q => Math.abs(q.x - px) < 4 && Math.abs(q.y - py) < 4)) plan.trees.push({ x: px, y: py, r: 2, v: 0, scrub: true }); }
   for (let y = 0; y < L; y++) { plan.U[y] = 0.1; plan.D[y] = 0.1; }
   plan.stage.total = +(now() - t0).toFixed(2);
+  return plan;
+}
+// ---------- Enigma Run level 2 (Sea of Sand): one plan over the whole level ----------
+// o.params.segs: the sortie's segments in order, { t, n } (template, chunks of 64 px). The harbour and the beach town are the desert port
+// (portDesert: the level opens over the sea, the end quay 1.5 chunks in, the east harbour beside it, the beach town at war after it, middle
+// density), the rest is desert land with each segment's feature: the valley, the held oasis village, the junction, the small oasis (the
+// level's landmark), the airbase, the fortified pass, and the quiet desert before the boss. The railway leaves the port along its west edge
+// (x 18), runs at x 74 through the desert (inside the pass's gorge) and ends at x 18 again, where the Campaign's boss ground has its line.
+// The two plans are generated apart and then joined row on row: buildings and streets renumbered, every position moved up by the port's length.
+function sandSea(o) {
+  const P0 = Object.assign({}, PRESETS.sandSea, o.params || {}), segs = P0.segs, CHp = P0.chunk || 64, seed = o.seed | 0, W = 224;
+  const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp;
+  const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5), hl = Math.round(hn * CHp * 0.62), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
+  const pp = Object.assign({}, { L: Lp, railSide: -1, portDensity: P0.portDensity, density: [[0, 0.85], [0.35, 0.8], [0.6, 0.4], [0.85, 0.15], [1, 0.04]], damage: 0.6, damageCurve: PRESETS.portDesert.damageCurve,
+    coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: [hl / Lp, hl / Lp], beachRun: run }) });
+  const A = withPerimeter({ seed: h32(seed, 1), preset: 'portDesert', params: pp }); markSlotRoofs(A); calmWater(A); desertize(A);
+  let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
+    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push({ kind: 'oasis', at: mid, size: 'small' }); }
+  const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { L: Ld, road0: A.mx[Lp - 1], rail: { x: 74, x0: 18, x1: 18 }, features: feats } });
+  // join: rasters row on row, lists with B's positions moved up by Lp and its ids renumbered
+  const N = W * L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
+  const plan = Object.assign({}, B, { preset: 'sandSea', L, P: Object.assign({}, B.P, { climate: 'desert' }), seed });
+  plan.K = cat(Uint8Array, A.K, B.K); plan.F = cat(Int32Array, A.F || new Int32Array(W * Lp).fill(-1), B.F); plan.RM = cat(Uint8Array, A.RM || new Uint8Array(W * Lp), B.RM);
+  const Bb = Int32Array.from(B.B); for (let i = 0; i < Bb.length; i++) { const k = B.K[i], v = Bb[i]; if (v >= 0) Bb[i] = v + nI; else if (v <= -2 && (k === K.ROAD || k === K.BRIDGE || k === K.STREET)) Bb[i] = -2 - (-2 - v + nS); } plan.B = cat(Int32Array, A.B, Bb);
+  for (const key of ['U', 'D', 'mx', 'aw']) plan[key] = cat(Float32Array, A[key], B[key]);
+  plan.wallL = cat(Float32Array, new Float32Array(Lp).fill(-1), B.wallL); plan.wallR = cat(Float32Array, new Float32Array(Lp).fill(W), B.wallR);
+  const up = q => { const r = Object.assign({}, q); for (const k of ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax']) if (typeof r[k] === 'number') r[k] += Lp; return r; };
+  plan.items = A.items.concat(B.items.map(it => { const r = up(it); r.id = it.id + nI; if (r.group !== undefined && r.group >= 0) r.group = 'b' + r.group; if (r.run !== undefined && r.run >= 0) r.run = r.run + 1e6; return r; }));
+  plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
+  plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
+  plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
+  for (const key of ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots'])
+    plan[key] = (A[key] || []).concat((B[key] || []).map(up));
+  plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
+  plan.pipes = (B.pipes || []).map(c => c.map(p => [p[0], p[1] + Lp]));
+  plan.viaducts = (B.viaducts || []).map(v => Object.assign(up(v), { piers: v.piers.map(y => y + Lp) }));
+  plan.ravines = (B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + Lp, bot: x => r.bot(x) + Lp }));
+  plan.wadis = []; plan.airbase = B.airbase ? up(B.airbase) : null; plan.fort = B.fort ? up(B.fort) : null; plan.rail = B.rail; plan.coast = A.coast; plan.calm = A.calm ? cat(Uint8Array, A.calm, new Uint8Array(W * Ld)) : null;
+  plan.beachTown = A.beachTown; plan.station = A.station; plan.harbour = A.harbour; plan.rivers = []; plan.river = null; plan.bridges = A.bridges || []; plan.perimeter = null; plan.oldTown = A.oldTown || null;
+  plan.port = { y0: 0, y1: Lp - 1, quay: yC }; plan.land = { y0: Lp, y1: L - 1 }; plan.stage = { port: A.stage && A.stage.total, land: B.stage.total };
   return plan;
 }
 function withPerimeter(o) {
@@ -2698,7 +2745,7 @@ function desertize(plan) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = o.preset === 'islands' ? islands(o) : (PRESETS[o.preset] || {}).builder === 'desert' ? desertLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, palette: C_TEMP, desert: C_DESERT };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, palette: C_TEMP, desert: C_DESERT };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -2718,7 +2765,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.27'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.28'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4325,14 +4372,14 @@ function infoRails(b, th, river, rw, island, lake, q) {
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
 }
 // Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
-const SORTIE_BIOME = { carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
+const SORTIE_BIOME = { harbour_commercial: 'city', beach_town: 'city', valley: 'country', village: 'country', station_junction: 'factory', desert_open: 'country', airbase_desert: 'base', pass: 'fortline', carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory' };
 function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
 // Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
 // open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
 function sortieInfo(S, p, c) {
   const m = S.infos || (S.infos = new Map()); let I = m.get(p); if (I) return I;
   const g = c >= S.len ? null : sortieSeg(S, c);
-  const b = !g ? (S.seq ? 'sea' : 'secret') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
+  const b = !g ? (S.seq ? 'sea' : S.theme === 5 ? 'secret' : 'bossland') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country';
   let river = false, rw = 7, island = null; // level 1's farmland keeps the Campaign's rivers (from its third chunk on), with their bridges and river islands
   if (S.seq && g && g.t === 'farmland' && c - g.start >= 2 && (((p % 5) + 5) % 5) === 0 && hash(p, 991) < 0.7) { river = true; if (hash(p, 333) < 0.5) { rw = 11; const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; } }
   I = infoRails(b, S.theme, river, rw, island, null, c);
@@ -4713,7 +4760,7 @@ function railHit(I, wx) { for (const r of I.rails) if (Math.abs(wx - r) < 5) ret
 function wob(wx, wy) { return (vnoise(wx * 0.045, wy * 0.012 + 7) - 0.5) * 22 + (vnoise(wx * 0.19 + 50, wy * 0.19) - 0.5) * 7; }
 const CL = { tt: '', p: 0, ly: 0, I: null, coastD: 99, rail: null };
 function classify(wx, wy) {
-  if (wx >= 60 && wx < 104) { const k0 = Math.floor(wy / CH), I0 = info(-k0); if (I0.b === 'base') { CL.p = -k0; CL.ly = wy - k0 * CH; CL.I = I0; CL.coastD = 99; CL.rail = null; CL.tt = 'runway'; return CL; } }
+  if (wx >= 60 && wx < 104) { const k0 = Math.floor(wy / CH), I0 = info(-k0); if (I0.b === 'base' && !I0.plan) { CL.p = -k0; CL.ly = wy - k0 * CH; CL.I = I0; CL.coastD = 99; CL.rail = null; CL.tt = 'runway'; return CL; } }
   { const S = run.sortie, P = S && S.plan; if (P && S.planFor === world.stageBaseP) { const y = S.planY0 - wy; if (y >= 0 && y < P.L) { // Enigma Run level 6: the settlement plan says what is here
     const k = Math.floor(wy / CH); CL.p = -k; CL.ly = wy - k * CH; CL.I = info(-k); CL.coastD = 99; const tt = CityGen.typeAt(P, wx, y); CL.rail = tt === 'rail' || tt === 'railbridge' ? Math.round(wx) : null; CL.tt = tt; return CL; } } }
   let wy2 = wy + wob(wx, wy), k = Math.floor(wy2 / CH), p = -k, ly = wy2 - k * CH, I = info(p);
@@ -5252,7 +5299,12 @@ function startChunk(p) {
 // meets the sea before it without a seam; harbour basins the same water, calmer behind the breakwater (weaker waves, a shade darker)
 function planSeaColor(wx, wy, harbour, calm) { const n = vnoise(wx * 0.035, wy * 0.05), wv = Math.sin(wx * 0.19 + wy * 0.11 + n * 8) * 0.5 + 0.5, k = harbour ? 1 : calm || 0; // k: 1 calm harbour water .. 0 open sea, blended near a basin with no breakwater
   return THEME_RGB[run.sortie.theme].sea[pickI(7, (0.12 - 0.02 * k) + n * (0.42 - 0.06 * k) + wv * (0.18 - 0.11 * k), wx, wy)]; }
-function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = { seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }); }
+function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L) } : {})); }
+// Level 2's open desert in the Campaign's own colours: its desert ground (the 'field' of theme 2), dithering over the last 128 rows into the
+// boss ground's look (bossland, typed 'grass'), so the level's sand meets the Campaign's without a seam.
+function planSandColor(wx, wy, y, L) { const R2 = THEME_RGB[2], f = clamp((y - (L - 128)) / 128, 0, 1);
+  if (f > 0 && hash(wx * 3 + 1, wy * 5 + 2) < f * f * (3 - 2 * f)) return R2.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
+  const n = vnoise(wx * 0.02, wy * 0.02), l = 0.5 + Math.sin(wx * 0.05 + n * 6 + wy * 0.09) * 0.3 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.2; return R2.wheat[pickI(5, l, wx, wy)]; }
 function workChunk(job, rows) {
   const wy0 = -job.p * CH, a = job.img.data;
   if (job.I.plan && job.ly < CH) { // Enigma Run level 6: the settlement plan paints the chunk (buildings, trees and fires included), in bands of at least 16 rows
@@ -6297,12 +6349,12 @@ function buildSortie(level, seed) {
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
-    gen: level >= 6 ? 6 : 0, seq: level === 1, bossAt: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null, arcLen: level >= 6 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null,
-    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level >= 6 ? sortieUD(segs, at) : null };
+    gen: level >= 6 ? 6 : level === 2 ? 2 : 0, seq: level === 1, bossAt: level >= 6 || level === 2 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null, arcLen: level >= 6 || level === 2 ? at + 5 : level === 1 ? segs[segs.length - 1].start + 1 : null, // level 2: its own ground too (spec 18)
+    name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: level >= 6 || level === 2 ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
-const SORTIE_UD = { harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] };
+const SORTIE_UD = { harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] };
 function sortieUD(segs, len) {
   const pts = []; let lastU = 0;
   for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }
@@ -6323,8 +6375,9 @@ function sortieUD(segs, len) {
 function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
-  if (S.level < 6 || typeof CityGen === 'undefined') return null;
+  if ((S.level < 6 && S.level !== 2) || typeof CityGen === 'undefined') return null;
   if (S.level === 7) return sortiePlanHarbour(S);
+  if (S.level === 2) return sortiePlanLevel2(S);
   const c0 = S.segs.find(g => g.t === 'farmland').start, n = S.len - c0, dens = [], dmg = [];
   let lastU = 0;
   for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; if (g.start < c0) continue; const f = (g.start + g.n / 2 - c0) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
@@ -6347,6 +6400,14 @@ function sortiePlanHarbour(S) {
   const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
     coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }) }; // the end quay just past the sea segment, the east harbour along most of the harbour segment
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  return S.plan;
+}
+// Level 2, Sea of Sand: one plan over the whole level from its first chunk (the generator's sandSea, spec 18): the desert port with its
+// commercial harbour (the level opens over the sea, close to the quay) and the beach town at war, then the desert land with each
+// segment's feature: the oil valley, the held oasis village, the junction, the small oasis, the airbase, the fortified pass with its viaduct,
+// and the quiet desert before the boss, whose ground is the Campaign's (bossland, theme 2). Plan row y is world row S.planY0 - y.
+function sortiePlanLevel2(S) {
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'sandSea', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })) } }); S.planC0 = 0; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -7260,7 +7321,7 @@ function directorInner() {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
     return;
   }
-  planBerths(sc);
+  planBerths(sc); planViaducts(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -7359,6 +7420,20 @@ function spawnWave(b, big) {
   else if (r < 0.6) waveSweep();
   else if (r < 0.8) waveStrafe();
   else waveChase();
+}
+// Enigma Run level 2: the stone viaduct over the pass's ravine is a bridge target (it can be destroyed), placed as it comes up above the screen.
+// Its look is the plan's own deck; destroyed, it leaves a broken span over the ravine.
+function planViaducts(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.viaducts || !P.viaducts.length) return;
+  const wy = -34 - sc, done = S.viaUsed || (S.viaUsed = new Set());
+  P.viaducts.forEach((v, i) => { const y = S.planY0 - (v.y0 + v.y1) / 2; if (done.has(i) || y < wy - 60 || y > wy + 12) return; done.add(i);
+    world.enemies.push(G('bridge', v.x, y, { via: true, hw: 10, hh: Math.round((v.y1 - v.y0) / 2), hp: 30, rad: 14, bkey: 'via' + i })); });
+}
+let viaBrokenSpr = null;
+function viaBroken() { // the broken viaduct: the middle of the span fallen into the ravine, jagged stone ends, rubble on what is left of the deck
+  if (viaBrokenSpr) return viaBrokenSpr; const w = 22, h = 34, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) { const mid = Math.abs(yy - h / 2) < 9 + (hash(xx, 7) - 0.5) * 4; x.fillStyle = mid ? (hash(xx, yy) < 0.2 ? '#241a10' : '#0e0a06') : Math.abs(xx - w / 2 + 0.5) > 9 ? '#6a5e4c' : hash(xx, yy) < 0.3 ? '#4a4038' : '#8a7e68'; x.fillRect(xx, yy, 1, 1); }
+  return (viaBrokenSpr = { c, f: c, k: c, w, h });
 }
 // Enigma Run: a submarine berth of the settlement plan (by a U-boat bunker) always gets the game's submarine as it comes up above the screen,
 // whatever the director's pacing (its quiet opening included); each berth once.
@@ -7500,6 +7575,12 @@ function spawnGround(b) {
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
     else world.enemies.push(G('bunker', sl.x, sl.y, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 }));
     return true; };
+  // Enigma Run level 2: every gun slot of the desert plan (pits, sangars, bunkers, nests on flat roofs, tanks dug in, planes in the pens) gets its unit as it comes up
+  { const S = run.sortie; if (S && S.level === 2 && S.gen && r < 0.75) { const ks = ['parked']; if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (!capB) ks.push('bunker'); if (count('tank') + count('htank') < 3 + run.loop) ks.push('tank');
+    const sl = slotAt(ks); if (sl) { if (sl.kind === 'flak' || (sl.kind === 'arty' && !avail('arty'))) makeFlak(sl.x, sl.y); else if (sl.kind === 'arty') spawnArty(sl.x, sl.y);
+      else if (sl.kind === 'bunker') world.enemies.push(G('bunker', sl.x, sl.y, { hp: 14 * m, hw: 10, hh: 10, score: 600, rad: 13, ga: PI / 2, cd: rnd(60, 120) | 0 }));
+      else if (sl.kind === 'tank') world.enemies.push(G('tank', sl.x, sl.y, tankStats(false, { road: false, hd: PI / 2, v: 0, dug: true })));
+      else world.enemies.push(G('parked', sl.x, sl.y, { hd: Math.random() < 0.5 ? PI / 2 : -PI / 2 })); return; } } }
   const flakRaw = wx => makeFlak(wx, wy);
   const flak = wx => { if (capF) return; makeFlak(wx, wy); };
   { const rr = Math.random(), landT = ['field', 'grass', 'mud', 'forest', 'sand', 'yard'];
@@ -9727,7 +9808,7 @@ const DEATHS = {
   bridge: {
     blast: 24,
     wreck(e) {
-      bridgeDown.add(e.bkey !== undefined ? e.bkey : -Math.floor(e.wy / CH)); world.decals.push({ kind: 'spr', s: e.small ? SPR.bridgeBrokenS : SPR.bridgeBroken, wx: e.wx, wy: e.wy, smokeT: 160 });
+      bridgeDown.add(e.bkey !== undefined ? e.bkey : -Math.floor(e.wy / CH)); world.decals.push({ kind: 'spr', s: e.via ? viaBroken() : e.small ? SPR.bridgeBrokenS : SPR.bridgeBroken, wx: e.wx, wy: e.wy, smokeT: 160 });
       for (const g of world.enemies) if (g.ground && !g.dead && g !== e && Math.abs(g.wx - e.wx) < 12 && Math.abs(g.wy - e.wy) < 16) { const tg = g; world.later.push({ at: gf + 6, fn: () => damage(tg, 999) }); }
     },
   },
@@ -10603,7 +10684,7 @@ const LOOKS = {
   destroyer(e, fl) { spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } },
   hangar(e, fl) { spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); },
   fuel(e, fl) { spr(SPR.fuel, e.x, e.y, fl); },
-  bridge(e, fl) { spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); },
+  bridge(e, fl) { if (e.via) { if (fl) { ctx.globalAlpha = 0.5; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(e.x - 10), Math.round(e.y - e.hh), 20, e.hh * 2); ctx.globalAlpha = 1; } return; } spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); }, // (a viaduct's look is the plan's own deck)
   secret(e, fl) {
     // the hint: dark crows circling over the hiding place, led by a cream one; all cast a soft shadow
     const crowAt = (set, fr, x, y) => { ctx.globalAlpha = 0.28; ctx.drawImage(CROW_IMG[0][fr], x - 2, y + 4); ctx.globalAlpha = 1; ctx.drawImage(CROW_IMG[set][fr], x - 6, y - 5); };
