@@ -431,6 +431,32 @@ for (const lv of [2, 6, 7]) {
   await page.close();
 }
 
+// 3f. The Sower (level 4, owner): over the forest a twin-engine bomber overtakes the player from behind (after a warning marker at the bottom
+// edge), holds ahead of the player near the top, sows a trail of aerial mines that drift down with the ground and fizzle out, drops flying
+// bombs that burst into rings of shots, then climbs away. Made too tough to shoot down here, so the whole pass is seen. It never comes in
+// another level (level 6 flown through as far as the same frame), and nothing goes wrong on the way.
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => {
+    const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4); SOWER.hp = 99999');
+    const o = { warned: false, entered: null, held: 0, mines: 0, bombs: 0, bursts: 0, left: false, maxMines: 0, below: 0 };
+    let lastBombs = 0;
+    for (let i = 0; i < 1200 && !o.left; i++) { SF.run(3);
+      const q = SF.peek(`(() => { const z = run.sortie.sowerZ, e = world.enemies.find(e => e.type === 'sower' && !e.dead), m = world.ebul.filter(b => b.kind === 'amine');
+        return { warn: !!z && z.warn > 0, st: e ? e.st : null, y: e ? e.y : null, mines: m.length, down: m.length ? Math.min(...m.map(b => b.vy)) : 0, bombs: world.ebul.filter(b => b.kind === 'fbomb').length }; })()`);
+      if (q.warn) o.warned = true; if (q.st === 'in' && o.entered === null) o.entered = q.y; if (q.st === 'hold') o.held++; o.maxMines = Math.max(o.maxMines, q.mines); if (q.mines && q.down > 0) o.below++;
+      if (q.bombs > 0) o.bombs++; if (q.bombs < lastBombs) o.bursts++; lastBombs = q.bombs; if (o.held && !q.st) o.left = true; }
+    o.errs = SF.R.errs.slice(0, 2); return o;
+  });
+  ok(r.warned && r.entered !== null && r.entered > 300, `level 4: the Sower is announced at the bottom edge and comes from behind the player (entered at y ${r.entered && r.entered.toFixed(0)})`);
+  ok(r.held > 200 && r.maxMines >= 20 && r.below > 50, `it holds ahead and sows a trail of mines drifting down with the ground (held ${r.held} steps, up to ${r.maxMines} mines)`);
+  ok(r.bombs > 0 && r.bursts >= 3, `its flying bombs fall and burst (${r.bursts} bursts)`);
+  ok(r.left && r.errs.length === 0, `then it climbs away, with no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  const o6 = await page.evaluate(() => { const SF = window.SF; SF.peek('settings.diff = 1; startEnigma(6)'); let n = 0; for (let i = 0; i < 120; i++) { SF.run(25); if (SF.peek("world.enemies.some(e => e.type === 'sower') || !!run.sortie.sowerZ")) n++; } return n; });
+  ok(o6 === 0, 'the Sower never comes outside level 4');
+  await page.close();
+}
+
 // 3d. By hand (--pixels): the finished Campaign chunks of all six stages, pixels and features, against tests/enigma-pixels.json.
 if (pixels) {
   const page = await freshPage();

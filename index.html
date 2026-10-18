@@ -3331,7 +3331,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.33'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -3794,6 +3794,24 @@ SPR.wing = sprite(100, 40, x => {
   ellS(x, RP.glass, 50, 31, 3, 3.5, 0.15);
   ellS(x, RP.glass, 32, 20, 2.5, 2.5, 0.1); ellS(x, RP.glass, 68, 20, 2.5, 2.5, 0.1);
   cross(x, 20, 13); cross(x, 80, 13);
+});
+
+// the Sower (Enigma Run level 4): a twin-engine bomber seen from above, nose up (it flies ahead of the player, the same way), in grey and
+// khaki splinter camouflage, a glazed nose, yellow spinners, an elliptic tailplane
+const SOWER_RP = ['#22252a', '#3a3e44', '#5a5e60', '#7c7c72', '#9e9a86', '#bdb8a0'];
+SPR.sower = sprite(52, 40, x => {
+  polyS(x, SOWER_RP, [[1, 15], [6, 12], [20, 10], [32, 10], [46, 12], [51, 15], [50, 19], [44, 21], [8, 21], [2, 19]], 0.05, 0.45);
+  ellS(x, SOWER_RP, 26, 36, 9, 3.2, 0.05);
+  ellS(x, SOWER_RP, 26, 19, 3.6, 17, 0.12);
+  for (const nx of [15, 37]) { ellS(x, SOWER_RP, nx, 11, 3, 7, 0.1); rect(x, '#1a1c20', nx - 1, 16, 2, 2); }
+  { const c = x.canvas, d = x.getImageData(0, 0, c.width, c.height), a = d.data; // splinter camouflage: dark grey wedges over the khaki grey
+    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) { const k = (j * c.width + i) * 4; if (!a[k + 3]) continue; const v = Math.sin(i * 0.45 + j * 0.9) + Math.sin(i * 0.22 - j * 0.5 + 2) + (vnoise(i * 0.25, j * 0.25 + 9) - 0.5) * 1.2;
+      if (v > 0.55) { a[k] *= 0.62; a[k + 1] *= 0.64; a[k + 2] *= 0.7; } }
+    x.putImageData(d, 0, 0); }
+  ellS(x, RP.glass, 26, 4, 3, 3.6, 0.15); for (const [gx, gy] of [[25, 2], [27, 2], [24, 4], [28, 4], [26, 6]]) rect(x, '#1a1c22', gx, gy, 1, 1); // the glazed nose and its frames
+  ellS(x, RP.glass, 26, 15, 2, 2.4, 0.1); ellS(x, RP.glass, 26, 24, 1.4, 1.8, 0.1); // the cockpit's rear glazing, the dorsal gunner
+  for (const nx of [15, 37]) { ellS(x, RP.yel, nx, 4, 1.4, 1.6, 0.2); rect(x, '#1a1c20', nx, 6, 1, 2); }
+  rect(x, '#1a1c20', 26, 33, 1, 6);
 });
 
 function tankHull(frame, ramp, w, h) {
@@ -7971,7 +7989,7 @@ function directorInner() {
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  planBerths(sc); planGuns(sc); planCows(sc); planViaducts(sc); planPosts(sc);
+  sowerTick(sc); planBerths(sc); planGuns(sc); planCows(sc); planViaducts(sc); planPosts(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -8106,6 +8124,18 @@ function viaBroken() { // the broken viaduct: the middle of the span fallen into
 }
 // Enigma Run: a submarine berth of the settlement plan (by a U-boat bunker) always gets the game's submarine as it comes up above the screen,
 // whatever the director's pacing (its quiet opening included); each berth once.
+// The Sower (Enigma Run level 4 only): over the forest (the segments that play as 'forest'), one at a time, the first SOWER.first frames
+// into a forest stretch and then SOWER.gap frames after the last one left. A marker blinks at the bottom edge on its side before it comes.
+const SOWER = { first: 360, gap: 1800, warn: 70, hold: 840, y: 58, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 100 };
+function sowerTick(sc) {
+  const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
+  const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, warn: 0, side: 0 }), live = world.enemies.some(e => e.type === 'sower' && !e.dead);
+  if (live) { z.cd = SOWER.gap; return; }
+  if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
+  if (z.warn > 0) { if (--z.warn === 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff]; world.enemies.push(E('sower', { x: z.side, y: H + 34, side: z.side, hp, maxhp: hp, big: true, air: true })); sfx('drone'); } return; }
+  if (--z.cd <= 0) { z.warn = SOWER.warn; z.side = player && !player.dead && player.x < W / 2 ? W - 46 : 46; }
+}
+function drawSowerWarn() { const z = run.sortie && run.sortie.sowerZ; if (!z || z.warn <= 0 || !((gf >> 3) & 1)) return; ctx.fillStyle = '#ff3a2a'; const x = Math.round(z.side), y = H - 4; for (let k = 0; k < 5; k++) ctx.fillRect(x - k, y - 4 + k, 2 * k + 1, 1); } // a red arrowhead pointing up at the bottom edge
 function planBerths(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.subSlots || !P.subSlots.length) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
@@ -9852,6 +9882,21 @@ const ENT = {
       sfx('gun');
     }
   } },
+  // The Sower (Enigma Run level 4, the forest): it overtakes the player from behind on the far side, settles ahead of the player near the top
+  // of the screen and weaves across the middle for SOWER.hold frames, sowing a trail of aerial mines that hang in the air and drift down with
+  // the ground (keep to the sides, or get up beside it) and dropping flying bombs that fall back and burst into a ring of flak shots. Then it
+  // climbs away. Shot down, it breaks up like the big bomber.
+  sower: { revenge: 4, medals: 2, stats: { hw: 22, hh: 15, score: 4000, rad: 22 }, update(e) {
+    if (e.dying) return dyingTick(e);
+    const S0 = SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
+    if (e.st === 'in') { e.y -= S0.climb; e.x += (e.side - e.x) * 0.02; if (e.y <= S0.y) { e.st = 'hold'; e.ht = 0; } }
+    else if (e.st === 'hold') { e.ht++; const tx = W / 2 + S0.weave * Math.sin(e.ht * 0.011 + e.ph) + 10 * Math.sin(e.ht * 0.031 + e.ph * 2); const vx = clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = vx; e.y += (S0.y + 8 * Math.sin(e.ht * 0.02) - e.y) * 0.05;
+      if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 19, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
+      if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 6, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
+      if (e.ht >= S0.hold) e.st = 'out'; }
+    else { e.y -= 1.1; e.bank = 0; if (e.y < -40) e.dead = true; }
+    if (gf % 2 === 0) for (const ox of [-11, 11]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y + 2, vx: 0, vy: 0.3, life: 26, max: 26 });
+  } },
   missile: { uncounted: true, medals: 0.2, stats: { fixedHp: 2, hw: 3, hh: 3, score: 200 }, update(e) {
     e.life--; e.v = Math.min(1.7, e.v + 0.012);
     if (hasT() && e.t > 14) e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.028, 0.028);
@@ -10686,6 +10731,11 @@ const DEATHS = {
     onKill(e) { if (Math.random() < 0.3) bailOut(e.x, e.y, 1); },
     wreck(e) { if (Math.random() < 0.5) world.items.push(mkItem('B', e.x, e.y)); },
   },
+  sower: {
+    blast: 30,
+    onKill(e) { if (Math.random() < 0.5) bailOut(e.x, e.y, 1 + ((Math.random() * 2) | 0)); },
+    wreck(e) { if (Math.random() < 0.6) world.items.push(mkItem('B', e.x, e.y)); },
+  },
   wing: { onKill(e) { if (Math.random() < 0.5) bailOut(e.x, e.y, 1 + ((Math.random() * 2) | 0)); } },
   secret: {
     onKill(e) {
@@ -11105,6 +11155,11 @@ function update() {
       const gap = b.close && hasT() ? Math.atan2(nearShip(b.x, b.y).y - b.y, nearShip(b.x, b.y).x - b.x) : PI / 2 + rnd(-1, 1), n = 22;
       for (let k = 0; k < n; k++) { const a = gap + (k + 0.5) * TAU / n; if (Math.abs(angDiff(a, gap)) < 0.42) continue; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.9, vy: Math.sin(a) * bspeed() * 0.9, r: 3, kind: 'B', a, shrapnel: true }); }
     }
+    if (b.kind === 'amine' && --b.life <= 0) { b.dead = true; smokePuff(b.x, b.y, 'a'); } // (the Sower's) an aerial mine hangs in the air, drifting with the ground, and fizzles out
+    if (b.kind === 'fbomb') { b.vy = Math.min(1.25, b.vy + 0.025); b.vx *= 0.98; const t = nearShip(b.x, b.y); // a flying bomb falls back and bursts into a ring of flak shots: on its fuse, or near the player
+      if (gf % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'a', x: b.x + rnd(-0.5, 0.5), y: b.y - 4, vx: 0, vy: -0.1, r: rnd(1.2, 2), life: 18, max: 18 });
+      if (--b.fuse <= 0 || (hasT() && b.fuse < 40 && (t.x - b.x) ** 2 + (t.y - b.y) ** 2 < SOWER.near * SOWER.near)) { b.dead = true; world.parts.push({ kind: 'fire', layer: 'a', x: b.x, y: b.y, vx: 0, vy: 0, r: 5, life: 12, max: 12 }); for (let i = 0; i < 3; i++) smokePuff(b.x + rnd(-3, 3), b.y + rnd(-3, 3), 'a'); sfx('boom');
+        const off = Math.random() * TAU; for (let i = 0; i < SOWER.burst; i++) { const a = off + i * TAU / SOWER.burst; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.8, vy: Math.sin(a) * bspeed() * 0.8, r: 2, kind: 's', a }); } } }
     if (b.kind === 'mega' && gf % 2 === 0) world.parts.push({ kind: 'fire', layer: 'a', x: b.x + rnd(-2, 2), y: b.y - 4, vx: 0, vy: -0.2, r: rnd(2, 3), life: 10, max: 10 });
     if (b.kind === 'flak' && --b.life <= 0) {
       b.dead = true;
@@ -11674,6 +11729,8 @@ const LOOKS = {
     ctx.globalAlpha = 0.4; ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(-13, 0, 3.5 + fk * 0.5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
     ctx.restore();
   },
+  sower(e, fl) { const b = e.bank || 0, s2 = SPR.sower, w = Math.round(s2.w * (1 - Math.abs(b) * 0.1)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h);
+    const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.globalAlpha = 0.75; for (const nx of [-11, 11]) ctx.fillRect(Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2) - (ph ? 4 : 0), Math.round(e.y - s2.h / 2) + 2, ph ? 9 : 1, 1); ctx.globalAlpha = 1; },
   heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + 6, ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
   bomber(e, fl) {
     { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
@@ -12024,6 +12081,7 @@ function airShadow(e) {
   let s = null;
   if (e.type === 'fighter') { s = SPR.fighter[dirIdx(e.h)]; if (e.crash) { const f = Math.min(1, e.ct / 85); shadow(s, e.x, e.y, 12 * (1 - f), 20 * (1 - f), 0.28 + 0.2 * f); return; } }
   else if (e.type === 'bomber') s = SPR.bomber;
+  else if (e.type === 'sower') s = SPR.sower;
   else if (e.type === 'wing') s = SPR.wing;
   else if (e.type === 'pod') s = SPR.pod;
   if (s) shadow(s, e.x, e.y, 12, 20, 0.28);
@@ -12274,6 +12332,7 @@ function renderMain() {
   drawLocks();
   drawParts('a');
   drawHitbox();
+  drawSowerWarn();
   drawHiClouds();
 
   const fr = (gf >> 2) & 1;
@@ -12285,6 +12344,9 @@ function renderMain() {
     if (b.kind === 'B') spr(SPR.ebB[fr], b.x, b.y);
     else if (b.kind === 'shell') spr(SPR.shell[dirIdx(b.a)], b.x, b.y);
     else if (b.kind === 'flak') spr(SPR.flak, b.x, b.y);
+    else if (b.kind === 'amine') { if (b.life > 40 || (gf >> 2) & 1) { const x0 = Math.round(b.x), y0 = Math.round(b.y); ctx.fillStyle = '#16141a'; ctx.fillRect(x0 - 2, y0 - 2, 5, 5); ctx.fillRect(x0 - 3, y0, 7, 1); ctx.fillRect(x0, y0 - 3, 1, 7); ctx.fillRect(x0 - 3, y0 - 3, 1, 1); ctx.fillRect(x0 + 3, y0 - 3, 1, 1); ctx.fillRect(x0 - 3, y0 + 3, 1, 1); ctx.fillRect(x0 + 3, y0 + 3, 1, 1); // a spiked aerial mine, its red light blinking
+      ctx.fillStyle = '#6a6e74'; ctx.fillRect(x0 - 1, y0 - 1, 2, 2); ctx.fillStyle = ((gf + x0 * 7 + y0 * 3) >> 3) & 1 ? '#ff3a2a' : '#8a1e16'; ctx.fillRect(x0, y0, 2, 2); } }
+    else if (b.kind === 'fbomb') { const x0 = Math.round(b.x), y0 = Math.round(b.y); ctx.fillStyle = '#16141a'; ctx.fillRect(x0 - 2, y0 - 4, 5, 8); ctx.fillRect(x0 - 3, y0 - 5, 7, 2); ctx.fillStyle = '#6a6e62'; ctx.fillRect(x0 - 1, y0 - 3, 3, 6); ctx.fillStyle = '#9a9a86'; ctx.fillRect(x0 - 1, y0 - 3, 1, 4); ctx.fillStyle = (b.fuse >> 2) & 1 ? '#ffd060' : '#d84a34'; ctx.fillRect(x0, y0 + 3, 1, 1); } // a flying bomb, nose down, fins up
     else if (b.kind === 'rocket') spr(SPR.rocket[dirIdx(b.a)], b.x, b.y);
     else if (b.kind === 'srocket') {
       // a salvo rocket: dark-outlined grey body with a red nose and a flickering flame

@@ -1238,3 +1238,17 @@ Tier A of section 2, for Enigma Run. The Campaign has no sortie, so its traffic,
 - **Clearings:** a flak pit and a crater in each, an **AA tower** slot in the largest. **Clear-cuts:** an **artillery pit** under a net (`arty` slot).
 - Sandbags are lighter in the forest palette, so the rings read on the dark ground.
 - 60 seeds of the conifer forest: about 15 flak, 2 bunker, 1.5 arty and 0.8 AA tower slots per 1280 px; the cliff coast's forest adds about 7 flak. Every plan passes every rule with every feature (`tests/citygen.mjs` checks at least four flak sites, six flak slots, a bunker and an artillery pit in the conifer forest).
+
+### 19.2 The Sower (owner: a new enemy plane over the forest)
+
+The owner asked for a plane that flies ahead of the player and leaves bullets behind, so the player keeps to the sides or higher up, and that drops flying bombs bursting like flak. Built from the owner's picture (a twin-engine bomber seen from above, nose up, grey and khaki splinter camouflage, glazed nose, yellow spinners, elliptic tailplane). Enigma Run level 4 only; the Campaign never spawns it (golden replay unchanged).
+
+- **Sprite** `SPR.sower` (52 x 40, drawn in code), two propeller discs flickering ahead of the engines, narrower when it banks, a shadow like the big bomber's.
+- **Spawn** (`sowerTick`, every frame, outside the director's pacing): while the screen's spawn row is `forest` ground, `SOWER.first` (360) frames into a forest stretch, then `SOWER.gap` (1800) frames after the last one has gone; one at a time, never once the boss has come. A red arrowhead blinks at the bottom edge for `SOWER.warn` (70) frames on the side away from the player, then it comes from below the screen on that side (`SOWER.climb` 1.5 px a frame).
+- **Ahead of the player** (`SOWER.hold`, 840 frames, 14 s): about 58 px from the top, weaving across the middle (`SOWER.weave` ±50 px round the centre, about 9.5 s a sweep), so the strip's sides stay free.
+  - **Aerial mines** (`ebul` kind `amine`): one every 7 frames from its tail. They hang in the air and drift down with the ground (0.62 px a frame) for 250 frames, then fizzle out (they blink for their last 40). The trail is a snaking curtain under the plane: keep to the sides, or get up beside it where the curtain has moved on.
+  - **Flying bombs** (kind `fbomb`): one every 95 frames from the bomb bay, falling back (accelerating to 1.25 px a frame) with a smoke trail; they burst into a ring of 8 shots on a fuse of 52 to 80 frames, or once their fuse is under 40 and the player is within 30 px.
+- **Then** it climbs away and is gone (no score).
+- **Shot down:** 100 hit points on Normal (scaled by difficulty and loop; the four-engine bomber has 42), 4000 points, two medals, a last burst on Hard (`revenge` 4). It breaks up like the other big planes, which clears the bullets about it (its mines too); crew bail out; it may drop a bomb pickup.
+- **Tests** (`tests/enigma.mjs`, 3f): in level 4 (made too tough to shoot down) it is announced, comes from below, holds ahead and sows at least 20 mines drifting down, its bombs burst, and it climbs away, without errors; it never comes in level 6.
+- All its numbers are in `SOWER` for tuning after the owner has played it.
