@@ -37,6 +37,8 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
     if (p.farms.some(f => f.y0 < isleY)) c.farmIsle++; if (p.pastures.some(q => q.y0 > p.village.y1)) c.paddock++; if (p.items.some(i => i.t === 'house' && i.y0 < isleY)) c.houses++;
     if (kinds.has('bunker') && kinds.has('flak')) c.guns++; if (p.village.green) c.green++; if (p.wood.n > 400) c.wood++; if (p.pond) c.pond++; if (p.jetty && p.jetty.y1 - p.jetty.y0 > 12) c.jetty++;
     if (p.airbase && p.airbase.y1 - p.airbase.y0 >= 200) c.runway++; if (p.airbase && p.airbase.hangars >= 2) c.hangars++; if (p.slots.some(s => s.kind === 'parked')) c.pens++;
+    { const st = new Map(), by0 = Math.round(p.L * p.P.big[0]); for (let i = 0; i < p.K.length; i++) { if (p.K[i] !== CG.K.FIELD || ((i / p.W) | 0) < by0) continue; const x = i % p.W, y = (i / p.W) | 0, id = p.F[i]; let o = st.get(id); if (!o) st.set(id, o = { n: 0, x0: x, x1: x, y0: y, y1: y }); o.n++; o.x0 = Math.min(o.x0, x); o.x1 = Math.max(o.x1, x); o.y0 = Math.min(o.y0, y); o.y1 = Math.max(o.y1, y); }
+      const sm = [...st.values()].filter(o => o.n < 400 || Math.min(o.x1 - o.x0, o.y1 - o.y0) + 1 < 12).length; if (sm) { fails++; if (fails <= 3) fail(`islands seed ${seed}: ${sm} small fields on the large island`); } } // no slivers where the shore cut a field
     if (seed <= 3 && hash(p) !== hash(CG.generate({ seed, preset: 'islands' }))) fail(`islands seed ${seed}: the same seed gave a different plan`); }
   const low = Object.entries(c).filter(([k, v]) => v < (k === 'paddock' || k === 'pens' || k === 'houses' ? 90 : 100));
   if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
