@@ -7557,7 +7557,7 @@ function sideStep(e) { // one step along a side road: the next position, or null
   if (e.side.passed && !sd.junc.some(j => Math.abs(j.k - np) <= 3)) e.side.passed = false;
   const k0 = Math.floor(np), k2 = Math.min(k0 + 1, sd.path.length - 1), f = np - k0, px = sd.path[k0][0] + (sd.path[k2][0] - sd.path[k0][0]) * f, py = sd.path[k0][1] + (sd.path[k2][1] - sd.path[k0][1]) * f; // between path points interpolated, as routeX
   for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined) continue; const dx = o.wx - px, dy = o.wy - py; if (Math.hypot(dx, dy) < e.hh + o.hh + ROUTE_GAP && dx * e.side.d > -2) return null; }
-  e.side.k = np; e.atEnd = false; return [px, py];
+  e.side.nk = np; e.atEnd = false; return [px, py]; // (e.side.k moves on to nk when the vehicle does)
 }
 function routeStep(e) {
   const S = run.sortie, R = sortieRoutes(S); if (e.side) return sideStep(e); let rt = R[e.route];
@@ -8355,6 +8355,13 @@ function trainMove(e) {
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
 }
 function groundPos(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); }
+// Road vehicles move smoothly whatever the road under them does (tests/jitter.mjs checks every stage and level): steer turns the heading
+// towards the way the vehicle moved by at most VEH_TURN a frame (a move of nothing keeps it: atan2(0, 0) would point it east), so its
+// sprite never flicks to the side and back; capStep limits one frame's move to VEH_STEP times its speed, so a snap onto a road or another
+// route becomes a short glide instead of a jump (Enigma Run only: the Campaign plays as it always has, so its scores still compare).
+const VEH_TURN = 0.1, VEH_STEP = 2;
+function steer(e, dx, dy) { if (Math.abs(dx) + Math.abs(dy) <= 0.01) return; const a = Math.atan2(dy, dx); e.hd = e.hd === undefined || isNaN(e.hd) ? a : e.hd + clamp(angDiff(e.hd, a), -VEH_TURN, VEH_TURN); }
+function capStep(e, nwx, nwy) { if (!run.sortie) return [nwx, nwy]; const dx = nwx - e.wx, dy = nwy - e.wy, d = Math.hypot(dx, dy), m = e.v * VEH_STEP + 0.2; return d > m ? [e.wx + dx / d * m, e.wy + dy / d * m] : [nwx, nwy]; }
 function canFire(e, margin = 80) { return hasT() && !e.turDead && e.y > 10 && e.y < H - margin; }
 // What each boss leaves when it is gone (craters, oil, swimmers; D(ox, oy, kind, r, smoke) places one, wyb is its world y),
 // put on BOSS[kind].remains.
@@ -9244,16 +9251,16 @@ const ENT = {
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
       if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
-      else { const mx = dx / d * e.v, my = dy / d * e.v; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; e.moving = true; } else e.moving = false; }
+      else { const mx = dx / d * e.v, my = dy / d * e.v; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; e.moving = true; } else e.moving = false; }
     } else if (e.v > 0) {
       let nwx, nwy, wait = false;
-      if (e.road && run.sortie) { const st = routeStep(e); if (st) [nwx, nwy] = st; else wait = true; } // Enigma Run: along its route, keeping its distance
-      else if (e.road) { nwy = e.wy + e.dir * e.v; nwx = roadX(nwy) + e.lane; }
+      if (e.road && run.sortie) { const st = routeStep(e); if (st) [nwx, nwy] = capStep(e, st[0], st[1]); else wait = true; } // Enigma Run: along its route, keeping its distance
+      else if (e.road) { nwy = e.wy + e.dir * e.v; [nwx, nwy] = capStep(e, roadX(nwy) + e.lane, nwy); }
       else { nwx = e.wx + Math.cos(e.hd) * e.v; nwy = e.wy + Math.sin(e.hd) * e.v; }
       const nh = wait ? 0 : Math.atan2(nwy - e.wy, nwx - e.wx), ahead = wait ? '' : terrainType(nwx + Math.cos(nh) * 10, nwy + Math.sin(nh) * 10);
       if (wait) e.moving = false;
       else if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) {
-        if (Math.abs(nwx - e.wx) + Math.abs(nwy - e.wy) > 0.01) e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; e.moving = true; // (a move of nothing keeps the heading: atan2(0, 0) would point it east)
+        steer(e, nwx - e.wx, nwy - e.wy); e.wx = nwx; e.wy = nwy; e.moving = true; if (e.side && e.side.nk !== undefined) e.side.k = e.side.nk; // (along a side road it gets on only when it moves)
         if (gf % 12 === 0) world.parts.push({ kind: 'dust', layer: 'w', x: e.wx - Math.cos(e.hd) * 10, y: e.wy + Math.floor(world.scroll) - Math.sin(e.hd) * 10, vx: rnd(-0.2, 0.2), vy: world.scrollV, life: 26, max: 26, r: 2 });
       } else e.moving = false;
     }
@@ -9268,9 +9275,9 @@ const ENT = {
     }
   } },
   truck: { treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 200, rad: 10 }, update(e) {
-    let nwy = e.wy + e.dir * e.v, nwx; if (run.sortie) { const st = routeStep(e); if (!st) { groundPos(e); return; } [nwx, nwy] = st; } else nwx = roadX(nwy) + e.lane; // Enigma Run: along its route, keeping its distance
+    let nwy = e.wy + e.dir * e.v, nwx; if (run.sortie) { const st = routeStep(e); if (!st) { groundPos(e); return; } [nwx, nwy] = st; } else nwx = roadX(nwy) + e.lane; [nwx, nwy] = capStep(e, nwx, nwy); // Enigma Run: along its route, keeping its distance
     const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx, nwy + e.dir * 12);
-    if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { if (Math.abs(nwx - e.wx) + Math.abs(nwy - e.wy) > 0.01) e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
+    if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { steer(e, nwx - e.wx, nwy - e.wy); e.wx = nwx; e.wy = nwy; if (e.side && e.side.nk !== undefined) e.side.k = e.side.nk; }
     groundPos(e);
   } },
   flak: { turret: true, revenge: 2, guarded: true, medals: 0.5, treesInFront: true, stats: { hp: 8, hw: 9, hh: 9, score: 400, rad: 13 }, update(e) {
@@ -9504,7 +9511,7 @@ const ENT = {
     }
   } },
   acar: { revenge: 2, treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 700, rad: 9 }, update(e) {
-    if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { e.hd = Math.atan2(ty - e.wy, tx - e.wx); if (!blockedMove(e, Math.cos(e.hd) * e.v, Math.sin(e.hd) * e.v)) { e.wx += Math.cos(e.hd) * e.v; e.wy += Math.sin(e.hd) * e.v; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
+    if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { const mx = (tx - e.wx) / d * e.v, my = (ty - e.wy) / d * e.v; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && hasT()) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
     ENT.truck.update(e);
@@ -9514,7 +9521,7 @@ const ENT = {
   ftruck: { harmless: true, explosive: true, treads: true, medals: 0.5, stats: { hp: 5, hw: 5, hh: 9, score: 600, rad: 10 }, update(e) {
     const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
     if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
-    else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { e.hd = Math.atan2(dy, dx); e.wx += mx; e.wy += my; } }
+    else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } }
     groundPos(e);
   } },
   fuel: { harmless: true, guarded: true, medals: 0.4, treesInFront: true, stats: { hp: 6, hw: 7, hh: 7, score: 300, rad: 9 }, update(e) { groundPos(e); } },

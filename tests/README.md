@@ -97,6 +97,21 @@ node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 
 node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
 ```
 
+## Vehicle jitter test (runs in CI, blocking)
+
+`jitter.mjs` plays every Campaign stage and every Enigma Run level (1, 1A, 2–6, 6B) with the bot for 9000 frames each and watches every road vehicle (tanks, trucks, armoured cars, carts) frame by frame. It fails when one
+
+- **swings**: its heading turns more than 0.2 rad and back within 8 frames (the sprite flicks to the side and back: a vehicle reading its road per whole row, then stepping),
+- **wobbles**: it moves sideways more than 0.6 px and back within 8 frames (a shake),
+- **jumps**: it moves more than 2.6 px in one frame (a snap onto another road or route).
+
+A real turn (a corner, a side road, a patrol's end) turns once and stays, so it never counts. The game's guards are `steer` (a vehicle turns at most `VEH_TURN` a frame) and `capStep` (one frame's move at most `VEH_STEP` times its speed, Enigma Run only); a new kind of vehicle or road should move through them. About a minute:
+
+```
+node tests/jitter.mjs              # all stages and levels
+node tests/jitter.mjs --frames N   # frames per stage
+```
+
 ## City generator test (runs in CI, blocking)
 
 `citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also prints plan time and density error, and checks that the copy of the generator in `index.html` is current (refresh it with `node scripts/embed-citygen.mjs`).
