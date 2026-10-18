@@ -818,3 +818,36 @@ The owner's brief:
 
 All 100 test seeds still pass every rule and every count.
 
+## 18. Level 2, Sea of Sand
+
+Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Colossus (the land fortress) on the Campaign's own boss ground after the level (`bossland` with theme 2, open-ended). The level's own ground, 56 chunks, comes from one settlement plan over the whole level, as in 6B. It is a composite: the desert port and its beach town, then a valley with the oil field and the wadi, the desert village, the railway junction, the oasis, the desert airbase, the fortified pass, and the quiet desert before the boss. The plan's open desert is painted in the game's own desert sand, so the level's start and its boss ground meet without a seam.
+
+**Owner decisions (plan review):**
+- The level opens over open water, close to the quay.
+- The pass narrows the ground to a gorge about 120 px wide. The railway crosses on a **viaduct** that can be destroyed and is wide enough for the game's trains (16 px).
+- In the desert the church is a **domed building, not a mosque** (no minaret).
+- Light damage overall, with craters and wrecks around the pass and the airbase.
+- Route objects for road traffic are done: built by the level 1 work and merged to main. Level 2's roads (the junction's convoy road, the road through the pass) use them.
+- Heat shimmer, dust and sandstorms come later, first as animated mockups for review.
+
+**Order of work** (the owner reviews after each step): (1) the desert climate and the desert port, beach town and village presets in the city lab; (2) relief, wadi, dunes, oil field and oasis; (3) the junction, the desert airbase and the pass; (4) the game integration (`sortiePlanLevel2`, the seam into the boss ground, slots, tests, contact sheets).
+
+### 18.1 The desert climate and the first desert presets (step 1, for review in the city lab)
+
+`P.climate: 'desert'` is a generator parameter. `desertize(plan)` runs over the finished plan, so a temperate plan is never touched (checked: every existing preset paints identically, two seeds each). Painting picks the palette per plan (`C_TEMP` or `C_DESERT`; `paint` and `paintFx` select it, and a test paints a temperate town after a desert one to show nothing leaks).
+- **Palette:** the game's own desert sand, scrub, soil and dirt (index.html `THEME_TR[2]`). Irrigated crops are green, palms olive. Paving is sandstone, the road packed dusty asphalt. Walls and roofs are plaster in four washes (white, ochre, pink, buff). Domes are white.
+- **Buildings:** houses, terraces, blocks and courtyard farmsteads get flat plastered roofs with a parapet, each in its own wash (`b.wash`). Works, warehouses and the station keep their roofs.
+- **The domed hall:** the church keeps its footprint and becomes a whitewashed hall: a big dome over the crossing (it overhangs the nave into the churchyard), a small dome on the front tower, a half dome over the apse, and flat roofs on the nave and transepts. There is no minaret. In the desert the civic domed hall's dome is white too.
+- **Palms:** every tree is a date palm (6 or 7 fronds from a dark heart, lit from the upper left). Orchards become palm groves on watered earth with irrigation channels.
+- **Well:** the village green's pond becomes a well (a stone ring round dark water, a wooden frame across it) on a paved spot (`plan.wells`).
+- **Open desert:** fields and open meadow farther than about 20 to 46 px from the nearest house, garden, yard or street become `K.DESERT` (game type `sand`): dunes in long ripples with a few tufts of scrub. A host can pass its own sand as `opts.sandPix`, as it passes `seaPix` and `apronPix`.
+
+**Beach town (coast options, corner form):** `beachRun` is how far the side coast runs on past the side harbour before it swings out (default 170, as before). `beachW` is the beach's width there (24 px), and `prom` a promenade between the waterfront street and the sand (7 px, palms every 13 px). In that stretch the sand never becomes a sea wall, and the waterfront street runs its whole length. Also in the stretch:
+- rows of 3 to 5 bathing huts (4 x 5 px, striped canvas roofs) just below the promenade;
+- a **pleasure pier** 6 px wide on piles, running about 44 px out over the sea, with a round white pavilion on a deck at its head (`plan.beachTown`).
+
+**Presets:**
+- `portDesert` (Desert port and beach town): the south port in its corner form with the sea to the east and an open side harbour, as in 6B, the end quay at 12 percent of the length, then the beach town and the town thinning out into the desert.
+- `villageDesert` (Desert village): the village preset in the desert.
+
+**Checks** (`tests/citygen.mjs`): 60 seeds of each pass every hard rule. Every house has a flat roof, every church is a domed hall and every tree is a palm. Each plan has open desert. Each port has its promenade, at least six bathing huts, and a pier reaching at least 30 px over the sea. Each village has its well. The palette does not leak. Plan time is about 36 ms (median).

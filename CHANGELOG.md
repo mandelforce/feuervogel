@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- The settlement generator has a desert climate, for Enigma Run level 2, and the city lab has two desert presets. Houses and farmsteads have flat plastered roofs in several washes. The church is replaced by a whitewashed domed hall (no minaret). Trees are date palms, the village pond is a well, and open desert begins beyond the irrigated plots. The desert port has its commercial harbour at the south end and the east harbour beside it. Past the harbour it runs on into a beach town: a wide beach with a promenade and palms, rows of bathing huts, and a pleasure pier with a white pavilion at its head. Temperate towns, levels 6 and 6B, and the Campaign are unchanged.
 - Enigma Run levels 6 and 6B: the final airfield now begins with a complete hangar and its black and yellow warning stripes, instead of a hangar cut off at the city's edge.
 - Enigma Run levels 6 and 6B: the city's airfield edge now runs seamlessly into the final airfield. The dark jagged band along the bottom of the first hangar is gone, and the apron has the airfield's own concrete.
 - Islands preset: the small islands are larger (the two largest about 1.5 times as big, the others up to 30 px across the middle), with 5 to 7 of them in a slightly longer chain. The farm islet gets larger fields and paddock to match, and the house islet up to eight houses.

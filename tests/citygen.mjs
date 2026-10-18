@@ -41,6 +41,24 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
   const low = Object.entries(c).filter(([k, v]) => v < (k === 'paddock' || k === 'pens' || k === 'houses' ? 90 : 100));
   if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} islands: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median; of 100: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
+// the desert (Enigma Run level 2): every hard rule in 60 desert ports with their beach towns and 60 desert villages; houses and farmsteads
+// have flat roofs, every church is a domed hall, every tree a palm, open desert beyond the irrigated land; the beach town has its promenade,
+// bathing huts and a pleasure pier running out over the sea; the village pond is a well. The desert palette must not leak: a temperate
+// town painted after a desert one is the same as painted on its own.
+{ let fails = 0; const c = { desert: 0, flat: 0, domes: 0, palms: 0, prom: 0, huts: 0, pier: 0, wells: 0 }, ms = [];
+  for (const preset of ['portDesert', 'villageDesert']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}, trains blocked ${m.trainBlocked}`); }
+    let nd = 0, prom = 0; for (let i = 0; i < p.K.length; i++) { if (p.K[i] === CG.K.DESERT) nd++; if (p.K[i] === CG.K.WALK && p.B[i] === -15) prom++; }
+    if (nd > 15000) c.desert++; if (p.items.every(b => !['house', 'terrace', 'block', 'farm', 'farmhouse'].includes(b.t) || b.part || b.style === 'flat')) c.flat++;
+    if (p.churches.every(ch => ch.dome)) c.domes++; if (p.trees.length && p.trees.every(t => t.palm)) c.palms++;
+    if (preset === 'portDesert') { const bt = p.beachTown, pr = bt && bt.pier; if (prom > 500) c.prom++; if (bt && bt.huts >= 6) c.huts++;
+      if (pr && p.coast.cs * (pr.x1 * (p.coast.cs > 0 ? 1 : 0) + pr.x0 * (p.coast.cs > 0 ? 0 : 1) - p.coast.xs[pr.y0]) >= 30) c.pier++; }
+    else if (p.wells && p.wells.length === 1 && !p.K.some((k, i) => k === CG.K.WATER && p.B[i] === -7)) c.wells++; }
+  const need = { desert: 120, flat: 120, domes: 120, palms: 120, prom: 60, huts: 54, pier: 60, wells: 60 }, low = Object.entries(c).filter(([k, v]) => v < need[k]);
+  if (low.length) fail(`desert: too few of ${low.map(([k, v]) => k + ' ' + v + '/' + need[k]).join(', ')}`); ms.sort((a, b) => a - b);
+  const pnt = p => { const img = { data: new Uint8ClampedArray(p.W * 600 * 4) }; CG.paint(p, img, 300, 600, { noFx: true }); return img.data; }, town = CG.generate({ seed: 4, preset: 'town' }), a = pnt(town);
+  pnt(CG.generate({ seed: 4, preset: 'villageDesert' })); const b = pnt(town), leak = a.some((v, i) => v !== b[i]); if (leak) fail('desert: the desert palette leaked into a temperate town painted after it');
+  console.log(`${fails || low.length || leak ? 'FAIL' : 'ok  '} desert: ${120 - fails}/120 pass, plan ${ms[60].toFixed(0)} ms median; ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}; no palette leak`); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
