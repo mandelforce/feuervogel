@@ -121,6 +121,19 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   const ok = !fails && st === 30 && !out && ind >= 20 && per === 30 && stops === 30;
   if (!ok) fail(`level: station in its stretch ${st}/30, works in theirs ${ind} (outside ${out}), perimeter ${per}/30, buffer stops ${stops}/30`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} whole level (4224 px): ${30 - fails}/30 pass, station in its stretch in ${st}, ${ind} works quarters in theirs and ${out} outside, the airfield's perimeter in ${per}, buffer stops in ${stops}`); }
+// Enigma level 3, the whole level (longNight preset): every hard rule, the yard with wagons and its train runs to the end, the airbase, the
+// forest, the pylon line and the searchlight posts (each with a generator) in every seed
+{ let fails = 0, have = 0, posts = 0;
+  for (let seed = 1; seed <= 30; seed++) { const p = CG.generate({ seed, preset: 'longNight' }); if (!CG.validate(p).pass) fails++;
+    const runs = [93, 131, 55, 169].every(x => p.trainRuns.some(r => r.x === x && r.y1 === p.L - 1));
+    if (p.yard && p.yard.wagons.length >= 20 && runs && p.airbase && p.airbase.planes.length >= 4 && p.forest && p.pylons && p.pylons.filter(q => q.ok).length >= 4 && p.searchPosts.length >= 4 && p.slots.filter(q => q.kind === 'gen').length >= 3) have++; posts += p.searchPosts.length; }
+  const ok = !fails && have === 30; if (!ok) fail(`level 3: ${fails} fail the rules, ${have}/30 have all their parts`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 (The Long Night): ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} searchlight posts per level`); }
+// cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
+{ let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
+  for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
+    if (a.w !== b.w || a.data.some((v, i) => v !== b.data[i]) || n < a.w * a.h * 0.08 || !!a.shadow !== solid.has(k)) bad2++; }
+  if (bad2) fail(`cloud types: ${bad2} sprites are not deterministic, too faint or have the wrong shadow`); console.log(`${bad2 ? 'FAIL' : 'ok  '} cloud types (${CG.CLOUD_KINDS.join(', ')}): 20 seeds each, deterministic and visible`); }
 // the game carries a copy of the generator (index.html, cityGenSrc): it must be the current one (node scripts/embed-citygen.mjs)
 { const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../tools/citygen.js', import.meta.url), 'utf8'), open = '<script type="text/plain" id="cityGenSrc">\n';
   const a = html.indexOf(open), b = html.indexOf('</script>', a), same = a >= 0 && html.slice(a + open.length, b) === src;

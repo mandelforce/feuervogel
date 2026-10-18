@@ -94,7 +94,7 @@ node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
 
 ## City generator test (runs in CI, blocking)
 
-`citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also prints plan time and density error, and checks that the copy of the generator in `index.html` is current (refresh it with `node scripts/embed-citygen.mjs`).
+`citygen.mjs` runs the settlement generator (`tools/citygen.js`, the code behind the city lab `tools/citylab.html`) for 100 seeds of every density curve the lab offers, with and without damage, in Node (no browser). Every plan must keep the hard rules: no overlapping buildings, every house fronting a street, every tank carriageway joined to the main road, churches spaced out, and the same seed giving the same plan. It also sweeps Enigma level 3's whole plan (30 seeds: every rule and every part: yard, airbase, forest, power line, searchlight posts), checks the cloud types (deterministic and visible, shadows only for the solid ones), prints plan time and density error, and checks that the copy of the generator in `index.html` is current (refresh it with `node scripts/embed-citygen.mjs`).
 
 ```
 node tests/citygen.mjs

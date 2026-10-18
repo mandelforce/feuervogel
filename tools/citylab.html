@@ -150,6 +150,12 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <dl class="metrics" id="timing"></dl>
       <p class="note">Painting a 224 &times; 64 chunk on this machine. The Campaign's legacy city costs about 33 ms per chunk on the reference machine.</p>
     </section>
+    <section class="box" aria-labelledby="h-clouds">
+      <h2 id="h-clouds">Cloud types</h2>
+      <div class="btnrow"><select id="cloudKind" aria-label="Cloud type" style="width:auto;margin:0"><option value="all">All types</option></select><button id="cloudSeed">New clouds</button></div>
+      <canvas id="clouds" width="224" height="300" style="width:100%;image-rendering:pixelated;display:block;margin-top:8px" aria-label="Cloud types over the town"></canvas>
+      <p class="note">CityGen.cloud(kind, seed): cumulus, scattered, stratus, cirrus, mist and storm, over a stretch of this town at game scale (the game draws its clouds over the ground, then its night layer).</p>
+    </section>
     <section class="box sweep" aria-labelledby="h-sweep">
       <h2 id="h-sweep">Seed sweep</h2>
       <div class="btnrow"><button class="primary" id="sweep20">Run 20 seeds</button><button id="sweep100">Run 100</button><button id="copy">Copy settings</button></div>
@@ -209,8 +215,21 @@ function build() {
   times.sort((a, b) => a - b);
   $('genMs').textContent = gen.toFixed(0) + ' ms';
   $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k]) => k !== 'setup').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join('');
-  showMetrics(); layout(); drawOverlay(); drawGraph(); startFire();
+  showMetrics(); layout(); drawOverlay(); drawGraph(); startFire(); drawClouds();
 }
+// the cloud types over a stretch of the town: each a sprite from CityGen.cloud, stacked down the panel
+let cloudSeed = 1;
+for (const k of CG.CLOUD_KINDS) { const o = document.createElement('option'); o.value = k; o.textContent = k; $('cloudKind').appendChild(o); }
+function drawClouds() {
+  const cv = $('clouds'), g = cv.getContext('2d'), map = $('map'); if (!plan) return; g.imageSmoothingEnabled = false;
+  g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(map, 0, Math.max(0, Math.round(plan.L * 0.4)), 224, 300, 0, 0, 224, 300);
+  const kinds = $('cloudKind').value === 'all' ? CG.CLOUD_KINDS : [$('cloudKind').value, $('cloudKind').value, $('cloudKind').value, $('cloudKind').value]; let y = 6;
+  kinds.forEach((k, i) => { const c = CG.cloud(k, cloudSeed * 977 + i * 31), t = document.createElement('canvas'); t.width = c.w; t.height = c.h; t.getContext('2d').putImageData(new ImageData(c.data, c.w, c.h), 0, 0);
+    if (c.shadow) { const sh = document.createElement('canvas'); sh.width = c.w; sh.height = c.h; const sd = new ImageData(c.w, c.h); for (let q = 0; q < c.w * c.h; q++) if (c.shadow[q]) { sd.data[q * 4] = 10; sd.data[q * 4 + 1] = 8; sd.data[q * 4 + 2] = 18; sd.data[q * 4 + 3] = 36; } sh.getContext('2d').putImageData(sd, 0, 0); g.drawImage(sh, Math.round((224 - c.w) / 2) + 20, y + 30); }
+    g.drawImage(t, Math.round((224 - c.w) / 2 + (i % 2 ? 18 : -18)), y); y += Math.min(c.h, 52) + 2; });
+  if ($('oNight').checked) { g.fillStyle = 'rgba(6,8,30,0.25)'; g.fillRect(0, 0, cv.width, cv.height); }
+}
+$('cloudKind').addEventListener('change', drawClouds); $('cloudSeed').addEventListener('click', () => { cloudSeed++; drawClouds(); });
 const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
 function chip(ok, text, warn) { return `<span class="chip ${ok ? 'ok' : warn ? 'warn' : 'bad'}">${text}</span>`; }
 function showMetrics() {

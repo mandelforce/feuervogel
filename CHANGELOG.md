@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- The landscape generator now makes clouds too, in six types: puffy cumulus with a flat grey base, small fair-weather puffs, long flat stratus sheets, thin high cirrus streaks, see-through mist banks, and dark storm clouds with an anvil. The solid ones cast a soft shadow. Each level can choose its mix. Level 3 flies under mist banks and stratus sheets, with cirrus streaks high above. The city lab has a Cloud types panel.
+- Level 3: the power works always have their power station now (before, about one level in eight had none, and so no power line).
 - Enigma Run level 3: the clouds are now see-through banks of mist in the mist's blue-grey, wider and soft-edged, with no hard shadows, instead of white puffs. Other levels and the Campaign keep their clouds.
 - Enigma Run level 3, The Long Night, has its own ground: one generated landscape at night from the first chunk to the boss. You come in over the sea onto a fortified beach with searchlights on the dunes. Then come the power works with a power line on pylons across the farmland, and a small town that has just been bombed, its houses burning. After that a searchlight airbase (a runway with its lamps, blast pens with parked planes, hangars), a deciduous forest with a clearing, light industry, a rail corridor, and a marshalling yard full of wagons. The yard's tracks run on into the supergun's arena.
 - Level 3 at night: most windows are blacked out and about one house in ten shows a crack of light. Fires light the streets, furnaces glow, the runway and the yard have their lamps, and the night layer is lighter because the ground is painted dark already (the arena too). Low mist drifts over the farmland and through the forest.

@@ -449,6 +449,13 @@ function generate(opts) {
   }
   const railNear = (x, y, m) => !!RL && RL.lines.some(l => { const xx = l.xs[clamp(Math.round(y), 0, L - 1)]; return xx === xx && Math.abs(x - xx) < m; });
   const zones = []; if (HB) zones.push({ x0: HB.x0, x1: HB.x1, y0: HB.yLo, y1: HB.yHi }); if (ST) zones.push(ST); if (YD && YD.y0y != null) zones.push({ x0: YD.x0, x1: YD.x1, y0: YD.yLo, y1: L - 1 }); if (AB) zones.push({ x0: AB.x0, x1: AB.x1, y0: AB.ya, y1: AB.yb }); if (FO) zones.push({ x0: FO.x0, x1: FO.x1, y0: FO.ya, y1: FO.yb }); // ground that streets stop at
+  // the power station's site, reserved when a level needs it in a given stretch (powerAt): 64 px across and 150 rows on the roomier side of the
+  // main road, clear of the rail corridor; streets stop at it like at the station
+  const PW = (() => { if (!P.power || !P.powerAt) return null; const ym = Math.round(L * (P.powerAt[0] + P.powerAt[1]) / 2), ya = ym - 75, yb = ym + 75, lo = RL && RL.sr < 0 ? 28 : 4, hi = RL && RL.sr > 0 ? W - 29 : W - 5;
+    let rr = 1e9, ll = 1e9; for (let y = ya; y <= yb; y += 3) { rr = Math.min(rr, hi - (MX(y) + AW(y) / 2 + 3)); ll = Math.min(ll, MX(y) - AW(y) / 2 - 3 - lo); }
+    const s = rr >= ll ? 1 : -1, room = Math.max(rr, ll); if (room < 48) return null; const wd = Math.min(64, room);
+    let x0, x1; if (s > 0) { x0 = -1e9; for (let y = ya; y <= yb; y++) x0 = Math.max(x0, Math.ceil(MX(y) + AW(y) / 2 + 3)); x1 = x0 + wd - 1; } else { x1 = 1e9; for (let y = ya; y <= yb; y++) x1 = Math.min(x1, Math.floor(MX(y) - AW(y) / 2 - 3)); x0 = x1 - wd + 1; }
+    return { s, x0, x1, y0: ya, y1: yb, pre: true }; })(); if (PW) zones.push(PW);
   const inZone = (x, y, m) => zones.some(z => x >= z.x0 - m && x <= z.x1 + m && y >= z.y0 - m && y <= z.y1 + m);
   // 2a''. quarters. A town grows in stretches of different age, and each stretch has its own street pattern, so the blocks are not copies of
   // each other and the seams between quarters give skewed junctions and odd-shaped blocks, as in a real town:
@@ -830,7 +837,7 @@ function generate(opts) {
     for (let q = 0; q < 26; q++) { const x = 6 + rnd(T.CRATER, q, 50) * (W - 12), d = 4 + rnd(T.CRATER, q, 51) * (CO.beachD + CO.duneD - 6), y = In(x, d), r = 2 + rnd(T.CRATER, q, 52) * 3; let ok = true;
       for (let yy = Math.floor(y - r); ok && yy <= y + r; yy++) for (let xx = Math.floor(x - r); xx <= x + r; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.BEACH) { ok = false; break; } if (ok) plan.craters.push({ x, y, r }); }
     // the coastal battery behind the coastal road, a radar dish beside it
-    { const yb = Math.round(CO.wfH - hd * 18), xs3 = [-66, -22, 22, 66].map(dx => W / 2 + dx + (rnd(T.SEA, 60) - 0.5) * 20); let n = 0;
+    { const yb = Math.round(CO.wfH - hd * 18), xs3 = [-66, -22, 22, 66].map(dx => clamp(W / 2 + dx + (rnd(T.SEA, 60) - 0.5) * 20, P.railway ? 40 : 0, P.railway ? W - 41 : W)); let n = 0; // clear of the main line's corridor where the beach has a railway (level 3)
       for (const x of xs3) if (casemate(x, hd < 0 ? yb : yb, 20, 14, true, 'Battery casemate')) n++;
       if (n) { for (let x = Math.round(xs3[0]); x <= xs3[3]; x++) { const y = Math.round(yb - hd * 20 + Math.sin(x * 0.4) * 1.5); for (const yy of [y, y + 1]) if (free(x, yy)) Kr[idx(x, yy)] = K.TRENCH; }
         const rx = xs3[3] + 26, ry = yb - hd * 8; if (rx < W - 10) round(rx, ry, 5, 'radar', 'Radar'); plan.battery = n; } }
@@ -1024,8 +1031,8 @@ function generate(opts) {
   if (P.power) { const cand = [];
     for (const s of [-1, 1]) for (let k = 0; k + 1 < cross[s].length; k++) { const A = cross[s][k], Bc = cross[s][k + 1], ym = (A.yc + Bc.yc) / 2; if (!A.dead && !Bc.dead && isInd(ym) && Bc.yc - A.yc >= 60 && !(P.powerAt && (ym / L < P.powerAt[0] || ym / L > P.powerAt[1]))) cand.push({ s, A, B: Bc, ym }); } // powerAt: the share of the length it may stand in
     cand.sort((a, b) => rnd(T.CIV, a.A.id, 30) - rnd(T.CIV, b.A.id, 30));
-    for (const bk of cand) { const s = bk.s, ya = Math.ceil(bk.A.yc + bk.A.w / 2) + 2, yb = Math.floor(bk.B.yc - bk.B.w / 2) - 2; let x0 = -1e9, x1 = 1e9;
-      for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + s * (AW(y) / 2 + 2)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 110) x += s; const a = Math.min(xs, x - s), b = Math.max(xs, x - s); x0 = Math.max(x0, a); x1 = Math.min(x1, b); }
+    for (const bk of PW ? [PW] : cand) { const s = bk.s, ya = bk.pre ? bk.y0 : Math.ceil(bk.A.yc + bk.A.w / 2) + 2, yb = bk.pre ? bk.y1 : Math.floor(bk.B.yc - bk.B.w / 2) - 2; let x0 = bk.pre ? bk.x0 : -1e9, x1 = bk.pre ? bk.x1 : 1e9; // the reserved site, or a block between two cross streets
+      if (!bk.pre) for (let y = ya; y <= yb; y++) { let x = Math.round(MX(y) + s * (AW(y) / 2 + 2)); const xs = x; while (free(x, y) && Math.abs(x - xs) < 110) x += s; const a = Math.min(xs, x - s), b = Math.max(xs, x - s); x0 = Math.max(x0, a); x1 = Math.min(x1, b); }
       const w = x1 - x0 + 1, h = yb - ya + 1; if (w < 46 || h < 48) continue;
       fill(x0, ya, w, h, K.WORKS, -1); const g = ++grpN, near = s > 0 ? x0 : x1, xo = (o, ww) => s > 0 ? near + o : near - o - ww + 1;
       const mk = (o, ww, y0, hh, ori, style, roof, label) => { const it = addItem({ t: 'works', label, x0: xo(o, ww), y0, w: ww, h: hh, ori, style, roof, seed: h32(seed, 61000 + plan.items.length), dmg: 0, group: g }); fill(it.x0, y0, ww, hh, K.BLDG, it.id); return it; };
@@ -1770,6 +1777,52 @@ function paintNight(plan, d, y0, h) {
     if (q.r > 0) for (let yy = Math.floor(q.y - q.r); yy <= q.y + q.r; yy++) for (let xx = Math.floor(q.x - q.r); xx <= q.x + q.r; xx++) { const e = Math.hypot(xx + 0.5 - q.x, yy + 0.5 - q.y) / q.r; if (e < 1) add(xx, yy, q.c, q.a * (1 - e) * (1 - e)); }
     if (q.px) for (const [xx, yy, c] of q.px) add(xx, yy, c, 1); }
 }
+// ---------- clouds ----------
+// Cloud types for the game's sky, as pixel sprites in its style: a density field from overlapping shapes, roughened with noise, its edge in
+// a few dithered steps of transparency, lit from the top left. Pure and deterministic (kind and seed in, sprite out), so the lab and the game
+// get the same cloud. Types:
+//   cumulus    puffy heaps, bright above, a flat grey base; they cast a shadow on the ground
+//   scattered  small fair-weather puffs
+//   stratus    long, flat, soft-edged sheets of grey, half see-through
+//   cirrus     thin high streaks and hooks (mares' tails), faint
+//   mist       low, soft, see-through banks in blue-grey (night and mist levels)
+//   storm      big dark heaps with a flattened anvil above; a dark shadow
+const CLOUD = {
+  cumulus: { w: [56, 86], h: [28, 40], pal: HX(['#7e8aa0', '#9aa6b8', '#bcc6d2', '#dce2ea', '#f4f6f8']), alpha: 0.92, edge: 0.22, rough: 0.22, shadow: true },
+  scattered: { w: [22, 36], h: [14, 20], pal: HX(['#8c98ac', '#b0bac8', '#d6dce6', '#f2f4f8']), alpha: 0.88, edge: 0.25, rough: 0.2, shadow: true },
+  stratus: { w: [120, 180], h: [18, 28], pal: HX(['#6e7888', '#828c9c', '#98a2b0', '#aeb6c2']), alpha: 0.62, edge: 0.4, rough: 0.3, shadow: false },
+  cirrus: { w: [90, 150], h: [22, 40], pal: HX(['#b4c0d2', '#d4deea', '#eef3f9']), alpha: 0.42, edge: 0.5, rough: 0.1, shadow: false, high: true },
+  mist: { w: [100, 160], h: [26, 40], pal: HX(['#74829a', '#8a98b4', '#9eacc4']), alpha: 0.36, edge: 0.6, rough: 0.4, shadow: false },
+  storm: { w: [96, 140], h: [52, 72], pal: HX(['#2c3040', '#3e4456', '#545a6e', '#6c7286', '#8a90a2']), alpha: 0.95, edge: 0.16, rough: 0.2, shadow: true },
+};
+const CLOUD_KINDS = Object.keys(CLOUD);
+function cloud(kind, seed) {
+  const T = CLOUD[kind] || CLOUD.cumulus, r = k => h32(seed, k) / 4294967296, w = Math.round(lerp(T.w[0], T.w[1], r(1))), h = Math.round(lerp(T.h[0], T.h[1], r(2)));
+  const D = new Float32Array(w * h), ox = (seed % 997) * 3.1, oy = (seed % 389) * 1.7, ell = (x, y, cx, cy, rx, ry) => 1 - ((x - cx) / rx) ** 2 - ((y - cy) / ry) ** 2;
+  const blobs = []; let base = null; // ellipses [cx, cy, rx, ry]; base: the flat underside's row (cumulus, storm)
+  if (kind === 'cumulus' || kind === 'scattered' || kind === 'storm') {
+    const n = kind === 'scattered' ? 2 + (r(3) * 2 | 0) : 4 + (r(3) * 3 | 0), storm = kind === 'storm'; base = Math.round(h * 0.86);
+    for (let k = 0; k < n; k++) { const f = (k + 0.5) / n, cx = w * (0.16 + 0.68 * f) + (r(10 + k) - 0.5) * w * 0.06, mid = 1 - Math.abs(f - 0.5) * 1.6, rx = w * (0.1 + r(20 + k) * 0.06) * (kind === 'scattered' ? 1.7 : 1), ry = h * ((storm ? 0.16 : 0.2) + (storm ? 0.22 : 0.28) * mid + r(30 + k) * 0.06);
+      blobs.push([cx, base - ry * 0.55, rx, ry]); } // puffs on a common base, the middle ones tallest
+    if (storm) blobs.push([w * (0.5 + (r(40) - 0.5) * 0.16), h * 0.17, w * 0.44, h * 0.14], [w * 0.5, h * 0.42, w * 0.2, h * 0.3], [w * 0.42, h * 0.3, w * 0.12, h * 0.2], [w * 0.58, h * 0.3, w * 0.12, h * 0.2]); } // the anvil on its tower
+  else if (kind === 'cirrus') { const n = 3 + (r(3) * 4 | 0); for (let k = 0; k < n; k++) blobs.push({ y0: h * (0.15 + 0.7 * r(50 + k)), a: 2 + r(60 + k) * 4, f: 0.03 + r(70 + k) * 0.04, ph: r(80 + k) * 6.28, sl: (r(90 + k) - 0.5) * 0.25, x0: w * r(100 + k) * 0.3, x1: w * (0.6 + r(110 + k) * 0.4), th: 1.2 + r(120 + k) * 1.4 }); }
+  else blobs.push([w / 2, h / 2, w * 0.48, h * 0.42]); // stratus, mist: one long sheet, its outline broken up by the noise below
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let d = -1;
+    if (kind === 'cirrus') for (const f of blobs) { if (x < f.x0 || x > f.x1) continue; const t = (x - f.x0) / (f.x1 - f.x0), cy = f.y0 + f.a * Math.sin(x * f.f + f.ph) + f.sl * (x - f.x0) - (t > 0.85 ? (t - 0.85) * 40 : 0), th = f.th * Math.sin(Math.PI * Math.min(1, t * 1.1)); d = Math.max(d, 1 - ((y - cy) / Math.max(0.4, th)) ** 2); } // a streak tapering at both ends, hooked at its tip
+    else for (const b of blobs) d = Math.max(d, ell(x + 0.5, y + 0.5, b[0], b[1], b[2], b[3]));
+    if (kind === 'stratus' || kind === 'mist') d += (vn((x + ox) / 9, (y + oy) / 4) - 0.5) * T.rough * 2 + (vn((x + ox) / 3, (y + oy) / 3) - 0.5) * T.rough;
+    else d += (vn((x + ox) / 5, (y + oy) / 5) - 0.5) * T.rough;
+    if (base !== null && y > base) d -= (y - base) * 0.35; // a flat underside
+    D[y * w + x] = d; }
+  const at = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? -1 : D[y * w + x], data = new Uint8ClampedArray(w * h * 4), shadow = T.shadow ? new Uint8Array(w * h) : null;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const d = D[y * w + x]; if (d <= 0) continue;
+    const e = Math.min(1, d / T.edge), step = e + bay(x, y) * 0.5, a = step < 0.34 ? 0.33 : step < 0.67 ? 0.66 : 1; // the edge in three dithered steps
+    let l = (kind === 'storm' ? 0.5 : 0.66) + (at(x - 1, y - 1) - at(x + 1, y + 1)) * 2.6 + (0.5 - y / h) * 0.5; if (base !== null && y > base - 4) l -= 0.35; // lit from the top left, a darker base
+    if (kind === 'stratus') l += ((y >> 2) & 1) * 0.08; // faint banding along the sheet
+    const c = T.pal[pickI(T.pal.length, Math.max(0, Math.min(1, l)), x, y)], o = (y * w + x) * 4; data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255 * T.alpha * a;
+    if (shadow && a >= 0.66) shadow[y * w + x] = 1; }
+  return { kind, seed, w, h, data, shadow, high: !!T.high };
+}
 // the night grade alone, over a whole RGBA buffer: for a host's own ground painted by day (the game's legacy chunks in a night level)
 function nightGrade(d) { for (let o = 0; o < d.length; o += 4) { const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
 const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0], red: HX(['#ff3428'])[0], green: HX(['#3cff78'])[0], lamp: HX(['#aaa078'])[0], flare: HX(['#ffc46e'])[0] };
@@ -1905,7 +1958,7 @@ function calmWater(plan) {
 // flat roofs with a slot get a gun platform; call once after generate (keeps paint() free of searches)
 function markSlotRoofs(plan) { for (const s of plan.slots) if (s.on === 'roof' && s.item !== undefined) plan.items[s.item].slot = true; }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, palette: C };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const p = withPerimeter(o); markSlotRoofs(p); calmWater(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
