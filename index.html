@@ -7528,7 +7528,7 @@ function sortieRoutes(S) {
   return R;
 }
 function inPlanRows(S, wy) { const P = S.plan; return !!P && S.planFor === world.stageBaseP && S.planY0 - wy >= 0 && S.planY0 - wy < P.L; }
-function routeX(rt, wy) { return rt.legacy ? roadX(wy) : rt.xs[clamp(Math.round(wy) - rt.wyLo, 0, rt.xs.length - 1)]; }
+function routeX(rt, wy) { if (rt.legacy) return roadX(wy); const xs = rt.xs, f = clamp(wy - rt.wyLo, 0, xs.length - 1), i = Math.floor(f); return i + 1 < xs.length ? xs[i] + (xs[i + 1] - xs[i]) * (f - i) : xs[i]; } // between rows interpolated, so a vehicle never steps sideways
 function routeOn(S, rt, wy) { wy = Math.round(wy); if (!rt.legacy) return wy >= rt.wyLo && wy <= rt.wyHi; /* whole rows, as routeX */ if (inPlanRows(S, wy)) return false; const t = terrainType(Math.floor(roadX(wy)), Math.floor(wy)); return t === 'road' || t === 'bridge'; }
 // the routes a vehicle could be on at a world row; the main road first
 function routesAt(S, wy) { return sortieRoutes(S).filter(rt => routeOn(S, rt, wy)).sort((a, b) => (b.legacy || b.main ? 1 : 0) - (a.legacy || a.main ? 1 : 0)); }
@@ -7551,11 +7551,12 @@ function sideRoutes(S) {
   return S.sides;
 }
 function sideStep(e) { // one step along a side road: the next position, or null (waiting, or stopped at the street's end)
-  const S = run.sortie, sd = sideRoutes(S)[e.side.s]; if (!sd) { e.side = null; return null; } const np = e.side.k + e.side.d * e.v, k1 = Math.round(np);
-  if (k1 < 0 || k1 >= sd.path.length) { e.atEnd = true; return null; }
+  const S = run.sortie, sd = sideRoutes(S)[e.side.s]; if (!sd) { e.side = null; return null; } const np = e.side.k + e.side.d * e.v;
+  if (np < 0 || np > sd.path.length - 1) { e.atEnd = true; return null; }
   for (const j of sd.junc) if (j.rt !== e.side.from && Math.abs(j.k - np) <= e.v + 0.5 && !e.side.passed) { e.side.passed = true; if (Math.random() < SIDE.join) { const rt = sortieRoutes(S)[j.rt], y = sd.path[j.k][1]; e.route = rt.id; e.side = null; return [routeX(rt, y) + e.lane, y]; } }
   if (e.side.passed && !sd.junc.some(j => Math.abs(j.k - np) <= 3)) e.side.passed = false;
-  const [px, py] = sd.path[k1]; for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined) continue; const dx = o.wx - px, dy = o.wy - py; if (Math.hypot(dx, dy) < e.hh + o.hh + ROUTE_GAP && dx * e.side.d > -2) return null; }
+  const k0 = Math.floor(np), k2 = Math.min(k0 + 1, sd.path.length - 1), f = np - k0, px = sd.path[k0][0] + (sd.path[k2][0] - sd.path[k0][0]) * f, py = sd.path[k0][1] + (sd.path[k2][1] - sd.path[k0][1]) * f; // between path points interpolated, as routeX
+  for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined) continue; const dx = o.wx - px, dy = o.wy - py; if (Math.hypot(dx, dy) < e.hh + o.hh + ROUTE_GAP && dx * e.side.d > -2) return null; }
   e.side.k = np; e.atEnd = false; return [px, py];
 }
 function routeStep(e) {
@@ -9252,7 +9253,7 @@ const ENT = {
       const nh = wait ? 0 : Math.atan2(nwy - e.wy, nwx - e.wx), ahead = wait ? '' : terrainType(nwx + Math.cos(nh) * 10, nwy + Math.sin(nh) * 10);
       if (wait) e.moving = false;
       else if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) {
-        e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; e.moving = true;
+        if (Math.abs(nwx - e.wx) + Math.abs(nwy - e.wy) > 0.01) e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; e.moving = true; // (a move of nothing keeps the heading: atan2(0, 0) would point it east)
         if (gf % 12 === 0) world.parts.push({ kind: 'dust', layer: 'w', x: e.wx - Math.cos(e.hd) * 10, y: e.wy + Math.floor(world.scroll) - Math.sin(e.hd) * 10, vx: rnd(-0.2, 0.2), vy: world.scrollV, life: 26, max: 26, r: 2 });
       } else e.moving = false;
     }
@@ -9269,7 +9270,7 @@ const ENT = {
   truck: { treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 200, rad: 10 }, update(e) {
     let nwy = e.wy + e.dir * e.v, nwx; if (run.sortie) { const st = routeStep(e); if (!st) { groundPos(e); return; } [nwx, nwy] = st; } else nwx = roadX(nwy) + e.lane; // Enigma Run: along its route, keeping its distance
     const nh = Math.atan2(nwy - e.wy, nwx - e.wx), ahead = terrainType(nwx, nwy + e.dir * 12);
-    if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
+    if (ahead !== 'sea' && ahead !== 'surf' && ahead !== 'river' && !blockedMove(e, nwx - e.wx, nwy - e.wy)) { if (Math.abs(nwx - e.wx) + Math.abs(nwy - e.wy) > 0.01) e.hd = Math.atan2(nwy - e.wy, nwx - e.wx); e.wx = nwx; e.wy = nwy; }
     groundPos(e);
   } },
   flak: { turret: true, revenge: 2, guarded: true, medals: 0.5, treesInFront: true, stats: { hp: 8, hw: 9, hh: 9, score: 400, rad: 13 }, update(e) {
