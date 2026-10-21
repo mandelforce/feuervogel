@@ -1312,3 +1312,27 @@ Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train 
 **Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 30 villages, 30 of the level's first part) pass every hard rule; pack, floes and fast ice; an ice hole of open water a U-boat fits in in every plan, two in all 90 and a place to break through in all 90; open water (over 80 percent) in the harbour with ice along its quays and the bunker; the frozen sea never floods into the harbour's water; the village green in the village; every tree bare; 65 percent of roof pixels white; a winter river frozen; no palette leak; the same seed gives the same plan, and painting in bands equals painting whole. Plan time about 110 ms (median, Node); painting about 15 ms per chunk in the lab.
 
 **Not yet** (step 2): the lake valley with its ice road, the station, the airbase, the snowy forest, the mountain gorge, and the throat into the boss yard; the railway along the level.
+
+### 20.2 Owner feedback on step 1: a longer frozen sea, and a mountain village instead of the village green
+
+**Owner:** lengthen the frozen sea to **10 chunks**; take out the village's oval green; give the village a structure of its own, special to the snow level ("you don't need to follow the existing level, be creative with mountains").
+
+**The frozen sea, 10 chunks** (`winterLine`'s `open_sea_ice` is 10 chunks, 640 px; the shore at its end). The pack takes half of it (`pack` 0.5), with two leads; the number of ice holes grows with the pack (`nH`, 2 to 4: four in the level) and the places to break through with them (up to five). In the game the sequence's weight changes with step 3 (the level keeps its 62 chunks, the other segments shrink in proportion, unless the owner wants the level longer).
+
+**The level's first part is now two plans joined** (`stackPlans`, generic, as `sandSea` joins its port and desert): the town plan for the frozen sea, the harbour and the farmland (no old town, no green: `oldTown: null`), and on top the new **winter land** (`winterLand`, builder `'winterLand'`) from the village on. The farmland's top fields run a few rows into the winter land and end raggedly, not on a line.
+
+**The winter land:** a valley between mountains. Each pixel has a height (`plan.hgt`): it rises from the valley's axis outward (the floor is 26 to 38 px either side of it, about 16 px wider round the village), with spurs and gullies running down to the valley (ridged noise stretched across the strip) and smaller crests; the mountains rise over the first `rise` rows. New ground kind **`K.SLOPE`** (44, game type `rock`): snow slopes; steep faces are bare rock (`K.CRAG`, B -70). Painted lit from the upper left: snow in five tones, blue on the shaded faces, a few rocks showing; rock in strata with snow lying along them. **Cast shadows** (`plan.shadeM`): a pixel is in shadow where the ground towards the light rises above a ray climbing 1.05 px per px; shadowed pixels (not roofs) are darker and bluer. Snowy conifers in stands up to the tree line (height 54), a few on the floor.
+
+**The mountain village** (feature `village`):
+- **Chalets** along the road, gables to it, front yards to the road, some with a woodshed; **two lanes** climbing onto **terraces** with more chalets (each building stands on levelled ground that eases back into the slope).
+- A **chapel** with its bell tower in a small graveyard, flak beside it.
+- A **sawmill** with log piles and smoke.
+- A **ski jump** down the roomier slope: the tower at the top, the in-run (two wooden rails), the take-off, the landing hill widening with blue distance lines and red markers, the outrun on the floor fenced in red, a judges' tower.
+- A **cable car** from a valley station by the road over pylons to a **mountain station** near the crest, with a flak post; two red cabins on the cable.
+- **Avalanche fences** along the contours of the steeper slopes above the village.
+- A **bunker** at the village's entry.
+- No village green.
+
+**Presets:** `mountainVillage` (520 px) in the lab instead of `villageWinter`; `winterLine` (28 chunks: frozen sea 10, harbour 5, farmland 8, mountain village 5).
+
+**Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 60 mountain villages, 30 of the level's first part) pass every hard rule; the mountains with rock, shadows and conifers; the village's parts in every plan (chapel, sawmill, cable car, at least 10 chalets on the road and one on a terrace, avalanche fences, flak and bunker) and the ski jump in all 90; no village green in the level; every earlier preset plans and paints byte for byte as on main.
