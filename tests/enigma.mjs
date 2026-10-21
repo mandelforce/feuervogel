@@ -477,13 +477,15 @@ for (const lv of [2, 6, 7]) {
       if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'train')");
       if (o.boss) { const q = SF.peek(`(() => { const e = world.enemies.find(e => e.type === 'boss' && e.kind === 'train'); return { bx: e && e.trains ? e.trains.filter(t => t.on && !t.dead).map(t => [t.x, t.path ? t.path.xTop : t.x, t.path ? t.path.xBot : t.x]) : [], sx: world.enemies.filter(o => TRAIN_CARS.has(o.type) && !o.dead).map(o => Math.round(o.wx)), ammo: world.enemies.some(o => o.type === 'ammocar') }; })()`);
         o.bossN = (o.bossN || 0) + q.bx.length; o.cross = (o.cross || 0) + q.bx.filter(b => !(b.every(x => x < 112) || b.every(x => x > 112))).length; o.inner = (o.inner || 0) + q.bx.filter(b => b[0] === 68 || b[0] === 156).length;
-        o.supN = (o.supN || 0) + q.sx.length; o.supBad = (o.supBad || 0) + q.sx.filter(x => x !== 36 && x !== 188).length; o.ammo = o.ammo || q.ammo; } }
+        o.supN = (o.supN || 0) + q.sx.length; o.supBad = (o.supBad || 0) + q.sx.filter(x => x !== 36 && x !== 188).length; o.ammo = o.ammo || q.ammo;
+        const w = SF.peek(`({ sent: run.sortie.brRun ? [...run.sortie.brRun.values()].filter(v => v === 'sent').length : 0, mid: world.enemies.some(o => o.br && !o.dead && o.wx > 60 && o.wx < 164) })`); o.brSent = Math.max(o.brSent || 0, w.sent); o.brMid = o.brMid || w.mid; } }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.iceSubs >= 1 && f.breaks >= 1, `level 5: U-boats in the ice (${f.iceSubs} at once at most) and a break through the ice (${f.breaks})`);
   ok(f.bottomC !== undefined && f.bottomC >= f.len - 1 && f.bottomC <= f.len + 2, `level 5: the train boss is called once the gorge fills the screen (screen bottom at chunk ${f.bottomC}, the arena from ${f.len})`);
   ok(f.boss === true, 'level 5: the train boss comes');
   ok(f.bossN > 0 && f.cross === 0 && f.inner >= f.bossN * 0.5, `level 5: the boss trains keep to their own viaduct (${f.bossN} samples, ${f.inner} on an inner track, ${f.cross} across the chasm)`);
   ok(f.supN > 0 && f.supBad === 0, `level 5: the supply trains run on the outer tracks only (${f.supN} car samples, ${f.supBad} elsewhere; an explosives car seen: ${!!f.ammo})`);
+  ok(f.brSent >= 1 && f.brMid, `level 5: a supply train is sent to a bridge as it comes into view, and crosses it (${f.brSent} sent, one seen on the bridge: ${!!f.brMid})`);
   ok(f.guns >= 2, `level 5: guns stood in the plan's gun slots on the way (${f.guns})`);
   ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 5 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
@@ -515,6 +517,16 @@ for (const lv of [2, 6, 7]) {
   ok(v.stopped, `level 5: the next supply train stops at the mound (${v.lw} px short of its middle)`);
   ok(v.blast, 'level 5: an explosives car going up under a cornice breaks it');
   ok(v.smashed, 'level 5: a boss train smashes a supply car standing on its track');
+  // the bridge (spec 20.9): a supply train sent onto it follows its curve to the other outer track; a car destroyed over the chasm falls
+  // (no wreck left on the deck) and the car coupled to it over the chasm goes down too
+  const w = await peek(page, `(() => { const S = run.sortie, b = S.plan.gorge.bridges[0], C = { hp: 8, hw: 6, hh: 13, score: 500, rad: 10, cd: 999, keep: true }, lo = b.lr > 0 ? 36 : 188, hi = b.lr > 0 ? 188 : 36;
+    world.enemies = world.enemies.filter(o => !TRAIN_CARS.has(o.type)); const l = G('loco', lo, S.planY0 - b.ya + 30, Object.assign({}, C, { hp: 999, hh: 20, v: -1.2, up: true, br: b, train: 991 })); world.enemies.push(l);
+    let mid = false; for (let k = 0; k < 400; k++) { ENT.loco.update(l); if (l.wx > 70 && l.wx < 154) mid = true; }
+    const row = Math.round((b.ya + b.yb) / 2), wy = S.planY0 - row, a = G('boxcar', brX(b, wy), wy, Object.assign({}, C, { br: b, train: 992 })), c = G('boxcar', brX(b, wy + 12), wy + 12, Object.assign({}, C, { br: b, train: 992 })); world.enemies.push(a, c);
+    const d0 = world.decals.length, f0 = S.falls ? S.falls.length : 0; kill(a); for (const L of world.later.splice(0)) L.fn();
+    return { crossed: l.wx === hi, mid, over: overChasm(a), fell: (S.falls ? S.falls.length : 0) - f0, wreck: world.decals.slice(d0).some(d => d.kind === 'wreck'), coupled: c.dead || c.dying > 0 }; })()`);
+  ok(w.crossed && w.mid, `level 5: a supply train on the bridge follows its curve to the other outer track (${w.mid}, ${w.crossed})`);
+  ok(w.over && w.fell >= 2 && !w.wreck && w.coupled, `level 5: a car destroyed over the chasm falls, with the car coupled to it (${w.fell} falling, a wreck left on the deck: ${w.wreck})`);
   await page.close();
 }
 

@@ -3584,8 +3584,8 @@ function winterLand(o) {
   if (th && P.finale === 'gorge') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], yG0 = yP + 110, yG = yG0 + 70, D = GZ, ph3 = rnd(60) * 6.283;
     const G = plan.gorge = { y0: yP, y1: L - 1, ya: yG0, yb: yG, cx: new Float32Array(L - yP), gal: [], spurs: [], corn: [], bridges: [], refuges: [], wrecks: [] };
     const cxAt = y => D.mid + 2.2 * Math.sin(y * 0.027 + ph3) + 1.4 * Math.sin(y * 0.077 + ph3 * 2), LWx = y => 15 + 3 * Math.sin(y * 0.024 + ph3) + 3 * vn(y * 0.06, 2.2), RWx = y => 205 + 3 * Math.sin(y * 0.021 + ph3 * 3) + 3 * vn(y * 0.06, 4.4);
-    const z0 = yG + 30, z1 = L - 20, nB = Math.max(1, Math.round((z1 - z0) / 1300));
-    for (let k = 0; k < nB; k++) { const ya = Math.round(z0 + (k + 0.5) * (z1 - z0) / nB - 65); G.bridges.push({ ya, yb: ya + 130, lr: k % 2 ? -1 : 1 }); }
+    const z0 = yG + 30, z1 = L - 20, arF = fs('arena')[0], a0 = arF ? arF[0] : yG + 120; // the bridges: the first about 10 s into the boss fight, then one every 800 rows (about 33 s at the fight's scroll), each 240 rows long
+    for (let k = 0, ya = a0 + 420; ya + 260 < z1; k++, ya += 800) G.bridges.push({ ya, yb: ya + 240, lr: k % 2 ? -1 : 1 });
     const busyB = (y, m) => G.bridges.some(b => y > b.ya - m && y < b.yb + m), busyS = (s, y, m) => G.spurs.some(q => q.s === s && y > q.y0 - m && y < q.y1 + m);
     { let s = rnd(62) < 0.5 ? -1 : 1; for (let y = z0 + 160 + ((rnd(61) * 120) | 0); y < z1 - 80; y += 420 + ((rnd(63, y) * 220) | 0)) { if (busyB(y, 50) || busyB(y + 60, 50)) continue; G.spurs.push({ s, y0: y, y1: y + 44 + ((rnd(64, y) * 16) | 0) }); s = -s; } }
     for (const s of [-1, 1]) { let y = z0 + ((rnd(65, s + 2) * 80) | 0), open = true;
@@ -3822,7 +3822,7 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -3842,7 +3842,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.43'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.44'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4044,6 +4044,45 @@ function gorgeSnowTick() {
     if (m.t !== 22) continue;
     for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead && !o.dying && slideIn(m, o.x, o.wy, 1) && !roofAt(o.x, o.wy)) { o.score = Math.max(o.score, 300); kill(o); } // buried
     for (const e of world.enemies) if (e.type === 'boss' && e.kind === 'train' && e.parts) for (const p of e.parts) if (!p.dead && !p.off && slideIn(m, e.x + p.ox, e.y + p.oy - sc, 1) && !roofAt(e.x + p.ox, e.y + p.oy - sc)) damagePart(e, p, 25); }
+}
+// The supply trains' bridge (owner, spec 20.9): as each bridge comes into view a supply train is sent to take it, timed to cross mid-screen,
+// alternately climbing from the bottom onto its lower end and coming down from the top onto its upper end. Each car follows the bridge's
+// curve (brX). A car destroyed over the chasm falls (gorgeFall): it tips off the truss, shrinking and spinning as it drops, and goes through
+// the river ice far below; the cars coupled to it over the chasm go down with it.
+function brX(b, wy) { return CityGen.gorgeBridgeX(b, run.sortie.planY0 - wy); }
+function gorgeBridgeRuns() {
+  const S = run.sortie, sc = Math.floor(world.scroll), R = S.brRun || (S.brRun = new Map());
+  S.plan.gorge.bridges.forEach((b, i) => { if (R.has(i)) return; const cy = S.planY0 - (b.ya + b.yb) / 2 + sc, yTop = S.planY0 - b.yb + sc, up = i % 2 === 0, lo = b.lr > 0 ? GORGE_T[0] : GORGE_T[3], hi = b.lr > 0 ? GORGE_T[3] : GORGE_T[0];
+    if (cy > H) { R.set(i, 'missed'); return; }
+    if (up ? cy < 60 : yTop < -50) return; const wx = up ? lo : hi;
+    if (supplyOn(wx) || world.enemies.some(o => o.type === 'boss' && o.trains && o.trains.some(t => t.on && !t.dead && yardX(t, t.y) === wx))) return; // wait for a clear track
+    R.set(i, 'sent'); supplyTrain(wx, up, b); }); }
+function supplyTrain(wx, up, br) {
+  const sc = Math.floor(world.scroll), m2 = hpm(), tid = ++world.trainId, n = 2 + ((Math.random() * 2) | 0), v = up ? -1.2 : 0.6, wy = up ? H + 30 - sc : -40 - sc, dir = up ? 1 : -1, ammo = Math.random() < 0.45 ? (Math.random() * n) | 0 : -1;
+  world.trainLeft[tid] = n + 1; trainBonus[tid] = 1500 * (n + 1);
+  world.enemies.push(G('loco', wx, wy, { train: tid, diesel: Math.random() < 0.4, hp: 16 * m2, hh: 20, v, up, br }));
+  for (let k = 0; k < n; k++) { const kind = k === ammo ? 'ammocar' : Math.random() < 0.5 ? 'flatcar' : 'boxcar', flak = kind === 'flatcar';
+    world.enemies.push(G(kind, wx, wy + dir * (36 + k * 30), { train: tid, hp: (flak ? 10 : 8) * m2, hw: 6, hh: 13, score: kind === 'ammocar' ? 800 : flak ? 700 : 500, rad: 10, v, up, br, ga: up ? -PI / 2 : PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
+  sfx('whistle');
+}
+function overChasm(o) { const Z = CityGen.GZ, y = run.sortie.planY0 - o.wy; return !!o.br && o.wx > Z.f0 && o.wx < Z.f1 && y >= o.br.ya && y <= o.br.yb; }
+function gorgeFall(e) {
+  if (!overChasm(e)) return false; const S = run.sortie, Z = S.plan.gorge, row = clamp(Math.round(S.planY0 - e.wy) - Z.y0, 0, Z.cx.length - 1), F = S.falls || (S.falls = []);
+  const s2 = e.type === 'flatcar' ? SPR.flatcar : SPR[e.type] || SPR.boxcar; F.push({ s: s2, x: e.wx, wy: e.wy, a: (e.ang || 0) + (e.up ? PI : 0), spin: rnd(-3, 3), t: 0, ex: Z.cx[row] + rnd(-1.5, 1.5), ewy: e.wy + rnd(14, 24) });
+  let k = 0; for (const o of world.enemies) if (o !== e && o.train && o.train === e.train && !o.dead && !o.dying && overChasm(o)) world.later.push({ at: gf + 8 + 7 * k++, fn: () => { if (!o.dead && !o.dying) kill(o); } }); // the cars coupled to it go down too
+  return true;
+}
+function gorgeFallTick() { const S = run.sortie, sc = Math.floor(world.scroll);
+  for (const f of S.falls) { if (f.t > 60) continue; f.t++; const q = Math.min(1, f.t / 50), e = q * q, x = f.x + (f.ex - f.x) * e, y = f.wy + (f.ewy - f.wy) * e + sc;
+    if (f.t < 50 && f.t % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'g', x, y, vx: rnd(-0.2, 0.2), vy: world.scrollV - 0.3, r: rnd(2, 3.5), life: 30, max: 30 });
+    if (f.t === 50) { sfx('splash'); for (let k = 0; k < 6; k++) world.parts.push({ kind: 'smoke', layer: 'g', x: f.ex + rnd(-2, 2), y: f.ewy + sc + rnd(-3, 3), vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.1), r: rnd(1.5, 3), life: 26, max: 26, white: true }); } } }
+// the falling cars (below the deck, so drawn before the trains) and, where each landed, its hole in the river ice with the wreck in it
+function drawGorgeFalls() {
+  const S = run.sortie; if (!S || !S.falls || S.planFor !== world.stageBaseP) return; const sc = Math.floor(world.scroll);
+  for (const f of S.falls) { const q = Math.min(1, f.t / 50), e = q * q;
+    if (q >= 1) { const x = Math.round(f.ex), y = Math.round(f.ewy + sc); if (y < -10 || y > H + 10) continue; ctx.fillStyle = '#cce0ec'; ctx.fillRect(x - 3, y - 4, 6, 9); ctx.fillStyle = '#1c303c'; ctx.fillRect(x - 2, y - 3, 4, 7); ctx.fillStyle = '#3a2a20'; ctx.fillRect(x - 1, y - 2, 2, 4); continue; }
+    const x = f.x + (f.ex - f.x) * e, y = f.wy + (f.ewy - f.wy) * e + sc, k = 1 - 0.7 * e; ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(f.a + f.spin * e); ctx.scale(k, k); ctx.globalAlpha = 1 - 0.35 * e;
+    ctx.drawImage(f.s.c, -Math.round(f.s.w / 2), -Math.round(f.s.h / 2)); ctx.restore(); ctx.globalAlpha = 1; }
 }
 // the boss train is never stopped: it ploughs through a mound (snow thrown up) and smashes a supply train standing on its track
 function gorgeBossPlough(e) {
@@ -9627,6 +9666,7 @@ function blockedAhead(e, hd) {
 function blockedMove(e, dx, dy) {
   for (const o of world.enemies) {
     if (o === e || o.dead || !(o.ground || o.surface) || o.type === 'troop' || e.type === 'troop' || o.type === 'secret' || o.type === 'bridge') continue;
+    if (o.type === 'boss' && TRAIN_CARS.has(e.type) && gorgeArena()) continue; // (level 5's gorge: the train boss's box covers the screen; its trains run on their own tracks)
     const mx = e.hw + o.hw + 2, my = e.hh + o.hh + 2, nx = e.x + dx - o.x, ny = e.y + dy - o.y;
     if (Math.abs(nx) < mx && Math.abs(ny) < my) {
       const before = Math.abs(e.x - o.x) / mx + Math.abs(e.y - o.y) / my, after = Math.abs(nx) / mx + Math.abs(ny) / my;
@@ -9675,8 +9715,9 @@ function trainMove(e) {
     if (e.v > 0) { e.v = Math.max(0, e.v - 0.004); if (gf % 4 === 0) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-10, 10), vx: rnd(-0.6, 0.6), vy: world.scrollV - 0.5, life: 8, max: 8, col: '#fff2a8' }); }
     if (e.v <= 0) { groundPos(e); return; }
   }
-  const nwy = e.wy + e.v, ahead = terrainType(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4);
-  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4))) && !blockedMove(e, 0, e.v) && !moundAt(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4)) e.wy = nwy; // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
+  const nwy = e.wy + e.v, aY = e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4, ax = e.br ? brX(e.br, aY) : e.wx, ahead = terrainType(ax, aY); // (level 5: a train on the bridge looks ahead along it)
+  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(ax, aY))) && !blockedMove(e, 0, e.v) && !moundAt(ax, aY)) e.wy = nwy; // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
+  if (e.br) { const x = brX(e.br, e.wy); e.ang = Math.atan(brX(e.br, e.wy - 1) - x); e.wx = x; } // across the bridge, turning with its curve
   groundPos(e);
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
 }
@@ -10338,7 +10379,7 @@ const BOSSMOVE = {
       p.ox = P.x + p.lx * c - d * sn - e.x; p.oy = t.y + vc + p.lx * sn + d * c - e.y;
     }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
-    if (gorgeArena()) { for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead) o.untarget = roofAt(o.x, o.wy); gorgeBossPlough(e); } // under a gallery or in a tunnel; never stopped
+    if (gorgeArena()) { for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead) o.untarget = roofAt(o.x, o.wy); gorgeBossPlough(e); if (A.ready) gorgeBridgeRuns(); } // under a gallery or in a tunnel; never stopped; a train for each bridge
     if (A.ready) wolfPack(e);
     // during the fight, shots fly over the crate stacks and sheds on the platforms beside the boss tracks (they soaked up most shots)
     if (gf % 20 === 0) for (const o of world.enemies) if ((o.type === 'crate' || o.type === 'drums' || (o.type === 'bldg' && o.bk === 'shed')) && !o.untarget) o.untarget = true;
@@ -11468,6 +11509,7 @@ const DEATHS = {
   loco: {
     blast: 26,
     wreck(e) {
+      if (e.br && gorgeFall(e)) return; // (level 5: over the chasm it falls)
       world.decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: e.type === 'loco' ? 13 : 11, smokeT: 0 });
       world.decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: e.type === 'loco' && e.diesel ? SPR.locoD : SPR[e.type], smokeT: 260 });
     },
@@ -11701,6 +11743,7 @@ function update() {
   director();
   for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const f = world.later[i].fn; world.later.splice(i, 1); f(); }
   if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
+  if (run.sortie && run.sortie.falls) gorgeFallTick(); // (level 5: cars falling from the bridge)
   if (app.fade) {
     app.fade.t++;
     if (app.fade.phase === 'out' && app.fade.t >= 24) { const f = app.fade.fn; app.fade = { t: 0, phase: 'in' }; if (f) f(); }
@@ -12381,10 +12424,10 @@ const LOOKS = {
   casemate(e, fl) { spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); },
   aatower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } },
   search(e, fl) { spr(SPR.searchBase, e.x, e.y, fl); },
-  loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.type === 'ammocar' ? SPR.ammocar : e.diesel ? SPR.locoD : SPR.loco; if (e.up) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
+  loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.type === 'ammocar' ? SPR.ammocar : e.diesel ? SPR.locoD : SPR.loco; if (e.up || e.ang) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate((e.up ? PI : 0) + (e.ang || 0)); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
   boxcar(e, fl) { LOOKS.loco(e, fl); },
   ammocar(e, fl) { LOOKS.loco(e, fl); },
-  flatcar(e, fl) { spr(SPR.flatcar, e.x, e.y, fl); if (!e.turDead) spr(SPR.flakGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 3); },
+  flatcar(e, fl) { if (e.ang) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(e.ang); ctx.drawImage(fl ? SPR.flatcar.f : SPR.flatcar.c, -Math.round(SPR.flatcar.w / 2), -Math.round(SPR.flatcar.h / 2)); ctx.restore(); } else spr(SPR.flatcar, e.x, e.y, fl); if (!e.turDead) spr(SPR.flakGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 3); },
   parked(e, fl) {
     if (e.taxi > 0) prop(e.x, e.y, e.hd, 4);
     shadow(SPR.fighter[dirIdx(e.hd)], e.x, e.y, 2, 2, 0.4); spr(SPR.fighter[dirIdx(e.hd)], e.x, e.y, fl);
@@ -12957,7 +13000,7 @@ function renderMain() {
   drawRiverFlow();
   drawRaven();
   drawDecals();
-  drawGorgeSnow(false);
+  drawGorgeSnow(false); drawGorgeFalls();
   drawMarkers();
   drawWreck(false);
   drawParts('w');

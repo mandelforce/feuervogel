@@ -3134,8 +3134,8 @@ function winterLand(o) {
   if (th && P.finale === 'gorge') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], yG0 = yP + 110, yG = yG0 + 70, D = GZ, ph3 = rnd(60) * 6.283;
     const G = plan.gorge = { y0: yP, y1: L - 1, ya: yG0, yb: yG, cx: new Float32Array(L - yP), gal: [], spurs: [], corn: [], bridges: [], refuges: [], wrecks: [] };
     const cxAt = y => D.mid + 2.2 * Math.sin(y * 0.027 + ph3) + 1.4 * Math.sin(y * 0.077 + ph3 * 2), LWx = y => 15 + 3 * Math.sin(y * 0.024 + ph3) + 3 * vn(y * 0.06, 2.2), RWx = y => 205 + 3 * Math.sin(y * 0.021 + ph3 * 3) + 3 * vn(y * 0.06, 4.4);
-    const z0 = yG + 30, z1 = L - 20, nB = Math.max(1, Math.round((z1 - z0) / 1300));
-    for (let k = 0; k < nB; k++) { const ya = Math.round(z0 + (k + 0.5) * (z1 - z0) / nB - 65); G.bridges.push({ ya, yb: ya + 130, lr: k % 2 ? -1 : 1 }); }
+    const z0 = yG + 30, z1 = L - 20, arF = fs('arena')[0], a0 = arF ? arF[0] : yG + 120; // the bridges: the first about 10 s into the boss fight, then one every 800 rows (about 33 s at the fight's scroll), each 240 rows long
+    for (let k = 0, ya = a0 + 420; ya + 260 < z1; k++, ya += 800) G.bridges.push({ ya, yb: ya + 240, lr: k % 2 ? -1 : 1 });
     const busyB = (y, m) => G.bridges.some(b => y > b.ya - m && y < b.yb + m), busyS = (s, y, m) => G.spurs.some(q => q.s === s && y > q.y0 - m && y < q.y1 + m);
     { let s = rnd(62) < 0.5 ? -1 : 1; for (let y = z0 + 160 + ((rnd(61) * 120) | 0); y < z1 - 80; y += 420 + ((rnd(63, y) * 220) | 0)) { if (busyB(y, 50) || busyB(y + 60, 50)) continue; G.spurs.push({ s, y0: y, y1: y + 44 + ((rnd(64, y) * 16) | 0) }); s = -s; } }
     for (const s of [-1, 1]) { let y = z0 + ((rnd(65, s + 2) * 80) | 0), open = true;
@@ -3372,7 +3372,7 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
