@@ -268,6 +268,39 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   need(roof / rn > 0.6, `snow on ${(100 * roof / rn).toFixed(0)}% of roof pixels`); need(ice / wn > 120, `the river is not frozen (mean light ${(ice / wn).toFixed(0)})`); if (leak) fail('winter: the winter palette leaked into a temperate town painted after it');
   ms.sort((a, b) => a - b);
   console.log(`${fails || miss || leak ? 'FAIL' : 'ok  '} winter: ${180 - fails}/180 plans pass, ${miss} missing a feature; two ice holes in ${c.holes2}/90, a place to break through in ${c.breaks}/90, a ski jump in ${c.jumps}/90; ${(100 * roof / rn).toFixed(0)}% of roof pixels white, the river frozen, no palette leak; plan ${ms[90].toFixed(0)} ms median`); }
+// Enigma level 5's gorge finale (preset winterGorge, owner: option 1): the plan reaches on past the level's end as the boss's arena. The four
+// tracks (x 36, 68 | 156, 188) leave the spur's tunnels and never break; the gorge is open by the level's end; every arena row has the chasm between
+// the two viaducts' decks (the bridge's truss aside); galleries over the outer tracks on both sides, never within the boss train's 13 px of an inner
+// track; tunnel spurs on both sides; cornices over open stretches (none with a gallery under it unless marked) and over some galleries; at least
+// one bridge from outer track to outer track across the chasm, clear of galleries and spurs; ground types; the same seed gives the same plan;
+// painting in bands equals painting whole.
+{ let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('gorge: ' + m); } }, ms = [], tot = { gal: 0, spurs: 0, corn: 0, over: 0, br: 0 };
+  const hsh = d => { let x = 2166136261; for (let i = 0; i < d.length; i++) { x ^= d[i]; x = Math.imul(x, 16777619); } return x >>> 0; };
+  for (let seed = 1; seed <= 12; seed++) { const t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge' }); ms.push(performance.now() - t0); const v = CG.validate(p), G = p.gorge, W = p.W, Lr = 70 * 64;
+    need(v.pass, `seed ${seed}: a hard rule fails`); if (!G) { need(false, `seed ${seed}: no gorge`); continue; }
+    const at = (x, y) => y * W + x, Kr = p.K, Br = p.B, K = CG.K;
+    need(p.L === Lr + 48 * 64 && G.y1 === p.L - 1, `seed ${seed}: the arena is not 48 chunks past the level's end`);
+    need(G.yb < Lr && G.yb > Lr - 220, `seed ${seed}: the gorge opens at ${G.yb}, not just before the level's end (${Lr})`);
+    for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[at(tx - 3, y)] !== 2) brk++; need(!brk, `seed ${seed}: the track at x ${tx} breaks in ${brk} rows`); }
+    let noCh = 0, noDeck = 0, galIn = 0; for (let y = G.yb; y < p.L; y++) { const mid = Kr[at(112, y)], bm = Br[at(112, y)]; if (!(mid === K.RAVINE && bm === -71) && !(mid === K.RBRIDGE && bm === -25)) noCh++;
+      for (const x of [30, 74, 150, 194]) { const k = Kr[at(x, y)]; if (k !== K.RBRIDGE && k !== K.SLOPE && k !== K.CRAG) noDeck++; }
+      for (const x of [55, 81, 143, 169]) if (Kr[at(x, y)] === K.RBRIDGE && Br[at(x, y)] === -24) galIn++; }
+    need(!noCh, `seed ${seed}: ${noCh} arena rows without the chasm`); need(!noDeck, `seed ${seed}: ${noDeck} deck pixels missing`); need(!galIn, `seed ${seed}: a gallery reaches the boss's room (${galIn})`);
+    for (const s of [-1, 1]) { need(G.gal.filter(q => q.s === s).length >= 3, `seed ${seed}: fewer than 3 galleries on side ${s}`); need(G.corn.filter(q => q.s === s && !q.over).length >= 5, `seed ${seed}: fewer than 5 open cornices on side ${s}`); need(G.spurs.some(q => q.s === s), `seed ${seed}: no spur on side ${s}`); }
+    for (const q of G.corn) { let n = 0; for (let y = q.y - q.half; y <= q.y + q.half; y++) for (let x = 0; x < W; x++) if (Kr[at(x, y)] === K.SLOPE && Br[at(x, y)] === -72) n++; need(n >= 25, `seed ${seed}: the cornice at ${q.y} has ${n} px`);
+      if (!q.over) need(!G.gal.some(g => g.s === q.s && g.y1 > q.y - q.half && g.y0 < q.y + q.half), `seed ${seed}: an open cornice at ${q.y} lies over a gallery`); }
+    need(G.bridges.length >= 1, `seed ${seed}: no bridge`);
+    for (const b of G.bridges) { let ym = -1; for (let y = b.ya; y <= b.yb; y++) { let tr = 0; for (let x = 100; x <= 124; x++) if (Kr[at(x, y)] === K.RBRIDGE && Br[at(x, y)] === -25) tr++; if (tr) ym = y; } need(ym > 0, `seed ${seed}: the bridge at ${b.ya} has no truss over the chasm`);
+      need(!G.gal.some(g => g.y1 > b.ya - 30 && g.y0 < b.yb + 30) && !G.spurs.some(q => q.y1 > b.ya - 30 && q.y0 < b.yb + 30), `seed ${seed}: a gallery or spur at the bridge at ${b.ya}`);
+      const r0 = p.RM[at((b.lr > 0 ? 36 : 188) - 3, b.ya)], r1 = p.RM[at((b.lr > 0 ? 188 : 36) - 3, b.yb)]; need(r0 === 2 && r1 === 2, `seed ${seed}: the bridge at ${b.ya} does not meet the outer tracks`); }
+    const y = G.yb + 40; need(CG.typeAt(p, 112, y) === 'ravine' && CG.typeAt(p, 68, y) === 'railbridge', `seed ${seed}: ground types ${CG.typeAt(p, 112, y)}, ${CG.typeAt(p, 68, y)}`);
+    tot.gal += G.gal.length; tot.spurs += G.spurs.length; tot.corn += G.corn.length; tot.over += G.corn.filter(q => q.over).length; tot.br += G.bridges.length;
+    if (seed === 1) { const q = CG.generate({ seed, preset: 'winterGorge' }); need(hsh(q.K) === hsh(p.K) && hsh(new Uint8Array(q.B.buffer)) === hsh(new Uint8Array(p.B.buffer)), 'the same seed gives another plan');
+      const y0 = G.yb - 32, whole = { data: new Uint8ClampedArray(W * 64 * 4) }, part = { data: new Uint8ClampedArray(W * 16 * 4) }; CG.paint(p, whole, y0, 64, {}); let diff = 0;
+      for (let b = 0; b < 4; b++) { CG.paint(p, part, y0 + b * 16, 16, {}); for (let r = 0; r < 16; r++) for (let k = 0; k < W * 4; k++) if (part.data[r * W * 4 + k] !== whole.data[((3 - b) * 16 + r) * W * 4 + k]) diff++; }
+      need(!diff, `painting in bands differs from painting whole (${diff})`); } }
+  ms.sort((a, b) => a - b);
+  console.log(`${miss ? 'FAIL' : 'ok  '} gorge finale: 12 plans, ${miss} problems; ${tot.gal} galleries, ${tot.spurs} spurs, ${tot.corn} cornices (${tot.over} over galleries), ${tot.br} bridges; plan ${ms[6].toFixed(0)} ms median`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
 { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;

@@ -151,6 +151,9 @@ PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5,
   segs: [{ t: 'open_sea_ice', n: 10 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
 // Mockup (owner, options 3 and 2): level 5 with the finale over the gorge onto the frozen lake, the boss's yard on the ice (48 chunks of arena: the boss fight scrolls on)
 PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 7552 });
+// Level 5 with its finale (owner: option 1): the two lines run on into a deep gorge, one double-track hillside viaduct on each wall, the chasm
+// between them, avalanche galleries, tunnel spurs, cornices and the supply trains' bridge (48 chunks of arena: the boss fight scrolls on)
+PRESETS.winterGorge = Object.assign({}, PRESETS.winterLine, { label: 'Level 5: the gorge finale (two hillside viaducts)', finale: 'gorge', arena: 48, L: 7552 });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -1755,7 +1758,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.WORKS: { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && (Kr[j] === K.MEADOW || Kr[j] === K.FIELD || Kr[j] === K.GARDEN || Kr[j] === K.COURT)); // a cinder yard with oil stains, fenced where it meets open ground
           c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
         case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } if (Br[i] === -99) { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : hh(x, y) < 0.55 ? C.snowRoof[pickI(5, 0.7 + (hh(y, x) - 0.5) * 0.3, x, y)] : icePixK(plan, x, y, -87); break; } /* a track on the ice: sleepers and rails, snow drifted between them */ const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
-        case K.RBRIDGE: { const m = RMx[i]; if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
+        case K.RBRIDGE: { const m = RMx[i]; if (Br[i] <= -23 && Br[i] >= -25) { c = gorgeDeckPix(plan, x, y, Br[i], m); break; } /* the gorge finale: a hillside viaduct's deck, a gallery's roof, the truss bridge */ if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
           if (plan.shore) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
@@ -1791,7 +1794,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           const hg = (xx, yy) => vn(xx * 0.035 + 17, yy * 0.035) * 0.7 + vn(xx * 0.09 + 17, yy * 0.09) * 0.3, g = (hg(x - 1, y - 1) - hg(x + 1, y + 1)) * 9, cr = Math.abs(vn(x * 0.06 + 26, y * 0.06) - 0.5) < 0.025;
           c = cr ? C.rock[0] : C.rock[clamp(Math.round(2.4 + g * 2.2 + (hg(x, y) - 0.5) * 1.2 + bay(x, y) * 0.8), 1, 5)]; break; }
         case K.WADI: { const t = -Br[i]; c = t === 91 ? C.spoil[1] : t === 92 ? C.spoil[2] : hh(x, y) < 0.12 ? C.spoil[1] : hh(x + 7, y) < 0.06 ? C.spoil[4] : C.dune[pickI(5, 0.62 + Math.sin(x * 0.6 + y * 0.2) * 0.15, x, y)]; break; } // a dry riverbed: pebbly sand between low banks
-        case K.RAVINE: { const rv = plan.ravines.find(q => y >= q.y0 - 4 && y <= q.y1 + 4), tp = rv.top(x), bt = rv.bot(x), t = (tp - y) / Math.max(1, tp - bt); // a deep ravine: the far wall's face, lit at its rim and darkening with depth in strata, the black floor far below, the near lip in shadow
+        case K.RAVINE: { if (Br[i] === -71) { c = chasmPix(plan, x, y); break; } /* the gorge finale's chasm */ const rv = plan.ravines.find(q => y >= q.y0 - 4 && y <= q.y1 + 4), tp = rv.top(x), bt = rv.bot(x), t = (tp - y) / Math.max(1, tp - bt); // a deep ravine: the far wall's face, lit at its rim and darkening with depth in strata, the black floor far below, the near lip in shadow
           if (t < 0.05) c = C.rock[5]; else if (t < 0.46) { const q = (t - 0.05) / 0.41, col = vn(x * 0.25, 3 + rv.s) > 0.6 ? 1 : 0; c = ((y + (x >> 2)) % 3 === 0) ? C.rock[Math.max(0, 3 - Math.round(q * 4) - col)] : C.rock[clamp(Math.round(4.2 - q * 4.6 - col + bay(x, y) * 0.9), 0, 4)]; } // the far wall's face: lit at the rim, strata and buttresses, darkening downward
           else if (t < 0.88) { const q = (t - 0.46) / 0.42; c = C.deep[clamp(Math.round(2.4 - q * 3 + (vn(x * 0.2, y * 0.3) - 0.5) * 1.2 + bay(x, y) * 0.8), 0, 3)]; } else c = t < 0.95 ? C.deep[1] : C.rock[2]; { const V = plan.viaduct2; if (V) { if (((y - V.y0) % 18) < 4 && (x === V.x0 - 1 || x === V.x0 - 2 || x === V.x1 + 1 || x === V.x1 + 2)) c = x < V.x0 ? C.stone[3] : C.stone[1]; else if (x > V.x1 && x <= V.x1 + 7 && t > 0.08) c = C.deep[0]; } } break; } // the depths (and a viaduct's shadow down into them), black at the bottom; the near lip in shadow
         case K.OASIS: c = C.dirt[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.5 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3, x, y)]; break; // the watered ground of an oasis
@@ -1800,7 +1803,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.TURF: { const st = (((x >> 3) + (y >> 6)) & 1) ? 0.12 : 0; c = C.grass[pickI(4, 0.42 + st + (vn(x * 0.06, y * 0.06) - 0.5) * 0.3, x, y)]; break; } // an airfield's mown grass, in stripes
         case K.BERM: { const up = at(x, y + 1) >= 0 && Kr[at(x, y + 1)] !== K.BERM, lf = at(x - 1, y) >= 0 && Kr[at(x - 1, y)] !== K.BERM, dn = at(x, y - 1) >= 0 && Kr[at(x, y - 1)] !== K.BERM, rt = at(x + 1, y) >= 0 && Kr[at(x + 1, y)] !== K.BERM;
           c = up || lf ? C.grass[3] : dn || rt ? C.soil[0] : hh(x, y) < 0.35 ? C.grass[1] : C.soil[pickI(3, 0.6, x, y)]; break; } // an earth bank: grassed on top, lit from the north-west
-        case K.SLOPE: c = mountainPix(plan, x, y, false); break; // winter: a snowy mountain slope
+        case K.SLOPE: c = Br[i] === -72 ? cornicePix(plan, x, y) : mountainPix(plan, x, y, false); break; // winter: a snowy mountain slope (-72 a cornice over the gorge)
         case K.CRAG: c = Br[i] === -70 ? mountainPix(plan, x, y, true) : cragPix(plan, x, y, Br[i]); break; // the Iron Forest's cliffs, gorge walls and sea stacks
         case K.LEDGE: c = ledgePix(plan, x, y, Br[i]); break; // ledges between the cliffs' tiers, the gorge's floor, a stack's top
         case K.WOOD: c = C.tree[pickI(6, 0.12 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.3, x, y)]; break; // the forest floor in the shade under the crowns
@@ -1915,6 +1918,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
   if (plan.cliffs) paintCliffShade(plan, put, y0, h); // (Iron Forest) each cliff shades the ledge below it
   if (plan.conifers) paintConifers(plan, put, y0, h);
   if (plan.avalanche) paintAlpine(plan, put, y0, h); // (winter) avalanche fences, the ski jump's lines, the cable car
+  if (plan.gorge) paintGorge(plan, put, y0, h); // (winter) the gorge finale's tunnel mouths and the wrecks on the river
   if (plan.wallL) for (let sr = 0; sr < h; sr++) { const y = y0 + h - 1 - sr, e = plan.wallL[y]; if (e < 0) continue; const n = 5 + Math.round(vn(y * 0.05, 3) * 4); for (let k = 1; k <= n; k++) { const x = Math.round(e) + k; if (x >= 0 && x < W && Kr[y * W + x] !== K.CLIFF && Kr[y * W + x] !== K.RAVINE) put(x, y, C.shadow, 0.35); } } // a left wall throws its shadow on the floor
   for (const sp of plan.spills || []) for (let yy = -sp.r; yy <= sp.r; yy++) for (let xx = Math.round(-sp.r * 1.4); xx <= sp.r * 1.4; xx++) { const e = Math.hypot(xx / 1.4, yy) / sp.r + (vn((sp.x + xx) * 0.2, (sp.y + yy) * 0.2) - 0.5) * 0.5; if (e < 1) put(sp.x + xx, sp.y + yy, e < 0.6 ? C.deep[0] : C.char[1]); } // spilt oil
   for (const pp of plan.pipes || []) for (let q = 0; q + 1 < pp.length; q++) { const [ax, ay] = pp[q], [bx, by] = pp[q + 1], n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2); if (Math.max(ay, by) < y0 - 2 || Math.min(ay, by) > y0 + h + 2) continue; // a pipeline on low supports
@@ -2940,6 +2944,8 @@ const C_WINTER = Object.assign({}, C_FOREST, {
   snowRoof: HX(['#8a94a8', '#a8b2c4', '#c8d0dc', '#e2e8f0', '#f8fafc']), snowFlat: HX(['#9aa4b6', '#c0c8d6', '#dce2ea', '#f2f5f9']), fence: HX(['#5e5650'])[0],
   tun: HX(['#5a5e68', '#7a7e88', '#a8aeb8', '#d0d6de', '#eef1f6']), // a tunnel portal's hill: rock under snow
   rock: HX(['#22262e', '#343943', '#4b515c', '#666d79', '#868e9b', '#aab1bd']), // a gorge's walls
+  chasm: HX(['#10141c', '#161b25', '#1e2430', '#2a3140', '#38404e', '#4c5564']), // the gorge finale's depths: the shaded west wall, the lit east wall
+  steel: HX(['#3b2820', '#5f3a2c', '#8a5640']), // the supply trains' truss bridge
 });
 // A pass over a finished plan (P.climate 'winter'): the deciduous trees lose their leaves; the sea freezes into a crust 2 to 7 px wide
 // along every quay, breakwater and shore (the harbour's water stays open, owner); and a 'shore' coast's sea freezes over (freezeSea).
@@ -3120,7 +3126,50 @@ function winterLand(o) {
   // viaduct, fan out on steeper points (about 1 in 2.4) onto the yard's eight tracks, and run out onto the frozen lake, where the train boss's
   // yard lies on the ice (the plan reaches on past the level's end: feature 'arena'). Sleepers on the ice, snow drifted along the rails,
   // pressure ridges and refrozen shell holes between the tracks.
-  if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
+  // the finale 'gorge' (owner: option 1): the four tracks come out of the spur's tunnels at their places (x 36, 68 | 156, 188) and run up a narrow
+  // valley on either side of a frozen river; the valley closes in and the river drops into a gorge, and each pair of tracks goes on as a hillside
+  // viaduct along its wall (the plan reaches on past the level's end as the boss's arena: feature 'arena'). Along the gorge: avalanche
+  // galleries over the outer tracks, rock spurs the tracks pass through in short tunnels, cornices on the wall tops above the open stretches (and
+  // above some galleries), refuges bulging from the parapets, the supply trains' truss bridge, wrecks on the river ice (plan.gorge)
+  if (th && P.finale === 'gorge') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], yG0 = yP + 110, yG = yG0 + 70, D = GZ, ph3 = rnd(60) * 6.283;
+    const G = plan.gorge = { y0: yP, y1: L - 1, ya: yG0, yb: yG, cx: new Float32Array(L - yP), gal: [], spurs: [], corn: [], bridges: [], refuges: [], wrecks: [] };
+    const cxAt = y => D.mid + 2.2 * Math.sin(y * 0.027 + ph3) + 1.4 * Math.sin(y * 0.077 + ph3 * 2), LWx = y => 15 + 3 * Math.sin(y * 0.024 + ph3) + 3 * vn(y * 0.06, 2.2), RWx = y => 205 + 3 * Math.sin(y * 0.021 + ph3 * 3) + 3 * vn(y * 0.06, 4.4);
+    const z0 = yG + 30, z1 = L - 20, nB = Math.max(1, Math.round((z1 - z0) / 1300));
+    for (let k = 0; k < nB; k++) { const ya = Math.round(z0 + (k + 0.5) * (z1 - z0) / nB - 65); G.bridges.push({ ya, yb: ya + 130, lr: k % 2 ? -1 : 1 }); }
+    const busyB = (y, m) => G.bridges.some(b => y > b.ya - m && y < b.yb + m), busyS = (s, y, m) => G.spurs.some(q => q.s === s && y > q.y0 - m && y < q.y1 + m);
+    { let s = rnd(62) < 0.5 ? -1 : 1; for (let y = z0 + 160 + ((rnd(61) * 120) | 0); y < z1 - 80; y += 420 + ((rnd(63, y) * 220) | 0)) { if (busyB(y, 50) || busyB(y + 60, 50)) continue; G.spurs.push({ s, y0: y, y1: y + 44 + ((rnd(64, y) * 16) | 0) }); s = -s; } }
+    for (const s of [-1, 1]) { let y = z0 + ((rnd(65, s + 2) * 80) | 0), open = true;
+      while (y < z1) { if (open) { const n = 90 + ((rnd(66, y, s + 2) * 90) | 0), mid = Math.round(y + n / 2); if (!busyB(mid, 34) && !busyS(s, mid, 34)) G.corn.push({ s, y: mid, half: 14, over: 0 }); y += n; }
+        else { const n = 60 + ((rnd(67, y, s + 2) * 50) | 0); let ok = y + n < z1; for (let yy = y; ok && yy <= y + n; yy += 4) if (busyB(yy, 30) || busyS(s, yy, 14)) ok = false;
+          if (ok) { G.gal.push({ s, y0: y, y1: y + n }); if (rnd(68, y, s + 2) < 0.5) G.corn.push({ s, y: y + (n >> 1), half: 14, over: 1 }); } y += n; }
+        open = !open; } }
+    { let s = -1; for (let y = z0 + 40; y < z1 - 20; y += 150 + ((rnd(69, y) * 70) | 0)) { if (!busyB(y, 24) && !busyS(s, y, 24)) G.refuges.push({ s, y0: y, y1: y + 12 }); s = -s; } }
+    for (let y = yG + 60; y < L - 20; y += 300 + ((rnd(70, y) * 260) | 0)) if (!busyB(y, 20)) G.wrecks.push({ y, r: rnd(71, y) * 6.283, d: (rnd(72, y) - 0.5) * 3 });
+    const refAt = (s, y) => G.refuges.some(q => q.s === s && y >= q.y0 && y < q.y1);
+    for (let y = yP; y < L; y++) { const cx = G.cx[y - yP] = cxAt(y), g = smooth(yG0, yG, y), lw = LWx(y), rw = RWx(y), full = y >= yG;
+      for (let x = 0; x < W; x++) { const i = idx(x, y);
+        if (x < lw || x > rw) { const e = x < lw ? lw - x : x - rw; Hg[i] = 6 + e * 1.3 + 12 * (1 - Math.abs(2 * vn(x * 0.09 + 5, y * 0.035) - 1)) * smooth(0, 8, e); continue; } // the walls: snow, with rock ribs where they steepen (step 4)
+        Hg[i] = 0; Kr[i] = K.MEADOW; Br[i] = -1;
+        const inner = x > D.f0 + 4 && x < D.f1 - 4;
+        if (full && (x >= D.wl && x <= D.wr) && (!inner || (x <= D.c0 + 1 && refAt(-1, y)) || (x >= D.c1 - 1 && refAt(1, y)))) { Kr[i] = K.RBRIDGE; Br[i] = -23; reserved[i] = 1; continue; }
+        if (full && inner) { Kr[i] = K.RAVINE; Br[i] = -71; reserved[i] = 1; continue; }
+        const d = Math.abs(x + 0.5 - cx), hw = 23 * g + (vn(x * 0.2, y * 0.2) - 0.5) * 3 * g;
+        if (g > 0 && d < hw) { Kr[i] = K.RAVINE; Br[i] = -71; reserved[i] = 1; continue; }
+        if (d < 2.8 + (1 - g) * 4 + Math.sin(y * 0.11) * 0.6) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; } } }
+    const lay = (xs, y0, y1) => { for (let y = y0; y < y1; y++) { const xc = xs(y), xp = xs(y - 1), dd = xc - xp, sf = Math.sqrt(1 + dd * dd), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+      for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
+        if (Kr[i] === K.RBRIDGE) { if (rank[m] > rank[RM[i]]) RM[i] = m; continue; } if (Kr[i] === K.RAVINE || Kr[i] === K.ICE) continue;
+        if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } } };
+    for (const tx of D.T) lay(() => tx, yP, L);
+    for (const b of G.bridges) { const xs = y => gorgeBridgeX(b, y); // the truss over the faces and the chasm, then its rails across both decks
+      for (let y = b.ya; y <= b.yb; y++) { const xc = xs(y), dd = xc - xs(y - 1), sf = Math.sqrt(1 + dd * dd); for (let x = Math.floor(xc - 10 * sf); x <= Math.ceil(xc + 10 * sf); x++) { if (!inB(x, y) || x < D.p0 || x > D.p1 + 1) continue; const i = idx(x, y); if (Math.abs(x + 0.5 - xc - 0.5) / sf <= 9.5) { Kr[i] = K.RBRIDGE; Br[i] = -25; RM[i] = 0; reserved[i] = 1; } } }
+      lay(xs, b.ya, b.yb + 1); }
+    for (const q of G.spurs) for (let y = q.y0; y <= q.y1; y++) for (let x = q.s < 0 ? 0 : D.p1 - 1; x <= (q.s < 0 ? D.p0 + 1 : W - 1); x++) { const i = idx(x, y), e = Math.min(y - q.y0, q.y1 - y); Kr[i] = e < 3 ? K.CRAG : K.SLOPE; Br[i] = e < 3 ? -70 : -1; reserved[i] = 1; Hg[i] = Math.max(Hg[i], 10 + Math.min(e, 14) * 1.1 + 14 * (1 - Math.abs(2 * vn(x * 0.11 + 3, y * 0.11) - 1))); } // a rock spur over the deck: the tracks run through it in a short tunnel
+    for (const q of G.gal) for (let y = q.y0; y <= q.y1; y++) { const [xa, xb] = D.gal[q.s < 0 ? 0 : 1]; for (let x = xa; x <= xb; x++) { const i = idx(x, y); if (Kr[i] === K.CRAG) continue; Kr[i] = K.RBRIDGE; Br[i] = -24; reserved[i] = 1; Hg[i] = q.s < 0 ? Math.max(0, 3 - (x - xa) * 0.1) : 0; } }
+    for (const q of G.corn) for (let y = q.y - q.half; y <= q.y + q.half; y++) { const w = Math.sqrt(Math.max(0, 1 - ((y - q.y) / q.half) ** 2)), e = q.s < 0 ? LWx(y) : RWx(y);
+      for (let k = -5; k <= 1 + Math.round(6 * w); k++) { const x = Math.round(e + (q.s < 0 ? k : -k)), i = idx(x, y); if (!inB(x, y) || (Kr[i] === K.RBRIDGE && Br[i] === -24) || G.spurs.some(p => p.s === q.s && y >= p.y0 && y <= p.y1)) continue; Kr[i] = K.SLOPE; Br[i] = -72; reserved[i] = 1; } }
+    for (const tx of D.T) plan.tunnels.push({ x: tx, y: yP, dir: -1 }); plan.tunnels.push({ x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+  else if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
     const g0 = yP + 24, g1 = g0 + 58, ph2 = rnd(50) * 6.283, top = x => g1 + 4 * Math.sin(x * 0.05 + ph2) + 3 * vn(x * 0.2, 9), bot = x => g0 + 4 * Math.sin(x * 0.043 + ph2 * 2) + 3 * vn(x * 0.2, 19), VX0 = 84, VX1 = 134;
     plan.ravines = [{ y0: g0 - 8, y1: g1 + 8, s: 1, top, bot }]; plan.viaduct2 = { x0: VX0, x1: VX1, y0: g0 - 8, y1: g1 + 8 };
     for (let y = g0 - 8; y <= g1 + 8; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (y > bot(x) && y < top(x)) { if (x >= VX0 && x <= VX1) { Kr[i] = K.RBRIDGE; Br[i] = -22; } else { Kr[i] = K.RAVINE; Br[i] = -1; } reserved[i] = 1; Hg[i] = 0; } }
@@ -3194,12 +3243,67 @@ function stackPlans(A, B, preset) {
   plan.cables = (A.cables || []).concat((B.cables || []).map(c => Object.assign(up(c), { pylons: c.pylons.map(p => [p[0], p[1] + La]) })));
   plan.alpine = B.alpine && B.alpine.y0 !== undefined ? Object.assign(up(B.alpine), B.alpine.chapel ? { chapel: up(B.alpine.chapel) } : {}) : A.alpine || null;
   plan.ravines = (A.ravines || []).concat((B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + La, bot: x => r.bot(x) + La }))); plan.viaduct2 = B.viaduct2 ? up(B.viaduct2) : null;
+  plan.gorge = B.gorge ? Object.assign(up(B.gorge), { cx: B.gorge.cx, gal: B.gorge.gal.map(up), spurs: B.gorge.spurs.map(up), corn: B.gorge.corn.map(up), bridges: B.gorge.bridges.map(up), refuges: B.gorge.refuges.map(up), wrecks: B.gorge.wrecks.map(up) }) : null;
   plan.lake = B.lake ? up(B.lake) : null; plan.throat = B.throat ? Object.assign(up(B.throat), { tracks: B.throat.tracks.map(t => Object.assign({}, t, { ya: t.ya + La, yb: t.yb + La })) }) : null;
   plan.parts = [{ preset: A.preset, y0: 0, y1: La - 1 }, { preset: B.preset, y0: La, y1: L - 1 }]; plan.stage = Object.assign({}, A.stage, { land: B.stage.total });
   return plan;
 }
 // a mountain pixel (K.SLOPE, or K.CRAG with B -70), from plan.hgt, lit from the upper left: snow on the slopes (blue in the shade, a few
 // rocks showing), bare rock in strata where it is steep, snow lying on its ledges; higher is a little brighter
+// The gorge finale's columns (owner: option 1): the left viaduct's retaining wall, deck, parapet and arcade face, the chasm, then the right
+// viaduct's face, parapet, deck and wall; its four tracks (the boss on the inner two, the supply trains on the outer two, 32 px apart: the boss
+// train is about 26 px wide); the galleries over the outer tracks
+const GZ = { wl: 20, d0: 22, d1: 81, p0: 82, f0: 84, c0: 89, c1: 134, f1: 139, p1: 140, e0: 142, e1: 201, wr: 203, mid: 112, T: [36, 68, 156, 188], gal: [[12, 49], [175, 212]] };
+// the supply trains' bridge: from one outer track (ya) on an S-curve across both inner tracks and the chasm to the other outer track (yb)
+function gorgeBridgeX(b, y) { const f = clamp((y - b.ya) / (b.yb - b.ya), 0, 1), s = f * f * (3 - 2 * f), x0 = b.lr > 0 ? GZ.T[0] : GZ.T[3], x1 = b.lr > 0 ? GZ.T[3] : GZ.T[0]; return x0 + (x1 - x0) * s; }
+const shadeC = (c, f) => [c[0] * f | 0, c[1] * f | 0, c[2] * f | 0];
+// a pixel of a hillside viaduct (K.RBRIDGE): -23 its deck (snow, ballast, sleepers, rails), the parapet with its refuges bulging over the chasm
+// and the arcade's face below it (piers, arches; the left face in shade, the right one lit), the retaining wall against the rock; -24 an
+// avalanche gallery's roof (snow on it, its pillars and openings on the track side, end walls); -25 the truss bridge (girders, cross members, rails)
+function gorgeDeckPix(plan, x, y, b, m) {
+  const G = plan.gorge, D = GZ, n = hh(x, y), rail = () => C.rail[(y & 1) ? 0 : 1];
+  if (b === -24) { const s = x < D.mid ? -1 : 1, q = G.gal.find(g => g.s === s && y >= g.y0 && y <= g.y1), inner = s < 0 ? D.gal[0][1] - x : x - D.gal[1][0], end = q ? Math.min(y - q.y0, q.y1 - y) : 9;
+    if (end < 2) return C.stone[1]; if (inner < 2) return ((y - (q ? q.y0 : 0)) % 9) < 4 ? C.dark : C.conc[1]; if (inner < 4) return C.conc[2];
+    return C.snowRoof[pickI(5, 0.78 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; }
+  if (b === -25) { if (m === 2) return rail(); if (m === 3) return C.beam; const B2 = G.bridges.find(q => y >= q.ya - 3 && y <= q.yb + 3), d = B2 ? Math.abs(x - gorgeBridgeX(B2, y)) : 0;
+    if (d > 7) return (y % 6 < 2) ? C.steel[2] : C.steel[0]; if (y % 6 === 0) return C.steel[1]; return n < 0.3 ? C.snowRoof[3] : C.steel[1]; }
+  const ref = s => G.refuges.some(q => q.s === s && y >= q.y0 && y < q.y1), k = ((y % 40) + 40) % 40, pier = k < 9, arch = (k > 20 ? 40 - k : k) * 0.12;
+  if (x < D.d0 || x > D.e1) return (y % 3 === 0) ? C.stone[0] : C.stone[1];
+  if (x <= D.mid && x >= D.p0) { if (ref(-1)) return x === D.c0 + 1 ? C.stone[0] : C.stone[3]; if (x < D.f0) return x === D.p0 + 1 ? C.stone[1] : C.stone[3]; return !pier && x - D.f0 > 1 + arch ? C.dark : n < 0.2 ? C.stone[0] : C.stone[1]; }
+  if (x > D.mid && x <= D.p1 + 1) { if (ref(1)) return x === D.c1 - 1 ? C.stone[1] : C.stone[3]; if (x >= D.p1) return C.stone[3]; return !pier && D.f1 - x > 1 + arch ? C.stone[0] : n < 0.2 ? C.stone[2] : C.stone[3]; }
+  if (m === 2) return rail(); if (m === 3) return C.beam;
+  if (y < G.yb + 4) return y === G.yb + 3 ? C.stone[3] : C.stone[1]; // the abutment where the deck leaves the ground
+  let c = m === 1 && hh(y, x) > 0.45 ? C.gravel[pickI(3, 0.4 + (n - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)];
+  if (x > D.gal[0][1] && x <= D.gal[0][1] + 4 && G.gal.some(q => q.s < 0 && y >= q.y0 - 3 && y <= q.y1 - 3)) c = shadeC(c, 0.72); // the left gallery's shadow on the deck
+  return c;
+}
+// a pixel of the gorge's chasm (K.RAVINE, B -71): the frozen river far below, the west wall in shade (and in the left arcade's shadow), the east
+// wall lit in strata, drifting mist; the bridge's shadow; where the valley opens into the gorge, a rock lip at the edge
+function chasmPix(plan, x, y) {
+  const G = plan.gorge, D = GZ, { W, L, K: Kr, B: Br } = plan, cx = G.cx[clamp(y - G.y0, 0, G.cx.length - 1)], d = x + 0.5 - cx, n = hh(x, y), i = y * W + x, ch = j => Kr[j] === K.RAVINE;
+  if (y < G.yb) { if (x > 0 && !ch(i - 1) || x > 1 && !ch(i - 2)) return C.rock[2]; if (x < W - 1 && !ch(i + 1) || x < W - 2 && !ch(i + 2)) return C.rock[4]; }
+  if (Math.abs(d) < 3) return C.ice[Math.min(3, pickI(6, 0.3 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.5, x, y))];
+  if (Math.abs(d) < 4.2) return n < 0.5 ? C.snowRoof[0] : C.chasm[3];
+  const j = (y + 5) * W + x - 5; if (y + 5 < L && x >= 5 && Kr[j] === K.RBRIDGE && Br[j] === -25) return C.chasm[0];
+  const mist = Math.sin(y * 0.043 + Math.sin(y * 0.016) * 2) > 0.93 && n < 0.45;
+  if (d < 0) { if (y >= G.yb && x <= D.c0 + 4) return C.chasm[0]; return mist || n < 0.1 || (vn(x * 0.3, y * 0.3) > 0.7 && -d < 9) ? C.chasm[2] : C.chasm[1]; }
+  if (mist) return C.chasm[5]; const st = Math.sin((y + x * 1.5) / 3.1 + vn(x * 0.17, y * 0.17) * 4);
+  return st > 0.7 ? C.chasm[5] : d > 9 || n < 0.3 ? C.chasm[4] : C.chasm[3];
+}
+// a cornice (K.SLOPE, B -72): an overhang of snow on the wall top above an outer track, bright, with a blue shadow along its edge over the track
+function cornicePix(plan, x, y) {
+  const { W, K: Kr, B: Br } = plan, i = y * W + x, cn = j => Kr[j] === K.SLOPE && Br[j] === -72, s = x < GZ.mid ? -1 : 1;
+  if (!cn(i - s) || !cn(i - 2 * s)) return C.ice[1]; return hh(x, y) < 0.15 ? C.snowRoof[3] : C.snowRoof[4];
+}
+// overlays of the gorge finale: the tunnel mouths at both ends of a spur (wide enough for the boss train), the wrecks lying on the river ice
+function paintGorge(plan, put, y0, h) {
+  const G = plan.gorge, D = GZ; if (G.y1 < y0 || G.y0 > y0 + h) return;
+  for (const q of G.spurs) { if (q.y1 + 6 < y0 || q.y0 - 6 > y0 + h) continue;
+    for (const tx of q.s < 0 ? D.T.slice(0, 2) : D.T.slice(2)) for (const [yy, dir] of [[q.y0, 1], [q.y1, -1]]) for (let r = 0; r < 5; r++) for (let xx = tx - 14; xx <= tx + 14; xx++) { const e = Math.abs(xx + 0.5 - tx);
+      put(xx, yy + dir * r, r === 4 || e > 13 ? C.stone[1] : r === 3 && e > 10 ? C.stone[0] : C.dark); } }
+  for (const w of G.wrecks) { if (w.y < y0 - 8 || w.y > y0 + h + 8) continue; const cx = G.cx[w.y - G.y0] + w.d, ca = Math.cos(w.r), sa = Math.sin(w.r);
+    for (let v = -5; v <= 5; v++) for (let u = -3; u <= 3; u++) { const X = Math.round(cx + u * ca - v * sa), Y = Math.round(w.y + u * sa + v * ca); put(X, Y, Math.abs(u) === 3 || Math.abs(v) === 5 ? C.dark : v > 2 && u < 0 ? C.snowRoof[3] : (u + v) % 3 === 0 ? C.bark[1] : C.bark[0]); } }
+}
 function mountainPix(plan, x, y, rock) {
   const { W, L } = plan, Hg = plan.hgt, H = (xx, yy) => Hg[clamp(yy, 0, L - 1) * W + clamp(xx, 0, W - 1)], gx = (H(x + 1, y) - H(x - 1, y)) / 2, gy = (H(x, y + 1) - H(x, y - 1)) / 2, s = Math.hypot(gx, gy), h = H(x, y);
   const lit = clamp(0.6 + (0.62 * gx - 0.62 * gy) * 0.5 / (1 + s * 0.15) + h * 0.0012 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.1, 0, 1);
@@ -3250,6 +3354,7 @@ function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) =
 // rim on the floe's upper left and its shaded side on the lower right where it meets open water, tumbled blocks along a ridge, dark new ice
 function icePixK(plan, x, y, b) {
   const { W, L, K: Kr } = plan, wat = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.SEA, n = vn(x * 0.07, y * 0.07), r = hh(x, y);
+  if (b === -88) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return !ic(x - 1, y) || !ic(x + 1, y) ? C.snowRoof[2] : C.river[pickI(6, 0.62 + (vn(x * 0.2, y * 0.08) - 0.5) * 0.5 + (Math.abs(Math.sin(x * 0.4 + y * 0.23)) < 0.05 ? -0.4 : 0), x, y)]; } // the gorge's river frozen on the valley floor: snow on its banks
   if (b === -83) return C.thin[pickI(4, 0.5 + (vn(x * 0.2, y * 0.5) - 0.5) * 0.6 + (wat(x, y + 1) || wat(x, y - 1) || wat(x - 1, y) || wat(x + 1, y) ? -0.35 : 0), x, y)];
   if (b === -82) { const q = hh(x >> 1, y >> 1); return q < 0.3 ? C.ice[1] : q < 0.62 ? C.ice[4] : hh((x + 1) >> 1, y >> 1) < 0.5 ? C.grass[3] : C.ice[3]; }
   if (wat(x - 1, y + 1) || wat(x, y + 1) || wat(x - 1, y)) return C.grass[3];
