@@ -9,7 +9,7 @@ Status: draft 2. Draft 1 was written by Sonnet and then reviewed adversarially b
 - Visual and structural redesign comes first. Enemies, bosses and set pieces are reused from the campaign and are only attached to the new places through "slots" (section 5). New enemy types are out of scope for now except those listed in section 11.
 - **Naming:** the existing Enigma slider is the "Enigma look" (`ENIGMA_T`, `run.enigma`). To avoid a collision the mode's run data is `run.sortie` (null for the Campaign), and the user-facing button is still called "Enigma Run".
 - **Enigma runs never count.** They do not reach the leaderboard, `saveHi`, `loopsWon` or the Campaign progress. A flag on the run (`run.sortie != null`) is checked in `lbEligible`, `saveHi` and the stage-complete path (phase 1). The resume record stores `{level, seed}` and `resumeRun` rebuilds the sortie. [you] may later want a local best per level.
-- **Enigma levels end in their own way.** Finishing a level shows results and returns to the level picker: no `run.stage++`, no `loopsWon++`, no hand-over to the next Campaign stage.
+- **Enigma levels end in their own way.** Finishing a level shows results and returns to the level picker: no `run.stage++`, no `loopsWon++`, no hand-over to the next Campaign stage. (Changed by the owner, section 21: the run now flies on into the next level, like the Campaign.)
 - Hard rules carried over from `ARCHITECTURE.md`: visuals use the free random stream and never the run's seeded stream; the dither (`bay`, `pickI`) stays as it is; bump `VERSION` in `index.html` and `sw.js`; add a `CHANGELOG.md` line.
 
 ## 1. Architecture in one picture
@@ -1268,3 +1268,188 @@ The owner asked for a plane that flies ahead of the player and leaves bullets be
 - **Guns:** level 4 fills its plan's gun slots as they come up, as level 2 does (flak, artillery, bunkers, and AA towers, within the director's usual caps).
 - **Tests** (`tests/enigma.mjs` 3g): the plan passes the hard rules and covers the level, begins with the cliffs, its road ends at x 112; ground types from the plan; the first chunk is sea and the castle ground lies past the level; flown through by the bot, the castle boss comes and the level returns to the picker.
 - **Not yet:** the clearing village (crossroads, its own variant), the hidden airbase, the river valley with its harbour, the fiercer forest's trench lines, the forest mist, and a softer seam from the meadow into the castle ground.
+
+## 20. Level 5, The Winter Line
+
+Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train (Winter Wolf). Until now it flew the Campaign's own stage 5 ground (`gen: 0`, no `seq`, `bossAt: null`). Its sequence (section 10) at 62 chunks: `open_sea_ice` 3, `harbour_winter` 5, `farmland_winter` 8, `village` 5, `lake_valley` 7, `station_winter` 9, `airbase_snow` 7, `forest_conifer` 7, `pass` 7, `farmland_winter` 4.
+
+**What the train boss needs (checked in code).** The arena is the Campaign's `bossland` with theme 1, painted as `ryard`: eight tracks across the whole strip (`YARD_T`, x 18 + 26 i), platforms between tracks 1 and 2 and between 5 and 6, crossovers every `XO_P` rows, snow patches. Only the main line (x 18, `RAILX`) runs in from outside; the other seven tracks begin at buffer stops at the yard's south edge (`railEnds`, the first `bossland` chunk). The two boss trains run on tracks 3 and 5 (x 96 and 148); supply trains take any free track; the director spawns crates and sheds on the platforms (`spawnGround`). In the Campaign the prototype flies over first and the warning waits until the yard fills the screen (the extra theme 1 term in the trigger). `sortieInfo` already ends a level on `bossland` for theme 1, so the arena needs nothing new.
+
+**Owner decisions (plan review):**
+- **Into the yard (1B):** a throat. Over the last stretch of the level the main line fans out on points into all eight yard tracks, as level 3's yard gathers into the supergun's rails; in Enigma Run the yard's buffer stops are dropped so the tracks run on (the Campaign keeps them).
+- **The frozen sea and the harbour (2B):** the frozen sea is not connected to the harbour. The level opens over the frozen sea, which ends at a snowy shore; the harbour comes after it, with **open water** and ice only along the quays. **Rivers are frozen.**
+- **The pass (3A):** a mountain gorge (crag walls, the road and the main line through it, avalanche sheds over the track, a blockhouse, the viaduct over a ravine). It **limits where the plane can fly: the player has to fly within the gorge** (story: to stay under the radar).
+- **Submarines break through the ice:** yes, now (cracks spread, the ice breaks, a new hole is left), besides surfacing in the holes and leads the plan lays.
+- **Ice road** across the frozen lake, with convoys on it. Sinking through the ice maybe later.
+- **Weather:** snow comes along the level (clear, light snow, snow). A **snowstorm** is built as a weather effect of the generator, but **not used in this level**, to avoid repeating level 2's storm.
+- **Mockups** for the weather first, at step 4.
+
+**Order of work** (the owner reviews after each step): (1) the winter look, the frozen sea, the harbour, the farmland and the village in the city lab; (2) the lake, the station, the airbase, the snowy forest, the pass and the throat into the yard; (3) level 5 in the game (the submarines in and through the ice, trains, guns, the train boss, tests, contact sheets); (4) the weather, after the mockups.
+
+### 20.1 Step 1: the winter look, the frozen sea, the harbour, the farmland and the village (generator, for review in the city lab)
+
+**The winter climate** (`P.climate: 'winter'`, palette `C_WINTER`, the pass `winterize`; all of it in its own section of `tools/citygen.js`). The palette is the Campaign's stage 5 colours (`THEME_TR[1]`): snow for the grass, fields under snow (stubble rows, ploughed soil showing in the furrows, crops as faint stripes), dark bare hedges, the cold sea; trodden snow on yards, snow-dusted setts and pavements; blue shadows. paint() switches on `C.snowRoof`, so no other climate changes (checked: every one of the 27 earlier presets plans and paints byte for byte as before, two seeds each).
+- **Roofs:** snow on both slopes (the shaded one blue-grey), the eaves' outline in the roof's own tile; tiles show in patches where the snow slid off or a shell broke the roof; flat roofs white behind their parapet; sawtooth roofs keep their dark north lights.
+- **Trees:** every deciduous tree is leafless (a dark heart, a few boughs, a haze of twigs, snow on the upper left); conifers carry snow on the lit side of their branches.
+- **Roads:** ploughed: a bank of snow along each edge, slush inside it, the asphalt dark and wet, two worn ruts on the main road.
+- **Water:** rivers and their basins freeze (blue ice, drifted snow in streaks, cracks, snow along the banks; the bridges still shade it); ponds freeze with reeds round them; boulders have snow on their tops; a tunnel's hill is rock under snow.
+- **Sea:** a crust of ice 2 to 7 px wide (ragged) forms along every quay, breakwater and shore (`K.ICE`, B -85). The fairways and the fleet area stay open. Open water in the lee of a floe is darker.
+
+**New ground kind** `K.ICE` (43, game type `ice`).
+
+**The frozen sea** (`freezeSea`, run by `winterize` for a `'shore'` coast): out from the shore, fast ice (10 to 22 rows), then **pack ice** of large plates (a jittered 44 px grid) with refrozen cracks between some of them (dark new ice), a few open, pressure ridges (tumbled blocks) along others, and old seams across the plates (a 19 px grid); then **broken floes** with open water between them, the gaps widening out to sea; then **pancakes** thinning out to open water at the level's start. The pack's edge is ragged. One or two **leads** of open water cross the pack, edged with new ice. Each floe has a lit rim on its upper left and a shaded side on the lower right where it meets the water. B: -80 a floe, -81 pack, -82 a ridge, -83 new ice, -84 fast ice, -85 the crust along a quay. The pack's share of the frozen sea is a coast option (`pack`, default 0.44; 0.6 in level 5, whose frozen sea is only 3 chunks).
+- **Ice holes** for the U-boats: two per plan, in the pack, 22 x 60 px of open water (the game's submarine is 10 x 40) with a rim of new ice, each a `sub` slot `on: 'ice'`. The leads keep clear of them.
+- **Places to break through** (`plan.iceBreaks`, one to three): spots in the pack (at least 90 percent ice over 17 x 51 px) where the game will let a U-boat break through (owner decision; the cracking is the game's).
+
+**The 'shore' coast** (a new coast form of the town builder): beach geometry (a natural shoreline across the south, `dir -1`), with shingle instead of sand and dunes, the coast road behind it, the main road ending on it, and none of the beach landing's pieces (no exits, Atlantic Wall, obstacles or surf). Optionally a **side harbour in a bay** (also for the 'side' form): `at` places the side harbour (shares of the length) and `bay` makes the side coast swing in from beyond the strip that many px before the harbour and out again after it. The harbour's channel then ends where the coast swings away, and an **access road** joins the main road to the waterfront street's south end (at low density no cross street reached it).
+
+**Presets** (in the city lab):
+- `frozenSea` (640 px): the frozen sea, its shore, and snowy farmland with a few farms.
+- `portWinter` (1000 px): the side harbour in a bay (U-boat bunker, piers with cranes and ships, the breakwater with its lighthouses), open water with ice along the quays, a small harbour town.
+- `villageWinter`: the village under snow (the frozen pond on the green).
+- `winterLine` (builder `winterLine`, from the sortie's segments; 21 chunks for now): the frozen sea fills `open_sea_ice`, with its shore at the segment's end; the harbour in its bay follows in `harbour_winter`. The bay's coast swings in only about 180 px past the shore, so **the frozen sea never meets the harbour's water** (owner). Then farmland under snow (density about 0.01, few farmsteads), then the village with its green at the plan's densest point (U 0.42).
+
+**Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 30 villages, 30 of the level's first part) pass every hard rule; pack, floes and fast ice; an ice hole of open water a U-boat fits in in every plan, two in all 90 and a place to break through in all 90; open water (over 80 percent) in the harbour with ice along its quays and the bunker; the frozen sea never floods into the harbour's water; the village green in the village; every tree bare; 65 percent of roof pixels white; a winter river frozen; no palette leak; the same seed gives the same plan, and painting in bands equals painting whole. Plan time about 110 ms (median, Node); painting about 15 ms per chunk in the lab.
+
+**Not yet** (step 2): the lake valley with its ice road, the station, the airbase, the snowy forest, the mountain gorge, and the throat into the boss yard; the railway along the level.
+
+### 20.2 Owner feedback on step 1: a longer frozen sea, and a mountain village instead of the village green
+
+**Owner:** lengthen the frozen sea to **10 chunks**; take out the village's oval green; give the village a structure of its own, special to the snow level ("you don't need to follow the existing level, be creative with mountains").
+
+**The frozen sea, 10 chunks** (`winterLine`'s `open_sea_ice` is 10 chunks, 640 px; the shore at its end). The pack takes half of it (`pack` 0.5), with two leads; the number of ice holes grows with the pack (`nH`, 2 to 4: four in the level) and the places to break through with them (up to five). In the game the sequence's weight changes with step 3 (the level keeps its 62 chunks, the other segments shrink in proportion, unless the owner wants the level longer).
+
+**The level's first part is now two plans joined** (`stackPlans`, generic, as `sandSea` joins its port and desert): the town plan for the frozen sea, the harbour and the farmland (no old town, no green: `oldTown: null`), and on top the new **winter land** (`winterLand`, builder `'winterLand'`) from the village on. The farmland's top fields run a few rows into the winter land and end raggedly, not on a line.
+
+**The winter land:** a valley between mountains. Each pixel has a height (`plan.hgt`): it rises from the valley's axis outward (the floor is 26 to 38 px either side of it, about 16 px wider round the village), with spurs and gullies running down to the valley (ridged noise stretched across the strip) and smaller crests; the mountains rise over the first `rise` rows. New ground kind **`K.SLOPE`** (44, game type `rock`): snow slopes; steep faces are bare rock (`K.CRAG`, B -70). Painted lit from the upper left: snow in five tones, blue on the shaded faces, a few rocks showing; rock in strata with snow lying along them. **Cast shadows** (`plan.shadeM`): a pixel is in shadow where the ground towards the light rises above a ray climbing 1.05 px per px; shadowed pixels (not roofs) are darker and bluer. Snowy conifers in stands up to the tree line (height 54), a few on the floor.
+
+**The mountain village** (feature `village`):
+- **Chalets** along the road, gables to it, front yards to the road, some with a woodshed; **two lanes** climbing onto **terraces** with more chalets (each building stands on levelled ground that eases back into the slope).
+- A **chapel** with its bell tower in a small graveyard, flak beside it.
+- A **sawmill** with log piles and smoke.
+- A **ski jump** down the roomier slope: the tower at the top, the in-run (two wooden rails), the take-off, the landing hill widening with blue distance lines and red markers, the outrun on the floor fenced in red, a judges' tower.
+- A **cable car** from a valley station by the road over pylons to a **mountain station** near the crest, with a flak post; two red cabins on the cable.
+- **Avalanche fences** along the contours of the steeper slopes above the village.
+- A **bunker** at the village's entry.
+- No village green.
+
+**Presets:** `mountainVillage` (520 px) in the lab instead of `villageWinter`; `winterLine` (28 chunks: frozen sea 10, harbour 5, farmland 8, mountain village 5).
+
+**Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 60 mountain villages, 30 of the level's first part) pass every hard rule; the mountains with rock, shadows and conifers; the village's parts in every plan (chapel, sawmill, cable car, at least 10 chalets on the road and one on a terrace, avalanche fences, flak and bunker) and the ski jump in all 90; no village green in the level; every earlier preset plans and paints byte for byte as on main.
+
+### 20.3 Level 5 in the game (step 3, first version)
+
+**Owner:** take the train parts and the tunnel out of the harbour; the level 68 chunks or more; then step 3 (the game). Step 2's ground (the station, the airbase, the real pass) is not built yet; as level 4's first version did, those segments get first versions or placeholders in the winter land so the level can be flown end to end.
+
+**The level:** `ENIGMA_SEQ[4]` is in chunks and **70** long (`ENIGMA_LEN[4]`): `open_sea_ice` 10, `harbour_winter` 5, `farmland_winter` 8, `village` 5, `lake_valley` 7, `station_winter` 9, `airbase_snow` 7, `forest_conifer` 7, `pass` 7, `farmland_winter` 5.
+
+**The harbour** has no quayside track and no tunnel any more (coast option `quayTrack: false`).
+
+**The winter land, the rest of the level** (one valley between mountains from the village to the level's end; features from the segments):
+- `lake_valley` (feature `lake`): the floor widens to one side, where a **frozen lake** lies (`K.ICE`, B -86, game type `ice`) with five fishing huts on it; the road skirts it; an **ice road** (a tank route along the strip, `st.ice`, packed snow with two worn tracks) leaves the road at the lake's south end, crosses the ice and joins the road again at its north end.
+- `station_winter` and `airbase_snow` (feature `plain`): the valley, until their own ground is built.
+- `forest_conifer` (feature `forest`): snowy conifers dense on the floor and higher up the slopes.
+- `pass` (feature `pass`): the valley narrows to a gorge (a floor of 13 px either side of its axis), its walls a third higher. The flight limit (owner 3A) is not built yet.
+- the last `farmland_winter` (feature `throat`, owner 1B): a **spur** of mountain closes the valley. The road ends in a tunnel in it. Two railway lines come out of **tunnel portals** in the spur (the yard's tracks 3 and 4, x 96 and 122) and fan out on long points (about 1 in 3.3, the outer tracks first) onto the yard's **eight tracks** (x 18 + 26 i). The mountains fall away behind the spur. Over the last 72 rows the yard's ballast spreads between the tracks (B -98; the game paints it in the yard's own colours, with theme 1's winter grade, `planYardColor`), so the throat runs into the yard without a seam.
+
+**Speed:** the winter land's heights take their large noise from a 2 px grid; cast shadows are one pass carrying the horizon along the light's diagonal; tree spacing uses a grid. The whole plan is built in about 1.2 to 1.4 s in Node (the town part about 0.5 s, the winter land about 0.6 s), once when the level starts. That is more than level 6 (0.5 s); trimming the town part is the next lever if a phone stalls.
+
+**In the game:**
+- **Sortie:** `gen: 5`. The boss is called as in the Campaign's stage 5, once the yard fills the screen (`bossAt`/`arcLen` = the level's length + `yardWait()`, which is `ceil(H / CH) - 1 - ceil(XH / CH)`, at least 1).
+- **Plan:** `sortiePlanLevel5` builds the `winterLine` preset over the whole level from its first chunk, from the sortie's segments.
+- **Biomes** (`SORTIE_BIOME`): the frozen sea `sea`, the harbour `city`, the farmland, the lake valley and the placeholder station and airbase `country`, the village `country`, the forest `forest`, the pass `fortline`.
+- **Past the level:** the Campaign's `bossland` with theme 1 (`ryard`), as before. In level 5 the yard's buffer stops are left out (`railEndsC`), since the throat's tracks run on into it.
+- **Ships on open water only:** `seaOK` holds for level 5 too, so destroyers, PT boats and boats never spawn on the ice.
+- **U-boats in the ice holes:** `planBerths` serves the frozen sea's holes as it serves 6B's pens (rising, firing, diving, rising again).
+- **U-boats break through the ice** (owner): `planIceBreaks` fires at each of the plan's break places once it is in the top 30 percent of the screen. Cracks spread from the spot for `ICEBRK.crack` (80) frames while the U-boat waits below, unseen and untouchable (sub state `break`); then the ice bursts into chips, a hole of open water opens (the decal `icebreak`, drawn under the units), and the U-boat rises in it and fights as in any hole.
+- **Gun slots:** level 5 fills its plan's slots as they come up (flak, artillery, bunkers), like levels 2 and 4.
+- **Fixed on the way:** that line has had a `//` comment in the middle since level 4, which hid everything after it, so levels 2 and 4 had only filled their parked-plane and AA tower slots: no flak, artillery, bunkers or dug-in tanks came from their slots. It is a `/* */` comment now, so those slots are filled as section 18.5 intended. Levels 2 and 4 get more ground guns than before. The Campaign does not use this code.
+- **Snow:** the Campaign's stage 5 snow falls the whole way for now. The weather plan (clear, light snow, snow) is step 4, after the mockups.
+
+**Tests** (`tests/enigma.mjs` 3h; the sortie table now expects level 5 with `gen 5`, 70 chunks and its `bossAt`):
+- The plan passes the hard rules and covers the level.
+- It begins over the frozen sea, with U-boat holes and places to break through.
+- The mountain village has no green; the lake has its huts and its ice road.
+- Ground types come from the plan.
+- The throat's eight tracks reach the level's end on the yard's tracks, with the yard (`ryard`, theme 1) after them and no buffer stops.
+- Flown by the bot: U-boats in the ice and a break through it; the train boss is called once the yard fills the screen; it comes; and the level returns to the picker.
+
+**Gun positions are few for now:** the plan has 7 gun slots (the harbour's mole and roofs, the village's flak and bunker, the mountain station's flak); a bot flight filled 2. The station, the airbase and the pass (step 2) are where most of the level's guns will stand.
+
+**Not yet:** the station and the airbase (step 2), the real pass with its viaduct, avalanche sheds and the flight limit (3A), trains on the level's own railway (its straight runs are short; the yard's supply trains run in the boss fight), convoys on the ice road (it is a tank route, so vehicles may already take it), and the weather (step 4).
+
+### 20.4 Mockup: a viaduct over a gorge, the boss yard on the frozen lake (owner: options 3 and 2 combined)
+
+The owner asked how to make the last part and the train boss unlike level 3's yard (the fight may change), and for a mockup of option 3 (a viaduct over a gorge before the yard) with option 2 (the yard on the frozen lake; precedent: the railway over the ice of Lake Ladoga, 1941–42). Published as "Winter Line Finale" (generator ground and frames from the real game, the bot flying a scratch copy).
+
+**In the generator** (switchable, not used by level 5 yet): `winterLine`'s `finale: 'iceYard'` with `arena` chunks (preset `winterFinale`, 48 chunks of arena, because the boss fight keeps scrolling). Below the spur the two lines cross a **gorge** (level 2's ravine painter in grey rock, `C_WINTER.rock`) on a **double-track stone viaduct** (`K.RBRIDGE`, B -22, `plan.viaduct2`: parapets with pier refuges, snow on its deck, its shadow in the gorge), fan out on points of about 1 in 2.4 onto the yard's eight tracks, and run onto the **lake ice** (`K.ICE`, B -87), sleepers and rails on the ice (`K.RAIL`, B -99), drift ridges and refrozen shell holes between the tracks. Level 5 and every earlier preset are unchanged (checked).
+
+**To build it in the game:** the plan reaches on past the level's end (`planC1 = len + arena`) and paints the arena while the boss code keeps its `bossland`; crossovers painted on the ice where the trains switch tracks; supply sledges in place of the platforms; and the owner's choice of fight changes (sinking wrecks, bombs breaking the ice and blocking tracks, the ice cracking under the boss, ski troops and flak sledges).
+
+### 20.5 Mockup: two hillside viaducts across a gorge, with avalanches (owner: option 1)
+
+The owner preferred a second finale, called option 1, over the ice yard (20.4): a deep, narrow gorge with a frozen river far below, one double-track hillside viaduct on each wall, and the chasm between them. It was drawn by hand at game scale (not by the generator) and published as "Winter Line Gorge", in three rounds:
+
+- **Wider gorge** (owner): 46 px between the arcades. The tracks sit at x 36 and 68 on the left viaduct and x 156 and 188 on the right, 32 px apart. The boss train is about 26 px wide (its sparks fly 13 px either side), so a supply train passes it with a clear gap. The boss keeps the inner tracks (68, 156) and the supply trains use the outer ones. Crossovers stay within a viaduct.
+- **Avalanches** (owner's pick among the set-pieces offered: a bridge across the gorge, cars falling into the gorge, avalanches, tunnel hideouts, a blown span, closing weather): snow cornices stand on the wall tops above the outer tracks. A bomb sets them off; in the mockup, a Nova breaks every cornice on screen. The slide sweeps across the outer track and stops in the middle of the deck. It mainly hurts the supply trains: one under the slide is wrecked, while one under an avalanche gallery or in a tunnel is protected (the snow pours over the roof). The galleries cover only the outer tracks, so the thick boss train fits beside them. The mound stays and blocks that stretch of track.
+- **What sets a cornice off** (owner): a Nova, which breaks every cornice on screen, or the blast of an **explosives car** (a new supply car, red with a yellow and black band) shot while it passes under a cornice. Guns alone cannot crack a cornice.
+- **The bridge across** (owner: only supply trains use it, and they fall): a steel truss bridge joins the two outer tracks near the middle of the arena and crosses the inner tracks on the level. A supply train takes it only when no boss train is near the crossing; the boss never leaves its side. Supply cars destroyed over the chasm tip off, fall (shrinking and spinning) and go through the river ice (the U-boat ice-break effect); cars still on the deck burn where they stop. The truss stays standing.
+- **Build order:** (1) the generator paints the gorge, the viaducts, galleries, tunnel spurs, cornices and the bridge past the level's end as the arena; (2) the boss gets the four-track list for level 5 and the supply trains the explosives car; (3) cornices, slides and the mound blocking a track; (4) the bridge run and the fall. The Campaign's train boss stays as it is.
+
+Nothing of this is in the generator or the game yet. Level 5 is unchanged.
+
+### 20.6 Option 1, step 1: the gorge in the generator (for review in the city lab)
+
+`winterLine` with `finale: 'gorge'` (preset `winterGorge`, 48 chunks of arena past the level's end, as the iceYard mockup) builds the finale in `winterLand`; `stackPlans` carries `plan.gorge`. The game does not use it yet; level 5 still uses `winterLine` and the Campaign's yard.
+
+- **Columns** (`GZ`, fixed in x): the left viaduct's retaining wall (x 20–21), deck (22–81), parapet (82–83) and arcade face (84–88); the chasm (89–134); the right face (135–139), parapet (140–141), deck (142–201) and wall (202–203). The tracks are at x 36 and 68 on the left and 156 and 188 on the right. The boss trains will use the inner two, the supply trains the outer two.
+- **Approach:** the spur closes the valley as before. Its four tunnel mouths are at the tracks' places, and the road ends in its own tunnel. The tracks run on ballast up a narrow valley; the frozen river runs between them (K.ICE, B -88). From 110 rows past the spur the chasm opens around the river, and 70 rows later the decks begin with an abutment. The gorge is open from about 118 rows before the level's end.
+- **The viaducts** (K.RBRIDGE, B -23, game type 'railbridge'): snow on the deck, ballast, sleepers and rails (plan.RM). The parapet bulges into refuges (`gorge.refuges`); below it are piers and arches, the left face in shade and the right one lit.
+- **The chasm** (K.RAVINE, B -71, game type 'ravine'): the frozen river far below, wobbling (`gorge.cx` per row); the west wall dark and shaded by the left arcade; the east wall lit in strata; drifting mist; rock lips where the valley opens; wrecks on the ice (`gorge.wrecks`).
+- **Galleries** (K.RBRIDGE, B -24; `gorge.gal`): over the outer tracks only (x 12–49 and 175–212), 60–110 rows long between open stretches of 90–180 rows. They have a snow roof, end walls, and pillars with openings on the track side. The left gallery casts a shadow onto the deck. They stay more than 13 px from the inner tracks, so the boss train fits beside them.
+- **Tunnel spurs** (`gorge.spurs`): every 420–640 rows, alternating sides, a rock spur covers one deck for 44–60 rows. The tracks pass through it in mouths 29 px wide, wide enough for the boss train.
+- **Cornices** (K.SLOPE, B -72; `gorge.corn`: side `s`, centre row `y`, `half`, `over`): a snow lip on the wall top with a blue edge over the track, in the middle of each open stretch, and over half of the galleries (`over: 1`). These are the avalanche triggers for step 3.
+- **The supply trains' bridge** (`gorge.bridges`; changed in step 4, see 20.9): an S-curve from one outer track, across both inner tracks and the chasm, to the other outer track. Its steel truss (K.RBRIDGE, B -25) has girders, cross members and snow, and casts a shadow into the chasm. No gallery or spur lies within 30 rows of it.
+- **Tests** (`tests/citygen.mjs`, gorge finale, 12 seeds): the hard rules; the arena is 48 chunks; the gorge opens just before the level's end; the four tracks never break; every arena row has the chasm, the decks are complete, and no gallery comes within the boss train's room; galleries, open cornices and spurs on both sides; every cornice is drawn, and an open one never lies over a gallery; each bridge has a truss over the chasm, meets both outer tracks and is clear of galleries and spurs; the ground types; determinism; painting in bands equals painting whole. Every other preset paints exactly as before.
+
+### 20.7 Option 1, step 2: the gorge in the game, the boss on four tracks, the explosives car
+
+- **The plan:** level 5 uses the preset `winterGorge`. The plan reaches on `GORGE_ARENA` (48) chunks past the level's end (`planC1 = len + 48`), so the arena is painted and typed by the plan: chasm 'ravine', viaducts and galleries 'railbridge'. The arena chunks keep their bossland (theme 1), so the boss is called as before (`bossAt = len + yardWait()`), once the gorge fills the screen.
+- **Four tracks** (`GORGE_T` = 36, 68, 156, 188; `gorgeArena()` is true in level 5's arena): the boss trains start on the inner tracks (68 left, 156 right). Their crossovers (`gorgeXover`, the yard's 240 px period and 120 px S-bend) only run within a viaduct (`XO_SEQ5`: 68 to 36 and back, 156 to 188 and back). None lies under a gallery, in a spur or within 24 rows of the bridge. A boss train does not step onto an outer track while a supply train is on it. The crossovers are painted onto the plan's chunks on the trains' own curve (`gorgeXoverPaint`). The Campaign's yard keeps its eight tracks and its crossovers (`yardXover(k, true)`).
+- **Supply trains** (`yardSupport`) run on the outer tracks only. In the gorge, 45% of them carry an **explosives car** (`ammocar`: a red van with a yellow and black band and a warning diamond on its roof). It has a boxcar's hit points and scores 800. It goes up in a big blast that damages every ground target within 44 px by 40, which wrecks the cars coupled to it. In step 3 the blast will set off the cornice above it.
+- **Cover:** what lies under a gallery's roof or in a spur's tunnel (`roofAt`, `gorgeRoofs`) is drawn under it, because the roof's pixels are drawn again from the painted chunks after the boss (`drawRoofs`). It is also out of reach: supply cars there are untargetable, and the boss's parts there are shielded (`BOSS.train.shielded`).
+- **No platforms:** no crates or sheds spawn in the gorge. Instead a flak gun stands in each parapet refuge as its chunk comes up (`yardProps`).
+- **Tests** (`tests/enigma.mjs` 3h): the plan covers the level and the 48-chunk arena. The four tracks run through the level's end into the arena, whose types are 'ravine' and 'railbridge', with no buffer stops. Flown by the bot: the boss comes once the gorge fills the screen; its trains never cross the chasm and keep mostly to their inner tracks; the supply trains run on the outer tracks only. A new block (3h') checks that a gallery covers its outer track and nothing beside it, and that the explosives car's blast wrecks the car coupled to it.
+
+### 20.8 Option 1, step 3: avalanches (owner: the boss train is never stopped)
+
+- **Cornices** (`gorge.corn`, painted in step 1) break in two ways. A Nova breaks every cornice on screen, one after another, 5 frames apart (`gorgeNova`). The blast of an explosives car within 40 px across and the cornice's half-length plus 30 rows breaks it too (`gorgeBlast`). A cornice breaks once (`S.snow.gone`); where it was, bare rock shows.
+- **The slide** (`cornTrigger`, `SLIDE_T` 40 frames): a fan of snow from the wall to the middle of the deck (x 52 on the left, 172 on the right). It is widest in its middle and as long as the cornice plus 10 rows each way, and powder flies off its front. After 22 frames it buries the supply cars it covers (each scores at least 300). A car under a gallery or in a tunnel is safe. It also knocks any boss part it reaches by 25; that only happens when a boss train is on its outer track.
+- **Over a gallery** the snow pours over the roof and spills just past its inner edge. It is drawn over the roof, and leaves no mound on the track.
+- **The mound:** an open cornice's snow stays where it lies (`moundAt`). It stops a supply train running into it (`trainMove`), which becomes a sitting target. New supply trains take an outer track with no snow on screen if there is one.
+- **The boss train is never stopped** (owner). It runs through a mound, throwing snow up as it ploughs through (`gorgeBossPlough`). A supply car standing on its track is smashed, with no score for the player.
+- **The Nova** also leaves a supply car under a gallery or in a tunnel unharmed.
+- **Tests** (`tests/enigma.mjs` 3h'): an open cornice's slide buries the supply car on its track and leaves a mound; under a gallery the car is safe and the snow lies on the roof; the next supply train stops short of the mound; an explosives car going up under a cornice breaks it; a boss train smashes a supply car on its track.
+
+### 20.9 Option 1, step 4: the supply trains' bridge
+
+The owner asked whether supply trains would reach a bridge at all. Measured over four bot flights: fights last 45–110 s, and the gorge scrolls by at 0.4 px a frame (about 1,100–2,600 rows). The first bridge came on screen about 25 s into a fight and the second only in a long one. Only 2–3 supply trains came while a bridge was on screen. Worse, every up-bound supply train stalled at screen y ≈ 346 against the train boss's box (200 × 240 px over the middle of the screen; `blockedMove`). None reached a bridge. The owner then asked for these three changes:
+
+- **Not stopped by the boss's box:** in the gorge, `blockedMove` ignores the boss for supply cars. The boss trains run on their own tracks and smash a supply train on them (20.8). The Campaign keeps its behaviour.
+- **The bridges** (generator): the first is 420 rows past the level's end, about 10 s into the fight. Then there is one every 800 rows, about 33 s apart, each 240 rows long; that is three in the 48-chunk arena. Bridges alternate their direction (`lr`). `CityGen.gorgeBridgeX` is exported for the game.
+- **A train for each bridge** (`gorgeBridgeRuns`, run in the boss's tick once it is ready). Bridges alternate between two runs:
+  - A train climbs from the bottom on the lower end's outer track. It is sent when the bridge's middle reaches screen y 60.
+  - A train comes down from the top on the upper end's track. It is sent when the upper end reaches screen y −50.
+  - Either way it crosses mid-screen. It waits for a clear track (no supply train on it, no boss train on it). A bridge that scrolls past without one is marked missed.
+  - The train (`supplyTrain`, 2–3 cars, 45% with an explosives car) carries the bridge (`br`). Each car's x follows the bridge's curve at its row (`brX`), before it, on it and after it. It looks ahead along the curve and is drawn turned with it (`e.ang`).
+- **The fall** (`gorgeFall`, in place of the wreck when a car with `br` dies over the chasm, between the arcade faces): the car tips off the truss and drops for 50 frames to the river under it. It shrinks to 30%, spins, trails smoke and fades a little. It goes through the ice with a splash and leaves a small hole with the wreck in it (`S.falls`, drawn under the trains). The cars coupled to it that are over the chasm go down one after another, 7 frames apart.
+- **Tests:** `tests/citygen.mjs` keeps its bridge checks. `tests/enigma.mjs` adds three checks: in flight, a supply train is sent to a bridge as it comes into view and is seen on it; in 3h', a train on the bridge follows its curve to the other outer track; and a car destroyed over the chasm falls (no wreck on the deck) with the car coupled to it.
+
+## 21. Enigma Run as one run (owner: like a real campaign)
+
+The levels no longer return to the level picker after their results. Instead the run flies on into the next level (`ENIGMA_NEXT`: 1→2→3→4→5→6, 1A→2; 6 and 6B are last).
+
+- **What carries over:** the run's score (and player 2's), lives, Novas, continues, extend progress, medal level and multiplier, flight time and the campaign tallies (`run.camp`). Player 1's weapon, its level and the drones carry over too. Each level starts fresh as before (`startEnigma`), with its own sortie, ground, stats and results.
+- **After the last level:** the congratulations screen (the Campaign's, with the run's totals) and then the title, with no picker. Nothing counts: no loop, no best score, no leaderboard.
+- **Picking a level:** the picker in Settings > Enigma Run still chooses the level to start from.
+- **Tests:** the harness's `SF.run` stops when the level changes and returns `next:<level>`. The bot flights expect the next level: 2→3, 3→4, 4→5, 5→6, 1→2, 1A→2. Level 6 and 6B end at the title with no picker. A direct check confirms that finishing level 5 starts level 6 with the score, lives, Novas and weapon carried over, and that finishing level 6 shows the congratulations, then the title.

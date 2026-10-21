@@ -229,6 +229,78 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
       for (let b = 0; b < 4; b++) { CG.paint(p, part, y0 + b * 16, 16, {}); for (let r = 0; r < 16; r++) for (let q = 0; q < p.W * 4; q++) if (part.data[r * p.W * 4 + q] !== whole.data[((3 - b) * 16 + r) * p.W * 4 + q]) diff++; }
       if (diff) fail(`${preset} seed ${seed}: painting in bands differs from painting whole (${diff})`); } }
   console.log(`ok   forest land: 120 plans, ${fails} failing a hard rule, ${miss} missing a feature`); }
+// Enigma level 5, the Winter Line (P.climate 'winter'): every hard rule in the frozen sea, the harbour in its bay, the mountain village and
+// the level's first part as one plan (a town plan with the mountain land joined on top). The sea freezes (pack, floes, fast ice) with a hole or two for the U-boats (each open water, long enough
+// for one to surface, a 'sub' slot on 'ice'); the harbour's water stays open with ice only along its quays (owner), and in the level the frozen
+// sea never meets the harbour's water; the mountain village has its mountains (snow slopes, rock, shadows, conifers), chalets on the road and on terraces,
+// the chapel, the sawmill, the cable car, avalanche fences and (nearly always) the ski jump, and no village green; every deciduous tree is bare; roofs are white; the river freezes; the winter palette does not leak;
+// the same seed gives the same plan, and painting in bands equals painting whole.
+{ let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('winter: ' + m); } }, c = { holes2: 0, breaks: 0, jumps: 0 }, ms = [];
+  const count = (p, k, b) => { let n = 0; for (let i = 0; i < p.K.length; i++) if (p.K[i] === k && (b === undefined || p.B[i] === b)) n++; return n; };
+  const runs = [['frozenSea', 60], ['portWinter', 60], ['mountainVillage', 60], ['winterLine', 30]];
+  for (const [preset, N] of runs) for (let seed = 1; seed <= N; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
+    if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}`); }
+    need(p.trees.every(t2 => t2.bare || t2.palm), `${preset} ${seed}: a tree in leaf`);
+    if (preset === 'frozenSea' || preset === 'winterLine') { const holes = p.slots.filter(q => q.kind === 'sub' && q.on === 'ice');
+      need(count(p, CG.K.ICE) > 15000 && count(p, CG.K.ICE, -81) > 3000 && count(p, CG.K.ICE, -80) > 1500 && count(p, CG.K.ICE, -84) > 1500, `${preset} ${seed}: pack, floes and fast ice`);
+      need(holes.length >= 1 && holes.every(h => { for (let y = h.y - 22; y <= h.y + 22; y++) for (let x = h.x - 5; x <= h.x + 5; x++) if (p.K[y * p.W + x] !== CG.K.SEA) return false; return true; }), `${preset} ${seed}: an ice hole of open water for a U-boat`);
+      if (holes.length >= 2) c.holes2++; if (p.iceBreaks.length) c.breaks++; }
+    if (preset === 'portWinter' || preset === 'winterLine') { const CO = p.coast; let open = 0, all = 0; for (let y = CO.hy0 + 20; y < CO.hy1 - 20; y++) for (let x = 0; x < p.W; x++) { const k = p.K[y * p.W + x]; if (x > CO.qx + 6 && (k === CG.K.SEA || k === CG.K.ICE)) { all++; if (k === CG.K.SEA) open++; } }
+      need(all > 2000 && open / all > 0.7 && count(p, CG.K.ICE, -85) > 200 && p.items.some(i => i.part === 'bunker'), `${preset} ${seed}: open water in the harbour, ice along its quays, the U-boat bunker`); }
+    if (preset === 'winterLine') { const W = p.W, seen = new Uint8Array(p.K.length), st = []; for (let x = 0; x < W; x++) { seen[x] = 1; st.push(x); } // flood the frozen sea from the level's first row
+      while (st.length) { const i = st.pop(), x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < p.K.length && !seen[j] && (p.K[j] === CG.K.SEA || p.K[j] === CG.K.ICE)) { seen[j] = 1; st.push(j); } }
+      let met = 0; for (let y = p.coast.hy0; y < p.coast.hy1; y++) for (let x = 0; x < W; x++) if (seen[y * W + x]) met++; need(!met, `winterLine ${seed}: the frozen sea meets the harbour's water`);
+      need(!p.oldTown && p.parts && p.parts[1].y0 === (10 + 5 + 8) * 64, `winterLine ${seed}: no village green, the mountain land joined after the farmland`); }
+    if (preset === 'mountainVillage' || preset === 'winterLine') { const A = p.alpine;
+      need(count(p, CG.K.SLOPE) > 8000 && count(p, CG.K.CRAG, -70) > 100 && p.shadeM && p.shadeM.some(v => v) && p.conifers.reduce((a, k) => a + k.length, 0) > 40, `${preset} ${seed}: the mountains, their shadows and conifers`);
+      need(A && A.chapel && A.sawmill && A.cable && A.chalets >= 10 && A.terraces >= 1 && p.avalanche.length >= 3 && p.cables.length === 1 && p.slots.some(q => q.kind === 'flak') && p.slots.some(q => q.kind === 'bunker'), `${preset} ${seed}: the village's parts ${JSON.stringify(A)}`);
+      if (A && A.jump) c.jumps++; }
+    if (seed <= 3) { if (hash(p) !== hash(CG.generate({ seed, preset }))) fail(`${preset} seed ${seed}: the same seed gave a different plan`);
+      const whole = { data: new Uint8ClampedArray(p.W * 64 * 4) }, part = { data: new Uint8ClampedArray(p.W * 16 * 4) }, y0 = 128; CG.paint(p, whole, y0, 64, {}); let diff = 0;
+      for (let b = 0; b < 4; b++) { CG.paint(p, part, y0 + b * 16, 16, {}); for (let r = 0; r < 16; r++) for (let q = 0; q < p.W * 4; q++) if (part.data[r * p.W * 4 + q] !== whole.data[((3 - b) * 16 + r) * p.W * 4 + q]) diff++; }
+      if (diff) fail(`${preset} seed ${seed}: painting in bands differs from painting whole (${diff})`); } }
+  if (c.holes2 < 72 || c.breaks < 72 || c.jumps < 81) fail(`winter: two ice holes in ${c.holes2}/90, a place to break through in ${c.breaks}/90, a ski jump in ${c.jumps}/90`);
+  // white roofs, a frozen river, and no leak: a temperate town painted after a winter one is the same as painted alone
+  const pnt = p => { const img = { data: new Uint8ClampedArray(p.W * p.L * 4) }; CG.paint(p, img, 0, p.L, { noFx: true }); return img.data; }, lum = (d, i) => 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2];
+  const v = CG.generate({ seed: 4, preset: 'villageWinter' }), dv = pnt(v); let roof = 0, rn = 0; for (let i = 0; i < v.K.length; i++) if (v.K[i] === CG.K.BLDG && !v.items[v.B[i]].round) { rn++; if (lum(dv, i) > 170) roof++; }
+  const rv = CG.generate({ seed: 4, preset: 'river', params: { climate: 'winter' } }), dr = pnt(rv); let ice = 0, wn = 0; for (let i = 0; i < rv.K.length; i++) if (rv.K[i] === CG.K.RIVER) { wn++; ice += lum(dr, i); }
+  const town = CG.generate({ seed: 4, preset: 'town' }), a0 = pnt(town); pnt(v); const leak = pnt(town).some((x, i) => x !== a0[i]);
+  need(roof / rn > 0.6, `snow on ${(100 * roof / rn).toFixed(0)}% of roof pixels`); need(ice / wn > 120, `the river is not frozen (mean light ${(ice / wn).toFixed(0)})`); if (leak) fail('winter: the winter palette leaked into a temperate town painted after it');
+  ms.sort((a, b) => a - b);
+  console.log(`${fails || miss || leak ? 'FAIL' : 'ok  '} winter: ${180 - fails}/180 plans pass, ${miss} missing a feature; two ice holes in ${c.holes2}/90, a place to break through in ${c.breaks}/90, a ski jump in ${c.jumps}/90; ${(100 * roof / rn).toFixed(0)}% of roof pixels white, the river frozen, no palette leak; plan ${ms[90].toFixed(0)} ms median`); }
+// Enigma level 5's gorge finale (preset winterGorge, owner: option 1): the plan reaches on past the level's end as the boss's arena. The four
+// tracks (x 36, 68 | 156, 188) leave the spur's tunnels and never break; the gorge is open by the level's end; every arena row has the chasm between
+// the two viaducts' decks (the bridge's truss aside); galleries over the outer tracks on both sides, never within the boss train's 13 px of an inner
+// track; tunnel spurs on both sides; cornices over open stretches (none with a gallery under it unless marked) and over some galleries; at least
+// one bridge from outer track to outer track across the chasm, clear of galleries and spurs; ground types; the same seed gives the same plan;
+// painting in bands equals painting whole.
+{ let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('gorge: ' + m); } }, ms = [], tot = { gal: 0, spurs: 0, corn: 0, over: 0, br: 0 };
+  const hsh = d => { let x = 2166136261; for (let i = 0; i < d.length; i++) { x ^= d[i]; x = Math.imul(x, 16777619); } return x >>> 0; };
+  for (let seed = 1; seed <= 12; seed++) { const t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge' }); ms.push(performance.now() - t0); const v = CG.validate(p), G = p.gorge, W = p.W, Lr = 70 * 64;
+    need(v.pass, `seed ${seed}: a hard rule fails`); if (!G) { need(false, `seed ${seed}: no gorge`); continue; }
+    const at = (x, y) => y * W + x, Kr = p.K, Br = p.B, K = CG.K;
+    need(p.L === Lr + 48 * 64 && G.y1 === p.L - 1, `seed ${seed}: the arena is not 48 chunks past the level's end`);
+    need(G.yb < Lr && G.yb > Lr - 220, `seed ${seed}: the gorge opens at ${G.yb}, not just before the level's end (${Lr})`);
+    for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[at(tx - 3, y)] !== 2) brk++; need(!brk, `seed ${seed}: the track at x ${tx} breaks in ${brk} rows`); }
+    let noCh = 0, noDeck = 0, galIn = 0; for (let y = G.yb; y < p.L; y++) { const mid = Kr[at(112, y)], bm = Br[at(112, y)]; if (!(mid === K.RAVINE && bm === -71) && !(mid === K.RBRIDGE && bm === -25)) noCh++;
+      for (const x of [30, 74, 150, 194]) { const k = Kr[at(x, y)]; if (k !== K.RBRIDGE && k !== K.SLOPE && k !== K.CRAG) noDeck++; }
+      for (const x of [55, 81, 143, 169]) if (Kr[at(x, y)] === K.RBRIDGE && Br[at(x, y)] === -24) galIn++; }
+    need(!noCh, `seed ${seed}: ${noCh} arena rows without the chasm`); need(!noDeck, `seed ${seed}: ${noDeck} deck pixels missing`); need(!galIn, `seed ${seed}: a gallery reaches the boss's room (${galIn})`);
+    for (const s of [-1, 1]) { need(G.gal.filter(q => q.s === s).length >= 3, `seed ${seed}: fewer than 3 galleries on side ${s}`); need(G.corn.filter(q => q.s === s && !q.over).length >= 5, `seed ${seed}: fewer than 5 open cornices on side ${s}`); need(G.spurs.some(q => q.s === s), `seed ${seed}: no spur on side ${s}`); }
+    for (const q of G.corn) { let n = 0; for (let y = q.y - q.half; y <= q.y + q.half; y++) for (let x = 0; x < W; x++) if (Kr[at(x, y)] === K.SLOPE && Br[at(x, y)] === -72) n++; need(n >= 25, `seed ${seed}: the cornice at ${q.y} has ${n} px`);
+      if (!q.over) need(!G.gal.some(g => g.s === q.s && g.y1 > q.y - q.half && g.y0 < q.y + q.half), `seed ${seed}: an open cornice at ${q.y} lies over a gallery`); }
+    need(G.bridges.length >= 1, `seed ${seed}: no bridge`);
+    for (const b of G.bridges) { let ym = -1; for (let y = b.ya; y <= b.yb; y++) { let tr = 0; for (let x = 100; x <= 124; x++) if (Kr[at(x, y)] === K.RBRIDGE && Br[at(x, y)] === -25) tr++; if (tr) ym = y; } need(ym > 0, `seed ${seed}: the bridge at ${b.ya} has no truss over the chasm`);
+      need(!G.gal.some(g => g.y1 > b.ya - 30 && g.y0 < b.yb + 30) && !G.spurs.some(q => q.y1 > b.ya - 30 && q.y0 < b.yb + 30), `seed ${seed}: a gallery or spur at the bridge at ${b.ya}`);
+      const r0 = p.RM[at((b.lr > 0 ? 36 : 188) - 3, b.ya)], r1 = p.RM[at((b.lr > 0 ? 188 : 36) - 3, b.yb)]; need(r0 === 2 && r1 === 2, `seed ${seed}: the bridge at ${b.ya} does not meet the outer tracks`); }
+    const y = G.yb + 40; need(CG.typeAt(p, 112, y) === 'ravine' && CG.typeAt(p, 68, y) === 'railbridge', `seed ${seed}: ground types ${CG.typeAt(p, 112, y)}, ${CG.typeAt(p, 68, y)}`);
+    tot.gal += G.gal.length; tot.spurs += G.spurs.length; tot.corn += G.corn.length; tot.over += G.corn.filter(q => q.over).length; tot.br += G.bridges.length;
+    if (seed === 1) { const q = CG.generate({ seed, preset: 'winterGorge' }); need(hsh(q.K) === hsh(p.K) && hsh(new Uint8Array(q.B.buffer)) === hsh(new Uint8Array(p.B.buffer)), 'the same seed gives another plan');
+      const y0 = G.yb - 32, whole = { data: new Uint8ClampedArray(W * 64 * 4) }, part = { data: new Uint8ClampedArray(W * 16 * 4) }; CG.paint(p, whole, y0, 64, {}); let diff = 0;
+      for (let b = 0; b < 4; b++) { CG.paint(p, part, y0 + b * 16, 16, {}); for (let r = 0; r < 16; r++) for (let k = 0; k < W * 4; k++) if (part.data[r * W * 4 + k] !== whole.data[((3 - b) * 16 + r) * W * 4 + k]) diff++; }
+      need(!diff, `painting in bands differs from painting whole (${diff})`); } }
+  ms.sort((a, b) => a - b);
+  console.log(`${miss ? 'FAIL' : 'ok  '} gorge finale: 12 plans, ${miss} problems; ${tot.gal} galleries, ${tot.spurs} spurs, ${tot.corn} cornices (${tot.over} over galleries), ${tot.br} bridges; plan ${ms[6].toFixed(0)} ms median`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
 { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
