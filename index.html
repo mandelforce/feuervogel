@@ -3589,7 +3589,7 @@ function winterLand(o) {
     const busyB = (y, m) => G.bridges.some(b => y > b.ya - m && y < b.yb + m), busyS = (s, y, m) => G.spurs.some(q => q.s === s && y > q.y0 - m && y < q.y1 + m);
     { let s = rnd(62) < 0.5 ? -1 : 1; for (let y = z0 + 160 + ((rnd(61) * 120) | 0); y < z1 - 80; y += 420 + ((rnd(63, y) * 220) | 0)) { if (busyB(y, 50) || busyB(y + 60, 50)) continue; G.spurs.push({ s, y0: y, y1: y + 44 + ((rnd(64, y) * 16) | 0) }); s = -s; } }
     for (const s of [-1, 1]) { let y = z0 + ((rnd(65, s + 2) * 80) | 0), open = true;
-      while (y < z1) { if (open) { const n = 90 + ((rnd(66, y, s + 2) * 90) | 0), mid = Math.round(y + n / 2); if (!busyB(mid, 34) && !busyS(s, mid, 34)) G.corn.push({ s, y: mid, half: 14, over: 0 }); y += n; }
+      while (y < z1) { if (open) { const n = 90 + ((rnd(66, y, s + 2) * 90) | 0), mid = Math.round(y + n / 2); if (mid + 18 < L && !busyB(mid, 34) && !busyS(s, mid, 34)) G.corn.push({ s, y: mid, half: 14, over: 0 }); y += n; }
         else { const n = 60 + ((rnd(67, y, s + 2) * 50) | 0); let ok = y + n < z1; for (let yy = y; ok && yy <= y + n; yy += 4) if (busyB(yy, 30) || busyS(s, yy, 14)) ok = false;
           if (ok) { G.gal.push({ s, y0: y, y1: y + n }); if (rnd(68, y, s + 2) < 0.5) G.corn.push({ s, y: y + (n >> 1), half: 14, over: 1 }); } y += n; }
         open = !open; } }
@@ -3616,8 +3616,8 @@ function winterLand(o) {
       lay(xs, b.ya, b.yb + 1); }
     for (const q of G.spurs) for (let y = q.y0; y <= q.y1; y++) for (let x = q.s < 0 ? 0 : D.p1 - 1; x <= (q.s < 0 ? D.p0 + 1 : W - 1); x++) { const i = idx(x, y), e = Math.min(y - q.y0, q.y1 - y); Kr[i] = e < 3 ? K.CRAG : K.SLOPE; Br[i] = e < 3 ? -70 : -1; reserved[i] = 1; Hg[i] = Math.max(Hg[i], 10 + Math.min(e, 14) * 1.1 + 14 * (1 - Math.abs(2 * vn(x * 0.11 + 3, y * 0.11) - 1))); } // a rock spur over the deck: the tracks run through it in a short tunnel
     for (const q of G.gal) for (let y = q.y0; y <= q.y1; y++) { const [xa, xb] = D.gal[q.s < 0 ? 0 : 1]; for (let x = xa; x <= xb; x++) { const i = idx(x, y); if (Kr[i] === K.CRAG) continue; Kr[i] = K.RBRIDGE; Br[i] = -24; reserved[i] = 1; Hg[i] = q.s < 0 ? Math.max(0, 3 - (x - xa) * 0.1) : 0; } }
-    for (const q of G.corn) for (let y = q.y - q.half; y <= q.y + q.half; y++) { const w = Math.sqrt(Math.max(0, 1 - ((y - q.y) / q.half) ** 2)), e = q.s < 0 ? LWx(y) : RWx(y);
-      for (let k = -5; k <= 1 + Math.round(6 * w); k++) { const x = Math.round(e + (q.s < 0 ? k : -k)), i = idx(x, y); if (!inB(x, y) || (Kr[i] === K.RBRIDGE && Br[i] === -24) || G.spurs.some(p => p.s === q.s && y >= p.y0 && y <= p.y1)) continue; Kr[i] = K.SLOPE; Br[i] = -72; reserved[i] = 1; } }
+    for (const q of G.corn) for (let y = q.y - q.half; y <= q.y + q.half; y++) { const w = Math.sqrt(Math.max(0, 1 - ((y - q.y) / q.half) ** 2)), e = q.over ? D.gal[q.s < 0 ? 0 : 1][q.s < 0 ? 0 : 1] + q.s : q.s < 0 ? LWx(y) : RWx(y); // (over a gallery: on the wall just beyond its roof)
+      for (let k = q.over ? -2 - Math.round(6 * w) : -5; k <= (q.over ? 0 : 1 + Math.round(6 * w)); k++) { const x = Math.round(e + (q.s < 0 ? k : -k)), i = idx(x, y); if (!inB(x, y) || (Kr[i] === K.RBRIDGE && Br[i] === -24) || G.spurs.some(p => p.s === q.s && y >= p.y0 && y <= p.y1)) continue; Kr[i] = K.SLOPE; Br[i] = -72; reserved[i] = 1; } }
     for (const tx of D.T) plan.tunnels.push({ x: tx, y: yP, dir: -1 }); plan.tunnels.push({ x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
   else if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
     const g0 = yP + 24, g1 = g0 + 58, ph2 = rnd(50) * 6.283, top = x => g1 + 4 * Math.sin(x * 0.05 + ph2) + 3 * vn(x * 0.2, 9), bot = x => g0 + 4 * Math.sin(x * 0.043 + ph2 * 2) + 3 * vn(x * 0.2, 19), VX0 = 84, VX1 = 134;
