@@ -147,8 +147,8 @@ PRESETS.mountainVillage = Object.assign({}, PRESETS.town, { label: 'Winter Line:
 // Enigma Run level 5 as one plan (winterLine; params.segs: the sortie's segments, { t, n } in chunks of 64 px): the frozen sea to its shore at the end of
 // open_sea_ice, the harbour in its bay (the side coast swings in only well past the shore, so the frozen sea and the harbour never meet), the
 // farmland (a town plan), then the mountains rise and the mountain village lies in their valley (winterLand, joined on top). (Step 1: up to the village.)
-PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (sea, harbour, farmland, mountain village)', builder: 'winterLine', L: 1792,
-  segs: [{ t: 'open_sea_ice', n: 10 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }] });
+PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 4480,
+  segs: [{ t: 'open_sea_ice', n: 10 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -857,7 +857,7 @@ function generate(opts) {
         if (n) for (const d of [4, PL - 10]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
       for (let y = hy0 + 60; y < hy1 - 6; y += 22) plan.cranes.push({ x: Math.round(X(-3)), y, dx: cs, dy: 0.25 });
       for (let y = hy0 + 58; y + 30 < hy1; ) { const len = Math.min(28 + ((rnd(T.SEA, y, 3) * 10) | 0), hy1 - 16 - y), x0 = Math.round(Math.min(X(-16), X(-4))); if (len >= 14 && rectIs(x0, y, 13, len, K.WORKS)) { /* the last one stops short of the tunnel portal */ const it = addItem({ t: 'works', label: 'Warehouse', x0, y0: y, w: 13, h: len, ori: 'v', style: rnd(T.SEA, y, 4) < 0.4 ? 'flat' : 'gable', roof: rnd(T.SEA, y, 5) < 0.5 ? 1 : 3, seed: h32(seed, 66000 + y), dmg: 0 }); fill(x0, y, 13, len, K.BLDG, it.id); } y += len + 4; }
-      if (!(RL && RL.branch)) { for (let y = hy0 + 56; y < hy1 - 4; y++) layTrack(X(-26) + cs * 6 * smooth(hy1 - 20, hy1 - 4, y), y); plan.tunnels.push({ x: Math.round(X(-26) + cs * 6), y: hy1 - 5, dir: 1 }); } // the quayside track bends out past the last warehouse into a tunnel, its hill on the open ground at the harbour's end
+      if (!(RL && RL.branch) && P.coast.quayTrack !== false) { for (let y = hy0 + 56; y < hy1 - 4; y++) layTrack(X(-26) + cs * 6 * smooth(hy1 - 20, hy1 - 4, y), y); plan.tunnels.push({ x: Math.round(X(-26) + cs * 6), y: hy1 - 5, dir: 1 }); } // the quayside track bends out past the last warehouse into a tunnel, its hill on the open ground at the harbour's end
       // the fairway along the channel: from the closed end out of the harbour (past its head, or into the end harbour and through its entrance)
       const lx = Math.round(sideLaneX), ly0 = Math.min(yClosed + 4, corner ? yM : L - 1), ly1 = Math.max(yClosed + 4, corner ? (hd > 0 ? L - 1 : 0) : L - 1);
       plan.shipLanes.push({ x: lx, w: 30, y0: corner && hd < 0 ? 0 : Math.min(ly0, ly1), y1: corner && hd < 0 ? yClosed - 4 : P.coast.bay != null ? Math.min(Math.max(ly0, ly1), hy1 + P.coast.bay) : Math.max(ly0, ly1), kind: 'channel' }); // (in a bay: out to where the coast swings away)
@@ -1752,7 +1752,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
         case K.WORKS: { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && (Kr[j] === K.MEADOW || Kr[j] === K.FIELD || Kr[j] === K.GARDEN || Kr[j] === K.COURT)); // a cinder yard with oil stains, fenced where it meets open ground
           c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
-        case K.RAIL: { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
+        case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
         case K.RBRIDGE: { const m = RMx[i]; if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
@@ -3002,11 +3002,11 @@ function winterLine(o) {
   const yS = sea[1] - 6, hy0 = Math.max(hb[0] + 120, yS + 180), hy1 = Math.max(hy0 + 180, hb[1] + 40), mid = (hy0 + hy1) / 2;
   const dens = [[0, 0.01], [f(yS + 50), 0.02], [f(mid), 0.3], [f(hy1 + 110), 0.01], [1, 0.01]].sort((a, b) => a[0] - b[0]);
   const params = Object.assign({}, o.params, { L, density: dens, damage: 0.3, damageCurve: [[0, 0.2], [f(mid), 0.8], [f(hy1 + 200), 0.3], [1, 0.3]], farms: 0.1, oldTown: null,
-    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.5, cs: 1, at: [hy0 / L, hy1 / L], bay: 40 } });
+    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.5, cs: 1, at: [hy0 / L, hy1 / L], bay: 40, quayTrack: false } }); // (owner: no quayside track or tunnel in the winter harbour)
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
-  const Lb = high.reduce((a, g) => a + g.n, 0) * CHp, feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; if (g.t === 'village') feats.push({ kind: 'village', at0: Math.max(a0, 60 / Lb), at1: a1 }); } }
+  const Lb = high.reduce((a, g) => a + g.n, 0) * CHp, feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t }); } } // (station and airbase are plain valley until their own ground is built)
   const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
   const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
@@ -3036,15 +3036,24 @@ function winterLand(o) {
   // 1. the road along the valley floor (a tank route)
   const c0 = 96 + rnd(1) * 32, amp = 8 + rnd(2) * 12, fr = 0.006 + rnd(3) * 0.004, ph = rnd(4) * 6.283;
   for (let y = 0; y < L; y++) { const m = clamp(c0 + amp * Math.sin(y * fr + ph), 70, W - 70); plan.mx[y] = P.road0 !== undefined ? lerp(P.road0, m, smooth(0, 160, y)) : m; }
-  const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: 0, y1: L - 1, id: 0 }; plan.streets.push(ar);
-  for (let y = 0; y < L; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (inB(x, y) && Math.abs(x + 0.5 - plan.mx[y]) < 4.5) { const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -2; reserved[i] = 1; } }
+  const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)], fs = k => feats.filter(F => F.kind === k).map(span), vil = feats.find(F => F.kind === 'village'), vs = vil ? span(vil) : null;
+  const inF = (k, y, m = 80) => fs(k).reduce((a, [p, q]) => Math.max(a, smooth(p - m, p + 20, y) * (1 - smooth(q - 20, q + m, y))), 0); // how far row y is inside a feature of kind k (eased at its ends)
+  const lk = fs('lake')[0] || null, sL = rnd(40) < 0.5 ? -1 : 1, th = fs('throat')[0] || null, yT = th ? th[0] + 24 : L; // the lake's side; the throat's spur, where the valley ends
+  if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120), 40, W - 40); // the road skirts the lake
+  const thF = (P.features || []).find(F => F.kind === 'throat'), yRoad = thF ? Math.round(L * thF.at0) + 14 : L; // the road ends at the throat's spur, in a tunnel
+  const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: 0, y1: yRoad - 1, id: 0 }; plan.streets.push(ar);
+  for (let y = 0; y < yRoad; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (inB(x, y) && Math.abs(x + 0.5 - plan.mx[y]) < 4.5) { const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -2; reserved[i] = 1; } }
   const MX = y => plan.mx[clamp(Math.round(y), 0, L - 1)];
   // 2. the mountains: height from the valley's axis outward, crests and spurs from ridged noise; the village's floor is wider
-  const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)], vil = feats.find(F => F.kind === 'village'), vs = vil ? span(vil) : null;
-  const vx = y => MX(y) + 12 * Math.sin(y * 0.004 + ph * 2), wide = y => vs ? smooth(vs[0] - 80, vs[0] + 20, y) * (1 - smooth(vs[1] - 20, vs[1] + 80, y)) : 0;
-  const fw = y => 26 + 12 * vn(y * 0.006, 5.5) + 16 * wide(y), rise = y => P.rise ? smooth(0, P.rise, y) : 1, ridged = (x, y, f, s) => 1 - Math.abs(2 * vn(x * f + s, y * f) - 1);
-  for (let y = 0; y < L; y++) { const a = vx(y), w = fw(y), r = rise(y); for (let x = 0; x < W; x++) { const d = Math.abs(x + 0.5 - a), e = smooth(w - 4, w + 70, d);
-    const sp = 1 - Math.abs(2 * vn(x * 0.011 + seed % 13, y * 0.026) - 1); /* spurs and gullies running down to the valley */ Hg[idx(x, y)] = r * (e * 74 + Math.pow(e, 0.8) * (30 * sp + 10 * ridged(x, y, 0.045, 9) + 4 * vn(x * 0.14, y * 0.14))); } }
+  const vx = y => MX(y) + 12 * Math.sin(y * 0.004 + ph * 2) + sL * 30 * inF('lake', y, 120), wide = y => inF('village', y);
+  const fw = y => lerp(26 + 12 * vn(y * 0.006, 5.5) + 16 * wide(y) + 34 * inF('lake', y, 120) + 6 * inF('forest', y), 13, inF('pass', y, 60)), rise = y => P.rise ? smooth(0, P.rise, y) : 1, ridged = (x, y, f, s) => 1 - Math.abs(2 * vn(x * f + s, y * f) - 1);
+  const GW = (W >> 1) + 2, GL = (L >> 1) + 2, NZ = new Float32Array(GW * GL); // the large noise (spurs and gullies running down to the valley, crests) on a 2 px grid, interpolated
+  for (let j = 0; j < GL; j++) for (let i = 0; i < GW; i++) { const x = i * 2, y = j * 2; NZ[j * GW + i] = 30 * (1 - Math.abs(2 * vn(x * 0.011 + seed % 13, y * 0.026) - 1)) + 10 * ridged(x, y, 0.045, 9); }
+  const nz = (x, y) => { const i = x >> 1, j = y >> 1, fx = (x & 1) * 0.5, fy = (y & 1) * 0.5, a = NZ[j * GW + i], b = NZ[j * GW + i + 1], c = NZ[(j + 1) * GW + i], d = NZ[(j + 1) * GW + i + 1]; return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
+  for (let y = 0; y < L; y++) { const a = vx(y), w = fw(y), r = rise(y) * (1 + 0.35 * inF('pass', y, 60)) * (th ? 1 - smooth(yT + 30, yT + 140, y) : 1); for (let x = 0; x < W; x++) { const d = Math.abs(x + 0.5 - a), e = smooth(w - 4, w + 70, d);
+    let h = e > 0 ? r * (e * 74 + Math.pow(e, 0.8) * (nz(x, y) + 4 * vn(x * 0.14, y * 0.14))) : 0;
+    if (th) h = Math.max(h, 70 * Math.exp(-(((y - yT + 12) / 16) ** 2)) * (0.8 + 0.4 * vn(x * 0.05, 3.7))); /* the spur that closes the valley; the railway comes out of it */ Hg[idx(x, y)] = h; } }
+  let tL = now(); const lap = k => { const t = now(); plan.stage[k] = +(t - tL).toFixed(2); tL = t; }; lap('mountains');
   const H = (x, y) => Hg[idx(clamp(Math.round(x), 0, W - 1), clamp(Math.round(y), 0, L - 1))];
   const flatten = (x0, y0, w, h, m) => { let lo = 1e9; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y)) lo = Math.min(lo, Hg[idx(x, y)]);
     for (let y = y0 - m; y < y0 + h + m; y++) for (let x = x0 - m; x < x0 + w + m; x++) if (inB(x, y)) { const i = idx(x, y), dd = Math.max(x0 - x, x - (x0 + w - 1), y0 - y, y - (y0 + h - 1), 0) / (m + 1); Hg[i] = lerp(lo, Hg[i], Math.max(0, dd) * dd); } return lo; }; // a terrace: level ground round a building, easing back into the slope
@@ -3091,24 +3100,50 @@ function winterLand(o) {
     for (const s of [-1, 1]) { let y = ya + 14 + Math.round(rnd(12, s) * 10); while (y < yb - 12) { const w = 9 + ((rnd(13, y, s) * 4) | 0), h = 8 + ((rnd(14, y, s) * 3) | 0), x0 = s > 0 ? side(1, y + h / 2, 3) : side(-1, y + h / 2, 3) - w + 1;
         if (free(x0, y, w, h, 2) && H(x0 + w / 2, y + h / 2) < 14) { house(x0, y, w, h, s > 0 ? 'W' : 'E', [2, 2, 0, 6, 1][(rnd(15, y, s) * 5) | 0]); yard(s > 0 ? x0 - 1 : x0 + w, y + (h >> 1), -s, 0, K.ROAD); yard(s > 0 ? x0 - 1 : x0 + w, y + (h >> 1) - 2, -s, 0, K.ROAD); A.chalets++;
           const px = s > 0 ? x0 + w + 3 : x0 - 8; if (rnd(16, y, s) < 0.45 && free(px, y + 1, 5, 4, 1)) { const sh = addItem({ t: 'works', label: 'Woodshed', x0: px, y0: y + 1, w: 5, h: 4, ori: 'h', style: 'flat', roof: 2 }); rect(px, y + 1, 5, 4, K.BLDG, sh.id, flatten(px, y + 1, 5, 4, 1)); } y += h + 5 + ((rnd(17, y, s) * 10) | 0); } else y += 5; } } }
+  // the frozen lake on the valley floor beside the road (lake_valley), fishing huts on it, and an ice road across it (a tank route) that leaves
+  // the road at the lake's south end and joins it again at the north end
+  if (lk) { const [p0, p1] = lk, cy = (p0 + p1) / 2, ry = (p1 - p0) * 0.42, LK = plan.lake = { y0: Math.round(cy - ry), y1: Math.round(cy + ry), huts: 0, xc: [] }, xcAt = y => vx(y) + sL * 14;
+    for (let y = Math.floor(cy - ry - 2); y <= cy + ry + 2; y++) { const xc = xcAt(y), rx = 30 + 6 * vn(y * 0.03, 8.1); for (let x = Math.floor(xc - rx - 3); x <= xc + rx + 3; x++) { if (!inB(x, y)) continue; const i = idx(x, y), e = Math.hypot((x + 0.5 - xc) / rx, (y + 0.5 - cy) / ry) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.16; if (e < 1 && !reserved[i]) { Kr[i] = K.ICE; Br[i] = -86; reserved[i] = 1; Hg[i] = 0; } } }
+    const ya = Math.round(cy - ry * 0.9), yb = Math.round(cy + ry * 0.9), xl = y => { const f = smooth(ya, ya + 40, y) * (1 - smooth(yb - 40, yb, y)); return lerp(MX(y), xcAt(y), f); }, pts = [];
+    for (let y = ya; y <= yb; y++) pts.push([xl(y), y, 8]); const st = { cls: 'collector', axis: 'v', tank: true, ice: true, pts, y0: ya, y1: yb }; st.id = plan.streets.length; plan.streets.push(st);
+    for (const [xc, y] of pts) for (let x = Math.floor(xc - 4); x <= xc + 4; x++) { if (!inB(x, y)) continue; const i = idx(x, y); if (Kr[i] === K.ROAD) continue; if (Math.abs(x + 0.5 - xc) < 4) { Kr[i] = K.ROAD; Br[i] = -2 - st.id; reserved[i] = 1; Hg[i] = 0; } }
+    for (let k = 0; k < 5; k++) { const y = Math.round(lerp(cy - ry * 0.6, cy + ry * 0.6, k / 4)) + ((rnd(41, k) * 8) | 0), x = Math.round(xcAt(y) + sL * (12 + rnd(42, k) * 10)) - 2; let ok = true; for (let yy = y - 1; yy < y + 5; yy++) for (let xx = x - 1; xx < x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.ICE) ok = false;
+      if (ok) { const it = addItem({ t: 'works', label: 'Fishing hut', x0: x, y0: y, w: 4, h: 4, ori: 'h', style: 'flat', roof: 2 }); rect(x, y, 4, 4, K.BLDG, it.id); LK.huts++; } } }
+  // the throat into the boss yard (owner 1B): the spur closes the valley; two lines come out of its tunnel portals (the yard's tracks 3 and 4,
+  // x 96 and 122) and fan out on long points (about 1 in 3.3), the outer tracks first, onto the yard's eight tracks (x 18 + 26 i), which run
+  // on into the yard at the level's end. Ballast spreads between the tracks over the last rows, as in the yard. The road ends in a tunnel beside them.
+  if (th) { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
+    for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
+      TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
+      for (let y = yP; y < L; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+        for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
+          if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } }
+      if (L - 1 - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: L - 1, line: 'throat' }); }
+    for (let y = L - 72; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y), f = (y - (L - 72)) / 60; if (RM[i] === 2 || RM[i] === 3) continue; if ((!reserved[i] || Kr[i] === K.RAIL) && hh(x, y) < f) { Kr[i] = K.RAIL; Br[i] = -98; RM[i] = 1; reserved[i] = 1; Hg[i] = 0; } } // the yard's ballast spreading between the tracks (B -98: a host paints it in its yard's own colours, opts.yardPix)
+    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }, { x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+  lap('places');
   // 4. kinds: the floor stays snow; slopes become K.SLOPE, steep ones bare rock
   for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (reserved[i] || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; const h = Hg[i]; if (h < 3) continue;
     const gx = (H(x + 1, y) - H(x - 1, y)) / 2, gy = (H(x, y + 1) - H(x, y - 1)) / 2, s = Math.hypot(gx, gy); if (s > 2.1 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.9) { Kr[i] = K.CRAG; Br[i] = -70; } else Kr[i] = K.SLOPE; }
+  lap('kinds');
   // cast shadows: the light comes from the upper left, fairly high (rising 1.05 px per px); a pixel is in shadow when the ground along the ray towards
-  // the light rises above it (plan.shadeM, painted darker and bluer)
-  { const M = plan.shadeM = new Uint8Array(N); for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const h = Hg[idx(x, y)]; for (let k = 2; k < 80; k += 2) { const hx = x - k * 0.7, hy = y + k * 0.7; if (hx < 0 || hy >= L) break; if (H(hx, hy) > h + k * 1.05) { M[idx(x, y)] = 1; break; } } } }
+  // the light rises above it (the horizon height carried diagonally from the upper left) (plan.shadeM, painted darker and bluer)
+  { const M = plan.shadeM = new Uint8Array(N), hz = new Float32Array(N), drop = 1.05 * Math.SQRT2; // the horizon along the light's diagonal, carried from the upper left in one pass
+    for (let y = L - 1; y >= 0; y--) for (let x = 0; x < W; x++) { const i = idx(x, y); if (x === 0 || y === L - 1) { hz[i] = -1e9; continue; } const j = i + W - 1, v = Math.max(Hg[j], hz[j]) - drop; hz[i] = v; if (v > Hg[i]) M[i] = 1; } }
+  lap('shadows');
   // avalanche fences on the steeper snow slopes above the village, along the contour
   if (vs) for (let y = vs[0] - 20; y < vs[1] + 20; y += 9) for (let x = 4; x < W - 4; x += 11) { const xx = x + Math.round(rnd(30, x, y) * 6), yy = y + Math.round(rnd(31, x, y) * 5); if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.SLOPE || rnd(32, x, y) > 0.45) continue;
     const h = H(xx, yy), gx = (H(xx + 1, yy) - H(xx - 1, yy)) / 2, gy = (H(xx, yy + 1) - H(xx, yy - 1)) / 2, s = Math.hypot(gx, gy); if (h < 26 || h > 80 || s < 0.45) continue; const tx = -gy / s, ty = gx / s, n = 4 + ((rnd(33, x, y) * 3) | 0), seg = [];
     for (let k = -n; k <= n; k++) { const px = Math.round(xx + tx * k), py = Math.round(yy + ty * k); if (!inB(px, py) || Kr[idx(px, py)] !== K.SLOPE) break; seg.push([px, py]); } if (seg.length >= 6) plan.avalanche.push(seg); }
   // 5. snowy conifers up to the tree line, in stands; clear of buildings, lanes, the jump and the cable car's line
-  { const nearCable = (x, y) => plan.cables.some(c => { const dx = c.x1 - c.x0, dy = c.y1 - c.y0, t = clamp(((x - c.x0) * dx + (y - c.y0) * dy) / (dx * dx + dy * dy), 0, 1); return Math.hypot(x - c.x0 - dx * t, y - c.y0 - dy * t) < 9; }), all = [];
+  { const nearCable = (x, y) => plan.cables.some(c => { const dx = c.x1 - c.x0, dy = c.y1 - c.y0, t = clamp(((x - c.x0) * dx + (y - c.y0) * dy) / (dx * dx + dy * dy), 0, 1); return Math.hypot(x - c.x0 - dx * t, y - c.y0 - dy * t) < 9; }), all = [], grid = new Map();
+    const near = (x, y, r) => { for (let gy = (y >> 4) - 1; gy <= (y >> 4) + 1; gy++) for (let gx = (x >> 4) - 1; gx <= (x >> 4) + 1; gx++) { const g = grid.get(gy * 16 + gx); if (g) for (const t of g) if (Math.abs(t.x - x) < t.r + r && Math.abs(t.y - y) < t.r + r) return true; } return false; };
     for (let gy = 0; gy < L; gy += 5) for (let gx = 0; gx < W; gx += 5) { const x = gx + Math.floor(hh(gx + 7, gy) * 5), y = gy + Math.floor(hh(gy, gx * 3 + 1) * 5); if (!inB(x, y)) continue; const i = idx(x, y), k = Kr[i], h = Hg[i];
-      const stand = vn(x * 0.03 + 3, y * 0.03), p = k === K.SLOPE ? (h < 54 ? 0.15 + stand * 0.7 - h * 0.006 : 0) : k === K.MEADOW && Br[i] === -1 && h >= 1.2 ? 0.25 : 0; if (hh(x * 3, y * 5) > p) continue;
+      const stand = vn(x * 0.03 + 3, y * 0.03), fo = inF('forest', y, 60), p = k === K.SLOPE ? (h < 54 + fo * 20 ? 0.15 + stand * 0.7 - h * 0.006 + fo * 0.4 : 0) : k === K.MEADOW && Br[i] === -1 && (h >= 1.2 || fo > 0.3) ? 0.25 + fo * 0.45 : 0; /* (the forest: dense on the floor and higher up the slopes) */ if (hh(x * 3, y * 5) > p) continue;
       const r = h > 40 ? 2 : 2 + ((hh(x * 7, y) * 3) | 0); let ok = !nearCable(x, y); for (let yy = y - r - 1; ok && yy <= y + r + 1; yy++) for (let xx = x - r - 1; xx <= x + r + 1; xx++) if (!inB(xx, yy) || reserved[idx(xx, yy)] || Kr[idx(xx, yy)] === K.CRAG) { ok = false; break; }
-      if (ok && !all.some(t => Math.abs(t.x - x) < t.r + r && Math.abs(t.y - y) < t.r + r)) all.push({ x, y, r, sp: hh(x, y * 7) < 0.2 ? 1 : 0, lean: 0, rot: hh(x, y * 3) * 6.283, n: r >= 4 ? 8 : 6 }); }
+      if (ok && !near(x, y, r)) { const t = { x, y, r, sp: hh(x, y * 7) < 0.2 ? 1 : 0, lean: 0, rot: hh(x, y * 3) * 6.283, n: r >= 4 ? 8 : 6 }; all.push(t); const key = (y >> 4) * 16 + (x >> 4); let g = grid.get(key); if (!g) grid.set(key, g = []); g.push(t); } }
     for (const t of all) plan.conifers[t.r <= 2 ? 0 : t.r <= 4 ? 1 : 2].push(t); for (const cls of plan.conifers) cls.sort((p, q) => p.y - q.y || p.x - q.x); }
-  plan.stage.total = +(now() - t0).toFixed(2);
+  lap('trees'); plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
@@ -3132,6 +3167,7 @@ function stackPlans(A, B, preset) {
   plan.avalanche = (A.avalanche || []).concat((B.avalanche || []).map(s => s.map(p => [p[0], p[1] + La])));
   plan.cables = (A.cables || []).concat((B.cables || []).map(c => Object.assign(up(c), { pylons: c.pylons.map(p => [p[0], p[1] + La]) })));
   plan.alpine = B.alpine && B.alpine.y0 !== undefined ? Object.assign(up(B.alpine), B.alpine.chapel ? { chapel: up(B.alpine.chapel) } : {}) : A.alpine || null;
+  plan.lake = B.lake ? up(B.lake) : null; plan.throat = B.throat ? Object.assign(up(B.throat), { tracks: B.throat.tracks.map(t => Object.assign({}, t, { ya: t.ya + La, yb: t.yb + La })) }) : null;
   plan.parts = [{ preset: A.preset, y0: 0, y1: La - 1 }, { preset: B.preset, y0: La, y1: L - 1 }]; plan.stage = Object.assign({}, A.stage, { land: B.stage.total });
   return plan;
 }
@@ -3165,6 +3201,7 @@ function paintAlpine(plan, put, y0, h) {
 }
 // a ploughed road: the bank the plough threw up along each edge, slush inside it, the asphalt dark and wet, two worn ruts along the main road
 function snowRoadPix(plan, i, x, y, st) {
+  if (st && st.ice) { const p = st.pts[clamp(y - st.y0, 0, st.pts.length - 1)], d = Math.abs(x + 0.5 - p[0]); return d > 3 ? C.snowRoof[1] : Math.abs(d - 1.8) < 0.7 ? C.ice[2] : C.snowRoof[pickI(5, 0.62 + (hh(x, y) - 0.5) * 0.3, x, y)]; } // the ice road: packed snow on the ice, two tracks worn into it
   const { W, L, K: Kr } = plan, N = W * L, rd = j => j < 0 || j >= N || Kr[j] === K.ROAD || Kr[j] === K.BRIDGE || Kr[j] === K.STREET;
   if ((x > 0 && !rd(i - 1)) || (x < W - 1 && !rd(i + 1)) || !rd(i - W) || !rd(i + W)) return C.grass[pickI(4, 0.5 + (hh(x, y) - 0.5) * 0.7, x, y)];
   if ((x > 1 && !rd(i - 2)) || (x < W - 2 && !rd(i + 2)) || !rd(i - 2 * W) || !rd(i + 2 * W)) return C.side[pickI(3, 0.45 + (hh(x, y) - 0.5) * 0.7, x, y)];

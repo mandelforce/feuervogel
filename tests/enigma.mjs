@@ -54,8 +54,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const page = await freshPage();
   const r = await peek(page, `(() => { const out = []; for (let lv = 1; lv <= 8; lv++) { const a = buildSortie(lv, 1944), b = buildSortie(lv, 1944), c = buildSortie(lv, 5);
     let at = 0, contiguous = true; for (const s of a.segs) { if (s.start !== at || s.n < 1) contiguous = false; at += s.n; }
-    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start }); } return out; })()`);
-  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 || x.lv === 4 ? x.len + 3 : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : x.lv === 4 ? 4 : 0) && x.len === [56, 56, 58, 60, 62, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
+    out.push({ lv, same: JSON.stringify(a) === JSON.stringify(b), contiguous, sum: at === a.len, len: a.len, theme: a.theme, seed: a.seed, rng: a.rng(3) === b.rng(3) && a.rng(3) !== c.rng(3), segs: a.segs.length, bossAt: a.bossAt, gen: a.gen, seaLast: a.segs[a.segs.length - 1].start, yw: yardWait() }); } return out; })()`);
+  for (const x of r) ok(x.same && x.contiguous && x.sum && x.rng && x.bossAt === (x.lv === 6 || x.lv === 7 || x.lv === 2 ? x.len + 5 : x.lv === 3 || x.lv === 4 ? x.len + 3 : x.lv === 5 ? x.len + x.yw : x.lv === 1 || x.lv === 8 ? x.seaLast + 1 : null) && x.gen === (x.lv === 6 || x.lv === 7 ? 6 : x.lv === 2 ? 2 : x.lv === 3 ? 3 : x.lv === 4 ? 4 : x.lv === 5 ? 5 : 0) && x.len === [56, 56, 58, 60, 70, 70, 70, 56][x.lv - 1] && x.theme === [0, 2, 3, 4, 1, 5, 5, 0][x.lv - 1], `sortie level ${['1', '2', '3', '4', '5', '6', '6B', '1A'][x.lv - 1]}: ${x.segs} segments, ${x.len} chunks, theme ${x.theme}, rebuilt identically`);
   await page.close();
 }
 
@@ -447,6 +447,38 @@ for (const lv of [2, 6, 7]) {
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.boss === true, 'level 4: the castle boss comes');
   ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 4 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page.close();
+}
+
+// 3h. Level 5, The Winter Line (spec 20): one plan over the whole level (winterLine, 70 chunks) passing the hard rules: in over the frozen sea
+// (pack ice with U-boat holes and places to break through), the harbour in its bay, the farmland, then the winter land with the mountain village,
+// the lake and its ice road, the pass, and the throat whose eight tracks run on into the train boss's yard (the Campaign's bossland, theme 1),
+// whose buffer stops are left out. Types from the plan. Flown through by the bot: U-boats come up in the ice holes and break through the
+// ice, the train boss comes once the yard fills the screen, and the level returns to the picker.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), K = CityGen.K;
+    let types = 0, n = 0; for (let k = 0; k < 400; k++) { const x = (k * 37) % W, y = (k * 97) % P.L, wy = S.planY0 - y; n++; if (classify(x, wy).tt === CityGen.typeAt(P, x, y)) types++; }
+    const c0 = info(world.stageBaseP).b, pE = world.stageBaseP + S.len, past = info(pE + 1), ice = P.K.slice(0, P.W * 200).filter(k => k === K.ICE).length;
+    const tracks = YARD_T.every(x => P.RM[(P.L - 1) * P.W + x - 3] === 2 && P.RM[(P.L - 1) * P.W + x + 2] === 2), yardTT = classify(100, -(pE + 2) * CH + 20).tt;
+    return { pass: v.pass, L: P.L, want: S.len * CH, len: S.len, gen: S.gen, types, n, c0, pastB: past.b, pastTh: past.th, ice, holes: P.slots.filter(q => q.kind === 'sub' && q.on === 'ice').length, breaks: P.iceBreaks.length,
+      village: !!(P.alpine && P.alpine.chapel), lake: !!(P.lake && P.lake.huts), iceRoad: P.streets.some(st => st.ice), tracks, yardTT, stops: railEnds(pE).length, green: !!P.oldTown }; })()`);
+  ok(r.gen === 5 && r.len === 70 && r.pass && r.L === r.want, `level 5: its own ground (gen ${r.gen}), 70 chunks, the plan passes the hard rules and covers the level (${r.L} px)`);
+  ok(r.c0 === 'sea' && r.ice > 20000 && r.holes >= 2 && r.breaks >= 1, `level 5: in over the frozen sea (${r.ice} ice px in the first 200 rows, ${r.holes} U-boat holes, ${r.breaks} places to break through)`);
+  ok(r.village && !r.green && r.lake && r.iceRoad, 'level 5: the mountain village (no village green), the frozen lake with its huts and ice road');
+  ok(r.types === r.n, `level 5: ground types from the plan (${r.types}/${r.n})`);
+  ok(r.tracks && r.pastB === 'bossland' && r.pastTh === 1 && r.yardTT === 'ryard' && r.stops === 0, `level 5: the throat's eight tracks reach the level's end on the yard's tracks, the yard (ryard, theme 1) after it, without buffer stops (${r.stops})`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(5)'); const o = { status: 'ok', iceSubs: 0, breaks: 0 };
+    for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(o.bottomC === undefined ? 10 : 100);
+      if (o.bottomC === undefined) { const q = SF.peek(`({ subs: world.enemies.filter(e => e.type === 'sub' && run.sortie.planY0 - e.wy < run.sortie.plan.coast.yC).length, br: world.decals.filter(d => d.kind === 'icebreak').length })`); o.iceSubs = Math.max(o.iceSubs, q.subs); o.breaks = Math.max(o.breaks, q.br); }
+      if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH); return { bottomC: p - world.stageBaseP, len: run.sortie.len }; })()`));
+      if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'train')"); }
+    Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
+  ok(f.iceSubs >= 1 && f.breaks >= 1, `level 5: U-boats in the ice (${f.iceSubs} at once at most) and a break through the ice (${f.breaks})`);
+  ok(f.bottomC !== undefined && f.bottomC >= f.len - 1 && f.bottomC <= f.len + 2, `level 5: the train boss is called once the yard fills the screen (screen bottom at chunk ${f.bottomC}, the yard from ${f.len})`);
+  ok(f.boss === true, 'level 5: the train boss comes');
+  ok(f.slots >= 4, `level 5: guns stood in the plan's slots (${f.slots})`);
+  ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 5 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }
 

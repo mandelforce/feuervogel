@@ -77,6 +77,8 @@ CI also runs `node tests/replay.mjs --terrain --warn`, which checks only the cam
 
 Level 3 (The Long Night) has its own block: its night plan passes the generator's rules and holds the yard, airbase, forest, pylons and searchlight posts; the yard's tracks run on through the supergun's arena; ground types and pixels are the plan's; the local night rule; route objects; the weather plan's mist; the same ground after a resume; and a bot flight that meets trains and manned searchlight posts, reaches the boss and returns to the picker.
 
+Level 5 (The Winter Line) has its own block: its plan passes the generator's rules and covers 70 chunks; it begins over the frozen sea with U-boat holes and places to break through; the mountain village (no green), the frozen lake with its huts and ice road; ground types from the plan; the throat's eight tracks run onto the yard's, with the train boss's yard after them and no buffer stops. Flown by the bot: U-boats in the ice and a break through it, the train boss called once the yard fills the screen, the boss comes, and the level returns to the picker.
+
 ```
 node tests/enigma.mjs            # all checks
 node tests/enigma.mjs --bench    # also print chunk build times per level, and level 6 by template (pixel pass and features apart)

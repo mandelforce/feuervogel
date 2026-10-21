@@ -1336,3 +1336,42 @@ Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train 
 **Presets:** `mountainVillage` (520 px) in the lab instead of `villageWinter`; `winterLine` (28 chunks: frozen sea 10, harbour 5, farmland 8, mountain village 5).
 
 **Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 60 mountain villages, 30 of the level's first part) pass every hard rule; the mountains with rock, shadows and conifers; the village's parts in every plan (chapel, sawmill, cable car, at least 10 chalets on the road and one on a terrace, avalanche fences, flak and bunker) and the ski jump in all 90; no village green in the level; every earlier preset plans and paints byte for byte as on main.
+
+### 20.3 Level 5 in the game (step 3, first version)
+
+**Owner:** take the train parts and the tunnel out of the harbour; the level 68 chunks or more; then step 3 (the game). Step 2's ground (the station, the airbase, the real pass) is not built yet; as level 4's first version did, those segments get first versions or placeholders in the winter land so the level can be flown end to end.
+
+**The level:** `ENIGMA_SEQ[4]` is in chunks and **70** long (`ENIGMA_LEN[4]`): `open_sea_ice` 10, `harbour_winter` 5, `farmland_winter` 8, `village` 5, `lake_valley` 7, `station_winter` 9, `airbase_snow` 7, `forest_conifer` 7, `pass` 7, `farmland_winter` 5.
+
+**The harbour** has no quayside track and no tunnel any more (coast option `quayTrack: false`).
+
+**The winter land, the rest of the level** (one valley between mountains from the village to the level's end; features from the segments):
+- `lake_valley` (feature `lake`): the floor widens to one side, where a **frozen lake** lies (`K.ICE`, B -86, game type `ice`) with five fishing huts on it; the road skirts it; an **ice road** (a tank route along the strip, `st.ice`, packed snow with two worn tracks) leaves the road at the lake's south end, crosses the ice and joins the road again at its north end.
+- `station_winter` and `airbase_snow` (feature `plain`): the valley, until their own ground is built.
+- `forest_conifer` (feature `forest`): snowy conifers dense on the floor and higher up the slopes.
+- `pass` (feature `pass`): the valley narrows to a gorge (a floor of 13 px either side of its axis), its walls a third higher. The flight limit (owner 3A) is not built yet.
+- the last `farmland_winter` (feature `throat`, owner 1B): a **spur** of mountain closes the valley. The road ends in a tunnel in it. Two railway lines come out of **tunnel portals** in the spur (the yard's tracks 3 and 4, x 96 and 122) and fan out on long points (about 1 in 3.3, the outer tracks first) onto the yard's **eight tracks** (x 18 + 26 i). The mountains fall away behind the spur. Over the last 72 rows the yard's ballast spreads between the tracks (B -98; the game paints it in the yard's own colours, with theme 1's winter grade, `planYardColor`), so the throat runs into the yard without a seam.
+
+**Speed:** the winter land's heights take their large noise from a 2 px grid; cast shadows are one pass carrying the horizon along the light's diagonal; tree spacing uses a grid. The whole plan is built in about 1.2 to 1.4 s in Node (the town part about 0.5 s, the winter land about 0.6 s), once when the level starts. That is more than level 6 (0.5 s); trimming the town part is the next lever if a phone stalls.
+
+**In the game:**
+- **Sortie:** `gen: 5`. The boss is called as in the Campaign's stage 5, once the yard fills the screen (`bossAt`/`arcLen` = the level's length + `yardWait()`, which is `ceil(H / CH) - 1 - ceil(XH / CH)`, at least 1).
+- **Plan:** `sortiePlanLevel5` builds the `winterLine` preset over the whole level from its first chunk, from the sortie's segments.
+- **Biomes** (`SORTIE_BIOME`): the frozen sea `sea`, the harbour `city`, the farmland, the lake valley and the placeholder station and airbase `country`, the village `country`, the forest `forest`, the pass `fortline`.
+- **Past the level:** the Campaign's `bossland` with theme 1 (`ryard`), as before. In level 5 the yard's buffer stops are left out (`railEndsC`), since the throat's tracks run on into it.
+- **Ships on open water only:** `seaOK` holds for level 5 too, so destroyers, PT boats and boats never spawn on the ice.
+- **U-boats in the ice holes:** `planBerths` serves the frozen sea's holes as it serves 6B's pens (rising, firing, diving, rising again).
+- **U-boats break through the ice** (owner): `planIceBreaks` fires at each of the plan's break places once it is in the top 30 percent of the screen. Cracks spread from the spot for `ICEBRK.crack` (80) frames while the U-boat waits below, unseen and untouchable (sub state `break`); then the ice bursts into chips, a hole of open water opens (the decal `icebreak`, drawn under the units), and the U-boat rises in it and fights as in any hole.
+- **Gun slots:** level 5 fills its plan's slots as they come up (flak, artillery, bunkers), like levels 2 and 4.
+- **Fixed on the way:** that line has had a `//` comment in the middle since level 4, which hid everything after it, so levels 2 and 4 had only filled their parked-plane and AA tower slots: no flak, artillery, bunkers or dug-in tanks came from their slots. It is a `/* */` comment now, so those slots are filled as section 18.5 intended. Levels 2 and 4 get more ground guns than before. The Campaign does not use this code.
+- **Snow:** the Campaign's stage 5 snow falls the whole way for now. The weather plan (clear, light snow, snow) is step 4, after the mockups.
+
+**Tests** (`tests/enigma.mjs` 3h; the sortie table now expects level 5 with `gen 5`, 70 chunks and its `bossAt`):
+- The plan passes the hard rules and covers the level.
+- It begins over the frozen sea, with U-boat holes and places to break through.
+- The mountain village has no green; the lake has its huts and its ice road.
+- Ground types come from the plan.
+- The throat's eight tracks reach the level's end on the yard's tracks, with the yard (`ryard`, theme 1) after them and no buffer stops.
+- Flown by the bot: U-boats in the ice and a break through it; the train boss is called once the yard fills the screen; it comes; and the level returns to the picker.
+
+**Not yet:** the station and the airbase (step 2), the real pass with its viaduct, avalanche sheds and the flight limit (3A), trains on the level's own railway (its straight runs are short; the yard's supply trains run in the boss fight), convoys on the ice road (it is a tank route, so vehicles may already take it), and the weather (step 4).
