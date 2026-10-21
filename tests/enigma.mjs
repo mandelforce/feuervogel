@@ -452,33 +452,52 @@ for (const lv of [2, 6, 7]) {
 
 // 3h. Level 5, The Winter Line (spec 20): one plan over the whole level (winterLine, 70 chunks) passing the hard rules: in over the frozen sea
 // (pack ice with U-boat holes and places to break through), the harbour in its bay, the farmland, then the winter land with the mountain village,
-// the lake and its ice road, the pass, and the throat whose eight tracks run on into the train boss's yard (the Campaign's bossland, theme 1),
-// whose buffer stops are left out. Types from the plan. Flown through by the bot: U-boats come up in the ice holes and break through the
-// ice, the train boss comes once the yard fills the screen, and the level returns to the picker.
+// the lake and its ice road, the pass, and the spur whose tunnels let the four tracks out into the gorge: the plan reaches on 48 chunks past
+// the level's end as the train boss's arena (two hillside viaducts, the chasm between them; the boss code's bossland, theme 1), without buffer
+// stops. Types from the plan. Flown through by the bot: U-boats come up in the ice holes and break through the ice, the train boss comes once
+// the gorge fills the screen, its trains keep to the inner tracks of their own viaduct (stepping out to the outer track and back, never across
+// the chasm), the supply trains run on the outer tracks only, and the level returns to the picker.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), K = CityGen.K;
     let types = 0, n = 0; for (let k = 0; k < 400; k++) { const x = (k * 37) % W, y = (k * 97) % P.L, wy = S.planY0 - y; n++; if (classify(x, wy).tt === CityGen.typeAt(P, x, y)) types++; }
     const c0 = info(world.stageBaseP).b, pE = world.stageBaseP + S.len, past = info(pE + 1), ice = P.K.slice(0, P.W * P.coast.yC).filter(k => k === K.ICE).length;
-    const tracks = YARD_T.every(x => P.RM[(P.L - 1) * P.W + x - 3] === 2 && P.RM[(P.L - 1) * P.W + x + 2] === 2), yardTT = classify(100, -(pE + 2) * CH + 20).tt;
-    return { pass: v.pass, L: P.L, want: S.len * CH, len: S.len, gen: S.gen, types, n, c0, pastB: past.b, pastTh: past.th, ice, holes: P.slots.filter(q => q.kind === 'sub' && q.on === 'ice').length, breaks: P.iceBreaks.length,
+    const tracks = GORGE_T.every(x => [S.len * CH - 1, P.L - 1].every(y => P.RM[y * P.W + x - 3] === 2 && P.RM[y * P.W + x + 2] === 2)), ay = S.planY0 - (P.gorge.yb + 300), yardTT = classify(112, ay).tt + ',' + classify(68, ay).tt;
+    return { pass: v.pass, L: P.L, want: (S.len + GORGE_ARENA) * CH, len: S.len, gen: S.gen, types, n, c0, pastB: past.b, pastTh: past.th, ice, holes: P.slots.filter(q => q.kind === 'sub' && q.on === 'ice').length, breaks: P.iceBreaks.length,
       village: !!(P.alpine && P.alpine.chapel), lake: !!(P.lake && P.lake.huts), iceRoad: P.streets.some(st => st.ice), tracks, yardTT, stops: railEnds(pE).length, green: !!P.oldTown }; })()`);
-  ok(r.gen === 5 && r.len === 70 && r.pass && r.L === r.want, `level 5: its own ground (gen ${r.gen}), 70 chunks, the plan passes the hard rules and covers the level (${r.L} px)`);
+  ok(r.gen === 5 && r.len === 70 && r.pass && r.L === r.want, `level 5: its own ground (gen ${r.gen}), 70 chunks, the plan passes the hard rules and covers the level and the arena after it (${r.L} px)`);
   ok(r.c0 === 'sea' && r.ice > 60000 && r.holes >= 2 && r.breaks >= 1, `level 5: in over the frozen sea (${r.ice} px of ice before the shore, ${r.holes} U-boat holes, ${r.breaks} places to break through)`);
   ok(r.village && !r.green && r.lake && r.iceRoad, 'level 5: the mountain village (no village green), the frozen lake with its huts and ice road');
   ok(r.types === r.n, `level 5: ground types from the plan (${r.types}/${r.n})`);
-  ok(r.tracks && r.pastB === 'bossland' && r.pastTh === 1 && r.yardTT === 'ryard' && r.stops === 0, `level 5: the throat's eight tracks reach the level's end on the yard's tracks, the yard (ryard, theme 1) after it, without buffer stops (${r.stops})`);
+  ok(r.tracks && r.pastB === 'bossland' && r.pastTh === 1 && r.yardTT === 'ravine,railbridge' && r.stops === 0, `level 5: the four tracks run through the level's end to the arena's, the gorge after it (chasm and viaduct: ${r.yardTT}; bossland, theme 1), without buffer stops (${r.stops})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(5)'); const o = { status: 'ok', iceSubs: 0, breaks: 0 };
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(o.bottomC === undefined ? 10 : 100);
       if (o.bottomC === undefined) { const q = SF.peek(`({ subs: world.enemies.filter(e => e.type === 'sub' && run.sortie.planY0 - e.wy < run.sortie.plan.coast.yC).length, br: world.decals.filter(d => d.kind === 'icebreak').length })`); o.iceSubs = Math.max(o.iceSubs, q.subs); o.breaks = Math.max(o.breaks, q.br); }
       if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH); return { bottomC: p - world.stageBaseP, len: run.sortie.len, guns: [...(run.sortie.slotUsed || [])].filter(i => run.sortie.plan.slots[i].kind !== 'sub').length }; })()`));
-      if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'train')"); }
+      if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'train')");
+      if (o.boss) { const q = SF.peek(`(() => { const e = world.enemies.find(e => e.type === 'boss' && e.kind === 'train'); return { bx: e && e.trains ? e.trains.filter(t => t.on && !t.dead).map(t => [t.x, t.path ? t.path.xTop : t.x, t.path ? t.path.xBot : t.x]) : [], sx: world.enemies.filter(o => TRAIN_CARS.has(o.type) && !o.dead).map(o => Math.round(o.wx)), ammo: world.enemies.some(o => o.type === 'ammocar') }; })()`);
+        o.bossN = (o.bossN || 0) + q.bx.length; o.cross = (o.cross || 0) + q.bx.filter(b => !(b.every(x => x < 112) || b.every(x => x > 112))).length; o.inner = (o.inner || 0) + q.bx.filter(b => b[0] === 68 || b[0] === 156).length;
+        o.supN = (o.supN || 0) + q.sx.length; o.supBad = (o.supBad || 0) + q.sx.filter(x => x !== 36 && x !== 188).length; o.ammo = o.ammo || q.ammo; } }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.iceSubs >= 1 && f.breaks >= 1, `level 5: U-boats in the ice (${f.iceSubs} at once at most) and a break through the ice (${f.breaks})`);
   ok(f.bottomC !== undefined && f.bottomC >= f.len - 1 && f.bottomC <= f.len + 2, `level 5: the train boss is called once the yard fills the screen (screen bottom at chunk ${f.bottomC}, the yard from ${f.len})`);
   ok(f.boss === true, 'level 5: the train boss comes');
+  ok(f.bossN > 0 && f.cross === 0 && f.inner >= f.bossN * 0.5, `level 5: the boss trains keep to their own viaduct (${f.bossN} samples, ${f.inner} on an inner track, ${f.cross} across the chasm)`);
+  ok(f.supN > 0 && f.supBad === 0, `level 5: the supply trains run on the outer tracks only (${f.supN} car samples, ${f.supBad} elsewhere; an explosives car seen: ${!!f.ammo})`);
   ok(f.guns >= 2, `level 5: guns stood in the plan's gun slots on the way (${f.guns})`);
   ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 5 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  await page.close();
+}
+// 3h'. Level 5's gorge: what lies under a gallery's roof or in a spur's tunnel is out of reach of shots (and drawn under the roof); the
+// explosives car goes up in a blast that wrecks the car coupled to it.
+{
+  const page = await freshPage();
+  const g = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S); const q = P.gorge.gal[0], r = gorgeRoofs()[0];
+    const x = (r.x0 + r.x1) >> 1, under = roofAt(x, S.planY0 - ((q.y0 + q.y1) >> 1)), open = roofAt(68, S.planY0 - ((q.y0 + q.y1) >> 1)) || roofAt(x, S.planY0 - (q.y0 - 20));
+    const sc = Math.floor(world.scroll), wy = 120 - sc, am = G('ammocar', 36, wy, { hp: 8, hw: 6, hh: 13, score: 800, rad: 10, v: 0, cd: 999 }), bx = G('boxcar', 36, wy + 30, { hp: 8, hw: 6, hh: 13, score: 500, rad: 10, v: 0, cd: 999 });
+    world.enemies.push(am, bx); kill(am); for (const L of world.later.splice(0)) L.fn(); return { under, open, am: am.dead, bx: bx.dead || bx.dying > 0 }; })()`);
+  ok(g.under && !g.open, `level 5: a gallery covers its outer track and nothing beside it (under ${g.under}, beside ${g.open})`);
+  ok(g.am && g.bx, `level 5: the explosives car's blast wrecks the car coupled to it (${g.bx})`);
   await page.close();
 }
 

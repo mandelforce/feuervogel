@@ -3822,7 +3822,7 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -3842,7 +3842,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.41'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.42'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4001,10 +4001,25 @@ const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5
 // They run in a fixed sequence (from track -> to track, for a train moving up the yard) so the boss trains on tracks 3 and 5
 // can step out to a neighbouring track and back. Returns { i, xTop, xBot, y0, y1 }.
 const XO_P = 240, XO_A = 60, XO_L = 120, XO_SEQ = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
-function yardXover(k) {
+function yardXover(k, yard) {
+  if (!yard && gorgeArena()) return gorgeXover(k);
   const [from, to] = XO_SEQ[((k % 6) + 6) % 6];
   return { i: Math.min(from, to), xTop: YARD_T[to], xBot: YARD_T[from], y0: k * XO_P + XO_A, y1: k * XO_P + XO_A + XO_L };
 }
+// Level 5's gorge (owner: option 1, spec 20.7): four tracks on two hillside viaducts, the boss trains on the inner two (x 68, 156), the supply
+// trains on the outer two (x 36, 188). A boss train steps out to its outer track and back on crossovers within its viaduct, never across the
+// chasm; none lies under a gallery or in a spur's tunnel, or by the supply trains' bridge.
+const GORGE_T = [36, 68, 156, 188], XO_SEQ5 = [[1, 0], [0, 1], [2, 3], [3, 2]], GORGE_ARENA = 48, TRAIN_CARS = new Set(['loco', 'boxcar', 'flatcar', 'ammocar']);
+function gorgeArena() { const S = run.sortie; return !!(S && S.level === 5 && S.plan && S.plan.gorge && S.planFor === world.stageBaseP); }
+function gorgeXover(k) {
+  const [from, to] = XO_SEQ5[((k % 4) + 4) % 4], y0 = k * XO_P + XO_A, y1 = y0 + XO_L, S = run.sortie, G = S.plan.gorge, s = from < 2 ? -1 : 1, pa = S.planY0 - y1 - 24, pb = S.planY0 - y0 + 24;
+  if (pa < G.yb || G.gal.concat(G.spurs).some(q => q.s === s && q.y1 > pa && q.y0 < pb) || G.bridges.some(b => b.yb > pa && b.ya < pb)) return null;
+  return { i: Math.min(from, to), xTop: GORGE_T[to], xBot: GORGE_T[from], y0, y1 };
+}
+// what lies under a gallery's roof or in a spur's tunnel: drawn under it (drawRoofs) and out of reach of shots
+function gorgeRoofs() { const G = run.sortie.plan.gorge, Z = CityGen.GZ; return G.gal.map(q => ({ x0: Z.gal[q.s < 0 ? 0 : 1][0], x1: Z.gal[q.s < 0 ? 0 : 1][1], y0: q.y0, y1: q.y1, s: q.s })).concat(G.spurs.map(q => ({ x0: q.s < 0 ? 0 : Z.p1 - 1, x1: q.s < 0 ? Z.p0 + 1 : W - 1, y0: q.y0, y1: q.y1, s: q.s }))); }
+function roofAt(wx, wy) { if (!gorgeArena()) return false; const y = run.sortie.planY0 - wy; return gorgeRoofs().some(r => y >= r.y0 && y <= r.y1 && wx >= r.x0 && wx <= r.x1); }
+function supplyOn(x) { return world.enemies.some(o => TRAIN_CARS.has(o.type) && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -200 && o.y < H + 200); }
 const xoS = f => f * f * (3 - 2 * f);
 const RAILC = { steel: hexRGB('#c4c8d0'), sleeper: hexRGB('#3a2a1c'), deck: hexRGB('#6a4c30'), deckDark: hexRGB('#2a1e14'), ballast: ['#4a4642', '#5e5a54', '#77726a'].map(hexRGB) };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
@@ -4684,6 +4699,14 @@ SPR.boxcar = sprite(14, 28, x => {
   wheels(x, 14, 28);
   boxS(x, WOOD, 1, 0, 12, 28, 0.05);
   for (let j = 3; j < 28; j += 4) rect(x, 'rgba(20,10,4,0.5)', 1, j, 12, 1);
+  rect(x, 'rgba(255,255,255,0.18)', 7, 0, 1, 28);
+});
+// level 5's explosives car: a red van with a yellow and black band round it and a warning diamond on its roof
+SPR.ammocar = sprite(14, 28, x => {
+  wheels(x, 14, 28);
+  boxS(x, ['#3a0e0a', '#5e1810', '#8a2618', '#b0382a', '#cc5a48'], 1, 0, 12, 28, 0.05);
+  for (let j = 0; j < 12; j += 2) { rect(x, '#e8c040', 1 + j, 12, 1, 4); rect(x, '#1a1612', 2 + j, 12, 1, 4); }
+  rect(x, '#e8c040', 6, 4, 2, 2); rect(x, '#e8c040', 5, 5, 4, 1); rect(x, '#1a1612', 6, 5, 2, 1);
   rect(x, 'rgba(255,255,255,0.18)', 7, 0, 1, 28);
 });
 SPR.flatcar = sprite(14, 28, x => {
@@ -6065,7 +6088,7 @@ function pixelColor(wx, wy, rx) {
     case 'ryard': {
       const snowy = vnoise(wx * 0.05, wy * 0.04) > 0.64, ball = () => snowy && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
       // a crossover between neighbouring tracks, drawn on exactly the curve the trains follow
-      { const X = yardXover(Math.floor(wy / XO_P)); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
+      { const X = yardXover(Math.floor(wy / XO_P), true); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
         const cx = X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L), ddx = Math.round(wx - cx);
         if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 2) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; } } }
       const ti = Math.round((wx - 18) / 26), tx = 18 + ti * 26, dx = wx - tx;
@@ -6426,11 +6449,17 @@ function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({
 function planSandColor(wx, wy, y, L) { const R2 = THEME_RGB[2], f = clamp((y - (L - 128)) / 128, 0, 1);
   if (f > 0 && hash(wx * 3 + 1, wy * 5 + 2) < f * f * (3 - 2 * f)) return R2.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
   const n = vnoise(wx * 0.02, wy * 0.02), l = 0.5 + Math.sin(wx * 0.05 + n * 6 + wy * 0.09) * 0.3 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.2; return R2.wheat[pickI(5, l, wx, wy)]; }
+// Level 5's gorge: the crossovers drawn on the viaducts' decks, on exactly the curve the boss trains follow (as the yard's, in the deck's rail colours)
+function gorgeXoverPaint(a, wy0) {
+  for (let ly = 0; ly < CH; ly++) { const wy = wy0 + ly, X = gorgeXover(Math.floor(wy / XO_P)); if (!X || wy < X.y0 || wy > X.y1) continue;
+    const cx = Math.round(X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L)), sl = ((wy % 5) + 5) % 5 < 2;
+    for (let dx = -4; dx <= 4; dx++) { const c = dx === -3 || dx === 2 ? (wy & 1 ? [138, 142, 150] : [176, 180, 188]) : sl ? [90, 58, 32] : null; if (!c) continue; const o = (ly * W + cx + dx) * 4; a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; } }
+}
 function workChunk(job, rows) {
   const wy0 = -job.p * CH, a = job.img.data;
   if (job.I.plan && job.ly < CH) { // Enigma Run level 6: the settlement plan paints the chunk (buildings, trees and fires included), in bands of at least 16 rows
     const S = run.sortie, n = Math.min(CH - job.ly, Math.max(rows, 16)); CityGen.paint(S.plan, { data: a.subarray(job.ly * W * 4) }, S.planY0 - (wy0 + job.ly + n - 1), n, planPaintOpts(S));
-    job.ly += n; if (job.ly < CH) return false; }
+    job.ly += n; if (job.ly < CH) return false; if (S.level === 5 && gorgeArena()) gorgeXoverPaint(a, wy0); }
   const end = Math.min(CH, job.ly + rows);
   for (; job.ly < end; job.ly++) {
     const ly = job.ly, wy = wy0 + ly, rx = roadX(wy);
@@ -7625,10 +7654,11 @@ function sortiePlanLevel4(S) {
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
 // U-boat holes, the shore, the harbour in its bay, the farmland, then the winter land: the mountain village, the frozen lake with its ice road,
-// the valley, the snowy forest, the pass, and the spur whose portals let the railway out onto long points that fan into the train boss's
-// yard (the Campaign's bossland, theme 1, after the level; its buffer stops are left out in this level).
+// the valley, the snowy forest, the pass, and the spur whose tunnels let the four tracks out into the gorge (owner: option 1). The plan reaches
+// on past the level's end as the train boss's arena (GORGE_ARENA chunks, preset winterGorge): two hillside viaducts with the chasm between them
+// (spec 20.6, 20.7). The boss code still sees its bossland (theme 1) there.
 function sortiePlanLevel5(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'winterLine', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })) } }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })) } }); S.planC0 = 0; S.planC1 = S.len + GORGE_ARENA; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -8944,6 +8974,7 @@ function drawCarrier() {
 function spawnGround(b) {
   const sc = Math.floor(world.scroll), wy = -34 - sc, m = hpm(), r = Math.random();
   if (world.curTheme === 1 && b === 'bossland') {
+    if (gorgeArena()) return; // (level 5's gorge has no platforms: its flak stands in the parapets' refuges, yardProps)
     const g2 = YARD_PLAT[(Math.random() * YARD_PLAT.length) | 0], px = (YARD_T[g2] + YARD_T[g2 + 1]) / 2;
     if (!placeOK(px, wy, 16)) return;
     if (r < 0.45) { for (let k = 0; k < 4; k++) world.enemies.push(G(k === 3 ? 'drums' : 'crate', px + (k % 2 ? 2 : -2), wy - k * 8, { hp: 3 * m, hw: 3, hh: 3, score: 150, rad: 5 })); }
@@ -9083,6 +9114,7 @@ function spawnGround(b) {
 function yardProps(p) {
   const I = info(p); if (I.th !== 1 || I.b !== 'bossland' || info(p - 1).b !== 'bossland') return;
   const wy0 = -p * CH, m = hpm();
+  if (gorgeArena()) { const S = run.sortie; for (const q of S.plan.gorge.refuges) { const wy = S.planY0 - (q.y0 + 6); if (wy >= wy0 && wy < wy0 + CH) world.enemies.push(G('flak', q.s < 0 ? 86 : 137, wy, { keep: true, noGuard: true, ga: PI / 2, cd: rnd(60, 140) | 0, barrels: flakBarrels() })); } return; } // level 5's gorge: flak in the parapets' refuges
   YARD_PLAT.forEach((g2, i) => {
     const px = (YARD_T[g2] + YARD_T[g2 + 1]) / 2, h = hash(p * 3 + i, 717);
     if (h < 0.3) for (let k = 0; k < 4; k++) world.enemies.push(G(k === 3 ? 'drums' : 'crate', px + (k % 2 ? 2 : -2), wy0 + 14 + k * 9, { hp: 3 * m, hw: 3, hh: 3, score: 150, rad: 5, keep: true, noGuard: true }));
@@ -9668,7 +9700,8 @@ function yardInit(e) {
   e.x = W / 2; e.y = H / 2; e.hw = 100; e.hh = 120; e.supCd = 120; e.mt = 0;
   const defs = BOSS.train.parts, m = e.parts[0].maxhp / defs[0].hp;
   // the second train drives in forward, locomotive first (flip): its core leads at the top, well above the player
-  e.trains = [{ x: YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: YARD_T[5], y: H + 170, rest: 290 + BY, on: false, dead: false, mt: 0, flip: true }];
+  const gz = gorgeArena(); // (level 5's gorge: the inner track of each viaduct)
+  e.trains = [{ x: gz ? GORGE_T[1] : YARD_T[3], y: H + 170, rest: 175 + BY, on: true, dead: false, mt: 0 }, { x: gz ? GORGE_T[2] : YARD_T[5], y: H + 170, rest: 290 + BY, on: false, dead: false, mt: 0, flip: true }];
   e.parts = [];
   e.trains.forEach((t, ti) => defs.forEach((q, i) => { const hp = q.hp * m * (ti === 0 ? 1 : 0.85); e.parts.push(Object.assign({}, q, { tr: ti, lx: q.ox, ly: e.trains[ti].flip ? -146 - q.oy : q.oy, ox: 0, oy: 0, hp, maxhp: hp, ang: PI / 2, cd: 60 + i * 19 + ti * 30, hit: 0, dead: ti > 0, off: ti > 0, hw: q.hw || (q.k === 'main' ? 9 : 5), hh: q.hh || (q.k === 'main' ? 9 : 5) })); }));
 }
@@ -9687,7 +9720,7 @@ function yardMove(e, t) {
   if (!t.path && t.ready && Math.random() < 0.03) {
     const wTop = t.y - 170 - sc, busy = yardBusy(e, t);
     for (let k = Math.floor(wTop / XO_P); k >= Math.floor(wTop / XO_P) - 2 && !t.path; k--) {
-      const X = yardXover(k); if (!X || X.y1 > wTop - 4 || X.xBot !== t.x || busy.has(X.xTop)) continue;
+      const X = yardXover(k); if (!X || X.y1 > wTop - 4 || X.xBot !== t.x || busy.has(X.xTop) || (gorgeArena() && supplyOn(X.xTop))) continue;
       t.path = { y0: X.y0, y1: X.y1, xTop: X.xTop, xBot: X.xBot };
     }
   }
@@ -9695,13 +9728,16 @@ function yardMove(e, t) {
 function yardSupport(e) {
   const busy = yardBusy(e, null), fromTop = Math.random() < 0.5;
   // keep supply trains off the tracks right next to the boss trains, so they don't soak up every shot aimed at the boss
-  const free = YARD_T.filter(x => ![...busy].some(b => Math.abs(b - x) < 30) && !world.enemies.some(o => (o.type === 'loco' || o.type === 'boxcar' || o.type === 'flatcar') && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -160 && o.y < H + 220));
+  const gz = gorgeArena(); // (level 5's gorge: the outer tracks only; a train may carry an explosives car)
+  const free = (gz ? [GORGE_T[0], GORGE_T[3]] : YARD_T).filter(x => ![...busy].some(b => Math.abs(b - x) < 30) && !world.enemies.some(o => TRAIN_CARS.has(o.type) && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -160 && o.y < H + 220));
   if (!free.length) return;
   const wx = free[(Math.random() * free.length) | 0], sc = Math.floor(world.scroll), m2 = hpm(), tid = ++world.trainId, n = 2 + ((Math.random() * 2) | 0);
   world.trainLeft[tid] = n + 1; trainBonus[tid] = 1500 * (n + 1);
   const up = !fromTop, v = up ? -1.2 : 0.6, wy = up ? H + 30 - sc : -40 - sc, dir = up ? 1 : -1;
   world.enemies.push(G('loco', wx, wy, { train: tid, diesel: Math.random() < 0.4, hp: 16 * m2, hh: 20, v, up }));
-  for (let k = 0; k < n; k++) { const flak = Math.random() < 0.5; world.enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy + dir * (36 + k * 30), { train: tid, hp: (flak ? 10 : 8) * m2, hw: 6, hh: 13, score: flak ? 700 : 500, rad: 10, v, up, ga: up ? -PI / 2 : PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
+  const ammo = gz && Math.random() < 0.45 ? (Math.random() * n) | 0 : -1;
+  for (let k = 0; k < n; k++) { if (k === ammo) { world.enemies.push(G('ammocar', wx, wy + dir * (36 + k * 30), { train: tid, hp: 8 * m2, hw: 6, hh: 13, score: 800, rad: 10, v, up, ga: up ? -PI / 2 : PI / 2, cd: 999 })); continue; }
+    const flak = Math.random() < 0.5; world.enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy + dir * (36 + k * 30), { train: tid, hp: (flak ? 10 : 8) * m2, hw: 6, hh: 13, score: flak ? 700 : 500, rad: 10, v, up, ga: up ? -PI / 2 : PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
   sfx('whistle');
 }
 // Winter Wolf, "Wolf Pack": at 70% and 35% of a train's core it howls, raises its rocket rack and ripples six rockets that climb,
@@ -10257,6 +10293,7 @@ const BOSSMOVE = {
       p.ox = P.x + p.lx * c - d * sn - e.x; p.oy = t.y + vc + p.lx * sn + d * c - e.y;
     }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
+    if (gorgeArena()) for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead) o.untarget = roofAt(o.x, o.wy); // under a gallery or in a tunnel
     if (A.ready) wolfPack(e);
     // during the fight, shots fly over the crate stacks and sheds on the platforms beside the boss tracks (they soaked up most shots)
     if (gf % 20 === 0) for (const o of world.enemies) if ((o.type === 'crate' || o.type === 'drums' || (o.type === 'bldg' && o.bk === 'shed')) && !o.untarget) o.untarget = true;
@@ -10301,6 +10338,7 @@ const BOSS_FIGHT = {
   },
   train: {
     holdFire(e, py) { return py < 6 || py > H - 30 || e.trains.some(t => t.pack) ? 20 : 0; },
+    shielded(e, p) { return gorgeArena() && roofAt(e.x + p.ox, e.y + p.oy - Math.floor(world.scroll)); }, // (level 5's gorge: under a gallery or in a tunnel)
     coreFire(e, p, px, py, core, others, sp, mz) {
       const angry = others <= 2 || p.hp < p.maxhp * 0.5;
       p.cd = Math.round((angry ? 70 : 100) * fireSlow());
@@ -10706,6 +10744,7 @@ const ENT = {
   } },
   loco: { medals: 1, stats: { hw: 7, score: 1500, rad: 12 }, update(e) { trainMove(e); if (e.diesel) { if (gf % 6 === 0) for (const sx of [-2, 4]) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + sx, y: e.y - 4, vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.4, r: rnd(1.5, 2.5), life: 30, max: 30 }); return; } if (gf % 4 === 0) { const life = (rnd(40, 60)) | 0; world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-1, 1), y: e.y + 16, vx: rnd(-0.15, 0.15), vy: world.scrollV - 0.55, r: rnd(2.5, 4), life, max: life }); } } },
   boxcar: { medals: 2, update(e) { trainMove(e); } },
+  ammocar: { medals: 2, update(e) { trainMove(e); } },
   flatcar: { turret: true, medals: 0.6, update(e) {
     trainMove(e);
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
@@ -11387,6 +11426,9 @@ const DEATHS = {
     },
   },
   boxcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
+  // the explosives car goes up in a big blast that wrecks the cars next to it (and, in step 3, sets off the cornice above it)
+  ammocar: { blast: 40, wreck(e) { DEATHS.loco.wreck(e); feel.shake = Math.max(feel.shake, 8); sfx('bigboom'); haptic('big'); for (let i = 0; i < 3; i++) world.later.push({ at: gf + 3 + i * 4, fn: () => boom(e.x + rnd(-10, 10), e.y + rnd(-14, 14), 26, 'g') });
+    world.later.push({ at: gf + 6, fn: () => { for (const o of world.enemies) if (o !== e && !o.dead && !o.dying && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 44) damage(o, 40); } }); } },
   flatcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
   hangar: {
     blast: 34,
@@ -11958,6 +12000,12 @@ function updParts() {
 }
 
 /* ================= render ================= */
+// Level 5's gorge: the galleries' roofs and the rock spurs drawn again over the trains under them (the plan's own pixels, from the painted chunks)
+function drawRoofs() {
+  if (!gorgeArena()) return; const S = run.sortie, sc = Math.floor(world.scroll);
+  for (const r of gorgeRoofs()) { const t = S.planY0 - r.y1, b = S.planY0 - r.y0 + 1; if (b + sc < 0 || t + sc > H) continue;
+    for (let k = Math.floor(t / CH); k <= Math.floor((b - 1) / CH); k++) { const c = world.chunks.get(-k); if (!c) continue; const y0 = Math.max(t, k * CH), y1 = Math.min(b, k * CH + CH); if (y1 > y0) ctx.drawImage(c, r.x0, y0 - k * CH, r.x1 - r.x0 + 1, y1 - y0, r.x0, y0 + sc, r.x1 - r.x0 + 1, y1 - y0); } }
+}
 function drawGround() {
   const sc = Math.floor(world.scroll);
   const kTop = Math.floor(-sc / CH), kBot = Math.floor((H - 1 - sc) / CH);
@@ -12285,8 +12333,9 @@ const LOOKS = {
   casemate(e, fl) { spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); },
   aatower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } },
   search(e, fl) { spr(SPR.searchBase, e.x, e.y, fl); },
-  loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.diesel ? SPR.locoD : SPR.loco; if (e.up) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
+  loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.type === 'ammocar' ? SPR.ammocar : e.diesel ? SPR.locoD : SPR.loco; if (e.up) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
   boxcar(e, fl) { LOOKS.loco(e, fl); },
+  ammocar(e, fl) { LOOKS.loco(e, fl); },
   flatcar(e, fl) { spr(SPR.flatcar, e.x, e.y, fl); if (!e.turDead) spr(SPR.flakGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 3); },
   parked(e, fl) {
     if (e.taxi > 0) prop(e.x, e.y, e.hd, 4);
@@ -12873,6 +12922,7 @@ function renderMain() {
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
+  drawRoofs();
   drawWreck(true);
   drawCritters();
   drawCanopy();
