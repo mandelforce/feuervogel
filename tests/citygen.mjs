@@ -250,7 +250,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     if (preset === 'winterLine') { const W = p.W, seen = new Uint8Array(p.K.length), st = []; for (let x = 0; x < W; x++) { seen[x] = 1; st.push(x); } // flood the frozen sea from the level's first row
       while (st.length) { const i = st.pop(), x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < p.K.length && !seen[j] && (p.K[j] === CG.K.SEA || p.K[j] === CG.K.ICE)) { seen[j] = 1; st.push(j); } }
       let met = 0; for (let y = p.coast.hy0; y < p.coast.hy1; y++) for (let x = 0; x < W; x++) if (seen[y * W + x]) met++; need(!met, `winterLine ${seed}: the frozen sea meets the harbour's water`);
-      need(!p.oldTown && p.parts && p.parts[1].y0 === (10 + 5 + 8) * 64, `winterLine ${seed}: no village green, the mountain land joined after the farmland`); }
+      need(!p.oldTown && p.parts && p.parts[1].y0 === (18 + 5 + 8) * 64, `winterLine ${seed}: no village green, the mountain land joined after the farmland`); }
     if (preset === 'mountainVillage' || preset === 'winterLine') { const A = p.alpine;
       need(count(p, CG.K.SLOPE) > 8000 && count(p, CG.K.CRAG, -70) > 100 && p.shadeM && p.shadeM.some(v => v) && p.conifers.reduce((a, k) => a + k.length, 0) > 40, `${preset} ${seed}: the mountains, their shadows and conifers`);
       need(A && A.chapel && A.sawmill && A.cable && A.chalets >= 10 && A.terraces >= 1 && p.avalanche.length >= 3 && p.cables.length === 1 && p.slots.some(q => q.kind === 'flak') && p.slots.some(q => q.kind === 'bunker'), `${preset} ${seed}: the village's parts ${JSON.stringify(A)}`);
@@ -276,7 +276,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // painting in bands equals painting whole.
 { let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('gorge: ' + m); } }, ms = [], tot = { gal: 0, spurs: 0, corn: 0, over: 0, br: 0 };
   const hsh = d => { let x = 2166136261; for (let i = 0; i < d.length; i++) { x ^= d[i]; x = Math.imul(x, 16777619); } return x >>> 0; };
-  for (let seed = 1; seed <= 12; seed++) { const t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge' }); ms.push(performance.now() - t0); const v = CG.validate(p), G = p.gorge, W = p.W, Lr = 70 * 64;
+  for (let seed = 1; seed <= 12; seed++) { const t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge' }); ms.push(performance.now() - t0); const v = CG.validate(p), G = p.gorge, W = p.W, Lr = 78 * 64;
     need(v.pass, `seed ${seed}: a hard rule fails`); if (!G) { need(false, `seed ${seed}: no gorge`); continue; }
     const at = (x, y) => y * W + x, Kr = p.K, Br = p.B, K = CG.K;
     need(p.L === Lr + 48 * 64 && G.y1 === p.L - 1, `seed ${seed}: the arena is not 48 chunks past the level's end`);

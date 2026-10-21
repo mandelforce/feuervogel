@@ -597,13 +597,13 @@ PRESETS.mountainVillage = Object.assign({}, PRESETS.town, { label: 'Winter Line:
 // Enigma Run level 5 as one plan (winterLine; params.segs: the sortie's segments, { t, n } in chunks of 64 px): the frozen sea to its shore at the end of
 // open_sea_ice, the harbour in its bay (the side coast swings in only well past the shore, so the frozen sea and the harbour never meet), the
 // farmland (a town plan), then the mountains rise and the mountain village lies in their valley (winterLand, joined on top). (Step 1: up to the village.)
-PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 4480,
-  segs: [{ t: 'open_sea_ice', n: 10 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
+PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 4992,
+  segs: [{ t: 'open_sea_ice', n: 18 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
 // Mockup (owner, options 3 and 2): level 5 with the finale over the gorge onto the frozen lake, the boss's yard on the ice (48 chunks of arena: the boss fight scrolls on)
-PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 7552 });
+PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 8064 });
 // Level 5 with its finale (owner: option 1): the two lines run on into a deep gorge, one double-track hillside viaduct on each wall, the chasm
 // between them, avalanche galleries, tunnel spurs, cornices and the supply trains' bridge (48 chunks of arena: the boss fight scrolls on)
-PRESETS.winterGorge = Object.assign({}, PRESETS.winterLine, { label: 'Level 5: the gorge finale (two hillside viaducts)', finale: 'gorge', arena: 48, L: 7552 });
+PRESETS.winterGorge = Object.assign({}, PRESETS.winterLine, { label: 'Level 5: the gorge finale (two hillside viaducts)', finale: 'gorge', arena: 48, L: 8064 });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -3418,7 +3418,7 @@ function winterize(plan) {
 function freezeSea(plan) {
   const { W, L, K: Kr, B: Br } = plan, CO = plan.coast, seed = plan.seed | 0, TI = 4300;
   const rnd = (a, b = 0, c = 0) => h32(h32(seed, TI + a), h32(b | 0, c | 0)) / 4294967296;
-  const ys = x => CO.ycol[clamp(Math.round(x), 0, W - 1)], yS0 = ys(W >> 1), YD = Math.max(60, yS0), pk = (plan.P.coast && plan.P.coast.pack) || 0.44, /* pk: the pack's share of the frozen sea, out from the shore */ nH = clamp(Math.round(YD * pk / 80), 2, 4), /* holes: more in a longer pack */ fast = x => 10 + 12 * vn(x * 0.04 + 3, 7.7);
+  const ys = x => CO.ycol[clamp(Math.round(x), 0, W - 1)], yS0 = ys(W >> 1), YD = Math.max(60, yS0), pk = (plan.P.coast && plan.P.coast.pack) || 0.44, /* pk: the pack's share of the frozen sea, out from the shore */ nH = clamp(Math.round(YD * pk / 80), 2, 4), /* a short pack: holes at random places, more in a longer one */ fast = x => 10 + 12 * vn(x * 0.04 + 3, 7.7);
   // two jittered grids: large pack plates near the shore, smaller floes out at sea; worley(g, x, y) -> the two nearest centres
   const grid = (G, tag) => { const nx = Math.ceil(W / G) + 2, ny = Math.ceil((yS0 + 30) / G) + 2, cx = new Float32Array(nx * ny), cy = new Float32Array(nx * ny);
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const q = j * nx + i; cx[q] = (i - 1 + 0.08 + rnd(tag, i, j) * 0.84) * G; cy[q] = (j - 1 + 0.08 + rnd(tag + 1, i, j) * 0.84) * G; } return { G, nx, ny, cx, cy, tag }; };
@@ -3442,10 +3442,19 @@ function freezeSea(plan) {
   // holes for the U-boats: 2 or 3 in the pack, each long enough for one to surface
   const fits = (x0, y0, rx, ry) => { for (let y = y0 - ry - 2; y <= y0 + ry + 2; y++) for (let x = x0 - rx - 2; x <= x0 + rx + 2; x++) if (!icy(x, y)) return false; return true; }, far = (x, y, d) => P.holes.concat(plan.iceBreaks).every(h => Math.hypot(h.x - x, (h.y - y) * 0.6) > d);
   const cover = (x0, y0, rx, ry) => { let n = 0, m = 0; for (let y = y0 - ry; y <= y0 + ry; y++) for (let x = x0 - rx; x <= x0 + rx; x++) { m++; if (icy(x, y)) n++; } return n / m; }; // a break needs pack, not a whole plate
-  for (let a = 0; a < 320 && P.holes.length < nH; a++) { const x = Math.round(28 + rnd(11, a) * (W - 56)), y = Y(0.08 + rnd(12, a) * (pk - 0.14)) - 16; if (!(a < 160 ? fits(x, y, 11, 30) : cover(x, y, 13, 32) > 0.86) || !far(x, y, 56)) continue; // (a second pass takes pack with a few open cracks)
-    P.holes.push({ x, y }); for (let yy = y - 34; yy <= y + 34; yy++) for (let xx = x - 14; xx <= x + 14; xx++) { const e = Math.hypot((xx + 0.5 - x) / 11, (yy + 0.5 - y) / 30) + (vn(xx * 0.4, yy * 0.4) - 0.5) * 0.16; if (!icy(xx, yy) && e >= 1) continue; const i = yy * W + xx; if (e < 1) { Kr[i] = K.SEA; Br[i] = -1; } else if (e < 1.18) Br[i] = -83; }
-    plan.slots.push({ kind: 'sub', on: 'ice', x, y, r: 11, id: plan.slots.length }); }
-  for (let a = 0; a < 160 && plan.iceBreaks.length < nH + 1; a++) { const x = Math.round(28 + rnd(13, a) * (W - 56)), y = Y(0.08 + rnd(14, a) * (pk - 0.12)) - 12; if (cover(x, y, 8, 25) > 0.9 && far(x, y, 46)) plan.iceBreaks.push({ x, y }); } // where one can break through (the game)
+  const carve = (x, y) => { for (let yy = y - 34; yy <= y + 34; yy++) for (let xx = x - 14; xx <= x + 14; xx++) { const e = Math.hypot((xx + 0.5 - x) / 11, (yy + 0.5 - y) / 30) + (vn(xx * 0.4, yy * 0.4) - 0.5) * 0.16; if (!icy(xx, yy) && e >= 1) continue; const i = yy * W + xx; if (e < 1) { Kr[i] = K.SEA; Br[i] = -1; } else if (e < 1.18) Br[i] = -83; } }; // a hole of open water edged with new ice
+  // the U-boats come one band at a time, 130 to 150 px apart along the pack from its seaward edge towards the shore: a break, a hole, then mostly breaks (surprises)
+  const KINDS = ['break', 'hole', 'break', 'break', 'hole', 'break', 'break'], y0B = Y(pk) + 40, y1B = Y(0.06), gapB = clamp((y1B - y0B) / (KINDS.length - 1), 130, 150);
+  if (YD * pk < 500) { // a short pack (the lab's small frozen sea): a few holes and breaks at random places
+    for (let a = 0; a < 320 && P.holes.length < nH; a++) { const x = Math.round(28 + rnd(11, a) * (W - 56)), y = Y(0.08 + rnd(12, a) * (pk - 0.14)) - 16; if (!(a < 160 ? fits(x, y, 11, 30) : cover(x, y, 13, 32) > 0.86) || !far(x, y, 56)) continue;
+      P.holes.push({ x, y }); carve(x, y); plan.slots.push({ kind: 'sub', on: 'ice', x, y, r: 11, id: plan.slots.length }); }
+    for (let a = 0; a < 160 && plan.iceBreaks.length < nH + 1; a++) { const x = Math.round(28 + rnd(13, a) * (W - 56)), y = Y(0.08 + rnd(14, a) * (pk - 0.12)) - 12; if (cover(x, y, 8, 25) > 0.9 && far(x, y, 46)) plan.iceBreaks.push({ x, y }); } }
+  else KINDS.forEach((kind, k) => { const yb = y0B + k * gapB; if (yb > y1B + 10) return;
+    for (let a = 0; a < 90; a++) { const x = Math.round(28 + rnd(11 + (kind === 'hole' ? 0 : 2), k * 97 + a) * (W - 56)), y = Math.round(yb + (rnd(12, k * 97 + a) - 0.5) * 24); // (a pass for the long hole, then one for pack with a few open cracks)
+      if (kind === 'hole') { if (!(a < 45 ? fits(x, y, 11, 30) : cover(x, y, 13, 32) > 0.86) || !far(x, y, 56)) continue;
+        P.holes.push({ x, y }); carve(x, y);
+        plan.slots.push({ kind: 'sub', on: 'ice', x, y, r: 11, id: plan.slots.length }); break; }
+      if (cover(x, y, 8, 25) > 0.9 && far(x, y, 46)) { plan.iceBreaks.push({ x, y }); break; } } }); // (a break: where one can break through, the game)
   const nearHole = (x, y) => P.holes.concat(plan.iceBreaks).some(h => Math.hypot((x - h.x) / 16, (y - h.y) / 36) < 1);
   // leads: long channels of open water across the pack, edged with new ice (clear of the holes)
   for (let k = 0; k < (YD > 220 ? 2 : 1); k++) { const yL = Y(0.12 + 0.17 * k + rnd(5, k) * 0.08), sl = (rnd(6, k) - 0.5) * 0.36, ph = rnd(7, k) * 6.283, w0 = 5 + rnd(8, k) * 4; P.leads.push({ y: yL, sl });
@@ -3461,7 +3470,7 @@ function winterLine(o) {
   const yS = sea[1] - 6, hy0 = Math.max(hb[0] + 120, yS + 180), hy1 = Math.max(hy0 + 180, hb[1] + 40), mid = (hy0 + hy1) / 2;
   const dens = [[0, 0.01], [f(yS + 50), 0.02], [f(mid), 0.3], [f(hy1 + 110), 0.01], [1, 0.01]].sort((a, b) => a[0] - b[0]);
   const params = Object.assign({}, o.params, { L, density: dens, damage: 0.3, damageCurve: [[0, 0.2], [f(mid), 0.8], [f(hy1 + 200), 0.3], [1, 0.3]], farms: 0.1, oldTown: null,
-    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.5, cs: 1, at: [hy0 / L, hy1 / L], bay: 40, quayTrack: false } }); // (owner: no quayside track or tunnel in the winter harbour)
+    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.78, cs: 1, at: [hy0 / L, hy1 / L], bay: 40, quayTrack: false } }); // (owner: no quayside track or tunnel in the winter harbour)
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
@@ -6547,7 +6556,8 @@ function workChunk(job, rows) {
   for (; job.ly < end; job.ly++) {
     const ly = job.ly, wy = wy0 + ly, rx = roadX(wy);
     const band = world.blendFrom !== world.blendTo && (world.blendFrom === 1 || world.blendTo === 1), bf = clamp((world.blendY - wy) / 220 + 0.5, 0, 1);
-    for (let wx = 0; wx < W; wx++) { let col = pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1; if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
+    const preSea = job.I.th === 1 && !band && run.sortie && run.sortie.level === 5 && run.sortie.plan && run.sortie.planFor === world.stageBaseP && run.sortie.planY0 - wy < 0; // level 5 before the plan: the plan's own sea goes on, same texture and palette, no winter grade
+    for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
     if (!job.painted) { job.painted = true; job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
@@ -7564,14 +7574,14 @@ const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B', '1A'], ENIGMA_N = ENIG
 function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
-const ENIGMA_LEN = [56, 56, 58, 60, 70, 70, 70, 56]; // (level 5: 70, owner: the frozen sea 10 chunks, the level at least 68) // chunks before the open-ended boss arena (the Campaign is about 48)
+const ENIGMA_LEN = [56, 56, 58, 60, 78, 70, 70, 56]; // (level 5: 78, the frozen sea 18 chunks) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
   [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 4], ['coast_down', 1], ['open_sea', 4]], // owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
   [['harbour_commercial', 4], ['beach_town', 3], ['valley', 7], ['village', 4], ['station_junction', 6], ['desert_open', 4], ['airbase_desert', 6], ['pass', 7], ['desert_open', 7]],
   [['beach_fortified', 3], ['industrial_power', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6], ['station_marshalling', 7]], // 3: the yard right before the boss (owner)
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
-  [['open_sea_ice', 10], ['harbour_winter', 5], ['farmland_winter', 8], ['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7], ['pass', 7], ['farmland_winter', 5]], // 5: weights in chunks (70); the frozen sea 10 (owner)
+  [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8], ['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7], ['pass', 7], ['farmland_winter', 5]], // 5: weights in chunks (78); the frozen sea 18, the U-boats spread along it
   [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]],
   [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]], // 6B: in over the sea to the south harbour (with the east harbour beside it)
   null // 1A: level 1's sequence (filled in below)
