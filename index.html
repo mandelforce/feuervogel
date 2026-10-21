@@ -3590,7 +3590,7 @@ function winterLand(o) {
     { let s = rnd(62) < 0.5 ? -1 : 1; for (let y = z0 + 160 + ((rnd(61) * 120) | 0); y < z1 - 80; y += 420 + ((rnd(63, y) * 220) | 0)) { if (busyB(y, 50) || busyB(y + 60, 50)) continue; G.spurs.push({ s, y0: y, y1: y + 44 + ((rnd(64, y) * 16) | 0) }); s = -s; } }
     for (const s of [-1, 1]) { let y = z0 + ((rnd(65, s + 2) * 80) | 0), open = true;
       while (y < z1) { if (open) { const n = 90 + ((rnd(66, y, s + 2) * 90) | 0), mid = Math.round(y + n / 2); if (mid + 18 < L && !busyB(mid, 34) && !busyS(s, mid, 34)) G.corn.push({ s, y: mid, half: 14, over: 0 }); y += n; }
-        else { const n = 60 + ((rnd(67, y, s + 2) * 50) | 0); let ok = y + n < z1; for (let yy = y; ok && yy <= y + n; yy += 4) if (busyB(yy, 30) || busyS(s, yy, 14)) ok = false;
+        else { const n = 60 + ((rnd(67, y, s + 2) * 50) | 0); let ok = y + n < z1 && !busyB(y + n, 30) && !busyS(s, y + n, 14); for (let yy = y; ok && yy <= y + n; yy += 4) if (busyB(yy, 30) || busyS(s, yy, 14)) ok = false;
           if (ok) { G.gal.push({ s, y0: y, y1: y + n }); if (rnd(68, y, s + 2) < 0.5) G.corn.push({ s, y: y + (n >> 1), half: 14, over: 1 }); } y += n; }
         open = !open; } }
     { let s = -1; for (let y = z0 + 40; y < z1 - 20; y += 150 + ((rnd(69, y) * 70) | 0)) { if (!busyB(y, 24) && !busyS(s, y, 24)) G.refuges.push({ s, y0: y, y1: y + 12 }); s = -s; } }
