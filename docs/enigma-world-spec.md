@@ -1377,3 +1377,11 @@ Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train 
 **Gun positions are few for now:** the plan has 7 gun slots (the harbour's mole and roofs, the village's flak and bunker, the mountain station's flak); a bot flight filled 2. The station, the airbase and the pass (step 2) are where most of the level's guns will stand.
 
 **Not yet:** the station and the airbase (step 2), the real pass with its viaduct, avalanche sheds and the flight limit (3A), trains on the level's own railway (its straight runs are short; the yard's supply trains run in the boss fight), convoys on the ice road (it is a tank route, so vehicles may already take it), and the weather (step 4).
+
+### 20.4 Mockup: a viaduct over a gorge, the boss yard on the frozen lake (owner: options 3 and 2 combined)
+
+The owner asked how to make the last part and the train boss unlike level 3's yard (the fight may change), and for a mockup of option 3 (a viaduct over a gorge before the yard) with option 2 (the yard on the frozen lake; precedent: the railway over the ice of Lake Ladoga, 1941–42). Published as "Winter Line Finale" (generator ground and frames from the real game, the bot flying a scratch copy).
+
+**In the generator** (switchable, not used by level 5 yet): `winterLine`'s `finale: 'iceYard'` with `arena` chunks (preset `winterFinale`, 48 chunks of arena, because the boss fight keeps scrolling). Below the spur the two lines cross a **gorge** (level 2's ravine painter in grey rock, `C_WINTER.rock`) on a **double-track stone viaduct** (`K.RBRIDGE`, B -22, `plan.viaduct2`: parapets with pier refuges, snow on its deck, its shadow in the gorge), fan out on points of about 1 in 2.4 onto the yard's eight tracks, and run onto the **lake ice** (`K.ICE`, B -87), sleepers and rails on the ice (`K.RAIL`, B -99), drift ridges and refrozen shell holes between the tracks. Level 5 and every earlier preset are unchanged (checked).
+
+**To build it in the game:** the plan reaches on past the level's end (`planC1 = len + arena`) and paints the arena while the boss code keeps its `bossland`; crossovers painted on the ice where the trains switch tracks; supply sledges in place of the platforms; and the owner's choice of fight changes (sinking wrecks, bombs breaking the ice and blocking tracks, the ice cracking under the boss, ski troops and flak sledges).

@@ -599,6 +599,8 @@ PRESETS.mountainVillage = Object.assign({}, PRESETS.town, { label: 'Winter Line:
 // farmland (a town plan), then the mountains rise and the mountain village lies in their valley (winterLand, joined on top). (Step 1: up to the village.)
 PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 4480,
   segs: [{ t: 'open_sea_ice', n: 10 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
+// Mockup (owner, options 3 and 2): level 5 with the finale over the gorge onto the frozen lake, the boss's yard on the ice (48 chunks of arena: the boss fight scrolls on)
+PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 7552 });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -2202,8 +2204,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
         case K.WORKS: { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && (Kr[j] === K.MEADOW || Kr[j] === K.FIELD || Kr[j] === K.GARDEN || Kr[j] === K.COURT)); // a cinder yard with oil stains, fenced where it meets open ground
           c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
-        case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
-        case K.RBRIDGE: { const m = RMx[i]; if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
+        case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } if (Br[i] === -99) { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : hh(x, y) < 0.55 ? C.snowRoof[pickI(5, 0.7 + (hh(y, x) - 0.5) * 0.3, x, y)] : icePixK(plan, x, y, -87); break; } /* a track on the ice: sleepers and rails, snow drifted between them */ const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
+        case K.RBRIDGE: { const m = RMx[i]; if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
           if (plan.shore) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
@@ -2241,7 +2243,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.WADI: { const t = -Br[i]; c = t === 91 ? C.spoil[1] : t === 92 ? C.spoil[2] : hh(x, y) < 0.12 ? C.spoil[1] : hh(x + 7, y) < 0.06 ? C.spoil[4] : C.dune[pickI(5, 0.62 + Math.sin(x * 0.6 + y * 0.2) * 0.15, x, y)]; break; } // a dry riverbed: pebbly sand between low banks
         case K.RAVINE: { const rv = plan.ravines.find(q => y >= q.y0 - 4 && y <= q.y1 + 4), tp = rv.top(x), bt = rv.bot(x), t = (tp - y) / Math.max(1, tp - bt); // a deep ravine: the far wall's face, lit at its rim and darkening with depth in strata, the black floor far below, the near lip in shadow
           if (t < 0.05) c = C.rock[5]; else if (t < 0.46) { const q = (t - 0.05) / 0.41, col = vn(x * 0.25, 3 + rv.s) > 0.6 ? 1 : 0; c = ((y + (x >> 2)) % 3 === 0) ? C.rock[Math.max(0, 3 - Math.round(q * 4) - col)] : C.rock[clamp(Math.round(4.2 - q * 4.6 - col + bay(x, y) * 0.9), 0, 4)]; } // the far wall's face: lit at the rim, strata and buttresses, darkening downward
-          else if (t < 0.88) { const q = (t - 0.46) / 0.42; c = C.deep[clamp(Math.round(2.4 - q * 3 + (vn(x * 0.2, y * 0.3) - 0.5) * 1.2 + bay(x, y) * 0.8), 0, 3)]; } else c = t < 0.95 ? C.deep[1] : C.rock[2]; break; } // the depths, black at the bottom; the near lip in shadow
+          else if (t < 0.88) { const q = (t - 0.46) / 0.42; c = C.deep[clamp(Math.round(2.4 - q * 3 + (vn(x * 0.2, y * 0.3) - 0.5) * 1.2 + bay(x, y) * 0.8), 0, 3)]; } else c = t < 0.95 ? C.deep[1] : C.rock[2]; { const V = plan.viaduct2; if (V) { if (((y - V.y0) % 18) < 4 && (x === V.x0 - 1 || x === V.x0 - 2 || x === V.x1 + 1 || x === V.x1 + 2)) c = x < V.x0 ? C.stone[3] : C.stone[1]; else if (x > V.x1 && x <= V.x1 + 7 && t > 0.08) c = C.deep[0]; } } break; } // the depths (and a viaduct's shadow down into them), black at the bottom; the near lip in shadow
         case K.OASIS: c = C.dirt[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.5 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3, x, y)]; break; // the watered ground of an oasis
         case K.ORCHARD: if (plan.P.climate === 'desert') { c = ((x + y * 3) % 7 === 0) ? C.field.hedge[0] : C.field.soil[pickI(4, 0.55 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; } // a palm grove: watered earth, irrigation channels
           c = (hh(x, y) < 0.02) ? C.field.wheat[4] : C.field.grass[pickI(5, 0.62 + (vn(x * 0.09, y * 0.09) - 0.5) * 0.35, x, y)]; break; // mown meadow, a few flowers
@@ -3387,6 +3389,7 @@ const C_WINTER = Object.assign({}, C_FOREST, {
   conc: HX(['#6e727a', '#82868e', '#969aa2', '#aaaeb6']), shadow: HX(['#262c3a'])[0], bark: HX(['#3a332e', '#554c45', '#71675e']),
   snowRoof: HX(['#8a94a8', '#a8b2c4', '#c8d0dc', '#e2e8f0', '#f8fafc']), snowFlat: HX(['#9aa4b6', '#c0c8d6', '#dce2ea', '#f2f5f9']), fence: HX(['#5e5650'])[0],
   tun: HX(['#5a5e68', '#7a7e88', '#a8aeb8', '#d0d6de', '#eef1f6']), // a tunnel portal's hill: rock under snow
+  rock: HX(['#22262e', '#343943', '#4b515c', '#666d79', '#868e9b', '#aab1bd']), // a gorge's walls
 });
 // A pass over a finished plan (P.climate 'winter'): the deciduous trees lose their leaves; the sea freezes into a crust 2 to 7 px wide
 // along every quay, breakwater and shore (the harbour's water stays open, owner); and a 'shore' coast's sea freezes over (freezeSea).
@@ -3445,7 +3448,7 @@ function freezeSea(plan) {
 // Level 5's plan from its segments (preset winterLine): a village-preset town with a 'shore' coast and a side harbour in a bay, its density
 // low over the farmland, middling round the harbour and highest in the village (whose green sits at the peak).
 function winterLine(o) {
-  const P0 = Object.assign({}, PRESETS.winterLine, o.params || {}), CHp = P0.chunk || 64, segs = P0.segs, seed = o.seed | 0;
+  const P0 = Object.assign({}, PRESETS[o.preset] || PRESETS.winterLine, o.params || {}), CHp = P0.chunk || 64, segs = P0.segs, seed = o.seed | 0;
   const k1 = segs.findIndex(g => g.t === 'farmland_winter'), low = segs.slice(0, k1 < 0 ? segs.length : k1 + 1), high = segs.slice(low.length); // the town plan up to the first farmland, the mountain land after it
   const L = low.reduce((a, g) => a + g.n, 0) * CHp, at = {}; { let y = 0; for (const g of low) { if (!at[g.t]) at[g.t] = [y, y + g.n * CHp]; y += g.n * CHp; } }
   const sea = at.open_sea_ice || [0, 192], hb = at.harbour_winter || [sea[1], sea[1] + 320], f = y => clamp(y / L, 0, 1);
@@ -3456,8 +3459,9 @@ function winterLine(o) {
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
-  const Lb = high.reduce((a, g) => a + g.n, 0) * CHp, feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t }); } } // (station and airbase are plain valley until their own ground is built)
-  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats } }); markSlotRoofs(B);
+  const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, Lb = Lr + (fin ? (P0.arena || 16) * CHp : 0), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t }); } } // (station and airbase are plain valley until their own ground is built)
+  if (fin) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
+  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
   const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
 }
@@ -3562,7 +3566,29 @@ function winterLand(o) {
   // the throat into the boss yard (owner 1B): the spur closes the valley; two lines come out of its tunnel portals (the yard's tracks 3 and 4,
   // x 96 and 122) and fan out on long points (about 1 in 3.3), the outer tracks first, onto the yard's eight tracks (x 18 + 26 i), which run
   // on into the yard at the level's end. Ballast spreads between the tracks over the last rows, as in the yard. The road ends in a tunnel beside them.
-  if (th) { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
+  // the finale 'iceYard' (owner: mockup of options 3 and 2 combined): below the spur the two lines cross a deep gorge on a double-track stone
+  // viaduct, fan out on steeper points (about 1 in 2.4) onto the yard's eight tracks, and run out onto the frozen lake, where the train boss's
+  // yard lies on the ice (the plan reaches on past the level's end: feature 'arena'). Sleepers on the ice, snow drifted along the rails,
+  // pressure ridges and refrozen shell holes between the tracks.
+  if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
+    const g0 = yP + 24, g1 = g0 + 58, ph2 = rnd(50) * 6.283, top = x => g1 + 4 * Math.sin(x * 0.05 + ph2) + 3 * vn(x * 0.2, 9), bot = x => g0 + 4 * Math.sin(x * 0.043 + ph2 * 2) + 3 * vn(x * 0.2, 19), VX0 = 84, VX1 = 134;
+    plan.ravines = [{ y0: g0 - 8, y1: g1 + 8, s: 1, top, bot }]; plan.viaduct2 = { x0: VX0, x1: VX1, y0: g0 - 8, y1: g1 + 8 };
+    for (let y = g0 - 8; y <= g1 + 8; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (y > bot(x) && y < top(x)) { if (x >= VX0 && x <= VX1) { Kr[i] = K.RBRIDGE; Br[i] = -22; } else { Kr[i] = K.RAVINE; Br[i] = -1; } reserved[i] = 1; Hg[i] = 0; } }
+    for (let y = yA - 8; y < L; y++) { for (let x = 0; x < W; x++) { const i = idx(x, y); if (reserved[i] || y < yA + 4 * Math.sin(x * 0.06 + ph2) + 2 * vn(x * 0.2, 4)) continue; Kr[i] = K.ICE; Br[i] = -87; reserved[i] = 1; Hg[i] = 0; } } // the lake's shore, the ice beyond it
+    const yF = g1 + 16;
+    for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yF + (3 - n) * 40, len = Math.abs(x1 - x0) * 2.4, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
+      TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
+      for (let y = yP; y < L; y++) { if (n > 0 && y < ya - 1) continue; const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+        for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
+          if (Kr[i] === K.RBRIDGE) { if (rank[m] > rank[RM[i]]) RM[i] = m; continue; } if (Kr[i] === K.RAVINE) continue;
+          if (Kr[i] === K.ICE && Br[i] === -87 || (Kr[i] === K.RAIL && Br[i] === -99)) { if (dx > 4.2) continue; if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -99; continue; } // on the ice: sleepers and rails only
+          if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } }
+      if (L - 1 - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: L - 1, line: 'yard' }); }
+    for (let y = yA + 30; y < L - 10; y += 34 + ((rnd(51, y) * 30) | 0)) { const k = (rnd(52, y) * 7) | 0, xa = T[k] + 9, xb = T[k + 1] - 9, kind = rnd(53, y); // between two tracks: a drift ridge, or a refrozen shell hole
+      if (kind < 0.55) { const len = 20 + ((rnd(54, y) * 30) | 0); for (let yy = y; yy < Math.min(L, y + len); yy++) for (let x = xa + 1; x <= xb - 1; x++) { const i = idx(x, yy); if (Kr[i] === K.ICE && hh(x, yy) < 0.85) Br[i] = -82; } }
+      else { const cx = (xa + xb) / 2, r = 3 + rnd(55, y) * 2; for (let yy = Math.floor(y - r); yy <= y + r; yy++) for (let x = Math.floor(cx - r); x <= cx + r; x++) { const i = idx(x, yy); if (inB(x, yy) && Kr[i] === K.ICE && Math.hypot(x + 0.5 - cx, yy + 0.5 - y) < r) Br[i] = -83; } } }
+    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }, { x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+  else if (th) { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
       for (let y = yP; y < L; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
@@ -3617,6 +3643,7 @@ function stackPlans(A, B, preset) {
   plan.avalanche = (A.avalanche || []).concat((B.avalanche || []).map(s => s.map(p => [p[0], p[1] + La])));
   plan.cables = (A.cables || []).concat((B.cables || []).map(c => Object.assign(up(c), { pylons: c.pylons.map(p => [p[0], p[1] + La]) })));
   plan.alpine = B.alpine && B.alpine.y0 !== undefined ? Object.assign(up(B.alpine), B.alpine.chapel ? { chapel: up(B.alpine.chapel) } : {}) : A.alpine || null;
+  plan.ravines = (A.ravines || []).concat((B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + La, bot: x => r.bot(x) + La }))); plan.viaduct2 = B.viaduct2 ? up(B.viaduct2) : null;
   plan.lake = B.lake ? up(B.lake) : null; plan.throat = B.throat ? Object.assign(up(B.throat), { tracks: B.throat.tracks.map(t => Object.assign({}, t, { ya: t.ya + La, yb: t.yb + La })) }) : null;
   plan.parts = [{ preset: A.preset, y0: 0, y1: La - 1 }, { preset: B.preset, y0: La, y1: L - 1 }]; plan.stage = Object.assign({}, A.stage, { land: B.stage.total });
   return plan;
@@ -3677,7 +3704,7 @@ function icePixK(plan, x, y, b) {
   if (b === -82) { const q = hh(x >> 1, y >> 1); return q < 0.3 ? C.ice[1] : q < 0.62 ? C.ice[4] : hh((x + 1) >> 1, y >> 1) < 0.5 ? C.grass[3] : C.ice[3]; }
   if (wat(x - 1, y + 1) || wat(x, y + 1) || wat(x - 1, y)) return C.grass[3];
   if (wat(x + 1, y - 1) || wat(x, y - 1) || wat(x + 1, y)) return C.ice[1];
-  if (vn(x * 0.03 + (-b & 7) * 13, y * 0.16) * 0.8 + vn(x * 0.2, y * 0.25) * 0.2 > (b === -84 ? 0.3 : 0.52)) return C.grass[pickI(4, 0.4 + (n - 0.5) * 0.8 + (r - 0.5) * 0.2, x, y)]; // snow drifted in streaks by the wind
+  if (vn(x * 0.03 + (-b & 7) * 13, y * 0.16) * 0.8 + vn(x * 0.2, y * 0.25) * 0.2 > (b === -84 ? 0.3 : b === -87 ? 0.4 : 0.52)) return C.grass[pickI(4, 0.4 + (n - 0.5) * 0.8 + (r - 0.5) * 0.2, x, y)]; // snow drifted in streaks by the wind
   return C.ice[pickI(6, 0.45 + (n - 0.5) * 0.6 + Math.sin(x * 0.17 + y * 0.43) * 0.06, x, y)];
 }
 // a leafless tree from above: a dark trunk, branches spreading from it with twigs between, snow on their upper left; a faint shadow
@@ -3710,7 +3737,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.39'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.40'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
