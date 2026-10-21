@@ -498,6 +498,23 @@ for (const lv of [2, 6, 7]) {
     world.enemies.push(am, bx); kill(am); for (const L of world.later.splice(0)) L.fn(); return { under, open, am: am.dead, bx: bx.dead || bx.dying > 0 }; })()`);
   ok(g.under && !g.open, `level 5: a gallery covers its outer track and nothing beside it (under ${g.under}, beside ${g.open})`);
   ok(g.am && g.bx, `level 5: the explosives car's blast wrecks the car coupled to it (${g.bx})`);
+  // avalanches (spec 20.8): an open cornice's slide buries the supply car on its outer track and leaves a mound that stops the next train;
+  // a cornice over a gallery pours its snow over the roof and the car under it is safe; an explosives car going up under a cornice breaks
+  // it; a boss train is never stopped: it smashes a supply car standing on its track
+  const v = await peek(page, `(() => { const S = run.sortie, Z = S.plan.gorge, sc = Math.floor(world.scroll), C = { hp: 8, hw: 6, hh: 13, score: 500, rad: 10, v: 0, cd: 999, keep: true };
+    const io = Z.corn.findIndex(q => !q.over), ig = Z.corn.findIndex(q => q.over), qo = Z.corn[io], qg = Z.corn[ig], tx = q => q.s < 0 ? 36 : 188, wo = S.planY0 - qo.y, wg = S.planY0 - qg.y;
+    const open = G('boxcar', tx(qo), wo, C), cov = G('boxcar', tx(qg), wg, C); world.enemies.push(open, cov);
+    cornTrigger(io); cornTrigger(ig); for (let k = 0; k < SLIDE_T + 2; k++) gorgeSnowTick();
+    const mound = moundAt(tx(qo), wo), noMound = !moundAt(tx(qg), wg), half = qo.half + 10;
+    const lo = G('loco', tx(qo), wo + half + 40, Object.assign({}, C, { hp: 16, hh: 20, v: -1.2, up: true })); world.enemies.push(lo); for (let k = 0; k < 120; k++) ENT.loco.update(lo);
+    const ib = Z.corn.findIndex((q, i) => !q.over && i !== io && i !== ig), qb = Z.corn[ib]; gorgeBlast(tx(qb), S.planY0 - qb.y); for (const L of world.later.splice(0)) L.fn();
+    const sx = tx(qo), car = G('boxcar', sx, 100 - sc, C); world.enemies.push(car); gorgeBossPlough({ trains: [{ on: true, dead: false, x: sx, y: 150, path: null }] });
+    return { buried: open.dead || open.dying > 0, safe: !cov.dead && !(cov.dying > 0), mound, noMound, stopped: lo.wy > wo + 10, lw: Math.round(lo.wy - wo), blast: S.snow.gone.has(ib), smashed: car.dead || car.dying > 0 }; })()`);
+  ok(v.buried && v.mound, `level 5: an open cornice's slide buries the supply car on its track and leaves a mound (${v.buried}, ${v.mound})`);
+  ok(v.safe && v.noMound, `level 5: under a gallery the car is safe and the snow lies on the roof (${v.safe}, ${v.noMound})`);
+  ok(v.stopped, `level 5: the next supply train stops at the mound (${v.lw} px short of its middle)`);
+  ok(v.blast, 'level 5: an explosives car going up under a cornice breaks it');
+  ok(v.smashed, 'level 5: a boss train smashes a supply car standing on its track');
   await page.close();
 }
 

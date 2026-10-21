@@ -3842,7 +3842,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.42'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.43'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4020,6 +4020,50 @@ function gorgeXover(k) {
 function gorgeRoofs() { const G = run.sortie.plan.gorge, Z = CityGen.GZ; return G.gal.map(q => ({ x0: Z.gal[q.s < 0 ? 0 : 1][0], x1: Z.gal[q.s < 0 ? 0 : 1][1], y0: q.y0, y1: q.y1, s: q.s })).concat(G.spurs.map(q => ({ x0: q.s < 0 ? 0 : Z.p1 - 1, x1: q.s < 0 ? Z.p0 + 1 : W - 1, y0: q.y0, y1: q.y1, s: q.s }))); }
 function roofAt(wx, wy) { if (!gorgeArena()) return false; const y = run.sortie.planY0 - wy; return gorgeRoofs().some(r => y >= r.y0 && y <= r.y1 && wx >= r.x0 && wx <= r.x1); }
 function supplyOn(x) { return world.enemies.some(o => TRAIN_CARS.has(o.type) && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -200 && o.y < H + 200); }
+// Avalanches (owner, spec 20.8): a Nova breaks every cornice on screen; an explosives car going up under one breaks it too. The slide sweeps
+// from the wall across the outer track to the middle of the deck: it wrecks the supply cars it buries (not those under a gallery or in a
+// tunnel: over a gallery the snow pours over the roof) and knocks a boss part it reaches. The snow stays as a mound that stops supply trains;
+// a boss train is never stopped: it ploughs through snow and smashes a supply train in its way. The state lives on the sortie (S.snow).
+const SLIDE_T = 40;
+function cornWorld(q) { return { x: q.over ? (q.s < 0 ? 8 : 216) : (q.s < 0 ? 18 : 206), wy: run.sortie.planY0 - q.y }; }
+function cornTrigger(i) {
+  const S = run.sortie, A = S.snow || (S.snow = { gone: new Set(), slides: [] }), q = S.plan.gorge.corn[i]; if (A.gone.has(i)) return; A.gone.add(i);
+  const c = cornWorld(q); A.slides.push({ i, s: q.s, wy: c.wy, half: q.half + 10, over: q.over, t: 0, x0: q.over ? (q.s < 0 ? 4 : 220) : (q.s < 0 ? 10 : 214), x1: q.s < 0 ? 52 : 172 });
+  feel.shake = Math.max(feel.shake, 7); sfx('gboom'); haptic('big');
+}
+function gorgeNova() { if (!gorgeArena()) return; const S = run.sortie, sc = Math.floor(world.scroll); let k = 0;
+  S.plan.gorge.corn.forEach((q, i) => { const y = S.planY0 - q.y + sc; if (y > -q.half && y < H + q.half && !(S.snow && S.snow.gone.has(i))) world.later.push({ at: gf + 6 + 5 * k++, fn: () => cornTrigger(i) }); }); }
+function gorgeBlast(x, wy) { if (!gorgeArena()) return; const S = run.sortie; S.plan.gorge.corn.forEach((q, i) => { const c = cornWorld(q); if (Math.abs(c.x - x) < 40 && Math.abs(c.wy - wy) < q.half + 30) world.later.push({ at: gf + 8, fn: () => cornTrigger(i) }); }); }
+// how far a slide reaches at row wy (f its progress, 0 to 1): from the wall to its front, widest in its middle
+function slideIn(m, wx, wy, f) { const d = (wy - m.wy) / m.half; if (Math.abs(d) >= 1) return false; const e = 1 - (1 - f) * (1 - f), front = m.x0 + (m.x1 - m.x0) * e * (0.35 + 0.65 * Math.sqrt(1 - d * d)); return m.s < 0 ? wx <= front : wx >= front; }
+function moundAt(wx, wy) { const S = run.sortie, A = S && S.snow; if (!A) return false; for (const m of A.slides) if (!m.over && m.t >= SLIDE_T && slideIn(m, wx, wy, 1)) return true; return false; }
+function gorgeSnowTick() {
+  const A = run.sortie.snow, sc = Math.floor(world.scroll);
+  for (const m of A.slides) { if (m.t >= SLIDE_T) continue; m.t++;
+    if (m.t % 4 === 0) world.parts.push({ kind: 'smoke', layer: 'g', x: m.x0 + (m.x1 - m.x0) * (m.t / SLIDE_T) + rnd(-4, 4), y: m.wy + sc + rnd(-m.half, m.half) * 0.7, vx: m.s * -0.6, vy: rnd(-0.5, 0.3), r: rnd(3, 5), life: 34, max: 34, white: true });
+    if (m.t !== 22) continue;
+    for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead && !o.dying && slideIn(m, o.x, o.wy, 1) && !roofAt(o.x, o.wy)) { o.score = Math.max(o.score, 300); kill(o); } // buried
+    for (const e of world.enemies) if (e.type === 'boss' && e.kind === 'train' && e.parts) for (const p of e.parts) if (!p.dead && !p.off && slideIn(m, e.x + p.ox, e.y + p.oy - sc, 1) && !roofAt(e.x + p.ox, e.y + p.oy - sc)) damagePart(e, p, 25); }
+}
+// the boss train is never stopped: it ploughs through a mound (snow thrown up) and smashes a supply train standing on its track
+function gorgeBossPlough(e) {
+  const sc = Math.floor(world.scroll), A = run.sortie.snow;
+  for (const t of e.trains) { if (!t.on || t.dead) continue; const top = t.y - 168, bot = t.y + 22;
+    for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead && !o.dying && o.y > top - 13 && o.y < bot + 13 && Math.abs(o.x - yardX(t, o.y)) < 16) { o.score = 0; o.train = 0; boom(o.x, o.y, 18, 'g'); kill(o); }
+    if (A && gf % 3 === 0) for (const m of A.slides) { if (m.over || m.t < SLIDE_T) continue; const my = m.wy + sc; if (my + m.half < top || my - m.half > bot) continue;
+      for (let k = 0; k < 2; k++) { const y = clamp(my + rnd(-m.half, m.half), top, bot), x = yardX(t, y); if (moundAt(x, y - sc)) world.parts.push({ kind: 'smoke', layer: 'g', x: x + rnd(-13, 13), y, vx: rnd(-1.4, 1.4), vy: rnd(-1, 0.3), r: rnd(2, 4), life: 30, max: 30, white: true }); } } }
+}
+// the slides, the mounds and the broken cornices (bare rock where the snow came away); 'over' slides, poured over a gallery, are drawn after its roof
+function drawGorgeSnow(over) {
+  const S = run.sortie, A = S && S.snow; if (!A || S.planFor !== world.stageBaseP) return; const sc = Math.floor(world.scroll), G = S.plan.gorge;
+  if (over) for (const i of A.gone) { const q = G.corn[i], c = cornWorld(q), y0 = c.wy + sc; if (y0 < -40 || y0 > H + 40) continue;
+    for (let dy = -q.half; dy <= q.half; dy += 2) for (let k = 0; k < 6; k += 2) { ctx.fillStyle = hash(k, c.wy + dy) < 0.5 ? '#5d6472' : '#8d93a0'; ctx.fillRect(c.x + (q.s < 0 ? k - 3 : 1 - k), y0 + dy, 2, 2); } }
+  for (const m of A.slides) { if (!!m.over !== over) continue; const f = Math.min(1, m.t / SLIDE_T), e = 1 - (1 - f) * (1 - f), y0 = m.wy + sc; if (y0 + m.half < -8 || y0 - m.half > H + 8) continue;
+    for (let dy = -m.half; dy <= m.half; dy++) { const d = dy / m.half, front = m.x0 + (m.x1 - m.x0) * e * (0.35 + 0.65 * Math.sqrt(Math.max(0, 1 - d * d))), a = Math.min(m.x0, front), b = Math.max(m.x0, front);
+      for (let x = Math.floor(a); x < b; x += 2) { const l = vnoise(x * 0.3, (m.wy + dy) * 0.3); ctx.fillStyle = l > 0.7 ? '#c3cedc' : l < 0.25 ? '#ffffff' : '#edf2f8'; ctx.fillRect(x, y0 + dy, 2, 1); }
+      ctx.fillStyle = '#9eabbd'; ctx.fillRect(Math.round(front), y0 + dy, 1, 1); }
+    if (f < 1) for (let k = 0; k < 10; k++) { const yy = y0 - m.half + (k + 0.5) * (2 * m.half / 10), r = 2 + f * 4 + hash(k, m.i) * 2, fx = m.x0 + (m.x1 - m.x0) * e * 0.9 + m.s * -r; ctx.fillStyle = `rgba(244,248,252,${(0.7 * (1 - f)).toFixed(2)})`; ctx.fillRect(Math.round(fx - r), Math.round(yy - r), Math.round(2 * r), Math.round(2 * r)); } }
+}
 const xoS = f => f * f * (3 - 2 * f);
 const RAILC = { steel: hexRGB('#c4c8d0'), sleeper: hexRGB('#3a2a1c'), deck: hexRGB('#6a4c30'), deckDark: hexRGB('#2a1e14'), ballast: ['#4a4642', '#5e5a54', '#77726a'].map(hexRGB) };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
@@ -9632,7 +9676,7 @@ function trainMove(e) {
     if (e.v <= 0) { groundPos(e); return; }
   }
   const nwy = e.wy + e.v, ahead = terrainType(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4);
-  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4))) && !blockedMove(e, 0, e.v)) e.wy = nwy; // (Enigma Run: on through a plan's level crossings)
+  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4))) && !blockedMove(e, 0, e.v) && !moundAt(e.wx, e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4)) e.wy = nwy; // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
   groundPos(e);
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
 }
@@ -9731,6 +9775,7 @@ function yardSupport(e) {
   const gz = gorgeArena(); // (level 5's gorge: the outer tracks only; a train may carry an explosives car)
   const free = (gz ? [GORGE_T[0], GORGE_T[3]] : YARD_T).filter(x => ![...busy].some(b => Math.abs(b - x) < 30) && !world.enemies.some(o => TRAIN_CARS.has(o.type) && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -160 && o.y < H + 220));
   if (!free.length) return;
+  if (gz) { const sc0 = Math.floor(world.scroll), clear = free.filter(x => { for (let y = -160; y < H + 220; y += 8) if (moundAt(x, y - sc0)) return false; return true; }); if (clear.length) free.splice(0, free.length, ...clear); } // a track with no snow on it if there is one
   const wx = free[(Math.random() * free.length) | 0], sc = Math.floor(world.scroll), m2 = hpm(), tid = ++world.trainId, n = 2 + ((Math.random() * 2) | 0);
   world.trainLeft[tid] = n + 1; trainBonus[tid] = 1500 * (n + 1);
   const up = !fromTop, v = up ? -1.2 : 0.6, wy = up ? H + 30 - sc : -40 - sc, dir = up ? 1 : -1;
@@ -10293,7 +10338,7 @@ const BOSSMOVE = {
       p.ox = P.x + p.lx * c - d * sn - e.x; p.oy = t.y + vc + p.lx * sn + d * c - e.y;
     }
     if (A.ready && --e.supCd <= 0) { yardSupport(e); e.supCd = (rnd(400, 520)) | 0; }
-    if (gorgeArena()) for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead) o.untarget = roofAt(o.x, o.wy); // under a gallery or in a tunnel
+    if (gorgeArena()) { for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead) o.untarget = roofAt(o.x, o.wy); gorgeBossPlough(e); } // under a gallery or in a tunnel; never stopped
     if (A.ready) wolfPack(e);
     // during the fight, shots fly over the crate stacks and sheds on the platforms beside the boss tracks (they soaked up most shots)
     if (gf % 20 === 0) for (const o of world.enemies) if ((o.type === 'crate' || o.type === 'drums' || (o.type === 'bldg' && o.bk === 'shed')) && !o.untarget) o.untarget = true;
@@ -11232,9 +11277,11 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
   for (const e of world.enemies) if (e.fl) { e.fl = null; e.flT = 0; const c = e.parts.find(p => p.k === 'core'); if (c) for (let k = 0; k < 16; k++) { const a = k * TAU / 16; world.parts.push({ kind: 'spark', layer: 'a', x: e.x + c.ox, y: e.y + c.oy, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 18, max: 18, col: k & 1 ? '#bba4ff' : '#ff6a1a' }); } }
   for (const e of world.enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
+    if (TRAIN_CARS.has(e.type) && roofAt(e.x, e.wy)) continue; // (level 5: safe under a gallery or in a tunnel)
     if (e.type === 'boss') { for (const p of e.parts) if (!p.dead) damagePart(e, p, 30); }
     else damage(e, e.big ? 45 : 40);
   }
+  gorgeNova(); // (level 5: the cornices on screen let go)
   scorer = 1; sfx('nova'); haptic('nova');
 }
 // Every change to the score goes through addScore, so scoring has one home. The callers check for an extra life (checkExtend)
@@ -11427,7 +11474,7 @@ const DEATHS = {
   },
   boxcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
   // the explosives car goes up in a big blast that wrecks the cars next to it (and, in step 3, sets off the cornice above it)
-  ammocar: { blast: 40, wreck(e) { DEATHS.loco.wreck(e); feel.shake = Math.max(feel.shake, 8); sfx('bigboom'); haptic('big'); for (let i = 0; i < 3; i++) world.later.push({ at: gf + 3 + i * 4, fn: () => boom(e.x + rnd(-10, 10), e.y + rnd(-14, 14), 26, 'g') });
+  ammocar: { blast: 40, wreck(e) { DEATHS.loco.wreck(e); gorgeBlast(e.x, e.wy); feel.shake = Math.max(feel.shake, 8); sfx('bigboom'); haptic('big'); for (let i = 0; i < 3; i++) world.later.push({ at: gf + 3 + i * 4, fn: () => boom(e.x + rnd(-10, 10), e.y + rnd(-14, 14), 26, 'g') });
     world.later.push({ at: gf + 6, fn: () => { for (const o of world.enemies) if (o !== e && !o.dead && !o.dying && o.ground && o.type !== 'boss' && Math.hypot(o.x - e.x, o.y - e.y) < 44) damage(o, 40); } }); } },
   flatcar: { blast: 16, wreck(e) { DEATHS.loco.wreck(e); } },
   hangar: {
@@ -11653,6 +11700,7 @@ function update() {
   updFlyby();
   director();
   for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const f = world.later[i].fn; world.later.splice(i, 1); f(); }
+  if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
   if (app.fade) {
     app.fade.t++;
     if (app.fade.phase === 'out' && app.fade.t >= 24) { const f = app.fade.fn; app.fade = { t: 0, phase: 'in' }; if (f) f(); }
@@ -12909,6 +12957,7 @@ function renderMain() {
   drawRiverFlow();
   drawRaven();
   drawDecals();
+  drawGorgeSnow(false);
   drawMarkers();
   drawWreck(false);
   drawParts('w');
@@ -12922,7 +12971,7 @@ function renderMain() {
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
-  drawRoofs();
+  drawRoofs(); drawGorgeSnow(true);
   drawWreck(true);
   drawCritters();
   drawCanopy();
