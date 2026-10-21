@@ -459,25 +459,25 @@ for (const lv of [2, 6, 7]) {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), K = CityGen.K;
     let types = 0, n = 0; for (let k = 0; k < 400; k++) { const x = (k * 37) % W, y = (k * 97) % P.L, wy = S.planY0 - y; n++; if (classify(x, wy).tt === CityGen.typeAt(P, x, y)) types++; }
-    const c0 = info(world.stageBaseP).b, pE = world.stageBaseP + S.len, past = info(pE + 1), ice = P.K.slice(0, P.W * 200).filter(k => k === K.ICE).length;
+    const c0 = info(world.stageBaseP).b, pE = world.stageBaseP + S.len, past = info(pE + 1), ice = P.K.slice(0, P.W * P.coast.yC).filter(k => k === K.ICE).length;
     const tracks = YARD_T.every(x => P.RM[(P.L - 1) * P.W + x - 3] === 2 && P.RM[(P.L - 1) * P.W + x + 2] === 2), yardTT = classify(100, -(pE + 2) * CH + 20).tt;
     return { pass: v.pass, L: P.L, want: S.len * CH, len: S.len, gen: S.gen, types, n, c0, pastB: past.b, pastTh: past.th, ice, holes: P.slots.filter(q => q.kind === 'sub' && q.on === 'ice').length, breaks: P.iceBreaks.length,
       village: !!(P.alpine && P.alpine.chapel), lake: !!(P.lake && P.lake.huts), iceRoad: P.streets.some(st => st.ice), tracks, yardTT, stops: railEnds(pE).length, green: !!P.oldTown }; })()`);
   ok(r.gen === 5 && r.len === 70 && r.pass && r.L === r.want, `level 5: its own ground (gen ${r.gen}), 70 chunks, the plan passes the hard rules and covers the level (${r.L} px)`);
-  ok(r.c0 === 'sea' && r.ice > 20000 && r.holes >= 2 && r.breaks >= 1, `level 5: in over the frozen sea (${r.ice} ice px in the first 200 rows, ${r.holes} U-boat holes, ${r.breaks} places to break through)`);
+  ok(r.c0 === 'sea' && r.ice > 60000 && r.holes >= 2 && r.breaks >= 1, `level 5: in over the frozen sea (${r.ice} px of ice before the shore, ${r.holes} U-boat holes, ${r.breaks} places to break through)`);
   ok(r.village && !r.green && r.lake && r.iceRoad, 'level 5: the mountain village (no village green), the frozen lake with its huts and ice road');
   ok(r.types === r.n, `level 5: ground types from the plan (${r.types}/${r.n})`);
   ok(r.tracks && r.pastB === 'bossland' && r.pastTh === 1 && r.yardTT === 'ryard' && r.stops === 0, `level 5: the throat's eight tracks reach the level's end on the yard's tracks, the yard (ryard, theme 1) after it, without buffer stops (${r.stops})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(5)'); const o = { status: 'ok', iceSubs: 0, breaks: 0 };
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(o.bottomC === undefined ? 10 : 100);
       if (o.bottomC === undefined) { const q = SF.peek(`({ subs: world.enemies.filter(e => e.type === 'sub' && run.sortie.planY0 - e.wy < run.sortie.plan.coast.yC).length, br: world.decals.filter(d => d.kind === 'icebreak').length })`); o.iceSubs = Math.max(o.iceSubs, q.subs); o.breaks = Math.max(o.breaks, q.br); }
-      if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH); return { bottomC: p - world.stageBaseP, len: run.sortie.len }; })()`));
+      if (o.bottomC === undefined && SF.peek('world.bossSpawned')) Object.assign(o, SF.peek(`(() => { const sc = Math.floor(world.scroll), p = -Math.floor((H - 1 - sc) / CH); return { bottomC: p - world.stageBaseP, len: run.sortie.len, guns: [...(run.sortie.slotUsed || [])].filter(i => run.sortie.plan.slots[i].kind !== 'sub').length }; })()`));
       if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'train')"); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.iceSubs >= 1 && f.breaks >= 1, `level 5: U-boats in the ice (${f.iceSubs} at once at most) and a break through the ice (${f.breaks})`);
   ok(f.bottomC !== undefined && f.bottomC >= f.len - 1 && f.bottomC <= f.len + 2, `level 5: the train boss is called once the yard fills the screen (screen bottom at chunk ${f.bottomC}, the yard from ${f.len})`);
   ok(f.boss === true, 'level 5: the train boss comes');
-  ok(f.slots >= 4, `level 5: guns stood in the plan's slots (${f.slots})`);
+  ok(f.guns >= 2, `level 5: guns stood in the plan's gun slots on the way (${f.guns})`);
   ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 5 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }

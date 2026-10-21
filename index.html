@@ -3537,10 +3537,10 @@ function winterLand(o) {
         const jx = xt - 2, jy = yJ + 13; if (free(jx, jy, 5, 5)) { const jt = addItem({ t: 'works', label: "Judges' tower", x0: jx, y0: jy, w: 5, h: 5, ori: 'v', style: 'flat', roof: 2 }); rect(jx, jy, 5, 5, K.BLDG, jt.id, flatten(jx, jy, 5, 5, 2)); }
         plan.jumps.push(J); A.jump = true; } }
     // lanes climbing onto terraces, chalets beside them
-    for (let k = 0; k < 2; k++) { const s = k ? sC : -sC, yL = Math.round(lerp(ya, yb, k ? 0.86 : 0.33)), x1 = Math.round(vx(yL) + s * (fw(yL) + 52)), xs0 = Math.round(MX(yL) + s * 4), pts = [];
+    for (let tk = 0; tk < 8; tk++) { const k = tk & 1; if (A.lanes && A.lanes[k]) continue; const s = k ? sC : -sC, yL = Math.round(lerp(ya, yb, (k ? [0.86, 0.76, 0.92, 0.7] : [0.33, 0.42, 0.26, 0.5])[tk >> 1])), x1 = Math.round(vx(yL) + s * (fw(yL) + 52)), xs0 = Math.round(MX(yL) + s * 4), pts = [];
       for (let x = xs0; s > 0 ? x <= x1 : x >= x1; x += s) pts.push([x, yL + Math.round(Math.max(0, s * (x - xs0) - 26) * 0.22), 5]);
       if (pts.length < 30 || pts.some((p, q) => q > 4 && (!inB(p[0], p[1] + 3) || !inB(p[0], p[1] - 3) || [-2, -1, 0, 1, 2].some(d => reserved[idx(p[0], p[1] + d)])))) continue;
-      const st = { cls: 'local', axis: 'h', tank: false, pts, yc: yL, side: s, x0: Math.min(xs0, x1), x1: Math.max(xs0, x1), w: 5, lane: true }; st.id = plan.streets.length; plan.streets.push(st);
+      const st = { cls: 'local', axis: 'h', tank: false, pts, yc: yL, side: s, x0: Math.min(xs0, x1), x1: Math.max(xs0, x1), w: 5, lane: true }; st.id = plan.streets.length; plan.streets.push(st); (A.lanes || (A.lanes = []))[k] = true; // (each lane tries a few places along the village)
       for (const [x, yy] of pts) { const lv = H(x, yy); for (let d = -2; d <= 2; d++) { const i = idx(x, yy + d); if (Kr[i] === K.ROAD) continue; Kr[i] = K.STREET; Br[i] = -2 - st.id; reserved[i] = 1; Hg[i] = lv; } }
       for (let q = 16; q < pts.length - 8; q += 14 + ((rnd(18, k, q) * 6) | 0)) { const [x, yy] = pts[q], up = rnd(19, k, q) < 0.6, w = 9, h = 8, x0 = x - 4, y0 = up ? yy + 5 : yy - 5 - h;
         if (free(x0, y0, w, h, 1)) { house(x0, y0, w, h, up ? 'S' : 'N', [2, 6, 0][(rnd(20, k, q) * 3) | 0]); yard(x0 + 4, up ? y0 - 1 : y0 + h, 0, up ? -1 : 1, K.STREET); A.terraces++; } } }
@@ -3668,7 +3668,7 @@ function iceRiverPix(x, y, e, sh) {
   return C.river[pickI(6, clamp(l, 0, 1), x, y)];
 }
 // open water beside the ice lies in its lee: darker where a floe stands to its upper left (the light comes from there)
-function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return ic(x - 1, y + 1) ? 0.6 : ic(x - 2, y + 2) ? 0.8 : 1; }
+function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return ic(x - 1, y + 1) ? 0.78 : ic(x - 2, y + 2) ? 0.9 : 1; }
 // a pixel of sea ice (K.ICE, B as in freezeSea; -85 the crust along a quay): snow lying in patches on blue ice swept bare by the wind, a lit
 // rim on the floe's upper left and its shaded side on the lower right where it meets open water, tumbled blocks along a ridge, dark new ice
 function icePixK(plan, x, y, b) {

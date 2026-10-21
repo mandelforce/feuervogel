@@ -1374,4 +1374,6 @@ Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train 
 - The throat's eight tracks reach the level's end on the yard's tracks, with the yard (`ryard`, theme 1) after them and no buffer stops.
 - Flown by the bot: U-boats in the ice and a break through it; the train boss is called once the yard fills the screen; it comes; and the level returns to the picker.
 
+**Gun positions are few for now:** the plan has 7 gun slots (the harbour's mole and roofs, the village's flak and bunker, the mountain station's flak); a bot flight filled 2. The station, the airbase and the pass (step 2) are where most of the level's guns will stand.
+
 **Not yet:** the station and the airbase (step 2), the real pass with its viaduct, avalanche sheds and the flight limit (3A), trains on the level's own railway (its straight runs are short; the yard's supply trains run in the boss fight), convoys on the ice road (it is a tank route, so vehicles may already take it), and the weather (step 4).
