@@ -7,7 +7,7 @@
 // The pixel check is by hand, not in CI: canvas blending can differ between browser builds. Run it before and after every change to shared
 // terrain code (drawFeatures, pixelColor, the city functions): the replay test's terrain fingerprint sees only terrain types, not pixels.
 // Checks: every level's sortie is well formed and rebuilt identically; an Enigma Run level never counts (board, best, play data, loops);
-// its end returns to the level picker; it is saved and resumed; the Settings button and the picker work; and above all that an Enigma Run
+// at its end the run flies on into the next level, like the Campaign (after the last, the congratulations and the title); it is saved and resumed; the Settings button and the picker work; and above all that an Enigma Run
 // level played first leaves nothing behind: the Campaign scenario played afterwards in the same page must equal tests/golden.json.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -85,11 +85,16 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   const res = await peek(page, `(() => { saveResume(); const r = store.getJSON(KEY.resume); const o = { saved: r && r.sortie }; resumeRun(r); o.after = run.sortie && run.sortie.level; o.state = app.state; return o; })()`);
   ok(res.saved && res.saved.level === 6 && res.after === 6 && res.state === 'play', 'the resume record holds {level, seed} and rebuilds the sortie');
 
-  // the end: results, then the picker; no next stage, no loop, no congratulations
-  const end = await peek(page, `(() => { world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); const o = { congrats: app.congrats, fade: !!app.fade }; const f = app.fade && app.fade.fn; app.fade = null; if (f) f();
-    const q = id => document.getElementById(id); o.state = app.state; o.sortieAfter = run.sortie; o.picker = q('diffAsk').classList.contains('open'); o.kind = app.diffNext && app.diffNext.kind; o.n = app.diffNext && app.diffNext.n; o.loops = loopsWon; return o; })()`);
-  ok(end.congrats === null && end.fade && end.state === 'title' && end.sortieAfter === null && end.picker && end.kind === 'enigma' && end.n === 6 && end.loops === before.loops,
-    'finishing the level returns to the picker (no congratulations, no loop counted, sortie cleared)');
+  // the end of the last level (6): the congratulations, then the title; no picker, no loop counted, the sortie cleared
+  const end = await peek(page, `(() => { world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); const o = { congrats: !!app.congrats, fade0: !!app.fade }; finishResults(); o.fade = !!app.fade; const f = app.fade && app.fade.fn; app.fade = null; if (f) f();
+    const q = id => document.getElementById(id); o.state = app.state; o.sortieAfter = run.sortie; o.picker = q('diffAsk').classList.contains('open'); o.loops = loopsWon; return o; })()`);
+  ok(end.congrats && !end.fade0 && end.fade && end.state === 'title' && end.sortieAfter === null && !end.picker && end.loops === before.loops,
+    'finishing the last level: the congratulations, then the title (no picker, no loop counted, sortie cleared)');
+  // any other level flies on into the next, like the Campaign, with the run's score, lives, Novas and weapon carried over
+  const nx = await peek(page, `(() => { startEnigma(5); run.score = 123450; run.lives = 4; run.bombs = 1; player.wpn = 'L'; player.lvl = 3; world.bossSpawned = true; app.results = null; app.fade = null; finishResults();
+    const o = { congrats: !!app.congrats }; const f = app.fade && app.fade.fn; app.fade = null; if (f) f(); return Object.assign(o, { level: run.sortie && run.sortie.level, score: run.score, lives: run.lives, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, state: app.state, picker: document.getElementById('diffAsk').classList.contains('open') }); })()`);
+  ok(!nx.congrats && nx.level === 6 && nx.score === 123450 && nx.lives === 4 && nx.bombs === 1 && nx.wpn === 'L' && nx.lvl === 3 && nx.state === 'play' && !nx.picker,
+    `finishing level 5 flies on into level 6 with the score, lives, Novas and weapon carried over (level ${nx.level}, score ${nx.score}, lives ${nx.lives}, Novas ${nx.bombs}, weapon ${nx.wpn}${nx.lvl})`);
   await page.close();
 }
 
@@ -149,7 +154,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 // the oil valley, the held oasis village, the junction, the small oasis, the airbase, the pass with its viaduct, the quiet desert); the ground
 // types and pixels are the plan's, the open desert in the Campaign's own desert colours; past the level the Campaign's boss ground (bossland,
 // theme 2); the same after a resume; flown through by the bot, the viaduct comes up as a bridge target, the boss (the land fortress) comes
-// and the level returns to the picker on level 2 without errors
+// and the run flies on into level 3 without errors
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(2); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
@@ -171,7 +176,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.via) o.via = SF.peek('world.enemies.some(e => e.type === "bridge" && e.via)'); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.via, 'on the way the viaduct came up as a bridge target');
-  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 2 && f.errs.length === 0, `level 2 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss !== undefined && f.status === 'next:3' && f.errs.length === 0, `level 2 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the run flies on into level 3 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 // 3d. Trains and side roads (owner): flown through by the bot, levels 2, 6 and 6B each get trains on their plan's train runs (they move along
@@ -224,7 +229,7 @@ for (const lv of [2, 6, 7]) {
 }
 // 3b''. Level 6B (internal level 7), the harbour city: one plan from the level's first chunk (sea, the south harbour with the east harbour
 // opening into it, the town, works, station, the airfield's perimeter); the picker offers it, the ground types and pixels are the plan's,
-// it is the same after a resume, and flown through by the bot it reaches the boss and returns to the picker without errors.
+// it is the same after a resume, and flown through by the bot it reaches the boss and, the last level, ends at the title without errors.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="7"]'), shown = !btn.hidden && btn.textContent === '6B'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
@@ -249,7 +254,7 @@ for (const lv of [2, 6, 7]) {
     o.sub = false; for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.sub) o.sub = SF.peek(`(() => { if (!run.sortie || !run.sortie.plan) return false; const P = run.sortie.plan, i = P.slots.findIndex(q => q.kind === 'sub'); return i >= 0 && !!(run.sortie.slotUsed && run.sortie.slotUsed.has(i)); })()`); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.sub, `on the way the game's submarine took its berth by the U-boat bunker`);
-  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 7 && f.errs.length === 0, `level 6B flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 6B (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss !== undefined && f.state === 'title' && !f.picker && f.errs.length === 0, `level 6B flown through: the boss comes (screen bottom at chunk ${f.boss}) and, the last level, it ends at the title (no picker) (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
@@ -257,7 +262,7 @@ for (const lv of [2, 6, 7]) {
 // burning town, the searchlight airbase, the forest, light industry, the rail corridor and the marshalling yard), then the supergun's arena
 // with the yard's outer tracks running on through it. Ground types and pixels are the plan's (painted at night), the local night rule
 // holds, the plan's routes and the mist are there, it is the same after a resume, and flown through by the bot it reaches the boss with
-// trains and searchlight posts on the way and returns to the picker without errors.
+// trains and searchlight posts on the way and flies on into level 4 without errors.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(3); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
@@ -290,7 +295,7 @@ for (const lv of [2, 6, 7]) {
       if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.train && f.posts >= 3, `on the way trains ran on the plan's tracks and ${f.posts} searchlight posts were manned${f.route ? ', and a convoy drove along a route' : ''}`);
-  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 3 && f.errs.length === 0, `level 3 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 3 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss !== undefined && f.status === 'next:4' && f.errs.length === 0, `level 3 flown through: the boss comes (screen bottom at chunk ${f.boss}) and the run flies on into level 4 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
@@ -322,7 +327,7 @@ for (const lv of [2, 6, 7]) {
 
 // 3b''''. Level 1's sequence (owner): the carrier, open sea, the small islands, the large island with the airbase, open sea (all sea for
 // now), the fortified beach and the old land (coast, farmland with the Campaign's rivers, village, forest, farmland), the coast down, open sea.
-// Flown through by the bot, the flagship comes over the last open sea and the level returns to the picker.
+// Flown through by the bot, the flagship comes over the last open sea and the run flies on into level 2.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1); const S = run.sortie, want = { carrier_start: 'sea', open_sea: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', farmland: 'country', village: 'country', forest_deciduous: 'forest', coast_down: 'coastDown' };
@@ -334,14 +339,14 @@ for (const lv of [2, 6, 7]) {
   const f = await page2.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(1)'); const o = { status: 'ok' };
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek(`({ c: (-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP, b: biomeOf(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)) })`); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
-  ok(f.boss && f.boss.b === 'sea' && f.state === 'title' && f.picker && f.n === 1 && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the level returns to the picker (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss && f.boss.b === 'sea' && f.status === 'next:2' && f.errs.length === 0, `level 1 flown through: the flagship comes over the open sea (screen bottom at chunk ${f.boss && f.boss.c}) and the run flies on into level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
 // 3b'''''. Level 1A (internal level 8): level 1 with its islands. One islands plan from the first chunk to the fortified beach (the islets in
 // island_chain, the large island from island_airbase on), the legacy ground after it; the picker offers it; types and pixels are the plan's;
 // the same ground after a resume. Flown through by the bot: it opens on the carrier, the islets' turrets and the airbase's guns and planes take
-// their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the level returns to the picker on 1A.
+// their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the run flies on into level 2.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1A'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
@@ -370,7 +375,7 @@ for (const lv of [2, 6, 7]) {
   ok(f.used && f.used.k.bunker >= 1 && f.used.k.flak >= 2 && f.used.k.parked >= 1, `on the way the islands' guns took their slots (${f.used ? Object.entries(f.used.k).map(([k, v]) => v + ' ' + k).join(', ') + ' of ' + f.used.of : 'none'})`);
   ok(f.cows >= 3, `cows grazed in the paddocks (${f.cows} at once)`);
   ok(f.wet === 0, `no ship stood on land (${f.ships} ship sightings)`);
-  ok(f.boss !== undefined && f.state === 'title' && f.picker && f.n === 8 && f.errs.length === 0, `level 1A flown through: the flagship comes (screen bottom at chunk ${f.boss}) and the level returns to the picker on 1A (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss !== undefined && f.status === 'next:2' && f.errs.length === 0, `level 1A flown through: the flagship comes (screen bottom at chunk ${f.boss}) and the run flies on into level 2 (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
@@ -427,13 +432,13 @@ for (const lv of [2, 6, 7]) {
   });
   ok(r.bottomC !== undefined && r.bottomB === 'secret' && r.bottomC === r.len + 1 && r.final, `level 6 boss comes where the Campaign's does: screen bottom one chunk into the secret ground (bottom chunk ${r.bottomC}, secret from ${r.len}; Campaign stage 6: 44 and 43)`);
   ok(r.slots >= 8, `ground guns stood in the plan's slots on the way (${r.slots} of ${r.nSlots} slots used)`);
-  ok(r.state === 'title' && r.picker && r.kind === 'enigma' && r.errs.length === 0, `level 6 flown to the end returns to the picker (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
+  ok(r.state === 'title' && !r.picker && r.errs.length === 0, `level 6, the last, flown to the end: the congratulations, then the title (no picker) (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
   await page.close();
 }
 
 // 3g. Level 4, The Iron Forest (spec 19): one forest plan over the whole level from its first chunk (ironForest), passing the hard rules,
 // opening over the sea onto the cliffs, its road ending at x 112 on the castle road; types and pixels from the plan; past it the Campaign's
-// castle ground (theme 4). Flown through by the bot: guns take the plan's slots, the castle boss comes, and the level returns to the picker.
+// castle ground (theme 4). Flown through by the bot: guns take the plan's slots, the castle boss comes, and the run flies on into level 5.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(4); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P);
@@ -446,7 +451,7 @@ for (const lv of [2, 6, 7]) {
     for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.boss && SF.peek('world.bossSpawned')) o.boss = SF.peek("world.enemies.some(e => e.type === 'boss' && e.kind === 'castle')"); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, slots: (run.sortie && run.sortie.slotUsed || new Set()).size, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.boss === true, 'level 4: the castle boss comes');
-  ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 4 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.status === 'next:5' && f.errs.length === 0, `level 4 flown to the end: the run flies on into level 5 (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }
 
@@ -456,7 +461,7 @@ for (const lv of [2, 6, 7]) {
 // the level's end as the train boss's arena (two hillside viaducts, the chasm between them; the boss code's bossland, theme 1), without buffer
 // stops. Types from the plan. Flown through by the bot: U-boats come up in the ice holes and break through the ice, the train boss comes once
 // the gorge fills the screen, its trains keep to the inner tracks of their own viaduct (stepping out to the outer track and back, never across
-// the chasm), the supply trains run on the outer tracks only, and the level returns to the picker.
+// the chasm), the supply trains run on the outer tracks only, and the run flies on into level 6.
 {
   const page = await freshPage();
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), K = CityGen.K;
@@ -487,7 +492,7 @@ for (const lv of [2, 6, 7]) {
   ok(f.supN > 0 && f.supBad === 0, `level 5: the supply trains run on the outer tracks only (${f.supN} car samples, ${f.supBad} elsewhere; an explosives car seen: ${!!f.ammo})`);
   ok(f.brSent >= 1 && f.brMid, `level 5: a supply train is sent to a bridge as it comes into view, and crosses it (${f.brSent} sent, one seen on the bridge: ${!!f.brMid})`);
   ok(f.guns >= 2, `level 5: guns stood in the plan's gun slots on the way (${f.guns})`);
-  ok(f.state === 'title' && f.picker && f.kind === 'enigma' && f.errs.length === 0, `level 5 flown to the end returns to the picker (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.status === 'next:6' && f.errs.length === 0, `level 5 flown to the end: the run flies on into level 6 (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }
 // 3h'. Level 5's gorge: what lies under a gallery's roof or in a spur's tunnel is out of reach of shots (and drawn under the roof); the

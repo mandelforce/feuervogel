@@ -3842,7 +3842,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.44'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.45'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -7760,10 +7760,18 @@ function resetTerrainState() {
 function startEnigma(level) {
   app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground, 1A stage 1
 }
-// The level is over (results shown): back to the level picker. No next stage, no congratulations, nothing is counted.
+// The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
+// continues, weapon and drones carried over; after the last level (6, or 6B, the second level 6) came the congratulations (finishResults),
+// then the title. 1A, the second level 1, leads on to level 2. Nothing is counted (no loop, no best score).
+const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0, 0, 2];
 function endEnigmaLevel() {
-  const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1;
-  stopMusic(); toTitle(); openDiff('enigma', lv);
+  const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
+  if (nx && run.sortie) {
+    const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames']) keep[k] = run[k];
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null;
+    startEnigma(nx); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); return;
+  }
+  stopMusic(); toTitle();
 }
 // ================= tutorial =================
 
@@ -9559,7 +9567,9 @@ function skipResults() {
 }
 function finishResults() {
   if (app.fade) return;
-  if (run.sortie) { app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; } // Enigma Run: results, then back to the level picker (no next stage, no loop counted)
+  if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
     loopsWon++; store.set(KEY.loops, loopsWon);

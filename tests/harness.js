@@ -75,8 +75,10 @@ window.SF = {
     if (endlessSlot > 0) { run.stage = 1; run.loop = rankFor(1); }
   },
   run(frames) {
+    const lv0 = run.sortie ? run.sortie.level : 0; // Enigma Run flies on into the next level: a run stops there, returning 'next:<level>'
     for (let i = 0; i < frames; i++) {
       if (app.state !== 'play') return 'state:' + app.state;
+      if (lv0 && run.sortie && run.sortie.level !== lv0) return 'next:' + run.sortie.level;
       if (run.stage !== lastStage) { lastStage = run.stage; newStage(); }
       if (app.cont > 0) return 'continue-screen';
       if ((app.results || app.congrats) && gf % 30 === 0) skipResults();

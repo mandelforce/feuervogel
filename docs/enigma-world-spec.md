@@ -9,7 +9,7 @@ Status: draft 2. Draft 1 was written by Sonnet and then reviewed adversarially b
 - Visual and structural redesign comes first. Enemies, bosses and set pieces are reused from the campaign and are only attached to the new places through "slots" (section 5). New enemy types are out of scope for now except those listed in section 11.
 - **Naming:** the existing Enigma slider is the "Enigma look" (`ENIGMA_T`, `run.enigma`). To avoid a collision the mode's run data is `run.sortie` (null for the Campaign), and the user-facing button is still called "Enigma Run".
 - **Enigma runs never count.** They do not reach the leaderboard, `saveHi`, `loopsWon` or the Campaign progress. A flag on the run (`run.sortie != null`) is checked in `lbEligible`, `saveHi` and the stage-complete path (phase 1). The resume record stores `{level, seed}` and `resumeRun` rebuilds the sortie. [you] may later want a local best per level.
-- **Enigma levels end in their own way.** Finishing a level shows results and returns to the level picker: no `run.stage++`, no `loopsWon++`, no hand-over to the next Campaign stage.
+- **Enigma levels end in their own way.** Finishing a level shows results and returns to the level picker: no `run.stage++`, no `loopsWon++`, no hand-over to the next Campaign stage. (Changed by the owner, section 21: the run now flies on into the next level, like the Campaign.)
 - Hard rules carried over from `ARCHITECTURE.md`: visuals use the free random stream and never the run's seeded stream; the dither (`bay`, `pickI`) stays as it is; bump `VERSION` in `index.html` and `sw.js`; add a `CHANGELOG.md` line.
 
 ## 1. Architecture in one picture
@@ -1444,3 +1444,12 @@ The owner asked whether supply trains would reach a bridge at all. Measured over
   - The train (`supplyTrain`, 2–3 cars, 45% with an explosives car) carries the bridge (`br`). Each car's x follows the bridge's curve at its row (`brX`), before it, on it and after it. It looks ahead along the curve and is drawn turned with it (`e.ang`).
 - **The fall** (`gorgeFall`, in place of the wreck when a car with `br` dies over the chasm, between the arcade faces): the car tips off the truss and drops for 50 frames to the river under it. It shrinks to 30%, spins, trails smoke and fades a little. It goes through the ice with a splash and leaves a small hole with the wreck in it (`S.falls`, drawn under the trains). The cars coupled to it that are over the chasm go down one after another, 7 frames apart.
 - **Tests:** `tests/citygen.mjs` keeps its bridge checks. `tests/enigma.mjs` adds three checks: in flight, a supply train is sent to a bridge as it comes into view and is seen on it; in 3h', a train on the bridge follows its curve to the other outer track; and a car destroyed over the chasm falls (no wreck on the deck) with the car coupled to it.
+
+## 21. Enigma Run as one run (owner: like a real campaign)
+
+The levels no longer return to the level picker after their results. Instead the run flies on into the next level (`ENIGMA_NEXT`: 1→2→3→4→5→6, 1A→2; 6 and 6B are last).
+
+- **What carries over:** the run's score (and player 2's), lives, Novas, continues, extend progress, medal level and multiplier, flight time and the campaign tallies (`run.camp`). Player 1's weapon, its level and the drones carry over too. Each level starts fresh as before (`startEnigma`), with its own sortie, ground, stats and results.
+- **After the last level:** the congratulations screen (the Campaign's, with the run's totals) and then the title, with no picker. Nothing counts: no loop, no best score, no leaderboard.
+- **Picking a level:** the picker in Settings > Enigma Run still chooses the level to start from.
+- **Tests:** the harness's `SF.run` stops when the level changes and returns `next:<level>`. The bot flights expect the next level: 2→3, 3→4, 4→5, 5→6, 1→2, 1A→2. Level 6 and 6B end at the title with no picker. A direct check confirms that finishing level 5 starts level 6 with the score, lives, Novas and weapon carried over, and that finishing level 6 shows the congratulations, then the title.
