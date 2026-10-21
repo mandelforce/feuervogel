@@ -1268,3 +1268,47 @@ The owner asked for a plane that flies ahead of the player and leaves bullets be
 - **Guns:** level 4 fills its plan's gun slots as they come up, as level 2 does (flak, artillery, bunkers, and AA towers, within the director's usual caps).
 - **Tests** (`tests/enigma.mjs` 3g): the plan passes the hard rules and covers the level, begins with the cliffs, its road ends at x 112; ground types from the plan; the first chunk is sea and the castle ground lies past the level; flown through by the bot, the castle boss comes and the level returns to the picker.
 - **Not yet:** the clearing village (crossroads, its own variant), the hidden airbase, the river valley with its harbour, the fiercer forest's trench lines, the forest mist, and a softer seam from the meadow into the castle ground.
+
+## 20. Level 5, The Winter Line
+
+Level 5 flies the Campaign's stage 5: theme 1, its music and the armoured train (Winter Wolf). Until now it flew the Campaign's own stage 5 ground (`gen: 0`, no `seq`, `bossAt: null`). Its sequence (section 10) at 62 chunks: `open_sea_ice` 3, `harbour_winter` 5, `farmland_winter` 8, `village` 5, `lake_valley` 7, `station_winter` 9, `airbase_snow` 7, `forest_conifer` 7, `pass` 7, `farmland_winter` 4.
+
+**What the train boss needs (checked in code).** The arena is the Campaign's `bossland` with theme 1, painted as `ryard`: eight tracks across the whole strip (`YARD_T`, x 18 + 26 i), platforms between tracks 1 and 2 and between 5 and 6, crossovers every `XO_P` rows, snow patches. Only the main line (x 18, `RAILX`) runs in from outside; the other seven tracks begin at buffer stops at the yard's south edge (`railEnds`, the first `bossland` chunk). The two boss trains run on tracks 3 and 5 (x 96 and 148); supply trains take any free track; the director spawns crates and sheds on the platforms (`spawnGround`). In the Campaign the prototype flies over first and the warning waits until the yard fills the screen (the extra theme 1 term in the trigger). `sortieInfo` already ends a level on `bossland` for theme 1, so the arena needs nothing new.
+
+**Owner decisions (plan review):**
+- **Into the yard (1B):** a throat. Over the last stretch of the level the main line fans out on points into all eight yard tracks, as level 3's yard gathers into the supergun's rails; in Enigma Run the yard's buffer stops are dropped so the tracks run on (the Campaign keeps them).
+- **The frozen sea and the harbour (2B):** the frozen sea is not connected to the harbour. The level opens over the frozen sea, which ends at a snowy shore; the harbour comes after it, with **open water** and ice only along the quays. **Rivers are frozen.**
+- **The pass (3A):** a mountain gorge (crag walls, the road and the main line through it, avalanche sheds over the track, a blockhouse, the viaduct over a ravine). It **limits where the plane can fly: the player has to fly within the gorge** (story: to stay under the radar).
+- **Submarines break through the ice:** yes, now (cracks spread, the ice breaks, a new hole is left), besides surfacing in the holes and leads the plan lays.
+- **Ice road** across the frozen lake, with convoys on it. Sinking through the ice maybe later.
+- **Weather:** snow comes along the level (clear, light snow, snow). A **snowstorm** is built as a weather effect of the generator, but **not used in this level**, to avoid repeating level 2's storm.
+- **Mockups** for the weather first, at step 4.
+
+**Order of work** (the owner reviews after each step): (1) the winter look, the frozen sea, the harbour, the farmland and the village in the city lab; (2) the lake, the station, the airbase, the snowy forest, the pass and the throat into the yard; (3) level 5 in the game (the submarines in and through the ice, trains, guns, the train boss, tests, contact sheets); (4) the weather, after the mockups.
+
+### 20.1 Step 1: the winter look, the frozen sea, the harbour, the farmland and the village (generator, for review in the city lab)
+
+**The winter climate** (`P.climate: 'winter'`, palette `C_WINTER`, the pass `winterize`; all of it in its own section of `tools/citygen.js`). The palette is the Campaign's stage 5 colours (`THEME_TR[1]`): snow for the grass, fields under snow (stubble rows, ploughed soil showing in the furrows, crops as faint stripes), dark bare hedges, the cold sea; trodden snow on yards, snow-dusted setts and pavements; blue shadows. paint() switches on `C.snowRoof`, so no other climate changes (checked: every one of the 27 earlier presets plans and paints byte for byte as before, two seeds each).
+- **Roofs:** snow on both slopes (the shaded one blue-grey), the eaves' outline in the roof's own tile; tiles show in patches where the snow slid off or a shell broke the roof; flat roofs white behind their parapet; sawtooth roofs keep their dark north lights.
+- **Trees:** every deciduous tree is leafless (a dark heart, a few boughs, a haze of twigs, snow on the upper left); conifers carry snow on the lit side of their branches.
+- **Roads:** ploughed: a bank of snow along each edge, slush inside it, the asphalt dark and wet, two worn ruts on the main road.
+- **Water:** rivers and their basins freeze (blue ice, drifted snow in streaks, cracks, snow along the banks; the bridges still shade it); ponds freeze with reeds round them; boulders have snow on their tops; a tunnel's hill is rock under snow.
+- **Sea:** a crust of ice 2 to 7 px wide (ragged) forms along every quay, breakwater and shore (`K.ICE`, B -85). The fairways and the fleet area stay open. Open water in the lee of a floe is darker.
+
+**New ground kind** `K.ICE` (43, game type `ice`).
+
+**The frozen sea** (`freezeSea`, run by `winterize` for a `'shore'` coast): out from the shore, fast ice (10 to 22 rows), then **pack ice** of large plates (a jittered 44 px grid) with refrozen cracks between some of them (dark new ice), a few open, pressure ridges (tumbled blocks) along others, and old seams across the plates (a 19 px grid); then **broken floes** with open water between them, the gaps widening out to sea; then **pancakes** thinning out to open water at the level's start. The pack's edge is ragged. One or two **leads** of open water cross the pack, edged with new ice. Each floe has a lit rim on its upper left and a shaded side on the lower right where it meets the water. B: -80 a floe, -81 pack, -82 a ridge, -83 new ice, -84 fast ice, -85 the crust along a quay. The pack's share of the frozen sea is a coast option (`pack`, default 0.44; 0.6 in level 5, whose frozen sea is only 3 chunks).
+- **Ice holes** for the U-boats: two per plan, in the pack, 22 x 60 px of open water (the game's submarine is 10 x 40) with a rim of new ice, each a `sub` slot `on: 'ice'`. The leads keep clear of them.
+- **Places to break through** (`plan.iceBreaks`, one to three): spots in the pack (at least 90 percent ice over 17 x 51 px) where the game will let a U-boat break through (owner decision; the cracking is the game's).
+
+**The 'shore' coast** (a new coast form of the town builder): beach geometry (a natural shoreline across the south, `dir -1`), with shingle instead of sand and dunes, the coast road behind it, the main road ending on it, and none of the beach landing's pieces (no exits, Atlantic Wall, obstacles or surf). Optionally a **side harbour in a bay** (also for the 'side' form): `at` places the side harbour (shares of the length) and `bay` makes the side coast swing in from beyond the strip that many px before the harbour and out again after it. The harbour's channel then ends where the coast swings away, and an **access road** joins the main road to the waterfront street's south end (at low density no cross street reached it).
+
+**Presets** (in the city lab):
+- `frozenSea` (640 px): the frozen sea, its shore, and snowy farmland with a few farms.
+- `portWinter` (1000 px): the side harbour in a bay (U-boat bunker, piers with cranes and ships, the breakwater with its lighthouses), open water with ice along the quays, a small harbour town.
+- `villageWinter`: the village under snow (the frozen pond on the green).
+- `winterLine` (builder `winterLine`, from the sortie's segments; 21 chunks for now): the frozen sea fills `open_sea_ice`, with its shore at the segment's end; the harbour in its bay follows in `harbour_winter`. The bay's coast swings in only about 180 px past the shore, so **the frozen sea never meets the harbour's water** (owner). Then farmland under snow (density about 0.01, few farmsteads), then the village with its green at the plan's densest point (U 0.42).
+
+**Checks** (`tests/citygen.mjs`): 180 plans (60 frozen seas, 60 harbours, 30 villages, 30 of the level's first part) pass every hard rule; pack, floes and fast ice; an ice hole of open water a U-boat fits in in every plan, two in all 90 and a place to break through in all 90; open water (over 80 percent) in the harbour with ice along its quays and the bunker; the frozen sea never floods into the harbour's water; the village green in the village; every tree bare; 65 percent of roof pixels white; a winter river frozen; no palette leak; the same seed gives the same plan, and painting in bands equals painting whole. Plan time about 110 ms (median, Node); painting about 15 ms per chunk in the lab.
+
+**Not yet** (step 2): the lake valley with its ice road, the station, the airbase, the snowy forest, the mountain gorge, and the throat into the boss yard; the railway along the level.

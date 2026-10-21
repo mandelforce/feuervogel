@@ -471,9 +471,9 @@ body[data-results="1"] #bombBtn{display:none !important}
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43 };
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -581,6 +581,21 @@ PRESETS.cliffCoast = Object.assign({}, PRESETS.town, { label: 'Iron Forest: high
   features: [{ kind: 'cliffs', at0: 0, at1: 0.3 }, { kind: 'conifer', at0: 0.3, at1: 1, rides: 1, plantations: 1, clearings: 1 }] });
 PRESETS.ironForest = Object.assign({}, PRESETS.cliffCoast, { label: 'Level 4, The Iron Forest (whole level)', L: 3840, roadEnd: 112, segs: [{ t: 'beach_cliff', n: 3 }, { t: 'forest_conifer', n: 9 }, { t: 'forest_fortified', n: 8 }, { t: 'clearing_village', n: 5 }, { t: 'airbase_forest_hidden', n: 7 }, { t: 'forest_fortified', n: 8 }, { t: 'forest_conifer', n: 6 }, { t: 'valley', n: 7 }, { t: 'farmland_approach', n: 7 }] });
 PRESETS.coniferForest = Object.assign({}, PRESETS.cliffCoast, { label: 'Iron Forest: conifer forest', L: 1280, features: [{ kind: 'conifer', at0: 0, at1: 1, roads: 2, rides: 3, plantations: 3, clearings: 2, cuts: 2 }] });
+// The Winter Line (Enigma Run level 5, P.climate 'winter'; see winterize): snow on the land and the roofs, frozen rivers and ponds, leafless trees.
+// frozenSea: a 'shore' coast (a natural shoreline across the south, shingle, a coast road behind it) whose sea freezes over (freezeSea), with
+// farmland and a few farms behind it. portWinter: a side harbour in a bay (the coast swings in from beyond the strip and out again), open water
+// with ice only along the quays (owner). villageWinter: the village under snow.
+PRESETS.frozenSea = Object.assign({}, PRESETS.village, { label: 'Winter Line: frozen sea and shore', L: 640, climate: 'winter', damage: 0, oldTown: null, farms: 0.5,
+  density: [[0, 0.02], [0.5, 0.05], [1, 0.12]], coast: { mode: 'shore', dir: -1, end: 0.42, land: 0.67, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40] } });
+PRESETS.portWinter = Object.assign({}, PRESETS.coast, { label: 'Winter Line: harbour in a bay', L: 1000, climate: 'winter', damage: 0.3, damageCurve: [[0, 0.5], [0.4, 1], [1, 0.3]],
+  density: [[0, 0.06], [0.2, 0.3], [0.45, 0.42], [0.7, 0.25], [1, 0.05]], oldTown: null, stars: 0, civic: { store: true }, railway: false, industry: 0,
+  coast: Object.assign({}, PRESETS.coast.coast, { mode: 'side', cs: 1, at: [0.2, 0.56], bay: 60 }) });
+PRESETS.villageWinter = Object.assign({}, PRESETS.village, { label: 'Winter Line: village under snow', climate: 'winter' });
+// Enigma Run level 5 as one plan (winterLine; params.segs: the sortie's segments, { t, n } in chunks of 64 px): the frozen sea to its shore near the end of
+// open_sea_ice, the harbour in its bay (the side coast swings in only well past the shore, so the frozen sea and the harbour never meet), the
+// farmland, and the village with its green at the plan's densest point. (Step 1: up to the village; the rest of the level follows.)
+PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (sea, harbour, farmland, village)', builder: 'winterLine', L: 1344,
+  segs: [{ t: 'open_sea_ice', n: 3 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }] });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -619,15 +634,16 @@ function generate(opts) {
     const cs = c0.cs || (rnd(T.SEA, 1) < 0.5 ? 1 : -1), /* cs: the side the sea lies on (+1 east), random unless given */ qx = cs > 0 ? W * c0.land : W * (1 - c0.land), ph = rnd(T.SEA, 2) * 6.283, ph2 = rnd(T.SEA, 3) * 6.283, out = cs > 0 ? W + 40 : -40;
     const hd = c0.dir || 1, yC = mode === 'side' ? null : Math.round(L * c0.end), ycol = new Float32Array(W).fill(yC === null ? NaN : yC);
     let wfH = yC === null ? (hd > 0 ? Infinity : -Infinity) : yC - hd * 34, beachD = 0, duneD = 0;
-    if (mode === 'beach') { beachD = Math.round(lerp(c0.beach[0], c0.beach[1], rnd(T.SEA, 10))); duneD = c0.dune; const pb = rnd(T.SEA, 11) * 6.283, pb2 = rnd(T.SEA, 12) * 6.283; let far = hd > 0 ? 1e9 : -1e9; // a natural shoreline, gently curving
+    if (mode === 'beach' || mode === 'shore') { beachD = Math.round(lerp(c0.beach[0], c0.beach[1], rnd(T.SEA, 10))); duneD = c0.dune; const pb = rnd(T.SEA, 11) * 6.283, pb2 = rnd(T.SEA, 12) * 6.283; let far = hd > 0 ? 1e9 : -1e9; // a natural shoreline, gently curving
       for (let x = 0; x < W; x++) { ycol[x] = yC + c0.amp * Math.sin(x * 0.026 + pb) + 4 * Math.sin(x * 0.083 + pb2); far = hd > 0 ? Math.min(far, ycol[x]) : Math.max(far, ycol[x]); }
       wfH = Math.round(far - hd * (beachD + duneD + 6)); } // the coastal road behind the dunes // hd: +1 the sea beyond the end quay is north, -1 south
     let hy0 = null, hy1 = null, from = 0;
-    if (mode === 'side') { const hl = Math.round(L * lerp(c0.harbour[0], c0.harbour[1], rnd(T.SEA, 4))); hy0 = Math.round(clamp(L * (0.5 + (rnd(T.SEA, 5) - 0.5) * 0.2) - hl / 2, 120, L - hl - 120)); hy1 = hy0 + hl; }
+    if (mode === 'side' && !c0.at) { const hl = Math.round(L * lerp(c0.harbour[0], c0.harbour[1], rnd(T.SEA, 4))); hy0 = Math.round(clamp(L * (0.5 + (rnd(T.SEA, 5) - 0.5) * 0.2) - hl / 2, 120, L - hl - 120)); hy1 = hy0 + hl; }
+    if (c0.at && (mode === 'side' || mode === 'shore')) { hy0 = Math.round(L * c0.at[0]); hy1 = Math.round(L * c0.at[1]); } // at: the side harbour's place, as shares of the length ('shore': the natural shore across the south, a side harbour in a bay further on)
     if (mode === 'corner') { const hl = Math.round(L * lerp(c0.side[0], c0.side[1], rnd(T.SEA, 4))); const run = c0.beachRun || 170; if (hd > 0) { hy1 = yC - 2; hy0 = hy1 - hl; from = hy0 - run; } else { hy0 = yC + 2; hy1 = hy0 + hl; from = hy1 + run; } } // beachRun: a beach town along the side coast past the harbour // the side coast begins well before its harbour
     const xs = new Float32Array(L), wf = new Float32Array(L);
     for (let y = 0; y < L; y++) { const nat = qx + cs * (c0.amp * Math.sin(y * 0.004 + ph) + 4 * Math.sin(y * 0.013 + ph2) + 6), b = hy0 === null ? 0 : smooth(hy0 - 50, hy0 - 10, y) * (1 - smooth(hy1 + 10, hy1 + 50, y));
-      const pastH = mode === 'corner' && (hd > 0 ? y > hy1 : y < hy0); let x = lerp(nat, qx, pastH ? 1 : b); if (mode === 'end' || mode === 'beach') x = out; if (mode === 'corner') x = lerp(out, x, hd > 0 ? smooth(from - 70, from, y) : 1 - smooth(from, from + 70, y)); // in a corner the coast swings in from the strip's side
+      const pastH = mode === 'corner' && (hd > 0 ? y > hy1 : y < hy0); let x = lerp(nat, qx, pastH ? 1 : b); if (mode === 'end' || mode === 'beach' || (mode === 'shore' && hy0 === null)) x = out; if (c0.bay != null && hy0 !== null) x = lerp(out, x, smooth(hy0 - c0.bay - 70, hy0 - c0.bay, y) * (1 - smooth(hy1 + c0.bay, hy1 + c0.bay + 70, y))); /* bay: the side coast swings in bay px before the harbour and out again after it */ if (mode === 'corner') x = lerp(out, x, hd > 0 ? smooth(from - 70, from, y) : 1 - smooth(from, from + 70, y)); // in a corner the coast swings in from the strip's side
       xs[y] = x; wf[y] = x - cs * lerp(c0.beachRun ? (c0.beachW || 16) + 6 + (c0.prom || 0) : 16, 42, pastH ? 1 : b); } // (a beach town: a wider beach and a promenade between it and the street) // the quayside behind a harbour is 30 px deep, the beach elsewhere 9
     CO = { mode, cs, hd, qx, xs, wf, hy0, hy1, yC, ycol, wfH, beachD, duneD, from, side: mode !== 'end' && mode !== 'beach' }; plan.coast = CO;
     if (c0.beachRun && mode === 'corner') CO.bt = hd < 0 ? { y0: hy1 + 50, y1: from - 10 } : { y0: from + 10, y1: hy0 - 50 }; } // the beach town's stretch of shore
@@ -734,14 +750,16 @@ function generate(opts) {
   // along the end quay (across the strip, joining the main road, which ends there)
   if (CO) { const cs = CO.cs;
     for (let y = 0; y < L; y++) { const hb = CO.hy0 !== null && y >= CO.hy0 - 30 && y <= CO.hy1 + 30;
-      for (let x = 0; x < W; x++) { const i = idx(x, y); if (isSea(x, y)) { Kr[i] = K.SEA; continue; } if (CO.yC !== null && past(y, -6)) { if (CO.mode === 'beach') { Kr[i] = K.BEACH; if (Math.abs(y - CO.ycol[x]) > CO.beachD) Br[i] = -13; } else Kr[i] = K.WORKS; continue; } // the beach, then the dunes (-13)
+      for (let x = 0; x < W; x++) { const i = idx(x, y); if (isSea(x, y)) { Kr[i] = K.SEA; continue; } if (CO.yC !== null && past(y, -6)) { if (CO.mode === 'beach' || CO.mode === 'shore') { Kr[i] = K.BEACH; if (Math.abs(y - CO.ycol[x]) > CO.beachD) Br[i] = -13; } else Kr[i] = K.WORKS; continue; } // the beach, then the dunes (-13)
         const d = cs * (x - CO.xs[y]), dw = cs * (x - CO.wf[y]);
         if (CO.bt && y >= CO.bt.y0 - 30 && y <= CO.bt.y1 + 30 && dw > 6 && dw <= 6 + (P.coast.prom || 0)) { Kr[i] = K.WALK; Br[i] = -15; continue; } // the beach town's promenade
         if (dw > (hb ? 7 : 6)) Kr[i] = hb && y >= CO.hy0 && y <= CO.hy1 ? K.WORKS : d > -3 && Uy(y) >= 0.55 && !CO.bt ? K.QUAY : K.BEACH; } } // a sea wall where the town is dense (a beach town keeps its sand)
     if (CO.side) { let y0, y1; const mid = (CO.hy0 + CO.hy1) >> 1; for (y0 = mid; y0 > 0 && uAt(CO.wf[y0], y0) >= 0.2; y0--); for (y1 = mid; y1 < L - 1 && uAt(CO.wf[y1], y1) >= 0.2; y1++);
       y0 = Math.max(0, Math.min(y0, CO.hy0 - 40)); y1 = Math.min(L - 1, Math.max(y1, CO.hy1 + 40)); if (CO.yC !== null) { if (CO.hd > 0) { y0 = Math.max(y0, CO.hy0 - 120); y1 = Math.round(CO.wfH); } else { y0 = Math.round(CO.wfH); y1 = Math.min(Math.max(y1, CO.bt ? CO.bt.y1 + 20 : 0), CO.bt ? CO.bt.y1 + 20 : CO.hy1 + 120); } }
       const pts = []; for (let y = y0; y <= y1; y++) if (cs * (CO.wf[y] - (cs > 0 ? W - 4 : 3)) < 0) pts.push([CO.wf[y], y, P.widths.collector]);
-      if (pts.length > 30) CO.street = addStreet({ cls: 'collector', axis: 'v', tank: true, pts, y0: pts[0][1], y1: pts[pts.length - 1][1], side: cs, waterfront: true }); }
+      if (pts.length > 30) CO.street = addStreet({ cls: 'collector', axis: 'v', tank: true, pts, y0: pts[0][1], y1: pts[pts.length - 1][1], side: cs, waterfront: true });
+      if (CO.street && P.coast.bay != null) { const yA = CO.street.y0 + 6, xa = Math.round(MX(yA)), xb = Math.round(CO.wf[yA]), p2 = []; for (let x = Math.min(xa, xb); x <= Math.max(xa, xb); x++) p2.push([x, yA, P.widths.collector]); // a harbour in a bay: an access road from the main road to its waterfront street
+        CO.access = addStreet({ cls: 'collector', axis: 'h', tank: true, pts: p2, yc: yA, side: cs, x0: p2[0][0], x1: p2[p2.length - 1][0], w: P.widths.collector }); } }
     if (CO.yC !== null) { const yH = Math.round(CO.wfH), xe = CO.side ? Math.round(CO.wf[yH]) : (cs > 0 ? W - 1 : 0), xa = cs > 0 ? 0 : W - 1, pts = [];
       for (let x = Math.min(xa, xe); x <= Math.max(xa, xe); x++) pts.push([x, yH, P.widths.collector]);
       CO.endStreet = addStreet({ cls: 'collector', axis: 'h', tank: true, pts, yc: yH, side: 1, x0: pts[0][0], x1: pts[pts.length - 1][0], w: P.widths.collector, waterfront: true });
@@ -1223,7 +1241,7 @@ function generate(opts) {
     const port = { piers: 0 }, seaWs = cs > 0 ? W - CO.qx : CO.qx, PLs = Math.max(20, Math.min(P.coast.pier[1], Math.floor(seaWs - CS - mw - 6))), sideLaneX = CO.side ? CO.qx + cs * (PLs + 17) : null; // the side fairway: 30 px of the channel next to the pier heads (a destroyer is 28)
     let yM = null;
     // the end harbour
-    if (CO.yC !== null && CO.mode !== 'beach') { const yQ = CO.yC, PLh = 40 + ((rnd(T.SEA, 6) * 10) | 0), Y = d => yQ + hd * d; yM = Y(PLh + CH); // Y: d px from the quay out to sea
+    if (CO.yC !== null && CO.mode !== 'beach' && CO.mode !== 'shore') { const yQ = CO.yC, PLh = 40 + ((rnd(T.SEA, 6) * 10) | 0), Y = d => yQ + hd * d; yM = Y(PLh + CH); // Y: d px from the quay out to sea
       const xLand = cs > 0 ? 0 : W - 1, xMoleEnd = CO.side ? CO.qx + cs * (PLs + CS) : (cs > 0 ? W - 1 : 0), XA = d => xLand + cs * d, span = Math.abs(xMoleEnd - xLand);
       // the fairway: on the side channel in a corner harbour (ships sail straight on), otherwise somewhere along the quay clear of the bunker
       const fx = CO.side ? Math.round(sideLaneX) : Math.round(XA(74)), gx0 = fx - FW / 2, gx1 = fx + FW / 2 - 1; // in the 'end' form right beside the bunker, the piers beyond
@@ -1289,7 +1307,7 @@ function generate(opts) {
       if (!(RL && RL.branch)) { for (let y = hy0 + 56; y < hy1 - 4; y++) layTrack(X(-26) + cs * 6 * smooth(hy1 - 20, hy1 - 4, y), y); plan.tunnels.push({ x: Math.round(X(-26) + cs * 6), y: hy1 - 5, dir: 1 }); } // the quayside track bends out past the last warehouse into a tunnel, its hill on the open ground at the harbour's end
       // the fairway along the channel: from the closed end out of the harbour (past its head, or into the end harbour and through its entrance)
       const lx = Math.round(sideLaneX), ly0 = Math.min(yClosed + 4, corner ? yM : L - 1), ly1 = Math.max(yClosed + 4, corner ? (hd > 0 ? L - 1 : 0) : L - 1);
-      plan.shipLanes.push({ x: lx, w: 30, y0: corner && hd < 0 ? 0 : Math.min(ly0, ly1), y1: corner && hd < 0 ? yClosed - 4 : Math.max(ly0, ly1), kind: 'channel' });
+      plan.shipLanes.push({ x: lx, w: 30, y0: corner && hd < 0 ? 0 : Math.min(ly0, ly1), y1: corner && hd < 0 ? yClosed - 4 : P.coast.bay != null ? Math.min(Math.max(ly0, ly1), hy1 + P.coast.bay) : Math.max(ly0, ly1), kind: 'channel' }); // (in a bay: out to where the coast swings away)
       if (P.coast.openSide) { const a = cs > 0 ? lxa : 1, b = cs > 0 ? W - 2 : lxb; if (b - a + 1 >= 30) plan.shipLanes.push({ x: (a + b + 1) / 2, w: b - a + 1, y0: Math.min(ly0, ly1) + 4, y1: Math.max(ly0, ly1) - 4, kind: 'warships' }); } // (clear of the end breakwater it opens onto) // the channel and where the breakwater would be: open water for the warships
       port.side = { PL, moleD, channel: CS }; }
     // the game's submarine (12 x 46 px, upright) waits by each U-boat bunker, on the harbour's own water: at the pens (at most 8 px from the
@@ -1993,7 +2011,7 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : C_TEMP; };
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -2006,7 +2024,7 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   const w = b.w, h = b.h, style = b.style;
   if (lx === 0 || ly === 0 || lx === w - 1 || ly === h - 1) return b.wash !== undefined && style === 'flat' ? C.wash[b.wash][0] : ramp[0];
   if (style === 'flat') { // a gravel roof behind a parapet: light enough to read as a roof, not a hole (in the desert a plastered roof terrace in its wash)
-    const R = b.wash !== undefined ? C.wash[b.wash] : C.conc;
+    const R = b.wash !== undefined ? C.wash[b.wash] : C.snowFlat || C.conc; // (winter: snow on the roof behind its parapet)
     if (b.wash !== undefined && !b.slot) { if (ly === 1 || lx === 1) return R[3]; if (ly === h - 2 || lx === w - 2) return R[1]; if (w > 6 && h > 6 && (lx === w - 4 || lx === w - 3) && (ly === 2 || ly === 3)) return C.hatch; return R[2]; } // the desert: like the game's desert houses (light top and left, a darker bottom and right, a roof hatch)
     if (lx === 1 || ly === 1 || lx === w - 2 || ly === h - 2) return ly === 1 || lx === w - 2 ? R[3] : R[1];
     if (b.slot && Math.abs(lx - w / 2 + 0.5) < 2.6 && Math.abs(ly - h / 2 + 0.5) < 2.6) { const e = Math.max(Math.abs(lx - w / 2 + 0.5), Math.abs(ly - h / 2 + 0.5)); return e > 1.8 ? C.sand[(lx + ly) & 1] : C.gravel[0]; } // a sandbagged gun platform
@@ -2015,13 +2033,14 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
     return R[pickI(4, 0.45 + (hh(wx, wy) - 0.5) * 0.35 + (vn(wx * 0.3, wy * 0.3) - 0.5) * 0.2, wx, wy)];
   }
   const along = b.ori === 'h', a = along ? lx : ly, c = along ? ly : lx, Lg = along ? w : h, Dd = along ? h : w, mid = (Dd - 1) / 2;
-  if (style === 'saw') { const ph = c % 5; return ph === 0 ? C.roofs[3][4] : ph === 1 ? ramp[0] : ramp[pickI(5, 0.25 + ph * 0.14, wx, wy)]; } // a sawtooth roof: rows of north lights
+  if (style === 'saw') { const ph = c % 5; return ph === 0 ? C.roofs[3][4] : ph === 1 ? ramp[0] : (C.snowRoof || ramp)[pickI(5, 0.25 + ph * 0.14, wx, wy)]; } // a sawtooth roof: rows of north lights (winter: snow on the slopes)
   let l = c < mid ? 0.78 : 0.34;
   if (Math.abs(c - mid) < 0.6) l = 0.95;
   if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = 0.62; else if (Lg - 1 - a < e) l = 0.22; }
   if (a % 3 === 0) l -= 0.08;
   const ch = 2 + ((hh(b.seed, 9) * Math.max(1, Lg - 5)) | 0);
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
+  if (C.snowRoof && !(b.dmg && vn(wx * 0.5, wy * 0.5) < 0.5) && vn(wx * 0.22 + (b.seed & 63), wy * 0.3) < 0.8) return C.snowRoof[pickI(5, l, wx, wy)]; // winter: snow on both slopes, the shaded one blue-grey; tiles show where it slid off or a shell broke it
   return ramp[pickI(5, l, wx, wy)];
 }
 // a round building's pixel: a copper dome with ribs and a lantern, a gas holder inside its guide frame, or a column with a gilded figure
@@ -2069,7 +2088,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
   for (let sr = 0; sr < h; sr++) {
     const y = y0 + h - 1 - sr; if (y < 0 || y >= L) continue;
     for (let x = 0; x < W; x++) {
-      const i = y * W + x, k = Kr[i]; let c;
+      const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
@@ -2124,6 +2143,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           break; }
         case K.ROAD: { const st = streetOf(i); if (st && st.gravel) { c = C.gravel[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.6 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.3, x, y)]; break; } // a gravel forest road
           if (st && st.dirt) { const rut = st.axis === 'h' ? Math.abs(Math.abs(y + 0.5 - st.yc - 0.5) - st.w / 4) < 0.8 : Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8; c = rut ? C.dirt[0] : C.dirt[pickI(4, 0.55 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // a desert track: packed dirt, two ruts
+          if (C.snowRoof) { c = snowRoadPix(plan, i, x, y, st); break; } // winter: ploughed, snow banked along the edges
           c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
         case K.STREET: { const st = streetOf(i); if (st && st.old) { c = C.sett[pickI(4, 0.55 + ((x + (y >> 1)) % 3 === 0 ? -0.3 : 0.08) + (hh(x, y) - 0.5) * 0.35, x, y)]; break; } } // the old town's light setts
           c = C.cobble[pickI(4, 0.45 + (((x >> 1) + (y >> 1)) & 1 ? 0.1 : -0.06) + (hh(x, y) - 0.5) * 0.3, x, y)]; break;
@@ -2132,7 +2152,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (Br[i] === -4) { const st = plan.stars.reduce((a, o) => Math.abs(o.y - y) < Math.abs(a.y - y) ? o : a), r = Math.hypot(x + 0.5 - st.x, y + 0.5 - st.y); // the roundabout's lawn with a ring of flowers and a stone kerb
             c = r > st.ri - 1 ? C.side[2] : Math.abs(r - st.ri + 2.6) < 0.7 ? C.fruit[(x + y) & 1] : r < 3.6 ? C.pave[2] : C.grass[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
           c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
-        case K.WATER: if (Br[i] === -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.pool[6] : C.pool[pickI(7, 0.35 + Math.sin(x * 0.5 + y) * 0.06, x, y)]; break; } // an oasis pool
+        case K.WATER: if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
+          if (Br[i] === -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.pool[6] : C.pool[pickI(7, 0.35 + Math.sin(x * 0.5 + y) * 0.06, x, y)]; break; } // an oasis pool
           if (Br[i] === -7) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.river[pickI(6, 0.35 + Math.sin(x * 0.5 + y) * 0.08, x, y)]; break; } // the pond, reeds round its edge
           c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
         case K.FRONT: { const b = Br[i] >= 0 ? items[Br[i]] : null; c = b && b.t === 'house' ? C.grass[pickI(4, 0.55 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)] : C.pave[pickI(4, 0.35 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
@@ -2164,6 +2185,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (e < 1.5) l += 0.4; else if (e < 3.5) l += 0.2; // the shallow edge
           const sh = [at(x - 1, y + 1), at(x - 2, y + 1), at(x - 3, y + 2)].some(j => j >= 0 && (Kr[j] === K.BRIDGE || Kr[j] === K.RBRIDGE)); if (sh) l -= 0.45; // the bridge's shadow on the water
           const pl = at(x - 1, y), pr = at(x + 1, y); if (((pl >= 0 && Kr[pl] === K.BRIDGE) || (pr >= 0 && Kr[pr] === K.BRIDGE)) && (y % 9) < 3) { c = C.conc[2]; break; } // a pier
+          if (C.snowRoof) { c = iceRiverPix(x, y, e, sh); break; } // winter: the river is frozen
           c = C.river[pickI(6, l, x, y)]; break; }
         case K.BRIDGE: { const st = streetOf(i), sp = st && st.cls !== 'arterial' ? (st.pts.find(q => q[1] === y) || st.pts[0]) : null, xc = st ? (sp ? sp[0] : plan.mx[y]) : x, wd = st ? (sp ? sp[2] : plan.aw[y]) : 8, dd = Math.abs(x + 0.5 - xc);
           if (dd > wd / 2 - 1) { c = (y % 3) === 0 ? C.shadow : x < xc ? C.conc[3] : C.conc[2]; break; } // balustrade: stone posts, lit on the left
@@ -2178,7 +2200,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
         case K.RAIL: { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
         case K.RBRIDGE: { const m = RMx[i]; if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
-        case K.SEA: { if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
+        case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
+          if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
           if (plan.shore) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
             if (dd <= 1 && hh(x >> 1, y) < 0.8) { c = C.foam; break; } if (dd <= 3 && hh(x, y >> 1) < 0.45) { c = C.sea[5]; break; }
             if (seaPix) { c = seaPix(x, y, false, 0); break; } c = C.sea[pickI(6, 0.62 - Math.min(dd, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; }
@@ -2195,7 +2218,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = up && dn ? C.field.grass[pickI(5, 0.3 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.sand[hh(x, y) < 0.7 ? 0 : 1]; break; }
         case K.BANK: c = hh(x, y) < 0.22 ? C.field.wheat[1] : (y + x * 3) % 5 === 0 ? C.field.hedge[2] : C.soil[pickI(3, 0.4 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.5, x, y)]; break; // mud and reeds
         case K.ROCK: { const n = vn(x * 0.32 + 5, y * 0.32), sea = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Kr[q] === K.SEA); // boulders lit from the upper left, wet and dark at the water
-          c = sea && hh(x, y) < 0.5 ? C.rubble[1] : n > 0.6 ? C.conc[3] : n > 0.5 ? C.conc[2] : n > 0.4 ? C.rubble[4] : n > 0.3 ? C.rubble[3] : C.rubble[2]; if (vn(x * 0.32 + 5.3, y * 0.32 - 0.3) > n + 0.08) c = C.rubble[1]; break; }
+          c = sea && hh(x, y) < 0.5 ? C.rubble[1] : n > 0.6 ? C.conc[3] : n > 0.5 ? C.conc[2] : n > 0.4 ? C.rubble[4] : n > 0.3 ? C.rubble[3] : C.rubble[2]; if (vn(x * 0.32 + 5.3, y * 0.32 - 0.3) > n + 0.08) c = C.rubble[1]; if (C.snowRoof && n > 0.4 && c !== C.rubble[1] && hh(x, y) < 0.9) c = C.grass[pickI(4, 0.45 + (n - 0.4) * 1.2, x, y)]; break; } // (winter: snow on the boulders' tops)
         case K.RUNWAY: { const A = plan.airbase; if (A.desert) { const lx = x - (A.rx - A.rw / 2), sand = [[228, 210, 170], [236, 220, 182], [242, 228, 194]]; // a runway of rolled sand: dark edges, white markers along them, tyre marks
             c = lx === 0 || lx === A.rw - 1 ? C.spoil[1] : (lx === 1 || lx === A.rw - 2) && y % 16 < 2 ? C.dome[4] : Math.abs(Math.abs(lx - A.rw / 2 + 0.5) - 4) < 1 && hh(x, y >> 1) < 0.5 ? C.spoil[2] : sand[pickI(3, 0.5 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.5, x, y)]; break; }
           const lx = x - (A.rx - A.rw / 2), end = Math.min(y - A.y0, A.y1 - y); let l = 0.62 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.2; // concrete with edge lines, a dashed centre line, threshold bars, tyre marks
@@ -2224,8 +2247,10 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
         case K.CRAG: c = cragPix(plan, x, y, Br[i]); break; // the Iron Forest's cliffs, gorge walls and sea stacks
         case K.LEDGE: c = ledgePix(plan, x, y, Br[i]); break; // ledges between the cliffs' tiers, the gorge's floor, a stack's top
         case K.WOOD: c = C.tree[pickI(6, 0.12 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.3, x, y)]; break; // the forest floor in the shade under the crowns
+        case K.ICE: c = icePixK(plan, x, y, Br[i]); break; // winter: sea ice, floes, pressure ridges, new ice, fast ice, the crust along the quays
         default: c = parcelPix(plan, i, x, y);
       }
+      if (iceSh < 1) c = [c[0] * iceSh | 0, c[1] * iceSh | 0, c[2] * (0.25 + 0.75 * iceSh) | 0];
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
       if (k !== K.BLDG && desert) { const sb = bAt(x - 3, y + 3); if (sb && !(sb.part === 'apse')) c = [c[0] * 0.6 + 7 | 0, c[1] * 0.6 + 6 | 0, c[2] * 0.6 + 10 | 0]; } // the desert: no facades, the shadow of the game's sprites (3 px right, 3 px down)
       else if (k !== K.BLDG) {
@@ -2292,12 +2317,12 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     let hwPrev = 12;
     for (let k = 1; k <= 24; k++) { const yy = ty + dir * (k + 6); let hw = Math.min(hwPrev + 1.5, 12 + k * 1.2, 18, 18 - Math.max(0, k - 14) * 1.6); /* wider than the portal, round at its far end */ let free = 0; while (free < hw && open(tx - 1 - free, yy) && open(tx + free, yy)) free++; hw = Math.min(hw, free); if (hw < 4) break; hwPrev = hw;
       for (let xx = tx - Math.floor(hw); xx < tx + Math.floor(hw); xx++) { const e = Math.abs(xx + 0.5 - tx) / hw, n = hh(xx * 3, yy * 5);
-        put(xx, yy, e > 0.88 ? TUN[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : TUN[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
+        put(xx, yy, e > 0.88 ? (C.tun || TUN)[0] : n < 0.07 ? C.conc[1] : n < 0.11 ? C.field.grass[1] : (C.tun || TUN)[pickI(5, 0.85 - e * 0.6 - k * 0.015 + (vn(xx * 0.3, yy * 0.3) - 0.5) * 0.35, xx, yy)]); } } // rocks and a few grass tufts
     const MW = [11, 11, 11, 11, 10, 7.5, 0]; // the mouth's half-width per row: straight sides, a round top
     for (let r = 0; r <= 6; r++) for (let xx = tx - 14; xx <= tx + 13; xx++) { const yy = ty + dir * r, dx = xx + 0.5 - tx, inner = Math.abs(dx) < MW[r], j = at(xx, yy);
       if (!inner && j >= 0 && (Kr[j] === K.BLDG || Kr[j] === K.ROAD || Kr[j] === K.STREET)) continue; // never over a building or a carriageway
       let c; if (inner) c = r === 0 ? C.dark : r <= 2 ? C.shadow : TUN_IN; // the mouth, darkening into the tunnel
-      else { const course = r % 2 ? (xx + 2) % 6 === 0 : xx % 6 === 0; c = r === 6 || Math.abs(dx) > 13 ? TUN[0] : Math.abs(dx) < MW[r] + 1.6 ? TUN[4] : course ? TUN[1] : TUN[pickI(5, 0.62 + (hh(xx, yy) - 0.5) * 0.3 + (r <= 1 ? -0.15 : 0), xx, yy)]; } // dressed sandstone blocks, a light arch ring
+      else { const course = r % 2 ? (xx + 2) % 6 === 0 : xx % 6 === 0; c = r === 6 || Math.abs(dx) > 13 ? (C.tun || TUN)[0] : Math.abs(dx) < MW[r] + 1.6 ? (C.tun || TUN)[4] : course ? (C.tun || TUN)[1] : (C.tun || TUN)[pickI(5, 0.62 + (hh(xx, yy) - 0.5) * 0.3 + (r <= 1 ? -0.15 : 0), xx, yy)]; } // dressed sandstone blocks, a light arch ring
       put(xx, yy, c); }
     for (let xx = tx - 14; xx <= tx + 13; xx++) { const j = at(xx, ty - dir); if (j >= 0 && soft(Kr[j])) put(xx, ty - dir, C.shadow, 0.4); } }
   for (const o of plan.obstacles || []) { if (o.y < y0 - 4 || o.y > y0 + h + 4) continue; // Czech hedgehogs, mined stakes, dragon's teeth
@@ -2322,6 +2347,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
   for (const t of plan.trees) { if (t.y + t.r + 4 < y0 || t.y - t.r - 4 >= y0 + h) continue;
     if (t.palm && t.stump) { put(t.x, t.y, C.tree[0]); put(t.x + 1, t.y, C.tree[1]); put(t.x, t.y - 1, C.tree[1]); put(t.x + 1, t.y - 1, C.tree[2]); for (let k = 1; k <= 4; k++) put(t.x + 1 + k, t.y - 1 - (k >> 1), C.tree[k % 2 ? 3 : 2]); put(t.x + 2, t.y - 2, C.shadow, 0.35); continue; } // a palm shot off, its crown on the ground
     if (t.palm) { palmPix(t, put); continue; }
+    if (t.bare) { bareTreePix(t, put); continue; } // winter: a leafless tree with snow on its branches
     if (t.scrub) { for (let yy = -2; yy <= 2; yy++) for (let xx = -2; xx <= 2; xx++) { const dd = xx * xx + yy * yy; if (dd > 5) continue; put(t.x + xx + 2, t.y + yy - 2, C.shadow, 0.35); } for (let yy = -2; yy <= 2; yy++) for (let xx = -2; xx <= 2; xx++) { const dd = xx * xx + yy * yy; if (dd > 5) continue; put(t.x + xx, t.y + yy, C.field.crop[pickI(4, 0.45 + (-xx + yy) * 0.12, t.x + xx, t.y + yy)]); } continue; } // desert scrub
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) if (xx * xx + yy * yy <= t.r * t.r) put(t.x + xx + 2, t.y + yy - 2, C.shadow, 0.4);
     for (let yy = -t.r; yy <= t.r; yy++) for (let xx = -t.r; xx <= t.r; xx++) { const dd = (xx * xx + yy * yy) / (t.r * t.r); if (dd > 1) continue;
@@ -3077,7 +3103,7 @@ function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = t.sp *
 function paintConifers(plan, put, y0, h) {
   for (const cls of plan.conifers) { let lo = 0, hi = cls.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cls[m].y < y0 - 12) lo = m + 1; else hi = m; } let k1 = lo; while (k1 < cls.length && cls[k1].y <= y0 + h + 12) k1++;
     for (let k = lo; k < k1; k++) { const t = cls[k], s = Math.round(t.r * 0.55) + 1 + t.lean, c = crownOf(t); for (let q = 0; q < c.length; q += 3) put(t.x + c[q] + s, t.y + c[q + 1] - s, C.shadow, 0.5); }
-    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, ramp[pickI(7, c[q + 2], px, py)]); } } }
+    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, C.snowRoof && c[q + 2] > 0.48 && hh(px, py) < 0.88 ? C.snowRoof[pickI(5, 0.35 + (c[q + 2] - 0.48) * 1.3, px, py)] : ramp[pickI(7, c[q + 2], px, py)]); } /* (winter: snow on the lit side of the branches) */ } }
 }
 // a cliff pixel (K.CRAG). Br -40 - k: the south face of tier k, rows from its foot to its rim; -50 / -51: the road gorge's left and right
 // walls; -60 - s: sea stack s. Rock in strata, buttresses lighter and gullies darker, lit at the rim, darkening to the foot; a face that turns
@@ -3337,7 +3363,132 @@ function forestLand(o) {
   plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT };
+// ---------- Enigma Run level 5 (The Winter Line): the winter climate and the frozen sea ----------
+// The winter climate (P.climate 'winter'): the Campaign's stage 5 colours (index.html THEME_TR[1]) for the snow, the fields under it, the
+// bare hedges and the cold sea; snow on every roof (the tiles show where it slid off or a shell broke it), on the lit side of the conifers
+// and on the boulders; leafless deciduous trees with snow on their branches; ploughed roads with banks of snow; frozen rivers and ponds;
+// blue shadows. paint() switches on C.snowRoof, so no other climate is touched.
+const C_WINTER = Object.assign({}, C_FOREST, {
+  grass: HX(['#bcc4d4', '#d0d6e2', '#e2e7ef', '#f4f6fa']), soil: HX(['#6a645e', '#9c9ca2', '#c8ccd2']), yard: HX(['#8e96a4', '#a4acba', '#bac2ce']),
+  field: { grass: HX(['#a6b0c2', '#bcc4d4', '#d0d6e2', '#e2e7ef', '#f4f6fa']), wheat: HX(['#b4bccc', '#c6cdda', '#d6dce6', '#e6eaf0', '#f6f8fb']), soil: HX(['#4e4842', '#6a645e', '#9c9ca2', '#c8ccd2']), crop: HX(['#8e98a8', '#a6aebe', '#c2c9d4', '#dfe3ea']), hedge: HX(['#2e3a30', '#3e4c40', '#58665e']) },
+  tree: HX(['#5a6474', '#6e7888', '#828c9c', '#96a0b0', '#aab4c2', '#bec6d2']), // the forest floor: snow in the shade of the crowns
+  sea: HX(['#16242e', '#1c303c', '#243c4a', '#2e4a5a', '#3c5a6c', '#566f80']), foam: HX(['#cddce6'])[0],
+  river: HX(['#6e90a8', '#7ea0b8', '#98b8cc', '#b2cede', '#cce0ec', '#e2f0f8']), ice: HX(['#6e90a8', '#7ea0b8', '#98b8cc', '#b2cede', '#cce0ec', '#e2f0f8']), thin: HX(['#22323e', '#2c3e4c', '#38505e', '#466070']),
+  water: HX(['#98b8cc', '#b2cede', '#cce0ec']), sand: HX(['#9298a4', '#c2c8d2']),
+  asph: HX(['#4a4e58', '#565a64', '#62666f', '#6e727a']), cobble: HX(['#7e828c', '#9296a0', '#a8acb6', '#c0c4cc']), sett: HX(['#868a94', '#9a9ea8', '#b0b4bc', '#c6cad2']),
+  side: HX(['#9ca2ac', '#b4bac4', '#ccd2da']), pave: HX(['#a8aeb8', '#bcc2cc', '#d0d6de', '#e4e8ee']), gravel: HX(['#8a8e96', '#a6aab2', '#c2c6ce']),
+  conc: HX(['#6e727a', '#82868e', '#969aa2', '#aaaeb6']), shadow: HX(['#262c3a'])[0], bark: HX(['#3a332e', '#554c45', '#71675e']),
+  snowRoof: HX(['#8a94a8', '#a8b2c4', '#c8d0dc', '#e2e8f0', '#f8fafc']), snowFlat: HX(['#9aa4b6', '#c0c8d6', '#dce2ea', '#f2f5f9']), fence: HX(['#5e5650'])[0],
+  tun: HX(['#5a5e68', '#7a7e88', '#a8aeb8', '#d0d6de', '#eef1f6']), // a tunnel portal's hill: rock under snow
+});
+// A pass over a finished plan (P.climate 'winter'): the deciduous trees lose their leaves; the sea freezes into a crust 2 to 7 px wide
+// along every quay, breakwater and shore (the harbour's water stays open, owner); and a 'shore' coast's sea freezes over (freezeSea).
+function winterize(plan) {
+  const { W, L, K: Kr, B: Br } = plan, N = W * L;
+  for (const t of plan.trees) if (!t.palm && !t.scrub) t.bare = true;
+  if (plan.coast && plan.coast.mode === 'shore' && plan.coast.yC !== null) freezeSea(plan);
+  const D = new Float32Array(N).fill(1e9); for (let i = 0; i < N; i++) if (Kr[i] !== K.SEA && Kr[i] !== K.ICE) D[i] = 0;
+  for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (!D[i]) continue; let d = D[i]; if (x > 0) d = Math.min(d, D[i - 1] + 1); if (y > 0) { d = Math.min(d, D[i - W] + 1); if (x > 0) d = Math.min(d, D[i - W - 1] + 1.41); if (x < W - 1) d = Math.min(d, D[i - W + 1] + 1.41); } D[i] = d; }
+  for (let y = L - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const i = y * W + x; if (!D[i]) continue; let d = D[i]; if (x < W - 1) d = Math.min(d, D[i + 1] + 1); if (y < L - 1) { d = Math.min(d, D[i + W] + 1); if (x < W - 1) d = Math.min(d, D[i + W + 1] + 1.41); if (x > 0) d = Math.min(d, D[i + W - 1] + 1.41); } D[i] = d; }
+  const lanes = (plan.shipLanes || []).map(l => [l.x - l.w / 2 - 1, l.x + l.w / 2, l.y0, l.y1]).concat(plan.fleetArea ? [[plan.fleetArea.x0 - 1, plan.fleetArea.x1 + 1, plan.fleetArea.y0, plan.fleetArea.y1]] : []); // the warships' fairways stay open
+  for (let i = 0; i < N; i++) if (Kr[i] === K.SEA && D[i] < 8) { const x = i % W, y = (i / W) | 0; if (D[i] <= 1.5 + 5.5 * vn(x * 0.07 + 31, y * 0.05) && !lanes.some(a => x >= a[0] && x <= a[1] && y >= a[2] && y <= a[3])) { Kr[i] = K.ICE; Br[i] = -85; } }
+}
+// The frozen sea (a 'shore' coast in winter; the owner's landmark): from the level's start, open water with pancakes of ice, then broken floes
+// closing up, then pack ice of large plates with refrozen cracks, pressure ridges and a few long leads of open water, and fast ice along the
+// shore. The plates are cells of a jittered grid (the two nearest centres): a pixel is ice where it lies far enough inside its cell, the gap
+// shrinking towards the shore; out at sea each floe is also cut to a round of its own size. Ice holes in the pack, long enough for a
+// surfacing U-boat (rx 11, ry 30; the game's is 10 x 40 px), are 'sub' slots (on 'ice'); plan.iceBreaks are places in solid pack where one can break through (the game).
+// Ice kinds (K.ICE, game type 'ice'), by B: -80 a floe, -81 pack, -82 a pressure ridge, -83 new ice in a crack or round a lead, -84 fast ice.
+function freezeSea(plan) {
+  const { W, L, K: Kr, B: Br } = plan, CO = plan.coast, seed = plan.seed | 0, TI = 4300;
+  const rnd = (a, b = 0, c = 0) => h32(h32(seed, TI + a), h32(b | 0, c | 0)) / 4294967296;
+  const ys = x => CO.ycol[clamp(Math.round(x), 0, W - 1)], yS0 = ys(W >> 1), YD = Math.max(60, yS0), pk = (plan.P.coast && plan.P.coast.pack) || 0.44, /* pk: the pack's share of the frozen sea, out from the shore */ fast = x => 10 + 12 * vn(x * 0.04 + 3, 7.7);
+  // two jittered grids: large pack plates near the shore, smaller floes out at sea; worley(g, x, y) -> the two nearest centres
+  const grid = (G, tag) => { const nx = Math.ceil(W / G) + 2, ny = Math.ceil((yS0 + 30) / G) + 2, cx = new Float32Array(nx * ny), cy = new Float32Array(nx * ny);
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const q = j * nx + i; cx[q] = (i - 1 + 0.08 + rnd(tag, i, j) * 0.84) * G; cy[q] = (j - 1 + 0.08 + rnd(tag + 1, i, j) * 0.84) * G; } return { G, nx, ny, cx, cy, tag }; };
+  const big = grid(44, 1), small = grid(19, 3), R = { d1: 0, d2: 0, q1: 0, q2: 0 };
+  const worley = (g, x, y) => { const bi = Math.floor(x / g.G) + 1, bj = Math.floor(y / g.G) + 1; R.d1 = R.d2 = 1e9;
+    for (let j = bj - 1; j <= bj + 1; j++) for (let k = bi - 1; k <= bi + 1; k++) { if (j < 0 || j >= g.ny || k < 0 || k >= g.nx) continue; const q = j * g.nx + k, d = Math.hypot(x + 0.5 - g.cx[q], y + 0.5 - g.cy[q]); if (d < R.d1) { R.d2 = R.d1; R.q2 = R.q1; R.d1 = d; R.q1 = q; } else if (d < R.d2) { R.d2 = d; R.q2 = q; } } return R; };
+  const pair = (g, a, b) => rnd(g.tag + 5, Math.min(a, b), Math.max(a, b));
+  for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (Kr[i] !== K.SEA) continue; const ds = ys(x) - y; if (ds < -2) continue;
+    if (ds < fast(x)) { Kr[i] = K.ICE; Br[i] = -84; continue; } // fast ice along the shore
+    const t = clamp(ds / YD, 0, 1), wob = (vn(x * 0.3, y * 0.3) - 0.5) * 2.2;
+    if (t < pk + (vn(x * 0.035, 5.5) - 0.5) * 0.22 + (vn(x * 0.12, y * 0.05) - 0.5) * 0.08) { // the pack: large plates; a crack only between some of them (refrozen, a few open), a pressure ridge along a few
+      const w = worley(big, x, y), e = w.d2 - w.d1 + wob * 0.5, pq = pair(big, w.q1, w.q2);
+      if (pq < 0.16 && e < 3.2) { Kr[i] = K.ICE; Br[i] = -82; continue; }
+      if (pq < 0.5 && e < 1.3) { if (pq < 0.4) { Kr[i] = K.ICE; Br[i] = -83; } continue; }
+      const s = worley(small, x, y), ps = pair(small, s.q1, s.q2); Kr[i] = K.ICE; Br[i] = s.d2 - s.d1 < 0.9 && ps < 0.22 ? -83 : -81; continue; } // old seams across a plate
+    const w = worley(small, x, y), gap = lerp(1.4, 4 + 4 * pair(small, w.q1, w.q2), smooth(0.42, 0.72, t)), e = w.d2 - w.d1 + wob * (0.8 + t);
+    const rc = lerp(99, 3.5 + 6 * rnd(9, w.q1), smooth(0.64, 0.92, t)), round = w.d1 < rc * (0.88 + (vn(x * 0.4 + 9, y * 0.4) - 0.5) * 0.35);
+    if (e > gap && round && !(t > 0.8 && rnd(10, w.q1) < (t - 0.8) * 3)) { Kr[i] = K.ICE; Br[i] = -80; } } // broken floes, then pancakes thinning out to open water
+  const P = { leads: [], holes: [] }; plan.iceSea = P; plan.iceBreaks = [];
+  const icy = (x, y) => x >= 0 && x < W && y >= 0 && y < L && Kr[y * W + x] === K.ICE && Br[y * W + x] !== -84, Y = f => Math.round(yS0 - YD * f); // Y(f): the row f of the way out from the shore
+  // holes for the U-boats: 2 or 3 in the pack, each long enough for one to surface
+  const fits = (x0, y0, rx, ry) => { for (let y = y0 - ry - 2; y <= y0 + ry + 2; y++) for (let x = x0 - rx - 2; x <= x0 + rx + 2; x++) if (!icy(x, y)) return false; return true; }, far = (x, y, d) => P.holes.concat(plan.iceBreaks).every(h => Math.hypot(h.x - x, (h.y - y) * 0.6) > d);
+  const cover = (x0, y0, rx, ry) => { let n = 0, m = 0; for (let y = y0 - ry; y <= y0 + ry; y++) for (let x = x0 - rx; x <= x0 + rx; x++) { m++; if (icy(x, y)) n++; } return n / m; }; // a break needs pack, not a whole plate
+  for (let a = 0; a < 320 && P.holes.length < 2; a++) { const x = Math.round(28 + rnd(11, a) * (W - 56)), y = Y(0.08 + rnd(12, a) * (pk - 0.14)) - 16; if (!(a < 160 ? fits(x, y, 11, 30) : cover(x, y, 13, 32) > 0.86) || !far(x, y, 56)) continue; // (a second pass takes pack with a few open cracks)
+    P.holes.push({ x, y }); for (let yy = y - 34; yy <= y + 34; yy++) for (let xx = x - 14; xx <= x + 14; xx++) { const e = Math.hypot((xx + 0.5 - x) / 11, (yy + 0.5 - y) / 30) + (vn(xx * 0.4, yy * 0.4) - 0.5) * 0.16; if (!icy(xx, yy) && e >= 1) continue; const i = yy * W + xx; if (e < 1) { Kr[i] = K.SEA; Br[i] = -1; } else if (e < 1.18) Br[i] = -83; }
+    plan.slots.push({ kind: 'sub', on: 'ice', x, y, r: 11, id: plan.slots.length }); }
+  for (let a = 0; a < 160 && plan.iceBreaks.length < 3; a++) { const x = Math.round(28 + rnd(13, a) * (W - 56)), y = Y(0.08 + rnd(14, a) * (pk - 0.12)) - 12; if (cover(x, y, 8, 25) > 0.9 && far(x, y, 46)) plan.iceBreaks.push({ x, y }); } // where one can break through (the game)
+  const nearHole = (x, y) => P.holes.concat(plan.iceBreaks).some(h => Math.hypot((x - h.x) / 16, (y - h.y) / 36) < 1);
+  // leads: long channels of open water across the pack, edged with new ice (clear of the holes)
+  for (let k = 0; k < (YD > 220 ? 2 : 1); k++) { const yL = Y(0.12 + 0.17 * k + rnd(5, k) * 0.08), sl = (rnd(6, k) - 0.5) * 0.36, ph = rnd(7, k) * 6.283, w0 = 5 + rnd(8, k) * 4; P.leads.push({ y: yL, sl });
+    for (let x = 0; x < W; x++) { const yc = yL + sl * (x - W / 2) + 6 * Math.sin(x * 0.04 + ph), w = w0 * (0.5 + 0.9 * vn(x * 0.05 + k * 9, 3)); for (let y = Math.floor(yc - w / 2 - 2); y <= yc + w / 2 + 2; y++) { if (!icy(x, y) || nearHole(x, y)) continue; const i = y * W + x; if (Math.abs(y + 0.5 - yc) < w / 2) { Kr[i] = K.SEA; Br[i] = -1; } else Br[i] = -83; } } }
+}
+// Level 5's plan from its segments (preset winterLine): a village-preset town with a 'shore' coast and a side harbour in a bay, its density
+// low over the farmland, middling round the harbour and highest in the village (whose green sits at the peak).
+function winterLine(o) {
+  const P0 = Object.assign({}, PRESETS.winterLine, o.params || {}), CHp = P0.chunk || 64, segs = P0.segs, L = segs.reduce((a, g) => a + g.n, 0) * CHp, at = {};
+  { let y = 0; for (const g of segs) { if (!at[g.t]) at[g.t] = [y, y + g.n * CHp]; y += g.n * CHp; } }
+  const sea = at.open_sea_ice || [0, 192], hb = at.harbour_winter || [sea[1], sea[1] + 320], vl = at.village, f = y => clamp(y / L, 0, 1);
+  const yS = sea[1] - 6, hy0 = Math.max(hb[0] + 120, yS + 180), hy1 = Math.max(hy0 + 180, hb[1] + 40), mid = (hy0 + hy1) / 2;
+  const dens = [[0, 0.01], [f(yS + 50), 0.02], [f(mid), 0.3], [f(hy1 + 110), 0.01]]; if (vl) dens.push([f(vl[0] - 90), 0.01], [f((vl[0] + vl[1]) / 2), 0.42], [f(vl[1] + 80), 0.03]); dens.push([1, 0.02]);
+  const params = Object.assign({}, o.params, { L, density: dens.sort((a, b) => a[0] - b[0]), damage: 0.3, damageCurve: [[0, 0.2], [f(mid), 0.8], [f(hy1 + 200), 0.3], [1, 0.4]], farms: 0.1,
+    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.6, cs: 1, at: [hy0 / L, hy1 / L], bay: 40 } });
+  delete params.segs; delete params.builder;
+  const plan = withPerimeter({ seed: o.seed, preset: 'villageWinter', params }); plan.preset = o.preset || 'winterLine'; plan.segs = segs.map(g => Object.assign({}, g)); return plan;
+}
+// a ploughed road: the bank the plough threw up along each edge, slush inside it, the asphalt dark and wet, two worn ruts along the main road
+function snowRoadPix(plan, i, x, y, st) {
+  const { W, L, K: Kr } = plan, N = W * L, rd = j => j < 0 || j >= N || Kr[j] === K.ROAD || Kr[j] === K.BRIDGE || Kr[j] === K.STREET;
+  if ((x > 0 && !rd(i - 1)) || (x < W - 1 && !rd(i + 1)) || !rd(i - W) || !rd(i + W)) return C.grass[pickI(4, 0.5 + (hh(x, y) - 0.5) * 0.7, x, y)];
+  if ((x > 1 && !rd(i - 2)) || (x < W - 2 && !rd(i + 2)) || !rd(i - 2 * W) || !rd(i + 2 * W)) return C.side[pickI(3, 0.45 + (hh(x, y) - 0.5) * 0.7, x, y)];
+  if (st && st.cls === 'arterial' && Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8) return C.asph[0];
+  return C.asph[pickI(4, 0.55 + (vn(x * 0.2, y * 0.3) - 0.5) * 0.6, x, y)];
+}
+// a frozen river: ice with snow drifted over it in streaks, cracks, snow along the banks, the bridges' shadows
+function iceRiverPix(x, y, e, sh) {
+  const n = vn(x * 0.08, y * 0.2); let l = 0.5 + (n - 0.5) * 0.4 + Math.sin(x * 0.05 + y * 0.3) * 0.06;
+  if (vn(x * 0.06 + 7, y * 0.16) > 0.58) l += 0.32;
+  if (Math.abs(Math.sin(x * 0.23 + y * 0.61 + n * 6)) < 0.045 || Math.abs(Math.sin(x * 0.41 - y * 0.37 + n * 4)) < 0.03) l = 0.02;
+  if (e < 1.5) l = 0.98; else if (e < 3.5) l += 0.18;
+  if (sh) l -= 0.4;
+  return C.river[pickI(6, clamp(l, 0, 1), x, y)];
+}
+// open water beside the ice lies in its lee: darker where a floe stands to its upper left (the light comes from there)
+function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return ic(x - 1, y + 1) ? 0.6 : ic(x - 2, y + 2) ? 0.8 : 1; }
+// a pixel of sea ice (K.ICE, B as in freezeSea; -85 the crust along a quay): snow lying in patches on blue ice swept bare by the wind, a lit
+// rim on the floe's upper left and its shaded side on the lower right where it meets open water, tumbled blocks along a ridge, dark new ice
+function icePixK(plan, x, y, b) {
+  const { W, L, K: Kr } = plan, wat = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.SEA, n = vn(x * 0.07, y * 0.07), r = hh(x, y);
+  if (b === -83) return C.thin[pickI(4, 0.5 + (vn(x * 0.2, y * 0.5) - 0.5) * 0.6 + (wat(x, y + 1) || wat(x, y - 1) || wat(x - 1, y) || wat(x + 1, y) ? -0.35 : 0), x, y)];
+  if (b === -82) { const q = hh(x >> 1, y >> 1); return q < 0.3 ? C.ice[1] : q < 0.62 ? C.ice[4] : hh((x + 1) >> 1, y >> 1) < 0.5 ? C.grass[3] : C.ice[3]; }
+  if (wat(x - 1, y + 1) || wat(x, y + 1) || wat(x - 1, y)) return C.grass[3];
+  if (wat(x + 1, y - 1) || wat(x, y - 1) || wat(x + 1, y)) return C.ice[1];
+  if (vn(x * 0.06 + (-b & 7) * 13, y * 0.06) > (b === -84 ? 0.25 : 0.5)) return C.grass[pickI(4, 0.4 + (n - 0.5) * 0.8 + (r - 0.5) * 0.2, x, y)];
+  return C.ice[pickI(6, 0.45 + (n - 0.5) * 0.6 + Math.sin(x * 0.17 + y * 0.43) * 0.06, x, y)];
+}
+// a leafless tree from above: a dark trunk, branches spreading from it with twigs between, snow on their upper left; a faint shadow
+function bareTreePix(t, put) {
+  const r = t.r + 0.7, rot = hh(t.x, t.y) * 6.283, n = 4 + ((hh(t.y, t.x) * 3) | 0), px = [];
+  for (let dy = -t.r - 1; dy <= t.r + 1; dy++) for (let dx = -t.r - 1; dx <= t.r + 1; dx++) { const rr = Math.hypot(dx, dy); if (rr > r) continue; const q = rr / r, br = Math.abs(Math.cos((Math.atan2(dy, dx) - rot) * n / 2));
+    if (rr < 1 || (br > 0.86 && q < 0.75) || hh(t.x * 7 + dx, t.y * 5 + dy) < 0.62 - q * 0.42) px.push(dx, dy, rr); } // a dark heart, a few boughs, a haze of twigs thinning out to the crown's edge
+  for (let k = 0; k < px.length; k += 3) put(t.x + px[k] + 2, t.y + px[k + 1] - 2, C.shadow, 0.16);
+  for (let k = 0; k < px.length; k += 3) { const dx = px[k], dy = px[k + 1], X = t.x + dx, Y = t.y + dy, lit = (-0.55 * dx + 0.75 * dy) / r;
+    put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
+}
+
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') { const p = winterLine(o); markSlotRoofs(p); calmWater(p); winterize(p); return p; } const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -3357,7 +3508,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.36'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.37'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
