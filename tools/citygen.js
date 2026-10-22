@@ -147,13 +147,13 @@ PRESETS.mountainVillage = Object.assign({}, PRESETS.town, { label: 'Winter Line:
 // Enigma Run level 5 as one plan (winterLine; params.segs: the sortie's segments, { t, n } in chunks of 64 px): the frozen sea to its shore at the end of
 // open_sea_ice, the harbour in its bay (the side coast swings in only well past the shore, so the frozen sea and the harbour never meet), the
 // farmland (a town plan), then the mountains rise and the mountain village lies in their valley (winterLand, joined on top). (Step 1: up to the village.)
-PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 4992,
-  segs: [{ t: 'open_sea_ice', n: 18 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 5 }] });
+PRESETS.winterLine = Object.assign({}, PRESETS.villageWinter, { label: 'Level 5, The Winter Line (whole level)', builder: 'winterLine', L: 5376,
+  segs: [{ t: 'open_sea_ice', n: 18 }, { t: 'harbour_winter', n: 5 }, { t: 'farmland_winter', n: 8 }, { t: 'village', n: 5 }, { t: 'lake_valley', n: 7 }, { t: 'station_winter', n: 9 }, { t: 'airbase_snow', n: 7 }, { t: 'forest_conifer', n: 7 }, { t: 'pass', n: 7 }, { t: 'farmland_winter', n: 11 }] });
 // Mockup (owner, options 3 and 2): level 5 with the finale over the gorge onto the frozen lake, the boss's yard on the ice (48 chunks of arena: the boss fight scrolls on)
-PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 8064 });
+PRESETS.winterFinale = Object.assign({}, PRESETS.winterLine, { label: 'Level 5 mockup: viaduct over a gorge, the yard on the frozen lake', finale: 'iceYard', arena: 48, L: 8448 });
 // Level 5 with its finale (owner: option 1): the two lines run on into a deep gorge, one double-track hillside viaduct on each wall, the chasm
 // between them, avalanche galleries, tunnel spurs, cornices and the supply trains' bridge (48 chunks of arena: the boss fight scrolls on)
-PRESETS.winterGorge = Object.assign({}, PRESETS.winterLine, { label: 'Level 5: the gorge finale (two hillside viaducts)', finale: 'gorge', arena: 48, L: 8064 });
+PRESETS.winterGorge = Object.assign({}, PRESETS.winterLine, { label: 'Level 5: the gorge finale (two hillside viaducts)', finale: 'gorge', arena: 48, L: 8448 });
 PRESETS.rivers = Object.assign({}, PRESETS.river, { label: 'Two rivers', rivers: [PRESETS.river.river, { at: 0.86, width: 20, amp: 9, island: false, rx: 0, ry: 0, channel: 0 }] });
 
 // ---------- deterministic randomness ----------
@@ -3077,6 +3077,7 @@ function winterLand(o) {
   const feats = P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)], fs = k => feats.filter(F => F.kind === k).map(span), vil = feats.find(F => F.kind === 'village'), vs = vil ? span(vil) : null;
   const inF = (k, y, m = 80) => fs(k).reduce((a, [p, q]) => Math.max(a, smooth(p - m, p + 20, y) * (1 - smooth(q - 20, q + m, y))), 0); // how far row y is inside a feature of kind k (eased at its ends)
   const lk = fs('lake')[0] || null, sL = rnd(40) < 0.5 ? -1 : 1, th = fs('throat')[0] || null, yT = th ? th[0] + 24 : L; // the lake's side; the throat's spur, where the valley ends
+  const yM = th ? yT + 384 : L; // the massif's north face, where the tunnels come out: 384 rows (6 chunks) of high mountain, with the glacier, between the depot and the boss's gorge
   if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120), 40, W - 40); // the road skirts the lake
   const thF = (P.features || []).find(F => F.kind === 'throat'), yEnd = thF ? Math.round(L * thF.at0) + 24 - 152 : L, yRoad = thF ? yEnd - 12 : L; // the road ends in a depot at the foot of the throat's mountain (owner: no tunnel for the road): paved, then gravel, then a dirt track, then the turnaround
   const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: 0, y1: yRoad - 1, id: 0 }; plan.streets.push(ar);
@@ -3091,7 +3092,7 @@ function winterLand(o) {
   const nz = (x, y) => { const i = x >> 1, j = y >> 1, fx = (x & 1) * 0.5, fy = (y & 1) * 0.5, a = NZ[j * GW + i], b = NZ[j * GW + i + 1], c = NZ[(j + 1) * GW + i], d = NZ[(j + 1) * GW + i + 1]; return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
   for (let y = 0; y < L; y++) { const a = vx(y), w = fw(y), r = rise(y) * (1 + 0.35 * inF('pass', y, 60)) * (th ? 1 - smooth(yT + 30, yT + 140, y) : 1); for (let x = 0; x < W; x++) { const d = Math.abs(x + 0.5 - a), e = smooth(w - 4, w + 70, d);
     let h = e > 0 ? r * (e * 74 + Math.pow(e, 0.8) * (nz(x, y) + 4 * vn(x * 0.14, y * 0.14))) : 0;
-    if (th) h = Math.max(h, smooth(yT - 112, yT - 52, y) * (1 - smooth(yT - 4, yT + 1, y)) * (86 + 0.9 * nz(x, y) + 12 * vn(x * 0.14, y * 0.14)) * (0.85 + 0.3 * vn(x * 0.05, 3.7))); /* the massif that closes the valley, right across the map and 120 rows deep, a rock face on its north side; the railway comes out of it */ Hg[idx(x, y)] = h; } }
+    if (th) h = Math.max(h, smooth(yT - 112, yT - 52, y) * (1 - smooth(yM - 4, yM + 1, y)) * (86 + 64 * Math.sin(Math.PI * clamp((y - yT + 52) / (yM - yT + 52), 0, 1)) + 1.5 * nz(x, y) + 12 * vn(x * 0.14, y * 0.14)) * (0.85 + 0.3 * vn(x * 0.05, 3.7))); /* the massif that closes the valley, right across the map: a ramp, then 384 rows of high ground with the glacier on it, a rock face on its north side; the railway comes out of it */ Hg[idx(x, y)] = h; } }
   let tL = now(); const lap = k => { const t = now(); plan.stage[k] = +(t - tL).toFixed(2); tL = t; }; lap('mountains');
   const H = (x, y) => Hg[idx(clamp(Math.round(x), 0, W - 1), clamp(Math.round(y), 0, L - 1))];
   const flatten = (x0, y0, w, h, m) => { let lo = 1e9; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y)) lo = Math.min(lo, Hg[idx(x, y)]);
@@ -3107,6 +3108,14 @@ function winterLand(o) {
     for (const yy of [yEnd - 34, yEnd - 28]) for (let x = cx - 24; x <= cx + 24; x += yy === yEnd - 34 ? 6 : 7) { if (Math.abs(x - cx) < 6) continue; plan.obstacles.push({ kind: yy === yEnd - 34 ? 'trap' : 'hedgehog', x: x + ((rnd(41, x, yy) * 3) | 0) - 1, y: yy + ((rnd(42, x, yy) * 3) | 0) - 1 }); }
     for (const [x0, x1] of [[cx - 30, cx - 7], [cx + 7, cx + 30]]) { for (const dy of [0, 3]) { const wr = []; for (let x = x0; x <= x1; x += 2) wr.push([x, Math.round(yEnd - 39 - dy + 1.5 * Math.sin(x * 0.4))]); plan.wires.push(wr); } } // wire in front of the trap
     for (let x = cx - 26; x <= cx + 26; x += 8) if (Math.abs(x - cx) > 8) plan.obstacles.push({ kind: 'stake', x, y: yEnd - 22 + ((rnd(43, x) * 3) | 0) }); }
+  // 2c. the water source (owner): a glacier lies in a cirque on the massif and flows north; its toe gives a meltwater stream (a frozen one: K.ICE, B -88) that
+  // cuts a gully down the north slope and comes out of the rock face as the gorge's river. The glacier is K.ICE, B -89: blue-white ice with crevasses across its flow.
+  if (th) { const gy0 = yT + 20, gy1 = yT + 250, phG = rnd(60) * 6.283, gxc = y => 112 + 14 * Math.sin(y * 0.013 + phG), A = y => 86 + 64 * Math.sin(Math.PI * clamp((y - yT + 52) / (yM - yT + 52), 0, 1)), gsf = y => 0.8 * A(y) - 18 * clamp((y - gy0) / (gy1 - gy0), 0, 1);
+    const xEnd = P.finale === 'gorge' ? GZ.mid + 2.2 * Math.sin(yM * 0.027 + phG) + 1.4 * Math.sin(yM * 0.077 + phG * 2) : 112, sx0 = gxc(gy1);
+    for (let y = gy0; y <= gy1; y++) { const t = (y - gy0) / (gy1 - gy0), hw = (58 * Math.pow(1 - t, 0.8) + 10 + (vn(y * 0.03, 3.3) - 0.5) * 10) * Math.sqrt(smooth(0, 0.14, t));
+      for (let x = Math.floor(gxc(y) - hw - 8); x <= gxc(y) + hw + 8; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - gxc(y)) + (vn(x * 0.1, y * 0.1) - 0.5) * 6; if (d >= hw) continue; Kr[i] = K.ICE; Br[i] = -89; reserved[i] = 1; Hg[i] = lerp(Hg[i], gsf(y) + (vn(x * 0.07, y * 0.07) - 0.5) * 3, smooth(0, 7, hw - d)); } }
+    for (let y = gy1 - 8; y < yM - 2; y++) { const u = smooth(gy1, yM - 2, y), sx = lerp(sx0, xEnd, u) + 5 * Math.sin(y * 0.045 + phG) * smooth(gy1, gy1 + 30, y) * (1 - smooth(yM - 62, yM - 2, y)), hwS = 1.6 + 5.2 * u, fl = lerp(gsf(gy1), 4, u);
+      for (let x = Math.floor(sx - hwS - 9); x <= sx + hwS + 9; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = lerp(fl, Hg[i], smooth(hwS, hwS + 9, d)); if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
   // 3. the mountain village. The special places first (chapel, sawmill, cable car, ski jump, lanes), the chalets along the road last.
   if (vs) { const [ya, yb] = vs, sC = rnd(10) < 0.5 ? -1 : 1, A = plan.alpine = { y0: ya, y1: yb, chalets: 0, terraces: 0 };
     const house = (x0, y0, w, h, front, roof) => { const it = addItem({ t: 'house', label: 'Chalet', x0, y0, w, h, ori: front === 'W' || front === 'E' ? 'h' : 'v', front, style: 'gable', roof, run: -1 - plan.items.length }); rect(x0, y0, w, h, K.BLDG, it.id, flatten(x0, y0, w, h, 3)); return it; };
@@ -3171,7 +3180,7 @@ function winterLand(o) {
   // viaduct along its wall (the plan reaches on past the level's end as the boss's arena: feature 'arena'). Along the gorge: avalanche
   // galleries over the outer tracks, rock spurs the tracks pass through in short tunnels, cornices on the wall tops above the open stretches (and
   // above some galleries), refuges bulging from the parapets, the supply trains' truss bridge, wrecks on the river ice (plan.gorge)
-  if (th && P.finale === 'gorge') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], yG0 = yP + 110, yG = yG0 + 70, D = GZ, ph3 = rnd(60) * 6.283;
+  if (th && P.finale === 'gorge') { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], yG0 = yP + 110, yG = yG0 + 70, D = GZ, ph3 = rnd(60) * 6.283;
     const G = plan.gorge = { y0: yP, y1: L - 1, ya: yG0, yb: yG, cx: new Float32Array(L - yP), gal: [], spurs: [], corn: [], bridges: [], refuges: [], wrecks: [] };
     const cxAt = y => D.mid + 2.2 * Math.sin(y * 0.027 + ph3) + 1.4 * Math.sin(y * 0.077 + ph3 * 2), LWx = y => 15 + 3 * Math.sin(y * 0.024 + ph3) + 3 * vn(y * 0.06, 2.2), RWx = y => 205 + 3 * Math.sin(y * 0.021 + ph3 * 3) + 3 * vn(y * 0.06, 4.4);
     const z0 = yG + 30, z1 = L - 20, arF = fs('arena')[0], a0 = arF ? arF[0] : yG + 120; // the bridges: the first about 10 s into the boss fight, then one every 800 rows (about 33 s at the fight's scroll), each 240 rows long
@@ -3209,7 +3218,7 @@ function winterLand(o) {
     for (const q of G.corn) for (let y = q.y - q.half; y <= q.y + q.half; y++) { const w = Math.sqrt(Math.max(0, 1 - ((y - q.y) / q.half) ** 2)), e = q.over ? D.gal[q.s < 0 ? 0 : 1][q.s < 0 ? 0 : 1] + q.s : q.s < 0 ? LWx(y) : RWx(y); // (over a gallery: on the wall just beyond its roof)
       for (let k = q.over ? -2 - Math.round(6 * w) : -5; k <= (q.over ? 0 : 1 + Math.round(6 * w)); k++) { const x = Math.round(e + (q.s < 0 ? k : -k)), i = idx(x, y); if (!inB(x, y) || (Kr[i] === K.RBRIDGE && Br[i] === -24) || G.spurs.some(p => p.s === q.s && y >= p.y0 && y <= p.y1)) continue; Kr[i] = K.SLOPE; Br[i] = -72; reserved[i] = 1; } }
     for (const tx of D.T) plan.tunnels.push({ x: tx, y: yP, dir: -1 }); }
-  else if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
+  else if (th && P.finale === 'iceYard') { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
     const g0 = yP + 24, g1 = g0 + 58, ph2 = rnd(50) * 6.283, top = x => g1 + 4 * Math.sin(x * 0.05 + ph2) + 3 * vn(x * 0.2, 9), bot = x => g0 + 4 * Math.sin(x * 0.043 + ph2 * 2) + 3 * vn(x * 0.2, 19), VX0 = 84, VX1 = 134;
     plan.ravines = [{ y0: g0 - 8, y1: g1 + 8, s: 1, top, bot }]; plan.viaduct2 = { x0: VX0, x1: VX1, y0: g0 - 8, y1: g1 + 8 };
     for (let y = g0 - 8; y <= g1 + 8; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (y > bot(x) && y < top(x)) { if (x >= VX0 && x <= VX1) { Kr[i] = K.RBRIDGE; Br[i] = -22; } else { Kr[i] = K.RAVINE; Br[i] = -1; } reserved[i] = 1; Hg[i] = 0; } }
@@ -3227,7 +3236,7 @@ function winterLand(o) {
       if (kind < 0.55) { const len = 20 + ((rnd(54, y) * 30) | 0); for (let yy = y; yy < Math.min(L, y + len); yy++) for (let x = xa + 1; x <= xb - 1; x++) { const i = idx(x, yy); if (Kr[i] === K.ICE && hh(x, yy) < 0.85) Br[i] = -82; } }
       else { const cx = (xa + xb) / 2, r = 3 + rnd(55, y) * 2; for (let yy = Math.floor(y - r); yy <= y + r; yy++) for (let x = Math.floor(cx - r); x <= cx + r; x++) { const i = idx(x, yy); if (inB(x, yy) && Kr[i] === K.ICE && Math.hypot(x + 0.5 - cx, yy + 0.5 - y) < r) Br[i] = -83; } } }
     plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); }
-  else if (th) { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
+  else if (th) { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
       for (let y = yP; y < L; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
@@ -3396,6 +3405,9 @@ function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) =
 function icePixK(plan, x, y, b) {
   const { W, L, K: Kr } = plan, wat = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.SEA, n = vn(x * 0.07, y * 0.07), r = hh(x, y);
   if (b === -88) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return !ic(x - 1, y) || !ic(x + 1, y) ? C.snowRoof[2] : C.river[pickI(6, 0.62 + (vn(x * 0.2, y * 0.08) - 0.5) * 0.5 + (Math.abs(Math.sin(x * 0.4 + y * 0.23)) < 0.05 ? -0.4 : 0), x, y)]; } // the gorge's river frozen on the valley floor: snow on its banks
+  if (b === -89) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; if (!ic(x - 1, y) || !ic(x + 1, y) || !ic(x, y - 1) || !ic(x, y + 1)) return C.snowRoof[2]; // the glacier: a snow rim, then ice with crevasses across its flow
+    const cr = Math.abs(Math.sin(y * 0.11 + 5 * vn(x * 0.04, y * 0.03))) < 0.05 && vn(x * 0.06 + 9, y * 0.05) > 0.45; if (cr) return C.river[hh(x, y) < 0.5 ? 0 : 1];
+    if (vn(x * 0.15 + 3, y * 0.02) > 0.64) return C.grass[pickI(4, 0.5 + (r - 0.5) * 0.5, x, y)]; return C.ice[pickI(6, 0.3 + (n - 0.5) * 0.7 + (r - 0.5) * 0.15, x, y)]; }
   if (b === -83) return C.thin[pickI(4, 0.5 + (vn(x * 0.2, y * 0.5) - 0.5) * 0.6 + (wat(x, y + 1) || wat(x, y - 1) || wat(x - 1, y) || wat(x + 1, y) ? -0.35 : 0), x, y)];
   if (b === -82) { const q = hh(x >> 1, y >> 1); return q < 0.3 ? C.ice[1] : q < 0.62 ? C.ice[4] : hh((x + 1) >> 1, y >> 1) < 0.5 ? C.grass[3] : C.ice[3]; }
   if (wat(x - 1, y + 1) || wat(x, y + 1) || wat(x - 1, y)) return C.grass[3];
