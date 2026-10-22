@@ -16,7 +16,7 @@ function canopyV7(x, base, X, Y, W, H, frames) {
 }
 function spinnerV7(x, base, cx, cy, r, col) { shadeV3(x, base, () => { x.beginPath(); x.ellipse(cx, cy, r, r * 1.3, 0, 0, 6.2832); }, cx, cy, r, lwTones(col), '#0a0a0c', 0.6); discV3(x, cx, cy + r * 0.3, r * 0.4, '#f2f0e6'); }
 
-// a black cross on a white square, for the Pfeil (the Zerstoerer keeps the white cross with black border)
+// a black cross on a white square, for the Zerstoerer and the Pfeil (the Ju 88 and He 219 keep the white cross with black border)
 function lwCrossB(x, cx, cy) { x.fillStyle = '#f2f0e6'; x.fillRect(cx - 3, cy - 3, 6, 6); x.fillStyle = '#0a0a0c'; x.fillRect(cx - 1, cy - 2.6, 2, 5.2); x.fillRect(cx - 2.6, cy - 1, 5.2, 2); }
 function bf110zV7(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c';
@@ -38,7 +38,7 @@ function bf110zV7(x, base) {
   shadeV3(x, base, () => polyV3(x, fus), 0, -1, 14, lwTones(G), K, 0.8);
   x.fillStyle = K; for (const [a, b] of [[-0.9, 12.2], [0.4, 12.2], [-1.2, 10.8], [0.7, 10.8]]) x.fillRect(a, b, 0.5, 0.5);   // nose cannons
   canopyV7(x, base, -1.5, -6.2, 3, 10, [-3, -0.4, 2.2]);
-  lwCross(x, -13.4, -1.4); lwCross(x, 13.4, -1.4);
+  lwCrossB(x, -13.4, -1.4); lwCrossB(x, 13.4, -1.4);
 }
 function ju88V7(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c';
