@@ -3200,7 +3200,7 @@ function winterLand(o) {
         if (x < lw || x > rw) { const e = x < lw ? lw - x : x - rw; Hg[i] = 6 + e * 1.3 + 12 * (1 - Math.abs(2 * vn(x * 0.09 + 5, y * 0.035) - 1)) * smooth(0, 8, e); continue; } // the walls: snow, with rock ribs where they steepen (step 4)
         Hg[i] = 0; Kr[i] = K.MEADOW; Br[i] = -1;
         const inner = x > D.f0 + 4 && x < D.f1 - 4;
-        if (full && (x >= D.wl && x <= D.wr) && (!inner || (x <= D.c0 + 1 && refAt(-1, y)) || (x >= D.c1 - 1 && refAt(1, y)))) { Kr[i] = K.RBRIDGE; Br[i] = -23; reserved[i] = 1; continue; }
+        if (y >= yG + Math.round(0.5 * Math.max(0, Math.abs(x + 0.5 - cx) - 24) + 6 * (vn(x * 0.2 + 4, 3.1) - 0.5)) && (x >= D.wl && x <= D.wr) && (!inner || (x <= D.c0 + 1 && refAt(-1, y)) || (x >= D.c1 - 1 && refAt(1, y)))) { Kr[i] = K.RBRIDGE; Br[i] = -23; reserved[i] = 1; continue; }
         if (full && inner) { Kr[i] = K.RAVINE; Br[i] = -71; reserved[i] = 1; continue; }
         const d = Math.abs(x + 0.5 - cx), hw = 23 * g + (vn(x * 0.2, y * 0.2) - 0.5) * 3 * g;
         if (g > 0 && d < hw) { Kr[i] = K.RAVINE; Br[i] = -71; reserved[i] = 1; continue; }
@@ -3318,11 +3318,11 @@ function gorgeDeckPix(plan, x, y, b, m) {
   if (b === -25) { if (m === 2) return rail(); if (m === 3) return C.beam; const B2 = G.bridges.find(q => y >= q.ya - 3 && y <= q.yb + 3), d = B2 ? Math.abs(x - gorgeBridgeX(B2, y)) : 0;
     if (d > 7) return (y % 6 < 2) ? C.steel[2] : C.steel[0]; if (y % 6 === 0) return C.steel[1]; return n < 0.3 ? C.snowRoof[3] : C.steel[1]; }
   const ref = s => G.refuges.some(q => q.s === s && y >= q.y0 && y < q.y1), k = ((y % 40) + 40) % 40, pier = k < 9, arch = (k > 20 ? 40 - k : k) * 0.12;
+  { const fy = G.yb + 60 + 0.5 * Math.max(0, Math.abs(x + 0.5 - G.cx[clamp(y - G.y0, 0, G.cx.length - 1)]) - 24); if (m !== 2 && m !== 3 && y < fy && hh(x, y) < Math.pow((fy - y) / 60, 1.3)) return C.grass[pickI(4, 0.5 + (vn(x * 0.07, y * 0.07) - 0.5) * 0.7 + (hh(x, y) - 0.5) * 0.15, x, y)]; } // where the deck leaves the ground its start slants away from the chasm and the valley's own snow (the meadow's colour) fades out over 60 rows: no abutment wall, no line, no change of tone
   if (x < D.d0 || x > D.e1) return (y % 3 === 0) ? C.stone[0] : C.stone[1];
   if (x <= D.mid && x >= D.p0) { if (ref(-1)) return x === D.c0 + 1 ? C.stone[0] : C.stone[3]; if (x < D.f0) return x === D.p0 + 1 ? C.stone[1] : C.stone[3]; return !pier && x - D.f0 > 1 + arch ? C.dark : n < 0.2 ? C.stone[0] : C.stone[1]; }
   if (x > D.mid && x <= D.p1 + 1) { if (ref(1)) return x === D.c1 - 1 ? C.stone[1] : C.stone[3]; if (x >= D.p1) return C.stone[3]; return !pier && D.f1 - x > 1 + arch ? C.stone[0] : n < 0.2 ? C.stone[2] : C.stone[3]; }
   if (m === 2) return rail(); if (m === 3) return C.beam;
-  if (y < G.yb + 4) return y === G.yb + 3 ? C.stone[3] : C.stone[1]; // the abutment where the deck leaves the ground
   let c = m === 1 && hh(y, x) > 0.45 ? C.gravel[pickI(3, 0.4 + (n - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)];
   if (x > D.gal[0][1] && x <= D.gal[0][1] + 4 && G.gal.some(q => q.s < 0 && y >= q.y0 - 3 && y <= q.y1 - 3)) c = shadeC(c, 0.72); // the left gallery's shadow on the deck
   return c;
