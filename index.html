@@ -4077,7 +4077,7 @@ function gorgeXover(k) {
 }
 // what lies under a gallery's roof or in a spur's tunnel: drawn under it (drawRoofs) and out of reach of shots
 function gorgeRoofs() { const G = run.sortie.plan.gorge, Z = CityGen.GZ; return G.gal.map(q => ({ x0: Z.gal[q.s < 0 ? 0 : 1][0], x1: Z.gal[q.s < 0 ? 0 : 1][1], y0: q.y0, y1: q.y1, s: q.s })).concat(G.spurs.map(q => ({ x0: q.s < 0 ? 0 : Z.p1 - 1, x1: q.s < 0 ? Z.p0 + 1 : W - 1, y0: q.y0, y1: q.y1, s: q.s }))); }
-function roofAt(wx, wy) { if (!gorgeArena()) return false; const y = run.sortie.planY0 - wy; return gorgeRoofs().some(r => y >= r.y0 && y <= r.y1 && wx >= r.x0 && wx <= r.x1); }
+function roofAt(wx, wy) { const g = gorgeArena(), L = g ? gorgeRoofs() : shedRoofs(); if (!L.length) return false; const y = run.sortie.planY0 - wy; return L.some(r => y >= r.y0 && y <= r.y1 && wx >= r.x0 && wx <= r.x1); }
 function supplyOn(x) { return world.enemies.some(o => TRAIN_CARS.has(o.type) && !o.dead && Math.abs(o.wx - x) < 3 && o.y > -200 && o.y < H + 200); }
 // Avalanches (owner, spec 20.8): a Nova breaks every cornice on screen; an explosives car going up under one breaks it too. The slide sweeps
 // from the wall across the outer track to the middle of the deck: it wrecks the supply cars it buries (not those under a gallery or in a
@@ -8724,7 +8724,7 @@ function directorInner() {
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  sowerTick(sc); planBerths(sc); planIceBreaks(sc); planGuns(sc); planCows(sc); planViaducts(sc); planPosts(sc);
+  sowerTick(sc); planBerths(sc); planIceBreaks(sc); planGuns(sc); planCows(sc); planViaducts(sc); planStations(sc); planPosts(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -8851,6 +8851,19 @@ function planViaducts(sc) {
   P.viaducts.forEach((v, i) => { const y = S.planY0 - (v.y0 + v.y1) / 2; if (done.has(i) || y < wy - 60 || y > wy + 12) return; done.add(i);
     world.enemies.push(G('bridge', v.x, y, { via: true, hw: 10, hh: Math.round((v.y1 - v.y0) / 2), hp: 30, rad: 14, bkey: 'via' + i })); });
 }
+// Enigma Run's towns (levels 2, 6, 6B): the station's train shed and its hall (with the clock tower, where it still stands) are ground targets, placed as
+// they come up above the screen (their look is the plan's own roof). Destroyed, the roof is painted over with a collapsed mound in the ground chunks;
+// a shed that is gone no longer covers its trains.
+function planStations(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.items || !P.station) return;
+  for (const o of world.enemies) if (TRAIN_CARS.has(o.type) && !o.dead && !o.br) o.untarget = roofAt(o.x, o.wy); // a train in the train shed is out of reach, as under a gallery
+  const wy = -34 - sc, done = S.stnUsed || (S.stnUsed = new Set());
+  P.items.forEach(b => { if (!(b.part === 'shed' || (b.part === 'hall' && b.label === 'Station')) || b.dmg >= 2) return; const y = S.planY0 - (b.y0 + b.h / 2); if (done.has(b.id) || y < wy - 60 || y > wy + 12) return; done.add(b.id);
+    world.enemies.push(G('pstation', b.x0 + b.w / 2, y, { hw: b.w / 2, hh: Math.round(b.h / 2), hp: (b.part === 'shed' ? 60 : 40) * hpm(), rad: 16, item: b.id, hall: { x0: b.x0, y0: b.y0, w: b.w, h: b.h, seed: b.seed } })); });
+}
+function stationRuin(e) { const h = e.hall, S = run.sortie, cx = h.x0 + h.w / 2, R = [[0x2a, 0x26, 0x22], [0x3e, 0x38, 0x32], [0x54, 0x4c, 0x44], [0x6a, 0x62, 0x58], [0x82, 0x7a, 0x6e]];
+  paintWorld(e.wx, e.wy, h.h / 2 + 4, (x, ly) => { for (let j = 0; j < h.h; j++) for (let i = 0; i < h.w; i++) { const u = (i + 0.5) / h.w * 2 - 1, v = (j + 0.5) / h.h * 2 - 1, d = Math.max(Math.abs(u), Math.abs(v)) + (hash(h.x0 + i + h.seed, j) - 0.5) * 0.5; if (d > 0.95) continue;
+    const n = Math.max(0, Math.min(4, Math.floor((1 - d) * 4 + (hash(i * 3, j * 7 + h.seed) - 0.5) * 2.2))), c = hash(i * 5 + h.seed, j * 3) < 0.07 ? [0x8a, 0x5a, 0x3a] : R[n]; x.fillStyle = 'rgb(' + c + ')'; x.fillRect(h.x0 + i, Math.round(ly + h.h / 2 - 1 - j), 1, 1); } }); }
 let viaBrokenSpr = null;
 function viaBroken() { // the broken viaduct: the middle of the span fallen into the ravine, jagged stone ends, rubble on what is left of the deck
   if (viaBrokenSpr) return viaBrokenSpr; const w = 22, h = 34, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
@@ -10789,6 +10802,7 @@ const ENT = {
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - run.loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
   } },
   htank: { turret: true, revenge: 3, treads: true, medals: 1, update(e) { ENT.tank.update(e); } },
+  pstation: { medals: 1, stats: { hp: 40, hw: 6, score: 1500, rad: 16 }, update(e) { groundPos(e); } },
   bridge: { harmless: true, uncounted: true, medals: 1, stats: { hp: 18, hw: 8, score: 800, rad: 10 }, update(e) { groundPos(e); } },
   secret: { harmless: true, uncounted: true, stats: { fixedHp: 4, hw: 7, hh: 7, score: 0, rad: 1 }, update(e) {
     groundPos(e); e.untarget = true;
@@ -11552,6 +11566,7 @@ const DEATHS = {
     },
   },
   tower: { blast: 24, wreck(e) { DEATHS.station.wreck(e); } },
+  pstation: { blast: 30, wreck(e) { (run.sortie.stnDown || (run.sortie.stnDown = new Set())).add(e.item); stationRuin(e); canopyCache.clear(); world.decals.push({ kind: 'crater', wx: e.wx - 4, wy: e.wy + 8, r: 6, smokeT: 0 }, { kind: 'spr', s: RUINS.station[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 400 }); } },
   moto: {
     blast: 10,
     wreck(e) {
@@ -12162,9 +12177,12 @@ function updParts() {
 
 /* ================= render ================= */
 // Level 5's gorge: the galleries' roofs and the rock spurs drawn again over the trains under them (the plan's own pixels, from the painted chunks)
+// Enigma Run's towns (levels 2, 6, 6B): the station's glass train shed too, so the trains run in under its roof and not over it
+function shedRoofs() { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.items) return [];
+  return P.items.filter(b => b.part === 'shed' && !(S.stnDown && S.stnDown.has(b.id))).map(b => ({ x0: b.x0, x1: b.x0 + b.w - 1, y0: b.y0, y1: b.y0 + b.h - 1 })); }
 function drawRoofs() {
-  if (!gorgeArena()) return; const S = run.sortie, sc = Math.floor(world.scroll);
-  for (const r of gorgeRoofs()) { const t = S.planY0 - r.y1, b = S.planY0 - r.y0 + 1; if (b + sc < 0 || t + sc > H) continue;
+  const S = run.sortie, sc = Math.floor(world.scroll);
+  for (const r of gorgeArena() ? gorgeRoofs() : shedRoofs()) { const t = S.planY0 - r.y1, b = S.planY0 - r.y0 + 1; if (b + sc < 0 || t + sc > H) continue;
     for (let k = Math.floor(t / CH); k <= Math.floor((b - 1) / CH); k++) { const c = world.chunks.get(-k); if (!c) continue; const y0 = Math.max(t, k * CH), y1 = Math.min(b, k * CH + CH); if (y1 > y0) ctx.drawImage(c, r.x0, y0 - k * CH, r.x1 - r.x0 + 1, y1 - y0, r.x0, y0 + sc, r.x1 - r.x0 + 1, y1 - y0); } }
 }
 function drawGround() {
@@ -12469,6 +12487,7 @@ const LOOKS = {
   destroyer(e, fl) { spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } },
   hangar(e, fl) { spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); },
   fuel(e, fl) { spr(SPR.fuel, e.x, e.y, fl); },
+  pstation(e, fl) { if (fl) { ctx.globalAlpha = 0.5; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(e.x - e.hw), Math.round(e.y - e.hh), e.hw * 2, e.hh * 2); ctx.globalAlpha = 1; } }, // (its look is the plan's own roof)
   bridge(e, fl) { if (e.via) { if (fl) { ctx.globalAlpha = 0.5; ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(e.x - 10), Math.round(e.y - e.hh), 20, e.hh * 2); ctx.globalAlpha = 1; } return; } spr(e.small ? SPR.bridgeS : SPR.bridge, e.x, e.y, fl); }, // (a viaduct's look is the plan's own deck)
   secret(e, fl) {
     // the hint: dark crows circling over the hiding place, led by a cream one; all cast a soft shadow
