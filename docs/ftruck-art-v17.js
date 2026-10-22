@@ -2,7 +2,7 @@
    The tank is a big shaded cylinder with a bright highlight down the middle, rounded ends, ring seams and dome hatches, in a colour that stands apart from the olive cab:
    a silver steel tank, an olive tank with red warning bands and a flame sign, and a yellow tank with a hazard stripe aft. Exactly symmetric (shading too: lit from above),
    front to the south, 16 headings through the game's rotSet, the game's dither. Needs the game's toolkit (sprite, boxS, ellS, pick, rect, rotSet, RP).
-     ft_silver: polished steel tank, red hatch caps.
+     ft_silver: polished steel tank with a yellow and red flame sign.
      ft_flame:  olive tank, two red bands, a white square with a flame.
      ft_yellow: yellow tank, a black band, red and white stripe aft, hose reel. */
 const FT_WHL = '#141416', FT_GLS = '#8cc0e0', FT_CAB = ['#1e2214', '#30382a', '#4a5440', '#66725a'];
@@ -26,14 +26,27 @@ function ftBase(x, tankRamp, tankFn) {
   boxS(x, FT_CAB, 1, 17, 10, 7, 0.18); rect(x, FT_GLS, 2, 21, 8, 1); rect(x, '#e8f6ff', 2, 21, 2, 1); rect(x, '#0e1014', 3, 23, 6, 1);   // the cab, the windscreen, the grille
   rect(x, '#fff0a0', 1, 23, 1, 1); rect(x, '#fff0a0', 10, 23, 1, 1);
 }
+// a yellow and red flame, 6 px wide and 8 tall, with a dark edge so it stands out on the silver; the rows are the left half (columns 3 to 5), mirrored afterwards
+function flameSign(g, y0) {
+  const MASK = ['..X', '..X', '.XX', '.XX', 'XXX', 'XXX', 'XXX', '.XX'], CORE = ['...', '...', '...', '..X', '.XX', '.XX', '.XX', '..X'], HOT = ['...', '...', '...', '...', '...', '...', '..X', '...'];
+  const at = (m, r, c) => r >= 0 && r < m.length && c >= 0 && c < 3 && m[r][c] === 'X';
+  for (let r = -1; r <= 8; r++) for (let c = -1; c <= 3; c++) {                                          // the dark edge: any pixel next to the flame
+    let near = false; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (at(MASK, r + dr, c + dc) || (c + dc >= 3 && at(MASK, r + dr, 2))) near = true;
+    if (near && !at(MASK, r, c)) rect(g, '#3a0e08', 3 + c, y0 + r, 1, 1);
+  }
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 3; c++) {
+    if (at(MASK, r, c)) rect(g, '#f4c820', 3 + c, y0 + r, 1, 1);
+    if (at(CORE, r, c)) rect(g, '#e03a1c', 3 + c, y0 + r, 1, 1);
+    if (at(HOT, r, c)) rect(g, '#ffe880', 3 + c, y0 + r, 1, 1);
+  }
+}
 const SILVER = ['#2a3038', '#4a5460', '#7a8794', '#aab6c2', '#e4ecf2'];
 const OLIVE = ['#14200e', '#24381a', '#3a5428', '#587838', '#7e9c58'];
 const YELLOW = ['#5a3a08', '#9a6a10', '#d49a18', '#f0c828', '#fff0a0'];
 const ftSilver = () => rotSet(sprite(12, 24, x => {
   ftBase(x, SILVER, g => {
     for (const j of [5, 10, 15]) rect(g, 'rgba(20,26,34,0.5)', 1, j, 10, 1);                              // ring seams
-    ellS(g, ['#2a0e0a', '#6a1a12', '#b02a1c', '#e04a30'], 5, 8, 2.4, 2.4, 0.3); rect(g, '#f0f4f8', 5, 7, 1, 1);   // the red hatch cap
-    rect(g, '#141416', 3, 12, 1, 2);
+    flameSign(g, 6);                                                                                     // the yellow and red flame sign
   });
   ftMirror(x, 12, 24);
 }));
