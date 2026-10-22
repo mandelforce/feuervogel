@@ -3408,6 +3408,24 @@ function winterize(plan) {
   for (let y = L - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const i = y * W + x; if (!D[i]) continue; let d = D[i]; if (x < W - 1) d = Math.min(d, D[i + 1] + 1); if (y < L - 1) { d = Math.min(d, D[i + W] + 1); if (x < W - 1) d = Math.min(d, D[i + W + 1] + 1.41); if (x > 0) d = Math.min(d, D[i + W - 1] + 1.41); } D[i] = d; }
   const lanes = (plan.shipLanes || []).map(l => [l.x - l.w / 2 - 1, l.x + l.w / 2, l.y0, l.y1]).concat(plan.fleetArea ? [[plan.fleetArea.x0 - 1, plan.fleetArea.x1 + 1, plan.fleetArea.y0, plan.fleetArea.y1]] : []); // the warships' fairways stay open
   for (let i = 0; i < N; i++) if (Kr[i] === K.SEA && D[i] < 8) { const x = i % W, y = (i / W) | 0; if (D[i] <= 1.5 + 5.5 * vn(x * 0.07 + 31, y * 0.05) && !lanes.some(a => x >= a[0] && x <= a[1] && y >= a[2] && y <= a[3])) { Kr[i] = K.ICE; Br[i] = -85; } }
+  if (plan.coast && plan.P.coast && plan.P.coast.iceHarbour && plan.coast.side && plan.coast.hy0 !== null) freezeHarbour(plan);
+}
+// The small east harbour frozen over (coast.iceHarbour, owner): every pixel of its water, basin, pens and entrance, becomes ice: smooth fast ice with
+// patches of pack, thin new ice in seams and a few ridges along the piers. The coasters and the fairway are gone; the U-boat pen's slot goes too,
+// and in the middle of the basin's open part stands the one place where a U-boat breaks through (plan.iceBreaks, as in the frozen sea).
+function freezeHarbour(plan) {
+  const { W, L, K: Kr, B: Br } = plan, CO = plan.coast, cs = CO.cs, qx = CO.qx, y0 = CO.hy0 - 18, y1 = CO.hy1 + 18;
+  for (let y = Math.max(0, y0 - 14); y <= Math.min(L - 1, y1 + 14); y++) for (let x = 0; x < W; x++) { if (cs * (x - qx) < 0) continue; const i = y * W + x; if (Kr[i] !== K.SEA) continue;
+    const edge = Math.min(y - (y0 - 14), y1 + 14 - y) / 14; if (edge < 1 && vn(x * 0.25 + 3, y * 0.25) > edge) continue; // (the ice breaks up into pancakes over the last 14 rows each way)
+    const n = vn(x * 0.06 + 11, y * 0.05), seam = Math.abs(vn(x * 0.11, y * 0.09 + 4) - 0.5) < 0.018;
+    Kr[i] = K.ICE; Br[i] = seam ? -83 : n > 0.56 ? -81 : n < 0.2 && vn(x * 0.3, y * 0.3) < 0.3 ? -82 : -84; }
+  const inH = y => y >= y0 && y <= y1;
+  plan.ships = plan.ships.filter(q => !(inH(q.y0) && cs * (q.x0 - qx) > -2)); plan.shipLanes = plan.shipLanes.filter(l => l.kind !== 'channel' || !inH(l.y0 + 1));
+  plan.slots = plan.slots.filter(q => !(q.kind === 'sub' && q.on === 'pen')); plan.subSlots = [];
+  const frozen = (x, y) => x >= 0 && x < W && y >= 0 && y < L && Kr[y * W + x] === K.ICE && Br[y * W + x] <= -81 && Br[y * W + x] !== -85, mid = (CO.hy0 + CO.hy1) / 2; let best = null;
+  for (let y = CO.hy0 + 40; y < CO.hy1 - 10; y += 3) for (let x = 0; x < W; x += 3) { let n = 0, m = 0; for (let yy = y - 32; yy <= y + 32; yy += 2) for (let xx = x - 13; xx <= x + 13; xx++) { m++; if (frozen(xx, yy)) n++; }
+    if (n / m < 0.97) continue; const sc = Math.abs(y - mid) + Math.abs(x - (qx + cs * 40)) * 0.5; if (!best || sc < best.sc) best = { x, y, sc }; }
+  if (best) plan.iceBreaks.push({ x: best.x, y: best.y, harbour: true });
 }
 // The frozen sea (a 'shore' coast in winter; the owner's landmark): from the level's start, open water with pancakes of ice, then broken floes
 // closing up, then pack ice of large plates with refrozen cracks, pressure ridges and a few long leads of open water, and fast ice along the
@@ -3470,7 +3488,7 @@ function winterLine(o) {
   const yS = sea[1] - 6, hy0 = Math.max(hb[0] + 120, yS + 180), hy1 = Math.max(hy0 + 180, hb[1] + 40), mid = (hy0 + hy1) / 2;
   const dens = [[0, 0.01], [f(yS + 50), 0.02], [f(mid), 0.3], [f(hy1 + 110), 0.01], [1, 0.01]].sort((a, b) => a[0] - b[0]);
   const params = Object.assign({}, o.params, { L, density: dens, damage: 0.3, damageCurve: [[0, 0.2], [f(mid), 0.8], [f(hy1 + 200), 0.3], [1, 0.3]], farms: 0.1, oldTown: null,
-    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.78, cs: 1, at: [hy0 / L, hy1 / L], bay: 40, quayTrack: false } }); // (owner: no quayside track or tunnel in the winter harbour)
+    collectorOffset: [70, 56], coast: { mode: 'shore', dir: -1, end: yS / L, land: 0.68, amp: 9, beach: [7, 11], dune: 0, pier: [26, 40], channel: 28, pack: 0.78, iceHarbour: true, cs: 1, at: [hy0 / L, hy1 / L], bay: 40, quayTrack: false } }); // (owner: no quayside track or tunnel in the winter harbour)
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
