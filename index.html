@@ -12179,11 +12179,16 @@ function updParts() {
 // Level 5's gorge: the galleries' roofs and the rock spurs drawn again over the trains under them (the plan's own pixels, from the painted chunks)
 // Enigma Run's towns (levels 2, 6, 6B): the station's glass train shed too, so the trains run in under its roof and not over it
 function shedRoofs() { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.items) return [];
-  return P.items.filter(b => b.part === 'shed' && !(S.stnDown && S.stnDown.has(b.id))).map(b => ({ x0: b.x0, x1: b.x0 + b.w - 1, y0: b.y0, y1: b.y0 + b.h - 1 })); }
+  return P.items.filter(b => b.part === 'shed' && !(S.stnDown && S.stnDown.has(b.id))).map(b => ({ x0: b.x0, x1: b.x0 + b.w - 1, y0: b.y0, y1: b.y0 + b.h - 1, glass: true })); }
 function drawRoofs() {
   const S = run.sortie, sc = Math.floor(world.scroll);
-  for (const r of gorgeArena() ? gorgeRoofs() : shedRoofs()) { const t = S.planY0 - r.y1, b = S.planY0 - r.y0 + 1; if (b + sc < 0 || t + sc > H) continue;
-    for (let k = Math.floor(t / CH); k <= Math.floor((b - 1) / CH); k++) { const c = world.chunks.get(-k); if (!c) continue; const y0 = Math.max(t, k * CH), y1 = Math.min(b, k * CH + CH); if (y1 > y0) ctx.drawImage(c, r.x0, y0 - k * CH, r.x1 - r.x0 + 1, y1 - y0, r.x0, y0 + sc, r.x1 - r.x0 + 1, y1 - y0); } }
+  const blit = (xa, xb, ya, yb) => { const t = S.planY0 - yb, b = S.planY0 - ya + 1; // the plan's rows ya..yb (inclusive), columns xa..xb, from the painted chunks
+    for (let k = Math.floor(t / CH); k <= Math.floor((b - 1) / CH); k++) { const c = world.chunks.get(-k); if (!c) continue; const y0 = Math.max(t, k * CH), y1 = Math.min(b, k * CH + CH); if (y1 > y0) ctx.drawImage(c, xa, y0 - k * CH, xb - xa + 1, y1 - y0, xa, y0 + sc, xb - xa + 1, y1 - y0); } };
+  for (const r of gorgeArena() ? gorgeRoofs() : shedRoofs()) { if (S.planY0 - r.y0 + 1 + sc < 0 || S.planY0 - r.y1 + sc > H) continue;
+    if (!r.glass) { blit(r.x0, r.x1, r.y0, r.y1); continue; }
+    // the train shed's roof is glass: the whole roof over the trains at 40%, then its iron (the frame and a rib every 4 rows) at full strength
+    ctx.globalAlpha = 0.4; blit(r.x0, r.x1, r.y0, r.y1); ctx.globalAlpha = 1;
+    blit(r.x0, r.x0, r.y0, r.y1); blit(r.x1, r.x1, r.y0, r.y1); for (let y = r.y0; y <= r.y1; y++) if ((y - r.y0) % 4 === 0 || y === r.y1) blit(r.x0, r.x1, y, y); }
 }
 function drawGround() {
   const sc = Math.floor(world.scroll);

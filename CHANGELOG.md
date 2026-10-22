@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run, the station's train shed has a see-through glass roof: a train inside shows through it, while the iron frame and ribs stay solid.
 - Enigma Run, the station can be destroyed: the train shed (and the station hall, where it still stands) is now a ground target (60 and 40 hit points). Destroyed, its roof falls in as a burning rubble mound, and a shed that is gone no longer covers its trains. A train inside the shed cannot be shot, as under a gallery, so shots at it hit the shed.
 - Enigma Run, the station's train shed: trains no longer run over the glass roof. The roof is drawn again over the trains, so they roll in under it and come out the other side (as under the gorge's galleries).
 - Enigma Run level 2, clear ways: the port's asphalt road now wears through to the dirt track in patches over 64 rows instead of ending at a hard line, and the valley's rock walls rise from the join instead of starting as a straight cliff edge, so the track no longer looks cut where the port meets the desert. Nothing stands on a road or the railway any more: the oasis grove sits on the side of the track away from the line (it used to be cut in two by the rails, pool included), gun pits are never dug on a track or in the rail corridor, the barbed wire leaves the line open for the trains, and shell holes and the burning derrick's oil spill keep off the dirt tracks.
