@@ -49,8 +49,8 @@ function ptR() {
   });
 }
 
-function deZ() {
-  return sprite(28, 80, x => {
+function deZ(extra) {
+  return symSprite(28, 80, x => {
     polyS(x, RP.hull, [[14, 80], [2, 58], [1, 9], [5, 1], [23, 1], [27, 9], [26, 58]], 0.05);
     polyS(x, RP.teak, [[14, 73], [4, 56], [3, 10], [6, 3], [22, 3], [25, 10], [24, 56]], 0);
     railB(x, [[3, 12, 1, 40], [24, 12, 1, 40]], 'rgba(200,212,222,0.55)');
@@ -60,10 +60,11 @@ function deZ() {
     ellS(x, RP.hull, 14, 28, 4, 3, 0.1); disk(x, '#121214', 14, 27, 1);                                  // two funnels
     for (const tx of [10, 13, 16]) rect(x, '#2a2a30', tx, 21, 2, 4); rect(x, DARKB, 9, 20, 10, 1);      // the torpedo mount
     for (const k of [0, 1, 2]) { rect(x, '#18181a', 6 + k * 2, 8, 1, 2); rect(x, '#18181a', 20 - k * 2, 8, 1, 2); }   // depth charge racks
+    if (extra) extra(x);
   });
 }
-function deS() {
-  return sprite(28, 80, x => {
+function deS(extra) {
+  return symSprite(28, 80, x => {
     polyS(x, RP.hull, [[14, 80], [3, 60], [2, 9], [6, 1], [22, 1], [26, 9], [25, 60]], 0.05);
     polyS(x, RP.teak, [[14, 74], [5, 58], [4, 10], [7, 3], [21, 3], [24, 10], [23, 58]], 0);
     railB(x, [[4, 10, 1, 46], [23, 10, 1, 46]], 'rgba(200,212,222,0.55)');
@@ -72,16 +73,18 @@ function deS() {
     ellS(x, RP.hull, 14, 31, 5, 4.5, 0.08); disk(x, '#121214', 14, 30, 2);                               // one wide funnel
     boxS(x, RP.hull, 9, 21, 10, 5, 0.05); boxS(x, RP.hull, 10, 6, 8, 5, 0.05);                         // two deckhouses
     rect(x, DARKB, 13, 38, 2, 1); rect(x, DARKB, 13, 40, 2, 1);
+    if (extra) extra(x);
   });
 }
-function deO() {
-  return sprite(28, 80, x => {
+function deO(extra) {
+  return symSprite(28, 80, x => {
     polyS(x, RP.hull, [[14, 80], [4, 56], [3, 9], [7, 1], [21, 1], [25, 9], [24, 56]], 0.05);
     polyS(x, RP.teak, [[14, 73], [6, 54], [5, 10], [8, 3], [20, 3], [23, 10], [23, 54]], 0);
     disk(x, '#26303c', 14, 62, 5); disk(x, '#26303c', 14, 16, 5);
     boxS(x, RP.hull, 10, 44, 8, 8, 0.12); rect(x, GLASSB, 10, 50, 8, 1);                                // a small bridge
     for (const fy of [27, 34, 41]) { ellS(x, RP.hull, 14, fy, 3, 2.5, 0.12); disk(x, '#121214', 14, fy - 1, 1); }   // three thin funnels
     for (const sx of [3, 22]) { rect(x, '#2a2a30', sx, 22, 3, 2); rect(x, '#2a2a30', sx, 25, 3, 2); rect(x, DARKB, sx, 21, 3, 1); }   // torpedo mounts, both sides
+    if (extra) extra(x);
   });
 }
 
@@ -160,3 +163,14 @@ const sBoatV = {
 };
 function sBoat(variant) { return sprite(12, 34, x => { sBoatHull(x); sBoatV[variant](x); mirrorLeft(x, 12, 34); }); }
 function makeSBoatsV11() { return { pt_sym: sBoat('base'), pt_bridge: sBoat('bridge'), pt_flak: sBoat('flak'), pt_camo: sBoat('camo') }; }
+
+/* ===== the destroyers, exactly symmetric (drawn on the left half and mirrored), each with a variation ===== */
+function symSprite(w, h, fn) { return sprite(w, h, x => { fn(x); mirrorLeft(x, w, h); }); }
+const deExtra = {
+  camo(x) { for (let j = 6; j < 62; j++) for (let i = 4; i < 14; i++) if (((i + j) >> 2) % 4 === 0 && j % 2) rect(x, 'rgba(14,22,32,0.4)', i, j, 1, 1); rect(x, '#d8d6cc', 2, 30, 1, 14); },   // the dazzle pattern and a white hull stripe
+  davits(x) { for (const [bx, by] of [[5, 22], [5, 30]]) { rect(x, '#d8d0b0', bx, by, 2, 5); rect(x, '#a89870', bx, by + 5, 2, 1); } rect(x, DARKB, 8, 14, 5, 1); },      // boats on the left, mirrored to the right
+  lights(x) { disk(x, '#3a4654', 10, 40, 2); rect(x, GLASSB, 9, 39, 1, 1); rect(x, DARKB, 12, 49, 2, 1); rect(x, '#9aa4ae', 8, 46, 4, 1); }                                        // searchlight platforms, a raised bridge wing
+};
+function makeDestroyersV11() {
+  return { de_z_sym: deZ(), de_z_camo: deZ(deExtra.camo), de_s_sym: deS(), de_s_davits: deS(deExtra.davits), de_o_sym: deO(), de_o_lights: deO(deExtra.lights) };
+}
