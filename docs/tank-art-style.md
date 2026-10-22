@@ -20,6 +20,10 @@ The house style for tanks (and a good starting point for other vehicles), set by
 
 `makeTankV3(ramp, big, long, plain)` and `makeTankV4(..., plain)` take a `plain` flag. Plain tracks are solid black with thin lit ticks on the outer edge, like the original's, with no hub rings at the ends, no lit link blocks and no skirt plates. The full version (the default in code) has lit link blocks, hub rings and, on the heavy tank, thin skirt plates. The tool shows plain tracks by default, with a switch for the full version.
 
+## Planes (refined, staying close to the originals)
+
+`docs/plane-art-v5.js` (`makePlanesV5()`) refines the fighter, heavy fighter, bomber and Sower with the game's own sprite toolkit, so the original's ordered dither and crisp pixels are kept exactly. Changes: pure black separation lines round every overlapping part (fuselage, nacelles, canopy, spinner), brighter body tones, brighter yellow spinners and lamps, glass in a black frame with a white glint. Base parts (wings, tailplane) get no extra edge, because the game's own 1 px outline already draws the silhouette and a second ring would thicken it. Sizes, orientation and drawing positions match the originals. The fighter's leader variant (the tinted copy) is not redone.
+
 ## Tank types
 
 | Type | Hull | Turret | Gun |
