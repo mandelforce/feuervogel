@@ -93,7 +93,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
     const n = k => { let q = 0; for (const v of p.K) if (v === k) q++; return q; };
     if (preset === 'desertValley' && n(CG.K.WADI) > 3000 && n(CG.K.CLIFF) > 30000 && p.derricks.length >= 2 && p.pumps.length >= 3 && p.derricks.some(d => d.burn) && p.items.filter(i => i.label === 'Oil tank').length >= 2) c.valley++;
     if (preset === 'desertPass') { const rv = p.ravines[0], vd = p.viaducts[0], W = p.W; let deck = 0; for (let x = 0; x < W; x++) if (p.K[(rv.y0 + 20) * W + x] === CG.K.RBRIDGE) deck++;
-      let railOver = true; for (let y = vd.y0; y <= vd.y1; y++) if (p.RM[y * W + vd.x - 3] !== 2 || p.RM[y * W + vd.x + 2] !== 2) railOver = false;
+      let railOver = true; for (let y = vd.y0; y <= vd.y1; y++) if (p.RM[y * W + vd.x - 3] !== 2 || p.RM[y * W + vd.x + 3] !== 2) railOver = false;
       const bridge = p.K.some(k => k === CG.K.BRIDGE), towers = p.items.filter(i => i.label === 'Fort tower').length;
       if (n(CG.K.RAVINE) > 4000 && deck === 20 && railOver && bridge && p.sangars.length >= 2 && towers === 4) c.pass++;
       const mid = Math.round((rv.y0 + p.L * 0.94) / 2), gw = p.wallR[mid] - p.wallL[mid]; if (gw >= 104 && gw <= 136) c.gorge++; }
