@@ -85,3 +85,7 @@ PT boat: the chosen S-boat is reworked to be exactly symmetric (`sBoat` in `docs
 Destroyer: the three designs are reworked to be exactly symmetric (`symSprite` in `docs/boat-art-v11.js`: drawn on the left half, mirrored onto the right, checked pixel by pixel), each with one variation (dazzle camouflage, boats on davits, searchlights): `makeDestroyersV11`.
 
 Submarine: the pick was the original. `docs/boat-art-v11.js` (`makeSubsV11`, `subSym`) gives it an exactly symmetric rework (drawn on the left half and mirrored, checked pixel by pixel) and four variations that read as submarines: a cigar hull with stern hydroplanes, bow planes, a brighter tower and twin periscopes; a Type VII with planked casing and wintergarden; a Type IX with a bigger tower and AA platform; a smooth Type XXI. The 12 x 46 size and deck gun position are unchanged.
+
+## Road vehicles (three designs each)
+
+`docs/road-art-v12.js` (`makeRoadV12`): truck (Opel Blitz, open bed with crates, canvas on hoops), armoured car (Sd.Kfz. 222, 231, 234 Puma), motorbike (solo, sidecar with MG, Kettenkrad), staff car (Kuebelwagen, Horch, command car with radio) and fuel truck (round tank, ribbed tank, banded tank with warning stripe). Same sizes as the originals, 16 headings through the game's `rotSet`, the game's own toolkit (dither, plain edge). Exactly symmetric (drawn on the left half and mirrored) except the sidecar bike. The national cross on the armoured car is left out because an even-width sprite has no centre pixel for a one-pixel cross. Not wired into the game.
