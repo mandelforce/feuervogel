@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run (levels 2, 6, 6B): the Campaign's factory chimneys are no longer placed over a settlement plan's ground either (they stood in odd places, level 2 included). The plan's own stacks are unchanged.
 - Enigma Run level 2: the tower standing in the sea beside the port was the Campaign's city church spire (and its city blocks), which was still being placed over the settlement plan's ground. Plan levels no longer get them; the station's own clock tower stands by its hall as before.
 - Settlement generator, the station: the train shed is 7 px wider on the side away from the station hall, so the main line no longer runs right along its outer wall (9 px of room became 16).
 - Enigma Run, the station's train shed has a see-through glass roof: a train inside shows through it, while the iron frame and ribs stay solid.
