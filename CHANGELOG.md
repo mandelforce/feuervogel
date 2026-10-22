@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Settlement generator, the station: the train shed is 7 px wider on the side away from the station hall, so the main line no longer runs right along its outer wall (9 px of room became 16).
 - Enigma Run, the station's train shed has a see-through glass roof: a train inside shows through it, while the iron frame and ribs stay solid.
 - Enigma Run, the station can be destroyed: the train shed (and the station hall, where it still stands) is now a ground target (60 and 40 hit points). Destroyed, its roof falls in as a burning rubble mound, and a shed that is gone no longer covers its trains. A train inside the shed cannot be shot, as under a gallery, so shots at it hit the shed.
 - Enigma Run, the station's train shed: trains no longer run over the glass roof. The roof is drawn again over the trains, so they roll in under it and come out the other side (as under the gorge's galleries).
