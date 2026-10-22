@@ -22,7 +22,11 @@ The house style for tanks (and a good starting point for other vehicles), set by
 
 ## Planes (refined, staying close to the originals)
 
-`docs/plane-art-v5.js` (`makePlanesV5()`) refines the fighter, heavy fighter, bomber and Sower with the game's own sprite toolkit, so the original's ordered dither and crisp pixels are kept exactly. Changes: pure black separation lines round every overlapping part (fuselage, nacelles, canopy, spinner), brighter body tones, brighter yellow spinners and lamps, glass in a black frame with a white glint. Base parts (wings, tailplane) get no extra edge, because the game's own 1 px outline already draws the silhouette and a second ring would thicken it. Sizes, orientation and drawing positions match the originals. The fighter's leader variant (the tinted copy) is not redone.
+`docs/plane-art-v5.js` (`makePlanesV5()`) refines the fighter, heavy fighter, bomber and Sower with the game's own sprite toolkit, so the original's ordered dither and crisp pixels are kept exactly. Changes: pure black separation lines round every overlapping part (fuselage, nacelles, canopy, spinner), brighter body tones, brighter yellow spinners and lamps, glass in a black frame with a white glint. Base parts (wings, tailplane) get no extra edge, because the game's own 1 px outline already draws the silhouette and a second ring would thicken it. Sizes, orientation and drawing positions match the originals. The refined fighter itself was rejected and replaced by the four redesigns below. The leader fighter (the tinted copy) is not redone.
+
+## Fighters: four German WW2 redesigns
+
+`docs/fighter-art-v6.js` (`makeFightersV6()`, needs the two renderer files loaded first) replaces the fighter with four complete designs, each at 16 headings in the clean + raster renderer: Bf 109 (slim, tapered wings, yellow cowl and wing tips), Fw 190 (round radial cowling with a yellow band, broad rounded wings), Me 262 (swept wings, two jet pods with dark intakes, no propeller) and Bf 110 (twin engine nacelles with yellow spinners, twin tail fins). Luftwaffe colours: dark green and grey-green uppersurfaces with a mottle, white crosses with black edges. Sizes are 24 to 26 px wide, a little larger than the original's 22 x 18, so hitboxes would need a look.
 
 ## Tank types
 
