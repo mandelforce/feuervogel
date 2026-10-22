@@ -75,3 +75,7 @@ Fighter: a mix of the Bf 109 and the Fw 190 (`mixV6` in `docs/fighter-art-v6.js`
 Decision: the fighter is the Fw 190 (`fw190V6`), the most readable of the three; the Bf 109 and the mix stay as alternatives.
 
 Picks in the tool: clicking the caption under a design marks it as the owner's pick (★), saved in the artifact's shared database (collection `picks`, one doc per vehicle with field `key`, the caption text). Seeded with the picks above.
+
+## Boats (three designs each)
+
+`docs/boat-art-v11.js` (`makeBoatsV11`): PT boat (S-boat, Vosper MTB, R-boat), destroyer (Z-class, escort with one wide funnel, old flush-deck) and submarine (Type VII, Type IX, Type XXI). Same sizes and gun mounts as the originals (PT 12 x 34, destroyer 28 x 80, submarine 12 x 46), drawn with the game's own toolkit (dither, plain edge) so they drop in. Pick with the caption click in the tool; not wired into the game.
