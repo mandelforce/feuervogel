@@ -73,3 +73,5 @@ Decision: the bomber is the He 111 variant c (twin fins, big inboard engines), n
 Fighter: a mix of the Bf 109 and the Fw 190 (`mixV6` in `docs/fighter-art-v6.js`: the 109's slim body, tapered wing, yellow tips and long canopy with the 190's round radial cowling and yellow band), and a one-pixel black cross on a flat round white disc on the wings of the 109, 190 and mix (`stampCrossV6`, stamped per heading after rendering). The card shows the original, Bf 109, Fw 190 and the mix; the Me 262 and Bf 110 stay in the code.
 
 Decision: the fighter is the Fw 190 (`fw190V6`), the most readable of the three; the Bf 109 and the mix stay as alternatives.
+
+Picks in the tool: clicking the caption under a design marks it as the owner's pick (★), saved in the artifact's shared database (collection `picks`, one doc per vehicle with field `key`, the caption text). Seeded with the picks above.
