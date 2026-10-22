@@ -1889,6 +1889,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
   for (const o of plan.obstacles || []) { if (o.y < y0 - 4 || o.y > y0 + h + 4) continue; // Czech hedgehogs, mined stakes, dragon's teeth
     if (o.kind === 'hedgehog') { for (let k = -2; k <= 2; k++) { put(o.x + k, o.y + k, C.shadow); put(o.x + k, o.y - k, C.shadow); } put(o.x + 1, o.y - 1, C.conc[3]); put(o.x - 1, o.y + 1, C.conc[3]); put(o.x + 3, o.y - 2, C.shadow, 0.35); }
     else if (o.kind === 'stake') { put(o.x, o.y, C.beam); put(o.x, o.y + 1, C.beam); put(o.x, o.y + 2, C.fence); put(o.x + 1, o.y + 2, C.dark); put(o.x + 1, o.y - 1, C.shadow, 0.35); }
+    else if (o.kind === 'trap') { for (let dy = -1; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) put(o.x + dx, o.y + dy, dy < 0 ? C.conc[3] : dx === 2 ? C.conc[0] : C.conc[1]); for (let dx = -1; dx <= 3; dx++) put(o.x + dx, o.y + 2, C.shadow, 0.5); put(o.x, o.y - 2, C.snowRoof ? C.snowRoof[3] : C.conc[3]); } // a dragon's tooth block of the depot's tank trap, snow on its top
     else if (o.kind === 'buffer') { for (let k = -4; k <= 4; k++) { put(o.x + k, o.y, C.fire[1]); put(o.x + k, o.y + 1, C.dark); } }
     else { put(o.x, o.y, C.conc[3]); put(o.x + 1, o.y, C.conc[2]); put(o.x, o.y - 1, C.conc[1]); put(o.x + 1, o.y - 1, C.shadow); } }
   for (const wr of plan.wires || []) for (const [wx, wy] of wr) { if (wy < y0 - 2 || wy > y0 + h + 2) continue; if (wx % 6 === 0) { put(wx, wy, C.beam); put(wx, wy + 1, C.beam); } else if ((wx + wy) % 2 === 0) put(wx, wy + ((wx >> 1) % 2), C.dark); } // barbed wire on posts
@@ -3077,9 +3078,10 @@ function winterLand(o) {
   const inF = (k, y, m = 80) => fs(k).reduce((a, [p, q]) => Math.max(a, smooth(p - m, p + 20, y) * (1 - smooth(q - 20, q + m, y))), 0); // how far row y is inside a feature of kind k (eased at its ends)
   const lk = fs('lake')[0] || null, sL = rnd(40) < 0.5 ? -1 : 1, th = fs('throat')[0] || null, yT = th ? th[0] + 24 : L; // the lake's side; the throat's spur, where the valley ends
   if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120), 40, W - 40); // the road skirts the lake
-  const thF = (P.features || []).find(F => F.kind === 'throat'), yRoad = thF ? Math.round(L * thF.at0) + 14 : L; // the road ends at the throat's spur, in a tunnel
+  const thF = (P.features || []).find(F => F.kind === 'throat'), yEnd = thF ? Math.round(L * thF.at0) + 24 - 152 : L, yRoad = thF ? yEnd - 12 : L; // the road ends in a depot at the foot of the throat's mountain (owner: no tunnel for the road): paved, then gravel, then a dirt track, then the turnaround
   const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: 0, y1: yRoad - 1, id: 0 }; plan.streets.push(ar);
-  for (let y = 0; y < yRoad; y++) { ar.pts.push([plan.mx[y], y, 9]); for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (inB(x, y) && Math.abs(x + 0.5 - plan.mx[y]) < 4.5) { const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -2; reserved[i] = 1; } }
+  const gv = { cls: 'lane', axis: 'v', pts: [], gravel: true, y0: yEnd - 125, y1: yEnd - 56, id: 1 }, dt = { cls: 'lane', axis: 'v', pts: [], dirt: true, y0: yEnd - 55, y1: yEnd + 16, id: 2 }; if (thF) plan.streets.push(gv, dt); // (the same carriageway, painted by its own streets: ids 1 and 2 only colour it; the tank route is the arterial)
+  for (let y = 0; y < yRoad; y++) { ar.pts.push([plan.mx[y], y, 9]); const sid = !thF || y < gv.y0 ? 0 : y < dt.y0 ? 1 : 2, hw = sid === 0 ? 4.5 : sid === 1 ? 4.1 : lerp(3.6, 2.9, smooth(dt.y0, yRoad, y)) + (vn(y * 0.2, 7.1) - 0.5) * 0.6; for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (inB(x, y) && Math.abs(x + 0.5 - plan.mx[y]) < hw) { const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -2 - sid; reserved[i] = 1; } }
   const MX = y => plan.mx[clamp(Math.round(y), 0, L - 1)];
   // 2. the mountains: height from the valley's axis outward, crests and spurs from ridged noise; the village's floor is wider
   const vx = y => MX(y) + 12 * Math.sin(y * 0.004 + ph * 2) + sL * 30 * inF('lake', y, 120), wide = y => inF('village', y);
@@ -3089,11 +3091,22 @@ function winterLand(o) {
   const nz = (x, y) => { const i = x >> 1, j = y >> 1, fx = (x & 1) * 0.5, fy = (y & 1) * 0.5, a = NZ[j * GW + i], b = NZ[j * GW + i + 1], c = NZ[(j + 1) * GW + i], d = NZ[(j + 1) * GW + i + 1]; return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
   for (let y = 0; y < L; y++) { const a = vx(y), w = fw(y), r = rise(y) * (1 + 0.35 * inF('pass', y, 60)) * (th ? 1 - smooth(yT + 30, yT + 140, y) : 1); for (let x = 0; x < W; x++) { const d = Math.abs(x + 0.5 - a), e = smooth(w - 4, w + 70, d);
     let h = e > 0 ? r * (e * 74 + Math.pow(e, 0.8) * (nz(x, y) + 4 * vn(x * 0.14, y * 0.14))) : 0;
-    if (th) h = Math.max(h, 70 * Math.exp(-(((y - yT + 12) / 16) ** 2)) * (0.8 + 0.4 * vn(x * 0.05, 3.7))); /* the spur that closes the valley; the railway comes out of it */ Hg[idx(x, y)] = h; } }
+    if (th) h = Math.max(h, smooth(yT - 112, yT - 52, y) * (1 - smooth(yT - 4, yT + 1, y)) * (86 + 0.9 * nz(x, y) + 12 * vn(x * 0.14, y * 0.14)) * (0.85 + 0.3 * vn(x * 0.05, 3.7))); /* the massif that closes the valley, right across the map and 120 rows deep, a rock face on its north side; the railway comes out of it */ Hg[idx(x, y)] = h; } }
   let tL = now(); const lap = k => { const t = now(); plan.stage[k] = +(t - tL).toFixed(2); tL = t; }; lap('mountains');
   const H = (x, y) => Hg[idx(clamp(Math.round(x), 0, W - 1), clamp(Math.round(y), 0, L - 1))];
   const flatten = (x0, y0, w, h, m) => { let lo = 1e9; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y)) lo = Math.min(lo, Hg[idx(x, y)]);
     for (let y = y0 - m; y < y0 + h + m; y++) for (let x = x0 - m; x < x0 + w + m; x++) if (inB(x, y)) { const i = idx(x, y), dd = Math.max(x0 - x, x - (x0 + w - 1), y0 - y, y - (y0 + h - 1), 0) / (m + 1); Hg[i] = lerp(lo, Hg[i], Math.max(0, dd) * dd); } return lo; }; // a terrace: level ground round a building, easing back into the slope
+  // 2b. the road's end (owner: no tunnel for the road): a depot at the foot of the massif. A turning circle of dirt; across the track before it a tank trap (dragon's
+  // teeth, hedgehogs, wire); on the pads round it two gun turrets (artillery), a flak pit and a pillbox facing the road, a guard hut and two parked trucks.
+  if (thF) { const cx = Math.round(MX(yEnd)), sd = cx < W / 2 ? 1 : -1;
+    for (let y = yEnd - 15; y <= yEnd + 15; y++) for (let x = cx - 17; x <= cx + 17; x++) { if (!inB(x, y) || (x + 0.5 - cx) ** 2 / 289 + (y + 0.5 - yEnd) ** 2 / 225 > 1 || reserved[idx(x, y)] && Kr[idx(x, y)] !== K.ROAD) continue; const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -3; reserved[i] = 1; Hg[i] = 0; } // the turning circle (packed gravel)
+    const pad = (x, y, w, h, kind, on, r) => { const x0 = x - (w >> 1), y0 = y - (h >> 1); if (!free(x0, y0, w, h)) return null; const lo = flatten(x0, y0, w, h, 5); for (let yy = y0; yy < y0 + h; yy++) for (let xx = x0; xx < x0 + w; xx++) if (((xx + 0.5 - x) / (w / 2)) ** 2 + ((yy + 0.5 - y) / (h / 2)) ** 2 <= 1) { const i = idx(xx, yy); Kr[i] = K.LOT; Br[i] = -1; reserved[i] = 1; Hg[i] = lo; } return kind ? slot(kind, on, x, y, r) : null; }; // a round gravel pad
+    pad(cx + sd * 39, yEnd + 28, 17, 17, 'arty', 'lot', 6); pad(cx - sd * 36, yEnd + 8, 17, 17, 'arty', 'lot', 6); pad(cx - sd * 28, yEnd + 30, 13, 13, 'flak', 'lot', 5); pad(cx + sd * 2, yEnd + 44, 15, 15, 'bunker', 'pad', 6);
+    { const hx = cx + (sd > 0 ? 19 : -26), hy = yEnd + 17; if (free(hx - 2, hy - 2, 11, 9)) { const it = addItem({ t: 'works', label: 'Guard hut', x0: hx, y0: hy, w: 7, h: 5, ori: 'h', style: 'gable', roof: 1 }); rect(hx, hy, 7, 5, K.BLDG, it.id, 0); } }
+    slot('parked', 'pad', cx - sd * 15, yEnd - 3, 5); slot('parked', 'pad', cx + sd * 13, yEnd + 6, 5);
+    for (const yy of [yEnd - 34, yEnd - 28]) for (let x = cx - 24; x <= cx + 24; x += yy === yEnd - 34 ? 6 : 7) { if (Math.abs(x - cx) < 6) continue; plan.obstacles.push({ kind: yy === yEnd - 34 ? 'trap' : 'hedgehog', x: x + ((rnd(41, x, yy) * 3) | 0) - 1, y: yy + ((rnd(42, x, yy) * 3) | 0) - 1 }); }
+    for (const [x0, x1] of [[cx - 30, cx - 7], [cx + 7, cx + 30]]) { for (const dy of [0, 3]) { const wr = []; for (let x = x0; x <= x1; x += 2) wr.push([x, Math.round(yEnd - 39 - dy + 1.5 * Math.sin(x * 0.4))]); plan.wires.push(wr); } } // wire in front of the trap
+    for (let x = cx - 26; x <= cx + 26; x += 8) if (Math.abs(x - cx) > 8) plan.obstacles.push({ kind: 'stake', x, y: yEnd - 22 + ((rnd(43, x) * 3) | 0) }); }
   // 3. the mountain village. The special places first (chapel, sawmill, cable car, ski jump, lanes), the chalets along the road last.
   if (vs) { const [ya, yb] = vs, sC = rnd(10) < 0.5 ? -1 : 1, A = plan.alpine = { y0: ya, y1: yb, chalets: 0, terraces: 0 };
     const house = (x0, y0, w, h, front, roof) => { const it = addItem({ t: 'house', label: 'Chalet', x0, y0, w, h, ori: front === 'W' || front === 'E' ? 'h' : 'v', front, style: 'gable', roof, run: -1 - plan.items.length }); rect(x0, y0, w, h, K.BLDG, it.id, flatten(x0, y0, w, h, 3)); return it; };
@@ -3195,7 +3208,7 @@ function winterLand(o) {
     for (const q of G.gal) for (let y = q.y0; y <= q.y1; y++) { const [xa, xb] = D.gal[q.s < 0 ? 0 : 1]; for (let x = xa; x <= xb; x++) { const i = idx(x, y); if (Kr[i] === K.CRAG) continue; Kr[i] = K.RBRIDGE; Br[i] = -24; reserved[i] = 1; Hg[i] = q.s < 0 ? Math.max(0, 3 - (x - xa) * 0.1) : 0; } }
     for (const q of G.corn) for (let y = q.y - q.half; y <= q.y + q.half; y++) { const w = Math.sqrt(Math.max(0, 1 - ((y - q.y) / q.half) ** 2)), e = q.over ? D.gal[q.s < 0 ? 0 : 1][q.s < 0 ? 0 : 1] + q.s : q.s < 0 ? LWx(y) : RWx(y); // (over a gallery: on the wall just beyond its roof)
       for (let k = q.over ? -2 - Math.round(6 * w) : -5; k <= (q.over ? 0 : 1 + Math.round(6 * w)); k++) { const x = Math.round(e + (q.s < 0 ? k : -k)), i = idx(x, y); if (!inB(x, y) || (Kr[i] === K.RBRIDGE && Br[i] === -24) || G.spurs.some(p => p.s === q.s && y >= p.y0 && y <= p.y1)) continue; Kr[i] = K.SLOPE; Br[i] = -72; reserved[i] = 1; } }
-    for (const tx of D.T) plan.tunnels.push({ x: tx, y: yP, dir: -1 }); plan.tunnels.push({ x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+    for (const tx of D.T) plan.tunnels.push({ x: tx, y: yP, dir: -1 }); }
   else if (th && P.finale === 'iceYard') { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], arF = fs('arena')[0], yA = arF ? arF[0] : L, TR = plan.throat = { y0: yP, tracks: [], ice: yA };
     const g0 = yP + 24, g1 = g0 + 58, ph2 = rnd(50) * 6.283, top = x => g1 + 4 * Math.sin(x * 0.05 + ph2) + 3 * vn(x * 0.2, 9), bot = x => g0 + 4 * Math.sin(x * 0.043 + ph2 * 2) + 3 * vn(x * 0.2, 19), VX0 = 84, VX1 = 134;
     plan.ravines = [{ y0: g0 - 8, y1: g1 + 8, s: 1, top, bot }]; plan.viaduct2 = { x0: VX0, x1: VX1, y0: g0 - 8, y1: g1 + 8 };
@@ -3213,7 +3226,7 @@ function winterLand(o) {
     for (let y = yA + 30; y < L - 10; y += 34 + ((rnd(51, y) * 30) | 0)) { const k = (rnd(52, y) * 7) | 0, xa = T[k] + 9, xb = T[k + 1] - 9, kind = rnd(53, y); // between two tracks: a drift ridge, or a refrozen shell hole
       if (kind < 0.55) { const len = 20 + ((rnd(54, y) * 30) | 0); for (let yy = y; yy < Math.min(L, y + len); yy++) for (let x = xa + 1; x <= xb - 1; x++) { const i = idx(x, yy); if (Kr[i] === K.ICE && hh(x, yy) < 0.85) Br[i] = -82; } }
       else { const cx = (xa + xb) / 2, r = 3 + rnd(55, y) * 2; for (let yy = Math.floor(y - r); yy <= y + r; yy++) for (let x = Math.floor(cx - r); x <= cx + r; x++) { const i = idx(x, yy); if (inB(x, yy) && Kr[i] === K.ICE && Math.hypot(x + 0.5 - cx, yy + 0.5 - y) < r) Br[i] = -83; } } }
-    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }, { x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); }
   else if (th) { const yP = yT - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
@@ -3222,7 +3235,7 @@ function winterLand(o) {
           if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } }
       if (L - 1 - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: L - 1, line: 'throat' }); }
     for (let y = L - 72; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y), f = (y - (L - 72)) / 60; if (RM[i] === 2 || RM[i] === 3) continue; if ((!reserved[i] || Kr[i] === K.RAIL) && hh(x, y) < f) { Kr[i] = K.RAIL; Br[i] = -98; RM[i] = 1; reserved[i] = 1; Hg[i] = 0; } } // the yard's ballast spreading between the tracks (B -98: a host paints it in its yard's own colours, opts.yardPix)
-    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }, { x: Math.round(MX(yRoad - 1)), y: yRoad, dir: -1 }); }
+    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); }
   lap('places');
   // 4. kinds: the floor stays snow; slopes become K.SLOPE, steep ones bare rock
   for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (reserved[i] || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; const h = Hg[i]; if (h < 3) continue;
@@ -3265,6 +3278,7 @@ function stackPlans(A, B, preset) {
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
   for (const key of JOIN_LISTS) plan[key] = (A[key] || []).concat((B[key] || []).map(up));
+  plan.wires = (A.wires || []).concat((B.wires || []).map(w => w.map(p => [p[0], p[1] + La]))); // (lines of points, not objects)
   plan.conifers = [0, 1, 2].map(k => ((A.conifers || [])[k] || []).concat(((B.conifers || [])[k] || []).map(up)));
   plan.avalanche = (A.avalanche || []).concat((B.avalanche || []).map(s => s.map(p => [p[0], p[1] + La])));
   plan.cables = (A.cables || []).concat((B.cables || []).map(c => Object.assign(up(c), { pylons: c.pylons.map(p => [p[0], p[1] + La]) })));
