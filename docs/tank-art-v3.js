@@ -12,7 +12,9 @@ const TANK_V3 = {
   track: ['#121214', '#242428', '#3a3a40', '#56565e'],
   lamp: ['#6e2a0c', '#d0561c', '#f8a83a', '#fff2a8'],
   char: ['#08080a', '#141418', '#222228', '#34343c', '#4a4a54'],
-  SS: 6
+  SS: 6,
+  soft: false,      // v4: smooth shading instead of flat tone bands
+  dither: null      // v4: { ramps, camo }: interior pixels are placed on a ramp and ordered-dithered in screen space
 };
 
 function rasterV3(d, ang, palette, draw) {
@@ -22,21 +24,39 @@ function rasterV3(d, ang, palette, draw) {
   draw(x, base);
   const src = x.getImageData(0, 0, N, N).data, [c, y] = mk(d, d), out = y.createImageData(d, d), pal = palette.map(hexRGB);
   for (let j = 0; j < d; j++) for (let i = 0; i < d; i++) {
-    let r = 0, g = 0, b = 0, a = 0;
-    for (let v = 0; v < SS; v++) for (let u = 0; u < SS; u++) { const k = ((j * SS + v) * N + i * SS + u) * 4, al = src[k + 3]; if (al) { r += src[k] * al; g += src[k + 1] * al; b += src[k + 2] * al; a += al; } }
+    let r = 0, g = 0, b = 0, a = 0, q2 = 0;
+    for (let v = 0; v < SS; v++) for (let u = 0; u < SS; u++) { const k = ((j * SS + v) * N + i * SS + u) * 4, al = src[k + 3]; if (al) { r += src[k] * al; g += src[k + 1] * al; b += src[k + 2] * al; a += al; q2 += (src[k] * src[k] + src[k + 1] * src[k + 1] + src[k + 2] * src[k + 2]) * al; } }
     if (a < 255 * SS * SS * 0.5) continue;
-    r /= a; g /= a; b /= a; let best = 0, bd = 1e9;
+    r /= a; g /= a; b /= a;
+    if (TANK_V3.dither && a > 255 * SS * SS * 0.98 && Math.sqrt(Math.max(0, q2 / a - (r * r + g * g + b * b))) < 16) { const o = ditherV3(r, g, b, i, j); if (o) { const k = (j * d + i) * 4; out.data[k] = o[0]; out.data[k + 1] = o[1]; out.data[k + 2] = o[2]; out.data[k + 3] = 255; continue; } }
+    let best = 0, bd = 1e9;
     for (let p = 0; p < pal.length; p++) { const dr = pal[p][0] - r, dg = pal[p][1] - g, db = pal[p][2] - b, dd = dr * dr * 0.9 + dg * dg * 1.2 + db * db * 0.8; if (dd < bd) { bd = dd; best = p; } }
     const o = (j * d + i) * 4; out.data[o] = pal[best][0]; out.data[o + 1] = pal[best][1]; out.data[o + 2] = pal[best][2]; out.data[o + 3] = 255;
   }
   y.putImageData(out, 0, 0); outline(c, OUT); return finalize(c);
+}
+// v4: place an interior pixel on the nearest ramp segment and choose between the two tones with the game's own 4 x 4 ordered dither,
+// laid on SCREEN pixels (after rotation), so the raster pattern stays put whichever way the tank turns. A little noise dips some body pixels one tone: camouflage.
+const BAY_V3 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
+function ditherV3(r, g, b, i, j) {
+  const D = TANK_V3.dither; if (!D.cache) D.cache = D.ramps.map(rp => rp.map(hexRGB));
+  let best = null, bd = 22 * 22;
+  D.cache.forEach((rp, ri) => { for (let k = 0; k + 1 < rp.length; k++) { const a = rp[k], c = rp[k + 1], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2], L = vx * vx + vy * vy + vz * vz || 1;
+    let t = ((r - a[0]) * vx + (g - a[1]) * vy + (b - a[2]) * vz) / L; t = Math.max(0, Math.min(1, t));
+    const dx = a[0] + vx * t - r, dy = a[1] + vy * t - g, dz = a[2] + vz * t - b, dd = dx * dx + dy * dy + dz * dz; if (dd < bd) { bd = dd; best = { ri, u: k + t }; } } });
+  if (!best) return null;
+  let u = best.u; const rp = D.cache[best.ri];
+  if (D.camo && D.ramps[best.ri] === D.body) { const nz = typeof vnoise === 'function' ? vnoise(i * 0.33 + 7, j * 0.33 + 3) : 0; if (nz > 0.62) u -= D.camo; }
+  u = Math.max(0, Math.min(rp.length - 1, u));
+  const lo = Math.floor(u), fr = u - lo, hi = Math.min(rp.length - 1, lo + 1), pick = fr + BAY_V3[((j & 3) << 2) | (i & 3)] * 0.95 > 0.5 ? hi : lo;
+  return rp[pick];
 }
 // flat tone bands lit from the top left in SCREEN space: the shape is filled, then clipped and overlaid with world-aligned bands
 function shadeV3(x, base, path, cx, cy, r, tones, line) {
   const [lo, mid, hi, top] = tones, SS = base.a, p = new DOMPoint(cx, cy).matrixTransform(x.getTransform());
   x.save(); path(); x.fillStyle = mid; x.fill(); x.clip(); x.setTransform(1, 0, 0, 1, 0, 0);
   const k = r * SS * 0.85, g = x.createLinearGradient(p.x - k, p.y - k, p.x + k, p.y + k);
-  for (const [o, c] of [[0, top], [0.2, top], [0.2, hi], [0.42, hi], [0.42, mid], [0.7, mid], [0.7, lo], [1, lo]]) g.addColorStop(o, c);
+  for (const [o, c] of TANK_V3.soft ? [[0, top], [0.12, top], [0.38, hi], [0.62, mid], [0.9, lo], [1, lo]] : [[0, top], [0.2, top], [0.2, hi], [0.42, hi], [0.42, mid], [0.7, mid], [0.7, lo], [1, lo]]) g.addColorStop(o, c);
   x.fillStyle = g; x.fillRect(0, 0, x.canvas.width, x.canvas.height); x.restore();
   if (line) { path(); x.lineWidth = 0.6; x.strokeStyle = line; x.stroke(); }
 }
@@ -101,4 +121,11 @@ function makeTankV3(ramp, big, long) {
     tur: set(dt, pal, (x, b) => turretV3(x, b, ramp, cw, ch, big, long)),
     wreck: set(dh, palW, (x, b) => hullV3(x, b, TANK_V3.char, w, h, 0, { big, long, wreck: true }))
   };
+}
+
+/* v4: the clean shapes and the fixed top-left light, with the original's ordered-dither raster shading brought back.
+   Same sets as makeTankV3 (hull frames, turret, wreck). camo is how far a noisy body pixel dips down the ramp. */
+function makeTankV4(ramp, big, long, camo = 0.6) {
+  TANK_V3.soft = true; TANK_V3.dither = { ramps: [ramp, TANK_V3.metal, ['#0a0a0c', '#101012', '#18181c'], TANK_V3.char], body: ramp, camo };
+  try { return makeTankV3(ramp, big, long); } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
 }

@@ -12,6 +12,10 @@ The house style for tanks (and a good starting point for other vehicles), set by
 6. **Same footprint as the game.** Hull 16 x 22 and turret 12 x 30 (tank), 20 x 28 and 16 x 40 (heavy tank), 16 x 24 and 12 x 52 (long-gun tank). The game's own 1 px outline and white hit flash are kept. The turret stays a separate sprite so the pop-off still works.
 7. **One function, one colour parameter.** `makeTankV3(ramp, big, long)` returns the two hull frames, the turret and a charred wreck, each at 16 headings.
 
+## Clean + raster (v4)
+
+`makeTankV4(ramp, big, long)` in `docs/tank-art-v3.js` keeps rules 1, 2, 4 and 5 and brings back the original's raster shading. Surfaces use smooth shading, then each interior pixel is placed on its ramp and ordered-dithered with the game's 4 x 4 pattern on SCREEN pixels, after rotation, so the pattern does not turn or smear with the tank. A little noise dips some body pixels one tone for the camouflage look. Edges, hatches, lamps and the barrel stay solid. Tracks are black with lighter link bars, and the 6-step steel grey is shifted up one step to match the original's brightness.
+
 ## Tank types
 
 | Type | Hull | Turret | Gun |
