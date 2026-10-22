@@ -467,7 +467,7 @@ for (const lv of [2, 6, 7]) {
   const r = await peek(page, `(() => { settings.diff = 1; startEnigma(5); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), K = CityGen.K;
     let types = 0, n = 0; for (let k = 0; k < 400; k++) { const x = (k * 37) % W, y = (k * 97) % P.L, wy = S.planY0 - y; n++; if (classify(x, wy).tt === CityGen.typeAt(P, x, y)) types++; }
     const c0 = info(world.stageBaseP).b, pE = world.stageBaseP + S.len, past = info(pE + 1), ice = P.K.slice(0, P.W * P.coast.yC).filter(k => k === K.ICE).length;
-    const tracks = GORGE_T.every(x => [S.len * CH - 1, P.L - 1].every(y => P.RM[y * P.W + x - 3] === 2 && P.RM[y * P.W + x + 2] === 2)), ay = S.planY0 - (P.gorge.yb + 300), yardTT = classify(112, ay).tt + ',' + classify(68, ay).tt;
+    const tracks = GORGE_T.every(x => [S.len * CH - 1, P.L - 1].every(y => P.RM[y * P.W + x - 3] === 2 && P.RM[y * P.W + x + 3] === 2)), ay = S.planY0 - (P.gorge.yb + 300), yardTT = classify(112, ay).tt + ',' + classify(68, ay).tt;
     return { pass: v.pass, L: P.L, want: (S.len + GORGE_ARENA) * CH, len: S.len, gen: S.gen, types, n, c0, pastB: past.b, pastTh: past.th, ice, holes: P.slots.filter(q => q.kind === 'sub' && q.on === 'ice').length, breaks: P.iceBreaks.length,
       village: !!(P.alpine && P.alpine.chapel), lake: !!(P.lake && P.lake.huts), iceRoad: P.streets.some(st => st.ice), tracks, yardTT, stops: railEnds(pE).length, green: !!P.oldTown }; })()`);
   ok(r.gen === 5 && r.len === 84 && r.pass && r.L === r.want, `level 5: its own ground (gen ${r.gen}), 84 chunks, the plan passes the hard rules and covers the level and the arena after it (${r.L} px)`);
