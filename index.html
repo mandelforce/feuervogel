@@ -8433,7 +8433,6 @@ function doContinue() {
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
   run.lives = DIFF.lives[settings.diff]; run.bombs = Math.max(3, DIFF.bombs[settings.diff]); world.ebul.length = 0;
   Object.assign(player, { dead: RB_BURST, rbMode: 1, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
-  if (p2) { run.lives2 = DIFF.lives[settings.diff]; run.bombs2 = Math.max(3, DIFF.bombs[settings.diff]); Object.assign(p2, { out: false, dead: 150, charge: 0, beam: null }); } // one continue brings back both ships, with full lives and bombs each
   sfx('rebirth');
 }
 
@@ -11337,6 +11336,11 @@ function updP2() {
   if (p.fly > 0 || p.exitT > 0 || p.y < -40) { // fly-ins and stage exits: player 2 rides on player 1's wing
     const k = p.flyK || 1; if (!q.out) q.dead = 0; q.x = p.x + 30 * k; q.y = p.y + 8 * k; q.bank = p.bank; q.lx = q.x; q.ly = q.y; q.charge = 0; q.beam = null; q.inv = 150; q.tagT = Math.max(q.tagT, 120); return;
   }
+  if (q.out) { // out of lives: comes back by spending a spare life of player 1's, once it has one to spare (and keeps one for itself)
+    q.outT = (q.outT || 0) + 1;
+    if (q.outT >= 180 && run.lives >= 2 && !run.gameOverPending && !p.dead && !app.results) { run.lives--; q.out = false; q.dead = 1; label(q.x, q.y - 14, '2P BACK'); }
+    return;
+  }
   if (q.dead > 0) { if (--q.dead === 0) { q.x = clamp(p.x + 34, 12, W - 12); q.y = Math.round(H * 0.71) + 8; q.lx = q.x; q.ly = q.y; q.inv = 150; q.tagT = 120; } return; }
   if (q.inv > 0) q.inv--;
   const mode = p2Mode();
@@ -11365,7 +11369,7 @@ function updP2() {
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
   q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
-  if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
+  if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
 }
 // What player 2 can pick up: weapons, Nova bombs, medals, sparkles, the artifact. A Talon drone is worth points instead (only player 1 carries drones)
 function p2Pickups(q) {
