@@ -114,7 +114,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // first rows (no straight cliff edge and no hard road end where the port plan meets the desert)
 { let bad = 0, first = ''; const note = m => { bad++; if (!first) first = m; };
   for (let seed = 1; seed <= 40; seed++) { const p = CG.generate({ seed, preset: 'sandSea' }), W = p.W, Lp = p.port.y1 + 1, kAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.K[Math.round(y) * W + Math.round(x)], bAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.B[Math.round(y) * W + Math.round(x)];
-    const onWay = (x, y) => { const k = kAt(x, y); return k === CG.K.ROAD || k === CG.K.BRIDGE || k === CG.K.RAIL || k === CG.K.RBRIDGE || (y >= Lp && bAt(x, y) === -50); };
+    const onWay = (x, y) => { const k = kAt(x, y); return k === CG.K.ROAD || k === CG.K.BRIDGE || k === CG.K.RAIL || k === CG.K.RBRIDGE || (y >= Lp && k === CG.K.DESERT && bAt(x, y) === -50); };
     for (const sl of p.slots) if (sl.y >= Lp && sl.on === 'pit' && onWay(sl.x, sl.y)) note(`seed ${seed}: a ${sl.kind} pit at ${sl.x},${sl.y} on a road or the rail`);
     for (const c of p.craters) if (c.y >= Lp && onWay(c.x, c.y)) note(`seed ${seed}: a shell hole at ${c.x},${c.y} on a road or the rail`);
     for (const sp of p.spills || []) if (kAt(sp.x, sp.y) === CG.K.ROAD) note(`seed ${seed}: an oil spill at ${sp.x},${sp.y} on a road`);
