@@ -59,3 +59,7 @@ Decision: the Bf 110 Zerstörer replaces the heavy fighter, and the Do 335 Pfeil
 ## Bomber (four German WW2 suggestions)
 
 The refined bomber with black outlines was rejected; the original is better because the engines hide under the wings. `docs/bomber-art-v8.js` (`makeBombersV8`) draws four German bombers with the game's own toolkit (dither, only the game's 1 px edge, no black part lines): He 111, Ju 88 A, Do 17 and Ju 87 Stuka, 42 to 54 px wide against 46, nose to the south, only the nacelle tips showing as in the original. Not wired into the game.
+
+## Sower (four cockpit variants)
+
+The original Sower reads well, so only the nose and cockpit change (`docs/sower-art-v9.js`, `makeSowersV9`, body copied from the game's `SPR.sower`): Bf 110 (solid gun nose, long greenhouse canopy), He 111 H (stepped glazed nose with an offset pilot canopy), He 177 Greif (pointed nose, angular framed greenhouse) and Fw 200 Condor (rounded solid nose, split flush canopy). Not wired into the game.
