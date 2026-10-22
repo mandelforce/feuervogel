@@ -174,3 +174,50 @@ const deExtra = {
 function makeDestroyersV11() {
   return { de_z_sym: deZ(), de_z_camo: deZ(deExtra.camo), de_s_sym: deS(), de_s_davits: deS(deExtra.davits), de_o_sym: deO(), de_o_lights: deO(deExtra.lights) };
 }
+
+/* ===== submarines, exactly symmetric and easy to read as submarines: a long cigar hull with rounded ends, stern hydroplanes, a tower with periscopes,
+   a deck casing. Drawn on the left half and mirrored. Bow to the south, 12 x 46 like the original; the deck gun sits at y 33 as before. ===== */
+function subBody(x, o) {
+  const hull = o.hull || [[6, 46], [4, 44.5], [3, 41], [2.2, 36], [2, 26], [2, 12], [2.6, 5], [4, 1.2], [6, 0]];
+  const left = hull.slice(0, -1).concat([[6, 0]]);
+  polyS(x, SUBR, hull.concat(hull.slice(0, -1).reverse().map(([a, b]) => [12 - a, b])), 0.05, 0.45);
+  rect(x, 'rgba(0,0,0,0.3)', 5, 3, 1, 40);                                                     // the dark keel line down the middle
+  if (o.planes !== false) { polyS(x, SUBR, [[0, 3], [2, 2], [2, 6], [0, 6]], 0.25, 0.3); polyS(x, SUBR, [[12, 3], [10, 2], [10, 6], [12, 6]], 0.25, 0.3); }   // the stern hydroplanes
+  if (o.bowPlanes) { rect(x, '#8a9aa8', 1, 37, 1, 2); rect(x, '#8a9aa8', 10, 37, 1, 2); }
+}
+const subV = {
+  orig(x) {                                                      // the original, kept as it is, then mirrored
+    polyS(x, SUBR, [[6, 46], [1, 36], [1, 6], [6, 0], [11, 6], [11, 36]], 0.05, 0.4);
+    rect(x, 'rgba(0,0,0,0.3)', 5, 4, 2, 38);
+    boxS(x, SUBR, 3, 16, 6, 12, 0.22); rect(x, '#0a0c10', 5, 18, 2, 2);
+  },
+  cigar(x) {
+    subBody(x, { bowPlanes: true });
+    boxS(x, SUBR, 3, 15, 6, 14, 0.5); boxS(x, SUBR, 4, 17, 4, 6, 0.65); rect(x, GLASSB, 4, 26, 4, 1);
+    rect(x, DARKB, 4, 12, 1, 4); rect(x, DARKB, 7, 12, 1, 4); rect(x, '#9aa4ae', 4, 11, 1, 1); rect(x, '#9aa4ae', 7, 11, 1, 1);   // two periscopes
+    for (let j = 6; j < 40; j += 4) if (j < 13 || j > 29) { rect(x, 'rgba(0,0,0,0.35)', 3, j, 1, 1); rect(x, 'rgba(0,0,0,0.35)', 8, j, 1, 1); }   // casing drains
+  },
+  vii(x) {
+    subBody(x, { bowPlanes: true });
+    polyS(x, RP.teak, [[6, 43], [4, 40], [3, 36], [3, 6], [6, 3], [9, 6], [9, 36], [8, 40]], -0.34, 0.3);               // the planked casing
+    for (let j = 6; j < 40; j += 3) rect(x, 'rgba(20,14,8,0.5)', 3, j, 6, 1);
+    boxS(x, SUBR, 3, 16, 6, 12, 0.5); boxS(x, SUBR, 4, 18, 4, 5, 0.65); rect(x, GLASSB, 4, 25, 4, 1);
+    rect(x, DARKB, 3, 28, 6, 1); rect(x, DARKB, 3, 15, 6, 1); rect(x, '#9aa4ae', 4, 13, 4, 1);                       // the wintergarden rail
+    rect(x, DARKB, 4, 11, 1, 3); rect(x, DARKB, 7, 11, 1, 3);                                                         // periscopes
+    rect(x, DARKB, 5, 44, 2, 2);                                                                                      // net cutter
+  },
+  ix(x) {
+    subBody(x, { bowPlanes: true });
+    for (let j = 4; j < 42; j += 4) { rect(x, 'rgba(0,0,0,0.4)', 3, j, 2, 1); rect(x, 'rgba(0,0,0,0.4)', 7, j, 2, 1); }
+    boxS(x, SUBR, 2, 15, 8, 14, 0.5); boxS(x, SUBR, 3, 17, 6, 7, 0.65); rect(x, GLASSB, 4, 26, 4, 1);
+    ellS(x, SUBR, 6, 11, 3.5, 2.2, 0.15); rect(x, DARKB, 4, 10, 4, 1);                                               // the AA platform behind the tower
+    rect(x, DARKB, 4, 12, 1, 3); rect(x, DARKB, 7, 12, 1, 3); rect(x, DARKB, 5, 44, 2, 2);
+  },
+  xxi(x) {
+    subBody(x, { hull: [[6, 46], [3.6, 44], [2.4, 38], [1.6, 28], [1.6, 14], [2.4, 6], [4, 1.6], [6, 0]], planes: true });
+    for (const j of [9, 18, 34, 40]) rect(x, 'rgba(10,14,20,0.45)', 2, j, 8, 1);                                       // hull frames
+    ellS(x, SUBR, 6, 22, 2.6, 7.5, 0.55); rect(x, DARKB, 4, 17, 1, 3); rect(x, DARKB, 7, 17, 1, 3); rect(x, GLASSB, 5, 26, 2, 1);   // the streamlined fin
+  }
+};
+function subSym(variant) { return sprite(12, 46, x => { subV[variant](x); mirrorLeft(x, 12, 46); }); }
+function makeSubsV11() { return { su_orig: subSym('orig'), su_cigar: subSym('cigar'), su_vii: subSym('vii'), su_ix: subSym('ix'), su_xxi: subSym('xxi') }; }
