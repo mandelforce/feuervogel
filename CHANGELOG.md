@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 2, oil field and offshore rig: the oil valley's derricks are redrawn as four-legged lattice towers with a crown block, a long shadow and a mud pit, painted straight into the ground (no pad); one derrick also has a flare stack burning off gas, joined to it by a pipe, with scorched ground. Off the port stands an offshore rig in the open sea: four legs in foam, a deck with a derrick, a helipad, a cabin and a flare boom. All of them keep clear of the railway, the roads and tracks, the ship lanes and the harbour's water; the track out to each derrick now runs 3 px further from it.
 - Enigma Run (levels 2, 6, 6B): the Campaign's factory chimneys are no longer placed over a settlement plan's ground either (they stood in odd places, level 2 included). The plan's own stacks are unchanged.
 - Enigma Run level 2: the tower standing in the sea beside the port was the Campaign's city church spire (and its city blocks), which was still being placed over the settlement plan's ground. Plan levels no longer get them; the station's own clock tower stands by its hall as before.
 - Settlement generator, the station: the train shed is 7 px wider on the side away from the station hall, so the main line no longer runs right along its outer wall (9 px of room became 16).
