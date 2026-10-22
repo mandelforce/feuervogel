@@ -117,3 +117,46 @@ function su21() {
   });
 }
 function makeBoatsV11() { return { pt_s: ptS(), pt_v: ptV(), pt_r: ptR(), de_z: deZ(), de_s: deS(), de_o: deO(), su_7: su7(), su_9: su9(), su_21: su21() }; }
+
+/* ===== the chosen S-boat, reworked to be exactly symmetric: drawn on the left half, then mirrored onto the right (pixel column c to 11 - c) ===== */
+function mirrorLeft(x, w, h) {
+  const c = x.canvas, ox = (c.width - w) / 2, oy = (c.height - h) / 2;     // the sprite helper pads the canvas for the outline
+  const d = x.getImageData(ox, oy, w, h), a = d.data, half = w / 2;
+  for (let j = 0; j < h; j++) for (let i = 0; i < half; i++) { const s = (j * w + i) * 4, t = (j * w + (w - 1 - i)) * 4; a[t] = a[s]; a[t + 1] = a[s + 1]; a[t + 2] = a[s + 2]; a[t + 3] = a[s + 3]; }
+  x.putImageData(d, ox, oy);
+}
+function sBoatHull(x) {
+  polyS(x, RP.hull, [[6, 34], [2, 27], [1, 14], [1, 3], [3, 0], [9, 0], [11, 3], [11, 14], [10, 27]], 0.05);
+  polyS(x, RP.teak, [[6, 31], [3.5, 25], [3, 5], [9, 5], [8.5, 25]], 0);
+}
+const sBoatV = {
+  base(x) {                                                       // as the chosen S-boat
+    boxS(x, RP.hull, 3, 12, 6, 8, 0.1); boxS(x, RP.hull, 4, 13, 4, 3, 0.25); rect(x, GLASSB, 4, 17, 4, 1);
+    rect(x, '#26303c', 4, 5, 4, 3); rect(x, '#26303c', 3, 6, 6, 1); rect(x, DARKB, 5, 5, 2, 1);
+    for (const dx of [3, 8]) rect(x, '#18181a', dx, 8, 1, 2);
+    rect(x, DARKB, 4, 0, 1, 1); rect(x, DARKB, 7, 0, 1, 1);
+    railB(x, [[2, 20, 1, 4], [9, 20, 1, 4]]);
+  },
+  bridge(x) {                                                     // a wider armoured bridge with wing windows, mast mark
+    boxS(x, RP.hull, 2, 11, 8, 9, 0.1); boxS(x, RP.hull, 4, 12, 4, 4, 0.28);
+    rect(x, GLASSB, 3, 17, 2, 1); rect(x, GLASSB, 7, 17, 2, 1); rect(x, GLASSB, 5, 16, 2, 1);
+    rect(x, DARKB, 5, 9, 2, 1); rect(x, '#9aa4ae', 5, 13, 2, 1);
+    rect(x, '#26303c', 4, 5, 4, 3); rect(x, DARKB, 5, 5, 2, 1);
+    rect(x, DARKB, 4, 0, 1, 1); rect(x, DARKB, 7, 0, 1, 1);
+  },
+  flak(x) {                                                       // twin 2 cm flak aft, torpedo tubes on the quarters
+    boxS(x, RP.hull, 4, 13, 4, 6, 0.1); rect(x, GLASSB, 4, 17, 4, 1);
+    rect(x, '#26303c', 3, 5, 6, 4); rect(x, DARKB, 4, 4, 1, 2); rect(x, DARKB, 7, 4, 1, 2); rect(x, '#3a3a40', 5, 6, 2, 2);
+    for (const tx of [2, 9]) { rect(x, '#2a2a30', tx, 14, 1, 6); rect(x, '#5a626c', tx, 14, 1, 1); }
+    rect(x, DARKB, 4, 0, 1, 1); rect(x, DARKB, 7, 0, 1, 1);
+  },
+  camo(x) {                                                       // the wave pattern painted on the deck, small bridge
+    for (let j = 5; j < 26; j++) for (let i = 3; i < 9; i++) if (((i + j) >> 1) % 3 === 0) rect(x, 'rgba(24,32,42,0.55)', i, j, 1, 1);
+    boxS(x, RP.hull, 4, 12, 4, 6, 0.12); rect(x, GLASSB, 4, 16, 4, 1);
+    rect(x, '#26303c', 4, 5, 4, 3); rect(x, DARKB, 5, 5, 2, 1);
+    rect(x, DARKB, 4, 0, 1, 1); rect(x, DARKB, 7, 0, 1, 1);
+    rect(x, '#d8d6cc', 1, 9, 1, 2); rect(x, '#d8d6cc', 10, 9, 1, 2);     // the white stripe at the sides
+  }
+};
+function sBoat(variant) { return sprite(12, 34, x => { sBoatHull(x); sBoatV[variant](x); mirrorLeft(x, 12, 34); }); }
+function makeSBoatsV11() { return { pt_sym: sBoat('base'), pt_bridge: sBoat('bridge'), pt_flak: sBoat('flak'), pt_camo: sBoat('camo') }; }

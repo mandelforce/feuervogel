@@ -79,3 +79,5 @@ Picks in the tool: clicking the caption under a design marks it as the owner's p
 ## Boats (three designs each)
 
 `docs/boat-art-v11.js` (`makeBoatsV11`): PT boat (S-boat, Vosper MTB, R-boat), destroyer (Z-class, escort with one wide funnel, old flush-deck) and submarine (Type VII, Type IX, Type XXI). Same sizes and gun mounts as the originals (PT 12 x 34, destroyer 28 x 80, submarine 12 x 46), drawn with the game's own toolkit (dither, plain edge) so they drop in. Pick with the caption click in the tool; not wired into the game.
+
+PT boat: the chosen S-boat is reworked to be exactly symmetric (`sBoat` in `docs/boat-art-v11.js`: drawn on the left half, mirrored onto the right, so shape, shading and colours match left to right, checked pixel by pixel) with four variations: baseline, wide armoured bridge, twin flak aft with torpedo tubes on the quarters, and wave camouflage. The Vosper and R-boat designs are off the card.
