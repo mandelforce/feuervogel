@@ -109,6 +109,20 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
     const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 2 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
   ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
   console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 whole plan: ${20 - fails}/20 pass, every feature and side tracks in ${20 - low}, plan ${ms[10].toFixed(0)} ms median`); }
+// Level 2, nothing stands on a road or the railway (owner review): no gun slot, pit, shell hole, oil spill or oasis on a track, a road or the rail's
+// corridor; the oasis grove never straddles the line; the port's road wears through to the dirt track and the valley's rock rises from the join's
+// first rows (no straight cliff edge and no hard road end where the port plan meets the desert)
+{ let bad = 0, first = ''; const note = m => { bad++; if (!first) first = m; };
+  for (let seed = 1; seed <= 40; seed++) { const p = CG.generate({ seed, preset: 'sandSea' }), W = p.W, Lp = p.port.y1 + 1, kAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.K[Math.round(y) * W + Math.round(x)], bAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.B[Math.round(y) * W + Math.round(x)];
+    const onWay = (x, y) => { const k = kAt(x, y); return k === CG.K.ROAD || k === CG.K.BRIDGE || k === CG.K.RAIL || k === CG.K.RBRIDGE || (y >= Lp && bAt(x, y) === -50); };
+    for (const sl of p.slots) if (sl.y >= Lp && sl.on === 'pit' && onWay(sl.x, sl.y)) note(`seed ${seed}: a ${sl.kind} pit at ${sl.x},${sl.y} on a road or the rail`);
+    for (const c of p.craters) if (c.y >= Lp && onWay(c.x, c.y)) note(`seed ${seed}: a shell hole at ${c.x},${c.y} on a road or the rail`);
+    for (const sp of p.spills || []) if (kAt(sp.x, sp.y) === CG.K.ROAD) note(`seed ${seed}: an oil spill at ${sp.x},${sp.y} on a road`);
+    for (const o of p.oasis) { const rx = (p.trainRuns.find(r => r.line === 'main' && o.y >= r.y0 && o.y <= r.y1) || {}).x; if (rx !== undefined && Math.abs(o.x - rx) < o.rx) note(`seed ${seed}: an oasis at ${o.x},${o.y} across the railway`); }
+    for (const cl of p.coils) for (const [x, y] of cl) if (y >= Lp && kAt(x, y) === CG.K.RAIL) note(`seed ${seed}: wire at ${Math.round(x)},${Math.round(y)} across the rail`);
+    if (!(p.wallL[Lp] < 8 && W - p.wallR[Lp] < 8)) note(`seed ${seed}: the valley's rock starts with an edge at the join (${p.wallL[Lp]}, ${p.wallR[Lp]})`);
+    if (!p.roadBlend || p.roadBlend[0] >= Lp || p.roadBlend[1] <= Lp) note(`seed ${seed}: no road blend across the join`); }
+  if (bad) fail(`level 2 clear ways: ${bad} problems, first: ${first}`); else console.log('ok   level 2 clear ways: 40 seeds, nothing on a road or the rail, the grove clear of the line, the join without an edge'); }
 // the river animation gives streaks on the water only
 { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
