@@ -49,3 +49,7 @@ The clean versions of the other vehicles were reviewed and not adopted: the orig
 `docs/vehicle-art-v3.js` applies the same rules to every other vehicle (load `tank-art-v3.js` first). `makeVehiclesV3()` builds twenty sets in about 0.2 s: truck, armoured car, motorbike, staff car, fuel truck, the two locomotives, boxcar, ammunition car, flatcar, patrol boat, destroyer, submarine, fighter, heavy fighter, bomber and the Sower, plus the flak, patrol boat and destroyer gun mounts. Vehicles the game rotates come as 16 headings. Fixed ones (rail, sea, the large aircraft) come as one sprite with the original's orientation and size.
 
 Additions for non-tank vehicles: hazard marks use the explosives car's yellow band (fuel truck); crosses are a white plus with a dark border, since the thin dark inner cross turns grey at this size; wheels are dark blocks with one lit edge; glass is a flat blue strip with one lit corner.
+
+## Heavy fighter (four larger WW2 designs)
+
+The original heavy fighter (30 × 24) was liked for its contrast but read as a bat shape. `docs/heavy-art-v7.js` (`makeHeaviesV7`) draws four larger, top-down WW2 twin-engine suggestions, 36 to 42 px wide, nose to the south like the original, in the clean + raster style (dither, black separation lines, bright yellow spinners): Bf 110 Zerstörer, Ju 88 C, He 219 Uhu (night finish, antler radar) and Do 335 Pfeil (push-pull). Not wired into the game: hitbox (26 × 20) and the propeller flicker at x ± 7 would need adjusting.
