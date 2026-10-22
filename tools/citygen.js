@@ -257,7 +257,7 @@ function generate(opts) {
   // across rows where the line runs on a slant; ballast and sleepers to 4 px, the corridor to 8 px; over water a deck with a truss each side
   function layLine(xs) {
     for (let y = 0; y < L; y++) { const xc = xs[y]; if (xc !== xc) continue; const xp = xs[y - 1] === xs[y - 1] && y > 0 ? xs[y - 1] : xc, xn = y < L - 1 && xs[y + 1] === xs[y + 1] ? xs[y + 1] : xc;
-      const d = (xn - xp) / 2, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+      const d = (xn - xp) / 2, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 3, Math.max(rc, rp) + 3]];
       for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf, onRail = rails.some(r => x >= r[0] && x <= r[1]);
         const wet = Kr[i] === K.RIVER || Kr[i] === K.RBRIDGE;
         if (wet) { if (dx > 8.6) continue; const m = onRail ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 6) : dx <= 7 ? 6 : 5; if (rank[m] >= rank[RM[i]] || Kr[i] === K.RIVER) RM[i] = m; Kr[i] = K.RBRIDGE; Br[i] = -1; continue; }
@@ -418,7 +418,7 @@ function generate(opts) {
     if (HB) break; }
   plan.harbour = HB;
   if (HB && !HB.eo && railOK.length > 1) railSide = railOK.find(q => q !== HB.s); else if (HB && HB.eo) railSide = HB.s; // the railway takes the edge the harbour left
-  // 2a'''''. the railway, built for the game's trains: 16 px wide, running straight north and south on rails 5 px apart, up to about 200 px long.
+  // 2a'''''. the railway, built for the game's trains: 16 px wide, running straight north and south on rails 6 px apart, up to about 200 px long.
   // The main line runs straight along one edge of the strip for its whole length (crossing rivers on rail bridges), with an 8 px clear
   // corridor either side. At the station it gets a second platform track 22 px away (room for two trains side by side); that track leaves
   // the station as a second line that curves across the town to the other edge and runs on straight from there. plan.trainRuns lists the
@@ -1699,7 +1699,9 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
             c = hh(x * 3, y * 7) < 0.05 ? (b.wash !== undefined ? C.wash[b.wash][3] : C.roofs[b.roof || 0][pickI(5, 0.25 + hh(x, y) * 0.4, x, y)]) : C.rubble[pickI(5, lit, x, y)];
           } else { const n = vn(x * 0.25, y * 0.25); c = C.rubble[pickI(5, n * 0.9 + (hh(x, y) - 0.5) * 0.35, x, y)]; }
           break; }
-        case K.ROAD: { const st = streetOf(i); if (st && st.gravel) { c = C.gravel[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.6 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.3, x, y)]; break; } // a gravel forest road
+        case K.ROAD: { const st = streetOf(i), rb = plan.roadBlend; if (st && st.gravel) { c = C.gravel[pickI(3, 0.55 + (hh(x, y) - 0.5) * 0.6 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.3, x, y)]; break; } // a gravel forest road
+          if (rb && st && st.cls === 'arterial' && st.axis === 'v' && y >= rb[0] && y <= rb[1]) { const dirtHere = (vn(x * 0.35, y * 0.14) * 0.6 + hh(x, y) * 0.4) < smooth(rb[0], rb[1], y); /* where the port's road leaves the town it wears through to the desert track, in patches */
+            if (dirtHere) { const rut = Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8; c = rut ? C.dirt[0] : C.dirt[pickI(4, 0.55 + (hh(x, y) - 0.5) * 0.5, x, y)]; } else c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
           if (st && st.dirt) { const rut = st.axis === 'h' ? Math.abs(Math.abs(y + 0.5 - st.yc - 0.5) - st.w / 4) < 0.8 : Math.abs(Math.abs(x + 0.5 - plan.mx[y]) - plan.aw[y] / 4) < 0.8; c = rut ? C.dirt[0] : C.dirt[pickI(4, 0.55 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // a desert track: packed dirt, two ruts
           if (C.snowRoof) { c = snowRoadPix(plan, i, x, y, st); break; } // winter: ploughed, snow banked along the edges
           c = C.asph[pickI(4, 0.5 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.4, x, y)]; break; }
@@ -2350,13 +2352,13 @@ function desertLand(o) {
   // the railway (P.rail): a main line straight down the strip, a 16 px corridor kept clear for the game's trains, level crossings where the track crosses it
   const RM = plan.RM = new Uint8Array(N), RX = P.rail ? P.rail.x : null, RA = P.rail && P.rail.x0 !== undefined ? P.rail.x0 : RX, RB = P.rail && P.rail.x1 !== undefined ? P.rail.x1 : RX;
   const RXat = y => y < 160 ? lerp(RA, RX, smooth(0, 160, y)) : y > L - 161 ? lerp(RX, RB, smooth(L - 161, L - 1, y)) : RX; // (the line can come in and leave at another x, curving over 160 px)
-  const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)); for (let k = -6; k <= 5; k++) { const x = c + k; if (!inB(x, y)) continue; const i = idx(x, y), m = (k === -3 || k === 2) ? 2 : (y % 3 === 0 && k >= -5 && k <= 4) ? 3 : 1;
+  const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)); for (let k = -6; k <= 6; k++) { const x = c + k; if (!inB(x, y)) continue; const i = idx(x, y), m = (k === -3 || k === 3) ? 2 : (y % 3 === 0 && k >= -5 && k <= 5) ? 3 : 1;
       if (Kr[i] === K.ROAD) { if (m === 2) RM[i] = 2; continue; } if (Kr[i] === K.RBRIDGE) { RM[i] = Math.max(RM[i], m); continue; } Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; } } };
   if (RX !== null) { for (let y = 0; y < L; y++) { const c = Math.round(RXat(y)); for (let x = c - 8; x <= c + 8; x++) if (inB(x, y) && Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; } const r0 = RA === RX ? 0 : 160, r1 = RB === RX ? L - 1 : L - 161; plan.trainRuns.push({ x: RX, y0: r0, y1: r1, line: 'main' }); plan.rail = { x: RX }; }
   // rock walls (valley, pass): the strip's edges rise as rock (K.CLIFF, game type 'rock': the plane flies over, ground units keep off); edges per row in plan.walls
   const WL = plan.wallL = new Float32Array(L).fill(-1), WR = plan.wallR = new Float32Array(L).fill(W);
   for (const F of feats) { if (F.kind !== 'valley' && F.kind !== 'pass') continue; const [a, b] = span(F), ph2 = rnd(TD, 90, a);
-    for (let y = Math.max(0, a - 40); y < Math.min(L, b + 40); y++) { const ramp = smooth(a - 40, a + 30, y) * (1 - smooth(b - 30, b + 40, y)); if (ramp <= 0) continue;
+    for (let y = Math.max(0, a - 40); y < Math.min(L, b + 40); y++) { const ramp = smooth(a - 40, a + 30, y) * (1 - smooth(b - 30, b + 40, y)) * smooth(0, 56, y); if (ramp <= 0) continue; /* (rising from the plan's first row, so the rock never starts as a straight edge where another plan joins) */
       let l, r; if (F.kind === 'valley') { l = 34 + Math.sin(y * 0.02 + ph2) * 10 + vn(y * 0.05, 1 + ph2) * 10; r = 194 - Math.sin(y * 0.017 + ph2) * 10 - vn(y * 0.05, 2 + ph2) * 10; }
       else { const nr = smooth(a, a + 110, y) * (1 - smooth(b - 60, b, y)); l = lerp(20, 52, nr) + vn(y * 0.06, 4 + ph2) * 8; r = lerp(204, 172, nr) - vn(y * 0.06, 5 + ph2) * 8; } // the pass closes in to a 120 px gorge
       WL[y] = Math.max(WL[y], lerp(-1, l, ramp)); WR[y] = Math.min(WR[y], lerp(W, r, ramp)); } }
@@ -2375,8 +2377,10 @@ function desertLand(o) {
   // 2. the features
   const SZ = { small: { rx: 30, ry: 32, d: 0.07, blocks: 2 }, medium: { rx: 40, ry: 64, d: 0.2, blocks: 10 }, large: { rx: 36, ry: 34, d: 0.42, blocks: 14 } };
   for (const [fi, F] of (P.features || []).entries()) { const yc = Math.round(L * F.at);
-    if (F.kind === 'oasis') { const Z = SZ[F.size || 'medium'], m = MX(yc), sGr = (F.side || (W - m > m ? 1 : -1)), houses = [], g0 = plan.items.length;
-      const rx = Math.min(Z.rx, (sGr > 0 ? W - m : m) / 2 - 10), gx = Math.round(m + sGr * (rx + 14)), gy = yc, ry = Z.ry; // the grove beside the track
+    if (F.kind === 'oasis') { const Z = SZ[F.size || 'medium'], m = MX(yc), gy = yc, ry = Z.ry, houses = [], g0 = plan.items.length;
+      const groveAt = s => { const rx = Math.min(Z.rx, (s > 0 ? W - m : m) / 2 - 10), gx = Math.round(m + s * (rx + 14)); let clear = 1e9; if (RX !== null) for (let k = -4; k <= 4; k++) clear = Math.min(clear, Math.abs(gx - RXat(gy + k * ry / 4)) - rx); return { s, rx, gx, clear }; };
+      const g1 = groveAt(F.side || (W - m > m ? 1 : -1)), g2 = groveAt(-g1.s), gv = g1.clear >= 12 || g1.clear >= g2.clear ? g1 : g2; // the grove beside the track, and never across the railway (its pool and palms would be cut in two)
+      const sGr = gv.s, rx = gv.rx, gx = gv.gx;
       for (let y = gy - ry - 3; y <= gy + ry + 3; y++) for (let x = gx - rx - 3; x <= gx + rx + 3; x++) { if (!inB(x, y) || Kr[idx(x, y)] !== K.DESERT || Br[idx(x, y)] !== -1) continue; const e = Math.hypot((x + 0.5 - gx) / rx, (y + 0.5 - gy) / ry) + (vn(x * 0.15, y * 0.15 + fi) - 0.5) * 0.3; if (e < 1) set(x, y, K.OASIS); }
       const prx = Math.max(8, Math.round(rx * 0.36)), pry = Math.max(7, Math.round(Math.min(ry * 0.26, prx * 1.3)));
       for (let y = gy - pry - 1; y <= gy + pry + 1; y++) for (let x = gx - prx - 1; x <= gx + prx + 1; x++) { const e = Math.hypot((x + 0.5 - gx) / prx, (y + 0.5 - gy) / pry) + (vn(x * 0.2, y * 0.2 + 7) - 0.5) * 0.2; if (e < 1 && inB(x, y) && Br[idx(x, y)] === -1 && (Kr[idx(x, y)] === K.OASIS || Kr[idx(x, y)] === K.DESERT)) set(x, y, K.WATER, -16); }
@@ -2399,7 +2403,7 @@ function desertLand(o) {
       let nb = 0; for (const [x0, y0, w0, h0] of blocks) { if (nb >= Z.blocks) break; let w = w0, h = h0; while ((w > 18 || h > 18) && !rectOpen(x0 - 1, y0 - 1, w + 2, h + 2)) { if (w > 18) w -= 4; if (h > 18) h -= 4; } if (!rectOpen(x0 - 1, y0 - 1, w + 2, h + 2)) continue; /* a block that meets the square shrinks to fit */ houses.push(...block(x0, y0, w, h, 400 + fi * 50 + nb)); nb++; }
       for (const it of houses) damage(it, Z.d);
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
-        let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
+        let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
@@ -2420,11 +2424,12 @@ function desertLand(o) {
     for (const i of tr) { Kr[i] = K.TRENCH; Br[i] = -1; }
     for (const [px, py, nx, ny] of cells) for (let k = 2; k <= 6; k++) { const x = Math.round(px + nx * k), y = Math.round(py + ny * k); if (!open(x, y)) continue; const t = (k - 2) / 4, lit = clamp(0.8 - t * 0.7 + (-nx + ny) * 0.15, 0, 1); set(x, y, K.SPOIL, -40 - Math.round(lit * 20)); } }
   function pitAt(xs, y, r, kind) { for (const x of xs) { let ok = true; for (let yy = y - r - 3; ok && yy <= y + r + 3; yy++) for (let xx = x - r - 3; xx <= x + r + 3; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok) return pit(x, y, r, kind); } return null; } // a pit on the first open spot
-  function pit(x, y, r, kind) { for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { const k = inB(x + xx, y + yy) ? Kr[idx(x + xx, y + yy)] : -1; if (Math.hypot(xx + 0.5, yy + 0.5) < r - 1 && (k === K.DESERT || k === K.OASIS || k === K.SPOIL || k === K.COURT || k === K.WORKS)) set(x + xx, y + yy, K.TRENCH); } /* never into a building, a road or the railway */ plan.pits.push({ x, y, r }); return slot(kind, 'pit', x, y, r - 1); }
+  function pit(x, y, r, kind) { for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { if (!inB(x + xx, y + yy) || Math.hypot(xx + 0.5, yy + 0.5) > r - 1) continue; const i = idx(x + xx, y + yy), k = Kr[i]; if (k === K.ROAD || k === K.BRIDGE || k === K.RAIL || k === K.RBRIDGE || (k === K.DESERT && Br[i] === -50)) return null; } /* (no gun on a track or the railway) */
+    for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { const k = inB(x + xx, y + yy) ? Kr[idx(x + xx, y + yy)] : -1; if (Math.hypot(xx + 0.5, yy + 0.5) < r - 1 && (k === K.DESERT || k === K.OASIS || k === K.SPOIL || k === K.COURT || k === K.WORKS)) set(x + xx, y + yy, K.TRENCH); } /* never into a building, a road or the railway */ plan.pits.push({ x, y, r }); return slot(kind, 'pit', x, y, r - 1); }
   function coil(pts, gapX) { let cur = []; const flush = () => { if (cur.length > 1) plan.coils.push(cur); cur = []; }; for (let q = 0; q + 1 < pts.length; q++) { const [ax, ay] = pts[q], [bx, by] = pts[q + 1], n = Math.ceil(Math.hypot(bx - ax, by - ay) / 4);
-      for (let k = 0; k <= n; k++) { const px = ax + (bx - ax) * k / n, py = ay + (by - ay) * k / n; if (!inB(Math.round(px), Math.round(py)) || (gapX && Math.abs(px - MX(py)) < gapX)) { flush(); continue; } cur.push([px, py]); } } flush(); }
+      for (let k = 0; k <= n; k++) { const px = ax + (bx - ax) * k / n, py = ay + (by - ay) * k / n; if (!inB(Math.round(px), Math.round(py)) || (gapX && Math.abs(px - MX(py)) < gapX) || (RX !== null && Math.abs(px - RXat(py)) < 9)) { flush(); continue; } cur.push([px, py]); } } flush(); }
   function minesAlong(pts, depth, side, gapX) { let k = 0; for (let q = 0; q + 1 < pts.length; q++) { const [ax, ay] = pts[q], [bx, by] = pts[q + 1], Lg = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / Lg, uy = (by - ay) / Lg, nx = -uy * side, ny = ux * side;
-      for (let t = 0; t < Lg; t += 3, k++) { const px = ax + ux * t, py = ay + uy * t; if (gapX && Math.abs(px - MX(py)) < gapX) continue; if (k % 5 === 0) plan.signs.push({ x: Math.round(px), y: Math.round(py), k: (k / 5) % 2 === 0 });
+      for (let t = 0; t < Lg; t += 3, k++) { const px = ax + ux * t, py = ay + uy * t; if ((gapX && Math.abs(px - MX(py)) < gapX) || (RX !== null && Math.abs(px - RXat(py)) < 9)) continue; if (k % 5 === 0) plan.signs.push({ x: Math.round(px), y: Math.round(py), k: (k / 5) % 2 === 0 });
         for (let r = 1; r <= depth; r++) { if (rnd(TD, 60, k * 7 + r) < 0.45) continue; const x = Math.round(px + nx * (r * 3 + (k % 2) * 1.5)), y = Math.round(py + ny * (r * 3 + (k % 2) * 1.5)); if (open(x, y) && open(x + 1, y)) plan.mines.push({ x, y }); } } } }
   function ditch(y0, gapX) { const w = 8; for (let x = 0; x < W; x++) { const yc = y0 + 3 * Math.sin(x * 0.02 + seed) + (vn(x * 0.3, 5) - 0.5) * 1.6; if (Math.abs(x + 0.5 - MX(yc)) < gapX) continue;
       for (let q = -w / 2; q <= w / 2; q += 0.5) { const y = Math.round(yc - q); if (!open(x, y)) continue; const t = clamp((q + w / 2 + (vn(x * 0.5, y * 0.5) - 0.5) * 1.5) / w, 0, 1); set(x, y, K.DITCH, -70 - Math.round(t * 16)); } // the near (south) side in shadow, the far side lit
@@ -2450,7 +2455,7 @@ function desertLand(o) {
     for (let k = 0; k < 6; k++) zigTrench([ring[k * 2], ring[k * 2 + 1], ring[(k * 2 + 2) % 12]], -1, 0);
     for (let k = 0; k < 6; k++) { const [px, py] = ring[k * 2]; pit(Math.round(px), Math.round(py), 5, k % 3 === 0 ? 'arty' : 'flak'); }
     const cs = addItem({ t: 'works', label: 'Command bunker', part: 'casemate', x0: cx - 8, y0: cy - 5, w: 16, h: 11, ori: 'h', style: 'flat', roof: 3, seed: sd(), dmg: 0, sea: 1 }); for (let y = cs.y0; y < cs.y0 + cs.h; y++) for (let x = cs.x0; x < cs.x0 + cs.w; x++) set(x, y, K.BLDG, cs.id);
-    for (const [dx, dy] of [[-18, -22], [20, 18]]) { const f = pit(cx + Math.round(dx * rx / 52), cy + dy, 6, 'flak'); netOver(f.x, f.y, 13, 10, false); }
+    for (const [dx, dy] of [[-18, -22], [20, 18]]) { const f = pit(cx + Math.round(dx * rx / 52), cy + dy, 6, 'flak'); if (f) netOver(f.x, f.y, 13, 10, false); }
     dugTank(cx + Math.round(18 * rx / 52), cy - 34, -1); netOver(cx - Math.round(18 * rx / 52), cy + 32, 12, 8, true);
     const outer = []; for (let k = 0; k <= 32; k++) { const a = k / 32 * 6.283; outer.push([cx + Math.cos(a) * (rx + 26), cy + Math.sin(a) * (ry + 30)]); }
     const segs = []; let cur = []; for (const p2 of outer) { if (s2 * (p2[0] - cx) < -(rx + 10) && Math.abs(p2[1] - cy) < 22) { if (cur.length > 1) segs.push(cur); cur = []; } else cur.push(p2); } if (cur.length > 1) segs.push(cur); // the gap towards the track
@@ -2465,7 +2470,7 @@ function desertLand(o) {
     const pipe = []; for (let y = a; y <= b; y += 8) pipe.push([Math.round(MX(y) + 9), y]); plan.pipes.push(pipe); for (const [x, y] of pipe) if (open(x, y)) Br[idx(x, y)] = -51;
     const spots = []; for (let k = 0; k < 40 && spots.length < 9; k++) { const y = Math.round(lerp(a + 20, b - 20, rnd(TD, 101, k + fi * 50))), sideR = rnd(TD, 102, k) < 0.45, x = Math.round(sideR ? lerp(MX(y) + 16, WR[y] - 10, rnd(TD, 103, k)) : lerp(lo + 2, MX(y) - 12, rnd(TD, 103, k)));
       let ok = true; for (let yy = y - 7; ok && yy <= y + 7; yy++) for (let xx = x - 7; xx <= x + 7; xx++) if (!open(xx, yy)) { ok = false; break; } if (!ok || spots.some(q => Math.hypot(q[0] - x, q[1] - y) < 24)) continue; spots.push([x, y]); }
-    spots.forEach(([x, y], k) => { if (k % 3 === 0) { plan.derricks.push({ x, y, burn: k === 3 }); for (let yy = y - 5; yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) Br[idx(xx, yy)] = -51; if (k === 3) { plan.spills.push({ x: x + 5, y: y - 6, r: 6 }); plan.fires.push({ x, y, w: 8, h: 8, x0: x - 4, y0: y - 4, item: -1, seed: h32(seed, 98000 + k) % 100000 }); } }
+    spots.forEach(([x, y], k) => { if (k % 3 === 0) { plan.derricks.push({ x, y, burn: k === 3 }); for (let yy = y - 5; yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) Br[idx(xx, yy)] = -51; if (k === 3) { plan.spills.push({ x: x + 5, y: y + 6, r: 6 }); /* (the track out to the derrick comes in from below: the oil runs the other way) */ plan.fires.push({ x, y, w: 8, h: 8, x0: x - 4, y0: y - 4, item: -1, seed: h32(seed, 98000 + k) % 100000 }); } }
       else { plan.pumps.push({ x, y, d: x > MX(y) ? -1 : 1 }); for (let yy = y - 3; yy <= y + 3; yy++) for (let xx = x - 4; xx <= x + 5; xx++) Br[idx(xx, yy)] = -51; } });
     for (const dk of plan.derricks.filter(d => d.y >= a && d.y <= b)) sideTrack(dk.y - 9, dk.x); // a track out to each derrick
     { let done2 = false; for (let tries = 0, ty0 = Math.round(lerp(a, b, 0.55)); !done2 && tries < 14; tries++) { const ty = ty0 + (tries % 2 ? 1 : -1) * Math.ceil(tries / 2) * 20; // the tank farm: three tanks in a column on a fenced pad, wherever the floor has room beside the wadi
@@ -2520,6 +2525,7 @@ function desertLand(o) {
     const fy = Math.round(lerp(y0, y1, 0.47)); plan.fires.push({ x: rx, y: fy, w: 12, h: 12, x0: rx - 6, y0: fy - 6, item: -1, seed: h32(seed, 98700) % 100000 }); }
   // 3. scrub on the open sand
   for (let y = 4; y < L - 4; y += 11) for (let x = 4; x < W - 4; x += 11) { if (rnd(TD, 80, x * 7 + y) > 0.04) continue; const px = x + Math.round(rnd(TD, 81, x + y * 3) * 8), py = y + Math.round(rnd(TD, 82, x * 5 + y) * 8); let ok = true; for (let yy = py - 3; ok && yy <= py + 3; yy++) for (let xx = px - 3; xx <= px + 3; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok && !plan.mines.some(q => Math.abs(q.x - px) < 4 && Math.abs(q.y - py) < 4)) plan.trees.push({ x: px, y: py, r: 2, v: 0, scrub: true }); }
+  plan.craters = plan.craters.filter(c => { const R = Math.ceil(c.r); for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) { const x = Math.round(c.x) + xx, y = Math.round(c.y) + yy; if (!inB(x, y) || Math.hypot(xx, yy) > c.r) continue; const k = Kr[idx(x, y)]; if (k === K.ROAD || k === K.BRIDGE || k === K.RAIL || k === K.RBRIDGE) return false; } return true; }); // (a side track laid later may run over a crater: no shell hole on a track or the railway)
   for (let y = 0; y < L; y++) { plan.U[y] = 0.1; plan.D[y] = 0.1; }
   plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
@@ -2562,7 +2568,7 @@ function sandSea(o) {
   plan.ravines = (B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + Lp, bot: x => r.bot(x) + Lp }));
   plan.wadis = []; plan.airbase = B.airbase ? up(B.airbase) : null; plan.fort = B.fort ? up(B.fort) : null; plan.rail = B.rail; plan.coast = A.coast; plan.calm = A.calm ? cat(Uint8Array, A.calm, new Uint8Array(W * Ld)) : null;
   plan.beachTown = A.beachTown; plan.station = A.station; plan.harbour = A.harbour; plan.rivers = []; plan.river = null; plan.bridges = A.bridges || []; plan.perimeter = null; plan.oldTown = A.oldTown || null;
-  plan.port = { y0: 0, y1: Lp - 1, quay: yC }; plan.land = { y0: Lp, y1: L - 1 }; plan.stage = { port: A.stage && A.stage.total, land: B.stage.total };
+  plan.port = { y0: 0, y1: Lp - 1, quay: yC }; plan.roadBlend = [Lp - 40, Lp + 24]; plan.land = { y0: Lp, y1: L - 1 }; plan.stage = { port: A.stage && A.stage.total, land: B.stage.total };
   return plan;
 }
 function withPerimeter(o) {
@@ -2585,7 +2591,7 @@ function addPerimeter(plan, h) {
     if (dA < 5) { Kr[i] = K.ROAD; Br[i] = -2 - ar.id; } else if (dS < 3) { Kr[i] = K.ROAD; Br[i] = -2 - st.id; } else if (dS < 4.5 || dA < aw / 2) { Kr[i] = K.WALK; Br[i] = -2 - (dS < 4.5 ? st.id : ar.id); }
     else Kr[i] = y >= apron ? K.APRON : K.MEADOW; } }
   const stops = []; // the tracks run on over the perimeter road (a level crossing) and end before the fence
-  { const xs = []; for (let x = 0; x < W; x++) if (RM[(L0 - 1) * W + x] === 2) xs.push(x); // the rails in the town's last row, in pairs 5 px apart
+  { const xs = []; for (let x = 0; x < W; x++) if (RM[(L0 - 1) * W + x] === 2) xs.push(x); // the rails in the town's last row, in pairs 6 px apart
     for (let q = 0; q + 1 < xs.length; q++) { const a = xs[q], b = xs[q + 1]; if (b - a < 4 || b - a > 6) continue; q++;
       for (let y = L0; y < fence - 2; y++) { const src = y - 3 * Math.ceil((y - L0 + 1) / 3); for (let xx = a - 2; xx <= b + 2; xx++) { const i = y * W + xx, m = RM[src * W + xx]; if (!m || m > 3) continue; RM[i] = m; if (Kr[i] === K.MEADOW) Kr[i] = K.RAIL; } }
       stops.push({ x0: a - 1, x1: b + 1, y: fence - 3 }); } }
@@ -3205,7 +3211,7 @@ function winterLand(o) {
         const d = Math.abs(x + 0.5 - cx), hw = 23 * g + (vn(x * 0.2, y * 0.2) - 0.5) * 3 * g;
         if (g > 0 && d < hw) { Kr[i] = K.RAVINE; Br[i] = -71; reserved[i] = 1; continue; }
         if (d < 2.8 + (1 - g) * 4 + Math.sin(y * 0.11) * 0.6) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; } } }
-    const lay = (xs, y0, y1) => { for (let y = y0; y < y1; y++) { const xc = xs(y), xp = xs(y - 1), dd = xc - xp, sf = Math.sqrt(1 + dd * dd), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+    const lay = (xs, y0, y1) => { for (let y = y0; y < y1; y++) { const xc = xs(y), xp = xs(y - 1), dd = xc - xp, sf = Math.sqrt(1 + dd * dd), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 3, Math.max(rc, rp) + 3]];
       for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
         if (Kr[i] === K.RBRIDGE) { if (rank[m] > rank[RM[i]]) RM[i] = m; continue; } if (Kr[i] === K.RAVINE || Kr[i] === K.ICE) continue;
         if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } } };
@@ -3226,7 +3232,7 @@ function winterLand(o) {
     const yF = g1 + 16;
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yF + (3 - n) * 40, len = Math.abs(x1 - x0) * 2.4, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
-      for (let y = yP; y < L; y++) { if (n > 0 && y < ya - 1) continue; const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+      for (let y = yP; y < L; y++) { if (n > 0 && y < ya - 1) continue; const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 3, Math.max(rc, rp) + 3]];
         for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
           if (Kr[i] === K.RBRIDGE) { if (rank[m] > rank[RM[i]]) RM[i] = m; continue; } if (Kr[i] === K.RAVINE) continue;
           if (Kr[i] === K.ICE && Br[i] === -87 || (Kr[i] === K.RAIL && Br[i] === -99)) { if (dx > 4.2) continue; if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -99; continue; } // on the ice: sleepers and rails only
@@ -3239,7 +3245,7 @@ function winterLand(o) {
   else if (th) { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
-      for (let y = yP; y < L; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 2, Math.max(rc, rp) + 2]];
+      for (let y = yP; y < L; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 3, Math.max(rc, rp) + 3]];
         for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
           if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } }
       if (L - 1 - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: L - 1, line: 'throat' }); }
