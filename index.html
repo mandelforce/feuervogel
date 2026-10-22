@@ -9584,6 +9584,8 @@ function stageClear() {
   if (player && !player.dead) { player.exitT = 80; player.inv = Math.max(player.inv, 200); boostOutSfx(); }
   world.later.push({ at: gf + 82, fn: () => { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [74, 2], [77, 2], [81, 8]]); showMsg('STAGE CLEAR', '', 130); world.later.push({ at: gf + 280, fn: openResults }); } });
 }
+// A stage bonus belongs to the team: in a two-player game it is split evenly (player 1's share is the rest), and r.b2 keeps player 2's half
+function splitBonus(r, v) { addScore(v); if (p2) { const h = Math.floor(v / 2); run.score2 += h; r.b2 = (r.b2 || 0) + h; } }
 function openResults() {
   for (const k of ['medals', 'ground', 'air', 'shots', 'hits']) run.camp[k] += run.stats[k];
   if (run.stats.artifact) run.camp.secrets++;
@@ -9605,7 +9607,7 @@ function updResults() {
   if (r.shown < r.lines.length) { if (r.t % 26 === 0) { r.shown++; sfx('tick'); haptic('tick'); } return; }
   if (!r.done) {
     const step = Math.max(100, Math.ceil(r.total / 70 / 100) * 100), add = Math.min(step, r.total - r.counted);
-    r.counted += add; addScore(add);
+    r.counted += add; splitBonus(r, add);
     if (gf % 3 === 0 && add > 0) tone(880 + (r.counted / Math.max(1, r.total)) * 900, 0.04, 'square', 0.03);
     if (r.counted >= r.total) resultsDone();
     return;
@@ -9616,7 +9618,7 @@ function updResults() {
 function skipResults() {
   if (app.congrats) { if (app.congrats.t > 150) finishResults(); else app.congrats.t = 150; return; }
   const r = app.results; if (!r) return;
-  if (!r.done) { r.shown = r.lines.length; addScore(r.total - r.counted); r.counted = r.total; resultsDone(); }
+  if (!r.done) { r.shown = r.lines.length; splitBonus(r, r.total - r.counted); r.counted = r.total; resultsDone(); }
   else if (r.awarded < r.reward) { while (r.awarded < r.reward) { run.lives++; r.awarded++; } sfx('reward'); haptic('extend'); }
   else if (r.hold > 20) finishResults();
 }
@@ -9671,11 +9673,13 @@ function drawCongratsBody() {
   textS('THE SKIES ARE FREE AGAIN', W / 2, 52, '#a8f6dc', 1, 'center', '#4ccfae'); }
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 64, W - 24, 1); ctx.fillRect(12, 232, W - 24, 1);
   const rows = [
-    ['TOTAL SCORE', String(run.score)], ['MEDALS COLLECTED', String(run.camp.medals)], ['GROUND TARGETS', String(run.camp.ground)],
+    [p2 ? 'TEAM SCORE' : 'TOTAL SCORE', String(run.score)], ['MEDALS COLLECTED', String(run.camp.medals)], ['GROUND TARGETS', String(run.camp.ground)],
     ['AIR KILLS', String(run.camp.air)], ['ACCURACY', acc + '%'], ['SECRETS FOUND', run.camp.secrets + ' / 6'],
     ['CONTINUES USED', String(Math.max(0, app.credits - run.camp.credits0))], ['FLIGHT TIME', Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0')]
   ];
-  rows.forEach((r, i) => { if (c.t < 20 + i * 14) return; const y = 76 + i * 19; textS(r[0], 16, y, '#e8dcff', 1, 'left', '#bba4ff'); textS(r[1], W - 16, y, '#ffffff', 1, 'right', '#c4c9ce'); });
+  if (p2) rows.splice(1, 0, ['1P SCORE', String(run.score - run.score2), 1], ['2P SCORE', String(run.score2), 2]); // each player's share, the leader marked with a crown
+  const st = p2 ? 15 : 19, lead = run.score - run.score2 > run.score2 ? 1 : run.score2 > run.score - run.score2 ? 2 : 0;
+  rows.forEach((r, i) => { if (c.t < 20 + i * 14) return; const y = 76 + i * st; textS(r[0], 16, y, '#e8dcff', 1, 'left', '#bba4ff'); textS(r[1], W - 16, y, '#ffffff', 1, 'right', '#c4c9ce'); if (r[2] && r[2] === lead) crown(16 + textW(r[0], 1) + 6, y); });
   if (c.t > 150) {
     textS('NEXT: STAGE ' + stageLabel(run.stage + 1), W / 2, 246, '#ffd0e8', 1, 'center', '#ff8ac0');
     textS('THE ENEMY GROWS STRONGER', W / 2, 258, '#ffd0e8', 1, 'center', '#ff8ac0');
@@ -9688,6 +9692,7 @@ function drawResultsBody() {
   ctx.fillStyle = 'rgba(14,10,24,0.72)'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 58, W - 24, 1); ctx.fillRect(12, 218, W - 24, 1);
   textO('STAGE ' + stageLabel(run.stage) + ' CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a');
+  if (p2) scoreStrip(47, 16, run.score - run.score2, run.score2);
   r.lines.forEach((l, i) => {
     if (i >= r.shown) return;
     const y = 72 + i * 38, ix = l[4] ? 30 : 16;
@@ -9702,6 +9707,7 @@ function drawResultsBody() {
   });
   if (r.shown >= r.lines.length) {
     textS('TOTAL BONUS', 16, 230, '#fff0a0', 1, 'left', '#f4d050');
+    if (p2) textS('1P +' + (r.counted - (r.b2 || 0)) + '  2P +' + (r.b2 || 0), W - 16, 230, '#a8f6dc', 1, 'right', '#4ccfae'); // the bonus is split evenly
     textO(String(r.counted), W - 16, 244, '#ffffff', 2, 'right', '#c4c9ce');
   }
   if (r.done && r.reward > 0) {
@@ -13006,15 +13012,18 @@ function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the
   ctx.fillStyle = '#f4d050'; for (const k of [0, 2, 4]) ctx.fillRect(x + k, y, 1, 1);
   ctx.fillRect(x, y + 1, 5, 2); ctx.fillStyle = '#d0a020'; ctx.fillRect(x, y + 3, 5, 1); ctx.fillStyle = '#ff6a50'; ctx.fillRect(x + 2, y + 2, 1, 1);
 }
+// Both players' scores on one line, mirrored: 1P at the left margin m, 2P at the right, and a crown beside whoever is ahead (HUD, stage results, game over)
+function scoreStrip(y, m, s1, s2) {
+  textS('1P', m, y, '#bba4ff', 1, 'left', '#8466dc');
+  textS(pad(s1, 8), m + 10, y, '#ffffff', 1, 'left', '#c4c9ce');
+  textS('2P', W - m, y, '#dde1e7', 1, 'right', '#8c919b');
+  textS(pad(s2, 8), W - m - 10, y, '#ffffff', 1, 'right', '#c4c9ce');
+  if (s1 > s2) crown(m + 44, y); else if (s2 > s1) crown(W - m - 49, y);
+}
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score, mo = p2 ? 8 : 0; // in two-player games the medal chain makes room for the crown
-  textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc');
-  textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce');
-  if (p2) { // player 2's score mirrors player 1's in the top right corner; a crown marks whoever is ahead
-    textS('2P', W - 4, 4, '#dde1e7', 1, 'right', '#8c919b');
-    textS(pad(run.score2, 8), W - 14, 4, '#ffffff', 1, 'right', '#c4c9ce');
-    if (s1 > run.score2) crown(48, 4); else if (run.score2 > s1) crown(W - 14 - 32 - 7, 4);
-  }
+  if (p2) scoreStrip(4, 4, s1, run.score2); // player 2's score mirrors player 1's in the top right corner
+  else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
   textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
   textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
   if (player) {
@@ -13261,8 +13270,13 @@ function renderMain() {
     ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H);
     if (!(app.flyby && app.flyby.nvWin)) { // the Nachtvogel window has the screen to itself
       textO('GAME OVER', W / 2, 118, '#f48a60', 3, 'center', '#a82a26');
-      textS('SCORE ' + pad(run.score, 8), W / 2, 150, '#ffffff', 1, 'center');
-      if (run.score >= hi && run.score > 0) textS('NEW HIGH SCORE', W / 2, 162, '#fff0a0', 1, 'center', '#f4d050');
+      let gy = 150;
+      if (p2) { // team score, then each player's share with the leader crowned
+        const a = run.score - run.score2;
+        textS('TEAM ' + pad(run.score, 8), W / 2, gy, '#ffffff', 1, 'center'); scoreStrip(gy + 12, 16, a, run.score2);
+        textS(a > run.score2 ? '1P LEADS' : run.score2 > a ? '2P LEADS' : 'TIE', W / 2, gy + 24, '#a8f6dc', 1, 'center', '#4ccfae'); gy += 24;
+      } else textS('SCORE ' + pad(run.score, 8), W / 2, gy, '#ffffff', 1, 'center');
+      if (run.score >= hi && run.score > 0) textS('NEW HIGH SCORE', W / 2, gy + 12, '#fff0a0', 1, 'center', '#f4d050');
     }
     drawFlybyOverlay();
   }
