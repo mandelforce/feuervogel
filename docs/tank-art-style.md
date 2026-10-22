@@ -67,3 +67,5 @@ The original Sower reads well, so only the nose and cockpit change (`docs/sower-
 Bomber, second round: the owner wants the original's olive colour, four engines and an improved He 111, in four variations. `docs/bomber-art-v10.js` (`makeBombersV10`) draws them (rounded wing; stepped nose; twin fins with big inboard engines; swept wing with a greenhouse nose). They replace the four mixed bombers on the card; the v8 file stays as reference.
 
 Decision: the Sower takes the Bf 110 cockpit (`SOWER_NOSES.bf110` in `docs/sower-art-v9.js`).
+
+Decision: the bomber is the He 111 variant c (twin fins, big inboard engines), now 55 px wide (`makeHe111V10C` in `docs/bomber-art-v10.js`) so the middle is a pixel column and the cockpit bars and parts sit exactly on the centre line. The game would draw an odd-width sprite at a half-pixel unless its draw position is rounded.

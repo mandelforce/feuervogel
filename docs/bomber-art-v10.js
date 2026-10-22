@@ -30,4 +30,24 @@ const HE111_V10 = {
   d: { seed: 9, h: 44, tail: [[12, 1], [42, 1], [39, 7], [15, 7]], wing: [[0, 20], [6, 15], [48, 15], [54, 20], [50, 22], [4, 22]], eng: [[9, 5, 2.2], [17, 5.4, 2.3], [37, 5.4, 2.3], [45, 5, 2.2]],
     nose: x => { polyS(x, RP.glass, [[24, 35], [30, 35], [31, 40], [30, 43], [24, 43], [23, 40]], 0.15, 0.4); for (const g of [37, 40]) rect(x, '#1a1a1a', 24, g, 6, 1); rect(x, '#1a1a1a', 27, 35, 1, 8); rect(x, '#e8f6ff', 25, 36, 2, 1); bmGlass(x, 27, 14, 1.8, 2.2); } }
 };
-function makeBombersV10() { const o = {}; for (const [k, v] of Object.entries(HE111_V10)) o[k] = makeHe111V10(v); return o; }
+// the chosen variant c, one pixel wider (55) so the middle is a pixel column: the cockpit bars and every part sit exactly on the centre line, mirrored about it
+function bmGlassC(x, cx, cy, rx, ry, bars) {
+  ellS(x, RP.glass, cx, cy, rx, ry, 0.15);
+  if (bars) { const c = Math.floor(cx), w = 2 * Math.floor(rx) + 1; rect(x, '#1a1a1a', c, Math.floor(cy - ry) + 1, 1, Math.ceil(ry * 2) - 1); rect(x, '#1a1a1a', c - (w - 1) / 2, Math.round(cy), w, 1); }
+  rect(x, '#e8f6ff', Math.floor(cx) - 1, Math.round(cy - ry * 0.55), 1, 1);
+}
+function makeHe111V10C() {
+  return sprite(55, 42, x => {
+    const F = RP.fg;
+    polyS(x, F, [[15, 1], [40, 1], [38, 6], [17, 6]]);
+    for (const fx of [14, 39]) { rect(x, F[1], fx, 0, 2, 7); rect(x, F[3], fx, 0, 1, 7); }
+    polyS(x, F, [[0, 16], [4, 14], [51, 14], [55, 16], [53, 21], [2, 21]]);
+    polyS(x, F, [[25, 3], [30, 3], [31.5, 17], [23.5, 17]]);
+    for (const [ex, r0, rx] of [[9.5, 4.6, 2.1], [18.5, 6, 2.6], [36.5, 6, 2.6], [45.5, 4.6, 2.1]]) { const ry = r0 + 1.8; ellS(x, F, ex, 17.5, rx, ry, -0.04); rect(x, '#1a1a1a', ex - 1.5, Math.round(17.5 + ry) - 1, 3, 1); }
+    ellS(x, F, 27.5, 25, 4.2, 12);
+    camo(x, 0.58, 0.72, 0.25, 7);
+    bmGlassC(x, 27.5, 34, 3, 3.6, true); bmGlassC(x, 27.5, 27, 2.2, 3); bmGlassC(x, 27.5, 13, 1.8, 2.2);
+    cross(x, 7, 17); cross(x, 47, 17);
+  });
+}
+function makeBombersV10() { const o = {}; for (const [k, v] of Object.entries(HE111_V10)) o[k] = makeHe111V10(v); o.c = makeHe111V10C(); return o; }
