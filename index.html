@@ -9748,7 +9748,7 @@ function blockedAhead(e, hd) {
 }
 function blockedMove(e, dx, dy) {
   for (const o of world.enemies) {
-    if (o === e || o.dead || !(o.ground || o.surface) || o.type === 'troop' || e.type === 'troop' || o.type === 'secret' || o.type === 'bridge') continue;
+    if (o === e || o.dead || !(o.ground || o.surface) || o.type === 'troop' || e.type === 'troop' || o.type === 'secret' || o.type === 'bridge' || o.type === 'pstation') continue;
     if (o.type === 'boss' && TRAIN_CARS.has(e.type) && gorgeArena()) continue; // (level 5's gorge: the train boss's box covers the screen; its trains run on their own tracks)
     const mx = e.hw + o.hw + 2, my = e.hh + o.hh + 2, nx = e.x + dx - o.x, ny = e.y + dy - o.y;
     if (Math.abs(nx) < mx && Math.abs(ny) < my) {
