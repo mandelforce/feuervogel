@@ -18,7 +18,7 @@ const VEH_V3 = {
 };
 const tnV3 = (r, soft) => { const q = i => r[Math.min(i, r.length - 1)]; return r.length > 6 ? [r[1], r[3], r[5], r[6]] : soft ? [q(1), q(2), q(3), q(4)] : [q(1), q(3), q(4), q(4)]; };
 
-function rasterWH(dw, dh, ang, palette, draw) {
+function rasterWH(dw, dh, ang, palette, draw, post) {
   const SS = TANK_V3.SS, NW = dw * SS, NH = dh * SS, [big, x] = mk(NW, NH);
   x.setTransform(SS, 0, 0, SS, NW / 2, NH / 2); const base = x.getTransform();
   x.rotate(ang); x.lineJoin = 'round'; x.lineCap = 'round';
@@ -34,7 +34,7 @@ function rasterWH(dw, dh, ang, palette, draw) {
     for (let p = 0; p < pal.length; p++) { const dr = pal[p][0] - r, dg = pal[p][1] - g, db = pal[p][2] - b, dd = dr * dr * 0.9 + dg * dg * 1.2 + db * db * 0.8; if (dd < bd) { bd = dd; best = p; } }
     const o = (j * dw + i) * 4; out.data[o] = pal[best][0]; out.data[o + 1] = pal[best][1]; out.data[o + 2] = pal[best][2]; out.data[o + 3] = 255;
   }
-  y.putImageData(out, 0, 0); outline(c, OUT); return finalize(c);
+  y.putImageData(out, 0, 0); if (post) post(y); outline(c, OUT); return finalize(c);
 }
 function palV3(...ramps) { return [].concat(...ramps, TANK_V3.metal, TANK_V3.track, TANK_V3.lamp, RP.glass, ['#fff0a0', '#ecebe2', '#d8503a', '#101012']); }
 

@@ -16,8 +16,12 @@ function canopyV7(x, base, X, Y, W, H, frames) {
 }
 function spinnerV7(x, base, cx, cy, r, col) { shadeV3(x, base, () => { x.beginPath(); x.ellipse(cx, cy, r, r * 1.3, 0, 0, 6.2832); }, cx, cy, r, lwTones(col), '#0a0a0c', 0.6); discV3(x, cx, cy + r * 0.3, r * 0.4, '#f2f0e6'); }
 
-// a black cross on a white square, for the Zerstoerer and the Pfeil (the Ju 88 and He 219 keep the white cross with black border)
-function lwCrossB(x, cx, cy) { x.fillStyle = '#f2f0e6'; x.fillRect(cx - 3, cy - 3, 6, 6); x.fillStyle = '#0a0a0c'; x.fillRect(cx - 1, cy - 2.6, 2, 5.2); x.fillRect(cx - 2.6, cy - 1, 5.2, 2); }
+// a black cross on a clear round white disc, stamped straight onto the finished pixels: one pixel lines, flat colour, no shading.
+// (cx, cy) is the centre pixel; the disc is 5 px across with cut corners, the lines run the full 5 px.
+function stampCrossV7(g, cx, cy) {
+  g.fillStyle = '#f2f0e6'; for (const [dy, hw] of [[-2, 1], [-1, 2], [0, 2], [1, 2], [2, 1]]) g.fillRect(cx - hw, cy + dy, 2 * hw + 1, 1);
+  g.fillStyle = '#0a0a0c'; g.fillRect(cx - 2, cy, 5, 1); g.fillRect(cx, cy - 2, 1, 5);
+}
 function bf110zV7(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c';
   shadeV3(x, base, () => polyV3(x, [[-9, -15.4], [9, -15.4], [7.4, -12], [-7.4, -12]]), 0, -13.7, 9, lwDark(S));
@@ -38,7 +42,6 @@ function bf110zV7(x, base) {
   shadeV3(x, base, () => polyV3(x, fus), 0, -1, 14, lwTones(G), K, 0.8);
   x.fillStyle = K; for (const [a, b] of [[-0.9, 12.2], [0.4, 12.2], [-1.2, 10.8], [0.7, 10.8]]) x.fillRect(a, b, 0.5, 0.5);   // nose cannons
   canopyV7(x, base, -1.5, -6.2, 3, 10, [-3, -0.4, 2.2]);
-  lwCrossB(x, -13.4, -1.4); lwCrossB(x, 13.4, -1.4);
 }
 function ju88V7(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c';
@@ -99,7 +102,7 @@ function do335V7(x, base) {
   canopyV7(x, base, -1.5, -2.2, 3, 7, [1.2, 3.6]);
   spinnerV7(x, base, 0, 14.4, 1.7, Y);                                                                                   // front propeller
   shadeV3(x, base, () => { x.beginPath(); x.ellipse(0, -15.2, 1.5, 1.2, 0, 0, 6.2832); }, 0, -15.2, 1.5, lwTones(Y), K, 0.6); discV3(x, 0, -15.4, 0.55, '#f2f0e6');   // rear propeller
-  lwCrossB(x, -9.5, -1.3); lwCrossB(x, 9.5, -1.3);
+  
 }
 function makeHeaviesV7() {
   const ev = n => n + (n & 1), out = {};
@@ -108,7 +111,7 @@ function makeHeaviesV7() {
   try {
     const pal = palV3(LW.green, LW.grey, NIGHT, RP.yel, ['#f2f0e6', '#e8f6ff', '#9aa6b4', '#d86a30']);
     const mk = (fn, w, h) => rasterWH(ev(w + 2), ev(h + 2), 0, pal, fn);
-    out.bf110z = mk(bf110zV7, 40, 34); out.ju88 = mk(ju88V7, 40, 36); out.he219 = mk(he219V7, 40, 36); out.do335 = mk(do335V7, 34, 34);
+    out.bf110z = rasterWH(ev(42), ev(36), 0, pal, bf110zV7, g => { stampCrossV7(g, 7, 16); stampCrossV7(g, 34, 16); }); out.ju88 = mk(ju88V7, 40, 36); out.he219 = mk(he219V7, 40, 36); out.do335 = rasterWH(ev(36), ev(36), 0, pal, do335V7, g => { stampCrossV7(g, 8, 16); stampCrossV7(g, 27, 16); });
   } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
   return out;
 }
