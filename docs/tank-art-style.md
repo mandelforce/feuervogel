@@ -65,3 +65,5 @@ The refined bomber with black outlines was rejected; the original is better beca
 The original Sower reads well, so only the nose and cockpit change (`docs/sower-art-v9.js`, `makeSowersV9`, body copied from the game's `SPR.sower`): Bf 110 (solid gun nose, long greenhouse canopy), He 111 H (stepped glazed nose with an offset pilot canopy), He 177 Greif (pointed nose, angular framed greenhouse) and Fw 200 Condor (rounded solid nose, split flush canopy). Not wired into the game.
 
 Bomber, second round: the owner wants the original's olive colour, four engines and an improved He 111, in four variations. `docs/bomber-art-v10.js` (`makeBombersV10`) draws them (rounded wing; stepped nose; twin fins with big inboard engines; swept wing with a greenhouse nose). They replace the four mixed bombers on the card; the v8 file stays as reference.
+
+Decision: the Sower takes the Bf 110 cockpit (`SOWER_NOSES.bf110` in `docs/sower-art-v9.js`).
