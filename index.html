@@ -8433,6 +8433,7 @@ function doContinue() {
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
   run.lives = DIFF.lives[settings.diff]; run.bombs = Math.max(3, DIFF.bombs[settings.diff]); world.ebul.length = 0;
   Object.assign(player, { dead: RB_BURST, rbMode: 1, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
+  if (p2) { run.lives2 = DIFF.lives[settings.diff]; run.bombs2 = Math.max(3, DIFF.bombs[settings.diff]); Object.assign(p2, { out: false, dead: 150, charge: 0, beam: null }); } // one continue brings back both ships, with full lives and bombs each
   sfx('rebirth');
 }
 

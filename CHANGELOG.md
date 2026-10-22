@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Two-player: a continue now brings back both ships. Before, only player 1 got its lives and bombs back, and a player 2 who had run out of lives stayed out for the rest of the run. One continue (they share the same count) gives each player a full set of lives and Nova bombs and puts player 2 back in the game.
 - Two-player: player 2 now has the super laser too. Hold player 2's ship still to charge the ring at its nose, then move to fire it. It has its own charge, heat and overheat, breaks armoured targets like player 1's laser, and its kills score for player 2. Player 2's laser does not take part in the Black Fortress beam clash (only player 1's does).
 - Enigma Run level 5, boss area: the straight stone line across the valley where the two viaducts began is gone. The decks now start slanted away from the chasm, and the valley's own snow fades over their stone and ballast for 60 rows, so the valley floor runs into the gorge without a line, a seam or a change of tone.
 - Enigma Run level 5, more mountain before the train boss (the level is now 84 chunks): between the depot and the tunnels lie six chunks of high mountain, up to twice as high as before, with crags and ridges. On it a glacier lies in a cirque and flows north; its toe feeds a meltwater stream that cuts a gully down the north slope and comes out of the rock face at the tunnels as the gorge's river, so the gorge now has a source.
