@@ -89,3 +89,5 @@ Submarine: the pick was the original. `docs/boat-art-v11.js` (`makeSubsV11`, `su
 ## Road vehicles (three designs each)
 
 `docs/road-art-v12.js` (`makeRoadV12`): truck (Opel Blitz, open bed with crates, canvas on hoops), armoured car (Sd.Kfz. 222, 231, 234 Puma), motorbike (solo, sidecar with MG, Kettenkrad), staff car (Kuebelwagen, Horch, command car with radio) and fuel truck (round tank, ribbed tank, banded tank with warning stripe). Same sizes as the originals, 16 headings through the game's `rotSet`, the game's own toolkit (dither, plain edge). Exactly symmetric (drawn on the left half and mirrored) except the sidecar bike. The national cross on the armoured car is left out because an even-width sprite has no centre pixel for a one-pixel cross. Not wired into the game.
+
+Truck, second round: four typical military transports with a rebuilt front, a little larger (12 x 24 against 10 x 20): canvas truck, stake-bed, box body and troop carrier (`makeTrucksV13` in `docs/truck-art-v13.js`, needs `docs/road-art-v12.js`). Exactly symmetric, 16 headings. The hit box (hw 5, hh 9) would grow to about hw 6, hh 11. They replace the three first-round trucks on the card.
