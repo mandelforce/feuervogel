@@ -52,13 +52,13 @@ function ditherV3(r, g, b, i, j) {
   return rp[pick];
 }
 // flat tone bands lit from the top left in SCREEN space: the shape is filled, then clipped and overlaid with world-aligned bands
-function shadeV3(x, base, path, cx, cy, r, tones, line) {
+function shadeV3(x, base, path, cx, cy, r, tones, line, lw) {
   const [lo, mid, hi, top] = tones, SS = base.a, p = new DOMPoint(cx, cy).matrixTransform(x.getTransform());
   x.save(); path(); x.fillStyle = mid; x.fill(); x.clip(); x.setTransform(1, 0, 0, 1, 0, 0);
   const k = r * SS * 0.85, g = x.createLinearGradient(p.x - k, p.y - k, p.x + k, p.y + k);
   for (const [o, c] of TANK_V3.soft ? [[0, top], [0.12, top], [0.38, hi], [0.62, mid], [0.9, lo], [1, lo]] : [[0, top], [0.2, top], [0.2, hi], [0.42, hi], [0.42, mid], [0.7, mid], [0.7, lo], [1, lo]]) g.addColorStop(o, c);
   x.fillStyle = g; x.fillRect(0, 0, x.canvas.width, x.canvas.height); x.restore();
-  if (line) { path(); x.lineWidth = 0.6; x.strokeStyle = line; x.stroke(); }
+  if (line) { path(); x.lineWidth = lw || 0.6; x.strokeStyle = line; x.stroke(); }
 }
 function rrV3(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
 function discV3(x, cx, cy, r, col) { x.fillStyle = col; x.beginPath(); x.arc(cx, cy, r, 0, 6.2832); x.fill(); }

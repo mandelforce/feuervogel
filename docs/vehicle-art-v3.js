@@ -97,20 +97,29 @@ function ftruckV3(x, base) {
 /* ---------- rail (fixed, facing south) ---------- */
 function carWheelsV3(x, ys) { for (const y of ys) for (const sd of [-1, 1]) wheelV3(x, sd * 6.7, y, 1.4, 5); }
 function locoV3(x, base) {
-  const I = VEH_V3.iron, R = VEH_V3.locoRed, B = VEH_V3.brass, M = TANK_V3.metal;
-  for (const y of [3, 9, 15]) for (const sd of [-1, 1]) { discV3(x, sd * 6.6, y, 2.2, '#5a1a14'); discV3(x, sd * 6.6, y, 1.0, '#d8503a'); discV3(x, sd * 6.6, y, 0.4, '#2a0a08'); }
-  for (const sd of [-1, 1]) lineV3(x, sd * 6.6, 3, sd * 6.6, 15, M[3], 0.6);
+  // contrast kept close to the original: bright brass and window yellow, pure black separation lines, and the original's coal heap
+  const I = VEH_V3.iron, R = VEH_V3.locoRed, B = VEH_V3.brass, M = TANK_V3.metal, K = '#0a0a0c', RR = RP.red;
+  const hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const toneI = [I[2], I[3], I[4], '#b4bcc4'], toneR = [R[2], R[3], R[4], '#d4624c'];
+  for (const y of [3, 9, 15]) for (const sd of [-1, 1]) { discV3(x, sd * 6.6, y, 2.4, K); discV3(x, sd * 6.6, y, 1.9, '#7a2218'); discV3(x, sd * 6.6, y, 1.05, '#e8583c'); discV3(x, sd * 6.6, y, 0.4, K); }
+  for (const sd of [-1, 1]) lineV3(x, sd * 6.6, 3, sd * 6.6, 15, M[4], 0.7);
   for (const sd of [-1, 1]) for (const y of [-19.5, -12.5]) { x.fillStyle = '#5a1a14'; x.fillRect(sd * 6.9 - 0.7, y, 1.4, 3); }
-  shadeV3(x, base, () => rrV3(x, -6, -21, 12, 12.4, 0.8), 0, -15, 7, tnV3(I, true), I[0]);
-  x.fillStyle = '#0c0c0e'; polyV3(x, [[-4.4, -18.8], [4.4, -18.8], [4.8, -11.4], [-4.8, -11.4]]); x.fill(); x.fillStyle = '#2e2e34'; polyV3(x, [[-3.6, -17.8], [0.6, -17.8], [-0.8, -14.8], [-4, -14.8]]); x.fill();
-  shadeV3(x, base, () => rrV3(x, -7, -8, 14, 8.4, 1), 0, -4, 6, tnV3(R, true), R[0]);
-  x.fillStyle = R[0]; x.fillRect(-7, -4.8, 14, 0.6); x.fillStyle = '#e8c870'; x.fillRect(-4.6, -2.4, 2.6, 0.9); x.fillRect(2, -2.4, 2.6, 0.9);
-  shadeV3(x, base, () => rrV3(x, -5.4, 1, 10.8, 17.2, 5), 0, 9, 8, tnV3(I, true), I[0]);
-  x.fillStyle = M[3]; for (const y of [4.6, 9.6, 14.2]) x.fillRect(-5.2, y, 10.4, 0.6);
-  shadeV3(x, base, () => { x.beginPath(); x.arc(0, 6, 2.1, 0, 6.2832); }, 0, 6, 2.4, tnV3(B), B[0]);
-  discV3(x, 0, 11, 1.4, I[3]); discV3(x, 0, 16.2, 2.0, M[0]); discV3(x, 0, 16.2, 0.9, M[2]);
-  lampV3(x, 0, 18.6, 0.8);
-  shadeV3(x, base, () => polyV3(x, [[-5, 18.8], [5, 18.8], [0, 21]]), 0, 19.6, 3, tnV3(RP.red), RP.red[0]);
+  // tender with the coal heap: black and dark grey chunks, a few lit
+  shadeV3(x, base, () => rrV3(x, -6, -21, 12, 12.4, 0.8), 0, -15, 7, toneI, K, 0.9);
+  for (let i = -4; i < 4; i++) for (let j = -19; j < -11; j++) { const h = hash(i, j); x.fillStyle = h < 0.45 ? '#0c0c0e' : h < 0.85 ? '#26262a' : '#3c3c42'; x.fillRect(i, j, 1, 1); }
+  // cab: bright red, a black roof line, windows in a black frame with bright yellow panes
+  shadeV3(x, base, () => rrV3(x, -7, -8, 14, 8.4, 1), 0, -4, 6, toneR, K, 0.9);
+  x.fillStyle = K; x.fillRect(-7, -5, 14, 0.8);
+  for (const wx of [-4.8, 1.8]) { x.fillStyle = K; x.fillRect(wx - 0.4, -3.4, 3.8, 1.9); x.fillStyle = '#ffd84a'; x.fillRect(wx, -3, 3, 1.1); x.fillStyle = '#fff4b0'; x.fillRect(wx, -3, 1, 0.55); }
+  // boiler: bright iron, light bands each under a black line, brass dome with a bright crown
+  shadeV3(x, base, () => rrV3(x, -5.4, 1, 10.8, 17.2, 5), 0, 9, 8, toneI, K, 0.9);
+  for (const y of [4.6, 9.6, 14.2]) { x.fillStyle = K; x.fillRect(-5.2, y + 0.7, 10.4, 0.5); x.fillStyle = M[4]; x.fillRect(-5.2, y, 10.4, 0.7); }
+  shadeV3(x, base, () => { x.beginPath(); x.arc(0, 6, 2.2, 0, 6.2832); }, 0, 6, 2.4, [B[1], B[2], B[3], '#fff0a0'], K, 0.7);
+  discV3(x, -0.5, 5.4, 0.6, '#fff4b0');
+  discV3(x, 0, 11, 1.5, I[3]); discV3(x, 0, 11, 0.8, I[4]);
+  discV3(x, 0, 16.2, 2.1, K); discV3(x, 0, 16.2, 1.0, M[2]);
+  x.fillStyle = K; x.fillRect(-1.7, 17.9, 3.4, 1.9); x.fillStyle = '#fff0a0'; x.fillRect(-1.1, 18.2, 2.2, 1.1);
+  shadeV3(x, base, () => polyV3(x, [[-5, 18.8], [5, 18.8], [0, 21]]), 0, 19.6, 3, [RR[2], RR[3], RR[4], RR[4]], K, 0.7);
 }
 function locoDV3(x, base) {
   const A = VEH_V3.diesel, M = TANK_V3.metal;
