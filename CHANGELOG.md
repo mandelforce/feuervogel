@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- PC: during play the menu (hamburger) and pause buttons in the top right corner are gone: Esc or P pauses and opens the menu (touch devices keep the buttons). In two-player games player 2's score now sits in that corner, mirroring player 1's score on the left, and a tiny crown marks whoever has the higher score. Player 2's weapon, Nova bombs and lives stay in the bottom right.
 - Two-player: a player 2 who has run out of lives no longer stays out for the rest of the run. Three seconds after going out, it comes back by spending a spare life of player 1's, as soon as player 1 has two or more in reserve (player 1 always keeps one). A continue refills player 1's lives, so player 2 can rejoin after one.
 - Two-player: player 2 now has the super laser too. Hold player 2's ship still to charge the ring at its nose, then move to fire it. It has its own charge, heat and overheat, breaks armoured targets like player 1's laser, and its kills score for player 2. Player 2's laser does not take part in the Black Fortress beam clash (only player 1's does).
 - Enigma Run level 5, boss area: the straight stone line across the valley where the two viaducts began is gone. The decks now start slanted away from the chasm, and the valley's own snow fades over their stone and ballast for 60 rows, so the valley floor runs into the gorge without a line, a seam or a change of tone.
