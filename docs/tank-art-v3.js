@@ -70,11 +70,12 @@ function hullV3(x, base, ramp, w, h, frame, o) {
   for (const sd of [-1, 1]) {
     const x0 = sd < 0 ? -hw : hw - tw, path = () => rrV3(x, x0, -hh + 0.4, tw, h - 0.8, 1.1);
     shadeV3(x, base, path, x0 + tw / 2, 0, hh, toneT);
-    x.save(); path(); x.clip(); const sp = 3, off = frame * sp / 2;
-    for (let yy = -hh + off - 1; yy < hh; yy += sp) { x.fillStyle = T[3]; x.fillRect(x0 + 0.35, yy, tw - 0.7, 1.05); }
+    // plain tracks (o.plain): solid black with thin lit ticks on the outer edge, like the original's, and no hub rings or skirt plates
+    x.save(); path(); x.clip(); const sp = o.plain ? 2 : 3, off = frame * sp / 2;
+    for (let yy = -hh + off - 1; yy < hh; yy += sp) { x.fillStyle = o.plain ? T[2] : T[3]; if (o.plain) x.fillRect(sd < 0 ? x0 + 0.1 : x0 + tw - 0.9, yy, 0.8, 0.9); else x.fillRect(x0 + 0.35, yy, tw - 0.7, 1.05); }
     x.restore();
-    for (const yy of [-hh + 2.7, hh - 2.7]) { discV3(x, x0 + tw / 2, yy, tw * 0.5, M[0]); discV3(x, x0 + tw / 2, yy, tw * 0.36, M[2]); discV3(x, x0 + tw / 2 - 0.25, yy - 0.25, tw * 0.16, M[4]); }
-    if (big) for (let yy = -hh + 4.5; yy < hh - 6; yy += 5.5) { const sx = sd < 0 ? x0 : x0 + tw - 1.3; shadeV3(x, base, () => rrV3(x, sx, yy, 1.3, 3.2, 0.4), sx + 0.6, yy + 1.6, 3, toneR, M[0]); }   // thin skirt plates: the tracks stay visible between them
+    if (!o.plain) for (const yy of [-hh + 2.7, hh - 2.7]) { discV3(x, x0 + tw / 2, yy, tw * 0.5, M[0]); discV3(x, x0 + tw / 2, yy, tw * 0.36, M[2]); discV3(x, x0 + tw / 2 - 0.25, yy - 0.25, tw * 0.16, M[4]); }
+    if (big && !o.plain) for (let yy = -hh + 4.5; yy < hh - 6; yy += 5.5) { const sx = sd < 0 ? x0 : x0 + tw - 1.3; shadeV3(x, base, () => rrV3(x, sx, yy, 1.3, 3.2, 0.4), sx + 0.6, yy + 1.6, 3, toneR, M[0]); }   // thin skirt plates: the tracks stay visible between them
   }
   // hull plate; the long-gun tank has a longer sloped front and a narrower nose
   const gl = o.long ? 9 : 7.2, cs = o.long ? 2.6 : 1.4;
@@ -112,20 +113,20 @@ function turretV3(x, base, ramp, cw, ch, big, long) {
   x.fillStyle = TANK_V3.lamp[2]; x.fillRect(2.7 * f, -3.6 * f, 1.0, 1.0);
   if (big) for (const sd of [-1, 1]) { x.fillStyle = M[0]; x.fillRect(sd * 5.9 - 0.4, 0.8, 0.9, 2.8); }
 }
-function makeTankV3(ramp, big, long) {
+function makeTankV3(ramp, big, long, plain = false) {
   const w = big ? 20 : 16, h = long ? 24 : big ? 28 : 22, cw = big ? 16 : 12, ch = long ? 52 : big ? 40 : 30, ev = n => n + (n & 1), dh = ev(Math.ceil(Math.hypot(w, h)) + 2), dt = ev(Math.ceil(Math.hypot(cw, ch)) + 2);
   const pal = [...ramp, ...TANK_V3.metal, ...TANK_V3.track, ...TANK_V3.lamp, '#fff0a0'], palW = [...TANK_V3.char, ...TANK_V3.metal, ...TANK_V3.track, ...TANK_V3.lamp];
   const set = (d, palette, draw) => { const a = []; for (let i = 0; i < 16; i++) a.push(rasterV3(d, i * TAU / 16 - PI / 2, palette, draw)); return a; };
   return {
-    hull: [0, 1].map(fr => set(dh, pal, (x, b) => hullV3(x, b, ramp, w, h, fr, { big, long }))),
+    hull: [0, 1].map(fr => set(dh, pal, (x, b) => hullV3(x, b, ramp, w, h, fr, { big, long, plain }))),
     tur: set(dt, pal, (x, b) => turretV3(x, b, ramp, cw, ch, big, long)),
-    wreck: set(dh, palW, (x, b) => hullV3(x, b, TANK_V3.char, w, h, 0, { big, long, wreck: true }))
+    wreck: set(dh, palW, (x, b) => hullV3(x, b, TANK_V3.char, w, h, 0, { big, long, plain, wreck: true }))
   };
 }
 
 /* v4: the clean shapes and the fixed top-left light, with the original's ordered-dither raster shading brought back.
    Same sets as makeTankV3 (hull frames, turret, wreck). camo is how far a noisy body pixel dips down the ramp. */
-function makeTankV4(ramp, big, long, camo = 0.6) {
+function makeTankV4(ramp, big, long, camo = 0.6, plain = false) {
   TANK_V3.soft = true; TANK_V3.dither = { ramps: [ramp, TANK_V3.metal, ['#0a0a0c', '#101012', '#18181c'], TANK_V3.char], body: ramp, camo };
-  try { return makeTankV3(ramp, big, long); } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
+  try { return makeTankV3(ramp, big, long, plain); } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
 }

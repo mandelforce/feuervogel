@@ -41,7 +41,7 @@ function tankHullV2(frame, ramp, w, h, o = {}) {
       for (const [ex, ey] of [[sx, 1], [sx + tw - 1, 1], [sx, h - 2], [sx + tw - 1, h - 2]]) x.clearRect(ex, ey, 1, 1);
     }
     // heavy tank: skirt plates over the outer half of each track
-    if (big) for (let j = 5; j < h - 6; j += 5) for (const sx of [0, w - 2]) { boxS(x, ramp, sx, j, 2, 4, -0.06); rect(x, M[0], sx, j + 4, 2, 1); }
+    if (big && o.skirts !== false) for (let j = 5; j < h - 6; j += 5) for (const sx of [0, w - 2]) { boxS(x, ramp, sx, j, 2, 4, -0.06); rect(x, M[0], sx, j + 4, 2, 1); }
     // stowage on the rear mudguards: a crate and a rolled tarp
     if (!big) { rect(x, RP.olive[2], 0, 6, 2, 3); rect(x, RP.olive[4], 0, 6, 1, 1); rect(x, M[0], 0, 9, 2, 1); rect(x, RP.sand[3], w - 3, 6, 3, 2); rect(x, RP.sand[4], w - 3, 6, 3, 1); rect(x, M[1], w - 3, 8, 3, 1); }
     if (wreck) {
@@ -90,10 +90,10 @@ function tankTurretV2(ramp, w, h, big) {
 }
 
 /* the sets the game builds at start-up: hull frames, turret, wreck. ramp is the body colour (RP.dy tan, RP.fg olive, RP.grey steel ...) */
-function makeTankV2(ramp, big) {
+function makeTankV2(ramp, big, skirts = true) {
   const w = big ? 20 : 16, h = big ? 28 : 22;
   return {
-    hull: [rotSet(tankHullV2(0, ramp, w, h, { big })), rotSet(tankHullV2(1, ramp, w, h, { big }))],
+    hull: [rotSet(tankHullV2(0, ramp, w, h, { big, skirts })), rotSet(tankHullV2(1, ramp, w, h, { big, skirts }))],
     tur: rotSet(tankTurretV2(ramp, big ? 16 : 12, big ? 40 : 30, big)),
     wreck: rotSet(tankHullV2(0, TANK_V2.char, w, h, { big, wreck: true }))
   };
