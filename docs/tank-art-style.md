@@ -69,3 +69,5 @@ Bomber, second round: the owner wants the original's olive colour, four engines 
 Decision: the Sower takes the Bf 110 cockpit (`SOWER_NOSES.bf110` in `docs/sower-art-v9.js`).
 
 Decision: the bomber is the He 111 variant c (twin fins, big inboard engines), now 55 px wide (`makeHe111V10C` in `docs/bomber-art-v10.js`) so the middle is a pixel column and the cockpit bars and parts sit exactly on the centre line. The game would draw an odd-width sprite at a half-pixel unless its draw position is rounded.
+
+Fighter: a mix of the Bf 109 and the Fw 190 (`mixV6` in `docs/fighter-art-v6.js`: the 109's slim body, tapered wing, yellow tips and long canopy with the 190's round radial cowling and yellow band), and a one-pixel black cross on a flat round white disc on the wings of the 109, 190 and mix (`stampCrossV6`, stamped per heading after rendering). The card shows the original, Bf 109, Fw 190 and the mix; the Me 262 and Bf 110 stay in the code.

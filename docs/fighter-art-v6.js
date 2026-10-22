@@ -18,6 +18,17 @@ function lwPatches(x, clipPath, col, patches) {
   x.save(); clipPath(); x.clip(); x.fillStyle = col; for (const q of patches) { polyV3(x, q); x.fill(); } x.restore();
 }
 function lwCross(x, cx, cy) { x.fillStyle = '#0a0a0c'; x.fillRect(cx - 2.6, cy - 1.3, 5.2, 2.6); x.fillRect(cx - 1.3, cy - 2.6, 2.6, 5.2); x.fillStyle = '#f2f0e6'; x.fillRect(cx - 2.1, cy - 0.8, 4.2, 1.6); x.fillRect(cx - 0.8, cy - 2.1, 1.6, 4.2); }
+// a black cross on a clear round white disc, one pixel lines, flat colour: stamped on the finished pixels (centre pixel cx, cy; disc 5 px across, corners cut)
+function stampCrossV6(g, cx, cy) {
+  g.fillStyle = '#f2f0e6'; for (const [dy, hw] of [[-2, 1], [-1, 2], [0, 2], [1, 2], [2, 1]]) g.fillRect(cx - hw, cy + dy, 2 * hw + 1, 1);
+  g.fillStyle = '#0a0a0c'; g.fillRect(cx - 2, cy, 5, 1); g.fillRect(cx, cy - 2, 1, 5);
+}
+// where the wing crosses sit on the unrotated sprite (distance from the middle, and along the nose-tail line), per design
+const CROSS_V6 = { bf109: [8.2, -0.6], fw190: [8.6, -0.5], mix: [8.4, -0.5] };
+function crossPostV6(k, ang, d) {
+  const [wx, wy] = CROSS_V6[k], c = Math.cos(ang), s = Math.sin(ang);
+  return g => { for (const sd of [-1, 1]) { const px = sd * wx, py = wy; stampCrossV6(g, Math.floor(d / 2 + px * c - py * s), Math.floor(d / 2 + px * s + py * c)); } };
+}
 function sym(pts) { return pts.concat(pts.slice().reverse().map(([a, b]) => [-a, b])); }   // right half, nose to tail, mirrored into a closed outline
 
 function bf109V6(x, base) {
@@ -37,7 +48,6 @@ function bf109V6(x, base) {
   x.fillStyle = K; x.fillRect(-0.9, 5.3, 0.5, 0.5); x.fillRect(0.4, 5.3, 0.5, 0.5);                  // cowl guns
   shadeV3(x, base, () => rrV3(x, -1.2, -3.8, 2.4, 4.8, 1), 0, -1.4, 2.4, [RP.glass[1], RP.glass[2], RP.glass[3], '#e8f6ff'], K, 0.7);   // canopy
   x.fillStyle = K; x.fillRect(-1.2, -1.6, 2.4, 0.4); x.fillRect(-0.2, -3.8, 0.4, 4.8);
-  lwCross(x, -8.2, -0.6); lwCross(x, 8.2, -0.6);
 }
 function fw190V6(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c', M = TANK_V3.metal;
@@ -54,7 +64,25 @@ function fw190V6(x, base) {
   discV3(x, 0, 8.6, 1.0, '#f2f0e6'); discV3(x, 0, 8.6, 0.4, K);
   shadeV3(x, base, () => { x.beginPath(); x.ellipse(0, -1.8, 1.6, 2.5, 0, 0, 6.2832); }, 0, -1.8, 2.5, [RP.glass[1], RP.glass[2], RP.glass[3], '#e8f6ff'], K, 0.7);   // bubble canopy
   x.fillStyle = K; x.fillRect(-1.6, -1.6, 3.2, 0.4);
-  lwCross(x, -8.6, -0.5); lwCross(x, 8.6, -0.5);
+}
+// a mix of the two: the Bf 109's slim body, tapered wing with yellow tips and long canopy, with the Fw 190's round radial cowling and yellow band
+function mixV6(x, base) {
+  const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c', M = TANK_V3.metal;
+  const tail = [[-5.6, -11.4], [5.6, -11.4], [4.2, -8.2], [-4.2, -8.2]];
+  shadeV3(x, base, () => polyV3(x, tail), 0, -9.8, 6, lwDark(S));
+  const wing = [[-13, -1.6], [-2.4, -3.8], [2.4, -3.8], [13, -1.6], [13, 1], [2.4, 3.6], [-2.4, 3.6], [-13, 1]];
+  shadeV3(x, base, () => polyV3(x, wing), 0, 0, 13, lwDark(S));
+  lwPatches(x, () => polyV3(x, wing), G[2], [[[-13, -1.6], [-7, -2.8], [-6, 0.4], [-13, 1]], [[13, -1.6], [7, -2.8], [6, 0.4], [13, 1]], [[-4, -3.8], [-1, -3.8], [-1.5, 3.6], [-4.6, 3.6]], [[4, -3.8], [1, -3.8], [1.5, 3.6], [4.6, 3.6]]]);
+  x.fillStyle = Y[3]; x.fillRect(-13, -1.6, 1.6, 2.6); x.fillRect(11.4, -1.6, 1.6, 2.6);
+  x.fillStyle = S[4]; x.fillRect(-12.8, 0.6, 10, 0.5); x.fillRect(2.8, 0.6, 10, 0.5);
+  const fus = sym([[1.0, -11.6], [1.5, -6], [2.0, -1.5], [2.2, 3], [2.1, 5.4]]);
+  shadeV3(x, base, () => polyV3(x, fus), 0, -1.5, 10.5, lwTones(G), K, 0.8);
+  x.fillStyle = G[1]; x.fillRect(-0.25, -11.6, 0.5, 8);
+  shadeV3(x, base, () => rrV3(x, -2.7, 4.8, 5.4, 3.4, 1.6), 0, 6.5, 3.2, [M[1], M[2], M[3], M[4]], K, 0.8);   // radial cowling
+  x.fillStyle = Y[3]; x.fillRect(-2.5, 6.7, 5, 0.9); x.fillStyle = K; x.fillRect(-2.5, 6.4, 5, 0.3); x.fillRect(-2.5, 7.6, 5, 0.3);
+  discV3(x, 0, 8.7, 1.0, '#f2f0e6'); discV3(x, 0, 8.7, 0.4, K);
+  shadeV3(x, base, () => rrV3(x, -1.2, -3.8, 2.4, 5.2, 1), 0, -1.4, 2.6, [RP.glass[1], RP.glass[2], RP.glass[3], '#e8f6ff'], K, 0.7);   // long canopy
+  x.fillStyle = K; x.fillRect(-1.2, -1.4, 2.4, 0.4); x.fillRect(-0.2, -3.8, 0.4, 5.2);
 }
 function me262V6(x, base) {
   const G = LW.green, S = LW.grey, K = '#0a0a0c', M = TANK_V3.metal;
@@ -103,7 +131,7 @@ function makeFightersV6() {
   TANK_V3.dither = { ramps: [LW.green, LW.grey, RP.yel, RP.glass, TANK_V3.metal], body: LW.green, camo: 0.45 };
   try {
     const pal = palV3(LW.green, LW.grey, RP.yel, ['#f2f0e6', '#e8f6ff']), d = ev(Math.ceil(Math.hypot(28, 26)) + 2);
-    for (const [k, fn] of [['bf109', bf109V6], ['fw190', fw190V6], ['me262', me262V6], ['bf110', bf110V6]]) { out[k] = []; for (let i = 0; i < 16; i++) out[k].push(rasterWH(d, d, i * TAU / 16 - PI / 2, pal, fn)); }
+    for (const [k, fn] of [['bf109', bf109V6], ['fw190', fw190V6], ['mix', mixV6], ['me262', me262V6], ['bf110', bf110V6]]) { out[k] = []; for (let i = 0; i < 16; i++) { const a = i * TAU / 16 - PI / 2; out[k].push(rasterWH(d, d, a, pal, fn, CROSS_V6[k] && crossPostV6(k, a, d))); } }
   } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
   return out;
 }
