@@ -133,13 +133,16 @@ function locoDV3(x, base) {
   glassV3(x, -3.4, 14, 6.8, 1.5); lampV3(x, 0, 18.2, 0.8);
 }
 function boxcarV3(x, base) {
-  const W = VEH_V3.wood, M = TANK_V3.metal;
+  // close to the original: an even, bright plank body, dark plank seams with a light edge under each, a lit ridge down the middle, black end bars
+  const W = VEH_V3.wood, M = TANK_V3.metal, K = '#0a0a0c';
   carWheelsV3(x, [-8.5, 1.5, 11.5]);
-  shadeV3(x, base, () => rrV3(x, -6, -14, 12, 28, 0.6), 0, 0, 14, tnV3(W, true), W[0]);
-  x.fillStyle = W[1]; for (let y = -10.6; y < 13; y += 4) x.fillRect(-6, y, 12, 0.55);
-  x.fillStyle = W[4]; x.fillRect(-0.3, -14, 0.6, 28);
-  x.fillStyle = W[0]; x.fillRect(-6, -14, 12, 1.2); x.fillRect(-6, 12.8, 12, 1.2);
-  discV3(x, 3, -11.4, 1.2, M[1]); discV3(x, 3, -11.4, 0.55, M[3]);
+  const mix = (p, q, f) => '#' + [0, 1, 2].map(k => Math.round(hexRGB(p)[k] + (hexRGB(q)[k] - hexRGB(p)[k]) * f).toString(16).padStart(2, '0')).join('');
+  // in the raster style every plank sits between two wood tones, so the dither covers the whole car like the original's
+  shadeV3(x, base, () => rrV3(x, -6, -14, 12, 28, 0.6), 0, 0, TANK_V3.soft ? 15 : 30, TANK_V3.soft ? [W[2], mix(W[2], W[3], 0.55), mix(W[3], W[4], 0.3), mix(W[3], W[4], 0.7)] : [W[2], W[3], W[4], W[4]], K, 0.8);
+  for (let y = -11; y < 13; y += 4) { x.fillStyle = W[1]; x.fillRect(-6, y, 12, 0.6); x.fillStyle = W[4]; x.fillRect(-6, y + 0.6, 12, 0.4); }
+  x.fillStyle = W[1]; x.fillRect(0.4, -14, 0.5, 28); x.fillStyle = '#c89868'; x.fillRect(-0.2, -14, 0.6, 28);
+  x.fillStyle = K; x.fillRect(-6, -14, 12, 1); x.fillRect(-6, 13, 12, 1);
+  discV3(x, 3, -11, 1.2, K); discV3(x, 3, -11, 0.6, W[4]);
 }
 function ammocarV3(x, base) {
   const A = VEH_V3.ammo, Y = RP.yel, M = TANK_V3.metal;
