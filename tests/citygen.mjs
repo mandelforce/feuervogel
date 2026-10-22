@@ -286,7 +286,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     need(G.yb < Lr && G.yb > Lr - 220, `seed ${seed}: the gorge opens at ${G.yb}, not just before the level's end (${Lr})`);
     for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[at(tx - 3, y)] !== 2) brk++; need(!brk, `seed ${seed}: the track at x ${tx} breaks in ${brk} rows`); }
     let noCh = 0, noDeck = 0, galIn = 0; for (let y = G.yb; y < p.L; y++) { const mid = Kr[at(112, y)], bm = Br[at(112, y)]; if (!(mid === K.RAVINE && bm === -71) && !(mid === K.RBRIDGE && bm === -25)) noCh++;
-      for (const x of [30, 74, 150, 194]) { const k = Kr[at(x, y)]; if (k !== K.RBRIDGE && k !== K.SLOPE && k !== K.CRAG) noDeck++; }
+      if (y >= G.yb + 60) for (const x of [30, 74, 150, 194]) { const k = Kr[at(x, y)]; if (k !== K.RBRIDGE && k !== K.SLOPE && k !== K.CRAG) noDeck++; } // (the decks begin slanted away from the chasm and blend into the valley's snow over their first 60 rows)
       for (const x of [55, 81, 143, 169]) if (Kr[at(x, y)] === K.RBRIDGE && Br[at(x, y)] === -24) galIn++; }
     need(!noCh, `seed ${seed}: ${noCh} arena rows without the chasm`); need(!noDeck, `seed ${seed}: ${noDeck} deck pixels missing`); need(!galIn, `seed ${seed}: a gallery reaches the boss's room (${galIn})`);
     for (const s of [-1, 1]) { need(G.gal.filter(q => q.s === s).length >= 3, `seed ${seed}: fewer than 3 galleries on side ${s}`); need(G.corn.filter(q => q.s === s && !q.over).length >= 5, `seed ${seed}: fewer than 5 open cornices on side ${s}`); need(G.spurs.some(q => q.s === s), `seed ${seed}: no spur on side ${s}`); }
