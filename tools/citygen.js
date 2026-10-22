@@ -2122,7 +2122,7 @@ function nightLights(plan) {
         const x = it.x0 + 1 + 3 * Math.floor(hh(it.id, 60 + k * 4 + tries) * Math.max(1, (it.w - 2) / 3)), y = it.y0 - 1 - (hh(it.id, 70 + k) < 0.5 ? 0 : 1);
         if (x % 3 !== 1 || x >= it.x0 + it.w || kAt(x, y) === K.BLDG || kAt(x, y) < 0 || facadeOf(x, y) !== it) continue;
         out.push({ x: x + 0.5, y: y + 0.5, r: 6, c: NL.warm, a: 0.45, px: [[x, y, NL.warm]] }); break; } } }
-  for (const f of plan.fires) out.push({ x: f.x, y: f.y, r: Math.max(f.w, f.h) + 16, c: NL.fire, a: 0.42 });
+  for (const f of plan.fires) if (!f.smoke) out.push({ x: f.x, y: f.y, r: Math.max(f.w, f.h) + 16, c: NL.fire, a: 0.42 });
   if (plan.pylons) for (const p of plan.pylons) if (p.ok) out.push({ x: p.x + 0.5, y: p.y + 3.5, r: 3, c: NL.red, a: 0.45, px: [[p.x, p.y + 3, NL.red]] }); // a red lamp on each pylon
   if (plan.airbase && plan.airbase.lamps) { const AB = plan.airbase; for (const lp of AB.lamps) out.push({ x: lp.x + 0.5, y: lp.y + 0.5, r: 3.5, c: NL.flare, a: 0.4, px: [[lp.x, lp.y, NL.flare]] }); // the flarepath, the control tower's windows
     if (AB.tower) { const b = AB.tower; out.push({ x: b.x0 + b.w / 2, y: b.y0 - 1, r: 6, c: NL.warm, a: 0.35, px: [[b.x0 + 3, b.y0 - 1, NL.warm], [b.x0 + 8, b.y0 - 1, NL.warm]] }); } }
@@ -2157,8 +2157,14 @@ function palmPix(t, put) {
 // the wind, embers, and a dithered smoke plume drifting downwind. t is time in seconds: paint() draws t = 0; paintFx() animates it.
 const AUTUMN = HX(['#3a2a10', '#5a3c14', '#7a5418', '#9a6c1e', '#b88a2a', '#d4a83c']); // a beech turning in autumn
 const TUN = HX(['#5a4a32', '#7a6644', '#968058', '#b29a6c', '#ccb486']), TUN_IN = HX(['#241c14'])[0]; // a tunnel portal's sandstone
-const FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
+const BLACKSMOKE = HX(['#0f0d0b', '#1c1814', '#2e2924', '#463f38']), FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
 function fireFx(plan, f, t, put) {
+  if (f.smoke) { // a chimney's smoke (f.smoke: true): no flames, no glow; a column of black smoke rising from (f.x, f.y) and drifting with the wind, thickening as it spreads
+    const s = f.seed;
+    for (let k = 0; k < 10; k++) { const ph = ((k + t * 1.1) % 10) / 10, d = ph * 44, px = f.x + WIND[0] * d + Math.sin(ph * 6 + s) * 1.8, py = f.y + 1 + WIND[1] * d, r = 1.6 + ph * 6.5, a = 0.95 * (1 - ph * 0.8);
+      for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) { const q = ((xx + 0.5 - px) ** 2 + (yy + 0.5 - py) ** 2) / (r * r); if (q > 1) continue;
+        if (bay(xx, yy) + 0.5 + (hh(xx * 7 + k, yy * 3 + Math.floor(t * 4)) - 0.5) * 0.45 < a * (1 - q * 0.55) * 1.2) put(xx, yy, ph < 0.15 ? BLACKSMOKE[0] : q > 0.6 ? BLACKSMOKE[3] : ph < 0.5 ? BLACKSMOKE[1] : BLACKSMOKE[2], ph < 0.15 ? 0.8 : 0.6); } }
+    return; }
   const s = f.seed, cx = f.x, cy = f.y, w = f.w, x0 = f.x0, y0 = f.y0, x1 = x0 + w - 1, y1 = y0 + f.h - 1, R = Math.max(w, f.h) / 2 + 9;
   for (let yy = Math.floor(cy - R); yy <= cy + R; yy++) for (let xx = Math.floor(cx - R); xx <= cx + R; xx++) { const r = Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) / R; if (r < 1) put(xx, yy, GLOW, 0.18 * (1 - r) * (1 - r) * (0.8 + 0.2 * Math.sin(t * 9 + s))); }
   // flames break through at one to three hot spots, with a small white core, and lick a few pixels past the roof, leaning with the wind
@@ -2405,6 +2411,8 @@ function desertLand(o) {
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
+  // a chimney's black smoke, animated (the settlement's animated fire layer draws it): the chimney's top at (x, y)
+  const smoke = (x, y, k) => plan.fires.push({ x, y, w: 3, h: 3, x0: Math.round(x) - 1, y0: Math.round(y) - 1, item: -1, seed: h32(seed, 99000 + Math.round(x) * 7 + Math.round(y) + k), smoke: true });
   // a box of open ground, clear of the road and of the railway's corridor (laid after the features): xa..xb, ya..yb
   const freeBox = (xa, xb, ya, yb) => { for (let yy = ya; yy <= yb; yy++) for (let xx = Math.min(xa, xb); xx <= Math.max(xa, xb); xx++) { if (!open(xx, yy)) return false; if (RX !== null && Math.abs(xx - RXat(yy)) < 14) return false; } return true; };
   // a site for an industrial yard, w x h with a 4 px margin: the first free box found scanning out from the middle of rows y0..y1, nearest the road first
@@ -2486,7 +2494,7 @@ function desertLand(o) {
   // a side track (owner: tanks also take side roads): a dirt track 7 px wide from the main track's centre across to x1 at row y, a tank route
   // that the game's tanks may turn into; it ends where the ground is no longer open (at houses, a wall, the railway's corridor)
   // a brickworks (the quiet desert before the pass): two kiln halls, two tall chimneys, a clay pit and a coal heap, painted, on clear ground by the road
-  function brickworks(F) { const yc = Math.round(L * F.at), w = 46, h = 44, st = findSite(yc - 120, yc + 120, w, h, 130); if (!st) return; reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'brickworks', x: st.x + w / 2, y: st.y + h / 2, w, h }); }
+  function brickworks(F) { const yc = Math.round(L * F.at), w = 46, h = 44, st = findSite(yc - 120, yc + 120, w, h, 130); if (!st) return; reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'brickworks', x: st.x + w / 2, y: st.y + h / 2, w, h }); smoke(st.x + w / 2 + 13, st.y + h / 2 - 4, 1); smoke(st.x + w / 2 + 13, st.y + h / 2 - 14, 2); }
   function sideTrack(y, x1) { const m = Math.round(MX(y)), d = x1 > m ? 1 : -1, st = { cls: 'collector', axis: 'h', tank: true, dirt: true, side: true, pts: [], yc: y, w: 7 }; st.id = plan.streets.length;
     for (let x = m; x !== x1; x += d) { let ok = true; for (let yy = y - 3; yy <= y + 3; yy++) { const i = inB(x, yy) ? idx(x, yy) : -1; if (i < 0 || (Kr[i] !== K.ROAD && !(open(x, yy) || Kr[i] === K.OASIS || Kr[i] === K.WORKS || Kr[i] === K.COURT || Kr[i] === K.SPOIL || Kr[i] === K.WADI))) ok = false; } /* (across a wadi: a ford) */ if (!ok) break; st.pts.push([x, y, 7]); }
     if (Math.abs(st.pts.length) < 24) return null; plan.streets.push(st); st.x0 = Math.min(st.pts[0][0], st.pts[st.pts.length - 1][0]); st.x1 = Math.max(st.pts[0][0], st.pts[st.pts.length - 1][0]);
@@ -2558,7 +2566,7 @@ function desertLand(o) {
         for (let y = ty - 26; y < ty + 28; y++) for (let x = x0; x < x0 + 20; x++) set(x, y, K.WORKS);
         for (let k = -1; k <= 1; k++) { const cx = x0 + 10, cy = ty + k * 17, r = 7, it = addItem({ t: 'works', label: 'Oil tank', part: 'tank', round: true, x0: Math.floor(cx - r), y0: Math.floor(cy - r), w: 2 * r + 2, h: 2 * r + 2, acx: cx, acy: cy, r, dmg: 0, seed: sd() }); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) set(x, y, K.BLDG, it.id); }
         const fp = pitAt([x0 + 34, x0 - 14, x0 + 48], ty + 38, 6, 'flak'); if (fp) netOver(fp.x, fp.y, 12, 9, false); sideTrack(ty - 32, x0 + 10); } } } // a track to the tank farm
-    { const w = 44, h = 40, st = findSite(a + 5, a + 170, w, h, 120 + fi); if (st) { reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'refinery', x: st.x + w / 2, y: st.y + h / 2, w, h }); } } // a refinery (painted: tanks, columns, a rack, a flare and a chimney), on clear ground by the road
+    { const w = 44, h = 40, st = findSite(a + 5, a + 170, w, h, 120 + fi); if (st) { reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'refinery', x: st.x + w / 2, y: st.y + h / 2, w, h }); smoke(st.x + w / 2 - 18, st.y + h / 2 + 12, 1); } } // a refinery (painted: tanks, columns, a rack, a flare and a chimney), on clear ground by the road
     for (let k = 0; k < 4; k++) { const x = Math.round(lerp(lo, WR[a] - 10, rnd(TD, 104, k + fi))), y = Math.round(lerp(a, b, rnd(TD, 105, k + fi))); let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok) plan.craters.push({ x, y, r: 3 + rnd(TD, 106, k) * 2 }); } }
   // the pass (owner mockup P): the walls close in to a 120 px gorge; a deep ravine across it, the railway on a stone viaduct 20 px wide (16 px trains fit
   // between its parapets) and the track on its own bridge; stone sangars on the ledges; at the top a fort astride the track with a roadblock at its gate
