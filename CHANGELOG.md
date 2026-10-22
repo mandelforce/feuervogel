@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enigma Run level 2: the tower standing in the sea beside the port was the Campaign's city church spire (and its city blocks), which was still being placed over the settlement plan's ground. Plan levels no longer get them; the station's own clock tower stands by its hall as before.
 - Settlement generator, the station: the train shed is 7 px wider on the side away from the station hall, so the main line no longer runs right along its outer wall (9 px of room became 16).
 - Enigma Run, the station's train shed has a see-through glass roof: a train inside shows through it, while the iron frame and ribs stay solid.
 - Enigma Run, the station can be destroyed: the train shed (and the station hall, where it still stands) is now a ground target (60 and 40 hit points). Destroyed, its roof falls in as a burning rubble mound, and a shed that is gone no longer covers its trains. A train inside the shed cannot be shot, as under a gallery, so shots at it hit the shed.

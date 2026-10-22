@@ -8683,7 +8683,7 @@ function directorInner() {
     if (towerRows.has('c' + ri)) continue; towerRows.add('c' + ri);
     for (let ci = 0; ci < 4; ci++) {
       const c = cityCell(ci * 56 + 30, ri * 48 + 30), ox = ci * 56 + 8, oy = ri * 48 + 8;
-      if (classify(ox + 24, oy + 20).I.b !== 'city' || Math.abs(ox + 24 - roadX(oy + 20)) < 38) continue;
+      if (classify(ox + 24, oy + 20).I.b !== 'city' || Math.abs(ox + 24 - roadX(oy + 20)) < 38 || info(-Math.floor((oy + 20) / CH)).plan) continue; // (not on a settlement plan's ground: it has its own buildings)
       if (c.kind === 'church') { if (propFree(ox + 24, oy + 36.5, 8, 7, 30)) props.push({ kind: 'spire', wx: ox + 24, wy: oy + 36.5, w: 8, d: 7, h: 30, rr: 0.5 }); }
       else if (c.kind === 'perim' && hash(ci * 7 + 3, ri * 11 + 5) < 0.07 && propFree(ox + 9, oy + 5.5, 18, 11, 15)) { const rr = hash(ci * 5 + 9, ri * 3 + 4); props.push({ kind: 'block', wx: ox + 9, wy: oy + 5.5, w: 18, d: 11, h: 8 + ((rr * 7) | 0), brick: rr < 0.6, rr }); }
     }
