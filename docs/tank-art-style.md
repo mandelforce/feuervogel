@@ -53,3 +53,5 @@ Additions for non-tank vehicles: hazard marks use the explosives car's yellow ba
 ## Heavy fighter (four larger WW2 designs)
 
 The original heavy fighter (30 × 24) was liked for its contrast but read as a bat shape. `docs/heavy-art-v7.js` (`makeHeaviesV7`) draws four larger, top-down WW2 twin-engine suggestions, 36 to 42 px wide, nose to the south like the original, in the clean + raster style (dither, black separation lines, bright yellow spinners): Bf 110 Zerstörer, Ju 88 C, He 219 Uhu (night finish, antler radar) and Do 335 Pfeil (push-pull). Not wired into the game: hitbox (26 × 20) and the propeller flicker at x ± 7 would need adjusting.
+
+Decision: the Bf 110 Zerstörer replaces the heavy fighter, and the Do 335 Pfeil is added as a separate new plane type (needs its own entry in the game: stats, hitbox, spawn). The Ju 88 and He 219 are not used. The Fw 190 is the preferred fighter design; the original Sower stays.
