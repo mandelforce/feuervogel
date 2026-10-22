@@ -36,6 +36,8 @@ About 0.13 s to build one tank set on the development machine, against 0.02 s fo
 
 The clean versions of the other vehicles were reviewed and not adopted: the original rasterised sprites suit the level backgrounds better. The code is kept for reference only.
 
+**Trains, second attempt.** The train vehicles were redone in both styles: `makeTrainsV3(false)` is clean (flat tone bands) and `makeTrainsV3(true)` is clean + raster (the original's ordered dither, laid on screen pixels). It covers the steam and diesel locomotives, the boxcar, the explosives car, the flatcar and the flak gun on the flatcar. The tool shows them next to the originals, on the lineup and on the real rails.
+
 `docs/vehicle-art-v3.js` applies the same rules to every other vehicle (load `tank-art-v3.js` first). `makeVehiclesV3()` builds twenty sets in about 0.2 s: truck, armoured car, motorbike, staff car, fuel truck, the two locomotives, boxcar, ammunition car, flatcar, patrol boat, destroyer, submarine, fighter, heavy fighter, bomber and the Sower, plus the flak, patrol boat and destroyer gun mounts. Vehicles the game rotates come as 16 headings. Fixed ones (rail, sea, the large aircraft) come as one sprite with the original's orientation and size.
 
 Additions for non-tank vehicles: hazard marks use the explosives car's yellow band (fuel truck); crosses are a white plus with a dark border, since the thin dark inner cross turns grey at this size; wheels are dark blocks with one lit edge; glass is a flat blue strip with one lit corner.

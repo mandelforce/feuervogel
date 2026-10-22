@@ -25,10 +25,12 @@ function rasterWH(dw, dh, ang, palette, draw) {
   draw(x, base);
   const src = x.getImageData(0, 0, NW, NH).data, [c, y] = mk(dw, dh), out = y.createImageData(dw, dh), pal = palette.map(hexRGB);
   for (let j = 0; j < dh; j++) for (let i = 0; i < dw; i++) {
-    let r = 0, g = 0, b = 0, a = 0;
-    for (let v = 0; v < SS; v++) for (let u = 0; u < SS; u++) { const k = ((j * SS + v) * NW + i * SS + u) * 4, al = src[k + 3]; if (al) { r += src[k] * al; g += src[k + 1] * al; b += src[k + 2] * al; a += al; } }
+    let r = 0, g = 0, b = 0, a = 0, q2 = 0;
+    for (let v = 0; v < SS; v++) for (let u = 0; u < SS; u++) { const k = ((j * SS + v) * NW + i * SS + u) * 4, al = src[k + 3]; if (al) { r += src[k] * al; g += src[k + 1] * al; b += src[k + 2] * al; a += al; q2 += (src[k] * src[k] + src[k + 1] * src[k + 1] + src[k + 2] * src[k + 2]) * al; } }
     if (a < 255 * SS * SS * 0.5) continue;
-    r /= a; g /= a; b /= a; let best = 0, bd = 1e9;
+    r /= a; g /= a; b /= a;
+    if (TANK_V3.dither && a > 255 * SS * SS * 0.98 && Math.sqrt(Math.max(0, q2 / a - (r * r + g * g + b * b))) < 16) { const o = ditherV3(r, g, b, i, j); if (o) { const k = (j * dw + i) * 4; out.data[k] = o[0]; out.data[k + 1] = o[1]; out.data[k + 2] = o[2]; out.data[k + 3] = 255; continue; } }
+    let best = 0, bd = 1e9;
     for (let p = 0; p < pal.length; p++) { const dr = pal[p][0] - r, dg = pal[p][1] - g, db = pal[p][2] - b, dd = dr * dr * 0.9 + dg * dg * 1.2 + db * db * 0.8; if (dd < bd) { bd = dd; best = p; } }
     const o = (j * dw + i) * 4; out.data[o] = pal[best][0]; out.data[o + 1] = pal[best][1]; out.data[o + 2] = pal[best][2]; out.data[o + 3] = 255;
   }
@@ -268,5 +270,23 @@ function makeVehiclesV3() {
   out.heavy = fixed(30, 24, palV3(RP.grey), heavyV3);
   out.bomber = fixed(46, 34, palV3(RP.fg), bomberV3);
   out.sower = fixed(104, 80, palV3(VEH_V3.sower, RP.yel, ['#5a5e60', '#787a74', '#14161a', '#e8f0f0']), sowerV3);
+  return out;
+}
+
+/* The train vehicles in the clean style, flat (dither false) or with the original's ordered-dither raster shading (dither true).
+   Same sizes and the same south-facing orientation as the originals. flakGun is the turret that sits on the flatcar (16 headings). */
+function makeTrainsV3(dither) {
+  const ev = n => n + (n & 1), I = VEH_V3.iron, out = {};
+  TANK_V3.soft = !!dither;
+  TANK_V3.dither = dither ? { ramps: [I, VEH_V3.locoRed, VEH_V3.brass, VEH_V3.diesel, VEH_V3.wood, VEH_V3.ammo, RP.sand, RP.conc, RP.red, TANK_V3.metal, ['#0a0a0c', '#101012', '#18181c']], body: null, camo: 0 } : null;
+  try {
+    const fixed = (w, h, pal, draw) => rasterWH(ev(w + 2), ev(h + 2), 0, pal, draw);
+    out.loco = fixed(16, 42, palV3(I, VEH_V3.locoRed, VEH_V3.brass, RP.red), locoV3);
+    out.locoD = fixed(16, 40, palV3(VEH_V3.diesel), locoDV3);
+    out.boxcar = fixed(14, 28, palV3(VEH_V3.wood), boxcarV3);
+    out.ammocar = fixed(14, 28, palV3(VEH_V3.ammo, RP.yel), ammocarV3);
+    out.flatcar = fixed(14, 28, palV3(I, RP.sand), flatcarV3);
+    const d = ev(Math.ceil(Math.hypot(12, 28)) + 2); out.flakGun = []; for (let i = 0; i < 16; i++) out.flakGun.push(rasterWH(d, d, i * TAU / 16 - PI / 2, palV3(RP.conc), flakGunV3));
+  } finally { TANK_V3.soft = false; TANK_V3.dither = null; }
   return out;
 }
