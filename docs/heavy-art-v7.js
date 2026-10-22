@@ -16,6 +16,8 @@ function canopyV7(x, base, X, Y, W, H, frames) {
 }
 function spinnerV7(x, base, cx, cy, r, col) { shadeV3(x, base, () => { x.beginPath(); x.ellipse(cx, cy, r, r * 1.3, 0, 0, 6.2832); }, cx, cy, r, lwTones(col), '#0a0a0c', 0.6); discV3(x, cx, cy + r * 0.3, r * 0.4, '#f2f0e6'); }
 
+// a black cross on a white square, for the Pfeil (the Zerstoerer keeps the white cross with black border)
+function lwCrossB(x, cx, cy) { x.fillStyle = '#f2f0e6'; x.fillRect(cx - 3, cy - 3, 6, 6); x.fillStyle = '#0a0a0c'; x.fillRect(cx - 1, cy - 2.6, 2, 5.2); x.fillRect(cx - 2.6, cy - 1, 5.2, 2); }
 function bf110zV7(x, base) {
   const G = LW.green, S = LW.grey, Y = RP.yel, K = '#0a0a0c';
   shadeV3(x, base, () => polyV3(x, [[-9, -15.4], [9, -15.4], [7.4, -12], [-7.4, -12]]), 0, -13.7, 9, lwDark(S));
@@ -97,7 +99,7 @@ function do335V7(x, base) {
   canopyV7(x, base, -1.5, -2.2, 3, 7, [1.2, 3.6]);
   spinnerV7(x, base, 0, 14.4, 1.7, Y);                                                                                   // front propeller
   shadeV3(x, base, () => { x.beginPath(); x.ellipse(0, -15.2, 1.5, 1.2, 0, 0, 6.2832); }, 0, -15.2, 1.5, lwTones(Y), K, 0.6); discV3(x, 0, -15.4, 0.55, '#f2f0e6');   // rear propeller
-  lwCross(x, -10, -1.6); lwCross(x, 10, -1.6);
+  lwCrossB(x, -9.5, -1.3); lwCrossB(x, 9.5, -1.3);
 }
 function makeHeaviesV7() {
   const ev = n => n + (n & 1), out = {};
