@@ -45,16 +45,16 @@ function discV3(x, cx, cy, r, col) { x.fillStyle = col; x.beginPath(); x.arc(cx,
 
 function hullV3(x, base, ramp, w, h, frame, o) {
   const big = !!o.big, tw = big ? 4 : 3.2, hw = w / 2, hh = h / 2, bh = hw - tw + 0.2, M = TANK_V3.metal, T = TANK_V3.track, n = ramp.length, R = i => ramp[Math.max(0, Math.min(n - 1, i))];
-  const toneR = [R(1), R(3), R(4), R(4)], toneT = [M[0], T[0], T[1], T[2]], toneM = [M[1], M[2], M[3], M[4]];
+  const up = n > 5 ? 1 : 0, toneR = [R(1 + up), R(3 + up), R(4 + up), R(4 + up)], toneT = ['#0a0a0c', '#0a0a0c', '#101012', '#18181c'], toneM = [M[1], M[2], M[3], M[4]];   // black tracks; the 6-step grey ramp is shifted up one step so it keeps the original's brighter grey
   // tracks: lit-from-top-left body, link bars that move a half link per frame, hubs at both ends
   for (const sd of [-1, 1]) {
     const x0 = sd < 0 ? -hw : hw - tw, path = () => rrV3(x, x0, -hh + 0.4, tw, h - 0.8, 1.1);
     shadeV3(x, base, path, x0 + tw / 2, 0, hh, toneT);
     x.save(); path(); x.clip(); const sp = 3, off = frame * sp / 2;
-    for (let yy = -hh + off - 1; yy < hh; yy += sp) { x.fillStyle = T[2]; x.fillRect(x0 + 0.35, yy, tw - 0.7, 1.05); }
+    for (let yy = -hh + off - 1; yy < hh; yy += sp) { x.fillStyle = T[3]; x.fillRect(x0 + 0.35, yy, tw - 0.7, 1.05); }
     x.restore();
     for (const yy of [-hh + 2.7, hh - 2.7]) { discV3(x, x0 + tw / 2, yy, tw * 0.5, M[0]); discV3(x, x0 + tw / 2, yy, tw * 0.36, M[2]); discV3(x, x0 + tw / 2 - 0.25, yy - 0.25, tw * 0.16, M[4]); }
-    if (big) for (let yy = -hh + 4.5; yy < hh - 6; yy += 5.5) { const sx = sd < 0 ? x0 : x0 + tw - 2.1; shadeV3(x, base, () => rrV3(x, sx, yy, 2.1, 4.4, 0.5), sx + 1, yy + 2.2, 3, toneR, M[0]); }
+    if (big) for (let yy = -hh + 4.5; yy < hh - 6; yy += 5.5) { const sx = sd < 0 ? x0 : x0 + tw - 1.3; shadeV3(x, base, () => rrV3(x, sx, yy, 1.3, 3.2, 0.4), sx + 0.6, yy + 1.6, 3, toneR, M[0]); }   // thin skirt plates: the tracks stay visible between them
   }
   // hull plate; the long-gun tank has a longer sloped front and a narrower nose
   const gl = o.long ? 9 : 7.2, cs = o.long ? 2.6 : 1.4;
@@ -73,7 +73,7 @@ function hullV3(x, base, ramp, w, h, frame, o) {
   if (o.wreck) { discV3(x, 0, 0, big ? 4.9 : 4.1, TANK_V3.char[3]); discV3(x, 0, 0, big ? 4.1 : 3.4, '#0a0a0c'); discV3(x, -0.4, 0.3, 1.5, TANK_V3.lamp[1]); discV3(x, -0.5, 0.1, 0.95, TANK_V3.lamp[2]); discV3(x, -0.6, 0, 0.4, TANK_V3.lamp[3]); }
 }
 function turretV3(x, base, ramp, cw, ch, big, long) {
-  const M = TANK_V3.metal, n = ramp.length, R = i => ramp[Math.max(0, Math.min(n - 1, i))], f = long ? 1.02 : big ? 1.4 : 1.12, bw = long ? 2.2 : big ? 3.4 : 2.7, by = 3.4 * f, tip = ch / 2 - 0.5, len = tip - by, toneM = [M[2], M[3], M[4], '#d8dce4'], toneR = [R(1), R(3), R(4), R(4)];
+  const M = TANK_V3.metal, n = ramp.length, R = i => ramp[Math.max(0, Math.min(n - 1, i))], f = long ? 1.02 : big ? 1.4 : 1.12, bw = long ? 2.2 : big ? 3.4 : 2.7, by = 3.4 * f, tip = ch / 2 - 0.5, len = tip - by, toneM = [M[2], M[3], M[4], '#d8dce4'], up = n > 5 ? 1 : 0, toneR = [R(1 + up), R(3 + up), R(4 + up), R(4 + up)];
   // barrel with a lit side, a bore evacuator and a vented muzzle brake
   shadeV3(x, base, () => rrV3(x, -bw / 2, by, bw, len, 0.4), 0, by + len / 2, bw * 3, toneM, M[0]);
   const evp = long ? 0.34 : 0.42, bl = long ? 5.4 : 2.8, bB = long ? bw + 2.0 : bw + 1.6;
@@ -83,12 +83,12 @@ function turretV3(x, base, ramp, cw, ch, big, long) {
   x.fillStyle = M[0]; if (long) { x.fillRect(-bB / 2, tip - bl * 0.68, bB, 0.6); x.fillRect(-bB / 2, tip - bl * 0.32, bB, 0.6); x.fillRect(-bw / 2, tip - 0.5, bw, 0.5); } else x.fillRect(-bB / 2, tip - bl * 0.55, bB, 0.55);   // brake slits
   shadeV3(x, base, () => rrV3(x, -bw / 2 - (long ? 2.6 : 1.8), by - 0.8, bw + (long ? 5.2 : 3.6), long ? 3.2 : 2.8, 0.9), 0, by + 0.6, 4, toneM, M[0]);   // mantlet
   // bustle, then the turret itself: rounded sloped shape
-  shadeV3(x, base, () => rrV3(x, -3.7 * f, -6.6 * f, 7.4 * f, 3.4 * f, 1.0), 0, -5 * f, 4, [R(1), R(2), R(3), R(4)], M[0]);
+  shadeV3(x, base, () => rrV3(x, -3.7 * f, -6.6 * f, 7.4 * f, 3.4 * f, 1.0), 0, -5 * f, 4, [R(1 + up), R(2 + up), R(3 + up), R(4 + up)], M[0]);
   const tur = () => { x.beginPath(); x.moveTo(-3.2 * f, -4.8 * f); x.lineTo(3.2 * f, -4.8 * f); x.lineTo(4.6 * f, -3.2 * f); x.lineTo(4.6 * f, 1.4 * f); x.lineTo(2.9 * f, 4.2 * f); x.lineTo(-2.9 * f, 4.2 * f); x.lineTo(-4.6 * f, 1.4 * f); x.lineTo(-4.6 * f, -3.2 * f); x.closePath(); };
   shadeV3(x, base, tur, 0, 0, 5.5 * f, toneR, R(0));
   // cupola with machine gun, loader hatch with the amber lamp, rivets on the front slope
   discV3(x, -2.5 * f, -2.9 * f, 1.3 * f, R(1)); discV3(x, -2.5 * f, -2.9 * f, 0.7 * f, M[1]); discV3(x, -2.75 * f, -3.15 * f, 0.26 * f, M[4]);
-  shadeV3(x, base, () => rrV3(x, 0.9 * f, -3.9 * f, 3.2 * f, 2.5 * f, 0.5), 2.5 * f, -2.6 * f, 2.5, [R(1), R(2), R(3), R(4)], R(0));
+  shadeV3(x, base, () => rrV3(x, 0.9 * f, -3.9 * f, 3.2 * f, 2.5 * f, 0.5), 2.5 * f, -2.6 * f, 2.5, [R(1 + up), R(2 + up), R(3 + up), R(4 + up)], R(0));
   x.fillStyle = TANK_V3.lamp[2]; x.fillRect(2.7 * f, -3.6 * f, 1.0, 1.0);
   if (big) for (const sd of [-1, 1]) { x.fillStyle = M[0]; x.fillRect(sd * 5.9 - 0.4, 0.8, 0.9, 2.8); }
 }
