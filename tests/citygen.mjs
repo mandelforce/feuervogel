@@ -335,6 +335,18 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   for (const preset of ['sandSea', 'sandSeaAged']) for (let seed = 1; seed <= 4; seed++) { const p = CG.generate({ seed, preset }), m = CG.validate(p); need(m.onRoad === 0 && m.pass, `${preset} seed ${seed}: ${m.onRoad} road overlaps, pass ${m.pass}`);
     if (preset === 'sandSeaAged') need(p.oasis.some(o => o.style === 'old') && p.oasis.some(o => o.style === 'roadside') && p.items.some(i => i.age > 0 && i.y0 < p.port.y1), `level 2 aged seed ${seed}: an old village, a roadside hamlet and aged port houses`); }
   ms.sort((a, b) => a - b); console.log(`${fails ? 'FAIL' : 'ok  '} aged desert: 600 village plans and 8 level plans, no building on a road; ${aged} aged houses, ${lean} lean-tos, ${plots} gardens, ${tufts} tufts; plan ${ms[300].toFixed(0)} ms median`); }
+// level 2's valley mouth (seed 1944 showed it): the railway goes round the rock instead of through it (never inside a wall, at least 4 px clear, on every seed),
+// and the dry riverbed narrows to a tip at both ends and never jumps sideways between rows (it used to stop in a straight cut)
+{ let fails = 0; const need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('level 2 valley mouth: ' + m); } };
+  for (const seed of [1944, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) for (const preset of ['sandSea', 'sandSeaAged']) { const p = CG.generate({ seed, preset }), { W, L } = p; let inside = 0, close = 0;
+    for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.RAIL && p.wallL[y] >= 0 ? x <= p.wallL[y] + 4 : false) { if (x <= p.wallL[y]) inside++; else close++; }
+    for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.RAIL && p.wallR[y] < W && x >= p.wallR[y] - 4) inside++;
+    need(inside === 0 && close === 0, `${preset} seed ${seed}: ${inside} rail cells in rock, ${close} closer than 4 px`);
+    const cnt = new Int16Array(L), mid = new Float32Array(L); for (let y = 0; y < L; y++) { let n = 0, sx = 0; for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.WADI) { n++; sx += x; } cnt[y] = n; mid[y] = n ? sx / n : 0; }
+    let jump = 0; for (let y = 1; y < L; y++) if (cnt[y] > 0 && cnt[y - 1] > 0 && Math.abs(mid[y] - mid[y - 1]) > 6) jump++;
+    let blunt = 0; for (let y = 1; y < L - 1; y++) { const m = Math.round(mid[y]), ford = k => p.K[k * W + m] === CG.K.ROAD; /* (a side track crossing the bed is a ford, not an end) */ if (cnt[y] > 6 && cnt[y - 1] === 0 && !ford(y - 1)) blunt++; if (cnt[y] > 6 && cnt[y + 1] === 0 && !ford(y + 1)) blunt++; } // a run that starts or ends more than 6 px wide (a tip is 4 to 5 with its banks)
+    need(jump === 0 && blunt === 0, `${preset} seed ${seed}: the riverbed jumps ${jump} times and has ${blunt} blunt ends`); }
+  console.log(`${fails ? 'FAIL' : 'ok  '} level 2 valley mouth: the railway keeps clear of the rock, the riverbed tapers (24 plans)`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
 { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
