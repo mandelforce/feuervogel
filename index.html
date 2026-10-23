@@ -571,8 +571,8 @@ PRESETS.oasisHeld = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, he
 PRESETS.desertPost = Object.assign({}, PRESETS.oasis, { label: 'Strongpoint in the desert', damage: 0.1, features: [{ kind: 'post', at: 0.5 }] });
 // the rest of level 2 (owner mockups V, P, J, A), each with the railway straight down the strip (x 74, inside the pass's gorge)
 // Enigma Run level 2 as one plan (sandSea): the sortie's segment sequence, scaled to 56 chunks (the lab shows it at the level's length)
-PRESETS.sandSea = Object.assign({}, PRESETS.oasis, { label: 'Level 2, Sea of Sand (whole level)', builder: 'sandSea', L: 3584, portDensity: 0.5,
-  segs: [{ t: 'harbour_commercial', n: 5 }, { t: 'beach_town', n: 4 }, { t: 'valley', n: 8 }, { t: 'village', n: 5 }, { t: 'station_junction', n: 7 }, { t: 'desert_open', n: 5 }, { t: 'airbase_desert', n: 7 }, { t: 'pass', n: 8 }, { t: 'desert_open', n: 7 }] });
+PRESETS.sandSea = Object.assign({}, PRESETS.oasis, { label: 'Level 2, Sea of Sand (whole level)', builder: 'sandSea', L: 4608, portDensity: 0.5,
+  segs: [{ t: 'harbour_commercial', n: 6 }, { t: 'beach_town', n: 5 }, { t: 'valley', n: 11 }, { t: 'village', n: 6 }, { t: 'station_junction', n: 9 }, { t: 'desert_open', n: 6 }, { t: 'airbase_desert', n: 9 }, { t: 'pass', n: 11 }, { t: 'desert_open', n: 9 }] }); // (72 chunks, as the game scales its 48 weights)
 PRESETS.sandSea.label = 'Level 2, Sea of Sand (whole level, the new look)'; PRESETS.sandSea.mixPort = 0.2; PRESETS.sandSea.mixVillage = 0.25; // (the new look is the level's own: Campaign-shaded houses, one old village, a few old houses elsewhere)
 PRESETS.sandSeaAged = Object.assign({}, PRESETS.sandSea, { label: 'Level 2, the new look (same as the level)' });
 PRESETS.sandSeaClassic = Object.assign({}, PRESETS.sandSea, { label: 'Level 2, the old look (clean plaster cubes)', wear: 0 });
@@ -2871,10 +2871,12 @@ function desertLand(o) {
   const RXbase = y => y < 160 ? lerp(RA, RX, smooth(0, 160, y)) : y > L - 161 ? lerp(RX, RB, smooth(L - 161, L - 1, y)) : RX; // (the line can come in and leave at another x, curving over 160 px)
   const RXat = RXbase; // (the line keeps its own smooth curve; the rock gives way to it, below)
   // the rock gives way to the line: a wall never comes nearer than 26 px to the line's centre (20 px from the rails, past the cliff's own shadow), receding smoothly
+  const cutL = new Float32Array(L); // (how far the left wall receded: the pass's gorge keeps its width, so the right wall comes in by the same)
   if (RX !== null) for (const [A, sgn] of [[WL, 1], [WR, -1]]) { const d = new Float32Array(L); let any = false;
     for (let y = 0; y < L; y++) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, over = sgn > 0 ? A[y] - want : want - A[y]; if (over > 0) { d[y] = over; any = true; } }
     if (!any) continue; const bl = new Float32Array(L); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < L; y++) { let t = 0, n = 0; for (let k = -12; k <= 12; k++) { const q = y + k; if (q >= 0 && q < L) { t += d[q]; n++; } } bl[y] = t / n; } for (let y = 0; y < L; y++) d[y] = Math.max(bl[y] * 1.6, d[y]); }
-    for (let y = 0; y < L; y++) if (d[y] > 0) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, v = A[y] - sgn * d[y]; A[y] = sgn > 0 ? Math.min(v, want) : Math.max(v, want); if (sgn > 0 ? A[y] < 1 : A[y] > W - 2) A[y] = sgn > 0 ? -1 : W; } }
+    for (let y = 0; y < L; y++) if (d[y] > 0) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, v = A[y] - sgn * d[y]; const was = A[y]; A[y] = sgn > 0 ? Math.min(v, want) : Math.max(v, want); if (sgn > 0) cutL[y] = was - A[y]; if (sgn > 0 ? A[y] < 1 : A[y] > W - 2) A[y] = sgn > 0 ? -1 : W; } }
+  for (const F of feats) { if (F.kind !== 'pass') continue; const [pa, pb] = span(F); for (let y = Math.max(0, pa - 40); y < Math.min(L, pb + 40); y++) if (cutL[y] > 0 && WL[y] >= 0 && WR[y] < W) WR[y] = Math.max(WR[y] - cutL[y], WL[y] + 60); }
   const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)); for (let k = -6; k <= 6; k++) { const x = c + k; if (!inB(x, y)) continue; const i = idx(x, y), m = (k === -3 || k === 3) ? 2 : (y % 3 === 0 && k >= -5 && k <= 5) ? 3 : 1;
       if (Kr[i] === K.ROAD) { if (m === 2) RM[i] = 2; continue; } if (Kr[i] === K.RBRIDGE) { RM[i] = Math.max(RM[i], m); continue; } Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; } } };
   if (RX !== null) { for (let y = 0; y < L; y++) { const c = Math.round(RXat(y)); for (let x = c - 8; x <= c + 8; x++) if (inB(x, y) && Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; } const r0 = RA === RX ? 0 : 160, r1 = RB === RX ? L - 1 : L - 161; plan.trainRuns.push({ x: RX, y0: r0, y1: r1, line: 'main' }); plan.rail = { x: RX }; }
@@ -2945,7 +2947,8 @@ function desertLand(o) {
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
       wearK = clamp((P.wear || 0) * STYLE_WEAR.roadside, 0, 1); mixK = F.mix !== undefined ? F.mix : P.mixVillage !== undefined ? P.mixVillage : 1;
-      const gy = yc, span = F.span || 130, houses = [], g0 = plan.items.length, g = 9400 + fi;
+      const span = F.span || 130, houses = [], g0 = plan.items.length, g = 9400 + fi; let gy = yc;
+      if (RX !== null) { let best = -1; for (let dy = -170; dy <= 170; dy += 10) { const c = yc + dy; if (c - span < 20 || c + span > L - 20) continue; let m = 1e9; for (let y = c - span; y <= c + span; y += 8) m = Math.min(m, Math.abs(MX(y) - RXat(y))); if (m > best + 0.5 || (Math.abs(m - best) <= 0.5 && Math.abs(dy) < Math.abs(gy - yc))) { best = m; gy = c; } } } // (the hamlet lies where the track runs well clear of the railway)
       const sq = F.side || (rnd(TD, 50 + fi) < 0.5 ? 1 : -1), pw = 28, ph2 = 22, py0 = gy - 11; let px0 = Math.round(sq > 0 ? MX(gy) + 4.5 + 4 : MX(gy) - 4.5 - 4 - pw), square = null;
       for (let t = 0; t < 8 && !square; t++) { const yy = py0 + (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 6; if (rectOpen(px0 - 1, yy - 1, pw + 2, ph2 + 2) && roadFree(px0, yy, pw, ph2, 3)) square = { x0: px0, y0: yy, w: pw, h: ph2 }; }
       if (square) { for (let y = square.y0; y < square.y0 + ph2; y++) for (let x = square.x0; x < square.x0 + pw; x++) set(x, y, K.PLAZA);
@@ -2962,7 +2965,7 @@ function desertLand(o) {
       for (const it of houses) damage(it, F.damage !== undefined ? F.damage : 0.12);
       for (let k = 0; k < 9; k++) { const y = Math.round(gy - span + rnd(TD, 57 + fi, k) * 2 * span), side = rnd(TD, 58 + fi, k) < 0.5 ? -1 : 1, x = Math.round(MX(y) + side * (22 + rnd(TD, 59 + fi, k) * 30)); if (rectOpen(x - 3, y - 3, 6, 6) && roadFree(x - 3, y - 3, 6, 6, 3)) plan.trees.push({ x, y, r: 2 + (rnd(TD, 49 + fi, k) < 0.3 ? 1 : 0), v: 1, palm: true }); }
       lived(houses, STYLE_PLANTS.roadside);
-      plan.oasis.push({ x: Math.round(MX(gy)), y: gy, rx: 40, ry: span, size: 'roadside', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!square, held: false, y0: gy - span, y1: gy + span, style: 'roadside' });
+      plan.oasis.push({ x: Math.round(MX(gy)), y: gy, rx: 0, ry: span, size: 'roadside', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!square, held: false, y0: gy - span, y1: gy + span, style: 'roadside' }); // (rx: no grove, only the strip along the track)
     } else if (F.kind === 'post') strongpoint(yc, fi);
     else if (F.kind === 'valley') oilValley(F, fi); else if (F.kind === 'pass') fortPass(F, fi); else if (F.kind === 'junction') junction(F, fi); else if (F.kind === 'airbase') airbase(F, fi); }
   if (RX !== null) layRail(RXat, 0, L - 1);
@@ -7767,7 +7770,7 @@ const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B', '1A'], ENIGMA_N = ENIG
 function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
-const ENIGMA_LEN = [56, 56, 58, 60, 84, 70, 70, 56]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
+const ENIGMA_LEN = [56, 72, 58, 60, 84, 70, 70, 56]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
   [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 4], ['coast_down', 1], ['open_sea', 4]], // owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean

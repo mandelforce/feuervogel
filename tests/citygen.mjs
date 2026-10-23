@@ -106,7 +106,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // and side tracks (tank routes off the main track, at least four per level) for the game's tanks to turn into
 { let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'sandSea' }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`sandSea seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}, lanes blocked ${m.lanesBlocked}`); }
-    const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 2 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
+    const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 3 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
   ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
   console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 whole plan: ${20 - fails}/20 pass, every feature and side tracks in ${20 - low}, plan ${ms[10].toFixed(0)} ms median`); }
 // Level 2, nothing stands on a road or the railway (owner review): no gun slot, pit, shell hole, oil spill or oasis on a track, a road or the rail's
