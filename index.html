@@ -10807,10 +10807,12 @@ const BOSS_FIGHT = {
     },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if (e.last && run.sortie) {
-        // Enigma Run, last stand: salvos of three, one shot from each barrel tip (the turret swings across the player, see the aim line in the boss update). Sweeping salvos, then a fast aimed burst of three salvos; the Campaign keeps the spiral below
-        const n = e.lastN = (e.lastN || 0) + 1, c = n % 17;
-        if (c < 16) { p.cd = Math.round(10 * fireSlow()); turretSalvo(e, p, sp * 0.85, 's'); }
-        else { p.cd = Math.round(46 * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dying && hasT()) turretSalvo(e, p, sp * 1.1, 'B'); } }); }
+        // Enigma Run, last stand: salvos of three, one shot from each barrel tip (the turret swings across the player, see the aim line in the boss update). 16 sweeping salvos, then a 25-frame wind-up (the turret locks on and the barrels show their aim lines, see the boss drawing) and a fast burst of three salvos; the Campaign keeps the spiral below
+        if (e.wind > 0) {
+          p.cd = 1;
+          if (--e.wind === 0) { p.cd = Math.round(56 * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dying && hasT()) turretSalvo(e, p, sp * 1.1, 'B'); } }); }
+        } else if ((e.lastN = ((e.lastN ?? -1) + 1) % 17) < 16) { p.cd = Math.round(10 * fireSlow()); turretSalvo(e, p, sp * 0.85, 's'); }
+        else { e.wind = 25; p.cd = 1; sfx('charge'); }
       } else if (e.last) {
         p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
         eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
@@ -11373,7 +11375,7 @@ const ENT = {
       if (p.k === 'core' && BOSS[e.kind].aimCore) {
         BOSS[e.kind].aimCore(e, p, px, py);
       } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
-        if (hasT()) p.ang += clamp(angDiff(p.ang, aim(px, py) + (p.k === 'core' && e.kind === 'fortress' && e.last && run.sortie ? Math.sin(e.last.t * 0.03) * 0.6 : 0)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
+        if (hasT()) p.ang += clamp(angDiff(p.ang, aim(px, py) + (p.k === 'core' && e.kind === 'fortress' && e.last && run.sortie && !(e.wind > 0) ? Math.sin(e.last.t * 0.03) * 0.6 : 0)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
       if (!hasT()) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
@@ -13098,6 +13100,15 @@ const BOSS_LOOKS = {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
       spr(SPR.fortHull[e.moving ? (gf >> 3) & 1 : 0], e.x, e.y, fl); if (hd) ctx.restore(); }
     drawBossParts(e, { main: SPR.dGun, aa: SPR.bAA, mortar: SPR.mortar, core: SPR.fortTur });
+    if (e.wind > 0 && e.last && run.sortie && !core.dead && !e.dying) { // the burst's wind-up: aim lines from the three barrel tips, and the tips glow brighter (same dots as the Night Hammer's aim line)
+      const qa = dirIdx(core.ang) * TAU / 16, c = Math.cos(qa), sn = Math.sin(qa), px = e.x + core.ox, py = e.y + core.oy, f = 1 - e.wind / 25;
+      for (const lat of [-5, 1, 7]) {
+        const ox = px + c * 40 + sn * lat, oy = py + sn * 40 - c * lat;
+        ctx.fillStyle = (gf >> 1) & 1 ? '#ff5a3a' : '#ffd08a';
+        for (let d = 6; d < 240; d += 5) ctx.fillRect(Math.round(ox + c * d) - 1, Math.round(oy + sn * d) - 1, 2, 2);
+        ctx.globalAlpha = 0.35 + 0.3 * f; dk(ox, oy, 3 + f * 3, '#ff6a1a'); ctx.globalAlpha = 1; dk(ox, oy, 1 + f * 2, f > 0.7 && (gf & 2) ? '#ffffff' : '#ffd060');
+      }
+    }
   },
   castle(e, fl, core) {
     if (e.y > -140 && e.y < H + 60) {
