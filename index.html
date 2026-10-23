@@ -10764,6 +10764,13 @@ const BOSSMOVE = {
     return true;
   }
 };
+// Sand Colossus's turret sprite (SPR.fortTur) has three barrels and is drawn in 16 directions: a salvo leaves the barrel tips along the drawn direction
+function turretSalvo(e, p, sp, kind) {
+  if (p.dead) return;
+  const qa = dirIdx(p.ang) * TAU / 16, c = Math.cos(qa), sn = Math.sin(qa), px = e.x + p.ox, py = e.y + p.oy;
+  for (const lat of [-5, 1, 7]) eshot(px + c * 40 + sn * lat, py + sn * 40 - c * lat, qa, sp, kind);
+  flash(px + c * 40 + sn, py + sn * 40 - c, 4); sfx('gun');
+}
 // How each boss fights, merged into BOSS[kind] (see the boss table). In ENT.boss.update: dyingDrift(e) moves it while it dies;
 // introEarly(e) starts its entrance before the fight is ready; tick(e, core) runs each frame before its parts fire; aimCore(e, p,
 // px, py) turns its core (else, with coreTurns, the core aims like a gun); holdFire(e, py) returns how long a part waits; mainFire(e,
@@ -10800,15 +10807,10 @@ const BOSS_FIGHT = {
     },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if (e.last && run.sortie) {
-        // Enigma Run, last stand: shots leave the barrel. The turret swings a five-shot fan across the player like a wiper, then fires two rings with a gap along the barrel (the Campaign keeps the spiral below)
-        const n = e.lastN = (e.lastN || 0) + 1, c = n % 32, [bx, by] = mz(34);
-        p.cd = Math.round(8 * fireSlow());
-        if (c < 20) { const mid = p.ang + Math.sin(n * 0.25) * 0.7; for (let k = -2; k <= 2; k++) eshot(bx, by, mid + k * 0.17, sp * 0.85); flash(bx, by, 3); sfx('gun'); }
-        else if (c % 6 === 2) {
-          p.cd = Math.round(26 * fireSlow()); const N = 22, off = (c === 20 ? 0 : TAU / N / 2);
-          for (let i = 0; i < N; i++) { const ang = p.ang + off + i * TAU / N; if (Math.abs(angDiff(ang, p.ang)) > 0.3) eshot(bx, by, ang, sp * 0.8, 'B'); }
-          flash(bx, by, 6); smokePuff(bx, by); sfx('cannon');
-        }
+        // Enigma Run, last stand: salvos of three, one shot from each barrel tip (the turret swings across the player, see the aim line in the boss update). Sweeping salvos, then a fast aimed burst of three salvos; the Campaign keeps the spiral below
+        const n = e.lastN = (e.lastN || 0) + 1, c = n % 17;
+        if (c < 16) { p.cd = Math.round(10 * fireSlow()); turretSalvo(e, p, sp * 0.85, 's'); }
+        else { p.cd = Math.round(46 * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dying && hasT()) turretSalvo(e, p, sp * 1.1, 'B'); } }); }
       } else if (e.last) {
         p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
         eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
@@ -11371,7 +11373,7 @@ const ENT = {
       if (p.k === 'core' && BOSS[e.kind].aimCore) {
         BOSS[e.kind].aimCore(e, p, px, py);
       } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
-        if (hasT()) p.ang += clamp(angDiff(p.ang, aim(px, py)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
+        if (hasT()) p.ang += clamp(angDiff(p.ang, aim(px, py) + (p.k === 'core' && e.kind === 'fortress' && e.last && run.sortie ? Math.sin(e.last.t * 0.03) * 0.6 : 0)), -(p.k === 'core' ? 0.022 : 0.035), p.k === 'core' ? 0.022 : 0.035);
       }
       if (!hasT()) continue;
       if (e.ram && p.k === 'core') { p.cd = Math.max(p.cd, 20); continue; }
