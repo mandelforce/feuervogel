@@ -9406,10 +9406,12 @@ function spawnGround(b) {
     else if (r < 0.75) { world.enemies.push(G('bldg', px, wy, { bk: 'shed', hp: 12 * m, hw: 6, hh: 13, score: 1200, rad: 14 })); for (const dy of [-20, 20]) world.enemies.push(G('crate', px, wy + dy, { hp: 3 * m, hw: 3, hh: 3, score: 150, rad: 5 })); }
     return;
   }
+  // Enigma Run plans carry their railway, roads and runways in the plan, which railDist and roadX don't see: a gun's footprint never touches them
+  const onLines = (wx, rad) => { const S = run.sortie; if (!S || !S.gen) return false; const h = Math.min(rad, 16) + 2; for (let dx = -h; dx <= h; dx += 4) for (let dy = -h - 8; dy <= h; dy += 4) { const t = terrainType(wx + dx, wy + dy); if (t === 'rail' || t === 'road' || t === 'runway' || t === 'bridge' || t === 'railbridge') return true; } return false; };
   const tryLand = (types, rad = 12) => {
     for (let k = 0; k < 10; k++) {
       const wx = rnd(18, W - 18);
-      if (types.includes(terrainType(wx, wy)) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
+      if (types.includes(terrainType(wx, wy)) && !onLines(wx, rad) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
     }
     return null;
   };
