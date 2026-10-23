@@ -436,6 +436,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <p class="note" id="sEnigmaRunNote">Six redesigned levels, one at a time. Not part of the Campaign: scores do not count.</p>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
+        <div class="row"><label for="sFire">Gun speed</label><input type="range" id="sFire" min="50" max="200" step="5"><span id="sFireV" class="val">100%</span></div>
+        <p class="note">Test: how fast your guns cycle. 100% is standard.</p>
         <div class="row" id="sPbRow"><span>Point-blank fire</span><span class="seg" id="sPb"><button type="button" data-v="off">Off</button><button type="button" data-v="on">On</button></span></div>
         <p class="note">Test: the gun slows while your shots are still in the air, so closing in fires faster. Arc fires faster at close range. Turn on Show FPS to see the rate.</p>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
@@ -4176,8 +4178,9 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: false };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: false, fire: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
+settings.fire = Math.max(50, Math.min(200, Math.round((+settings.fire || 100) / 5) * 5)); // gun speed in percent, 100 = standard
 settings.enigma = Math.max(0, Math.min(100, Math.round((+settings.enigma || 0) / 5) * 5)); // Enigma look strength, 0 = classic
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
@@ -11416,13 +11419,15 @@ function pbAir(p, k) { // the ship's own live shots of one kind, drone fire left
   for (const s of world.shots) if (s.k === k && !s.drone && !s.dead && (s.o || 1) === o) n++;
   return n;
 }
+const fcd = base => settings.fire === 100 ? base : Math.max(1, Math.round(base * 100 / settings.fire)); // a cooldown at the chosen gun speed
 function pbCd(p, base, k, per) { // the cooldown for one volley of `per` shots of kind k
+  base = fcd(base);
   if (!settings.pb) return base;
   const c = PB[k === 'l' ? 'L' : 'S'], v = pbAir(p, k) / per;
   if (p === player) { PB.air += v; PB.fired++; }
   return base + Math.round(base * PB.k * clamp((v - c.knee) / (c.cap - c.knee), 0, 1));
 }
-function pbArcCd(base, near) { return settings.pb && near >= 0 ? Math.round(PB.arcMin + (base - PB.arcMin) * clamp((near - PB.arcNear) / (1 - PB.arcNear), 0, 1)) : base; }
+function pbArcCd(base, near) { base = fcd(base); if (!settings.pb || near < 0) return base; const mn = PB.arcMin * base / 8; return Math.round(mn + (base - mn) * clamp((near - PB.arcNear) / (1 - PB.arcNear), 0, 1)); }
 function pbTick() { // every two seconds, update the readout
   if (!settings.pb || !player || gf % 120) return;
   PB.shown = 'PB ' + (PB.fired * 0.5).toFixed(1) + '/s AIR ' + (PB.fired ? PB.air / PB.fired : 0).toFixed(1); PB.fired = PB.air = 0;
@@ -11484,7 +11489,7 @@ function firing(p = player, two) {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
     pshot(p.x - 3, p.y - 8, up, 6, 1); pshot(p.x + 3, p.y - 8, up, 6, 1);
     if (p.mcd <= 0) { if (!two) chipPlay('missile');
-      p.mcd = Math.max(16, 32 - L * 4);
+      p.mcd = fcd(Math.max(16, 32 - L * 4));
       for (let i = 0; i < Math.min(L, 3); i++) { const side = i % 2 ? 1 : -1; world.shots.push({ x: p.x + side * 6, y: p.y, vx: side * (1.2 + i * 0.3), vy: -0.6, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 }); }
     }
   }
@@ -11643,7 +11648,7 @@ function updPlayer() {
       else world.shots.push({ x: d.x, y: d.y - 4, vx: side * 0.8, vy: -1.2, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 });
     }
   }
-  if (p.dcd === 0 && p.drones) p.dcd = p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26;
+  if (p.dcd === 0 && p.drones) p.dcd = fcd(p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26);
   firing();
 }
 /* ---- rebirth: the ship bursts into its own pixels, then the same burst runs backwards ---- */
@@ -13711,6 +13716,7 @@ for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('ari
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
 for (const b of document.querySelectorAll('#sPb button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === !!settings.pb));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
+  { const r = document.getElementById('sFire'); r.value = settings.fire; rangeFill(r); document.getElementById('sFireV').textContent = settings.fire + '%'; }
   { const r = document.getElementById('sEnigma'); r.value = settings.enigma; rangeFill(r); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; }
 }
 function buildHelp() {
@@ -13880,6 +13886,7 @@ function rangeFill(r) { r.style.setProperty('--v', r.value + '%'); } // the pixe
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
+document.getElementById('sFire').addEventListener('input', e => { settings.fire = +e.target.value; rangeFill(e.target); document.getElementById('sFireV').textContent = settings.fire + '%'; saveSettings(); });
 document.getElementById('sEnigma').addEventListener('input', e => { settings.enigma = +e.target.value; rangeFill(e.target); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; saveSettings(); }); // a run in progress keeps its own run.enigma; this applies from the next run
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
