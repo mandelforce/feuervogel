@@ -4446,7 +4446,7 @@ function rotated(s, ang) {
   return o;
 }
 function rotSet(s, n = 16) { const arr = []; for (let i = 0; i < n; i++) arr.push(rotated(s, i * TAU / n - PI / 2)); return arr; }
-const dirIdx = (a, n = 16) => ((Math.round(a / TAU * n) % n) + n) % n;
+const dirIdx = (a, n = 16) => a === a ? ((Math.round(a / TAU * n) % n) + n) % n : 0; // a NaN heading would index past the sprite set
 
 function ellS(x, ramp, cx, cy, rx, ry, bias = 0) {
   for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
@@ -5721,7 +5721,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   SPR.straw = sprite(30, 24, x => { for (let i = 0; i < 26; i++) { const a2 = i * 2.6, r2 = 9 + (i % 4) * 2; rect(x, STRAW[2 + (i % 3)], Math.round(15 + Math.cos(a2) * r2), Math.round(12 + Math.sin(a2) * r2 * 0.75), 2, 1); } }, { outline: false });
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
-function shadow(s, x, y, ox, oy, a = 0.32) { ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
+function shadow(s, x, y, ox, oy, a = 0.32) { if (!s || !s.k) return; ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
   r = Math.max(0, Math.round(r));
