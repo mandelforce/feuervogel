@@ -84,7 +84,7 @@ export default {
         const now = Date.now();
         const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM runs WHERE player = ?1 AND created > ?2').bind(player, now - 86400000).first();
         if (recent && recent.n >= 300) return json({ error: 'Daily limit reached.' }, 429, origin);
-        const data = JSON.stringify({ n: b.n, gap: b.gap, tut: b.tut, inp: b.inp, pk: b.pk, st: b.st, dt: b.dt });
+        const data = JSON.stringify({ n: b.n, gap: b.gap, tut: b.tut, inp: b.inp, pk: b.pk, st: b.st, dt: b.dt, rt: b.rt ? 1 : 0 }); // rt: a Retro Run (the old campaign)
         await env.DB.prepare('INSERT INTO runs (player, version, mode, plat, diff, start, two_p, stage, score, conts, dur, end_kind, created, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)')
           .bind(player, String(b.v || '').slice(0, 12), mode, plat, int(b.diff, 0, 2), int(b.start, 1, 300), b.twoP ? 1 : 0, int(b.stage, 1, 300), int(b.score, 0, 99999999), int(b.conts, 0, 9), int(b.dur, 0, 86400), end, now, data).run();
         return json({ ok: true }, 200, origin);
