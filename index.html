@@ -12438,7 +12438,6 @@ function update() {
       if (Math.abs(s.x - e.x) < e.hw + s.w / 2 && Math.abs(s.y - e.y) < e.hh + s.h / 2) {
         s.dead = true;
         world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' });
-        if (s.k === 'l' && s.lv >= 4) world.parts.push({ kind: 'ring', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 9, max: 9, r: 11, col: WPN.L.ramp[4] }); // (the Lance's shock ring at full power)
         damage(e, s.dmg * dmgK()); run.stats.hits++;
         break;
       }
