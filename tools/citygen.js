@@ -2486,7 +2486,9 @@ function desertLand(o) {
     for (const y of rows) { const m = MX(y + h / 2), xs = []; for (let x = 6; x + w < W - 6; x += 4) xs.push(x); xs.sort((a, b) => Math.abs(a + w / 2 - m) - Math.abs(b + w / 2 - m)); for (const x of xs) if (freeBox(x - 4, x + w + 3, y - 4, y + h + 3)) return { x, y }; } return null; };
   const reserve = (xa, xb, ya, yb) => { for (let yy = ya; yy <= yb; yy++) for (let xx = xa; xx <= xb; xx++) if (open(xx, yy)) Br[idx(xx, yy)] = -51; };
   const rectOpen = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inB(x, y) || Kr[idx(x, y)] !== K.DESERT || Br[idx(x, y)] !== -1) return false; return true; };
-  const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; plan.slots.push(c); return c; };
+  // a gun slot's footprint never touches a road or a bridge, and keeps a margin from the railway, its corridor and a runway (the slot is then not made: its callers ignore a slot that is not in plan.slots)
+  const onLine = (x, y, r) => { const m = Math.ceil(r) + 3, e = Math.ceil(r); for (let yy = -m; yy <= m; yy++) for (let xx = -m; xx <= m; xx++) { const X = Math.round(x) + xx, Y = Math.round(y) + yy; if (!inB(X, Y)) continue; const i = idx(X, Y), k = Kr[i]; if (k === K.RAIL || k === K.RBRIDGE || k === K.RUNWAY || (k === K.DESERT && Br[i] === -50)) return true; if ((k === K.ROAD || k === K.BRIDGE) && Math.abs(xx) <= e && Math.abs(yy) <= e) return true; } return false; };
+  const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; if (kind !== 'parked' && on !== 'roof' && onLine(c.x, c.y, r)) return c; plan.slots.push(c); return c; };
   let nSeed = 0; const sd = () => h32(seed, 93000 + nSeed++);
   // 1. the track
   const c0 = 70 + rnd(TD, 1) * 84, amp = 6 + rnd(TD, 2) * 10, fr = 0.005 + rnd(TD, 3) * 0.006, ph = rnd(TD, 4) * 6.283;
@@ -2638,12 +2640,12 @@ function desertLand(o) {
     for (let xx = -10; xx <= 10; xx++) for (let k = 1; k <= 3; k++) { const yy = y - dir * (9 + k); if (open(x + xx, yy)) set(x + xx, yy, K.SPOIL, -40 - [16, 12, 7][k - 1]); }
     for (const sx of [-1, 1]) for (let yy = -8; yy <= 9; yy++) for (let k = 1; k <= 2; k++) { const xx = x + sx * (7 + k); if (open(xx, y + yy)) set(xx, y + yy, K.SPOIL, -40 - (sx < 0 ? 15 : 8)); }
     return slot('tank', 'pit', x, y, 6); }
-  function bunkerPad(x, y) { for (let yy = y - 6; yy < y + 6; yy++) for (let xx = x - 6; xx < x + 6; xx++) if (open(xx, yy)) set(xx, yy, K.APRON); return slot('bunker', 'pad', x, y, 6); }
+  function bunkerPad(x, y) { if (onLine(x, y, 6)) return null; for (let yy = y - 6; yy < y + 6; yy++) for (let xx = x - 6; xx < x + 6; xx++) if (open(xx, yy)) set(xx, yy, K.APRON); return slot('bunker', 'pad', x, y, 6); }
   function netOver(x, y, rx, ry, under) { plan.nets.push({ x, y, rx, ry, s: plan.nets.length * 3.1, under }); }
   // a held village (mockup D2): its approach from the south closed by, going north: the ditch and the roadblock, the minefield, two belts of wire, the fire trench with its pits, a bunker at the track, a tank dug in on the flank
   function fortify(yT, houses, gr) { const across = (y, a = 2.5) => { const pts = []; for (let x = 0; x <= W; x += 16) pts.push([x, y + a * Math.sin(x * 0.025 + seed)]); return pts; };
     zigTrench(across(yT), -1, 10); for (let x = 22; x < W - 10; x += 46) { const y = yT + 9, m = MX(y); if (Math.abs(x - m) < 18) continue; pit(x, y, 4, (x / 46 | 0) % 2 ? 'arty' : 'flak'); }
-    bunkerPad(Math.round(MX(yT + 6) + 16), yT + 6); const tx = MX(yT) > W / 2 ? 24 : W - 24; dugTank(tx, yT - 18, 1);
+    for (const dx of [16, -16, 26, -26, 36, -36]) if (bunkerPad(Math.round(MX(yT + 6) + dx), yT + 6)) break; /* (at the track, on whichever side the railway leaves room) */ const tx = MX(yT) > W / 2 ? 24 : W - 24; dugTank(tx, yT - 18, 1);
     coil(across(yT - 18, 3), 8); coil(across(yT - 25, 3), 8); minesAlong(across(yT - 32, 2), 3, -1, 9); const yD = yT - 54; ditch(yD, 8); roadblock(yD + 8);
     const fl = gr && pit(Math.round(gr.gx + (gr.gx > W / 2 ? -1 : 1) * (gr.rx - 4)), gr.gy - gr.ry + 10, 6, 'flak'); if (fl) netOver(fl.x, fl.y, 13, 10, false);
     const flat = houses.filter(h2 => !h2.dmg && h2.w >= 12 && h2.h >= 12).slice(0, 2); for (const h2 of flat) { slot('flak', 'roof', h2.x0 + h2.w / 2, h2.y0 + h2.h / 2, 3, h2.id); h2.wash = h2.wash; } }
