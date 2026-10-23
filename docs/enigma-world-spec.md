@@ -1016,7 +1016,7 @@ Level 2 flies the Campaign's stage 2: theme 2, the desert music, and the Sand Co
 - The fence between neighbouring gardens is drawn again (every town paints a little differently).
 - The tunnel hill over 6B's quayside track is limited to the open ground beside it again, so it stays off streets.
 
-**The plan** (`sortiePlanLevel2`; the generator's `sandSea`): one plan over the whole level, 56 chunks (3584 px), from its first chunk.
+**The plan** (`sortiePlanLevel2`; the generator's `sandSea`): one plan over the whole level, 72 chunks (4608 px; 56 chunks, 3584 px, before the level was lengthened by 16 chunks, about 2.5 screens), from its first chunk.
 - **Port:** the harbour and beach-town segments are the desert port (`portDesert`, middle density, at war). The end quay is 1.5 chunks in, so the level opens over the sea close to the quay; the east harbour runs along about 62 percent of the harbour segment; the beach town follows to the end of the beach segment.
 - **The rest** is desert land with each segment's feature: the oil valley, the held oasis village (`village`: the medium oasis, held), the junction, the small oasis (the first `desert_open`: the level's landmark), the airbase, the pass, and the quiet desert (the second `desert_open`, nothing built).
 - **Joining:** the two plans are joined row on row. Buildings and streets are renumbered, and every position, group and row array moves up by the port's length. The track carries on from the port's main road.
