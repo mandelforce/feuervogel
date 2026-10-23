@@ -104,18 +104,18 @@
     "normal-2p-stage2-immortal": {
       "H": 408,
       "status": "ok",
-      "score": 302810,
+      "score": 300410,
       "stage": 3,
-      "lives": 2,
-      "bombs": 4,
+      "lives": 0,
+      "bombs": 5,
       "frames": 20000,
       "kills": 31,
-      "medals": 2,
+      "medals": 0,
       "hits": 1,
-      "enemies": 26,
-      "bullets": 17,
+      "enemies": 24,
+      "bullets": 18,
       "errors": 0,
-      "trace": "c2370f5d 0b15cf4d 576513bc 838fe332 2ab67849 579ab304 d3812932 cbd2c0f6 6b539e84 2b13e3db 5a15d172 0d9e758d f34c0a48 3055d721 14787c76 20765a1e 21611e60 043b0a0f 40f43d9a d73c1f54 4083cde2 853ec239 11fb8163 2dea7ddc a71ba750 80fcc76e 9b74381a 6b0d303d fa69977b 32243142 8017e1a3 411624dd e7805812 2200be8c 81811469 fdf34553 1cb189e1 9b3e6e97 3a489521 cb0e74a2"
+      "trace": "c2370f5d 0b15cf4d 576513bc 838fe332 cd7e0793 aded7b4b 7b42c399 7788eb44 2226d136 3383c210 282d7575 1d4b362b 118f89ca 428c36f4 35ca63b7 d1876d50 f1edadd6 b46965ec 9751893b 79fe363c c8f29c32 eee30a68 2d3966ac 152a58b0 a9bec161 4c26bc48 b816e382 0dbfbfd0 ce4c5bb8 8192ddb0 2950e9ed cde523ca c651e863 878db77a b8964ea5 a799dc40 ef8cb382 31aadd52 061ae379 9e04504b"
     },
     "normal-resume-stage2-immortal": {
       "H": 408,
