@@ -4133,7 +4133,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.46'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.4.47'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10799,7 +10799,17 @@ const BOSS_FIGHT = {
       flash(bx, by, 3); sfx('gun');
     },
     coreFire(e, p, px, py, core, others, sp, mz) {
-      if (e.last) {
+      if (e.last && run.sortie) {
+        // Enigma Run, last stand: the turret swings a five-shot fan like a wiper, then throws two rings with a gap that faces the player (the Campaign keeps the spiral below)
+        const n = e.lastN = (e.lastN || 0) + 1, c = n % 32;
+        p.cd = Math.round(8 * fireSlow());
+        if (c < 20) { const mid = PI / 2 + Math.sin(n * 0.25) * 0.9; for (let k = -2; k <= 2; k++) eshot(px, py, mid + k * 0.17, sp * 0.85); }
+        else if (c % 6 === 2) {
+          p.cd = Math.round(26 * fireSlow()); const a = aim(px, py), N = 22, off = (c === 20 ? 0 : TAU / N / 2);
+          for (let i = 0; i < N; i++) { const ang = a + off + i * TAU / N; if (Math.abs(angDiff(ang, a)) > 0.3) eshot(px, py, ang, sp * 0.8, 'B'); }
+          flash(px, py, 6); sfx('cannon');
+        }
+      } else if (e.last) {
         p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
         eshot(px, py, e.spin, sp * 0.8); eshot(px, py, e.spin + PI, sp * 0.8);
         if ((e.burstN = (e.burstN || 0) + 1) % 12 === 0) { const a = aim(px, py); for (let k = -2; k <= 2; k++) eshot(px, py, a + k * 0.16, sp * 1.05, 'B'); flash(px, py, 6); sfx('cannon'); }
