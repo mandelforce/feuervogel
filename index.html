@@ -11490,6 +11490,29 @@ function drawLance(s) {
   }
   ctx.globalAlpha = 1;
 }
+// The Scatter: pellets that sharpen into darts. Level 1 is a pellet pair; from level 2 the centre dart of the fan is heavier and the outer darts
+// are shorter and darker, so the fan has a leader; levels 3 and 4 add a short tail. Kept light on purpose: no glow, so enemy fire stays the
+// brightest thing on screen. Drawing only; a class is one (level, place in the fan) pair, built once as 32 headings with the usual outline.
+const scatCls = {};
+function scatClass(L, r) {
+  const rc = Math.round(r * 6), key = L * 8 + rc; if (scatCls[key]) return scatCls[key];
+  r = rc / 6; const c = WPN.S.ramp, big = L >= 2 && r < 0.3, wing = r > 0.6, body = wing ? c[2] : c[3], core = wing ? c[3] : c[4];
+  const len = L === 1 ? 5 : [0, 6, 7, 8][L - 1] - Math.round(r * 2) + (L === 2 ? 1 : 0) + (L >= 4 && r < 0.3 ? 1 : 0), cw = L === 1 || big ? 3 : 2;
+  const tl = L >= 3 ? Math.round([0, 0, 3, 6][L - 1] * (1 - r * 0.4)) : 0;
+  const set = rotSet(sprite(cw, len, x => {
+    for (let j = 0; j < len; j++) { // the head points down in the sprite (the set turns it to the heading)
+      const ft = len - 1 - j, w = L === 1 ? (j === 0 || ft === 0 ? 1 : 3) : (ft === 0 ? 1 : cw), off = (cw - w) >> 1;
+      for (let i = 0; i < w; i++) { const cx = off + i; x.fillStyle = (cw === 3 ? cx === 1 : cx === 0) ? core : body; x.fillRect(cx, j, 1, 1); }
+    }
+  }), 32);
+  return scatCls[key] = { set, len, tl, body, tail: c[2], al: wing ? 0.8 : 1 };
+}
+function drawScatter(s) {
+  const k = scatClass(s.sl, s.rk), a = s.a, ca = Math.cos(a), sa = Math.sin(a);
+  spr(k.set[dirIdx(a, 32)], s.x, s.y);
+  for (let i = 1; i <= k.tl; i++) { const d = k.len / 2 + i; ctx.globalAlpha = k.al * 0.7 * (1 - i / (k.tl + 1)); ctx.fillStyle = i <= k.tl / 2 ? k.body : k.tail; ctx.fillRect(Math.round(s.x - ca * d), Math.round(s.y - sa * d), 1, 1); }
+  ctx.globalAlpha = 1;
+}
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
 function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
@@ -11499,8 +11522,8 @@ function firing(p = player, two) {
   const L = p.lvl, up = -PI / 2;
   if (p.wpn === 'S') {
     p.cd = pbCd(p, 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7][L]);
-    if (L === 1) { pshot(p.x - 4, p.y - 8, up, 6, 1); pshot(p.x + 4, p.y - 8, up, 6, 1); }
-    else { const n = [0, 0, 3, 5, 7][L]; for (let i = 0; i < n; i++) pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * 0.15, 6, 1); }
+    if (L === 1) { for (const dx of [-4, 4]) Object.assign(pshot(p.x + dx, p.y - 8, up, 6, 1), { sl: 1, rk: 0.5 }); }
+    else { const n = [0, 0, 3, 5, 7][L]; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * 0.15, 6, 1), { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
   } else if (p.wpn === 'A') {
     p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
@@ -13557,7 +13580,7 @@ function renderMain() {
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
 
   for (const s of world.shots) {
-    if (s.k === 's') spr(SPR.ps[dirIdx(s.a)], s.x, s.y);
+    if (s.k === 's') { if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
     else if (s.k === 'l') {
       if (s.drone) { // Talon shots stay neutral, whichever weapon is on
         const w = Math.round(s.w), x = Math.round(s.x - w / 2), y = Math.round(s.y - 7), c = RP.grey;
