@@ -2865,14 +2865,12 @@ function desertLand(o) {
   // the railway (P.rail): a main line straight down the strip, a 16 px corridor kept clear for the game's trains, level crossings where the track crosses it
   const RM = plan.RM = new Uint8Array(N), RX = P.rail ? P.rail.x : null, RA = P.rail && P.rail.x0 !== undefined ? P.rail.x0 : RX, RB = P.rail && P.rail.x1 !== undefined ? P.rail.x1 : RX;
   const RXbase = y => y < 160 ? lerp(RA, RX, smooth(0, 160, y)) : y > L - 161 ? lerp(RX, RB, smooth(L - 161, L - 1, y)) : RX; // (the line can come in and leave at another x, curving over 160 px)
-  // the line goes round the rock: where a wall rises (valley, pass) it keeps 12 px clear of it, bending away early and smoothly (a blurred push, never a jump), so no rail ever crosses rock
-  const rxA = RX === null ? null : (() => { const a = new Float32Array(L), dl = new Float32Array(L); let any = false;
-    for (let y = 0; y < L; y++) { const b = RXbase(y), lo = WL[y] >= 0 ? WL[y] + 12 : -1e9, hi = WR[y] < W ? WR[y] - 12 : 1e9; a[y] = lo <= hi ? clamp(b, lo, hi) : b; dl[y] = a[y] - b; if (dl[y]) any = true; }
-    if (!any) return null;
-    for (let pass = 0; pass < 3; pass++) { const bl = new Float32Array(L); for (let y = 0; y < L; y++) { let t = 0, n = 0; for (let k = -14; k <= 14; k++) { const q = y + k; if (q >= 0 && q < L) { t += dl[q]; n++; } } bl[y] = t / n; }
-      for (let y = 0; y < L; y++) { const b = RXbase(y), lo = WL[y] >= 0 ? WL[y] + 12 : -1e9, hi = WR[y] < W ? WR[y] - 12 : 1e9, v = b + bl[y]; a[y] = lo <= hi ? clamp(v, lo, hi) : v; dl[y] = a[y] - b; } }
-    return a; })();
-  const RXat = y => rxA ? rxA[clamp(Math.round(y), 0, L - 1)] : RXbase(y);
+  const RXat = RXbase; // (the line keeps its own smooth curve; the rock gives way to it, below)
+  // the rock gives way to the line: a wall never comes nearer than 26 px to the line's centre (20 px from the rails, past the cliff's own shadow), receding smoothly
+  if (RX !== null) for (const [A, sgn] of [[WL, 1], [WR, -1]]) { const d = new Float32Array(L); let any = false;
+    for (let y = 0; y < L; y++) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, over = sgn > 0 ? A[y] - want : want - A[y]; if (over > 0) { d[y] = over; any = true; } }
+    if (!any) continue; const bl = new Float32Array(L); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < L; y++) { let t = 0, n = 0; for (let k = -12; k <= 12; k++) { const q = y + k; if (q >= 0 && q < L) { t += d[q]; n++; } } bl[y] = t / n; } for (let y = 0; y < L; y++) d[y] = Math.max(bl[y] * 1.6, d[y]); }
+    for (let y = 0; y < L; y++) if (d[y] > 0) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, v = A[y] - sgn * d[y]; A[y] = sgn > 0 ? Math.min(v, want) : Math.max(v, want); if (sgn > 0 ? A[y] < 1 : A[y] > W - 2) A[y] = sgn > 0 ? -1 : W; } }
   const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)); for (let k = -6; k <= 6; k++) { const x = c + k; if (!inB(x, y)) continue; const i = idx(x, y), m = (k === -3 || k === 3) ? 2 : (y % 3 === 0 && k >= -5 && k <= 5) ? 3 : 1;
       if (Kr[i] === K.ROAD) { if (m === 2) RM[i] = 2; continue; } if (Kr[i] === K.RBRIDGE) { RM[i] = Math.max(RM[i], m); continue; } Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; } } };
   if (RX !== null) { for (let y = 0; y < L; y++) { const c = Math.round(RXat(y)); for (let x = c - 8; x <= c + 8; x++) if (inB(x, y) && Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; } const r0 = RA === RX ? 0 : 160, r1 = RB === RX ? L - 1 : L - 161; plan.trainRuns.push({ x: RX, y0: r0, y1: r1, line: 'main' }); plan.rail = { x: RX }; }

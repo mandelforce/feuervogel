@@ -41,10 +41,10 @@ Damage follows the war. The port, the held village, the junction, the airbase an
 
 Both are in the clean look too, so level 2 changes even without wear:
 
-- **The railway ran through the rock** at the valley's mouth: the line leaves the port at x 18 and eases to x 74 over 160 rows, while the valley wall rises from the left across the same rows. The line now keeps 12 px clear of any wall (`rxA` in `desertLand`): the push is blurred over 29 rows so it bends away early, never in a jump, and the corridor, trees and pits use the same line. Only the first 160 rows change; trains still run on the straight part.
+- **The railway ran through the rock, then ran too close to it.** The line leaves the port at x 18 and eases to x 74 over 160 rows, while the valley wall rises across the same rows. The line keeps its smooth curve and the rock now gives way to it: a wall never comes nearer than 26 px to the line's centre, so the rails have at least 20 px of clear ground beside them, past the cliff's own shadow (a first fix kept only 12 px, which left the rails inside the shadow). The cut is blurred over about 25 rows so the mountain recedes smoothly. It applies to the whole line, so the valley and the pass wall are trimmed a few px too. Trains still run on the straight part at x 74.
 - **The dry riverbed stopped in a straight cut**: its width was fixed and its centre jumped where the track and the rail came close. It now narrows to a tip over 70 rows at both ends and pinches out smoothly where there is no room. A side track crossing it is still a ford.
 
-`tests/citygen.mjs` checks both on 12 seeds in both looks (no rail cell in or within 4 px of a wall, no sideways jump in the riverbed, no blunt end). The valley preset changes too, for the same reason.
+`tests/citygen.mjs` checks both on 12 seeds in both looks (no rail cell in or within 19 px of a wall, no sideways jump in the riverbed, no blunt end). The valley preset changes too, for the same reason.
 
 ## Shipping it
 
