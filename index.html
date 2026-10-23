@@ -5033,7 +5033,6 @@ function setLook(pct) {
 SPR.shell = rotSet(sprite(3, 7, x => ellS(x, RP.yel, 1.5, 3.5, 1.5, 3.5, 0.3), { oc: '#e0281e' }));
 SPR.flak = sprite(5, 5, x => ellS(x, RP.smoke, 2.5, 2.5, 2.5, 2.5, 0.2));
 SPR.ps = rotSet(sprite(3, 8, x => ellS(x, RP.crys, 1.5, 4, 1.5, 4, 0.4)));
-SPR.seek = sprite(4, 4, x => ellS(x, WPN.H.ramp, 2, 2, 2, 2, 0.45));
 
 const IRON = ['#141618', '#24282c', '#3a4046', '#565e66', '#7c858e'];
 const WOOD = ['#2e1c12', '#4a2e1c', '#6a4428', '#8a5c38', '#a87850'];
@@ -11533,6 +11532,49 @@ function drawScatter(s) {
   for (let i = 1; i <= k.tl; i++) { const d = k.len / 2 + i; ctx.globalAlpha = k.al * 0.7 * (1 - i / (k.tl + 1)); ctx.fillStyle = i <= k.tl / 2 ? k.body : k.tail; ctx.fillRect(Math.round(s.x - ca * d), Math.round(s.y - sa * d), 1, 1); }
   ctx.globalAlpha = 1;
 }
+// The Seekers: four distinct stages. The missiles are short-sighted (they only see what is in range and not behind them), they turn slowly at first,
+// and each level adds missiles, a bigger body, a longer flame and a better lock; level 4 bursts on impact. The straight guns are pink lasers that grow
+// per level (a thin line, a twin-edged bolt, a bright bolt with a tail, a wide bolt with a pulse). No random numbers: all drawing is by frame.
+const SEEK = [null,
+  { n: 1, cd: 34, dmg: 1.4, turn: 0.06, top: 3.4, sees: 110, rg: 0.5,  w: 3, fl: 2 },
+  { n: 2, cd: 30, dmg: 1.5, turn: 0.08, top: 3.8, sees: 140, rg: 0.58, w: 4, fl: 4 },
+  { n: 3, cd: 28, dmg: 1.6, turn: 0.10, top: 4.1, sees: 170, rg: 0.66, w: 5, fl: 6 },
+  { n: 4, cd: 28, dmg: 1.8, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 }];
+const SEEK_ROWS = [null,
+  ['.1.', '323', '343', '343', '.4.', '.4.'],
+  ['..1..', '..2..', '.333.', '.343.', '.343.', '23432', '.343.', '..4..'],
+  ['..1..', '.121.', '.232.', '.343.', '.343.', '23432', '.141.', '.343.', '.444.', '..4..'],
+  ['...1...', '..121..', '..232..', '.13431.', '2.343.2', '2.343.2', '..141..', '..343..', '..343..', '..444..', '..444..', '...4...']];
+const SEEK_LASER = [null, { len: 9, w: 3, dx: 3 }, { len: 11, w: 5, dx: 4 }, { len: 14, w: 5, dx: 5 }, { len: 17, w: 7, dx: 6 }];
+const seekCls = {};
+function seekClass(L) { // the missile body, built once per level as 32 headings with the usual outline (the head points down in the sprite)
+  if (seekCls[L]) return seekCls[L];
+  const c = WPN.H.ramp, rows = SEEK_ROWS[L];
+  return seekCls[L] = rotSet(sprite(rows[0].length, rows.length, x => { rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') { x.fillStyle = c[+r[i]]; x.fillRect(i, j, 1, 1); } }); }), 32);
+}
+function seekMissile(x, y, vx, vy, L, o) { world.shots.push(Object.assign({ x, y, vx, vy, k: 'h', lv: L, dmg: SEEK[L].dmg, w: SEEK[L].w, h: SEEK[L].w, sp: 1.4 }, o)); }
+function seekBurst(s, hit) { // level 4: the missile bursts, and the blast hurts what is close to the one it hit
+  const r = SEEK[4].splash, c = WPN.H.ramp;
+  for (const e of world.enemies) if (e !== hit && !e.dead && !e.dying && !e.untarget && e.type !== 'boss' && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < r * r) damage(e, s.dmg * 0.5 * dmgK());
+  for (let k = 0; k < 8; k++) { const a = k * TAU / 8; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 9, max: 9, col: k % 2 ? c[3] : c[4] }); }
+}
+function drawSeeker(s) {
+  const L = s.lv || 1, c = WPN.H.ramp, a = Math.atan2(s.vy, s.vx), ca = Math.cos(a), sa = Math.sin(a), n = SEEK[L].fl, len = SEEK_ROWS[L].length;
+  if (L >= 3) { ctx.globalAlpha = 0.3; dk(s.x - ca * len * 0.4, s.y - sa * len * 0.4, L === 3 ? 4 : 6, c[2]); }
+  for (let i = 1; i <= n; i++) { const d = len / 2 + i - 1; ctx.globalAlpha = 0.9 * (1 - i / (n + 1)); ctx.fillStyle = i <= 2 ? c[4] : i <= n * 0.6 ? c[3] : c[2]; ctx.fillRect(Math.round(s.x - ca * d + ((gf + i) & 1 && L > 1 ? sa * 0.6 : 0)), Math.round(s.y - sa * d), 1, 1); }
+  ctx.globalAlpha = 1; spr(seekClass(L)[dirIdx(a, 32)], s.x, s.y);
+}
+function drawSeekLaser(s) {
+  const c = WPN.H.ramp, L = s.hl, g = SEEK_LASER[L], x = Math.round(s.x), top = Math.round(s.y - g.len / 2), age = s.t || 0;
+  const bar = (dx, w, y0, len, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(x + dx, y0, w, len); };
+  const tail = (w, n) => { bar(-(w >> 1), w, top + g.len, n, c[2], 0.45); bar(-(w >> 1) + 1, w - 2, top + g.len, n - 1, c[3], 0.45); };
+  if (L === 1) { bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); bar(-1, 3, top, 2, c[4], 1); }
+  else if (L === 2) { bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); }
+  else if (L === 3) { bar(-2, 5, top + 2, g.len - 2, c[2], 1); bar(-1, 3, top, g.len, c[4], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(3, 4); }
+  else { bar(-3, 7, top + 3, g.len - 3, c[1], 0.7); bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(5, 5);
+    bar(-3, 7, top + 3 + ((age * 3) % (g.len - 4)), 1, c[4], 0.9); }
+  ctx.globalAlpha = 1;
+}
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
 function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
@@ -11551,10 +11593,13 @@ function firing(p = player, two) {
     world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.75 + 0.38 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
-    pshot(p.x - 3, p.y - 8, up, 6, 1); pshot(p.x + 3, p.y - 8, up, 6, 1);
+    const hl = Math.min(L, 4);
+    for (const sd of [-1, 1]) Object.assign(pshot(p.x + sd * SEEK_LASER[hl].dx, p.y - 8, up, 6, hl >= 4 ? 1.2 : 1), { hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 });
     if (p.mcd <= 0) { if (!two) chipPlay('missile');
-      p.mcd = fcd(Math.max(16, 32 - L * 4));
-      for (let i = 0; i < Math.min(L, 3); i++) { const side = i % 2 ? 1 : -1; world.shots.push({ x: p.x + side * 6, y: p.y, vx: side * (1.2 + i * 0.3), vy: -0.6, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 }); }
+      const sk = SEEK[hl]; p.mcd = fcd(sk.cd);
+      if (hl === 1) { const side = (p.seekN = (p.seekN || 0) + 1) % 2 ? 1 : -1; seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, 1); }
+      else if (hl === 4) { for (const [side, k] of [[-1, 1.2], [1, 1.2], [-1, 2.2], [1, 2.2]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 4); }
+      else { for (const side of [-1, 1]) seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, hl); if (hl === 3) seekMissile(p.x, p.y - 4, 0, -1.4, 3); }
     }
   }
   if (two) return;
@@ -11709,7 +11754,7 @@ function updPlayer() {
     if (p.dcd === 0) {
       if (p.wpn === 'S') pshot(d.x, d.y - 5, -PI / 2 + side * 0.06, 6, 0.7).drone = true;
       else if (p.wpn === 'L' || p.wpn === 'A') world.shots.push({ x: d.x, y: d.y - 8, vx: 0, vy: -7.5, dmg: 0.45, k: 'l', w: 2, h: 12, drone: true });
-      else world.shots.push({ x: d.x, y: d.y - 4, vx: side * 0.8, vy: -1.2, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 });
+      else seekMissile(d.x, d.y - 4, side * 0.8, -1.2, 1, { dmg: 1.2 });
     }
   }
   if (p.dcd === 0 && p.drones) p.dcd = fcd(p.wpn === 'S' ? 8 : p.wpn === 'L' ? 5 : 26);
@@ -12298,24 +12343,25 @@ function update() {
   const sc = Math.floor(world.scroll);
 
   for (const s of world.shots) {
-    if (!s.c) { s.c = 1; run.stats.shots++; s.rg = H * rnd(0.6, 0.7); s.dd = 0; }
+    if (!s.c) { s.c = 1; run.stats.shots++; s.rg = H * rnd(0.6, 0.7); if (s.k === 'h') s.rg = H * SEEK[s.lv || 1].rg; s.dd = 0; }
     { let hitC = null; for (const c of chutes) if (!c.falling && c.t >= 0 && Math.abs(s.x - c.x) < 7 && s.y > c.y - 12 && s.y < c.y + 6) { hitC = c; break; }
       if (hitC) { hitC.falling = 1; s.dead = true; addScore(100); label(hitC.x, hitC.y - 12, '100'); for (let i = 0; i < 6; i++) world.parts.push({ kind: 'spark', layer: 'a', x: hitC.x + rnd(-5, 5), y: hitC.y - 8, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.4), life: 14, max: 14, col: '#f6f4ee' }); sfx('hit'); continue; } }
     s.t = (s.t || 0) + 1; // (frames in flight: the Lance look animates by it)
     { s.dd += Math.hypot(s.vx, s.vy); if (s.dd > s.rg) { s.dead = true; if (s.k === 's' || s.k === 'l') groundPuff(s.x, s.y); else world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 8, max: 8, col: '#ffd0e8' }); continue; } }
     if (s.k === 'h') {
-      s.sp = Math.min(4.2, s.sp + 0.12);
-      let tg = null, bd = 1e9;
-      for (const e of world.enemies) {
+      const sk = SEEK[s.lv || 1], c = WPN.H.ramp;
+      s.sp = Math.min(sk.top, s.sp + 0.12);
+      let tg = null, bd = sk.sees * sk.sees;
+      for (const e of world.enemies) { // it only sees what is in range and not behind it
         if (e.dying || e.dead || (e.y < 0 && e.type !== 'boss')) continue;
-        const tp = targetPos(e); if (!tp) continue;
+        const tp = targetPos(e); if (!tp || tp[1] > s.y + 6) continue;
         const d = (tp[0] - s.x) ** 2 + (tp[1] - s.y) ** 2; if (d < bd) { bd = d; tg = tp; }
       }
       let a = Math.atan2(s.vy, s.vx);
-      if (tg) a += clamp(angDiff(a, Math.atan2(tg[1] - s.y, tg[0] - s.x)), -0.14, 0.14);
-      else a += angDiff(a, -PI / 2) * 0.08;
+      if (tg) a += clamp(angDiff(a, Math.atan2(tg[1] - s.y, tg[0] - s.x)), -sk.turn, sk.turn);
+      else a += angDiff(a, -PI / 2) * 0.05;
       s.vx = Math.cos(a) * s.sp; s.vy = Math.sin(a) * s.sp;
-      if (gf % 2 === 0) world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0.3, life: 10, max: 10, col: '#8466dc' });
+      if ((s.lv || 1) >= 3 || gf % 2 === 0) world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0.3, life: 8 + 2 * (s.lv || 1), max: 8 + 2 * (s.lv || 1), col: c[(s.lv || 1) >= 3 ? 3 : 2] });
     }
     s.x += s.vx; s.y += s.vy;
     if (s.y < -16 || s.y > H + 10 || s.x < -10 || s.x > W + 10) s.dead = true;
@@ -12459,6 +12505,7 @@ function update() {
         s.dead = true;
         world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' });
         damage(e, s.dmg * dmgK()); run.stats.hits++;
+        if (s.k === 'h' && SEEK[s.lv || 1].splash) seekBurst(s, e);
         break;
       }
     }
@@ -13599,7 +13646,7 @@ function renderMain() {
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
 
   for (const s of world.shots) {
-    if (s.k === 's') { if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
+    if (s.k === 's') { if (s.hl && !s.drone) drawSeekLaser(s); else if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
     else if (s.k === 'l') {
       if (s.drone) { // Talon shots stay neutral, whichever weapon is on
         const w = Math.round(s.w), x = Math.round(s.x - w / 2), y = Math.round(s.y - 7), c = RP.grey;
@@ -13607,7 +13654,7 @@ function renderMain() {
         ctx.fillStyle = c[4]; ctx.fillRect(x, y, w, 14);
         ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(s.x) - Math.max(0, (w >> 2)), y, Math.max(1, w >> 1), 14);
       } else drawLance(s);
-    } else spr(SPR.seek, s.x, s.y);
+    } else drawSeeker(s);
   }
   drawBeam();
   drawPlayerArcs();
