@@ -107,13 +107,13 @@ PRESETS.industrial = Object.assign({}, PRESETS.town, { label: 'Industrial estate
 // The desert (Enigma Run level 2, P.climate 'desert'; see desertize): a port with its commercial harbour at the south end and the east side
 // harbour opening into it, a beach town along the shore past it (a wide beach, a promenade with palms, bathing huts and a pleasure pier),
 // plastered houses with flat roofs, a whitewashed domed hall in the church's place, date palms, irrigated plots and open desert beyond
-PRESETS.portDesert = Object.assign({}, PRESETS.portSouth, { label: 'Desert port and beach town', L: 1000, climate: 'desert', damage: 0.6, damageCurve: [[0, 0.6], [0.3, 0.75], [0.5, 1], [0.75, 0.5], [1, 0.2]], portDensity: 0.5, stars: 0, civic: { store: true },
+PRESETS.portDesert = Object.assign({}, PRESETS.portSouth, { label: 'Desert port and beach town', L: 1000, climate: 'desert', wear: 0.55, wearMix: 0.25, damage: 0.6, damageCurve: [[0, 0.6], [0.3, 0.75], [0.5, 1], [0.75, 0.5], [1, 0.2]], portDensity: 0.5, stars: 0, civic: { store: true },
   density: [[0, 0.8], [0.25, 0.85], [0.45, 0.45], [0.7, 0.3], [1, 0.05]],
   coast: Object.assign({}, PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: 0.12, side: [0.2, 0.24], beachRun: 300, beachW: 24, prom: 7, pleasurePier: 44, war: true }) }); // at war (owner mockup E); port density middle (portDensity 0.5) for level 2
 // A desert village: the village preset's plan in the desert: courtyard farmsteads with flat roofs, the domed hall and a well on the green, palm groves
-PRESETS.villageDesert = Object.assign({}, PRESETS.village, { label: 'Desert village', climate: 'desert', damage: 0.1 });
+PRESETS.villageDesert = Object.assign({}, PRESETS.village, { label: 'Desert village', climate: 'desert', wear: 0.55, wearMix: 0.3, damage: 0.1 });
 // The desert's open land (desertLand): an oasis village of each size, a held one, and a strongpoint in the open (owner mockups G, H, I, D2, D3)
-PRESETS.oasis = Object.assign({}, PRESETS.town, { label: 'Oasis village', builder: 'desert', climate: 'desert', L: 640, damage: 0.2, features: [{ kind: 'oasis', at: 0.5, size: 'medium' }] });
+PRESETS.oasis = Object.assign({}, PRESETS.town, { label: 'Oasis village', builder: 'desert', climate: 'desert', wear: 0.55, mixVillage: 0.35, L: 640, damage: 0.2, features: [{ kind: 'oasis', at: 0.5, size: 'medium' }] });
 PRESETS.oasisSmall = Object.assign({}, PRESETS.oasis, { label: 'Oasis hamlet (small)', damage: 0.07, features: [{ kind: 'oasis', at: 0.5, size: 'small' }] });
 PRESETS.oasisLarge = Object.assign({}, PRESETS.oasis, { label: 'Oasis town (large)', damage: 0.42, features: [{ kind: 'oasis', at: 0.5, size: 'large' }] });
 PRESETS.oasisHeld = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, held', features: [{ kind: 'oasis', at: 0.58, size: 'medium', held: true }] });
@@ -122,16 +122,18 @@ PRESETS.desertPost = Object.assign({}, PRESETS.oasis, { label: 'Strongpoint in t
 // Enigma Run level 2 as one plan (sandSea): the sortie's segment sequence, scaled to 56 chunks (the lab shows it at the level's length)
 PRESETS.sandSea = Object.assign({}, PRESETS.oasis, { label: 'Level 2, Sea of Sand (whole level)', builder: 'sandSea', L: 3584, portDensity: 0.5,
   segs: [{ t: 'harbour_commercial', n: 5 }, { t: 'beach_town', n: 4 }, { t: 'valley', n: 8 }, { t: 'village', n: 5 }, { t: 'station_junction', n: 7 }, { t: 'desert_open', n: 5 }, { t: 'airbase_desert', n: 7 }, { t: 'pass', n: 8 }, { t: 'desert_open', n: 7 }] });
-PRESETS.sandSeaAged = Object.assign({}, PRESETS.sandSea, { label: 'Level 2 in the aged look (new)', wear: 0.55, mixPort: 0.2, mixVillage: 0.25 });
+PRESETS.sandSea.label = 'Level 2, Sea of Sand (whole level, the new look)'; PRESETS.sandSea.mixPort = 0.2; PRESETS.sandSea.mixVillage = 0.25; // (the new look is the level's own: Campaign-shaded houses, one old village, a few old houses elsewhere)
+PRESETS.sandSeaAged = Object.assign({}, PRESETS.sandSea, { label: 'Level 2, the new look (same as the level)' });
+PRESETS.sandSeaClassic = Object.assign({}, PRESETS.sandSea, { label: 'Level 2, the old look (clean plaster cubes)', wear: 0 });
 PRESETS.desertValley = Object.assign({}, PRESETS.oasis, { label: 'Valley with oil field and wadi', rail: { x: 74 }, features: [{ kind: 'valley', at0: 0.08, at1: 0.92 }] });
 PRESETS.desertPass = Object.assign({}, PRESETS.oasis, { label: 'Fortified pass with viaduct', L: 700, rail: { x: 74 }, features: [{ kind: 'pass', at0: 0.06, at1: 0.94 }] });
 PRESETS.desertJunction = Object.assign({}, PRESETS.oasis, { label: 'Railway junction', rail: { x: 74 }, features: [{ kind: 'junction', at0: 0.05, at1: 0.95 }] });
 PRESETS.desertAirbase = Object.assign({}, PRESETS.oasis, { label: 'Desert airbase', rail: { x: 74 }, features: [{ kind: 'airbase', at0: 0.05, at1: 0.95 }] });
 // The aged desert (P.wear 0..1; 0 is the clean look every plan above keeps): old plaster, cracks, patches of bare mud brick, rain stains, lean-tos, tarps and
 // washing on the roofs, packed earth round the walls, kitchen gardens, weeds and dry grass. Three village characters, each with its own share of the wear.
-PRESETS.oasisAged = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, lived in (aged)', wear: 0.55, features: [{ kind: 'oasis', at: 0.5, size: 'medium' }] });
-PRESETS.roadsideHamlet = Object.assign({}, PRESETS.oasis, { label: 'Roadside hamlet (aged)', wear: 0.6, L: 560, damage: 0.12, features: [{ kind: 'roadside', at: 0.5 }] });
-PRESETS.oldVillage = Object.assign({}, PRESETS.oasis, { label: 'Old village, half abandoned (aged)', wear: 0.9, damage: 0.5, features: [{ kind: 'oasis', at: 0.5, size: 'medium', style: 'old' }] });
+PRESETS.oasisAged = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, lived in (aged)', wear: 0.55, mixVillage: 0.6, features: [{ kind: 'oasis', at: 0.5, size: 'medium' }] });
+PRESETS.roadsideHamlet = Object.assign({}, PRESETS.oasis, { label: 'Roadside hamlet (aged)', wear: 0.6, mixVillage: 0.5, L: 560, damage: 0.12, features: [{ kind: 'roadside', at: 0.5 }] });
+PRESETS.oldVillage = Object.assign({}, PRESETS.oasis, { label: 'Old village, half abandoned (aged)', wear: 0.9, mixVillage: 1, damage: 0.5, features: [{ kind: 'oasis', at: 0.5, size: 'medium', style: 'old' }] });
 // The Iron Forest (Enigma Run level 4; builder 'forest', climate 'forest'): the high cliff coast with the forest on its plateau, and the conifer forest
 PRESETS.cliffCoast = Object.assign({}, PRESETS.town, { label: 'Iron Forest: high cliff coast', builder: 'forest', climate: 'forest', L: 900, damage: 0, density: [[0, 0], [1, 0]],
   features: [{ kind: 'cliffs', at0: 0, at1: 0.3 }, { kind: 'conifer', at0: 0.3, at1: 1, rides: 1, plantations: 1, clearings: 1 }] });
@@ -1610,12 +1612,14 @@ function agedRoof(lx, ly, b, R, wx, wy) {
   if (bare > 0) return (ly + ((lx >> 1) & 1)) % 3 === 0 ? C.dirt[0] : C.dirt[1 + ((hh(wx, wy) * 2) | 0)];
   // rain stains below the parapet and in streaks down the roof
   if (ly > 2 && ((hh(sd, 20 + lx) < 0.22 * a && ly < h * (0.4 + 0.5 * hh(sd, 60 + lx))) || (ly >= h - 4 && hh(wx, wy + 3) < 0.3 * a))) return wd[1];
-  // the surface: blotched, a little faded, its lit edge broken up
-  const edge = ly === 1 || lx === 1, edge2 = ly === h - 2 || lx === w - 2;
-  if (edge) return hh(wx * 7, wy * 5) < 0.55 + (1 - a) * 0.4 ? R[3] : R[2];
-  if (edge2) return hh(wx * 5, wy * 7) < 0.5 + (1 - a) * 0.4 ? R[1] : R[0];
-  const l = 0.5 + (vn(wx * 0.16 + (sd & 63), wy * 0.16) - 0.5) * 0.9 * a + (hh(wx, wy) - 0.5) * 0.25 * a - 0.12 * a;
-  return R[pickI(4, l, wx, wy)];
+  // the surface, shaded like the Campaign's desert house (boxS): an outer block and an inner step, each lit from the top left in tones that dither into each other,
+  // a bright lip on the lit edges and a dark one on the others; wear adds blotches, fading and a ragged lip
+  const inner = lx >= 2 && ly >= 2 && lx < w - 2 && ly < h - 2, x0 = inner ? 2 : 0, y0 = inner ? 2 : 0, bw = inner ? w - 4 : w, bh = inner ? h - 4 : h, u = (lx - x0) / bw, v = (ly - y0) / bh;
+  let l = 0.55 + (inner ? -0.05 : 0.1) + 0.35 * (0.5 - (u * 0.4 + v * 0.6));
+  if (inner ? (lx === 2 || ly === 2) : (lx === 1 || ly === 1)) l += 0.2 * (hh(wx * 7, wy * 5) < 0.55 + (1 - a) * 0.45 ? 1 : 0.4);
+  if (inner ? (lx === w - 3 || ly === h - 3) : (lx === w - 2 || ly === h - 2)) l -= 0.2 * (hh(wx * 5, wy * 7) < 0.5 + (1 - a) * 0.5 ? 1 : 0.4);
+  l += (vn(wx * 0.16 + (sd & 63), wy * 0.16) - 0.5) * 0.9 * a + (hh(wx, wy) - 0.5) * 0.25 * a - 0.12 * a;
+  return R[pickI(4, clamp(l, 0, 1), wx, wy)];
 }
 // a lean-to or shed built on later: corrugated sheet, rusty
 function agedLean(lx, ly, b, wx, wy) {
@@ -1629,7 +1633,7 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   if (b.lean) return agedLean(lx, ly, b, wx, wy);
   if (style === 'flat') { // a gravel roof behind a parapet: light enough to read as a roof, not a hole (in the desert a plastered roof terrace in its wash)
     const R = b.wash !== undefined ? C.wash[b.wash] : C.snowFlat || C.conc; // (winter: snow on the roof behind its parapet)
-    if (b.wash !== undefined && !b.slot && b.age > 0) return agedRoof(lx, ly, b, R, wx, wy);
+    if (b.wash !== undefined && !b.slot && typeof b.age === 'number') return agedRoof(lx, ly, b, R, wx, wy); // (age 0 is a house kept up: the dithered Campaign shading, no wear)
     if (b.wash !== undefined && !b.slot) { if (ly === 1 || lx === 1) return R[3]; if (ly === h - 2 || lx === w - 2) return R[1]; if (w > 6 && h > 6 && (lx === w - 4 || lx === w - 3) && (ly === 2 || ly === 3)) return C.hatch; return R[2]; } // the desert: like the game's desert houses (light top and left, a darker bottom and right, a roof hatch)
     if (lx === 1 || ly === 1 || lx === w - 2 || ly === h - 2) return ly === 1 || lx === w - 2 ? R[3] : R[1];
     if (b.slot && Math.abs(lx - w / 2 + 0.5) < 2.6 && Math.abs(ly - h / 2 + 0.5) < 2.6) { const e = Math.max(Math.abs(lx - w / 2 + 0.5), Math.abs(ly - h / 2 + 0.5)); return e > 1.8 ? C.sand[(lx + ly) & 1] : C.gravel[0]; } // a sandbagged gun platform
@@ -2432,7 +2436,7 @@ function desertLand(o) {
   let wearK = 0, mixK = 1; // the wear of the village being built (P.wear times its style's share); 0 keeps the clean look exactly
   const roadFree = (x0, y0, w, h, m) => { for (let y = y0 - 1; y <= y0 + h; y++) { const mx = MX(y); if (!(x0 + w - 1 < mx - 4.5 - m || x0 > mx + 4.5 + m)) return false; } return true; }; // clear of the track by m px, row by row
   const cube = (x0, y0, w, h, g) => { const q = rnd(TD, 510, plan.items.length) * 20; const it = addItem({ t: 'cube', x0, y0, w, h, ori: w >= h ? 'h' : 'v', style: 'flat', wash: q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3, seed: sd(), dmg: 0, run: -93000 - plan.items.length, group: g });
-    if (wearK > 0 && rnd(TD, 521, it.id) < mixK) it.age = +clamp(wearK * (0.55 + 0.9 * rnd(TD, 520, it.id)), 0, 1).toFixed(2); // (old houses, only where the plan asks for wear: P.wear; mixK is the share of this village's houses that are old)
+    if (wearK > 0) it.age = rnd(TD, 521, it.id) < mixK ? +clamp(wearK * (0.55 + 0.9 * rnd(TD, 520, it.id)), 0, 1).toFixed(2) : 0; // (every house has the new shading, only where the plan asks for wear: P.wear; mixK is the share of this village's houses that are old, the rest age 0)
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) set(x, y, K.BLDG, it.id); return it; };
   // a packed block: houses of mixed sizes sharing their walls (a guillotine split, every house at least 9 px across), now and then a courtyard
   const block = (x0, y0, w, h, tag) => { const out = [], split = (a, b, w2, h2, d) => { const vert = w2 > h2 ? rnd(tag, d, a) < 0.8 : rnd(tag, d, b) < 0.2;
@@ -2463,7 +2467,7 @@ function desertLand(o) {
       for (let y = gy - ry - 3; y <= gy + ry + 3; y++) for (let x = gx - rx - 3; x <= gx + rx + 3; x++) { if (!inB(x, y) || Kr[idx(x, y)] !== K.DESERT || Br[idx(x, y)] !== -1) continue; const e = Math.hypot((x + 0.5 - gx) / rx, (y + 0.5 - gy) / ry) + (vn(x * 0.15, y * 0.15 + fi) - 0.5) * 0.3; if (e < 1) set(x, y, K.OASIS); }
       const prx = Math.max(8, Math.round(rx * 0.36)), pry = Math.max(7, Math.round(Math.min(ry * 0.26, prx * 1.3)));
       for (let y = gy - pry - 1; y <= gy + pry + 1; y++) for (let x = gx - prx - 1; x <= gx + prx + 1; x++) { const e = Math.hypot((x + 0.5 - gx) / prx, (y + 0.5 - gy) / pry) + (vn(x * 0.2, y * 0.2 + 7) - 0.5) * 0.2; if (e < 1 && inB(x, y) && Br[idx(x, y)] === -1 && (Kr[idx(x, y)] === K.OASIS || Kr[idx(x, y)] === K.DESERT)) set(x, y, K.WATER, -16); }
-      wearK = clamp((P.wear || 0) * STYLE_WEAR[style], 0, 1); mixK = F.mix !== undefined ? F.mix : 1;
+      wearK = clamp((P.wear || 0) * STYLE_WEAR[style], 0, 1); mixK = F.mix !== undefined ? F.mix : P.mixVillage !== undefined ? P.mixVillage : 1;
       const nP = Math.round(rx * ry * 0.034 * (style === 'old' ? 0.45 : 1)); for (let k = 0; k < nP; k++) { const a = k * 2.399 + rnd(TD, 20, fi) * 6, rr = Math.sqrt(0.12 + 0.88 * rnd(TD, 21, k + fi * 300)), px = Math.round(gx + Math.cos(a) * rx * rr * 0.92), py = Math.round(gy + Math.sin(a) * ry * rr * 0.92);
         if (!inB(px, py) || Kr[idx(px, py)] !== K.OASIS || (RX !== null && Math.abs(px - RXat(py)) < 12) || [[-2, 0], [2, 0], [0, -2], [0, 2]].some(([dx, dy]) => inB(px + dx, py + dy) && Kr[idx(px + dx, py + dy)] === K.WATER)) continue; plan.trees.push({ x: px, y: py, r: 2 + (rnd(TD, 22, k) < 0.35 ? 1 : 0), v: 1, palm: true, stump: style === 'old' && rnd(TD, 23, k) < 0.3 }); }
       // the houses: packed blocks on the other side of the track (all round the grove when the village is large), the square with the hall
@@ -2476,7 +2480,7 @@ function desertLand(o) {
       blocks.sort((a, b) => Math.abs(a[1] + a[3] / 2 - gy) - Math.abs(b[1] + b[3] / 2 - gy));
       let hall = null;
       { const bx = hs > 0 ? xsAt(gy) : xsAt(gy) - 34, by = gy - 14; if (rectOpen(bx, by - 2, 34, 30)) { for (let y = by; y < by + 26; y++) for (let x = bx; x < bx + 34; x++) set(x, y, K.PLAZA); // the square: the domed hall at its back, the well in front
-          const g = 9300 + fi, hx = hs > 0 ? bx + 12 : bx, it = addItem({ t: 'civic', label: 'Domed hall', x0: hx, y0: by + 4, w: 22, h: 18, ori: 'h', style: 'flat', wash: 0, seed: sd(), dmg: 0, group: g }); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) set(x, y, K.BLDG, it.id);
+          const g = 9300 + fi, hx = hs > 0 ? bx + 12 : bx, it = addItem({ t: 'civic', label: 'Domed hall', x0: hx, y0: by + 4, w: 22, h: 18, ori: 'h', style: 'flat', wash: 0, seed: sd(), dmg: 0, group: g }); if (wearK > 0) it.age = 0; for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) set(x, y, K.BLDG, it.id);
           const r = 7, dcx = hx + 11, dcy = by + 13, dm = addItem({ t: 'civic', label: 'Domed hall', part: 'dome', round: true, x0: Math.floor(dcx - r), y0: Math.floor(dcy - r), w: 2 * r + 2, h: 2 * r + 2, acx: dcx, acy: dcy, r, roof: 5, seed: sd(), dmg: 0, group: g });
           for (let y = dm.y0; y < dm.y0 + dm.h; y++) for (let x = dm.x0; x < dm.x0 + dm.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - dcx, y + 0.5 - dcy) < r) set(x, y, K.BLDG, dm.id);
           plan.wells.push({ x: hs > 0 ? bx + 5 : bx + 29, y: by + 13 }); hall = { x0: bx, y0: by, w: 34, h: 26 }; plan.squares.push({ x0: bx, y0: by, w: 34, h: 26, cx: bx + 17, cy: by + 13, side: hs, village: true }); } }
@@ -2489,12 +2493,12 @@ function desertLand(o) {
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
-      wearK = clamp((P.wear || 0) * STYLE_WEAR.roadside, 0, 1); mixK = F.mix !== undefined ? F.mix : 1;
+      wearK = clamp((P.wear || 0) * STYLE_WEAR.roadside, 0, 1); mixK = F.mix !== undefined ? F.mix : P.mixVillage !== undefined ? P.mixVillage : 1;
       const gy = yc, span = F.span || 130, houses = [], g0 = plan.items.length, g = 9400 + fi;
       const sq = F.side || (rnd(TD, 50 + fi) < 0.5 ? 1 : -1), pw = 28, ph2 = 22, py0 = gy - 11; let px0 = Math.round(sq > 0 ? MX(gy) + 4.5 + 4 : MX(gy) - 4.5 - 4 - pw), square = null;
       for (let t = 0; t < 8 && !square; t++) { const yy = py0 + (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 6; if (rectOpen(px0 - 1, yy - 1, pw + 2, ph2 + 2) && roadFree(px0, yy, pw, ph2, 3)) square = { x0: px0, y0: yy, w: pw, h: ph2 }; }
       if (square) { for (let y = square.y0; y < square.y0 + ph2; y++) for (let x = square.x0; x < square.x0 + pw; x++) set(x, y, K.PLAZA);
-        const hx = sq > 0 ? square.x0 + 14 : square.x0, hy = square.y0 + 5, hall = addItem({ t: 'civic', label: 'Shrine', x0: hx, y0: hy, w: 13, h: 11, ori: 'h', style: 'flat', wash: 0, seed: sd(), dmg: 0, group: g, age: wearK > 0 ? +(wearK * 0.6).toFixed(2) : undefined }); if (hall.age === undefined) delete hall.age;
+        const hx = sq > 0 ? square.x0 + 14 : square.x0, hy = square.y0 + 5, hall = addItem({ t: 'civic', label: 'Shrine', x0: hx, y0: hy, w: 13, h: 11, ori: 'h', style: 'flat', wash: 0, seed: sd(), dmg: 0, group: g }); if (wearK > 0) hall.age = 0;
         for (let y = hall.y0; y < hall.y0 + hall.h; y++) for (let x = hall.x0; x < hall.x0 + hall.w; x++) set(x, y, K.BLDG, hall.id);
         const r = 4, dcx = hx + 6.5, dcy = hy + 5.5, dm = addItem({ t: 'civic', label: 'Shrine', part: 'dome', round: true, x0: Math.floor(dcx - r), y0: Math.floor(dcy - r), w: 2 * r + 2, h: 2 * r + 2, acx: dcx, acy: dcy, r, roof: 5, seed: sd(), dmg: 0, group: g });
         for (let y = dm.y0; y < dm.y0 + dm.h; y++) for (let x = dm.x0; x < dm.x0 + dm.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - dcx, y + 0.5 - dcy) < r) set(x, y, K.BLDG, dm.id);
@@ -2731,7 +2735,7 @@ function calmWater(plan) {
 function desertize(plan) {
   const { W, L, K: Kr, B: Br } = plan, N = W * L;
   for (const b of plan.items) { if (b.round || b.church || b.part) continue;
-    if (b.t === 'house' || b.t === 'terrace' || b.t === 'block' || b.t === 'farmhouse' || b.t === 'barn' || b.t === 'farm') { b.style = 'flat'; const q = h32(b.seed | 0, 77) % 20; b.wash = q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3; if ((plan.P.wear || 0) > 0 && h32(b.seed | 0, 79) / 4294967296 < (plan.P.wearMix !== undefined ? plan.P.wearMix : 1)) b.age = +clamp(plan.P.wear * (0.55 + 0.9 * (h32(b.seed | 0, 78) / 4294967296)), 0, 1).toFixed(2); } }
+    if (b.t === 'house' || b.t === 'terrace' || b.t === 'block' || b.t === 'farmhouse' || b.t === 'barn' || b.t === 'farm') { b.style = 'flat'; const q = h32(b.seed | 0, 77) % 20; b.wash = q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3; if ((plan.P.wear || 0) > 0) b.age = h32(b.seed | 0, 79) / 4294967296 < (plan.P.wearMix !== undefined ? plan.P.wearMix : 1) ? +clamp(plan.P.wear * (0.55 + 0.9 * (h32(b.seed | 0, 78) / 4294967296)), 0, 1).toFixed(2) : 0; } }
   if ((plan.P.wear || 0) > 0) wearGround(plan);
   for (const ch of plan.churches || []) { const parts = ch.parts.map(id => plan.items[id]), nave = parts.find(p => p.part === 'nave'), tr = parts.find(p => p.part === 'trans'); if (!nave) continue;
     const D = ch.dome = { x: nave.x0 + nave.w / 2, y: tr ? tr.y0 + tr.h / 2 : nave.y0 + nave.h / 2, r: nave.w / 2 + (ch.big === true ? 3 : 2) };

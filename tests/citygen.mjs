@@ -325,8 +325,10 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   for (const preset of ['oasis', 'oasisLarge', 'oasisHeld', 'oasisAged', 'roadsideHamlet', 'oldVillage']) { ruins[preset] = 0;
     for (let seed = 1; seed <= 100; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
       need(m.onRoad === 0 && m.pass, `${preset} seed ${seed}: ${m.onRoad} road overlaps, pass ${m.pass}`);
-      const wear = (p.P.wear || 0) > 0; if (!wear) need(!p.items.some(i => i.age !== undefined) && !p.worn && !p.tufts.length && !p.plots.length, `${preset} seed ${seed}: wear 0 must keep the clean look`);
-      else { aged += p.items.filter(i => i.age > 0).length; lean += p.items.filter(i => i.lean).length; plots += p.plots.length; tufts += p.tufts.length; need(p.worn && p.worn.some(v => v), `${preset} seed ${seed}: no worn ground`); }
+      need((p.P.wear || 0) > 0, `${preset} seed ${seed}: desert plans have the new look by default`);
+      { const q = CG.generate({ seed, preset, params: { wear: 0 } }); need(!q.items.some(i => i.age !== undefined) && !q.worn && !q.tufts.length && !q.plots.length, `${preset} seed ${seed}: wear 0 must keep the old look exactly`); }
+      { const homes = p.items.filter(i => (i.t === 'cube' || i.t === 'house' || i.t === 'terrace' || i.t === 'block') && !i.part); need(homes.every(i => typeof i.age === 'number'), `${preset} seed ${seed}: every house has the new shading (age is a number, 0 for a house kept up)`); }
+      { aged += p.items.filter(i => i.age > 0).length; lean += p.items.filter(i => i.lean).length; plots += p.plots.length; tufts += p.tufts.length; need(p.worn && p.worn.some(v => v), `${preset} seed ${seed}: no worn ground`); }
       ruins[preset] += p.items.filter(i => i.t === 'cube' && i.dmg >= 2).length;
       if (preset === 'roadsideHamlet') need(p.squares.some(q => q.village) && p.wells.length >= 1 && p.oasis[0].houses >= 12, `roadside seed ${seed}: square, well and at least 12 houses`);
       if (seed <= 3 && JSON.stringify([p.items.length, p.tufts, p.plots]) !== JSON.stringify((q => [q.items.length, q.tufts, q.plots])(CG.generate({ seed, preset })))) need(false, `${preset} seed ${seed}: the same seed gave a different plan`); } }

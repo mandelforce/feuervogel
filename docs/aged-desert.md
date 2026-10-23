@@ -1,6 +1,6 @@
 # The aged desert
 
-Proposal and first build. The old Enigma Run desert houses (flat plastered cubes, one even tone, straight lines) read as too clean. This replaces that look with houses that are old, patched and lived in, drawn by CityGen's own pixel painter. The game itself is not changed yet: the generator, the City Lab and the tests carry it, and the switch for level 2 is one line (see "Shipping it").
+The old Enigma Run desert houses (flat plastered cubes, one even tone, straight lines) read as too clean. They are replaced by houses shaded like the Campaign's level 2 house (dithered tones, a stepped roof, lit edges), some of them old, patched and lived in, drawn by CityGen's own pixel painter. It is the default for every desert plan; see "Shipping it".
 
 ## What it is
 
@@ -46,12 +46,15 @@ Both are in the clean look too, so level 2 changes even without wear:
 
 `tests/citygen.mjs` checks both on 12 seeds in both looks (no rail cell in or within 19 px of a wall, no sideways jump in the riverbed, no blunt end). The valley preset changes too, for the same reason.
 
-## Shipping it
+## Shipping it: done in the generator
 
-1. `index.html`, the level 2 build (`CityGen.generate({ preset: 'sandSea', params: { segs } })`, about line 7906): use `preset: 'sandSeaAged'`, or pass `wear: 0.55` in `params`. The generator copy in `index.html` is already current (`node scripts/embed-citygen.mjs`).
-2. Run `node tests/enigma.mjs` and `node tests/enigma.mjs --pixels`. Level 2's pixel hash will change on purpose (the new look and the two fixes); the Campaign must not. Refresh the level 2 entry only.
-3. Check the cost. Painting a 64-row chunk of the whole level averaged 9.9 ms aged against 9.8 ms clean in my run (plan time 147 ms against 216 ms, which is noise). Plan memory: `plan.worn` is 224 x 3584 bytes. The level has about 54 house items against 26, so the director's gun slots and fire budget see more roofs.
-4. The play test: lean-tos and plots are new obstacles beside the track. Both keep 2 px and 3 px clear of it, so routes are untouched, but a tank turning at a village may meet one.
+The new look is now the default for every desert plan (`wear` 0.55 on the desert presets, so level 2 itself, the oasis and valley presets, the pass and the port). The game picks it up with no change to `index.html` beyond the embedded generator copy, because level 2 asks for the `sandSea` preset. The old look stays available for comparison: `sandSeaClassic`, or `params: { wear: 0 }` on any desert preset (pixel for pixel the old plans).
+
+Every house now has the Campaign house's shading, not only the worn ones. `age` is a number on every house (0 for one kept up, up to 1): the outer block and inner step, tones that dither into each other, a bright lit lip on the top and left, a dark one on the bottom and right, the roof square. Wear adds the blotches, patches, cracks, stains and clutter on top.
+
+To go back: set `wear: 0` in `PRESETS.oasis`, `PRESETS.portDesert` and `PRESETS.villageDesert` (the others inherit it) and run `node scripts/embed-citygen.mjs`.
+
+Still to check by hand in the running game: the Enigma pixel hashes (`node tests/enigma.mjs --pixels`), the play feel around the lean-tos and gardens near the track, and chunk build time on a phone.
 
 ## Risks and open points
 
