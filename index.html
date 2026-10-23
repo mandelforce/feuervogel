@@ -371,7 +371,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1A</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6B</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -7874,7 +7874,8 @@ const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a
    The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
 // Levels 1 to 6; level 7 shown as "6B", a second level 6, the harbour city; level 8 shown as "1A", level 1 with its islands (spec 17.4).
 // ENIGMA_BASE: the Campaign stage each level flies (its theme, music and boss).
-const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B', '1A'], ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
+const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6', '1'], // what the player sees: the Campaign's levels are 1 to 6 (levels 8 and 7 are its 1 and 6; the plain levels 1 and 6 are not in the Campaign)
+   ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
 function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
@@ -8079,7 +8080,7 @@ function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // R
 // continues, weapon and drones carried over; after the last level (6, or 6B, the second level 6) came the congratulations (finishResults),
 // then the title. 1A, the second level 1, leads on to level 2. Nothing is counted (no loop, no best score).
 const ENIGMA_NEXT = [2, 3, 4, 5, 7, 0, 0, 2]; // 1A (8) leads to 2, 5 to 6B (7); plain 1 and 6 are kept for the lab
-const CAMP_LEVELS = [8, 2, 3, 4, 5, 7]; // the Campaign: 1A, 2, 3, 4, 5, 6B (level 5 leads to 6B, not 6; the plain levels 1 and 6 stay out of it)
+const CAMP_LEVELS = [8, 2, 3, 4, 5, 7]; // the Campaign's levels 1 to 6 (internal levels 1A, 2, 3, 4, 5, 6B; level 5 leads to 6B, not the plain 6; the plain levels 1 and 6 stay out of it)
 function endEnigmaLevel() {
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {

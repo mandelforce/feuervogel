@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
-- The Enigma Run is now the Campaign. START flies its levels one after another: 1A, 2, 3, 4, 5, 6B (level 5 leads to 6B). The old campaign lives on as Retro Run: a button at the end of the credits (from the title screen, Menu > Credits) opens its difficulty choice and starts it as it was. Retro Run never touches the leaderboard. Practice (under the Tutorial on the difficulty screen) now picks one of the six Campaign levels; practice runs are not ranked. Settings > Enigma Run is gone.
+- The Enigma Run is now the Campaign. START flies its levels one after another, numbered 1 to 6. The old campaign lives on as Retro Run: a button at the end of the credits (from the title screen, Menu > Credits) opens its difficulty choice and starts it as it was. Retro Run never touches the leaderboard. Practice (under the Tutorial on the difficulty screen) now picks one of the six Campaign levels, 1 to 6; practice runs are not ranked. Settings > Enigma Run is gone.
 - The leaderboard shows one board, the Campaign. Gone: the Online / This device toggle and the Campaign / Endless toggle. A run that finishes level 6B opens the score dialog ("Campaign complete"). Offline, the board shows the last list it fetched (or this device's own scores if none) under "Offline: showing saved scores" with a Retry button; a score earned offline is sent automatically when the connection is back. Old saves, scores and boards are kept as they are.
 - Gun speed is fixed at 90 % and point-blank fire is always on; both settings are hidden. The Enigma look slider is hidden (it stays off).
 - Settings: "Last problem report" is now a button that opens the report on its own view (with Copy report and Back).

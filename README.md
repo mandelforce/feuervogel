@@ -14,11 +14,10 @@ The Feuervogel is the evil empire's most dangerous machine, a stranded alien sta
 
 ## The game
 
-- **Campaign:** six levels, six bosses: Cross the Channel, The Winter Line, Sea of Sand, The Long Night, The Iron Forest and The Burning City.
+- **Campaign:** levels 1 to 6, six bosses: Cross the Channel, Sea of Sand, The Long Night, The Iron Forest, The Winter Line and The Burning City.
 - **Four weapons, four upgrades each:** Scatter, Lance, Seekers and, from level 3, Arc. Level them up as you fly and each one changes how it looks and plays.
 - **Nova bomb and super laser:** clear the screen with a Nova, or hold still to charge the laser and burn through armour.
-- **Endless:** the levels keep looping and getting harder.
-- **Practice:** jump straight into any level from the title screen. Practice runs don't count for the Campaign board.
+- **Practice:** under Start, next to the tutorial, pick any Campaign level (1 to 6) and fly it on its own. Practice runs don't count for the Campaign board.
 - **Three difficulties:** Rookie, Veteran or Ace, locked for the whole run.
 - **Two players:** fly together on one screen, each with their own score and super laser.
 - **Secrets:** every level hides one. Find all six to unlock the Schneevogel skin.
@@ -27,10 +26,10 @@ The Feuervogel is the evil empire's most dangerous machine, a stranded alien sta
 
 ## Online leaderboard
 
-- Separate top-10 boards for Campaign and Endless, per difficulty, split into mobile and PC.
+- A top-10 board per difficulty, split into mobile and PC.
 - **All-time and weekly boards.** The weekly best-of resets every week, so there's always a fresh shot at the top.
 - Two continues per run; continuing keeps your score. Runs finished without continues get a ★.
-- Only Campaign runs that start at level 1 are ranked.
+- **Offline?** Your score is saved on the device and submitted later, as soon as you're back online.
 
 ## Controls
 

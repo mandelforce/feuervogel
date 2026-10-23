@@ -70,7 +70,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     o.note = q('dNote').textContent; o.pressed = q('dStage').querySelector('[aria-pressed="true"]').dataset.s;
     q('diffAsk').querySelector('[data-d="1"]').click(); o.level = run.sortie && run.sortie.level; o.theme = world.curTheme; o.stage = run.stage; o.state = app.state; o.start = run.start; o.ranked = run.ranked; return o; })()`);
   ok(ui.noOldRows && ui.fixed, 'gun speed, point-blank and the Enigma slider are gone from Settings and fixed at 90 / on / off');
-  ok(ui.pickerOpen && ui.title === 'Practice a level' && ui.stageRow && ui.shown === '1A,2,3,4,5,6B', `Practice offers the Campaign levels 1A, 2, 3, 4, 5, 6B (${ui.shown})`);
+  ok(ui.pickerOpen && ui.title === 'Practice a level' && ui.stageRow && ui.shown === '1,2,3,4,5,6', `Practice offers the Campaign levels 1 to 6 (${ui.shown})`);
   ok(ui.pressed === '7' && ui.level === 7 && ui.theme === 5 && ui.stage === 6 && ui.state === 'play' && ui.ranked === false, 'choosing level 6B and a difficulty starts it as an unranked practice run');
 
   const hide = await peek(page, `(() => { openSettings(); const h = !!document.getElementById('sFire'); setPanel.classList.remove('open'); return h; })()`);
@@ -254,14 +254,14 @@ for (const lv of [2, 6, 7]) {
 // it is the same after a resume, and flown through by the bot it reaches the boss and, the last level, ends at the title without errors.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="7"]'), shown = !btn.hidden && btn.textContent === '6B'; const hiddenCamp = document.querySelector('#dStage [data-s="6"]').hidden; closeDiff();
+  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="7"]'), shown = !btn.hidden && btn.textContent === '6'; const hiddenCamp = document.querySelector('#dStage [data-s="6"]').hidden; closeDiff();
     settings.diff = 1; startEnigma(7); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 41) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 31) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 30; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).b === 'sea' && info(world.stageBaseP).plan === true;
     return { shown, hiddenCamp, pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, mode: P.coast.mode, cs: P.coast.cs, side: !!P.port.side, piers: P.port.piers, sub: P.slots.some(q => q.kind === 'sub'), war: (P.shipLanes.find(l => l.kind === 'warships') || {}).w || 0, tunnel: P.tunnels.length, wall: (() => { const l = P.shipLanes.find(q => q.kind === 'warships'); if (!l) return -1; let n = 0; for (let y = l.y0; y <= l.y1; y++) for (let x = Math.round(l.x - l.w / 2); x < l.x + l.w / 2; x++) if (P.K[y * P.W + x] === CityGen.K.QUAY) n++; return n; })(), per: P.perimeter && P.perimeter.y0, st: P.station && P.station.y1, msg: app.msg && app.msg.a }; })()`);
-  ok(r.shown && r.hiddenCamp, 'the Practice picker offers level 6B (and not the plain level 6)');
+  ok(r.shown && r.hiddenCamp, 'the Practice picker offers Campaign level 6 (internal 6B)');
   ok(r.pass && r.L === r.len && r.seaFirst, `level 6B plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
   ok(r.mode === 'corner' && r.cs === 1 && r.side && r.piers >= 3 && r.sub, `level 6B has the south harbour (${r.piers} piers, a submarine berth) with the east harbour opening into it`);
   ok(r.war >= 30 && r.wall === 0 && r.tunnel >= 1, `level 6B's east harbour is open water, no breakwater, a ${r.war} px lane for the warships; the quayside track runs into a tunnel`);
@@ -371,14 +371,14 @@ for (const lv of [2, 6, 7]) {
 // their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the run flies on into level 2.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1A'; const hiddenCamp = document.querySelector('#dStage [data-s="1"]').hidden; closeDiff();
+  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1'; const hiddenCamp = document.querySelector('#dStage [data-s="1"]').hidden; closeDiff();
     settings.diff = 1; startEnigma(8); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), beach = S.segs.find(g => g.t === 'beach_fortified').start; let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 20; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const bio = S.planBiome.join(''), after = info(world.stageBaseP + beach);
     return { shown, hiddenCamp, pass: v.pass, L: P.L, want: beach * CH, types, n, pix, isles: P.isles.length, airbase: !!P.airbase, land: S.planBiome.filter(b => b === 'country').length, sea: S.planBiome.filter(b => b === 'sea').length, after: after.b, afterPlan: !!after.plan, carrier: !!world.carrier, lvl1: (() => { startEnigma(1); return !!run.sortie.isles || !!sortiePlan(run.sortie); })() }; })()`);
-  ok(r.shown && r.hiddenCamp, 'the Practice picker offers level 1A (and not the plain level 1)');
+  ok(r.shown && r.hiddenCamp, 'the Practice picker offers Campaign level 1 (internal 1A)');
   ok(r.pass && r.L === r.want && r.isles >= 5 && r.airbase, `level 1A plan passes the generator's hard rules and runs from the first chunk to the fortified beach (${r.L} px, ${r.isles} islets, the airbase)`);
   ok(r.land >= 8 && r.sea >= 14 && r.after === 'coastUp' && !r.afterPlan && r.carrier && !r.lvl1, `level 1A plays the large island as land (${r.land} chunks) and the rest as sea (${r.sea}), the legacy coast after it, opens on the carrier; level 1 keeps the old ground`);
   ok(r.types === 0 && r.pix === 0, `level 1A ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
