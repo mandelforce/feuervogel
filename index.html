@@ -11434,39 +11434,59 @@ function pbTick() { // every two seconds, update the readout
 }
 // ---------- Arc: a bolt to the nearest enemy ahead, with at most two short jumps ----------
 const arcs = [];
-function arcTargets(x, y, reach, cone, skip, troops) {
+function arcTargets(x, y, reach, cone, skip, troops, prefer, slope = 0.35) { // prefer: the target the arc is locked on, kept while it stays in reach and in the cone
   let best = null, bd = 1e9;
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ENT[e.type].arcLow) || e.type === 'camo') continue;
-    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || bossShielded(e, q)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * 0.35 && d < bd) { bd = d; best = { e, part: q, x: px, y: py }; } } continue; }
+    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || bossShielded(e, q)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * slope && (d < bd || q === prefer)) { bd = q === prefer ? -1 : d; best = { e, part: q, x: px, y: py }; } } continue; }
     if (e.y < 4 || e.y > y - 4) continue;
-    const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * 0.35 && d < bd) { bd = d; best = { e, x: e.x, y: e.y }; }
+    const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * slope && (d < bd || e === prefer)) { bd = e === prefer ? -1 : d; best = { e, x: e.x, y: e.y }; }
   }
   return best;
 }
 function arcHit(t, d) { if (t.e.type === 'troop') { for (let k = 0; k < 8; k++) world.parts.push({ kind: 'spark', layer: 'g', x: t.x + rnd(-3, 3), y: t.y + rnd(-4, 3), vx: rnd(-0.8, 0.8), vy: rnd(-1, 0.3), life: 12, max: 12, col: k % 2 ? '#a8e0ff' : '#ffffff' }); smokePuff(t.x, t.y - 2); }
   d *= dmgK(); if (t.part) damagePart(t.e, t.part, d * 1.25); else damage(t.e, d); run.stats.hits++; world.parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
-function arcBolt(x0, y0, x1, y1, w) { const n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)), pts = [[x0, y0]]; for (let k = 1; k < n; k++) { const f = k / n, nx = -(y1 - y0), ny = x1 - x0, l = Math.hypot(nx, ny) || 1, o = rnd(-3.5, 3.5); pts.push([x0 + (x1 - x0) * f + nx / l * o, y0 + (y1 - y0) * f + ny / l * o]); } pts.push([x1, y1]); arcs.push({ pts, w, life: 5 }); }
+function arcBolt(x0, y0, x1, y1, w, o) { const n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)), pts = [[x0, y0]]; for (let k = 1; k < n; k++) { const f = k / n, nx = -(y1 - y0), ny = x1 - x0, l = Math.hypot(nx, ny) || 1, off = rnd(-3.5, 3.5); pts.push([x0 + (x1 - x0) * f + nx / l * off, y0 + (y1 - y0) * f + ny / l * off]); } pts.push([x1, y1]); arcs.push(Object.assign({ pts, w, life: 5, max: 5 }, o)); }
+// The Arc is a tether: it locks onto the nearest target in a narrow cone and, while it stays locked, the damage ramps up (gain x the base after
+// `ramp` frames). Losing the target (dead, out of reach or out of the cone) starts the ramp again on the next one. Chain jumps come at level 3 and
+// hit for half the base damage with no ramp. The look: the bolt thickens and whitens as it ramps, a second strand from level 3, a ring at full power.
+const ARC_LV = [null,
+  { reach: 0.5,  dmg: 1.2, cone: 10, slope: 0.16, jumps: 0, hop: 0,  gain: 1.0, ramp: 60, w: 2 },
+  { reach: 0.55, dmg: 1.4, cone: 12, slope: 0.20, jumps: 0, hop: 0,  gain: 1.1, ramp: 55, w: 2 },
+  { reach: 0.6,  dmg: 1.6, cone: 14, slope: 0.24, jumps: 1, hop: 38, gain: 1.3, ramp: 50, w: 3 },
+  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.5, ramp: 45, w: 3 }];
 function fireArc(p, L) {
-  const reach = H * [0, 0.5, 0.55, 0.6, 0.66][L], dmg = [0, 1.8, 2.0, 2.3, 2.6][L], jumps = [0, 0, 1, 1, 2][L], hop = [0, 0, 38, 46, 52][L], w = L >= 3 ? 2 : 1;
+  const A = ARC_LV[L], reach = H * A.reach, ox = p.x, oy = p.y - 12;
   run.stats.shots++;
   chipPlay('arc');
-  const t0 = arcTargets(p.x, p.y - 12, reach, 18, new Set()) || arcTargets(p.x, p.y - 12, reach, 18, new Set(), true);
-  if (!t0) { arcBolt(p.x, p.y - 12, p.x + rnd(-6, 6), p.y - 40, 1); return -1; }
-  const dist = Math.hypot(t0.x - p.x, t0.y - (p.y - 12)) / reach; // how far the first target is, as a share of the reach
-  arcBolt(p.x, p.y - 12, t0.x, t0.y, w); arcHit(t0, dmg); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
-  const used = new Set([t0.part || t0.e]); let cur = t0;
-  for (let k = 0; k < jumps; k++) {
-    let nb = null, bd = hop;
+  const t0 = arcTargets(ox, oy, reach, A.cone, new Set(), false, p.arcLock, A.slope) || arcTargets(ox, oy, reach, A.cone, new Set(), true, p.arcLock, A.slope);
+  if (!t0) { p.arcLock = null; arcBolt(ox, oy, ox + rnd(-6, 6), oy - 28, 1); return -1; }
+  const key = t0.part || t0.e;
+  if (p.arcLock !== key) { p.arcLock = key; p.arcT0 = gf; }
+  const r = Math.min(1, (gf - p.arcT0) / A.ramp), mult = 1 + A.gain * r; // r: how far the ramp has come, 0 to 1
+  const dist = Math.hypot(t0.x - p.x, t0.y - oy) / reach; // how far the first target is, as a share of the reach
+  arcBolt(ox, oy, t0.x, t0.y, A.w, { lv: L, r, life: 8, max: 8 });
+  if (L >= 3) arcBolt(ox, oy, t0.x, t0.y, 1, { lv: L, r, sub: 1, life: 8, max: 8 });
+  arcHit(t0, A.dmg * mult); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
+  if (r >= 1) for (let k = 0; k < 2; k++) world.parts.push({ kind: 'spark', layer: 'a', x: t0.x, y: t0.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.2, 1.2), life: 9, max: 9, col: k ? '#ffffff' : WPN.A.ramp[3] });
+  const used = new Set([key]); let cur = t0;
+  for (let k = 0; k < A.jumps; k++) {
+    let nb = null, bd = A.hop;
     for (const e of world.enemies) { if (e.dead || e.dying || e.untarget || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
-    if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, w - 1)); arcHit(nb, dmg * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
+    if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, A.w - 1)); arcHit(nb, A.dmg * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
   }
   return dist;
 }
 function drawArcs() {
-  for (const a of arcs) { const f = a.life / 5;
-    for (const [col, lw, al] of [[WPN.A.ramp[2], a.w + 3, 0.5], [WPN.A.ramp[3], a.w + 1, 0.9], ['#ffffff', Math.max(1, a.w - 1), 1]]) { ctx.globalAlpha = al * f; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]); for (const q of a.pts) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
-    ctx.globalAlpha = 0.5 * f; dk(a.pts[a.pts.length - 1][0], a.pts[a.pts.length - 1][1], 4, WPN.A.ramp[3]); }
+  const c = WPN.A.ramp;
+  for (const a of arcs) { const f = a.life / (a.max || 5), r = a.r || 0, hot = r >= 1, w = a.w + (r > 0.5 ? 1 : 0);
+    const layers = a.sub ? [[c[3], 2, 0.5], ['#ffffff', 1, 0.9]] : [[hot ? c[3] : c[2], w + 3, 0.5], [c[3], w + 1, 0.9], ['#ffffff', Math.max(1, w - 1), 1]];
+    for (const [col, lw, al] of layers) { ctx.globalAlpha = al * f; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]); for (const q of a.pts) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
+    if (a.sub) continue;
+    const e = a.pts[a.pts.length - 1];
+    ctx.globalAlpha = 0.5 * f; dk(e[0], e[1], 4 + (a.lv ? r * 3 : 0), c[3]);
+    if (a.lv) { ctx.globalAlpha = 0.45 * f; dk(a.pts[0][0], a.pts[0][1], 2 + a.lv + r * 3, c[3]); ctx.globalAlpha = f; dk(a.pts[0][0], a.pts[0][1], 1 + r * 2, '#ffffff'); }
+    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); } }
   ctx.globalAlpha = 1;
 }
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
