@@ -436,6 +436,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <p class="note" id="sEnigmaRunNote">Six redesigned levels, one at a time. Not part of the Campaign: scores do not count.</p>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
+        <div class="row" id="sPbRow"><span>Point-blank fire</span><span class="seg" id="sPb"><button type="button" data-v="off">Off</button><button type="button" data-v="on">On</button></span></div>
+        <p class="note">Test: the gun slows while your shots are still in the air, so closing in fires faster. Arc fires faster at close range. Turn on Show FPS to see the rate.</p>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
@@ -4174,7 +4176,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: false };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.enigma = Math.max(0, Math.min(100, Math.round((+settings.enigma || 0) / 5) * 5)); // Enigma look strength, 0 = classic
 settings.mode = 'camp'; settings.hap = false;
@@ -11400,7 +11402,31 @@ const ENT = {
 /* ================= player ================= */
 const keys = {};
 const kd = (...ks) => ks.some(k => keys[k]);
-function pshot(x, y, a, sp, dmg) { world.shots.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }); }
+function pshot(x, y, a, sp, dmg) { const s = { x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }; world.shots.push(s); return s; }
+// ---------- Point-blank fire (Settings, experimental): the more of your own shots are still in the air, the slower the gun cycles.
+// Shots that hit free their place at once, so closing in keeps the rate up; shots that fly the whole range hold it. Arc is hitscan: its rate follows the first target's distance.
+const PB = {
+  k: 1,                                               // extra cooldown at a full pipe, as a share of the normal one
+  S: { knee: 3, cap: 7 }, L: { knee: 5, cap: 10 },    // volleys in the air: the gun is untouched below the knee, slowest at the cap
+  arcMin: 6, arcNear: 0.3,                            // Arc: cooldown at close range, and what counts as close (share of its reach)
+  fired: 0, air: 0, shown: ''                         // volleys fired and shots in the air per volley, for the FPS line
+};
+function pbAir(p, k) { // the ship's own live shots of one kind, drone fire left out
+  const o = p === player ? 1 : 2; let n = 0;
+  for (const s of world.shots) if (s.k === k && !s.drone && !s.dead && (s.o || 1) === o) n++;
+  return n;
+}
+function pbCd(p, base, k, per) { // the cooldown for one volley of `per` shots of kind k
+  if (!settings.pb) return base;
+  const c = PB[k === 'l' ? 'L' : 'S'], v = pbAir(p, k) / per;
+  if (p === player) { PB.air += v; PB.fired++; }
+  return base + Math.round(base * PB.k * clamp((v - c.knee) / (c.cap - c.knee), 0, 1));
+}
+function pbArcCd(base, near) { return settings.pb && near >= 0 ? Math.round(PB.arcMin + (base - PB.arcMin) * clamp((near - PB.arcNear) / (1 - PB.arcNear), 0, 1)) : base; }
+function pbTick() { // every two seconds, update the readout
+  if (!settings.pb || !player || gf % 120) return;
+  PB.shown = 'PB ' + (PB.fired * 0.5).toFixed(1) + '/s AIR ' + (PB.fired ? PB.air / PB.fired : 0).toFixed(1); PB.fired = PB.air = 0;
+}
 // ---------- Arc: a bolt to the nearest enemy ahead, with at most two short jumps ----------
 const arcs = [];
 function arcTargets(x, y, reach, cone, skip, troops) {
@@ -11421,7 +11447,8 @@ function fireArc(p, L) {
   run.stats.shots++;
   chipPlay('arc');
   const t0 = arcTargets(p.x, p.y - 12, reach, 18, new Set()) || arcTargets(p.x, p.y - 12, reach, 18, new Set(), true);
-  if (!t0) { arcBolt(p.x, p.y - 12, p.x + rnd(-6, 6), p.y - 40, 1); return; }
+  if (!t0) { arcBolt(p.x, p.y - 12, p.x + rnd(-6, 6), p.y - 40, 1); return -1; }
+  const dist = Math.hypot(t0.x - p.x, t0.y - (p.y - 12)) / reach; // how far the first target is, as a share of the reach
   arcBolt(p.x, p.y - 12, t0.x, t0.y, w); arcHit(t0, dmg); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
   const used = new Set([t0.part || t0.e]); let cur = t0;
   for (let k = 0; k < jumps; k++) {
@@ -11429,6 +11456,7 @@ function fireArc(p, L) {
     for (const e of world.enemies) { if (e.dead || e.dying || e.untarget || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
     if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, w - 1)); arcHit(nb, dmg * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
   }
+  return dist;
 }
 function drawArcs() {
   for (const a of arcs) { const f = a.life / 5;
@@ -11440,19 +11468,20 @@ function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].li
 function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
   if (p.mcd > 0) p.mcd--;
+  if (p === player) pbTick();
   if (p.cd > 0) return;
   const L = p.lvl, up = -PI / 2;
   if (p.wpn === 'S') {
-    p.cd = 7;
+    p.cd = pbCd(p, 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7][L]);
     if (L === 1) { pshot(p.x - 4, p.y - 8, up, 6, 1); pshot(p.x + 4, p.y - 8, up, 6, 1); }
     else { const n = [0, 0, 3, 5, 7][L]; for (let i = 0; i < n; i++) pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * 0.15, 6, 1); }
   } else if (p.wpn === 'A') {
-    p.cd = 8; fireArc(p, L);
+    p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
-    p.cd = 4;
+    p.cd = pbCd(p, 4, 'l', 1);
     world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.75 + 0.38 * L, k: 'l', w: 2 + L * 1.5, h: 14 });
   } else {
-    p.cd = 7;
+    p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
     pshot(p.x - 3, p.y - 8, up, 6, 1); pshot(p.x + 3, p.y - 8, up, 6, 1);
     if (p.mcd <= 0) { if (!two) chipPlay('missile');
       p.mcd = Math.max(16, 32 - L * 4);
@@ -11609,7 +11638,7 @@ function updPlayer() {
     d.x += (p.x + side * 17 - d.x) * 0.22; d.y += (p.y + 7 + Math.sin(gf * 0.08 + i * 2) * 2 - d.y) * 0.22;
     for (const b of world.ebul) if ((b.kind === 's' || b.kind === 'shell') && !b.dead && (b.x - d.x) ** 2 + (b.y - d.y) ** 2 < 32) { b.dead = true; world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.6), life: 8, max: 8, col: '#a8f6dc' }); }
     if (p.dcd === 0) {
-      if (p.wpn === 'S') pshot(d.x, d.y - 5, -PI / 2 + side * 0.06, 6, 0.7);
+      if (p.wpn === 'S') pshot(d.x, d.y - 5, -PI / 2 + side * 0.06, 6, 0.7).drone = true;
       else if (p.wpn === 'L' || p.wpn === 'A') world.shots.push({ x: d.x, y: d.y - 8, vx: 0, vy: -7.5, dmg: 0.45, k: 'l', w: 2, h: 12, drone: true });
       else world.shots.push({ x: d.x, y: d.y - 4, vx: side * 0.8, vy: -1.2, k: 'h', dmg: 1.6, w: 4, h: 4, sp: 1.4 });
     }
@@ -13581,6 +13610,7 @@ function renderMain() {
   if (app.results) drawResults();
   if (app.congrats) drawCongrats();
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
+  if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
 
   if (app.msg && app.state === 'play' && app.cont === 0 && !app.results && !app.congrats) {
     const warn = app.msg.a === 'WARNING';
@@ -13679,6 +13709,7 @@ for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('ari
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
+for (const b of document.querySelectorAll('#sPb button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === !!settings.pb));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   { const r = document.getElementById('sEnigma'); r.value = settings.enigma; rangeFill(r); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; }
 }
@@ -13853,6 +13884,7 @@ document.getElementById('sEnigma').addEventListener('input', e => { settings.eni
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
+for (const b of document.querySelectorAll('#sPb button')) b.addEventListener('click', () => { settings.pb = b.dataset.v === 'on'; PB.fired = PB.air = 0; PB.shown = ''; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => { app.paused = false; setPauseIcon(); startTutorial(); });
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startAt(1); });
