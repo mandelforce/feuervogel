@@ -82,3 +82,5 @@ Plan for either: each new sprite set sits next to the old one (for example `SPR.
 
 Decided: names as proposed, all eight behaviour changes, Enigma Run levels only (the look slider is ignored), no rocket bike.
 Wired in `index.html`: the baked sprites (`<script id="enigmaArt">`, `ENIG_ART`, `setEnigmaArt`, swapped into `SPR` while `run.sortie` is set), hit boxes (`ENIG_BOX`), and the behaviours (`wavePfeil`, `ENT.pfeil`, heavy and bomber updates, `bomberEngines`, the Lancer in `convoy`, the armed Gespann in `lightVehicle`, the Blitz's soldiers, the Tanker's wider blast, the Kübel's alarm). Differences from the proposal: the Enigma Run has no loop, so the Hammer's second spread starts at level 3 and the Lancer joins convoys from level 2. The fighter leader (`SPR.fighterL`) is still the classic sprite.
+
+Leader: the "red spinner and cowl, white tips" version of the Fw 190 (`ld_nose` in `docs/leader-art-v20.js`) is the Enigma Run's formation leader sprite (`SPR.fighterL` in the Enigma art set).
