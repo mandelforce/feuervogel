@@ -161,7 +161,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #crRoll .r{color:#8a7eb0;margin-top:16px}#crRoll .g{color:#f4d050}#crRoll .b{color:#6a9ad8}#crRoll .d{color:#5a4e80}
 #crRoll .jf{font-family:'StarFall JP','Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif;font-size:16px}
 #crClose{position:absolute;right:8px;top:8px;z-index:2;font:600 14px 'StarFall Text',ui-monospace,monospace;color:#f2ecd8;background:#34226a;border:2px solid #8466dc;border-radius:3px;padding:6px 10px;cursor:pointer;touch-action:manipulation}
-#crClose:focus-visible{outline:3px solid #f4d050;outline-offset:2px}
+#crClose:focus-visible,#crRetro:focus-visible{outline:3px solid #f4d050;outline-offset:2px}
+#crRetro{font:600 16px 'StarFall Text',ui-monospace,monospace;letter-spacing:.08em;color:#fff0a0;background:#34226a;border:2px solid #8466dc;border-radius:3px;padding:10px 22px;cursor:pointer}
 #howto .panel{width:min(94%,420px);max-height:94vh;overflow-y:auto}
 #howto .help{margin:4px 0 10px;border:0;padding:0}
 #howto h3{margin:12px 0 8px;font-size:16px;color:#fff0a0}
@@ -258,6 +259,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:22px;background:#fff0a0;border:2px solid #120e1a;box-shadow:inset -2px -2px 0 #d0a020}
 #settings input[type=range]::-moz-range-track{background:transparent}#settings input[type=range]::-moz-range-thumb{width:8px;height:18px;border-radius:0;background:#fff0a0;border:2px solid #120e1a}
 #settings .note{font-size:11px;color:#7a6ea0}
+#errView{display:none}#settings.showErr .panel>:not(#errView){display:none}#settings.showErr #errView{display:block}
+#errText{font:11px ui-monospace,monospace;color:#a99cc8;word-break:break-all;margin:0 0 10px}#errView .lbrow{display:flex;gap:8px}#errView .lbrow button{flex:1;padding:10px}
 #settings .val{min-width:34px;text-align:right;font-size:12px;color:#fff0a0}
 #settings .wide{background:#2a2050;color:#a8f6dc;border:2px solid #120e1a;box-shadow:inset 2px 2px 0 #4a3e90,inset -2px -2px 0 #170f2c,0 3px 0 #120e1a;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:8px}
 /* leaderboard: filters keep their underlines; the list gets arcade rows */
@@ -336,15 +339,13 @@ body[data-results="1"] #bombBtn{display:none !important}
         </div>
         <div id="lbView">
           <div id="lbFilters">
-          <span class="seg" id="lbSrc"><button type="button" data-v="online">Online</button><button type="button" data-v="local">This device</button></span>
-          <span class="seg" id="lbMode"><button type="button" data-v="camp">Campaign</button><button type="button" data-v="endless">Endless</button></span>
           <span class="seg" id="lbPeriod"><button type="button" data-v="all">All-time</button><button type="button" data-v="week">This week</button><button type="button" data-v="last">Last week</button></span>
           <span class="seg" id="lbDiffSeg"><button type="button" data-v="0">Rookie</button><button type="button" data-v="1">Veteran</button><button type="button" data-v="2">Ace</button></span>
           <span class="seg" id="lbPlat"><button type="button" data-v="mobile">Mobile</button><button type="button" data-v="pc">PC</button></span>
           </div>
           <ol id="lbList"></ol>
           <p id="lbLegend">★ no continues used</p>
-          <div class="lbrow"><button type="button" id="lbClose">Done</button></div>
+          <div class="lbrow"><button type="button" id="lbRetry" hidden>Retry</button><button type="button" id="lbClose">Done</button></div>
         </div>
         <p class="lbmsg" id="lbMsg" role="status"></p>
       </div>
@@ -370,7 +371,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1A</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6B</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -413,6 +414,8 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="r" style="margin-top:0"><span class="jf">追加プログラム</span> / ADDITIONAL CODE</div><div id="crHex" style="white-space:pre"></div>
         <div style="height:40px"></div><div class="b">THANK YOU FOR PLAYING</div>
         <div style="height:40px"></div><div class="r" style="margin-top:0">© 1989 MANDELFORCE</div><div class="d">FOR USE IN JAPAN ONLY</div>
+        <div style="height:60px"></div>
+        <button type="button" id="crRetro">Retro Run</button>
         <div style="height:90px"></div>
       </div>
     </div>
@@ -430,21 +433,18 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
-        <div class="row"><label for="sEnigma">Enigma</label><input type="range" id="sEnigma" min="0" max="100" step="5"><span id="sEnigmaV" class="val">Off</span></div>
-        <p class="note">Calmer backgrounds. Off is the classic look.</p>
-        <div class="row" id="sEnigmaRunRow"><span>Enigma Run</span><span class="seg"><button type="button" id="sEnigmaRun">Choose level</button></span></div>
-        <p class="note" id="sEnigmaRunNote">Six redesigned levels, one at a time. Not part of the Campaign: scores do not count.</p>
         <div class="row" id="sMouseRow"><span>Mouse</span><span class="seg" id="sMouse"><button type="button" data-v="drag">Drag</button><button type="button" data-v="click">One click</button></span></div>
         <div class="row" id="sP2Row"><span>2nd player</span><span class="seg" id="sP2"><button type="button" data-v="off">Off</button><button type="button" data-v="mouse">Mouse</button><button type="button" data-v="pad">Controller</button></span></div>
-        <div class="row"><label for="sFire">Gun speed</label><input type="range" id="sFire" min="50" max="200" step="5"><span id="sFireV" class="val">100%</span></div>
-        <p class="note">Test: how fast your guns cycle. 100% is standard.</p>
-        <div class="row" id="sPbRow"><span>Point-blank fire</span><span class="seg" id="sPb"><button type="button" data-v="off">Off</button><button type="button" data-v="on">On</button></span></div>
-        <p class="note">Test: the gun slows while your shots are still in the air, so closing in fires faster. Arc fires faster at close range. Turn on Show FPS to see the rate.</p>
         <div class="row" id="sRumbleRow"><span>Controller rumble</span><span class="seg" id="sRumble"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <div class="row" id="sShareRow"><span>Share play data</span><span class="seg" id="sShare"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></span></div>
         <p class="note">Anonymous: stages, times, deaths, weapons and controls, to tune the game. No names.</p>
         <div id="errBox"></div>
         <button type="button" class="primary" id="sClose">Done</button>
+        <div id="errView">
+          <h2>Problem report</h2>
+          <p id="errText"></p>
+          <div class="lbrow"><button type="button" id="errCopy">Copy report</button><button type="button" class="primary" id="errBack">Back</button></div>
+        </div>
       </div>
     </div>
     <button class="btn" id="bombBtn" type="button">Nova</button>
@@ -4133,7 +4133,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.4.47'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4168,7 +4168,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4178,10 +4178,9 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: false, fire: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: true, fire: 90 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
-settings.fire = Math.max(50, Math.min(200, Math.round((+settings.fire || 100) / 5) * 5)); // gun speed in percent, 100 = standard
-settings.enigma = Math.max(0, Math.min(100, Math.round((+settings.enigma || 0) / 5) * 5)); // Enigma look strength, 0 = classic
+settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs +1, heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
@@ -7842,7 +7841,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // A fresh run's starting values on a difficulty, from a seed. newGame() puts them in run. run.endless (chosen before the run starts)
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
-  return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
+  return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
     gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
@@ -7875,7 +7874,8 @@ const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a
    The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
 // Levels 1 to 6; level 7 shown as "6B", a second level 6, the harbour city; level 8 shown as "1A", level 1 with its islands (spec 17.4).
 // ENIGMA_BASE: the Campaign stage each level flies (its theme, music and boss).
-const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6B', '1A'], ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
+const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6', '1'], // what the player sees: the Campaign's levels are 1 to 6 (levels 8 and 7 are its 1 and 6; the plain levels 1 and 6 are not in the Campaign)
+   ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
 function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
@@ -8072,20 +8072,23 @@ function resetTerrainState() {
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
-function startEnigma(level) {
-  app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); // 6B flies the Campaign's stage 6 (theme, music, boss) on its own ground, 1A stage 1
+function startEnigma(level, ranked) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
+  app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); run.ranked = !!ranked; // 6B flies the old stage 6 (theme, music, boss) on its own ground, 1A stage 1
 }
+function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
 // continues, weapon and drones carried over; after the last level (6, or 6B, the second level 6) came the congratulations (finishResults),
 // then the title. 1A, the second level 1, leads on to level 2. Nothing is counted (no loop, no best score).
-const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0, 0, 2];
+const ENIGMA_NEXT = [2, 3, 4, 5, 7, 0, 0, 2]; // 1A (8) leads to 2, 5 to 6B (7); plain 1 and 6 are kept for the lab
+const CAMP_LEVELS = [8, 2, 3, 4, 5, 7]; // the Campaign's levels 1 to 6 (internal levels 1A, 2, 3, 4, 5, 6B; level 5 leads to 6B, not the plain 6; the plain levels 1 and 6 stay out of it)
 function endEnigmaLevel() {
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
-    const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames']) keep[k] = run[k];
+    const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null;
-    startEnigma(nx); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); return;
+    startEnigma(nx, run.ranked); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); return;
   }
+  if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
   stopMusic(); toTitle();
 }
 // ================= tutorial =================
@@ -8204,26 +8207,25 @@ const ENDLESS_BTN = { w: 96, h: 16 };
 // Two views: the campaign (difficulty only, tutorial and practice offered underneath) and practice (a stage row above the difficulties).
 function setDiffView(prac) {
   app.diffNext.prac = prac;
-  const camp = app.diffNext.kind === 'camp', eni = app.diffNext.kind === 'enigma'; // 'enigma': the Enigma Run level picker (Settings > Enigma Run)
-  document.getElementById('dStage').hidden = !prac && !eni;
+  const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign (1A to 6B), 'retro': the old campaign
+  document.getElementById('dStage').hidden = !prac;
   document.getElementById('dExtra').hidden = !camp || prac;
-  document.getElementById('diffTitle').textContent = eni ? 'Enigma Run' : prac ? 'Practice a stage' : camp ? 'Choose difficulty' : 'Endless';
-  document.getElementById('dStageLbl').textContent = eni ? 'Level' : 'Start at stage';
-  if (prac || eni) {
-    document.querySelector('#dStage .dsel').classList.toggle('eni', eni); // Enigma Run has a 7th button, 6B (the harbour city)
-    document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1; b.hidden = !eni && i >= 6; const th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.toggle('art', !eni && arts.has(th)); b.setAttribute('aria-label', (eni ? 'Level ' + ENIGMA_LABEL[i] : 'Stage ' + (i + 1)) + (!eni && arts.has(th) ? ', artifact found' : '')); });
-    if (!eni && (app.diffNext.n || 1) > 6) app.diffNext.n = 6;
-    setDiffStage(app.diffNext.n || 1);
+  document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : 'Endless';
+  document.getElementById('dStageLbl').textContent = 'Level';
+  if (prac) {
+    document.querySelector('#dStage .dsel').classList.add('eni');
+    document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1, th = enigmaTheme(i + 1); b.hidden = !CAMP_LEVELS.includes(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.remove('art'); b.setAttribute('aria-label', 'Level ' + ENIGMA_LABEL[i]); });
+    setDiffStage(CAMP_LEVELS.includes(app.diffNext.n) ? app.diffNext.n : CAMP_LEVELS[0]);
   } else app.diffNext.n = 1;
 }
 function setDiffStage(n) {
   app.diffNext.n = n;
   for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
-  const note = document.getElementById('dNote'), eni = app.diffNext.kind === 'enigma';
-  note.textContent = eni ? ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : n === 8 ? ': the islands' : '') + '. Enigma Run does not count for the board. Preview: the redesigned ground is still being built.' : n === 1 ? 'Stage 1 is the full campaign and counts for the high-score board.' : 'Practice runs do not count for the board.';
-  note.classList.toggle('prac', eni || n !== 1);
+  const note = document.getElementById('dNote');
+  note.textContent = ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : n === 8 ? ': the islands' : '') + '. Practice runs do not count for the board.';
+  note.classList.add('prac');
 }
-function openDiff(kind, n) {
+function openDiff(kind, n) { // n: for the Campaign, a level (1 = the full Campaign from 1A; anything else opens Practice on that level)
   app.diffNext = { kind, n }; app.diffDown = false;
   setDiffView(kind === 'camp' && n > 1);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
@@ -8240,7 +8242,7 @@ function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORE
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
-function lbEligible() { return run.score > 0 && (run.endless || run.start === 1) && !run.twoP && !run.sortie; } // 2-player runs stay off the boards
+function lbEligible() { return run.score > 0 && run.ranked && run.start === 1 && !run.twoP; } // only the Campaign (START) is ranked; Retro Run, practice and 2-player runs stay off the board
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
 const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100, ORB_BREAK = 26, SINK_T = 170; // ORB_BREAK: frames after release when the orb comes out of the water
@@ -8559,7 +8561,7 @@ function rrDeath(cause) {
 }
 function rrPayload(end) {
   const sec = o => { const r = {}; for (const k in o) r[k] = rrSec(o[k]); return r; };
-  return { player: lbPlayer(), v: VERSION, mode: run.endless ? 'endless' : 'camp', diff: run.diff, plat: LB_PLAT, start: run.start, twoP: run.twoP ? 1 : 0,
+  return { player: lbPlayer(), v: VERSION, mode: run.endless ? 'endless' : 'camp', rt: run.retro ? 1 : 0, diff: run.diff, plat: LB_PLAT, start: run.start, twoP: run.twoP ? 1 : 0,
     stage: run.stage, score: run.score, conts: run.conts, dur: rrSec(run.frames), end, n: 0, gap: app.rr.gap, tut: app.rr.tut, inp: sec(app.rr.inp), pk: app.rr.pk,
     st: app.rr.st.map(c => ({ s: c.s, th: c.th, t: rrSec(c.t), b: rrSec(c.b), boss: c.boss, ok: c.ok, end: c.ok ? 'clear' : c.end || end, d: c.d, nb: c.nb, w: sec(c.w), lv: c.lv })), dt: app.rr.dt };
 }
@@ -8573,11 +8575,11 @@ function rrPost(p) { // p.n: how many reported runs this device has played, this
 }
 function rrSend(end) { // the run is over
   if (!app.rr) return;
-  if (run.start !== 99 && !run.sortie && run.frames > 0) rrPost(rrPayload(end)); // tutorial and Enigma Run runs are not reported
+  if (run.start !== 99 && (run.ranked || run.retro) && run.frames > 0) rrPost(rrPayload(end)); // the Campaign and Retro Run are reported (tagged); the tutorial and practice runs are not
   app.rr = null;
 }
 function rrPark() { // the page is hidden mid-run: keep the report in case the browser closes it
-  if (!app.rr || app.state !== 'play' || run.start === 99 || run.sortie) return;
+  if (!app.rr || app.state !== 'play' || run.start === 99 || !(run.ranked || run.retro)) return;
   store.setJSON(KEY.report, { p: rrPayload('left'), rr: app.rr });
 }
 function rrUnpark() { store.remove(KEY.report); }
@@ -8599,7 +8601,7 @@ function saveLocal(run, name) {
   L.sort((a, b) => b.score - a.score); store.setJSON(KEY.local, L.slice(0, 300));
 }
 function lbMsg(t) { lbEl('lbMsg').textContent = t || ''; }
-function lbSync() { for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(app.lbView[key]) === b.dataset.v)); }
+function lbSync() { for (const [id, key] of [['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(app.lbView[key]) === b.dataset.v)); }
 // ---- what changed since you last looked: one small request when the game starts ----
 function lbSeen() { return store.getJSON(KEY.seen, {}); }
 function lbSeenSave(o) { store.setJSON(KEY.seen, o); }
@@ -8612,6 +8614,7 @@ async function lbStatus() {
     const r = await fetch(LB_URL + '/status?player=' + encodeURIComponent(lbPlayer()) + '&since=' + (st.at || 0)); if (!r.ok) return;
     const d = await r.json(), seen = lbSeen();
     for (const b of d.boards) {
+      if (b.mode !== 'camp') continue; // only the Campaign board is shown
       const key = b.mode + '|' + b.plat + '|' + b.diff, prev = seen[key + '|all'];
       if (prev && prev.me && b.rank > prev.me) { app.lbAlert = 'red'; app.lbAlertBoard = key; break; }
     }
@@ -8621,36 +8624,49 @@ setTimeout(lbStatus, 1500);
 function openLB(kind) {
   app.lbOpen = true; app.lbDown = false; lbEl('lbPanel').classList.add('open'); lbMsg('');
   if (kind === 'submit') {
-    app.lbRun = { score: run.score, stage: run.stage, conts: Math.min(run.conts, 2), start: run.start, mode: run.endless ? 'endless' : 'camp', plat: LB_PLAT, diff: run.diff, dur: Math.round(run.frames / 60) };
+    app.lbRun = { score: run.score, stage: run.stage, conts: Math.min(run.conts, 2), start: run.start, mode: 'camp', plat: LB_PLAT, diff: run.diff, dur: Math.round(run.frames / 60) };
     app.lbView = { src: LB_URL ? 'online' : 'local', mode: app.lbRun.mode, plat: LB_PLAT, diff: app.lbRun.diff, period: 'all' }; lbEl('lbSend').textContent = LB_URL ? 'Submit' : 'Save';
     lbEl('lbPanel').classList.toggle('below', app.state === 'over');
-    lbEl('lbTitle').textContent = 'Game over'; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
+    lbEl('lbTitle').textContent = app.lbWin ? 'Campaign complete' : 'Game over'; app.lbWin = false; lbEl('lbSubmit').style.display = ''; lbEl('lbView').style.display = 'none';
     lbEl('lbScore').textContent = 'Score ' + app.lbRun.score + ', stage ' + stageLabel(app.lbRun.stage);
     let nm = store.get(KEY.name, '');
     lbEl('lbName').value = String(nm || '').slice(0, 12); setTimeout(() => { try { lbEl('lbName').focus(); } catch (e) {} }, 50);
   } else {
-    app.lbRun = null; app.lbView.diff = settings.diff; app.lbView.plat = LB_PLAT; if (app.lbAlertBoard) { const [m2, p2, d2] = app.lbAlertBoard.split('|'); app.lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
+    app.lbRun = null; app.lbView.src = 'online'; app.lbView.mode = 'camp'; app.lbView.diff = settings.diff; app.lbView.plat = LB_PLAT; if (app.lbAlertBoard) { const [m2, p2, d2] = app.lbAlertBoard.split('|'); app.lbView = { src: 'online', mode: m2, plat: p2, diff: +d2, period: 'all' }; } lbEl('lbTitle').textContent = 'High scores'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbLoad();
   }
 }
 function closeLB() { app.lbOpen = false; lbEl('lbPanel').classList.remove('open', 'below'); if (app.state === 'over') { if (app.flyby && app.flyby.hold) app.flyby.hold = false; else leaveOver(); } }
 function lbRow(list, i, t) { const li = document.createElement('li'); li.className = (t.me ? 'me ' : '') + (i < 3 ? 'g' + (i + 1) : '') + (t.flash ? ' flash' : '') + (t.pulse ? ' pulse' : ''); const a = document.createElement('span'); a.className = 'rk'; a.textContent = i + 1; if (t.mv) { const m = document.createElement('span'); m.className = 'mv ' + (t.mv > 0 ? 'up' : 'dn'); m.textContent = (t.mv > 0 ? '▲' : '▼') + Math.abs(t.mv); a.appendChild(m); } else if (t.isNew) { const m = document.createElement('span'); m.className = 'nw'; m.textContent = 'NEW'; a.appendChild(m); } const b = document.createElement('span'); b.className = 'nm'; b.textContent = t.name; if (t.tag) { const tg = document.createElement('span'); tg.className = 'tg'; tg.textContent = '#' + t.tag; b.appendChild(tg); } if (t.star) { const sr = document.createElement('span'); sr.className = 'star'; sr.textContent = '★'; sr.title = 'No continues used'; b.appendChild(sr); } const c = document.createElement('span'); c.className = 'sc'; c.textContent = Number(t.score).toLocaleString('en-US'); const st = document.createElement('span'); st.className = 'st'; st.textContent = 'stage ' + t.stage; c.appendChild(st); li.append(a, b, c); list.appendChild(li); }
+// One board: the Campaign. Online it shows the global list and keeps the last list it got; offline (or when the board can't be reached)
+// it shows that saved list, or this device's own scores when nothing is saved, under an "Offline" note with a Retry button.
+const lbBoardKey = () => app.lbView.mode + '|' + app.lbView.plat + '|' + app.lbView.diff + '|' + app.lbView.period;
+function lbLocalRows() {
+  const wk = app.lbView.period === 'week' ? isoWeekC(Date.now()) : app.lbView.period === 'last' ? isoWeekC(Date.now() - 7 * 86400000) : null;
+  return localRuns().filter(r => r.mode === app.lbView.mode && r.diff === app.lbView.diff && r.plat === app.lbView.plat && (!wk || isoWeekC(r.t) === wk)).sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 10);
+}
+function lbShowSaved(note) {
+  const list = lbEl('lbList'); list.innerHTML = ''; const c = store.getJSON(KEY.lbCache, {})[lbBoardKey()];
+  if (c && c.top && c.top.length) c.top.forEach((t, i) => lbRow(list, i, { name: t.name, tag: t.tag, score: t.score, stage: t.stage, star: t.star, me: t.me }));
+  else lbLocalRows().forEach((t, i) => lbRow(list, i, { name: t.name, tag: '', score: t.score, stage: t.stage, star: t.conts === 0, me: t.t === app.lastLocalT }));
+  lbMsg(note); lbEl('lbRetry').hidden = !LB_URL;
+}
 async function lbLoad() {
-  lbSync(); const list = lbEl('lbList'); list.innerHTML = '';
-  if (app.lbView.src === 'local') {
-    const wk = app.lbView.period === 'week' ? isoWeekC(Date.now()) : app.lbView.period === 'last' ? isoWeekC(Date.now() - 7 * 86400000) : null;
-    const rows = localRuns().filter(r => r.mode === app.lbView.mode && r.diff === app.lbView.diff && r.plat === app.lbView.plat && (!wk || isoWeekC(r.t) === wk)).sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 10);
+  lbSync(); const list = lbEl('lbList'); list.innerHTML = ''; lbEl('lbRetry').hidden = true;
+  if (app.lbView.src === 'local') { // a score that could not be sent: it is on this device
+    const rows = lbLocalRows();
     lbMsg(rows.length ? '' : 'No runs on this device yet for this board.');
     rows.forEach((t, i) => lbRow(list, i, { name: t.name, tag: '', score: t.score, stage: t.stage, star: t.conts === 0, me: t.t === app.lastLocalT }));
     return;
   }
-  if (!LB_URL) { lbMsg("The online leaderboard isn't connected yet."); return; }
+  if (!LB_URL) { lbShowSaved(''); return; }
   lbMsg('Loading...');
   try {
     const r = await fetch(LB_URL + '/top?mode=' + app.lbView.mode + '&plat=' + app.lbView.plat + '&diff=' + app.lbView.diff + '&period=' + app.lbView.period + '&player=' + encodeURIComponent(lbPlayer()));
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
+    { const cache = store.getJSON(KEY.lbCache, {}); cache[lbBoardKey()] = { top: d.top, me: d.me, at: Date.now() }; store.setJSON(KEY.lbCache, cache); }
     if (!d.top.length) { lbMsg(app.lbView.period === 'week' ? 'No scores yet this week. Be the first!' : app.lbView.period === 'last' ? 'No scores last week.' : 'No scores yet. Be the first!'); return; }
     // compare with what this player saw last time on this board
-    const bk = app.lbView.mode + '|' + app.lbView.plat + '|' + app.lbView.diff + '|' + app.lbView.period, seen = lbSeen(), prev = seen[bk];
+    const bk = lbBoardKey(), seen = lbSeen(), prev = seen[bk];
     const id = t => t.name + '#' + t.tag, prevRank = {}; if (prev) prev.list.forEach((x, k) => prevRank[x] = k + 1);
     const meNow = d.top.findIndex(t => t.me), myPrev = prev ? prev.me : null, myScore = d.me ? d.me.score : null;
     d.top.forEach((t, i) => {
@@ -8663,8 +8679,25 @@ async function lbLoad() {
     seen[bk] = { list: d.top.map(id), me: d.me ? d.me.rank : null, at: Date.now() }; lbSeenSave(seen);
     if (app.lbView.period === 'all') lbClearAlert(app.lbView.mode + '|' + app.lbView.plat + '|' + app.lbView.diff);
     lbMsg(d.me && !d.top.some(t => t.me) ? 'You: #' + d.me.rank + ' with ' + Number(d.me.score).toLocaleString('en-US') + (d.top.length ? ', ' + Number(d.top[d.top.length - 1].score - d.me.score + 1).toLocaleString('en-US') + ' points to reach the top 10' : '') : '');
-  } catch (e) { lbMsg("Couldn't reach the leaderboard. Check your connection."); }
+    lbFlushQueue(); // the connection works: send any score that was waiting
+  } catch (e) { lbShowSaved('Offline: showing saved scores.'); }
 }
+// A score earned while offline waits here and is sent when the connection is back (a server refusal is not retried).
+async function lbFlushQueue() {
+  if (!LB_URL || LB_TEST || app.lbFlushing) return;
+  app.lbFlushing = true;
+  try {
+    for (let q = store.getJSON(KEY.lbQueue, []); q.length; q = store.getJSON(KEY.lbQueue, [])) {
+      const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(q[0]) });
+      if (r.status >= 500) break; // try again later
+      store.setJSON(KEY.lbQueue, q.slice(1)); // sent, or refused for good (e.g. a name or a plausibility rule)
+      if (r.ok) await new Promise(res => setTimeout(res, 31000)); // the server takes one score per 30 s from a player
+    }
+  } catch (e) {}
+  app.lbFlushing = false;
+}
+addEventListener('online', lbFlushQueue); setTimeout(lbFlushQueue, 4000);
+lbEl('lbRetry').addEventListener('click', lbLoad);
 async function lbSend() {
   const name = lbEl('lbName').value.trim().replace(/\s+/g, ' ');
   if (!/^[A-Za-z0-9 _.\-]{1,12}$/.test(name)) { lbMsg('Use letters, numbers, spaces, dots, dashes or underscores, up to 12 characters.'); return; }
@@ -8676,7 +8709,7 @@ async function lbSend() {
     const r = await fetch(LB_URL + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ player: lbPlayer(), name, version: VERSION }, app.lbRun)) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
     lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad();
-  } catch (e) { const m = e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score online."; app.lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); lbMsg(m + ' It is saved on this device.'); }
+  } catch (e) { const m = e.message && e.message !== 'error' && !/fetch/i.test(e.message) ? e.message : "Couldn't send your score online."; if (m === "Couldn't send your score online.") { const q = store.getJSON(KEY.lbQueue, []); q.push(Object.assign({ player: lbPlayer(), name, version: VERSION }, app.lbRun)); store.setJSON(KEY.lbQueue, q.slice(-5)); } app.lbView.src = 'local'; lbEl('lbSubmit').style.display = 'none'; lbEl('lbView').style.display = ''; lbEl('lbPanel').classList.remove('below'); lbEl('lbTitle').textContent = 'High scores'; await lbLoad(); lbMsg(m === "Couldn't send your score online." ? m + ' It is saved and will be sent when you are back online.' : m + ' It is saved on this device.'); }
   lbEl('lbSend').disabled = false;
 }
 lbEl('lbSend').addEventListener('click', lbSend);
@@ -8684,7 +8717,7 @@ lbEl('lbName').addEventListener('input', e => { const el = e.target; if (el.valu
 lbEl('lbName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lbSend(); } });
 lbEl('lbSkip').addEventListener('click', () => { const nm = lbEl('lbName').value.trim(); if (app.lbRun) saveLocal(app.lbRun, /^[A-Za-z0-9 _.\-]{1,12}$/.test(nm) ? nm : (store.get(KEY.name) || 'PLAYER')); closeLB(); });
 lbEl('lbClose').addEventListener('click', closeLB);
-for (const [id, key] of [['lbSrc', 'src'], ['lbMode', 'mode'], ['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { app.lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
+for (const [id, key] of [['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod', 'period']]) for (const b of lbEl(id).querySelectorAll('button')) b.addEventListener('click', () => { app.lbView[key] = key === 'diff' ? +b.dataset.v : b.dataset.v; lbLoad(); });
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
@@ -8712,7 +8745,7 @@ function saveResume() {
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, ranked: run.ranked, retro: run.retro };
   store.setJSON(KEY.resume, r);
 }
 function clearResume() { store.remove(KEY.resume); }
@@ -8726,7 +8759,7 @@ function resumeRun(r) {
   run.endless = !!r.endless; settings.diff = r.diff;
   newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
   if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) run.sortie = buildSortie(r.sortie.level, r.sortie.seed); // an Enigma Run level is rebuilt from {level, seed}
-  setEnigmaArt(!!run.sortie);
+  setEnigmaArt(!!run.sortie); run.ranked = !!r.ranked; run.retro = !!r.retro;
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -8741,7 +8774,7 @@ function resumeRun(r) {
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.sortie ? 'Enigma Run level ' + r.sortie.level : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
+  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + ENIGMA_LABEL[r.sortie.level - 1] : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -11921,7 +11954,7 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
 }
 // Every change to the score goes through addScore, so scoring has one home. The callers check for an extra life (checkExtend)
 // at the moment they always did, so a 1UP comes exactly when it used to.
-function addScore(v) { run.score += v; if (scorer === 2) run.score2 += v; if (run.score > hi && !run.sortie) hi = run.score; } // Enigma Run never counts toward the best
+function addScore(v) { run.score += v; if (scorer === 2) run.score2 += v; if (run.score > hi && run.ranked) hi = run.score; } // only a Campaign run (started with START) counts toward the best; practice and Retro Run do not
 function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
   if (run.score >= run.nextExtend) { if (scorer === 2 && p2) { if (run.lives2 < LIFE_CAP) run.lives2++; } else if (run.lives < LIFE_CAP) run.lives++; run.extendsGot++; run.nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, run.extendsGot - 1))); sfx('extend'); haptic('extend'); const who = scorer === 2 && p2 ? p2 : player; if (who) label(who.x, who.y - 14, '1UP'); }
@@ -13852,10 +13885,7 @@ for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('ari
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
-for (const b of document.querySelectorAll('#sPb button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === !!settings.pb));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
-  { const r = document.getElementById('sFire'); r.value = settings.fire; rangeFill(r); document.getElementById('sFireV').textContent = settings.fire + '%'; }
-  { const r = document.getElementById('sEnigma'); r.value = settings.enigma; rangeFill(r); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; }
 }
 function buildHelp() {
   const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
@@ -13907,15 +13937,17 @@ function buildHelp() {
     box.appendChild(mc);
   }
 }
-function updateErr() {
+function updateErr() { // the last problem report stays out of sight: Settings shows one button that opens it on its own view
   const eb = document.getElementById('errBox'); if (!eb) return; eb.innerHTML = '';
   const er = store.getJSON(KEY.lastError);
   if (!er) return;
-  const h = document.createElement('h3'); h.textContent = 'Last problem report'; eb.appendChild(h);
-  const pre = document.createElement('p'); pre.style.cssText = 'font:11px ui-monospace,monospace;color:#a99cc8;word-break:break-all;margin:0 0 6px';
-  pre.textContent = `${er.t} v${er.v} ${er.where}: ${er.msg} (stage ${er.stage}, theme ${er.theme}, diff ${er.diff}, h ${er.h}) ${er.stack} ${er.ua}`; eb.appendChild(pre);
-  const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = 'Copy report'; bt.addEventListener('click', () => { try { navigator.clipboard.writeText(pre.textContent); bt.textContent = 'Copied'; } catch (e) {} }); eb.appendChild(bt);
+  const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = 'Last problem report'; bt.addEventListener('click', () => {
+    document.getElementById('errText').textContent = `${er.t} v${er.v} ${er.where}: ${er.msg} (stage ${er.stage}, theme ${er.theme}, diff ${er.diff}, h ${er.h}) ${er.stack} ${er.ua}`;
+    document.getElementById('errCopy').textContent = 'Copy report'; setPanel.classList.add('showErr'); document.getElementById('errBack').focus();
+  }); eb.appendChild(bt);
 }
+document.getElementById('errBack').addEventListener('click', () => { setPanel.classList.remove('showErr'); const b = document.querySelector('#errBox button'); if (b) b.focus(); });
+document.getElementById('errCopy').addEventListener('click', e => { try { navigator.clipboard.writeText(document.getElementById('errText').textContent); e.target.textContent = 'Copied'; } catch (x) {} });
 /* ================= credits ================= */
 // The staff roll of the MANDELFORCE board, opened from the menu. The names are invented (fiction).
 // Fractal tile -> dissolve -> bug (head pops out) -> staff roll. The "additional code" line is a name that glitches into a hex dump of
@@ -13987,8 +14019,9 @@ const Credits = (() => {
         top.putImageData(fd, 0, 0); }
     }
     // scroll: hold on the logo, then roll
-    if (t > 100) ry -= 0.9;
-    if (-ry > roll.offsetHeight + 20) { t = 0; ry = 0; }
+    const rb = document.getElementById('crRetro'), hold = !rb.hidden && el.clientHeight * 0.18 + ry + rb.offsetTop + rb.offsetHeight / 2 <= el.clientHeight * 0.55; // on the title the roll stops with the Retro Run button in view
+    if (t > 100 && !hold) ry -= 0.9;
+    if (!rb.hidden ? false : -ry > roll.offsetHeight + 20) { t = 0; ry = 0; }
     roll.style.top = (el.clientHeight * 0.18 + ry) + 'px';
     slip.style.transform = t % 170 > 162 ? 'translateX(10px)' : 'none';
     if (t % 2 === 0) fractal(zoom, 80, 0.3 * Math.exp(-(1 - Math.cos(t * 0.011)) * 2.0), 140, zimg);
@@ -14003,7 +14036,7 @@ const Credits = (() => {
   }
   function stop() { clearInterval(timer); timer = 0; }
   return {
-    open() { if (!mask) build(); t = 0; ry = 0; el.classList.add('open'); top.imageSmoothingEnabled = false; top.drawImage(tile, 0, 0); stop(); timer = setInterval(tick, 70); document.getElementById('crClose').focus(); },
+    open() { if (!mask) build(); t = 0; ry = 0; document.getElementById('crRetro').hidden = app.state !== 'title'; /* a new run can only start from the title */ el.classList.add('open'); top.imageSmoothingEnabled = false; top.drawImage(tile, 0, 0); stop(); timer = setInterval(tick, 70); document.getElementById('crClose').focus(); },
     close() { el.classList.remove('open'); stop(); },
   };
 })();
@@ -14011,25 +14044,22 @@ function openCredits() { showPauseMenu(false); Credits.open(); }
 function closeCredits() { Credits.close(); showPauseMenu(true); }
 document.getElementById('pmCredits').addEventListener('click', openCredits);
 document.getElementById('crClose').addEventListener('click', closeCredits);
+document.getElementById('crRetro').addEventListener('click', () => { if (app.state !== 'title') return; Credits.close(); audio(); openDiff('retro', 1); });
 document.getElementById('credits').addEventListener('pointerdown', e => e.stopPropagation());
-function openSettings() { updateErr(); syncSettingsUI(); document.getElementById('sEnigmaRunRow').hidden = document.getElementById('sEnigmaRunNote').hidden = app.state !== 'title'; /* a new run can only start from the title */ setPanel.classList.add('open'); if (app.state === 'play' && !app.paused) { app.paused = true; app.panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
+function openSettings() { setPanel.classList.remove('showErr'); updateErr(); syncSettingsUI(); setPanel.classList.add('open'); if (app.state === 'play' && !app.paused) { app.paused = true; app.panelPaused = true; setPauseIcon(); } document.getElementById('sClose').focus(); }
 function closeSettings() { setPanel.classList.remove('open'); saveSettings(); if (app.panelPaused) { app.panelPaused = false; app.paused = false; app.resumeT = 180; setPauseIcon(); } else showPauseMenu(true); }
 setPanel.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === setPanel) closeSettings(); });
 setBtn.addEventListener('pointerdown', e => e.stopPropagation());
 setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('open') ? closeSettings() : openSettings(); setBtn.blur(); });
 document.getElementById('sClose').addEventListener('click', closeSettings);
-document.getElementById('sEnigmaRun').addEventListener('click', () => { if (app.state !== 'title') return; setPanel.classList.remove('open'); saveSettings(); audio(); openDiff('enigma', app.enigmaLast || 1); });
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
 function rangeFill(r) { r.style.setProperty('--v', r.value + '%'); } // the pixel bar fills up to the handle
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('input', e => { settings.sfx = +e.target.value; rangeFill(e.target); applyVolumes(); });
 document.getElementById('sSfx').addEventListener('change', () => { audio(); boomSfx(1); });
-document.getElementById('sFire').addEventListener('input', e => { settings.fire = +e.target.value; rangeFill(e.target); document.getElementById('sFireV').textContent = settings.fire + '%'; saveSettings(); });
-document.getElementById('sEnigma').addEventListener('input', e => { settings.enigma = +e.target.value; rangeFill(e.target); document.getElementById('sEnigmaV').textContent = settings.enigma ? settings.enigma + '%' : 'Off'; saveSettings(); }); // a run in progress keeps its own run.enigma; this applies from the next run
 for (const b of document.querySelectorAll('#sMouse button')) b.addEventListener('click', () => { settings.mouseMode = b.dataset.v; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('click', () => { settings.p2 = b.dataset.v; syncSettingsUI(); saveSettings(); setP2(); });
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
-for (const b of document.querySelectorAll('#sPb button')) b.addEventListener('click', () => { settings.pb = b.dataset.v === 'on'; PB.fired = PB.air = 0; PB.shown = ''; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => { app.paused = false; setPauseIcon(); startTutorial(); });
 for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startAt(1); });
@@ -14060,7 +14090,7 @@ addEventListener('keydown', e => {
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
     if (go && app.state === 'title') openDiff('camp', 1);
-    else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k);
+    else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', CAMP_LEVELS[+k - 1]); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
     return;
   }
@@ -14140,11 +14170,11 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'enigma') startEnigma(nx.n || 1); else startAt(nx.n > 1 ? nx.n : 1); // a camp run from stage 2-6 is practice
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false); else startEnigma(8, true); // START: the Campaign from 1A; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
-document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.kind === 'enigma') closeDiff(); else if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
+document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
 document.getElementById('dPrac').addEventListener('click', () => { if (!app.diffNext) return; setDiffView(true); const b = document.querySelector('#dStage [aria-pressed="true"]'); if (b) b.focus(); });
 document.getElementById('diffAsk').addEventListener('pointerdown', e => { app.diffDown = true; e.stopPropagation(); });
 // The panel opens on the title's pointerdown, so on touch screens the click synthesized when that same finger lifts lands on whatever
@@ -14202,6 +14232,11 @@ const warmList = [];
 (function collect(o, depth) { if (!o || depth > 4) return; if (typeof o.getContext === 'function' && o.width !== undefined) { warmList.push(o); return; } if (typeof o === 'object') for (const k in o) collect(o[k], depth + 1); })(SPR, 0);
 function warmStep() { const end = Math.min(warmList.length, warmIdx + 40); for (; warmIdx < end; warmIdx++) ctx.drawImage(warmList[warmIdx], 0, 0, 1, 1); }
 let warmIdx = 0;
+// The weapon sprite sets are built on first use, which cost a visible hitch at the pickup that levelled a gun up (Scatter about 100 ms a level).
+// So build them up front instead, one per frame once the first-frame warm-up is done.
+const warmJobs = [];
+for (let L = 1; L <= 4; L++) { warmJobs.push(() => seekClass(L)); for (let r = 0; r <= 6; r++) if (L > 1 || r === 3) warmJobs.push(() => scatClass(L, r / 6)); }
+let warmJob = 0;
 let errCount = 0;
 function logError(where, e) {
   errCount++;
@@ -14211,6 +14246,7 @@ function resetCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; c
 function frameLoop(now) {
   requestAnimationFrame(frameLoop);
   if (warmIdx < warmList.length) { try { warmStep(); } catch (e) { logError('warm', e); warmIdx = warmList.length; } }
+  else if (warmJob < warmJobs.length) { try { warmJobs[warmJob++](); } catch (e) { logError('warm', e); warmJob = warmJobs.length; } }
   const dtf = now - last;
   if (app.gfxLost) { if (dtf > 1000) gfxLostAt = now; else if (now - gfxLostAt > 2000) newCanvas(); }
   acc += Math.min(100, dtf); last = now;

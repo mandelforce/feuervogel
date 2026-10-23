@@ -35,11 +35,12 @@ const checksum = () => {
 // With window.__drawEvery set, the replay also draws a frame that often (the CLI test's 'drawing on' check: drawing must never
 // change a run, and must not throw). Comparing the pictures themselves doesn't work: terrain painting runs on a time budget.
 SF.replay = sc => {
-  const p2Was = settings.p2, drawEvery = window.__drawEvery || 0, drawErrs = [];
+  const fireWas = settings.fire, pbWas = settings.pb, p2Was = settings.p2, drawEvery = window.__drawEvery || 0, drawErrs = [];
   try {
     if (app.booting) finishBoot(); // the boot splash would otherwise eat the first 300 frames of the run
     window.__forceSeed = sc.seed; // the game's own seeded stream (see 'random streams' in index.html); page-level Math.random no longer matters
     gf = 0; // the frame counter keeps running while the title screen idles; start every scenario from zero
+    settings.fire = 100; settings.pb = false; // the golden values predate v1.2.5's fixed gun speed (90) and point-blank fire: replays pin the old settings so they keep checking the simulation itself
     if (sc.p2) settings.p2 = sc.p2;
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage, sc.endless);
     const trace = [];
@@ -56,7 +57,7 @@ SF.replay = sc => {
     const out = { H, status, score: run.score, stage: run.stage, lives: run.lives, bombs: run.bombs, frames: gf, kills: run.stats.kills, medals: run.stats.medals, hits: SF.R.hits.length, enemies: world.enemies.length, bullets: world.ebul.length, errors: SF.R.errs.length, trace: trace.join(' ') };
     if (drawEvery) out.drawErrors = drawErrs;
     return out;
-  } finally { delete window.__forceSeed; settings.p2 = p2Was; clearResume(); }
+  } finally { delete window.__forceSeed; settings.p2 = p2Was; settings.fire = fireWas; settings.pb = pbWas; clearResume(); }
 };
 SF.replayAll = () => Object.fromEntries(SCENARIOS.map(sc => [sc.name, SF.replay(sc)]));
 SF.SCENARIOS = SCENARIOS;

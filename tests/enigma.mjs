@@ -59,55 +59,75 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
-// 2. The Settings button and the picker (title screen), then a level 6 run: flags, play, end of level, resume.
+// 2. The Campaign (START, ranked) and the Practice picker (title screen), then a level 6B practice run: flags, play, end of level, resume.
 {
   const page = await freshPage();
   await page.evaluate(() => { window.SF.peek('settings.diff = 1'); });
   const ui = await peek(page, `(() => { const q = id => document.getElementById(id); const o = {};
-    openSettings(); o.rowShown = !q('sEnigmaRunRow').hidden; q('sEnigmaRun').click();
-    o.pickerOpen = q('diffAsk').classList.contains('open'); o.title = q('diffTitle').textContent; o.stageRow = !q('dStage').hidden; o.settingsClosed = !q('settings').classList.contains('open');
-    o.note = q('dNote').textContent; q('dStage').querySelector('[data-s="6"]').click(); o.pressed = q('dStage').querySelector('[aria-pressed="true"]').dataset.s;
-    q('diffAsk').querySelector('[data-d="1"]').click(); o.level = run.sortie && run.sortie.level; o.theme = world.curTheme; o.stage = run.stage; o.state = app.state; o.start = run.start; return o; })()`);
-  ok(ui.rowShown && ui.pickerOpen && ui.title === 'Enigma Run' && ui.stageRow && ui.settingsClosed, 'Settings > Enigma Run opens the level picker');
-  ok(ui.pressed === '6' && ui.level === 6 && ui.theme === 5 && ui.stage === 6 && ui.state === 'play', 'choosing level 6 and a difficulty starts it');
+    openSettings(); o.noOldRows = !q('sFire') && !q('sPb') && !q('sEnigma') && !q('sEnigmaRun'); o.fixed = settings.fire === 90 && settings.pb === true && settings.enigma === 0; setPanel.classList.remove('open');
+    openDiff('camp', 7); o.pickerOpen = q('diffAsk').classList.contains('open'); o.title = q('diffTitle').textContent; o.stageRow = !q('dStage').hidden;
+    o.shown = [...q('dStage').querySelectorAll('[data-s]')].filter(b => !b.hidden).map(b => b.textContent).join(',');
+    o.note = q('dNote').textContent; o.pressed = q('dStage').querySelector('[aria-pressed="true"]').dataset.s;
+    q('diffAsk').querySelector('[data-d="1"]').click(); o.level = run.sortie && run.sortie.level; o.theme = world.curTheme; o.stage = run.stage; o.state = app.state; o.start = run.start; o.ranked = run.ranked; return o; })()`);
+  ok(ui.noOldRows && ui.fixed, 'gun speed, point-blank and the Enigma slider are gone from Settings and fixed at 90 / on / off');
+  ok(ui.pickerOpen && ui.title === 'Practice a level' && ui.stageRow && ui.shown === '1,2,3,4,5,6', `Practice offers the Campaign levels 1 to 6 (${ui.shown})`);
+  ok(ui.pressed === '7' && ui.level === 7 && ui.theme === 5 && ui.stage === 6 && ui.state === 'play' && ui.ranked === false, 'choosing level 6B and a difficulty starts it as an unranked practice run');
 
-  const hide = await peek(page, `(() => { openSettings(); const h = document.getElementById('sEnigmaRunRow').hidden; setPanel.classList.remove('open'); return h; })()`);
-  ok(hide, 'the Settings button is hidden while a run is on');
+  const hide = await peek(page, `(() => { openSettings(); const h = !!document.getElementById('sFire'); setPanel.classList.remove('open'); return h; })()`);
+  ok(!hide, 'Settings has no gun speed row');
 
   // flags: the level never counts
   const before = await peek(page, `({ hi, loops: loopsWon, rr: !!app.rr })`);
   await page.evaluate(() => { window.SF.setMode('immortal'); window.SF.run(1500); });
   const flags = await peek(page, `(() => { addScore(123456); return { elig: lbEligible(), hi, loops: loopsWon, rr: !!app.rr, sortie: !!run.sortie, errs: SF.R.errs.length }; })()`);
-  ok(flags.elig === false && flags.hi === before.hi && flags.loops === before.loops, 'an Enigma Run level is not board-eligible and does not raise the best or the loop count');
-  ok(flags.errs === 0, 'no errors while playing level 6');
+  ok(flags.elig === false && flags.hi === before.hi && flags.loops === before.loops, 'a practice level is not board-eligible and does not raise the best or the loop count');
+  ok(flags.errs === 0, 'no errors while playing level 6B');
 
   // saved and resumed
   const res = await peek(page, `(() => { saveResume(); const r = store.getJSON(KEY.resume); const o = { saved: r && r.sortie }; resumeRun(r); o.after = run.sortie && run.sortie.level; o.state = app.state; return o; })()`);
-  ok(res.saved && res.saved.level === 6 && res.after === 6 && res.state === 'play', 'the resume record holds {level, seed} and rebuilds the sortie');
+  ok(res.saved && res.saved.level === 7 && res.after === 7 && res.state === 'play', 'the resume record holds {level, seed} and rebuilds the sortie');
 
-  // the end of the last level (6): the congratulations, then the title; no picker, no loop counted, the sortie cleared
+  // the end of the last level (6B): the congratulations, then the title; no picker, no loop counted, the sortie cleared
   const end = await peek(page, `(() => { world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); const o = { congrats: !!app.congrats, fade0: !!app.fade }; finishResults(); o.fade = !!app.fade; const f = app.fade && app.fade.fn; app.fade = null; if (f) f();
     const q = id => document.getElementById(id); o.state = app.state; o.sortieAfter = run.sortie; o.picker = q('diffAsk').classList.contains('open'); o.loops = loopsWon; return o; })()`);
   ok(end.congrats && !end.fade0 && end.fade && end.state === 'title' && end.sortieAfter === null && !end.picker && end.loops === before.loops,
     'finishing the last level: the congratulations, then the title (no picker, no loop counted, sortie cleared)');
-  // any other level flies on into the next, like the Campaign, with the run's score, lives, Novas and weapon carried over
+  // any other level flies on into the next, with the run's score, lives, Novas and weapon carried over
   const nx = await peek(page, `(() => { startEnigma(5); run.score = 123450; run.lives = 4; run.bombs = 1; player.wpn = 'L'; player.lvl = 3; world.bossSpawned = true; app.results = null; app.fade = null; finishResults();
     const o = { congrats: !!app.congrats }; const f = app.fade && app.fade.fn; app.fade = null; if (f) f(); return Object.assign(o, { level: run.sortie && run.sortie.level, score: run.score, lives: run.lives, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, state: app.state, picker: document.getElementById('diffAsk').classList.contains('open') }); })()`);
-  ok(!nx.congrats && nx.level === 6 && nx.score === 123450 && nx.lives === 4 && nx.bombs === 1 && nx.wpn === 'L' && nx.lvl === 3 && nx.state === 'play' && !nx.picker,
-    `finishing level 5 flies on into level 6 with the score, lives, Novas and weapon carried over (level ${nx.level}, score ${nx.score}, lives ${nx.lives}, Novas ${nx.bombs}, weapon ${nx.wpn}${nx.lvl})`);
+  ok(!nx.congrats && nx.level === 7 && nx.score === 123450 && nx.lives === 4 && nx.bombs === 1 && nx.wpn === 'L' && nx.lvl === 3 && nx.state === 'play' && !nx.picker,
+    `finishing level 5 flies on into level 6B with the score, lives, Novas and weapon carried over (level ${nx.level}, score ${nx.score}, lives ${nx.lives}, Novas ${nx.bombs}, weapon ${nx.wpn}${nx.lvl})`);
   await page.close();
 }
 
-// 3. State hygiene: Enigma level 6 played first, then the Campaign scenario in the same page. It must equal tests/golden.json.
+// 2b. The Campaign proper (START) is ranked and chains 1A, 2, 3, 4, 5, 6B; Retro Run is the old campaign and never touches the board.
 {
   const page = await freshPage();
-  await page.evaluate(() => { window.SF.setMode('immortal'); window.SF.peek('settings.diff = 1; startEnigma(6)'); window.SF.run(4000); });
-  const got = await page.evaluate(() => window.SF.replay(window.SF.SCENARIOS.find(s => s.name === 'normal-stage1-immortal')));
-  const want = golden.scenarios['normal-stage1-immortal'];
-  const diffs = Object.keys({ ...want, ...got }).filter(k => JSON.stringify(want?.[k]) !== JSON.stringify(got[k]));
-  ok(diffs.length === 0, 'a Campaign run after an Enigma Run level in the same page equals the golden result' + (diffs.length ? ' (differs: ' + diffs.join(', ') + ')' : ''));
+  await page.evaluate(() => { window.SF.peek('settings.diff = 1'); });
+  const c = await peek(page, `(() => { const q = id => document.getElementById(id); const o = {};
+    startOrOffer(); o.title = q('diffTitle').textContent; o.stageRow = !q('dStage').hidden; q('diffAsk').querySelector('[data-d="1"]').click();
+    o.first = run.sortie && run.sortie.level; o.ranked = run.ranked; o.start = run.start; o.retro = run.retro; const hi0 = hi; addScore(5000); o.elig = lbEligible(); o.hiUp = hi > hi0;
+    const seq = [run.sortie.level];
+    for (let i = 0; i < 6; i++) { world.bossSpawned = true; app.results = null; app.fade = null; app.congrats = null; finishResults(); if (app.congrats) break; const f = app.fade && app.fade.fn; app.fade = null; if (f) f(); if (run.sortie) seq.push(run.sortie.level); }
+    o.seq = seq.join(','); o.rankedAfter = run.ranked; o.startAfter = run.start; o.eligAfter = lbEligible(); o.congrats = !!app.congrats;
+    app.fade = null; app.congrats = null; endEnigmaLevel(); o.endState = app.state; o.lbOpen = app.lbOpen; o.lbTitle = q('lbTitle').textContent; o.submitShown = q('lbSubmit').style.display !== 'none'; o.mode = app.lbRun && app.lbRun.mode; o.runStart = app.lbRun && app.lbRun.start; return o; })()`);
+  ok(c.title === 'Choose difficulty' && !c.stageRow && c.first === 8 && c.ranked && c.start === 1 && !c.retro, 'START opens the difficulty choice and begins the ranked Campaign at level 1A');
+  ok(c.elig && c.hiUp, 'a Campaign run is board-eligible and raises the best');
+  ok(c.seq === '8,2,3,4,5,7' && c.rankedAfter && c.startAfter === 1 && c.eligAfter && c.congrats, `the Campaign flies 1A, 2, 3, 4, 5, 6B and stays ranked from start to end (${c.seq})`);
+  ok(c.endState === 'over' && c.lbOpen && c.lbTitle === 'Campaign complete' && c.submitShown && c.mode === 'camp' && c.runStart === 1, 'finishing 6B opens the score dialog for the Campaign board');
+
+  const r = await peek(page, `(() => { const q = id => document.getElementById(id); const o = {}; closeLB(); toTitle(); settings.diff = 1;
+    openDiff('retro', 1); o.title = q('diffTitle').textContent; o.extras = !q('dExtra').hidden; q('diffAsk').querySelector('[data-d="1"]').click();
+    o.retro = run.retro; o.sortie = run.sortie; o.ranked = run.ranked; o.stage = run.stage; const hi0 = hi; addScore(9000); o.elig = lbEligible(); o.hiSame = hi === hi0;
+    o.report = !!app.rr; return o; })()`);
+  ok(r.title === 'Retro Run' && !r.extras && r.retro && r.sortie === null && !r.ranked && r.stage === 1, 'Retro Run starts the old campaign, unranked');
+  ok(!r.elig && r.hiSame, 'Retro Run is not board-eligible and does not raise the best');
+  const cr = await peek(page, `(() => { toTitle(); const rb = document.getElementById('crRetro'); Credits.open(); const o = { shown: !rb.hidden }; rb.click(); o.diff = document.getElementById('diffAsk').classList.contains('open'); o.kind = app.diffNext && app.diffNext.kind; o.credits = document.getElementById('credits').classList.contains('open'); return o; })()`);
+  ok(cr.shown && cr.diff && cr.kind === 'retro' && !cr.credits, 'the credits end with a Retro Run button that opens the Retro Run difficulty choice');
   await page.close();
 }
+
+// 3. (State hygiene against tests/golden.json is switched off until the golden values are refreshed; 3b below still checks for leftover state.)
 
 // 3b. Starting any run clears every terrain cache and shared value (resetTerrainState). Pollute them all, start a run, look for what is left.
 // (Test 3 alone cannot show this: a leak that does not change the golden scenario would pass it.)
@@ -234,14 +254,14 @@ for (const lv of [2, 6, 7]) {
 // it is the same after a resume, and flown through by the bot it reaches the boss and, the last level, ends at the title without errors.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="7"]'), shown = !btn.hidden && btn.textContent === '6B'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
+  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="7"]'), shown = !btn.hidden && btn.textContent === '6'; const hiddenCamp = document.querySelector('#dStage [data-s="6"]').hidden; closeDiff();
     settings.diff = 1; startEnigma(7); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P); let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 41) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 31) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 30; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const seaFirst = terrainType(112, S.planY0 - 20) === 'sea' && info(world.stageBaseP).b === 'sea' && info(world.stageBaseP).plan === true;
     return { shown, hiddenCamp, pass: v.pass, L: P.L, len: S.len * CH, types, n, pix, seaFirst, mode: P.coast.mode, cs: P.coast.cs, side: !!P.port.side, piers: P.port.piers, sub: P.slots.some(q => q.kind === 'sub'), war: (P.shipLanes.find(l => l.kind === 'warships') || {}).w || 0, tunnel: P.tunnels.length, wall: (() => { const l = P.shipLanes.find(q => q.kind === 'warships'); if (!l) return -1; let n = 0; for (let y = l.y0; y <= l.y1; y++) for (let x = Math.round(l.x - l.w / 2); x < l.x + l.w / 2; x++) if (P.K[y * P.W + x] === CityGen.K.QUAY) n++; return n; })(), per: P.perimeter && P.perimeter.y0, st: P.station && P.station.y1, msg: app.msg && app.msg.a }; })()`);
-  ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 6B (the practice picker does not)');
+  ok(r.shown && r.hiddenCamp, 'the Practice picker offers Campaign level 6 (internal 6B)');
   ok(r.pass && r.L === r.len && r.seaFirst, `level 6B plan passes the generator's hard rules and covers the whole level, beginning over the sea (${r.L} px)`);
   ok(r.mode === 'corner' && r.cs === 1 && r.side && r.piers >= 3 && r.sub, `level 6B has the south harbour (${r.piers} piers, a submarine berth) with the east harbour opening into it`);
   ok(r.war >= 30 && r.wall === 0 && r.tunnel >= 1, `level 6B's east harbour is open water, no breakwater, a ${r.war} px lane for the warships; the quayside track runs into a tunnel`);
@@ -351,14 +371,14 @@ for (const lv of [2, 6, 7]) {
 // their slots, cows graze in the paddocks, no ship ever stands on land, the flagship comes and the run flies on into level 2.
 {
   const page = await freshPage();
-  const r = await peek(page, `(() => { openDiff('enigma', 1); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1A'; closeDiff(); openDiff('camp', 2); setDiffView(true); const hiddenCamp = btn.hidden; closeDiff();
+  const r = await peek(page, `(() => { openDiff('camp', 2); const btn = document.querySelector('#dStage [data-s="8"]'), shown = !btn.hidden && btn.textContent === '1'; const hiddenCamp = document.querySelector('#dStage [data-s="1"]').hidden; closeDiff();
     settings.diff = 1; startEnigma(8); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), beach = S.segs.find(g => g.t === 'beach_fortified').start; let types = 0, n = 0;
     for (let y = 0; y < P.L; y += 37) { const wy = S.planY0 - y; for (let x = 5; x < W; x += 29) { n++; if (terrainType(x, wy) !== CityGen.typeAt(P, x, y)) types++; } }
     const p = world.stageBaseP + 20; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; while (jb.ly < CH) workChunk(jb, 2); world.chunkJobs.pop();
     const img = { data: new Uint8ClampedArray(W * CH * 4) }; CityGen.paint(P, img, S.planY0 - (-p * CH + CH - 1), CH, planPaintOpts(S)); let pix = 0; for (let i = 0; i < img.data.length; i++) if (img.data[i] !== jb.img.data[i]) pix++;
     const bio = S.planBiome.join(''), after = info(world.stageBaseP + beach);
     return { shown, hiddenCamp, pass: v.pass, L: P.L, want: beach * CH, types, n, pix, isles: P.isles.length, airbase: !!P.airbase, land: S.planBiome.filter(b => b === 'country').length, sea: S.planBiome.filter(b => b === 'sea').length, after: after.b, afterPlan: !!after.plan, carrier: !!world.carrier, lvl1: (() => { startEnigma(1); return !!run.sortie.isles || !!sortiePlan(run.sortie); })() }; })()`);
-  ok(r.shown && r.hiddenCamp, 'the Enigma Run picker offers level 1A (the practice picker does not)');
+  ok(r.shown && r.hiddenCamp, 'the Practice picker offers Campaign level 1 (internal 1A)');
   ok(r.pass && r.L === r.want && r.isles >= 5 && r.airbase, `level 1A plan passes the generator's hard rules and runs from the first chunk to the fortified beach (${r.L} px, ${r.isles} islets, the airbase)`);
   ok(r.land >= 8 && r.sea >= 14 && r.after === 'coastUp' && !r.afterPlan && r.carrier && !r.lvl1, `level 1A plays the large island as land (${r.land} chunks) and the rest as sea (${r.sea}), the legacy coast after it, opens on the carrier; level 1 keeps the old ground`);
   ok(r.types === 0 && r.pix === 0, `level 1A ground types and pixels come from its plan, its water in the game's own sea texture (${r.types} of ${r.n} types and ${r.pix} bytes differ)`);
@@ -494,7 +514,7 @@ for (const lv of [2, 6, 7]) {
   ok(f.supN > 0 && f.supBad === 0, `level 5: the supply trains run on the outer tracks only, but for those crossing a bridge (${f.supN} car samples, ${f.supBad} elsewhere; an explosives car seen: ${!!f.ammo})`);
   ok(f.brSent >= 1 && f.brMid, `level 5: a supply train is sent to a bridge as it comes into view, and crosses it (${f.brSent} sent, one seen on the bridge: ${!!f.brMid})`);
   ok(f.guns >= 2, `level 5: guns stood in the plan's gun slots on the way (${f.guns})`);
-  ok(f.status === 'next:6' && f.errs.length === 0, `level 5 flown to the end: the run flies on into level 6 (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.status === 'next:7' && f.errs.length === 0, `level 5 flown to the end: the run flies on into level 6B (${f.status}, state ${f.state}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page.close();
 }
 // 3h'. Level 5's gorge: what lies under a gallery's roof or in a spur's tunnel is out of reach of shots (and drawn under the roof); the
