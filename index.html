@@ -11469,6 +11469,27 @@ function drawArcs() {
     ctx.globalAlpha = 0.5 * f; dk(a.pts[a.pts.length - 1][0], a.pts[a.pts.length - 1][1], 4, WPN.A.ramp[3]); }
   ctx.globalAlpha = 1;
 }
+// The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
+// at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
+function drawLance(s) {
+  const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = Math.max(3, s.w);
+  const odd = v => Math.max(1, Math.round(v / 2) * 2 - 1);
+  const px = (rx, ry, rw, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(Math.round(rx), Math.round(ry), Math.max(1, Math.round(rw)), 1); };
+  const tl = Math.min(Math.round(age * 1.2), 4 + L * 3);
+  for (let k = 1; k <= tl; k++) px(x - Math.max(1, Math.round(w0 * (1 - k / (tl + 1)))) / 2, top + 13 + k, Math.max(1, Math.round(w0 * (1 - k / (tl + 1)))), c[2], 0.5 * (1 - k / (tl + 1)));
+  for (let i = 0; i < n; i++) {
+    const ci = Math.round(i * 4 / (n - 1)), ww = odd(w0 * (1 - i / n)), r0 = -2 * i, r1 = 13 - 2 * i * 0.8;
+    for (let r = r0; r <= r1; r++) {
+      if (r === r0 && r < 0 && ww > 2) { px(x - (ww - 2) / 2, top + r, ww - 2, c[ci], 1); continue; }
+      px(x - ww / 2, top + r, ww, c[Math.min(4, ci + ((r + age) % 5 === 0 ? 1 : 0))], 1);
+    }
+  }
+  if (L >= 4) for (let k = 0; k < 3; k++) {
+    const t = (age * 1.6 + k * 9) % 27, a = 1 - t / 27, hw = Math.round(w0) + 4 - Math.round(t / 9), y = top + 16 - t;
+    px(x - hw / 2, y, hw, c[3], 0.35 + 0.5 * a); px(x - hw / 2 - 1, y, 1, c[4], a); px(x + hw / 2, y, 1, c[4], a);
+  }
+  ctx.globalAlpha = 1;
+}
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
 function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
@@ -11484,7 +11505,7 @@ function firing(p = player, two) {
     p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
-    world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.75 + 0.38 * L, k: 'l', w: 2 + L * 1.5, h: 14 });
+    world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.75 + 0.38 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
     pshot(p.x - 3, p.y - 8, up, 6, 1); pshot(p.x + 3, p.y - 8, up, 6, 1);
@@ -12237,6 +12258,7 @@ function update() {
     if (!s.c) { s.c = 1; run.stats.shots++; s.rg = H * rnd(0.6, 0.7); s.dd = 0; }
     { let hitC = null; for (const c of chutes) if (!c.falling && c.t >= 0 && Math.abs(s.x - c.x) < 7 && s.y > c.y - 12 && s.y < c.y + 6) { hitC = c; break; }
       if (hitC) { hitC.falling = 1; s.dead = true; addScore(100); label(hitC.x, hitC.y - 12, '100'); for (let i = 0; i < 6; i++) world.parts.push({ kind: 'spark', layer: 'a', x: hitC.x + rnd(-5, 5), y: hitC.y - 8, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.4), life: 14, max: 14, col: '#f6f4ee' }); sfx('hit'); continue; } }
+    s.t = (s.t || 0) + 1; // (frames in flight: the Lance look animates by it)
     { s.dd += Math.hypot(s.vx, s.vy); if (s.dd > s.rg) { s.dead = true; if (s.k === 's' || s.k === 'l') groundPuff(s.x, s.y); else world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 8, max: 8, col: '#ffd0e8' }); continue; } }
     if (s.k === 'h') {
       s.sp = Math.min(4.2, s.sp + 0.12);
@@ -12393,6 +12415,7 @@ function update() {
       if (Math.abs(s.x - e.x) < e.hw + s.w / 2 && Math.abs(s.y - e.y) < e.hh + s.h / 2) {
         s.dead = true;
         world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' });
+        if (s.k === 'l' && s.lv >= 4) world.parts.push({ kind: 'ring', layer: 'a', x: s.x, y: s.y, vx: 0, vy: 0, life: 9, max: 9, r: 11, col: WPN.L.ramp[4] }); // (the Lance's shock ring at full power)
         damage(e, s.dmg * dmgK()); run.stats.hits++;
         break;
       }
@@ -13536,11 +13559,12 @@ function renderMain() {
   for (const s of world.shots) {
     if (s.k === 's') spr(SPR.ps[dirIdx(s.a)], s.x, s.y);
     else if (s.k === 'l') {
-      const w = Math.round(s.w), x = Math.round(s.x - w / 2), y = Math.round(s.y - 7);
-      const c = s.drone ? RP.grey : WPN.L.ramp; // Talon shots stay neutral, whichever weapon is on
-      ctx.fillStyle = c[1]; ctx.fillRect(x - 1, y, w + 2, 14);
-      ctx.fillStyle = c[s.drone ? 4 : 3]; ctx.fillRect(x, y, w, 14);
-      ctx.fillStyle = s.drone ? '#ffffff' : c[4]; ctx.fillRect(Math.round(s.x) - Math.max(0, (w >> 2)), y, Math.max(1, w >> 1), 14);
+      if (s.drone) { // Talon shots stay neutral, whichever weapon is on
+        const w = Math.round(s.w), x = Math.round(s.x - w / 2), y = Math.round(s.y - 7), c = RP.grey;
+        ctx.fillStyle = c[1]; ctx.fillRect(x - 1, y, w + 2, 14);
+        ctx.fillStyle = c[4]; ctx.fillRect(x, y, w, 14);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(s.x) - Math.max(0, (w >> 2)), y, Math.max(1, w >> 1), 14);
+      } else drawLance(s);
     } else spr(SPR.seek, s.x, s.y);
   }
   drawBeam();
