@@ -10800,14 +10800,14 @@ const BOSS_FIGHT = {
     },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if (e.last && run.sortie) {
-        // Enigma Run, last stand: the turret swings a five-shot fan like a wiper, then throws two rings with a gap that faces the player (the Campaign keeps the spiral below)
-        const n = e.lastN = (e.lastN || 0) + 1, c = n % 32;
+        // Enigma Run, last stand: shots leave the barrel. The turret swings a five-shot fan across the player like a wiper, then fires two rings with a gap along the barrel (the Campaign keeps the spiral below)
+        const n = e.lastN = (e.lastN || 0) + 1, c = n % 32, [bx, by] = mz(34);
         p.cd = Math.round(8 * fireSlow());
-        if (c < 20) { const mid = PI / 2 + Math.sin(n * 0.25) * 0.9; for (let k = -2; k <= 2; k++) eshot(px, py, mid + k * 0.17, sp * 0.85); }
+        if (c < 20) { const mid = p.ang + Math.sin(n * 0.25) * 0.7; for (let k = -2; k <= 2; k++) eshot(bx, by, mid + k * 0.17, sp * 0.85); flash(bx, by, 3); sfx('gun'); }
         else if (c % 6 === 2) {
-          p.cd = Math.round(26 * fireSlow()); const a = aim(px, py), N = 22, off = (c === 20 ? 0 : TAU / N / 2);
-          for (let i = 0; i < N; i++) { const ang = a + off + i * TAU / N; if (Math.abs(angDiff(ang, a)) > 0.3) eshot(px, py, ang, sp * 0.8, 'B'); }
-          flash(px, py, 6); sfx('cannon');
+          p.cd = Math.round(26 * fireSlow()); const N = 22, off = (c === 20 ? 0 : TAU / N / 2);
+          for (let i = 0; i < N; i++) { const ang = p.ang + off + i * TAU / N; if (Math.abs(angDiff(ang, p.ang)) > 0.3) eshot(bx, by, ang, sp * 0.8, 'B'); }
+          flash(bx, by, 6); smokePuff(bx, by); sfx('cannon');
         }
       } else if (e.last) {
         p.cd = Math.round(7 * fireSlow()); e.spin = (e.spin || 0) + 0.21;
