@@ -2120,8 +2120,7 @@ const oilPix = (() => {
     for (let k = 0; k < 18; k++) { const a = k * 0.35; disc(put, cx, cy, fx + Math.cos(a) * 3.5, fy + Math.sin(a) * 3, 1, OIL.scorch, 0.5); }
     line(put, cx, cy, d * 6, 4, fx - d * 1, 4, OIL.steel); line(put, cx, cy, fx - d, 4, fx, fy + 1, OIL.steel); shadow(put, cx, cy, fx + 1, fy - 1, 12, 1, 0.4);
     disc(put, cx, cy, fx, fy, 2, OIL.steelD); line(put, cx, cy, fx, fy - 1, fx, fy - 6, OIL.steel); // the pole
-    const fy2 = fy - 7; disc(put, cx, cy, fx, fy2 - 1, 3, OIL.fire, 0.16); // the glow
-    for (const [dy2, w, c] of [[0, 1, OIL.fire], [-1, 2, OIL.fire], [-2, 3, OIL.fireY], [-3, 3, OIL.fire], [-4, 2, OIL.fireY], [-5, 1, OIL.fireW]]) for (let i = 0; i < w; i++) P(put, cx, cy, fx - (w >> 1) + i, fy2 + dy2, c); }
+    } // (the flame is animated: plan.fires, flare)
   // an offshore rig: four legs in the sea with foam, a deck with a derrick, a helipad, a cabin, a flare boom out of one corner
   function platform(put, cx, cy) {
     rect(put, cx, cy, -5, -9, 25, 25, C.shadow, 0.3); // the deck's shadow on the water
@@ -2130,9 +2129,7 @@ const oilPix = (() => {
     ring(put, cx, cy, 5, 5, 4, OIL.white, 0.9); rect(put, cx, cy, 3, 5, 5, 1, OIL.white, 0.9); rect(put, cx, cy, 3, 3, 1, 5, OIL.white, 0.9); rect(put, cx, cy, 7, 3, 1, 5, OIL.white, 0.9); // the helipad
     rect(put, cx, cy, -8, 5, 6, 5, OIL.cabin); rect(put, cx, cy, -8, 5, 6, 1, OIL.cabinD); rect(put, cx, cy, -7, 6, 4, 1, OIL.white, 0.8); rect(put, cx, cy, -9, -8, 5, 4, OIL.rust); // a cabin, a store
     derrick(put, cx, cy, 0.9);
-    line(put, cx, cy, 12, -12, 20, -18, OIL.steel); line(put, cx, cy, 11, -11, 19, -17, OIL.steelD); disc(put, cx, cy, 20, -22, 3, OIL.fire, 0.16);
-    for (const [dy2, w, c] of [[-18, 1, OIL.steelD], [-19, 2, OIL.fire], [-20, 3, OIL.fire], [-21, 3, OIL.fireY], [-22, 3, OIL.fire], [-23, 2, OIL.fireY], [-24, 1, OIL.fireW]]) for (let i = 0; i < w; i++) P(put, cx, cy, 20 - (w >> 1) + i, dy2, c); }
-  const flame = (put, cx, cy, fx, fy) => { disc(put, cx, cy, fx, fy - 1, 3, OIL.fire, 0.16); for (const [dy2, w, c] of [[0, 1, OIL.fire], [-1, 2, OIL.fire], [-2, 3, OIL.fireY], [-3, 3, OIL.fire], [-4, 2, OIL.fireY], [-5, 1, OIL.fireW]]) for (let i = 0; i < w; i++) P(put, cx, cy, fx - (w >> 1) + i, fy + dy2, c); };
+    line(put, cx, cy, 12, -12, 20, -18, OIL.steel); line(put, cx, cy, 11, -11, 19, -17, OIL.steelD); P(put, cx, cy, 20, -18, OIL.steelD); } // (the flame is animated: plan.fires, flare)
   // a round tank seen from above: its shadow, the shell, a lid with a ring and a vent
   const tank = (put, cx, cy, dx, dy, r) => { shadow(put, cx, cy, dx + r - 1, dy + 1, r * 2, 2, 0.3); disc(put, cx, cy, dx, dy, r, OIL.deckD); disc(put, cx, cy, dx - 1, dy - 1, r - 1, OIL.deck); ring(put, cx, cy, dx, dy, r - 2, OIL.steel, 0.6); P(put, cx, cy, dx + 1, dy + 1, OIL.steelD); };
   // a brick chimney: its long shadow, a round brick top with a white band and the dark flue
@@ -2146,7 +2143,7 @@ const oilPix = (() => {
     for (const [X, Y] of [[12, 12], [20, 10]]) { const [dx, dy] = o(X, Y); shadow(put, cx, cy, dx + 1, dy, 18, 3, 0.3); disc(put, cx, cy, dx, dy, 3, OIL.steelD); disc(put, cx, cy, dx - 1, dy - 1, 2, OIL.steelL); ring(put, cx, cy, dx, dy, 3, OIL.steel, 0.6); }
     const q = (X, Y) => o(X, Y); line(put, cx, cy, ...q(12, 16), ...q(12, 23), OIL.steel); line(put, cx, cy, ...q(12, 23), ...q(8, 25), OIL.steel); line(put, cx, cy, ...q(20, 14), ...q(20, 26), OIL.steel);
     for (let i = 0; i < 6; i++) rect(put, cx, cy, ...q(4 + i * 6, 20), 1, 2, OIL.steelD); line(put, cx, cy, ...q(4, 20), ...q(38, 20), OIL.rust); line(put, cx, cy, ...q(4, 21), ...q(38, 21), OIL.rust); // the rack
-    { const [fx, fy] = o(36, 14); line(put, cx, cy, fx, fy - 1, fx, fy - 6, OIL.steel); shadow(put, cx, cy, fx + 1, fy - 1, 9, 1, 0.38); disc(put, cx, cy, fx, fy, 2, OIL.steelD); flame(put, cx, cy, fx, fy - 7); }
+    { const [fx, fy] = o(36, 14); line(put, cx, cy, fx, fy - 1, fx, fy - 6, OIL.steel); shadow(put, cx, cy, fx + 1, fy - 1, 9, 1, 0.38); disc(put, cx, cy, fx, fy, 2, OIL.steelD); }
     const [kx, ky] = o(4, 8); chimney(put, cx, cy, kx, ky, 2, 18); }
   // a brickworks, 46 x 44 about its centre: a coal heap and a clay pit, two kiln halls, a chimney at the end of each, a hut
   function brickworks(put, cx, cy) { const o = (X, Y) => [X - 23, Y - 22];
@@ -2609,6 +2606,15 @@ const AUTUMN = HX(['#3a2a10', '#5a3c14', '#7a5418', '#9a6c1e', '#b88a2a', '#d4a8
 const TUN = HX(['#5a4a32', '#7a6644', '#968058', '#b29a6c', '#ccb486']), TUN_IN = HX(['#241c14'])[0]; // a tunnel portal's sandstone
 const BLACKSMOKE = HX(['#0f0d0b', '#1c1814', '#2e2924', '#463f38']), FIRE = HX(['#fff3c4', '#f6d04a', '#f08a30', '#c63c1c']), GLOW = HX(['#ff8a32'])[0], SMOKE = HX(['#3a3532', '#5e5853', '#857e78', '#a8a19a']), WIND = [0.45, 1];
 function fireFx(plan, f, t, put) {
+  if (f.flare) { // a flare stack's flame (f.flare: true), its base at (f.x, f.y): a flickering teardrop leaning with the wind, a faint glow, and a thin trail of sooty smoke
+    const s = f.seed, H = 5 + Math.round(vn(t * 6 + s, 3) * 3), cx = f.x, cy = f.y;
+    for (let yy = -5; yy <= 9; yy++) for (let xx = -6; xx <= 6; xx++) { const r = Math.hypot(xx, (yy - 3) * 0.8) / 7; if (r < 1) put(Math.round(cx + xx), Math.round(cy + yy), GLOW, 0.2 * (1 - r) * (1 - r) * (0.75 + 0.25 * Math.sin(t * 11 + s))); }
+    for (let k = 0; k < H; k++) { const u = k / H, hw = (1 - u) * 1.9 + 0.4 + (vn(k * 1.7 + s, t * 9) - 0.5) * 0.8, ox = WIND[0] * k * 0.3 + Math.sin(t * 13 + k * 0.9 + s) * 0.5 * u, c = u < 0.3 ? FIRE[2] : u < 0.75 ? FIRE[1] : FIRE[0];
+      for (let i = -Math.floor(hw); i <= Math.floor(hw); i++) put(Math.round(cx + ox + i), Math.round(cy + k), Math.abs(i) >= hw - 0.4 && u < 0.75 ? FIRE[2] : c); }
+    for (let k = 0; k < 7; k++) { const ph = ((k + t * 1.3) % 7) / 7, d = ph * 30, px = cx + WIND[0] * d + Math.sin(ph * 5 + s) * 1.5, py = cy + H + WIND[1] * d, r = 1.2 + ph * 4.5, a = 0.8 * (1 - ph * 0.85);
+      for (let yy = Math.floor(py - r); yy <= py + r; yy++) for (let xx = Math.floor(px - r); xx <= px + r; xx++) { const q = ((xx + 0.5 - px) ** 2 + (yy + 0.5 - py) ** 2) / (r * r); if (q > 1) continue;
+        if (bay(xx, yy) + 0.5 + (hh(xx * 5 + k, yy * 3 + Math.floor(t * 4)) - 0.5) * 0.5 < a * (1 - q * 0.6)) put(xx, yy, ph < 0.2 ? BLACKSMOKE[1] : BLACKSMOKE[2], 0.45); } }
+    return; }
   if (f.smoke) { // a chimney's smoke (f.smoke: true): no flames, no glow; a column of black smoke rising from (f.x, f.y) and drifting with the wind, thickening as it spreads
     const s = f.seed;
     for (let k = 0; k < 10; k++) { const ph = ((k + t * 1.1) % 10) / 10, d = ph * 44, px = f.x + WIND[0] * d + Math.sin(ph * 6 + s) * 1.8, py = f.y + 1 + WIND[1] * d, r = 1.6 + ph * 6.5, a = 0.95 * (1 - ph * 0.8);
@@ -2863,6 +2869,7 @@ function desertLand(o) {
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
   // a chimney's black smoke, animated (the settlement's animated fire layer draws it): the chimney's top at (x, y)
   const smoke = (x, y, k) => plan.fires.push({ x, y, w: 3, h: 3, x0: Math.round(x) - 1, y0: Math.round(y) - 1, item: -1, seed: h32(seed, 99000 + Math.round(x) * 7 + Math.round(y) + k), smoke: true });
+  const flareFx = (x, y, k) => plan.fires.push({ x, y, w: 3, h: 3, x0: Math.round(x) - 1, y0: Math.round(y) - 1, item: -1, seed: h32(seed, 99500 + Math.round(x) * 7 + Math.round(y) + k), flare: true }); // a flare's animated flame, its base at (x, y)
   // a box of open ground, clear of the road and of the railway's corridor (laid after the features): xa..xb, ya..yb
   const freeBox = (xa, xb, ya, yb) => { for (let yy = ya; yy <= yb; yy++) for (let xx = Math.min(xa, xb); xx <= Math.max(xa, xb); xx++) { if (!open(xx, yy)) return false; if (RX !== null && Math.abs(xx - RXat(yy)) < 14) return false; } return true; };
   // a site for an industrial yard, w x h with a 4 px margin: the first free box found scanning out from the middle of rows y0..y1, nearest the road first
@@ -3007,7 +3014,7 @@ function desertLand(o) {
     // off gas on the far side where the ground is clear (the third derrick), the mud pit on the other side of it, or on the track side
     const clear = freeBox;
     spots.forEach(([x, y], k) => { if (k % 3 === 0) { const d = x > MX(y) ? 1 : -1, flare = k === 6 ? [d, -d].find(q => clear(x + q * 7, x + q * 18, y - 6, y + 12)) || 0 : 0, pit = (flare ? [-flare] : [-d, d]).find(q => clear(x + q * 7, x + q * 17, y - 7, y + 3)) || 0;
-        plan.derricks.push({ x, y, burn: k === 3, d, flare, pit }); const set2 = (xa, xb, ya, yb) => { for (let yy = ya; yy <= yb; yy++) for (let xx = Math.min(xa, xb); xx <= Math.max(xa, xb); xx++) if (open(xx, yy)) Br[idx(xx, yy)] = -51; };
+        plan.derricks.push({ x, y, burn: k === 3, d, flare, pit }); if (flare) flareFx(x + flare * 13, y + 5, 2); const set2 = (xa, xb, ya, yb) => { for (let yy = ya; yy <= yb; yy++) for (let xx = Math.min(xa, xb); xx <= Math.max(xa, xb); xx++) if (open(xx, yy)) Br[idx(xx, yy)] = -51; };
         set2(x - 7, x + 7, y - 6, y + 13); if (flare) set2(x + flare * 7, x + flare * 18, y - 6, y + 12); if (pit) set2(x + pit * 7, x + pit * 17, y - 7, y + 3); if (k === 3) { plan.spills.push({ x: x + 5, y: y + 6, r: 6 }); /* (the track out to the derrick comes in from below: the oil runs the other way) */ plan.fires.push({ x, y, w: 8, h: 8, x0: x - 4, y0: y - 4, item: -1, seed: h32(seed, 98000 + k) % 100000 }); } }
       else { plan.pumps.push({ x, y, d: x > MX(y) ? -1 : 1 }); for (let yy = y - 3; yy <= y + 3; yy++) for (let xx = x - 4; xx <= x + 5; xx++) Br[idx(xx, yy)] = -51; } });
     for (const dk of plan.derricks.filter(d => d.y >= a && d.y <= b)) sideTrack(dk.y - 12, dk.x); // a track out to each derrick
@@ -3016,7 +3023,7 @@ function desertLand(o) {
         for (let y = ty - 26; y < ty + 28; y++) for (let x = x0; x < x0 + 20; x++) set(x, y, K.WORKS);
         for (let k = -1; k <= 1; k++) { const cx = x0 + 10, cy = ty + k * 17, r = 7, it = addItem({ t: 'works', label: 'Oil tank', part: 'tank', round: true, x0: Math.floor(cx - r), y0: Math.floor(cy - r), w: 2 * r + 2, h: 2 * r + 2, acx: cx, acy: cy, r, dmg: 0, seed: sd() }); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) set(x, y, K.BLDG, it.id); }
         const fp = pitAt([x0 + 34, x0 - 14, x0 + 48], ty + 38, 6, 'flak'); if (fp) netOver(fp.x, fp.y, 12, 9, false); sideTrack(ty - 32, x0 + 10); } } } // a track to the tank farm
-    { const w = 44, h = 40, st = findSite(a + 5, a + 170, w, h, 120 + fi); if (st) { reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'refinery', x: st.x + w / 2, y: st.y + h / 2, w, h }); smoke(st.x + w / 2 - 18, st.y + h / 2 + 12, 1); } } // a refinery (painted: tanks, columns, a rack, a flare and a chimney), on clear ground by the road
+    { const w = 44, h = 40, st = findSite(a + 5, a + 170, w, h, 120 + fi); if (st) { reserve(st.x - 2, st.x + w + 1, st.y - 2, st.y + h + 1); plan.industry.push({ kind: 'refinery', x: st.x + w / 2, y: st.y + h / 2, w, h }); smoke(st.x + w / 2 - 18, st.y + h / 2 + 12, 1); flareFx(st.x + w / 2 + 14, st.y + h / 2 + 13, 1); } } // a refinery (painted: tanks, columns, a rack, a flare and a chimney), on clear ground by the road
     for (let k = 0; k < 4; k++) { const x = Math.round(lerp(lo, WR[a] - 10, rnd(TD, 104, k + fi))), y = Math.round(lerp(a, b, rnd(TD, 105, k + fi))); let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok) plan.craters.push({ x, y, r: 3 + rnd(TD, 106, k) * 2 }); } }
   // the pass (owner mockup P): the walls close in to a 120 px gorge; a deep ravine across it, the railway on a stone viaduct 20 px wide (16 px trains fit
   // between its parapets) and the track on its own bridge; stone sangars on the ledges; at the top a fort astride the track with a roadblock at its gate
@@ -3113,7 +3120,7 @@ function sandSea(o) {
       boxes = (plan.ships || []).filter(sh => sh.y0 < Lp + 40).map(sh => ({ x0: sh.x0 - 8, x1: sh.x0 + sh.w + 8, y0: sh.y0 - 8, y1: sh.y0 + sh.h + 8 })).concat((plan.shipLanes || []).map(l => ({ x0: l.x - l.w / 2 - 4, x1: l.x + l.w / 2 + 4, y0: l.y0, y1: l.y1 })), plan.fleetArea ? [{ x0: plan.fleetArea.x0 - 4, x1: plan.fleetArea.x1 + 4, y0: plan.fleetArea.y0, y1: plan.fleetArea.y1 }] : []),
       free = (x, y) => !boxes.some(b => x + 25 >= b.x0 && x - 17 <= b.x1 && y + 28 >= b.y0 && y - 18 <= b.y1), cand = [];
     for (let y = 24; y < Lp - 40; y += 4) for (let x = 20; x < W - 28; x += 4) { if (!ok(x, y) || !free(x, y)) continue; let d = 0; while (d < 90 && x - cs * (d + 1) > 0 && x - cs * (d + 1) < W && plan.K[y * W + x - cs * (d + 1)] === K.SEA) d++; if (d < 22 || d > 60) continue; cand.push({ x, y, sc: Math.abs(d - 40) + h32(seed, 9100 + x * 7 + y) / 4294967296 * 30 }); }
-    cand.sort((a, b) => a.sc - b.sc); plan.platforms = []; for (const c of cand) { if (plan.platforms.length >= 2) break; if (plan.platforms.every(q => Math.abs(q.y - c.y) > 150)) plan.platforms.push({ x: c.x, y: c.y }); } }
+    cand.sort((a, b) => a.sc - b.sc); plan.platforms = []; for (const c of cand) { if (plan.platforms.length >= 2) break; if (plan.platforms.every(q => Math.abs(q.y - c.y) > 150)) { plan.platforms.push({ x: c.x, y: c.y }); plan.fires.push({ x: c.x + 20, y: c.y + 19, w: 3, h: 3, x0: c.x + 19, y0: c.y + 18, item: -1, seed: h32(seed, 99600 + c.x * 7 + c.y), flare: true }); } } }
   plan.port = { y0: 0, y1: Lp - 1, quay: yC }; plan.roadBlend = [Lp - 40, Lp + 24]; plan.land = { y0: Lp, y1: L - 1 }; plan.stage = { port: A.stage && A.stage.total, land: B.stage.total };
   return plan;
 }
