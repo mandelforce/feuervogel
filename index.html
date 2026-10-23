@@ -573,10 +573,16 @@ PRESETS.desertPost = Object.assign({}, PRESETS.oasis, { label: 'Strongpoint in t
 // Enigma Run level 2 as one plan (sandSea): the sortie's segment sequence, scaled to 56 chunks (the lab shows it at the level's length)
 PRESETS.sandSea = Object.assign({}, PRESETS.oasis, { label: 'Level 2, Sea of Sand (whole level)', builder: 'sandSea', L: 3584, portDensity: 0.5,
   segs: [{ t: 'harbour_commercial', n: 5 }, { t: 'beach_town', n: 4 }, { t: 'valley', n: 8 }, { t: 'village', n: 5 }, { t: 'station_junction', n: 7 }, { t: 'desert_open', n: 5 }, { t: 'airbase_desert', n: 7 }, { t: 'pass', n: 8 }, { t: 'desert_open', n: 7 }] });
+PRESETS.sandSeaAged = Object.assign({}, PRESETS.sandSea, { label: 'Level 2 in the aged look (new)', wear: 0.55 });
 PRESETS.desertValley = Object.assign({}, PRESETS.oasis, { label: 'Valley with oil field and wadi', rail: { x: 74 }, features: [{ kind: 'valley', at0: 0.08, at1: 0.92 }] });
 PRESETS.desertPass = Object.assign({}, PRESETS.oasis, { label: 'Fortified pass with viaduct', L: 700, rail: { x: 74 }, features: [{ kind: 'pass', at0: 0.06, at1: 0.94 }] });
 PRESETS.desertJunction = Object.assign({}, PRESETS.oasis, { label: 'Railway junction', rail: { x: 74 }, features: [{ kind: 'junction', at0: 0.05, at1: 0.95 }] });
 PRESETS.desertAirbase = Object.assign({}, PRESETS.oasis, { label: 'Desert airbase', rail: { x: 74 }, features: [{ kind: 'airbase', at0: 0.05, at1: 0.95 }] });
+// The aged desert (P.wear 0..1; 0 is the clean look every plan above keeps): old plaster, cracks, patches of bare mud brick, rain stains, lean-tos, tarps and
+// washing on the roofs, packed earth round the walls, kitchen gardens, weeds and dry grass. Three village characters, each with its own share of the wear.
+PRESETS.oasisAged = Object.assign({}, PRESETS.oasis, { label: 'Oasis village, lived in (aged)', wear: 0.55, features: [{ kind: 'oasis', at: 0.5, size: 'medium' }] });
+PRESETS.roadsideHamlet = Object.assign({}, PRESETS.oasis, { label: 'Roadside hamlet (aged)', wear: 0.6, L: 560, damage: 0.12, features: [{ kind: 'roadside', at: 0.5 }] });
+PRESETS.oldVillage = Object.assign({}, PRESETS.oasis, { label: 'Old village, half abandoned (aged)', wear: 0.9, damage: 0.5, features: [{ kind: 'oasis', at: 0.5, size: 'medium', style: 'old' }] });
 // The Iron Forest (Enigma Run level 4; builder 'forest', climate 'forest'): the high cliff coast with the forest on its plateau, and the conifer forest
 PRESETS.cliffCoast = Object.assign({}, PRESETS.town, { label: 'Iron Forest: high cliff coast', builder: 'forest', climate: 'forest', L: 900, damage: 0, density: [[0, 0], [1, 0]],
   features: [{ kind: 'cliffs', at0: 0, at1: 0.3 }, { kind: 'conifer', at0: 0.3, at1: 1, rides: 1, plantations: 1, clearings: 1 }] });
@@ -1956,6 +1962,13 @@ function validate(plan) {
     while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
     m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
     for (const R of plan.rivers || []) if (R.island) { const i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
+  // roads: no house, hall or square of a desert village may stand on a carriageway (a village's own lanes included); m.roadClear is the tightest gap in px
+  { let onRoad = 0, tight = Infinity; if (plan.P && plan.P.climate === 'desert' && plan.oasis && plan.oasis.length) {
+      const rects = []; for (const it of plan.items) if (it.t === 'cube' || (it.t === 'civic' && (it.group >= 9300 || typeof it.group === 'string')) || it.lean) rects.push([it.x0, it.y0, it.w, it.h, it.round ? it.r : 0]);
+      for (const q of plan.squares) if (q.village) rects.push([q.x0, q.y0, q.w, q.h, 0]);
+      for (const st of plan.streets) { if (!st.tank) continue; for (const [px, py, pw] of st.pts) { if (!pw) continue; const cx0 = st.axis === 'h' ? px : px - pw / 2, cx1 = st.axis === 'h' ? px + 1 : px + pw / 2, cy0 = st.axis === 'h' ? py - (pw >> 1) : py, cy1 = st.axis === 'h' ? py + (pw >> 1) + 1 : py + 1; // the carriageway's cell for this point
+          for (const [x0, y0, w, h] of rects) { if (py < y0 - 12 || py > y0 + h + 12) continue; const gx = Math.max(x0 - cx1, cx0 - (x0 + w), 0), gy = Math.max(y0 - cy1, cy0 - (y0 + h), 0), c = Math.hypot(gx, gy); if (c < tight) tight = c; if (x0 < cx1 && x0 + w > cx0 && y0 < cy1 && y0 + h > cy0) onRoad++; } } } }
+    m.onRoad = onRoad; m.roadClear = isFinite(tight) ? +tight.toFixed(1) : null; }
   m.bridges = plan.bridges.length; m.boats = plan.boats.length;
   m.streets = plan.streets.length;
   // churches: how many, and the closest two
@@ -1981,7 +1994,7 @@ function validate(plan) {
     m.lanesBlocked = blk; m.shipLanes = (plan.shipLanes || []).length; m.fleetArea = !!plan.fleetArea; }
   m.oldTown = !!plan.oldTown; m.stars = (plan.stars || []).length; m.civic = (plan.civic || []).map(c => c.label);
   m.squares = plan.squares.length; m.parks = plan.parks.length; m.trees = plan.trees.length; m.lots = plan.lots.length; m.ruins = plan.items.filter(i => i.dmg >= 2).length;
-  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && m.trainBlocked === 0 && m.lanesBlocked === 0 && (plan.rivers || []).every(R => plan.bridges.filter(b => b.river === R.id).length >= (R.island ? 2 : 1)) && m.islandReach !== false;
+  m.pass = m.overlapPx === 0 && m.noFrontage === 0 && m.tankReach === 1 && (m.churchMinGap === null || m.churchMinGap >= plan.P.parishSpacing * 0.9) && m.trainBlocked === 0 && m.lanesBlocked === 0 && (plan.rivers || []).every(R => plan.bridges.filter(b => b.river === R.id).length >= (R.island ? 2 : 1)) && m.islandReach !== false && !m.onRoad;
   return m;
 }
 
@@ -2028,12 +2041,46 @@ const hh = (x, y) => h32(x * 7919 + 13, y * 104729 + 7) / 4294967296;
 function vn(x, y) { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
   const a = hh(xi, yi), b = hh(xi + 1, yi), c = hh(xi, yi + 1), d = hh(xi + 1, yi + 1); return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy; }
 
+// An old plastered roof (b.age 0..1, the desert's wear): blotched plaster, patches where it fell off and the mud brick shows, cracks, rain stains running
+// down from the parapet, a broken edge line, and the odd tarp, barrel, plank pile or washing line. Every choice is a hash of the item's seed, so a house always
+// looks the same. age 0 never gets here (the old look is kept exactly).
+function agedRoof(lx, ly, b, R, wx, wy) {
+  const w = b.w, h = b.h, a = b.age, sd = b.seed | 0, wd = C.wash[b.wash];
+  if (w > 6 && h > 6 && (lx === w - 4 || lx === w - 3) && (ly === 2 || ly === 3)) return C.hatch;
+  // clutter on the roof (placed by hash, kept clear of the hatch)
+  for (let k = 0; k < 2; k++) { if (a < 0.28 + k * 0.22 || w < 9 || h < 9) break; const kind = (hh(sd, 34 + k) * 4) | 0, sx = kind === 3 ? 5 : kind === 2 ? 3 : 2, sy = kind === 3 ? 1 : kind === 2 ? 1 : 3, ox = 2 + ((hh(sd, 30 + k) * (w - 8)) | 0), oy = 2 + ((hh(sd, 32 + k) * (h - 7)) | 0);
+    if (lx >= ox && lx < ox + sx && ly >= oy && ly < oy + sy && !(ox + sx > w - 5 && oy < 5)) {
+      if (kind === 0) return (lx + ly) & 1 ? [112, 128, 138] : [98, 114, 124]; // a tarp
+      if (kind === 1) return ly === oy ? [150, 112, 84] : [118, 84, 60]; // a rusty barrel, seen from above
+      if (kind === 2) return lx === ox ? C.beam : [124, 96, 64]; // planks
+      return lx % 2 ? [232, 226, 210] : ly === oy && lx === ox + 2 ? [168, 64, 48] : [78, 102, 138]; } } // washing on a line
+  // cracks: two thin dark lines running in from an edge
+  if (a > 0.3) for (let k = 0; k < 2; k++) { const c0 = 1 + hh(sd, 11 + k) * (w - 3), sl = (hh(sd, 13 + k) - 0.5) * 0.9, len = h * (0.35 + 0.55 * hh(sd, 15 + k)); if (ly < len && lx === Math.round(c0 + sl * ly + (hh(sd + k, ly) < 0.3 ? 1 : 0))) return wd[0]; }
+  // bare mud brick where the plaster fell off (bigger and more of it with age), laid in courses
+  const bare = vn(wx * 0.27 + (sd & 127), wy * 0.27 + 7) - (0.84 - 0.3 * a);
+  if (bare > 0) return (ly + ((lx >> 1) & 1)) % 3 === 0 ? C.dirt[0] : C.dirt[1 + ((hh(wx, wy) * 2) | 0)];
+  // rain stains below the parapet and in streaks down the roof
+  if (ly > 2 && ((hh(sd, 20 + lx) < 0.22 * a && ly < h * (0.4 + 0.5 * hh(sd, 60 + lx))) || (ly >= h - 4 && hh(wx, wy + 3) < 0.3 * a))) return wd[1];
+  // the surface: blotched, a little faded, its lit edge broken up
+  const edge = ly === 1 || lx === 1, edge2 = ly === h - 2 || lx === w - 2;
+  if (edge) return hh(wx * 7, wy * 5) < 0.55 + (1 - a) * 0.4 ? R[3] : R[2];
+  if (edge2) return hh(wx * 5, wy * 7) < 0.5 + (1 - a) * 0.4 ? R[1] : R[0];
+  const l = 0.5 + (vn(wx * 0.16 + (sd & 63), wy * 0.16) - 0.5) * 0.9 * a + (hh(wx, wy) - 0.5) * 0.25 * a - 0.12 * a;
+  return R[pickI(4, l, wx, wy)];
+}
+// a lean-to or shed built on later: corrugated sheet, rusty
+function agedLean(lx, ly, b, wx, wy) {
+  const rib = (b.ori === 'h' ? ly : lx) & 1, rust = vn(wx * 0.3, wy * 0.3) > 0.55 - 0.2 * b.age;
+  return rust ? (rib ? [118, 70, 46] : [92, 54, 36]) : (rib ? [150, 138, 120] : [124, 112, 98]);
+}
 // one roof pixel (the game's roofPix): lx, ly inside the building with ly growing down the screen
 function roofPix(lx, ly, b, ramp, wx, wy) {
   const w = b.w, h = b.h, style = b.style;
-  if (lx === 0 || ly === 0 || lx === w - 1 || ly === h - 1) return b.wash !== undefined && style === 'flat' ? C.wash[b.wash][0] : ramp[0];
+  if (lx === 0 || ly === 0 || lx === w - 1 || ly === h - 1) { if (b.age > 0 && b.wash !== undefined && hh(wx * 3 + 1, wy * 5 + (b.seed & 255)) < b.age * 0.3) return C.dirt[(hh(wx, wy) * 2) | 0]; /* a chipped parapet: bare mud brick shows */ return b.wash !== undefined && style === 'flat' ? C.wash[b.wash][0] : ramp[0]; }
+  if (b.lean) return agedLean(lx, ly, b, wx, wy);
   if (style === 'flat') { // a gravel roof behind a parapet: light enough to read as a roof, not a hole (in the desert a plastered roof terrace in its wash)
     const R = b.wash !== undefined ? C.wash[b.wash] : C.snowFlat || C.conc; // (winter: snow on the roof behind its parapet)
+    if (b.wash !== undefined && !b.slot && b.age > 0) return agedRoof(lx, ly, b, R, wx, wy);
     if (b.wash !== undefined && !b.slot) { if (ly === 1 || lx === 1) return R[3]; if (ly === h - 2 || lx === w - 2) return R[1]; if (w > 6 && h > 6 && (lx === w - 4 || lx === w - 3) && (ly === 2 || ly === 3)) return C.hatch; return R[2]; } // the desert: like the game's desert houses (light top and left, a darker bottom and right, a roof hatch)
     if (lx === 1 || ly === 1 || lx === w - 2 || ly === h - 2) return ly === 1 || lx === w - 2 ? R[3] : R[1];
     if (b.slot && Math.abs(lx - w / 2 + 0.5) < 2.6 && Math.abs(ly - h / 2 + 0.5) < 2.6) { const e = Math.max(Math.abs(lx - w / 2 + 0.5), Math.abs(ly - h / 2 + 0.5)); return e > 1.8 ? C.sand[(lx + ly) & 1] : C.gravel[0]; } // a sandbagged gun platform
@@ -2238,8 +2285,10 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (end < 10 && end > 2 && lx >= 3 && lx <= A.rw - 4 && (lx - 3) % 3 < 2) { c = C.mark; break; }
           if (Math.abs(lx - A.rw / 2 + 0.5) < 1 && end > 14 && (y >> 3) % 2 === 0) { c = C.mark; break; }
           if (end > 12 && end < 70 && Math.abs(Math.abs(lx - A.rw / 2 + 0.5) - 3) < 1.5 && hh(x, y >> 1) < 0.5) l -= 0.3; if (y % 20 === 0) l -= 0.12; c = C.conc[pickI(4, l, x, y)]; break; }
-        case K.DESERT: { if (sandPix) { c = sandPix(x, y); break; } const n = vn(x * 0.02, y * 0.02); // open desert: the Campaign's desert ground (a host passes its own sand, as the game does)
-          c = C.dune[pickI(5, 0.5 + Math.sin(x * 0.05 + n * 6 + y * 0.09) * 0.3 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.2, x, y)]; break; }
+        case K.DESERT: { if (sandPix) c = sandPix(x, y); else { const n = vn(x * 0.02, y * 0.02); // open desert: the Campaign's desert ground (a host passes its own sand, as the game does)
+            c = C.dune[pickI(5, 0.5 + Math.sin(x * 0.05 + n * 6 + y * 0.09) * 0.3 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.2, x, y)]; }
+          const wn = plan.worn ? plan.worn[i] : 0; if (wn && hh(x * 3 + 5, y * 5) < wn / 3 * 0.75 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3) c = C.dirt[pickI(4, 0.3 + (hh(x, y) - 0.5) * 0.5 + wn * 0.05, x, y)]; // packed earth round the houses (plan.worn: 1 to 3, near to far)
+          break; }
         case K.SPOIL: c = C.spoil[pickI(5, (-40 - Br[i]) / 20, x, y)]; break; // dug sand heaped beside a trench or a ditch (Br: -40 - its light, 0..20)
         case K.DITCH: { const t = (-70 - Br[i]) / 16; c = t < 0.22 ? C.spoil[4] : t < 0.4 ? C.spoil[2] : t < 0.62 ? C.dirt[0] : t < 0.8 ? [90, 66, 40] : [58, 42, 24]; break; } // an anti-tank ditch: the far side lit, the floor, the near side in shadow (Br: -70 - across, 0..16)
         case K.CLIFF: { const left = x <= plan.wallL[y], e = left ? plan.wallL[y] : plan.wallR[y], d = left ? e - x : x - e; // rock: big masses lit from the upper left in a few flat tones, dark crevices, the cliff face along the edge
@@ -2369,6 +2418,12 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
       if (dd > 0.72) { put(t.x + xx, t.y + yy, C.tree[0]); continue; }
       if (t.fruit && dd < 0.7 && hh(t.x * 5 + xx, t.y * 3 + yy) < 0.14) { put(t.x + xx, t.y + yy, hh(t.x, t.y) < 0.5 ? C.fruit[0] : C.fruit[1]); continue; }
       const l = 0.42 + 0.38 * (-0.55 * xx / t.r + 0.75 * yy / t.r) + 0.3 * (Math.sqrt(1 - dd) - 0.5) + (t.fruit ? 0.12 : t.v === 4 ? 0.2 : (t.v - 1) * 0.05); put(t.x + xx, t.y + yy, (t.autumn ? AUTUMN : C.tree)[pickI(6, clamp(l, 0, 1), t.x + xx, t.y + yy)]); } }
+  for (const q of plan.plots || []) { if (q.y + q.h < y0 || q.y >= y0 + h) continue; // a kitchen garden: rows of crops between low earth banks
+    for (let yy = q.y; yy < q.y + q.h; yy++) for (let xx = q.x; xx < q.x + q.w; xx++) { const e = xx === q.x || yy === q.y || xx === q.x + q.w - 1 || yy === q.y + q.h - 1, row = q.ori === 'h' ? (yy - q.y) % 2 === 1 : (xx - q.x) % 2 === 1;
+      put(xx, yy, e ? C.field.hedge[(hh(xx, yy) * 3) | 0] : row ? C.field.crop[pickI(4, 0.45 + (hh(xx * 3, yy) - 0.5) * 0.7, xx, yy)] : C.field.soil[pickI(4, 0.4, xx, yy)]); } }
+  for (const tf of plan.tufts || []) { if (tf.y + 3 < y0 || tf.y - 3 >= y0 + h) continue; // weeds and dry grass tufts, here and there along walls and tracks
+    const g = tf.k === 'weed' ? [C.field.crop[1], C.field.crop[2], C.field.crop[3]] : [C.grass[0], C.grass[1], C.field.wheat[2]], n = tf.n || 3;
+    put(tf.x + 1, tf.y - 1, C.shadow, 0.28); put(tf.x, tf.y, g[0]); for (let k = 0; k < n; k++) { const dx = ((hh(tf.x + k, tf.y) * 3) | 0) - 1, dy = 1 + ((hh(tf.x, tf.y + k) * 2) | 0); put(tf.x + dx, tf.y + dy, g[1 + (k & 1)]); put(tf.x + dx, tf.y + dy - 1, g[0]); } }
   if (plan.cliffs) paintCliffShade(plan, put, y0, h); // (Iron Forest) each cliff shades the ledge below it
   if (plan.conifers) paintConifers(plan, put, y0, h);
   if (plan.avalanche) paintAlpine(plan, put, y0, h); // (winter) avalanche fences, the ski jump's lines, the cable car
@@ -2785,7 +2840,7 @@ function desertLand(o) {
   const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
   const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], gantries: [], wires: [], barrels: [], beachSlots: [], rivers: [], river: null,
-    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [] };
+    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [] };
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
@@ -2819,24 +2874,43 @@ function desertLand(o) {
     if (it.dmg === 2) it.cut = { end: rnd(TD, 501, it.id) < 0.5 ? 0 : 1, at: Math.max(2, Math.round((it.ori === 'h' ? it.w : it.h) * (0.35 + rnd(TD, 502, it.id) * 0.3))) };
     if (it.dmg >= 2) for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const lx = x - it.x0, ly = it.y0 + it.h - 1 - y, inner = lx > 0 && ly > 0 && lx < it.w - 1 && ly < it.h - 1; if (it.dmg === 4 || (it.dmg === 3 && inner) || (it.dmg === 2 && inCut(it, lx, ly))) Kr[idx(x, y)] = K.RUBBLE; }
     it.fire = rnd(TD, 503, it.id) < [0, 0.05, 0.25, 0.3, 0.08][it.dmg] * clamp(d * 3, 0.3, 1); if (it.fire) plan.fires.push({ x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, w: it.w, h: it.h, x0: it.x0, y0: it.y0, item: it.id, seed: h32(seed, 97000 + it.id) % 100000 }); };
+  let wearK = 0; // the wear of the village being built (P.wear times its style's share); 0 keeps the clean look exactly
+  const roadFree = (x0, y0, w, h, m) => { for (let y = y0 - 1; y <= y0 + h; y++) { const mx = MX(y); if (!(x0 + w - 1 < mx - 4.5 - m || x0 > mx + 4.5 + m)) return false; } return true; }; // clear of the track by m px, row by row
   const cube = (x0, y0, w, h, g) => { const q = rnd(TD, 510, plan.items.length) * 20; const it = addItem({ t: 'cube', x0, y0, w, h, ori: w >= h ? 'h' : 'v', style: 'flat', wash: q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3, seed: sd(), dmg: 0, run: -93000 - plan.items.length, group: g });
+    if (wearK > 0) it.age = +clamp(wearK * (0.55 + 0.9 * rnd(TD, 520, it.id)), 0, 1).toFixed(2); // (old houses, only where the plan asks for wear: P.wear)
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) set(x, y, K.BLDG, it.id); return it; };
   // a packed block: houses of mixed sizes sharing their walls (a guillotine split, every house at least 9 px across), now and then a courtyard
   const block = (x0, y0, w, h, tag) => { const out = [], split = (a, b, w2, h2, d) => { const vert = w2 > h2 ? rnd(tag, d, a) < 0.8 : rnd(tag, d, b) < 0.2;
       if ((w2 < 30 && h2 < 30) || d > 4 || (vert ? w2 : h2) < 22) { out.push([a, b, w2, h2]); return; } if (vert) { const c = Math.round(w2 * (0.35 + rnd(tag, a, b) * 0.3)); split(a, b, c, h2, d + 1); split(a + c, b, w2 - c, h2, d + 1); } else { const c = Math.round(h2 * (0.35 + rnd(tag, b, a) * 0.3)); split(a, b, w2, c, d + 1); split(a, b + c, w2, h2 - c, d + 1); } };
     split(x0, y0, w, h, 0); const made = []; out.forEach(([a, b, w2, h2], k) => { if (rnd(tag, 900, k) < 0.12 && w2 > 8 && h2 > 8) { for (let y = b; y < b + h2; y++) for (let x = a; x < a + w2; x++) set(x, y, K.COURT); if (rnd(tag, 901, k) < 0.5) plan.trees.push({ x: Math.round(a + w2 / 2), y: Math.round(b + h2 / 2), r: 2, v: 1, palm: true }); return; } made.push(cube(a, b, w2, h2)); }); return made; };
+  // the lived-in village: lean-tos built onto the houses, kitchen gardens, weeds and dry grass along the walls and the track, a few scrub bushes
+  // (all of it stays clear of the track by 2 px, never on a building, and only where the plan asks for wear)
+  const lived = (houses, dens) => {
+    if (!(wearK > 0)) return;
+    const all = houses.slice(), tuft = (x, y, k, n) => { if (open(x, y) && roadFree(x, y, 1, 1, 1) && !plan.tufts.some(q => Math.abs(q.x - x) < 2 && Math.abs(q.y - y) < 2)) plan.tufts.push({ x, y, k, n }); };
+    for (const hs of all) { if (hs.dmg >= 4) continue; const age = hs.age || 0, id = hs.id;
+      if (hs.dmg < 2 && age > 0.3 && rnd(TD, 530, id) < 0.2 + age * 0.45) { const lw = 4 + ((rnd(TD, 531, id) * 3) | 0), lh = 5 + ((rnd(TD, 532, id) * 4) | 0), side = rnd(TD, 533, id) < 0.5 ? -1 : 1, lx0 = side < 0 ? hs.x0 - lw : hs.x0 + hs.w, ly0 = hs.y0 + ((rnd(TD, 534, id) * Math.max(1, hs.h - lh)) | 0);
+        if (rectOpen(side < 0 ? lx0 - 1 : lx0, ly0 - 1, lw + 1, lh + 2) && roadFree(lx0, ly0, lw, lh, 2)) { const it = addItem({ t: 'cube', lean: true, x0: lx0, y0: ly0, w: lw, h: lh, ori: 'v', style: 'flat', wash: 1, age, seed: h32(seed, 94000 + id), dmg: 0, run: -93000 - plan.items.length }); for (let y = ly0; y < ly0 + lh; y++) for (let x = lx0; x < lx0 + lw; x++) set(x, y, K.BLDG, it.id); } }
+      if (rnd(TD, 540, id) < dens.plot) for (const [px, py] of [[hs.x0, hs.y0 + hs.h + 2], [hs.x0, hs.y0 - 6], [hs.x0 - 8, hs.y0], [hs.x0 + hs.w + 2, hs.y0]]) { const pw = 6, ph = 4; if (rectOpen(px - 1, py - 1, pw + 2, ph + 2) && roadFree(px, py, pw, ph, 3)) { for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) set(x, y, K.ORCHARD, -1); plan.plots.push({ x: px, y: py, w: pw, h: ph, ori: rnd(TD, 541, id) < 0.5 ? 'h' : 'v' }); break; } }
+      const nt = Math.round((1 + 4 * age) * dens.tuft); for (let k = 0; k < nt; k++) { const side = (rnd(TD, 550 + k, id) * 4) | 0, t = rnd(TD, 560 + k, id), x = side === 0 ? hs.x0 - 1 - ((t * 2) | 0) : side === 1 ? hs.x0 + hs.w + ((t * 2) | 0) : hs.x0 + ((t * hs.w) | 0), y = side === 2 ? hs.y0 - 1 - ((t * 2) | 0) : side === 3 ? hs.y0 + hs.h + ((t * 2) | 0) : hs.y0 + ((t * hs.h) | 0); tuft(x, y, rnd(TD, 570 + k, id) < 0.55 ? 'weed' : 'dry', 2 + ((rnd(TD, 580 + k, id) * 3) | 0)); } }
+    const ys = all.map(h2 => h2.y0), ya = Math.min(...ys) - 30, yb = Math.max(...ys) + 30; // along the track: weeds on its edges, a few scrub bushes beyond
+    for (let y = Math.max(2, ya); y < Math.min(L - 2, yb); y += 6) for (const sd2 of [-1, 1]) { if (rnd(TD, 600, y * 3 + sd2) > 0.5 * dens.tuft) continue; const x = Math.round(MX(y) + sd2 * (5.5 + rnd(TD, 601, y) * 3)); tuft(x, y, rnd(TD, 602, y) < 0.4 ? 'weed' : 'dry', 2); }
+    for (let k = 0; k < Math.round(dens.scrub); k++) { const y = Math.round(ya + rnd(TD, 610, k) * (yb - ya)), sd2 = rnd(TD, 611, k) < 0.5 ? -1 : 1, x = Math.round(MX(y) + sd2 * (14 + rnd(TD, 612, k) * 44)); if (rectOpen(x - 3, y - 3, 6, 6) && roadFree(x - 3, y - 3, 6, 6, 2)) plan.trees.push({ x, y, r: 2, v: 3, scrub: true }); }
+  };
   // 2. the features
-  const SZ = { small: { rx: 30, ry: 32, d: 0.07, blocks: 2 }, medium: { rx: 40, ry: 64, d: 0.2, blocks: 10 }, large: { rx: 36, ry: 34, d: 0.42, blocks: 14 } };
+  const SZ = { small: { rx: 30, ry: 32, d: 0.07, blocks: 2 }, medium: { rx: 40, ry: 64, d: 0.2, blocks: 10 }, large: { rx: 36, ry: 34, d: 0.42, blocks: 14 }, old: { rx: 30, ry: 52, d: 0.5, blocks: 12 } };
+  const STYLE_WEAR = { oasis: 0.7, roadside: 1, old: 1.3 }, STYLE_PLANTS = { oasis: { plot: 0.35, tuft: 0.7, scrub: 4 }, roadside: { plot: 0.5, tuft: 1, scrub: 6 }, old: { plot: 0.08, tuft: 1.5, scrub: 9 } };
   for (const [fi, F] of (P.features || []).entries()) { const yc = Math.round(L * F.at);
-    if (F.kind === 'oasis') { const Z = SZ[F.size || 'medium'], m = MX(yc), gy = yc, ry = Z.ry, houses = [], g0 = plan.items.length;
+    if (F.kind === 'oasis') { const style = F.style || 'oasis', Z = style === 'old' ? SZ.old : SZ[F.size || 'medium'], m = MX(yc), gy = yc, ry = Z.ry, houses = [], g0 = plan.items.length;
       const groveAt = s => { const rx = Math.min(Z.rx, (s > 0 ? W - m : m) / 2 - 10), gx = Math.round(m + s * (rx + 14)); let clear = 1e9; if (RX !== null) for (let k = -4; k <= 4; k++) clear = Math.min(clear, Math.abs(gx - RXat(gy + k * ry / 4)) - rx); return { s, rx, gx, clear }; };
       const g1 = groveAt(F.side || (W - m > m ? 1 : -1)), g2 = groveAt(-g1.s), gv = g1.clear >= 12 || g1.clear >= g2.clear ? g1 : g2; // the grove beside the track, and never across the railway (its pool and palms would be cut in two)
       const sGr = gv.s, rx = gv.rx, gx = gv.gx;
       for (let y = gy - ry - 3; y <= gy + ry + 3; y++) for (let x = gx - rx - 3; x <= gx + rx + 3; x++) { if (!inB(x, y) || Kr[idx(x, y)] !== K.DESERT || Br[idx(x, y)] !== -1) continue; const e = Math.hypot((x + 0.5 - gx) / rx, (y + 0.5 - gy) / ry) + (vn(x * 0.15, y * 0.15 + fi) - 0.5) * 0.3; if (e < 1) set(x, y, K.OASIS); }
       const prx = Math.max(8, Math.round(rx * 0.36)), pry = Math.max(7, Math.round(Math.min(ry * 0.26, prx * 1.3)));
       for (let y = gy - pry - 1; y <= gy + pry + 1; y++) for (let x = gx - prx - 1; x <= gx + prx + 1; x++) { const e = Math.hypot((x + 0.5 - gx) / prx, (y + 0.5 - gy) / pry) + (vn(x * 0.2, y * 0.2 + 7) - 0.5) * 0.2; if (e < 1 && inB(x, y) && Br[idx(x, y)] === -1 && (Kr[idx(x, y)] === K.OASIS || Kr[idx(x, y)] === K.DESERT)) set(x, y, K.WATER, -16); }
-      const nP = Math.round(rx * ry * 0.034); for (let k = 0; k < nP; k++) { const a = k * 2.399 + rnd(TD, 20, fi) * 6, rr = Math.sqrt(0.12 + 0.88 * rnd(TD, 21, k + fi * 300)), px = Math.round(gx + Math.cos(a) * rx * rr * 0.92), py = Math.round(gy + Math.sin(a) * ry * rr * 0.92);
-        if (!inB(px, py) || Kr[idx(px, py)] !== K.OASIS || (RX !== null && Math.abs(px - RXat(py)) < 12) || [[-2, 0], [2, 0], [0, -2], [0, 2]].some(([dx, dy]) => inB(px + dx, py + dy) && Kr[idx(px + dx, py + dy)] === K.WATER)) continue; plan.trees.push({ x: px, y: py, r: 2 + (rnd(TD, 22, k) < 0.35 ? 1 : 0), v: 1, palm: true }); }
+      wearK = clamp((P.wear || 0) * STYLE_WEAR[style], 0, 1);
+      const nP = Math.round(rx * ry * 0.034 * (style === 'old' ? 0.45 : 1)); for (let k = 0; k < nP; k++) { const a = k * 2.399 + rnd(TD, 20, fi) * 6, rr = Math.sqrt(0.12 + 0.88 * rnd(TD, 21, k + fi * 300)), px = Math.round(gx + Math.cos(a) * rx * rr * 0.92), py = Math.round(gy + Math.sin(a) * ry * rr * 0.92);
+        if (!inB(px, py) || Kr[idx(px, py)] !== K.OASIS || (RX !== null && Math.abs(px - RXat(py)) < 12) || [[-2, 0], [2, 0], [0, -2], [0, 2]].some(([dx, dy]) => inB(px + dx, py + dy) && Kr[idx(px + dx, py + dy)] === K.WATER)) continue; plan.trees.push({ x: px, y: py, r: 2 + (rnd(TD, 22, k) < 0.35 ? 1 : 0), v: 1, palm: true, stump: style === 'old' && rnd(TD, 23, k) < 0.3 }); }
       // the houses: packed blocks on the other side of the track (all round the grove when the village is large), the square with the hall
       const hs = -sGr, span = F.size === 'large' ? 150 : F.size === 'small' ? 70 : 120, sq = { w: 30, h: 24 };
       const xsAt = y => Math.round(MX(y) + hs * 8), blocks = [];
@@ -2853,11 +2927,32 @@ function desertLand(o) {
           plan.wells.push({ x: hs > 0 ? bx + 5 : bx + 29, y: by + 13 }); hall = { x0: bx, y0: by, w: 34, h: 26 }; plan.squares.push({ x0: bx, y0: by, w: 34, h: 26, cx: bx + 17, cy: by + 13, side: hs, village: true }); } }
       let nb = 0; for (const [x0, y0, w0, h0] of blocks) { if (nb >= Z.blocks) break; let w = w0, h = h0; while ((w > 18 || h > 18) && !rectOpen(x0 - 1, y0 - 1, w + 2, h + 2)) { if (w > 18) w -= 4; if (h > 18) h -= 4; } if (!rectOpen(x0 - 1, y0 - 1, w + 2, h + 2)) continue; /* a block that meets the square shrinks to fit */ houses.push(...block(x0, y0, w, h, 400 + fi * 50 + nb)); nb++; }
       for (const it of houses) damage(it, Z.d);
+      lived(houses, STYLE_PLANTS[style]);
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
-      plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, y0: gy - span, y1: gy + span });
+      plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
+    } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
+      wearK = clamp((P.wear || 0) * STYLE_WEAR.roadside, 0, 1);
+      const gy = yc, span = F.span || 130, houses = [], g0 = plan.items.length, g = 9400 + fi;
+      const sq = F.side || (rnd(TD, 50 + fi) < 0.5 ? 1 : -1), pw = 28, ph2 = 22, py0 = gy - 11; let px0 = Math.round(sq > 0 ? MX(gy) + 4.5 + 4 : MX(gy) - 4.5 - 4 - pw), square = null;
+      for (let t = 0; t < 8 && !square; t++) { const yy = py0 + (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 6; if (rectOpen(px0 - 1, yy - 1, pw + 2, ph2 + 2) && roadFree(px0, yy, pw, ph2, 3)) square = { x0: px0, y0: yy, w: pw, h: ph2 }; }
+      if (square) { for (let y = square.y0; y < square.y0 + ph2; y++) for (let x = square.x0; x < square.x0 + pw; x++) set(x, y, K.PLAZA);
+        const hx = sq > 0 ? square.x0 + 14 : square.x0, hy = square.y0 + 5, hall = addItem({ t: 'civic', label: 'Shrine', x0: hx, y0: hy, w: 13, h: 11, ori: 'h', style: 'flat', wash: 0, seed: sd(), dmg: 0, group: g, age: wearK > 0 ? +(wearK * 0.6).toFixed(2) : undefined }); if (hall.age === undefined) delete hall.age;
+        for (let y = hall.y0; y < hall.y0 + hall.h; y++) for (let x = hall.x0; x < hall.x0 + hall.w; x++) set(x, y, K.BLDG, hall.id);
+        const r = 4, dcx = hx + 6.5, dcy = hy + 5.5, dm = addItem({ t: 'civic', label: 'Shrine', part: 'dome', round: true, x0: Math.floor(dcx - r), y0: Math.floor(dcy - r), w: 2 * r + 2, h: 2 * r + 2, acx: dcx, acy: dcy, r, roof: 5, seed: sd(), dmg: 0, group: g });
+        for (let y = dm.y0; y < dm.y0 + dm.h; y++) for (let x = dm.x0; x < dm.x0 + dm.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - dcx, y + 0.5 - dcy) < r) set(x, y, K.BLDG, dm.id);
+        plan.wells.push({ x: sq > 0 ? square.x0 + 5 : square.x0 + pw - 6, y: square.y0 + 15 }); plan.squares.push({ x0: square.x0, y0: square.y0, w: pw, h: ph2, cx: square.x0 + pw / 2, cy: square.y0 + ph2 / 2, side: sq, village: true }); }
+      for (const side of [-1, 1]) for (let y = gy - span + ((rnd(TD, 51 + fi, side) * 6) | 0); y < gy + span;) {
+        const near = 1 - Math.abs(y - gy) / span, bh = 8 + Math.round(rnd(TD, 52 + fi, y) * 6 + near * 3), bw = 9 + Math.round(rnd(TD, 53 + fi, y) * 6 + near * 4), gap = 3 + Math.round(rnd(TD, 54 + fi, y + side) * 4), my = MX(y + bh / 2);
+        const x0 = Math.round(side > 0 ? my + 4.5 + gap : my - 4.5 - gap - bw);
+        if (rnd(TD, 55 + fi, y * 3 + side) < 0.1 || !rectOpen(x0 - 1, y - 1, bw + 2, bh + 2) || !roadFree(x0, y, bw, bh, 2)) { y += 5; continue; }
+        houses.push(cube(x0, y, bw, bh, g)); y += bh + 2 + Math.round(rnd(TD, 56 + fi, y) * 9); }
+      for (const it of houses) damage(it, F.damage !== undefined ? F.damage : 0.12);
+      for (let k = 0; k < 9; k++) { const y = Math.round(gy - span + rnd(TD, 57 + fi, k) * 2 * span), side = rnd(TD, 58 + fi, k) < 0.5 ? -1 : 1, x = Math.round(MX(y) + side * (22 + rnd(TD, 59 + fi, k) * 30)); if (rectOpen(x - 3, y - 3, 6, 6) && roadFree(x - 3, y - 3, 6, 6, 3)) plan.trees.push({ x, y, r: 2 + (rnd(TD, 49 + fi, k) < 0.3 ? 1 : 0), v: 1, palm: true }); }
+      lived(houses, STYLE_PLANTS.roadside);
+      plan.oasis.push({ x: Math.round(MX(gy)), y: gy, rx: 40, ry: span, size: 'roadside', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!square, held: false, y0: gy - span, y1: gy + span, style: 'roadside' });
     } else if (F.kind === 'post') strongpoint(yc, fi);
     else if (F.kind === 'valley') oilValley(F, fi); else if (F.kind === 'pass') fortPass(F, fi); else if (F.kind === 'junction') junction(F, fi); else if (F.kind === 'airbase') airbase(F, fi); }
   if (RX !== null) layRail(RXat, 0, L - 1);
@@ -2978,8 +3073,16 @@ function desertLand(o) {
   for (let y = 4; y < L - 4; y += 11) for (let x = 4; x < W - 4; x += 11) { if (rnd(TD, 80, x * 7 + y) > 0.04) continue; const px = x + Math.round(rnd(TD, 81, x + y * 3) * 8), py = y + Math.round(rnd(TD, 82, x * 5 + y) * 8); let ok = true; for (let yy = py - 3; ok && yy <= py + 3; yy++) for (let xx = px - 3; xx <= px + 3; xx++) if (!open(xx, yy)) { ok = false; break; } if (ok && !plan.mines.some(q => Math.abs(q.x - px) < 4 && Math.abs(q.y - py) < 4)) plan.trees.push({ x: px, y: py, r: 2, v: 0, scrub: true }); }
   plan.craters = plan.craters.filter(c => { const R = Math.ceil(c.r); for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) { const x = Math.round(c.x) + xx, y = Math.round(c.y) + yy; if (!inB(x, y) || Math.hypot(xx, yy) > c.r) continue; const k = Kr[idx(x, y)]; if (k === K.ROAD || k === K.BRIDGE || k === K.RAIL || k === K.RBRIDGE) return false; } return true; }); // (a side track laid later may run over a crater: no shell hole on a track or the railway)
   for (let y = 0; y < L; y++) { plan.U[y] = 0.1; plan.D[y] = 0.1; }
+  if ((P.wear || 0) > 0) wearGround(plan); // packed earth round the houses
   plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
+}
+// Packed earth round old houses (plan.worn, 3 next to a wall down to 1 three px away, on open sand only): the painter dithers it into the sand
+function wearGround(plan) {
+  const { W, L, K: Kr, B: Br } = plan, wn = plan.worn = new Uint8Array(W * L);
+  for (const b of plan.items) { if (!(b.age > 0) || b.part) continue;
+    for (let y = Math.max(0, b.y0 - 3); y < Math.min(L, b.y0 + b.h + 3); y++) for (let x = Math.max(0, b.x0 - 3); x < Math.min(W, b.x0 + b.w + 3); x++) { const i = y * W + x; if (Kr[i] !== K.DESERT || Br[i] !== -1) continue;
+      const d = Math.max(b.x0 - x, x - (b.x0 + b.w - 1), b.y0 - y, y - (b.y0 + b.h - 1)); if (d >= 1 && d <= 3) wn[i] = Math.max(wn[i], 4 - d); } }
 }
 // ---------- Enigma Run level 2 (Sea of Sand): one plan over the whole level ----------
 // o.params.segs: the sortie's segments in order, { t, n } (template, chunks of 64 px). The harbour and the beach town are the desert port
@@ -2989,16 +3092,16 @@ function desertLand(o) {
 // (x 18), runs at x 74 through the desert (inside the pass's gorge) and ends at x 18 again, where the Campaign's boss ground has its line.
 // The two plans are generated apart and then joined row on row: buildings and streets renumbered, every position moved up by the port's length.
 function sandSea(o) {
-  const P0 = Object.assign({}, PRESETS.sandSea, o.params || {}), segs = P0.segs, CHp = P0.chunk || 64, seed = o.seed | 0, W = 224;
+  const P0 = Object.assign({}, PRESETS[o.preset] && PRESETS[o.preset].builder === 'sandSea' ? PRESETS[o.preset] : PRESETS.sandSea, o.params || {}), segs = P0.segs, CHp = P0.chunk || 64, seed = o.seed | 0, W = 224;
   const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp;
   const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5), hl = Math.round(hn * CHp * 0.62), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
-  const pp = Object.assign({}, { L: Lp, railSide: -1, portDensity: P0.portDensity, density: [[0, 0.85], [0.35, 0.8], [0.6, 0.4], [0.85, 0.15], [1, 0.04]], damage: 0.6, damageCurve: PRESETS.portDesert.damageCurve,
+  const pp = Object.assign({}, { wear: P0.wear, L: Lp, railSide: -1, portDensity: P0.portDensity, density: [[0, 0.85], [0.35, 0.8], [0.6, 0.4], [0.85, 0.15], [1, 0.04]], damage: 0.6, damageCurve: PRESETS.portDesert.damageCurve,
     coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: [hl / Lp, hl / Lp], beachRun: run }) });
   const A = withPerimeter({ seed: h32(seed, 1), preset: 'portDesert', params: pp }); markSlotRoofs(A); calmWater(A); desertize(A);
   let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
-    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
-    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push({ kind: 'oasis', at: mid, size: 'small' }); }
-  const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { L: Ld, road0: A.mx[Lp - 1], rail: { x: 74, x0: 18, x1: 18 }, features: feats } });
+    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push({ kind: 'oasis', at: mid, size: 'small' }); else if (g.t === 'desert_open' && P0.wear > 0) feats.push({ kind: 'roadside', at: mid, span: 100 }); } // (the quiet desert before the boss gets a roadside hamlet in the aged look)
+  const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { wear: P0.wear, L: Ld, road0: A.mx[Lp - 1], rail: { x: 74, x0: 18, x1: 18 }, features: feats } });
   // join: rasters row on row, lists with B's positions moved up by Lp and its ids renumbered
   const N = W * L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, B, { preset: 'sandSea', L, P: Object.assign({}, B.P, { climate: 'desert' }), seed });
@@ -3011,8 +3114,9 @@ function sandSea(o) {
   plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
-  for (const key of ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots'])
+  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots'])
     plan[key] = (A[key] || []).concat((B[key] || []).map(up));
+  if ((P0.wear || 0) > 0) plan.worn = cat(Uint8Array, A.worn || new Uint8Array(W * Lp), B.worn || new Uint8Array(W * Ld));
   plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
   plan.pipes = (B.pipes || []).map(c => c.map(p => [p[0], p[1] + Lp]));
   plan.viaducts = (B.viaducts || []).map(v => Object.assign(up(v), { piers: v.piers.map(y => y + Lp) }));
@@ -3068,7 +3172,8 @@ function calmWater(plan) {
 function desertize(plan) {
   const { W, L, K: Kr, B: Br } = plan, N = W * L;
   for (const b of plan.items) { if (b.round || b.church || b.part) continue;
-    if (b.t === 'house' || b.t === 'terrace' || b.t === 'block' || b.t === 'farmhouse' || b.t === 'barn' || b.t === 'farm') { b.style = 'flat'; const q = h32(b.seed | 0, 77) % 20; b.wash = q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3; } }
+    if (b.t === 'house' || b.t === 'terrace' || b.t === 'block' || b.t === 'farmhouse' || b.t === 'barn' || b.t === 'farm') { b.style = 'flat'; const q = h32(b.seed | 0, 77) % 20; b.wash = q < 9 ? 0 : q < 16 ? 1 : q < 18 ? 2 : 3; if ((plan.P.wear || 0) > 0) b.age = +clamp(plan.P.wear * (0.55 + 0.9 * (h32(b.seed | 0, 78) / 4294967296)), 0, 1).toFixed(2); } }
+  if ((plan.P.wear || 0) > 0) wearGround(plan);
   for (const ch of plan.churches || []) { const parts = ch.parts.map(id => plan.items[id]), nave = parts.find(p => p.part === 'nave'), tr = parts.find(p => p.part === 'trans'); if (!nave) continue;
     const D = ch.dome = { x: nave.x0 + nave.w / 2, y: tr ? tr.y0 + tr.h / 2 : nave.y0 + nave.h / 2, r: nave.w / 2 + (ch.big === true ? 3 : 2) };
     for (let y = Math.floor(D.y - D.r); y <= D.y + D.r; y++) for (let x = Math.floor(D.x - D.r); x <= D.x + D.r; x++) { if (x < 0 || x >= W || y < 0 || y >= L) continue; const i = y * W + x; // the dome overhangs the nave into the churchyard

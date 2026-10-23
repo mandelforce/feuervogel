@@ -318,6 +318,23 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
       need(!diff, `painting in bands differs from painting whole (${diff})`); } }
   ms.sort((a, b) => a - b);
   console.log(`${miss ? 'FAIL' : 'ok  '} gorge finale: 12 plans, ${miss} problems; ${tot.gal} galleries, ${tot.spurs} spurs, ${tot.corn} cornices (${tot.over} over galleries), ${tot.br} bridges; plan ${ms[6].toFixed(0)} ms median`); }
+// the aged desert (P.wear): no house, hall, lean-to or square of a desert village stands on a carriageway (any preset, 100 seeds), the three village
+// characters have what they promise (old plaster, lean-tos, gardens, weeds, packed earth; the old village the most ruins, the roadside hamlet a square and
+// a well), the same seed gives the same plan, and a plan without wear keeps the clean look exactly (no ages, no worn ground)
+{ let fails = 0, aged = 0, lean = 0, plots = 0, tufts = 0; const ms = [], ruins = {}, need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('aged desert: ' + m); } };
+  for (const preset of ['oasis', 'oasisLarge', 'oasisHeld', 'oasisAged', 'roadsideHamlet', 'oldVillage']) { ruins[preset] = 0;
+    for (let seed = 1; seed <= 100; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
+      need(m.onRoad === 0 && m.pass, `${preset} seed ${seed}: ${m.onRoad} road overlaps, pass ${m.pass}`);
+      const wear = (p.P.wear || 0) > 0; if (!wear) need(!p.items.some(i => i.age !== undefined) && !p.worn && !p.tufts.length && !p.plots.length, `${preset} seed ${seed}: wear 0 must keep the clean look`);
+      else { aged += p.items.filter(i => i.age > 0).length; lean += p.items.filter(i => i.lean).length; plots += p.plots.length; tufts += p.tufts.length; need(p.worn && p.worn.some(v => v), `${preset} seed ${seed}: no worn ground`); }
+      ruins[preset] += p.items.filter(i => i.t === 'cube' && i.dmg >= 2).length;
+      if (preset === 'roadsideHamlet') need(p.squares.some(q => q.village) && p.wells.length >= 1 && p.oasis[0].houses >= 12, `roadside seed ${seed}: square, well and at least 12 houses`);
+      if (seed <= 3 && JSON.stringify([p.items.length, p.tufts, p.plots]) !== JSON.stringify((q => [q.items.length, q.tufts, q.plots])(CG.generate({ seed, preset })))) need(false, `${preset} seed ${seed}: the same seed gave a different plan`); } }
+  need(aged > 1000 && lean > 100 && plots > 50 && tufts > 1500, `too little wear: ${aged} aged houses, ${lean} lean-tos, ${plots} gardens, ${tufts} tufts`);
+  need(ruins.oldVillage > ruins.oasisAged * 1.5, `the old village should have clearly more ruins than the lived-in one (${ruins.oldVillage} against ${ruins.oasisAged})`);
+  for (const preset of ['sandSea', 'sandSeaAged']) for (let seed = 1; seed <= 4; seed++) { const p = CG.generate({ seed, preset }), m = CG.validate(p); need(m.onRoad === 0 && m.pass, `${preset} seed ${seed}: ${m.onRoad} road overlaps, pass ${m.pass}`);
+    if (preset === 'sandSeaAged') need(p.oasis.some(o => o.style === 'old') && p.oasis.some(o => o.style === 'roadside') && p.items.some(i => i.age > 0 && i.y0 < p.port.y1), `level 2 aged seed ${seed}: an old village, a roadside hamlet and aged port houses`); }
+  ms.sort((a, b) => a - b); console.log(`${fails ? 'FAIL' : 'ok  '} aged desert: 600 village plans and 8 level plans, no building on a road; ${aged} aged houses, ${lean} lean-tos, ${plots} gardens, ${tufts} tufts; plan ${ms[300].toFixed(0)} ms median`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
 { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
