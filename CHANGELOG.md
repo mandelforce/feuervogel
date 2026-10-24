@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Fix: an ambush tank that drives from its bush to the road no longer pops sideways by up to 3 px when it joins the road. It now joins within 2 px of the road point, where its patrol already stops (the vehicle jitter test allows 2.6 px; the balance pass changed the timeline of Retro Run's stage 3 so that one such tank joined 2.65 px away and the test failed). `tests/golden.json` refreshed for the hard Endless scenario.
 - Balance tests for the real Campaign (by hand, never blocking): `tests/balance-real.mjs` flies START's six levels on all difficulties with a fallible "human" bot and prints hits, laser hits, bullet windows and boss times (stored baseline `tests/balance-baseline.json`, `--overrides` to try a setting without editing the page, `--attrib` for the shooters); `tests/balance-checks.mjs` checks that the Black Fortress laser is dodgeable and that Rookie, Veteran and Ace form a ladder. New in `tests/harness.js`: `SF.human`, `SF.flyCampaign`, `SF.laserTest`, `SF.overrides`, `SF.attrib`, and a `why` on every recorded hit. See `tests/README.md`.
 - Difficulty balance pass (gameplay changed on purpose: `tests/golden.json` is refreshed).
   - Veteran: enemy bullet speed 1.12 to 1.0 and enemy HP 1.15 to 1.0. To keep the choke points from getting denser, the Shadow Wing fires a 5-shot fan (was 7) and a ring of 60 % the size on Veteran (`DIFF.wingFan`, `DIFF.wingN`; both the Campaign's wing and Retro Run's).

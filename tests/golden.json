@@ -88,18 +88,18 @@
     "hard-endless-real": {
       "H": 408,
       "status": "ok",
-      "score": 735582,
+      "score": 923214,
       "stage": 3,
-      "lives": 2,
-      "bombs": 3,
+      "lives": 6,
+      "bombs": 5,
       "frames": 30000,
-      "kills": 60,
-      "medals": 9,
-      "hits": 3,
-      "enemies": 18,
-      "bullets": 23,
+      "kills": 166,
+      "medals": 27,
+      "hits": 0,
+      "enemies": 12,
+      "bullets": 7,
       "errors": 0,
-      "trace": "88eb95aa 82ca0504 ec6df27b ca8bdaf5 a04eb3fc b48a83a7 5020f8d1 c4526eb8 e7b19e73 c67d2946 0e262b46 b0f8a69b 2a2006cb 8d12f192 10bf85b8 f5f733c5 1149434d 3fd6f6bb 4bc3827e c6f8553b a255f8a6 e95cf21c 0ab59c9e 5e229c2e 2920b29c 50c17ea2 31968ab4 879d2ddf 3ada1bf9 6dd5c3d1 1b208618 2fa56e69 5a5c13d8 752b7f75 6a3b9305 c5927dad 358efa69 c55da65a d1b505a9 0cd030a8 42e3c6ed 1a56ae33 94efe5f5 7c18b687 efe724fe 2a26bf3f b3ca4a58 b8871b25 b1f176f3 57fbcb49 0070c1ec f52e2929 601b0e72 49fb7d63 8c00387c 0cf294c8 44c896d2 384b8c14 b225ad24 e2aba0fc"
+      "trace": "88eb95aa 82ca0504 ec6df27b ca8bdaf5 a04eb3fc b48a83a7 5020f8d1 c4526eb8 e7b19e73 c67d2946 0e262b46 b0f8a69b 2a2006cb 8d12f192 10bf85b8 c153990a 8c8fc7f8 77e3cdea 565146aa 3348b338 8ef2e453 22bf201d bb603bde 03c729c9 4973224c 1dbfd3ca 741905f9 24ecf315 a09921f7 4fbbacc5 55c4c92e 3a203295 0a27c4ef 8061eafc 5f5a16bb d289c04d a721892a 46307611 4d1992cc 4211929c be9faf03 1684995c 4d1107d9 cef74ada cd15c749 28d1b543 3f51b3ae c5a11b1f 450c5e01 29474f26 a514979d 3efbc98b f58769c0 c2b96ec1 fd6efd7f f109c009 aca2ce6c 1d4ba208 3e4e1eaf 25935b4c"
     },
     "normal-2p-stage2-immortal": {
       "H": 408,

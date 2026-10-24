@@ -11202,7 +11202,7 @@ const ENT = {
     if (e.mt % 300 === 210) ring(e.x, e.y, Math.round((16 + run.loop * 2) * DIFF.wingN[settings.diff]), sp * 0.75, e.mt * 0.05);
   } },
   tank: { turret: true, revenge: 2, treads: true, medals: 0.6, update(e) {
-    if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 3) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
+    if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 2) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
       if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
