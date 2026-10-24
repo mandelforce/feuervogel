@@ -9416,7 +9416,7 @@ function planCows(sc) {
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
 const CV = { K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
-  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158,
+  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158, TAXI: 40,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
   const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
@@ -9446,7 +9446,7 @@ function carrierTick() {
     C.nextL = t + ((t < CV.T1 + 400 ? 70 : 95) * (settings.diff === 0 ? 1.4 : 1) - run.loop * 10) | 0;
     if (chasers < cap) {
       const [bx, by] = carrierXY(C, 0, CV.CAT1);
-      if (!C.gone && by < H - 30) { const u = CV.CATS[C.cat++ % 2]; world.enemies.push(G('cfighter', 0, 0, { u, v: CV.CAT0, vv: 0, wait: 18, untarget: true })); if (C.parked > 0) C.parked--; }
+      if (!C.gone && by < H - 30 && C.parked > 0) { const tu = CV.CATS[C.cat++ % 2], [u0, v0] = CV.PARKED[CV.PARKED.length - C.parked--]; world.enemies.push(G('cfighter', 0, 0, { u: u0, v: v0, u0, v0, tu, tax: CV.TAXI, vv: 0, wait: 18, untarget: true })); } // (the parked plane itself taxis to its catapult: nothing appears on the deck)
       else world.enemies.push(mkFighter(rnd(40, W - 40), H + 20, -PI / 2, 2.2, { homeT: 150, fireAt: (rnd(30, 80)) | 0, boom: false, chase: true }));
       C.launched++;
     }
@@ -13267,7 +13267,7 @@ Object.assign(ENT, {
   draw(e, fl) { const k = world.carrier ? carrierPK(world.carrier) : 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); dk(0, 0, 7, '#2e3036'); dk(0, 0, 6, '#6a6e76'); spr(SPR.dGun[dirIdx(e.ga)], 0, 0, fl); ctx.restore(); } },
   cfighter: { harmless: true, uncounted: true, stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
     const C = world.carrier; if (!C) { e.dead = true; return; }
-    if (!e.air) { if (e.wait > 0) { if (--e.wait === 0) sfx('whistle'); } else { e.vv += 0.09; e.v -= e.vv; }
+    if (!e.air) { if (e.tax > 0) { const f = 1 - --e.tax / CV.TAXI, q = f * f * (3 - 2 * f); e.u = lerp(e.u0, e.tu, q); e.v = lerp(e.v0, CV.CAT0, q); } else if (e.wait > 0) { if (--e.wait === 0) sfx('whistle'); } else { e.vv += 0.09; e.v -= e.vv; }
       [e.x, e.y] = carrierXY(C, e.u, e.v); e.k = carrierPK(C);
       if (e.v <= CV.CAT1) { e.air = 1; e.k0 = e.k; e.cy0 = C.vy - e.vv * C.s; } }
     else { const f = Math.min(1, ++e.air / 30); e.y += lerp(e.cy0, -2, f); e.k = lerp(e.k0, 1, f);
