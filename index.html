@@ -4133,7 +4133,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.2'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4695,6 +4695,66 @@ SPR.wing = sprite(100, 40, x => {
   ellS(x, RP.glass, 32, 20, 2.5, 2.5, 0.1); ellS(x, RP.glass, 68, 20, 2.5, 2.5, 0.1);
   cross(x, 20, 13); cross(x, 80, 13);
 });
+
+// The Shadow Wing's six ships (Enigma Run: one per level, picked by the level's Campaign stage; Retro Run keeps SPR.wing). One recipe each (docs/shadow-wing-design.md):
+// its look (hull, parts, camouflage, the barrels), where its shots leave (muz, sprite pixels: a shot never starts away from a gun), the order of what it fires
+// (seq), its hit box and the tag after its name in the boss bar. The same builder draws all six, so a new ship is a new recipe.
+const WING_RAMPS = { grey: RP.grey, sand: RP.sand, olive: RP.olive,
+  night: ['#06070b', '#0e1018', '#181c2a', '#252b3e', '#363f58', '#4c5878'], soot: ['#0e0a0a', '#1e1414', '#302220', '#46322d', '#62463e', '#80594c'], frost: ['#4a5260', '#7a8494', '#a4aebc', '#c8d0da', '#e4eaf2', '#f8fbff'] };
+const WING_V = [
+  { tag: '', hw: 44, hh: 12, ringN: 16, seq: ['burst','fan','ring'],
+    muz: {burst:[[32,31],[68,31]],nose:[50,39],center:[50,21]},
+    look: {ramp:'grey',camo:[0.6,0.8,0.15,11],hull:[[50,39],[99,12],[97,6],[72,13],[50,7],[28,13],[3,6],[1,12]],pods:[[40,12],[60,12]],marks:[[20,13],[80,13]],barrels:[[31,21,2,10],[67,21,2,10],[49,34,2,5]],domes:[[50,21,3.5]]} },
+  { tag: 'DUST', hw: 48, hh: 12, ringN: 16, seq: ['burst','fan','curtain','ring'],
+    muz: {burst:[[32,31],[68,31]],nose:[50,39],center:[50,21],ports:[[12,21],[22,27],[50,39],[78,27],[88,21]]},
+    look: {ramp:'sand',camo:[0.56,0.74,0.13,23],hull:[[50,39],[99,12],[97,6],[72,13],[50,7],[28,13],[3,6],[1,12]],booms:[[92,0,5,11],[3,0,5,11]],pods:[[40,11],[60,11]],podRx:4.2,filters:true,marks:[[20,14],[80,14]],barrels:[[31,21,2,10],[67,21,2,10],[49,34,2,5]],domes:[[50,21,3.5]],pins:[[12,17,4],[22,23,4],[78,23,4],[88,17,4]]} },
+  { tag: 'NIGHT', hw: 44, hh: 12, ringN: 12, seq: ['burst','spiral','fan','ring'],
+    muz: {burst:[[32,30],[68,30]],nose:[50,39],center:[50,21]},
+    look: {ramp:'night',camo:[0.62,0.7,0.15,5],hull:[[50,39],[99,8],[99,1],[79,9],[64,12],[50,8],[36,12],[21,9],[1,1],[1,8]],pods:[[41,11],[59,11]],exhaust:'#ff9a2e',lights:[[2,3],[97,3]],dim:[[22,10],[78,10]],barrels:[[31,21,2,9],[67,21,2,9],[49,34,2,5]],domes:[[50,21,3.5]]} },
+  { tag: 'IRON', hw: 44, hh: 12, ringN: 16, seq: ['burst','triple','spiral','ring'],
+    muz: {burst:[[32,31],[68,31]],nose:[50,39],center:[50,21],heavy:[50,29]},
+    look: {ramp:'olive',camo:[0.5,0.66,0.2,31],splinter:true,hull:[[50,39],[99,12],[97,6],[72,13],[50,7],[28,13],[3,6],[1,12]],pods:[[40,12],[50,14],[60,12]],marks:[[20,13],[80,13]],barrels:[[31,21,2,10],[67,21,2,10],[49,34,2,5],[49,22,2,7]],domes:[[50,21,3.5]]} },
+  { tag: 'FROST', hw: 44, hh: 16, ringN: 16, seq: ['triple','lanes','curtain','ring'],
+    muz: {burst:[[32,31],[68,31]],nose:[50,39],center:[50,21],ports:[[12,21],[22,27],[50,39],[78,27],[88,21]],heavy:[50,29],lanes:[[28,36],[72,36]]},
+    look: {ramp:'frost',camo:[0.64,0.82,0.14,7],bands:[[3,7,6,2],[91,7,6,2]],marks:[[14,11],[86,11]],hull:[[50,39],[99,12],[97,6],[72,13],[50,7],[28,13],[3,6],[1,12]],floats:[[28,19,3.6,14],[72,19,3.6,14]],noTurrets:true,pods:[[40,12],[60,12]],barrels:[[31,21,2,10],[67,21,2,10],[49,34,2,5],[49,22,2,7],[27,31,2,5],[71,31,2,5]],domes:[[50,21,3.5]],pins:[[12,17,4],[22,23,4],[78,23,4],[88,17,4]]} },
+  { tag: 'EMBER', hw: 44, hh: 16, ringN: 16, seq: ['burst','lanes','spiral','twin'],
+    muz: {burst:[[30,38],[70,38]],nose:[50,39],center:[50,21],lanes:[[30,38],[70,38]]},
+    look: {ramp:'soot',camo:[0.58,0.7,0.16,17],hull:[[50,39],[99,12],[97,6],[72,13],[50,7],[28,13],[3,6],[1,12]],nacelles:[[30,26],[70,26]],noTurrets:true,pods:[[40,12],[60,12]],exhaust:'#ff6a1c',scorch:true,fires:[[22,17],[74,17]],marks:[[18,13],[82,13]],domes:[[50,21,3.5]],barrels:[[49,34,2,5]]} }
+];
+function wingSprite(r) {
+  const ramp = WING_RAMPS[r.ramp];
+  return sprite(100, 40, x => {
+    polyS(x, ramp, r.hull, 0, 0.5);
+    if (r.floats) for (const [fx, fy, frx, fry] of r.floats) ellS(x, ramp, fx, fy, frx, fry, 0.05); // skis
+    if (r.booms) for (const [bx, by, bw, bh] of r.booms) { rect(x, ramp[2], bx, by, bw, bh); rect(x, ramp[3], bx, by, 1, bh); rect(x, ramp[1], bx + bw - 1, by, 1, bh); } // tip booms
+    if (r.nacelles) for (const [nx, ny] of r.nacelles) polyS(x, ramp, [[nx - 4, ny - 8], [nx + 4, ny - 8], [nx + 4, ny + 8], [nx + 2, ny + 11], [nx - 2, ny + 11], [nx - 4, ny + 8]], -0.05, 0.45); // gun nacelles
+    if (r.splinter) { // angular splinter bands
+      const c = x.canvas, d = x.getImageData(0, 0, c.width, c.height), a = d.data;
+      for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) { const k = (j * c.width + i) * 4; if (!a[k + 3]) continue;
+        const u = Math.floor((i * 0.82 + j * 0.57) / 9), v = Math.floor((i * -0.47 + j * 0.88 + 200) / 8);
+        if (((u + v * 2) % 3 + 3) % 3 === 0) { a[k] *= 0.62; a[k + 1] *= 0.7; a[k + 2] *= 0.58; } }
+      x.putImageData(d, 0, 0);
+    }
+    camo(x, ...r.camo);
+    if (r.bands) for (const [bx, by, bw, bh] of r.bands) rect(x, '#c0302a', bx, by, bw, bh);
+    if (r.scorch) for (const [sx, sy, sw, sh] of [[40, 15, 8, 3], [70, 10, 12, 3], [54, 18, 9, 3], [20, 9, 6, 2]]) rect(x, 'rgba(8,6,6,0.55)', sx, sy, sw, sh);
+    for (const [px, py] of r.pods) ellS(x, ramp, px, py, r.podRx || 3, 4, -0.15);
+    if (r.filters) for (const [px, py] of r.pods) { rect(x, '#2a2218', px - 3, py - 5, 7, 2); rect(x, '#8a7648', px - 2, py - 5, 5, 1); }
+    for (const [px, py] of r.pods) rect(x, '#101014', px - 2, py - 4, 5, 2);
+    if (r.exhaust) for (const [px, py] of r.pods) { rect(x, r.exhaust, px - 1, py - 5, 3, 1); rect(x, '#fff0b0', px, py - 5, 1, 1); }
+    ellS(x, RP.glass, 50, 31, 3, 3.5, 0.15);
+    if (!r.noTurrets) { ellS(x, RP.glass, 32, 20, 2.5, 2.5, 0.1); ellS(x, RP.glass, 68, 20, 2.5, 2.5, 0.1); }
+    if (r.nacelles) for (const [nx, ny] of r.nacelles) { rect(x, '#101014', nx - 1, ny + 8, 3, 4); rect(x, '#6a6a72', nx, ny + 8, 1, 3); rect(x, '#101014', nx - 3, ny - 4, 7, 1); rect(x, '#101014', nx - 3, ny + 1, 7, 1); }
+    if (r.lights) { rect(x, '#ff3030', r.lights[0][0], r.lights[0][1], 2, 2); rect(x, '#30ff60', r.lights[1][0], r.lights[1][1], 2, 2); rect(x, '#e8e8ff', 50, 38, 1, 1); }
+    for (const [dx, dy, drx] of r.domes) ellS(x, ['#14161a', '#262a30', '#3a4048', '#586068', '#8a9098'], dx, dy, drx, drx, 0); // the centre turret
+    if (r.marks) for (const [mx, my] of r.marks) cross(x, mx, my);
+    if (r.pins) for (const [px, py, ph] of r.pins) rect(x, '#7a7e86', px, py, 1, ph); // hairline barrels: one pixel of steel, the outline makes the sleeve
+    for (const [bx, by, bw, bh] of r.barrels) { rect(x, '#101014', bx - 1, by, bw + 2, bh); rect(x, '#5a5e66', bx, by, bw, bh - 1); rect(x, '#9aa0a8', bx, by, 1, bh - 1); }
+    if (r.dim) for (const [mx, my] of r.dim) { rect(x, '#5a5a62', mx - 2, my + 1, 5, 3); rect(x, '#5a5a62', mx - 1, my, 3, 5); }
+    if (r.fires) for (const [fx, fy] of r.fires) { rect(x, '#e0601c', fx, fy, 3, 2); rect(x, '#f8a83a', fx + 1, fy - 1, 2, 2); rect(x, '#fff2a8', fx + 1, fy, 1, 1); }
+  });
+}
+SPR.wingV = WING_V.map(V => wingSprite(V.look));
 
 // the Sower (Enigma Run level 4): a twin-engine bomber seen from above, nose up (it flies ahead of the player, the same way), in grey and
 // khaki splinter camouflage, a glazed nose, yellow spinners, an elliptic tailplane
@@ -9182,6 +9242,7 @@ function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = world.enemies.some(e => e.type === 'sower' && !e.dead);
   if (live) { z.cd = SOWER.gap; return; }
+  if (world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
   if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff], side = player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX;
     world.enemies.push(E('sower', { x: side, y: H + 50, side, hp, maxhp: hp, big: true, air: true, up: true })); /* (up: kept while it is still below the screen) */ z.n++; sfx('drone'); z.cd = SOWER.gap; }
@@ -9660,8 +9721,41 @@ function convoy(wy, trucks) {
   }
 }
 function spawnWing() {
-  const hp = 260 * (1 + 0.35 * run.loop);
-  world.enemies.push(E('wing', { x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); } }));
+  const hp = 260 * (1 + 0.35 * run.loop), v = run.sortie ? ENIGMA_BASE[run.sortie.level - 1] - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
+  world.enemies.push(E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); } },
+    V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
+}
+// The Shadow Wing's sequence (Enigma Run): one state at a time. A state aims (its barrels glow, ph 1), fires (ph 2), then the wing waits (ph 0) until its own
+// shots are all past the upper 40 % of the screen (they carry w; at most 450 frames) before the next state. The whole state is four numbers on the wing (si, ph, st, rest), no closures.
+const WING_TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 32, triple: 32, lanes: 40, twin: 30 };
+const WING_END = { burst: 102, fan: 55, ring: 0, twin: 24, curtain: 80, spiral: 66, triple: 98, lanes: 40 }; // the last frame of a state's fire phase
+const WING_COL = { burst: '#ffd24a', fan: '#ff6aa8', ring: '#5ad8ff', curtain: '#ff9a4a', spiral: '#b48aff', triple: '#ff5050', lanes: '#c8ff4a', twin: '#5ad8ff' };
+function wingGuns(V, name) { const m = V.muz; return name === 'burst' ? m.burst : name === 'fan' ? [m.nose] : name === 'curtain' ? m.ports : name === 'triple' ? [m.heavy] : name === 'lanes' ? m.lanes : [m.center]; }
+function wingShot(e, m, a, sp, kind, r0 = 0) { // a shot from the gun at sprite pixel m (r0: its start, outward along the shot, for the centre turret)
+  const x = e.x + m[0] - 50 + Math.cos(a) * r0, y = e.y + m[1] - 20 + Math.sin(a) * r0, n = world.ebul.length;
+  eshot(x, y, a, sp, kind); if (world.ebul.length > n) world.ebul[n].w = 1; flash(x, y, 2);
+}
+function wingRing(e, V, n, off) { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) wingShot(e, V.muz.center, off + i * TAU / n, bspeed() * 0.75, 's', 5); sfx('cannon'); }
+function wingFire(e, V, name, t) { // the shots of a state at frame t of its fire phase
+  const sp = bspeed(), M = V.muz, from = m => [e.x + m[0] - 50, e.y + m[1] - 20];
+  if (name === 'burst') { const v = Math.floor(t / 48), k = t % 48; if (v < 3 && (k === 0 || k === 6)) { const m = M.burst[v % 2]; wingShot(e, m, aim(...from(m)), sp * 1.1); if (k === 0) sfx('gun'); } }
+  else if (name === 'fan') { if (t === 0 || t === 55) { const a = aim(...from(M.nose)); for (let k = -3; k <= 3; k++) wingShot(e, M.nose, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); } }
+  else if (name === 'ring') { if (t === 0) wingRing(e, V, V.ringN + 2 * run.loop, 0); }
+  else if (name === 'twin') { if (t === 0) wingRing(e, V, 12 + run.loop, 0); else if (t === 24) wingRing(e, V, 12 + run.loop, TAU / 24); }
+  else if (name === 'curtain') { if (t === 0 || t === 80) { const g = t ? 3 : 1; M.ports.forEach((m, i) => { if (i !== g) for (const d of [-0.055, 0.055]) wingShot(e, m, PI / 2 + (i - 2) * 0.22 + d, sp * 0.7); }); sfx('gun'); } }
+  else if (name === 'spiral') { if (t % 6 === 0 && t < 72) { const a = t / 6 * 0.3; wingShot(e, M.center, a, sp * 0.7, 's', 5); wingShot(e, M.center, a + PI, sp * 0.7, 's', 5); if (t % 24 === 0) sfx('cannon'); } }
+  else if (name === 'triple') { if (t === 0 || t === 14 || t === 28 || t === 70 || t === 84 || t === 98) { wingShot(e, M.heavy, aim(...from(M.heavy)), sp * 1.15, 'B'); sfx('cannon'); } }
+  else if (name === 'lanes') { if (t % 8 === 0 && t < 48) { wingShot(e, M.lanes[0], PI / 2 - 0.28, sp); wingShot(e, M.lanes[1], PI / 2 + 0.28, sp); if (t === 0) sfx('gun'); } }
+}
+function wingSeq(e) {
+  const V = WING_V[e.v], name = V.seq[e.si]; e.st++;
+  if (e.ph === 0) { if (e.st >= e.rest && (e.st >= 450 || !world.ebul.some(b => b.w && b.y < H * 0.4))) { e.ph = 1; e.st = 0; } }
+  else if (e.ph === 1) { if (e.st >= WING_TELL[name]) { e.ph = 2; e.st = 0; wingFire(e, V, name, 0); } }
+  else { wingFire(e, V, name, e.st); if (e.st >= WING_END[name]) { e.ph = 0; e.st = 0; e.si = (e.si + 1) % V.seq.length; e.rest = 30; } }
+}
+function wingGlow(e) { // drawing only: the barrels of the coming state glow
+  const V = WING_V[e.v], name = V.seq[e.si], k = 0.45 + 0.35 * Math.sin(e.st * 0.7);
+  for (const m of wingGuns(V, name)) { const gx = Math.round(e.x + m[0] - 50), gy = Math.round(e.y + m[1] - 20); ctx.fillStyle = WING_COL[name]; ctx.globalAlpha = k; ctx.fillRect(gx - 2, gy - 2, 5, 5); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(gx - 1, gy - 1, 3, 3); }
 }
 // Boss table: one entry per boss kind (BOSS_KINDS[theme] picks a stage's boss). Each entry holds the boss's data: warn (the
 // warning as it approaches), rigid (its hull is one body: onBoss, bossAnchor), hull or hullPad (hullRect), coreTurns (its core aims
@@ -11069,12 +11163,13 @@ const ENT = {
   pod: { stats: { hp: 5, hw: 9, hh: 10, score: 300 }, update(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; } },
   wing: { stats: { hw: 44, hh: 12, score: 10000 }, update(e) {
     if (e.dying) return dyingTick(e);
-    if (e.y < 70 && !e.leaving && e.mt === 0) { e.y += 0.6; return; }
+    if (e.y < 70 && !e.leaving && e.mt === 0) { e.y += e.v === undefined ? 0.6 : 1; return; } // (the Enigma Run ships come in faster: the sequence starts sooner)
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.011) * 50; e.y = 70 + Math.sin(e.mt * 0.02) * 8;
     if (e.mt % 4 === 0) { smokePuff(e.x - 10, e.y - 14, 'a'); smokePuff(e.x + 10, e.y - 14, 'a'); }
     if (e.mt > 1600) { e.leaving = true; e.y = 70 - (e.mt - 1600) * 0.8; return; }
     if (!hasT()) return;
+    if (e.v !== undefined) return wingSeq(e); // Enigma Run: the sequence of states (docs/shadow-wing-design.md)
     const sp = bspeed();
     if (e.mt % 48 === 0) { const s = (e.mt >> 5) & 1 ? 1 : -1, gx = e.x + s * 18, gy = e.y; for (let k = 0; k < 2; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, aim(gx, gy), sp * 1.1); } }); sfx('gun'); }
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
@@ -13111,7 +13206,7 @@ const LOOKS = {
     ctx.globalAlpha = 0.35; dk(e.x, e.y, r, '#4ccfae'); ctx.globalAlpha = 1;
     ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1.5, 1.5); ctx.translate(-Math.round(e.x), -Math.round(e.y)); spr(SPR.pod, e.x, e.y, fl); ctx.restore();
   },
-  wing(e, fl) { spr(SPR.wing, e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); },
+  wing(e, fl) { spr(e.v === undefined ? SPR.wing : SPR.wingV[e.v], e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); if (e.ph === 1 && !e.dying) wingGlow(e); },
   protoFly(e, fl) { return drawProtoPlane(e, PI, 1.15, true); },
   protoDuel(e, fl) { return drawProtoPlane(e, 0, 1, true); },
   flare(e, fl) {
@@ -13461,7 +13556,7 @@ function airShadow(e) {
   if (e.type === 'fighter') { s = SPR.fighter[dirIdx(e.h)]; if (e.crash) { const f = Math.min(1, e.ct / 85); shadow(s, e.x, e.y, 12 * (1 - f), 20 * (1 - f), 0.28 + 0.2 * f); return; } }
   else if (e.type === 'bomber') s = SPR.bomber;
   else if (e.type === 'sower') s = SPR.sower;
-  else if (e.type === 'wing') s = SPR.wing;
+  else if (e.type === 'wing') s = e.v === undefined ? SPR.wing : SPR.wingV[e.v];
   else if (e.type === 'pod') s = SPR.pod;
   if (s) shadow(s, e.x, e.y, 12, 20, 0.28);
 }
@@ -13602,7 +13697,7 @@ function drawHUDBody(H) {
     ctx.fillStyle = '#3a0c10'; ctx.fillRect(5, 23, w, 3);
     ctx.fillStyle = '#d84a34'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 3);
     ctx.fillStyle = '#f48a60'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 1);
-    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : '';
+    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : '';
     if (nm) textS(nm, 5, 29, '#f48a60', 1, 'left', '#d84a34');
   }
 }
