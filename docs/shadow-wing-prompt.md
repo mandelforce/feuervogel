@@ -27,7 +27,7 @@ Deliver one short design note (`docs/shadow-wing-design.md`) with:
 5. **A recipe format.** Describe the wing as data, not code: `{ palette, parts[], weapons: [{ pattern, params, every, offset, tell }], move }`. The sprite is built from the parts and the palette (`sprite(...)` helpers exist), and the weapons come from a small library of pattern functions (`aimedBurst`, `fan`, `ring`, `spiral`, `curtain`, ...). Level variants are then just six recipes. This is the preparation for the Generative mode in ROADMAP.md (mini-bosses from entity recipes): a later run could draw a recipe from the same parts and a seed. List the parameters a generator could vary, and the rules that keep any combination fair (a bullet budget, a minimum gap width, a mandatory tell).
 6. **A mock-up of the six looks**, as a small standalone page or a PNG in `docs/` (like `docs/sower-art-v9.js`), so I can judge the sprites before they are wired in.
 7. **Open choices, with your recommendation:**
-   - Scope: only the Enigma Run levels, or the Campaign too? Changing the Campaign's wing changes balance and the random stream, so `tests/golden.json` must be re-baselined on purpose. My default is the Enigma Run only (as with the Sower and the Enigma art), with the Campaign wing left untouched, unless you argue for the Campaign.
+   - Scope: the Enigma Run is the new standard campaign (see ARCHITECTURE.md), so the variants are built for it. Say whether the old Campaign wing stays as it is. Default: yes.
    - Level 4: does the Sower replace the wing or does the wing still appear?
    - Does the variant also change the drops or the pilot bail-out? (Default: no.)
 
@@ -39,7 +39,7 @@ Stop here and wait for my answer.
 - Randomness: patterns use the run's seeded stream like today; sprite and smoke effects use the free stream. Nothing may draw extra random numbers in runs where the old wing stays in use.
 - Sprites: bake each variant once at load (cache them), as `SPR.sower` is. The hit box may not change more than a few pixels, and `drawn size == hit size` as for the other units.
 - Keep the name tag, boss bar and the dying animation working for every variant.
-- Tests: add a scenario or check that spawns each variant, runs it with the bot for its full 1600 frames without errors, and reports the peak bullets on screen against the budget. If the Campaign is out of scope, `node tests/replay.mjs` must pass unchanged. If it is in scope, show me the golden diff and explain it before you update it.
+- Tests: there is no golden baseline for the Enigma Run at the moment (see ARCHITECTURE.md), so `tests/replay.mjs` is not a gate and must not be re-baselined here. Add a check that spawns each variant, runs it with the bot for its full 1600 frames without errors, and reports the peak bullets on screen against the budget. Say in the report that no golden comparison was possible.
 - Update CHANGELOG.md, bump VERSION where the repo rules ask, and describe the recipe format in ARCHITECTURE.md.
 - Show me a screenshot of each variant in play (Playwright is installed).
 

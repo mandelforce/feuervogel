@@ -69,6 +69,7 @@ All keys are listed in `KEY` near the top of the script. Names are fixed; renami
 ## Things to know before changing code
 
 - **Scoring, continues and leaderboard rules are fixed** unless the owner agrees. See `CLAUDE.md`.
+- **The Enigma Run is the new standard campaign.** Build new content (levels, mini-bosses, enemies, art) for it first; the old Campaign is legacy and "keep the Campaign exactly as before" is no longer a standing rule. **There is no golden baseline for the Enigma Run at the moment**: `tests/golden.json` does not describe it, so `node tests/replay.mjs` is not a pass/fail gate for Enigma Run changes and must not be re-baselined as a side effect of a feature. Check new work with its own tests (see `tests/enigma.mjs`) and say in the report that no golden comparison was possible. A new baseline will be made on purpose, separately.
 - State is global, so a change in one place can reach many others. Search for a variable's name across the whole file before changing how it is set.
 - Random numbers have two streams (see "random streams" at the top of the script). Inside `update()` (and `newGame`, `bomb`, `fireBeam`, `doContinue`) `Math.random` is a per-run seeded stream; everything else (drawing, sound, idle weather, `fx(() => ...)` blocks) uses the real one. Never let a visual effect or sound change a run: wrap effect code that only runs when `lowFX` is off in `fx()`. `tests/replay.mjs` checks this.
 - Bump `VERSION` in both `index.html` and `sw.js` for each release, and add a line to `CHANGELOG.md`.
