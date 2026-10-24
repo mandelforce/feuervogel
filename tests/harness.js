@@ -11,7 +11,7 @@ die = function (why) {
   const p = player; let cause = 'collision', near = 1e9;
   for (const b of world.ebul) { const d = (b.x - p.x) ** 2 + (b.y - p.y) ** 2; if (d < near) { near = d; cause = 'bullet:' + b.kind; } }
   for (const e of world.enemies) if (!e.ground && !e.surface && Math.abs(e.x - p.x) < e.hw && Math.abs(e.y - p.y) < e.hh) { cause = 'body:' + e.type; break; }
-  R.hits.push({ stage: run.stage, t: Math.round((gf - stageStart) / 60), cause, boss: world.enemies.some(e => e.type === 'boss' && !e.dying), bullets: world.ebul.length });
+  R.hits.push({ stage: run.stage, t: Math.round((gf - stageStart) / 60), cause, why, boss: world.enemies.some(e => e.type === 'boss' && !e.dying), bullets: world.ebul.length }); // (why: what the game says killed the ship, e.g. 'flame' for the Black Fortress laser; cause is only the nearest bullet)
   if (cur) cur.hits++;
   if (mode === 'immortal') { p.inv = 90; world.ebul.length = 0; return; }
   realDie(why);
@@ -61,6 +61,7 @@ function bot() {
   if (best[1] < 0) keys.arrowup = true; if (best[1] > 0) keys.arrowdown = true;
 }
 
+const hum = { on: false, lag: 0, react: 15, force: null };
 const bossUp = () => world.enemies.some(e => e.type === 'boss');
 window.SF = {
   R,
@@ -129,6 +130,93 @@ window.SF = {
     } finally { damagePart = dp; }
     world.parts.length = 0; world.decals.length = 0;
     return Math.round(dealt / secs * 10) / 10;
+  },
+  // ---- the "human" bot, the real Campaign and tuning without code edits (tests/balance-real.mjs, tests/balance-checks.mjs) ----
+  // The plain bot dodges better than people, so hit counts mean little (Rookie: zero). human() makes it fallible: movement decisions are held for
+  // `lag` frames (about 0.13 s at 8), and the Black Fortress laser is dodged only `react` frames after its angle could be seen (the game draws a
+  // warning line once the aim is locked; before the fire laser's aim was locked, that was the first frame of the beam). Hit counts are then an
+  // index to compare versions with, not a prediction of how many hits a person takes. force: 'S4' keeps one weapon and level.
+  human(lag = 8, react = 15, force = null) {
+    hum.lag = lag; hum.react = react; hum.force = force; R.lasers = 0;
+    if (hum.on) return; hum.on = true;
+    const u0 = update, seen = new Set();
+    let held = { l: false, r: false, u: false, d: false };
+    update = function () {
+      if (hum.force && player) { player.wpn = hum.force[0]; player.lvl = +hum.force[1]; player.drones = 0; }
+      if (hum.lag > 1) {
+        if (gf % hum.lag === 0) held = { l: !!keys.arrowleft, r: !!keys.arrowright, u: !!keys.arrowup, d: !!keys.arrowdown };
+        else { keys.arrowleft = held.l; keys.arrowright = held.r; keys.arrowup = held.u; keys.arrowdown = held.d; }
+      }
+      const b = world.enemies.find(e => e.type === 'boss' && !e.dying && e.kind === 'skyfort');
+      if (b && b.fl && player && !player.dead) {
+        const F = b.fl, core = b.parts.find(p => p.k === 'core'), cx = b.x + core.ox, cy = b.y + core.oy;
+        if (F.ph === 'fire' && !seen.has(F)) { seen.add(F); R.lasers++; }
+        const visible = F.ph === 'fire' || (F.ph === 'charge' && F.a !== undefined && F.t >= 60); // (the warning line is drawn from charge frame 60)
+        if (visible && F.seenAt === undefined) F.seenAt = gf;
+        if (visible && gf - F.seenAt >= hum.react) {
+          const c = Math.cos(F.a), s = Math.sin(F.a), dx = player.x - cx, dy = player.y - cy, along = dx * c + dy * s, lat = -dx * s + dy * c;
+          if (along > -10 && Math.abs(lat) < 26) { // in the beam's path: step sideways, away from its axis, towards the side with more room
+            let dir = lat === 0 ? (player.x < W / 2 ? 1 : -1) : -Math.sign(lat) * Math.sign(s);
+            if ((dir < 0 && player.x < 14) || (dir > 0 && player.x > W - 14)) dir = -dir;
+            keys.arrowleft = dir < 0; keys.arrowright = dir > 0;
+          }
+        }
+      }
+      return u0();
+    };
+  },
+  // Change DIFF without editing the page: { bs: [0.88, 1, 1.12] } replaces a whole row, { fs: { 0: 1.5 } } sets single entries.
+  overrides(o) { for (const [k, v] of Object.entries(o || {})) { if (Array.isArray(v)) DIFF[k] = v; else for (const [i, x] of Object.entries(v)) DIFF[k][+i] = x; } },
+  // Count enemy shots by the nearest enemy (bosses together) per stage; the result is in SF.R.attr as { 'stage:type': shots }. Call before flying.
+  attrib() {
+    R.attr = {}; const e0 = eshot;
+    eshot = function (x, y, a, sp, kind) {
+      let best = null, bd = 2500;
+      for (const e of world.enemies) { if (e.dead) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
+      const k = run.stage + ':' + (world.enemies.some(e => e.type === 'boss') ? 'boss fight' : best ? best.type : '?');
+      R.attr[k] = (R.attr[k] || 0) + 1;
+      return e0(x, y, a, sp, kind);
+    };
+  },
+  // Fly the real Campaign (what START plays: Enigma levels 1A, 2, 3, 4, 5, 6B) and return the numbers that matter:
+  //   hits (bullets, rams), laser (Black Fortress beam hits), top (the worst 10 s window of enemy bullets on screen before each boss, averaged over the
+  //   stages), pre (average bullets before the bosses), bossB (average during boss fights), boss (seconds each boss lasted), per-stage hits.
+  flyCampaign(diff, o = {}) {
+    const { lag = 8, react = 15, force = null, overrides = null } = o;
+    SF.setMode('immortal'); SF.start(diff, 1); if (overrides) SF.overrides(overrides);
+    startEnigma(8, true); SF.human(lag, react, force);
+    const rows = [];
+    for (let n = 0; n < 6000; n++) {
+      const r = SF.run(60);
+      if (r !== 'ok' && !String(r).startsWith('next:')) break;
+      if (run.stage > 6) break;
+      if (n % 6 === 0) world.parts.length = Math.min(world.parts.length, 300);
+      rows.push({ s: run.stage, b: world.ebul.length, boss: world.enemies.some(e => e.type === 'boss') });
+    }
+    const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0, top = [], pre = [], bossB = [], boss = [], hitsBy = [0, 0, 0, 0, 0, 0, 0];
+    for (let s = 1; s <= 6; s++) {
+      const rs = rows.filter(x => x.s === s && !x.boss), bins = {};
+      rs.forEach((x, i) => (bins[Math.floor(i / 10)] ||= []).push(x.b));
+      if (rs.length) top.push(Math.max(...Object.values(bins).map(avg)));
+      pre.push(...rs.map(x => x.b)); bossB.push(...rows.filter(x => x.s === s && x.boss).map(x => x.b));
+      const st = R.stages[s]; boss.push(st && st.bossIn !== null && st.bossDead !== null ? st.bossDead - st.bossIn : null);
+    }
+    for (const h of R.hits) if (h.why !== 'flame') hitsBy[h.stage]++;
+    const flame = R.hits.filter(h => h.why === 'flame').length;
+    return { hits: hitsBy.reduce((a, b) => a + b, 0), laser: flame, lasers: R.lasers, top: +avg(top).toFixed(1), pre: +avg(pre).toFixed(1), bossB: +avg(bossB).toFixed(1), boss, hitsBy: hitsBy.slice(1), killed: boss.filter(v => v !== null).length, attr: R.attr || null, errs: R.errs.length };
+  },
+  // The Black Fortress alone (Campaign level 6, 6B): how many of its laser beams hit a ship that reacts after `react` frames (60 = 1 s).
+  laserTest(diff, react = 15, force = 'S4') {
+    SF.setMode('immortal'); SF.start(diff, 1); startEnigma(7, true); SF.human(0, react, force);
+    let t0 = null, fight = null;
+    for (let n = 0; n < 600; n++) {
+      if (SF.run(60) !== 'ok') break;
+      if (n % 6 === 0) world.parts.length = Math.min(world.parts.length, 300);
+      const b = world.enemies.find(e => e.type === 'boss' && !e.dying && e.kind === 'skyfort');
+      if (b && b.phase === 'fight' && t0 === null) t0 = gf;
+      if (t0 !== null && !world.enemies.some(e => e.type === 'boss')) { fight = Math.round((gf - t0) / 60); break; }
+    }
+    return { lasers: R.lasers, hit: R.hits.filter(h => h.why === 'flame').length, fight };
   },
   // Play stages 1-6 on one difficulty and return one summary row per stage.
   campaign(diff) {

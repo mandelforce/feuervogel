@@ -168,8 +168,6 @@ Times are in milliseconds on the machine you run it on, so run it on a phone for
 
 `harness.js` drives the game at high speed with a bot that dodges by looking a few frames ahead. Use it to check balance after changing weapons, bosses or stages. It only works on local builds (localhost, `file://`, `.test`), where the game exposes a `window.__sf` hook. The live site never has it.
 
-`SF.start` and `SF.campaign` fly the old campaign (what Retro Run plays), not the Enigma levels START flies; to fly those, call `startEnigma(8, true)` after `SF.start` (levels 8, 2, 3, 4, 5, 7; `SF.run` returns `next:<level>` at each change).
-
 The bot dodges better than people do, so hit counts and lives are best-case numbers. Boss times and bullet counts are good for comparing stages and weapons, and for before/after checks.
 
 **In the browser:** serve the folder (`python3 -m http.server 8000`), open `http://localhost:8000`, and paste into the console:
@@ -184,6 +182,27 @@ SF.campaign(2);              // all six stages on Hard, one summary row per stag
 Difficulty: `0` Easy, `1` Normal, `2` Hard. Weapons: `S` Scatter, `L` Lance, `H` Seekers, `A` Arc.
 
 **Full report with Node:** `node tests/balance.mjs` prints the boss-time table for every weapon and a campaign summary per difficulty (setup steps are at the top of the file).
+
+## Balance on the real Campaign (by hand or nightly)
+
+`SF.start` and `SF.campaign` fly the old campaign (what Retro Run plays). START flies the Enigma levels (1A, 2, 3, 4, 5, 6B), which share the difficulty table, weapons, bosses and rank but not the spawns or the Shadow Wing code, so tune and check balance on those: `startEnigma(8, true)` after `SF.start` starts them (`SF.run` returns `next:<level>` at each change), or use the scripts below.
+
+The plain bot is too good (Rookie: zero hits), so `harness.js` has a fallible one. `SF.human(lag, react, force)` holds each movement decision for `lag` frames (8 is about 0.13 s), dodges the Black Fortress laser only `react` frames after its aim could be seen (15 is 0.25 s; the game draws a warning line from charge frame 60) and can pin one weapon (`'S4'`). Its hit counts are an index for comparing versions, **not** a prediction of how many hits a person takes. Also in `harness.js`: `SF.flyCampaign(diff, opts)` flies the whole real Campaign and returns the numbers below, `SF.laserTest(diff, react)` flies the Black Fortress alone, `SF.overrides({ bs: { 1: 1.0 } })` changes `DIFF` without editing the page, `SF.attrib()` counts enemy shots by shooter, and every entry in `SF.R.hits` now has `why` (the game's own cause, e.g. `flame` for the laser).
+
+```
+node tests/balance-real.mjs                       # table per difficulty, 4 runs each (about 4 minutes with 6 pages at once)
+node tests/balance-real.mjs --baseline tests/balance-baseline.json      # and the change against the stored run (--strict: exit 1 on drift)
+node tests/balance-real.mjs --overrides '{"fs":{"0":1.5}}' --runs 4     # try a setting before changing the code
+node tests/balance-real.mjs --attrib --diffs 1                          # which shooters fill the bullet windows
+node tests/balance-real.mjs --save tests/balance-baseline.json          # after a balance change that was meant: refresh the baseline, with the golden.json
+node tests/balance-checks.mjs [--runs 3]          # the checks below (about 2 minutes), exit 1 if one fails
+```
+
+Columns: **hits** bullets and rams that hit the ship (laser hits apart), **laser** Black Fortress beam hits, **top** the worst 10 s window of enemy bullets on screen before a boss (averaged over the six stages), **pre** / **bossB** the average before / during boss fights, **boss** seconds each boss lasted. With 4 runs the numbers move by about +-2 hits and +-1.5 on the window, so judge a change by several runs and by what the numbers do together, not by one figure. `balance-baseline.json` is the run of the version it was made with (the bands are wide on purpose, so it never blocks CI).
+
+`balance-checks.mjs` holds whatever the exact tuning: at least 80 % of the Black Fortress beams are dodged by a ship that reacts after 0.25 s and after 0.4 s; every boss dies; Ace has at least 1.2x Rookie's hits (4 runs usually give about 1.8x) with Veteran's between them; the worst bullet window does not fall from Rookie to Veteran to Ace; the laser hits at most 1.5 times per run.
+
+Balance lessons from the 1.2.5 pass: check which code path a test flies before trusting it (the old campaign and the Campaign have different Shadow Wing code); `SF.attrib()` finds the real source of a bullet window (it was the wing, 69 % of the shots in each stage's worst window); lowering enemy bullet speed makes more bullets stand on screen (about 12 % more), so a density cut needs fewer shots, not slower ones.
 
 ## Nothing pops in, guns stay off runways (by hand)
 
