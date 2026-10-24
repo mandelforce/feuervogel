@@ -119,4 +119,24 @@ Notes:
 - The first v2 ideas for 2, 5 and 6 (blunt tips with drop tanks, ski-like winglets, a broken left tip) were replaced after review.
 - The shape is the cheapest generative knob: a hull is a short polygon, so a generator could sweep, blunt or drop the tips by a few numbers. The fairness rules stay as in section 5, plus: the hull stays inside the 100 x 40 canvas and its widest point within 4 pixels of the hit box.
 
+## 8. Variations for levels 2, 3 and 4
+
+Mock-up: `docs/shadow-wing-looks-v3.png`, from `docs/shadow-wing-art-v3.js` (`makeWingsV3()`, on the v2 builder, which gained `booms`, `holes` and `spine`). Option A in each row is the shape from section 7.
+
+![Variations for levels 2, 3 and 4](shadow-wing-looks-v3.png)
+
+| Option | Shape | Reading |
+|---|---|---|
+| 2A Crescent | Tips curve forward into horns | Scythe; the curtain sweeps like a blade |
+| 2B Manta | Rounded wide wing, a small stinger at the tail | Calmest and closest to today; a dune creature |
+| 2C Tip booms | Today's hull with a short boom standing up at each tip | Smallest change, reads at once; the booms are where the curtain's tell flashes |
+| 3A Needle dart | Tips raked far back | Fast and thin; the risk is the 2 px tips vanishing at small sizes |
+| 3B Serrated | Three teeth on the trailing edge (a stealth-bomber look) | The strongest silhouette in the dark; the teeth could hold the spiral's two arms |
+| 3C Open windows | Two triangular cut-outs in the wing, one centre pod | Ghostly: the night sky shows through; costs nothing in the hit box |
+| 4A Centre boom | One tail boom and a third pod on the centre line | Reads as a rudder |
+| 4B Twin booms | Two tail booms behind the pods, no centre pod | Lighter and more agile |
+| 4C Spine | A fuselage spine down the centre with a bulbous front | The heaviest, a gun in the nose: the best match for the triple shell |
+
+Notes: all nine are inside the 100 x 40 canvas and keep the nose and cockpit. The cut-out windows are only a visual: bullets and the player's shots ignore them (the hit box is a rectangle). 2C, 3B and 4B add only a few pixels beyond today's hit box, so the hit box could stay as it is for those.
+
 Stop here for your answer before step 2.

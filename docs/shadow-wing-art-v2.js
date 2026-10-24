@@ -39,6 +39,9 @@ function wingSpriteV2(r) {
   return sprite(100, 40, x => {
     polyS(x, r.ramp, r.hull, 0, 0.5);
     if (r.boom) { const [bx, by, bw, bh] = r.boom; rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx + 1, by, 2, bh); rect(x, r.ramp[1], bx + bw - 1, by, 1, bh); } // the tail boom, lit from the left
+    if (r.booms) for (const [bx, by, bw, bh] of r.booms) { rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx, by, 1, bh); rect(x, r.ramp[1], bx + bw - 1, by, 1, bh); } // more tail booms
+    if (r.plane) { const [bx, by, bw, bh] = r.plane; rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx, by, bw, 1); } // a tailplane between booms
+    if (r.spine) { polyS(x, r.ramp, [[44, 0], [56, 0], [57, 30], [53, 37], [47, 37], [43, 30]], 0.05, 0.4); ellS(x, r.ramp, 50, 28, 6, 8, 0.1); } // a fuselage spine down the centre line, a bulbous front
     if (r.fin) { polyS(x, r.ramp, [[44, 1], [56, 1], [54, 6], [46, 6]], 0.05, 0.4); rect(x, '#101014', 48, 0, 4, 1); } // the tailplane across the boom's end
     if (r.nacelles) for (const [nx, ny] of r.nacelles) { polyS(x, r.ramp, [[nx - 4, ny - 8], [nx + 4, ny - 8], [nx + 4, ny + 8], [nx + 2, ny + 11], [nx - 2, ny + 11], [nx - 4, ny + 8]], -0.05, 0.45); } // heavy gun nacelles hung forward of the leading edge
     if (r.tanks) for (const [tx, ty] of r.tanks) ellS(x, RP.olive, tx + 1, ty + 4, 2.8, 8, 0.1); // drop tanks along the tips (olive, so they stand out from the sand)
@@ -50,6 +53,7 @@ function wingSpriteV2(r) {
       x.putImageData(d, 0, 0);
     }
     camo(x, ...r.camo);
+    if (r.holes) { x.save(); x.globalCompositeOperation = 'destination-out'; for (const h of r.holes) { x.beginPath(); h.forEach(([hx, hy], i) => i ? x.lineTo(hx, hy) : x.moveTo(hx, hy)); x.closePath(); x.fill(); } x.restore(); } // cut-out windows
     if (r.bands) for (const [bx, by, bw, bh] of r.bands) rect(x, '#c0302a', bx, by, bw, bh); // recognition bands on the winglets
     if (r.scorch) for (const [sx, sy, sw, sh] of [[40, 15, 8, 3], [70, 10, 12, 3], [54, 18, 9, 3], [20, 9, 6, 2]]) rect(x, 'rgba(8,6,6,0.55)', sx, sy, sw, sh);
     const prx = r.podRx || 3;
