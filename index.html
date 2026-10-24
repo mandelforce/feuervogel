@@ -9726,9 +9726,9 @@ function spawnWing() {
     V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
 }
 // The Shadow Wing's sequence (Enigma Run): one state at a time. A state aims (its barrels glow, ph 1), fires (ph 2), then the wing waits (ph 0) until its own
-// shots are all past the middle of the screen (they carry w; at most 450 frames) before the next state. The whole state is four numbers on the wing (si, ph, st, rest), no closures.
-const WING_TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 40, triple: 40, lanes: 40, twin: 30 };
-const WING_END = { burst: 102, fan: 55, ring: 0, twin: 24, curtain: 80, spiral: 88, triple: 118, lanes: 40 }; // the last frame of a state's fire phase
+// shots are all past the upper 40 % of the screen (they carry w; at most 450 frames) before the next state. The whole state is four numbers on the wing (si, ph, st, rest), no closures.
+const WING_TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 32, triple: 32, lanes: 40, twin: 30 };
+const WING_END = { burst: 102, fan: 55, ring: 0, twin: 24, curtain: 80, spiral: 66, triple: 98, lanes: 40 }; // the last frame of a state's fire phase
 const WING_COL = { burst: '#ffd24a', fan: '#ff6aa8', ring: '#5ad8ff', curtain: '#ff9a4a', spiral: '#b48aff', triple: '#ff5050', lanes: '#c8ff4a', twin: '#5ad8ff' };
 function wingGuns(V, name) { const m = V.muz; return name === 'burst' ? m.burst : name === 'fan' ? [m.nose] : name === 'curtain' ? m.ports : name === 'triple' ? [m.heavy] : name === 'lanes' ? m.lanes : [m.center]; }
 function wingShot(e, m, a, sp, kind, r0 = 0) { // a shot from the gun at sprite pixel m (r0: its start, outward along the shot, for the centre turret)
@@ -9743,15 +9743,15 @@ function wingFire(e, V, name, t) { // the shots of a state at frame t of its fir
   else if (name === 'ring') { if (t === 0) wingRing(e, V, V.ringN + 2 * run.loop, 0); }
   else if (name === 'twin') { if (t === 0) wingRing(e, V, 12 + run.loop, 0); else if (t === 24) wingRing(e, V, 12 + run.loop, TAU / 24); }
   else if (name === 'curtain') { if (t === 0 || t === 80) { const g = t ? 3 : 1; M.ports.forEach((m, i) => { if (i !== g) for (const d of [-0.055, 0.055]) wingShot(e, m, PI / 2 + (i - 2) * 0.22 + d, sp * 0.7); }); sfx('gun'); } }
-  else if (name === 'spiral') { if (t % 8 === 0 && t < 96) { const a = t / 8 * 0.3; wingShot(e, M.center, a, sp * 0.6, 's', 5); wingShot(e, M.center, a + PI, sp * 0.6, 's', 5); if (t % 32 === 0) sfx('cannon'); } }
-  else if (name === 'triple') { if (t === 0 || t === 14 || t === 28 || t === 90 || t === 104 || t === 118) { wingShot(e, M.heavy, aim(...from(M.heavy)), sp * 1.15, 'B'); sfx('cannon'); } }
+  else if (name === 'spiral') { if (t % 6 === 0 && t < 72) { const a = t / 6 * 0.3; wingShot(e, M.center, a, sp * 0.7, 's', 5); wingShot(e, M.center, a + PI, sp * 0.7, 's', 5); if (t % 24 === 0) sfx('cannon'); } }
+  else if (name === 'triple') { if (t === 0 || t === 14 || t === 28 || t === 70 || t === 84 || t === 98) { wingShot(e, M.heavy, aim(...from(M.heavy)), sp * 1.15, 'B'); sfx('cannon'); } }
   else if (name === 'lanes') { if (t % 8 === 0 && t < 48) { wingShot(e, M.lanes[0], PI / 2 - 0.28, sp); wingShot(e, M.lanes[1], PI / 2 + 0.28, sp); if (t === 0) sfx('gun'); } }
 }
 function wingSeq(e) {
   const V = WING_V[e.v], name = V.seq[e.si]; e.st++;
-  if (e.ph === 0) { if (e.st >= e.rest && (e.st >= 450 || !world.ebul.some(b => b.w && b.y < H / 2))) { e.ph = 1; e.st = 0; } }
+  if (e.ph === 0) { if (e.st >= e.rest && (e.st >= 450 || !world.ebul.some(b => b.w && b.y < H * 0.4))) { e.ph = 1; e.st = 0; } }
   else if (e.ph === 1) { if (e.st >= WING_TELL[name]) { e.ph = 2; e.st = 0; wingFire(e, V, name, 0); } }
-  else { wingFire(e, V, name, e.st); if (e.st >= WING_END[name]) { e.ph = 0; e.st = 0; e.si = (e.si + 1) % V.seq.length; e.rest = 40; } }
+  else { wingFire(e, V, name, e.st); if (e.st >= WING_END[name]) { e.ph = 0; e.st = 0; e.si = (e.si + 1) % V.seq.length; e.rest = 30; } }
 }
 function wingGlow(e) { // drawing only: the barrels of the coming state glow
   const V = WING_V[e.v], name = V.seq[e.si], k = 0.45 + 0.35 * Math.sin(e.st * 0.7);
@@ -11163,7 +11163,7 @@ const ENT = {
   pod: { stats: { hp: 5, hw: 9, hh: 10, score: 300 }, update(e) { e.y += 0.55; e.x += Math.sin(e.t * 0.04) * 0.6; } },
   wing: { stats: { hw: 44, hh: 12, score: 10000 }, update(e) {
     if (e.dying) return dyingTick(e);
-    if (e.y < 70 && !e.leaving && e.mt === 0) { e.y += 0.6; return; }
+    if (e.y < 70 && !e.leaving && e.mt === 0) { e.y += e.v === undefined ? 0.6 : 1; return; } // (the Enigma Run ships come in faster: the sequence starts sooner)
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.011) * 50; e.y = 70 + Math.sin(e.mt * 0.02) * 8;
     if (e.mt % 4 === 0) { smokePuff(e.x - 10, e.y - 14, 'a'); smokePuff(e.x + 10, e.y - 14, 'a'); }

@@ -10,7 +10,7 @@
   .wrap { overflow-x: auto; } canvas { display: block; image-rendering: pixelated; }
 </style>
 <h1>Shadow Wing: pattern sequence per ship</h1>
-<p>Each ship runs its own sequence, one state at a time. The barrels glow, then fire; the next state starts when its shots have passed the middle of the screen. A model with the game's bullet speeds and sway (Normal, loop 0). Levels 2 to 6 are proposals.</p>
+<p>Each ship runs its own sequence, one state at a time. The barrels glow, then fire; the next state starts when its shots have passed the upper 40 % of the screen. A model with the game's bullet speeds and sway (Normal, loop 0). Levels 2 to 6 are proposals.</p>
 <div><button id="play">Play</button><button id="restart">Restart</button></div>
 <div id="err" hidden style="color:#ff8a80;margin:6px 0"></div>
 <div class="wrap"><canvas id="cv"></canvas></div>
@@ -21,7 +21,7 @@ const LV = ['1 CHANNEL', '2 SEA OF SAND', '3 LONG NIGHT', '4 IRON FOREST', '5 WI
 // the sequence of each ship: it grows, drops and re-uses states from ship to ship
 const SEQ = [['burst', 'fan', 'ring'], ['burst', 'fan', 'curtain', 'ring'], ['burst', 'spiral', 'fan', 'ring'], ['burst', 'triple', 'spiral', 'ring'], ['triple', 'lanes', 'curtain', 'ring'], ['burst', 'lanes', 'spiral', 'twin']];
 const NEWST = [null, 'curtain', 'spiral', 'triple', 'lanes', 'twin'];
-const TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 40, triple: 40, lanes: 40, twin: 30 };
+const TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 32, triple: 32, lanes: 40, twin: 30 };
 const COL = { burst: '#ffd24a', fan: '#ff6aa8', ring: '#5ad8ff', curtain: '#ff9a4a', spiral: '#b48aff', triple: '#ff5050', lanes: '#c8ff4a', twin: '#5ad8ff' };
 const LABEL = { burst: 'BURST', fan: 'FAN', ring: 'RING', curtain: 'CURTAIN', spiral: 'SPIRAL', triple: 'TRIPLE SHELL', lanes: 'CROSSING LANES', twin: 'TWIN RING' };
 const GUNSOF = (L, n) => { const m = MUZ[L]; return n === 'burst' ? m.burst : n === 'fan' ? [m.nose] : n === 'curtain' ? m.ports : n === 'triple' ? [m.heavy] : n === 'lanes' ? m.lanes : [m.center]; };
@@ -39,16 +39,16 @@ function events(s, name) {
   if (name === 'ring') at(0, () => ring(L === 2 ? 12 : 16, 0));
   if (name === 'twin') { at(0, () => ring(12, 0)); at(24, () => ring(12, TAU / 24)); }
   if (name === 'curtain') [1, 3].forEach((g, j) => at(j * 80, () => { M.ports.forEach((q, i) => { if (i === g) return; for (const d of [-0.055, 0.055]) shot(mz(q), Math.PI / 2 + (i - 2) * 0.22 + d, SP * 0.7); }); })); // five guns, two shots each, one gun skipped: a gap
-  if (name === 'spiral') for (let i = 0; i < 12; i++) at(i * 8, () => { const c = mz(M.center), a = i * 0.3; for (const aa of [a, a + Math.PI]) shot([c[0] + Math.cos(aa) * 5, c[1] + Math.sin(aa) * 5], aa, SP * 0.6); });
-  if (name === 'triple') for (const t0 of [0, 90]) for (let k = 0; k < 3; k++) at(t0 + k * 14, () => { const p = mz(M.heavy); shot(p, aimFrom(p), SP * 1.15, 3); });
+  if (name === 'spiral') for (let i = 0; i < 12; i++) at(i * 6, () => { const c = mz(M.center), a = i * 0.3; for (const aa of [a, a + Math.PI]) shot([c[0] + Math.cos(aa) * 5, c[1] + Math.sin(aa) * 5], aa, SP * 0.7); });
+  if (name === 'triple') for (const t0 of [0, 70]) for (let k = 0; k < 3; k++) at(t0 + k * 14, () => { const p = mz(M.heavy); shot(p, aimFrom(p), SP * 1.15, 3); });
   if (name === 'lanes') for (let i = 0; i < 6; i++) at(i * 8, () => { shot(mz(M.lanes[0]), Math.PI / 2 - 0.28, SP); shot(mz(M.lanes[1]), Math.PI / 2 + 0.28, SP); });
   return ev;
 }
 function stepSim(s) {
   const mt = ++s.mt; s.t++; const name = SEQ[s.L][s.i];
-  if (s.ph === 'rest' && s.t >= s.restMin && (!s.b.some(q => q.y < H / 2) || s.t >= 450)) { s.ph = 'tell'; s.t = 0; }
+  if (s.ph === 'rest' && s.t >= s.restMin && (!s.b.some(q => q.y < H * 0.4) || s.t >= 450)) { s.ph = 'tell'; s.t = 0; }
   else if (s.ph === 'tell' && s.t >= TELL[name]) { s.ph = 'fire'; s.t = 0; s.ev = events(s, name); s.end = Math.max(...s.ev.map(e => e[0])); }
-  if (s.ph === 'fire') { for (const e of s.ev) if (e[0] === s.t) e[1](); if (s.t > s.end) { s.ph = 'rest'; s.t = 0; s.last = s.i; s.i = (s.i + 1) % SEQ[s.L].length; s.restMin = 40; } }
+  if (s.ph === 'fire') { for (const e of s.ev) if (e[0] === s.t) e[1](); if (s.t > s.end) { s.ph = 'rest'; s.t = 0; s.last = s.i; s.i = (s.i + 1) % SEQ[s.L].length; s.restMin = 30; } }
   for (const q of s.b) { q.x += q.vx; q.y += q.vy; }
   s.b = s.b.filter(q => q.x > -8 && q.x < W + 8 && q.y > -8 && q.y < H + 8);
   for (const f of s.fl) f.t--; s.fl = s.fl.filter(f => f.t > 0);
