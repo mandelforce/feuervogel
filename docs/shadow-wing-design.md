@@ -158,4 +158,31 @@ Mock-up: `docs/shadow-wing-looks-v4.png`, from `docs/shadow-wing-art-v4.js` (`ma
 
 My pick: **5C skis** for the story, **5B stepped crystal** if you want the cleanest read at the smallest size. 5C's floats stick out below the leading edge by about 6 pixels, so give it `hh` 16 as with the nacelles.
 
+## 10. Pattern evolution, level 1 to 6
+
+Chosen looks: level 1 today's shape, 2C tip booms, 3A needle dart, 4 first forest wing (third pod), 5C skis, 6 gun nacelles.
+
+Snapshots: `docs/shadow-wing-patterns.png`. Playable: open `docs/shadow-wing-patterns.html` in a browser (it is one file, no network: pick a level, play, pause, scrub the frame, and the wing glows during each tell).
+
+![Pattern evolution](shadow-wing-patterns.png)
+
+This is a **model**, not the game: a small simulation with the game's own timings, bullet speeds and sway (Normal, loop 0), the ship swaying underneath. It reproduces the level 1 measurement from the game exactly (peak 41), which is why I trust the other peaks. Patterns of levels 2 to 6 are proposals.
+
+| Lvl | Base, always there | New or changed | Tell (frames before) | What the player learns | Model peak (budget 57) |
+|---|---|---|---|---|---|
+| 1 | A aimed burst, B 7-way fan, C 16-ring | none | ring glow (30) | The three basics: sidestep aimed shots, thread the fan, find the ring's gaps | 41 |
+| 2 | A, B, C | **Curtain**: 10 slow shots across the screen, 2-slot gap that moves, every 420 | tips flash (40) | Read a gap and move to it before the row arrives | 49 |
+| 3 | A, B, C at 12 | **Spiral**: two arms, 16 shots over 64 frames, every 480 | exhaust glow (40) | Weave through a slowly turning pair of arms | 50 |
+| 4 | A, B, C | **Triple shell**: 3 big aimed shells, 14 frames apart, every 360 | centre pod charges (40) | Keep moving: the shells follow the ship, so standing still loses | 44 |
+| 5 | A, B, C | **Crossing lanes**: 2 x 5 shots from the skis, angled inward, every 360 | skis glow (40) | Pick a side of the X before it forms (they cross about 150 px below the wing) | 51 |
+| 6 | A from the nacelles, B | **Twin ring** replaces C: 2 x 12 shots, 24 frames apart, the second turned half a step | ring glow (30) | A checkerboard: the first ring's gaps are closed by the second, so go through the middle of a gap, not its edge | 50 |
+
+Reading the evolution:
+- The three base patterns teach the dodging; every level then asks for one new skill, in order: read a gap (2), weave (3), keep moving (4), choose a side (5), time a double ring (6).
+- Bullet peak climbs 41, 49, 50, 44, 51, 50: a step up from level 1 and then flat, with the forest dipped on purpose because the Sower may share the screen. All stay under the 57 budget. My earlier estimates (section 2) were +8, +12, +3, +10, +8; the model says +8, +9, +3, +10, +9.
+- The curtain, spiral and lanes use slow shots (0.6 to 1.0 times the base speed), so they are readable; the fast one is the triple shell, which is only three bullets.
+- Not yet modelled: Easy and Hard (they go through `DIFF.ring` and `DIFF.skip` in the game), later loops (the ring grows by 2 per loop and shots get faster), and two players (the aim splits between ships).
+
+Open: do you want the later loops to add anything, or only scale? My default: only scale, as today.
+
 Stop here for your answer before step 2.
