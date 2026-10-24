@@ -158,31 +158,42 @@ Mock-up: `docs/shadow-wing-looks-v4.png`, from `docs/shadow-wing-art-v4.js` (`ma
 
 My pick: **5C skis** for the story, **5B stepped crystal** if you want the cleanest read at the smallest size. 5C's floats stick out below the leading edge by about 6 pixels, so give it `hh` 16 as with the nacelles.
 
-## 10. Pattern evolution, level 1 to 6
+## 10. Pattern sequences, ship by ship (revised after review)
 
-Chosen looks: level 1 today's shape, 2C tip booms, 3A needle dart, 4 first forest wing (third pod), 5C skis, 6 gun nacelles.
+Review feedback on the first model: the patterns ran at the same time and overlapped, the ships did not seem to evolve, and the ships had no visible guns, so bullets seemed to appear from nowhere. Changed:
 
-Snapshots: `docs/shadow-wing-patterns.png`. Playable: open `docs/shadow-wing-patterns.html` in a browser (it is one file, no network: pick a level, play, pause, scrub the frame, and the wing glows during each tell).
+1. **One state at a time.** Each ship runs a **sequence** of states (burst, fan, ring, ...). A state has an *aiming* part (its barrels glow for 24 to 40 frames), a *firing* part, and a *clearing* part. The next state starts only when the screen is clear of bullets (at most 450 frames). This replaces the concurrent timers of sections 0 and 2 in the model; the old timers stay in the game until step 2 decides.
+2. **The sequence evolves from ship to ship.** A ship keeps part of the previous one and adds its new state (marked with a star).
+3. **Every shot leaves a visible barrel.** Each sprite has the guns for its states, and a muzzle flash shows at the start of every shot (`docs/shadow-wing-art-v5.js`, `WING_MUZZLES` lists where each shot starts).
 
-![Pattern evolution](shadow-wing-patterns.png)
+Video (plays in the app): `docs/shadow-wing-patterns.mp4`, 22 seconds at 1.5 times speed, all six ships side by side, each with a zoomed inset of the wing and a list of its states with the current one marked. Still: `docs/shadow-wing-patterns.png`. The page `docs/shadow-wing-patterns.html` is the same model (needs a browser that runs scripts).
 
-This is a **model**, not the game: a small simulation with the game's own timings, bullet speeds and sway (Normal, loop 0), the ship swaying underneath. It reproduces the level 1 measurement from the game exactly (peak 41), which is why I trust the other peaks. Patterns of levels 2 to 6 are proposals.
+![One frame of the video](shadow-wing-patterns.png)
 
-| Lvl | Base, always there | New or changed | Tell (frames before) | What the player learns | Model peak (budget 57) |
-|---|---|---|---|---|---|
-| 1 | A aimed burst, B 7-way fan, C 16-ring | none | ring glow (30) | The three basics: sidestep aimed shots, thread the fan, find the ring's gaps | 41 |
-| 2 | A, B, C | **Curtain**: 10 slow shots across the screen, 2-slot gap that moves, every 420 | tips flash (40) | Read a gap and move to it before the row arrives | 49 |
-| 3 | A, B, C at 12 | **Spiral**: two arms, 16 shots over 64 frames, every 480 | exhaust glow (40) | Weave through a slowly turning pair of arms | 50 |
-| 4 | A, B, C | **Triple shell**: 3 big aimed shells, 14 frames apart, every 360 | centre pod charges (40) | Keep moving: the shells follow the ship, so standing still loses | 44 |
-| 5 | A, B, C | **Crossing lanes**: 2 x 5 shots from the skis, angled inward, every 360 | skis glow (40) | Pick a side of the X before it forms (they cross about 150 px below the wing) | 51 |
-| 6 | A from the nacelles, B | **Twin ring** replaces C: 2 x 12 shots, 24 frames apart, the second turned half a step | ring glow (30) | A checkerboard: the first ring's gaps are closed by the second, so go through the middle of a gap, not its edge | 50 |
+| Ship | Sequence (new state starred) | Guns it uses |
+|---|---|---|
+| 1 Channel | burst, fan, ring | side turrets, nose cannon, centre turret |
+| 2 Sea of Sand | burst, fan, **curtain**, ring | + ten ports along the leading edge |
+| 3 Long Night | burst, **spiral**, fan, ring (12 shots) | the centre turret turns for the spiral |
+| 4 Iron Forest | burst, **triple shell**, spiral, ring | + a heavy barrel on the centre line; the fan is dropped, the spiral is kept from ship 3 |
+| 5 Winter Line | triple shell, **crossing lanes**, curtain, ring | + a gun on the front of each ski; the burst is dropped, the curtain comes back from ship 2 |
+| 6 Burning City | burst, crossing lanes, spiral, **twin ring** | the nacelle guns fire the burst and the lanes; the centre turret fires the spiral and both rings |
 
-Reading the evolution:
-- The three base patterns teach the dodging; every level then asks for one new skill, in order: read a gap (2), weave (3), keep moving (4), choose a side (5), time a double ring (6).
-- Bullet peak climbs 41, 49, 50, 44, 51, 50: a step up from level 1 and then flat, with the forest dipped on purpose because the Sower may share the screen. All stay under the 57 budget. My earlier estimates (section 2) were +8, +12, +3, +10, +8; the model says +8, +9, +3, +10, +9.
-- The curtain, spiral and lanes use slow shots (0.6 to 1.0 times the base speed), so they are readable; the fast one is the triple shell, which is only three bullets.
-- Not yet modelled: Easy and Hard (they go through `DIFF.ring` and `DIFF.skip` in the game), later loops (the ring grows by 2 per loop and shots get faster), and two players (the aim splits between ships).
+States in detail (Normal, loop 0, speeds are times the base bullet speed 1.34):
 
-Open: do you want the later loops to add anything, or only scale? My default: only scale, as today.
+| State | What it does | Aiming (glowing barrels) |
+|---|---|---|
+| Burst | 3 volleys 48 frames apart, alternating turrets, 2 aimed shots each | side turrets (nacelles on ship 6), 24 frames |
+| Fan | 2 fans of 7 shots, 55 frames apart, aimed | nose cannon, 24 |
+| Ring | 16 shots in all directions (12 on ship 3) | centre turret, 30 |
+| Curtain | 2 rows of 8 slow shots (0.7) from the ports, spreading, a moving 2-slot gap | the ports, 40 |
+| Spiral | 12 steps of 2 shots, two arms turning, slow (0.6) | centre turret, 40 |
+| Triple shell | 2 salvos of 3 big aimed shells (1.15), 14 frames apart | heavy barrel, 40 |
+| Crossing lanes | 6 pairs from two guns, angled inward so they cross | ski or nacelle guns, 40 |
+| Twin ring | 2 rings of 12, 24 frames apart, the second turned half a step | centre turret, 30 |
+
+Because only one state is on screen at a time, the bullet peak is far below the old 57 budget (the largest single state is about 30 bullets). That frees the design: a later version of this model can let ship 5 and 6 run two states in a row without a gap, if you want them to feel harder. A ship's sequence takes about 1100 to 1700 frames (18 to 28 seconds); the wing stays 1600 frames, so it fires one cycle per fight on the early ships and nearly one on the late ones. [verify in step 2: the wing leaves after 1600 frames; do we want a longer stay or a shorter cycle?]
+
+Open: is the order and mix of the sequences right? They are one list per ship in the model (`SEQ`), so they are cheap to change.
 
 Stop here for your answer before step 2.

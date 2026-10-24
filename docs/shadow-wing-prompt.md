@@ -33,6 +33,12 @@ Deliver one short design note (`docs/shadow-wing-design.md`) with:
 
 Stop here and wait for my answer.
 
+## Revision after review of the step 1 model
+
+- The wing runs a **sequence of states, one at a time** (not concurrent timers): aim (barrels glow), fire, clear. The sequence differs per level and evolves from ship to ship (`docs/shadow-wing-design.md`, section 10).
+- **Every shot starts at a visible gun** with a muzzle flash. The sprites carry the barrels (`docs/shadow-wing-art-v5.js`).
+- Replace the old bullet-budget rule with: no two states on screen together, a tell of at least 24 frames, and a visible gun for every muzzle.
+
 ## Step 2: build (after approval)
 
 - Implement the recipe table and the pattern library next to `ENT.wing` / `spawnWing()`. Keep all numbers in the recipe table, in one tunable place, and keep the pattern functions pure apart from the `eshot`/`ring` calls. The wing's update loop reads the recipe; it contains no per-level branches.
