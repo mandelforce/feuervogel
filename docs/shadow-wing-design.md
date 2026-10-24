@@ -194,6 +194,8 @@ States in detail (Normal, loop 0, speeds are times the base bullet speed 1.34):
 
 Because only one state is on screen at a time, the bullet peak is far below the old 57 budget (the largest single state is about 30 bullets). That frees the design: a later version of this model can let ship 5 and 6 run two states in a row without a gap, if you want them to feel harder. A ship's sequence takes about 1100 to 1700 frames (18 to 28 seconds); the wing stays 1600 frames, so it fires one cycle per fight on the early ships and nearly one on the late ones. [verify in step 2: the wing leaves after 1600 frames; do we want a longer stay or a shorter cycle?]
 
+Decided: the curtain guns on ships 2 and 5 are hairline barrels (one pixel wide, about 3 px sticking out), plus the nose cannon in the middle.
+
 Open: is the order and mix of the sequences right? They are one list per ship in the model (`SEQ`), so they are cheap to change.
 
 Stop here for your answer before step 2.
