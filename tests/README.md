@@ -168,6 +168,8 @@ Times are in milliseconds on the machine you run it on, so run it on a phone for
 
 `harness.js` drives the game at high speed with a bot that dodges by looking a few frames ahead. Use it to check balance after changing weapons, bosses or stages. It only works on local builds (localhost, `file://`, `.test`), where the game exposes a `window.__sf` hook. The live site never has it.
 
+`SF.start` and `SF.campaign` fly the old campaign (what Retro Run plays), not the Enigma levels START flies; to fly those, call `startEnigma(8, true)` after `SF.start` (levels 8, 2, 3, 4, 5, 7; `SF.run` returns `next:<level>` at each change).
+
 The bot dodges better than people do, so hit counts and lives are best-case numbers. Boss times and bullet counts are good for comparing stages and weapons, and for before/after checks.
 
 **In the browser:** serve the folder (`python3 -m http.server 8000`), open `http://localhost:8000`, and paste into the console:
