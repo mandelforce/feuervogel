@@ -1,14 +1,14 @@
 /* Shadow Wing art v5: the six chosen ships with visible guns (proposal, not wired into the game). Needs the v2, v3 and v4 art files.
    Chosen looks: 1 today's shape, 2 tip booms (2C), 3 needle dart (3A), 4 the first forest wing (third pod), 5 skis (5C), 6 gun nacelles.
    Guns, in sprite coordinates (the 100 x 40 drawing, before the 1 px outline): turrets on the leading edge (the burst), a nose cannon (the fan),
-   a centre turret (ring, spiral, twin ring), ten short barrels hanging under the leading edge (the curtain), a heavy barrel (the triple shell), guns on the skis or
+   a centre turret (ring, spiral, twin ring), five small barrels under the leading edge (the curtain), a heavy barrel (the triple shell), guns on the skis or
    nacelles (the lanes). MUZZLES lists where each shot starts, so a bullet never appears out of nowhere. */
 const WING_GUNS = { barrels: [[31, 21, 2, 10], [67, 21, 2, 10], [49, 34, 2, 5]], domes: [[50, 21, 3.5]] };
 const wingEdgeY = x => 39 - (50 - x) * 27 / 49; // the leading edge of the base hull
-// the curtain guns: ten short barrels hanging under the leading edge, five a side; WING_PORTS are their muzzles
-const WING_PORT_X = [10, 16, 22, 38, 44, 56, 62, 78, 84, 90], wingPortY = x => Math.round(wingEdgeY(x < 50 ? x : 100 - x));
-const WING_PORT_BARRELS = WING_PORT_X.map(x => [x - 1, wingPortY(x) - 1, 2, 5]);
-const WING_PORTS = WING_PORT_X.map(x => [x, wingPortY(x) + 4]);
+// the curtain guns: five small barrels under the leading edge (two a side, the middle one is the nose cannon); WING_PORTS are their muzzles
+const WING_PORT_X = [12, 22, 50, 78, 88], wingPortY = x => Math.round(wingEdgeY(x < 50 ? x : 100 - x));
+const WING_PORT_BARRELS = WING_PORT_X.filter(x => x !== 50).map(x => [x, wingPortY(x) - 1, 1, 4]);
+const WING_PORTS = WING_PORT_X.map(x => x === 50 ? [50, 39] : [x, wingPortY(x) + 3]);
 const WING_FINAL = [
   { ...WING_RECIPES2.ch, ...WING_GUNS },
   { ...WING_VARIANTS3['2C'], ...WING_GUNS, barrels: [...WING_GUNS.barrels, ...WING_PORT_BARRELS] },

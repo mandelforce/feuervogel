@@ -173,10 +173,10 @@ Video (plays in the app): `docs/shadow-wing-patterns.mp4`, 22 seconds at 1.5 tim
 | Ship | Sequence (new state starred) | Guns it uses |
 |---|---|---|
 | 1 Channel | burst, fan, ring | side turrets, nose cannon, centre turret |
-| 2 Sea of Sand | burst, fan, **curtain**, ring | + ten short barrels hanging under the leading edge, five a side |
+| 2 Sea of Sand | burst, fan, **curtain**, ring | + four small barrels under the leading edge (two a side); with the nose cannon they make five curtain guns |
 | 3 Long Night | burst, **spiral**, fan, ring (12 shots) | the centre turret turns for the spiral |
 | 4 Iron Forest | burst, **triple shell**, spiral, ring | + a heavy barrel on the centre line; the fan is dropped, the spiral is kept from ship 3 |
-| 5 Winter Line | triple shell, **crossing lanes**, curtain, ring | + a gun on the front of each ski and the ten underwing barrels; the burst is dropped, the curtain comes back from ship 2 |
+| 5 Winter Line | triple shell, **crossing lanes**, curtain, ring | + a gun on the front of each ski and the four small underwing barrels; the burst is dropped, the curtain comes back from ship 2 |
 | 6 Burning City | burst, crossing lanes, spiral, **twin ring** | the nacelle guns fire the burst and the lanes; the centre turret fires the spiral and both rings |
 
 States in detail (Normal, loop 0, speeds are times the base bullet speed 1.34):
@@ -186,7 +186,7 @@ States in detail (Normal, loop 0, speeds are times the base bullet speed 1.34):
 | Burst | 3 volleys 48 frames apart, alternating turrets, 2 aimed shots each | side turrets (nacelles on ship 6), 24 frames |
 | Fan | 2 fans of 7 shots, 55 frames apart, aimed | nose cannon, 24 |
 | Ring | 16 shots in all directions (12 on ship 3) | centre turret, 30 |
-| Curtain | 2 rows of 8 slow shots (0.7) from the ten underwing barrels, spreading, a moving 2-slot gap | the underwing barrels, 40 |
+| Curtain | 2 rows of 8 slow shots (0.7) from five guns (the four underwing barrels and the nose cannon), two shots each, spreading; one gun is skipped, so there is a gap that moves | the five guns, 40 |
 | Spiral | 12 steps of 2 shots, two arms turning, slow (0.6) | centre turret, 40 |
 | Triple shell | 2 salvos of 3 big aimed shells (1.15), 14 frames apart | heavy barrel, 40 |
 | Crossing lanes | 6 pairs from two guns, angled inward so they cross | ski or nacelle guns, 40 |
