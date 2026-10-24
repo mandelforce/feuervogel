@@ -70,6 +70,7 @@ function wingSpriteV2(r) {
     if (r.domes) for (const [dx, dy, drx] of r.domes) ellS(x, ['#14161a', '#262a30', '#3a4048', '#586068', '#8a9098'], dx, dy, drx, drx, 0); // turret domes (the centre turret)
     if (r.ports) for (const [px, py] of r.ports) { rect(x, '#101014', px - 1, py - 2, 3, 3); rect(x, '#6a6e76', px, py - 1, 1, 1); } // gun ports along the leading edge
     if (r.marks) for (const [mx, my] of r.marks) cross(x, mx, my);
+    if (r.pins) for (const [px, py, ph] of r.pins) rect(x, '#7a7e86', px, py, 1, ph); // hairline barrels: one pixel of steel, the outline makes the sleeve
     if (r.barrels) for (const [bx, by, bw, bh] of r.barrels) { rect(x, '#101014', bx - 1, by, bw + 2, bh); rect(x, '#5a5e66', bx, by, bw, bh - 1); rect(x, '#9aa0a8', bx, by, 1, bh - 1); } // gun barrels: dark sleeve, grey steel, a lit edge
     if (r.dim) for (const [mx, my] of r.dim) { rect(x, '#5a5a62', mx - 2, my + 1, 5, 3); rect(x, '#5a5a62', mx - 1, my, 3, 5); }
     if (r.fires) for (const [fx, fy] of r.fires) { rect(x, '#e0601c', fx, fy, 3, 2); rect(x, '#f8a83a', fx + 1, fy - 1, 2, 2); rect(x, '#fff2a8', fx + 1, fy, 1, 1); }

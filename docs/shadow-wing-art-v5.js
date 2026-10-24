@@ -7,14 +7,14 @@ const WING_GUNS = { barrels: [[31, 21, 2, 10], [67, 21, 2, 10], [49, 34, 2, 5]],
 const wingEdgeY = x => 39 - (50 - x) * 27 / 49; // the leading edge of the base hull
 // the curtain guns: five small barrels under the leading edge (two a side, the middle one is the nose cannon); WING_PORTS are their muzzles
 const WING_PORT_X = [12, 22, 50, 78, 88], wingPortY = x => Math.round(wingEdgeY(x < 50 ? x : 100 - x));
-const WING_PORT_BARRELS = WING_PORT_X.filter(x => x !== 50).map(x => [x, wingPortY(x) - 1, 1, 4]);
+const WING_PORT_PINS = WING_PORT_X.filter(x => x !== 50).map(x => [x, wingPortY(x) - 1, 4]); // hairline barrels, one pixel wide
 const WING_PORTS = WING_PORT_X.map(x => x === 50 ? [50, 39] : [x, wingPortY(x) + 3]);
 const WING_FINAL = [
   { ...WING_RECIPES2.ch, ...WING_GUNS },
-  { ...WING_VARIANTS3['2C'], ...WING_GUNS, barrels: [...WING_GUNS.barrels, ...WING_PORT_BARRELS] },
+  { ...WING_VARIANTS3['2C'], ...WING_GUNS, pins: WING_PORT_PINS },
   { ...WING_RECIPES2.nt, ...WING_GUNS, barrels: [[31, 21, 2, 9], [67, 21, 2, 9], [49, 34, 2, 5]] },
   { ramp: RP.olive, camo: [0.5, 0.66, 0.2, 31], splinter: true, hull: WING_RECIPES2.ch.hull, pods: [[40, 12], [50, 14], [60, 12]], marks: [[20, 13], [80, 13]], ...WING_GUNS, barrels: [...WING_GUNS.barrels, [49, 22, 2, 7]] },
-  { ...WING_VARIANTS4['5C'], ...WING_GUNS, barrels: [...WING_GUNS.barrels, [49, 22, 2, 7], [27, 31, 2, 5], [71, 31, 2, 5], ...WING_PORT_BARRELS] },
+  { ...WING_VARIANTS4['5C'], ...WING_GUNS, barrels: [...WING_GUNS.barrels, [49, 22, 2, 7], [27, 31, 2, 5], [71, 31, 2, 5]], pins: WING_PORT_PINS },
   { ...WING_RECIPES2.bc, domes: WING_GUNS.domes, barrels: [[49, 34, 2, 5]] }
 ];
 const WING_MUZZLES = [

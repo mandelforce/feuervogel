@@ -173,7 +173,7 @@ Video (plays in the app): `docs/shadow-wing-patterns.mp4`, 22 seconds at 1.5 tim
 | Ship | Sequence (new state starred) | Guns it uses |
 |---|---|---|
 | 1 Channel | burst, fan, ring | side turrets, nose cannon, centre turret |
-| 2 Sea of Sand | burst, fan, **curtain**, ring | + four small barrels under the leading edge (two a side); with the nose cannon they make five curtain guns |
+| 2 Sea of Sand | burst, fan, **curtain**, ring | + four hairline barrels under the leading edge (two a side, one pixel wide); with the nose cannon they make five curtain guns |
 | 3 Long Night | burst, **spiral**, fan, ring (12 shots) | the centre turret turns for the spiral |
 | 4 Iron Forest | burst, **triple shell**, spiral, ring | + a heavy barrel on the centre line; the fan is dropped, the spiral is kept from ship 3 |
 | 5 Winter Line | triple shell, **crossing lanes**, curtain, ring | + a gun on the front of each ski and the four small underwing barrels; the burst is dropped, the curtain comes back from ship 2 |
