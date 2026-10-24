@@ -142,7 +142,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-#diffAsk .dsel.eni{grid-template-columns:repeat(8,1fr)}
+#diffAsk .dsel.eni{grid-template-columns:repeat(6,1fr)}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
 #diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
 @keyframes dframe{50%{outline-color:#d0a020}}
@@ -8727,6 +8727,7 @@ function doContinue() {
   if (app.cont <= 0 || !player) return;
   app.cont = 0; app.credits++; run.conts++; run.gameOverPending = false;
   run.lives = DIFF.lives[settings.diff]; run.bombs = Math.max(3, DIFF.bombs[settings.diff]); world.ebul.length = 0;
+  if (p2) { run.lives2 = run.lives; run.bombs2 = run.bombs; if (p2.out || p2.dead) { p2.out = false; p2.outT = 0; p2.dead = 1; p2.inv = 180; p2.charge = 0; p2.beam = null; } } // 2 players: the partner gets the full lives and bombs too, and comes back
   Object.assign(player, { dead: RB_BURST, rbMode: 1, x: W / 2, y: Math.round(H * 0.71), inv: 180, lx: W / 2, bank: 0 }); haptic('cont');
   sfx('rebirth');
 }
@@ -14062,7 +14063,7 @@ for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('cl
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => { app.paused = false; setPauseIcon(); startTutorial(); });
-for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startAt(1); });
+for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startEnigma(8, true); });
 document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPropagation());
 document.getElementById('pmHow').addEventListener('click', () => { showPauseMenu(false); openHowTo(); });
 document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); showPauseMenu(true); document.getElementById('pmHow').focus(); });
