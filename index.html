@@ -9028,9 +9028,12 @@ function directorInner() {
   for (const [until, z, d] of ARC) if (u < until) { zone = z; dens = d; break; }
   if (settings.diff === 0) dens *= run.stage === 1 ? 0.7 : 0.85; // Easy: sparser waves and ground units, most of all in Stage 1, where new players start
   if ((zone === 'set1' || zone === 'set2') && !setPieceDone.has(zone)) { setPieceDone.add(zone); runSetPiece(zone === 'set1' ? 0 : 1, b); }
-  if (zone === 'set1' || zone === 'set2') zone = 'calm';
+  let quiet0 = false;
+  const quiet = zone === 'calm' && !run.sortie; // (Enigma Run: the calm stretch before the Shadow Wing still sends a thin trickle of air waves instead of nothing)
+  if (zone === 'set1' || zone === 'set2') zone = 'calm', quiet0 = true;
   if (zone === 'still') { world.waveCd = Math.max(world.waveCd, 30); world.podCd = Math.max(world.podCd, 30); world.groundCd = Math.max(world.groundCd, 30); }
-  if (zone === 'ground' || zone === 'calm') { world.waveCd = Math.max(world.waveCd, 30); world.podCd = Math.max(world.podCd, 30); }
+  if (zone === 'ground' || (zone === 'calm' && (quiet0 || quiet))) { world.waveCd = Math.max(world.waveCd, 30); world.podCd = Math.max(world.podCd, 30); }
+  else if (zone === 'calm') world.podCd = Math.max(world.podCd, 30);
   if (zone === 'air' || zone === 'calm') world.groundCd = Math.max(world.groundCd, 30);
   if (world.carrier && !world.carrier.over) { world.waveCd = Math.max(world.waveCd, 30); world.groundCd = Math.max(world.groundCd, 30); if (world.carrier.t < CV.T1) world.podCd = Math.max(world.podCd, 30); } // the carrier's launches are the waves while it lasts
   if (--world.groundCd <= 0) {
