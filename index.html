@@ -6408,6 +6408,8 @@ function classify(wx, wy) {
   CL.tt = tt;
   return CL;
 }
+// True where the sortie's plan (an Enigma Run level's own ground) has a runway; the plan types it 'concrete' for the terrainType callers
+function planRunway(wx, wy) { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return false; const x = Math.floor(wx), y = Math.floor(S.planY0 - wy); return x >= 0 && x < P.W && y >= 0 && y < P.L && P.K[y * P.W + x] === CityGen.K.RUNWAY; }
 function terrainType(wx, wy) { const t = classify(wx, wy).tt; return t === 'taxi' ? 'road' : t; }
 function nearRiver(wx, wy, m = 9) { const p0 = -Math.floor(wy / CH), I0 = info(p0); if (!I0.river) return false; return Math.abs(wy + p0 * CH - riverY(wx, p0)) < (I0.rw || 7) + m; }
 const fieldOkCache = new Map();
@@ -9521,11 +9523,12 @@ function spawnGround(b) {
     return;
   }
   // Enigma Run plans carry their railway, roads and runways in the plan, which railDist and roadX don't see: a gun's footprint never touches them
-  const onLines = (wx, rad) => { const S = run.sortie; if (!S || !S.gen) return false; const h = Math.min(rad, 16) + 2; for (let dx = -h; dx <= h; dx += 4) for (let dy = -h - 8; dy <= h; dy += 4) { const t = terrainType(wx + dx, wy + dy); if (t === 'rail' || t === 'road' || t === 'runway' || t === 'bridge' || t === 'railbridge') return true; } return false; };
-  const tryLand = (types, rad = 12) => {
+  // (a plan's runway reads as 'concrete' in terrainType, so the plan itself is asked; level 1A's islands plan counts too; a runway keeps its parked planes only)
+  const onLines = (wx, rad, rw = true) => { const S = run.sortie; if (!S || !(S.gen || S.isles)) return false; const h = Math.min(rad, 16) + 2; for (let dx = -h; dx <= h; dx += 4) for (let dy = -h - 8; dy <= h; dy += 4) { const t = terrainType(wx + dx, wy + dy); if (t === 'rail' || t === 'road' || t === 'runway' || t === 'bridge' || t === 'railbridge' || (rw && planRunway(wx + dx, wy + dy))) return true; } return false; };
+  const tryLand = (types, rad = 12, rw = true) => {
     for (let k = 0; k < 10; k++) {
       const wx = rnd(18, W - 18);
-      if (types.includes(terrainType(wx, wy)) && !onLines(wx, rad) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
+      if (types.includes(terrainType(wx, wy)) && !onLines(wx, rad, rw) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
     }
     return null;
   };
@@ -9645,7 +9648,7 @@ function spawnGround(b) {
       if (wx !== null) for (let i = 0; i < 3; i++) { const fx = wx + (i - 1) * 17; const fy = wy + (i % 2) * 10; if ((fx > 106 && fx < 206 || fx > 16 && fx < 56) && railDist(fx, fy) > 16 && placeOK(fx, fy, 9)) world.enemies.push(G('fuel', fx, fy, {})); }
     } else if (r < 0.58) { const wx = tryLand(['concrete', 'grass']); if (wx !== null) flak(wx); }
     else if (r < 0.74) {
-      const wx = tryLand(['concrete', 'runway']);
+      const wx = tryLand(['concrete', 'runway'], 12, false);
       if (wx !== null) for (let i = 0; i < 3; i++) if (placeOK(wx, wy - i * 22, 10)) world.enemies.push(G('parked', wx, wy - i * 22, { hd: Math.random() < 0.5 ? PI / 2 : -PI / 2 }));
     } else if (r < 0.88) { const wx = tryLand(['concrete', 'runway'], 14); if (wx !== null) world.enemies.push(G('htank', wx, wy, tankStats(true, { road: false, hd: PI / 2, v: 0.08 }))); }
     else if (world.curTheme === 3 && count('search') < 2) { const wx = tryLand(['concrete', 'grass']); if (wx !== null) world.enemies.push(G('search', wx, wy, { ba: PI / 2, ph: Math.random() * 6 })); }
