@@ -855,14 +855,14 @@ function generate(opts) {
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
     plan.oldTown = OT; }
   // the old town is an oval round a fixed centre; a village green is an ellipse that the main road forks round, so its centre follows the road
-  const octr = y => OT.green ? MX(y) : OT.cx;
+  const octr = y => OT.green && !OT.round ? MX(y) : OT.cx;
   // the green's lanes leave the main road tangentially: a round body (the ellipse down to 0.72 of its half length) and, beyond it, a smooth flare of
   // GREEN_FLARE rows (a cubic that starts parallel to the road and meets the body with its slope), so the road forks and rejoins like a real one
   const GREEN_FLARE = OT && OT.round ? 0 : 48, laneOff = y => { const d = Math.abs(y - OT.cy), ry = OT.ry, t0 = 0.72, d0 = t0 * ry, d1 = ry + GREEN_FLARE; if (d >= d1) return 0; if (OT.round) return OT.rx * Math.sqrt(1 - (d / ry) ** 2); // (a round green is a roundabout: a plain circle) if (d <= d0) return OT.rx * Math.sqrt(1 - (d / ry) ** 2);
     const q = Math.sqrt(1 - t0 * t0), v0 = OT.rx * q, m1 = OT.rx * t0 / (ry * q) * (d1 - d0), u = (d1 - d) / (d1 - d0); return Math.max(0, (-2 * u ** 3 + 3 * u * u) * v0 + (u ** 3 - u * u) * m1); };
-  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * Math.sqrt(1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
+  const ovalHalf = (y, ex) => { const lens = OT.green && !OT.round, t = (y - OT.cy) / (OT.ry + (lens ? 0 : ex)); return t * t >= 1 ? 0 : lens ? Math.max(0, OT.rx * Math.sqrt(1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
   const inOval = (x, y, ex) => !!OT && Math.abs(x - octr(y)) < ovalHalf(y, ex);
-  if (OT && OT.green) for (const p of plan.streets[0].pts) if (laneOff(p[1]) > OT.rw / 2 + 2 && (!OT.round || Math.abs(p[1] - OT.cy) < OT.ry - 5)) p[2] = 0; // the main road gives way to the green: traffic forks round it
+  if (OT && OT.green) for (const p of plan.streets[0].pts) if (OT.round) { const d = Math.abs(p[1] - OT.cy); if (d < OT.ry - OT.rw / 2) p[2] = 0; else if (d < OT.ry + OT.rw / 2 + 10) p[2] += Math.round(6 * ((OT.ry + OT.rw / 2 + 10 - d) / (OT.rw + 10)) ** 2); /* the entries flare into the ring like kerb radii */ } else if (laneOff(p[1]) > OT.rw / 2 + 2) p[2] = 0; // (a roundabout: the road ends at the ring's inner edge) // the main road gives way to the green: traffic forks round it
   // the railway's side (2a''''' builds the line): the edge the old town leaves free, away from the main road's side; the harbour takes the other
   const railOK = []; // the edges a straight line could take (the old town leaves them free)
   const ySt = P.stationAt ? L * (P.stationAt[0] + Math.min(P.stationAt[1], 0.97)) / 2 : L / 2; // with a station stretch, the edge with more room there
@@ -1135,11 +1135,11 @@ function generate(opts) {
 
   (() => { if (OT) { // the ring boulevard, in four arcs (two along x at the ends, two along y at the sides) so each is a plain street; a tank route
     const th = Math.atan(OT.ry / OT.rx), a = OT.rx * Math.cos(th), b = OT.ry * Math.sin(th);
-    if (OT.green) for (const sx of [-1, 1]) { const pts = [], cut = OT.round ? 4 : 0, y0 = Math.ceil(OT.cy - OT.ry - GREEN_FLARE) + cut, y1 = Math.floor(OT.cy + OT.ry + GREEN_FLARE) - cut; /* (a round green: the lanes end 4 rows short of the tips, inside the main road's width, so no flat slab) */ for (let y = y0; y <= y1; y++) pts.push([MX(y) + sx * laneOff(y), y, OT.rw]); // the green's two lanes leave the main road and meet it again
+    if (OT.green && !OT.round) for (const sx of [-1, 1]) { const pts = [], y0 = Math.ceil(OT.cy - OT.ry - GREEN_FLARE), y1 = Math.floor(OT.cy + OT.ry + GREEN_FLARE); for (let y = y0; y <= y1; y++) pts.push([MX(y) + sx * laneOff(y), y, OT.rw]); // the green's two lanes leave the main road and meet it again
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     else for (const sy of [-1, 1]) { const pts = []; for (let x = Math.floor(OT.cx - a - 3); x <= Math.ceil(OT.cx + a + 3); x++) { const t = (x - OT.cx) / OT.rx; if (t * t < 1) pts.push([x, OT.cy + sy * OT.ry * Math.sqrt(1 - t * t), OT.rw]); }
       addStreet({ cls: 'ring', axis: 'h', tank: true, pts, yc: OT.cy + sy * OT.ry, side: sy, x0: pts[0][0], x1: pts[pts.length - 1][0], w: OT.rw }); }
-    if (!OT.green) for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
+    if (!OT.green || OT.round) for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     // the old town's lanes: narrow and winding, from the main road out to the ring, a few joined by lanes along the main road; none in the zone
     const Z = OT.zone, lanes = { '-1': [], '1': [] }; let y = OT.cy - OT.ry + OT.rw + 6 + rnd(T.OLD, 3) * 8, n = 0;
