@@ -198,4 +198,21 @@ Decided: the curtain guns on ships 2 and 5 are hairline barrels (one pixel wide,
 
 Open: is the order and mix of the sequences right? They are one list per ship in the model (`SEQ`), so they are cheap to change.
 
-Stop here for your answer before step 2.
+## 11. Step 2: built (version 1.2.5.2)
+
+The six ships are in the game (`index.html`: `WING_V`, `wingSprite`, `wingSeq`, `wingFire`). The recipes are the ones of this note, the sprites are drawn by the same builder as the mock-ups, and every shot starts at a muzzle with a flash. Decisions I took where the note left a choice open (all easy to change):
+
+- Enigma Run only; Retro Run keeps the old wing. Levels 7 (6B) and 8 (1A) use the ships of 6 and 1.
+- Level 4: a new Sower is held back while the wing is alive (`sowerTick`).
+- Drops, pilot bail-out and HP (`260 * (1 + 0.35 * loop)`) are unchanged. The boss bar shows "SHADOW WING" plus the tag (DUST, NIGHT, IRON, FROST, EMBER).
+- Hit boxes: Sand 48 x 12, Winter Line and Burning City 44 x 16, the others 44 x 12 as today.
+- The old concurrent timers of the Enigma Run wing are gone; the loop rank still adds 2 shots to the ring and 1 to each twin ring, and speeds still follow `bspeed()`.
+
+Measured in the game (`tests/wing.mjs`, Normal, loop 0; no golden baseline exists, so `tests/replay.mjs` was not used): the right ship in every level, states in the order of the sequence, no state starts while its own shots are on screen, not one shot started away from a muzzle. The wing's own bullets peak at 16 to 26 (the old fight: 41).
+
+**What the game showed, and needs your decision.** The test bot kills the wing in about 750 to 1040 frames, but a ship's full sequence takes 1100 to 1700 frames, because each state waits for its shots to clear. So a fight shows only two or three states of a ship's sequence (level 4: burst and triple shell only). The new state is mostly seen, but the evolution from ship to ship is shorter than the mock-up video suggests. A human may be slower than the bot, but not by much. Options:
+1. Shorter waits: start the next aim when the wing's shots are all in the lower half of the screen (the screen is "mostly clear"), which cuts a state to about 200 to 250 frames. Recommended.
+2. More HP for the wing (about 1.5 times), which changes the balance and the boss bar length.
+3. Shorter states (fewer volleys, one fan instead of two), which weakens each state.
+4. Leave it: each fight shows the first two or three states, and the later ones are never seen.
+

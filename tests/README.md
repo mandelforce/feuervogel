@@ -101,6 +101,15 @@ node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 
 node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
 ```
 
+## Shadow Wing test (run by hand)
+
+`wing.mjs` flies the Shadow Wing's fight in all eight Enigma Run levels, each twice (as it is, and with a very tough wing so the whole sequence plays), and checks: the right ship and hit box for the level (levels 7 and 8 reuse the ships of 6 and 1), the states in the order of the ship's sequence, no state starting while its own shots are still on screen, every shot starting within 12 px of one of the ship's muzzles, and no page errors. It also checks that Retro Run still gets the old wing. It prints the peak of the wing's own bullets and how long the fight lasted. It does not use `golden.json` (there is no Enigma Run baseline; see ARCHITECTURE.md).
+
+```
+python3 -m http.server 8000   # in another terminal
+node tests/wing.mjs
+```
+
 ## Vehicle jitter test (runs in CI, blocking)
 
 `jitter.mjs` plays every Campaign stage and every Enigma Run level (1, 1A, 2–6, 6B) with the bot for 9000 frames each and watches every road vehicle (tanks, trucks, armoured cars, carts) frame by frame. It fails when one
