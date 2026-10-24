@@ -97,4 +97,25 @@ The same recipe can be drawn from parts and a seed (`sortieHash`-style, so it st
 4. **Boss-bar names:** the tag column above (all start with SHADOW WING), or one name for every level.
 5. **Silhouette:** only the Dust pods and the Iron third pod change the shape; the others are livery only. Say if you want more change, for example swept tips for Night.
 
+## 7. Bolder shapes (answer to open choice 5)
+
+Mock-up: `docs/shadow-wing-looks-v2.png`, from `docs/shadow-wing-art-v2.js` (`makeWingsV2()`). Each recipe now carries its own hull polygon. The nose, the cockpit and the 100 x 40 canvas stay, so the wing still reads as one aircraft and the hit box (hw 44, hh 12) stays valid.
+
+![Bolder shapes](shadow-wing-looks-v2.png)
+
+| Lvl | Shape change | Gameplay reading |
+|---|---|---|
+| 1 Channel | none | the reference |
+| 2 Sea of Sand | Broad blunt tips with a drop tank on each; a straighter trailing edge | A heavy, wide slab: fits the slow curtain. The tanks mark where the tips flash for the tell |
+| 3 Long Night | Needle tips raked far back, a deeper notch in the trailing edge, wingtip lights | A sharp, fast-looking dart: fits the spiral; the tip lights give the dark level its landmarks |
+| 4 Iron Forest | A tail boom with a tailplane on the centre line, a third pod | The boom points up the screen, away from the player; the pod is the triple shell's gun |
+| 5 Winter Line | Blunt winglets dropped forward at the tips, with red bands | The winglets are where the crossing lanes start, so the player can see the X before it fires |
+| 6 Burning City | The left tip shot off in jagged steps, fires in the wing, one cross left | Asymmetric on purpose: the finale looks hurt. Fire the left-side shots from the stump |
+
+Notes:
+- A shape that is only drawn bigger than its hit box lies to the player. The widest changes (Sand's tips, Winter's winglets) sit outside the 44-pixel half-width of the hit box by up to about 4 pixels. Step 2 either widens `hw` for those two variants (a recipe field) or keeps the hit box and says so in the report. My recommendation: widen `hw` to 48 for Sand and Winter, so a shot that hits a winglet counts.
+- The Ember wing's missing tip means its burst pattern A should fire from the right side only after the tip is gone, or from the stump: a one-line recipe option (`side: 'right'`).
+- Night's sharp tips are about 2 pixels thin at the end; on a phone at the smallest size they may vanish. If so, the tip lights carry the silhouette.
+- The shape is the cheapest generative knob: a hull is a short polygon, so a generator could sweep, blunt or drop the tips by a few numbers. The fairness rules stay as in section 5, plus: the hull stays inside the 100 x 40 canvas and its widest point within 4 pixels of the hit box.
+
 Stop here for your answer before step 2.
