@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The game is now called just FEUERVOGEL (the "89" is gone from the page title, the share-preview title, the app name in `manifest.json` and the in-game texts); the title-screen logo and `og-image.png` are unchanged for now.
+- Share preview text (`description` and `og:description`) now tells the story: steal the empire's most dangerous machine, a stranded alien starship, and turn it against them. It no longer says "1944", Allies or Axis.
 - The Enigma Run is now the Campaign. START flies its levels one after another, numbered 1 to 6. The old campaign lives on as Retro Run: a button at the end of the credits (from the title screen, Menu > Credits) opens its difficulty choice and starts it as it was. Retro Run never touches the leaderboard. Practice (under the Tutorial on the difficulty screen) now picks one of the six Campaign levels, 1 to 6; practice runs are not ranked. Settings > Enigma Run is gone.
 - The leaderboard shows one board, the Campaign. Gone: the Online / This device toggle and the Campaign / Endless toggle. A run that finishes level 6B opens the score dialog ("Campaign complete"). Offline, the board shows the last list it fetched (or this device's own scores if none) under "Offline: showing saved scores" with a Retry button; a score earned offline is sent automatically when the connection is back. Old saves, scores and boards are kept as they are.
 - Gun speed is fixed at 90 % and point-blank fire is always on; both settings are hidden. The Enigma look slider is hidden (it stays off).
