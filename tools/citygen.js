@@ -59,7 +59,7 @@ const PRESETS = {
 // an old-town island on the main road reached by two bridges, and one more bridge for a collector.
 PRESETS.river = Object.assign({}, PRESETS.town, { harbour: true, label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
 // Two rivers: the river town plus a narrower second river (a tributary, no island) further along
-// A village (Angerdorf): the main road splits round a lens-shaped green with the church and a pond; courtyard farmsteads along the roads,
+// A village (Angerdorf): the main road splits round a round green with the church and a pond; courtyard farmsteads along the roads,
 // fields all round, farm tracks; no old town, no public buildings, no railway
 PRESETS.village = Object.assign({}, PRESETS.town, { label: 'Village', L: 1200,
   density: [[0, 0.02], [0.25, 0.14], [0.45, 0.36], [0.62, 0.4], [0.8, 0.22], [1, 0.03]], damage: 0.15, coreBase: 18, coreGrow: 90, fray: 34,
@@ -388,7 +388,7 @@ function generate(opts) {
       for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
         let cx = O.green ? MX(cy) : clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
         if (CO && !O.green) { const lim = CO.cs > 0 ? CO.wf[cy] - rx - O.ring / 2 - 16 : CO.wf[cy] + rx + O.ring / 2 + 16, lim2 = rx + O.ring / 2 + 27; cx = CO.cs > 0 ? clamp(cx, lim2, lim) : clamp(cx, lim, W - 1 - lim2); } // between the railway's edge and the waterfront
-        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * (1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the lens in the strip
+        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * Math.sqrt(1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the green in the strip
         else for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
         if (ok && CO && (past(cy + ry + O.ring + 24, 0) || past(cy - ry - O.ring - 24, 0))) ok = false;
         if (ok && CO) for (let y = Math.max(0, cy - ry); ok && y <= Math.min(L - 1, cy + ry); y += 4) if (CO.cs * (cx + CO.cs * (rx + O.ring / 2 + 10) - CO.wf[y]) > 0) ok = false; // inland of the waterfront, a row of houses between
@@ -399,9 +399,9 @@ function generate(opts) {
       const room = s => OT.rx - s * (MX(OT.cy) - OT.cx) - AW(OT.cy) / 2 - OT.rw / 2, zs = room(1) >= room(-1) ? 1 : -1, xe = MX(OT.cy) + zs * (AW(OT.cy) / 2 + 1);
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
     plan.oldTown = OT; }
-  // the old town is an oval round a fixed centre; a village green is a lens that the main road forks round, so its centre follows the road
+  // the old town is an oval round a fixed centre; a village green is an ellipse that the main road forks round, so its centre follows the road
   const octr = y => OT.green ? MX(y) : OT.cx;
-  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * (1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
+  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * Math.sqrt(1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
   const inOval = (x, y, ex) => !!OT && Math.abs(x - octr(y)) < ovalHalf(y, ex);
   if (OT && OT.green) for (const p of plan.streets[0].pts) if (ovalHalf(p[1], 0) > OT.rw / 2 + 2) p[2] = 0; // the main road gives way to the green: traffic forks round it
   // the railway's side (2a''''' builds the line): the edge the old town leaves free, away from the main road's side; the harbour takes the other

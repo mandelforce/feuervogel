@@ -514,7 +514,7 @@ const PRESETS = {
 // an old-town island on the main road reached by two bridges, and one more bridge for a collector.
 PRESETS.river = Object.assign({}, PRESETS.town, { harbour: true, label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
 // Two rivers: the river town plus a narrower second river (a tributary, no island) further along
-// A village (Angerdorf): the main road splits round a lens-shaped green with the church and a pond; courtyard farmsteads along the roads,
+// A village (Angerdorf): the main road splits round a round green with the church and a pond; courtyard farmsteads along the roads,
 // fields all round, farm tracks; no old town, no public buildings, no railway
 PRESETS.village = Object.assign({}, PRESETS.town, { label: 'Village', L: 1200,
   density: [[0, 0.02], [0.25, 0.14], [0.45, 0.36], [0.62, 0.4], [0.8, 0.22], [1, 0.03]], damage: 0.15, coreBase: 18, coreGrow: 90, fray: 34,
@@ -843,7 +843,7 @@ function generate(opts) {
       for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
         let cx = O.green ? MX(cy) : clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
         if (CO && !O.green) { const lim = CO.cs > 0 ? CO.wf[cy] - rx - O.ring / 2 - 16 : CO.wf[cy] + rx + O.ring / 2 + 16, lim2 = rx + O.ring / 2 + 27; cx = CO.cs > 0 ? clamp(cx, lim2, lim) : clamp(cx, lim, W - 1 - lim2); } // between the railway's edge and the waterfront
-        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * (1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the lens in the strip
+        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * Math.sqrt(1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the green in the strip
         else for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
         if (ok && CO && (past(cy + ry + O.ring + 24, 0) || past(cy - ry - O.ring - 24, 0))) ok = false;
         if (ok && CO) for (let y = Math.max(0, cy - ry); ok && y <= Math.min(L - 1, cy + ry); y += 4) if (CO.cs * (cx + CO.cs * (rx + O.ring / 2 + 10) - CO.wf[y]) > 0) ok = false; // inland of the waterfront, a row of houses between
@@ -854,9 +854,9 @@ function generate(opts) {
       const room = s => OT.rx - s * (MX(OT.cy) - OT.cx) - AW(OT.cy) / 2 - OT.rw / 2, zs = room(1) >= room(-1) ? 1 : -1, xe = MX(OT.cy) + zs * (AW(OT.cy) / 2 + 1);
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
     plan.oldTown = OT; }
-  // the old town is an oval round a fixed centre; a village green is a lens that the main road forks round, so its centre follows the road
+  // the old town is an oval round a fixed centre; a village green is an ellipse that the main road forks round, so its centre follows the road
   const octr = y => OT.green ? MX(y) : OT.cx;
-  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * (1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
+  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * Math.sqrt(1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
   const inOval = (x, y, ex) => !!OT && Math.abs(x - octr(y)) < ovalHalf(y, ex);
   if (OT && OT.green) for (const p of plan.streets[0].pts) if (ovalHalf(p[1], 0) > OT.rw / 2 + 2) p[2] = 0; // the main road gives way to the green: traffic forks round it
   // the railway's side (2a''''' builds the line): the edge the old town leaves free, away from the main road's side; the harbour takes the other
@@ -8145,8 +8145,16 @@ function endEnigmaLevel() {
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
-    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null;
-    startEnigma(nx, run.ranked); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); return;
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = run.loops || 0;
+    startEnigma(nx, run.ranked); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    if (lp) { run.loops = lp; run.stage += 6 * lp; run.loop = rankFor(run.stage); } // a repeat of the Campaign: stage 7 to 12 and so on, harder as before
+    return;
+  }
+  if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1A with score, lives and weapon, one loop harder
+    const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = (run.loops || 0) + 1;
+    app.congrats = null; startEnigma(8, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
   stopMusic(); toTitle();
@@ -9045,6 +9053,11 @@ function directorInner() {
       else if (c.kind === 'perim' && hash(ci * 7 + 3, ri * 11 + 5) < 0.07 && propFree(ox + 9, oy + 5.5, 18, 11, 15)) { const rr = hash(ci * 5 + 9, ri * 3 + 4); props.push({ kind: 'block', wx: ox + 9, wy: oy + 5.5, w: 18, d: 11, h: 8 + ((rr * 7) | 0), brick: rr < 0.6, rr }); }
     }
   }
+  { const S = run.sortie, P = S && S.plan; if (P && S.planFor === world.stageBaseP) P.churches.forEach((ch, i) => { // a settlement plan's churches: the tower stands up over the painted one (the desert's domed hall has none)
+    const key = 'sp' + i; if (towerRows.has(key) || ch.dome) return; const tw = ch.parts.map(id => P.items[id]).find(q => q && q.part === 'tower'); if (!tw) return;
+    const wy = S.planY0 - (tw.y0 + tw.h / 2); if (wy < -130 - sc || wy > H + 70 - sc) return; towerRows.add(key);
+    const w = Math.min(8, tw.w - 1); props.push({ kind: 'spire', wx: tw.x0 + tw.w / 2, wy, w, d: w - 1, h: ch.big === 'chapel' ? 22 : 30, rr: 0.5 });
+  }); }
   for (let ri = Math.floor((-110 - sc) / 56); ri <= Math.floor((-50 - sc) / 56); ri++) {
     if (towerRows.has('f' + ri)) continue; towerRows.add('f' + ri);
     for (let ci = 0; ci < 4; ci++) {
@@ -9721,7 +9734,7 @@ function convoy(wy, trucks) {
   }
 }
 function spawnWing() {
-  const hp = 260 * (1 + 0.35 * run.loop), v = run.sortie ? ENIGMA_BASE[run.sortie.level - 1] - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
+  const hp = 520 * (1 + 0.35 * run.loop), v = run.sortie ? ENIGMA_BASE[run.sortie.level - 1] - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
   world.enemies.push(E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); } },
     V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
 }
@@ -10043,7 +10056,7 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
@@ -10224,7 +10237,9 @@ function canFire(e, margin = 80) { return hasT() && !e.turDead && e.y > 10 && e.
 const BOSS_REMAINS = {
   castle(e, D, wyb) { for (let k = 0; k < 14; k++) world.decals.push({ kind: 'crater', wx: e.x + rnd(-40, 40), wy: wyb + rnd(-40, 40), r: rnd(6, 14), smokeT: Math.random() < 0.4 ? 500 : 0 }); },
   ship(e, D, wyb) { D(0, 60, 'oil', 34, 0); D(0, -60, 'oil', 30, 0); D(0, 0, 'oil', 34, 300); for (const d of world.decals) if (d.kind === 'oil' && Math.abs(d.wx - e.x) < 2) d.grow = true; spawnSwimmers(e.x, e.y - Math.floor(world.scroll), 5, 40, 100); },
-  train(e, D, wyb) { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) D(yardX(t, t.y + oy) - e.x, t.y + oy - e.y, 'crater', 22, 260); },
+  train(e, D, wyb) { for (const t of (e.trains || [{ x: e.x, y: e.y, on: true }])) if (t.on) for (const oy of [0, -50, -98, -146]) { // the standard train rubble (a crater and the wrecked loco or car), never the water and oil of D on the frozen sea
+    const wx = yardX(t, t.y + oy), wy = wyb + t.y + oy - e.y, s = oy === 0 ? SPR.locoD : SPR.boxcar;
+    world.decals.unshift({ kind: 'crater', wx, wy, r: oy === 0 ? 13 : 11, smokeT: 0 }, { kind: 'wreck', wx, wy, s, smokeT: 260 }); } },
   fortress(e, D, wyb) { D(0, 0, 'crater', 50, 400); D(-30, -40, 'crater', 20, 200); D(30, 40, 'crater', 20, 200); },
   railgun(e, D, wyb) { D(0, 0, 'crater', 40, 400); D(0, -60, 'crater', 22, 200); D(0, 60, 'crater', 22, 200); },
   skyfort(e, D, wyb) { D(0, 40, 'crater', 40, 400); D(-66, 80, 'crater', 34, 300); D(66, 80, 'crater', 34, 300); },
@@ -12730,6 +12745,7 @@ function update() {
         if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fx(() => fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5)); }
       }
     }
+    if (d.fireT <= 0 && !lowFX) { if (d.glimT === undefined) d.glimT = 0; else if (d.glimT < GLIM_LEN) d.glimT++; } // the flames are out: a glimmer takes over and fades (see drawGlimmer)
   }
   world.decals = world.decals.filter(d => !d.gone && d.wy + sc < H + (d.kind === 'ruinBig' ? 320 : 60));
   for (let i = props.length - 1; i >= 0; i--) if (props[i].wy + sc > H + 80) props.splice(i, 1);
@@ -13006,7 +13022,21 @@ function drawDecals() {
     else if (d.kind === 'ruinBig') { ctx.globalAlpha = 0.85; ctx.drawImage(SPR.castle.k, Math.round(d.wx - SPR.castle.w / 2), Math.round(y - SPR.castle.h / 2)); ctx.globalAlpha = 1; for (const [a, b, sz] of [[-40, -30, 2], [30, -20, 2], [0, 20, 3], [-30, 40, 2], [40, 45, 2], [0, -170, 4], [-50, 200, 3], [40, 160, 2], [-20, 268, 3], [60, -240, 2]]) { const c = SCORCH[sz][(a + b + 300) % 3]; ctx.drawImage(c, Math.round(d.wx + a - c.width / 2), Math.round(y + b - c.height / 2)); } }
     else if (d.kind === 'ruin') { dk(d.wx, y, 20, '#1a1612'); spr(SPR.ruin, d.wx, y); }
     else if (d.kind === 'wreck') { dk(d.wx, y, 8, '#221a12'); ctx.globalAlpha = 0.85; ctx.drawImage(d.s.k, Math.round(d.wx - d.s.w / 2), Math.round(y - d.s.h / 2)); ctx.globalAlpha = 1; }
+    if (d.glimT < GLIM_LEN && !lowFX) drawGlimmer(d, y);
   }
+}
+// The glimmer where a wreck burned (after its flames went out): a soft warm glow with a slow pulse and two ember pixels, about 15 seconds, fading in and out.
+// Low alpha, drawn with the ground decals (under every unit and bullet), one drawImage and two fillRects each, on screen only.
+const GLIM_LEN = 900; let glimSpr = null;
+function drawGlimmer(d, y) {
+  if (!glimSpr) { glimSpr = document.createElement('canvas'); glimSpr.width = glimSpr.height = 32; const g = glimSpr.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,170,80,1)'); gr.addColorStop(0.45, 'rgba(255,120,40,0.45)'); gr.addColorStop(1, 'rgba(255,100,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }
+  const f = d.glimT / GLIM_LEN, fade = f < 0.1 ? f / 0.1 : f > 0.6 ? (1 - f) / 0.4 : 1, ph = d.wx * 0.37 + d.wy * 0.23, pulse = 0.65 + 0.35 * Math.sin(gf * 0.03 + ph), night = 1 + 0.6 * world.nightF;
+  const sz = clamp(Math.round((d.r || 8) * 1.6), 12, 34), a = 0.2 * fade * pulse * night;
+  if (a < 0.01) return;
+  ctx.globalAlpha = Math.min(0.3, a); ctx.drawImage(glimSpr, Math.round(d.wx - sz / 2), Math.round(y - sz / 2), sz, sz);
+  ctx.globalAlpha = Math.min(0.5, a * 2) * (0.5 + 0.5 * Math.sin(gf * 0.05 + ph * 3)); ctx.fillStyle = '#ffc070';
+  ctx.fillRect(Math.round(d.wx + Math.cos(ph) * sz * 0.2), Math.round(y + Math.sin(ph) * sz * 0.12), 1, 1); ctx.fillRect(Math.round(d.wx - Math.cos(ph * 2) * sz * 0.18), Math.round(y + Math.sin(ph * 2) * sz * 0.1), 1, 1);
+  ctx.globalAlpha = 1;
 }
 function drawPart(q) {
   if (q.delay > 0) return;
