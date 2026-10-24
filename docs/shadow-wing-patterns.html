@@ -10,7 +10,7 @@
   .wrap { overflow-x: auto; } canvas { display: block; image-rendering: pixelated; }
 </style>
 <h1>Shadow Wing: pattern sequence per ship</h1>
-<p>Each ship runs its own sequence, one state at a time. The barrels glow, then fire; the next state starts when the screen is clear. A model with the game's bullet speeds and sway (Normal, loop 0). Levels 2 to 6 are proposals.</p>
+<p>Each ship runs its own sequence, one state at a time. The barrels glow, then fire; the next state starts when its shots have passed the middle of the screen. A model with the game's bullet speeds and sway (Normal, loop 0). Levels 2 to 6 are proposals.</p>
 <div><button id="play">Play</button><button id="restart">Restart</button></div>
 <div id="err" hidden style="color:#ff8a80;margin:6px 0"></div>
 <div class="wrap"><canvas id="cv"></canvas></div>
@@ -46,7 +46,7 @@ function events(s, name) {
 }
 function stepSim(s) {
   const mt = ++s.mt; s.t++; const name = SEQ[s.L][s.i];
-  if (s.ph === 'rest' && s.t >= s.restMin && (s.b.length === 0 || s.t >= 450)) { s.ph = 'tell'; s.t = 0; }
+  if (s.ph === 'rest' && s.t >= s.restMin && (!s.b.some(q => q.y < H / 2) || s.t >= 450)) { s.ph = 'tell'; s.t = 0; }
   else if (s.ph === 'tell' && s.t >= TELL[name]) { s.ph = 'fire'; s.t = 0; s.ev = events(s, name); s.end = Math.max(...s.ev.map(e => e[0])); }
   if (s.ph === 'fire') { for (const e of s.ev) if (e[0] === s.t) e[1](); if (s.t > s.end) { s.ph = 'rest'; s.t = 0; s.last = s.i; s.i = (s.i + 1) % SEQ[s.L].length; s.restMin = 40; } }
   for (const q of s.b) { q.x += q.vx; q.y += q.vy; }
@@ -75,7 +75,7 @@ function drawColumn(g, s, ox, oy) {
   drawField(g, s, ox, oy + IH + 6, W, H, 1, W / 2, H / 2);
   g.font = 'bold 12px ui-monospace, Menlo, monospace'; g.fillStyle = '#fff'; g.fillText(LV[L], ox + 2, oy - 6);
   const cur = s.ph === 'rest' ? s.last : s.i; // while the screen clears, the state that just fired stays marked
-  SEQ[L].forEach((n, i) => { const on = i === cur, ny = oy + IH + 6 + H + 16 + i * 15; g.fillStyle = on ? COL[n] : '#6a6f78'; g.fillText((on ? '> ' : '  ') + LABEL[n] + (n === NEWST[L] ? ' *' : '') + (on ? (s.ph === 'tell' ? '  (aiming)' : s.ph === 'fire' ? '  (firing)' : '  (clearing)') : ''), ox + 2, ny); });
+  SEQ[L].forEach((n, i) => { const on = i === cur, ny = oy + IH + 6 + H + 16 + i * 15; g.fillStyle = on ? COL[n] : '#6a6f78'; g.fillText((on ? '> ' : '  ') + LABEL[n] + (n === NEWST[L] ? ' *' : '') + (on ? (s.ph === 'tell' ? '  (aiming)' : s.ph === 'fire' ? '  (firing)' : '  (waiting)') : ''), ox + 2, ny); });
 }
 function drawAll(c, sims) {
   const g = c.getContext('2d'), TOP = 64; c.width = 6 * W + 7 * GAP; c.height = TOP + IH + 6 + H + 16 + 4 * 15 + 14; g.fillStyle = '#16181c'; g.fillRect(0, 0, c.width, c.height);

@@ -162,7 +162,7 @@ My pick: **5C skis** for the story, **5B stepped crystal** if you want the clean
 
 Review feedback on the first model: the patterns ran at the same time and overlapped, the ships did not seem to evolve, and the ships had no visible guns, so bullets seemed to appear from nowhere. Changed:
 
-1. **One state at a time.** Each ship runs a **sequence** of states (burst, fan, ring, ...). A state has an *aiming* part (its barrels glow for 24 to 40 frames), a *firing* part, and a *clearing* part. The next state starts only when the screen is clear of bullets (at most 450 frames). This replaces the concurrent timers of sections 0 and 2 in the model; the old timers stay in the game until step 2 decides.
+1. **One state at a time.** Each ship runs a **sequence** of states (burst, fan, ring, ...). A state has an *aiming* part (its barrels glow for 24 to 40 frames), a *firing* part, and a *clearing* part. The next state starts when the wing's own shots have passed the middle of the screen (at most 450 frames; this was first "all gone", see section 11). This replaces the concurrent timers of sections 0 and 2 in the model; the old timers stay in the game until step 2 decides.
 2. **The sequence evolves from ship to ship.** A ship keeps part of the previous one and adds its new state (marked with a star).
 3. **Every shot leaves a visible barrel.** Each sprite has the guns for its states, and a muzzle flash shows at the start of every shot (`docs/shadow-wing-art-v5.js`, `WING_MUZZLES` lists where each shot starts).
 
@@ -210,9 +210,15 @@ The six ships are in the game (`index.html`: `WING_V`, `wingSprite`, `wingSeq`, 
 
 Measured in the game (`tests/wing.mjs`, Normal, loop 0; no golden baseline exists, so `tests/replay.mjs` was not used): the right ship in every level, states in the order of the sequence, no state starts while its own shots are on screen, not one shot started away from a muzzle. The wing's own bullets peak at 16 to 26 (the old fight: 41).
 
-**What the game showed, and needs your decision.** The test bot kills the wing in about 750 to 1040 frames, but a ship's full sequence takes 1100 to 1700 frames, because each state waits for its shots to clear. So a fight shows only two or three states of a ship's sequence (level 4: burst and triple shell only). The new state is mostly seen, but the evolution from ship to ship is shorter than the mock-up video suggests. A human may be slower than the bot, but not by much. Options:
-1. Shorter waits: start the next aim when the wing's shots are all in the lower half of the screen (the screen is "mostly clear"), which cuts a state to about 200 to 250 frames. Recommended.
-2. More HP for the wing (about 1.5 times), which changes the balance and the boss bar length.
-3. Shorter states (fewer volleys, one fan instead of two), which weakens each state.
-4. Leave it: each fight shows the first two or three states, and the later ones are never seen.
+**What the game showed, and what was decided.** With the first version (the next state waits until the wing's own shots are all gone) the test bot killed the wing in about 750 to 1040 frames, but a full sequence took 1100 to 1700, so a fight showed only two or three states. Decided: **shorter waits.** The next state now starts when the wing's own shots have all passed the middle of the screen (or after 450 frames). Shots in the lower half can still be in flight, but nothing is left in the upper half where the wing and the new aim are. The 2 x 2 results of `tests/wing.mjs` (as it is, bot flying, Normal):
 
+| Level | States seen before the wing dies | Peak own bullets |
+|---|---|---|
+| 1 and 1A | burst, fan, ring, burst, fan (the whole sequence and more) | 29 |
+| 2 | burst, fan, curtain, ring (all) | 21 |
+| 3 | burst, spiral (2 of 4) | 24 |
+| 4 | burst, triple, spiral (3 of 4) | 24 |
+| 5 | triple, lanes, curtain, ring (all) | 32 |
+| 6 and 6B | burst, lanes, spiral, twin (all) | 32 |
+
+Levels 3 and 4 still end early (the spiral state is long, and the bot kills the wing sooner there). If that matters, the cheapest next step is a faster spiral or a shorter tell on those two; I have not changed them.

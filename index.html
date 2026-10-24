@@ -9726,7 +9726,7 @@ function spawnWing() {
     V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
 }
 // The Shadow Wing's sequence (Enigma Run): one state at a time. A state aims (its barrels glow, ph 1), fires (ph 2), then the wing waits (ph 0) until its own
-// shots are gone (they carry w, at most 450 frames) before the next state. The whole state is four numbers on the wing (si, ph, st, rest), no closures.
+// shots are all past the middle of the screen (they carry w; at most 450 frames) before the next state. The whole state is four numbers on the wing (si, ph, st, rest), no closures.
 const WING_TELL = { burst: 24, fan: 24, ring: 30, curtain: 40, spiral: 40, triple: 40, lanes: 40, twin: 30 };
 const WING_END = { burst: 102, fan: 55, ring: 0, twin: 24, curtain: 80, spiral: 88, triple: 118, lanes: 40 }; // the last frame of a state's fire phase
 const WING_COL = { burst: '#ffd24a', fan: '#ff6aa8', ring: '#5ad8ff', curtain: '#ff9a4a', spiral: '#b48aff', triple: '#ff5050', lanes: '#c8ff4a', twin: '#5ad8ff' };
@@ -9749,7 +9749,7 @@ function wingFire(e, V, name, t) { // the shots of a state at frame t of its fir
 }
 function wingSeq(e) {
   const V = WING_V[e.v], name = V.seq[e.si]; e.st++;
-  if (e.ph === 0) { if (e.st >= e.rest && (e.st >= 450 || !world.ebul.some(b => b.w))) { e.ph = 1; e.st = 0; } }
+  if (e.ph === 0) { if (e.st >= e.rest && (e.st >= 450 || !world.ebul.some(b => b.w && b.y < H / 2))) { e.ph = 1; e.st = 0; } }
   else if (e.ph === 1) { if (e.st >= WING_TELL[name]) { e.ph = 2; e.st = 0; wingFire(e, V, name, 0); } }
   else { wingFire(e, V, name, e.st); if (e.st >= WING_END[name]) { e.ph = 0; e.st = 0; e.si = (e.si + 1) % V.seq.length; e.rest = 40; } }
 }

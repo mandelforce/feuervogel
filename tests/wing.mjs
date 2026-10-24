@@ -1,7 +1,7 @@
 // Shadow Wing check (Enigma Run, docs/shadow-wing-design.md). For each of the eight levels it spawns the wing and flies its whole fight with the bot
 // (immortal, every other enemy removed each frame) and checks:
 //   - the ship is the one for the level (ENIGMA_BASE: levels 7 and 8 reuse the ships of 6 and 1) and has its hit box,
-//   - the states fire in the order of its sequence, one at a time (no new state starts while its own shots are still on screen, unless 450 frames have passed);
+//   - the states fire in the order of its sequence, one at a time (no new state starts while its own shots are still in the upper half of the screen, unless 450 frames have passed);
 //     each level is flown twice: as it is (the bot kills the wing, which shows how much of the sequence a fight really gets to) and with a very tough wing
 //     (so the whole sequence can be checked until the wing leaves at 1600 frames),
 //   - every shot of the wing starts within 12 px of one of its muzzles (a shot never appears out of nowhere),
@@ -44,7 +44,7 @@ for (let level = 1; level <= 8; level++) for (const tough of [false, true]) {
       out.frames++; if (out.v === null) { out.v = w.v; out.hw = w.hw; out.hh = w.hh; }
       if (w.v === undefined) continue;
       const V = P('WING_V[' + w.v + ']'), name = V.seq[w.si];
-      if (w.ph === 1 && lastPh !== 1) { out.order.push(name); const own = P('world.ebul.filter(b => b.w).length'); if (own > 0 && w.st < 450) out.overlap++; }
+      if (w.ph === 1 && lastPh !== 1) { out.order.push(name); const own = P('world.ebul.filter(b => b.w && b.y < H / 2).length'); if (own > 0 && w.st < 450) out.overlap++; }
       lastPh = w.ph;
       const mz = Object.values(V.muz).flatMap(m => typeof m[0] === 'number' ? [m] : m);
       const bul = P('world.ebul.filter(b => b.w)'); out.peak = Math.max(out.peak, bul.length);
@@ -58,7 +58,7 @@ for (let level = 1; level <= 8; level++) for (const tough of [false, true]) {
   const seq = await page.evaluate(v => window.SF.peek('WING_V[' + v + '].seq'), exp);
   const okOrder = r.order.length >= (tough ? seq.length : 2) && r.order.every((n, i) => n === seq[i % seq.length]);
   say(okOrder, `${tag}: states in order ${r.order.join(' > ')}`);
-  say(r.overlap === 0, `${tag}: no state started while its own shots were still on screen`);
+  say(r.overlap === 0, `${tag}: no state started while its own shots were still in the upper half of the screen`);
   say(r.shots > 0 && r.far === 0, `${tag}: ${r.shots} shots, ${r.far} started away from a muzzle`);
   console.log(`     ${tag}: peak ${r.peak} of the wing's own bullets, the fight lasted ${r.frames} frames${r.ended ? ' (the wing left)' : ''}`);
 }
