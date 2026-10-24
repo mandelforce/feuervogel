@@ -182,3 +182,7 @@ SF.campaign(2);              // all six stages on Hard, one summary row per stag
 Difficulty: `0` Easy, `1` Normal, `2` Hard. Weapons: `S` Scatter, `L` Lance, `H` Seekers, `A` Arc.
 
 **Full report with Node:** `node tests/balance.mjs` prints the boss-time table for every weapon and a campaign summary per difficulty (setup steps are at the top of the file).
+
+## Nothing pops in, guns stay off runways (by hand)
+
+`guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.
