@@ -9335,15 +9335,22 @@ function sortieRoutes(S) {
   if (S.routes && S.routesFor === world.stageBaseP) return S.routes;
   const P = sortiePlan(S) && S.planFor === world.stageBaseP ? S.plan : null, R = [{ id: 0, legacy: true }];
   S.routesFor = world.stageBaseP; S.routes = R;
-  if (P) for (const st of P.streets) { if (!st.tank || st.axis !== 'v') continue;
+  const OT = P && P.oldTown && P.oldTown.green && P.oldTown.round ? P.oldTown : null, sts = []; // a round village green's ring: its side arcs run along the strip, and each half of its top and bottom arcs joins the main road to them
+  if (P) for (const st of P.streets) { if (!st.tank) continue; if (st.axis === 'v') sts.push(st); else if (OT && st.axis === 'h' && st.cls === 'ring') for (const sd of [-1, 1]) sts.push({ cls: st.cls, arc: true, pts: st.pts.filter(q => sd * (q[0] - OT.cx) >= 0) }); }
+  for (const st of sts) {
     const pts = st.pts.slice().sort((a, b) => a[1] - b[1]); let run = null;
     const flush = () => { if (run && run.ys.length >= 6) { const wyLo = Math.round(S.planY0 - run.ys[run.ys.length - 1]), wyHi = Math.round(S.planY0 - run.ys[0]), xs = new Float32Array(wyHi - wyLo + 1).fill(NaN);
       run.ys.forEach((y, k) => { xs[Math.round(S.planY0 - y) - wyLo] = run.xs[k]; }); for (let i = 1; i < xs.length; i++) if (isNaN(xs[i])) xs[i] = xs[i - 1]; for (let i = xs.length - 2; i >= 0; i--) if (isNaN(xs[i])) xs[i] = xs[i + 1];
       for (const sr of P.stars || []) { const ro = (P.P.star && P.P.star.ro) || 17, rm = (ro + sr.ri) / 2; // a roundabout: round its ring on the vehicle's right (the west side, heading south), not across the lawn
         for (let i = 0; i < xs.length; i++) { const dy = (S.planY0 - (wyLo + i)) - sr.y; if (Math.abs(dy) < ro && Math.abs(xs[i] - sr.x) < ro) xs[i] = sr.x - Math.sqrt(Math.max(0, rm * rm - dy * dy)); } }
-      R.push({ id: R.length, wyLo, wyHi, xs, main: st.cls === 'arterial' }); } run = null; };
+      R.push({ id: R.length, wyLo, wyHi, xs, main: st.cls === 'arterial', arc: !!st.arc }); } run = null; };
     for (const q of pts) { const y = Math.round(q[1]); if (!q[2] || (run && y - run.last > 3)) flush(); if (!q[2]) continue; if (!run) run = { ys: [], xs: [] }; run.ys.push(y); run.xs.push(q[0]); run.last = y; }
     flush(); }
+  // where the main road meets a round green's ring it ends at the ring's extreme point, where the arcs begin: a vehicle then goes on round either arc
+  // (past that point the arcs have swung away from the road's end)
+  for (const q of R) if (!q.legacy && !q.arc) for (const r of R) if (r.arc) {
+    if (r.wyLo > q.wyLo && r.wyLo < q.wyHi && q.wyHi - r.wyLo <= 12 && Math.abs(routeX(q, r.wyLo) - r.xs[0]) < 8) { q.xs = q.xs.slice(0, Math.round(r.wyLo) - q.wyLo + 1); q.wyHi = Math.round(r.wyLo); }
+    else if (r.wyHi < q.wyHi && r.wyHi > q.wyLo && r.wyHi - q.wyLo <= 12 && Math.abs(routeX(q, r.wyHi) - r.xs[r.xs.length - 1]) < 8) { q.xs = q.xs.slice(Math.round(r.wyHi) - q.wyLo); q.wyLo = Math.round(r.wyHi); } }
   return R;
 }
 function inPlanRows(S, wy) { const P = S.plan; return !!P && S.planFor === world.stageBaseP && S.planY0 - wy >= 0 && S.planY0 - wy < P.L; }
@@ -9383,9 +9390,9 @@ function routeStep(e) {
   if (!rt) { const c = routesAt(S, e.wy).filter(r => Math.abs(routeX(r, e.wy) + e.lane - e.wx) < 10); if (!c.length) { e.atEnd = true; return null; } rt = c[0]; e.route = rt.id; } // (a tank that drove onto the road)
   const nwy = e.wy + e.dir * e.v;
   if (!routeOn(S, rt, nwy)) { const x0 = routeX(rt, e.wy), c = sortieRoutes(S).filter(r => r !== rt && routeOn(S, r, nwy) && Math.abs(routeX(r, nwy) - x0) < 8);
-    if (!c.length) { e.atEnd = true; return null; } rt = c.length > 1 ? c[(Math.random() * c.length) | 0] : c[0]; e.route = rt.id; } // a fork: either way
-  const reach = e.hh + ROUTE_GAP;
-  for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined || (o.route !== rt.id && Math.abs(o.wx - e.wx) > 9)) continue; /* on the same route (round a bend too), or just ahead in line */ const ahead = (o.wy - e.wy) * e.dir; if (ahead > 0 && ahead < reach + o.hh) return null; }
+    if (!c.length) { e.atEnd = true; return null; } rt = c.length > 1 ? c.find(r => world.enemies.some(o => o !== e && !o.dead && o.road && (o.wy - e.wy) * e.dir > 0 && (o.wy - e.wy) * e.dir < 90 && Math.abs(o.wx - x0) > 14 && (o.wx - x0) * (r.xs[r.xs.length >> 1] - x0) > 0)) || c[(Math.random() * c.length) | 0] : c[0]; e.route = rt.id; } // a fork: either way, but behind a vehicle that is just ahead on one of them, on that one (a convoy stays in single file round a green)
+  const reach = e.hh + ROUTE_GAP, endWy = e.dir > 0 ? rt.wyHi : rt.wyLo, cont = !rt.legacy && Math.abs(endWy - e.wy) < 60 ? sortieRoutes(S).filter(r => r !== rt && !r.legacy && routeOn(S, r, endWy + e.dir) && Math.abs(routeX(r, endWy + e.dir) - routeX(rt, endWy)) < 8).map(r => r.id) : []; // (the routes that go on from this one's end: a vehicle on one is in line ahead, though its road may swing away from ours)
+  for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined || (o.route !== rt.id && !cont.includes(o.route) && Math.abs(o.wx - e.wx) > 9)) continue; /* on the same route (round a bend too), or just ahead in line */ const ahead = (o.wy - e.wy) * e.dir; if (ahead > 0 && ahead < reach + o.hh) return null; }
   if ((e.type === 'tank' || e.type === 'htank') && !e.dug && !rt.legacy) for (const sd of sideRoutes(S)) for (const j of sd.junc) { // a junction with a side road here: turn into it now and then
     if (j.rt !== rt.id || Math.abs(sd.path[j.k][1] - nwy) > e.v + 0.5) continue; const key = sd.id + ':' + j.k; if (e.lastSide === key) continue; e.lastSide = key;
     if (Math.random() < SIDE.turn) { const d = j.k <= 0 ? 1 : j.k >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: j.k, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[j.k].slice(); } }

@@ -110,11 +110,11 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
     const seq = [run.sortie.level];
     for (let i = 0; i < 6; i++) { world.bossSpawned = true; app.results = null; app.fade = null; app.congrats = null; finishResults(); if (app.congrats) break; const f = app.fade && app.fade.fn; app.fade = null; if (f) f(); if (run.sortie) seq.push(run.sortie.level); }
     o.seq = seq.join(','); o.rankedAfter = run.ranked; o.startAfter = run.start; o.eligAfter = lbEligible(); o.congrats = !!app.congrats;
-    app.fade = null; app.congrats = null; endEnigmaLevel(); o.endState = app.state; o.lbOpen = app.lbOpen; o.lbTitle = q('lbTitle').textContent; o.submitShown = q('lbSubmit').style.display !== 'none'; o.mode = app.lbRun && app.lbRun.mode; o.runStart = app.lbRun && app.lbRun.start; return o; })()`);
+    app.fade = null; app.congrats = null; endEnigmaLevel(); o.endState = app.state; o.lbOpen = app.lbOpen; o.lbTitle = q('lbTitle').textContent; o.submitShown = q('lbSubmit').style.display !== 'none'; o.mode = app.lbRun && app.lbRun.mode; o.runStart = app.lbRun && app.lbRun.start; o.afterLevel = run.sortie && run.sortie.level; o.loops = run.loops; o.rankedLoop = run.ranked; o.scoreLoop = run.score; return o; })()`);
   ok(c.title === 'Choose difficulty' && !c.stageRow && c.first === 8 && c.ranked && c.start === 1 && !c.retro, 'START opens the difficulty choice and begins the ranked Campaign at level 1A');
   ok(c.elig && c.hiUp, 'a Campaign run is board-eligible and raises the best');
   ok(c.seq === '8,2,3,4,5,7' && c.rankedAfter && c.startAfter === 1 && c.eligAfter && c.congrats, `the Campaign flies 1A, 2, 3, 4, 5, 6B and stays ranked from start to end (${c.seq})`);
-  ok(c.endState === 'over' && c.lbOpen && c.lbTitle === 'Campaign complete' && c.submitShown && c.mode === 'camp' && c.runStart === 1, 'finishing 6B opens the score dialog for the Campaign board');
+  ok(c.endState === 'play' && !c.lbOpen && c.afterLevel === 8 && c.loops === 1 && c.rankedLoop && c.scoreLoop >= 5000, 'finishing 6B loops the ranked Campaign back to level 1A, one loop harder, with the score kept (the score dialog comes at game over)');
 
   const r = await peek(page, `(() => { const q = id => document.getElementById(id); const o = {}; closeLB(); toTitle(); settings.diff = 1;
     openDiff('retro', 1); o.title = q('diffTitle').textContent; o.extras = !q('dExtra').hidden; q('diffAsk').querySelector('[data-d="1"]').click();
