@@ -9057,15 +9057,6 @@ function directorInner() {
       else if (c.kind === 'perim' && hash(ci * 7 + 3, ri * 11 + 5) < 0.07 && propFree(ox + 9, oy + 5.5, 18, 11, 15)) { const rr = hash(ci * 5 + 9, ri * 3 + 4); props.push({ kind: 'block', wx: ox + 9, wy: oy + 5.5, w: 18, d: 11, h: 8 + ((rr * 7) | 0), brick: rr < 0.6, rr }); }
     }
   }
-  { const S = run.sortie, P = S && S.plan; if (P && S.planFor === world.stageBaseP) P.churches.forEach((ch, i) => { // a settlement plan's churches: the tower stands up over the painted one (the desert's domed hall has none)
-    const key = 'sp' + i; if (towerRows.has(key) || ch.dome) return; const tw = ch.parts.map(id => P.items[id]).find(q => q && q.part === 'tower'); if (!tw) return;
-    const wy = S.planY0 - (tw.y0 + tw.h / 2); if (wy < -130 - sc || wy > H + 70 - sc) return; towerRows.add(key);
-    const w = Math.min(8, tw.w - 1); props.push({ kind: 'spire', wx: tw.x0 + tw.w / 2, wy, w, d: w - 1, h: ch.big === 'chapel' ? 22 : 30, rr: 0.5 });
-  }); }
-  { const S = run.sortie, P = S && S.plan; if (P && S.planFor === world.stageBaseP) (P.stacks || []).forEach((sk, i) => { // a settlement plan's chimneys stand up over their painted tops (the works, the harbour's works hall, the power station)
-    const key = 'ps' + i; if (towerRows.has(key)) return; const wy = S.planY0 - sk.y; if (wy < -130 - sc || wy > H + 70 - sc) return; towerRows.add(key);
-    props.push({ kind: 'chimney', wx: sk.x, wy, w: sk.big ? 7 : 6, d: sk.big ? 7 : 6, h: sk.big ? 48 : 36 + ((hash(i, 5) * 8) | 0), rr: 0.3 });
-  }); }
   for (let ri = Math.floor((-110 - sc) / 56); ri <= Math.floor((-50 - sc) / 56); ri++) {
     if (towerRows.has('f' + ri)) continue; towerRows.add('f' + ri);
     for (let ci = 0; ci < 4; ci++) {
