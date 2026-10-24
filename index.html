@@ -4188,9 +4188,9 @@ settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun spee
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs +1, heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
-const DIFF = { bs: [0.88, 1.12, 1.12], hp: [1, 1.15, 1.15], boss: [1, 1, 1.25], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 2], ext: [[80000, 120000], [100000, 150000], [120000, 200000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.3, 1.15] };
+const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 2], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.3, 1.3] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
-function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? 1 : 0)) * DIFF.rank[settings.diff]; }
+function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? (st - 1) / 5 : 0)) * DIFF.rank[settings.diff]; }
 let eshotN = 0;
 
 /* ================= noise ================= */
@@ -9091,7 +9091,7 @@ function directorInner() {
     else warn();
   }
   if (world.bossSpawned) {
-    if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead)) waveDive(3); }
+    if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead && (e.kind !== 'skyfort' || e.phase === 'fight'))) waveDive(3); }
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
@@ -9757,11 +9757,11 @@ function wingShot(e, m, a, sp, kind, r0 = 0) { // a shot from the gun at sprite 
   const x = e.x + m[0] - 50 + Math.cos(a) * r0, y = e.y + m[1] - 20 + Math.sin(a) * r0, n = world.ebul.length;
   eshot(x, y, a, sp, kind); if (world.ebul.length > n) world.ebul[n].w = 1; flash(x, y, 2);
 }
-function wingRing(e, V, n, off) { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) wingShot(e, V.muz.center, off + i * TAU / n, bspeed() * 0.75, 's', 5); sfx('cannon'); }
+function wingRing(e, V, n, off) { const rf = DIFF.ring[settings.diff] * DIFF.wingN[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) wingShot(e, V.muz.center, off + i * TAU / n, bspeed() * 0.75, 's', 5); sfx('cannon'); }
 function wingFire(e, V, name, t) { // the shots of a state at frame t of its fire phase
   const sp = bspeed(), M = V.muz, from = m => [e.x + m[0] - 50, e.y + m[1] - 20];
   if (name === 'burst') { const v = Math.floor(t / 48), k = t % 48; if (v < 3 && (k === 0 || k === 6)) { const m = M.burst[v % 2]; wingShot(e, m, aim(...from(m)), sp * 1.1); if (k === 0) sfx('gun'); } }
-  else if (name === 'fan') { if (t === 0 || t === 55) { const a = aim(...from(M.nose)); for (let k = -3; k <= 3; k++) wingShot(e, M.nose, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); } }
+  else if (name === 'fan') { if (t === 0 || t === 55) { const a = aim(...from(M.nose)); const fh = DIFF.wingFan[settings.diff]; for (let k = -fh; k <= fh; k++) wingShot(e, M.nose, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); } }
   else if (name === 'ring') { if (t === 0) wingRing(e, V, V.ringN + 2 * run.loop, 0); }
   else if (name === 'twin') { if (t === 0) wingRing(e, V, 12 + run.loop, 0); else if (t === 24) wingRing(e, V, 12 + run.loop, TAU / 24); }
   else if (name === 'curtain') { if (t === 0 || t === 80) { const g = t ? 3 : 1; M.ports.forEach((m, i) => { if (i !== g) for (const d of [-0.055, 0.055]) wingShot(e, m, PI / 2 + (i - 2) * 0.22 + d, sp * 0.7); }); sfx('gun'); } }
@@ -9878,7 +9878,7 @@ function skyLaser(e, ea) {
   if (!e.fl) {
     if (!hasT()) return;
     e.flT = (e.flT || 0) + 1;
-    if (ea === 0 && !e.lastAct) { e.lastAct = true; if (e.foreDone) e.flT = Math.max(e.flT, FL_GAP3 - 150); } // the last act opens with a shot
+    if (ea === 0 && !e.lastAct) { e.lastAct = true; if (e.foreDone) e.flT = Math.max(e.flT, FL_GAP3 - 240); } // the last act opens with a shot
     let go = false;
     if (!e.foreDone) { if (ea <= 2 || core.hp < core.maxhp * 0.75 || e.flT >= 1500) { e.foreDone = true; go = true; } }
     else if (e.flT >= (ea === 0 ? FL_GAP3 : FL_GAP)) go = true;
@@ -9888,7 +9888,8 @@ function skyLaser(e, ea) {
   const F = e.fl; F.t++;
   if (F.ph === 'charge') {
     if (gf % 2 === 0) { const a = Math.random() * TAU, d = rnd(22, 34); world.parts.push({ kind: 'spark', layer: 'a', x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, vx: -Math.cos(a) * 1.1, vy: -Math.sin(a) * 0.9, life: 16, max: 16, col: Math.random() < 0.5 ? '#bba4ff' : '#e8dcff' }); }
-    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; F.a = clamp(!hasT() ? PI / 2 : laserAim(F, cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); sfx('fbeam'); feel.shake = Math.max(feel.shake, 7); flash(cx, cy + 6, 10); }
+    if (F.t <= 60) F.a = clamp(!hasT() ? PI / 2 : laserAim(F, cx, cy), PI / 2 - 0.75, PI / 2 + 0.75); // the aim follows the ship until frame 60, then stays: the warning line shows where the beam will fire
+    if (F.t >= FL_CHARGE) { F.ph = 'fire'; F.t = 0; F.sweep = ea === 0; sfx('fbeam'); feel.shake = Math.max(feel.shake, 7); flash(cx, cy + 6, 10); }
     return;
   }
   // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
@@ -9915,7 +9916,7 @@ function skyLaser(e, ea) {
   }
   if (F.sweep && hasT()) F.a = clamp(F.a + clamp(angDiff(F.a, laserAim(F, cx, cy)), -0.0035, 0.0035), PI / 2 - 0.75, PI / 2 + 0.75);
   feel.shake = Math.max(feel.shake, 2);
-  const env = Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
+  const env = Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), half = 11 * env, c = Math.cos(F.a), s = Math.sin(F.a);
   if (gf % 2 === 0) { const d = rnd(30, 400); world.parts.push({ kind: 'spark', layer: 'a', x: cx + c * d + rnd(-half, half), y: cy + s * d, vx: rnd(-0.8, 0.8), vy: rnd(-0.6, 0.6), life: 12, max: 12, col: Math.random() < 0.5 ? '#ffd060' : '#ff6a1a' }); }
   for (const b of world.shots) { const dx = b.x - cx, dy = b.y - cy; if (dx * c + dy * s > 0 && Math.abs(-dx * s + dy * c) < half + 2) b.dead = true; } // the laser burns away the player's shots
   if (env > 0.5 && !player.dead && player.inv === 0) {
@@ -9935,9 +9936,10 @@ function drawSkyLaser(e) {
     const f = F.t / FL_CHARGE;
     ctx.strokeStyle = (gf & 4) && f > 0.8 ? '#ffffff' : '#bba4ff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, 20 + 6 * f, -PI / 2, -PI / 2 + TAU * f); ctx.stroke();
+    if (F.t >= 60 && F.a !== undefined) { ctx.save(); ctx.globalAlpha = (gf & 2) ? 0.7 : 0.35; ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(F.a) * 700, cy + Math.sin(F.a) * 700); ctx.stroke(); ctx.restore(); }
     return;
   }
-  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 12, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
+  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
   // like the player's super laser: a triangle flaring out of the muzzle (y 6..FLARE), then the straight column
   const FLARE = 34, tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(1, 6); ctx.lineTo(ww / 2, FLARE); ctx.lineTo(-ww / 2, FLARE); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
@@ -11196,11 +11198,11 @@ const ENT = {
     if (e.v !== undefined) return wingSeq(e); // Enigma Run: the sequence of states (docs/shadow-wing-design.md)
     const sp = bspeed();
     if (e.mt % 48 === 0) { const s = (e.mt >> 5) & 1 ? 1 : -1, gx = e.x + s * 18, gy = e.y; for (let k = 0; k < 2; k++) world.later.push({ at: gf + k * 6, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, aim(gx, gy), sp * 1.1); } }); sfx('gun'); }
-    if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11); for (let k = -3; k <= 3; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
-    if (e.mt % 300 === 210) ring(e.x, e.y, 16 + run.loop * 2, sp * 0.75, e.mt * 0.05);
+    if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11), fh = DIFF.wingFan[settings.diff]; for (let k = -fh; k <= fh; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
+    if (e.mt % 300 === 210) ring(e.x, e.y, Math.round((16 + run.loop * 2) * DIFF.wingN[settings.diff]), sp * 0.75, e.mt * 0.05);
   } },
   tank: { turret: true, revenge: 2, treads: true, medals: 0.6, update(e) {
-    if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 3) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
+    if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 2) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
       if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
@@ -11625,7 +11627,7 @@ const ARC_LV = [null,
   { reach: 0.5,  dmg: 1.2, cone: 10, slope: 0.16, jumps: 0, hop: 0,  gain: 1.0, ramp: 60, w: 2 },
   { reach: 0.55, dmg: 1.4, cone: 12, slope: 0.20, jumps: 0, hop: 0,  gain: 1.1, ramp: 55, w: 2 },
   { reach: 0.6,  dmg: 1.6, cone: 14, slope: 0.24, jumps: 1, hop: 38, gain: 1.3, ramp: 50, w: 3 },
-  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.5, ramp: 45, w: 3 }];
+  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.2, ramp: 45, w: 3 }];
 function fireArc(p, L) {
   const A = ARC_LV[L], reach = H * A.reach, ox = p.x, oy = p.y - 12;
   run.stats.shots++;
@@ -11711,7 +11713,7 @@ const SEEK = [null,
   { n: 1, cd: 34, dmg: 1.4, turn: 0.06, top: 3.4, sees: 110, rg: 0.5,  w: 3, fl: 2 },
   { n: 2, cd: 30, dmg: 1.5, turn: 0.08, top: 3.8, sees: 140, rg: 0.58, w: 4, fl: 4 },
   { n: 3, cd: 28, dmg: 1.6, turn: 0.10, top: 4.1, sees: 170, rg: 0.66, w: 5, fl: 6 },
-  { n: 4, cd: 28, dmg: 1.8, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 }];
+  { n: 4, cd: 28, dmg: 2.2, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 }];
 const SEEK_ROWS = [null,
   ['.1.', '323', '343', '343', '.4.', '.4.'],
   ['..1..', '..2..', '.333.', '.343.', '.343.', '23432', '.343.', '..4..'],
@@ -11762,7 +11764,7 @@ function firing(p = player, two) {
     p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
-    world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.75 + 0.38 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
+    world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
     const hl = Math.min(L, 4);
