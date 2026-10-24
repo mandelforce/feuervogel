@@ -59,12 +59,12 @@ const PRESETS = {
 // an old-town island on the main road reached by two bridges, and one more bridge for a collector.
 PRESETS.river = Object.assign({}, PRESETS.town, { harbour: true, label: 'River town', river: { at: 0.62, width: 28, amp: 6, island: true, rx: 42, ry: 16, channel: 11 } }); // a long, slim island along the current
 // Two rivers: the river town plus a narrower second river (a tributary, no island) further along
-// A village (Angerdorf): the main road splits round a lens-shaped green with the church and a pond; courtyard farmsteads along the roads,
+// A village (Angerdorf): the main road splits round a round green with the church and a pond; courtyard farmsteads along the roads,
 // fields all round, farm tracks; no old town, no public buildings, no railway
 PRESETS.village = Object.assign({}, PRESETS.town, { label: 'Village', L: 1200,
   density: [[0, 0.02], [0.25, 0.14], [0.45, 0.36], [0.62, 0.4], [0.8, 0.22], [1, 0.03]], damage: 0.15, coreBase: 18, coreGrow: 90, fray: 34,
   crossSpacing: [150, 90], crossMinU: 0.2, squares: false, cathedral: false, parishMinU: 2, parkSpacing: 1e9, lotChance: 0.02,
-  oldTown: { green: true, rx: [30, 40], rxMin: 28, ry: [62, 90], ring: 10, lane: 6, belt: [0, 0], minU: 0.25 },
+  oldTown: { green: true, round: true, rx: [42, 48], rxMin: 36, ry: [42, 48], ring: 10, lane: 6, belt: [0, 0], minU: 0.25 },
   stars: 0, civic: {}, railway: false, harbour: false, industry: 0, farms: 0.62, houses: { detached: [0.45], terraceTo: 0.8 } });
 // A crossroads village (Haufendorf at a crossing): a second main road crosses the strip, the village grows along both roads, and its centre
 // at the crossing has a square with a lime tree and a well, the church and the inn
@@ -385,25 +385,29 @@ function generate(opts) {
     const ry = Math.round(lerp(O.ry[0], O.ry[1], rnd(T.OLD, 1))), cand = [yPk]; for (const R of RVs) cand.push(Math.round(R.yMin - ry - 24), Math.round(R.yMax + ry + 24));
     if (CO && CO.hy0 !== null) cand.push(CO.hy1 + ry + 50, CO.hy0 - ry - 50, CO.hy1 + ry + 120, CO.hy0 - ry - 120); if (CO && CO.yC !== null) cand.push(Math.round(CO.wfH - CO.hd * (ry + 50)), Math.round(CO.wfH - CO.hd * (ry + 140))); // a port's old town beside the harbour, where the shore leaves more land
     for (const cy of cand) { if (OT) break; if (cy < ry + 40 || cy > L - ry - 40 || Uy(cy) < O.minU || RVs.some(R => cy + ry + 20 > R.yMin && cy - ry - 20 < R.yMax)) continue;
-      for (let rx = Math.min(Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
+      for (let rx = Math.min(O.round ? ry : Math.round(lerp(O.rx[0], O.rx[1], rnd(T.OLD, 2))), (W >> 1) - 16); rx >= (O.rxMin || 54) && !OT; rx -= 6) {
         let cx = O.green ? MX(cy) : clamp(MX(cy), rx + 16, W - rx - 16); let ok = true;
         if (CO && !O.green) { const lim = CO.cs > 0 ? CO.wf[cy] - rx - O.ring / 2 - 16 : CO.wf[cy] + rx + O.ring / 2 + 16, lim2 = rx + O.ring / 2 + 27; cx = CO.cs > 0 ? clamp(cx, lim2, lim) : clamp(cx, lim, W - 1 - lim2); } // between the railway's edge and the waterfront
-        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * (1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the lens in the strip
+        if (O.green) for (let y = cy - ry; ok && y <= cy + ry; y += 4) { const t = (y - cy) / ry, hw2 = rx * Math.sqrt(1 - t * t) + O.ring / 2; if (MX(y) - hw2 < 6 || MX(y) + hw2 > W - 7) ok = false; } // room for the green in the strip
         else for (let y = cy - ry * 0.85; ok && y <= cy + ry * 0.85; y += 8) { const t = (y - cy) / ry; if (Math.abs(MX(y) - cx) > rx * Math.sqrt(1 - t * t) * 0.55) ok = false; } // the main road runs well inside
         if (ok && CO && (past(cy + ry + O.ring + 24, 0) || past(cy - ry - O.ring - 24, 0))) ok = false;
         if (ok && CO) for (let y = Math.max(0, cy - ry); ok && y <= Math.min(L - 1, cy + ry); y += 4) if (CO.cs * (cx + CO.cs * (rx + O.ring / 2 + 10) - CO.wf[y]) > 0) ok = false; // inland of the waterfront, a row of houses between
         if (ok && P.railway && !O.green && cx - rx - O.ring / 2 < 27 && W - 1 - (cx + rx + O.ring / 2) < 27) ok = false; // leave one edge for the railway
-        if (ok) OT = { cx, cy, rx, ry, rw: O.ring, green: !!O.green };
+        if (ok) OT = { cx, cy, rx, ry, rw: O.ring, green: !!O.green, round: !!O.round };
       } }
     if (OT && !OT.green) { // the zone for the square and its buildings, on the roomier side of the main road
       const room = s => OT.rx - s * (MX(OT.cy) - OT.cx) - AW(OT.cy) / 2 - OT.rw / 2, zs = room(1) >= room(-1) ? 1 : -1, xe = MX(OT.cy) + zs * (AW(OT.cy) / 2 + 1);
       OT.zone = { s: zs, x0: Math.round(Math.min(xe, xe + zs * 54)), x1: Math.round(Math.max(xe, xe + zs * 54)), y0: OT.cy - 74, y1: OT.cy + 40 }; }
     plan.oldTown = OT; }
-  // the old town is an oval round a fixed centre; a village green is a lens that the main road forks round, so its centre follows the road
-  const octr = y => OT.green ? MX(y) : OT.cx;
-  const ovalHalf = (y, ex) => { const t = (y - OT.cy) / (OT.ry + (OT.green ? 0 : ex)); return t * t >= 1 ? 0 : OT.green ? Math.max(0, OT.rx * (1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
+  // the old town is an oval round a fixed centre; a village green is an ellipse that the main road forks round, so its centre follows the road
+  const octr = y => OT.green && !OT.round ? MX(y) : OT.cx;
+  // the green's lanes leave the main road tangentially: a round body (the ellipse down to 0.72 of its half length) and, beyond it, a smooth flare of
+  // GREEN_FLARE rows (a cubic that starts parallel to the road and meets the body with its slope), so the road forks and rejoins like a real one
+  const GREEN_FLARE = OT && OT.round ? 0 : 48, laneOff = y => { const d = Math.abs(y - OT.cy), ry = OT.ry, t0 = 0.72, d0 = t0 * ry, d1 = ry + GREEN_FLARE; if (d >= d1) return 0; if (OT.round) return OT.rx * Math.sqrt(1 - (d / ry) ** 2); // (a round green is a roundabout: a plain circle) if (d <= d0) return OT.rx * Math.sqrt(1 - (d / ry) ** 2);
+    const q = Math.sqrt(1 - t0 * t0), v0 = OT.rx * q, m1 = OT.rx * t0 / (ry * q) * (d1 - d0), u = (d1 - d) / (d1 - d0); return Math.max(0, (-2 * u ** 3 + 3 * u * u) * v0 + (u ** 3 - u * u) * m1); };
+  const ovalHalf = (y, ex) => { const lens = OT.green && !OT.round, t = (y - OT.cy) / (OT.ry + (lens ? 0 : ex)); return t * t >= 1 ? 0 : lens ? Math.max(0, OT.rx * Math.sqrt(1 - t * t) + ex) : (OT.rx + ex) * Math.sqrt(1 - t * t); }; // half its width at y, grown by ex
   const inOval = (x, y, ex) => !!OT && Math.abs(x - octr(y)) < ovalHalf(y, ex);
-  if (OT && OT.green) for (const p of plan.streets[0].pts) if (ovalHalf(p[1], 0) > OT.rw / 2 + 2) p[2] = 0; // the main road gives way to the green: traffic forks round it
+  if (OT && OT.green) for (const p of plan.streets[0].pts) if (OT.round) { const d = Math.abs(p[1] - OT.cy); if (d < OT.ry - OT.rw / 2) p[2] = 0; else if (d < OT.ry + OT.rw / 2 + 10) p[2] += Math.round(6 * ((OT.ry + OT.rw / 2 + 10 - d) / (OT.rw + 10)) ** 2); /* the entries flare into the ring like kerb radii */ } else if (laneOff(p[1]) > OT.rw / 2 + 2) p[2] = 0; // (a roundabout: the road ends at the ring's inner edge) // the main road gives way to the green: traffic forks round it
   // the railway's side (2a''''' builds the line): the edge the old town leaves free, away from the main road's side; the harbour takes the other
   const railOK = []; // the edges a straight line could take (the old town leaves them free)
   const ySt = P.stationAt ? L * (P.stationAt[0] + Math.min(P.stationAt[1], 0.97)) / 2 : L / 2; // with a station stretch, the edge with more room there
@@ -676,11 +680,11 @@ function generate(opts) {
 
   (() => { if (OT) { // the ring boulevard, in four arcs (two along x at the ends, two along y at the sides) so each is a plain street; a tank route
     const th = Math.atan(OT.ry / OT.rx), a = OT.rx * Math.cos(th), b = OT.ry * Math.sin(th);
-    if (OT.green) for (const sx of [-1, 1]) { const pts = [], y0 = OT.cy - OT.ry, y1 = OT.cy + OT.ry; for (let y = y0; y <= y1; y++) pts.push([MX(y) + sx * ovalHalf(y, 0), y, OT.rw]); // the green's two lanes leave the main road and meet it again
+    if (OT.green && !OT.round) for (const sx of [-1, 1]) { const pts = [], y0 = Math.ceil(OT.cy - OT.ry - GREEN_FLARE), y1 = Math.floor(OT.cy + OT.ry + GREEN_FLARE); for (let y = y0; y <= y1; y++) pts.push([MX(y) + sx * laneOff(y), y, OT.rw]); // the green's two lanes leave the main road and meet it again
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     else for (const sy of [-1, 1]) { const pts = []; for (let x = Math.floor(OT.cx - a - 3); x <= Math.ceil(OT.cx + a + 3); x++) { const t = (x - OT.cx) / OT.rx; if (t * t < 1) pts.push([x, OT.cy + sy * OT.ry * Math.sqrt(1 - t * t), OT.rw]); }
       addStreet({ cls: 'ring', axis: 'h', tank: true, pts, yc: OT.cy + sy * OT.ry, side: sy, x0: pts[0][0], x1: pts[pts.length - 1][0], w: OT.rw }); }
-    if (!OT.green) for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
+    if (!OT.green || OT.round) for (const sx of [-1, 1]) { const pts = [], y0 = Math.floor(OT.cy - b - 3), y1 = Math.ceil(OT.cy + b + 3); for (let y = y0; y <= y1; y++) { const t = (y - OT.cy) / OT.ry; pts.push([OT.cx + sx * OT.rx * Math.sqrt(Math.max(0, 1 - t * t)), y, OT.rw]); }
       addStreet({ cls: 'ring', axis: 'v', tank: true, pts, y0, y1, side: sx }); }
     // the old town's lanes: narrow and winding, from the main road out to the ring, a few joined by lanes along the main road; none in the zone
     const Z = OT.zone, lanes = { '-1': [], '1': [] }; let y = OT.cy - OT.ry + OT.rw + 6 + rnd(T.OLD, 3) * 8, n = 0;
