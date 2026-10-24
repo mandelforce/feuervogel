@@ -139,4 +139,23 @@ Mock-up: `docs/shadow-wing-looks-v3.png`, from `docs/shadow-wing-art-v3.js` (`ma
 
 Notes: all nine are inside the 100 x 40 canvas and keep the nose and cockpit. The cut-out windows are only a visual: bullets and the player's shots ignore them (the hit box is a rectangle). 2C, 3B and 4B add only a few pixels beyond today's hit box, so the hit box could stay as it is for those.
 
+## 9. Decisions so far and options for level 5
+
+**Chosen:** level 1 today's shape (sea-grey livery); level 2 **2C tip booms**; level 3 **3A needle dart**; level 4 the **first forest wing** (today's hull, a third pod on the centre line, no tail boom; the `fr` recipe of `docs/shadow-wing-art-v1.js`). Levels 5 and 6 are open (level 6 stays the gun nacelles of section 7 unless you say otherwise).
+
+Mock-up: `docs/shadow-wing-looks-v4.png`, from `docs/shadow-wing-art-v4.js` (`makeWingsV4()`; the builder gained `floats` and `fins`). The red tip bands and frost livery are the same in all six.
+
+![Options for level 5](shadow-wing-looks-v4.png)
+
+| Option | Shape | Reading |
+|---|---|---|
+| 5A Sawtooth | Four big teeth along the leading edge | Ice; each tooth can be the origin of one crossing-lane shot |
+| 5B Stepped crystal | A staircase leading edge, like a stepped pyramid or ice crystal | Blocky and strong in a small size; the steps give a clear left/right rhythm |
+| 5C Skis | Two long floats along the wing, outside the pods | The most winter-specific idea (a plane on skis); reads as heavy and slow |
+| 5D V-tail | Two fins angled up and out behind the trailing edge | Sleek and fast; the fins could be where the crossing lanes start |
+| 5E Forked tips | Each tip splits in two prongs | Tiny change, reads like antlers or a tuning fork |
+| 5F Ice crown | Three spikes along the trailing edge on each side | A crown of icicles at the back, away from the player; the bullets still come from the front |
+
+My pick: **5C skis** for the story, **5B stepped crystal** if you want the cleanest read at the smallest size. 5C's floats stick out below the leading edge by about 6 pixels, so give it `hh` 16 as with the nacelles.
+
 Stop here for your answer before step 2.

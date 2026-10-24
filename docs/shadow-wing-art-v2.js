@@ -39,6 +39,8 @@ function wingSpriteV2(r) {
   return sprite(100, 40, x => {
     polyS(x, r.ramp, r.hull, 0, 0.5);
     if (r.boom) { const [bx, by, bw, bh] = r.boom; rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx + 1, by, 2, bh); rect(x, r.ramp[1], bx + bw - 1, by, 1, bh); } // the tail boom, lit from the left
+    if (r.floats) for (const [fx, fy, frx, fry] of r.floats) ellS(x, r.ramp, fx, fy, frx, fry, 0.05); // long floats or skis along the wing
+    if (r.fins) for (const f of r.fins) polyS(x, r.ramp, f, 0.05, 0.4); // fins behind the trailing edge
     if (r.booms) for (const [bx, by, bw, bh] of r.booms) { rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx, by, 1, bh); rect(x, r.ramp[1], bx + bw - 1, by, 1, bh); } // more tail booms
     if (r.plane) { const [bx, by, bw, bh] = r.plane; rect(x, r.ramp[2], bx, by, bw, bh); rect(x, r.ramp[3], bx, by, bw, 1); } // a tailplane between booms
     if (r.spine) { polyS(x, r.ramp, [[44, 0], [56, 0], [57, 30], [53, 37], [47, 37], [43, 30]], 0.05, 0.4); ellS(x, r.ramp, 50, 28, 6, 8, 0.1); } // a fuselage spine down the centre line, a bulbous front
