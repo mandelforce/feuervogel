@@ -182,8 +182,8 @@ window.SF = {
   //   hits (bullets, rams), laser (Black Fortress beam hits), top (the worst 10 s window of enemy bullets on screen before each boss, averaged over the
   //   stages), pre (average bullets before the bosses), bossB (average during boss fights), boss (seconds each boss lasted), per-stage hits.
   flyCampaign(diff, o = {}) {
-    const { lag = 8, react = 15, force = null, overrides = null } = o;
-    SF.setMode('immortal'); SF.start(diff, 1); if (overrides) SF.overrides(overrides);
+    const { lag = 8, react = 15, force = null, overrides = null, code = null } = o;
+    SF.setMode('immortal'); SF.start(diff, 1); if (overrides) SF.overrides(overrides); if (code) SF.peek(code); // (code: anything to run in the game's scope first, e.g. a changed rankFor)
     startEnigma(8, true); SF.human(lag, react, force);
     const rows = [];
     for (let n = 0; n < 6000; n++) {
@@ -193,17 +193,18 @@ window.SF = {
       if (n % 6 === 0) world.parts.length = Math.min(world.parts.length, 300);
       rows.push({ s: run.stage, b: world.ebul.length, boss: world.enemies.some(e => e.type === 'boss') });
     }
-    const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0, top = [], pre = [], bossB = [], boss = [], hitsBy = [0, 0, 0, 0, 0, 0, 0];
+    const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0, top = [], pre = [], bossB = [], boss = [], hitsBy = [0, 0, 0, 0, 0, 0, 0], topBy = [], preBy = [];
     for (let s = 1; s <= 6; s++) {
       const rs = rows.filter(x => x.s === s && !x.boss), bins = {};
       rs.forEach((x, i) => (bins[Math.floor(i / 10)] ||= []).push(x.b));
       if (rs.length) top.push(Math.max(...Object.values(bins).map(avg)));
+      topBy.push(rs.length ? +Math.max(...Object.values(bins).map(avg)).toFixed(1) : 0); preBy.push(+avg(rs.map(x => x.b)).toFixed(1));
       pre.push(...rs.map(x => x.b)); bossB.push(...rows.filter(x => x.s === s && x.boss).map(x => x.b));
       const st = R.stages[s]; boss.push(st && st.bossIn !== null && st.bossDead !== null ? st.bossDead - st.bossIn : null);
     }
     for (const h of R.hits) if (h.why !== 'flame') hitsBy[h.stage]++;
     const flame = R.hits.filter(h => h.why === 'flame').length;
-    return { hits: hitsBy.reduce((a, b) => a + b, 0), laser: flame, lasers: R.lasers, top: +avg(top).toFixed(1), pre: +avg(pre).toFixed(1), bossB: +avg(bossB).toFixed(1), boss, hitsBy: hitsBy.slice(1), killed: boss.filter(v => v !== null).length, attr: R.attr || null, errs: R.errs.length };
+    return { hits: hitsBy.reduce((a, b) => a + b, 0), laser: flame, lasers: R.lasers, top: +avg(top).toFixed(1), pre: +avg(pre).toFixed(1), bossB: +avg(bossB).toFixed(1), boss, hitsBy: hitsBy.slice(1), topBy, preBy, killed: boss.filter(v => v !== null).length, attr: R.attr || null, errs: R.errs.length };
   },
   // The Black Fortress alone (Campaign level 6, 6B): how many of its laser beams hit a ship that reacts after `react` frames (60 = 1 s).
   laserTest(diff, react = 15, force = 'S4') {

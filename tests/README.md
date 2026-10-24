@@ -194,6 +194,8 @@ node tests/balance-real.mjs                       # table per difficulty, 4 runs
 node tests/balance-real.mjs --baseline tests/balance-baseline.json      # and the change against the stored run (--strict: exit 1 on drift)
 node tests/balance-real.mjs --overrides '{"fs":{"0":1.5}}' --runs 4     # try a setting before changing the code
 node tests/balance-real.mjs --attrib --diffs 1                          # which shooters fill the bullet windows
+node tests/balance-real.mjs --levels --diffs 1                          # and the worst bullet window, pre-boss bullets and hits for each of the six levels
+node tests/balance-real.mjs --eval 'rankFor = st => ...'                # run code in the game's scope first, for changes that are not in DIFF
 node tests/balance-real.mjs --save tests/balance-baseline.json          # after a balance change that was meant: refresh the baseline, with the golden.json
 node tests/balance-checks.mjs [--runs 3]          # the checks below (about 2 minutes), exit 1 if one fails
 ```

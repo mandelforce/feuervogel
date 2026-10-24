@@ -5,6 +5,8 @@
 //   --diffs 0,1,2         0 Rookie, 1 Veteran, 2 Ace
 //   --lag 8 --react 15    frames a movement decision is held / frames until the bot dodges the Black Fortress laser (60 = 1 s)
 //   --overrides '{"bs":{"1":1.0}}'   change DIFF entries without editing the page (see SF.overrides), to try a setting before changing the code
+//   --eval 'code'         run code in the game's scope before flying (e.g. a changed rankFor)
+//   --levels              also print the worst bullet window and the hits per level
 //   --attrib              also list which enemies fire the most shots
 //   --save file.json      write the averages (tests/balance-baseline.json is the one kept in the repo)
 //   --baseline file.json  print the change against a saved run; --strict exits 1 when something drifts outside the bands
@@ -17,7 +19,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const RUNS = +arg('runs', 4), DIFFS = String(arg('diffs', '0,1,2')).split(',').map(Number), LAG = +arg('lag', 8), REACT = +arg('react', 15), CONC = +arg('conc', 6);
-const OVERRIDES = arg('overrides', null) ? JSON.parse(arg('overrides')) : null, ATTRIB = !!arg('attrib', false);
+const OVERRIDES = arg('overrides', null) ? JSON.parse(arg('overrides')) : null, ATTRIB = !!arg('attrib', false), CODE = arg('eval', null), LEVELS = !!arg('levels', false);
 const NAMES = ['Rookie', 'Veteran', 'Ace'];
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 
@@ -29,7 +31,7 @@ async function fly(diff) {
     await page.goto(PAGE);
     await page.waitForFunction(() => typeof window.__sf === 'function');
     await page.evaluate(src => window.__sf(src), harness);
-    return await page.evaluate(([d, o, attrib]) => { if (attrib) SF.attrib(); return SF.flyCampaign(d, o); }, [diff, { lag: LAG, react: REACT, overrides: OVERRIDES }, ATTRIB]);
+    return await page.evaluate(([d, o, attrib]) => { if (attrib) SF.attrib(); return SF.flyCampaign(d, o); }, [diff, { lag: LAG, react: REACT, overrides: OVERRIDES, code: CODE }, ATTRIB]);
   } finally { await page.close(); }
 }
 const jobs = []; for (const d of DIFFS) for (let r = 0; r < RUNS; r++) jobs.push(d);
@@ -50,6 +52,10 @@ const f = (v, n = 1) => Number.isFinite(v) ? v.toFixed(n) : '-';
 console.log(`Real Campaign, human bot (lag ${LAG}, reaction ${REACT}), ${RUNS} runs per difficulty${OVERRIDES ? ', overrides ' + JSON.stringify(OVERRIDES) : ''}`);
 console.log('difficulty  hits  laser   top   pre  bossB  boss seconds, levels 1-6     killed');
 for (const [n, v] of Object.entries(rows)) console.log(n.padEnd(10), f(v.hits).padStart(5), f(v.laser).padStart(6), f(v.top).padStart(6), f(v.pre).padStart(5), f(v.bossB).padStart(6), ' ', v.boss.map(x => f(x, 0).padStart(3)).join(' '), '        ', f(v.killed));
+if (LEVELS) for (const d of DIFFS) {
+  const r = results[d], by = k => [0, 1, 2, 3, 4, 5].map(i => f(avg(r.map(x => x[k][i])), k === 'hitsBy' ? 1 : 0).padStart(4)).join(' ');
+  console.log(`${NAMES[d].padEnd(8)} per level 1-6: window ${by('topBy')} | pre-boss avg ${[0, 1, 2, 3, 4, 5].map(i => f(avg(r.map(x => x.preBy[i]))).padStart(4)).join(' ')} | hits ${by('hitsBy')}`);
+}
 if (rows.Rookie && rows.Veteran && rows.Ace) console.log(`ladder (hits): Rookie 1 : Veteran ${f(rows.Veteran.hits / rows.Rookie.hits, 2)} : Ace ${f(rows.Ace.hits / rows.Rookie.hits, 2)}`);
 if (ATTRIB) for (const d of DIFFS) {
   const t = {}; for (const x of results[d]) for (const [k, v] of Object.entries(x.attr || {})) { const ty = k.split(':')[1]; t[ty] = (t[ty] || 0) + v; }
