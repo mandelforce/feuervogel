@@ -106,16 +106,17 @@ Mock-up: `docs/shadow-wing-looks-v2.png`, from `docs/shadow-wing-art-v2.js` (`ma
 | Lvl | Shape change | Gameplay reading |
 |---|---|---|
 | 1 Channel | none | the reference |
-| 2 Sea of Sand | Broad blunt tips with a drop tank on each; a straighter trailing edge | A heavy, wide slab: fits the slow curtain. The tanks mark where the tips flash for the tell |
+| 2 Sea of Sand | A crescent: the tips curve forward into two horns, a concave leading edge | Heavy and scythe-like, which fits a curtain that sweeps across the screen. The horns are where the tips flash for the tell |
 | 3 Long Night | Needle tips raked far back, a deeper notch in the trailing edge, wingtip lights | A sharp, fast-looking dart: fits the spiral; the tip lights give the dark level its landmarks |
 | 4 Iron Forest | A tail boom with a tailplane on the centre line, a third pod | The boom points up the screen, away from the player; the pod is the triple shell's gun |
-| 5 Winter Line | Blunt winglets dropped forward at the tips, with red bands | The winglets are where the crossing lanes start, so the player can see the X before it fires |
-| 6 Burning City | The left tip shot off in jagged steps, fires in the wing, one cross left | Asymmetric on purpose: the finale looks hurt. Fire the left-side shots from the stump |
+| 5 Winter Line | A sawtooth leading edge, four teeth a side, red bands on the tips | Reads as ice and frost. Each tooth is a natural origin for one shot of the crossing lanes, so the lanes can come from the teeth |
+| 6 Burning City | Two heavy gun nacelles hung forward of the leading edge, barrels pointing at the player, fires, soot | A gunship: the barrels are where the twin ring and the aimed burst visibly come from. Symmetric, so nothing needs a side rule |
 
 Notes:
-- A shape that is only drawn bigger than its hit box lies to the player. The widest changes (Sand's tips, Winter's winglets) sit outside the 44-pixel half-width of the hit box by up to about 4 pixels. Step 2 either widens `hw` for those two variants (a recipe field) or keeps the hit box and says so in the report. My recommendation: widen `hw` to 48 for Sand and Winter, so a shot that hits a winglet counts.
-- The Ember wing's missing tip means its burst pattern A should fire from the right side only after the tip is gone, or from the stump: a one-line recipe option (`side: 'right'`).
+- A shape that is only drawn bigger than its hit box lies to the player. The crescent's horns and the Ember gun nacelles reach 4 to 10 pixels below the hit box (hw 44, hh 12), and the sawtooth teeth about 4. Step 2 either gives those three variants their own `hw` and `hh` (recipe fields) or keeps the hit box and says so in the report. My recommendation: Sand `hw` 48, Ember `hh` 16 (the nacelles are armour), Winter unchanged.
+- The Ember wing's barrels point straight down, so its aimed burst can fire from them (the nacelle x positions replace the old `e.x +- 18` side offsets): one recipe field, `muzzles: [-40, 40]`.
 - Night's sharp tips are about 2 pixels thin at the end; on a phone at the smallest size they may vanish. If so, the tip lights carry the silhouette.
+- The first v2 ideas for 2, 5 and 6 (blunt tips with drop tanks, ski-like winglets, a broken left tip) were replaced after review.
 - The shape is the cheapest generative knob: a hull is a short polygon, so a generator could sweep, blunt or drop the tips by a few numbers. The fairness rules stay as in section 5, plus: the hull stays inside the 100 x 40 canvas and its widest point within 4 pixels of the hit box.
 
 Stop here for your answer before step 2.
