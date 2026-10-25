@@ -9827,7 +9827,7 @@ function ravenInit(e) {
   const add = (type, x, u, o) => { const en = G(type, x, g - u, K(o)); world.enemies.push(en); return en; };
   add('cgate', 112, 10, { hp: 40 * m, cd: 60 });
   const en = !!run.sortie; // Enigma Run: the opening stretch of the keep yard is gentler (slower gate towers, wall guns that open up late)
-  for (const [x, u] of [[18, 12], [206, 12], [18, 432], [206, 432], [40, 911], [184, 911]]) add('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, score: 2500, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 });
+  for (const [x, u] of [[18, 12], [206, 12], [18, 432], [206, 432], [40, 911], [184, 911]]) add('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 });
   let i = 0;
   for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++) {
     const rocket = [1, 7, 8, 10].includes(i++);
@@ -9850,7 +9850,7 @@ function ravenInit(e) {
   for (const [dx, du] of [[-22, 0], [22, 6], [0, -18]]) add('drums', 170 + dx, 820 + du, { rad: 6 });
   for (const ln of [[[80, 500], [150, 500]], [[150, 700], [70, 700]], [[36, 165], [188, 165]], [[188, 255], [36, 255]]]) add('tank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.25, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
   for (const ln of [[[60, 980], [164, 980]], [[164, 1060], [60, 1060]]]) add('htank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.18, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
-  for (const [x, u] of [[30, 230], [194, 230], [30, 690], [194, 690]]) add('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, score: 2500, rad: 20, cd: 80 });
+  for (const [x, u] of [[30, 230], [194, 230], [30, 690], [194, 690]]) add('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, rad: 20, cd: 80 });
   add('bldg', 40, 1000, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 184, 1040, { bk: 'armoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
   const before = world.enemies.length; spawnArty(112, g - 860); for (let k = before; k < world.enemies.length; k++) Object.assign(world.enemies[k], { keep: true, noGuard: true });
@@ -11293,7 +11293,7 @@ const ENT = {
     if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
-  destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, stats: { hw: 12, hh: 36, score: 3000, rad: 34 }, update(e) {
+  destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, stats: { hw: 12, hh: 36, score: 2000, rad: 34 }, update(e) {
     if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
@@ -11393,7 +11393,7 @@ const ENT = {
       flash(bx, by, 5); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 2); sfx('cannon');
     }
   } },
-  aatower: { turret: true, revenge: 2, guarded: true, medals: 3, treesInFront: true, stats: { hp: 60, hw: 18, hh: 18, score: 4000, rad: 22 }, update(e) {
+  aatower: { turret: true, revenge: 2, guarded: true, medals: 3, treesInFront: true, stats: { hp: 60, hw: 18, hh: 18, score: 1000, rad: 22 }, update(e) {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
@@ -11422,7 +11422,7 @@ const ENT = {
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - run.loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
   } },
-  hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 2500, rad: 26 }, update(e) { groundPos(e); } },
+  hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 500, rad: 26 }, update(e) { groundPos(e); } },
   cgate: { medals: 1.5, treesInFront: true, stats: { hw: 34, hh: 13, score: 3000, rad: 30 }, update(e) {
     groundPos(e);
     if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && hasT()) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
@@ -11482,8 +11482,8 @@ const ENT = {
       if (e.stT <= 0) { e.st = 'sink'; e.stT = 18; }
     } else if (e.st === 'sink') { if (e.stT <= 0) { e.st = 'down'; e.stT = (rnd(70, 130)) | 0; e.untarget = true; } }
   } },
-  radar: { harmless: true, guarded: true, medals: 1.5, treesInFront: true, stats: { hp: 12, hw: 10, hh: 10, score: 1500, rad: 12 }, update(e) { groundPos(e); e.rot += 0.05; } },
-  gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, stats: { hp: 8, hw: 10, hh: 8, score: 1200, rad: 11 }, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
+  radar: { harmless: true, guarded: true, medals: 1.5, treesInFront: true, stats: { hp: 12, hw: 10, hh: 10, score: 500, rad: 12 }, update(e) { groundPos(e); e.rot += 0.05; } },
+  gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, stats: { hp: 8, hw: 10, hh: 8, score: 500, rad: 11 }, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
   arty: { revenge: 2, guarded: true, medals: 1, treesInFront: true, stats: { hp: 10, hw: 10, hh: 10, score: 1000, rad: 12 }, update(e) {
     groundPos(e); if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 60)) {
@@ -11498,7 +11498,7 @@ const ENT = {
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
     ENT.truck.update(e);
   } },
-  station: { harmless: true, medals: 1, treesInFront: true, stats: { hp: 16, hw: 6, hh: 10, score: 1500, rad: 10 }, update(e) { groundPos(e); } }, tower: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 22, hw: 7, hh: 7, score: 2000, rad: 12 }, update(e) { groundPos(e); } }, crate: { harmless: true, guarded: true, uncounted: true, arcLow: true, medals: 0.12, update(e) { groundPos(e); } }, shells: { harmless: true, explosive: true, guarded: true, medals: 0.4, update(e) { groundPos(e); } }, drums: { harmless: true, explosive: true, guarded: true, arcLow: true, medals: 0.3, update(e) { groundPos(e); } }, sandbag: { harmless: true, uncounted: true, stats: { fixedHp: 2, hw: 7, hh: 3, score: 50, rad: 3 }, update(e) { groundPos(e); } },
+  station: { harmless: true, medals: 1, treesInFront: true, stats: { hp: 16, hw: 6, hh: 10, score: 1500, rad: 10 }, update(e) { groundPos(e); } }, tower: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 22, hw: 7, hh: 7, score: 2000, rad: 12 }, update(e) { groundPos(e); } }, crate: { harmless: true, guarded: true, uncounted: true, arcLow: true, medals: 0.12, update(e) { groundPos(e); } }, shells: { harmless: true, explosive: true, guarded: true, medals: 0.4, update(e) { groundPos(e); } }, drums: { harmless: true, explosive: true, guarded: true, arcLow: true, medals: 0.3, update(e) { groundPos(e); } }, sandbag: { harmless: true, uncounted: true, stats: { fixedHp: 2, hw: 7, hh: 3, score: 0, rad: 3 }, update(e) { groundPos(e); } },
   moto: { harmless: true, treads: true, medals: 0.3, stats: { hp: 1.5, hw: 3, hh: 5, score: 300, rad: 6 }, update(e) {
     ENT.truck.update(e);
     if (e.armed && hasT() && --e.cd <= 0 && canFire(e, 90)) { // (the Gespann, Enigma Run: its passenger fires a burst of two at the player)

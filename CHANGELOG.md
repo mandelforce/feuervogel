@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Scores: radar 500 (was 1500), destroyer 2000 (3000), hangar 500 (2500), flak tower 1000 (4000; 2500 in the Raven castle), generator 500 (1200), sandbags 0 (50).
 - Enemy scores and stats are in one place: every type in `ENT` now has its base hp, hit box, radius and score in its `stats` entry (tank, heavy tank, bunker, boxcar, flatcar, ammo car, motorbike, staff car, building, crate, shells, drums, fighter, popup gun, gate). Spawn sites only pass what differs. New `tests/stats.mjs` fails if a type has no explicit score (so none can fall back to the 100-point default by accident) and prints the score table with `--table`. No gameplay change: the replay results match the previous ones exactly.
 - Scoring: parked planes (300) and bridges (800) now show their points when destroyed (they always paid them, but under 1000 no label appeared). Troops give no points. Hitting the Raven prototype while it flees in level 4 gives no points any more; the 20,000 for destroying it in level 6 stays.
 - Tanks (and heavy tanks) no longer fire a last burst when destroyed (Veteran and Ace): the turret is gone. Other gun positions still do.
