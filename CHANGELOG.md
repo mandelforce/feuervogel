@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Enemy scores and stats are in one place: every type in `ENT` now has its base hp, hit box, radius and score in its `stats` entry (tank, heavy tank, bunker, boxcar, flatcar, ammo car, motorbike, staff car, building, crate, shells, drums, fighter, popup gun, gate). Spawn sites only pass what differs. New `tests/stats.mjs` fails if a type has no explicit score (so none can fall back to the 100-point default by accident) and prints the score table with `--table`. No gameplay change: the replay results match the previous ones exactly.
 - Scoring: parked planes (300) and bridges (800) now show their points when destroyed (they always paid them, but under 1000 no label appeared). Troops give no points. Hitting the Raven prototype while it flees in level 4 gives no points any more; the 20,000 for destroying it in level 6 stays.
 - Tanks (and heavy tanks) no longer fire a last burst when destroyed (Veteran and Ace): the turret is gone. Other gun positions still do.
 - Enigma Run level 6: the music keeps playing through the Raven prototype duel and fades out only when the WARNING appears (it faded out before the duel).
