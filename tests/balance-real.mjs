@@ -31,7 +31,7 @@ async function fly(diff) {
     await page.goto(PAGE);
     await page.waitForFunction(() => typeof window.__sf === 'function');
     await page.evaluate(src => window.__sf(src), harness);
-    return await page.evaluate(([d, o, attrib]) => { if (attrib) SF.attrib(); return SF.flyCampaign(d, o); }, [diff, { lag: LAG, react: REACT, overrides: OVERRIDES, code: CODE }, ATTRIB]);
+    return await page.evaluate(([d, o, attrib]) => { if (attrib) SF.attrib(); return SF.flyCampaign(d, o); }, [diff, { lag: LAG, react: REACT, overrides: OVERRIDES, code: CODE }, ATTRIB || LEVELS]);
   } finally { await page.close(); }
 }
 const jobs = []; for (const d of DIFFS) for (let r = 0; r < RUNS; r++) jobs.push(d);
@@ -54,6 +54,7 @@ console.log('difficulty  hits  laser   top   pre  bossB  boss seconds, levels 1-
 for (const [n, v] of Object.entries(rows)) console.log(n.padEnd(10), f(v.hits).padStart(5), f(v.laser).padStart(6), f(v.top).padStart(6), f(v.pre).padStart(5), f(v.bossB).padStart(6), ' ', v.boss.map(x => f(x, 0).padStart(3)).join(' '), '        ', f(v.killed));
 if (LEVELS) for (const d of DIFFS) {
   const r = results[d], by = k => [0, 1, 2, 3, 4, 5].map(i => f(avg(r.map(x => x[k][i])), k === 'hitsBy' ? 1 : 0).padStart(4)).join(' ');
+  if (results[d][0].shotsBy.length) console.log(`${NAMES[d].padEnd(8)} enemy shots per second before the boss, levels 1-6: ${[0, 1, 2, 3, 4, 5].map(i => f(avg(r.map(x => x.shotsBy[i])), 2).padStart(5)).join(' ')}`);
   console.log(`${NAMES[d].padEnd(8)} per level 1-6: window ${by('topBy')} | pre-boss avg ${[0, 1, 2, 3, 4, 5].map(i => f(avg(r.map(x => x.preBy[i]))).padStart(4)).join(' ')} | hits ${by('hitsBy')}`);
 }
 if (rows.Rookie && rows.Veteran && rows.Ace) console.log(`ladder (hits): Rookie 1 : Veteran ${f(rows.Veteran.hits / rows.Rookie.hits, 2)} : Ace ${f(rows.Ace.hits / rows.Rookie.hits, 2)}`);

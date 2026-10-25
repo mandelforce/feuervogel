@@ -8,18 +8,18 @@
     "normal-stage1-immortal": {
       "H": 408,
       "status": "ok",
-      "score": 940620,
+      "score": 745590,
       "stage": 3,
       "lives": 6,
       "bombs": 6,
       "frames": 30000,
-      "kills": 260,
-      "medals": 53,
+      "kills": 221,
+      "medals": 49,
       "hits": 1,
-      "enemies": 1,
-      "bullets": 15,
+      "enemies": 9,
+      "bullets": 1,
       "errors": 0,
-      "trace": "33a914c4 83b8045e 6b530f05 25a6fcb0 34358374 34159a65 ce3b7f5a a6a427ca 33691fd6 6ebf187e 7ffbf383 672447b1 50350eff 92421212 e7801860 1de75140 71b8a76c 1663873f e490e371 37590b0c 5630ff28 0c9ca7a3 064e565c 8bf3394e 34bf08f4 4a8de6e6 6d82307c 05f19b4a 580dc4c8 db0494a7 2850dc92 ffc008dd ffe2c808 4449c0a3 1cbda542 15c586bf e05470cb c50ff3e4 5ebd80f8 845ca26b b37b70e4 938079ab 811dfe1f a6324534 874ed7b9 371fa105 b3dc543f 5a73777b b2dc0769 3bd1410b 4e046cb5 fa4bb5c4 47c66a29 4fe55140 f708ac15 328e513d ec4eaa38 359a0a2c 91553e8c c01623fa"
+      "trace": "33a914c4 df2c0bfc abfea8e3 6eae83c9 8dc2ae96 ca83e327 8f31056f 9cc6c281 d53539bc d1a2eea3 4c2e9a8b c35e1a7f 9d1925d8 a2e15329 38e7922f f960d865 0652bc14 cad2f59e 8d87525d 46ab06f7 8c0267a1 8cf3d189 255c9a4b 096ad85f f91e3e93 079d84f8 3485e670 4c6fe36b f84f6f7e 2fca0b59 f3aea080 eb1ce276 3af1645b 78b5442a 6acd4698 56d220f0 fd625fa2 50837ae4 7565108f 6dde12db 761b94ce 1d5764f4 2a97d491 7595ed49 f5bc5ae4 27ad51a2 50838548 c573650f f636aa9d d9c685f4 3ec5fc2b cbf2ef13 0cc837e0 ee7c6676 b09d9f71 7efa64a4 8c739630 7c4583e6 e8197e04 2c921d28"
     },
     "hard-stage3-real": {
       "H": 408,
@@ -104,34 +104,34 @@
     "normal-2p-stage2-immortal": {
       "H": 408,
       "status": "ok",
-      "score": 261940,
+      "score": 260760,
       "stage": 3,
       "lives": 0,
       "bombs": 3,
       "frames": 20000,
-      "kills": 56,
-      "medals": 9,
+      "kills": 84,
+      "medals": 14,
       "hits": 1,
-      "enemies": 17,
-      "bullets": 42,
+      "enemies": 18,
+      "bullets": 40,
       "errors": 0,
-      "trace": "84d91dff e5ef1522 a84c2d88 addf19e3 170af025 21555ae8 72666b43 e804ebd9 00f78382 64c369c7 f938bd6f 7a7292bc 3a841fdf 75e7466f f559f7ae 3ba88292 81896597 6815aed7 33951de9 ea9f3257 2c5dbe5f 21d9b56a cd7e49b9 69a70d5e 36ea16f5 bd2546b4 e59bee50 bb136fb9 6345aebd 70de060b f6a75866 4cbdd785 7dde60aa 7633a72d 22f1f898 439bc72e a683c0b0 c5d7b391 26ec10de a3a6e6bc"
+      "trace": "60fb9d77 ef8e89f4 b73aa459 adc06165 4b778d22 1906ea0a d7ed6b63 db53e66e 60a97783 aaa1ed1a b6846a5d 4ceb8ae6 a75e5939 b4731fbe 2a0862e5 481c82f8 e8eed2a0 20680ad6 3665a349 75c9dee2 d142da32 2fd1f62b 72f2747e 29f09d23 3e439ae2 3606de4e d2b0bccb f2965290 79401a0f 72ecffc2 dbe2b387 bd6620ba 44de47d3 9b5eaa18 69bd014e 8e0190e9 f5a9a631 5afa9c0a 68656869 6e59c0dd"
     },
     "normal-resume-stage2-immortal": {
       "H": 408,
       "status": "ok",
-      "score": 420360,
+      "score": 365510,
       "stage": 3,
       "lives": 5,
-      "bombs": 6,
+      "bombs": 4,
       "frames": 20000,
-      "kills": 74,
-      "medals": 13,
+      "kills": 78,
+      "medals": 18,
       "hits": 0,
-      "enemies": 10,
-      "bullets": 1,
+      "enemies": 3,
+      "bullets": 3,
       "errors": 0,
-      "trace": "2aebadea 8f96753d aa40a5f6 9f0ea624 c7a9bfe3 f745c50a e2865030 5fca174f b70b6aa4 60067be0 67091591 0d647c50 c16f845f 4066db01 60eee89e 4872c91f 0827b299 3b627fcd 26e44734 1a3a197b 4fdf6148 06545c55 e40742dc 82396eec 80d25d9f 840427aa b60edc8a e970875b 3be6fb43 b94b0a09 b9794713 53fa2adb 4e130355 f83b3c39 6bfc5073 85848668 e1a9821b 919e3dab 9e7e99d4 b0ee8afd"
+      "trace": "b7b24a44 7c7e6e23 9d80b581 27ddc6f1 cc68f5f2 fc339d5c 9ad24907 94f4f2d3 9fafaae9 e66ffbd6 4153e56e 56e2162e 0e0a74dc d60bf8e5 e2fb676c a88c4681 f4ebdb1f d4ed5890 a1f28a26 2dcfc2e3 abac80b6 6401849f 797c134b bb7ec590 7cb747bf 8af99c89 e1ce788a c49a52bf 805d556b 0c2dc33f ae8a42c3 38f17dd9 e074e08a 9b729b42 88761788 85a88bea 07ff26e3 4a6ff49a 93f95924 29e1a563"
     }
   },
   "terrain": {
