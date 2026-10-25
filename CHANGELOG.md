@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Scoring: parked planes (300) and bridges (800) now show their points when destroyed (they always paid them, but under 1000 no label appeared). Troops give no points. Hitting the Raven prototype while it flees in level 4 gives no points any more; the 20,000 for destroying it in level 6 stays.
 - Tanks (and heavy tanks) no longer fire a last burst when destroyed (Veteran and Ace): the turret is gone. Other gun positions still do.
 - Enigma Run level 6: the music keeps playing through the Raven prototype duel and fades out only when the WARNING appears (it faded out before the duel).
 - Rookie: the Sower has 1.5x HP. The Sower now shows its name in the boss bar.

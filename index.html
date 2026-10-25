@@ -11309,13 +11309,13 @@ const ENT = {
   } },
   htank: { turret: true, treads: true, medals: 1, update(e) { ENT.tank.update(e); } },
   pstation: { medals: 1, stats: { hp: 40, hw: 6, score: 1500, rad: 16 }, update(e) { groundPos(e); } },
-  bridge: { harmless: true, uncounted: true, medals: 1, stats: { hp: 18, hw: 8, score: 800, rad: 10 }, update(e) { groundPos(e); } },
+  bridge: { harmless: true, uncounted: true, showScore: true, medals: 1, stats: { hp: 18, hw: 8, score: 800, rad: 10 }, update(e) { groundPos(e); } },
   secret: { harmless: true, uncounted: true, stats: { fixedHp: 4, hw: 7, hh: 7, score: 0, rad: 1 }, update(e) {
     groundPos(e); e.untarget = true;
     const near = liveShips().some(sh => !sh.dead && Math.abs(sh.x - e.x) < 15 && Math.abs(sh.y - e.y) < 18);
     if (near) { e.prog = (e.prog || 0) + 1; if (e.prog % 10 === 0) sfx('tick'); if (e.prog >= 48) { revealSecret(e); return; } } else e.prog = Math.max(0, (e.prog || 0) - 2);
   } },
-  troop: { harmless: true, uncounted: true, arcLow: true, stats: { fixedHp: 1, hw: 3, hh: 3, score: 50, rad: 2 }, update(e) {
+  troop: { harmless: true, uncounted: true, arcLow: true, stats: { fixedHp: 1, hw: 3, hh: 3, score: 0, rad: 2 }, update(e) {
     if (e.t === 1 && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 1))) { e.dead = true; return; }
     if (e.t % 20 === 1 && !e.post && !e.march && !e.flag && (inTent(e.wx, e.wy, 0) || critterHouse(e.wx, e.wy, 0))) { e.scared = 40; e.hd = Math.random() * TAU; }
     if (e.flag) { groundPos(e); return; }
@@ -11466,7 +11466,6 @@ const ENT = {
     if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) smokePuff(e.x - ex, e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
     if (gf % 3 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
-    if (e.y < 24 && e.bonus && !e.shown) { e.shown = true; label(e.x, 30, e.bonus); }
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
   bldg: { arcLow: true, medals: 1, treesInFront: true, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
@@ -11525,7 +11524,7 @@ const ENT = {
     groundPos(e);
   } },
   fuel: { harmless: true, guarded: true, medals: 0.4, treesInFront: true, stats: { hp: 6, hw: 7, hh: 7, score: 300, rad: 9 }, update(e) { groundPos(e); } },
-  parked: { harmless: true, uncounted: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
+  parked: { harmless: true, uncounted: true, showScore: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { if (e.taxi > 0) { e.taxi--; if (!blockedMove(e, 0, e.v)) e.wy += e.v; } groundPos(e); } },
   boss: { harmless: true, stats: { hw: 32, hh: 86 }, update(e) {
     if (e.dying) {
       if (BOSS[e.kind].dyingDrift) BOSS[e.kind].dyingDrift(e);
@@ -12135,7 +12134,7 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
-  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; const add = Math.min(Math.round(d * 60), 15000 - (e.bonus || 0)); if (add > 0) { e.bonus = (e.bonus || 0) + add; addScore(add); checkExtend(); } if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { startCrash(e); return; }
@@ -12363,7 +12362,7 @@ function kill(e) {
   if (e.type !== 'troop' && !e.counted) { if (e.ground) run.stats.ground++; else if (!e.big) run.stats.air++; }
   if (e.train && world.trainLeft[e.train] !== undefined && --world.trainLeft[e.train] === 0) { const tb = trainBonus[e.train] || 5000; addScore(tb); label(e.x, e.y - 16, String(tb)); sfx('power'); haptic('power'); }
   addScore(e.score); checkExtend();
-  if (e.score >= 1000) label(e.x, e.y - 6, String(e.score));
+  if (e.score >= 1000 || (T.showScore && e.score > 0)) label(e.x, e.y - 6, String(e.score));
   if (e.big) {
     e.dying = 90;
     cancelBullets(e.x, e.y, 0); sfx('boom');
