@@ -229,7 +229,7 @@ Rule from the review request: the director must never place a gun where a large 
 
 ### 5.1 Generators and power (current state and options)
 
-Today the only game mechanic tied to a generator (`G('gen')`: 8 hp, 1200 points, harmless, puffs smoke) is **powering a searchlight**: a searchlight finds the nearest generator within 190 px, and when that generator is destroyed the searchlight goes dark after about 60 frames. Generators are spawned only beside searchlights in the night stage (campaign stage 4 or later, or in Endless). I found no generator on air bases and no other effect. In Enigma Run a `generator` site carries `powers: [siteIds]` so the link is data, not a distance search. The first use is `searchlight_post`: a searchlight, a generator and the turrets near it. Possible later uses, none of them decided: runway lights and flak at an air base, a radar, factory machinery, a harbour crane. [you]
+Today the only game mechanic tied to a generator (`G('gen')`: 8 hp, 500 points, harmless, puffs smoke) is **powering a searchlight**: a searchlight finds the nearest generator within 190 px, and when that generator is destroyed the searchlight goes dark after about 60 frames. Generators are spawned only beside searchlights in the night stage (campaign stage 4 or later, or in Endless). I found no generator on air bases and no other effect. In Enigma Run a `generator` site carries `powers: [siteIds]` so the link is data, not a distance search. The first use is `searchlight_post`: a searchlight, a generator and the turrets near it. Possible later uses, none of them decided: runway lights and flak at an air base, a radar, factory machinery, a harbour crane. [you]
 
 ## 6. Ground, relief and water
 
