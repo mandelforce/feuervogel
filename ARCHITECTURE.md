@@ -30,7 +30,7 @@ The script runs top to bottom once at page load, then `frameLoop` takes over. Se
 | audio | Web Audio: SFX (`sfx`), two synth engines (FM and OPL style), songs and arrangements |
 | state | The run in one object, `run` (score, lives, bombs, stage, loop, continues, difficulty, seed, stats, camp, medal chain); the stage being flown in `world` (scroll, terrain chunks and theme, `enemies`, `ebul` (enemy bullets), `shots`, items, particles, decals, director timers, weather); the screen and flow in `app` (`app.state`: `title`/`play`/`over`, pause, messages, results, continue, tutorial, game over scene, leaderboard panel, resume); the player ship is still its own object, `player` |
 | tutorial, leaderboard | In-game tutorial; leaderboard client (fetch top lists, submit, local fallback) |
-| resume | Saves a run so a reloaded page can continue |
+| resume | Saves a run so a reloaded page can continue: a snapshot of the whole simulation (`takeSnapshot`, `snapApply`) so you carry on exactly where you stopped, with the older stage restart (`saveResume`, `resumeRun`) as the fallback |
 | helpers | Entity factories `E()` (any enemy) and `G()` (ground enemy), `hpm()` (difficulty health scale) |
 | director | Decides what spawns when: waves, ground targets, pods, bosses (`BOSSDEF`, `BOSSMOVE`) |
 | AI | Per-enemy and per-boss behaviour: the entity table `ENT` (one entry per enemy type, `ENT[type].update(e)`) and `BOSSMOVE` |
@@ -59,6 +59,15 @@ Because the script is run from text, line numbers in error stacks (`starfall-las
 ## Data the game saves on the device
 
 All keys are listed in `KEY` near the top of the script. Names are fixed; renaming one would reset players' progress. Reads and writes go through `store`, which survives blocked storage and bad data.
+
+### Exact resume (the snapshot)
+
+A phone often closes a background page, so a run is saved to `starfall-resume` (the older fields: stage, lives, bombs, weapon, so the stage can restart) together with a **snapshot** (`snap`, written by `takeSnapshot`, read by `snapApply`) of the simulation:
+
+- **What is saved:** `world` (without the terrain caches), `run` (a sortie as `{level, seed}` plus what play changed on it, `SNAP_SORTIE`), the ships, the module sets and lists that play changes (`snapSets`, `snapLists`), the random streams (`simS`, `drandS`), the frame counter `gf`, the laser heat and a few `app` fields (`SNAP_APP`). `snapEncode` writes any graph of plain data (shared references and loops kept; Sets and Maps; a sprite as its place in `SPR`/`RUINS`; a function by its name in `snapFns`). It throws `SnapDirty` for anything else, and then no snapshot is taken at that moment.
+- **When:** `snapNow` runs every 30 drawn frames while you fly and whenever the game pauses (a hidden page pauses itself). The newest good one is kept in `app.snap`, and `saveResume` copies it into the record every 5 seconds and when the page is hidden. A moment that can't be written down (a delayed `world.later` closure that is not a named function; the results screen, fade or continue prompt) just keeps the previous snapshot. `markStage` and `clearResume` drop it.
+- **Restore:** `resumeRun` first rebuilds the stage as before (the stage-restart fallback), then `snapApply` rebuilds the terrain caches, puts the saved state over it and starts a 3-second countdown. Terrain comes from the seed. Needs the exact `VERSION` and a screen height within 24 pixels.
+- **Rules for new code:** a new piece of state that decides what happens next must be added to the snapshot; a new delayed effect should use a named function from `snapFns` (or it makes the moment unsaveable while it is pending); anything stored in `world.later`, entities, bullets or items must be plain data. `tests/resume-exact.mjs` fails when something is missing.
 
 ## Leaderboard
 
