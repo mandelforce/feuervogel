@@ -222,6 +222,20 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel .menu button{width:100%;padding:9px;font-size:16px}
 #settings{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
 #settings.open{display:grid}
+#ach{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
+#ach.open{display:grid}
+#ach .panel{width:min(94%,360px);max-height:94%;overflow-y:auto}
+.achsum{display:flex;justify-content:space-between;font-size:15px;margin:2px 0 5px;color:#f4d050}.achsum span+span{color:#a99cc8}
+.achbar{height:10px;background:#120e1a;border:2px solid #4a3f6e;margin-bottom:10px}.achbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff7a3a,#f4d050)}
+.ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#1c1630;border:2px solid #352b55;opacity:.7}
+.ach.on{background:#2e2358;border-color:#8466dc;opacity:1}
+.ach .ib{width:38px;height:38px;flex:none;display:grid;place-items:center;background:#120e1a;border:2px solid #4a3f6e;box-shadow:inset 0 0 0 2px #1c1630}
+.ach.on .ib{border-color:#f4d050}
+.ach canvas{width:20px;height:20px;image-rendering:pixelated;display:block}
+.ach .am{flex:1;min-width:0}.ach .at{font-size:14px;color:#a99cc8}.ach.on .at{color:#f2ecd8}
+.ach .ad{font-size:11px;color:#a99cc8;margin-top:1px}.ach .ar{font-size:10px;color:#f4d050;margin-top:3px}
+.ach .as{font-size:12px;color:#7fe6c8;flex:none}
+.ach .new{position:absolute;top:-8px;right:6px;background:#ff7a3a;color:#1b1530;font:600 10px 'StarFall Text',ui-monospace,monospace;padding:1px 5px;letter-spacing:.1em}
 .panel{width:min(88%,300px);background:#1c1630;border:3px solid #f2ecd8;box-shadow:0 0 0 3px #120e1a,0 8px 0 #120e1a;padding:16px 16px 14px;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace}
 .panel h2{margin:0 0 10px;font-size:22px;font-weight:600;color:#fff0a0;text-shadow:2px 2px 0 #120e1a}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}
@@ -358,6 +372,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmMusic" aria-label="Music: On">Music<i>ON</i></button>
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
+          <button type="button" id="pmAch">Achievements<i id="pmAchN"></i></button>
           <button type="button" id="pmSettings">Settings</button>
           <button type="button" id="pmHow">How to play</button>
           <button type="button" id="pmCredits">Credits</button>
@@ -417,6 +432,15 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div style="height:60px"></div>
         <button type="button" id="crRetro">Retro Run</button>
         <div style="height:90px"></div>
+      </div>
+    </div>
+    <div id="ach" role="dialog" aria-modal="true" aria-labelledby="achT">
+      <div class="panel">
+        <h2 id="achT">Achievements</h2>
+        <div class="achsum"><span id="achCount"></span><span id="achPct"></span></div>
+        <div class="achbar"><i id="achFill"></i></div>
+        <div id="achList"></div>
+        <button type="button" class="primary" id="achClose">Close</button>
       </div>
     </div>
     <div id="howto" role="dialog" aria-modal="true" aria-labelledby="howTitle">
@@ -4172,7 +4196,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install', achv: 'feuervogel-achv'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4509,11 +4533,15 @@ function camo(x, thr = 0.58, f = 0.72, sc = 0.22, seed = 0) {
 
 /* ================= sprites ================= */
 const SPR = {};
+// Placeholder looks for the Veteran and Ace rewards: a steel-blue recolour and the red Phoenix (flame wings, long fire tail)
+const VET_PA = ['#0a1220', '#16243c', '#244066', '#3a68a0', '#6aa0d8', '#b8dcff'], VET_PC = ['#10203a', '#1e3c66', '#3a68a0', '#6aa8e0', '#c8ecff'];
+const PHX_PA = ['#2a0508', '#5a0a10', '#8f1018', '#c8201c', '#f0502a', '#ff9a5a'], PHX_PC = ['#3a0a0a', '#7a1810', '#c03a1a', '#f07a2a', '#ffd070'];
+const PHX_EDGE = ['#8a1a10', '#d8421a', '#ff8a2a', '#ffd060'], PHX_TAIL = ['#3a0a08', '#8f1018', '#d8421a', '#ff8a2a', '#ffd060'];
 function buildFeuervogel(bank, skin) {
-  const gold = skin === true, nacht = skin === 'nacht'; // the Nachtvogel: a darker Feuervogel, black with the violet kept as glow
-  const PA = nacht ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : RP.alien, PC = nacht ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : RP.crys;
+  const gold = skin === true, nacht = skin === 'nacht', vet = skin === 'vet', phx = skin === 'phoenix'; // the Nachtvogel: a darker Feuervogel, black with the violet kept as glow
+  const PA = nacht ? ['#06050a', '#0e0c16', '#171526', '#241f3c', '#352e58', '#4b4278'] : gold ? ['#3a2208', '#6a4210', '#a87018', '#e0a830', '#f8d870', '#fff4c0'] : vet ? VET_PA : phx ? PHX_PA : RP.alien, PC = nacht ? ['#171526', '#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#4a2a10', '#8a6018', '#c09030', '#f0c860', '#fff0b0'] : vet ? VET_PC : phx ? PHX_PC : RP.crys;
   // golden skin leans into the rooster look: hackle-orange wing edges, green sickle tail, comb and beak
-  const EDGE = nacht ? ['#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : PC, TAIL = nacht ? PA : gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : PA;
+  const EDGE = nacht ? ['#2e2750', '#4b4278', '#6e62a8', '#a99cdc'] : gold ? ['#6a2a10', '#c05a1a', '#f08a2a', '#ffc060'] : phx ? PHX_EDGE : PC, TAIL = nacht ? PA : gold ? ['#0a1a18', '#123a34', '#1e6a58', '#3aa088', '#8ae0c0'] : phx ? PHX_TAIL : PA;
   return sprite(34, 36, x => {
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
@@ -4529,7 +4557,7 @@ function buildFeuervogel(bank, skin) {
       if (edge && j < 20) rect(x, pick(EDGE, 0.8, i, j), i, j, 1, 1);
       else if (u >= 6 && u < 10 && j >= 13 && j < 22) rect(x, u < 8 ? (nacht ? '#6e62a8' : '#ecebe0') : (nacht ? '#06050a' : '#1a1a1e'), i, j, 1, 1);
     }
-    polyS(x, TAIL, gold ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
+    polyS(x, TAIL, gold || phx ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5);
     polyS(x, PC, [[14, 20], [11, 25], [13, 25], [15, 23]], -0.05, 0.4);
     polyS(x, PC, [[20, 20], [23, 25], [21, 25], [19, 23]], -0.05, 0.4);
     ellS(x, PA, 17 + bank * 0.6, 16, 3.6, 10, 0.05);
@@ -4553,40 +4581,96 @@ let goldCache = null;
 function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildFeuervogel(b, true))); }
 let nachtCache = null;
 function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => buildFeuervogel(b, 'nacht'))); }
+let vetCache = null, phxCache = null;
+function vetSet() { return vetCache || (vetCache = [-1, 0, 1].map(b => buildFeuervogel(b, 'vet'))); }
+function phxSet() { return phxCache || (phxCache = [-1, 0, 1].map(b => buildFeuervogel(b, 'phoenix'))); }
 // The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
 const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
-function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
-function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
-const FLAME = () => useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); saveSettings(); }
+function unlockNacht() { if (!nachtOwned()) { store.set(KEY.nacht, 1); award('raven'); } }
+
+/* ================= achievements ================= */
+// achv maps an achievement id to { t: when, n: 1 until the list was opened, s: 1 until the ship picker was opened (for ones that unlock a ship) }.
+// They only count in the ranked Campaign (START), Retro Run has its own: never the Tutorial, Practice or Endless.
+const ACH = [
+  { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'rooster' },
+  { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'veteran' },
+  { id: 'ace', name: 'Ace Pilot', desc: 'Finish the Campaign on Ace', icon: 'wings', skin: 'phoenix' },
+  { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
+  { id: 'nonet', name: 'No Net', desc: 'Finish the Campaign without continues', icon: 'star' },
+  { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
+  { id: 'chain', name: 'Chain Master', desc: 'Reach a x10 medal multiplier', icon: 'medal' },
+  { id: 'snow', name: 'Snow Bird', desc: 'Find all six secrets', icon: 'snow', skin: 'schnee' },
+  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Nachtvogel', icon: 'wings', skin: 'nacht', hidden: true }
+];
+let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
+const achHas = id => !!achv[id];
+const saveAchv = () => store.setJSON(KEY.achv, achv);
+let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
+function award(id, quiet) {
+  const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
+  achv[id] = { t: Date.now(), n: 1, s: a.skin && !quiet ? 1 : 0 }; saveAchv();
+  if (!quiet) { app.toasts.push({ id, t: 0 }); sfx('extend'); }
+  return true;
+}
+const rankedCamp = () => run.ranked && !!run.sortie && !run.endless && !app.tut;
+function campaignWon() { // the last Campaign level is cleared
+  if (!rankedCamp()) return;
+  const d = ['rookie', 'veteran', 'ace'][run.diff]; if (d) award(d);
+  if (run.conts === 0) award('nonet');
+}
+function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); } // players who already earned these keep them
+const achCount = () => ACH.filter(x => achv[x.id]).length;
+const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
+
+// Ship skins: the one flown is settings.skin (older saves had the gold and nacht flags)
+const FLAME_STD = ['#ff7a3a', '#ffb03a', '#fff0a0'];
+const SKINS = [
+  { id: 'std', name: 'FEUERVOGEL', set: () => SPR.playerSet, own: () => true, flame: FLAME_STD },
+  { id: 'rooster', name: 'ROOSTER', set: goldSet, own: () => achHas('rookie'), flame: FLAME_STD },
+  { id: 'veteran', name: 'STAHLVOGEL', set: vetSet, own: () => achHas('veteran'), flame: ['#3a9aff', '#8acaff', '#e4f4ff'] },
+  { id: 'phoenix', name: 'PHOENIX', set: phxSet, own: () => achHas('ace'), flame: ['#ffb03a', '#ffe070', '#fffbe0'] },
+  { id: 'schnee', name: 'SCHNEEVOGEL', set: () => SPR.schnee, own: () => arts.size >= 6, flame: FLAME_STD }, // the reward for all six secrets
+  { id: 'nacht', name: 'NACHTVOGEL', set: nachtSet, own: nachtOwned, flame: ['#8466dc', '#bba4ff', '#e8dcff'] }
+];
+if (settings.skin === undefined) settings.skin = settings.nacht ? 'nacht' : settings.gold ? 'schnee' : 'std';
+const curSkin = () => SKINS.find(k => k.id === settings.skin && k.own()) || SKINS[0];
+const useNacht = () => curSkin().id === 'nacht';
+const skinSet = () => curSkin().set(); // the golden Rooster is also player 2's ship; in two-player games player 1 keeps the original look
+const FLAME = () => curSkin().flame;
+function setSkin(id) { const k = SKINS.find(q => q.id === id); if (!k || !k.own()) return; settings.skin = id; settings.gold = id === 'schnee'; settings.nacht = id === 'nacht'; saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
-const app = { shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
+const app = { toasts: [], shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : []);
-const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
-function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); sfx('tick'); }
+const shipList = () => SKINS.filter(k => k.own()).map(k => [k.id, k.set(), k]);
+const PICK_CARD = { w: 50, h: 58, gap: 6, y: 112 };
+function pickPos(i, n) { // up to four ships in a row; more wrap into rows of three
+  const cols = n <= 4 ? n : 3, row = Math.floor(i / cols), cnt = Math.min(cols, n - row * cols);
+  return { x: Math.round(W / 2 - (cnt * PICK_CARD.w + (cnt - 1) * PICK_CARD.gap) / 2) + (i % cols) * (PICK_CARD.w + PICK_CARD.gap), y: PICK_CARD.y + row * (PICK_CARD.h + PICK_CARD.gap) };
+}
+const newShip = () => nachtState() === 1 || Object.keys(achv).some(k => achv[k].s);
+function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); let ch = false; for (const k in achv) if (achv[k].s) { achv[k].s = 0; ch = true; } if (ch) saveAchv(); sfx('tick'); }
 function tapShipPick(gx, gy) {
-  const list = shipList(), x0 = pickX0(list.length);
-  for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
+  const list = shipList();
+  for (let i = 0; i < list.length; i++) { const c = pickPos(i, list.length); if (gx >= c.x && gx <= c.x + PICK_CARD.w && gy >= c.y && gy <= c.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   app.shipPick = false;
 }
 function drawShipPick() {
-  const list = shipList(), x0 = pickX0(list.length), cur = useNacht() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), cur = curSkin().id;
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
-  list.forEach(([id, set], i) => {
-    const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
-    ctx.fillStyle = OUT; ctx.fillRect(cx - 2, PICK_CARD.y - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
-    ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, PICK_CARD.y - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
-    ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, PICK_CARD.y + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
-    const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = PICK_CARD.y + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
-    ctx.fillStyle = id === 2 ? '#8466dc' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
+  list.forEach(([id, set, sk], i) => {
+    const { x: cx, y: cy } = pickPos(i, list.length), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
+    ctx.fillStyle = OUT; ctx.fillRect(cx - 2, cy - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
+    ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, cy - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
+    ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, cy + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
+    const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = cy + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
+    ctx.fillStyle = sk.flame[0]; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
     ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
-    if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, PICK_CARD.y + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
+    if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, cy + PICK_CARD.h + 3, 6, 2); ctx.globalAlpha = 1; }
   });
+  const last = pickPos(list.length - 1, list.length), cs = SKINS.find(k => k.id === cur);
+  textS(cs.name, W / 2, last.y + PICK_CARD.h + 12, '#fff0a0', 1, 'center', '#f4d050');
 }
 // 2nd player: a captured Raven prototype, the Ravens' bat-wing bomber shrunk to fighter size and flown nose-up
 const RAVEN = ['#1c1d22', '#30323a', '#4a4d56', '#686c76', '#8c919b', '#b4b9c2', '#dde1e7'];
@@ -7842,6 +7926,7 @@ const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, death
 let guardCount = 0;
 run.stats = newStats();
 let arts = new Set(store.getJSON(KEY.arts, []));
+migrateAch();
 let beam = null, gpad = null, padPrev = {};
 // 2nd player (PC only): flies with the mouse or a controller. Has its own weapon, score, lives and Nova bombs; respawns on its own while it has lives
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
@@ -8315,6 +8400,9 @@ const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
+// the trophy button under SCORES opens the achievements; it moves up on short screens so it clears the credit line
+function trophyBtn() { const y = Math.min((SHOW_ENDLESS ? ENDLESS_Y + ENDLESS_BTN.h : SCORES_Y + SCORES_BTN.h) + 8, H - TY - 38); return { x: Math.round(W / 2 - 13), y, w: 26, h: 22 }; }
+function trophyHit(gx, gy) { const b = trophyBtn(); return gx >= b.x - 5 && gx <= b.x + b.w + 5 && gy >= b.y - 4 && gy <= b.y + b.h + 6; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 function lbEligible() { return run.score > 0 && run.ranked && run.start === 1 && !run.twoP; } // only the Campaign (START) is ranked; Retro Run, practice and 2-player runs stay off the board
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
@@ -9983,6 +10071,7 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
+  bossHit = false;
   const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
@@ -9991,7 +10080,7 @@ function spawnBoss() {
   });
   if (app.state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(world.scroll);
-  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: e => { world.scrollTarget = SCROLL; if (!(def.delayClear && def.delayClear(e))) stageClear(); } });
+  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: e => { world.scrollTarget = SCROLL; if (!bossHit && rankedCamp()) award('untouch'); if (!(def.delayClear && def.delayClear(e))) stageClear(); } });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
   if (def.setup) def.setup(bossE, sc);
   world.enemies.push(bossE);
@@ -10068,11 +10157,11 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); campaignWon(); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
-    loopsWon++; store.set(KEY.loops, loopsWon);
+    loopsWon++; store.set(KEY.loops, loopsWon); if (run.retro && !app.tut) award('retro');
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -12002,7 +12091,7 @@ function drawRebirth(p) {
 }
 function die(cause) {
   const p = player; rrDeath(cause || '?');
-  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
+  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; bossHit = true; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
@@ -12046,7 +12135,7 @@ function updP2() {
 }
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
-  q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  bossHit = true; q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
   if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
 }
 // What player 2 can pick up: weapons, Nova bombs, medals, sparkles, the artifact. A Talon drone is worth points instead (only player 1 carries drones)
@@ -12056,10 +12145,10 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? Math.min(MEDAL_MAX, run.medalMul + 1) : 1; run.medalT = MEDAL_WIN;
-      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= MEDAL_MAX && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
       run.stats.medals++; medalSfx(Math.min(6, run.medalMul - 1)); checkExtend(); world.items.splice(i, 1); continue;
     }
@@ -12425,10 +12514,10 @@ function padMenus(nav) {
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
 function padTitle(nav) {
-  const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus));
+  const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
-  if (nav.a || nav.start) { if (app.titleFocus === 0) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+  if (nav.a || nav.start) { if (app.titleFocus === 0) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
@@ -12724,11 +12813,11 @@ function update() {
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
           addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? Math.min(MEDAL_MAX, run.medalMul + 1) : 1; run.medalT = MEDAL_WIN;
-          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= MEDAL_MAX && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
           run.stats.medals++; medalSfx(Math.min(6, run.medalMul - 1)); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
@@ -13812,7 +13901,7 @@ function renderMain() {
       const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#3a2a70', faceLo: '#241a48' }, 3, dn);
       ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
       textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
     { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
       if (SHOW_ENDLESS) {
@@ -13824,11 +13913,15 @@ function renderMain() {
       const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('scores'));
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('ach'));
+        ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) - 1);
+        if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
     }
-    if (nachtState() === 1 && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if (newShip() && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
+    drawToasts();
     syncBody(); return;
   }
 
@@ -13997,6 +14090,7 @@ function renderMain() {
     drawFlybyOverlay();
   }
   if (app.paused && app.state === 'play') { ctx.fillStyle = 'rgba(18,14,26,0.45)'; ctx.fillRect(0, 0, W, H); }
+  drawToasts();
   if (app.fade) { const a = app.fade.phase === 'out' ? app.fade.t / 24 : 1 - app.fade.t / 32, lv = Math.round(clamp(a, 0, 1) * 16); if (lv > 0) { ctx.fillStyle = FADE_PATS()[lv]; ctx.fillRect(0, 0, W, H); } }
   syncBody();
 }
@@ -14025,7 +14119,7 @@ function showPauseMenu(v) {
   const inGame = app.state === 'play';
   for (const id of ['pmSep2', 'pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
-  setSoundLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
+  setSoundLabel(); achLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
 function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else if (document.pointerLockElement) document.exitPointerLock(); setPauseIcon(); showPauseMenu(app.paused); }
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
@@ -14046,10 +14140,78 @@ document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('
 document.getElementById('pmResume').addEventListener('click', closeMenu);
 document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); startAt(run.stage); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
+document.getElementById('pmAch').addEventListener('click', () => { showPauseMenu(false); openAch(true); });
+// The achievements page: opened from the title screen's trophy or from the menu; opening it clears the NEW marks
+const ACH_BM = {
+  wings: ['10000001', '11000011', '11100111', '11111111', '01111110', '00111100', '00011000', '00011000'],
+  shield: ['11111111', '10000001', '10011001', '10011001', '01011010', '01000010', '00100100', '00011000'],
+  star: ['00011000', '00011000', '11111111', '01111110', '00111100', '01111110', '01100110', '01000010'],
+  medal: ['01100110', '00100100', '00111100', '01111110', '01111110', '01111110', '00111100', '00000000'],
+  snow: ['10010010', '01010100', '00111000', '11111111', '00111000', '01010100', '10010010', '00000000'],
+  pad: ['00000000', '01111110', '11111111', '11011011', '11111111', '11111111', '01100110', '00000000'],
+  lock: ['00111100', '01000010', '01000010', '11111111', '11111111', '11100111', '11100111', '11111111']
+};
+function achIcon(name, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.fillStyle = color;
+  ACH_BM[name].forEach((r, y) => { for (let i = 0; i < 8; i++) if (r[i] === '1') x.fillRect(i, y, 1, 1); });
+  return c;
+}
+let achFromMenu = false;
+function achLabel() { document.getElementById('pmAchN').textContent = achCount() + '/' + ACH.length; }
+function openAch(fromMenu) {
+  achFromMenu = !!fromMenu; const list = document.getElementById('achList'); list.textContent = '';
+  const skinName = id => { const n = SKINS.find(k => k.id === id).name; return n.charAt(0) + n.slice(1).toLowerCase(); };
+  for (const a of ACH) {
+    const e = achv[a.id], on = !!e, hide = !!a.hidden && !on;
+    const row = document.createElement('div'); row.className = 'ach' + (on ? ' on' : '');
+    const ib = document.createElement('div'); ib.className = 'ib'; ib.appendChild(achIcon(hide ? 'lock' : a.icon, on ? '#f4d050' : '#5a4e80')); row.appendChild(ib);
+    const am = document.createElement('div'); am.className = 'am';
+    const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
+    const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
+    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + skinName(a.skin) + ' ship'; am.appendChild(ar); }
+    row.appendChild(am);
+    const as = document.createElement('div'); as.className = 'as'; if (on) as.textContent = '\u2713'; else as.appendChild(achIcon('lock', '#5a4e80')); row.appendChild(as);
+    if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
+    list.appendChild(row);
+  }
+  const got = achCount(); document.getElementById('achCount').textContent = got + ' / ' + ACH.length; document.getElementById('achPct').textContent = Math.round(got / ACH.length * 100) + '%';
+  document.getElementById('achFill').style.width = (got / ACH.length * 100) + '%';
+  let ch = false; for (const k in achv) if (achv[k].n) { achv[k].n = 0; ch = true; } if (ch) saveAchv();
+  audio(); sfx('tick'); document.getElementById('ach').classList.add('open'); document.getElementById('achClose').focus();
+}
+document.getElementById('achClose').addEventListener('click', () => { document.getElementById('ach').classList.remove('open'); if (achFromMenu) { showPauseMenu(true); document.getElementById('pmAch').focus(); } });
+document.getElementById('ach').addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === document.getElementById('ach')) document.getElementById('achClose').click(); });
+// the gold trophy on the title's button and in the toast: 16 x 16 pixel art with a dark outline
+let trophyC = null;
+function trophySpr() {
+  if (trophyC) return trophyC;
+  const N = 16, G = '#f4d050', L = '#fff4b0', D = '#c98a1c', DD = '#8a5a12', m = Array.from({ length: N }, () => Array(N).fill(null));
+  const R = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m[y][x] = c; };
+  R(4, 1, 11, 6, G); R(4, 1, 11, 1, L); R(4, 2, 4, 6, L); R(10, 2, 11, 6, D); R(5, 7, 10, 7, G); R(6, 8, 9, 8, D);
+  for (const [x, y] of [[3, 2], [2, 2], [1, 3], [1, 4], [1, 5], [2, 6], [3, 6]]) { m[y][x] = D; m[y][15 - x] = D; }
+  R(7, 9, 8, 11, D); R(7, 9, 7, 11, G); R(4, 12, 11, 13, D); R(4, 12, 11, 12, G); R(4, 13, 11, 13, DD);
+  for (const [x, y, c] of [[7, 3, '#ffffff'], [7, 4, L], [6, 4, L], [8, 4, L], [7, 5, L]]) m[y][x] = c;
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), f = (a, b) => a >= 0 && b >= 0 && a < N && b < N && m[b][a];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!m[y][x] && (f(x + 1, y) || f(x - 1, y) || f(x, y + 1) || f(x, y - 1))) { g.fillStyle = '#1a0f33'; g.fillRect(x, y, 1, 1); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) { g.fillStyle = m[y][x]; g.fillRect(x, y, 1, 1); }
+  return (trophyC = c);
+}
+// a new achievement slides in near the top for about three seconds; several wait their turn
+function drawToasts() {
+  const q = app.toasts; if (!q.length) return;
+  const T = q[0], a = ACH.find(x => x.id === T.id), IN = 12, HOLD = 170, FADE = 14; T.t++;
+  if (!a || T.t > IN + HOLD + FADE) { q.shift(); return; }
+  const k = T.t < IN ? T.t / IN : T.t > IN + HOLD ? 1 - (T.t - IN - HOLD) / FADE : 1;
+  const w = 176, h = 26, x = Math.round((W - w) / 2), y = Math.round(34 - (1 - k) * 40);
+  ctx.save(); ctx.globalAlpha = Math.min(1, k * 1.6);
+  ctx.fillStyle = OUT; ctx.fillRect(x - 2, y - 2, w + 4, h + 4); ctx.fillStyle = '#f4d050'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = '#1c1630'; ctx.fillRect(x, y, w, h);
+  ctx.drawImage(trophySpr(), x + 4, y + 5);
+  textS('ACHIEVEMENT', x + 26, y + 5, '#f4d050', 1, 'left'); textS(a.name.toUpperCase(), x + 26, y + 15, '#ffffff', 1, 'left');
+  ctx.restore();
+}
 document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); stopMusic(); if (app.state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); app.state = 'over'; app.overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
 
-function useGold() { return arts.size >= 6 && settings.gold; }
 function syncSettingsUI() {
   document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx; for (const id of ['sMusic', 'sSfx']) rangeFill(document.getElementById(id));
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
@@ -14255,7 +14417,7 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
-  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open, #ach.open')) { if (k === 'escape') { if (document.getElementById('ach').classList.contains('open')) document.getElementById('achClose').click(); else if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); app.rrIn = 'key';
   if (app.booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
@@ -14277,7 +14439,7 @@ let drag = null, scale = 2;
 onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }
