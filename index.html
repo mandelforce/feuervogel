@@ -4137,7 +4137,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.2'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.3'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8825,8 +8825,10 @@ function saveResume() {
   store.setJSON(KEY.resume, r);
 }
 function clearResume() { store.remove(KEY.resume); }
+// A save from an earlier build still resumes: the record only holds numbers the game rebuilds the stage from, and a hidden 4th version part is a fix, not a format change.
+function resumeCompat(v) { return typeof v === 'string' && v.split('.').slice(0, 3).join('.') === VERSION.split('.').slice(0, 3).join('.'); }
 function loadResume() {
-  { const r = store.getJSON(KEY.resume); if (r && r.v === VERSION && Date.now() - r.at < 6 * 3600e3 && r.stage >= 1) return r; }
+  { const r = store.getJSON(KEY.resume); if (r && resumeCompat(r.v) && Date.now() - r.at < 48 * 3600e3 && r.stage >= 1) return r; }
   clearResume(); return null;
 }
 function resumeRun(r) {
@@ -14323,8 +14325,9 @@ soundBtn.addEventListener('click', () => {
   soundBtn.blur();
   store.set(KEY.muted, muted ? '1' : '0');
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && app.state === 'play' && !app.paused) togglePause(); saveHi(); if (document.hidden) { saveResume(); rrPark(); } else if (app.state === 'play') { clearResume(); rrUnpark(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden && app.state === 'play' && !app.paused) togglePause(); saveHi(); if (document.hidden) { saveResume(); rrPark(); } else if (app.state === 'play') rrUnpark(); }); // the save stays until the run ends or a new one starts, so a page killed after coming back still resumes
 addEventListener('pagehide', () => { saveHi(); saveResume(); rrPark(); });
+setInterval(() => { if (!document.hidden && app.state === 'play') saveResume(); }, 5000); // a phone can kill a background page without a last event: keep the save fresh while playing
 document.getElementById('resYes').addEventListener('click', () => { const r = app.resumeOffer; app.resumeOffer = null; document.getElementById('resumeAsk').classList.remove('open'); if (r) { audio(); resumeRun(r); } });
 document.getElementById('resNo').addEventListener('click', () => { app.resumeOffer = null; clearResume(); rrFlushParked(); document.getElementById('resumeAsk').classList.remove('open'); });
 document.getElementById('resumeAsk').addEventListener('pointerdown', e => e.stopPropagation());

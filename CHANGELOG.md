@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Resume after a long time in the background: the run is now saved every 5 seconds while you play (before, only when the page was hidden), the save is no longer deleted when you come back to the page (a page killed later lost the run), a save from an earlier build of the same version still resumes (before, any new build threw it away, so an update while you were away gave the title screen), and a save is kept for 48 hours (was 6). You still restart the stage you were in. New `tests/resume.mjs`.
 - Scores: radar 500 (was 1500), destroyer 2000 (3000), hangar 500 (2500), flak tower 1000 (4000; 2500 in the Raven castle), generator 500 (1200), sandbags 0 (50).
 - Enemy scores and stats are in one place: every type in `ENT` now has its base hp, hit box, radius and score in its `stats` entry (tank, heavy tank, bunker, boxcar, flatcar, ammo car, motorbike, staff car, building, crate, shells, drums, fighter, popup gun, gate). Spawn sites only pass what differs. New `tests/stats.mjs` fails if a type has no explicit score (so none can fall back to the 100-point default by accident) and prints the score table with `--table`. No gameplay change: the replay results match the previous ones exactly.
 - Scoring: parked planes (300) and bridges (800) now show their points when destroyed (they always paid them, but under 1000 no label appeared). Troops give no points. Hitting the Raven prototype while it flees in level 4 gives no points any more; the 20,000 for destroying it in level 6 stays.

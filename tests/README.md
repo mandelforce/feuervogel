@@ -41,6 +41,10 @@ node tests/layout.mjs --shots out/   # also save a screenshot per size
 
 It cannot reproduce everything. Check a real phone too, especially from the Home Screen icon (iOS standalone mode), after a layout change.
 
+## Resume test
+
+`resume.mjs` plays Stage 1, sends the page to the background like a phone does and reloads it. It checks that the save survives coming back to the page, is refreshed while playing, still resumes after a hidden-build bump (4th version part), is ignored for another version, and that Resume returns to the game. Serve the folder, then `node tests/resume.mjs`.
+
 ## Replay test (runs in CI, blocking)
 
 `replay.mjs` plays eight fixed scenarios with the bot and compares score, stage, lives, kills and more with `golden.json`. Together they cover all six bosses, Easy, Normal and Hard, a run where the bot can die and continue, Endless, two-player, and a run saved and resumed the way the game does after a page reload. It catches any change that alters how the game plays or scores. Run it while the folder is served (`python3 -m http.server 8000`):
