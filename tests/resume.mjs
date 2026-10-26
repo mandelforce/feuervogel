@@ -1,6 +1,7 @@
 // Resume test: a run left in the background must come back after the browser kills the page.
-// Checks: the save survives coming back to the page, is refreshed while playing (no hide event needed), an older hidden build's
-// save still resumes, a different version's save does not, and Resume puts the player back in the game.
+// Checks: the save survives coming back to the page, is refreshed while playing (no hide event needed), the game comes back at the exact
+// frame it was paused on (same frame count, score and place in the stage), an older hidden build's save still resumes (as a stage restart),
+// a different version's save does not, and Resume puts the player back in the game.
 // Serve the folder first (python3 -m http.server 8000), then: node tests/resume.mjs
 import { chromium } from 'playwright';
 const URL = process.env.STARFALL_URL || 'http://localhost:8000/';
@@ -20,6 +21,23 @@ if ((await info()).state !== 'play') fail('Stage 1 did not start');
 
 await hide(true); await hide(false);
 if (!(await info()).save) fail('the save was deleted when the page came back');
+await page.waitForTimeout(1500); // the game keeps flying; the snapshot is taken again when it pauses
+const at = () => page.evaluate(() => window.__sf('({ gf, score: run.score, scroll: Math.round(world.scroll), stage: run.stage, enemies: world.enemies.length, paused: app.paused, resumeT: app.resumeT, snapGf: app.snap && app.snap.gf })'));
+await hide(true);
+const paused = await at();
+if (paused.snapGf !== paused.gf && paused.snapGf < paused.gf - 120) fail(`the snapshot is far older than the pause (frame ${paused.snapGf}, paused at ${paused.gf})`);
+let r0 = await reload();
+if (!r0.ask) fail('no Resume question after the reload');
+else {
+  await page.click('#resYes'); await page.waitForTimeout(300);
+  const back = await at();
+  if (back.gf !== paused.snapGf) fail(`the game did not come back at the saved frame (saved ${paused.snapGf}, came back at ${back.gf})`);
+  if (back.stage !== paused.stage || Math.abs(back.scroll - paused.scroll) > 120) fail(`the game came back at another place (stage ${back.stage} scroll ${back.scroll}, was ${paused.stage} ${paused.scroll})`);
+  await page.waitForTimeout(4000);
+  const later = await at();
+  if (!(later.gf > back.gf + 60)) fail(`the game did not carry on after the countdown (frame ${back.gf}, then ${later.gf})`);
+}
+await page.evaluate(() => { for (let i = 0; i < 200; i++) window.__sf('0'); }); // (nothing: keeps the page busy for the interval below)
 
 await page.evaluate(() => localStorage.removeItem('starfall-resume'));
 await page.waitForTimeout(5500);

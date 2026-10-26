@@ -41,9 +41,19 @@ node tests/layout.mjs --shots out/   # also save a screenshot per size
 
 It cannot reproduce everything. Check a real phone too, especially from the Home Screen icon (iOS standalone mode), after a layout change.
 
-## Resume test
+## Resume tests
 
-`resume.mjs` plays Stage 1, sends the page to the background like a phone does and reloads it. It checks that the save survives coming back to the page, is refreshed while playing, still resumes after a hidden-build bump (4th version part), is ignored for another version, and that Resume returns to the game. Serve the folder, then `node tests/resume.mjs`.
+`resume.mjs` plays Stage 1 in a real browser page, sends the page to the background like a phone does and reloads it. It checks that the save survives coming back to the page, is refreshed while playing, that the game comes back on the exact frame it was paused on and carries on after the countdown, that a save from an earlier hidden build still resumes (as a stage restart), and that a save from another version is ignored. Serve the folder, then `node tests/resume.mjs`.
+
+`resume-exact.mjs` checks that a saved snapshot really is exact. The bot flies a scenario to a frame, the game saves its resume record, and the same run plays on, writing down the whole simulation (the ship, every enemy and boss part, bullets, items, timers, random streams) every 60 frames. A fresh page loads the record the way a reloaded browser does and plays the same frames; every sample must be identical. It covers the six Campaign levels (1A, 2, 3, 4, 5, 6B), the old Stage 1 to 6 starts, the bosses, two players and Endless, each saved at two places. Needs Playwright (see `balance.mjs`); serve the folder, then:
+
+```
+node tests/resume-exact.mjs                    # all scenarios (a few minutes)
+node tests/resume-exact.mjs --only=level5      # scenarios whose name contains this
+node tests/resume-exact.mjs --sample=1 --after=120   # compare every frame for 120 frames, to find where a difference starts
+```
+
+If a difference shows up after you changed the game, the usual cause is new state that the snapshot does not save: add it to `takeSnapshot` / `snapApply` (see "exact resume" in `index.html`), or make it a named function if it is a delayed callback. Weather and birds draw from the free random stream and are left out of the comparison on purpose.
 
 ## Replay test (runs in CI, blocking)
 

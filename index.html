@@ -4563,7 +4563,7 @@ const FLAME = () => useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a',
 function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
-const app = { shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
+const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
 const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
@@ -8811,7 +8811,7 @@ function doContinue() {
 // A resumed run restarts the stage it was in: score as it was when that stage began, lives, bombs,
 // weapon and continues as they were when the game was left. It can't gain points or undo a death, so it still counts.
 
-function markStage() { app.stageMark = { score: run.score, nextExtend: run.nextExtend, extendsGot: run.extendsGot, camp: Object.assign({}, run.camp) }; rrStage(); }
+function markStage() { app.snap = null; app.stageMark = { score: run.score, nextExtend: run.nextExtend, extendsGot: run.extendsGot, camp: Object.assign({}, run.camp) }; rrStage(); }
 function saveResume() {
   if (app.state !== 'play' || app.tut || !player || !app.stageMark) return;
   let st = run.stage, theme = world.curTheme, mark = app.stageMark, lv = run.lives, cn = run.conts;
@@ -8822,14 +8822,133 @@ function saveResume() {
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
     score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, ranked: run.ranked, retro: run.retro };
+  if (app.snap && app.snap.stage === run.stage && app.snap.seed === run.seed && st === run.stage && !run.gameOverPending && !(app.cont > 0) && !app.results && !app.congrats) { r.snap = app.snap.text; r.sv = VERSION; r.snapScore = app.snap.score; }
   store.setJSON(KEY.resume, r);
 }
-function clearResume() { store.remove(KEY.resume); }
+function snapNow() { // keep the newest snapshot the game can write down (the one before it stays if this moment can't be)
+  const text = takeSnapshot(); if (text) app.snap = { text, stage: run.stage, seed: run.seed, score: run.score, gf };
+}
+function clearResume() { app.snap = null; store.remove(KEY.resume); }
 // A save from an earlier build still resumes: the record only holds numbers the game rebuilds the stage from, and a hidden 4th version part is a fix, not a format change.
 function resumeCompat(v) { return typeof v === 'string' && v.split('.').slice(0, 3).join('.') === VERSION.split('.').slice(0, 3).join('.'); }
 function loadResume() {
   { const r = store.getJSON(KEY.resume); if (r && resumeCompat(r.v) && Date.now() - r.at < 48 * 3600e3 && r.stage >= 1) return r; }
   clearResume(); return null;
+}
+/* ---------- exact resume: the whole simulation, saved while it is in a state that can be written down ---------- */
+// While you play, the game keeps a snapshot of everything that decides what happens next (the ship, every enemy and bullet, the
+// director's timers, the random streams, the pickups and craters). A reloaded page puts it back and you carry on where you were.
+// A few things can't be written down: timed effects that hold a closure (world.later entries that aren't named functions). The snapshot is
+// only taken in a moment without those; if the page is left in one, the last good snapshot (a second or so older) is used.
+// Terrain and sprites are not saved: terrain is rebuilt from the seed, a sprite is named by its place in SPR. A particle or crater that can't be written down is left out.
+const SNAP_FMT = 1, SNAP_EVERY = 30; // a snapshot attempt every 30 drawn frames (half a second)
+class SnapDirty extends Error {}
+const SNAP_WORLD_SKIP = new Set(['chunks', 'chunkInfo', 'chunkJobs', 'genP']);
+const snapSets = () => ({ bridgeDown, bridgeSpawned, burntTrees, damagedHouses, towerRows, towerCells, setPieceDone });
+const snapLists = () => ({ chutes, markers, linkFx, critters });
+// An Enigma Run level (run.sortie) is rebuilt from {level, seed}; only what play changes on it is saved.
+const SNAP_SORTIE = ['slotUsed', 'viaUsed', 'trainUsed', 'stnUsed', 'cowsDone', 'breakUsed', 'stnDown', 'snow', 'falls', 'sowerZ', 'trainCd', 'brRun'];
+const SNAP_APP = ['stageMark', 'credits', 'localBest', 'newBestDone', 'newBestT'];
+const snapFns = () => ({ spawnBoss, bossWarn, openResults, boostOutSfx, wingDead, bossDead, clearBanner });
+let snapSprites = null;
+function snapSpriteTable() { // every sprite the game draws from, by its place in SPR / RUINS, so a crater or wreck can name its picture
+  if (snapSprites) return snapSprites;
+  const m = snapSprites = new Map(), isSprite = o => o instanceof HTMLCanvasElement || (o && o.c instanceof HTMLCanvasElement);
+  const walk = (o, path, d) => {
+    if (!o || typeof o !== 'object' || d > 4 || m.has(o)) return;
+    if (isSprite(o)) { m.set(o, path); return; }
+    for (const k of Object.keys(o)) walk(o[k], path.concat(Array.isArray(o) ? +k : k), d + 1);
+  };
+  walk(SPR, ['SPR'], 0); walk(RUINS, ['RUINS'], 0);
+  return m;
+}
+function snapSpriteAt(path) { let o = path[0] === 'SPR' ? SPR : RUINS; for (let i = 1; i < path.length; i++) { if (!o) return null; o = o[path[i]]; } return o || null; }
+function snapEncode(root) { // a graph of plain data (shared references and loops kept) as JSON text; throws SnapDirty for what can't be written
+  const ids = new Map(), objs = [], nodes = [], fns = snapFns(), spr = snapSpriteTable();
+  const enc = v => {
+    const t = typeof v;
+    if (v === null || t === 'string' || t === 'boolean') return v;
+    if (t === 'number') return Number.isFinite(v) ? v : { $n: String(v) };
+    if (t === 'undefined') return { $u: 1 };
+    if (t === 'function') { for (const k in fns) if (fns[k] === v) return { $f: k }; throw new SnapDirty('function ' + (v.name || '?')); }
+    if (t !== 'object') throw new SnapDirty(t);
+    const known = ids.get(v); if (known !== undefined) return { $: known };
+    const path = spr.get(v); if (path) return { $r: path };
+    const id = nodes.length; ids.set(v, id); objs.push(v); nodes.push(null);
+    if (Array.isArray(v)) nodes[id] = ['a', v.map(enc)];
+    else if (v instanceof Set) nodes[id] = ['s', [...v].map(enc)];
+    else if (v instanceof Map) nodes[id] = ['m', [...v].map(([a, b]) => [enc(a), enc(b)])];
+    else { const pr = Object.getPrototypeOf(v); if (pr !== Object.prototype && pr !== null) throw new SnapDirty('object ' + (v.constructor && v.constructor.name)); const o = {}; for (const k of Object.keys(v)) o[k] = enc(v[k]); nodes[id] = ['o', o]; }
+    return { $: id };
+  };
+  const top = enc(root);
+  return JSON.stringify({ n: nodes, t: top });
+}
+function snapDecode(text) {
+  const D = JSON.parse(text), made = D.n.map(([k]) => k === 'a' ? [] : k === 's' ? new Set() : k === 'm' ? new Map() : {});
+  const dec = x => {
+    if (x === null || typeof x !== 'object') return x;
+    if (x.$ !== undefined) return made[x.$];
+    if (x.$n !== undefined) return Number(x.$n);
+    if (x.$u !== undefined) return undefined;
+    if (x.$f !== undefined) { const f = snapFns()[x.$f]; if (!f) throw new Error('snapshot function ' + x.$f); return f; }
+    if (x.$r !== undefined) { const sp = snapSpriteAt(x.$r); if (!sp) throw new Error('snapshot sprite'); return sp; }
+    throw new Error('snapshot node');
+  };
+  D.n.forEach(([k, v], i) => {
+    const o = made[i];
+    if (k === 'a') for (const e of v) o.push(dec(e));
+    else if (k === 's') for (const e of v) o.add(dec(e));
+    else if (k === 'm') for (const [a, b] of v) o.set(dec(a), dec(b));
+    else for (const key of Object.keys(v)) o[key] = dec(v[key]);
+  });
+  return dec(D.t);
+}
+function snapshotReady() { // the game is flying (not at a results screen, a continue prompt or a fade) and nothing unwritable is pending
+  return app.state === 'play' && !app.booting && !app.tut && !app.results && !app.congrats && !app.fade && app.cont === 0 && !run.gameOverPending && !!player && !!app.stageMark;
+}
+function takeSnapshot() { // the text of a snapshot, or null while the game is in a state that can't be written down
+  if (!snapshotReady()) return null;
+  try {
+    const w = {}; for (const k of Object.keys(world)) if (!SNAP_WORLD_SKIP.has(k)) w[k] = world[k];
+    const fns = snapFns(), spr = snapSpriteTable();
+    w.decals = world.decals.filter(x => snapPlain(x, fns, spr, 0)); w.parts = world.parts.filter(x => snapPlain(x, fns, spr, 0)); // (what can't be written down is only for show)
+    const app2 = {}; for (const k of SNAP_APP) app2[k] = app[k];
+    const sets = {}, lists = {}; for (const [k, v] of Object.entries(snapSets())) sets[k] = v; for (const [k, v] of Object.entries(snapLists())) lists[k] = v;
+    const so = run.sortie, sortie = so ? { level: so.level, seed: so.seed, state: {} } : null;
+    if (so) for (const k of SNAP_SORTIE) if (so[k] !== undefined) sortie.state[k] = so[k];
+    return snapEncode({ fmt: SNAP_FMT, v: VERSION, H, W, gf, simS, drandS, laserHeat, overheatT, guardCount, eshotN, world: w, run: Object.assign({}, run, { sortie: null }), sortie, player, p2, beam, feel, app: app2, sets, lists });
+  } catch (e) { if (!(e instanceof SnapDirty)) { try { store.set(KEY.lastError, 'snapshot: ' + (e && e.stack || e)); } catch (e2) {} } return null; }
+}
+function snapPlain(v, fns, spr, d) { // true when v holds only what snapEncode can write down (checked without writing it)
+  const t = typeof v;
+  if (v === null || t === 'string' || t === 'boolean' || t === 'number' || t === 'undefined') return true;
+  if (t === 'function') { for (const k in fns) if (fns[k] === v) return true; return false; }
+  if (t !== 'object' || d > 8) return false;
+  if (spr.has(v)) return true;
+  if (Array.isArray(v)) { for (const x of v) if (!snapPlain(x, fns, spr, d + 1)) return false; return true; }
+  const pr = Object.getPrototypeOf(v); if (pr !== Object.prototype && pr !== null) return false;
+  for (const k of Object.keys(v)) if (!snapPlain(v[k], fns, spr, d + 1)) return false;
+  return true;
+}
+function snapApply(S) { // put a decoded snapshot into the running game (the stage's terrain is rebuilt from the seed afterwards)
+  if (!S || S.fmt !== SNAP_FMT || S.v !== VERSION || !S.world || !S.run || !S.player || Math.abs(S.H - H) > 24) return false;
+  // the terrain caches again, for this seed (cleared first: it also empties the sets and lists put back below)
+  roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
+  resetTerrainState();
+  gf = S.gf; eshotN = S.eshotN | 0; simS = S.simS; drandS = S.drandS; laserHeat = S.laserHeat; overheatT = S.overheatT; guardCount = S.guardCount; beam = S.beam || null;
+  for (const k of Object.keys(S.world)) world[k] = S.world[k];
+  Object.assign(run, S.run);
+  if (S.sortie) { run.sortie = buildSortie(S.sortie.level, S.sortie.seed); Object.assign(run.sortie, S.sortie.state); } else run.sortie = null;
+  player = S.player; p2 = S.p2 && p2Mode() !== 'off' ? S.p2 : null;
+  const dh = H / S.H; if (dh !== 1) for (const q of [player, p2]) if (q) { q.y = clamp(q.y * dh, 18, H - 14); if (q.ly !== undefined) q.ly = q.y; if (q.dr) for (const d of q.dr) d.y = q.y + 7; }
+  Object.assign(feel, S.feel);
+  for (const k of SNAP_APP) app[k] = S.app[k];
+  for (const [k, st] of Object.entries(snapSets())) { st.clear(); for (const v of S.sets[k] || []) st.add(v); }
+  for (const [k, ls] of Object.entries(snapLists())) { ls.length = 0; for (const v of S.lists[k] || []) ls.push(v); }
+  world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -Math.floor((H - Math.floor(world.scroll)) / CH) - 5; // only the terrain on screen and ahead is generated again from the seed (what the ship has left behind is never drawn again)
+  ensureChunks();
+  return true;
 }
 function resumeRun(r) {
   clearResume(); closeAllPanels();
@@ -8848,11 +8967,18 @@ function resumeRun(r) {
   run.nextExtend = r.nextExtend; run.extendsGot = r.extendsGot; run.camp = Object.assign(newCamp(), r.camp);
   markStage();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); playSong(STAGE_SONGS[world.curTheme]);
+  if (r.snap && r.sv === VERSION) { // the snapshot puts everything back where it was; a short countdown starts the game again
+    let ok = false;
+    try { ok = snapApply(snapDecode(r.snap)); } catch (e) { try { store.set(KEY.lastError, 'resume: ' + (e && e.stack || e)); } catch (e2) {} resumeRun(Object.assign({}, r, { snap: null })); return; }
+    if (!ok) { resumeRun(Object.assign({}, r, { snap: null })); return; }
+    app.msg = null; app.resumeT = 180; app.paused = false; setPauseIcon(); showPauseMenu(false);
+    const boss = world.enemies.find(e => e.type === 'boss' && !e.dying && !e.dead); playSong(boss ? BOSS[boss.kind].song || 'boss' : STAGE_SONGS[world.curTheme], false);
+  }
 }
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + ENIGMA_LABEL[r.sortie.level - 1] : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.score).toLocaleString('en-US') + ' points. You restart that stage with the lives, bombs and weapon you had.';
+  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + ENIGMA_LABEL[r.sortie.level - 1] : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap && r.sv === VERSION ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap && r.sv === VERSION ? 'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -9087,8 +9213,7 @@ function directorInner() {
     world.bossSpawned = true; prewarmBoss(world.curTheme);
     if (world.curTheme !== 5) fadeMusicOut(1.0); // level 6: the music runs through the Raven duel and fades at the warning
     if (world.curTheme === 2) for (let i = 0; i < 14; i++) world.later.push({ at: gf + 205 + i * 10, fn: () => { feel.shake = Math.max(feel.shake, 1.5 + i * 0.2); } });
-    const warn = () => { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn');
-      world.later.push({ at: gf + 240, fn: spawnBoss }); };
+    const warn = bossWarn;
     if (world.curTheme === 1) { spawnProtoFly(); world.later.push({ at: gf + 190, fn: warn }); }
     else if (world.curTheme === 5) spawnProtoDuel(warn);
     else warn();
@@ -9741,9 +9866,10 @@ function convoy(wy, trucks) {
     }
   }
 }
+function wingDead(e) { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); }
 function spawnWing() {
   const hp = 520 * (1 + 0.35 * run.loop), v = run.sortie ? ENIGMA_BASE[run.sortie.level - 1] - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
-  world.enemies.push(E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: e => { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); } },
+  world.enemies.push(E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: wingDead },
     V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
 }
 // The Shadow Wing's sequence (Enigma Run): one state at a time. A state aims (its barrels glow, ph 1), fires (ph 2), then the wing waits (ph 0) until its own
@@ -9979,6 +10105,8 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
+function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
+function bossDead(e) { world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
@@ -9989,7 +10117,7 @@ function spawnBoss() {
   });
   if (app.state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(world.scroll);
-  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: e => { world.scrollTarget = SCROLL; if (!(def.delayClear && def.delayClear(e))) stageClear(); } });
+  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: bossDead });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
   if (def.setup) def.setup(bossE, sc);
   world.enemies.push(bossE);
@@ -10023,8 +10151,9 @@ function stageClear() {
   if (app.rr && app.rr.cur) app.rr.cur.ok = 1;
   stopMusic();
   if (player && !player.dead) { player.exitT = 80; player.inv = Math.max(player.inv, 200); boostOutSfx(); }
-  world.later.push({ at: gf + 82, fn: () => { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [74, 2], [77, 2], [81, 8]]); showMsg('STAGE CLEAR', '', 130); world.later.push({ at: gf + 280, fn: openResults }); } });
+  world.later.push({ at: gf + 82, fn: clearBanner });
 }
+function clearBanner() { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [74, 2], [77, 2], [81, 8]]); showMsg('STAGE CLEAR', '', 130); world.later.push({ at: gf + 280, fn: openResults }); }
 // A stage bonus belongs to the team: in a two-player game it is split evenly (player 1's share is the rest), and r.b2 keeps player 2's half
 function splitBonus(r, v) { addScore(v); if (p2) { const h = Math.floor(v / 2); run.score2 += h; r.b2 = (r.b2 || 0) + h; } }
 function openResults() {
@@ -14025,7 +14154,7 @@ function showPauseMenu(v) {
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
   setSoundLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
-function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else if (document.pointerLockElement) document.exitPointerLock(); setPauseIcon(); showPauseMenu(app.paused); }
+function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else { if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } } setPauseIcon(); showPauseMenu(app.paused); }
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
 function openMenu() { audio(); if (app.state === 'play') { if (!app.paused) togglePause(); else showPauseMenu(true); } else showPauseMenu(true); }
 const menuBtn = document.getElementById('menuBtn');
@@ -14424,6 +14553,7 @@ function frameLoop(now) {
   const work0 = performance.now();
   if (app.state === 'play' && !app.paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
   while (acc >= STEP) { acc -= STEP; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
+  if (app.state === 'play' && !app.paused && app.resumeT <= 0 && ++app.snapN >= SNAP_EVERY) { app.snapN = 0; try { snapNow(); } catch (e) { logError('snapshot', e); } }
   try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
   perfFrame(dtf, performance.now() - work0);
 }
