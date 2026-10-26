@@ -216,7 +216,7 @@ for (const lv of [2, 6, 7]) {
   if (lv !== 2) ok(f.side >= 1 && f.sideMoved > 5, `level ${name}: tanks turn into side roads and drive along them (${f.side} side roads used)`);
   else { const d = await page2.evaluate(() => window.SF.peek(`(() => { startEnigma(2); SIDE.turn = 1; const S = run.sortie, sides = sideRoutes(S), sd = sides.find(q => q.path.length >= 30 && q.path[0][1] < S.planY0 - 700), j = sd.junc[0], rt = sortieRoutes(S)[j.rt], y0 = sd.path[j.k][1] - 6; /* a desert side track */
       world.enemies = []; world.scroll = -y0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
-      const t = G('tank', routeX(rt, y0), y0, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: rt.id })); world.enemies.push(t); let side = false, off = 0;
+      const t = G('tank', routeX(rt, y0), y0, tankStats({ road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: rt.id })); world.enemies.push(t); let side = false, off = 0;
       for (let f = 0; f < 600; f++) { ENT.tank.update(t); if (t.side) side = true; const tt = terrainType(Math.floor(t.wx), Math.floor(t.wy)); if (tt !== 'road' && tt !== 'bridge') off++; }
       SIDE.turn = 0.35; return JSON.stringify({ n: sides.length, side, drove: Math.round(Math.abs(t.wx - routeX(rt, y0))), off, end: !!t.atEnd }); })()`));
     const q = JSON.parse(d); ok(q.n >= 4 && q.side && q.drove >= 20 && q.off === 0 && q.end, `level ${name}: ${q.n} side tracks; a tank turns off the desert track into one, drives ${q.drove} px along it on the road, and stops at its end`); }
@@ -412,7 +412,7 @@ for (const lv of [2, 6, 7]) {
       let bad = 0, n = 0; for (const q of plan) for (let wy = q.wyLo; wy <= q.wyHi; wy += 3) { n++; const t = terrainType(Math.floor(routeX(q, wy)), wy); if (t !== 'road' && t !== 'bridge') bad++; }
       const start = plan.filter(q => q.main && q.wyHi - q.wyLo > 3 * ROUTE_SPACE + 16).sort((a, b) => a.wyLo - b.wyLo)[0], wy0 = start.wyLo + 3 * ROUTE_SPACE + 8; /* the northernmost main road with room for the convoy */
       world.enemies = []; world.scroll = -wy0 + 200; ensureChunks(); for (let i = 0; i < 400 && world.chunkJobs.length; i++) ensureChunks();
-      const mk = (type, k) => { const o = type === 'truck' ? G('truck', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, { road: true, dir: 1, lane: 0, v: 0.32, hd: PI / 2, route: start.id }) : G('tank', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, tankStats(false, { road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: start.id })); world.enemies.push(o); return o; };
+      const mk = (type, k) => { const o = type === 'truck' ? G('truck', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, { road: true, dir: 1, lane: 0, v: 0.32, hd: PI / 2, route: start.id }) : G('tank', routeX(start, wy0 - k * ROUTE_SPACE), wy0 - k * ROUTE_SPACE, tankStats({ road: true, dir: 1, lane: 0, v: 0.2, hd: PI / 2, route: start.id })); world.enemies.push(o); return o; };
       const cv = [mk('tank', 0), mk('truck', 1), mk('tank', 2), mk('truck', 3)];
       let seen = {}, minGap = 1e9, offRoad = 0, switches = 0, last = cv.map(o => o.route);
       let late = 0; for (let f = 0; f < ${frames}; f++) { for (const o of cv) ENT[o.type].update(o); if (f === ${frames} - 400) late = cv[0].wy;
