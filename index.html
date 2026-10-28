@@ -7894,7 +7894,7 @@ function tentAt(ci, cj) {
 function inTent(x, y, m = 6) { const ci = Math.floor(x / 100), cj = Math.floor(y / 90); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const t = tentAt(ci + a, cj + b); if (t && Math.abs(x - t.x) < 14 + m && Math.abs(y - t.y) < 12 + m) return true; } return false; }
 const MEDAL_VALS = [100, 200, 500, 1000, 2000, 5000, 10000];
 
-const MEDAL_BASE = 300, MEDAL_WIN = 170; // (no cap on the chain: each medal in a row is worth one more step than the last)
+const MEDAL_BASE = 200, MEDAL_WIN = 170; // (no cap on the chain: each medal in a row is worth one more step than the last)
 const LIFE_CAP = 6; // the most spare ships a player can hold (also all the HUD shows)
 function dropMedals(x, y, n) { for (let i = 0; i < n; i++) world.items.push({ kind: 'M', x: x + (n > 1 ? (i - (n - 1) / 2) * 9 : 0), y, t: (Math.random() * 16) | 0, vy: -1.6 - i * 0.3 }); }
 const flakes = []; for (let i = 0; i < 70; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() });
