@@ -72,8 +72,8 @@ test('only known modes, platforms and difficulties', async () => {
 });
 
 test('score plausibility', async () => {
-  assert.equal((await submit({ ...goodRun(), score: 3 * 1500000 })).status, 200);
-  assert.equal((await submit({ ...goodRun(), score: 3 * 1500000 + 1 })).status, 400);
+  assert.equal((await submit({ ...goodRun(), score: 3 * 3000000 })).status, 200);
+  assert.equal((await submit({ ...goodRun(), score: 3 * 3000000 + 1 })).status, 400);
   assert.equal((await submit({ ...goodRun(), score: -5 })).status, 400);
   assert.equal((await submit({ ...goodRun(), score: 'lots' })).status, 400);
   assert.equal((await submit({ ...goodRun(), stage: 0 })).status, 400);
