@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Picking up a weapon lights the ship in the weapon's colour. Same weapon (a level-up): the hull flashes white-hot and cools into the colour, a halo glows behind it, motes spiral in, and rings spread out. Every level makes it stronger: a longer flash, a bigger halo, more motes, one more ring each, and from level 3 short rays and a second pulse. The 1000-point bonus at the top level adds gold sparkles. Another weapon: the hull wipes from the old weapon's colour to the new one, the old energy bursts out and the new energy flows in. It is drawn over whichever skin the ship has (it only uses the sprite's shape), for player 2 as well, and it needs no extra sprites. Lite mode keeps the flash and the halo and leaves out the rays and sparkles. There is no text above the ship; the HUD shows the weapon and level.
 - The end of a medal chain has a sound, the bank chime: a low thump and a bell chord. Chains of 3 and 4 get a short soft one, 5 to 9 add more bells, 10 to 19 a rising sweep before it, and 20 or more the fullest version. The longest chain of the run (5 or more) adds a rising shimmer. It plays when the chain window runs out or the ship is lost, on every screen. The CHAIN xN banner and the longest-chain record are worked out in the same place now, so the sound and the banner always agree.
 - Phone HUD (touch screens only; PC is unchanged):
   - The score is twice as big and the HI line is gone. It turns yellow once it passes your previous best for that mode and difficulty on this device, the moment NEW BEST! shows.
