@@ -12233,7 +12233,7 @@ function p2Pickups(q) {
       run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
     if (it.kind === 'T') { addScore(3000); label(it.x, it.y - 8, '3000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
-    if (it.kind === 'B') { run.bombs2 = Math.min(6, run.bombs2 + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); }
+    if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); } }
     else {
       if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; }
       label(it.x, it.y - 8, WPN[it.w].name + ' ' + q.lvl);
@@ -12913,7 +12913,7 @@ function update() {
           sfx('drone'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (app.tut && (it.kind === 'B' || it.kind === 'T')) app.tut.got++;
-        if (it.kind === 'B') { run.bombs = Math.min(6, run.bombs + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); }
+        if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); } } // (a full stock turns the Nova into 2000 points)
         else {
           if (app.tut) app.tut.got++;
           if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; }
@@ -13877,7 +13877,7 @@ function drawGlowBehind(p, who) { for (const g of glowsOf(who)) glowBehindOne(p,
 function glowBehindOne(p, g) {
   const t = g.t;
   if (g.kind === 'drone' || g.kind === 'bonus') return;
-  if (g.kind === 'nova') { if (t < 24) { ctx.globalAlpha = 0.26 * Math.sin(clamp(t / 24, 0, 1) * PI); dk(p.x, p.y, 11, RP.alien[2]); ctx.globalAlpha = 1; } return; }
+  if (g.kind === 'nova' || g.kind === 'spill') { if (t < 24) { ctx.globalAlpha = 0.26 * Math.sin(clamp(t / 24, 0, 1) * PI); dk(p.x, p.y, 11, RP.alien[2]); ctx.globalAlpha = 1; } return; }
   const c = WPN[g.w].ramp;
   if (g.from === undefined || g.from === null) {
     const s0 = g.lvl - 2, dur = 20 + s0 * 7;
@@ -13893,6 +13893,26 @@ function glowFrontOne(p, g, sp) {
     if (d && t >= 10 && t < 15) { ctx.globalAlpha = 0.25 * (1 - (t - 10) / 5); dk(d.x, d.y, 11 - (t - 10), tl[3]); ctx.globalAlpha = 1; }
     if (d && t >= 11 && t < 17) { const q = (t - 11) / 6; glowRing(d.x, d.y, 2 + q * 8, q < 0.5 ? tl[4] : tl[3], 1 - q); for (let i = 0; i < 4; i++) { const an = i * PI / 2 + 0.8; glowDot(d.x + Math.cos(an) * (3 + q * 7), d.y + Math.sin(an) * (3 + q * 7), '#ffffff', 1 - q); } }
     if (d && t >= 10 && t < 14) { const x0 = x + sd * 9, y0 = y + 5, n = Math.max(1, Math.round(Math.hypot(d.x - x0, d.y - y0))); for (let k = 0; k <= n; k++) glowDot(x0 + (d.x - x0) * k / n, y0 + (d.y - y0) * k / n, '#ffffff', 1 - (t - 10) / 4); }
+    return;
+  }
+  if (g.kind === 'spill') { // a Nova at a full stock (2000 points): it condenses, then the energy cannot be kept and turns into points, purple sparks turning gold on the way out
+    const R = RP.alien, gd = RP.yel, tau = t - 11;
+    if (t < 20) glowStamp(sp, x, y, t < 4 ? 0.8 : 0.5 * (1 - (t - 4) / 16), f => { f.fillStyle = t < 3 ? '#ffffff' : glowMix('#ffffff', R[3], clamp((t - 3) / 5, 0, 1)); f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (t <= 10) {
+      if (!lowFX) {
+        for (let i = 0; i < 8; i++) { const q = (t - (i % 4)) / 8; if (q <= 0 || q >= 1) continue; glowMote(x, y, i * PI / 4 + 0.3 + q * 1.4, 26 * (1 - q) * (1 - q) + 1, R[3], R[5], true); }
+        for (let i = 0; i < 2; i++) { const q = (t - 2 - i * 3) / 11; if (q < 0 || q > 1) continue; glowRing(x, y, 24 * (1 - q) + 3, q < 0.5 ? R[4] : R[5], 0.4 + q * 0.6); }
+      }
+      if (t >= 8) { ctx.globalAlpha = 0.7; dk(x, y, 4 + Math.round(Math.sin(t * 0.7)), R[3]); ctx.globalAlpha = 0.95; dk(x, y, 2, R[5]); ctx.globalAlpha = 1; }
+    }
+    if (tau >= 0 && tau < 3) { ctx.globalAlpha = 0.8 - tau * 0.25; dk(x, y, 6 + tau, gd[4]); ctx.globalAlpha = 1; }
+    if (tau >= 0 && tau < 16) glowStamp(sp, x, y, 0.4 * (1 - tau / 16), f => { f.fillStyle = gd[4]; f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (tau >= 0 && !lowFX) for (let i = 0; i < 14; i++) {
+      const u = tau / 24; if (u > 1) continue;
+      const sa = i * TAU / 14 + ((i * 0.37) % 1) * 0.5, dd = (18 + ((i * 0.61) % 1) * 14) * (1 - (1 - u) * (1 - u));
+      const col = u < 0.3 ? R[4] : u < 0.55 ? glowMix(R[4], gd[3], (u - 0.3) / 0.25) : gd[4], w = u < 0.5 ? 2 : 3;
+      ctx.globalAlpha = Math.min(1, 1.6 * (1 - u)); ctx.fillStyle = col; ctx.fillRect(Math.round(x + Math.cos(sa) * dd - 1), Math.round(y + Math.sin(sa) * dd * 0.9 + u * u * 8 - 1), w, w); ctx.globalAlpha = 1;
+    }
     return;
   }
   if (g.kind === 'bonus') { // a third Talon (3000 points): gold rings and sparkles round both drones, the gold of the top-level weapon bonus
