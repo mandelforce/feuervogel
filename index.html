@@ -8267,10 +8267,10 @@ const TUT_TEXT = () => {
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
-    '<b>Collect medals quickly, one after another:</b> the multiplier keeps rising for as long as you keep the chain going. Wait too long and it resets.',
-    'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
-    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets.',
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
+    '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
+    'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.' + (touch ? ' <b>Beat your best score</b> and your score turns yellow.' : ''),
+    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots under it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
     '<b>Hold still to charge the laser</b>, then ' + (touch ? 'touch the screen again' : pad ? 'press X' : 'move') + ' to fire. It breaks armoured targets. Fire it too often and it <b>overheats</b>: watch for steam at the nose.',
     'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Schneevogel skin.</b>',
     "<b>You're ready!</b>"
@@ -12232,7 +12232,7 @@ function p2Pickups(q) {
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
       run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
-    if (it.kind === 'T') { addScore(3000); label(it.x, it.y - 8, '3000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'T') { addScore(2000); label(it.x, it.y - 8, '2000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); } }
     else {
       if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; }
@@ -12908,7 +12908,7 @@ function update() {
         }
         if (it.kind === 'T') {
           if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; startFx(1, 'drone', p.drones); p.drones++; label(it.x, it.y - 8, 'TALON'); }
-          else { addScore(3000); label(it.x, it.y - 8, '3000'); startFx(1, 'bonus'); }
+          else { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'bonus'); }
           if (app.rr) app.rr.pk.T = (app.rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
@@ -13915,7 +13915,7 @@ function glowFrontOne(p, g, sp) {
     }
     return;
   }
-  if (g.kind === 'bonus') { // a third Talon (3000 points): gold rings and sparkles round both drones, the gold of the top-level weapon bonus
+  if (g.kind === 'bonus') { // a third Talon (2000 points): gold rings and sparkles round both drones, the gold of the top-level weapon bonus
     const gd = RP.yel;
     for (let i = 0; i < Math.min(2, p.drones); i++) {
       const d = p.dr[i], q = (t - 1) / 10;
@@ -14423,8 +14423,8 @@ function buildHelp() {
   add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4, then 1000 bonus points.').className = 'hint';
   add('h3', 'Pickups');
   list([
-    [nova(), 'Nova', 'Extra bomb'],
-    [talon(), 'Talon', 'Escort drone'],
+    [nova(), 'Nova', 'Extra bomb, up to six. More is 2000 points'],
+    [talon(), 'Talon', 'Escort drone, up to two. More is 2000 points'],
     [coinI(), 'Medal', 'Grab in a chain, the multiplier keeps rising'],
     [gem(), 'Secret', 'Follow the crows']]);
   const more = document.createElement('details');
