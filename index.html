@@ -289,6 +289,12 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
 }
 #bombBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #120e1a}
+#bombBtn.empty{background:radial-gradient(circle at 35% 30%,#8a8794 0,#4a4755 40%,#2a2833 100%);color:#9a97a6;text-shadow:0 1px 0 #120e1a}
+#bombPips{position:absolute;display:none;right:14px;width:64px;height:10px;bottom:calc(3px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));justify-content:center;align-items:center;gap:2px;pointer-events:none}
+body[data-state="play"] #bombPips{display:flex}
+body[data-results="1"] #bombPips{display:none !important}
+@media not all and (pointer:coarse){body #bombPips{display:none !important}}
+#bombPips img{width:10px;height:10px;image-rendering:pixelated}
 body[data-boot="1"] #menuBtn{display:none}
 body[data-state="play"] #pauseBtn{display:grid}
 @media not all and (pointer:coarse){body[data-state="play"]:not([data-results="1"]) #menuBtn,body[data-state="play"]:not([data-results="1"]) #pauseBtn{display:none}} /* PC: Esc or P pauses and opens the menu; the corner is for player 2's score */
@@ -447,7 +453,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         </div>
       </div>
     </div>
-    <button class="btn" id="bombBtn" type="button">Nova</button>
+    <button class="btn" id="bombBtn" type="button">Nova</button><div id="bombPips" aria-hidden="true"></div>
   </div>
   <p id="hint">Mouse, arrow keys or WASD to fly. Guns fire on their own. X, Space or the right mouse button sets off a Nova bomb. Esc or P pauses and opens the menu. Controllers work too.</p>
 </div>
@@ -7854,6 +7860,7 @@ let beam = null, gpad = null, padPrev = {};
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
 let scorer = 1; // whose points the next addScore() is: 1 or 2. Player 2's shots, bomb and pickups set it to 2 while they resolve
 const P2_OK = !matchMedia('(pointer:coarse)').matches;
+const TOUCH_HUD = matchMedia('(pointer:coarse)').matches; // phone HUD: bigger score without the HI line, weapon level as four blocks, Nova count under the Nova button
 const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
 const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
 function setP2() {
@@ -7915,7 +7922,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
   return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
-    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
+    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
@@ -7923,7 +7930,7 @@ function newGame() {
   run.enigma = settings.enigma; setLook(run.enigma); // the look is fixed for the run: moving the slider later applies from the next one
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
-  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
+  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.hudX = 0; app.roll = null; app.medalPop = 0;
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
@@ -12194,7 +12201,7 @@ function p2Pickups(q) {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
       run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
-      run.stats.medals++; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
+      run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
     if (it.kind === 'T') { addScore(3000); label(it.x, it.y - 8, '3000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'B') { run.bombs2 = Math.min(6, run.bombs2 + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
@@ -12864,7 +12871,7 @@ function update() {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
           run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
-          run.stats.medals++; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
+          run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'T') {
@@ -13871,10 +13878,36 @@ function scoreStrip(y, m, s1, s2) {
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score, mo = p2 ? 8 : 0; // in two-player games the medal chain makes room for the crown
   if (p2) scoreStrip(4, 4, s1, run.score2); // player 2's score mirrors player 1's in the top right corner
-  else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
-  textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
-  textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
-  if (player) {
+  else if (TOUCH_HUD) { // phone: double-size score, no HI line; it turns yellow when it passes the player's previous best (the moment NEW BEST! shows)
+    const beat = app.newBestDone;
+    textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc');
+    textS(pad(s1, 8), 14, 4, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
+  } else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
+  if (!TOUCH_HUD) {
+    textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
+    textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
+  }
+  if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
+    const cx = 90, cy = 9, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
+    if (pop && !app.paused) app.medalPop--;
+    if (app.hudX && !xn) { // the chain just ended: the count rolls up by the chain's medals, and chains of 5+ get a banner
+      app.roll = { from: Math.max(0, run.stats.medals - app.hudX), t: 0 };
+      if (app.hudX >= 5) { const rec = app.hudX > (run.bestChain || 0); if (rec) run.bestChain = app.hudX; app.chainBan = { n: app.hudX, rec, t: 150 }; }
+    }
+    app.hudX = xn ? run.medalMul : 0;
+    if (open) {
+      const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
+      for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = OUT; ctx.fillRect(Math.round(cx + Math.cos(a) * 8) - 1, Math.round(cy + Math.sin(a) * 8) - 1, 3, 3); }
+      for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = i / N < fr ? (low ? '#ff8a60' : '#f4d050') : '#4a3a14'; ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1); }
+    }
+    coin(cx, cy, 4, 5, RP.yel);
+    if (xn) textS('x' + run.medalMul, 102, 4, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
+    else {
+      const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
+      const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
+      textS(String(v), 102, 4, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
+    }
+  } else if (player) {
     coin(54 + mo, 7, 2, 3, RP.yel);
     if (run.medalMul > 1 && run.medalT > 0) {
       textS('x' + run.medalMul, 59 + mo, 4, '#fff0a0', 1, 'left', '#d0a020');
@@ -13889,10 +13922,20 @@ function drawHUDBody(H) {
     if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
   }
   for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
-  for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
+  { const off = TOUCH_HUD && run.bombs <= 0 && !(app.cont > 0); if (app.bombOff !== off) { app.bombOff = off; bombBtn.classList.toggle('empty', off); } } // no Nova left: the button greys out (not during the continue countdown, when it is the Continue button)
+  if (TOUCH_HUD) { // the Nova count sits under the Nova button (page element), not in the corner
+    const nb = Math.min(run.bombs, 6);
+    if (app.pipN !== nb) { app.pipN = nb; app.pipSrc = app.pipSrc || SPR.novaIcon.c.toDataURL(); document.getElementById('bombPips').innerHTML = ('<img src="' + app.pipSrc + '" alt="">').repeat(nb); }
+  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
     textS(w.name + ' ' + player.lvl, 4, H - 31, w.hud[0], 1, 'left', w.hud[1]);
+    if (TOUCH_HUD) for (let k = 0; k < 4; k++) { // weapon level: four blocks in the weapon's colour, filled up to the level
+      const bx = 4 + k * 12, by = H - 23, on = k < Math.min(player.lvl, 4);
+      ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
+      ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
+      if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
+    }
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) {
@@ -14107,6 +14150,7 @@ function renderMain() {
     if (app.msg.b && !warn) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
   }
   drawTutorial();
+  if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t--; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.newBestT > 0 && (app.newBestT >> 3) % 4 !== 3) textO('NEW BEST!', W / 2, SAFE_T + 30, app.newBestT % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a');
   if (app.state === 'play' && app.resumeT > 0 && !app.paused) { const n = Math.ceil(app.resumeT / 60), f = (app.resumeT % 60) / 60; ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H); textO('GET READY', W / 2, H * 0.36, '#a8f6dc', 1, 'center', '#4ccfae'); textO(String(n), W / 2, H * 0.36 + 14, f > 0.5 ? '#ffffff' : '#fff0a0', 6, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.cont > 0) {
