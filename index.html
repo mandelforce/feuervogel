@@ -12908,7 +12908,7 @@ function update() {
         }
         if (it.kind === 'T') {
           if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; startFx(1, 'drone', p.drones); p.drones++; label(it.x, it.y - 8, 'TALON'); }
-          else { addScore(3000); label(it.x, it.y - 8, '3000'); }
+          else { addScore(3000); label(it.x, it.y - 8, '3000'); startFx(1, 'bonus'); }
           if (app.rr) app.rr.pk.T = (app.rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
@@ -13876,7 +13876,7 @@ function glowStamp(sp, x, y, a, fill) { // the sprite's own shape filled with a 
 function drawGlowBehind(p, who) { for (const g of glowsOf(who)) glowBehindOne(p, g); }
 function glowBehindOne(p, g) {
   const t = g.t;
-  if (g.kind === 'drone') return;
+  if (g.kind === 'drone' || g.kind === 'bonus') return;
   if (g.kind === 'nova') { if (t < 24) { ctx.globalAlpha = 0.26 * Math.sin(clamp(t / 24, 0, 1) * PI); dk(p.x, p.y, 11, RP.alien[2]); ctx.globalAlpha = 1; } return; }
   const c = WPN[g.w].ramp;
   if (g.from === undefined || g.from === null) {
@@ -13893,6 +13893,20 @@ function glowFrontOne(p, g, sp) {
     if (d && t >= 10 && t < 15) { ctx.globalAlpha = 0.25 * (1 - (t - 10) / 5); dk(d.x, d.y, 11 - (t - 10), tl[3]); ctx.globalAlpha = 1; }
     if (d && t >= 11 && t < 17) { const q = (t - 11) / 6; glowRing(d.x, d.y, 2 + q * 8, q < 0.5 ? tl[4] : tl[3], 1 - q); for (let i = 0; i < 4; i++) { const an = i * PI / 2 + 0.8; glowDot(d.x + Math.cos(an) * (3 + q * 7), d.y + Math.sin(an) * (3 + q * 7), '#ffffff', 1 - q); } }
     if (d && t >= 10 && t < 14) { const x0 = x + sd * 9, y0 = y + 5, n = Math.max(1, Math.round(Math.hypot(d.x - x0, d.y - y0))); for (let k = 0; k <= n; k++) glowDot(x0 + (d.x - x0) * k / n, y0 + (d.y - y0) * k / n, '#ffffff', 1 - (t - 10) / 4); }
+    return;
+  }
+  if (g.kind === 'bonus') { // a third Talon (3000 points): gold rings and sparkles round both drones, the gold of the top-level weapon bonus
+    const gd = RP.yel;
+    for (let i = 0; i < Math.min(2, p.drones); i++) {
+      const d = p.dr[i], q = (t - 1) / 10;
+      if (q >= 0 && q <= 1) glowRing(d.x, d.y, 3 + q * 8, q < 0.5 ? gd[4] : gd[3], 1 - q);
+      if (!lowFX) for (let j = 0; j < 7; j++) {
+        const ph = t - 2 - j * 1.4; if (ph < 0 || ph > 8) continue;
+        const an = j * 0.9 + i * 2 + ((j * 0.37 + i * 0.61) % 1) * 1.3, rd = 8 + ((j * 0.53 + i * 0.29) % 1) * 9, sx = d.x + Math.cos(an) * rd, sy = d.y + Math.sin(an) * rd;
+        glowDot(sx, sy, '#fff4c0', 1);
+        if (ph > 2 && ph < 6) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) glowDot(sx + ox, sy + oy, gd[3], 1);
+      }
+    }
     return;
   }
   if (g.kind === 'nova') { // a Nova is collected: purple energy condenses into the ship, the blast's ring closing in instead of spreading out
@@ -13965,10 +13979,11 @@ function drawPlayer() {
   spr(sp, p.x, p.y);
   if (fk === 1) drawGlowFront(p, 1, sp);
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
+  const bg = glowsOf(1).find(g => g.kind === 'bonus'), bfl = bg && bg.t < 16 ? Math.round(Math.sin(clamp(bg.t / 14, 0, 1) * PI) * 4) : 0; // a third Talon: the drones flare, gold at first
   for (let i = 0; i < p.drones; i++) {
     const d = p.dr[i];
-    ctx.globalAlpha = 0.3; dk(d.x, d.y, 7 + ((gf >> 3) & 1), '#4ccfae'); ctx.globalAlpha = 1;
-    ctx.fillStyle = (gf & 2) ? '#ff7a3a' : '#fff0a0'; ctx.fillRect(Math.round(d.x), Math.round(d.y + 7), 1, 2 + (gf & 1));
+    ctx.globalAlpha = 0.3 + 0.05 * bfl; dk(d.x, d.y, 7 + ((gf >> 3) & 1) + bfl, bg && bg.t < 10 ? '#f4d050' : '#4ccfae'); ctx.globalAlpha = 1;
+    ctx.fillStyle = (gf & 2) ? '#ff7a3a' : '#fff0a0'; ctx.fillRect(Math.round(d.x), Math.round(d.y + 7), 1, 2 + (gf & 1) + (bfl ? 2 : 0));
     spr(SPR.talon, d.x, d.y);
   }
   if (p.inv > 0 && !app.results) {
