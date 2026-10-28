@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The end of a medal chain has a sound, the bank chime: a low thump and a bell chord. Chains of 3 and 4 get a short soft one, 5 to 9 add more bells, 10 to 19 a rising sweep before it, and 20 or more the fullest version. The longest chain of the run (5 or more) adds a rising shimmer. It plays when the chain window runs out or the ship is lost, on every screen. The CHAIN xN banner and the longest-chain record are worked out in the same place now, so the sound and the banner always agree.
 - Phone HUD (touch screens only; PC is unchanged):
   - The score is twice as big and the HI line is gone. It turns yellow once it passes your previous best for that mode and difficulty on this device, the moment NEW BEST! shows.
   - The medal readout is one slot next to a bigger coin. It shows the medals you have collected in this stage. When two medals in a row start a chain, the count gives way to xN and a ring around the coin drains over the chain window. The count flashes white on each pickup. When the chain ends, the count rolls up by the chain's medals, and a chain of 5 or more shows CHAIN xN at the top (BEST CHAIN xN for the longest of the run), below NEW BEST! if both show.

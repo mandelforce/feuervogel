@@ -7634,6 +7634,35 @@ function medalSfx(k) { // k: steps into the chain (0 for the first medal). Two s
     o.connect(g); g.connect(sfxBus); o.start(t0 + dt); o.stop(t0 + dt + 0.2);
   });
 }
+// The end of a medal chain of 3 or more: the bank chime. A low thump and a bell chord, a rising sweep before it from 10 medals, more bells at 5, 10 and 20,
+// and a rising shimmer when it is the longest chain of the run.
+function chainEndSfx(n, rec) {
+  if (muted || !actx || n < 3) return;
+  ensureNoise();
+  const T = n < 5 ? 1 : n < 10 ? 2 : n < 20 ? 3 : 4, t0 = actx.currentTime + 0.02;
+  const gain = (t, a, d, v) => { const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); g.connect(sfxBus); return g; };
+  const bell = (t, m, d, v) => [[1, 1], [2, 0.35], [3, 0.18], [4.2, 0.08]].forEach(([r, a]) => { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m) * r; o.connect(gain(t, 0.004, d / (0.6 + r * 0.4), v * a)); o.start(t); o.stop(t + d + 0.1); });
+  const thump = (t, v) => { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.16); o.connect(gain(t, 0.004, 0.2, v)); o.start(t); o.stop(t + 0.3); };
+  const sparkle = (t, d, v) => nzSrc(t, d, v, 'highpass', 6500);
+  let b = t0;
+  if (T >= 3) { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(400, t0); o.frequency.exponentialRampToValueAtTime(1800, t0 + 0.2); o.connect(gain(t0, 0.02, 0.2, 0.05)); o.start(t0); o.stop(t0 + 0.25); b = t0 + 0.2; }
+  thump(b, T === 1 ? 0.1 : 0.2);
+  for (const m of [79, 86, 91]) bell(b, m, T === 1 ? 0.4 : 0.9, 0.08);
+  if (T >= 2) { bell(b, 95, 1.0, 0.05); sparkle(b, 0.25, 0.04); }
+  if (T >= 4) { bell(b + 0.1, 98, 1.3, 0.05); bell(b + 0.2, 103, 1.4, 0.04); sparkle(b + 0.1, 0.5, 0.05); }
+  if (rec) { const r = b + 0.85; [91, 95, 98, 103].forEach((m, z) => bell(r + z * 0.07, m, 0.6, 0.06)); sparkle(r + 0.2, 0.5, 0.05); }
+}
+// A medal chain is over: its window ran out, or the ship was lost. Sound, the longest chain of the run, and what the phone HUD shows (the count rolling up, the banner).
+function endChain() {
+  const n = run.medalMul;
+  if (n < 2) return;
+  app.roll = { from: Math.max(0, run.stats.medals - n), t: 0 };
+  const rec = n >= 5 && n > (run.bestChain || 0);
+  if (rec) run.bestChain = n;
+  if (n >= 5) app.chainBan = { n, rec, t: 150 };
+  chainEndSfx(n, rec);
+  if (n >= 10) haptic('medalBig');
+}
 function whine() {
   if (muted || !actx) return;
   const t0 = actx.currentTime, o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
@@ -7930,7 +7959,7 @@ function newGame() {
   run.enigma = settings.enigma; setLook(run.enigma); // the look is fixed for the run: moving the slider later applies from the next one
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
-  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.hudX = 0; app.roll = null; app.medalPop = 0;
+  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.roll = null; app.medalPop = 0;
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
@@ -12144,7 +12173,7 @@ function die(cause) {
   const p = player; rrDeath(cause || '?');
   p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
-  p.drones = 0; run.medalMul = 1; run.medalT = 0;
+  p.drones = 0; if (run.medalT > 0) endChain(); run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
   if (run.lives > 0) run.lives--; else if (p2 && run.lives2 > 0) run.lives2--; else run.gameOverPending = true; // a ship with no lives left spends a spare one of its partner
 }
@@ -12901,7 +12930,7 @@ function update() {
       if (hit) die(hit);
     }
   }
-  if (run.medalT > 0 && !app.results && --run.medalT === 0) run.medalMul = 1;
+  if (run.medalT > 0 && !app.results && --run.medalT === 0) { endChain(); run.medalMul = 1; }
   world.items = world.items.filter(it => it.y < H + 10 && !(it.kind === 'S' && (it.life <= 0 || it.y < -20)));
   if (run.medalLost > 0) run.medalLost--;
   world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40)) && e.y > (e.type === 'boss' || e.keep ? -1700 : -140) && e.x > -60 && e.x < W + 60);
@@ -13890,11 +13919,6 @@ function drawHUDBody(H) {
   if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
     const cx = 90, cy = 9, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
     if (pop && !app.paused) app.medalPop--;
-    if (app.hudX && !xn) { // the chain just ended: the count rolls up by the chain's medals, and chains of 5+ get a banner
-      app.roll = { from: Math.max(0, run.stats.medals - app.hudX), t: 0 };
-      if (app.hudX >= 5) { const rec = app.hudX > (run.bestChain || 0); if (rec) run.bestChain = app.hudX; app.chainBan = { n: app.hudX, rec, t: 150 }; }
-    }
-    app.hudX = xn ? run.medalMul : 0;
     if (open) {
       const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
       for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = OUT; ctx.fillRect(Math.round(cx + Math.cos(a) * 8) - 1, Math.round(cy + Math.sin(a) * 8) - 1, 3, 3); }
