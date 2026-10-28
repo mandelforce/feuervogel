@@ -63,7 +63,7 @@ export default {
         if (!(stage >= 1 && stage <= 300) || !(score >= 0 && score <= 99999999)) return json({ error: 'bad score' }, 400, origin);
         if (!(conts >= 0 && conts <= 2)) return json({ error: 'bad continues' }, 400, origin);
         if (mode === 'camp' && start !== 1) return json({ error: 'Practice runs from a later stage are not ranked.' }, 400, origin);
-        if (score > stage * 1500000) return json({ error: 'score not plausible' }, 400, origin);
+        if (score > stage * 3000000) return json({ error: 'score not plausible' }, 400, origin); // (a perfect stage with the uncapped medal chain is about 1.75 million at most)
         if (score > 0 && dur < stage * 45) return json({ error: 'run too short' }, 400, origin);
         const now = Date.now();
         const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM scores WHERE player = ?1 AND created > ?2').bind(player, now - 30000).first();

@@ -289,6 +289,12 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
   box-shadow:0 3px 0 #120e1a;text-shadow:0 1px 0 #120e1a;
 }
 #bombBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #120e1a}
+#bombBtn.empty{background:radial-gradient(circle at 35% 30%,#8a8794 0,#4a4755 40%,#2a2833 100%);color:#9a97a6;text-shadow:0 1px 0 #120e1a}
+#bombPips{position:absolute;display:none;right:14px;width:64px;height:10px;bottom:calc(3px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));justify-content:center;align-items:center;gap:2px;pointer-events:none}
+body[data-state="play"] #bombPips{display:flex}
+body[data-results="1"] #bombPips{display:none !important}
+@media not all and (pointer:coarse){body #bombPips{display:none !important}}
+#bombPips img{width:10px;height:10px;image-rendering:pixelated}
 body[data-boot="1"] #menuBtn{display:none}
 body[data-state="play"] #pauseBtn{display:grid}
 @media not all and (pointer:coarse){body[data-state="play"]:not([data-results="1"]) #menuBtn,body[data-state="play"]:not([data-results="1"]) #pauseBtn{display:none}} /* PC: Esc or P pauses and opens the menu; the corner is for player 2's score */
@@ -447,7 +453,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         </div>
       </div>
     </div>
-    <button class="btn" id="bombBtn" type="button">Nova</button>
+    <button class="btn" id="bombBtn" type="button">Nova</button><div id="bombPips" aria-hidden="true"></div>
   </div>
   <p id="hint">Mouse, arrow keys or WASD to fly. Guns fire on their own. X, Space or the right mouse button sets off a Nova bomb. Esc or P pauses and opens the menu. Controllers work too.</p>
 </div>
@@ -7611,15 +7617,51 @@ function sweepThump(t, v = 0.3, f0 = 90) { sweepEngine(t, 0.25, f0, f0 / 2, v, '
 function boostOutSfx() { if (muted || !actx) return; const t = actx.currentTime + 0.02; sweepThump(t, 0.18, 110); sweepAir(t, 0.35, 300, 1500, 0.15, 'lowpass', 0.8); sweepThump(t + 0.3, 0.35, 80); sweepAir(t + 0.3, 1.0, 200, 4500, 0.32, 'lowpass', 0.8); sweepEngine(t + 0.3, 1.0, 80, 400, 0.08); }
 function sonarPing() { if (muted || !actx) return; const t = actx.currentTime + 0.02; for (const [f, d, v] of [[620, 1.8, 0.2], [1240, 0.6, 0.04]]) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * mixF, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(sfxOut()); g.connect(echoIn); o.start(t); o.stop(t + d + 0.02); } }
 function hatchLaunchSfx() { if (muted || !actx) return; const t = actx.currentTime + 0.02; tone(220, 0.08, 'square', 0.12 * mixF, 140); sweepAir(t, 0.06, 2500, 2500, 0.2, 'bandpass', 3); sweepAir(t + 0.18, 0.55, 500, 3500, 0.28, 'bandpass', 0.9); sweepEngine(t + 0.18, 0.45, 120, 380, 0.05); }
-function medalSfx(lv) {
+function medalSfx(k) { // k: steps into the chain (0 for the first medal). Two semitones a step up to step 6, then the climb slows (a fourth per doubling of the chain) up to a ceiling; from x10 a shimmer joins in, more at x20 and x30
   if (muted || !actx) return;
-  const t0 = actx.currentTime, n = 79 + lv * 2;
+  const t0 = actx.currentTime, n = Math.min(100, k <= 6 ? 79 + k * 2 : 91 + 5 * Math.log2((k + 1) / 7)), v = k >= 5 ? 0.09 : 0.07;
   [[n, 0, 0.1], [n + 7, 0.06, 0.22]].forEach(([m, dt, d]) => {
     const o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
     o.type = 'square'; o2.type = 'sine'; o.frequency.value = mtof(m); o2.frequency.value = mtof(m + 12);
-    g.gain.setValueAtTime(0.0001, t0 + dt); g.gain.exponentialRampToValueAtTime(lv >= 5 ? 0.09 : 0.07, t0 + dt + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + d);
+    g.gain.setValueAtTime(0.0001, t0 + dt); g.gain.exponentialRampToValueAtTime(v, t0 + dt + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + d);
     o.connect(g); o2.connect(g); g.connect(sfxBus); o.start(t0 + dt); o2.start(t0 + dt); o.stop(t0 + dt + d + 0.02); o2.stop(t0 + dt + d + 0.02);
   });
+  [[9, 12], [19, 19], [29, 24]].forEach(([from, up], i) => { // shimmer: a short bell-like sine above the pickup, one more layer at each tenth
+    if (k < from) return;
+    const o = actx.createOscillator(), g = actx.createGain(), dt = 0.03 + i * 0.03;
+    o.type = 'sine'; o.frequency.value = mtof(Math.min(112, n + up));
+    g.gain.setValueAtTime(0.0001, t0 + dt); g.gain.exponentialRampToValueAtTime(0.035, t0 + dt + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.18);
+    o.connect(g); g.connect(sfxBus); o.start(t0 + dt); o.stop(t0 + dt + 0.2);
+  });
+}
+// The end of a medal chain of 3 or more: the bank chime. A low thump and a bell chord, a rising sweep before it from 10 medals, more bells at 5, 10 and 20,
+// and a rising shimmer when it is the longest chain of the run.
+function chainEndSfx(n, rec) {
+  if (muted || !actx || n < 3) return;
+  ensureNoise();
+  const T = n < 5 ? 1 : n < 10 ? 2 : n < 20 ? 3 : 4, t0 = actx.currentTime + 0.02;
+  const gain = (t, a, d, v) => { const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); g.connect(sfxBus); return g; };
+  const bell = (t, m, d, v) => [[1, 1], [2, 0.35], [3, 0.18], [4.2, 0.08]].forEach(([r, a]) => { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m) * r; o.connect(gain(t, 0.004, d / (0.6 + r * 0.4), v * a)); o.start(t); o.stop(t + d + 0.1); });
+  const thump = (t, v) => { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.16); o.connect(gain(t, 0.004, 0.2, v)); o.start(t); o.stop(t + 0.3); };
+  const sparkle = (t, d, v) => nzSrc(t, d, v, 'highpass', 6500);
+  let b = t0;
+  if (T >= 3) { const o = actx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(400, t0); o.frequency.exponentialRampToValueAtTime(1800, t0 + 0.2); o.connect(gain(t0, 0.02, 0.2, 0.05)); o.start(t0); o.stop(t0 + 0.25); b = t0 + 0.2; }
+  thump(b, T === 1 ? 0.1 : 0.2);
+  for (const m of [79, 86, 91]) bell(b, m, T === 1 ? 0.4 : 0.9, 0.08);
+  if (T >= 2) { bell(b, 95, 1.0, 0.05); sparkle(b, 0.25, 0.04); }
+  if (T >= 4) { bell(b + 0.1, 98, 1.3, 0.05); bell(b + 0.2, 103, 1.4, 0.04); sparkle(b + 0.1, 0.5, 0.05); }
+  if (rec) { const r = b + 0.85; [91, 95, 98, 103].forEach((m, z) => bell(r + z * 0.07, m, 0.6, 0.06)); sparkle(r + 0.2, 0.5, 0.05); }
+}
+// A medal chain is over: its window ran out, or the ship was lost. Sound, the longest chain of the run, and what the phone HUD shows (the count rolling up, the banner).
+function endChain() {
+  const n = run.medalMul;
+  if (n < 2) return;
+  app.roll = { from: Math.max(0, run.stats.medals - n), t: 0 };
+  const rec = n >= 5 && n > (run.bestChain || 0);
+  if (rec) run.bestChain = n;
+  if (n >= 5) app.chainBan = { n, rec, t: 150 };
+  chainEndSfx(n, rec);
+  if (n >= 10) haptic('medalBig');
 }
 function whine() {
   if (muted || !actx) return;
@@ -7847,6 +7889,7 @@ let beam = null, gpad = null, padPrev = {};
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
 let scorer = 1; // whose points the next addScore() is: 1 or 2. Player 2's shots, bomb and pickups set it to 2 while they resolve
 const P2_OK = !matchMedia('(pointer:coarse)').matches;
+const TOUCH_HUD = matchMedia('(pointer:coarse)').matches; // phone HUD: bigger score without the HI line, weapon level as four blocks, Nova count under the Nova button
 const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
 const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
 function setP2() {
@@ -7887,7 +7930,7 @@ function tentAt(ci, cj) {
 function inTent(x, y, m = 6) { const ci = Math.floor(x / 100), cj = Math.floor(y / 90); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const t = tentAt(ci + a, cj + b); if (t && Math.abs(x - t.x) < 14 + m && Math.abs(y - t.y) < 12 + m) return true; } return false; }
 const MEDAL_VALS = [100, 200, 500, 1000, 2000, 5000, 10000];
 
-const MEDAL_BASE = 300, MEDAL_WIN = 170, MEDAL_MAX = 10;
+const MEDAL_BASE = 200, MEDAL_WIN = 170; // (no cap on the chain: each medal in a row is worth one more step than the last)
 const LIFE_CAP = 6; // the most spare ships a player can hold (also all the HUD shows)
 function dropMedals(x, y, n) { for (let i = 0; i < n; i++) world.items.push({ kind: 'M', x: x + (n > 1 ? (i - (n - 1) / 2) * 9 : 0), y, t: (Math.random() * 16) | 0, vy: -1.6 - i * 0.3 }); }
 const flakes = []; for (let i = 0; i < 70; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() });
@@ -7908,7 +7951,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
   return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
-    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
+    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
@@ -7916,7 +7959,7 @@ function newGame() {
   run.enigma = settings.enigma; setLook(run.enigma); // the look is fixed for the run: moving the slider later applies from the next one
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
-  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1;
+  world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.roll = null; app.medalPop = 0; app.glows = null;
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
@@ -8224,10 +8267,10 @@ const TUT_TEXT = () => {
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently.',
-    '<b>Collect medals quickly, one after another:</b> the multiplier rises up to x10. Wait too long and it resets.',
-    'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.',
-    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets.',
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
+    '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
+    'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.' + (touch ? ' <b>Beat your best score</b> and your score turns yellow.' : ''),
+    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots under it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
     '<b>Hold still to charge the laser</b>, then ' + (touch ? 'touch the screen again' : pad ? 'press X' : 'move') + ' to fire. It breaks armoured targets. Fire it too often and it <b>overheats</b>: watch for steam at the nose.',
     'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Schneevogel skin.</b>',
     "<b>You're ready!</b>"
@@ -12127,10 +12170,10 @@ function drawRebirth(p) {
   ctx.globalAlpha = 1;
 }
 function die(cause) {
-  const p = player; rrDeath(cause || '?');
+  const p = player; rrDeath(cause || '?'); if (app.glows) app.glows = app.glows.filter(g => g.who !== 1);
   p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
-  p.drones = 0; run.medalMul = 1; run.medalT = 0;
+  p.drones = 0; if (run.medalT > 0) endChain(); run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
   if (run.lives > 0) run.lives--; else if (p2 && run.lives2 > 0) run.lives2--; else run.gameOverPending = true; // a ship with no lives left spends a spare one of its partner
 }
@@ -12172,7 +12215,7 @@ function updP2() {
 }
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
-  q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
   if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
 }
 // What player 2 can pick up: weapons, Nova bombs, medals, sparkles, the artifact. A Talon drone is worth points instead (only player 1 carries drones)
@@ -12184,15 +12227,15 @@ function p2Pickups(q) {
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
     if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
-      run.medalMul = run.medalT > 0 ? Math.min(MEDAL_MAX, run.medalMul + 1) : 1; run.medalT = MEDAL_WIN;
+      run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
       run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
-      run.stats.medals++; medalSfx(Math.min(6, run.medalMul - 1)); checkExtend(); world.items.splice(i, 1); continue;
+      run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
-    if (it.kind === 'T') { addScore(3000); label(it.x, it.y - 8, '3000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
-    if (it.kind === 'B') { run.bombs2 = Math.min(6, run.bombs2 + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
+    if (it.kind === 'T') { addScore(2000); label(it.x, it.y - 8, '2000'); sfx('drone'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); } }
     else {
-      if (it.w === q.wpn) { if (q.lvl < 4) q.lvl++; else { addScore(1000); label(it.x, it.y - 22, '1000'); } } else q.wpn = it.w;
+      if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; }
       label(it.x, it.y - 8, WPN[it.w].name + ' ' + q.lvl);
     }
     checkExtend(); sfx('power'); world.items.splice(i, 1);
@@ -12202,7 +12245,10 @@ function drawP2() {
   const q = p2; if (!q || q.dead || app.state !== 'play' || !player) return;
   const fl = 3 + ((gf >> 1) & 1) * 2;
   for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
-  spr(goldSet()[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1], q.x, q.y); // player 2 always flies the golden Rooster
+  drawGlowBehind(q, 2);
+  const sp2 = goldSet()[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1]; // player 2 always flies the golden Rooster
+  spr(sp2, q.x, q.y);
+  drawGlowFront(q, 2, sp2);
   if (q.inv > 0 && !app.results && (q.inv > 40 || (gf >> 2) & 1)) {
     ctx.globalAlpha = 0.8; for (let i = 0; i < 7; i++) { const a = gf * 0.12 + i * TAU / 7; ctx.fillStyle = '#dde1e7'; ctx.fillRect(Math.round(q.x + Math.cos(a) * 20), Math.round(q.y + Math.sin(a) * 20), 1, 1); } ctx.globalAlpha = 1;
   }
@@ -12854,23 +12900,23 @@ function update() {
           label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
-          run.medalMul = run.medalT > 0 ? Math.min(MEDAL_MAX, run.medalMul + 1) : 1; run.medalT = MEDAL_WIN;
+          run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
           run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
-          run.stats.medals++; medalSfx(Math.min(6, run.medalMul - 1)); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
+          run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'T') {
-          if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; p.drones++; label(it.x, it.y - 8, 'TALON'); }
-          else { addScore(3000); label(it.x, it.y - 8, '3000'); }
+          if (p.drones < 2) { const d = p.dr[p.drones]; d.x = p.x; d.y = p.y; startFx(1, 'drone', p.drones); p.drones++; label(it.x, it.y - 8, 'TALON'); }
+          else { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'bonus'); }
           if (app.rr) app.rr.pk.T = (app.rr.pk.T || 0) + 1;
           sfx('drone'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (app.tut && (it.kind === 'B' || it.kind === 'T')) app.tut.got++;
-        if (it.kind === 'B') { run.bombs = Math.min(6, run.bombs + 1); addScore(500); label(it.x, it.y - 8, 'NOVA'); }
+        if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); } } // (a full stock turns the Nova into 2000 points)
         else {
           if (app.tut) app.tut.got++;
-          if (it.w === p.wpn) { if (p.lvl < 4) p.lvl++; else { addScore(1000); label(it.x, it.y - 22, '1000'); } } else p.wpn = it.w;
+          if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; }
           label(it.x, it.y - 8, WPN[it.w].name + ' ' + p.lvl);
         }
         if (app.rr) app.rr.pk[it.kind === 'B' ? 'B' : it.w] = (app.rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
@@ -12887,7 +12933,8 @@ function update() {
       if (hit) die(hit);
     }
   }
-  if (run.medalT > 0 && !app.results && --run.medalT === 0) run.medalMul = 1;
+  if (run.medalT > 0 && !app.results && --run.medalT === 0) { endChain(); run.medalMul = 1; }
+  if (app.glows) { for (const g of app.glows) g.t++; app.glows = app.glows.filter(g => g.t < 60); if (!app.glows.length) app.glows = null; } // (ship glow clock)
   world.items = world.items.filter(it => it.y < H + 10 && !(it.kind === 'S' && (it.life <= 0 || it.y < -20)));
   if (run.medalLost > 0) run.medalLost--;
   world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40)) && e.y > (e.type === 'boss' || e.keep ? -1700 : -140) && e.x > -60 && e.x < W + 60);
@@ -13809,6 +13856,129 @@ function drawItem(it) {
   text(it.w, x, y - 2, OUT); text(it.w, x - 1, y - 3, '#ffffff');
 }
 function drawPlayerArcs() { drawArcs(); }
+// ---- ship glow: picking up a weapon lights the ship in the weapon's colour. No text; the HUD shows the weapon and its level. ----
+// Same weapon: a level-up, stronger with every level (lvl is the new level 2 to 4, or 5 for the 1000-point bonus at the top).
+// Another weapon (from set): the hull wipes from the old colour to the new one. It is drawn over whichever skin the ship has, using only the sprite's shape.
+function startGlow(who, w, from, lvl) { app.glows = (app.glows || []).filter(g => !(g.who === who && !g.kind)); app.glows.push({ who, w, from, lvl, t: 0 }); }
+// kind 'nova' (a bomb collected: the energy condenses into the ship) or 'drone' (a Talon docks: i is its slot, 0 left and 1 right)
+function startFx(who, kind, i) { app.glows = (app.glows || []).filter(g => !(g.who === who && g.kind === kind && g.i === i)); app.glows.push({ who, kind, i, t: 0 }); }
+const [glowCv, glowG] = mk(40, 42);
+const glowsOf = who => app.glows ? app.glows.filter(g => g.who === who) : [];
+function glowMix(a, b, k) { const A = hexRGB(a), B = hexRGB(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',') + ')'; }
+function glowDot(x, y, col, a, w = 1) { ctx.globalAlpha = a; ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, w); ctx.globalAlpha = 1; }
+function glowRing(x, y, r, col, a) { const n = Math.max(12, Math.round(r * 4.2)); ctx.globalAlpha = a; ctx.fillStyle = col; for (let i = 0; i < n; i++) { const an = i * TAU / n; ctx.fillRect(Math.round(x + Math.cos(an) * r), Math.round(y + Math.sin(an) * r), 1, 1); } ctx.globalAlpha = 1; }
+function glowMote(x, y, ang, rad, col, hot, big) { glowDot(x + Math.cos(ang) * rad, y + Math.sin(ang) * rad, hot, 1, big ? 2 : 1); glowDot(x + Math.cos(ang - 0.28) * (rad + 3), y + Math.sin(ang - 0.28) * (rad + 3), col, 0.8); }
+function glowStamp(sp, x, y, a, fill) { // the sprite's own shape filled with a colour, drawn where the ship is
+  glowG.globalCompositeOperation = 'source-over'; glowG.clearRect(0, 0, glowCv.width, glowCv.height); glowG.drawImage(sp.c, 0, 0);
+  glowG.globalCompositeOperation = 'source-atop'; fill(glowG); glowG.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = a; ctx.drawImage(glowCv, Math.round(x - sp.w / 2), Math.round(y - sp.h / 2)); ctx.globalAlpha = 1;
+}
+function drawGlowBehind(p, who) { for (const g of glowsOf(who)) glowBehindOne(p, g); }
+function glowBehindOne(p, g) {
+  const t = g.t;
+  if (g.kind === 'drone' || g.kind === 'bonus') return;
+  if (g.kind === 'nova' || g.kind === 'spill') { if (t < 24) { ctx.globalAlpha = 0.26 * Math.sin(clamp(t / 24, 0, 1) * PI); dk(p.x, p.y, 11, RP.alien[2]); ctx.globalAlpha = 1; } return; }
+  const c = WPN[g.w].ramp;
+  if (g.from === undefined || g.from === null) {
+    const s0 = g.lvl - 2, dur = 20 + s0 * 7;
+    if (t < dur) { const k = 1 - t / dur; ctx.globalAlpha = (0.28 + s0 * 0.1) * k; dk(p.x, p.y, 12 + s0 * 4, c[2]); if (s0 >= 2 && !lowFX) { ctx.globalAlpha = 0.22 * k; dk(p.x, p.y, 17 + s0 * 4, c[1]); } ctx.globalAlpha = 1; }
+  } else if (t >= 2 && t < 18) { ctx.globalAlpha = 0.26 * Math.sin((t - 2) / 16 * PI); dk(p.x, p.y, 13, c[2]); ctx.globalAlpha = 1; }
+}
+function drawGlowFront(p, who, sp) { for (const g of glowsOf(who)) glowFrontOne(p, g, sp); }
+function glowFrontOne(p, g, sp) {
+  const t = g.t, x = p.x, y = p.y;
+  if (g.kind === 'drone') { // a Talon docks: the wing on its side flashes, then a ring, four sparks and a short link mark the dock
+    const d = g.i < p.drones ? p.dr[g.i] : null, sd = g.i ? 1 : -1, tl = RP.crys;
+    if (t < 11) glowStamp(sp, x, y, 0.9 * (1 - t / 11), f => { f.fillStyle = t < 3 ? '#ffffff' : glowMix('#ffffff', tl[3], clamp((t - 3) / 5, 0, 1)); if (sd < 0) f.fillRect(0, 0, sp.w / 2, sp.h); else f.fillRect(sp.w / 2, 0, sp.w / 2, sp.h); });
+    if (d && t >= 10 && t < 15) { ctx.globalAlpha = 0.25 * (1 - (t - 10) / 5); dk(d.x, d.y, 11 - (t - 10), tl[3]); ctx.globalAlpha = 1; }
+    if (d && t >= 11 && t < 17) { const q = (t - 11) / 6; glowRing(d.x, d.y, 2 + q * 8, q < 0.5 ? tl[4] : tl[3], 1 - q); for (let i = 0; i < 4; i++) { const an = i * PI / 2 + 0.8; glowDot(d.x + Math.cos(an) * (3 + q * 7), d.y + Math.sin(an) * (3 + q * 7), '#ffffff', 1 - q); } }
+    if (d && t >= 10 && t < 14) { const x0 = x + sd * 9, y0 = y + 5, n = Math.max(1, Math.round(Math.hypot(d.x - x0, d.y - y0))); for (let k = 0; k <= n; k++) glowDot(x0 + (d.x - x0) * k / n, y0 + (d.y - y0) * k / n, '#ffffff', 1 - (t - 10) / 4); }
+    return;
+  }
+  if (g.kind === 'spill') { // a Nova at a full stock (2000 points): it condenses, then the energy cannot be kept and turns into points, purple sparks turning gold on the way out
+    const R = RP.alien, gd = RP.yel, tau = t - 11;
+    if (t < 20) glowStamp(sp, x, y, t < 4 ? 0.8 : 0.5 * (1 - (t - 4) / 16), f => { f.fillStyle = t < 3 ? '#ffffff' : glowMix('#ffffff', R[3], clamp((t - 3) / 5, 0, 1)); f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (t <= 10) {
+      if (!lowFX) {
+        for (let i = 0; i < 8; i++) { const q = (t - (i % 4)) / 8; if (q <= 0 || q >= 1) continue; glowMote(x, y, i * PI / 4 + 0.3 + q * 1.4, 26 * (1 - q) * (1 - q) + 1, R[3], R[5], true); }
+        for (let i = 0; i < 2; i++) { const q = (t - 2 - i * 3) / 11; if (q < 0 || q > 1) continue; glowRing(x, y, 24 * (1 - q) + 3, q < 0.5 ? R[4] : R[5], 0.4 + q * 0.6); }
+      }
+      if (t >= 8) { ctx.globalAlpha = 0.7; dk(x, y, 4 + Math.round(Math.sin(t * 0.7)), R[3]); ctx.globalAlpha = 0.95; dk(x, y, 2, R[5]); ctx.globalAlpha = 1; }
+    }
+    if (tau >= 0 && tau < 3) { ctx.globalAlpha = 0.8 - tau * 0.25; dk(x, y, 6 + tau, gd[4]); ctx.globalAlpha = 1; }
+    if (tau >= 0 && tau < 16) glowStamp(sp, x, y, 0.4 * (1 - tau / 16), f => { f.fillStyle = gd[4]; f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (tau >= 0 && !lowFX) for (let i = 0; i < 14; i++) {
+      const u = tau / 24; if (u > 1) continue;
+      const sa = i * TAU / 14 + ((i * 0.37) % 1) * 0.5, dd = (18 + ((i * 0.61) % 1) * 14) * (1 - (1 - u) * (1 - u));
+      const col = u < 0.3 ? R[4] : u < 0.55 ? glowMix(R[4], gd[3], (u - 0.3) / 0.25) : gd[4], w = u < 0.5 ? 2 : 3;
+      ctx.globalAlpha = Math.min(1, 1.6 * (1 - u)); ctx.fillStyle = col; ctx.fillRect(Math.round(x + Math.cos(sa) * dd - 1), Math.round(y + Math.sin(sa) * dd * 0.9 + u * u * 8 - 1), w, w); ctx.globalAlpha = 1;
+    }
+    return;
+  }
+  if (g.kind === 'bonus') { // a third Talon (2000 points): gold rings and sparkles round both drones, the gold of the top-level weapon bonus
+    const gd = RP.yel;
+    for (let i = 0; i < Math.min(2, p.drones); i++) {
+      const d = p.dr[i], q = (t - 1) / 10;
+      if (q >= 0 && q <= 1) glowRing(d.x, d.y, 3 + q * 8, q < 0.5 ? gd[4] : gd[3], 1 - q);
+      if (!lowFX) for (let j = 0; j < 7; j++) {
+        const ph = t - 2 - j * 1.4; if (ph < 0 || ph > 8) continue;
+        const an = j * 0.9 + i * 2 + ((j * 0.37 + i * 0.61) % 1) * 1.3, rd = 8 + ((j * 0.53 + i * 0.29) % 1) * 9, sx = d.x + Math.cos(an) * rd, sy = d.y + Math.sin(an) * rd;
+        glowDot(sx, sy, '#fff4c0', 1);
+        if (ph > 2 && ph < 6) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) glowDot(sx + ox, sy + oy, gd[3], 1);
+      }
+    }
+    return;
+  }
+  if (g.kind === 'nova') { // a Nova is collected: purple energy condenses into the ship, the blast's ring closing in instead of spreading out
+    const R = RP.alien;
+    if (t < 20) glowStamp(sp, x, y, t < 4 ? 0.8 : 0.5 * (1 - (t - 4) / 16), f => { f.fillStyle = t < 3 ? '#ffffff' : glowMix('#ffffff', R[3], clamp((t - 3) / 5, 0, 1)); f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (!lowFX) {
+      for (let i = 0; i < 8; i++) { const q = (t - (i % 4)) / 8; if (q <= 0 || q >= 1) continue; glowMote(x, y, i * PI / 4 + 0.3 + q * 1.4, 26 * (1 - q) * (1 - q) + 1, R[3], R[5], true); }
+      for (let i = 0; i < 2; i++) { const q = (t - 2 - i * 3) / 11; if (q < 0 || q > 1) continue; glowRing(x, y, 24 * (1 - q) + 3, q < 0.5 ? R[4] : R[5], 0.4 + q * 0.6); }
+    }
+    if (t >= 9 && t < 30) { const cl = t < 20 ? 1 : 1 - (t - 20) / 10; ctx.globalAlpha = 0.7 * cl; dk(x, y, 4 + Math.round(Math.sin(t * 0.7)), R[3]); ctx.globalAlpha = 0.95 * cl; dk(x, y, 2, R[5]); ctx.globalAlpha = 1; }
+    return;
+  }
+  const c = WPN[g.w].ramp;
+  if (g.from === undefined || g.from === null) {
+    const mx = g.lvl >= 5, s = g.lvl - 2, hot = 4 + s * 2, fade = 16 + s * 6;
+    const a = t < hot ? 0.95 : Math.max(0, (0.72 + s * 0.08) * (1 - (t - hot) / fade)); // white-hot, then the weapon's colour, fading
+    if (a > 0.01) glowStamp(sp, x, y, a, f => { f.fillStyle = t < hot ? '#ffffff' : glowMix('#ffffff', c[3], clamp((t - hot) / 5, 0, 1)); f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (s >= 2 && t >= hot + 6 && t < hot + 10) glowStamp(sp, x, y, 0.6 - (t - hot - 6) * 0.12, f => { f.fillStyle = c[4]; f.fillRect(0, 0, glowCv.width, glowCv.height); }); // a second pulse from level 3
+    if (s >= 1 && !lowFX) for (let i = 0; i < 8; i++) { // short rays shoot outward from level 3
+      const q = (t - 2) / 9; if (q < 0 || q > 1) continue;
+      const ra = i * PI / 4 + 0.2, r0 = 11 + q * (10 + s * 4);
+      for (let k = 0; k < 2 + s; k++) glowDot(x + Math.cos(ra) * (r0 + k), y + Math.sin(ra) * (r0 + k), k ? c[3] : c[4], 1 - q);
+    }
+    const N = 5 + s * 3; // motes spiral in
+    for (let i = 0; i < N; i++) { const q = (t - (i % 4) * 2) / 8; if (q <= 0 || q >= 1) continue; glowMote(x, y, i * TAU / N + 0.4 + q * 1.3, (24 + s * 3) * (1 - q) * (1 - q) + 1, c[3], c[4], true); }
+    for (let i = 0; i < s + 1; i++) { // rings: one more per level, each wider
+      const q = (t - 3 - i * 3) / (16 + s * 2); if (q < 0 || q > 1) continue;
+      const r = 6 + q * (12 + s * 6), al = (1 - q) * (1 - i * 0.12);
+      glowRing(x, y, r, q < 0.5 ? c[4] : c[3], al); if (s >= 2) glowRing(x, y, r + 1, c[3], al * 0.6);
+    }
+    if (mx && !lowFX) for (let i = 0; i < 14; i++) { // the 1000-point bonus at the top level: gold sparkles
+      const ph = t - 6 - i * 1.2; if (ph < 0 || ph > 8) continue;
+      const an = i * 0.7 + (i * 0.37 % 1) * 1.4, rd = 15 + (i * 0.61 % 1) * 10, sx = x + Math.cos(an) * rd, sy = y + Math.sin(an) * rd;
+      glowDot(sx, sy, '#fff4c0', 1);
+      if (ph > 2 && ph < 6) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) glowDot(sx + ox, sy + oy, '#f4d050', 1);
+    }
+  } else {
+    const o = WPN[g.from].ramp, n = c, fa = 0.62, h = sp.h;
+    const wipe = t < 2 ? h : t < 12 ? h - (t - 2) / 10 * h : 0; // a bright line wipes from tail to nose between frames 2 and 12
+    const a = t < 2 ? fa * (t / 2) : t < 12 ? fa : Math.max(0, fa * (1 - (t - 12) / 14));
+    if (a > 0.01) glowStamp(sp, x, y, a, f => {
+      f.fillStyle = t < 12 ? o[3] : n[3]; f.fillRect(0, 0, glowCv.width, glowCv.height);
+      if (t >= 2 && t < 12) { f.fillStyle = n[3]; f.fillRect(0, wipe, glowCv.width, h - wipe); f.fillStyle = n[4]; f.fillRect(0, wipe - 1, glowCv.width, 2); } else if (t >= 12) { f.fillStyle = n[3]; f.fillRect(0, 0, glowCv.width, glowCv.height); }
+    });
+    for (let i = 0; i < 7; i++) { // the old weapon's energy bursts out
+      const q = t / 14; if (q <= 0 || q >= 1) continue;
+      const ao = i * TAU / 7 + (i * 0.43 % 1) * 0.6, rr = 6 + 20 * (1 - (1 - q) * (1 - q));
+      glowDot(x + Math.cos(ao) * rr, y + Math.sin(ao) * rr, i % 2 ? o[4] : o[3], 1 - q, q < 0.5 ? 2 : 1);
+    }
+    for (let i = 0; i < 6; i++) { const q = (t - 4 - (i % 3) * 2) / 8; if (q <= 0 || q >= 1) continue; glowMote(x, y, i * TAU / 6 + 0.9 + q * 1.1, 22 * (1 - q) * (1 - q) + 1, n[3], n[4], false); } // the new weapon's energy flows in
+  }
+}
 function drawPlayer() {
   const p = player;
   if (!p) return;
@@ -13824,12 +13994,16 @@ function drawPlayer() {
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
   if (!p2 && useNacht()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
-  spr((p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1], p.x, p.y); // in two-player games player 1 keeps the original skin, player 2 has the Rooster
+  if (fk === 1) drawGlowBehind(p, 1);
+  const sp = (p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
+  spr(sp, p.x, p.y);
+  if (fk === 1) drawGlowFront(p, 1, sp);
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
+  const bg = glowsOf(1).find(g => g.kind === 'bonus'), bfl = bg && bg.t < 16 ? Math.round(Math.sin(clamp(bg.t / 14, 0, 1) * PI) * 4) : 0; // a third Talon: the drones flare, gold at first
   for (let i = 0; i < p.drones; i++) {
     const d = p.dr[i];
-    ctx.globalAlpha = 0.3; dk(d.x, d.y, 7 + ((gf >> 3) & 1), '#4ccfae'); ctx.globalAlpha = 1;
-    ctx.fillStyle = (gf & 2) ? '#ff7a3a' : '#fff0a0'; ctx.fillRect(Math.round(d.x), Math.round(d.y + 7), 1, 2 + (gf & 1));
+    ctx.globalAlpha = 0.3 + 0.05 * bfl; dk(d.x, d.y, 7 + ((gf >> 3) & 1) + bfl, bg && bg.t < 10 ? '#f4d050' : '#4ccfae'); ctx.globalAlpha = 1;
+    ctx.fillStyle = (gf & 2) ? '#ff7a3a' : '#fff0a0'; ctx.fillRect(Math.round(d.x), Math.round(d.y + 7), 1, 2 + (gf & 1) + (bfl ? 2 : 0));
     spr(SPR.talon, d.x, d.y);
   }
   if (p.inv > 0 && !app.results) {
@@ -13864,10 +14038,31 @@ function scoreStrip(y, m, s1, s2) {
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score, mo = p2 ? 8 : 0; // in two-player games the medal chain makes room for the crown
   if (p2) scoreStrip(4, 4, s1, run.score2); // player 2's score mirrors player 1's in the top right corner
-  else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
-  textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
-  textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
-  if (player) {
+  else if (TOUCH_HUD) { // phone: double-size score, no HI line; it turns yellow when it passes the player's previous best (the moment NEW BEST! shows)
+    const beat = app.newBestDone;
+    textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc');
+    textS(pad(s1, 8), 14, 4, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
+  } else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
+  if (!TOUCH_HUD) {
+    textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
+    textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
+  }
+  if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
+    const cx = 90, cy = 9, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
+    if (pop && !app.paused) app.medalPop--;
+    if (open) {
+      const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
+      for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = OUT; ctx.fillRect(Math.round(cx + Math.cos(a) * 8) - 1, Math.round(cy + Math.sin(a) * 8) - 1, 3, 3); }
+      for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = i / N < fr ? (low ? '#ff8a60' : '#f4d050') : '#4a3a14'; ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1); }
+    }
+    coin(cx, cy, 4, 5, RP.yel);
+    if (xn) textS('x' + run.medalMul, 102, 4, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
+    else {
+      const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
+      const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
+      textS(String(v), 102, 4, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
+    }
+  } else if (player) {
     coin(54 + mo, 7, 2, 3, RP.yel);
     if (run.medalMul > 1 && run.medalT > 0) {
       textS('x' + run.medalMul, 59 + mo, 4, '#fff0a0', 1, 'left', '#d0a020');
@@ -13882,10 +14077,20 @@ function drawHUDBody(H) {
     if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
   }
   for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
-  for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
+  { const off = TOUCH_HUD && run.bombs <= 0 && !(app.cont > 0); if (app.bombOff !== off) { app.bombOff = off; bombBtn.classList.toggle('empty', off); } } // no Nova left: the button greys out (not during the continue countdown, when it is the Continue button)
+  if (TOUCH_HUD) { // the Nova count sits under the Nova button (page element), not in the corner
+    const nb = Math.min(run.bombs, 6);
+    if (app.pipN !== nb) { app.pipN = nb; app.pipSrc = app.pipSrc || SPR.novaIcon.c.toDataURL(); document.getElementById('bombPips').innerHTML = ('<img src="' + app.pipSrc + '" alt="">').repeat(nb); }
+  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
     textS(w.name + ' ' + player.lvl, 4, H - 31, w.hud[0], 1, 'left', w.hud[1]);
+    if (TOUCH_HUD) for (let k = 0; k < 4; k++) { // weapon level: four blocks in the weapon's colour, filled up to the level
+      const bx = 4 + k * 12, by = H - 23, on = k < Math.min(player.lvl, 4);
+      ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
+      ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
+      if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
+    }
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) {
@@ -14100,6 +14305,7 @@ function renderMain() {
     if (app.msg.b && !warn) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
   }
   drawTutorial();
+  if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t--; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.newBestT > 0 && (app.newBestT >> 3) % 4 !== 3) textO('NEW BEST!', W / 2, SAFE_T + 30, app.newBestT % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a');
   if (app.state === 'play' && app.resumeT > 0 && !app.paused) { const n = Math.ceil(app.resumeT / 60), f = (app.resumeT % 60) / 60; ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H); textO('GET READY', W / 2, H * 0.36, '#a8f6dc', 1, 'center', '#4ccfae'); textO(String(n), W / 2, H * 0.36 + 14, f > 0.5 ? '#ffffff' : '#fff0a0', 6, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.cont > 0) {
@@ -14217,9 +14423,9 @@ function buildHelp() {
   add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4, then 1000 bonus points.').className = 'hint';
   add('h3', 'Pickups');
   list([
-    [nova(), 'Nova', 'Extra bomb'],
-    [talon(), 'Talon', 'Escort drone'],
-    [coinI(), 'Medal', 'Grab in a chain for up to x10'],
+    [nova(), 'Nova', 'Extra bomb, up to six. More is 2000 points'],
+    [talon(), 'Talon', 'Escort drone, up to two. More is 2000 points'],
+    [coinI(), 'Medal', 'Grab in a chain, the multiplier keeps rising'],
     [gem(), 'Secret', 'Follow the crows']]);
   const more = document.createElement('details');
   more.innerHTML = '<summary>Scores &amp; rules</summary>'
