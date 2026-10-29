@@ -14131,7 +14131,6 @@ function drawBossBar(big, by) {
   if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
   const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
   if (nm) textS(nm, bx, by + h + 3, '#f48a60', 1, 'left', '#d84a34');
-  if (ar > 0) textS('LASER ARMOR', bx + bw, by + h + 3, '#e8f4ff', 1, 'right', '#8fa8c0');
 }
 function render() {
   renderMain();
