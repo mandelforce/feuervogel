@@ -290,11 +290,11 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 }
 #bombBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #120e1a}
 #bombBtn.empty{background:radial-gradient(circle at 35% 30%,#8a8794 0,#4a4755 40%,#2a2833 100%);color:#9a97a6;text-shadow:0 1px 0 #120e1a}
-#bombPips{position:absolute;display:none;right:14px;width:64px;height:10px;bottom:calc(3px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));justify-content:center;align-items:center;gap:2px;pointer-events:none}
-body[data-state="play"] #bombPips{display:flex}
+#bombPips{position:absolute;display:none;right:46px;width:0;height:0;bottom:calc(46px + env(safe-area-inset-bottom,0px) + var(--t-sab,0px));pointer-events:none} /* anchored on the Nova button's centre; the pips sit on a half circle above it (placed by the HUD code) */
+body[data-state="play"] #bombPips{display:block}
 body[data-results="1"] #bombPips{display:none !important}
 @media not all and (pointer:coarse){body #bombPips{display:none !important}}
-#bombPips img{width:10px;height:10px;image-rendering:pixelated}
+#bombPips img{position:absolute;width:10px;height:10px;image-rendering:pixelated}
 body[data-boot="1"] #menuBtn{display:none}
 body[data-state="play"] #pauseBtn{display:grid}
 @media not all and (pointer:coarse){body[data-state="play"]:not([data-results="1"]) #menuBtn,body[data-state="play"]:not([data-results="1"]) #pauseBtn{display:none}} /* PC: Esc or P pauses and opens the menu; the corner is for player 2's score */
@@ -7889,7 +7889,7 @@ let beam = null, gpad = null, padPrev = {};
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
 let scorer = 1; // whose points the next addScore() is: 1 or 2. Player 2's shots, bomb and pickups set it to 2 while they resolve
 const P2_OK = !matchMedia('(pointer:coarse)').matches;
-const TOUCH_HUD = matchMedia('(pointer:coarse)').matches; // phone HUD: bigger score without the HI line, weapon level as four blocks, Nova count under the Nova button
+const TOUCH_HUD = matchMedia('(pointer:coarse)').matches; // phone HUD: bigger score without the HI line, weapon level as four blocks, Nova count in an arc above the Nova button
 const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
 const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
 function setP2() {
@@ -8270,7 +8270,7 @@ const TUT_TEXT = () => {
     '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
     '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.' + (touch ? ' <b>Beat your best score</b> and your score turns yellow.' : ''),
-    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots under it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
+    (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots in an arc above it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
     '<b>Hold still to charge the laser</b>, then ' + (touch ? 'touch the screen again' : pad ? 'press X' : 'move') + ' to fire. It breaks armoured targets. Fire it too often and it <b>overheats</b>: watch for steam at the nose.',
     'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Schneevogel skin.</b>',
     "<b>You're ready!</b>"
@@ -14093,9 +14093,14 @@ function drawHUDBody(H) {
   }
   for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
   { const off = TOUCH_HUD && run.bombs <= 0 && !(app.cont > 0); if (app.bombOff !== off) { app.bombOff = off; bombBtn.classList.toggle('empty', off); } } // no Nova left: the button greys out (not during the continue countdown, when it is the Continue button)
-  if (TOUCH_HUD) { // the Nova count sits under the Nova button (page element), not in the corner
+  if (TOUCH_HUD) { // the Nova count is a half circle of icons above the Nova button (page element), not in the corner
     const nb = Math.min(run.bombs, 6);
-    if (app.pipN !== nb) { app.pipN = nb; app.pipSrc = app.pipSrc || SPR.novaIcon.c.toDataURL(); document.getElementById('bombPips').innerHTML = ('<img src="' + app.pipSrc + '" alt="">').repeat(nb); }
+    if (app.pipN !== nb) {
+      app.pipN = nb; app.pipSrc = app.pipSrc || SPR.novaIcon.c.toDataURL();
+      let h = ''; // 36 degrees apart round the button's centre, the middle of the row straight above it; radius 40 keeps the outer two inside the screen edge
+      for (let i = 0; i < nb; i++) { const a = (90 + (i - (nb - 1) / 2) * 36) * PI / 180; h += '<img src="' + app.pipSrc + '" alt="" style="left:' + (Math.cos(a) * 40 - 5).toFixed(1) + 'px;top:' + (-Math.sin(a) * 40 - 5).toFixed(1) + 'px">'; }
+      document.getElementById('bombPips').innerHTML = h;
+    }
   } else for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
