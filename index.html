@@ -11283,7 +11283,9 @@ function bomberTrails(e) {
 // straight at it gets a hard break across its path and back past it (a Seeker only sees what is ahead), on a cooldown, so a stream still gets one in. It fears the Arc: against an Arc ship it holds
 // beside the cone, a little slower than the ship so a chase catches it, and it bolts when the bolt locks on (never out of an ambush; locked
 // again, or pinned at an edge, it leaves the screen). Every gun fires upward, so it always keeps above the ship (a flank pass aside): beside
-// the ship at its height it could not be hit at all. After PFEIL.atkN ambushes, or PFEIL.life frames, it dives away.
+// the ship at its height it could not be hit at all. A ship charging its laser stands still: the Pfeil goes in for the kill (from hiding at
+// once, no waiting, to a spot just beside the beam's reach, one shot more). The warning stays, so moving off (which fires a full laser,
+// sweeping it with the ship) can catch it hanging there. After PFEIL.atkN ambushes, or PFEIL.life frames, it dives away.
 // States (e.st): hunt, dodge, out (to the side), hide (off the screen), flank (coming back), aim (the ambush), leave.
 const PFEIL = {
   band: [70, 150], minUp: 50,        // hunt: height above the nearest ship, and the least it keeps above it
@@ -11295,6 +11297,7 @@ const PFEIL = {
   col: 20, expUp: 1, expDown: 0.5, expHit: 20, expArc: 25, expMax: 45, // exposure: + a frame in the column above a ship (in gun range), - out of it, + per damage point and per Arc lock; at expMax it leaves
   outSp: 3, hide: [40, 80], hideMax: 120, // to the side: speed; then frames out of sight (hideMax: never longer)
   reH: [40, 140], reGap: 40, same: 0.3, flankSp: 2.8, flankX: [40, 70], flankY: [50, 90], flankMax: 90, // coming back: height above the ship, at least reGap from where it left, the same side 30% of the time; then in to a spot beside and above the ship
+  killCharge: 40, killX: [55, 75], killY: [55, 85], // a ship whose laser charge (0-100) is at least killCharge: go in at once, killX beside it and killY above (a full laser swept at it the moment it flares catches it about 2 times in 3)
   tele: 18, burst: 2, gap: 6, hold: 60, atkCd: 150, atkN: 3, life: 1200 // the ambush: warning frames, shots (one more on Hard or a later loop), frames apart; from the hunt after `hold` frames lined up, atkCd apart; atkN ambushes or life frames, then it leaves
 };
 function pfeilTick(e) {
@@ -11308,7 +11311,8 @@ function pfeilTick(e) {
   for (const s of ships) { if (e.y < s.y - 4 && s.y - e.y < H * 0.6 && Math.abs(e.x - s.x) < P.col) inCol = true; if (s.wpn === 'A' && s.arcLock === e) locked = true; }
   e.exp = Math.max(0, e.exp + (inCol ? P.expUp : -P.expDown) + hurt * P.expHit);
   if (e.st !== 'leave' && e.st !== 'aim' && e.st !== 'dodge' && (!live || e.atk >= P.atkN || e.t > P.life)) { if (e.st === 'hide') { e.dead = true; return; } e.od = e.x < W / 2 ? -1 : 1; go('leave'); }
-  const free = e.st === 'hunt' || e.st === 'flank';
+  const free = e.st === 'hunt' || e.st === 'flank', kill = live && (q.charge || 0) >= P.killCharge && e.st !== 'leave';
+  if (kill && !e.kill) { e.kx = R(P.killX); e.ky = R(P.killY); e.acd = 0; } e.kill = kill; // the charging ship is a sitting target
   // threats, most urgent first: a Seeker about to hit, the Arc's bolt, too long in the line of fire
   if (onScr && e.dcd <= 0 && (free || e.st === 'aim' || e.st === 'out')) for (const s of world.shots) {
     if (s.dead || s.k !== 'h' || s.y <= e.y) continue;
@@ -11332,10 +11336,11 @@ function pfeilTick(e) {
     if (e.arcM !== arc) { e.arcM = arc; e.reT = 0; }
     if (--e.reT <= 0) { e.reT = R(P.regoal) | 0; e.oy = R(arc ? P.arcBand : P.band); e.ox = R(arc ? P.arcOff : P.off); if (!arc && Math.random() < 0.4) e.side = -e.side; }
     if (arc) { const A = ARC_LV[q.lvl] || ARC_LV[1]; e.side = Math.sign(e.x - q.x) || e.side; e.ox = Math.max(e.ox, A.cone + (e.oy - 12) * A.slope + P.arcMargin); sp = P.arcCruise; } // stays on its side of the cone; pinned at the edge, the Arc gets it or it leaves
-    gx = clamp(q.x + e.side * e.ox, 24, W - 24); gy = clamp(q.y - e.oy, 24, q.y - P.minUp);
-    if (!arc && Math.abs(gx - q.x) < e.ox * 0.6) { e.side = -e.side; gx = clamp(q.x + e.side * e.ox, 24, W - 24); } // no room on this side
+    if (kill) { e.side = Math.sign(e.x - q.x) || e.side; if ((e.side < 0 ? q.x : W - q.x) < e.kx + 24) e.side = -e.side; } // its side of the ship, if there is room
+    gx = clamp(q.x + e.side * (kill ? Math.max(e.kx, arc ? e.ox : 0) : e.ox), 24, W - 24); gy = clamp(q.y - (kill ? e.ky : e.oy), 24, q.y - P.minUp);
+    if (!kill && !arc && Math.abs(gx - q.x) < e.ox * 0.6) { e.side = -e.side; gx = clamp(q.x + e.side * e.ox, 24, W - 24); } // no room on this side
     e.good = onScr && Math.abs(angDiff(e.face, aim(e.x, e.y))) < 0.2 && Math.hypot(gx - e.x, gy - e.y) < 30 ? e.good + 1 : 0;
-    if (e.good >= P.hold && e.acd <= 0 && canAim()) go('aim');
+    if ((e.good >= P.hold || (kill && e.good >= 4)) && e.acd <= 0 && canAim()) go('aim');
   } else if (e.st === 'dodge') {
     steer = false; const k = Math.min(1, 2 * e.bT / P.dodgeT); // full speed for the first half, then it fades
     e.vx += clamp(e.bx * k - e.vx, -P.dodgeAcc, P.dodgeAcc); e.vy += clamp(e.by * k - e.vy, -P.dodgeAcc, P.dodgeAcc);
@@ -11345,19 +11350,20 @@ function pfeilTick(e) {
     if (e.x < -40 || e.x > W + 40) { e.hideT = R(P.hide) | 0; e.exitY = e.y; e.vx = e.vy = 0; e.exp = 0; go('hide'); }
   } else if (e.st === 'hide') {
     steer = false;
-    if (e.sT >= Math.min(e.hideT, P.hideMax)) {
+    if (e.sT >= Math.min(kill ? 10 : e.hideT, P.hideMax)) {
       const from = Math.random() < P.same ? e.od : -e.od; let y = q.y - R(P.reH);
       if (Math.abs(y - e.exitY) < P.reGap) y = e.exitY + (y < e.exitY ? -P.reGap : P.reGap);
       e.x = from < 0 ? -40 : W + 40; e.y = clamp(y, 30, q.y - P.minUp); e.vx = -from * P.flankSp; e.vy = 0;
       e.side = from; e.fx = R(P.flankX); e.fy = R(P.flankY); go('flank');
     }
   } else if (e.st === 'flank') {
-    gx = clamp(q.x + e.side * e.fx, 24, W - 24); gy = clamp(q.y - e.fy, 24, q.y - P.minUp); sp = P.flankSp; acc = 0.2;
+    gx = clamp(q.x + e.side * (kill ? e.kx : e.fx), 24, W - 24); gy = clamp(q.y - (kill ? e.ky : e.fy), 24, q.y - P.minUp); sp = P.flankSp; acc = 0.2;
     if ((Math.hypot(gx - e.x, gy - e.y) < 20 || e.sT > P.flankMax) && e.acd <= 0 && canAim()) go('aim');
     else if (e.sT > P.flankMax * 2) { e.reT = 0; go('hunt'); }
   } else if (e.st === 'aim') {
     steer = false; e.vx *= 0.88; e.vy *= 0.88; // it hangs still for the shot: the nose locks and flares (see the render)
-    const n = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0), k = e.sT - P.tele;
+    if (e.sT === 1) e.kn = e.kill ? 1 : 0;
+    const n = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0) + e.kn, k = e.sT - P.tele;
     if (k >= 0 && k % P.gap === 0 && k / P.gap < n && live && onScr && e.y < H - 60) { const nx = e.x + Math.cos(e.face) * 15, ny = e.y + Math.sin(e.face) * 15; eshot(nx, ny, e.face, bspeed()); sfx('gun'); }
     if (k >= (n - 1) * P.gap + 10) { e.atk++; e.acd = P.atkCd; e.good = 0; e.reT = 0; if (e.exp >= P.expMax * 0.6) goOut(); else go('hunt'); }
   } else if (e.st === 'leave') {
