@@ -7964,7 +7964,7 @@ function newGame() {
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
-  world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = [];
+  world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
@@ -8839,7 +8839,7 @@ for (const [id, key] of [['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod',
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
-function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; app.msg = null; app.cont = 0; player = null;
+function toTitle() { run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null; app.msg = null; app.cont = 0; player = null;
   if (run.sortie) { run.sortie = null; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2; } setEnigmaArt(false); } // the title keeps scrolling: rebuild it without the sortie
 function doContinue() {
   if (app.cont <= 0 || !player) return;
@@ -10149,7 +10149,7 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
-function bossDead(e) { world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(); }
+function bossDead(e) { world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
@@ -10190,9 +10190,22 @@ function rewardSfx() {
   });
   for (let i = 0; i < 8; i++) { const t = tb + 0.05 + i * 0.07, o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = rnd(2200, 3600); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.025, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); o.connect(g).connect(sfxBus); o.start(t); o.stop(t + 0.14); }
 }
-function stageClear() {
+// With `collect` the ship stays in play for up to 6s after the boss to pick up its medals, and leaves early once no medal is left
+function stageClear(collect) {
   if (app.rr && app.rr.cur) app.rr.cur.ok = 1;
   stopMusic();
+  if (collect && player && !player.dead) { world.collect = { t: 360, calm: 0 }; return; }
+  startExit();
+}
+function updCollect() {
+  const c = world.collect; if (!c) return;
+  if (!player || player.dead) { startExit(); return; }
+  player.inv = Math.max(player.inv, 20);
+  c.calm = world.items.some(it => it.kind === 'M') ? 0 : c.calm + 1;
+  if (--c.t <= 0 || c.calm >= 30) startExit();
+}
+function startExit() {
+  world.collect = null;
   if (player && !player.dead) { player.exitT = 80; player.inv = Math.max(player.inv, 200); boostOutSfx(); }
   world.later.push({ at: gf + 82, fn: clearBanner });
 }
@@ -12934,6 +12947,7 @@ function update() {
     }
   }
   if (run.medalT > 0 && !app.results && --run.medalT === 0) { endChain(); run.medalMul = 1; }
+  updCollect();
   if (app.glows) { for (const g of app.glows) g.t++; app.glows = app.glows.filter(g => g.t < 60); if (!app.glows.length) app.glows = null; } // (ship glow clock)
   world.items = world.items.filter(it => it.y < H + 10 && !(it.kind === 'S' && (it.life <= 0 || it.y < -20)));
   if (run.medalLost > 0) run.medalLost--;
