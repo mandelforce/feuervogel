@@ -4143,7 +4143,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.3'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -14037,18 +14037,19 @@ function scoreStrip(y, m, s1, s2) {
 }
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score, mo = p2 ? 8 : 0; // in two-player games the medal chain makes room for the crown
+  const ty = TOUCH_HUD && !p2 ? 10 - SAFE_T : 4; // phone: the score row is level with the menu button (its centre is at y 14.5 on the screen); HUD y is screen y minus SAFE_T
   if (p2) scoreStrip(4, 4, s1, run.score2); // player 2's score mirrors player 1's in the top right corner
   else if (TOUCH_HUD) { // phone: double-size score, no HI line; it turns yellow when it passes the player's previous best (the moment NEW BEST! shows)
     const beat = app.newBestDone;
-    textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc');
-    textS(pad(s1, 8), 14, 4, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
+    textS('1P', 4, ty, '#bba4ff', 1, 'left', '#8466dc');
+    textS(pad(s1, 8), 14, ty, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
   } else { textS('1P', 4, 4, '#bba4ff', 1, 'left', '#8466dc'); textS(pad(s1, 8), 14, 4, '#ffffff', 1, 'left', '#c4c9ce'); }
   if (!TOUCH_HUD) {
     textS('HI', 4, 12, '#f4d050', 1, 'left', '#d0a020');
     textS(pad(hi, 8), 14, 12, '#fff0a0', 1, 'left', '#f4d050');
   }
   if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
-    const cx = 90, cy = 9, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
+    const cx = 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
     if (pop && !app.paused) app.medalPop--;
     if (open) {
       const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
@@ -14056,11 +14057,11 @@ function drawHUDBody(H) {
       for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = i / N < fr ? (low ? '#ff8a60' : '#f4d050') : '#4a3a14'; ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1); }
     }
     coin(cx, cy, 4, 5, RP.yel);
-    if (xn) textS('x' + run.medalMul, 102, 4, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
+    if (xn) textS('x' + run.medalMul, 102, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
     else {
       const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
       const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
-      textS(String(v), 102, 4, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
+      textS(String(v), 102, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
     }
   } else if (player) {
     coin(54 + mo, 7, 2, 3, RP.yel);
@@ -14093,17 +14094,43 @@ function drawHUDBody(H) {
     }
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
-  if (big) {
-    let hp = 0, mx = 0;
-    if (big.parts) for (const p of big.parts) { hp += Math.max(0, p.hp); mx += p.maxhp; } else { hp = big.hp; mx = big.maxhp; }
-    const w = W - 90;
-    ctx.fillStyle = OUT; ctx.fillRect(4, 22, w + 2, 5);
-    ctx.fillStyle = '#3a0c10'; ctx.fillRect(5, 23, w, 3);
-    ctx.fillStyle = '#d84a34'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 3);
-    ctx.fillStyle = '#f48a60'; ctx.fillRect(5, 23, Math.max(0, w * hp / mx), 1);
-    const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
-    if (nm) textS(nm, 5, 29, '#f48a60', 1, 'left', '#d84a34');
+  if (big) drawBossBar(big, TOUCH_HUD && !p2 ? 29 - SAFE_T : 22);
+  else bossBar.e = null;
+}
+// The boss bar: one plate across the screen (a boss 7 pixels thick, a mini boss 5), the name under it on the left. `by` is its top edge: on a phone just
+// below the menu button (screen y 29), on PC below the HI line. A pale chip trails the damage just taken, the plate fills in when the fight starts and its fill
+// blinks under a quarter. Armor: an enemy with `armor` / `armorMax` (or parts that carry them) gets a steel segment at the right end of the plate. Shots drain
+// from the right, so it is the part that goes first; this only draws it (the rule that only the super laser hurts it belongs to the boss that uses it).
+const bossBar = { e: null, t: 0, hold: 0, hg: 1, ag: 1, lh: 1, la: 1 }; // display only: not part of the snapshot, a restored run just fills the plate in again
+const BAR_HP = ['#3a0c10', '#d84a34', '#f48a60', '#a83024'], BAR_ARMOR = ['#1a2430', '#8fa8c0', '#d8ecff', '#5a7690'];
+function barSeg(x, y, w, h, f, g, c, blink) {
+  ctx.fillStyle = c[0]; ctx.fillRect(x, y, w, h);
+  const fw = Math.round(w * f), gw = Math.round(w * g);
+  if (gw > fw) { ctx.fillStyle = '#fff0a0'; ctx.fillRect(x + fw, y, gw - fw, h); }
+  if (fw <= 0) return;
+  ctx.fillStyle = blink ? '#ff8a60' : c[1]; ctx.fillRect(x, y, fw, h);
+  ctx.fillStyle = c[2]; ctx.fillRect(x, y, fw, 1);
+  if (h >= 6) { ctx.fillStyle = c[3]; ctx.fillRect(x, y + h - 1, fw, 1); }
+}
+function drawBossBar(big, by) {
+  let hp = 0, mx = 0, ar = 0, am = 0;
+  if (big.parts) for (const p of big.parts) { hp += Math.max(0, p.hp); mx += p.maxhp; ar += Math.max(0, p.armor || 0); am += p.armorMax || 0; } else { hp = big.hp; mx = big.maxhp; ar = Math.max(0, big.armor || 0); am = big.armorMax || 0; }
+  const fh = clamp(hp / Math.max(1, mx), 0, 1), fa = am > 0 ? clamp(ar / am, 0, 1) : 0, b = bossBar;
+  if (b.e !== big) { b.e = big; b.t = 0; b.hold = 0; b.hg = b.lh = fh; b.ag = b.la = fa; }
+  if (!app.paused) {
+    if (b.t < 36) b.t++;
+    if (fh < b.lh - 1e-4 || fa < b.la - 1e-4) b.hold = 24;
+    b.lh = fh; b.la = fa;
+    if (b.hold > 0) b.hold--; else { b.hg -= 0.012; b.ag -= 0.012; }
+    b.hg = Math.max(b.hg, fh); b.ag = Math.max(b.ag, fa);
   }
+  const bx = 5, bw = W - 10, h = big.type === 'boss' ? 7 : 5, r = b.t / 36, blink = fh < 0.25 && fh > 0 && (gf >> 3) & 1;
+  const aw = am > 0 ? Math.max(4, Math.round((bw - 1) * am / (mx + am))) : 0, hw = bw - (aw ? aw + 1 : 0);
+  ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, bw + 2, h + 2);
+  barSeg(bx, by, hw, h, Math.min(fh, r), Math.min(b.hg, r), BAR_HP, blink);
+  if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
+  const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
+  if (nm) textS(nm, bx, by + h + 3, '#f48a60', 1, 'left', '#d84a34');
 }
 function render() {
   renderMain();
