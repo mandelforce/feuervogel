@@ -9352,7 +9352,7 @@ function waveBomber() {
   const hp = 42 * (1 + 0.3 * run.loop);
   world.enemies.push(E('bomber', { x: rnd(50, W - 50), y: -22, hp, maxhp: hp, gcd: 60 }));
 }
-function wavePfeil() { const cx = rnd(60, W - 60); for (const [dx, dy, cd] of [[-22, -20, 40], [22, -34, 60]]) world.enemies.push(E('pfeil', { x: cx + dx, y: dy, cd, ph: Math.random() * 6 })); }
+function wavePfeil() { const cx = rnd(60, W - 60); for (const [dx, dy, side] of [[-22, -20, -1], [22, -34, 1]]) world.enemies.push(E('pfeil', { x: cx + dx, y: dy, side })); } // (a pair, each favouring its own side)
 function waveHeavy() { world.enemies.push(E('heavy', { x: rnd(40, W - 40), y: -20, cd: 50, ph: Math.random() * 6 })); }
 function waveLeader() {
   const cx = rnd(60, W - 60), L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
@@ -11275,6 +11275,105 @@ function bomberTrails(e) {
   });
   for (const ox of [-26, 26]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 1, vx: 0, vy: -0.05, life: 40, max: 40 });
 }
+// The Pfeil (Enigma Run, level 3 on; the hornet). It comes in a pair, one to each side, and hunts the nearer ship from a band above it, a
+// little to the side of its guns, its nose always on the ship (it flies one way and looks another: e.face is the nose, e.vx/e.vy the flight).
+// It won't sit in the line of fire: time in the column above a ship, and every hit, build up exposure, and when that runs high it breaks for
+// the nearer side, leaves the screen for a moment and comes back from a flank (mostly the other side, at another height) for an ambush: the
+// nose locks and flares for PFEIL.tele frames (the warning, and the player's window), then a short burst along the nose. A Seeker coming
+// straight at it gets a hard break across its path and back past it (a Seeker only sees what is ahead), on a cooldown, so a stream still gets one in. It fears the Arc: against an Arc ship it holds
+// beside the cone, a little slower than the ship so a chase catches it, and it bolts when the bolt locks on (never out of an ambush; locked
+// again, or pinned at an edge, it leaves the screen). Every gun fires upward, so it always keeps above the ship (a flank pass aside): beside
+// the ship at its height it could not be hit at all. After PFEIL.atkN ambushes, or PFEIL.life frames, it dives away.
+// States (e.st): hunt, dodge, out (to the side), hide (off the screen), flank (coming back), aim (the ambush), leave.
+const PFEIL = {
+  band: [70, 150], minUp: 50,        // hunt: height above the nearest ship, and the least it keeps above it
+  off: [25, 60], regoal: [40, 90],   // hunt: how far beside the ship's column, and how often it picks a new spot (frames)
+  cruise: 2.2, acc: 0.14, turn: 0.09, // top speed and acceleration (px/frame), how fast the nose turns (rad/frame)
+  arcBand: [40, 90], arcOff: [60, 110], arcMargin: 25, arcCruise: 2, // against an Arc ship: lower, beside the cone (at least its half-width + arcMargin), slower than the ship (2.6)
+  dodgeR: 70, dodgeCone: 0.5, dodgeSp: 3.6, dodgeBack: 0.6, dodgeAcc: 1.2, dodgeT: 26, dodgeCd: 80, // a Seeker within dodgeR, below it and aimed within dodgeCone rad of it: a break of dodgeSp (reached at dodgeAcc a frame) across its path and dodgeBack of that back past it, fading over dodgeT frames
+  frightSp: 3, frightT: 14,          // the break when the Arc locks on (it shares the dodge cooldown)
+  col: 20, expUp: 1, expDown: 0.5, expHit: 20, expArc: 25, expMax: 45, // exposure: + a frame in the column above a ship (in gun range), - out of it, + per damage point and per Arc lock; at expMax it leaves
+  outSp: 3, hide: [40, 80], hideMax: 120, // to the side: speed; then frames out of sight (hideMax: never longer)
+  reH: [40, 140], reGap: 40, same: 0.3, flankSp: 2.8, flankX: [40, 70], flankY: [50, 90], flankMax: 90, // coming back: height above the ship, at least reGap from where it left, the same side 30% of the time; then in to a spot beside and above the ship
+  tele: 18, burst: 2, gap: 6, hold: 60, atkCd: 150, atkN: 3, life: 1200 // the ambush: warning frames, shots (one more on Hard or a later loop), frames apart; from the hunt after `hold` frames lined up, atkCd apart; atkN ambushes or life frames, then it leaves
+};
+function pfeilTick(e) {
+  const P = PFEIL, q = nearShip(e.x, e.y), live = hasT(), R = ([a, b]) => rnd(a, b);
+  if (e.st === undefined) Object.assign(e, { st: 'hunt', sT: 0, vx: 0, vy: 1.4, face: PI / 2, exp: 0, dcd: 0, acd: 90, atk: 0, good: 0, reT: 0, hp0: e.hp, side: e.side || (e.x < W / 2 ? -1 : 1) });
+  const go = st => { e.st = st; e.sT = 0; }, goOut = (d = e.x < W / 2 ? -1 : 1) => { e.od = d; go('out'); };
+  e.sT++; if (e.dcd > 0) e.dcd--; if (e.acd > 0) e.acd--;
+  const hurt = e.hp0 - e.hp; e.hp0 = e.hp;
+  const onScr = e.x > 8 && e.x < W - 8 && e.y > 8, ships = liveShips().filter(s => !s.dead);
+  let inCol = false, locked = false;
+  for (const s of ships) { if (e.y < s.y - 4 && s.y - e.y < H * 0.6 && Math.abs(e.x - s.x) < P.col) inCol = true; if (s.wpn === 'A' && s.arcLock === e) locked = true; }
+  e.exp = Math.max(0, e.exp + (inCol ? P.expUp : -P.expDown) + hurt * P.expHit);
+  if (e.st !== 'leave' && e.st !== 'aim' && e.st !== 'dodge' && (!live || e.atk >= P.atkN || e.t > P.life)) { if (e.st === 'hide') { e.dead = true; return; } e.od = e.x < W / 2 ? -1 : 1; go('leave'); }
+  const free = e.st === 'hunt' || e.st === 'flank';
+  // threats, most urgent first: a Seeker about to hit, the Arc's bolt, too long in the line of fire
+  if (onScr && e.dcd <= 0 && (free || e.st === 'aim' || e.st === 'out')) for (const s of world.shots) {
+    if (s.dead || s.k !== 'h' || s.y <= e.y) continue;
+    const dx = e.x - s.x, dy = e.y - s.y;
+    if (dx * dx + dy * dy < P.dodgeR * P.dodgeR && Math.abs(angDiff(Math.atan2(s.vy, s.vx), Math.atan2(dy, dx))) < P.dodgeCone) {
+      const l = Math.hypot(s.vx, s.vy) || 1; let px = -s.vy / l, py = s.vx / l; if (dx * px + dy * py < 0) { px = -px; py = -py; } if ((px < 0 ? e.x : W - e.x) < 40) { px = -px; py = -py; } // across its path, away from its line (unless an edge is close),
+      px -= s.vx / l * P.dodgeBack; py -= s.vy / l * P.dodgeBack; const m = Math.hypot(px, py); // and back past it: a Seeker only sees what is ahead of it
+      e.bx = px / m * P.dodgeSp; e.by = py / m * P.dodgeSp; e.bT = P.dodgeT; e.dcd = P.dodgeCd; go('dodge'); break;
+    }
+  }
+  if (locked && onScr && (e.st === 'hunt' || e.st === 'flank')) {
+    const d = e.x === q.x ? e.side : Math.sign(e.x - q.x); e.exp += P.expArc;
+    if (e.dcd > 0 || (d < 0 ? e.x : W - e.x) < 40) goOut(e.dcd > 0 ? undefined : d); // locked again, or pinned at an edge: off the screen
+    else { e.bx = d * P.frightSp; e.by = -0.6; e.bT = P.frightT; e.dcd = P.dodgeCd; e.side = d; go('dodge'); }
+  }
+  if (e.exp >= P.expMax && (e.st === 'hunt' || e.st === 'flank')) goOut();
+  const canAim = () => live && onScr && e.y < H - 60 && world.enemies.every(o => o === e || o.type !== 'pfeil' || o.dead || o.st !== 'aim'); // the pair never ambushes at once
+  let gx = e.x, gy = e.y, sp = P.cruise, acc = P.acc, steer = true;
+  if (e.st === 'hunt') {
+    const arc = q.wpn === 'A';
+    if (e.arcM !== arc) { e.arcM = arc; e.reT = 0; }
+    if (--e.reT <= 0) { e.reT = R(P.regoal) | 0; e.oy = R(arc ? P.arcBand : P.band); e.ox = R(arc ? P.arcOff : P.off); if (!arc && Math.random() < 0.4) e.side = -e.side; }
+    if (arc) { const A = ARC_LV[q.lvl] || ARC_LV[1]; e.side = Math.sign(e.x - q.x) || e.side; e.ox = Math.max(e.ox, A.cone + (e.oy - 12) * A.slope + P.arcMargin); sp = P.arcCruise; } // stays on its side of the cone; pinned at the edge, the Arc gets it or it leaves
+    gx = clamp(q.x + e.side * e.ox, 24, W - 24); gy = clamp(q.y - e.oy, 24, q.y - P.minUp);
+    if (!arc && Math.abs(gx - q.x) < e.ox * 0.6) { e.side = -e.side; gx = clamp(q.x + e.side * e.ox, 24, W - 24); } // no room on this side
+    e.good = onScr && Math.abs(angDiff(e.face, aim(e.x, e.y))) < 0.2 && Math.hypot(gx - e.x, gy - e.y) < 30 ? e.good + 1 : 0;
+    if (e.good >= P.hold && e.acd <= 0 && canAim()) go('aim');
+  } else if (e.st === 'dodge') {
+    steer = false; const k = Math.min(1, 2 * e.bT / P.dodgeT); // full speed for the first half, then it fades
+    e.vx += clamp(e.bx * k - e.vx, -P.dodgeAcc, P.dodgeAcc); e.vy += clamp(e.by * k - e.vy, -P.dodgeAcc, P.dodgeAcc);
+    if (--e.bT <= 0) { e.reT = 0; if (e.exp >= P.expMax) goOut(); else go('hunt'); }
+  } else if (e.st === 'out') {
+    gx = e.od < 0 ? -80 : W + 80; gy = Math.min(e.y, q.y - P.minUp); sp = P.outSp; acc = 0.25;
+    if (e.x < -40 || e.x > W + 40) { e.hideT = R(P.hide) | 0; e.exitY = e.y; e.vx = e.vy = 0; e.exp = 0; go('hide'); }
+  } else if (e.st === 'hide') {
+    steer = false;
+    if (e.sT >= Math.min(e.hideT, P.hideMax)) {
+      const from = Math.random() < P.same ? e.od : -e.od; let y = q.y - R(P.reH);
+      if (Math.abs(y - e.exitY) < P.reGap) y = e.exitY + (y < e.exitY ? -P.reGap : P.reGap);
+      e.x = from < 0 ? -40 : W + 40; e.y = clamp(y, 30, q.y - P.minUp); e.vx = -from * P.flankSp; e.vy = 0;
+      e.side = from; e.fx = R(P.flankX); e.fy = R(P.flankY); go('flank');
+    }
+  } else if (e.st === 'flank') {
+    gx = clamp(q.x + e.side * e.fx, 24, W - 24); gy = clamp(q.y - e.fy, 24, q.y - P.minUp); sp = P.flankSp; acc = 0.2;
+    if ((Math.hypot(gx - e.x, gy - e.y) < 20 || e.sT > P.flankMax) && e.acd <= 0 && canAim()) go('aim');
+    else if (e.sT > P.flankMax * 2) { e.reT = 0; go('hunt'); }
+  } else if (e.st === 'aim') {
+    steer = false; e.vx *= 0.88; e.vy *= 0.88; // it hangs still for the shot: the nose locks and flares (see the render)
+    const n = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0), k = e.sT - P.tele;
+    if (k >= 0 && k % P.gap === 0 && k / P.gap < n && live && onScr && e.y < H - 60) { const nx = e.x + Math.cos(e.face) * 15, ny = e.y + Math.sin(e.face) * 15; eshot(nx, ny, e.face, bspeed()); sfx('gun'); }
+    if (k >= (n - 1) * P.gap + 10) { e.atk++; e.acd = P.atkCd; e.good = 0; e.reT = 0; if (e.exp >= P.expMax * 0.6) goOut(); else go('hunt'); }
+  } else if (e.st === 'leave') {
+    gx = e.od < 0 ? -90 : W + 90; gy = e.y + 60; sp = 2.8; acc = 0.2;
+    if (e.x < -40 || e.x > W + 40 || e.y > H + 40) { e.dead = true; return; }
+  }
+  if (steer) { // toward the spot, slowing as it arrives, the turn of the flight path capped by acc
+    const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy) || 1, want = Math.min(sp, d / 10);
+    let ax = dx / d * want - e.vx, ay = dy / d * want - e.vy; const a = Math.hypot(ax, ay); if (a > acc) { ax *= acc / a; ay *= acc / a; }
+    e.vx += ax; e.vy += ay;
+  }
+  if (e.st !== 'hide') { e.x += e.vx; e.y += e.vy; }
+  if ((e.st === 'hunt' || e.st === 'aim' || e.st === 'dodge') && e.x > 0 && e.x < W) { const cx = clamp(e.x, 12, W - 12); if (cx !== e.x) { e.x = cx; e.vx = 0; } } // the screen's edge holds outside the deliberate exits
+  if (e.st !== 'aim') e.face += clamp(angDiff(e.face, aim(e.x, e.y)), -P.turn, P.turn);
+  if (gf % 3 === 0 && e.st !== 'hide') world.parts.push({ kind: 'trail', layer: 'a', x: e.x - Math.cos(e.face) * 17, y: e.y - Math.sin(e.face) * 17, vx: 0, vy: -0.05, life: 24, max: 24 });
+}
 const harmlessE = o => ENT[o.type].harmless && !o.armed; // (the Gespann, Enigma Run: an armed bike is not harmless)
 const ENT = {
   fighter: { stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
@@ -11322,17 +11421,8 @@ const ENT = {
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
-  // The Pfeil (Enigma Run, level 3 on; a push-pull fighter): comes in a pair, flies straight down fast and shoots forward from its nose until it has passed the
-  // player, then backward from its tail at the player behind it.
-  pfeil: { revenge: 2, medals: 1, stats: { hp: 10, hw: 15, hh: 15, score: 1500 }, update(e) {
-    e.y += 1.4; e.x = clamp(e.x + Math.sin(e.t * 0.05 + e.ph) * 0.5, 20, W - 20);
-    if (hasT() && --e.cd <= 0 && e.y > 8 && e.y < H - 16) {
-      const passed = e.y > nearShip(e.x, e.y).y + 24, gy = passed ? e.y - 15 : e.y + 15;
-      e.cd = Math.round((passed ? 38 : 46) * fireSlow()); eshot(e.x, gy, aim(e.x, gy), bspeed()); sfx('gun');
-    }
-    if (gf % 3 === 0) world.parts.push({ kind: 'trail', layer: 'a', x: e.x, y: e.y - 17, vx: 0, vy: -0.05, life: 24, max: 24 });
-    if (e.y > H + 30) e.dead = true;
-  } },
+  // The Pfeil (Enigma Run, level 3 on; the hornet): see PFEIL and pfeilTick.
+  pfeil: { revenge: 2, medals: 1, stats: { hp: 10, hw: 15, hh: 15, score: 1500 }, update(e) { pfeilTick(e); } },
   bomber: { revenge: 3, stats: { hw: 21, hh: 13, score: 2500 }, update(e) {
     if (e.dying) return dyingTick(e);
     if (e.ph === undefined) e.ph = Math.random() * 6;
@@ -13455,7 +13545,11 @@ const LOOKS = {
   sower(e, fl) { const b = e.bank || 0, s2 = SPR.sower, w = Math.round(s2.w * (1 - Math.abs(b) * 0.1)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h);
     const ph = (gf >> 1) & 1, py = Math.round(e.y - s2.h / 2) + 8; ctx.fillStyle = '#c8ccd0'; for (const nx of [-23, 23]) { const px = Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2); ctx.globalAlpha = 0.22; ctx.fillRect(px - 7, py, 15, 2); ctx.globalAlpha = 0.8; if (ph) ctx.fillRect(px - 7, py, 15, 1); else ctx.fillRect(px, py - 1, 1, 4); } ctx.globalAlpha = 1; }, // propeller discs and a blade
   heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + (ENIG_ART.on ? 10 : 6), ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
-  pfeil(e, fl) { spr(SPR.pfeil || SPR.heavy, e.x, e.y, fl); }, // (Enigma Run)
+  pfeil(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use); the ambush flares at the nose
+    const s2 = SPR.pfeil; if (!s2) { spr(SPR.heavy, e.x, e.y, fl); return; }
+    const a = e.face === undefined ? PI / 2 : e.face; spr((s2.rot || (s2.rot = rotSet(s2, 32)))[dirIdx(a, 32)], e.x, e.y, fl);
+    if (e.st === 'aim' && e.sT < PFEIL.tele && (gf >> 1) & 1) { ctx.globalAlpha = 0.85; dk(Math.round(e.x + Math.cos(a) * 15), Math.round(e.y + Math.sin(a) * 15), 3, '#ffe08a'); ctx.globalAlpha = 1; }
+  },
   bomber(e, fl) {
     { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
     (run.sortie ? BOMBER_E : [-14, -7, 7, 14]).forEach((ox, i) => { if (e.engs && !e.engs[i]) { if ((gf >> 1) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x + ox) - 1, Math.round(e.y) + 4, 3, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x + ox), Math.round(e.y) + 4, 1, 1); } return; } ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.7)' : 'rgba(150,150,140,0.5)'; ctx.fillRect(Math.round(e.x + ox - 3), Math.round(e.y + 5), 7, 1); });
