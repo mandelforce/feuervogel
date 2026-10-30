@@ -1,7 +1,7 @@
 # Encounter Director: plan
 
-Status: proposal, nothing built yet. Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30. Revised after review: Sower exception, ownership counting, soft budget, atomic verbs, timeout and hold rules, Sower Window test. Second revision: Rookie event filter, ground arrival timing, loops and rank, tuning readout, start cue, two-player and weak-weapon checks.
-Line numbers drift; search for the names given here. Points marked **(inspect)** need a look at the source or a test before they are built; the plan does not assume an answer.
+Status: Phase 0 done (baseline numbers and the Campaign replay baseline; findings in section 10), nothing of the director built yet. Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30. Revised after review: Sower exception, ownership counting, soft budget, atomic verbs, timeout and hold rules, Sower Window test. Second revision: Rookie event filter, ground arrival timing, loops and rank, tuning readout, start cue, two-player and weak-weapon checks.
+Line numbers drift; search for the names given here. Points marked **(inspect)** need a look at the source or a test before they are built; the plan does not assume an answer. Points marked **(checked)** were answered in Phase 0.
 
 ## 1. Summary
 
@@ -34,7 +34,7 @@ The brief is sound. The changes below come from how the game is actually built: 
 | `canFire(e, margin)` is the shared "may I shoot now" test, used about 23 times. Several shooters (Heavy, fighters) have their own checks. | `canFire`, `ENT.*.update` | This is the natural place to hang the admission check later. The MVP calls it directly at a few sites. |
 | All enemies are made by `E()`. `G()` (ground) and `mkFighter` call it. Item drops (`mkItem`) don't. | `E`, `G`, `mkFighter`, `mkItem` | One line in `E()` tags everything a dispatch creates. The weapon item a pod drops is never tagged. |
 | `ENT[type].harmless` marks non-threatening entities (bridges, troops, radar, parked planes, fuel, staff cars and others), read through `harmlessE()`, which also respects an armed bike. The pod and the truck are *not* marked harmless. | `harmlessE`, `ENT` | Completion counts only entities that pass a threat test built on `harmlessE` (5.4). |
-| `spawnGround` with `FORCE_GROUND = 'flak'` tries two placements and can create 0, 1 or 2 guns. `convoy` can create 0 to 3 vehicles and draws its size and kinds from the random stream. | `spawnGround`, `convoy` | Spawn verbs need an explicit success rule (5.2, section 6). |
+| `FORCE_GROUND = 'flak'` does not force flak: `spawnGround` checks it only after its other branches, so the call often returns early with a train, a planned gun slot (parked plane, AA tower, bunker), an armoured car, camouflage, a pop-up gun or a radar. When it does reach the flak branch, it tries two placements and can create 0, 1 or 2 guns. `convoy` can create 0 to 3 vehicles and draws its size and kinds from the random stream. | `spawnGround`, `convoy`, `runSetPiece` | Today's `flak` set piece is unreliable for the same reason. The encounter's flak verb needs its own early branch (section 6). Spawn verbs need an explicit success rule (5.2). |
 | `W` is fixed at 224; `H` follows the window. | `ARCHITECTURE.md`, `ROADMAP.md` | Spawn positions are in fractions of `H` or "above the screen", never absolute y. |
 | The simulation runs at a fixed 60 steps per second. | `frameLoop` | Schedule in frames. Seconds in this document are frames / 60. |
 
@@ -150,7 +150,7 @@ The normal timers stay frozen while `world.enc` is not null, whatever the state 
 - **Freezing:** each timer named in `holds` skips its decrement. The three lines in `directorInner` become, for example, `if (!encHeld('air') && --world.waveCd <= 0)`.
 - **Resuming:** when `world.enc` becomes `null`, each timer resumes from the value it had. Nothing is reset or shortened, so a normal wave can't fire early or late because of the encounter.
 - **Not the zone clamp:** this differs from the zones' `Math.max(cd, 30)` clamp, which lets a timer fire 30 frames after the zone ends. The zone clamps keep working as before.
-- **(inspect)** Whether the zone clamps and the freeze interact in `calm`/`still`, where both apply. Order them so the freeze wins while an encounter exists.
+- **(checked) Zone clamps:** the zones' clamps only ever raise a timer to 30, never lower it. If a clamp hits a frozen timer below 30 (an encounter running into `calm`, for example), that timer resumes 30 frames later than it would have. No wave can come early, so no ordering code is needed. For scale, the `set` zones themselves are short: in level 1A, `set1` lasts 300 frames (frame 2130–2430) and `set2` 330 frames (5790–6120), so an encounter of 10–25 s always runs on into the next zone. That's fine, because the freeze, not the zone, holds the timers.
 
 **Dispatch contract (all verbs):**
 - **`true`:** the event was dispatched. It may have created fewer entities than the verb could make, for example one flak gun of two. Partial success counts as success and is never retried.
@@ -165,7 +165,7 @@ Retries draw from the seeded stream again (`convoy` draws its size), which stays
 
 Most events are timed (`t`). Two triggers are enough for the MVP:
 - `when: 'clear'`: the counted enemies spawned so far are all resolved. Use this for "next beat after you dealt with this one".
-- `when: 'seen'`: every ground unit placed by an earlier event (named by its index, `of: 0`) is on screen, `y` at least a set share of `H` (`at: 0.15`). Use this for "the pressure comes only after the restriction is visible". It's needed because ground units are placed above the screen and scroll in at the constant `SCROLL` of 0.4 px per frame: about 85 frames (1.4 s) before a unit is visible at all, and several more seconds before it reaches mid-screen. A frame-timed event can't express "after the flak is visible" reliably. **(inspect)** Check where each ground verb places its units: `convoy` takes a `wy` from the caller, but `spawnGround` picks its own row through `tryLand`.
+- `when: 'seen'`: every ground unit placed by an earlier event (named by its index, `of: 0`) is on screen, `y` at least a set share of `H` (`at: 0.15`). Use this for "the pressure comes only after the restriction is visible". It's needed because ground units are placed above the screen and scroll in at the constant `SCROLL` of 0.4 px per frame: about 85 frames (1.4 s) before a unit is visible at all, and several more seconds before it reaches mid-screen. A frame-timed event can't express "after the flak is visible" reliably. **(checked)** Both ground spawners place on the row 34 px above the top edge (`wy = -34 - scroll`). `tryLand` picks only the x position, and `convoy` puts each further vehicle higher up the road. So the first unit is visible after about 85 frames, and reaches 15% of `H` after roughly 240 frames at `H = 408`.
 
 A trigger event also has a `by` frame after which it fires anyway, so pacing never hangs on a dodging enemy.
 
@@ -182,9 +182,9 @@ An entity counts toward completion when all of these hold:
 - `e.type !== 'pod'`: a pod is a reward even when a verb other than `pod` creates it;
 - it is not `dead`.
 
-The truck is not marked harmless and doesn't shoot. **(inspect)** Check whether an unarmed truck should count. The default is that the `convoy` verb with `trucks: true` sets `own: false`.
+The truck is not marked harmless. **(checked)** It doesn't shoot, so the `convoy` verb with `trucks: true` sets `own: false`. Trucks are targets, not threats.
 
-Enemies already mark themselves dead when they leave the screen, so "resolved" means killed or escaped, with no special case. **(inspect)** For each verb, check that its units do leave: ground units with `keep`, and static units that scroll off slowly. If one can outlive the encounter by a lot, its verb sets `own: false`, and `max` is the backstop.
+Enemies already mark themselves dead when they leave the screen, so "resolved" means killed or escaped, with no special case. **(inspect, in the Phase 2 tests)** For each verb, check that its units do leave: ground units with `keep`, and static units that scroll off slowly. If one can outlive the encounter by a lot, its verb sets `own: false`, and `max` is the backstop.
 
 No closures: verbs that stagger spawns today (`waveSweep`, `waveStrafe`) are written as several events in the encounter instead, so the schedule stays plain data and the snapshot keeps working.
 
@@ -204,11 +204,11 @@ Slots:
 | Boss not spawned, and `ARC_U` below 0.9 (not in `still`). | yes | yes |
 | No Shadow Wing on screen. | yes | yes (`sowerTick` already keeps them apart) |
 | No Sower active (any `sower` not dead). | yes | n/a: this is its start condition |
-| A Sower has entered `st === 'hold'` and isn't marked `encSeen`. | n/a | yes. The Sower is marked `encSeen` so it starts one encounter only, and its called partner doesn't start a second. |
+| The `set2` zone has been reached, a Sower has entered `st === 'hold'` since then, and that Sower isn't marked `encSeen`. | n/a | yes. The Sower is marked `encSeen` so it starts one encounter only, and its called partner doesn't start a second. |
 
 A pending slot whose rules still fail when `ARC_U` reaches 0.9 is dropped, and `world.encLast` records `why: 'skipped'`.
 
-Level 4 has one ordinary slot (`set1`). Its `set2` slot is given to the Sower Window, which waits for a Sower hold instead of the zone, so level 4 still has two authored moments. If no Sower settles before the 0.9 limit, nothing runs in that slot.
+Level 4 has one ordinary slot (`set1`). Its `set2` slot is given to the Sower Window, so level 4 still has two authored moments. The Sower Window waits for the first Sower hold *at or after the start of the `set2` zone*, not for any Sower. **(checked)** The Sower comes twice in level 4: at about 5–17% of the level, before `set1`, and again at about 70–75%, which is exactly the `set2` zone (frames 7170–7500 in the probe, with a fixed ground seed, so this repeats on every run). The first Sower stays on its own, as the player's introduction to it, and the second becomes the Sower Window. If no Sower settles between the `set2` zone and the 0.9 limit, nothing runs in that slot. Today's `set2` set piece in level 4 already runs on top of that second Sower, which may explain part of level 4's high bullet window (section 10); this is not yet verified.
 
 Later, once encounters are proven, `mix` zones may start one with a small chance per level. That's a tuning step, not part of the MVP.
 
@@ -234,7 +234,7 @@ Each verb wraps an existing spawner. The director owns when, where and which opt
 | `heavy` | `waveHeavy()` | `x`, `hold`, `holdT` | no, atomic | `hold` needs the small Heavy option in 7.1. |
 | `bomber` | `waveBomber()` | `x` | no, atomic | |
 | `pfeil` | `wavePfeil()` | none | no, atomic | Campaign level 3 and on, checked at selection. |
-| `flak` | `spawnGround` with `FORCE_GROUND = 'flak'` | none | yes | Placement is the ground code's, because it knows roads, water and houses. It places above the screen, so the guns are not visible for about 1.4 s: time later events with `when: 'seen'` (5.3). It tries two spots. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. **(inspect)** Check whether `spawnGround` changes any other world state on a 0-placement call; the length check in 5.2 only sees enemies. |
+| `flak` | `spawnGround` with a new value, `FORCE_GROUND = 'encFlak'` | none | yes | **(checked)** The existing `'flak'` value is checked only after `spawnGround`'s other branches, so it often places something else (section 2). The new value gets its own branch right after `tryLand` is defined, before the train, gun-slot and camouflage branches, and does only the two flak tries. The existing `'flak'` value and Retro Run's set piece stay exactly as they are. Placement is still the ground code's (`tryLand`), because it knows roads, water and houses. A call that places nothing only draws from the seeded stream and changes no world state, so the length check in 5.2 is enough. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. Not in the `bossland` biome, whose branch comes before `tryLand` (checked at selection). Guns appear 34 px above the screen: time later events with `when: 'seen'` (5.3). |
 | `convoy` | `convoy(wy, trucks)` | `trucks` | yes | Returns early off its route in the Campaign. 0 vehicles: `false`. 1–3: `true`. Not over sea or coast biomes (checked at selection). Placed above the screen like flak, so the same arrival delay applies. |
 | `pod` | `E('pod', …)` | `x` | no, atomic | Always `own: false`. A pod is a reward: place it after the pressure, not during it. |
 
@@ -246,13 +246,15 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 
 ### 7.1 The Anvil: Heavy holding while fighters close in
 
-- **Anchor:** a Heavy that stops at about 28% of `H` and holds for 7 s, firing its 3-way spread on its normal cycle.
-- **Pressure:** two leader formations from the sides, 1.5 s and 3.5 s in, then a chase pair.
+- **Anchor:** the Heavy, built in two steps (decided: timing first).
+  - **Step 1, no behaviour change:** the Heavy as it is. It sinks at 0.7 px per frame, and between 20 px from the top and 55% of `H` it pauses for 42 frames and fires its spread every 100–140 frames (longer on Veteran). The formations are timed to arrive while it is in that band. That's about 6 s, and the Heavy keeps closing in.
+  - **Step 2, only if playtesting shows step 1 doesn't read as an anchor:** a Heavy that stops at about 28% of `H` and holds for 7 s, firing on its normal cycle (the behaviour change below).
+- **Pressure:** two leader formations from the sides, 1.5 s and 3.5 s in, then a chase pair. In step 1 these times are set so both formations meet the Heavy inside its firing band.
 - **Reward:** a pod at 9 s, `own: false`, so it never keeps the encounter alive.
-- **Readability:** the Heavy is visible and stopped before the first formation arrives.
+- **Readability:** the Heavy is visible before the first formation arrives (and in step 2, stopped).
 - **Player choice:** burn the Heavy down (Lance, Arc ramp) and take the formations on the way, or kill the leaders so their wingmen scatter, then go back to the Heavy.
 - **Rookie:** one formation, not two (`diff: [1, 2]` on the second).
-- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This is the only change to enemy code in the MVP, and it stays only if testing shows that timing the formations around the Heavy's existing pause isn't enough.
+- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This would be the only change to enemy code in the MVP, and it is built only if step 1 isn't enough.
 
 ### 7.2 Flak lane: a formation breaking up over flak
 
@@ -293,13 +295,24 @@ The first implementation is a **soft** budget. Selected shooters ask before a vo
   - `n` is the actual number of bullets that volley will try to create, worked out the way the shooter does it: 1 or 3 for a fighter strafe or a Bomber shot depending on `run.loop`, 3 for a Heavy spread, a `ring` after `DIFF.ring` scaling.
   - `n` is counted before `DIFF.skip`, so Rookie is judged a little conservatively.
   - A pattern spread over several frames that the shooter decides at once counts as one volley with its total `n`. For example, the Enigma Heavy fires two spreads in one pause from level 3, so it asks once at the pause's start with `n = 6`.
-  - **(inspect)** Work out the exact `n` at each call site from the source in Phase 3; this plan doesn't assume it.
+  - **(checked)** `n` at the MVP call sites, from the source:
+
+    | Shooter | Volley | `n` |
+    |---|---|---|
+    | fighter, `fireAt` | one aimed shot | 1 |
+    | fighter, strafe | aimed shot, plus two side shots from loop 1 | 1 or 3 |
+    | Heavy, pause start | 3-way spread; the Campaign's Heavy from level 3 fires two spreads in one pause (pause frames 26 and 12) | 3 or 6 |
+    | Bomber, `gcd` | aimed shot, plus two side shots from loop 1 | 1 or 3 |
+    | flak, cooldown | one shell per barrel; the 4-barrel gun fires 2 now and 2 nine frames later; at night a lit gun adds 3 tracer shells over 21 frames | 1, 2 or 4 (+3 when lit at night) |
+    | tank, cooldown | one shell; a heavy tank fires 3 | 1 or 3 |
+
+    The 4-barrel and night shots are already delayed with `world.later` closures in `ENT.flak`. They are counted in the gun's `n` and left unchanged.
 - **When refused:** the shooter delays the volley, nothing is deleted, and nothing in flight is cut.
   - The shooter keeps its cooldown at 1 frame and asks again next frame.
   - Where the shooter has a natural "start attack" state (the Heavy's `pause`, the Bomber's `gcd`), it doesn't enter that state.
 - **Gated in the MVP:** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns, about six call sites. They are gated whoever owns them, because the player sees all bullets, including those of the normal director's ground units.
 - **Not gated:** boss parts (no encounters during bosses), revenge shots (immediate feedback to a kill), the Shadow Wing, the Sower's mines and bombs, and any shooter not in the list above. They still count toward the total, so they can push it over the budget, and the gated shooters then wait until it falls.
-- **Measuring:** while an encounter runs, each frame with `world.ebul.length` above the budget adds to `over`, and `peak` keeps the maximum. Both go into `world.encLast`. The cause of an overrun comes from the existing shooter attribution (`SF.attrib()`, `balance-real.mjs --attrib`), run on the encounter's frames. **(inspect)** Check that `SF.attrib()` can be limited to a frame range, or add that to the harness, not the game.
+- **Measuring:** while an encounter runs, each frame with `world.ebul.length` above the budget adds to `over`, and `peak` keeps the maximum. Both go into `world.encLast`. The cause of an overrun comes from the existing shooter attribution (`SF.attrib()`, `balance-real.mjs --attrib`). **(checked)** It can't be limited to a frame range, and it is approximate: it credits each bullet to the nearest enemy within 50 px, so flak and revenge fire next to a gun crew shows up as "troop" (troops don't shoot). In Phase 3 the harness wrapper gets an encounter key (`<stage>:enc:<id>:<type>` while `world.enc` is set). That change goes in `tests/harness.js` only, not the game, and the attribution stays approximate.
 - **Repeat loops and rank:** after level 6B the Campaign can loop (stage 7–12 and on). `rankFor` raises `run.loop` by 1 per loop, and on Ace also per stage. That makes bullets faster (`bspeed`) and makes more fighters shoot. The budget is not scaled for this:
   - it counts bullets on screen, and faster bullets leave the screen sooner, so the same budget already admits more fire per second on a loop;
   - a fixed number keeps the "how busy the screen looks" ceiling the same, which is what the budget is for.
@@ -332,7 +345,8 @@ Tests:
   - the test reports `over` and `peak` per encounter as numbers, not as a pass/fail ceiling.
 - **Sower Window test** (in `tests/encounter.mjs`, level 4, the bot flying immortal):
   - while a Sower is active, a pending ordinary slot doesn't start;
-  - the Sower Window starts on the frame after the Sower enters `hold`, once per Sower, and not again for its called partner;
+  - the first Sower of the level (before `set1`) does not start it;
+  - the Sower Window starts on the frame after the second Sower enters `hold`, once, and not again for its called partner;
   - no `sower` or `wing` entity is created by the encounter (count them by tag and by type);
   - `world.waveCd` keeps its value for the whole encounter (`holds.air`);
   - the Sower still lays mines and drops bombs at its usual intervals, and still calls its partner (compare with the same seed without the encounter);
@@ -353,10 +367,34 @@ Each phase ends with its check passing.
 - Record the Campaign's current numbers with `node tests/balance-real.mjs --levels --attrib --diffs 0,1,2`: worst bullet window, bullets before the boss, hits per level, and which shooters fill the windows.
 - Add a small Enigma-level replay baseline (two or three levels including level 4, fixed seed) so later phases can show exactly what changed. Unlike `golden.json`, it is updated on purpose in each phase.
 - **Done when:** the numbers are saved, and the baseline reproduces on two runs.
+- **Status: done.**
+  - The balance numbers are in `tests/balance-encounter-phase0.json` (for `balance-real.mjs --baseline`), and the per-level figures are below.
+  - The Campaign replay baseline is `tests/golden-enigma.json`, run with `node tests/replay.mjs --enigma`. It covers level 1A on Rookie with the bot able to die, level 3 on Ace, and level 4 on Veteran with both Sowers. It reproduced on two runs, and `golden.json` still matches. It is not in CI yet.
+
+Phase 0 numbers (human bot, 4 runs per difficulty; the window is the worst 10 s of enemy bullets on screen before the boss):
+
+| | Level | 1A | 2 | 3 | 4 | 5 | 6B |
+|---|---|---|---|---|---|---|---|
+| Rookie | window | 11 | 10 | 12 | **40** | 10 | 18 |
+| | shots/s | 1.75 | 1.48 | 1.76 | 1.44 | 1.14 | 2.52 |
+| | hits | 1.3 | 0.5 | 1.5 | 1.0 | 3.5 | 4.5 |
+| Veteran | window | 16 | 18 | 17 | **34** | 16 | 32 |
+| | shots/s | 2.45 | 1.96 | 2.30 | 1.55 | 1.48 | 3.55 |
+| | hits | 1.3 | 1.5 | 1.3 | 2.3 | 2.8 | 4.3 |
+| Ace | window | 18 | 19 | 20 | **69** | 20 | 27 |
+| | shots/s | 2.69 | 2.43 | 3.16 | 3.24 | 3.32 | 6.19 |
+| | hits | 0.8 | 0.5 | 3.5 | 4.5 | 4.8 | 5.8 |
+
+Totals: hits per run were 12.3 on Rookie, 13.3 on Veteran and 19.8 on Ace (ladder 1 : 1.08 : 1.61). Before the bosses, fighters fire about 9–13% of all shots, the Shadow Wing 7–10%, and the Heavy, flak and tanks 3–4% each.
+
+What this means for the plan:
+- **Level 4 is the outlier.** Its window is 2–3 times that of any other level, and on Rookie it's higher than on Veteran. The Sower's mines count as bullets, so the Sower Window (7.4) starts from a screen that is already full. Its budget must be set from these numbers, not from the other levels', and its `over` figure is expected to be high.
+- **The other levels' windows of 10–20 are the useful reference.** The MVP budgets (16 / 22 / 28) sit just above today's windows, so on their own they would mostly limit peaks, not normal play. Tune them in Phase 3 against these figures.
+- **Rookie is already sparse** (about 1.5 shots/s, windows of 10–12 outside level 4), so lighter Rookie versions of the encounters (`diff`) matter more than a lower Rookie budget.
 
 **Phase 1: definitions and verbs**
-- Add the `ENC` table, the verbs with their dispatch contract, and the optional `cx` arguments.
-- Add the Heavy's `holdY`/`holdT` option.
+- Add the `ENC` table, the verbs with their dispatch contract, the optional `cx` arguments, and the `'encFlak'` branch in `spawnGround`.
+- No Heavy hold yet: The Anvil starts with the timing-only version (7.1, step 1).
 - Nothing calls them yet.
 - **Done when:** `golden.json` and the Enigma baseline are unchanged.
 
@@ -403,7 +441,7 @@ These are the brief's questions, plus numbers to look at alongside them:
 ## 12. Risks and open questions
 
 1. **Leaderboard comparability.** The Campaign is ranked. Changing its spawns changes what scores are possible. Decide whether this ships with a version note only, or needs a board reset or season mark.
-2. **Heavy hold.** This is the one behaviour change. Is the owner fine with it, or should 7.1 time the formations around the Heavy's natural pause instead? That works but reads weaker.
+2. **Heavy hold (decided: timing first).** The Anvil is built without changing the Heavy (7.1, step 1). The hold is added only if playtesting shows the Heavy doesn't read as an anchor.
 3. **Ground placement can fail** (water, towns, plans with fixed guns). The retry window and the dispatch contract in 5.2 keep this safe, but an encounter whose restriction never appears, or appears at half strength, is a different encounter. The test reports how often each verb fails or places only part of its units, per level.
 4. **The soft budget can be exceeded** by ungated sources: revenge shots, the Sower's mines, shooters outside the six call sites. Whether that matters is a measurement question (`over`, `--attrib`). The answer may be to gate one more call site, never to delete bullets.
 5. **Loops under a fixed budget.** On a repeat loop, faster bullets clear the screen sooner, so the same budget admits more fire. If looped encounters feel easier rather than harder, the budget needs a per-loop factor (section 8).

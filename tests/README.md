@@ -66,6 +66,13 @@ node tests/replay.mjs --update   # write new expected values
 
 Only use `--update` after a change that is *meant* to alter gameplay (balance, spawns, scoring), and say so in the commit. For a refactor, any difference is a bug.
 
+`golden.json` flies the old campaign (stage numbers, what Retro Run plays). The Campaign's own levels have a separate baseline, `golden-enigma.json`: three scenarios in `SF.ENIGMA_SCENARIOS` (level 1A on Rookie with the bot able to die, level 3 on Ace, level 4 on Veteran with both Sowers), each stopping before the level's boss. They use the game's real settings (gun speed 90, point-blank fire), not the pinned old ones. They have no isolation or terrain checks (those stay with `golden.json`) and are not in CI yet. Refresh the file on purpose after a change to the Campaign's spawns or balance (see `docs/encounter-director-plan.md`):
+
+```
+node tests/replay.mjs --enigma            # compare with golden-enigma.json
+node tests/replay.mjs --enigma --update   # write golden-enigma.json
+```
+
 How it stays repeatable: the game plays each run from a seed (`runSeed`; test builds can force one with `window.__forceSeed`, which `replay.js` does), each scenario runs on a fresh page, and the frame loop is switched off so only the replay moves the game. Page-level `Math.random` is still seeded for the cosmetic randomness at load.
 
 Each result also has a `trace`: a checksum of the simulation (the run's numbers, the seeded random stream, the ships, every enemy, boss part and bullet) every 500 frames. When a run differs, the test names the first 500-frame stretch where it went another way, which narrows down where a change went wrong.
@@ -232,7 +239,7 @@ node tests/balance-real.mjs --save tests/balance-baseline.json          # after 
 node tests/balance-checks.mjs [--runs 3]          # the checks below (about 2 minutes), exit 1 if one fails
 ```
 
-Columns: **hits** bullets and rams that hit the ship (laser hits apart), **laser** Black Fortress beam hits, **top** the worst 10 s window of enemy bullets on screen before a boss (averaged over the six stages), **pre** / **bossB** the average before / during boss fights, **boss** seconds each boss lasted. With 4 runs the numbers move by about +-2 hits and +-1.5 on the window, so judge a change by several runs and by what the numbers do together, not by one figure. `balance-baseline.json` is the run of the version it was made with (the bands are wide on purpose, so it never blocks CI).
+Columns: **hits** bullets and rams that hit the ship (laser hits apart), **laser** Black Fortress beam hits, **top** the worst 10 s window of enemy bullets on screen before a boss (averaged over the six stages), **pre** / **bossB** the average before / during boss fights, **boss** seconds each boss lasted. With 4 runs the numbers move by about +-2 hits and +-1.5 on the window, so judge a change by several runs and by what the numbers do together, not by one figure. `balance-baseline.json` is the run of the version it was made with (the bands are wide on purpose, so it never blocks CI). `balance-encounter-phase0.json` is the same kind of run, kept as the before-picture for the encounter director (all three difficulties, 4 runs each; compare with `--baseline tests/balance-encounter-phase0.json`).
 
 `balance-checks.mjs` holds whatever the exact tuning: at least 80 % of the Black Fortress beams are dodged by a ship that reacts after 0.25 s and after 0.4 s; every boss dies; Ace has at least 1.2x Rookie's hits (4 runs usually give about 1.8x) with Veteran's between them; the worst bullet window does not fall from Rookie to Veteran to Ace; the laser hits at most 1.5 times per run.
 

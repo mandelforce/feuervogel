@@ -1,0 +1,56 @@
+{
+  "viewport": {
+    "width": 400,
+    "height": 700
+  },
+  "scenarios": {
+    "enigma-1A-rookie-real": {
+      "H": 408,
+      "status": "ok",
+      "score": 130360,
+      "stage": 1,
+      "lives": 3,
+      "bombs": 5,
+      "frames": 7200,
+      "kills": 153,
+      "medals": 31,
+      "hits": 0,
+      "enemies": 7,
+      "bullets": 1,
+      "errors": 0,
+      "trace": "03b290b7 b2c21e27 cf374741 2a9ece91 2b8191da 03acccf2 07f131e4 921e81a3 6ea2bb26 1192a4d3 85266656 bdeda8c3 4cb7a54c 3b29554f"
+    },
+    "enigma-3-ace-immortal": {
+      "H": 408,
+      "status": "ok",
+      "score": 97430,
+      "stage": 3,
+      "lives": 2,
+      "bombs": 3,
+      "frames": 8400,
+      "kills": 201,
+      "medals": 34,
+      "hits": 0,
+      "enemies": 39,
+      "bullets": 22,
+      "errors": 0,
+      "trace": "6bffd5cd 224e2fa2 599bda88 b3151dd5 e0e2748f 2938c49e ba3e3659 817bbcb0 463dd4e2 dd02dfca d8eb56d0 b370541c d8a4b621 a486afa1 859076e8 885a750d"
+    },
+    "enigma-4-veteran-immortal": {
+      "H": 408,
+      "status": "ok",
+      "score": 120070,
+      "stage": 4,
+      "lives": 3,
+      "bombs": 3,
+      "frames": 9000,
+      "kills": 220,
+      "medals": 40,
+      "hits": 1,
+      "enemies": 34,
+      "bullets": 18,
+      "errors": 0,
+      "trace": "78992b93 492773e3 cc75409d 80a5ff4b 36868f8e 165f6be3 715a9dfd 6abed89b 93ce5fcd 978d6cd3 44827a2b 623a9752 cb5df409 5fa0f2d2 f8e94c48 ef2964b1 6123a8eb 75ecb68a"
+    }
+  }
+}
