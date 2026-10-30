@@ -133,6 +133,15 @@ python3 -m http.server 8000   # in another terminal
 node tests/drilling.mjs
 ```
 
+## Büchse test (run by hand)
+
+`buechse.mjs` checks the Enigma Run's Büchse (the long-range marksman tank): its cycle runs track, aim, lock, rest in that order, with 60 ticks of aim and 21 of lock; it halts in its lock and its aim stays frozen there; it fires one shell a cycle, from the muzzle, down the locked line, at twice the enemy shell speed. Its lead: on Ace a ship flying straight across is hit and one that turns back at the lock is missed, and a ship standing still is hit. Its turret takes many ordinary hits, an untouched one outlives a Nova and the next hits pop it, a full laser pops it at once (a weak laser frame does not); a turret popped in the lock ends the cycle (no shot, the tank drives on). The muzzle spot it fires from matches the drawn bore at all 16 turret headings. Its side emplacements: two in levels 2, 3, 4, 5 and 6B, one in 6, none in 1 and 1A, at the screen's edges, 520 rows apart and 420 from the tank pits, the same each time. Flown through by the bot on level 3, a Büchse comes up dug in at an edge, lying across the screen, aims and fires.
+
+```
+python3 -m http.server 8000   # in another terminal
+node tests/buechse.mjs
+```
+
 ## Vehicle jitter test (runs in CI, blocking)
 
 `jitter.mjs` plays every Campaign stage and every Enigma Run level (1, 1A, 2–6, 6B) with the bot for 9000 frames each and watches every road vehicle (tanks, trucks, armoured cars, carts) frame by frame. It fails when one
