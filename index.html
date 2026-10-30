@@ -4128,7 +4128,7 @@ function bareTreePix(t, put) {
 // sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
 // roads, the railway and water by 18 px (15 where nothing else fits), of every other
 // slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a scrape with its sand heaped in front and at the sides (as the strongpoints' dugTank); elsewhere a horseshoe
-// earth bank open at the back. Trees on it are cleared. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
+// earth bank open at the back. Trees on it are cleared; in woodland it stands in a clearing. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
 function tankPits(plan, bands) {
   const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
   const OPEN = new Set([K.FIELD, K.MEADOW, K.DESERT, K.OASIS, K.PARK, K.LOT, K.RUBBLE, K.TURF, K.ORCHARD, K.GARDEN, K.COURT, K.BEACH, K.WOOD, K.SLOPE, K.CHYARD]);
@@ -4143,6 +4143,12 @@ function tankPits(plan, bands) {
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
         const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
     if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
+    // in woodland a clearing round it (a Lichtung, owner): the wood's ground becomes meadow (the forest's clearing meadow, Br -33) in a ragged oval
+    // about 48 x 56 px, and the conifers in it are felled
+    { const edge = (X, Y) => 0.8 + 0.35 * vn(X * 0.12 + 7, Y * 0.12 + 3), inside = (X, Y, m) => Math.hypot((X - x) / 24, (Y - y) / 28) <= edge(X, Y) + m;
+      let n = 0; for (let yy = -36; yy <= 36; yy++) for (let xx = -30; xx <= 30; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) continue; const i = Y * W + X;
+        if (Kr[i] === K.WOOD && Br[i] === -1 && inside(X, Y, 0)) { Kr[i] = K.MEADOW; Br[i] = plan.P && plan.P.climate === 'forest' ? -33 : -1; n++; } }
+      if (n && plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => !inside(t.x, t.y, (t.r || 2) / 24))); }
     if (desert) { for (let yy = -14; yy <= 14; yy++) for (let xx = -11; xx <= 11; xx++) set(x + xx, y + yy, K.OASIS, -1); // (wider than the 24 x 30 tank, so the scrape shows round it)
       for (let xx = -14; xx <= 14; xx++) for (let k = 1; k <= 3; k++) set(x + xx, y - (14 + k), K.SPOIL, -40 - [16, 12, 7][k - 1]);
       for (const sx of [-1, 1]) for (let yy = -13; yy <= 14; yy++) for (let k = 1; k <= 2; k++) set(x + sx * (11 + k), y + yy, K.SPOIL, -40 - (sx < 0 ? 15 : 8)); }
