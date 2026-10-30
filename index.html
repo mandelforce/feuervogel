@@ -8404,26 +8404,42 @@ function tutTick() {
     case 0: { // moving
       if (T.lx !== null) { T.mx += Math.abs(p.x - T.lx); T.my += Math.abs(p.y - T.ly); } T.lx = p.x; T.ly = p.y;
       if (T.mx > 120 && T.my > 50 && T.t > 90) tutNext(); break; }
-    case 1: { // shooting
+    case 1: { // the hit point: let shots slip past the wings without touching the centre dot
+      if (!T.pops) { T.pass = 0; T.flash = 0; T.pops = []; T.si = 0; T.t = 0; } // (T.t keeps counting through the fly-in, so start it here)
+      if (T.t > 20 && T.t % 26 === 0) {
+        const off = [-10, 10, 0, -13, 13, 0][T.si++ % 6], sx = clamp(p.x + off + rnd(-60, 60), 16, W - 16), n0 = world.ebul.length;
+        eshot(sx, -4, Math.atan2(p.y - -4, p.x + off - sx), 1.3);
+        if (world.ebul.length > n0) world.ebul[n0].tut = 1;
+      }
+      for (const b of world.ebul) {
+        if (!b.tut || b.tutDone) continue;
+        if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < (b.r + 1.6) ** 2) { b.tutDone = 1; T.pass = 0; T.flash = 24; sfx('die'); }
+        else if (b.y >= p.y) { b.tutDone = 1; if (Math.abs(b.x - p.x) <= 14) { T.pass++; T.pops.push({ x: b.x, y: p.y, t: 0 }); sfx('power'); } }
+      }
+      if (T.flash > 0) T.flash--;
+      for (const o of T.pops) o.t++; T.pops = T.pops.filter(o => o.t < 30);
+      if (T.pass >= 6) { world.ebul = world.ebul.filter(b => !b.tut); tutNext(); }
+      break; }
+    case 2: { // shooting
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
       if (T.t > 60 && !tutAlive()) { if (T.ids.every(e => e.dead && e.y < H)) tutNext(); else { T.t = 0; T.ids = []; } } break; }
-    case 2: { // power-up
+    case 3: { // power-up
       if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
-    case 3: { // medals and multiplier
+    case 4: { // medals and multiplier
       if (T.t === 1) { T.m0 = run.stats.medals; T.best = 1; }
       if (T.t < 260 && T.t % 45 === 1) world.items.push({ kind: 'M', x: clamp(p.x + rnd(-30, 30), 20, W - 20), y: -8, t: 0, vy: 0.6 });
       T.best = Math.max(T.best, run.medalMul);
       if (T.t > 300 && run.medalT === 0) { if (T.best >= 3) tutNext(); else { T.t = 0; } } break; }
-    case 4: { if (T.t > 300) tutNext(); break; } // extra lives
-    case 5: { // Nova bomb
+    case 5: { if (T.t > 300) tutNext(); break; } // extra lives
+    case 6: { // Nova bomb
       if (T.t === 1) { run.bombs = Math.max(run.bombs, 1); T.bombs0 = run.stats.novas; }
       if (T.t > 40 && T.t < 200 && T.t % 12 === 0) for (let k = 0; k < 10; k++) eshot(W / 2 + rnd(-90, 90), 10, PI / 2 + rnd(-0.5, 0.5), 0.45);
       if (run.stats.novas > T.bombs0) { tutNext(); } else if (T.t > 260) { T.t = 0; } break; }
-    case 6: { // super laser
+    case 7: { // super laser
       if (T.t === 1) { world.ebul.length = 0; tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
       if (T.t > 30 && !tutAlive()) { if (T.ids[0] && T.ids[0].dead && T.ids[0].y < H) tutNext(); else { T.t = 0; T.ids = []; } } break; }
-    case 7: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
+    case 8: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
       const sec = T.ids.find(e => e.type === 'secret' && !e.dead);
       if (run.stats.artifact && !T.art) { tutNext(); break; }
       if (T.t === 1) T.art = run.stats.artifact;
@@ -8439,6 +8455,7 @@ const TUT_TEXT = () => {
   const touch = tutTouch(), pad = tutPad();
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
+    '<b>A small target.</b> Only the glowing dot at the centre of the ship can be hit. Wings and fuselage pass through enemy fire. <b>Let 6 shots slip past your wings</b> without touching the dot.',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
     '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
     '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
@@ -8454,9 +8471,9 @@ const TUT_HAND = ['.....##.........', '....#oo#........', '....#oo#........', '.
 function drawTutorial() {
   const box = document.getElementById('tutBox');
   if (!app.tut || app.state !== 'play') { if (app.tutShown) { box.classList.remove('on'); app.tutShown = ''; const bb = document.getElementById('bombBtn'); if (bb) bb.classList.remove('tutHi'); } return; }
-  const k = Math.min(app.tut.step, 8), html = TUT_TEXT()[k], key = k + '|' + html;
-  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 5) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
-  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/9</span><span class="pips" aria-hidden="true">' + Array.from({ length: 9 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 9'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 8) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
+  const k = Math.min(app.tut.step, 9), html = TUT_TEXT()[k], key = k + '|' + html;
+  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 6) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
+  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/10</span><span class="pips" aria-hidden="true">' + Array.from({ length: 10 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 10'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 9) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
   // a ghost finger below the ship while learning to move
   if (app.tut.step === 0 && player && tutTouch()) {
     const fx = Math.round(player.x + Math.sin(gf * 0.05) * 16), fy = Math.round(player.y + 34);
@@ -8464,8 +8481,16 @@ function drawTutorial() {
     ctx.globalAlpha = 1; dk(fx, fy, 2, '#ffffff');
     ctx.globalAlpha = 0.92; for (let j = 0; j < TUT_HAND.length; j++) for (let i = 0; i < 16; i++) { const ch = TUT_HAND[j][i]; if (ch === '.') continue; ctx.fillStyle = ch === '#' ? '#2a2050' : j < 6 ? '#fff4e0' : '#f2dcc0'; ctx.fillRect(fx - 6 + i, fy + 2 + j, 1, 1); } ctx.globalAlpha = 1;
   }
-  if (app.tut.step === 7) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
-  if (app.tut.step === 4) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
+  if (app.tut.step === 1 && player && !player.dead) { // the hit point: a ring on the dot, the safe wing span, a tick per clean pass
+    const T = app.tut, px = Math.round(player.x), py = Math.round(player.y), r = 6 + Math.sin(gf * 0.15);
+    ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; for (let x = -14; x <= 14; x += 4) if (Math.abs(x) > 6) ctx.fillRect(px + x, py, 2, 1);
+    ctx.globalAlpha = 0.9; ctx.strokeStyle = T.flash > 0 ? '#ff3a6a' : '#a8f6dc'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px + 0.5, py + 0.5, T.flash > 0 ? r + (24 - T.flash) * 0.4 : r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    textO(T.flash > 0 ? 'HIT' : 'HIT POINT', px, py + 20, T.flash > 0 ? '#ff3a6a' : '#a8f6dc', 1, 'center', '#2a2050');
+    textO((T.pass || 0) + '/6', px, py - 26, '#fff0a0', 1, 'center', '#f8a83a');
+    for (const o of T.pops || []) { ctx.globalAlpha = 1 - o.t / 30; textO('THROUGH', Math.round(o.x), py - 8 - o.t * 0.3, '#a8f6dc', 1, 'center', '#2a2050'); } ctx.globalAlpha = 1;
+  }
+  if (app.tut.step === 8) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
+  if (app.tut.step === 5) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
 }
 function tutTap(gx, gy) {
   if (!app.tut) return false;
