@@ -11901,6 +11901,7 @@ const ENT = {
   flatcar: { turret: true, medals: 0.6, stats: { hp: 10, hw: 6, hh: 13, score: 700, rad: 10 }, update(e) {
     trainMove(e);
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
+    if (roofAt(e.x, e.wy)) { e.cd = Math.max(e.cd, 30); return; } // under the train shed's roof, a gallery or in a tunnel: holds fire, and not at once on coming out
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - run.loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
   } },
   hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 500, rad: 26 }, update(e) { groundPos(e); } },
