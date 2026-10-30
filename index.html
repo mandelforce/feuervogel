@@ -9748,7 +9748,9 @@ function routeStep(e) {
   for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined || (o.route !== rt.id && !cont.includes(o.route) && Math.abs(o.wx - e.wx) > 9)) continue; /* on the same route (round a bend too), or just ahead in line */ const ahead = (o.wy - e.wy) * e.dir; if (ahead > 0 && ahead < reach + o.hh) return null; }
   if ((e.type === 'tank' || e.type === 'htank') && !e.dug && !rt.legacy) for (const sd of sideRoutes(S)) for (const j of sd.junc) { // a junction with a side road here: turn into it now and then
     if (j.rt !== rt.id || Math.abs(sd.path[j.k][1] - nwy) > e.v + 0.5) continue; const key = sd.id + ':' + j.k; if (e.lastSide === key) continue; e.lastSide = key;
-    if (Math.random() < SIDE.turn) { const d = j.k <= 0 ? 1 : j.k >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: j.k, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[j.k].slice(); } }
+    if (Math.random() < SIDE.turn) { // (it joins the side road at its point nearest the tank: where two routes meet the side road close together, the junction found may be the other route's, a few px off)
+      let k0 = j.k, best = Infinity; for (let k = Math.max(0, j.k - 8); k <= Math.min(sd.path.length - 1, j.k + 8); k++) { const q = sd.path[k], dd = (q[0] - e.wx) ** 2 + (q[1] - e.wy) ** 2; if (dd < best) { best = dd; k0 = k; } }
+      const d = k0 <= 0 ? 1 : k0 >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: k0, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[k0].slice(); } }
   e.atEnd = false; return [routeX(rt, nwy) + e.lane, nwy];
 }
 // Level 1A: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
