@@ -5,7 +5,7 @@
 // and a little ahead of a moving ship on Ace;
 // its turret takes many hits, outlives a Nova untouched and is popped by a full laser; a popped turret ends the cycle at once;
 // the muzzle spot matches the drawn bore at all 16 headings; its side emplacements (at the screen's edges, apart from each other and the tank pits);
-// no animals on a Drilling or a Buechse (paddocks clear of their pits, cows and sheep walk off them);
+// no animals on a Drilling or a Buechse (paddocks clear of their pits, cows and sheep walk off them); animals keep out of the water, and drown if put in it;
 // and flown through by the bot, a Buechse comes up dug in at an edge on level 3, aims across the screen and fires.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -113,7 +113,7 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   await page.close();
 }
 // 6b. no animals on the big guns: the tank pits and emplacements keep clear of the cow paddocks (level 1A has both; a paddock a pit has to be in gets no cows), and cows and sheep put on a
-// Drilling and a Buechse walk off them within 3 s (cows staying in their paddock)
+// Drilling and a Buechse walk off them within 3 s (cows staying in their paddock); the two tanks stand on land, far enough apart that an animal can stand clear of both
 {
   const page = await freshPage();
   const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(8); const P = sortiePlan(run.sortie), ps = P.pastures || [];
@@ -121,14 +121,32 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
     return JSON.stringify({ n: ps.length, cows: ps.filter(q => q.n > 0).length, pits: P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) }); })()`));
   ok(pas.cows > 0 && pas.pits.length === 2 && pas.pits.every(v => v >= 28), `level 1A: ${pas.n} cow paddocks (${pas.cows} with cows), its 2 tank pits ${pas.pits.join(', ')} px from the nearest with cows`);
   const a = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
-    const b = makeBuechse(60, 120 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(160, 120 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
+    const b = makeBuechse(60, 100 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(60, 230 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
     critters.length = 0; for (const g of [b, d]) for (let k = 0; k < 4; k++) { const x = g.wx + rnd(-6, 6), y = g.wy + rnd(-6, 6);
       critters.push({ var: 0, f: null, box: [g.wx - 50, g.wx + 50, g.wy - 50, g.wy + 50], wx: x, wy: y, vx: 0, vy: 0, t: k, fl: false });
       critters.push({ kind: 'sheep', free: false, wx: x + 2, wy: y + 2, home: [x, y], t: k, vx: 0, vy: 0, var: 0 }); }
     for (let f = 0; f < 180; f++) { player.inv = 99; world.ebul = []; update(); }
     const on = critters.filter(c => !c.gone && [b, d].some(g => Math.hypot(c.wx - g.wx, c.wy - g.wy) < (g.drill ? GUN_REACH.drill : GUN_REACH.buechse)));
-    return JSON.stringify({ n: critters.length, on: on.map(c => (c.kind || 'cow')), alive: !b.dead && !d.dead }); })()`));
-  ok(a.alive && a.n >= 12 && a.on.length === 0, `cows and sheep put on a Drilling and a Buechse walk off them (${a.on.length ? a.on.join(', ') + ' still on' : 'none left on'})`);
+    return JSON.stringify({ n: critters.length, on: on.map(c => (c.kind || 'cow')), alive: !b.dead && !d.dead, dry: [b, d].every(g => !animalWet(g.wx, g.wy)) }); })()`));
+  ok(a.alive && a.dry && a.n >= 12 && a.on.length === 0, `cows and sheep put on a Drilling and a Buechse walk off them (${a.on.length ? a.on.join(', ') + ' still on' : 'none left on'})`);
+  await page.close();
+}
+// 6c. animals and water: deer fleeing towards the sea, sheep and cows grazing at the shore stay out of it; an animal put in the water drowns
+{
+  const page = await freshPage();
+  const w = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
+    let shore = null; for (let y = 120; y < H - 60 && !shore; y += 4) for (let x = 20; x < W - 20; x++) if (animalWet(x, y - sc) && !animalWet(x - 30, y - sc) && !animalWet(x - 30, y - sc - 10) && !animalWet(x - 30, y - sc + 10)) { shore = [x, y - sc]; break; }
+    if (!shore) return JSON.stringify({ shore: null }); const [sx, sy] = shore; critters.length = 0;
+    for (let k = 0; k < 3; k++) critters.push({ kind: 'deer', wx: sx - 20, wy: sy + k * 6 - 6, t: 1, vx: 0, vy: 0, var: 0, scared: 30 }); // (scared: they bolt, left or right)
+    for (let k = 0; k < 3; k++) critters.push({ kind: 'deer', wx: sx - 14, wy: sy + k * 6 - 6, t: 1, vx: 1.2, vy: 0, run: true, var: 1 }); // (bolting straight at the water)
+    for (let k = 0; k < 4; k++) critters.push({ kind: 'sheep', free: true, wx: sx - 12, wy: sy + k * 4, home: [sx - 6, sy], t: k * 20, vx: 0, vy: 0, var: 0 });
+    for (let k = 0; k < 3; k++) critters.push({ var: 0, f: null, box: [sx - 60, sx + 60, sy - 30, sy + 30], wx: sx - 10, wy: sy + k * 5, vx: 0.06, vy: 0, t: k, fl: false });
+    critters.push({ kind: 'sheep', free: true, wx: sx + 8, wy: sy, home: [sx + 8, sy], t: 1, vx: 0, vy: 0, var: 0 }); const lost = critters[critters.length - 1];
+    let wet = 0, drowned = 0; for (let f = 0; f < 900; f++) { player.inv = 99; world.ebul = []; update();
+      for (const c of critters) if (c !== lost && !c.gone && c.drownT === undefined && animalWet(c.wx, c.wy)) wet++; if (lost.drownT !== undefined) drowned = 1; }
+    return JSON.stringify({ shore, wet, drowned, lostGone: !critters.includes(lost), n: critters.filter(c => c.drownT === undefined).length }); })()`));
+  ok(w.shore && w.wet === 0, `animals at the shore (${w.shore ? 'x ' + w.shore[0] : 'no shore found'}): deer, sheep and cows stay out of the water (${w.wet} ticks of an animal in it)`);
+  ok(w.drowned && w.lostGone, 'a sheep put in the water drowns: it splashes, sinks and is gone');
   await page.close();
 }
 // 6. flown through by the bot on level 3: a Buechse comes up dug in at an edge, lying across the screen, aims and fires; convoy Buechsen are counted too

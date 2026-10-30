@@ -9334,6 +9334,9 @@ function blastTroops(x, y, r) {
   }
 }
 function critterHouse(x, y, r) { for (let dp = -1; dp <= 1; dp++) for (const [hx, hy, hw2 = 18, hh2 = 14] of (chunkHouses.get(-Math.floor(y / CH) + dp) || [])) if (Math.abs(x - hx) < r + hw2 / 2 && Math.abs(y - hy) < r + hh2 / 2) return true; return false; }
+// the animals (not people, boats or birds); they keep off water: sea, surf and river (a bridge or ice is dry ground for them)
+const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer']);
+function animalWet(x, y) { const t = terrainType(Math.floor(x), Math.floor(y)); return t === 'sea' || t === 'surf' || t === 'river'; }
 // Enigma Run: a Drilling or a Buechse within reach of a spot (its hull, its turret turned any way, a Buechse's sandbags), so no animal stands on it
 const GUN_REACH = { drill: 26, buechse: BUECHSE_L + 6 };
 function bigGunNear(nx, ny) {
@@ -13425,26 +13428,28 @@ function update() {
     c.t++;
     if (c.scared > 0) c.scared--;
     const k = c.kind || 'cow';
+    if (c.drownT !== undefined) { if (++c.drownT % 7 === 0) world.parts.push({ kind: 'bubble', layer: 'w', x: c.wx + rnd(-2, 2), y: c.wy + sc, vx: 0, vy: world.scrollV, life: 22, max: 22 }); if (c.drownT > 60) c.gone = true; continue; } // (an animal in the water sinks)
+    if (ANIMALS.has(k) && c.t % 10 === 0 && animalWet(c.wx, c.wy)) { c.drownT = 0; c.vx = c.vy = 0; splash(c.wx, c.wy + sc, 4); continue; } // (it ended up in the water anyway: it drowns)
     if (k === 'cow') {
       if (c.t % 3 === 0) { const g = bigGunNear(c.wx, c.wy); if (g) { // (Enigma Run: a cow walks off a Drilling or a Buechse, staying in its paddock)
-        const dx = c.wx - g.wx, dy = c.wy - g.wy, d = Math.hypot(dx, dy) || 1, bx = c.box; c.wx += dx / d * 2; c.wy += dy / d * 2; c.vx = dx / d * 0.3; c.vy = dy / d * 0.18; c.scared = 40;
+        const dx = c.wx - g.wx, dy = c.wy - g.wy, d = Math.hypot(dx, dy) || 1, bx = c.box; if (!animalWet(c.wx + dx / d * 2, c.wy + dy / d * 2)) { c.wx += dx / d * 2; c.wy += dy / d * 2; } c.vx = dx / d * 0.3; c.vy = dy / d * 0.18; c.scared = 40;
         if (bx) { c.wx = clamp(c.wx, bx[0] + 1, bx[1] - 1); c.wy = clamp(c.wy, bx[2] + 1, bx[3] - 1); } else if (c.f) { c.wx = clamp(c.wx, c.f.x0 + 5, c.f.x0 + 67); c.wy = clamp(c.wy, c.f.y0 + 33, c.f.y0 + 61); } } }
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
-      const bx = c.box; if (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (box: a plan's paddock, level 1A)
+      const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1A)
     } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
       let bx = 0, by = 0; for (const o of world.enemies) { const w = o.drill || o.buechse ? 44 : 24; if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < w && Math.abs(o.wy - c.wy) < w) { bx += c.wx - o.wx; by += c.wy - o.wy; } } // (a big gun: from further off)
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }
-      const d = Math.hypot(bx, by) || 1; c.wx += bx / d * 2; c.wy += by / d * 2; c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40;
+      const d = Math.hypot(bx, by) || 1; if (!animalWet(c.wx + bx / d * 2, c.wy + by / d * 2)) { c.wx += bx / d * 2; c.wy += by / d * 2; } c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40; // (never into the water)
     } else if (k === 'sheep' || k === 'horse' || k === 'civ') {
       if (k === 'civ' && c.hidden > 0) { c.hidden--; continue; }
       if (k === 'civ' && c.scared > 0) { const dx = c.home[0] - c.wx, dy = c.home[1] - c.wy, d = Math.hypot(dx, dy); if (d < 3) { c.hidden = 420; c.scared = 0; c.wx = c.home[0]; c.wy = c.home[1] + 6; continue; } c.wx += dx / d * 0.6; c.wy += dy / d * 0.6; c.fl = dx < 0; continue; }
       if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy, tt = terrainType(Math.floor(nx), Math.floor(ny));
       const roam = c.free ? 46 : 18;
-      if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
+      if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'sea' && tt !== 'surf' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
     } else if (k === 'deer') {
-      if (critterBlocked(c.wx + c.vx * 6, c.wy + c.vy * 6)) { c.vx = -c.vx; c.vy = -c.vy; }
+      if (critterBlocked(c.wx + c.vx * 6, c.wy + c.vy * 6) || ((c.vx || c.vy) && animalWet(c.wx + c.vx * 6, c.wy + c.vy * 6))) { c.vx = -c.vx; c.vy = -c.vy; } // (and at the water's edge)
       if (c.scared > 0 && !c.run) { c.run = true; const a = Math.random() < 0.5 ? PI : 0; c.vx = Math.cos(a) * 1.2; c.vy = -0.4; c.fl = c.vx < 0; }
       if (!c.run && c.t % 120 === 0) { c.vx = rnd(-0.08, 0.08); c.vy = rnd(-0.04, 0.04); c.fl = c.vx < 0; }
       c.wx += c.vx; c.wy += c.vy; if (c.wx < -10 || c.wx > W + 10) c.gone = true;
@@ -13584,7 +13589,8 @@ function flipDraw(c, x, y, fl) { if (fl) { ctx.save(); ctx.translate(Math.round(
 function drawCritters() {
   const sc = Math.floor(world.scroll);
   for (const c of critters) {
-    const y = c.wy + sc, k = c.kind || 'cow';
+    const y = c.wy + sc + (c.drownT ? c.drownT * 0.05 : 0), k = c.kind || 'cow';
+    ctx.globalAlpha = c.drownT !== undefined ? Math.max(0, 1 - c.drownT / 60) : 1; // (a drowning animal sinks and fades)
     if (y < -12 || y > H + 12 || c.hidden > 0) continue;
     if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
     const moving = Math.abs(c.vx || 0) + Math.abs(c.vy || 0) > 0.01, fr = moving ? (c.t >> 3) & 1 : 0, fg = moving ? fr : ((c.t + (c.wx | 0) * 7) >> 6) % 3 === 0 ? 0 : 2;
@@ -14701,7 +14707,7 @@ function renderMain() {
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
   drawRoofs(); drawGorgeSnow(true);
   drawWreck(true);
-  drawCritters();
+  drawCritters(); ctx.globalAlpha = 1;
   drawCanopy();
   drawProps();
   drawParts('g');
