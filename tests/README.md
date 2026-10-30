@@ -124,6 +124,15 @@ python3 -m http.server 8000   # in another terminal
 node tests/wing.mjs
 ```
 
+## Drilling test (run by hand)
+
+`drilling.mjs` checks the Enigma Run's Drilling (the three-barrel tank): its attack cycle runs aim, prep, fire, rest in that order, with a warning before and a pause after; it fires salvos of three shells while its turret sweeps; its turret takes many ordinary hits, an untouched one outlives a Nova and the next hits pop it, a full laser pops it at once (a weak laser frame does not); a turret popped during the warning ends the cycle. On a level 6 side street it stands still while it fires and turns back at the street's end. Flown through by the bot, it stands in a dug-in slot of level 2 and fires, and patrols a side street of level 6.
+
+```
+python3 -m http.server 8000   # in another terminal
+node tests/drilling.mjs
+```
+
 ## Vehicle jitter test (runs in CI, blocking)
 
 `jitter.mjs` plays every Campaign stage and every Enigma Run level (1, 1A, 2–6, 6B) with the bot for 9000 frames each and watches every road vehicle (tanks, trucks, armoured cars, carts) frame by frame. It fails when one
