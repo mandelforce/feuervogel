@@ -9619,13 +9619,13 @@ function planCows(sc) {
     for (let k = 0; k < q.n; k++) critters.push({ var: Math.random() < 0.7 ? 0 : 1, f: null, box: [q.x0 + 3, q.x1 - 5, top + 3, bot - 2], wx: rnd(q.x0 + 4, q.x1 - 6), wy: rnd(top + 4, bot - 3), vx: 0, vy: 0, t: (Math.random() * 200) | 0, fl: Math.random() < 0.5 }); }
 }
 /* Enigma Run level 1: the carrier start (spec 5 and 10). The player steals the Feuervogel from the enemy carrier: it stands on the deck amid
-   the panic, rolls down the deck and lifts off over the bow, and fighters launch from the catapults after it for CV.PURSUIT frames. The carrier
+   the panic, rolls down the deck and lifts off over the bow, and CV.LAUNCHES fighters (one) launch from the catapults after it, within CV.PURSUIT frames. The carrier
    is a drawn scene object over the sea, not ground: large at first (scale 1, nearly the whole screen), it shrinks to 0.5 and slides off the
    bottom as the Feuervogel climbs away. Its deck guns can be destroyed (entity 'cgun'); the hull cannot. Native units: scale 1 pixels with
    the origin at the carrier's centre, bow up (v < 0). world.carrier is null in every other run, so none of this touches the Campaign. */
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
-const CV = { K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
+const CV = { K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: 1, V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158, TAXI: 40,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
@@ -9651,7 +9651,7 @@ function carrierTick() {
     if (gf % 2 === 0) { const [bx, by] = carrierXY(C, 0, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, sd * 34, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, sd * 37, rnd(-120, 160)); foam(hx, hy); } }
     if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
   }
-  if (t >= C.nextL && t < CV.T1 + CV.PURSUIT) {
+  if (t >= C.nextL && t < CV.T1 + CV.PURSUIT && C.launched < CV.LAUNCHES) { // only CV.LAUNCHES fighters follow the Feuervogel (one: easier for new players)
     const chasers = world.enemies.filter(e => (e.chase || e.type === 'cfighter') && !e.dead).length, cap = (settings.diff === 0 ? 2 : 3) + run.loop;
     C.nextL = t + ((t < CV.T1 + 400 ? 70 : 95) * (settings.diff === 0 ? 1.4 : 1) - run.loop * 10) | 0;
     if (chasers < cap) {
@@ -9661,7 +9661,7 @@ function carrierTick() {
       C.launched++;
     }
   }
-  if (t >= CV.T1 + CV.PURSUIT && C.gone) C.over = true;
+  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (C.launched >= CV.LAUNCHES && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone
 }
 // The Feuervogel on the deck (player.fly counts CV.FLY down, so steering and firing wait as in a fly-in): standing, then rolling down the
 // centre line to the bow (lift-off at CV.T1), then climbing on, slowing, with its shadow drawing away from it.
