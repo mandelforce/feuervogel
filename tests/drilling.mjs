@@ -2,6 +2,7 @@
 //   node tests/drilling.mjs
 // Checks: its attack cycle (aim, prep, fire, rest) in that order, with a halt, a warning and a pause; salvos of three while the turret sweeps;
 // its turret takes several hits, outlives a Nova untouched and is popped by a full laser; a popped turret stops the cycle at once;
+// its tank pits (three in level 2, two in the other levels with a plan but level 1, more than a screen apart);
 // and flown through by the bot, it stands in the dug-in slots of level 2 and patrols side streets (turning at their ends) in level 6.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -71,6 +72,17 @@ const alone = `settings.diff = 1; startEnigma(2); world.enemies = []; world.ebul
     return JSON.stringify({ n: sides.length, halt, still, turned, side: !!e.side }); })()`));
   ok(h.n >= 1 && h.halt > 0 && h.still === h.halt, `level 6: on a side street it halts to fire (${h.still}/${h.halt} frames still)`);
   ok(h.turned >= 1 && h.side, `level 6: it turns back at its street's end and keeps to its street (${h.turned} turns)`);
+  await page.close();
+}
+// 3b. its tank pits: three in level 2, two in every other level with a plan (1A, 3, 4, 5, 6, 6B), none in level 1; more than a screen apart
+{
+  const page = await freshPage();
+  const want = { 1: 0, 2: 3, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2 }, name = { 7: '6B', 8: '1A' };
+  for (const lv of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    const ys = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const S = run.sortie, P = sortiePlan(S); return JSON.stringify(P ? P.slots.filter(s => s.kind === 'tank').map(s => s.y).sort((a, b) => a - b) : []); })()`));
+    const gap = ys.slice(1).reduce((m, y, k) => Math.min(m, y - ys[k]), Infinity);
+    ok(ys.length === want[lv] && (ys.length < 2 || gap >= 500), `level ${name[lv] || lv}: ${ys.length} tank pits${ys.length > 1 ? ', at least ' + gap + ' px apart' : ''}`);
+  }
   await page.close();
 }
 // 4. flown through by the bot: dug in on level 2, patrolling side streets on level 6

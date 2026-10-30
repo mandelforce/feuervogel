@@ -3662,7 +3662,36 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+// ---------- tank pits for the Drilling (Enigma Run, owner) ----------
+// Added to a finished plan by the game: one pit in each wanted row band [y0, y1] (plan rows), on open ground (fields, meadows, gardens, rubble,
+// sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
+// roads, the railway and water by 18 px (15 where nothing else fits), of every other
+// slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a scrape with its sand heaped in front and at the sides (as the strongpoints' dugTank); elsewhere a horseshoe
+// earth bank open at the back. Trees on it are cleared. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
+function tankPits(plan, bands) {
+  const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
+  const OPEN = new Set([K.FIELD, K.MEADOW, K.DESERT, K.OASIS, K.PARK, K.LOT, K.RUBBLE, K.TURF, K.ORCHARD, K.GARDEN, K.COURT, K.BEACH, K.WOOD, K.SLOPE, K.CHYARD]);
+  const HARD = new Set([K.ROAD, K.STREET, K.BLDG, K.RAIL, K.RBRIDGE, K.BRIDGE, K.RUNWAY, K.WATER, K.RIVER, K.SEA, K.QUAY, K.ICE, K.CLIFF, K.RAVINE, K.CRAG, K.TRENCH, K.WORKS, K.APRON, K.TRACK]);
+  const fits = (x, y, rH, rO) => { for (let yy = -20; yy <= 20; yy++) for (let xx = -20; xx <= 20; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) return false; const i = Y * W + X, k = Kr[i], d = Math.hypot(xx, yy);
+    if (d <= rH && HARD.has(k)) return false; if (d <= rO && (!OPEN.has(k) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; }; // (a garden's B is its house's: it may be dug up)
+  bands.forEach(([y0, y1], bi) => {
+    let best = null;
+    for (const [rH, rO] of [[18.5, 18], [15, 15]]) { if (best) break; // (where nothing fits, a tighter spot)
+    for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) { const m = plan.mx && plan.mx[y] ? plan.mx[y] : W / 2;
+      for (let x = 26; x <= W - 26; x += 3) { const d = Math.abs(x - m); if (d < 22 || d > 90) continue;
+        if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
+        const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
+    if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { const i = Y * W + X; Kr[i] = k; Br[i] = b; };
+    if (desert) { for (let yy = -14; yy <= 14; yy++) for (let xx = -11; xx <= 11; xx++) set(x + xx, y + yy, K.OASIS, -1); // (wider than the 24 x 30 tank, so the scrape shows round it)
+      for (let xx = -14; xx <= 14; xx++) for (let k = 1; k <= 3; k++) set(x + xx, y - (14 + k), K.SPOIL, -40 - [16, 12, 7][k - 1]);
+      for (const sx of [-1, 1]) for (let yy = -13; yy <= 14; yy++) for (let k = 1; k <= 2; k++) set(x + sx * (11 + k), y + yy, K.SPOIL, -40 - (sx < 0 ? 15 : 8)); }
+    else for (let yy = -18; yy <= 18; yy++) for (let xx = -18; xx <= 18; xx++) { const d = Math.hypot(xx, yy * 0.85); if (d >= 14.5 && d <= 17.5 && yy < 8) set(x + xx, y + yy, K.BERM, -1); } // (the open side faces up the level, away from the ship)
+    if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot(t.x - x, t.y - y) > 20);
+    const c = { kind: 'tank', on: 'pit', x, y, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
+  });
+  return out;
+}
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
