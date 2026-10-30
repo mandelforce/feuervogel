@@ -44,7 +44,7 @@ In:
 - 3–4 authored encounters, replacing the two `set1`/`set2` set pieces in Campaign levels first.
 - An admission check for volleys, used by the shooters that the MVP encounters spawn, plus ground flak and tanks.
 
-Out (as in the brief, plus):
+Out:
 - Retro Run, Endless, `gen` mode and the tutorial. They keep their current director, which is required for `golden.json` to stay unchanged.
 - Boss fights and the Shadow Wing fight.
 - Changing `eshot`'s hard limit or Rookie's `DIFF.skip`.
