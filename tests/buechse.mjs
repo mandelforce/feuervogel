@@ -1,9 +1,11 @@
 // Enigma Run, the Buechse (the long-range marksman tank). Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/buechse.mjs
 // Checks: its attack cycle (track, aim, lock, one shot, rest) in that order and on time; it halts in its lock; one straight shell down the frozen line,
-// from the muzzle, at 2x the enemy shell speed; it leads a moving ship (a straight flyer is hit on Ace, a ship that turns back at the lock is missed);
+// from the muzzle, at 2x the enemy shell speed; it aims at the ship on Veteran (a ship that holds still is hit, one that moves off at the lock is missed)
+// and a little ahead of a moving ship on Ace;
 // its turret takes many hits, outlives a Nova untouched and is popped by a full laser; a popped turret ends the cycle at once;
 // the muzzle spot matches the drawn bore at all 16 headings; its side emplacements (at the screen's edges, apart from each other and the tank pits);
+// no animals on a Drilling or a Buechse (paddocks clear of their pits, cows and sheep walk off them); animals keep out of the water, and drown if put in it;
 // and flown through by the bot, a Buechse comes up dug in at an edge on level 3, aims across the screen and fires.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -50,20 +52,24 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(c.seq.join() === 'track,aim,lock,rest,track', `cycle: ${c.seq.join(' > ')}`);
   const cycles = c.shots.length;
   const len = st => [...new Set(c.lens.filter(q => q[0] === st).map(q => q[1]))].join('/');
-  ok(cycles >= 3 && len('aim') === '60' && len('lock') === '21' && c.lens.filter(q => q[0] === 'rest').every(q => q[1] >= 80), `on time: ${cycles} shots; aim ${len('aim')} ticks, lock ${len('lock')}, rest ${len('rest')}`);
+  ok(cycles >= 3 && len('aim') === '36' && len('lock') === '18' && c.lens.filter(q => q[0] === 'rest').every(q => q[1] >= 72), `on time: ${cycles} shots; aim ${len('aim')} ticks, lock ${len('lock')}, rest ${len('rest')}`);
   ok(c.lockMoved === 0 && c.otherMoved > 100 && c.frozen, `it halts in its lock and its aim is frozen there (${c.otherMoved} moving ticks outside the lock)`);
   ok(c.shots.every(s => s.n === 1 && s.kind === 'shell' && Math.abs(s.sp - c.want) < 1e-6 && Math.abs(s.a - s.la) < 1e-9 && s.at >= 0 && s.at < 1e-6),
     `one shell a cycle, from the muzzle, down the locked line, at 2x bspeed (${c.shots.map(s => s.sp.toFixed(2)).join(', ')})`);
-  // 2. it leads: a ship flying straight across is hit on Ace; one that turns back at the lock is missed; a ship that stands still is hit
-  const fly = async (diff, turn, vx) => JSON.parse(await peek(page, `(() => { ${alone(diff)} player.x = 40;
-    let b = null, vx = ${vx}, near = 1e9, at = 0;
-    for (let f = 0; f < 900 && !b; f++) { const n = world.ebul.length; tick(); if (${turn} && e.bst === 'lock' && e.bT === ${'BUECHSE.lock - 1'}) vx = -vx; player.x = clamp(player.x + vx, 8, W - 8); if (world.ebul.length > n) b = world.ebul[world.ebul.length - 1]; }
-    for (let f = 0; f < 400 && b; f++) { b.x += b.vx; b.y += b.vy; player.x = clamp(player.x + vx, 8, W - 8); const d = Math.hypot(b.x - player.x, b.y - player.y); if (d < near) { near = d; at = f; } }
-    return JSON.stringify({ shot: !!b, near: +near.toFixed(1), at }); })()`));
-  const straight = await fly(2, false, 1.2), back = await fly(2, true, 1.2), still = await fly(1, false, 0);
-  ok(straight.shot && straight.near < 4, `Ace, a ship flying straight across: the shell passes ${straight.near} px from it (hit)`);
-  ok(back.shot && back.near > 12, `Ace, a ship that turns back at the lock: the shell passes ${back.near} px from it (missed)`);
-  ok(still.shot && still.near < 3, `a ship that stands still: the shell passes ${still.near} px from it`);
+  // 2. where it aims: at the ship on Veteran (the locked line runs through where the ship was at the lock), a little ahead of a moving ship on Ace;
+  // a ship that holds still is hit, one that moves off at the lock is missed. (vx: the ship's speed until the lock, after: from the lock on)
+  const fly = async (diff, vx, after) => JSON.parse(await peek(page, `(() => { ${alone(diff)} player.x = 60;
+    let b = null, vx = ${vx}, off = 0, lx = 0, near = 1e9;
+    for (let f = 0; f < 900 && !b; f++) { const n = world.ebul.length, was = e.bst; tick(); if (e.bst === 'lock' && was !== 'lock') { const [bx, by] = buechseBore(e), c = Math.cos(e.la), s = Math.sin(e.la);
+        off = (player.x - bx) * s - (player.y - by) * c; lx = player.x; vx = ${after}; } // (off: how far the ship is to the side of the locked line, at the lock)
+      player.x = clamp(player.x + vx, 8, W - 8); if (world.ebul.length > n) b = world.ebul[world.ebul.length - 1]; }
+    for (let f = 0; f < 400 && b; f++) { b.x += b.vx; b.y += b.vy; player.x = clamp(player.x + vx, 8, W - 8); near = Math.min(near, Math.hypot(b.x - player.x, b.y - player.y)); }
+    return JSON.stringify({ shot: !!b, off: +Math.abs(off).toFixed(1), near: +near.toFixed(1), x: Math.round(lx) }); })()`));
+  const W0 = 224, still = await fly(1, 0, 0), moving = await fly(1, 0.6, 0.6), dodge = await fly(1, 0, 1.5), ace = await fly(2, 0.6, 0.6); // (0.6 px a tick: still flying, not yet at the screen's edge, at the lock)
+  ok(still.shot && still.near < 3, `Veteran, a ship that holds still: the shell passes ${still.near} px from it (hit)`);
+  ok(moving.shot && moving.off < 3 && moving.x > 8 && moving.x < W0 - 8, `Veteran, a moving ship: the locked line runs ${moving.off} px from where the ship was at the lock (aimed at the ship)`);
+  ok(dodge.shot && dodge.near > 12, `Veteran, a ship that moves off at the lock: the shell passes ${dodge.near} px from it (missed)`);
+  ok(ace.shot && ace.off > 15 && ace.x > 8 && ace.x < W0 - 8, `Ace, a moving ship: the locked line runs ${ace.off} px ahead of it (lead)`);
   // 3. the turret: many hits, a Nova, the laser, and a popped turret ends the cycle (no shot after it, the tank drives on)
   const t = JSON.parse(await peek(page, `(() => { ${alone()}
     let hits = 0; while (!e.turDead && hits < 200) { damage(e, 0.55 + 0.55 * 1); hits++; } // the laser gun's level 1 shot
@@ -104,6 +110,43 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
     ok(r.n.length >= want[lv][0] && r.n.length <= want[lv][1] && edge && gap >= 520 && pit >= 420 && (r.again !== false),
       `level ${name[lv] || lv}: ${r.n.length} side emplacements${r.n.length ? ' at x ' + r.n.map(q => q[0]).join(', ') + (r.n.length > 1 ? ', ' + gap + ' rows apart' : '') + ', ' + pit + ' rows from the nearest tank pit' : ''}`);
   }
+  await page.close();
+}
+// 6b. no animals on the big guns: the tank pits and emplacements keep clear of the cow paddocks (level 1A has both; a paddock a pit has to be in gets no cows), and cows and sheep put on a
+// Drilling and a Buechse walk off them within 3 s (cows staying in their paddock); the two tanks stand on land, far enough apart that an animal can stand clear of both
+{
+  const page = await freshPage();
+  const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(8); const P = sortiePlan(run.sortie), ps = P.pastures || [];
+    const d = sl => Math.min(1e9, ...ps.filter(q => q.n > 0).map(q => Math.hypot(Math.max(q.x0 - sl.x, 0, sl.x - q.x1), Math.max(q.y0 - sl.y, 0, sl.y - q.y1)))); // (to the nearest paddock with cows)
+    return JSON.stringify({ n: ps.length, cows: ps.filter(q => q.n > 0).length, pits: P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) }); })()`));
+  ok(pas.cows > 0 && pas.pits.length === 2 && pas.pits.every(v => v >= 28), `level 1A: ${pas.n} cow paddocks (${pas.cows} with cows), its 2 tank pits ${pas.pits.join(', ')} px from the nearest with cows`);
+  const a = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
+    const b = makeBuechse(60, 100 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(60, 230 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
+    critters.length = 0; for (const g of [b, d]) for (let k = 0; k < 4; k++) { const x = g.wx + rnd(-6, 6), y = g.wy + rnd(-6, 6);
+      critters.push({ var: 0, f: null, box: [g.wx - 50, g.wx + 50, g.wy - 50, g.wy + 50], wx: x, wy: y, vx: 0, vy: 0, t: k, fl: false });
+      critters.push({ kind: 'sheep', free: false, wx: x + 2, wy: y + 2, home: [x, y], t: k, vx: 0, vy: 0, var: 0 }); }
+    for (let f = 0; f < 180; f++) { player.inv = 99; world.ebul = []; update(); }
+    const on = critters.filter(c => !c.gone && [b, d].some(g => Math.hypot(c.wx - g.wx, c.wy - g.wy) < (g.drill ? GUN_REACH.drill : GUN_REACH.buechse)));
+    return JSON.stringify({ n: critters.length, on: on.map(c => (c.kind || 'cow')), alive: !b.dead && !d.dead, dry: [b, d].every(g => !animalWet(g.wx, g.wy)) }); })()`));
+  ok(a.alive && a.dry && a.n >= 12 && a.on.length === 0, `cows and sheep put on a Drilling and a Buechse walk off them (${a.on.length ? a.on.join(', ') + ' still on' : 'none left on'})`);
+  await page.close();
+}
+// 6c. animals and water: deer fleeing towards the sea, sheep and cows grazing at the shore stay out of it; an animal put in the water drowns
+{
+  const page = await freshPage();
+  const w = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
+    let shore = null; for (let y = 120; y < H - 60 && !shore; y += 4) for (let x = 20; x < W - 20; x++) if (animalWet(x, y - sc) && !animalWet(x - 30, y - sc) && !animalWet(x - 30, y - sc - 10) && !animalWet(x - 30, y - sc + 10)) { shore = [x, y - sc]; break; }
+    if (!shore) return JSON.stringify({ shore: null }); const [sx, sy] = shore; critters.length = 0;
+    for (let k = 0; k < 3; k++) critters.push({ kind: 'deer', wx: sx - 20, wy: sy + k * 6 - 6, t: 1, vx: 0, vy: 0, var: 0, scared: 30 }); // (scared: they bolt, left or right)
+    for (let k = 0; k < 3; k++) critters.push({ kind: 'deer', wx: sx - 14, wy: sy + k * 6 - 6, t: 1, vx: 1.2, vy: 0, run: true, var: 1 }); // (bolting straight at the water)
+    for (let k = 0; k < 4; k++) critters.push({ kind: 'sheep', free: true, wx: sx - 12, wy: sy + k * 4, home: [sx - 6, sy], t: k * 20, vx: 0, vy: 0, var: 0 });
+    for (let k = 0; k < 3; k++) critters.push({ var: 0, f: null, box: [sx - 60, sx + 60, sy - 30, sy + 30], wx: sx - 10, wy: sy + k * 5, vx: 0.06, vy: 0, t: k, fl: false });
+    critters.push({ kind: 'sheep', free: true, wx: sx + 8, wy: sy, home: [sx + 8, sy], t: 1, vx: 0, vy: 0, var: 0 }); const lost = critters[critters.length - 1];
+    let wet = 0, drowned = 0; for (let f = 0; f < 900; f++) { player.inv = 99; world.ebul = []; update();
+      for (const c of critters) if (c !== lost && !c.gone && c.drownT === undefined && animalWet(c.wx, c.wy)) wet++; if (lost.drownT !== undefined) drowned = 1; }
+    return JSON.stringify({ shore, wet, drowned, lostGone: !critters.includes(lost), n: critters.filter(c => c.drownT === undefined).length }); })()`));
+  ok(w.shore && w.wet === 0, `animals at the shore (${w.shore ? 'x ' + w.shore[0] : 'no shore found'}): deer, sheep and cows stay out of the water (${w.wet} ticks of an animal in it)`);
+  ok(w.drowned && w.lostGone, 'a sheep put in the water drowns: it splashes, sinks and is gone');
   await page.close();
 }
 // 6. flown through by the bot on level 3: a Buechse comes up dug in at an edge, lying across the screen, aims and fires; convoy Buechsen are counted too
