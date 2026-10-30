@@ -1,11 +1,15 @@
 # Encounter Director: plan
 
-Status: proposal, nothing built yet. Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30.
-Line numbers drift; search for the names given here.
+Status: proposal, nothing built yet. Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30. Revised after review: Sower exception, ownership counting, soft budget, atomic verbs, timeout and hold rules, Sower Window test.
+Line numbers drift; search for the names given here. Points marked **(inspect)** need a look at the source or a test before they are built; the plan does not assume an answer.
 
 ## 1. Summary
 
-The encounter director is a small scheduler inside the existing `director()`. It plays named, authored compositions of existing enemies (an *encounter*) on a frame clock, holds back the normal wave, ground and pod timers while it runs, tags the enemies it spawns, and lets shooters ask an *admission* check before they start a volley so the encounter stays inside a bullet budget.
+The encounter director is a small scheduler inside the existing `director()`. It:
+- plays named, authored compositions of existing enemies (an *encounter*) on a frame clock;
+- freezes the normal wave, ground and pod timers it names while it runs;
+- tags what it spawns, and counts only the threatening part toward completion;
+- lets selected shooters ask an *admission* check before they start a volley, so the encounter has a soft bullet budget. Ungated sources can still push the total above the budget, and the implementation measures how often that happens.
 
 It adds no enemy types, weapons or abilities. One small behaviour option is needed (a Heavy that holds a position, see 7.1); everything else is configuration of what exists.
 
@@ -19,18 +23,20 @@ The brief is sound. The changes below come from how the game is actually built: 
 | Authored set pieces already exist: `runSetPiece` plays two per level (`squadron`, `bombers`, `convoy`, `tanks`, `flak`) as a few timed wave calls. | `runSetPiece`, `SET_PIECES` | These are the first thing to replace. They are encounters without ownership, budget or completion. |
 | The director runs on a seeded per-run random stream (`drand` swapped into `Math.random`). | `director()` | Encounter choice and positions are automatically deterministic if drawn inside the director. Never use the free stream. |
 | Runs resume to the exact frame from a snapshot of `world`. Delayed callbacks in `world.later` must be named functions listed in `snapFns`, or `takeSnapshot` throws `SnapDirty` and skips saving. | `takeSnapshot`, `snapFns`, `tests/resume-exact.mjs` | The encounter schedule must be plain data on `world`, not closures in `world.later`. The current set pieces and `waveSweep`/`waveStrafe` use anonymous closures, so no save happens while they are pending. |
-| `update()` returns early while paused or during the GET READY countdown, and the battle holds still on the continue screen. | `update()` | A frame clock advanced inside the director freezes by itself. No SUSPENDED state is needed for pause. |
+| `update()` returns early while paused or during the GET READY countdown, and the battle holds still on the continue screen. | `update()` | The whole simulation freezes, so the encounter clock freezes with it. No state is needed for this. |
+| `director()` returns before `directorInner` while `world.quiet` is set (stage end `clearField`, boss flyby, tutorial). Enemies and bullets keep moving. | `director()`, `clearField`, `startFlyby` | Neither the encounter clock nor the normal timers move while `world.quiet` is set, so this case needs no code either. |
 | Player death doesn't stop the director. | `die()` | Matches the brief: death never resets an encounter. |
-| `world.quiet` stops all spawning (stage end `clearField`, boss flyby, tutorial). | `director()`, `clearField`, `startFlyby` | This is the real "something else has taken control" signal. |
 | Once the boss is triggered, `directorInner` returns early and only sends a 3-fighter dive every 360 frames. Boss weapon pods are spawned from the boss's own update. | `directorInner`, `ENT.boss` | Boss fights stay out of scope. Boss spawn cancels any pending encounter events. |
-| Level-specific "mini-directors" already run beside the waves: `sowerTick` (level 4), `planTrains`, `planGuns`, `planNests` and others, plus the Shadow Wing at 14/37 of the level (`spawnWing`). | `directorInner` | An encounter must not start while the Wing or a Sower is on screen, unless it is built for that (see 7.4). |
+| Level-specific "mini-directors" already run beside the waves: `sowerTick` (level 4), `planTrains`, `planGuns`, `planNests` and others, plus the Shadow Wing at 14/37 of the level (`spawnWing`). `sowerTick` already keeps the Wing and the Sower off the screen together. | `directorInner`, `sowerTick` | Ordinary encounters don't start while the Wing or a Sower is active. The Sower Window (7.4) is the one explicit exception. |
 | The Campaign is the Enigma levels 1A, 2, 3, 4, 5, 6B (`CAMP_LEVELS`), with `run.sortie` set. Retro Run is the old campaign, "as it was". | `startEnigma`, `startRetro` | Ship encounters in the Campaign (`run.sortie`) only. Retro Run, Endless and `gen` mode stay unchanged. |
 | `golden.json` replays fly the old campaign. There is no Enigma replay baseline. | `tests/replay.js`, `tests/README.md` | Gating on `run.sortie` leaves `golden.json` untouched, which is a useful proof that nothing else changed. The Campaign needs its own regression check (Phase 0). |
-| Enemy bullets: `eshot` drops new bullets past 420 on screen and during a Nova; on Rookie it drops every third ordinary bullet (`DIFF.skip`). | `eshot` | A hard technical limit already exists and already truncates patterns. The encounter budget is a design limit that sits well below it and delays volleys instead. |
-| `canFire(e, margin)` is the shared "may I shoot now" test, used about 23 times. Several shooters (Heavy, fighters) have their own checks. | `canFire`, `ENT.*.update` | This is the natural place to hang the admission check, plus a few direct calls. |
+| Enemy bullets: `eshot` drops new bullets past 420 on screen and during a Nova; on Rookie it drops every third ordinary bullet (`DIFF.skip`). | `eshot` | A hard technical limit already exists and already truncates patterns. The encounter budget is a design limit well below it and delays volleys instead. Both existing rules stay as they are. |
+| `canFire(e, margin)` is the shared "may I shoot now" test, used about 23 times. Several shooters (Heavy, fighters) have their own checks. | `canFire`, `ENT.*.update` | This is the natural place to hang the admission check later. The MVP calls it directly at a few sites. |
+| All enemies are made by `E()`. `G()` (ground) and `mkFighter` call it. Item drops (`mkItem`) don't. | `E`, `G`, `mkFighter`, `mkItem` | One line in `E()` tags everything a dispatch creates. The weapon item a pod drops is never tagged. |
+| `ENT[type].harmless` marks non-threatening entities (bridges, troops, radar, parked planes, fuel, staff cars and others), read through `harmlessE()`, which also respects an armed bike. The pod and the truck are *not* marked harmless. | `harmlessE`, `ENT` | Completion counts only entities that pass a threat test built on `harmlessE` (5.4). |
+| `spawnGround` with `FORCE_GROUND = 'flak'` tries two placements and can create 0, 1 or 2 guns. `convoy` can create 0 to 3 vehicles and draws its size and kinds from the random stream. | `spawnGround`, `convoy` | Spawn verbs need an explicit success rule (5.2, section 6). |
 | `W` is fixed at 224; `H` follows the window. | `ARCHITECTURE.md`, `ROADMAP.md` | Spawn positions are in fractions of `H` or "above the screen", never absolute y. |
 | The simulation runs at a fixed 60 steps per second. | `frameLoop` | Schedule in frames. Seconds in this document are frames / 60. |
-| Enemies have no ids. Children are pushed in the same call (flak crews in `makeFlak`) or later (missiles, revenge shots). | `E()`, `G()`, `makeFlak` | Ownership is a tag (`e.enc`) set while a dispatch runs, not an id list. |
 
 Small corrections to the brief:
 - "Talons, Lance, Nova bombs": the Lance is one of the four weapons, the Talon is the drone pickup and the Nova is the bomb.
@@ -41,7 +47,7 @@ Small corrections to the brief:
 
 In:
 - The Campaign and practice runs of its levels (`run.sortie` set), outside boss fights.
-- 3–4 authored encounters, replacing the two `set1`/`set2` set pieces in Campaign levels first.
+- 3–4 authored encounters, replacing the two `set1`/`set2` set pieces in Campaign levels. Encounters are never added on top of them.
 - An admission check for volleys, used by the shooters that the MVP encounters spawn, plus ground flak and tanks.
 
 Out:
@@ -54,7 +60,7 @@ Out:
 Definitions are constant data, kept apart from the runtime state. A sketch in the style of `ARC` and `SOWER`:
 
 ```js
-// One encounter: a timed list of spawns, what it holds back, and its bullet budget. Times in frames (60 = 1 s).
+// One encounter: a timed list of spawns, what it holds back, and its soft bullet budget. Times in frames (60 = 1 s).
 const ENC = {
   anvil: { name: 'The Anvil', len: 600, max: 1500, rest: 180, budget: [16, 22, 28], biomes: null, levels: null,
     holds: { air: true, pod: true, ground: false },
@@ -63,7 +69,7 @@ const ENC = {
       { t: 90,  do: 'leader', x: 0.25 },
       { t: 210, do: 'leader', x: 0.75 },
       { t: 330, do: 'chase' },
-      { t: 540, do: 'pod' }                 // the reward after the pressure
+      { t: 540, do: 'pod', own: false }      // the reward after the pressure; never keeps the encounter alive
     ] },
   // ...
 };
@@ -71,27 +77,33 @@ const ENC = {
 
 Fields:
 - `len`: the intended length, for scheduling and diagnostics.
-- `max`: a hard cap after which the encounter ends anyway (reason `timeout`). This is a safety net, not the normal end.
-- `rest`: frames of quiet after it ends, before the normal timers resume. This is the recovery the brief asks for, made explicit.
-- `budget`: enemy bullets on screen per difficulty (Rookie, Veteran, Ace).
-- `holds`: which normal timers are held while it runs.
+- `max`: a safety cap. When it is reached the encounter ends with `why: 'timeout'` (5.6). It is not the normal end.
+- `rest`: frames of recovery after the encounter ends, while the held timers stay frozen. This is the recovery the brief asks for, made explicit.
+- `budget`: the soft budget in enemy bullets on screen, per difficulty (Rookie, Veteran, Ace).
+- `holds`: which normal timers are frozen while it runs, holds and rests.
 - `biomes` / `levels`: where it may run (`biomeAtSpawn()` values, Campaign level numbers).
+- `start`: how the encounter is started (5.5). `'slot'` (the default) means it fills a `set1`/`set2` slot. `'sower'` means it waits for a Sower to settle into its hold.
 - `ev`: the events, sorted by `t`.
-- An event's `do` names a *spawn verb* (section 6). The other fields are that verb's options. An event may have `when` instead of `t` (a trigger, see 5.3).
+- An event's `do` names a *spawn verb* (section 6). The other fields are that verb's options. An event may have `when` instead of `t` (a trigger, see 5.3). `own: false` marks an event whose entities are tagged for diagnostics but never counted toward completion (rewards and scenery).
 
-Runtime state is one plain object on `world`, so the snapshot saves it with no extra code:
+Runtime state is plain data on `world`, so the snapshot saves it with no extra code:
 
 ```js
-world.enc = { id: 'anvil', st: 'run', t: 0, i: 0, owned: 0, why: null, rest: 0 }; // or null when idle
+world.enc = { id: 'anvil', st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0 }; // or null when idle
+world.encLast = { id: 'anvil', why: 'done', t: 812, over: 0, peak: 19, dropped: 0 };    // the last encounter's end, or null
+world.encPend = null;                                                                   // a slot waiting to start (5.5), or null
 ```
 
 - `st`: `run`, `hold` or `rest`.
 - `t`: the encounter clock in frames.
-- `i`: the index of the next event (events before `i` are dispatched; there's no per-event status array).
-- `owned`: how many tagged enemies are still alive (recounted each frame, see 5.4).
-- `why`: the end reason, kept for diagnostics until the next start.
+- `i`: the index of the next event. Events before `i` are dispatched or dropped; there's no per-event status array.
+- `owned`: how many counted enemies are still alive (5.4).
+- `tries`: frames the current event has failed to dispatch (5.2).
+- `over` / `peak`: frames spent over the soft budget, and the most enemy bullets on screen (section 8).
 
-`world.enc` is cleared wherever `world.waveCd` is reset today (`newGame`, the stage start in `doFinishResults`, `startEnigma`), so a pending event can never leak into the next level.
+When the encounter ends, its id, end reason, clock and budget figures are copied into `world.encLast`, and `world.enc` becomes `null` after the rest. `world.encLast` is overwritten by the next end, so it holds one small object, enough for tests and the debug readout without a tracking system.
+
+All three are cleared wherever `world.waveCd` is reset today (`newGame`, the stage start in `doFinishResults`, `startEnigma`), so a pending event can never leak into the next level.
 
 ## 5. Lifecycle
 
@@ -99,79 +111,128 @@ world.enc = { id: 'anvil', st: 'run', t: 0, i: 0, owned: 0, why: null, rest: 0 }
 
 The brief's five states fold into three live states plus "no encounter":
 
-| State | Meaning | Clock |
-|---|---|---|
-| none (`world.enc === null`) | IDLE. The normal director runs. | none |
-| `run` | Dispatching due events, holding the timers named in `holds`. | advances |
-| `hold` | Something else has the screen (`world.quiet`, the Shadow Wing, the carrier opening). Nothing is dispatched. | frozen |
-| `rest` | All events dispatched and every owned enemy resolved (or `max` reached). Normal timers stay held for `rest` frames, then `world.enc = null`. | counts `rest` down |
+| State | Meaning | Clock | Held timers |
+|---|---|---|---|
+| none (`world.enc === null`) | IDLE. The normal director runs. | none | run normally |
+| `run` | Dispatching due events. | advances | frozen |
+| `hold` | The director is held while the simulation continues (see below): the Shadow Wing is on screen, the carrier opening is running, or (ordinary encounters only) a Sower is active. Nothing is dispatched. Enemies already on screen keep moving and firing. | frozen | frozen |
+| `rest` | The encounter has ended (`done` or `timeout`). Recovery before normal spawning resumes. | counts `rest` down | frozen |
 
-COMPLETED and CANCELLED become the end reason (`why`: `done`, `timeout`, `boss`, `level`) and a return to idle. A finished encounter can't resume because its state object is gone, and each start makes a new one.
+COMPLETED and CANCELLED become the end reason (`why`: `done`, `timeout`, `boss`, `level`). A finished encounter can't resume because its state object is gone, and each start makes a new one.
 
-Pause, the GET READY countdown and the continue screen need no state, because `update()` doesn't call the director then.
+There are two kinds of stop:
+- **Full simulation pause:** pause, the GET READY countdown and the continue screen. `update()` doesn't run, so everything freezes and no state is needed.
+- **Director hold, with the simulation running:** `world.quiet` is already handled by `director()` returning early, which also stops the normal timers. The Wing, the carrier and the Sower need the `hold` state, because `directorInner` keeps running in those cases.
 
-### 5.2 One frame (inside `directorInner`, before the normal timers)
+### 5.2 One frame (inside `directorInner`, before the boss early-return and before the normal timers)
 
 ```
 encTick(sc, b):
-  E = world.enc; if (!E) return maybeStart(b)          // selection, 5.5
-  if (world.bossSpawned) → end('boss')                  // pending events dropped; owned enemies live on
-  if (world.quiet || wingOnScreen() || carrierRunning()) → st = 'hold'; return
-  if (st == 'hold') st = 'run'
-  if (st == 'rest') { hold timers; if (--rest <= 0) world.enc = null; return }
-  t++
-  while (i < ev.length && due(ev[i])) dispatch(ev[i++])   // in order, several per frame if due
-  recount owned
-  if (i == ev.length && owned == 0) → rest('done')
-  if (t >= max) → rest('timeout')
-  hold the timers in holds (same idiom as the zones: world.waveCd = Math.max(world.waveCd, 30))
+  E = world.enc
+  if (!E) return maybeStart(b)                             // selection, 5.5
+  if (world.bossSpawned) → end('boss')                     // pending events dropped; owned enemies live on; no rest
+  if (E.st == 'rest') { if (--E.rest <= 0) world.enc = null; return }
+  if (heldBySomethingElse(E)) { E.st = 'hold'; recount; return }   // Wing, carrier, or a Sower for an ordinary encounter
+  E.st = 'run'; E.t++
+  while (E.i < ev.length && due(ev[E.i])):
+    if (dispatch(ev[E.i])) { E.i++; E.tries = 0 }
+    else if (++E.tries > 60) { E.i++; E.tries = 0; dropped++ }   // give up on this event, go on with the next
+    else break                                             // retry next frame; later events wait behind it
+  recount owned; track over/peak (section 8)
+  if (E.i == ev.length && E.owned == 0) → end('done')      // into rest
+  else if (E.t >= max) → end('timeout')                    // into rest, 5.6
 ```
 
-- Events are dispatched in index order and never skipped. A late frame doesn't exist here, because the step loop is fixed, so "several due at once" only happens with `t` ties.
-- `i` advances only after `dispatch` returns. A verb that can't place its spawn (no flak spot on screen, for example) returns false, and the event retries next frame for up to 60 frames, then is dropped and logged in `why`. This stops a missing ground spot from stalling the whole encounter.
+The normal timers stay frozen while `world.enc` is not null, whatever the state (`run`, `hold` or `rest`):
+- **Freezing:** each timer named in `holds` skips its decrement. The three lines in `directorInner` become, for example, `if (!encHeld('air') && --world.waveCd <= 0)`.
+- **Resuming:** when `world.enc` becomes `null`, each timer resumes from the value it had. Nothing is reset or shortened, so a normal wave can't fire early or late because of the encounter.
+- **Not the zone clamp:** this differs from the zones' `Math.max(cd, 30)` clamp, which lets a timer fire 30 frames after the zone ends. The zone clamps keep working as before.
+- **(inspect)** Whether the zone clamps and the freeze interact in `calm`/`still`, where both apply. Order them so the freeze wins while an encounter exists.
+
+**Dispatch contract (all verbs):**
+- **`true`:** the event was dispatched. It may have created fewer entities than the verb could make, for example one flak gun of two. Partial success counts as success and is never retried.
+- **`false`:** the verb created nothing and changed no world state, so retrying is safe.
+- **Never:** a verb never creates something and then returns `false`. `dispatch` enforces this by comparing `world.enemies.length` before and after the call. If entities were created, the event counts as dispatched, whatever the verb returned.
+
+Retries draw from the seeded stream again (`convoy` draws its size), which stays deterministic but means a retried event can differ from what the first try would have made. That's acceptable. Events are dispatched in index order and never skipped except after 60 failed tries; ties on `t` dispatch in the same frame, in order.
 
 ### 5.3 Triggers
 
-Most events are timed (`t`). Two triggers are enough for the MVP:
-- `when: 'clear'`: the owned enemies spawned so far are all resolved. Use this for "next beat after you dealt with this one".
-- `when: 'sower'`: a Sower is in its `hold` state (for 7.4).
+Most events are timed (`t`). One trigger is enough for the MVP:
+- `when: 'clear'`: the counted enemies spawned so far are all resolved. Use this for "next beat after you dealt with this one".
 
 A trigger event also has a `by` frame after which it fires anyway, so pacing never hangs on a dodging enemy.
 
+Starting the Sower Window is not an event trigger. It is a start rule (5.5).
+
 ### 5.4 Ownership and completion
 
-While `dispatch` runs, a module-level `encTag` holds the encounter id. `E()` and `G()` copy it to `e.enc` when set, so anything created in the same call is tagged, including flak crews and convoy trucks. Missiles and revenge shots spawned later aren't tagged, which is right, because they aren't composition.
+While `dispatch` runs, a module-level `encTag` holds the encounter id and the event's `own` flag. `E()` copies them onto every entity it creates (`e.enc = id`, `e.encOwn = own`). So everything created in the same call is tagged, including flak crews (troops) and convoy trucks. Missiles, revenge shots and the item a pod drops are created later or outside `E()`, so they aren't tagged. That's right, because they aren't composition.
 
-Owned enemies are those with `e.enc === E.id` that are not `dead`. Enemies already mark themselves dead when they leave the screen, so "resolved" means killed or escaped, with no special case. Two exceptions need checking per verb: ground units with `keep`, and parked or static units that scroll off slowly. If a unit can outlive the encounter by a lot, the verb doesn't tag it, and `max` is the backstop.
+An entity counts toward completion when all of these hold:
+- `e.enc === E.id`;
+- `e.encOwn !== false`: the event wasn't `own: false`;
+- `!harmlessE(e)`: this excludes troops, bridges, radar, parked planes and the other `harmless` types;
+- `e.type !== 'pod'`: a pod is a reward even when a verb other than `pod` creates it;
+- it is not `dead`.
 
-No closures: verbs that stagger spawns today (`waveSweep`, `waveStrafe`) are written as several events in the encounter instead, so the schedule stays plain data and the snapshot keeps working. A later cleanup can give the old set pieces the same treatment.
+The truck is not marked harmless and doesn't shoot. **(inspect)** Check whether an unarmed truck should count. The default is that the `convoy` verb with `trucks: true` sets `own: false`.
+
+Enemies already mark themselves dead when they leave the screen, so "resolved" means killed or escaped, with no special case. **(inspect)** For each verb, check that its units do leave: ground units with `keep`, and static units that scroll off slowly. If one can outlive the encounter by a lot, its verb sets `own: false`, and `max` is the backstop.
+
+No closures: verbs that stagger spawns today (`waveSweep`, `waveStrafe`) are written as several events in the encounter instead, so the schedule stays plain data and the snapshot keeps working.
 
 ### 5.5 Selection: when an encounter starts
 
-MVP rule, deterministic and simple:
-- In a Campaign level, the `set1` and `set2` zones start an encounter instead of `runSetPiece`. The choice comes from a per-level list (as `SET_PIECES` does now), filtered by `biomes`/`levels`. If none fits, the old set piece runs.
-- No start when the boss is within reach (`ARC_U` above 0.9), in `still`, while the Wing or a Sower is on screen, or within `rest` of the last encounter.
+Slots:
+- Each Campaign level has two encounter slots, at the `set1` and `set2` zones, where `runSetPiece` runs today. The slot list per level replaces `SET_PIECES` for Campaign levels. The count of authored moments per level stays the same.
+- When a slot zone is entered, `setPieceDone` marks it as before, and the slot's encounter is stored in `world.encPend`.
+- If no encounter in the slot's list fits the level and biome, the old set piece runs instead, so nothing is lost.
 
-Later, once encounters are proven, `mix` zones can start one with a small chance per level. That's a tuning step, not part of the MVP.
+`world.encPend` starts when every rule below holds, checked each frame:
+
+| Rule | Ordinary encounter | Sower Window |
+|---|---|---|
+| No encounter in `run`, `hold` or `rest`. | yes | yes |
+| No counted enemy of an earlier encounter alive (also after a timeout, 5.6). | yes | yes |
+| Boss not spawned, and `ARC_U` below 0.9 (not in `still`). | yes | yes |
+| No Shadow Wing on screen. | yes | yes (`sowerTick` already keeps them apart) |
+| No Sower active (any `sower` not dead). | yes | n/a: this is its start condition |
+| A Sower has entered `st === 'hold'` and isn't marked `encSeen`. | n/a | yes. The Sower is marked `encSeen` so it starts one encounter only, and its called partner doesn't start a second. |
+
+A pending slot whose rules still fail when `ARC_U` reaches 0.9 is dropped, and `world.encLast` records `why: 'skipped'`.
+
+Level 4 has one ordinary slot (`set1`). Its `set2` slot is given to the Sower Window, which waits for a Sower hold instead of the zone, so level 4 still has two authored moments. If no Sower settles before the 0.9 limit, nothing runs in that slot.
+
+Later, once encounters are proven, `mix` zones may start one with a small chance per level. That's a tuning step, not part of the MVP.
+
+### 5.6 Timeout
+
+Reaching `max` ends the encounter with `why: 'timeout'`. Then:
+- counted enemies still alive keep existing and acting; nothing is removed;
+- the encounter goes into `rest` as after `done`, and the held timers resume after the rest;
+- the next encounter waits until no counted enemy of this one is alive (5.5), and is dropped if that is never true before the 0.9 limit.
+
+A timeout is a safety termination, not a failure of the player or of the run. It is kept separate from `done` in `world.encLast` and in the tests: a test that forces an encounter and plays it out expects `done`, and any `timeout` in the bot runs is reported as a tuning problem with that composition.
 
 ## 6. Spawn verbs
 
 Each verb wraps an existing spawner. The director owns when, where and which options; the enemy code stays the same.
 
-| Verb | Wraps | Options | Notes |
-|---|---|---|---|
-| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | Needs an optional `cx` argument. |
-| `leader` | `waveLeader()` | `x` | Needs an optional `cx`. Gated by `avail('leader')`: in the Campaign, check that the level has it. |
-| `fighter` | `mkFighter` | `side`, `y` (0–1 of `H`), `heading`, `strafe`, `homeT`, `fireAt` | One fighter. Sweeps and strafes are written as 4–5 of these, 11–16 frames apart. |
-| `chase` | `waveChase()` | none | |
-| `heavy` | `waveHeavy()` | `x`, `hold`, `holdT` | `hold` needs the small Heavy option in 7.1. |
-| `bomber` | `waveBomber()` | `x` | |
-| `pfeil` | `wavePfeil()` | none | Campaign level 3 and on. |
-| `flak` | `spawnGround` with `FORCE_GROUND = 'flak'` | none | Placement is the ground code's, because it knows roads, water and houses. The verb returns false when nothing was placed. |
-| `convoy` | `convoy(wy, trucks)` | `trucks` | Not over sea or coast biomes. |
-| `pod` | `E('pod', …)` | `x` | A pod is a reward. Place it after the pressure, not during it. |
+| Verb | Wraps | Options | Can fail? | Notes |
+|---|---|---|---|---|
+| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | Needs an optional `cx` argument. |
+| `leader` | `waveLeader()` | `x` | no, atomic | Needs an optional `cx`. Gated by `avail('leader')`: check at selection that the level has it, so dispatch never meets it. |
+| `fighter` | `mkFighter` | `side`, `y` (0–1 of `H`), `heading`, `strafe`, `homeT`, `fireAt` | no, atomic | One fighter. Sweeps and strafes are written as 4–5 of these, 11–16 frames apart. |
+| `chase` | `waveChase()` | none | no, atomic | |
+| `heavy` | `waveHeavy()` | `x`, `hold`, `holdT` | no, atomic | `hold` needs the small Heavy option in 7.1. |
+| `bomber` | `waveBomber()` | `x` | no, atomic | |
+| `pfeil` | `wavePfeil()` | none | no, atomic | Campaign level 3 and on, checked at selection. |
+| `flak` | `spawnGround` with `FORCE_GROUND = 'flak'` | none | yes | Placement is the ground code's, because it knows roads, water and houses. It tries two spots. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. **(inspect)** Check whether `spawnGround` changes any other world state on a 0-placement call; the length check in 5.2 only sees enemies. |
+| `convoy` | `convoy(wy, trucks)` | `trucks` | yes | Returns early off its route in the Campaign. 0 vehicles: `false`. 1–3: `true`. Not over sea or coast biomes (checked at selection). |
+| `pod` | `E('pod', …)` | `x` | no, atomic | Always `own: false`. A pod is a reward: place it after the pressure, not during it. |
 
-Not a verb: the Sower and the Shadow Wing. They are level set pieces with their own directors (`sowerTick`, `spawnWing`). Encounters can react to them (7.4) but never spawn them.
+Not a verb: the Sower and the Shadow Wing. They are level set pieces with their own directors (`sowerTick`, `spawnWing`). An encounter never spawns either. The Sower Window reacts to a Sower that `sowerTick` already made.
 
 ## 7. MVP encounters
 
@@ -181,9 +242,10 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 
 - **Anchor:** a Heavy that stops at about 28% of `H` and holds for 7 s, firing its 3-way spread on its normal cycle.
 - **Pressure:** two leader formations from the sides, 1.5 s and 3.5 s in, then a chase pair.
+- **Reward:** a pod at 9 s, `own: false`, so it never keeps the encounter alive.
 - **Readability:** the Heavy is visible and stopped before the first formation arrives.
 - **Player choice:** burn the Heavy down (Lance, Arc ramp) and take the formations on the way, or kill the leaders so their wingmen scatter, then go back to the Heavy.
-- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This is the only change to enemy code in the MVP.
+- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This is the only change to enemy code in the MVP, and it stays only if testing shows that timing the formations around the Heavy's existing pause isn't enough.
 
 ### 7.2 Flak lane: a formation breaking up over flak
 
@@ -191,33 +253,44 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Pressure:** a leader formation 2.5 s later, then strafing fighters from one side.
 - **Readability:** the flak is on screen before the formation. When the leader dies, the wingmen scatter into air the flak already covers.
 - **Terrain:** land biomes only (`spawnGround` refuses water).
+- **Placement:** if only one gun is placed, the encounter goes on with one (6, `flak`).
 - **Player choice:** kill the flak first (ground priority, Seekers), or hold a lane between the flak's fire and take the leader early.
 
 ### 7.3 Bomber screen: prioritisation
 
 - **Anchor:** a Bomber, which has high hit points and fires steadily.
 - **Pressure:** three-fighter dives at 1 s, 3 s and 5 s, then one strafe.
-- **Budget:** the lowest of the four, so the Bomber's shots stay readable. When the budget is full, the fighters' single shots wait, not the Bomber's.
+- **Budget:** the lowest of the four, so the Bomber's shots stay readable. When the soft budget is reached, the gated fighters' shots wait, and so does the Bomber's next volley.
 - **Player choice:** focus the Bomber, or clear the dives. Scatter and Arc chains both have a clear job.
 
-### 7.4 Sower window (level 4 only)
+### 7.4 Sower Window (level 4 only)
 
-- **Trigger:** `when: 'sower'`. It starts only when the Sower settles into its hold, and doesn't spawn the Sower itself.
+- **Start:** `start: 'sower'`. It starts only when `sowerTick`'s Sower settles into its hold, through the explicit rule in 5.5, and never spawns a Sower or a Wing itself.
 - **Restriction:** the Sower's mines, which persist and drift with the ground.
-- **Pressure:** a tank convoy on the road below and one flak gun. Air waves are held.
+- **Pressure:** a tank convoy on the road below and one flak gun. Air waves (`holds.air`) are frozen for the whole encounter.
 - **Player choice:** stay at the sides and work the ground targets, or move up beside the Sower and kill it.
-- **Budget:** the mines count as bullets, so the convoy's fire is admitted only while there's room. This is the encounter that most needs the budget.
-- **Setup:** `sowerTick` keeps its current behaviour. The encounter only holds the air timer and adds ground units under the hold.
+- **Ownership:** the Sower itself isn't owned (`sowerTick` made it), so completion depends on the convoy and the flak only. If the Sower outlasts them, normal spawning resumes after `rest` while the Sower is still on screen, as it does today.
+- **Budget:** the mines are not gated but count toward the total, so the convoy's and the flak's volleys are admitted only while there's room. This encounter is the one most likely to exceed its soft budget, and its `over` figure is the one to watch.
+- **Setup:** `sowerTick` and the Sower's behaviour are unchanged.
 
-## 8. Bullet budget
+## 8. Soft bullet budget
 
-- **Technical limit (unchanged):** `eshot` refuses bullets past 420 and during the Nova flash.
-- **Design budget (new):** `encBudget()` returns the active encounter's `budget[settings.diff]`, or `Infinity` when there's no encounter. The budget is counted in enemy bullets on screen (`world.ebul.length`). That's the same measure `balance-real.mjs` reports as the worst 10 s window, so tuning and testing use one number.
-- **Admission:** `volleyOK(n)` is true when `world.ebul.length + n <= encBudget()`. A shooter calls it once before a volley with the volley's size, never per bullet, so admitted patterns are always whole.
-- **When refused,** the shooter keeps its cooldown at 1 frame and asks again next frame, which delays the volley. Where the shooter has a natural "start attack" state (the Heavy's `pause`, the Bomber's `gcd`), it doesn't enter that state. Nothing is deleted and nothing in flight is cut.
-- **Where it's called in the MVP:** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns. That's about six call sites. Adding it to `canFire` (with `n = 1`) is a later step, after measuring.
-- **Who it applies to:** every shooter on screen while an encounter runs, not only owned ones. The load on the player is all bullets, and the ground units of the normal director are part of the same screen.
-- **Not gated:** boss parts (no encounters during bosses), revenge shots (they're immediate feedback to a kill, and delaying them would make them read as random fire), the Shadow Wing and the Sower's mines (set pieces with their own tuning). They still count toward the total.
+The first implementation is a **soft** budget. Selected shooters ask before a volley and wait when the screen is full, while other sources fire as before. The total can go above the budget, and the implementation measures how often and why.
+
+- **Technical limit (unchanged):** `eshot` refuses bullets past 420 and during the Nova flash. Rookie's `DIFF.skip` is also unchanged.
+- **Budget:** `encBudget()` returns the active encounter's `budget[settings.diff]` while `world.enc` is in `run` or `hold`, and `Infinity` otherwise. It is counted in enemy bullets on screen (`world.ebul.length`). That's the same measure `balance-real.mjs` reports as the worst 10 s window, so tuning and testing use one number.
+- **Admission:** `volleyOK(n)` is true when `world.ebul.length + n <= encBudget()`.
+  - It is called once, before a complete volley, never per bullet.
+  - `n` is the actual number of bullets that volley will try to create, worked out the way the shooter does it: 1 or 3 for a fighter strafe or a Bomber shot depending on `run.loop`, 3 for a Heavy spread, a `ring` after `DIFF.ring` scaling.
+  - `n` is counted before `DIFF.skip`, so Rookie is judged a little conservatively.
+  - A pattern spread over several frames that the shooter decides at once counts as one volley with its total `n`. For example, the Enigma Heavy fires two spreads in one pause from level 3, so it asks once at the pause's start with `n = 6`.
+  - **(inspect)** Work out the exact `n` at each call site from the source in Phase 3; this plan doesn't assume it.
+- **When refused:** the shooter delays the volley, nothing is deleted, and nothing in flight is cut.
+  - The shooter keeps its cooldown at 1 frame and asks again next frame.
+  - Where the shooter has a natural "start attack" state (the Heavy's `pause`, the Bomber's `gcd`), it doesn't enter that state.
+- **Gated in the MVP:** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns, about six call sites. They are gated whoever owns them, because the player sees all bullets, including those of the normal director's ground units.
+- **Not gated:** boss parts (no encounters during bosses), revenge shots (immediate feedback to a kill), the Shadow Wing, the Sower's mines and bombs, and any shooter not in the list above. They still count toward the total, so they can push it over the budget, and the gated shooters then wait until it falls.
+- **Measuring:** while an encounter runs, each frame with `world.ebul.length` above the budget adds to `over`, and `peak` keeps the maximum. Both go into `world.encLast`. The cause of an overrun comes from the existing shooter attribution (`SF.attrib()`, `balance-real.mjs --attrib`), run on the encounter's frames. **(inspect)** Check that `SF.attrib()` can be limited to a frame range, or add that to the harness, not the game.
 - **Priority:** the first version has none (first come, first served). If a slow anchor gets starved by fast fighters, give each `volleyOK` call a class, and let anchors use the full budget while light shooters stop at 80% of it.
 - **Determinism:** admission depends only on simulation state, so runs stay reproducible and resumable.
 
@@ -226,19 +299,29 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 Rules:
 - All randomness in the director goes through the seeded stream, which is automatic inside `director()`.
 - No closures in `world.later` for encounter work. If a delayed callback is truly needed, it is a named function added to `snapFns`.
-- `world.enc` is plain data. `encTag` is set and cleared inside one `dispatch` call, so it never needs saving.
+- `world.enc`, `world.encLast` and `world.encPend` are plain data, and the `e.enc`/`e.encOwn` tags are plain fields. `encTag` is set and cleared inside one `dispatch` call, so it never needs saving.
 
 Tests:
 - `golden.json` must stay identical. That proves Retro Run, Endless and the tutorial are untouched, and it's checked by CI.
 - New `tests/encounter.mjs` (Playwright, in the style of `drilling.mjs`). A local-build hook forces an encounter in a chosen level, then checks:
-  - every event is dispatched exactly once and in order;
-  - the owned count rises and falls as expected, and the end reason is `done`;
-  - the held timers don't fire while it runs, and resume after `rest`;
-  - pause and the continue screen freeze the clock;
+  - every event is dispatched exactly once and in order, and a verb that fails creates nothing (the enemy count is unchanged after a `false`);
+  - a flak event with one placement goes on with one gun and is not retried;
+  - the counted total rises and falls as expected, the pod and troops are never counted, and the end reason is `done`;
+  - a forced long-lived enemy ends the encounter with `timeout`, not `done`. The enemy stays alive, the next slot waits for it, and the held timers resume after `rest`;
+  - the held timers keep their value through `run`, `hold` and `rest` and resume from it: no early or reset wave;
+  - pause, the continue screen and `world.quiet` freeze the clock;
   - a player death doesn't reset the clock or the event index;
   - the end of the level and the boss spawn end it (`level`, `boss`), and nothing from it spawns in the next level;
-  - during an encounter, enemy bullets on screen stay within `budget` plus one volley, and every admitted Heavy volley has all its bullets.
-- `tests/resume-exact.mjs` gets a scenario saved in the middle of an encounter, which must replay identically.
+  - gated shooters don't start a volley while `world.ebul.length + n` is over the budget, and every admitted Heavy volley has all its bullets;
+  - the test reports `over` and `peak` per encounter as numbers, not as a pass/fail ceiling.
+- **Sower Window test** (in `tests/encounter.mjs`, level 4, the bot flying immortal):
+  - while a Sower is active, a pending ordinary slot doesn't start;
+  - the Sower Window starts on the frame after the Sower enters `hold`, once per Sower, and not again for its called partner;
+  - no `sower` or `wing` entity is created by the encounter (count them by tag and by type);
+  - `world.waveCd` keeps its value for the whole encounter (`holds.air`);
+  - the Sower still lays mines and drops bombs at its usual intervals, and still calls its partner (compare with the same seed without the encounter);
+  - the encounter ends with `done`, and air waves resume after `rest` from the held value.
+- `tests/resume-exact.mjs` gets two scenarios saved in the middle of an encounter, one ordinary and one Sower Window, which must replay identically.
 - `tests/jitter.mjs` and `tests/no-pop-in.mjs` must still pass, because encounter ground units go through the same placement.
 
 ## 10. Phases
@@ -247,34 +330,35 @@ Each phase ends with its check passing.
 
 **Phase 0: baseline (no gameplay change)**
 - Record the Campaign's current numbers with `node tests/balance-real.mjs --levels --attrib --diffs 0,1,2`: worst bullet window, bullets before the boss, hits per level, and which shooters fill the windows.
-- Add a small Enigma-level replay baseline (two or three levels, fixed seed) so later phases can show exactly what changed. Unlike `golden.json`, it is updated on purpose in each phase.
+- Add a small Enigma-level replay baseline (two or three levels including level 4, fixed seed) so later phases can show exactly what changed. Unlike `golden.json`, it is updated on purpose in each phase.
 - **Done when:** the numbers are saved, and the baseline reproduces on two runs.
 
 **Phase 1: definitions and verbs**
-- Add the `ENC` table, the verbs and the optional `cx` arguments.
+- Add the `ENC` table, the verbs with their dispatch contract, and the optional `cx` arguments.
 - Add the Heavy's `holdY`/`holdT` option.
 - Nothing calls them yet.
 - **Done when:** `golden.json` and the Enigma baseline are unchanged.
 
 **Phase 2: execution**
-- Add `encTick`, ownership tagging, the timer holds, `rest`, the end reasons and the resets.
+- Add `encTick`, ownership tagging and counting, the frozen timers, `rest`, the end reasons, `world.encLast`/`world.encPend`, the start rules including the Sower exception, and the resets.
 - Add a hook so tests can force an encounter.
-- Add `tests/encounter.mjs` and the mid-encounter resume scenario.
+- Add `tests/encounter.mjs` with the Sower Window test, and the mid-encounter resume scenarios.
 - **Done when:** the new tests pass, and `golden.json` is unchanged.
 
-**Phase 3: budget**
-- Add `volleyOK` at the six call sites.
+**Phase 3: soft budget**
+- Add `volleyOK` at the six call sites with their real `n`.
+- Add the `over`/`peak` figures.
 - **Done when:**
   - the budget tests pass;
   - `balance-checks.mjs` passes;
-  - the worst 10 s window inside encounters is at or below the budget.
+  - each encounter's `over` figure and its main causes are recorded per difficulty, as a reference for tuning, not as a pass/fail threshold.
 
 **Phase 4: replace the set pieces**
-- In the Campaign, `set1`/`set2` start encounters (5.5).
+- In the Campaign, `set1`/`set2` slots start encounters (5.5); level 4's `set2` slot is the Sower Window.
 - Compare with the Phase 0 numbers per level and difficulty.
 - Playtest by hand: the bot dodges better than people do, so its numbers are for comparison only.
 - Refresh the Enigma baseline and note the change in `CHANGELOG.md`.
-- **Done when:** the playtest questions in section 11 have acceptable answers for all four encounters on all three difficulties.
+- **Done when:** the playtest questions in section 11 have acceptable answers for all four encounters on all three difficulties, and no encounter ends in `timeout` in the bot runs.
 
 ## 11. Playtesting
 
@@ -283,18 +367,18 @@ These are the brief's questions, plus numbers to look at alongside them:
 | Question | Number to watch (bot or manual) |
 |---|---|
 | Is it readable? | Hits taken per encounter, against the same stretch before the change. A big rise with a flat bullet count means it's unreadable, not dense. |
-| What's the cognitive load? | The worst 10 s bullet window inside the encounter, and which shooters fill it (`--attrib`). |
+| What's the cognitive load? | The worst 10 s bullet window inside the encounter, its `over` and `peak`, and which shooters fill it (`--attrib`). |
 | Is there tactical variety? | Time to clear per weapon (`SF.human(…, 'S4')` etc.). If one weapon is far ahead in every encounter, the compositions aren't asking different things. |
 | Is there pacing and recovery? | Bullets on screen over time, which should show a peak, then the `rest` gap visibly lower. |
 | Is it fair? | Ace has more hits than Veteran, and Veteran more than Rookie (`balance-checks.mjs` already asserts this per run). |
-| Do Novas and Lance matter? | Novas fired inside encounters, and the share of owned enemies killed versus escaped. |
+| Do Novas and Lance matter? | Novas fired inside encounters, and the share of counted enemies killed versus escaped. |
 
 ## 12. Risks and open questions
 
 1. **Leaderboard comparability.** The Campaign is ranked. Changing its spawns changes what scores are possible. Decide whether this ships with a version note only, or needs a board reset or season mark.
 2. **Heavy hold.** This is the one behaviour change. Is the owner fine with it, or should 7.1 time the formations around the Heavy's natural pause instead? That works but reads weaker.
-3. **Replace or add?** The plan replaces the two set pieces per level, which keeps the level length and density the same overall. Adding encounters on top would make every level denser.
-4. **Ground placement can fail** (water, towns, plans with fixed guns). The retry window in 5.2 handles it, but an encounter whose restriction never appears is a different encounter. The test should report how often each verb fails per level.
+3. **Ground placement can fail** (water, towns, plans with fixed guns). The retry window and the dispatch contract in 5.2 keep this safe, but an encounter whose restriction never appears, or appears at half strength, is a different encounter. The test reports how often each verb fails or places only part of its units, per level.
+4. **The soft budget can be exceeded** by ungated sources: revenge shots, the Sower's mines, shooters outside the six call sites. Whether that matters is a measurement question (`over`, `--attrib`). The answer may be to gate one more call site, never to delete bullets.
 5. **Starving anchors under the budget.** If fast shooters always take the free room, the anchor goes quiet. Watch for this in Phase 3, and add the priority classes from section 8 if it happens.
 6. **Retro Run later?** Keeping it out is deliberate: it is the reference version, and its replays guard the refactor. Revisit only if the owner wants it.
 
