@@ -11335,11 +11335,11 @@ function makeDrill(wx, wy, o) {
 }
 const drillCount = () => world.enemies.reduce((n, e) => n + (e.drill && !e.dead ? 1 : 0), 0);
 // Enigma Run, the Buechse (a 'tank' with buechse set): a marksman that holds a firing line. States (e.bst), counted in ticks of the fixed 60 Hz step:
-// track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows where the ship will be when the shell gets there)
+// track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows the ship, on Ace a little ahead of it)
 // -> lock (the line freezes and turns red, the tank halts, the muzzle glows) -> one shell down the frozen line (it never steers) -> rest -> track.
-// Lead: the ship's velocity, smoothed, times the shell's flight time, times a share by difficulty. A popped turret or a dead tank ends the cycle at
+// Lead (Ace only): the ship's velocity, smoothed, times the shell's flight time, times half. A popped turret or a dead tank ends the cycle at
 // once (buechseTick runs only while the turret stands). Its turret has its own health like the Drilling's: an untouched one outlives a Nova, a full laser pops it.
-const BUECHSE = { turn: 0.03, aim: 60, lock: 21, rest: 90, cd: [50, 110], speed: 2, lead: [0.5, 0.8, 1], vel: 0.15, turHp: 42, top: 44 };
+const BUECHSE = { turn: 0.03, aim: 36, lock: 18, rest: 72, cd: [50, 110], speed: 2, lead: [0, 0, 0.5], vel: 0.15, turHp: 42, top: 44 }; // (aim 0.6 s, lock 0.3 s, rest 1.2 s; lead by difficulty: it aims at the ship on Rookie and Veteran)
 // the muzzle's spot on the screen: the bore of the turret sprite drawn for the turret's heading, placed as spr() places it
 function buechseBore(e) {
   const B = e.silver ? SPR.buechseN : SPR.buechseD, i = dirIdx(e.ta), s = B.t[i], b = B.bore[i];

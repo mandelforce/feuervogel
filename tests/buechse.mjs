@@ -1,7 +1,8 @@
 // Enigma Run, the Buechse (the long-range marksman tank). Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/buechse.mjs
 // Checks: its attack cycle (track, aim, lock, one shot, rest) in that order and on time; it halts in its lock; one straight shell down the frozen line,
-// from the muzzle, at 2x the enemy shell speed; it leads a moving ship (a straight flyer is hit on Ace, a ship that turns back at the lock is missed);
+// from the muzzle, at 2x the enemy shell speed; it aims at the ship on Veteran (a ship that holds still is hit, one that moves off at the lock is missed)
+// and a little ahead of a moving ship on Ace;
 // its turret takes many hits, outlives a Nova untouched and is popped by a full laser; a popped turret ends the cycle at once;
 // the muzzle spot matches the drawn bore at all 16 headings; its side emplacements (at the screen's edges, apart from each other and the tank pits);
 // and flown through by the bot, a Buechse comes up dug in at an edge on level 3, aims across the screen and fires.
@@ -50,20 +51,24 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(c.seq.join() === 'track,aim,lock,rest,track', `cycle: ${c.seq.join(' > ')}`);
   const cycles = c.shots.length;
   const len = st => [...new Set(c.lens.filter(q => q[0] === st).map(q => q[1]))].join('/');
-  ok(cycles >= 3 && len('aim') === '60' && len('lock') === '21' && c.lens.filter(q => q[0] === 'rest').every(q => q[1] >= 80), `on time: ${cycles} shots; aim ${len('aim')} ticks, lock ${len('lock')}, rest ${len('rest')}`);
+  ok(cycles >= 3 && len('aim') === '36' && len('lock') === '18' && c.lens.filter(q => q[0] === 'rest').every(q => q[1] >= 72), `on time: ${cycles} shots; aim ${len('aim')} ticks, lock ${len('lock')}, rest ${len('rest')}`);
   ok(c.lockMoved === 0 && c.otherMoved > 100 && c.frozen, `it halts in its lock and its aim is frozen there (${c.otherMoved} moving ticks outside the lock)`);
   ok(c.shots.every(s => s.n === 1 && s.kind === 'shell' && Math.abs(s.sp - c.want) < 1e-6 && Math.abs(s.a - s.la) < 1e-9 && s.at >= 0 && s.at < 1e-6),
     `one shell a cycle, from the muzzle, down the locked line, at 2x bspeed (${c.shots.map(s => s.sp.toFixed(2)).join(', ')})`);
-  // 2. it leads: a ship flying straight across is hit on Ace; one that turns back at the lock is missed; a ship that stands still is hit
-  const fly = async (diff, turn, vx) => JSON.parse(await peek(page, `(() => { ${alone(diff)} player.x = 40;
-    let b = null, vx = ${vx}, near = 1e9, at = 0;
-    for (let f = 0; f < 900 && !b; f++) { const n = world.ebul.length; tick(); if (${turn} && e.bst === 'lock' && e.bT === ${'BUECHSE.lock - 1'}) vx = -vx; player.x = clamp(player.x + vx, 8, W - 8); if (world.ebul.length > n) b = world.ebul[world.ebul.length - 1]; }
-    for (let f = 0; f < 400 && b; f++) { b.x += b.vx; b.y += b.vy; player.x = clamp(player.x + vx, 8, W - 8); const d = Math.hypot(b.x - player.x, b.y - player.y); if (d < near) { near = d; at = f; } }
-    return JSON.stringify({ shot: !!b, near: +near.toFixed(1), at }); })()`));
-  const straight = await fly(2, false, 1.2), back = await fly(2, true, 1.2), still = await fly(1, false, 0);
-  ok(straight.shot && straight.near < 4, `Ace, a ship flying straight across: the shell passes ${straight.near} px from it (hit)`);
-  ok(back.shot && back.near > 12, `Ace, a ship that turns back at the lock: the shell passes ${back.near} px from it (missed)`);
-  ok(still.shot && still.near < 3, `a ship that stands still: the shell passes ${still.near} px from it`);
+  // 2. where it aims: at the ship on Veteran (the locked line runs through where the ship was at the lock), a little ahead of a moving ship on Ace;
+  // a ship that holds still is hit, one that moves off at the lock is missed. (vx: the ship's speed until the lock, after: from the lock on)
+  const fly = async (diff, vx, after) => JSON.parse(await peek(page, `(() => { ${alone(diff)} player.x = 60;
+    let b = null, vx = ${vx}, off = 0, lx = 0, near = 1e9;
+    for (let f = 0; f < 900 && !b; f++) { const n = world.ebul.length, was = e.bst; tick(); if (e.bst === 'lock' && was !== 'lock') { const [bx, by] = buechseBore(e), c = Math.cos(e.la), s = Math.sin(e.la);
+        off = (player.x - bx) * s - (player.y - by) * c; lx = player.x; vx = ${after}; } // (off: how far the ship is to the side of the locked line, at the lock)
+      player.x = clamp(player.x + vx, 8, W - 8); if (world.ebul.length > n) b = world.ebul[world.ebul.length - 1]; }
+    for (let f = 0; f < 400 && b; f++) { b.x += b.vx; b.y += b.vy; player.x = clamp(player.x + vx, 8, W - 8); near = Math.min(near, Math.hypot(b.x - player.x, b.y - player.y)); }
+    return JSON.stringify({ shot: !!b, off: +Math.abs(off).toFixed(1), near: +near.toFixed(1), x: Math.round(lx) }); })()`));
+  const W0 = 224, still = await fly(1, 0, 0), moving = await fly(1, 0.6, 0.6), dodge = await fly(1, 0, 1.5), ace = await fly(2, 0.6, 0.6); // (0.6 px a tick: still flying, not yet at the screen's edge, at the lock)
+  ok(still.shot && still.near < 3, `Veteran, a ship that holds still: the shell passes ${still.near} px from it (hit)`);
+  ok(moving.shot && moving.off < 3 && moving.x > 8 && moving.x < W0 - 8, `Veteran, a moving ship: the locked line runs ${moving.off} px from where the ship was at the lock (aimed at the ship)`);
+  ok(dodge.shot && dodge.near > 12, `Veteran, a ship that moves off at the lock: the shell passes ${dodge.near} px from it (missed)`);
+  ok(ace.shot && ace.off > 15 && ace.x > 8 && ace.x < W0 - 8, `Ace, a moving ship: the locked line runs ${ace.off} px ahead of it (lead)`);
   // 3. the turret: many hits, a Nova, the laser, and a popped turret ends the cycle (no shot after it, the tank drives on)
   const t = JSON.parse(await peek(page, `(() => { ${alone()}
     let hits = 0; while (!e.turDead && hits < 200) { damage(e, 0.55 + 0.55 * 1); hits++; } // the laser gun's level 1 shot
