@@ -3662,11 +3662,13 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
+// a spot within r px of a cow paddock (plan.pastures), where a dug-in tank would have cows grazing on it
+const nearPasture = (plan, x, y, r) => (plan.pastures || []).some(q => Math.hypot(Math.max(q.x0 - x, 0, x - q.x1), Math.max(q.y0 - y, 0, y - q.y1)) < r);
 // ---------- tank pits for the Drilling (Enigma Run, owner) ----------
 // Added to a finished plan by the game: one pit in each wanted row band [y0, y1] (plan rows), on open ground (fields, meadows, gardens, rubble,
 // sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
 // roads, the railway and water by 18 px (15 where nothing else fits), of every other
-// slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a ragged oval scrape with its sand heaped in a lit crescent in front and at the sides;
+// slot by 44 px (an AA tower is 38 px across), of every cow paddock by 28 px (more than a Drilling's reach; where nothing else fits, a paddock that close gets no cows) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a ragged oval scrape with its sand heaped in a lit crescent in front and at the sides;
 // elsewhere a dark trench ring inside a thick horseshoe earth bank, open at the back. The pit is cut short where it meets anything but open ground. Trees on it are cleared; in woodland it stands in a clearing. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
 function tankPits(plan, bands) {
   const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
@@ -3676,10 +3678,11 @@ function tankPits(plan, bands) {
     if (d <= rH && HARD.has(k)) return false; if (d <= rO && (!OPEN.has(k) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; }; // (a garden's B is its house's: it may be dug up)
   bands.forEach(([y0, y1], bi) => {
     let best = null;
-    for (const [rH, rO] of [[22.5, 22], [18.5, 18], [15, 15]]) { if (best) break; // (where nothing fits, a tighter spot: the pit is then cut short where it meets something)
+    for (const avoid of [true, false]) for (const [rH, rO] of [[22.5, 22], [18.5, 18], [15, 15]]) { if (best) break; // (avoid: first clear of the cow paddocks) // (where nothing fits, a tighter spot: the pit is then cut short where it meets something)
     for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) { const m = plan.mx && plan.mx[y] ? plan.mx[y] : W / 2;
       for (let x = 26; x <= W - 26; x += 3) { const d = Math.abs(x - m); if (d < 22 || d > 90) continue;
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
+        if (avoid && nearPasture(plan, x, y, 28)) continue; // (not in or by a cow paddock: the cows would graze on the tank)
         const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
     if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
     // in woodland a clearing round it (a Lichtung, owner): the wood's ground (a plantation's too) becomes meadow (the forest's clearing meadow, Br -33) in a ragged oval
@@ -3698,6 +3701,7 @@ function tankPits(plan, bands) {
     else for (let yy = -22; yy <= 22; yy++) for (let xx = -22; xx <= 22; xx++) { const d = Math.hypot(xx, yy * 0.85); if (yy >= 8) continue; // (the open side faces up the level, away from the ship)
       if (d >= 13 && d < 16) set(x + xx, y + yy, K.TRENCH, -1); else if (d >= 16 && d <= 20.5) set(x + xx, y + yy, K.BERM, -1); } // a dark ring inside a thick bank, so the pit reads round the tank
     if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot(t.x - x, t.y - y) > 20);
+    for (const q of plan.pastures || []) if (nearPasture({ pastures: [q] }, x, y, 28)) q.n = 0; // (where no spot clear of a paddock was left, the paddock gets no cows)
     const c = { kind: 'tank', on: 'pit', x, y, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
   });
   return out;
@@ -3706,7 +3710,7 @@ function tankPits(plan, bands) {
 // Added to a finished plan by the game, after the tank pits: one emplacement in each wanted row band [y0, y1] (plan rows; in order, up to max), at the left or the right
 // edge of the screen, near the band's middle (the tank 18 to 44 px in from it, as near as fits, lying across the screen, its gun towards the middle), so it covers the play area along a long
 // firing line. On open ground (as for the tank pits) within 12 px of it and clear of buildings, roads, the railway and water by 14 px (cut off by
-// the screen's edge, which counts as clear); 44 px from every other slot, 420 rows from every tank pit and 520 from every other emplacement (one on
+// the screen's edge, which counts as clear); 44 px from every other slot, 40 px from every cow paddock, 420 rows from every tank pit and 520 from every other emplacement (one on
 // the screen at a time). A dug-in horseshoe open towards the middle of the screen: in the desert a scrape with its sand heaped round the outer side,
 // elsewhere a dark trench ring inside an earth bank. Trees on it are cleared. Each is a 'nest' slot (side -1: the left edge, 1: the right). Pure.
 function edgeNests(plan, bands, max = bands.length) {
@@ -3719,7 +3723,7 @@ function edgeNests(plan, bands, max = bands.length) {
     if (out.length >= max) return; let best = null;
     for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) for (const side of [-1, 1]) for (let e = 18; e <= 44; e += 2) {
       const x = side < 0 ? e : W - e;
-      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520))) continue;
+      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520)) || nearPasture(plan, x, y, 40)) continue; // (not by a cow paddock)
       const sc = e + Math.abs(y - (y0 + y1) / 2) / 40 + (h32(plan.seed | 0, bi * 7919 + y * 31 + x) % 1000) / 100; if (best && sc >= best.sc) continue; if (!fits(x, y)) continue; best = { x, y, side, sc }; } // (near the edge and the band's middle)
     if (!best) return; const { x, y, side } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
     for (let yy = -20; yy <= 20; yy++) for (let xx = -30; xx <= 30; xx++) { const d = Math.hypot(xx / 20, yy / 11), inward = -xx * side; // (inward > 0: towards the middle of the screen)

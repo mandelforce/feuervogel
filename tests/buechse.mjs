@@ -5,6 +5,7 @@
 // and a little ahead of a moving ship on Ace;
 // its turret takes many hits, outlives a Nova untouched and is popped by a full laser; a popped turret ends the cycle at once;
 // the muzzle spot matches the drawn bore at all 16 headings; its side emplacements (at the screen's edges, apart from each other and the tank pits);
+// no animals on a Drilling or a Buechse (paddocks clear of their pits, cows and sheep walk off them);
 // and flown through by the bot, a Buechse comes up dug in at an edge on level 3, aims across the screen and fires.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -109,6 +110,25 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
     ok(r.n.length >= want[lv][0] && r.n.length <= want[lv][1] && edge && gap >= 520 && pit >= 420 && (r.again !== false),
       `level ${name[lv] || lv}: ${r.n.length} side emplacements${r.n.length ? ' at x ' + r.n.map(q => q[0]).join(', ') + (r.n.length > 1 ? ', ' + gap + ' rows apart' : '') + ', ' + pit + ' rows from the nearest tank pit' : ''}`);
   }
+  await page.close();
+}
+// 6b. no animals on the big guns: the tank pits and emplacements keep clear of the cow paddocks (level 1A has both; a paddock a pit has to be in gets no cows), and cows and sheep put on a
+// Drilling and a Buechse walk off them within 3 s (cows staying in their paddock)
+{
+  const page = await freshPage();
+  const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(8); const P = sortiePlan(run.sortie), ps = P.pastures || [];
+    const d = sl => Math.min(1e9, ...ps.filter(q => q.n > 0).map(q => Math.hypot(Math.max(q.x0 - sl.x, 0, sl.x - q.x1), Math.max(q.y0 - sl.y, 0, sl.y - q.y1)))); // (to the nearest paddock with cows)
+    return JSON.stringify({ n: ps.length, cows: ps.filter(q => q.n > 0).length, pits: P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) }); })()`));
+  ok(pas.cows > 0 && pas.pits.length === 2 && pas.pits.every(v => v >= 28), `level 1A: ${pas.n} cow paddocks (${pas.cows} with cows), its 2 tank pits ${pas.pits.join(', ')} px from the nearest with cows`);
+  const a = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
+    const b = makeBuechse(60, 120 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(160, 120 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
+    critters.length = 0; for (const g of [b, d]) for (let k = 0; k < 4; k++) { const x = g.wx + rnd(-6, 6), y = g.wy + rnd(-6, 6);
+      critters.push({ var: 0, f: null, box: [g.wx - 50, g.wx + 50, g.wy - 50, g.wy + 50], wx: x, wy: y, vx: 0, vy: 0, t: k, fl: false });
+      critters.push({ kind: 'sheep', free: false, wx: x + 2, wy: y + 2, home: [x, y], t: k, vx: 0, vy: 0, var: 0 }); }
+    for (let f = 0; f < 180; f++) { player.inv = 99; world.ebul = []; update(); }
+    const on = critters.filter(c => !c.gone && [b, d].some(g => Math.hypot(c.wx - g.wx, c.wy - g.wy) < (g.drill ? GUN_REACH.drill : GUN_REACH.buechse)));
+    return JSON.stringify({ n: critters.length, on: on.map(c => (c.kind || 'cow')), alive: !b.dead && !d.dead }); })()`));
+  ok(a.alive && a.n >= 12 && a.on.length === 0, `cows and sheep put on a Drilling and a Buechse walk off them (${a.on.length ? a.on.join(', ') + ' still on' : 'none left on'})`);
   await page.close();
 }
 // 6. flown through by the bot on level 3: a Buechse comes up dug in at an edge, lying across the screen, aims and fires; convoy Buechsen are counted too
