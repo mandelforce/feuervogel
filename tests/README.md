@@ -126,7 +126,7 @@ node tests/wing.mjs
 
 ## Drilling test (run by hand)
 
-`drilling.mjs` checks the Enigma Run's Drilling (the three-barrel tank): its attack cycle runs aim, prep, fire, rest in that order, with a warning before and a pause after; it fires salvos of three shells while its turret sweeps; its turret takes many ordinary hits, an untouched one outlives a Nova and the next hits pop it, a full laser pops it at once (a weak laser frame does not); a turret popped during the warning ends the cycle. On a level 6 side street it stands still while it fires and turns back at the street's end. Flown through by the bot, it stands in a dug-in slot of level 2 and fires, and patrols a side street of level 6.
+`drilling.mjs` checks the Enigma Run's Drilling (the three-barrel tank): its attack cycle runs aim, prep, fire, rest in that order, with a warning before and a pause after; it fires salvos of three shells while its turret sweeps; its turret takes many ordinary hits, an untouched one outlives a Nova and the next hits pop it, a full laser pops it at once (a weak laser frame does not); a turret popped during the warning ends the cycle. Its tank pits: three in level 2, two in each other level with a plan (1A, 3, 4, 5, 6, 6B), none in level 1, more than a screen apart. On a level 6 side street it stands still while it fires and turns back at the street's end. Flown through by the bot, it stands in a dug-in slot of level 2 and fires, and patrols a side street of level 6.
 
 ```
 python3 -m http.server 8000   # in another terminal
