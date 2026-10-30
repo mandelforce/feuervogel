@@ -4163,7 +4163,37 @@ function tankPits(plan, bands) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+// ---------- side emplacements for the Buechse (Enigma Run, owner) ----------
+// Added to a finished plan by the game, after the tank pits: one emplacement in each wanted row band [y0, y1] (plan rows; in order, up to max), at the left or the right
+// edge of the screen, near the band's middle (the tank 18 to 44 px in from it, as near as fits, lying across the screen, its gun towards the middle), so it covers the play area along a long
+// firing line. On open ground (as for the tank pits) within 12 px of it and clear of buildings, roads, the railway and water by 14 px (cut off by
+// the screen's edge, which counts as clear); 44 px from every other slot, 420 rows from every tank pit and 520 from every other emplacement (one on
+// the screen at a time). A dug-in horseshoe open towards the middle of the screen: in the desert a scrape with its sand heaped round the outer side,
+// elsewhere a dark trench ring inside an earth bank. Trees on it are cleared. Each is a 'nest' slot (side -1: the left edge, 1: the right). Pure.
+function edgeNests(plan, bands, max = bands.length) {
+  const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
+  const OPEN = new Set([K.FIELD, K.MEADOW, K.DESERT, K.OASIS, K.PARK, K.LOT, K.RUBBLE, K.TURF, K.ORCHARD, K.GARDEN, K.COURT, K.BEACH, K.WOOD, K.SLOPE, K.CHYARD]);
+  const HARD = new Set([K.ROAD, K.STREET, K.BLDG, K.RAIL, K.RBRIDGE, K.BRIDGE, K.RUNWAY, K.WATER, K.RIVER, K.SEA, K.QUAY, K.ICE, K.CLIFF, K.RAVINE, K.CRAG, K.TRENCH, K.WORKS, K.APRON, K.TRACK]);
+  const fits = (x, y) => { for (let yy = -16; yy <= 16; yy++) for (let xx = -24; xx <= 24; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W) continue; if (Y < 0 || Y >= L) return false; const i = Y * W + X, d = Math.hypot(xx / 24, yy / 16) * 14;
+    if (d <= 14 && HARD.has(Kr[i])) return false; if (d <= 12 && (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; };
+  bands.forEach(([y0, y1], bi) => {
+    if (out.length >= max) return; let best = null;
+    for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) for (const side of [-1, 1]) for (let e = 18; e <= 44; e += 2) {
+      const x = side < 0 ? e : W - e;
+      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520))) continue;
+      const sc = e + Math.abs(y - (y0 + y1) / 2) / 40 + (h32(plan.seed | 0, bi * 7919 + y * 31 + x) % 1000) / 100; if (best && sc >= best.sc) continue; if (!fits(x, y)) continue; best = { x, y, side, sc }; } // (near the edge and the band's middle)
+    if (!best) return; const { x, y, side } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
+    for (let yy = -20; yy <= 20; yy++) for (let xx = -30; xx <= 30; xx++) { const d = Math.hypot(xx / 20, yy / 11), inward = -xx * side; // (inward > 0: towards the middle of the screen)
+      if (inward > 10) continue; // (open towards the middle)
+      if (desert) { if (d <= 1) set(x + xx, y + yy, K.OASIS, -1); else if (d <= 1.45 && inward < 4) { const crest = 1 - Math.abs(d - 1.2) / 0.25; set(x + xx, y + yy, K.SPOIL, -40 - Math.round(clamp(10 - 6 * yy / 11 + 4 * crest, 0, 20))); } }
+      else if (d >= 0.95 && d < 1.12) set(x + xx, y + yy, K.TRENCH, -1); else if (d >= 1.12 && d <= 1.45) set(x + xx, y + yy, K.BERM, -1); }
+    if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot((t.x - x) / 24, (t.y - y) / 16) > 1);
+    if (plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => Math.hypot((t.x - x) / 26, (t.y - y) / 18) > 1));
+    const c = { kind: 'nest', on: 'nest', x, y, side, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
+  });
+  return out;
+}
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -5338,6 +5368,51 @@ function drillSet(silver) {
   return { h: [rotSet(hull(0)), rotSet(hull(1))], t: rotSet(tur) };
 }
 lazySpr('drillG', () => drillSet(false)); lazySpr('drillS', () => drillSet(true));
+// Enigma Run, the Buechse (the long-range marksman tank): hull 16 x 34, a small wedge turret with a stereo rangefinder swept back in a V on both
+// sides, and a long gun (its bore 33 px from the pivot). The rangefinder's arms are dark olive, tucked under the turret with a shadow, and their lenses
+// are glass, so the steel barrel is the one bright spoke and its muzzle the one light at the lock. Olive by day; a lighter olive at dusk and night.
+// The bore's spot in each of the 16 turned turrets is looked up from a copy of the turret with the bore in a marker colour (rotated the same way),
+// so the lock glow and the sight line start on the muzzle at every heading.
+const BUECHSE_L = 33; // the bore's distance from the turret's pivot
+function buechseTur(OL, mark) {
+  const G2 = ['#1e1e24', '#3a3a44', '#5c5c68', '#868692', '#b4b4be'], SA = ['#8c7646', '#b09a62'], L = BUECHSE_L, P = L + 3, o = P - 30, px = (x, c, a, b) => rect(x, c, a, b, 1, 1);
+  const dith = (x, c1, c2, a, b, w, h) => { for (let j = b; j < b + h; j++) for (let i = a; i < a + w; i++) px(x, (i + j) & 1 ? c2 : c1, i, j); };
+  return sprite(30, 2 * P, x => { // pivot (15, P); the gun points down the sprite (heading PI / 2)
+    rect(x, G2[2], 14, P + 5, 2, L - 9); rect(x, G2[3], 14, P + 5, 1, L - 9); rect(x, '#d8d0b8', 14, P + 5 + ((L - 9) >> 1), 2, 1); // barrel, one pale band
+    rect(x, G2[1], 13, P + L - 5, 4, 5); rect(x, G2[3], 13, P + L - 5, 4, 1); rect(x, '#0e0e12', 13, P + L - 3, 4, 1); // muzzle brake with its slot
+    rect(x, mark ? '#ff00ff' : '#0e0e12', 14, P + L - 2, 2, 2); // the bore
+    const DK = [OL[0], OL[1], OL[1], OL[2], OL[3]], armL = [[15, 28 + o], [15, 32 + o], [3, 26 + o], [3, 22 + o]], armR = [[15, 28 + o], [27, 22 + o], [27, 26 + o], [15, 32 + o]];
+    for (const a of [armL, armR]) polyS(x, ['#0c0e08', '#0c0e08'], a.map(([i, j]) => [i + 1, j + 1]), 0, 0); // the arms' shadow
+    polyS(x, DK, armL, 0.15, 0.3); polyS(x, DK, armR, 0.15, 0.3);
+    for (const ex of [1, 26]) { rect(x, '#101014', ex, 22 + o, 3, 4); rect(x, '#4a7ea6', ex + 1, 23 + o, 1, 2); px(x, '#d8f2ff', ex + 1, 23 + o); } // glass lenses
+    polyS(x, OL, [[10, 24 + o], [20, 24 + o], [21, 31 + o], [16, 36 + o], [14, 36 + o], [9, 31 + o]], 0.1, 0.5); dith(x, SA[1], SA[0], 17, 31 + o, 2, 2); dith(x, SA[1], SA[0], 11, 32 + o, 2, 1); // wedge turret
+    disk(x, OL[0], 15, 25 + o, 1.6); // cupola
+  });
+}
+function buechseSet(night) {
+  const OL = night ? ['#2c3420', '#46523a', '#62704c', '#808e62', '#a0ac7c', '#c0ca9c'] : ['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'];
+  const SA = ['#8c7646', '#b09a62'], G2 = ['#1e1e24', '#3a3a44', '#5c5c68'], H = 34, px = (x, c, a, b) => rect(x, c, a, b, 1, 1);
+  const dith = (x, c1, c2, a, b, w, h) => { for (let j = b; j < b + h; j++) for (let i = a; i < a + w; i++) px(x, (i + j) & 1 ? c2 : c1, i, j); };
+  const hull = fr => sprite(16, H, x => {
+    for (const sx of [0, 13]) { rect(x, '#18181c', sx, 1, 3, H - 2); for (let j = 1 + fr; j < H - 1; j += 2) { rect(x, G2[1], sx, j, 3, 1); px(x, G2[2], sx + 1, j); } } // tracks, the links half a link apart in the two frames
+    polyS(x, OL, [[3, 0], [13, 0], [13, H - 5], [10, H], [6, H], [3, H - 5]], 0.05, 0.35);
+    for (const [a, b, w, h] of [[4, 5, 3, 2], [10, 12, 2, 3], [5, 24, 3, 2], [9, 30, 3, 2]]) dith(x, SA[1], SA[0], a, b, w, h); // camouflage
+    rect(x, OL[1], 5, 2, 6, 8); for (let i = 6; i < 11; i += 2) rect(x, OL[0], i, 2, 1, 8); // engine deck
+    disk(x, OL[0], 8, H >> 1, 5); disk(x, '#22281a', 8, H >> 1, 4); // turret ring
+    rect(x, OL[4], 5, H - 5, 6, 1); for (const lx of [6, 9]) { px(x, '#e8f4ff', lx, H - 1); px(x, '#8cc0e0', lx, H - 2); } // lamps
+  });
+  const marks = rotSet(buechseTur(OL, true)), bore = marks.map(s => { // the bore's centre in each turned turret, from the sprite's centre
+    const c = s.c, d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let sx = 0, sy = 0, n = 0;
+    for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) { const k = (j * c.width + i) * 4; if (d[k + 3] && d[k] === 255 && d[k + 1] === 0 && d[k + 2] === 255) { sx += i + 0.5; sy += j + 0.5; n++; } }
+    return n ? [sx / n - c.width / 2, sy / n - c.height / 2] : [0, 0]; });
+  return { h: [rotSet(hull(0)), rotSet(hull(1))], t: rotSet(buechseTur(OL, false)), bore };
+}
+SPR.buechseD = buechseSet(false); SPR.buechseN = buechseSet(true); // (built now, not lazily: a wreck or a flying turret must be in the snapshot's sprite table, which lists only SPR's own entries)
+// a side emplacement's sandbags: a horseshoe round a tank lying across the screen, open towards the middle ([0]: at the left edge, open to the right; [1]: the right edge)
+lazySpr('nestBags', () => [1, -1].map(dir => sprite(56, 42, x => {
+  for (let row = 0; row < 2; row++) for (let k = 0; k <= 16; k++) { const a = PI * (0.28 + k / 16 * 1.44), r = 1 + row * 0.16, X = Math.round(28 + dir * Math.cos(a) * 21 * r), Y = Math.round(21 + Math.sin(a) * 14 * r);
+    rect(x, '#4a3a20', X - 2, Y - 1, 5, 4); rect(x, row ? '#a08a58' : '#bca878', X - 2, Y - 2, 5, 3); rect(x, '#dccaa0', X - 2, Y - 2, 3, 1); rect(x, '#6c5a38', X + 2, Y - 2, 1, 3); }
+})));
 SPR.mortar = rotSet(sprite(14, 22, x => { disk(x, '#2a2418', 7, 11, 6); ellS(x, RP.dy, 7, 11, 5, 5, 0.1); rect(x, '#18181a', 5, 12, 4, 8); }));
 
 /* --- boss: rail supergun --- */
@@ -8162,7 +8237,7 @@ function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
   if (typeof CityGen === 'undefined') return null;
-  const P = sortiePlanBuild(S); if (P) drillPits(S, P); return P;
+  const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); } return P;
 }
 // The Drilling's tank pits (owner): two in every level with a plan but level 1 (1A has its islands), three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
@@ -8172,6 +8247,16 @@ function drillPits(S, P) {
   const want = DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return;
   const bands = []; for (const [t, f] of want) { const g = S.segs.find(q => q.t === t); if (!g) continue; const c = (g.start - S.planC0 + f * g.n) * CH, h = Math.max(40, 0.4 * g.n * CH); bands.push([Math.max(0, c - h), Math.min(P.L - 1, c + h)]); }
   CityGen.tankPits(P, bands);
+}
+// The Buechse's side emplacements (owner): two in every level with a plan but levels 1 and 1A (whose plan is the islands, sea at both edges), each
+// in the widest stretches between the tank pits (or a pit and the plan's end) where one fits, kept 420 rows from the pits. CityGen.edgeNests picks
+// the spot there (at the screen's left or right edge, as near the stretch's middle as fits).
+const BUECHSE_NESTS = { 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2 };
+function buechseNests(S, P) {
+  const n = BUECHSE_NESTS[S.level]; if (!n || !CityGen.edgeNests) return;
+  const ys = [0, ...P.slots.filter(q => q.kind === 'tank').map(q => q.y).sort((a, b) => a - b), P.L - 1], gaps = [];
+  for (let k = 1; k < ys.length; k++) { const a = ys[k - 1] + (k > 1 ? 420 : 120), b = ys[k] - (k < ys.length - 1 ? 420 : 120); if (b - a < 60) continue; if (b - a > 1100) gaps.push([a, (a + b) / 2], [(a + b) / 2, b]); else gaps.push([a, b]); } // (a long stretch: a band in each half)
+  CityGen.edgeNests(P, gaps.sort((g, h) => (h[1] - h[0]) - (g[1] - g[0])), n); // (the widest first, until n fit: built-up edges have none)
 }
 function sortiePlanBuild(S) {
   if (S.isles) return sortiePlanIslands(S);
@@ -9350,7 +9435,7 @@ function directorInner() {
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  sowerTick(sc); planBerths(sc); planIceBreaks(sc); planGuns(sc); planDrills(sc); planCows(sc); planViaducts(sc); planStations(sc); planPosts(sc);
+  sowerTick(sc); planBerths(sc); planIceBreaks(sc); planGuns(sc); planDrills(sc); planNests(sc); planCows(sc); planViaducts(sc); planStations(sc); planPosts(sc);
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -9658,7 +9743,7 @@ function routeStep(e) {
 function planGuns(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set()), m = hpm();
-  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind === 'tank' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 10)) continue; // (tank pits: planDrills)
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind === 'tank' || sl.kind === 'nest' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 10)) continue; // (tank pits: planDrills; side emplacements: planNests)
     if (sl.kind === 'flak') makeFlak(sl.x, y); else if (sl.kind === 'arty') spawnArty(sl.x, y); else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, y - 8, { cd: 60 }));
     else if (sl.kind === 'parked') world.enemies.push(G('parked', sl.x, y, { hd: PI / 2 }));
     else if (sl.kind === 'bunker') world.enemies.push(G('bunker', sl.x, y, { ga: PI / 2, cd: rnd(60, 120) | 0 })); }
@@ -9670,6 +9755,14 @@ function planDrills(sc) {
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind !== 'tank' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 12)) continue;
     world.enemies.push(drillCount() < 1 + run.loop ? makeDrill(sl.x, y, { dug: true }) : G('tank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); }
+}
+// Enigma Run: every side emplacement of the plan (a 'nest' slot) gets its Buechse once, as it comes up above the screen: dug in, lying across the
+// screen, its gun towards the middle
+function planNests(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return;
+  const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind !== 'nest' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 12)) continue;
+    const hd = sl.side < 0 ? 0 : PI; world.decals.push({ kind: 'bags', wx: sl.x, wy: y, side: sl.side }); world.enemies.push(makeBuechse(sl.x, y, { road: false, hd, ta: hd + (sl.side < 0 ? 0.6 : -0.6), v: 0, hw: 15, hh: 7, dug: true, nest: sl.side })); } // (lying across: a wide hit box)
 }
 // Level 1A: the game's cows in the plan's paddocks, each paddock once as it comes up above the screen; they graze inside its fence (c.box).
 function planCows(sc) {
@@ -9996,8 +10089,9 @@ function convoy(wy, trucks) {
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), lancer = !!S && S.level >= 2 && !heavy && Math.random() < 0.25; // (the Lancer: Enigma Run, level 2 on)
-      world.enemies.push(G(heavy ? 'htank' : 'tank', wx, twy, tankStats(Object.assign({ road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined }, lancer ? { lancer: true, hp: 14 * hpm(), score: 800 } : null))));
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on)
+      const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
+      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o)));
     }
   }
 }
@@ -11240,6 +11334,51 @@ function makeDrill(wx, wy, o) {
   return G('htank', wx, wy, tankStats(Object.assign({ drill: true, silver: night, road: false, hd: PI / 2, v: 0, hp: 18 * hpm(), hw: 10, hh: 13, rad: 15, score: 2000, turHp: DRILL.turHp }, o)));
 }
 const drillCount = () => world.enemies.reduce((n, e) => n + (e.drill && !e.dead ? 1 : 0), 0);
+// Enigma Run, the Buechse (a 'tank' with buechse set): a marksman that holds a firing line. States (e.bst), counted in ticks of the fixed 60 Hz step:
+// track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows where the ship will be when the shell gets there)
+// -> lock (the line freezes and turns red, the tank halts, the muzzle glows) -> one shell down the frozen line (it never steers) -> rest -> track.
+// Lead: the ship's velocity, smoothed, times the shell's flight time, times a share by difficulty. A popped turret or a dead tank ends the cycle at
+// once (buechseTick runs only while the turret stands). Its turret has its own health like the Drilling's: an untouched one outlives a Nova, a full laser pops it.
+const BUECHSE = { turn: 0.03, aim: 60, lock: 21, rest: 90, cd: [50, 110], speed: 2, lead: [0.5, 0.8, 1], vel: 0.15, turHp: 42, top: 44 };
+// the muzzle's spot on the screen: the bore of the turret sprite drawn for the turret's heading, placed as spr() places it
+function buechseBore(e) {
+  const B = e.silver ? SPR.buechseN : SPR.buechseD, i = dirIdx(e.ta), s = B.t[i], b = B.bore[i];
+  return [Math.round(e.x - s.w / 2) + s.w / 2 + b[0], Math.round(e.y - s.h / 2) + s.h / 2 + b[1]];
+}
+// the sight line: from the muzzle, along the turret's aim, turned by the small angle that makes it pass through the aim point from the muzzle
+// (the muzzle sits off the turret's centre line in the turned sprites); frozen in the lock
+function buechseLine(e) {
+  const [bx, by] = buechseBore(e); if (e.bst === 'lock') return [bx, by, e.la];
+  const [tx, ty] = e.tgt || [player.x, player.y]; return [bx, by, e.ta + angDiff(Math.atan2(ty - e.y, tx - e.x), Math.atan2(ty - by, tx - bx))];
+}
+// where the ship will be when a shell fired now gets there (by the smoothed velocity), kept on the screen
+function buechseLead(e) {
+  const p = player, [bx, by] = buechseBore(e), t = Math.hypot(p.x - bx, p.y - by) / (bspeed() * BUECHSE.speed), k = BUECHSE.lead[settings.diff];
+  return [clamp(p.x + e.pvx * t * k, 8, W - 8), clamp(p.y + e.pvy * t * k, 18, H - 14)];
+}
+function buechseTick(e) {
+  const P = BUECHSE, p = player;
+  if (e.bst === undefined) { e.bst = 'track'; e.bT = rnd(P.cd[0], P.cd[1]) | 0; e.pvx = 0; e.pvy = 0; e.plx = p.x; e.ply = p.y; }
+  e.pvx += (p.x - e.plx - e.pvx) * P.vel; e.pvy += (p.y - e.ply - e.pvy) * P.vel; e.plx = p.x; e.ply = p.y; // the ship's velocity, smoothed
+  if (e.turHp < P.turHp / 2 && gf % 9 === 0) smokePuff(e.x + rnd(-2, 2), e.y + rnd(-2, 2)); // a damaged turret smokes
+  if (e.bst === 'track' || e.bst === 'aim') {
+    const [tx, ty] = e.bst === 'aim' ? buechseLead(e) : [p.x, p.y], a = Math.atan2(ty - e.y, tx - e.x); e.ta += clamp(angDiff(e.ta, a), -P.turn, P.turn); e.tgt = [tx, ty];
+    if (e.bst === 'track') { if (--e.bT <= 0 && canFire(e, 90) && e.y > P.top && Math.abs(angDiff(e.ta, a)) < 0.3) { e.bst = 'aim'; e.bT = P.aim; } } // (it aims only once it is well on the screen, clear of the score bar)
+    else if (!canFire(e, 60)) { e.bst = 'track'; e.bT = 30; } // (off the screen, or the ship gone: it stands down)
+    else if (--e.bT <= 0) { const [bx, by, a] = buechseLine(e); e.bst = 'lock'; e.bT = P.lock; e.lta = e.ta; e.la = a; e.ld = Math.hypot(tx - bx, ty - by); sfx('clunk'); } // (e.la: the frozen line; e.ld: the locked point's distance down it)
+  } else if (e.bst === 'lock') {
+    e.ta = e.lta;
+    if (--e.bT <= 0) { const [bx, by] = buechseBore(e); eshot(bx, by, e.la, bspeed() * P.speed, 'shell'); flash(bx, by, 4); smokePuff(bx, by); sfx('cannon'); e.bst = 'rest'; e.bT = Math.round(P.rest * fireSlow()); }
+  } else if (e.bst === 'rest') {
+    if (e.bT % 14 === 0) { const [bx, by] = buechseBore(e); smokePuff(bx, by); }
+    if (--e.bT <= 0) { e.bst = 'track'; e.bT = Math.round(rnd(P.cd[0], P.cd[1]) * fireSlow()); }
+  }
+}
+// a Buechse at a world spot: hull and hit box of its 16 x 34 sprite; the turret's health is fixed, like the Drilling's
+function makeBuechse(wx, wy, o) {
+  const S = run.sortie, night = !!S && ENIGMA_TIME[S.level - 1] !== 'day';
+  return G('tank', wx, wy, tankStats(Object.assign({ buechse: true, silver: night, hp: 14 * hpm(), hw: 7, hh: 15, rad: 16, score: 1500, turHp: BUECHSE.turHp }, o)));
+}
 // Enigma Run cities (levels 6, 6B): a Drilling comes up on a side street of the plan (sideRoutes) and patrols it, back and forth between its ends
 function drillStreet(wy) {
   const S = run.sortie; if (!S || drillCount() >= 1 + run.loop) return false;
@@ -11710,7 +11849,7 @@ const ENT = {
       const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
       if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
       else { const mx = dx / d * e.v, my = dy / d * e.v; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; e.moving = true; } else e.moving = false; }
-    } else if (e.v > 0 && !(e.drill && (e.dst === 'prep' || e.dst === 'fire'))) { // (a Drilling halts to fire)
+    } else if (e.v > 0 && !(e.drill && (e.dst === 'prep' || e.dst === 'fire')) && !(e.buechse && !e.turDead && e.bst === 'lock')) { // (a Drilling halts to fire, a Buechse in its lock)
       let nwx, nwy, wait = false;
       if (e.road && run.sortie) { const st = routeStep(e); if (st) [nwx, nwy] = capStep(e, st[0], st[1]); else { wait = true; if (e.drill && e.side && e.atEnd) { e.side.d = -e.side.d; e.atEnd = false; } } } // Enigma Run: along its route, keeping its distance (a Drilling turns back at its street's end)
       else if (e.road) { nwy = e.wy + e.dir * e.v; [nwx, nwy] = capStep(e, roadX(nwy) + e.lane, nwy); }
@@ -11725,11 +11864,12 @@ const ENT = {
     else if (e.drill) e.moving = false;
     groundPos(e);
     if (e.drill) { if (hasT() && !e.turDead) drillTick(e); return; }
-    if (hasT()) { const tr = e.lancer ? 0.03 : 0.04; e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -tr, tr); } // (the Lancer, Enigma Run: a slower turret)
+    if (e.buechse) { if (hasT() && !e.turDead) buechseTick(e); return; }
+    if (hasT()) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -0.04, 0.04);
     if (--e.cd <= 0 && canFire(e, 90)) {
-      e.cd = Math.round((Math.max(80, 150 - run.loop * 20) + rnd(0, 30)) * fireSlow() * (e.lancer ? 1.2 : 1));
-      const a = e.ta, L = e.heavy ? 18 : e.lancer ? 19 : 14, bx = e.x + Math.cos(a) * L, by = e.y + Math.sin(a) * L;
-      eshot(bx, by, a, bspeed() * (e.lancer ? 1.45 : 1.1), 'shell');
+      e.cd = Math.round((Math.max(80, 150 - run.loop * 20) + rnd(0, 30)) * fireSlow());
+      const a = e.ta, L = e.heavy ? 18 : 14, bx = e.x + Math.cos(a) * L, by = e.y + Math.sin(a) * L;
+      eshot(bx, by, a, bspeed() * 1.1, 'shell');
       if (e.heavy) { eshot(bx, by, a - 0.16, bspeed() * 1.05, 'shell'); eshot(bx, by, a + 0.16, bspeed() * 1.05, 'shell'); }
       flash(bx, by, 3); smokePuff(bx, by); sfx('cannon');
     }
@@ -12335,7 +12475,7 @@ function updBeamOf(beam, player, who) { // one ship's laser for this frame; retu
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
     if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
-    else if (Math.abs(e.x - bx) < e.hw + half) { if (e.drill && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's turret at once) */ damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); beam.hit = true; } // a full laser would take a fifth of the duel's health at once
+    else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); beam.hit = true; } // a full laser would take a fifth of the duel's health at once
   }
   scorer = 1;
   if (beam.t === beam.max - 1 && beam.hit) run.stats.hits++;
@@ -12599,7 +12739,7 @@ function popTurret(e) {
   sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
   if (ENT[e.type].revenge) revenge(tx, ty, ENT[e.type].revenge, DIFF.turRevengeP[run.diff]);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
-  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
+  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
   if ((e.type === 'tank' || e.type === 'htank') && Math.random() < 0.7) for (let i = 0; i < 2; i++) world.enemies.push(G('troop', e.wx + rnd(-6, 6), e.wy + rnd(-6, 6), { hd: Math.random() * TAU, scared: 90 }));
 }
@@ -12793,7 +12933,7 @@ const DEATHS = {
   },
   tank: {
     wreck(e) {
-      const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).h[0] : e.type === 'tank' ? (e.lancer && SPR.ltank ? SPR.ltank[0] : SPR.tank[0]) : e.type === 'htank' ? SPR.htank[0] : SPR.truck;
+      const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).h[0] : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).h[0] : e.type === 'tank' ? SPR.tank[0] : e.type === 'htank' ? SPR.htank[0] : SPR.truck;
       world.decals.push({ kind: 'wreck', wx: e.wx, wy: e.wy, s: set[dirIdx(e.hd)], smokeT: 240 });
     },
   },
@@ -13532,6 +13672,7 @@ function drawDecals() {
     if (d.kind === 'crater') { const si = d.r <= 8 ? 0 : d.r <= 13 ? 1 : d.r <= 22 ? 2 : d.r <= 36 ? 3 : 4, c = SCORCH[si][d.v]; ctx.drawImage(c, Math.round(d.wx - c.width / 2), Math.round(y - c.height / 2)); }
     else if (d.kind === 'oil') { const si = d.r <= 11 ? 0 : d.r <= 17 ? 1 : d.r <= 24 ? 2 : d.r <= 32 ? 4 : 3, c = OILS[si][d.v], k = d.grow ? 0.5 + 0.6 * Math.min(1, (d.age || 0) / 900) : 1, w = Math.round(c.width * k), h = Math.round(c.height * k); ctx.drawImage(c, Math.round(d.wx - w / 2), Math.round(y - h / 2), w, h); }
     else if (d.kind === 'spr') spr(d.s, d.wx, y);
+    else if (d.kind === 'bags') spr(SPR.nestBags[d.side < 0 ? 0 : 1], d.wx, y); // (a Buechse's side emplacement)
     else if (d.kind === 'icebreak') drawIceBreak(d, y);
     else if (d.kind === 'sink') {
       if (d.t >= d.max) continue;
@@ -13641,11 +13782,25 @@ function drawProto(e) {
   if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
   if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
 }
+// a glow centred exactly on a point (the pixels whose centres lie within r of it), so it sits on a 2 px bore at every heading
+function glowAt(cx, cy, r, col, al) { ctx.globalAlpha = al; ctx.fillStyle = col; for (let j = Math.floor(cy - r); j <= Math.ceil(cy + r); j++) for (let i = Math.floor(cx - r); i <= Math.ceil(cx + r); i++) if ((i + 0.5 - cx) ** 2 + (j + 0.5 - cy) ** 2 <= r * r) ctx.fillRect(i, j, 1, 1); ctx.globalAlpha = 1; }
+// the Buechse's sight: from its muzzle to the screen's edge, pale dots while it aims (a pale bracket where the ship will be), red dashes and a red
+// bracket on the locked point once it locks, the muzzle glowing brighter until the shot. Each pixel has a dark one under it, to read on any ground.
+function buechseSight(e) {
+  const lock = e.bst === 'lock', [bx, by, a] = buechseLine(e), dx = Math.cos(a), dy = Math.sin(a), col = lock ? '#ff3a2a' : '#fff0b8', al = lock ? 1 : 0.75;
+  let len = 0; for (; len < 520; len += 4) { const x = bx + dx * len, y = by + dy * len; if (x < -2 || x > W + 2 || y < -2 || y > H + 2) break; }
+  const put = s => { const X = Math.round(bx + dx * s), Y = Math.round(by + dy * s); ctx.globalAlpha = al * 0.75; ctx.fillStyle = '#14100c'; ctx.fillRect(X, Y + 1, 1, 1); ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(X, Y, 1, 1); };
+  if (lock) { for (let s0 = 4; s0 < len; s0 += 6) for (let k = 0; k < 4; k++) put(s0 + k); } else for (let s0 = 4; s0 < len; s0 += 4) put(s0);
+  ctx.globalAlpha = 1;
+  const [mx, my] = lock ? [bx + dx * e.ld, by + dy * e.ld] : e.tgt || [player.x, player.y], X = Math.round(mx), Y = Math.round(my), r = 6;
+  for (const [c, oy] of [['#14100c', 1], [col, 0]]) { ctx.fillStyle = c; for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(X + sx * r - (sx < 0 ? 0 : 2), Y + oy + sy * r, 3, 1); ctx.fillRect(X + sx * r, Y + oy + sy * r - (sy < 0 ? 0 : 2), 1, 3); } }
+  if (lock) { const g = 1 - e.bT / BUECHSE.lock; glowAt(bx, by, 1.8 + g * 1.4, '#ff5a3a', 0.45 + 0.35 * g); glowAt(bx, by, 1.01, (gf >> 1) & 1 ? '#fff0c0' : '#ffd070', 1); }
+}
 // Each enemy type's look, attached to its entry in the entity table as ENT[type].draw(e, fl) (fl: flashing white after a hit).
 // It stays here with the other drawing code, apart from the simulation (ROADMAP.md, Phase 5).
 const LOOKS = {
   tank(e, fl) {
-    const lan = e.lancer && SPR.ltank, dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : e.type === 'tank' ? (lan ? SPR.ltank : SPR.tank) : SPR.htank, tur = dr ? dr.t : e.type === 'tank' ? (lan ? SPR.ltankTur : SPR.tankTur) : SPR.htankTur; // (the Lancer and the Drilling: Enigma Run)
+    const bu = e.buechse && (e.silver ? SPR.buechseN : SPR.buechseD), dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : bu ? bu.h : e.type === 'tank' ? SPR.tank : SPR.htank, tur = dr ? dr.t : bu ? bu.t : e.type === 'tank' ? SPR.tankTur : SPR.htankTur; // (the Buechse and the Drilling: Enigma Run)
     spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
     if (!e.turDead) spr(tur[dirIdx(e.ta)], e.x, e.y, fl); else turStub(e.x, e.y, e.type === 'htank' ? 5 : 4);
     if (dr && !e.turDead && e.dst === 'prep') { // the Drilling's warning: its three muzzles glow brighter until the salvos
@@ -13653,6 +13808,7 @@ const LOOKS = {
       for (const lat of [-3, 0, 3]) dk(e.x + c * DRILL.tip - sn * lat, e.y + sn * DRILL.tip + c * lat, 1 + g * 1.5, '#ff8a3a');
       ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; for (const lat of [-3, 0, 3]) ctx.fillRect(Math.round(e.x + c * DRILL.tip - sn * lat), Math.round(e.y + sn * DRILL.tip + c * lat), 1, 1); }
     }
+    if (bu && !e.turDead && (e.bst === 'aim' || e.bst === 'lock')) buechseSight(e);
   },
   htank(e, fl) { LOOKS.tank(e, fl); },
   truck(e, fl) { spr(SPR.truck[dirIdx(e.hd)], e.x, e.y, fl); },
