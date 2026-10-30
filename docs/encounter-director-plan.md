@@ -298,11 +298,7 @@ These are the brief's questions, plus numbers to look at alongside them:
 5. **Starving anchors under the budget.** If fast shooters always take the free room, the anchor goes quiet. Watch for this in Phase 3, and add the priority classes from section 8 if it happens.
 6. **Retro Run later?** Keeping it out is deliberate: it is the reference version, and its replays guard the refactor. Revisit only if the owner wants it.
 
-## 13. Out of scope
-
-As in the brief: new enemy types, weapons or abilities, an editor, procedural generation, adaptive difficulty, telemetry, a Campaign redesign, and progression systems. Also: boss fights, the Shadow Wing, Retro Run and Endless.
-
-## 14. Later
+## 13. Later
 
 These follow the brief:
 - A larger encounter library, reused across levels by `biomes`.
