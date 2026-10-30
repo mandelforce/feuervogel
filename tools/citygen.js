@@ -3681,7 +3681,7 @@ function tankPits(plan, bands) {
       for (let x = 26; x <= W - 26; x += 3) { const d = Math.abs(x - m); if (d < 22 || d > 90) continue;
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
         const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
-    if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { const i = Y * W + X; Kr[i] = k; Br[i] = b; };
+    if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
     if (desert) { for (let yy = -14; yy <= 14; yy++) for (let xx = -11; xx <= 11; xx++) set(x + xx, y + yy, K.OASIS, -1); // (wider than the 24 x 30 tank, so the scrape shows round it)
       for (let xx = -14; xx <= 14; xx++) for (let k = 1; k <= 3; k++) set(x + xx, y - (14 + k), K.SPOIL, -40 - [16, 12, 7][k - 1]);
       for (const sx of [-1, 1]) for (let yy = -13; yy <= 14; yy++) for (let k = 1; k <= 2; k++) set(x + sx * (11 + k), y + yy, K.SPOIL, -40 - (sx < 0 ? 15 : 8)); }
