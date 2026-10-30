@@ -3702,7 +3702,37 @@ function tankPits(plan, bands) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+// ---------- side emplacements for the Buechse (Enigma Run, owner) ----------
+// Added to a finished plan by the game, after the tank pits: one emplacement in each wanted row band [y0, y1] (plan rows; in order, up to max), at the left or the right
+// edge of the screen, near the band's middle (the tank 18 to 44 px in from it, as near as fits, lying across the screen, its gun towards the middle), so it covers the play area along a long
+// firing line. On open ground (as for the tank pits) within 12 px of it and clear of buildings, roads, the railway and water by 14 px (cut off by
+// the screen's edge, which counts as clear); 44 px from every other slot, 420 rows from every tank pit and 520 from every other emplacement (one on
+// the screen at a time). A dug-in horseshoe open towards the middle of the screen: in the desert a scrape with its sand heaped round the outer side,
+// elsewhere a dark trench ring inside an earth bank. Trees on it are cleared. Each is a 'nest' slot (side -1: the left edge, 1: the right). Pure.
+function edgeNests(plan, bands, max = bands.length) {
+  const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
+  const OPEN = new Set([K.FIELD, K.MEADOW, K.DESERT, K.OASIS, K.PARK, K.LOT, K.RUBBLE, K.TURF, K.ORCHARD, K.GARDEN, K.COURT, K.BEACH, K.WOOD, K.SLOPE, K.CHYARD]);
+  const HARD = new Set([K.ROAD, K.STREET, K.BLDG, K.RAIL, K.RBRIDGE, K.BRIDGE, K.RUNWAY, K.WATER, K.RIVER, K.SEA, K.QUAY, K.ICE, K.CLIFF, K.RAVINE, K.CRAG, K.TRENCH, K.WORKS, K.APRON, K.TRACK]);
+  const fits = (x, y) => { for (let yy = -16; yy <= 16; yy++) for (let xx = -24; xx <= 24; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W) continue; if (Y < 0 || Y >= L) return false; const i = Y * W + X, d = Math.hypot(xx / 24, yy / 16) * 14;
+    if (d <= 14 && HARD.has(Kr[i])) return false; if (d <= 12 && (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; };
+  bands.forEach(([y0, y1], bi) => {
+    if (out.length >= max) return; let best = null;
+    for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) for (const side of [-1, 1]) for (let e = 18; e <= 44; e += 2) {
+      const x = side < 0 ? e : W - e;
+      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520))) continue;
+      const sc = e + Math.abs(y - (y0 + y1) / 2) / 40 + (h32(plan.seed | 0, bi * 7919 + y * 31 + x) % 1000) / 100; if (best && sc >= best.sc) continue; if (!fits(x, y)) continue; best = { x, y, side, sc }; } // (near the edge and the band's middle)
+    if (!best) return; const { x, y, side } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
+    for (let yy = -20; yy <= 20; yy++) for (let xx = -30; xx <= 30; xx++) { const d = Math.hypot(xx / 20, yy / 11), inward = -xx * side; // (inward > 0: towards the middle of the screen)
+      if (inward > 10) continue; // (open towards the middle)
+      if (desert) { if (d <= 1) set(x + xx, y + yy, K.OASIS, -1); else if (d <= 1.45 && inward < 4) { const crest = 1 - Math.abs(d - 1.2) / 0.25; set(x + xx, y + yy, K.SPOIL, -40 - Math.round(clamp(10 - 6 * yy / 11 + 4 * crest, 0, 20))); } }
+      else if (d >= 0.95 && d < 1.12) set(x + xx, y + yy, K.TRENCH, -1); else if (d >= 1.12 && d <= 1.45) set(x + xx, y + yy, K.BERM, -1); }
+    if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot((t.x - x) / 24, (t.y - y) / 16) > 1);
+    if (plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => Math.hypot((t.x - x) / 26, (t.y - y) / 18) > 1));
+    const c = { kind: 'nest', on: 'nest', x, y, side, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
+  });
+  return out;
+}
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
