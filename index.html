@@ -4264,7 +4264,7 @@ settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun spee
 settings.mode = 'camp'; settings.hap = false;
 function saveSettings() { store.setJSON(KEY.settings, settings); }
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
-const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
+const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
 function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? (st - 1) / 5 : 0)) * DIFF.rank[settings.diff]; }
 let eshotN = 0;
@@ -11530,7 +11530,7 @@ function bossShielded(e, p) { const B = BOSS[e.kind]; return !!(B.shielded && B.
 // from (see E()); a spawn sets only what differs. Traits, absent when not set:
 //   harmless      can't hurt the player: left alone when a stage clears the field, doesn't count as armed cover for troops
 //   turret        has a turret that is shot off before the hull (turretAt: the turret's offset from the hull, default [0, 0])
-//   revenge       on Hard, fires a last burst of this many shots at the player when destroyed
+//   revenge       on Veteran and Ace, fires a last burst of this many shots at the player when destroyed (with a turret: sometimes, when the turret is shot off)
 //   explosive     its explosion damages what stands close by (the fuel dump's bigger blast is in its wreck)
 //   guarded       soldiers are posted around it when it appears
 //   treads        leaves tracks on the ground
@@ -12041,6 +12041,7 @@ const ENT = {
   flatcar: { turret: true, medals: 0.6, stats: { hp: 10, hw: 6, hh: 13, score: 700, rad: 10 }, update(e) {
     trainMove(e);
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
+    if (roofAt(e.x, e.wy)) { e.cd = Math.max(e.cd, 30); return; } // under the train shed's roof, a gallery or in a tunnel: holds fire, and not at once on coming out
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(80, 130 - run.loop * 15)) * fireSlow()); flakShot(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10); flash(e.x + Math.cos(e.ga) * 10, e.y + Math.sin(e.ga) * 10, 2); sfx('gun'); }
   } },
   hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 500, rad: 26 }, update(e) { groundPos(e); } },
@@ -12736,6 +12737,7 @@ function popTurret(e) {
   const [ox, oy] = ENT[e.type].turretAt || [0, 0], tx = e.x + ox, ty = e.y + oy;
   boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
   sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
+  if (ENT[e.type].revenge) revenge(tx, ty, ENT[e.type].revenge, DIFF.turRevengeP[run.diff]);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
   const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
@@ -12812,8 +12814,9 @@ function revealSecret(e) {
   label(e.x, e.y - 12, 'SECRET!'); sfx('drone'); haptic('drone');
   for (let i = 0; i < 20; i++) { const an = i * TAU / 20; world.parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(an) * 1.6, vy: Math.sin(an) * 1.6, life: 20, max: 20, col: i % 2 ? '#bba4ff' : '#ffffff' }); }
 }
-// Destroyed gun positions shoot back: all of them on Ace; on Veteran in levels 1 to 3, half of them, with half as many bullets (at least one); none on Rookie (DIFF.revenge: share of the bullets, DIFF.revengeP: chance, DIFF.revengeTo: last level).
-function revenge(x, y, n) { const f = DIFF.revenge[run.diff]; if (!f || run.stage > DIFF.revengeTo[run.diff] || !player || player.dead || y < 0 || y > H || (DIFF.revengeP[run.diff] < 1 && Math.random() >= DIFF.revengeP[run.diff])) return; n = Math.max(1, Math.round(n * f)); const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
+// Gun positions with a turret (flak, bunker, casemate, AA tower, destroyer) shoot back once, when the turret is shot off, and only sometimes (DIFF.turRevengeP: none on Rookie,
+// 10 % on Veteran, 15 % on Ace); their hull's later death fires nothing. Other destroyed gun positions shoot back: all of them on Ace; on Veteran in levels 1 to 3, half of them, with half as many bullets (at least one); none on Rookie (DIFF.revenge: share of the bullets, DIFF.revengeP: chance, DIFF.revengeTo: last level).
+function revenge(x, y, n, pr = DIFF.revengeP[run.diff]) { const f = DIFF.revenge[run.diff]; if (!f || run.stage > DIFF.revengeTo[run.diff] || !player || player.dead || y < 0 || y > H || (pr < 1 && Math.random() >= pr)) return; n = Math.max(1, Math.round(n * f)); const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
 // What each enemy type does when destroyed, merged into its entity entry. blast: the size of its explosion (ground default 14,
 // air 11). onKill(e) runs first, after the revenge burst and the kill count; returning true ends the kill there (the secret).
 // wreck(e) leaves the remains: decals and debris on the ground (wreckDefault: a ruin if the type has ruin sprites, else a crater),
@@ -12977,7 +12980,7 @@ function wreckDefault(e) {
 }
 function kill(e) {
   const T = ENT[e.type];
-  if (T.revenge) revenge(e.x, e.y, T.revenge);
+  if (T.revenge && !T.turret) revenge(e.x, e.y, T.revenge); // (a turret's revenge burst came when it was shot off: popTurret)
   if (e.seenC && !e.kc) { e.kc = true; run.stats.kills++; }
   if (T.onKill && T.onKill(e)) return;
   if (e.type !== 'troop' && !e.counted) { if (e.ground) run.stats.ground++; else if (!e.big) run.stats.air++; }
@@ -14710,6 +14713,7 @@ function renderMain() {
   if (player && !player.dead) { const ak = player.deck ? player.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
+  for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
 
   for (const s of world.shots) {
     if (s.k === 's') { if (s.hl && !s.drone) drawSeekLaser(s); else if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
@@ -14761,7 +14765,7 @@ function renderMain() {
     else spr(SPR.eb[fr], b.x, b.y);
   }
 
-  for (const it of world.items) drawItem(it);
+  for (const it of world.items) if (it.kind !== 'M' && it.kind !== 'A') drawItem(it);
   drawHitbox();
   for (const c of chutes) {
     if (c.t < 0) continue;
