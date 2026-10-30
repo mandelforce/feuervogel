@@ -4143,12 +4143,15 @@ function tankPits(plan, bands) {
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
         const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
     if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
-    // in woodland a clearing round it (a Lichtung, owner): the wood's ground becomes meadow (the forest's clearing meadow, Br -33) in a ragged oval
+    // in woodland a clearing round it (a Lichtung, owner): the wood's ground (a plantation's too) becomes meadow (the forest's clearing meadow, Br -33) in a ragged oval
     // about 48 x 56 px, and the conifers in it are felled
-    { const edge = (X, Y) => 0.8 + 0.35 * vn(X * 0.12 + 7, Y * 0.12 + 3), inside = (X, Y, m) => Math.hypot((X - x) / 24, (Y - y) / 28) <= edge(X, Y) + m;
-      let n = 0; for (let yy = -36; yy <= 36; yy++) for (let xx = -30; xx <= 30; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) continue; const i = Y * W + X;
-        if (Kr[i] === K.WOOD && Br[i] === -1 && inside(X, Y, 0)) { Kr[i] = K.MEADOW; Br[i] = plan.P && plan.P.climate === 'forest' ? -33 : -1; n++; } }
-      if (n && plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => !inside(t.x, t.y, (t.r || 2) / 24))); }
+    // (its edge fades: across a band about 6 px wide the shaded forest floor and the meadow are dithered with an ordered 4 x 4 pattern, and only the
+    // trees standing in the meadow are felled, so the crowns at the edge overhang it)
+    { const edge = (X, Y) => 0.8 + 0.35 * vn(X * 0.12 + 7, Y * 0.12 + 3), rN = (X, Y) => Math.hypot((X - x) / 24, (Y - y) / 28), BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      let n = 0; for (let yy = -40; yy <= 40; yy++) for (let xx = -34; xx <= 34; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) continue; const i = Y * W + X;
+        if (Kr[i] !== K.WOOD || Br[i] >= 0) continue; const f = (edge(X, Y) + 0.12 - rN(X, Y)) / 0.24; if (f <= (BAY[(Y & 3) * 4 + (X & 3)] + 0.5) / 16) continue;
+        Kr[i] = K.MEADOW; Br[i] = plan.P && plan.P.climate === 'forest' ? -33 : -1; n++; }
+      if (n && plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => rN(t.x, t.y) > edge(t.x, t.y) - 0.02)); }
     if (desert) { // a ragged oval scrape, its sand heaped in a crescent in front and at the sides, lit from the north-west (Br -40 - light 0..20)
       for (let yy = -24; yy <= 24; yy++) for (let xx = -20; xx <= 20; xx++) { const X = x + xx, Y = y + yy, dn = Math.hypot(xx / 12, yy / 15) - 0.14 * (vn(X * 0.2 + 5, Y * 0.2 + 9) - 0.5);
         if (dn <= 1) set(X, Y, K.OASIS, -1);
