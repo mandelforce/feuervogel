@@ -3666,17 +3666,17 @@ function bareTreePix(t, put) {
 // Added to a finished plan by the game: one pit in each wanted row band [y0, y1] (plan rows), on open ground (fields, meadows, gardens, rubble,
 // sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
 // roads, the railway and water by 18 px (15 where nothing else fits), of every other
-// slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a scrape with its sand heaped in front and at the sides (as the strongpoints' dugTank); elsewhere a horseshoe
-// earth bank open at the back. Trees on it are cleared; in woodland it stands in a clearing. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
+// slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a ragged oval scrape with its sand heaped in a lit crescent in front and at the sides;
+// elsewhere a dark trench ring inside a thick horseshoe earth bank, open at the back. The pit is cut short where it meets anything but open ground. Trees on it are cleared; in woodland it stands in a clearing. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
 function tankPits(plan, bands) {
   const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
   const OPEN = new Set([K.FIELD, K.MEADOW, K.DESERT, K.OASIS, K.PARK, K.LOT, K.RUBBLE, K.TURF, K.ORCHARD, K.GARDEN, K.COURT, K.BEACH, K.WOOD, K.SLOPE, K.CHYARD]);
   const HARD = new Set([K.ROAD, K.STREET, K.BLDG, K.RAIL, K.RBRIDGE, K.BRIDGE, K.RUNWAY, K.WATER, K.RIVER, K.SEA, K.QUAY, K.ICE, K.CLIFF, K.RAVINE, K.CRAG, K.TRENCH, K.WORKS, K.APRON, K.TRACK]);
-  const fits = (x, y, rH, rO) => { for (let yy = -20; yy <= 20; yy++) for (let xx = -20; xx <= 20; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) return false; const i = Y * W + X, k = Kr[i], d = Math.hypot(xx, yy);
+  const fits = (x, y, rH, rO) => { for (let yy = -23; yy <= 23; yy++) for (let xx = -23; xx <= 23; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) return false; const i = Y * W + X, k = Kr[i], d = Math.hypot(xx, yy);
     if (d <= rH && HARD.has(k)) return false; if (d <= rO && (!OPEN.has(k) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; }; // (a garden's B is its house's: it may be dug up)
   bands.forEach(([y0, y1], bi) => {
     let best = null;
-    for (const [rH, rO] of [[18.5, 18], [15, 15]]) { if (best) break; // (where nothing fits, a tighter spot)
+    for (const [rH, rO] of [[22.5, 22], [18.5, 18], [15, 15]]) { if (best) break; // (where nothing fits, a tighter spot: the pit is then cut short where it meets something)
     for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) { const m = plan.mx && plan.mx[y] ? plan.mx[y] : W / 2;
       for (let x = 26; x <= W - 26; x += 3) { const d = Math.abs(x - m); if (d < 22 || d > 90) continue;
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
@@ -3688,10 +3688,12 @@ function tankPits(plan, bands) {
       let n = 0; for (let yy = -36; yy <= 36; yy++) for (let xx = -30; xx <= 30; xx++) { const X = x + xx, Y = y + yy; if (X < 0 || X >= W || Y < 0 || Y >= L) continue; const i = Y * W + X;
         if (Kr[i] === K.WOOD && Br[i] === -1 && inside(X, Y, 0)) { Kr[i] = K.MEADOW; Br[i] = plan.P && plan.P.climate === 'forest' ? -33 : -1; n++; } }
       if (n && plan.conifers) plan.conifers = plan.conifers.map(cls => cls.filter(t => !inside(t.x, t.y, (t.r || 2) / 24))); }
-    if (desert) { for (let yy = -14; yy <= 14; yy++) for (let xx = -11; xx <= 11; xx++) set(x + xx, y + yy, K.OASIS, -1); // (wider than the 24 x 30 tank, so the scrape shows round it)
-      for (let xx = -14; xx <= 14; xx++) for (let k = 1; k <= 3; k++) set(x + xx, y - (14 + k), K.SPOIL, -40 - [16, 12, 7][k - 1]);
-      for (const sx of [-1, 1]) for (let yy = -13; yy <= 14; yy++) for (let k = 1; k <= 2; k++) set(x + sx * (11 + k), y + yy, K.SPOIL, -40 - (sx < 0 ? 15 : 8)); }
-    else for (let yy = -18; yy <= 18; yy++) for (let xx = -18; xx <= 18; xx++) { const d = Math.hypot(xx, yy * 0.85); if (d >= 14.5 && d <= 17.5 && yy < 8) set(x + xx, y + yy, K.BERM, -1); } // (the open side faces up the level, away from the ship)
+    if (desert) { // a ragged oval scrape, its sand heaped in a crescent in front and at the sides, lit from the north-west (Br -40 - light 0..20)
+      for (let yy = -24; yy <= 24; yy++) for (let xx = -20; xx <= 20; xx++) { const X = x + xx, Y = y + yy, dn = Math.hypot(xx / 12, yy / 15) - 0.14 * (vn(X * 0.2 + 5, Y * 0.2 + 9) - 0.5);
+        if (dn <= 1) set(X, Y, K.OASIS, -1);
+        else if (dn <= 1.45 && yy < 6) { const nx = xx / 12 / dn, ny = yy / 15 / dn, crest = 1 - Math.abs(dn - 1.2) / 0.25; set(X, Y, K.SPOIL, -40 - Math.round(clamp(10 + 7 * (ny - nx) * 0.7 + 4 * crest, 0, 20))); } } }
+    else for (let yy = -22; yy <= 22; yy++) for (let xx = -22; xx <= 22; xx++) { const d = Math.hypot(xx, yy * 0.85); if (yy >= 8) continue; // (the open side faces up the level, away from the ship)
+      if (d >= 13 && d < 16) set(x + xx, y + yy, K.TRENCH, -1); else if (d >= 16 && d <= 20.5) set(x + xx, y + yy, K.BERM, -1); } // a dark ring inside a thick bank, so the pit reads round the tank
     if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot(t.x - x, t.y - y) > 20);
     const c = { kind: 'tank', on: 'pit', x, y, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
   });
