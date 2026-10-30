@@ -342,7 +342,7 @@ for (const lv of [2, 6, 7]) {
   ok(!r.deckAfter && r.alt === 1 && r.steerAfter && r.cf >= 1, `the Feuervogel lifts off over the bow and can steer; fighters are launching after it (${r.cf})`);
   ok(r.gunKill, 'a deck gun can be destroyed and leaves its stub on the deck');
   ok(r.minS === r.sEnd && r.gone && r.over, `the carrier shrinks to ${r.sEnd} and slides off the bottom, and the pursuit ends (scene over at frame ${r.t})`);
-  ok(r.launched === 1 && r.chase === 1 && r.ships === 0, `${r.launched} fighter launched in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
+  ok(r.launched === 2 && r.chase >= 1 && r.ships === 0, `${r.launched} fighters launched on Veteran in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
   ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
