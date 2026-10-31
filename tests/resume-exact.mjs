@@ -54,7 +54,7 @@ const open = async (browser, pageSeed) => {
 
 // what the page writes down at each sample: everything that decides how the run goes on
 const DUMP = `(() => {
-  const COSMETIC = ['birdCd', 'rainT', 'rainF', 'rainCd', 'lightCd', 'flashL']; // weather and birds draw from the free random stream: they differ between any two pages
+  const COSMETIC = ['birdCd', 'rainT', 'rainF', 'rainCd', 'lightCd', 'flashL']; /* weather and birds draw from the free random stream: they differ between any two pages */
   const r = v => typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v;
   const flat = (o, skip = []) => { const out = {}; for (const k of Object.keys(o)) { const v = o[k]; if (skip.includes(k) || typeof v === 'function' || (v && typeof v === 'object')) continue; out[k] = r(v); } return out; };
   const ent = e => Object.assign(flat(e), e.parts ? { parts: e.parts.map(q => flat(q)) } : {});
@@ -88,7 +88,7 @@ for (const sc of SCENARIOS) for (const saveAt of sc.saveAt.filter(a => !AT || a 
     ${sc.p2 ? `settings.p2 = '${sc.p2}';` : ''}
     SF.setMode('${sc.mode}'); ${sc.sortie ? `acc = -1e15; settings.diff = ${sc.diff}; startEnigma(${sc.sortie}, true);` : `SF.start(${sc.diff}, ${sc.stage || 1}${sc.endless !== undefined ? ', ' + sc.endless : ''});`}
     ${sc.enc ? `SF.run(${sc.encAt}); encStart('${sc.enc}'); SF.run(${saveAt - sc.encAt});` : `SF.run(${saveAt});`}
-    let tries = 0; while (!takeSnapshot() && tries++ < 1500) SF.run(1); // the save happens at the next moment the game can be written down
+    let tries = 0; while (!takeSnapshot() && tries++ < 1500) SF.run(1); /* the save happens at the next moment the game can be written down */
     if (tries >= 1500) return JSON.stringify({ error: 'no moment to save within 1500 frames' });
     snapNow(); saveResume();
     const rec = localStorage.getItem('starfall-resume');
@@ -109,7 +109,7 @@ for (const sc of SCENARIOS) for (const saveAt of sc.saveAt.filter(a => !AT || a 
     store.set(KEY.resume, ${JSON.stringify(rec)});
     resumeRun(loadResume());
     const exact = app.resumeT === 180 && !app.paused;
-    for (let i = 0; i < 180; i++) update(); // the three-second countdown: nothing moves
+    for (let i = 0; i < 180; i++) update(); /* the three-second countdown: nothing moves */
     const samples = []; samples.push(${DUMP});
     for (let f = 0; f < ${AFTER || sc.after}; f += ${SAMPLE}) { const st = SF.run(${SAMPLE}); samples.push(${DUMP}); if (st !== 'ok') break; }
     return JSON.stringify({ exact, samples });
