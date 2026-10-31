@@ -324,6 +324,33 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
     - **Tank convoys instead of a flak gun.** The flak was dropped on Veteran and Ace, because that stretch of forest had no free gun site and no open spot.
   - **Now** ("human" bot, seeds 104 and 7): 0–45 frames over budget, peaks of 25–44, nothing dropped, 3–7 tanks per encounter, and the tanks fire 7–30 shots.
 
+### 7.5 Shadow Wing (every Campaign level)
+
+- **Owner's decision (playtest of level 1):** the Shadow Wing becomes its own encounter, everywhere, and stays about 15 s longer before it flees. The extra time is not exclusive: the level goes on around it.
+- **Status: built, live in the Campaign** (build 1.2.5.12; Retro Run keeps the old Wing, so `golden.json` is unchanged).
+  - Definition: `wing`, `start: 'wing'`: the Wing at frame 0 (the `wing` verb calls `spawnWing`). It holds nothing and has no soft budget (the Wing's volleys were never gated). `WING_STAY` 2500: the Campaign's Wing flees after 2500 frames in its sequence, about 42 s (the old one: 1600, about 27 s). Killed, it ends and rests 3 s (`max` 3200).
+  - Start: the director opens it where the Wing used to come (14/37 of the arc), after any running encounter and its rest. `WING_U` moves it per level: level 1A at 0.47, after the airbase island. A Sower below doesn't hold it, and it isn't held by one.
+  - The test link counts only its own encounter (`world.encTry`), so a Shadow Wing that ran first doesn't use up `?enc`.
+
+## 7b. Level 1 as encounters (owner's playtest)
+
+The owner found level 1 too empty before the first encounter, the two Drillings too early, and the Shadow Wing too early. The level (56 chunks) as a sequence:
+
+| Stretch | What happens | Status |
+|---|---|---|
+| carrier (chunks 0–4) | the carrier opening, unchanged | existing |
+| open sea (4–10) | the carrier scene: it runs until about chunk 11 | existing |
+| island chain (11–16) | **First Contact** right after the carrier: the formation types one after another so each reads on its own (a sweep from the left, one from the right, a five-plane dive, a strafing run), over a destroyer and two PT boats; a pod at the end | built (test link) |
+| island chain, after First Contact | normal director and the islet guns; **the level's one submarine** comes here | built |
+| airbase island (16–25) | set piece 1; no Drilling pit | built (pits removed) |
+| sea and beach (25–31) | **Shadow Wing** (7.5) | built |
+| farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so with a Wing left alone (about 42 s) it starts in the village or the forest (chunks 40–45; given up past 50) | built (test link) |
+| forest, coast, sea | normal director, then the flagship; **one submarine at about half its health** | built |
+
+- **Built (1.2.5.12, live):** no Drilling pits in 1A (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
+- **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1A: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
+- **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
+
 ## 8. Soft bullet budget
 
 The first implementation is a **soft** budget. Selected shooters ask before a volley and wait when the screen is full, while other sources fire as before. The total can go above the budget, and the implementation measures how often and why.

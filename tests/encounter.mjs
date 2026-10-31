@@ -14,6 +14,9 @@
 // Bomber left alone leaves the screen and the encounter. Sower Window (level 4): ordinary encounters wait while a Sower is up; the level's
 // first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
 // waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
+// Shadow Wing (every Campaign level): opened by the director where the Wing used to come, holding nothing, the Wing staying 2500 frames
+// before it flees; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: no Drilling, one submarine (not before
+// the island chain) and one from the flagship at about half its health. ?enc=all in level 1A: its layout (First Contact, then The Anvil).
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -230,20 +233,20 @@ const playOut = `
   // once with ?enc=sowerwindow and once without
   const fly = `(() => { window.__forceSeed = 104; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(4, true); delete window.__forceSeed;
     const out = { early: false, anvilRefused: null, startF: -1, holdF: -1, again: false, mines: 0, bombs: 0, partner: false, sowers: new Set(), tagged: {}, waveMoved: 0, end: null, resumed: null };
-    const seen = new WeakSet(); let wave0 = null, endF = -1;
-    for (let f = 0; f < 9000; f++) { SF.run(1);
+    const seen = new WeakSet(); let wave0 = null, endF = -1; const SW = () => !!world.enc && world.enc.id === 'sowerwindow'; /* (the Shadow Wing's own encounter is not the window) */
+    for (let f = 0; f < 10500; f++) { SF.run(1);
       for (const e of world.enemies) if (e.type === 'sower') { out.sowers.add(e); e.hp = 99999; }
       const first = world.enemies.find(e => e.type === 'sower' && !e.dead && world.ARC_U < 0.5);
       if (first && out.anvilRefused === null && !world.enc) out.anvilRefused = encStart('anvil') === false && !world.enc;
-      if (world.enc && world.ARC_U < 0.7) out.early = true;
+      if (SW() && world.ARC_U < 0.7) out.early = true;
       if (out.holdF < 0 && world.ARC_U >= 0.7 && world.enemies.some(e => e.type === 'sower' && e.st === 'hold' && !e.second)) out.holdF = f;
-      if (out.startF < 0 && world.enc) { out.startF = f; wave0 = world.waveCd; }
-      if (world.enc && wave0 !== null && world.waveCd !== wave0) out.waveMoved++;
+      if (out.startF < 0 && SW()) { out.startF = f; wave0 = world.waveCd; }
+      if (SW() && wave0 !== null && world.waveCd !== wave0) out.waveMoved++;
       if (f >= 7000 && f < 8400) for (const b of world.ebul) if (!seen.has(b) && (b.kind === 'amine' || b.kind === 'fbomb')) { seen.add(b); if (b.kind === 'amine') out.mines++; else out.bombs++; }
       if (world.enemies.some(e => e.type === 'sower' && e.second)) out.partner = true;
-      for (const e of world.enemies) if (e.enc) out.tagged[e.type] = 1;
-      if (out.startF >= 0 && !world.enc && endF < 0) { endF = f; out.end = world.encLast; out.resumed = world.waveCd === wave0 - 1 || wave0 <= 1; }
-      if (endF >= 0 && world.enc) out.again = true; }
+      for (const e of world.enemies) if (e.enc === 'sowerwindow') out.tagged[e.type] = 1;
+      if (out.startF >= 0 && !SW() && endF < 0) { endF = f; out.end = world.encLast; out.resumed = world.waveCd === wave0 - 1 || wave0 <= 1; }
+      if (endF >= 0 && SW()) out.again = true; }
     out.sowers = out.sowers.size; return JSON.stringify(out); })()`;
   const page = await freshPage('?enc=sowerwindow');
   const w = JSON.parse(await peek(page, fly));
@@ -279,7 +282,7 @@ const playOut = `
   await page.close();
 }
 {
-  // ?enc=all: one encounter per level, the Campaign's tour (1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
+  // ?enc=all: one encounter per level, the Campaign's tour (1A its layout, starting with First Contact, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
   // Flak lane), started as each level's practice run; and the playtest banner draws
   const page = await freshPage('?enc=all');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
@@ -287,8 +290,68 @@ const playOut = `
       for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (6B opens over the sea: Flak lane waits for land, about frame 870) */
       if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
     out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
-  ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
+  ok(r[8] === 'firstcontact' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
   ok(r.drew === true, `the playtest banner (ENCOUNTER: <name>) draws${r.drew === true ? '' : ': ' + r.drew}`);
+  await page.close();
+}
+{
+  // 10. The Shadow Wing as its own encounter (owner): in the Campaign the director opens it where the Wing used to come (level 2 at 14/37 of
+  // the arc); the Wing comes at once; it holds nothing (the level goes on around it); the Wing stays WING_STAY frames (about 15 s more than the
+  // old 1600) before it flees, and the encounter ends when it is gone. Retro Run keeps the old Wing, with no encounter. Level 1A: later.
+  const page = await freshPage();
+  const r = JSON.parse(await peek(page, `(() => { const out = {};
+    window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
+    let f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
+    out.u = world.ARC_U; out.wingAt = world.enemies.some(e => e.type === 'wing' && e.enc === 'wing') ? world.enc.t : -1;
+    const cd0 = [world.waveCd, world.groundCd, world.podCd]; SF.run(300); out.moved = [world.waveCd, world.groundCd, world.podCd].every((v, i) => v !== cd0[i]);
+    for (const e of world.enemies) if (e.type === 'wing') e.hp = 1e9;
+    f = 0; let fled = -1; while (world.enc && world.enc.id === 'wing' && f < 4000) { SF.run(1); f++; const w = world.enemies.find(e => e.type === 'wing'); if (w && w.leaving && fled < 0) fled = w.mt; }
+    out.fled = fled; out.stay = WING_STAY; out.end = world.encLast && world.encLast.id === 'wing' ? world.encLast.why : null; out.gone = !world.enemies.some(e => e.type === 'wing' && !e.dead);
+    window.__forceSeed = 31; gf = 0; SF.start(1, 1); delete window.__forceSeed; f = 0; while (!world.enemies.some(e => e.type === 'wing') && f < 9000) { SF.run(1); f++; } out.retro = world.enemies.some(e => e.type === 'wing') && !world.enc;
+    window.__forceSeed = 33; gf = 0; startEnigma(8, true); delete window.__forceSeed; f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
+    const S = run.sortie, ab = S.segs.find(g => g.t === 'island_airbase'); out.c1A = -Math.floor((-40 - Math.floor(world.scroll)) / CH) - world.stageBaseP; out.ab1A = ab.start + ab.n;
+    return JSON.stringify(out); })()`));
+  ok(r.u >= 14 / 37 - 0.01 && r.u < 0.45 && r.wingAt >= 0 && r.wingAt <= 1, `level 2: the director opens the Shadow Wing's encounter where the Wing used to come (at ${r.u.toFixed(3)} of the arc), the Wing with it`);
+  ok(r.moved, 'it holds nothing: air waves, ground units and pods go on while the Wing is up');
+  ok(r.fled === r.stay + 1 && r.stay === 2500, `the Wing flees after ${r.fled - 1} frames in its sequence (WING_STAY ${r.stay}; the old one 1600)`);
+  ok(r.end === 'done' && r.gone, `it ends when the Wing is gone (${r.end})`);
+  ok(r.retro, 'Retro Run: the old Shadow Wing, no encounter');
+  ok(r.c1A >= r.ab1A, `level 1A: the Shadow Wing comes after the airbase island (chunk ${r.c1A}; the island ends at ${r.ab1A})`);
+  await page.close();
+}
+{
+  // 11. Level 1A (owner): no Drilling, one submarine in the whole level and not before the island chain; the flagship sends one more at
+  // about half its health (the Campaign; Retro Run's flagship keeps its two)
+  const page = await freshPage();
+  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed;
+    const seen = new Set(), out = { subs: [], boss: [], drills: 0, chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
+    for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
+      for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++;
+        if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(+bossLeft(b).toFixed(2)); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
+      if (st !== 'ok' || run.sortie.level !== 8) break; }
+    return JSON.stringify(out); })()`));
+  ok(r.drills === 0, `level 1A: no Drilling (${r.drills})`);
+  ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1A: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
+  ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
+  await page.close();
+}
+{
+  // 12. Level 1A's layout with ?enc=all (owner's playtest): First Contact right after the carrier, over the water (sweeps from both sides, a
+  // destroyer, two PT boats, a dive, a strafing run, a pod), then the Shadow Wing, then The Anvil from the farmland on; each plays out once
+  const page = await freshPage('?enc=all');
+  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); settings.diff = 1; startEnigma(8, true); delete window.__forceSeed;
+    const log = [], seen = new Set(), chunk = () => -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; let cur = null, wingSea = true;
+    for (let f = 0; f < 9000; f++) { const st = SF.run(1), E0 = world.enc;
+      if (E0 && (!cur || cur.id !== E0.id)) { cur = { id: E0.id, c: chunk(), n: {} }; log.push(cur); }
+      if (E0) for (const e of world.enemies) if (e.enc === E0.id && !seen.has(e)) { seen.add(e); cur.n[e.type] = (cur.n[e.type] || 0) + 1; if ((e.type === 'pt' || e.type === 'destroyer') && !WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)))) wingSea = false; }
+      if (cur && !cur.end && world.encLast && world.encLast.id === cur.id) cur.end = world.encLast.why;
+      if (st !== 'ok' || world.bossSpawned) break; }
+    const P = ENC_PLAN[8]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c }); })()`));
+  const ids = r.log.map(x => x.id).join(), fc = r.log.find(x => x.id === 'firstcontact') || { n: {} }, an = r.log.find(x => x.id === 'anvil') || {};
+  ok(ids === 'firstcontact,wing,anvil', `?enc=all in level 1A plays its layout in order: ${ids}`);
+  ok(fc.c >= r.fcAt && fc.end === 'done' && fc.n.fighter >= 19 && fc.n.destroyer === 1 && fc.n.pt === 2 && fc.n.pod === 1, `First Contact from chunk ${fc.c}: ${JSON.stringify(fc.n)}, ends ${fc.end}`);
+  ok(r.water, 'its ships are placed on water');
+  ok(an.c >= r.anvilAt && an.end === 'done', `The Anvil from chunk ${an.c} (the farmland starts at ${r.anvilAt}), ends ${an.end}`);
   await page.close();
 }
 await browser.close();

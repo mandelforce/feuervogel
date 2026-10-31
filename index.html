@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.11'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.12'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8120,7 +8120,7 @@ function newGame() {
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
-  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = null;
+  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = 0;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
   sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
@@ -8243,10 +8243,10 @@ function sortiePlan(S) {
   if (typeof CityGen === 'undefined') return null;
   const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); } return P;
 }
-// The Drilling's tank pits (owner): two in every level with a plan but level 1 (1A has its islands), three in level 2 (its held village's pit and two
+// The Drilling's tank pits (owner): two in every level with a plan but levels 1 and 1A, three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
 const DRILL_PITS = { 2: [['airbase_desert', 0.2], ['pass', 0.35]], 3: [['industrial_power', 0.5], ['airbase_searchlight', 0.5]], 4: [['forest_fortified', 0.5], ['valley', 0.5]],
-  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_suburb', 0.5], ['city_centre', 0.5]], 7: [['city_centre', 0.5], ['industrial_power', 0.5]], 8: [['island_chain', 0.2], ['island_airbase', 0.55]] };
+  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_suburb', 0.5], ['city_centre', 0.5]], 7: [['city_centre', 0.5], ['industrial_power', 0.5]] }; // (none in 1A: the owner introduces the Drilling in level 2)
 function drillPits(S, P) {
   const want = DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return;
   const bands = []; for (const [t, f] of want) { const g = S.segs.find(q => q.t === t); if (!g) continue; const c = (g.start - S.planC0 + f * g.n) * CH, h = Math.max(40, 0.4 * g.n * CH); bands.push([Math.max(0, c - h), Math.min(P.L - 1, c + h)]); }
@@ -9449,7 +9449,8 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = world.enemies.some(e => e.big && !e.dead);
-  if (!world.midDone && !world.enc && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); } // (the Shadow Wing waits until an encounter and its rest are over)
+  if (!world.midDone && !world.enc && qTop >= (run.sortie && WING_U[run.sortie.level] ? WING_U[run.sortie.level] * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale()) { // the Shadow Wing, after any encounter and its rest
+    if (!run.sortie) { world.midDone = true; spawnWing(); } else if (encStart('wing')) world.midDone = true; } // (the Campaign: as its own encounter; Retro Run as it always was)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -9584,7 +9585,7 @@ function spawnWave(b, big) {
 // An encounter's events (ev, sorted by t, in frames) are dispatched in order by spawn verbs. What they create is tagged (e.enc) and its
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
-// (world.enc, world.encLast), so snapshots and replays keep it. For now (plan step 3) only encStart starts one (tests), in the Campaign only.
+// (world.enc, world.encLast), so snapshots and replays keep it. In the Campaign the director opens the Shadow Wing's (ENC.wing); the others start only by encStart (tests) or the test link (?enc).
 const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 8 s (it reaches its place at about frame 200), firing as usual, while
@@ -9636,8 +9637,31 @@ const ENC = {
     { t: 0, do: 'convoy' },
     { t: 180, do: 'convoy', diff: [1, 2] }, // (three convoys on Rookie)
     { t: 360, do: 'convoy' },
-    { t: 540, do: 'convoy' }] }
+    { t: 540, do: 'convoy' }] },
+  // First Contact (level 1A right after the carrier, over the island chain's water; owner's playtest: the start was too empty): the formation
+  // types one after another, so each reads on its own, over ships. A sweep of five from the left, then one from the right, a destroyer, two
+  // PT boats, a five-plane dive up the middle, a strafing run from the side the ship is not on (not on Rookie); a pod as the reward. Sea only.
+  // (The destroyer comes early: the chain's water narrows toward the airbase island.)
+  firstcontact: { name: 'FIRST CONTACT', len: 960, max: 1800, rest: 180, budget: [18, 24, 30], biomes: ['sea'], holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'sweep', i: 0, side: -1 }, { after: 11, do: 'sweep', i: 1, side: -1 }, { after: 11, do: 'sweep', i: 2, side: -1 }, { after: 11, do: 'sweep', i: 3, side: -1 }, { after: 11, do: 'sweep', i: 4, side: -1 },
+    { t: 240, do: 'sweep', i: 0, side: 1 }, { after: 11, do: 'sweep', i: 1, side: 1 }, { after: 11, do: 'sweep', i: 2, side: 1 }, { after: 11, do: 'sweep', i: 3, side: 1 }, { after: 11, do: 'sweep', i: 4, side: 1 },
+    { t: 300, do: 'ship', kind: 'destroyer', x: 0.6, wait: 180 },
+    { t: 420, do: 'ship', kind: 'pt', x: 0.3, wait: 120 }, { t: 420, do: 'ship', kind: 'pt', x: 0.7, wait: 120 },
+    { t: 520, do: 'dive', n: 5, x: 0.5 },
+    { t: 680, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] },
+    { t: 960, do: 'pod', x: 0.5, own: false }] },
+  // The Shadow Wing (owner: its own encounter, in every Campaign level; Retro Run keeps the old one): the director opens it where the Wing
+  // used to appear (level 1A later, after the airbase island: WING_U). It holds nothing: the level goes on around the Wing as before (owner).
+  // The Wing stays about 15 s longer than the old one before it flees (WING_STAY: about 42 s). Killed, it ends and rests 3 s. No soft budget:
+  // the Wing's own volleys were never gated.
+  wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
+    { t: 0, do: 'wing' }] }
 };
+// A level's encounters at set places (owner's level layouts, section 7b of the plan), for now only with the test link ?enc=all: each starts
+// once the spawn line reaches chunk c of the level (or as soon after as it may), and is given up past chunk until.
+const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10 }, { id: 'anvil', c: 31, until: 50 }] };
+const WING_STAY = 2500; // the Campaign's Shadow Wing: frames in its sequence before it flees (owner: about 15 s more than the old 1600)
+const WING_U = { 8: 0.47 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
 // dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
 // event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
@@ -9654,19 +9678,28 @@ const ENC_VERB = {
     FORCE_GROUND = 'encFlak';
     try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; encFlakX = null; } return false; },
   convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
+  wing: () => { spawnWing(); return true; },
+  sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
+  ship: v => { const wy = -34 - Math.floor(world.scroll), m = hpm(); if (biomeAtSpawn() !== 'sea') return false; // a PT boat or a destroyer on open water near x (retried while there is none)
+    const xs = []; for (let x = 40; x <= W - 40; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - v.x * W) - Math.abs(b - v.x * W)); // (the nearest free water to x, anywhere across)
+    for (const wx of xs) {
+      if (v.kind === 'destroyer') { if (placeOK(wx, wy - 30, 34) && seaOK(wx, wy - 30, 16, 46)) { world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 })); return true; } }
+      else if (placeOK(wx, wy, 16) && seaOK(wx, wy, 6, 16)) { world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; } }
+    return false; },
   strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
     world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
 let encFlakX = null; // while the flak verb runs: the x range its gun must stand in
-const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1A, 2, 3, 4, 5, 6B in turn
+const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1A, 2, 3, 4, 5, 6B in turn (a level with a layout in ENC_PLAN plays that instead: 1A)
 const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
 const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[Math.max(0, CAMP_LEVELS.indexOf(run.sortie ? run.sortie.level : 0))]; // (a level outside the Campaign's six: The Anvil)
 const ENC_SOWER_FROM = 0.7; // the level share where the set2 stretch begins (ARC): from here a settling Sower can open the Sower Window
 function encStart(id) {
   const D = ENC[id]; if (!run.sortie || world.enc || !D || world.bossSpawned || app.tut || (D.biomes && !D.biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
   if (world.enemies.some(e => e.type === 'wing' && !e.dead)) return false; // never while the Shadow Wing is on screen
-  if (D.start === 'sower') { // only for a settled Sower from the set2 stretch on, not its partner, once each
+  if (D.start === 'wing') {} // (the Shadow Wing comes whatever is below it, a Sower included, as it always has)
+  else if (D.start === 'sower') { // only for a settled Sower from the set2 stretch on, not its partner, once each
     const sw = world.enemies.filter(e => e.type === 'sower' && !e.dead && !e.dying && e.st === 'hold' && !e.second && !e.encSeen);
     if (!sw.length || !(world.ARC_U >= ENC_SOWER_FROM)) return false; for (const e of sw) e.encSeen = true;
   } else if (world.enemies.some(e => e.type === 'sower' && !e.dead)) return false; // an ordinary encounter waits while a Sower is up
@@ -9679,7 +9712,7 @@ function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]
 // A volley fired over the next frames (later: frames until its last bullet) reserves its bullets until then, so shooters admitted together
 // can't land their delayed volleys on top of each other (res: [bullets, frames left], counted down by encTick).
 function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine') n++; return n; }
-function encBudget() { const E0 = world.enc; return E0 && E0.st !== 'rest' ? ENC[E0.id].budget[settings.diff] : Infinity; }
+function encBudget() { const E0 = world.enc, B = E0 && ENC[E0.id].budget; return B && E0.st !== 'rest' ? B[settings.diff] : Infinity; } // (none: no budget)
 function volleyOK(n, later = 0) {
   const B = encBudget(); if (B === Infinity) return true;
   const E0 = world.enc; let held = 0; for (const r of E0.res) held += r[0];
@@ -9697,12 +9730,18 @@ function encEnd(why) {
   if (why === 'done' || why === 'timeout' || why === 'nolane') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
 }
 function encTick() {
-  const E0 = world.enc; if (!E0) { if (ENC_TRY && (!world.encLast || (world.encLast.why === 'nolane' && gf - world.encLast.at > 600)) && (LB_TEST || !run.ranked)) encStart(encTryId()); return; } // (encLast: one has already run in this level)
+  const E0 = world.enc, L = world.encLast;
+  if (!E0) { if (!ENC_TRY || !(LB_TEST || !run.ranked)) return;
+    const P = ENC_TRY === 'all' && run.sortie && ENC_PLAN[run.sortie.level];
+    if (P) { const k = world.encPlanI || 0, c = -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; // a level with a layout: its encounters in order, at their places
+      if (k < P.length && c >= P[k].c) { if (c > P[k].until) world.encPlanI = k + 1; else if (encStart(P[k].id)) { world.encPlanI = k + 1; world.encTry = P[k].id; } } }
+    else if ((!world.encTry || (L && L.id === world.encTry && L.why === 'nolane' && gf - L.at > 600)) && encStart(encTryId())) world.encTry = encTryId();
+    return; } // (encTry: the test link's encounter has run in this level; the Shadow Wing's doesn't count)
   const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
   if (E0.res.length) { for (const r of E0.res) r[1]--; E0.res = E0.res.filter(r => r[1] > 0); } // reservations of delayed volleys run out as they fire
-  if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || (e.type === 'sower' && D.start !== 'sower')) && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
+  if ((world.carrier && !world.carrier.over) || (D.start !== 'wing' && world.enemies.some(e => (e.type === 'wing' || (e.type === 'sower' && D.start !== 'sower')) && !e.dead))) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
   E0.st = 'run'; E0.t++;
   while (E0.i < D.ev.length && encDue(E0, D.ev[E0.i])) {
     const ev = D.ev[E0.i];
@@ -9713,7 +9752,7 @@ function encTick() {
     else break; // try again next frame; the later events wait behind it
   }
   E0.owned = encOwned(E0.id);
-  const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
+  const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (D.budget && nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
   if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
 // Enigma Run (levels 2, 6, 6B): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
@@ -9836,6 +9875,13 @@ function planTrains(sc) {
   world.trainLeft[tid] = n + 1; trainBonus[tid] = 1500 * (n + 1);
   world.enemies.push(G('loco', wx, wy, { train: tid, diesel: true, hp: 26 * m2, hh: 19, v }));
   for (let k = 0; k < n; k++) { const flak = Math.random() < 0.45; world.enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy - 36 - k * 30, { train: tid, v, ga: PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
+}
+// Whether the director may surface a submarine at wy. Level 1A (owner): one in the whole level, not before the island chain (the open sea
+// after the carrier is for planes and ships); the boss sends one more at half its health. Elsewhere: one at a time early on, then two.
+function subOK(wy) {
+  const S = run.sortie;
+  if (S && S.level === 8) { const ch = S.segs.find(g => g.t === 'island_chain'); return !(world.subN > 0) && !!ch && -Math.floor(wy / CH) - world.stageBaseP >= ch.start; }
+  return count('sub') < (world.ARC_U < 0.15 ? 1 : 2);
 }
 // Level 1A: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
 function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && (S.isles || S.level === 5))) return true; /* (level 5: never on the ice) */ for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
@@ -10105,9 +10151,9 @@ function spawnGround(b) {
   }
   if (FORCE_GROUND === 'flak') { for (let k = 0; k < 2; k++) { const wx = tryLand(['field', 'grass', 'mud', 'forest', 'concrete', 'apron', 'roof', 'sand', 'yard'], 14); if (wx !== null) flakRaw(wx); } return; }
   const bunker = wx => { if (capB) return; world.enemies.push(G('bunker', wx, wy, { ga: PI / 2, cd: rnd(60, 120) | 0 })); for (const sx of [-10, 10]) if (placeOK(wx + sx, wy + 18, 4) && !critterHouse(wx + sx, wy + 18, 8)) world.enemies.push(G('sandbag', wx + sx, wy + 18, {})); };
-  if (b === 'sea' && r < 0.22 && count('sub') < (world.ARC_U < 0.15 ? 1 : 2)) {
+  if (b === 'sea' && r < 0.22 && subOK(wy)) {
     const wx = rnd(26, W - 26);
-    if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) world.enemies.push(G('sub', wx, wy, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true }));
+    if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) { world.enemies.push(G('sub', wx, wy, { st: 'under', stT: rnd(60, 160) | 0, ta: PI / 2, cd: 30, untarget: true })); world.subN = (world.subN || 0) + 1; }
   } else if (b === 'sea') {
     if (r < 0.32 && count('destroyer') < 1 + (run.loop >= 1 ? 1 : 0)) {
       const wx = rnd(40, W - 40);
@@ -10312,6 +10358,7 @@ function wingGlow(e) { // drawing only: the barrels of the coming state glow
   const V = WING_V[e.v], name = V.seq[e.si], k = 0.45 + 0.35 * Math.sin(e.st * 0.7);
   for (const m of wingGuns(V, name)) { const gx = Math.round(e.x + m[0] - 50), gy = Math.round(e.y + m[1] - 20); ctx.fillStyle = WING_COL[name]; ctx.globalAlpha = k; ctx.fillRect(gx - 2, gy - 2, 5, 5); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(gx - 1, gy - 1, 3, 3); }
 }
+function bossLeft(e) { let hp = 0, mx = 0; for (const p of e.parts) { hp += Math.max(0, p.hp); mx += p.maxhp; } return mx ? hp / mx : 1; } // the share of a boss's health left (its health bar)
 // Boss table: one entry per boss kind (BOSS_KINDS[theme] picks a stage's boss). Each entry holds the boss's data: warn (the
 // warning as it approaches), rigid (its hull is one body: onBoss, bossAnchor), hull or hullPad (hullRect), coreTurns (its core aims
 // like a gun), noDeck (a wreck can't rest on it), dyingFrames (how long it dies, default 220), score (times the loop
@@ -10640,7 +10687,7 @@ function doFinishResults() {
     world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = pBot - 2; chunkHouses.clear(); fieldOkCache.clear(); houseCache.clear(); railEndCache.clear(); flowCache.clear(); canopyCache.clear(); rxW = NaN;
     world.decals.length = 0; props.length = 0; world.items.length = 0; critters.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); world.enemies = world.enemies.filter(e => !e.ground);
     ensureChunks(); world.midDone = false; world.bossSpawned = false; }
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = null; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = 0; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); sfx('start'); if (app.state === 'play') playSong(STAGE_SONGS[world.curTheme]);
   if (player && !player.dead) player.fly = 110;
   markStage();
@@ -11426,7 +11473,8 @@ const BOSSMOVE = {
         else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
       }
       e.subT = (e.subT ?? 600) - 1;
-      if (e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
+      if (run.sortie) { if (!e.subs && bossLeft(e) <= 0.5) { const sx = Math.random() < 0.5 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = 1; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): one submarine, at half the battle (tried each frame until there is room on either side)
+      else if (e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
     }
     return true;
   },
@@ -12107,7 +12155,7 @@ const ENT = {
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.011) * 50; e.y = 70 + Math.sin(e.mt * 0.02) * 8;
     if (e.mt % 4 === 0) { smokePuff(e.x - 10, e.y - 14, 'a'); smokePuff(e.x + 10, e.y - 14, 'a'); }
-    if (e.mt > 1600) { e.leaving = true; e.y = 70 - (e.mt - 1600) * 0.8; return; }
+    { const stay = e.v === undefined ? 1600 : WING_STAY; if (e.mt > stay) { e.leaving = true; e.y = 70 - (e.mt - stay) * 0.8; return; } } // (Retro Run's wing keeps its old 1600)
     if (!hasT()) return;
     if (e.v !== undefined) return wingSeq(e); // Enigma Run: the sequence of states (docs/shadow-wing-design.md)
     const sp = bspeed();
