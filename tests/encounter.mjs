@@ -71,7 +71,7 @@ const playOut = `
   const r = JSON.parse(await peek(page, `(() => { ${level2(1, 7)} ${playOut} })()`));
   ok(r.started, 'encStart starts The Anvil in level 2');
   ok(r.disp.join() === r.want.join(), `every event dispatched once, in order, on its frame (${r.disp.join(' ')})`);
-  const fighters = 17; // two five-plane formations at once (a leader and four wingmen from stage 4, a five-plane dive before), a five-plane dive and a chase pair
+  const fighters = 17; // two five-plane formations at once (a leader and four wingmen: the Campaign has them from level 1), a five-plane dive and a chase pair
   ok(r.types.heavy === 1 && r.types.fighter === fighters && r.types['pod(not counted)'] === 1 && Object.keys(r.types).length === 3, `tagged: ${JSON.stringify(r.types)}`);
   ok(!r.podCounted, 'the pod is never counted toward completion');
   ok(r.still >= r.holdT - 2 && Math.abs(r.stillAt - 0.28) < 0.01, `the Heavy stops at 28% of the screen and holds (${r.still} frames still, at ${(r.stillAt * 100).toFixed(1)}%)`);
@@ -336,7 +336,7 @@ const playOut = `
   ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1A: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
   ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1A: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
   ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
-  ok(r.encs.join() === 'firstcontact,wing', `without the test link level 1A plays First Contact and the Shadow Wing, not The Anvil (${r.encs.join()})`);
+  ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1A plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }
 {
@@ -347,14 +347,16 @@ const playOut = `
     const log = [], seen = new Set(), chunk = () => -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; let cur = null, wingSea = true;
     for (let f = 0; f < 9000; f++) { const st = SF.run(1), E0 = world.enc;
       if (E0 && (!cur || cur.id !== E0.id)) { cur = { id: E0.id, c: chunk(), n: {} }; log.push(cur); }
-      if (E0) for (const e of world.enemies) if (e.enc === E0.id && !seen.has(e)) { seen.add(e); cur.n[e.type] = (cur.n[e.type] || 0) + 1; if ((e.type === 'pt' || e.type === 'destroyer') && !WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)))) wingSea = false; }
+      if (E0) for (const e of world.enemies) if (e.enc === E0.id && !seen.has(e)) { seen.add(e); cur.n[e.type] = (cur.n[e.type] || 0) + 1; if (e.leader) cur.n.leader = (cur.n.leader || 0) + 1; if ((e.type === 'pt' || e.type === 'destroyer') && !WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)))) wingSea = false; }
       if (cur && !cur.end && world.encLast && world.encLast.id === cur.id) cur.end = world.encLast.why;
       if (st !== 'ok' || world.bossSpawned) break; }
-    const P = ENC_PLAN[8]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c }); })()`));
+    const P = ENC_PLAN[8]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c, fmAt: P[2].c }); })()`));
   const ids = r.log.map(x => x.id).join(), fc = r.log.find(x => x.id === 'firstcontact') || { n: {} }, an = r.log.find(x => x.id === 'anvil') || {};
-  ok(ids === 'firstcontact,wing,anvil', `?enc=all in level 1A plays its layout in order: ${ids}`);
+  ok(ids === 'firstcontact,wing,anvil,formations', `?enc=all in level 1A plays its layout in order: ${ids}`);
   ok(fc.c >= r.fcAt && fc.end === 'done' && fc.n.fighter >= 19 && fc.n.destroyer === 1 && fc.n.pt === 2 && fc.n.pod === 1, `First Contact from chunk ${fc.c}: ${JSON.stringify(fc.n)}, ends ${fc.end}`);
   ok(r.water, 'its ships are placed on water');
+  const fm = r.log.find(x => x.id === 'formations') || { n: {} };
+  ok(fm.c >= r.fmAt && fm.end === 'done' && fm.n.leader === 3, `Formations in the stretch before the boss, from chunk ${fm.c} (its place ${r.fmAt}): ${fm.n.leader} formations with a leader (two side by side, one up the middle), ends ${fm.end}`);
   ok(an.c >= r.anvilAt && an.end === 'done', `The Anvil from chunk ${an.c} (the farmland starts at ${r.anvilAt}), ends ${an.end}`);
   await page.close();
 }

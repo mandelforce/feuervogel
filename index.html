@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.14'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.15'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8136,10 +8136,10 @@ const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6', '1'], // what the playe
 function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
-const ENIGMA_LEN = [56, 72, 58, 60, 84, 70, 70, 56]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
+const ENIGMA_LEN = [56, 72, 58, 60, 84, 70, 70, 62]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
-  [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 4], ['coast_down', 1], ['open_sea', 4]], // owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
+  [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 10], ['coast_down', 1], ['open_sea', 4]], // (1A: 62 chunks; the last farmland 6 longer for the formations before the boss, owner; the boss comes over the last sea) owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
   [['harbour_commercial', 4], ['beach_town', 3], ['valley', 7], ['village', 4], ['station_junction', 6], ['desert_open', 4], ['airbase_desert', 6], ['pass', 7], ['desert_open', 7]],
   [['beach_fortified', 3], ['industrial_power', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6], ['station_marshalling', 7]], // 3: the yard right before the boss (owner)
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
@@ -9516,7 +9516,7 @@ const setPieceDone = new Set();
 const SET_PIECES = [['squadron', 'bombers'], ['convoy', 'squadron'], ['bombers', 'tanks'], ['flak', 'squadron'], ['tanks', 'flak'], ['squadron', 'bombers']];
 let FORCE_GROUND = null;
 const FEAT = { popup: 1, heavy: 1, hay: 1, bush: 1, radar: 1, acar: 2, arty: 3, net: 3, leader: 4, gen: 4 };
-function avail(f) { return settings.mode === 'gen' || run.endless || run.loop >= 1 || ((run.stage - 1) % 6) + 1 >= FEAT[f]; }
+function avail(f) { return settings.mode === 'gen' || run.endless || run.loop >= 1 || (f === 'leader' && !!run.sortie) || ((run.stage - 1) % 6) + 1 >= FEAT[f]; } // (the Campaign: formations with a leader from level 1 on (owner); Retro Run keeps level 4)
 function flakBarrels() { if (world.ARC_U >= 0.78) return 4; if (world.ARC_U >= 0.47 || run.loop >= 1) return 2; return 1; }
 function makeFlak(wx, wy) { const m = hpm(), f = G('flak', wx, wy, { ga: PI / 2, cd: rnd(60, 140) | 0, barrels: flakBarrels() }); world.enemies.push(f); for (const sx of [-12, 12]) world.enemies.push(G('troop', wx + sx, wy + 4, { hd: PI / 2, scared: 0, post: f })); return f; }
 function spawnArty(wx, wy) { const a = G('arty', wx, wy, { ga: PI / 2, cd: rnd(80, 140) | 0 }); world.enemies.push(a); for (const sx of [-12, 12]) world.enemies.push(G('troop', wx + sx, wy + 8, { hd: PI / 2, scared: 0, post: a })); }
@@ -9660,15 +9660,23 @@ const ENC = {
   // used to appear (level 1A later, after the airbase island: WING_U). It holds nothing: the level goes on around the Wing as before (owner).
   // The Wing stays about 15 s longer than the old one before it flees (WING_STAY: about 42 s). Killed, it ends and rests 3 s. No soft budget:
   // the Wing's own volleys were never gated.
+  // Formations (level 1A, in the stretch before the boss the owner added for it): formations with a leader, the leader flying first and its
+  // wingmen holding their slots until it falls. Two side by side (one on Rookie), then one up the middle, then a chase pair; a pod as the reward.
+  formations: { name: 'FORMATIONS', len: 720, max: 1500, rest: 180, budget: [18, 24, 30], holds: { air: true, pod: true, ground: false }, ev: [
+    { t: 0, do: 'formation', x: 0.3 },
+    { t: 60, do: 'formation', x: 0.7, diff: [1, 2] },
+    { t: 360, do: 'formation', x: 0.5 },
+    { t: 540, do: 'chase' },
+    { t: 720, do: 'pod', x: 0.5, own: false }] },
   wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
     { t: 0, do: 'wing' }] }
 };
 // A level's encounters at set places (owner's level layouts, section 7b of the plan): each starts once the spawn line reaches chunk c of the
 // level (or as soon after as it may), and is given up past chunk until. live: in every Campaign run (owner: First Contact's formations are
 // logged in); the others only with the test link ?enc=all.
-const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10, live: true }, { id: 'anvil', c: 31, until: 50 }] };
+const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10, live: true }, { id: 'anvil', c: 31, until: 46 }, { id: 'formations', c: 48, until: 58, live: true }] };
 const WING_STAY = 2500; // the Campaign's Shadow Wing: frames in its sequence before it flees (owner: about 15 s more than the old 1600)
-const WING_U = { 8: 0.47 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
+const WING_U = { 8: 0.44 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
 // dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
 // event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
@@ -11970,7 +11978,7 @@ function kolibriWingTick(g) {
 // Modes (e.mode): straight (modeT frames), turn (a circle: e.td side, e.arc radians; an aimed circle ends with the nose on the ship); e.ret (back in from
 // outside) and e.brk (breaking away) go before them. e.st: wait (off the screen, before it comes in), fly.
 const PFEIL = {
-  cruise: 2.4, turn: 0.0228,         // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 105 px
+  cruise: 2.2, turn: 0.021,          // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 105 px (owner: a bit slower: 2.4 before)
   leg: [30, 100], arc: [2.2, 6], aimedP: 0.9, // frames of a straight leg; radians of a plain circle; the share of circles that end with the nose on the ship
   aimMin: 230, inP: 0.75,            // an aimed circle needs the ship at least this far off (about two circle radii and a margin; nearer it flies a plain one); the share of plain circles that curve toward the middle
   away: 40, far: 420, home: 0.35,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)

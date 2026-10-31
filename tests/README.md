@@ -190,7 +190,7 @@ node tests/buechse.mjs --verbose   # also print every check that passes, with it
 
 ## Pfeil test
 
-`pfeil.mjs` checks the Enigma Run's Pfeil (the fast dart that circles) and the Kolibri (the old hunting Pfeil, kept but not spawned): a lone Pfeil flies at its cruise speed, goes off the screen on its circles and always comes back, never beyond its cull margin, shoots along its nose after a flare, and breaks away before it flies into a ship; a formation has the leader and 2 or 4 wingmen in their slots, only the leader wears the yellow skin, one member at a time starts a burst, a shot down leader is replaced by a wingman, and shooting down all pays the bonus; the spawn gives a single Pfeil from level 3, 2 wingmen from level 4 and 4 from level 5; the Kolibri pair and its formation still fly.
+`pfeil.mjs` checks the Enigma Run's Pfeil (the fast dart that circles) and the Kolibri (the old hunting Pfeil, kept but not spawned): a lone Pfeil (flown five times, with five run seeds: one flight is a single sample of a chaotic path) flies at its cruise speed, goes off the screen on its circles and always comes back, never beyond its cull margin, shoots along its nose after a flare, and breaks away before it flies into a ship; a formation has the leader and 2 or 4 wingmen in their slots, only the leader wears the yellow skin, one member at a time starts a burst, a shot down leader is replaced by a wingman, and shooting down all pays the bonus; the spawn gives a single Pfeil from level 3, 2 wingmen from level 4 and 4 from level 5; the Kolibri pair and its formation still fly.
 
 ```
 python3 -m http.server 8000   # in another terminal
