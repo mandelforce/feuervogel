@@ -22,6 +22,8 @@ If you change `worker.js`, run this first. The tests check the rules, not live d
 
 `smoke.mjs` runs on every pull request through GitHub Actions. It loads the game on desktop and phone sizes, checks the title screen, plays Stage 1 for a few seconds and fails on any error or missing file.
 
+The workflow (`.github/workflows/smoke.yml`) runs its checks as parallel jobs: the unit tests, the city generator in four shards, one job per browser test, and the performance check. The `smoke` job at the end passes only when all of them (the performance check apart) pass.
+
 ## Layout test (runs automatically)
 
 `layout.mjs` loads the game at 16 sizes, from iPhone SE to iPad and desktop, five of them as the Home Screen app (edge to edge, no frame), and checks that:
@@ -201,6 +203,7 @@ node tests/jitter.mjs --frames N   # frames per stage
 
 ```
 node tests/citygen.mjs
+node tests/citygen.mjs --shard 2/4                 # every 4th check, from the 2nd (CI runs shards 1/4 to 4/4 side by side)
 node tests/citylab-shot.mjs OUTDIR [seed]   # screenshot of the lab and the raw town map (serve the folder first)
 ```
 

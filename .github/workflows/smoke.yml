@@ -6,19 +6,61 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# The checks run as parallel jobs; the last job, `smoke`, passes only when all of them pass, so the check a pull request waits on
+# keeps its old name.
 jobs:
-  smoke:
+  unit:
+    name: Unit tests (leaderboard Worker rules)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Unit tests (leaderboard Worker rules)
-        run: node --test tests/
-      - name: City generator (settlement rules over many seeds)
-        run: node tests/citygen.mjs
+      - run: node --test tests/
+
+  # City generator (settlement rules over many seeds), in four shards: each runs every 4th check (tests/citygen.mjs --shard).
+  citygen:
+    name: City generator ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tests/citygen.mjs --shard ${{ matrix.shard }}/4
+
+  browser:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Smoke test
+            run: node tests/smoke.mjs && node tests/replay.mjs --terrain --warn # terrain check: warning only
+          - name: Layout test (phones, tablets, desktop)
+            run: node tests/layout.mjs
+          # The blocking replay test (every scenario must reproduce tests/golden.json) is switched off until the golden values are
+          # refreshed for v1.2.5 (run the workflow by hand, see the `refresh` job, then add `node tests/replay.mjs` here).
+          # Enigma Run plumbing (docs/enigma-world-spec.md): sorties, flags, level end, resume, picker, and no state left behind by an Enigma Run level.
+          - name: Enigma Run test
+            run: node tests/enigma.mjs
+          # Road vehicles move smoothly: every Campaign stage and Enigma Run level, no tank or truck may flick its heading, shake or jump.
+          - name: Vehicle jitter test
+            run: node tests/jitter.mjs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Install headless browser
         run: |
           npm install --no-save playwright@1
@@ -27,30 +69,65 @@ jobs:
         run: |
           python3 -m http.server 8000 &
           sleep 2
-      - name: Run smoke test
-        run: node tests/smoke.mjs
-      - name: Layout test (phones, tablets, desktop)
-        run: node tests/layout.mjs
-      - name: Campaign terrain check (warning only)
-        run: node tests/replay.mjs --terrain --warn
-      # The blocking replay test (every scenario must reproduce tests/golden.json) is switched off until the golden values are
-      # refreshed for v1.2.5 (run the manual "Replay golden refresh" step below, then put `node tests/replay.mjs` back here).
-      # Enigma Run plumbing (docs/enigma-world-spec.md): sorties, flags, level end, resume, picker, and no state left behind by an Enigma Run level.
-      - name: Enigma Run test
-        run: node tests/enigma.mjs
-      # Road vehicles move smoothly: every Campaign stage and Enigma Run level, no tank or truck may flick its heading, shake or jump.
-      - name: Vehicle jitter test
-        run: node tests/jitter.mjs
-      - name: Performance check (warning only)
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
+
+  # Warning only, and not part of `smoke`: its own machine, so the slowed-down CPU measures the game alone.
+  perf:
+    name: Performance check (warning only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install headless browser
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Serve the game
+        run: |
+          python3 -m http.server 8000 &
+          sleep 2
+      - name: Performance check
         continue-on-error: true
         run: node tests/perf.mjs --warn
-      # Manual runs only (Actions tab > Run workflow): print machine details plus fresh golden values for tests/golden.json.
-      - name: Replay diagnostics (manual)
-        if: github.event_name == 'workflow_dispatch'
+
+  # Manual runs only (Actions tab > Run workflow): print machine details plus fresh golden values for tests/golden.json,
+  # and a fresh performance baseline.
+  refresh:
+    name: Replay and performance refresh (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install headless browser
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Serve the game
+        run: |
+          python3 -m http.server 8000 &
+          sleep 2
+      - name: Replay diagnostics
         run: node tests/replay.mjs --diag
-      - name: Replay golden refresh (manual)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Replay golden refresh
         run: node tests/replay.mjs --update
-      - name: Performance baseline refresh (manual)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Performance baseline refresh
         run: node tests/perf.mjs --update
+
+  smoke:
+    name: smoke
+    if: always()
+    needs: [unit, citygen, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: |
+          echo "unit ${{ needs.unit.result }}, citygen ${{ needs.citygen.result }}, browser ${{ needs.browser.result }}"
+          test "${{ needs.unit.result }}" = success && test "${{ needs.citygen.result }}" = success && test "${{ needs.browser.result }}" = success
