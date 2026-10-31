@@ -285,7 +285,7 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Pressure:** a tank convoy on the road below and one flak gun, the flak `diff: [1, 2]`. Air waves (`holds.air`) are frozen for the whole encounter. Because ground units arrive late (5.3), the convoy and the flak are dispatched at the encounter's start, the moment the Sower settles.
 - **Player choice:** stay at the sides and work the ground targets, or move up beside the Sower and kill it.
 - **Ownership:** the Sower itself isn't owned (`sowerTick` made it), so completion depends on the convoy and the flak only. If the Sower outlasts them, normal spawning resumes after `rest` while the Sower is still on screen, as it does today.
-- **Budget:** the mines are not gated but count toward the total, so the convoy's and the flak's volleys are admitted only while there's room. This encounter is the one most likely to exceed its soft budget, and its `over` figure is the one to watch.
+- **Budget (decided: the mines are meant to be many):** the Sower's aerial mines don't count toward the budget at all. They are the intended restriction, so they never hold back the convoy's or the flak's volleys, and they never show as overruns. Its falling bombs are aimed fire and do count. The budget therefore only keeps the tank and flak fire on top of the mine field readable.
 - **Setup:** `sowerTick` and the Sower's behaviour are unchanged.
 
 ## 8. Soft bullet budget
@@ -293,8 +293,10 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 The first implementation is a **soft** budget. Selected shooters ask before a volley and wait when the screen is full, while other sources fire as before. The total can go above the budget, and the implementation measures how often and why.
 
 - **Technical limit (unchanged):** `eshot` refuses bullets past 420 and during the Nova flash. Rookie's `DIFF.skip` is also unchanged.
-- **Budget:** `encBudget()` returns the active encounter's `budget[settings.diff]` while `world.enc` is in `run` or `hold`, and `Infinity` otherwise. It is counted in enemy bullets on screen (`world.ebul.length`). That's the same measure `balance-real.mjs` reports as the worst 10 s window, so tuning and testing use one number.
-- **Admission:** `volleyOK(n)` is true when `world.ebul.length + n <= encBudget()`.
+- **Budget:** `encBudget()` returns the active encounter's `budget[settings.diff]` while `world.enc` is in `run` or `hold`, and `Infinity` otherwise. It is counted in enemy bullets on screen **except the Sower's aerial mines** (`encBullets()`: every `world.ebul` entry whose kind isn't `amine`). The mines are meant to fill the air (owner's decision), while its falling bombs and everything else count. Apart from the mines, it's the same measure `balance-real.mjs` reports as the worst 10 s window.
+- **Admission:** `volleyOK(n, later)` is true when `encBullets()` plus the reserved bullets plus `n` is at most `encBudget()`.
+  - **Reservations (built in step 4):** a volley whose bullets come over the next frames passes `later`, the frames until its last bullet. It then reserves `n` bullets until that frame (`world.enc.res`, counted down by `encTick`, plain data).
+  - **Why:** without reservations, the first measurement showed the budget failing in level 3. Shooters that decide early and fire late (the Heavy 30 frames on, a pop-up turret up to 74, the Drilling up to 90) all saw room at the same moment and landed together, giving 120–414 frames over budget per encounter.
   - It is called once, before a complete volley, never per bullet.
   - `n` is the actual number of bullets that volley will try to create, worked out the way the shooter does it: 1 or 3 for a fighter strafe or a Bomber shot depending on `run.loop`, 3 for a Heavy spread, a `ring` after `DIFF.ring` scaling.
   - `n` is counted before `DIFF.skip`, so Rookie is judged a little conservatively.
@@ -309,13 +311,17 @@ The first implementation is a **soft** budget. Selected shooters ask before a vo
     | Bomber, `gcd` | aimed shot, plus two side shots from loop 1 | 1 or 3 |
     | flak, cooldown | one shell per barrel; the 4-barrel gun fires 2 now and 2 nine frames later; at night a lit gun adds 3 tracer shells over 21 frames | 1, 2 or 4 (+3 when lit at night) |
     | tank, cooldown | one shell; a heavy tank fires 3 | 1 or 3 |
+    | pop-up turret, as it rises (added in step 4) | three pairs over its 'up' phase, the last 74 frames after it rises; a rocket pop-up launches a missile instead and isn't gated | 6 |
+    | the Drilling, from aim to prep (added in step 4) | 2 or 3 salvos of three shells (one more from loop 1), the last `prep + (ns - 1) * gap` frames later | 6, 9 or 12 |
+
+    The Heavy (30), the 4-barrel flak (9), a lit flak gun at night (21), the pop-up (74) and the Drilling reserve their bullets until their last one.
 
     The 4-barrel and night shots are already delayed with `world.later` closures in `ENT.flak`. They are counted in the gun's `n` and left unchanged.
 - **When refused:** the shooter delays the volley, nothing is deleted, and nothing in flight is cut.
   - The shooter keeps its cooldown at 1 frame and asks again next frame.
   - Where the shooter has a natural "start attack" state (the Heavy's `pause`, the Bomber's `gcd`), it doesn't enter that state.
-- **Gated in the MVP:** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns, about six call sites. They are gated whoever owns them, because the player sees all bullets, including those of the normal director's ground units.
-- **Not gated:** boss parts (no encounters during bosses), revenge shots (immediate feedback to a kill), the Shadow Wing, the Sower's mines and bombs, and any shooter not in the list above. They still count toward the total, so they can push it over the budget, and the gated shooters then wait until it falls.
+- **Gated (built):** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns, plus pop-up turrets and the Drilling, which the first measurement showed to be the main sources of overruns. That's 9 call sites in 8 places; the fighter's aimed shot appears twice, for the lead plane and the wingmen. They are gated whoever owns them, because the player sees all bullets, including those of the normal director's ground units.
+- **Not gated:** boss parts (no encounters during bosses), revenge shots (immediate feedback to a kill), the Shadow Wing, the Sower's falling bombs, artillery, AA towers, flak cars on trains, the Büchse, and any shooter not in the list above. The Sower's mines aren't counted at all. They still count toward the total, so they can push it over the budget, and the gated shooters then wait until it falls.
 - **Measuring:** while an encounter runs, each frame with `world.ebul.length` above the budget adds to `over`, and `peak` keeps the maximum. Both go into `world.encLast`. The cause of an overrun comes from the existing shooter attribution (`SF.attrib()`, `balance-real.mjs --attrib`). **(checked)** It can't be limited to a frame range, and it is approximate: it credits each bullet to the nearest enemy within 50 px, so flak and revenge fire next to a gun crew shows up as "troop" (troops don't shoot). In Phase 3 the harness wrapper gets an encounter key (`<stage>:enc:<id>:<type>` while `world.enc` is set). That change goes in `tests/harness.js` only, not the game, and the attribution stays approximate.
 - **Repeat loops and rank:** after level 6B the Campaign can loop (stage 7–12 and on). `rankFor` raises `run.loop` by 1 per loop, and on Ace also per stage. That makes bullets faster (`bspeed`) and makes more fighters shoot. The budget is not scaled for this:
   - it counts bullets on screen, and faster bullets leave the screen sooner, so the same budget already admits more fire per second on a loop;
@@ -392,7 +398,7 @@ Phase 0 numbers (human bot, 4 runs per difficulty; the window is the worst 10 s 
 Totals: hits per run were 12.3 on Rookie, 13.3 on Veteran and 19.8 on Ace (ladder 1 : 1.08 : 1.61). Before the bosses, fighters fire about 9–13% of all shots, the Shadow Wing 7–10%, and the Heavy, flak and tanks 3–4% each.
 
 What this means for the plan:
-- **Level 4 is the outlier.** Its window is 2–3 times that of any other level, and on Rookie it's higher than on Veteran. The Sower's mines count as bullets, so the Sower Window (7.4) starts from a screen that is already full. Its budget must be set from these numbers, not from the other levels', and its `over` figure is expected to be high.
+- **Level 4 is the outlier, by design.** Its window is 2–3 times that of any other level, and on Rookie it's higher than on Veteran. That's the Sower's mines, which are meant to be many (owner). The budget doesn't count them (section 8), so level 4 needs no separate budget. Compare its tank and flak fire against a window measured without mines.
 - **The other levels' windows of 10–20 are the useful reference.** The MVP budgets (16 / 22 / 28) sit just above today's windows, so on their own they would mostly limit peaks, not normal play. Tune them in Phase 3 against these figures.
 - **Rookie is already sparse** (about 1.5 shots/s, windows of 10–12 outside level 4), so lighter Rookie versions of the encounters (`diff`) matter more than a lower Rookie budget.
 
@@ -424,6 +430,26 @@ What this means for the plan:
 **Phase 3: soft budget**
 - Add `volleyOK` at the six call sites with their real `n`.
 - Add the `over`/`peak` figures.
+- **Status: built (execution step 4).**
+  - **Built:** `encBullets()` (all enemy bullets except the Sower's mines), `encBudget()`, `volleyOK(n, later)` with reservations, the six planned call sites, plus pop-up turrets and the Drilling.
+  - **Tests:** `tests/encounter.mjs` (35 checks) adds:
+    - with the screen at the budget, a gated shooter (the Heavy) waits;
+    - mines don't block it;
+    - with room again, the whole spread fires;
+    - a delayed volley's reservation holds until the frame of its last bullet.
+  - **Harness:** shots during an encounter get the key `stage:enc:<id>:type` (`tests/harness.js` only).
+  - **Measured** (The Anvil started at frame 300, "human" bot, 3 seeds each):
+
+    | Level, difficulty | Peak (budget) | Frames over budget |
+    |---|---|---|
+    | 2, Rookie | 7–9 (16) | 0 |
+    | 2, Veteran | 11–15 (22) | 0 |
+    | 2, Ace | 12–18 (28) | 0 |
+    | 3, Veteran: six gates only | 31–39 (22) | 151–414 |
+    | 3, Veteran: with reservations, pop-ups and Drilling | 22–23 (22) | 0–11 |
+    | 3, Ace: with reservations, pop-ups and Drilling | 29–34 (28) | 8–40 |
+
+    The remaining overruns come from shooters that aren't gated: artillery, AA towers, flak cars and revenge shots. That's what a soft budget allows.
 - **Done when:**
   - the budget tests pass;
   - `balance-checks.mjs` passes;
@@ -460,7 +486,7 @@ These are the brief's questions, plus numbers to look at alongside them:
 1. **Leaderboard (decided: version number only, no reset for now).** The Campaign is ranked, and changing its spawns changes what scores are possible. Every submitted score already carries the game's `VERSION` (stored by the Worker in `scores.version`), so encounter-era scores can always be told apart. The release bumps a visible part of the version (not only the hidden fourth part), and nothing on the board is reset.
 2. **Heavy hold (decided: timing first).** The Anvil is built without changing the Heavy (7.1, step 1). The hold is added only if playtesting shows the Heavy doesn't read as an anchor.
 3. **Ground placement can fail** (water, towns, plans with fixed guns). The retry window and the dispatch contract in 5.2 keep this safe, but an encounter whose restriction never appears, or appears at half strength, is a different encounter. The test reports how often each verb fails or places only part of its units, per level.
-4. **The soft budget can be exceeded** by ungated sources: revenge shots, the Sower's mines, shooters outside the six call sites. Whether that matters is a measurement question (`over`, `--attrib`). The answer may be to gate one more call site, never to delete bullets.
+4. **The soft budget can be exceeded** by ungated sources: revenge shots, artillery, AA towers, flak cars on trains, the Shadow Wing, shooters outside the gated call sites. Whether that matters is a measurement question (`over`, `--attrib`). In step 4 the answer was to gate two more call sites, pop-ups and the Drilling, and to add reservations, never to delete bullets. The remaining overruns are a few frames (section 10, Phase 3).
 5. **Loops under a fixed budget.** On a repeat loop, faster bullets clear the screen sooner, so the same budget admits more fire. If looped encounters feel easier rather than harder, the budget needs a per-loop factor (section 8).
 6. **Starving anchors under the budget.** If fast shooters always take the free room, the anchor goes quiet. Watch for this in Phase 3, and add the priority classes from section 8 if it happens.
 7. **Retro Run later?** Keeping it out is deliberate: it is the reference version, and its replays guard the refactor. Revisit only if the owner wants it.
