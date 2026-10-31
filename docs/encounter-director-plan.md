@@ -324,6 +324,31 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
     - **Tank convoys instead of a flak gun.** The flak was dropped on Veteran and Ace, because that stretch of forest had no free gun site and no open spot.
   - **Now** ("human" bot, seeds 104 and 7): 0–45 frames over budget, peaks of 25–44, nothing dropped, 3–7 tanks per encounter, and the tanks fire 7–30 shots.
 
+### 7.5 Shadow Wing (every Campaign level)
+
+- **Owner's decision (playtest of level 1):** the Shadow Wing becomes its own encounter, everywhere, with more time: about 15 s of the screen to itself.
+- **Status: built, live in the Campaign** (build 1.2.5.12; Retro Run keeps the old Wing, so `golden.json` is unchanged).
+  - Definition: `wing`, `start: 'wing'`: 2 s of calm, then the Wing (the `wing` verb calls `spawnWing`) at frame 120. `alone: 1120`: air waves, ground units and pods are held for its first 1120 frames (the calm, the Wing's 100-frame entry and about 15 s), its rest included when it ends sooner; after that they run again while the Wing fights on. No soft budget: the Wing's volleys were never gated. Killed, it ends and rests 3 s; left alone it leaves after about 27 s, as before (`max` 2800).
+  - Start: the director opens it where the Wing used to come (14/37 of the arc), after any running encounter and its rest. `WING_U` moves it per level: level 1A at 0.47, after the airbase island. A Sower below doesn't hold it, and it isn't held by one.
+  - The test link counts only its own encounter (`world.encTry`), so a Shadow Wing that ran first doesn't use up `?enc`.
+
+## 7b. Level 1 as encounters (owner's playtest)
+
+The owner found level 1 too empty before the first encounter, the two Drillings too early, and the Shadow Wing too early. The level (56 chunks) as a sequence:
+
+| Stretch | What happens | Status |
+|---|---|---|
+| carrier (chunks 0–4) | the carrier opening, unchanged | existing |
+| open sea (4–10) | **First Contact**: several formation types, one after another so each reads on its own (sweeps from both sides, a five-plane dive, strafers), with PT boats and then one destroyer below. No submarine. Needs a `ship` verb. | to build |
+| island chain (10–16) | normal director and the islet guns; **the level's one submarine** comes here | built |
+| airbase island (16–25) | set piece 1; no Drilling pit | built (pits removed) |
+| sea and beach (25–31) | **Shadow Wing** (7.5) | built |
+| farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land) | to place |
+| forest, coast, sea | normal director, then the flagship; **one submarine at about half its health** | built |
+
+- **Built (1.2.5.12, live):** no Drilling pits in 1A (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
+- **To build:** First Contact (new encounter and `ship` verb; new encounter types are added as the levels need them), and encounters placed at set positions in a level (step 6), behind the test link until the owner says otherwise.
+
 ## 8. Soft bullet budget
 
 The first implementation is a **soft** budget. Selected shooters ask before a volley and wait when the screen is full, while other sources fire as before. The total can go above the budget, and the implementation measures how often and why.

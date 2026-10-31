@@ -150,7 +150,9 @@ node tests/wing.mjs
 
 It also plays Flak lane: only flak is placed, one gun on each side with a lane between them (a plan's free gun site first), or it is called off before its formations; the formation waits until the guns are on screen; the strafing run follows from the other side, but not on Rookie; it never starts over the sea; and a flak verb that can place nothing makes nothing. And Bomber screen: its Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), every spawn timer held, and a Bomber nobody can kill leaving the screen so the encounter still ends. And the Sower Window in level 4: ordinary encounters wait while a Sower is up; the level's first Sower doesn't open it; it opens the frame after the second Sower settles, once, not for its partner; it makes no Sower or Wing; air waves stay held and resume; and the Sowers lay the same mines, drop the same bombs and call their partner as in the same run without it.
 
-`resume-exact.mjs --only=anvil`, `--only=flaklane`, `--only=bomberscreen` and `--only=sowerwindow` check runs saved in the middle of each encounter.
+It also checks the Shadow Wing's encounter, the one the Campaign plays for real: in level 2 the director opens it where the Wing used to come, the Wing arrives after 2 s of calm, air waves, ground units and pods stay frozen for its first 1120 frames and run again after, and it ends when the Wing is gone; Retro Run keeps the old Wing with no encounter; in level 1A it comes after the airbase island. And level 1A's layout: no Drilling, one submarine before the boss (not before the island chain), and one from the flagship at about half its health.
+
+`resume-exact.mjs --only=anvil`, `--only=flaklane`, `--only=bomberscreen` `--only=sowerwindow` and `--only=shadowwing` check runs saved in the middle of each encounter.
 
 ```
 python3 -m http.server 8000   # in another terminal

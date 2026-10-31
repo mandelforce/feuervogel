@@ -114,14 +114,20 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   }
   await page.close();
 }
-// 6b. no animals on the big guns: the tank pits and emplacements keep clear of the cow paddocks (level 1A has both; a paddock a pit has to be in gets no cows), and cows and sheep put on a
+// 6b. no animals on the big guns: the tank pits and emplacements keep clear of the cow paddocks (in every level with paddocks; a paddock a pit has to be in gets no cows), and cows and sheep put on a
 // Drilling and a Buechse walk off them within 3 s (cows staying in their paddock); the two tanks stand on land, far enough apart that an animal can stand clear of both
 {
   const page = await freshPage();
-  const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(8); const P = sortiePlan(run.sortie), ps = P.pastures || [];
-    const d = sl => Math.min(1e9, ...ps.filter(q => q.n > 0).map(q => Math.hypot(Math.max(q.x0 - sl.x, 0, sl.x - q.x1), Math.max(q.y0 - sl.y, 0, sl.y - q.y1)))); // (to the nearest paddock with cows)
-    return JSON.stringify({ n: ps.length, cows: ps.filter(q => q.n > 0).length, pits: P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) }); })()`));
-  ok(pas.cows > 0 && pas.pits.length === 2 && pas.pits.every(v => v >= 28), `level 1A: ${pas.n} cow paddocks (${pas.cows} with cows), its 2 tank pits ${pas.pits.join(', ')} px from the nearest with cows`);
+  let cowLv = 0, cows1A = 0, near = [];
+  for (const lv of [2, 3, 4, 5, 6, 7, 8]) {
+    const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const P = sortiePlan(run.sortie), ps = (P && P.pastures) || [];
+      const d = sl => Math.min(1e9, ...ps.filter(q => q.n > 0).map(q => Math.hypot(Math.max(q.x0 - sl.x, 0, sl.x - q.x1), Math.max(q.y0 - sl.y, 0, sl.y - q.y1)))); /* (to the nearest paddock with cows) */
+      return JSON.stringify({ cows: ps.filter(q => q.n > 0).length, pits: P ? P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) : [] }); })()`));
+    if (pas.cows > 0 && pas.pits.length) cowLv++;
+    if (lv === 8) cows1A = pas.cows;
+    near.push(...pas.pits.filter(v => v < 28).map(v => `level ${lv}: ${v} px`));
+  }
+  ok(cows1A > 0 && near.length === 0, `tank pits and emplacements keep 28 px from paddocks with cows (${cowLv} levels with both; level 1A has ${cows1A} paddocks with cows and no pits${near.length ? '; too near: ' + near.join(', ') : ''})`);
   const a = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
     const b = makeBuechse(60, 100 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(60, 230 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
     critters.length = 0; for (const g of [b, d]) for (let k = 0; k < 4; k++) { const x = g.wx + rnd(-6, 6), y = g.wy + rnd(-6, 6);
