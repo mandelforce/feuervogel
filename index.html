@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.6'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9255,7 +9255,7 @@ const ENIG_BOX = { truck: [6, 11], acar: [5.5, 10], moto: [4.5, 6.5], staff: [5,
 function E(type, o) {
   const e = Object.assign({ type, x: 0, y: 0, t: 0, hp: 1, hw: 6, hh: 6, score: 100, hit: 0, ground: false, big: false, mt: 0, rad: 10 }, baseStats(type), o);
   if (run.sortie) { const b = ENIG_BOX[type]; if (b) { e.hw = b[0]; e.hh = b[1]; } }
-  if (encTag) { e.enc = encTag.id; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch)
+  if (encTag) { e.enc = encTag.id; e.encEv = encTag.ev; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch; encEv: its index)
   return e;
 }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(world.scroll) }, o)); }
@@ -9560,6 +9560,7 @@ function spawnWave(b, big) {
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. For now (plan step 3) only encStart starts one (tests), in the Campaign only.
+const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 7 s (it reaches its place at about frame 200), firing as usual, while
   // two formations close in on it; then a chase pair, and a pod as the reward (plan 7.1, step 2: playtesting showed the passing Heavy
@@ -9569,20 +9570,35 @@ const ENC = {
     { t: 180, do: 'formation', x: 0.25 },
     { t: 330, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
     { t: 480, do: 'chase' },
-    { t: 660, do: 'pod', x: 0.5, own: false }] }
+    { t: 660, do: 'pod', x: 0.5, own: false }] },
+  // Flak lane: two flak guns first; a formation only once they are on screen (15% down, or after 6 s at most), then a strafing run from the
+  // side the ship is not on. The flak covers the air the formation scatters into when its leader falls. Land only: the guns need ground
+  // (starts only over ENC_LAND; the guns go in the plan's flak slots where a level has them).
+  flaklane: { len: 720, max: 1500, rest: 180, budget: [16, 22, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'flak' },
+    { when: 'seen', of: 0, at: 0.15, by: 420, do: 'formation', x: 0.5 }, // (a plan slot's gun can stand up to 48 px higher: about 400 frames)
+    { after: 120, do: 'strafer', i: 0, diff: [1, 2] }, // (no strafing run on Rookie)
+    { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 2, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] }
 };
-// Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also checks)
+// Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
+// dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
+// event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
 const ENC_VERB = {
   heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
   formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
   chase: () => { waveChase(); return true; },
-  pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; }
+  pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; },
+  flak: () => { if (biomeAtSpawn() === 'bossland') return false; FORCE_GROUND = 'encFlak'; try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; } return false; }, // one or two guns where the ground allows (none over water: retried)
+  strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
+    world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
 const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
 function encStart(id) {
-  if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut) return false;
-  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [] }; haptic('warn'); return true;
+  if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut || (ENC[id].biomes && !ENC[id].biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
+  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [], lastT: 0 }; haptic('warn'); return true;
 }
 function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
 // The soft bullet budget: while an encounter runs (or is held), selected shooters ask volleyOK(n) once before a whole volley of n bullets
@@ -9599,7 +9615,11 @@ function volleyOK(n, later = 0) {
   if (later > 0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
 }
 const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
-function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own }; try { ok = ENC_VERB[ev.do](ev); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
+function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own, ev: E0.i }; try { ok = ENC_VERB[ev.do](ev, E0); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
+function encDue(E0, ev) {
+  if (ev.when === 'seen') return E0.t >= ev.by || world.enemies.every(e => e.enc !== E0.id || e.encEv !== ev.of || e.dead || e.dying || harmlessE(e) || e.y >= ev.at * H);
+  return ev.after !== undefined ? E0.t >= E0.lastT + ev.after : E0.t >= ev.t;
+}
 function encEnd(why) {
   const E0 = world.enc; world.encLast = { id: E0.id, why, t: E0.t, over: E0.over, peak: E0.peak, dropped: E0.dropped, at: gf };
   if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
@@ -9612,10 +9632,10 @@ function encTick() {
   if (E0.res.length) { for (const r of E0.res) r[1]--; E0.res = E0.res.filter(r => r[1] > 0); } // reservations of delayed volleys run out as they fire
   if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || e.type === 'sower') && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
   E0.st = 'run'; E0.t++;
-  while (E0.i < D.ev.length && E0.t >= D.ev[E0.i].t) {
+  while (E0.i < D.ev.length && encDue(E0, D.ev[E0.i])) {
     const ev = D.ev[E0.i];
     if (ev.diff && !ev.diff.includes(settings.diff)) { E0.i++; continue; } // not on this difficulty: skipped, not dropped
-    if (encDispatch(E0, ev)) { E0.i++; E0.tries = 0; }
+    if (encDispatch(E0, ev)) { E0.i++; E0.tries = 0; E0.lastT = E0.t; }
     else if (++E0.tries > 60) { E0.i++; E0.tries = 0; E0.dropped++; } // nothing could be placed for a second: go on without it
     else break; // try again next frame; the later events wait behind it
   }
@@ -9992,6 +10012,7 @@ function spawnGround(b) {
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
     else world.enemies.push(G('bunker', sl.x, sl.y, { ga: PI / 2, cd: rnd(60, 120) | 0 }));
     return true; };
+  if (FORCE_GROUND === 'encFlak') { for (let k = 0; k < 2; k++) { const sl = slotAt(['flak']); if (sl) { makeFlak(sl.x, sl.y); continue; } const wx = tryLand(['field', 'grass', 'mud', 'forest', 'concrete', 'apron', 'roof', 'sand', 'yard'], 14); if (wx !== null) makeFlak(wx, wy); } return; } // an encounter's flak (encounter plan, section 6): only flak, in a plan's flak slot where there is one, before the branches below can place something else ('flak' is checked after them)
   { const S = run.sortie; if (S && S.gen && r >= 0.75 && r < 0.95 && planTrain(wy)) return; } // Enigma Run levels 2, 6, 6B: a train on the plan's railway
   // Enigma Run level 2: every gun slot of the desert plan (pits, sangars, bunkers, nests on flat roofs, planes in the pens; tanks dug in: planDrills) gets its unit as it comes up
   { const S = run.sortie; if (S && (S.level === 2 || S.level === 4 || S.level === 5) && S.gen && r < 0.75) { const ks = ['parked']; if (S.level === 4 && count('aatower') < 1 + run.loop) ks.push('aatower'); /* (level 4: the forest's gun sites too, spec 19.1; level 5 its slots) */ if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (!capB) ks.push('bunker'); /* (tank pits: planDrills) */

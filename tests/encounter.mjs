@@ -7,7 +7,8 @@
 // the Shadow Wing waits for a running encounter; the soft budget: with the screen full a gated shooter (the Heavy) waits, the Sower's mines
 // don't count, and once there is room the whole spread fires; a delayed volley reserves its bullets until it has fired; the boss ends it ('boss') and a new level clears it;
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
-// it by itself, once per level.
+// it by itself, once per level. Flak lane: only flak is placed (a plan's slot first), the formation waits until the guns are on screen, the
+// strafing run follows from the other side (not on Rookie), it never starts over the sea, and a flak verb that can place nothing makes nothing.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -165,7 +166,33 @@ const playOut = `
   await page.close();
 }
 {
-  // 6. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
+  // 6. Flak lane
+  const page = await freshPage();
+  const play = (lv, diff, seed, at) => `(() => { window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(${lv}, true); delete window.__forceSeed; SF.run(${at});
+    const started = encStart('flaklane'), D = ENC.flaklane, disp = {}, tagged = new Set(); let lastI = 0, f = 0, seenAt = -1;
+    while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
+      while (lastI < E0.i) disp[lastI++] = E0.t;
+      for (const e of world.enemies) if (e.enc === 'flaklane') tagged.add(e);
+      const guns = [...tagged].filter(e => e.type === 'flak' && !e.dead); if (seenAt < 0 && guns.length && guns.every(e => e.y >= 0.15 * H)) seenAt = E0.t; }
+    const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
+    return JSON.stringify({ started, disp, seenAt, types, last: world.encLast }); })()`;
+  const v = JSON.parse(await peek(page, play(2, 1, 31, 300)));
+  ok(v.started && v.types.flak >= 1 && v.types.flak <= 2 && Object.keys(v.types).every(k => ['flak', 'troop', 'fighter'].includes(k)), `Flak lane places one or two guns (with crews) and nothing else: ${JSON.stringify(v.types)}`);
+  ok(v.seenAt > 0 && v.disp[1] === v.seenAt + 1, `the formation goes as soon as the guns are 15% down the screen (they get there as the enemies move in frame ${v.seenAt}; the next frame's tick sends it: ${v.disp[1]})`);
+  ok(v.disp[2] === v.disp[1] + 120 && v.disp[3] === v.disp[2] + 16 && v.disp[5] === v.disp[4] + 16 && v.types.fighter === 9, `then a strafing run of four, 120 frames after the formation, 16 apart (${[2, 3, 4, 5].map(i => v.disp[i]).join(', ')})`);
+  ok(v.last && v.last.why === 'done' && v.last.dropped === 0, `Flak lane ends 'done' after ${v.last && v.last.t} frames, nothing dropped`);
+  const r = JSON.parse(await peek(page, play(2, 0, 31, 300)));
+  ok(r.types.fighter === 5 && r.last && r.last.why === 'done', `Rookie: no strafing run (${JSON.stringify(r.types)})`);
+  const p4 = JSON.parse(await peek(page, play(4, 1, 31, 2200)));
+  ok(p4.types.flak >= 1 && p4.last && p4.last.dropped === 0, `level 4 (a level with a plan): its gun is placed (${JSON.stringify(p4.types)})`);
+  const sea = JSON.parse(await peek(page, `(() => { window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed; SF.run(1500);
+    const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
+  ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
+  ok(sea.made === false && sea.same, 'over the sea the flak verb places nothing and says so, so a retry is safe');
+  await page.close();
+}
+{
+  // 7. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
   const page = await freshPage('?enc=anvil');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
