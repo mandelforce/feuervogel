@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8120,7 +8120,7 @@ function newGame() {
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
-  world.midDone = false; world.bossSpawned = false;
+  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = null;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
   sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
@@ -9255,6 +9255,7 @@ const ENIG_BOX = { truck: [6, 11], acar: [5.5, 10], moto: [4.5, 6.5], staff: [5,
 function E(type, o) {
   const e = Object.assign({ type, x: 0, y: 0, t: 0, hp: 1, hw: 6, hh: 6, score: 100, hit: 0, ground: false, big: false, mt: 0, rad: 10 }, baseStats(type), o);
   if (run.sortie) { const b = ENIG_BOX[type]; if (b) { e.hw = b[0]; e.hh = b[1]; } }
+  if (encTag) { e.enc = encTag.id; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch)
   return e;
 }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(world.scroll) }, o)); }
@@ -9423,7 +9424,7 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = world.enemies.some(e => e.big && !e.dead);
-  if (!world.midDone && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); }
+  if (!world.midDone && !world.enc && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); } // (the Shadow Wing waits until an encounter and its rest are over)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -9443,6 +9444,7 @@ function directorInner() {
     else if (world.curTheme === 5) spawnProtoDuel(warn);
     else warn();
   }
+  encTick();
   if (world.bossSpawned) {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead && (e.kind !== 'skyfort' || e.phase === 'fight'))) waveDive(3); }
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
@@ -9463,13 +9465,13 @@ function directorInner() {
   else if (zone === 'calm') world.podCd = Math.max(world.podCd, 30);
   if (zone === 'air' || zone === 'calm') world.groundCd = Math.max(world.groundCd, 30);
   if (world.carrier && !world.carrier.over) { world.waveCd = Math.max(world.waveCd, 30); world.groundCd = Math.max(world.groundCd, 30); if (world.carrier.t < CV.T1) world.podCd = Math.max(world.podCd, 30); } // the carrier's launches are the waves while it lasts
-  if (--world.groundCd <= 0) {
+  if (!encHeld('ground') && --world.groundCd <= 0) {
     if (zone === 'ground' && b !== 'sea' && b !== 'coastUp' && b !== 'coastDown') { if (Math.random() < 0.6) convoy(-34 - sc, Math.random() < 0.4); else spawnGround(b); }
     else spawnGround(b);
     world.groundCd = (1 / Math.max(0.4, dens)) * ({ factory: 46, sea: 95, coastUp: 75, coastDown: 75, country: 66, forest: 70, base: 54, bossland: 90, fortline: 50, castle: 70, city: 48 }[b] || 70) - Math.min(16, run.loop * 8);
   }
-  if (--world.waveCd <= 0) { spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
-  if (--world.podCd <= 0 && !big) { world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
+  if (!encHeld('air') && --world.waveCd <= 0) { spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
+  if (!encHeld('pod') && --world.podCd <= 0 && !big) { world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
 }
 function mkFighter(x, y, h, v, o) {
   const boom = (run.stage >= 2 || run.endless || settings.mode === 'gen') && Math.random() < 0.18 + run.loop * 0.08;
@@ -9514,8 +9516,8 @@ function runSetPiece(i, b) {
   else if (kind === 'flak') { for (let k = 0; k < 4; k++) world.later.push({ at: gf + k * 45, fn: () => { FORCE_GROUND = 'flak'; spawnGround(biomeAtSpawn()); FORCE_GROUND = null; } }); }
   haptic('warn');
 }
-function waveDive(n = 5) {
-  const cx = rnd(50, W - 50), offs = [[0, 0], [-15, -13], [15, -13], [-30, -26], [30, -26]];
+function waveDive(n = 5, cx0) {
+  const cx = cx0 === undefined ? rnd(50, W - 50) : cx0, offs = [[0, 0], [-15, -13], [15, -13], [-30, -26], [30, -26]];
   for (let i = 0; i < n; i++) world.enemies.push(mkFighter(cx + offs[i][0], -14 + offs[i][1], PI / 2, 1.9 + run.loop * 0.2));
 }
 function waveSweep() {
@@ -9535,9 +9537,9 @@ function waveBomber() {
   world.enemies.push(E('bomber', { x: rnd(50, W - 50), y: -22, hp, maxhp: hp, gcd: 60 }));
 }
 function wavePfeil() { for (const side of [-1, 1]) world.enemies.push(E('pfeil', { side })); } // (a pair, one from each side; pfeilTick places them off the screen)
-function waveHeavy() { world.enemies.push(E('heavy', { x: rnd(40, W - 40), y: -20, cd: 50, ph: Math.random() * 6 })); }
-function waveLeader() {
-  const cx = rnd(60, W - 60), L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
+function waveHeavy(cx, o) { world.enemies.push(E('heavy', Object.assign({ x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 }, o))); }
+function waveLeader(cx0) {
+  const cx = cx0 === undefined ? rnd(60, W - 60) : cx0, L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
   for (const [ox, oy] of [[-18, -14], [18, -14], [-36, -28], [36, -28]]) world.enemies.push(mkFighter(cx + ox, -14 + oy, PI / 2, 1.45, { lead: L, ox, oy, fireAt: (rnd(30, 70)) | 0 }));
 }
 function spawnWave(b, big) {
@@ -9552,6 +9554,60 @@ function spawnWave(b, big) {
   else if (r < 0.6) waveSweep();
   else if (r < 0.8) waveStrafe();
   else waveChase();
+}
+// ---------- Encounter director (docs/encounter-director-plan.md): authored compositions of existing enemies on a frame clock ----------
+// An encounter's events (ev, sorted by t, in frames) are dispatched in order by spawn verbs. What they create is tagged (e.enc) and its
+// threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
+// rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
+// (world.enc, world.encLast), so snapshots and replays keep it. For now (plan step 3) only encStart starts one (tests), in the Campaign only.
+const ENC = {
+  // The Anvil: a Heavy that stops at 28% of the screen and holds for 7 s (it reaches its place at about frame 200), firing as usual, while
+  // two formations close in on it; then a chase pair, and a pod as the reward (plan 7.1, step 2: playtesting showed the passing Heavy
+  // didn't read as an anchor). budget: the soft bullet budget per difficulty (measured only, for now).
+  anvil: { len: 720, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
+    { t: 0, do: 'heavy', x: 0.5, hold: 0.28, holdT: 420 },
+    { t: 180, do: 'formation', x: 0.25 },
+    { t: 330, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
+    { t: 480, do: 'chase' },
+    { t: 660, do: 'pod', x: 0.5, own: false }] }
+};
+// Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also checks)
+const ENC_VERB = {
+  heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
+  formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
+  chase: () => { waveChase(); return true; },
+  pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; }
+};
+let encTag = null; // { id, own } while a verb runs: E() tags what it makes
+const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
+function encStart(id) {
+  if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut) return false;
+  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0 }; haptic('warn'); return true;
+}
+function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
+const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
+function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own }; try { ok = ENC_VERB[ev.do](ev); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
+function encEnd(why) {
+  const E0 = world.enc; world.encLast = { id: E0.id, why, t: E0.t, over: E0.over, peak: E0.peak, dropped: E0.dropped, at: gf };
+  if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
+}
+function encTick() {
+  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast && (LB_TEST || !run.ranked)) encStart(ENC_TRY); return; } // (encLast: one has already run in this level)
+  const D = ENC[E0.id];
+  if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
+  if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
+  if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || e.type === 'sower') && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
+  E0.st = 'run'; E0.t++;
+  while (E0.i < D.ev.length && E0.t >= D.ev[E0.i].t) {
+    const ev = D.ev[E0.i];
+    if (ev.diff && !ev.diff.includes(settings.diff)) { E0.i++; continue; } // not on this difficulty: skipped, not dropped
+    if (encDispatch(E0, ev)) { E0.i++; E0.tries = 0; }
+    else if (++E0.tries > 60) { E0.i++; E0.tries = 0; E0.dropped++; } // nothing could be placed for a second: go on without it
+    else break; // try again next frame; the later events wait behind it
+  }
+  E0.owned = encOwned(E0.id);
+  const nb = world.ebul.length; E0.peak = Math.max(E0.peak, nb); if (nb > D.budget[settings.diff]) E0.over++;
+  if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
 // Enigma Run (levels 2, 6, 6B): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
 // as the run comes up above the screen: a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, one train at a time,
@@ -10476,7 +10532,7 @@ function doFinishResults() {
     world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = pBot - 2; chunkHouses.clear(); fieldOkCache.clear(); houseCache.clear(); railEndCache.clear(); flowCache.clear(); canopyCache.clear(); rxW = NaN;
     world.decals.length = 0; props.length = 0; world.items.length = 0; critters.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); world.enemies = world.enemies.filter(e => !e.ground);
     ensureChunks(); world.midDone = false; world.bossSpawned = false; }
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = null; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); sfx('start'); if (app.state === 'play') playSong(STAGE_SONGS[world.curTheme]);
   if (player && !player.dead) player.fly = 110;
   markStage();
@@ -11771,7 +11827,8 @@ const ENT = {
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
   } },
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
-    e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
+    const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
+    e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
@@ -14820,6 +14877,10 @@ function renderMain() {
   if (app.congrats) drawCongrats();
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
   if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
+  if (settings.fps && (LB_TEST || ENC_TRY) && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds, or with ?enc)
+    const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + world.ebul.length + '/' + ENC[E0.id].budget[settings.diff]
+      : L && gf - L.at < 180 ? 'ENC ' + L.id + ' ' + L.why.toUpperCase() + ' ' + L.t + ' OVER ' + L.over + ' PEAK ' + L.peak : '';
+    if (t) textS(t, W / 2, H - SAFE_B - 28, '#c8b0ff', 1, 'center'); }
 
   if (app.msg && app.state === 'play' && app.cont === 0 && !app.results && !app.congrats) {
     const warn = app.msg.a === 'WARNING';
