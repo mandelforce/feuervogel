@@ -1,5 +1,6 @@
 // City generator test (tools/citygen.js, the settlement generator behind tools/citylab.html). Node only, no browser:
 //   node tests/citygen.mjs          100 seeds of every preset and density curve the lab offers; every hard rule must hold
+//   node tests/citygen.mjs --shard 2/4   only every 4th check, starting with the 2nd (CI runs the four shards side by side)
 // Hard rules: no overlapping buildings, every house fronts a street, every tank carriageway joins the main road, churches spaced out,
 // and the same seed always gives the same plan. Also prints plan time and density error per curve.
 import { readFileSync } from 'node:fs';
@@ -8,8 +9,10 @@ const require = createRequire(import.meta.url);
 const CG = require('../tools/citygen.js');
 const CURVES = { town: [[0, 0.04], [0.16, 0.28], [0.38, 0.66], [0.58, 1], [0.8, 0.86], [1, 0.6]], approach: [[0, 0.03], [0.2, 0.22], [0.45, 0.5], [0.7, 0.8], [1, 1]], centre: [[0, 0.85], [0.5, 1], [1, 0.9]], fringe: [[0, 0.03], [0.4, 0.3], [1, 0.4]] };
 let bad = 0; const fail = m => { bad++; console.error('FAIL ' + m); };
+const [shard, shards] = (process.argv.includes('--shard') ? process.argv[process.argv.indexOf('--shard') + 1] : '1/1').split('/').map(Number);
+let checkNo = 0; const part = () => checkNo++ % shards === shard - 1;
 const hash = p => { let h = 2166136261; for (const a of [p.K, p.B]) for (let i = 0; i < a.length; i += 7) { h ^= a[i] & 0xffff; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16) + ':' + p.items.length + ':' + p.slots.length; };
-for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0.6]) {
+for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0.6]) if (part()) {
   const ms = [], errs = []; let fails = 0, sq = 0, slots = 0;
   for (let seed = 1; seed <= 100; seed++) {
     const t = performance.now(), p = CG.generate({ seed, params: { density, damage } }); ms.push(performance.now() - t);
@@ -21,7 +24,7 @@ for (const [name, density] of Object.entries(CURVES)) for (const damage of [0, 0
   console.log(`${fails ? 'FAIL' : 'ok  '} ${name.padEnd(9)} damage ${damage}: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median / ${ms[99].toFixed(0)} max, density error ${(errs.reduce((a, b) => a + b, 0) / 100).toFixed(1)} pts, squares ${sq}, slots ${(slots / 100).toFixed(1)} per town`);
 }
 // the river towns: every hard rule, at least two bridges over an island river and one over any other, the island reached by tanks
-for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let fails = 0, bridges = 0;
+for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) if (part()) { let fails = 0, bridges = 0;
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p); bridges += m.bridges;
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}, island reached ${m.islandReach}`); }
     if (p.craters.some(c => { const k = p.K[Math.round(c.y) * p.W + Math.round(c.x)]; return k === CG.K.RIVER || k === CG.K.BRIDGE; })) { fails++; fail(`${preset} seed ${seed}: a bomb crater in the river`); } }
@@ -30,7 +33,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // islands (Enigma Run level 1): every hard rule; the warships' lane through the chain is open water; the islets include a farm with a paddock,
 // houses and gun islets with turret and flak slots; the large island has its village (with the green), a farmstead and paddock beyond it, the
 // wood, the pond, the jetty and the airbase (a runway of at least 200 px, hangars, blast pens, gun pits); the same seed gives the same plan
-{ let fails = 0; const c = { farmIsle: 0, paddock: 0, houses: 0, guns: 0, green: 0, wood: 0, pond: 0, jetty: 0, runway: 0, hangars: 0, pens: 0 }, ms = [];
+if (part()) { let fails = 0; const c = { farmIsle: 0, paddock: 0, houses: 0, guns: 0, green: 0, wood: 0, pond: 0, jetty: 0, runway: 0, hangars: 0, pens: 0 }, ms = [];
   for (let seed = 1; seed <= 100; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'islands' }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`islands seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lane blocked ${m.lanesBlocked}`); }
     const isleY = Math.round(p.L * p.P.big[0]), kinds = new Set(p.slots.filter(s => s.y < isleY).map(s => s.kind));
@@ -48,7 +51,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // town is at war (owner mockup E): its promenade, obstacles in the shallows, wire, casemates and bunker slots on the beach, the pier cut
 // through; the village pond is a well; the port's density follows portDensity. The desert palette must not leak: a temperate town painted
 // after a desert one is the same as painted on its own.
-{ let fails = 0; const c = { desert: 0, flat: 0, domes: 0, palms: 0, noFields: 0, prom: 0, war: 0, pier: 0, wells: 0 }, ms = [];
+if (part()) { let fails = 0; const c = { desert: 0, flat: 0, domes: 0, palms: 0, noFields: 0, prom: 0, war: 0, pier: 0, wells: 0 }, ms = [];
   for (const preset of ['portDesert', 'villageDesert']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}, trains blocked ${m.trainBlocked}`); }
     let nd = 0, prom = 0, nf = 0; for (let i = 0; i < p.K.length; i++) { if (p.K[i] === CG.K.DESERT) nd++; if (p.K[i] === CG.K.FIELD) nf++; if (p.K[i] === CG.K.WALK && p.B[i] === -15) prom++; }
@@ -69,7 +72,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // size; in a held village every part of the kit (trench, pits, wire, mines with signs, the ditch, the roadblock, the bunker and tank slots, a
 // net, roof nests); in a strongpoint six pits, two nets, the tank slot and wire with a gap; and the track always free: no trench, ditch, pit or
 // spoil on it, so tanks pass
-{ let fails = 0; const c = { grove: 0, hall: 0, sizes: 0, held: 0, post: 0, track: 0 }, ms = [], ruinShare = { oasisSmall: 0, oasis: 0, oasisLarge: 0 }, houses = { oasisSmall: 0, oasis: 0, oasisLarge: 0 };
+if (part()) { let fails = 0; const c = { grove: 0, hall: 0, sizes: 0, held: 0, post: 0, track: 0 }, ms = [], ruinShare = { oasisSmall: 0, oasis: 0, oasisLarge: 0 }, houses = { oasisSmall: 0, oasis: 0, oasisLarge: 0 };
   for (const preset of ['oasisSmall', 'oasis', 'oasisLarge', 'oasisHeld', 'desertPost']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}`); }
     let bad = 0; for (let y = 0; y < p.L; y++) for (let x = Math.round(p.mx[y] - 4); x <= p.mx[y] + 4; x++) if ([CG.K.TRENCH, CG.K.DITCH, CG.K.SPOIL].includes(p.K[y * p.W + x])) bad++; if (!bad) c.track++;
@@ -87,7 +90,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // reach every track pixel); the valley's wadi and oil field (derricks, pumpjacks, tanks, a well burning); the pass's 120 px gorge, its deep
 // ravine with the stone viaduct (20 px across, the rails over the whole ravine) and the road bridge, sangars and the fort with four towers; the
 // junction's branch (a straight train run of 150 px or more), platform, station and wagons; the airbase's runway, pens, hangar and tower
-{ let fails = 0; const c = { valley: 0, pass: 0, gorge: 0, junction: 0, airbase: 0 }, ms = [];
+if (part()) { let fails = 0; const c = { valley: 0, pass: 0, gorge: 0, junction: 0, airbase: 0 }, ms = [];
   for (const preset of ['desertValley', 'desertPass', 'desertJunction', 'desertAirbase']) for (let seed = 1; seed <= 60; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass || m.trainBlocked) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
     const n = k => { let q = 0; for (const v of p.K) if (v === k) q++; return q; };
@@ -104,7 +107,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} desert segments: ${240 - fails}/240 pass, plan ${ms[120].toFixed(1)} ms median; of 60 each: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
 // Level 2 as one plan (sandSea, 20 seeds): every hard rule, the port and the desert joined (one track, trains clear), every segment's feature,
 // and side tracks (tank routes off the main track, at least four per level) for the game's tanks to turn into
-{ let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'sandSea' }); ms.push(performance.now() - t); const m = CG.validate(p);
+if (part()) { let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; seed++) { const t = performance.now(), p = CG.generate({ seed, preset: 'sandSea' }); ms.push(performance.now() - t); const m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`sandSea seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}, lanes blocked ${m.lanesBlocked}`); }
     const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 3 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
   ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
@@ -112,7 +115,7 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
 // Level 2, nothing stands on a road or the railway (owner review): no gun slot, pit, shell hole, oil spill or oasis on a track, a road or the rail's
 // corridor; the oasis grove never straddles the line; the port's road wears through to the dirt track and the valley's rock rises from the join's
 // first rows (no straight cliff edge and no hard road end where the port plan meets the desert)
-{ let bad = 0, first = ''; const note = m => { bad++; if (!first) first = m; };
+if (part()) { let bad = 0, first = ''; const note = m => { bad++; if (!first) first = m; };
   for (let seed = 1; seed <= 40; seed++) { const p = CG.generate({ seed, preset: 'sandSea' }), W = p.W, Lp = p.port.y1 + 1, kAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.K[Math.round(y) * W + Math.round(x)], bAt = (x, y) => (x < 0 || x >= W || y < 0 || y >= p.L) ? -1 : p.B[Math.round(y) * W + Math.round(x)];
     const onWay = (x, y) => { const k = kAt(x, y); return k === CG.K.ROAD || k === CG.K.BRIDGE || k === CG.K.RAIL || k === CG.K.RBRIDGE || (y >= Lp && k === CG.K.DESERT && bAt(x, y) === -50); };
     for (const sl of p.slots) if (sl.y >= Lp && sl.on === 'pit' && onWay(sl.x, sl.y)) note(`seed ${seed}: a ${sl.kind} pit at ${sl.x},${sl.y} on a road or the rail`);
@@ -124,29 +127,29 @@ for (const preset of ['river', 'rivers']) for (const damage of [0, 0.6]) { let f
     if (!p.roadBlend || p.roadBlend[0] >= Lp || p.roadBlend[1] <= Lp) note(`seed ${seed}: no road blend across the join`); }
   if (bad) fail(`level 2 clear ways: ${bad} problems, first: ${first}`); else console.log('ok   level 2 clear ways: 40 seeds, nothing on a road or the rail, the grove clear of the line, the join without an edge'); }
 // the river animation gives streaks on the water only
-{ const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
+if (part()) { const p = CG.generate({ seed: 3, preset: 'rivers' }); let n = 0, dry = 0; for (let t = 0; t < 6; t += 0.25) for (const r of CG.riverFx(p, t)) { n++; for (let x = r.x; x < r.x + r.w; x++) if (p.K[r.y * p.W + x] !== CG.K.RIVER) dry++; }
   if (!n || dry) fail(`river animation: ${n} streaks, ${dry} pixels off the water`); else console.log(`ok   river animation: ${n} streaks in 24 frames, all on the water`); }
 // quarters: steep planned grids everywhere (the lab's extreme) still keep every hard rule; the default mix gives all three street patterns
-for (const preset of ['town', 'river']) { let fails = 0;
+for (const preset of ['town', 'river']) if (part()) { let fails = 0;
   for (let seed = 1; seed <= 100; seed++) { const m = CG.validate(CG.generate({ seed, preset, params: { gridChance: 1, gridTilt: [0.3, 0.4] } }));
     if (!m.pass) { fails++; if (fails <= 3) fail(`steep grid ${preset} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, bridges ${m.bridges}`); } }
   console.log(`${fails ? 'FAIL' : 'ok  '} steep grid ${preset.padEnd(5)}: ${100 - fails}/100 pass (every quarter a planned grid tilted 17 to 22 degrees)`);
 }
-{ const styles = {}; let tilted = 0, tracks = 0;
+if (part()) { const styles = {}; let tilted = 0, tracks = 0;
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed }); for (const q of p.quarters) styles[q.style] = (styles[q.style] || 0) + 1; tilted += p.streets.filter(s => Math.abs(s.slope || 0) >= 0.1).length; tracks += p.tracks.length; }
   const okMix = styles.fields > 0 && styles.grid > 0 && styles.follow > 0 && tilted > 0 && tracks > 0;
   if (!okMix) fail(`quarters: the default town lacks a street pattern (${JSON.stringify(styles)}, ${tilted} tilted streets, ${tracks} farm tracks)`);
   else console.log(`ok   quarters: ${styles.fields} field-lane, ${styles.grid} grid, ${styles.follow} follow quarters in 100 towns; ${tilted} tilted streets, ${tracks} farm tracks`);
 }
 // step 2: the old town, roundabouts and public buildings turn up in most default towns
-{ const n = { old: 0, star: 0 }, civ = {};
+if (part()) { const n = { old: 0, star: 0 }, civ = {};
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed }); if (p.oldTown) n.old++; if (p.stars.length) n.star++; for (const c of new Set(p.civic.map(c => c.label))) civ[c] = (civ[c] || 0) + 1; }
   const need = { 'Town hall': 70, 'Government building': 25, 'Domed hall': 30, 'Department store': 35, Gasworks: 70 }, short = Object.keys(need).filter(k => (civ[k] || 0) < need[k]);
   if (n.old < 80 || n.star < 85 || short.length) fail(`step 2: old towns ${n.old}, roundabouts ${n.star}, ${JSON.stringify(civ)}`);
   else console.log(`ok   step 2 in 100 towns: old town ${n.old}, roundabout ${n.star}, ${Object.entries(civ).map(([k, v]) => k.toLowerCase() + ' ' + v).join(', ')}`);
 }
 // the village and the industrial estate: every hard rule, a village green with farmsteads, industrial quarters with a power station
-for (const preset of ['village', 'crossroads', 'industrial']) for (const damage of [0, 0.6]) { let fails = 0, green = 0, farms = 0, ind = 0, power = 0;
+for (const preset of ['village', 'crossroads', 'industrial']) for (const damage of [0, 0.6]) if (part()) { let fails = 0, green = 0, farms = 0, ind = 0, power = 0;
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}`); }
     if (p.oldTown && p.oldTown.green) green++; farms += p.farms.length; if (p.quarters.some(q => q.style === 'industry')) ind++; if (m.civic.includes('Power station')) power++; }
@@ -159,7 +162,7 @@ for (const preset of ['village', 'crossroads', 'industrial']) for (const damage 
 // the port city (a horizontal harbour at the end quay, alone or with a side harbour opening into it) and the coastal city (a side harbour):
 // every hard rule, piers, ships, two lighthouses, the U-boat bunker, a channel of at least 28 px beside a side harbour's piers with a ship
 // passing, the railway clear of the sea
-for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.6]) { let fails = 0, piers = 0, ships = 0, lights = 0, bunker = 0, berth = 0, painted = 0, wetRail = 0, ot = 0, chan = 0, side = 0; const forms = {};
+for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.6]) if (part()) { let fails = 0, piers = 0, ships = 0, lights = 0, bunker = 0, berth = 0, painted = 0, wetRail = 0, ot = 0, chan = 0, side = 0; const forms = {};
   for (let seed = 1; seed <= 100; seed++) { const p = CG.generate({ seed, preset, params: { damage } }), m = CG.validate(p); forms[p.coast.mode] = (forms[p.coast.mode] || 0) + 1;
     if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}`); }
     piers += p.port.piers; ships += p.ships.length; lights += p.items.filter(i => i.part === 'lighthouse').length; if (p.items.some(i => i.part === 'bunker')) bunker++; if (p.ships.some(sh => sh.kind === 'uboat')) painted++;
@@ -174,7 +177,7 @@ for (const preset of ['port', 'portSouth', 'coast']) for (const damage of [0, 0.
 }
 // the beach landing: every hard rule, beach exits from the coastal road, a bunker line in the dunes (at least four bunkers), a coastal battery
 // with its radar, obstacles and wire on the sand, the sea before the beach open for the flagship, nothing standing in the sea
-for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 99, bat = 0, radar = 0, obst = 0, fleet = 0, wet = 0;
+for (const damage of [0, 0.6]) if (part()) { let fails = 0, exits = 0, bunkers = 0, minB = 99, bat = 0, radar = 0, obst = 0, fleet = 0, wet = 0;
   for (let seed = 1; seed <= 60; seed++) { const p = CG.generate({ seed, preset: 'beach', params: { damage } }), m = CG.validate(p);
     if (!m.pass) { fails++; if (fails <= 3) fail(`beach damage ${damage} seed ${seed}: overlap ${m.overlapPx}, off the street ${m.noFrontage}, tank reach ${m.tankReach.toFixed(3)}, lanes blocked ${m.lanesBlocked}`); }
     const nb = p.beachSlots.filter(b => b.kind === 'bunker' && b.on !== 'radar').length; bunkers += nb; minB = Math.min(minB, nb); if (p.battery >= 3) bat++; if (p.beachSlots.some(b => b.on === 'radar')) radar++;
@@ -187,7 +190,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // harbours and railways: harbours in most river towns, a straight main line in every town, stations and second lines in most, rail bridges
 // wherever a line crosses a river, no rail under a building other than the train shed, and the game's trains (16 px wide, about 200 px long)
 // fit their runs: nothing within 8 px of the track (validate's trainBlocked, part of every pass above)
-{ const n = { hb: 0, st: 0, stR: 0, br: 0, run: 0, rb: 0, rbNeed: 0 }; let wet = 0, under = 0, blocked = 0, mainShort = 0;
+if (part()) { const n = { hb: 0, st: 0, stR: 0, br: 0, run: 0, rb: 0, rbNeed: 0 }; let wet = 0, under = 0, blocked = 0, mainShort = 0;
   for (let seed = 1; seed <= 100; seed++) for (const preset of ['town', 'river']) { const p = CG.generate({ seed, preset }), m = CG.validate(p);
     if (preset === 'river' && p.harbour) n.hb++; if (p.station) preset === 'town' ? n.st++ : n.stR++; if (p.railway && p.railway.branch) n.br++; if (p.trainRuns.some(r => r.line === 'branch')) n.run++;
     blocked += m.trainBlocked; const main = p.trainRuns.find(r => r.line === 'main'); if (!main || main.y1 - main.y0 < p.L - 1) mainShort++;
@@ -198,7 +201,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   else console.log(`ok   railway: a straight main line in 200 of 200 towns, stations in ${n.st} towns and ${n.stR} river towns, a second line in ${n.br} (a straight train run on it in ${n.run}), rail bridges in every river town, trains clear everywhere; harbour in ${n.hb} river towns`);
 }
 // no road markings in town: paint whole towns and look for the marking colour
-{ const mark = CG.palette.mark; let marks = 0;
+if (part()) { const mark = CG.palette.mark; let marks = 0;
   for (const [seed, preset] of [[1, 'town'], [5, 'town'], [9, 'river'], [12, 'rivers']]) {
     const p = CG.generate({ seed, preset }), img = { data: new Uint8ClampedArray(p.W * p.L * 4) }; CG.paint(p, img, 0, p.L, { noFx: true });
     const d = img.data; for (let o = 0; o < d.length; o += 4) if (d[o] === mark[0] && d[o + 1] === mark[1] && d[o + 2] === mark[2]) marks++; }
@@ -206,7 +209,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 }
 // a whole level (as Enigma Run level 6 builds it): 4224 px of river town with the station kept to its stretch near the end, works only in
 // theirs, and the airfield's perimeter in the last 64 rows (perimeter road, fence, gate, apron, tracks ending at buffer stops)
-{ const L = 4224, params = { L, density: [[0, 0.05], [0.061, 0.05], [0.212, 0.3], [0.333, 0.5], [0.44, 0.65], [0.576, 0.8], [0.674, 1], [0.773, 1], [0.856, 0.9], [0.947, 0.9], [1, 0.9]], damageCurve: [[0, 0], [0.33, 0.09], [0.576, 0.24], [0.674, 0.36], [0.773, 0.45], [0.856, 0.6], [1, 0.48]], damage: 1, farms: 0.4,
+if (part()) { const L = 4224, params = { L, density: [[0, 0.05], [0.061, 0.05], [0.212, 0.3], [0.333, 0.5], [0.44, 0.65], [0.576, 0.8], [0.674, 1], [0.773, 1], [0.856, 0.9], [0.947, 0.9], [1, 0.9]], damageCurve: [[0, 0], [0.33, 0.09], [0.576, 0.24], [0.674, 0.36], [0.773, 0.45], [0.856, 0.6], [1, 0.48]], damage: 1, farms: 0.4,
     road0: 120, stationAt: [0.894, 1 - 170 / L], stationRoom: 64, industryAt: [0.727, 0.818], power: true, perimeter: 64, river: Object.assign({}, CG.PRESETS.river.river, { at: 0.52 }) };
   let fails = 0, st = 0, ind = 0, out = 0, per = 0, stops = 0;
   for (let seed = 1; seed <= 30; seed++) { const p = CG.generate({ seed, preset: 'river', params }), m = CG.validate(p);
@@ -219,7 +222,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   console.log(`${ok ? 'ok  ' : 'FAIL'} whole level (4224 px): ${30 - fails}/30 pass, station in its stretch in ${st}, ${ind} works quarters in theirs and ${out} outside, the airfield's perimeter in ${per}, buffer stops in ${stops}`); }
 // Enigma level 3, the whole level (longNight preset): every hard rule, the yard with wagons and its train runs to the end, the airbase, the
 // forest, the pylon line and the searchlight posts (each with a generator) in every seed
-{ let fails = 0, have = 0, posts = 0;
+if (part()) { let fails = 0, have = 0, posts = 0;
   for (let seed = 1; seed <= 30; seed++) { const p = CG.generate({ seed, preset: 'longNight' }); if (!CG.validate(p).pass) fails++;
     const runs = [93, 131, 55, 169].every(x => p.trainRuns.some(r => r.x === x && r.y1 === p.L - 1));
     if (p.yard && p.yard.wagons.length >= 20 && runs && p.airbase && p.airbase.planes.length >= 4 && p.forest && p.pylons && p.pylons.filter(q => q.ok).length >= 4 && p.searchPosts.length >= 4 && p.slots.filter(q => q.kind === 'gen').length >= 3) have++; posts += p.searchPosts.length; }
@@ -229,7 +232,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // gorge from the slipway to the plateau, the clifftop battery (three casemates with arty slots), a lighthouse, a radar, a pillbox and a flak pit on
 // the ledges; in the conifer forest crowns of every size class and all three kinds, two forest roads that are tank routes, firebreaks, plantations,
 // clearings and clear-cuts, and the forest's guns (flak sites cut into the trees, bunkers at the firebreaks, guns in the clearings and cuts). The same seed gives the same plan, and painting in bands equals painting whole.
-{ let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('forest land: ' + m); } };
+if (part()) { let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('forest land: ' + m); } };
   for (const preset of ['cliffCoast', 'coniferForest']) for (let seed = 1; seed <= 60; seed++) { const p = CG.generate({ seed, preset }), m = CG.validate(p); if (!m.pass) { fails++; if (fails <= 3) fail(`${preset} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach}`); }
     need(p.conifers.every(c => c.length > 100) && [0, 1, 2].every(sp => p.conifers.some(c => c.some(t => t.sp === sp))), `${preset} ${seed}: conifers of every size and kind`);
     if (preset === 'cliffCoast') { const CL = p.cliffs, n = k => p.K.reduce((a, v) => a + (v === k), 0), parts = new Set(p.items.map(i => i.part));
@@ -249,7 +252,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // sea never meets the harbour's water; the mountain village has its mountains (snow slopes, rock, shadows, conifers), chalets on the road and on terraces,
 // the chapel, the sawmill, the cable car, avalanche fences and (nearly always) the ski jump, and no village green; every deciduous tree is bare; roofs are white; the river freezes; the winter palette does not leak;
 // the same seed gives the same plan, and painting in bands equals painting whole.
-{ let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('winter: ' + m); } }, c = { holes2: 0, breaks: 0, jumps: 0 }, ms = [];
+if (part()) { let fails = 0, miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 5) fail('winter: ' + m); } }, c = { holes2: 0, breaks: 0, jumps: 0 }, ms = [];
   const count = (p, k, b) => { let n = 0; for (let i = 0; i < p.K.length; i++) if (p.K[i] === k && (b === undefined || p.B[i] === b)) n++; return n; };
   const runs = [['frozenSea', 60], ['portWinter', 60], ['mountainVillage', 60], ['winterLine', 30]];
   for (const [preset, N] of runs) for (let seed = 1; seed <= N; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
@@ -291,7 +294,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // track; tunnel spurs on both sides; cornices over open stretches (none with a gallery under it unless marked) and over some galleries; at least
 // one bridge from outer track to outer track across the chasm, clear of galleries and spurs; ground types; the same seed gives the same plan;
 // painting in bands equals painting whole.
-{ let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('gorge: ' + m); } }, ms = [], tot = { gal: 0, spurs: 0, corn: 0, over: 0, br: 0 };
+if (part()) { let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('gorge: ' + m); } }, ms = [], tot = { gal: 0, spurs: 0, corn: 0, over: 0, br: 0 };
   const hsh = d => { let x = 2166136261; for (let i = 0; i < d.length; i++) { x ^= d[i]; x = Math.imul(x, 16777619); } return x >>> 0; };
   for (let seed = 1; seed <= 12; seed++) { const t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge' }); ms.push(performance.now() - t0); const v = CG.validate(p), G = p.gorge, W = p.W, Lr = 84 * 64;
     need(v.pass, `seed ${seed}: a hard rule fails`); if (!G) { need(false, `seed ${seed}: no gorge`); continue; }
@@ -321,7 +324,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
 // the aged desert (P.wear): no house, hall, lean-to or square of a desert village stands on a carriageway (any preset, 100 seeds), the three village
 // characters have what they promise (old plaster, lean-tos, gardens, weeds, packed earth; the old village the most ruins, the roadside hamlet a square and
 // a well), the same seed gives the same plan, and a plan without wear keeps the clean look exactly (no ages, no worn ground)
-{ let fails = 0, aged = 0, lean = 0, plots = 0, tufts = 0; const ms = [], ruins = {}, need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('aged desert: ' + m); } };
+if (part()) { let fails = 0, aged = 0, lean = 0, plots = 0, tufts = 0; const ms = [], ruins = {}, need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('aged desert: ' + m); } };
   for (const preset of ['oasis', 'oasisLarge', 'oasisHeld', 'oasisAged', 'roadsideHamlet', 'oldVillage']) { ruins[preset] = 0;
     for (let seed = 1; seed <= 100; seed++) { const t = performance.now(), p = CG.generate({ seed, preset }); ms.push(performance.now() - t); const m = CG.validate(p);
       need(m.onRoad === 0 && m.pass, `${preset} seed ${seed}: ${m.onRoad} road overlaps, pass ${m.pass}`);
@@ -339,7 +342,7 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
   ms.sort((a, b) => a - b); console.log(`${fails ? 'FAIL' : 'ok  '} aged desert: 600 village plans and 8 level plans, no building on a road; ${aged} aged houses, ${lean} lean-tos, ${plots} gardens, ${tufts} tufts; plan ${ms[300].toFixed(0)} ms median`); }
 // level 2's valley mouth (seed 1944 showed it): the railway goes round the rock instead of through it (never inside a wall, at least 20 px clear of it, on every seed),
 // and the dry riverbed narrows to a tip at both ends and never jumps sideways between rows (it used to stop in a straight cut)
-{ let fails = 0; const need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('level 2 valley mouth: ' + m); } };
+if (part()) { let fails = 0; const need = (c, m) => { if (!c) { fails++; if (fails <= 6) fail('level 2 valley mouth: ' + m); } };
   for (const seed of [1944, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) for (const preset of ['sandSea', 'sandSeaAged']) { const p = CG.generate({ seed, preset }), { W, L } = p; let inside = 0, close = 0;
     for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.RAIL && p.wallL[y] >= 0 ? x <= p.wallL[y] + 19 : false) { if (x <= p.wallL[y]) inside++; else close++; }
     for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.RAIL && p.wallR[y] < W && x >= p.wallR[y] - 19) inside++;
@@ -350,12 +353,12 @@ for (const damage of [0, 0.6]) { let fails = 0, exits = 0, bunkers = 0, minB = 9
     need(jump === 0 && blunt === 0, `${preset} seed ${seed}: the riverbed jumps ${jump} times and has ${blunt} blunt ends`); }
   console.log(`${fails ? 'FAIL' : 'ok  '} level 2 valley mouth: the railway keeps clear of the rock, the riverbed tapers (24 plans)`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
-{ let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
+if (part()) { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
     if (a.w !== b.w || a.data.some((v, i) => v !== b.data[i]) || n < a.w * a.h * 0.08 || !!a.shadow !== solid.has(k)) bad2++; }
   if (bad2) fail(`cloud types: ${bad2} sprites are not deterministic, too faint or have the wrong shadow`); console.log(`${bad2 ? 'FAIL' : 'ok  '} cloud types (${CG.CLOUD_KINDS.join(', ')}): 20 seeds each, deterministic and visible`); }
 // the game carries a copy of the generator (index.html, cityGenSrc): it must be the current one (node scripts/embed-citygen.mjs)
-{ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../tools/citygen.js', import.meta.url), 'utf8'), open = '<script type="text/plain" id="cityGenSrc">\n';
+if (part()) { const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../tools/citygen.js', import.meta.url), 'utf8'), open = '<script type="text/plain" id="cityGenSrc">\n';
   const a = html.indexOf(open), b = html.indexOf('</script>', a), same = a >= 0 && html.slice(a + open.length, b) === src;
   if (!same) fail('index.html carries an old copy of tools/citygen.js: run node scripts/embed-citygen.mjs'); console.log(`${same ? 'ok  ' : 'FAIL'} the game's copy of the generator is current`); }
 if (bad) { console.error(`\n${bad} problem(s)`); process.exit(1); }
