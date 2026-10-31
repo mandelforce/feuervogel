@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.12'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.13'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -11954,12 +11954,13 @@ function kolibriWingTick(g) {
 // Modes (e.mode): straight (modeT frames), turn (a circle: e.td side, e.arc radians; an aimed circle ends with the nose on the ship); e.ret (back in from
 // outside) and e.brk (breaking away) go before them. e.st: wait (off the screen, before it comes in), fly.
 const PFEIL = {
-  cruise: 2.9, turn: 0.042,          // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 70 px
-  leg: [20, 80], arc: [2.2, 6], aimedP: 0.9, // frames of a straight leg; radians of a circle; the share of circles that end with the nose on the ship
-  away: 40, far: 260, home: 0.35,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)
-  breakR: 105, floor: 0.68,          // closer than this to a ship, or lower than this share of H heading down: it breaks away
-  rMin: 150, rMax: 330, aimTol: 0.16, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
-  tele: 12, burst: 2, gap: 4, atkCd: 120, shotSp: 1.15, stagger: 22, // the warning (frames), shots (one more on Hard or a later loop), frames apart, pause between a member's bursts, shot speed against bspeed(), pause before the next member may start
+  cruise: 2.4, turn: 0.0228,         // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 105 px
+  leg: [30, 100], arc: [2.2, 6], aimedP: 0.9, // frames of a straight leg; radians of a plain circle; the share of circles that end with the nose on the ship
+  aimMin: 230, inP: 0.75,            // an aimed circle needs the ship at least this far off (about two circle radii and a margin; nearer it flies a plain one); the share of plain circles that curve toward the middle
+  away: 40, far: 420, home: 0.35,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)
+  breakR: 130, hard: 95, floor: 0.68,          // closer than this to a ship (hard: even in the middle of a burst), or lower than this share of H heading down: it breaks away
+  rMin: 165, rMax: 360, aimTol: 0.2, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
+  tele: 12, burst: 2, gap: 4, atkCd: 90, shotSp: 1.15, stagger: 22, // the warning (frames), shots (one more on Hard or a later loop), frames apart, pause between a member's bursts, shot speed against bspeed(), pause before the next member may start
   enterT: [10, 50], bonus: 2500      // frames off the screen before it comes in; a member, for the whole formation
 };
 const PFEIL_SLOTS = [[-34, -38], [-34, 38], [-68, -76], [-68, 76]]; // [behind the leader, beside it (+ right)] for the 1st to 4th wingman
@@ -11983,7 +11984,7 @@ function pfeilTick(e) {
   if (g && g.tick !== gf) { g.tick = gf; pfeilGroup(g); }
   if (e.acd > 0) e.acd--;
   e.isLead = !!g && g.lead === e && g.m.length > 1; // (the yellow skin: a lone Pfeil, or the last of a formation, has none)
-  const q = nearShip(e.x, e.y), dq = Math.hypot(q.x - e.x, q.y - e.y), aimA = aim(e.x, e.y), onScr = e.x > 10 && e.x < W - 10 && e.y > 10;
+  const q = nearShip(e.x, e.y), dq = Math.hypot(q.x - e.x, q.y - e.y), aimA = aim(e.x, e.y), onScr = e.x > 10 && e.x < W - 10 && e.y > -6;
   if (e.fm && g && g.lead && g.lead !== e) { // a wingman: its slot beside and behind the leader
     const L = g.lead; if (L.st === undefined) return;
     const c = Math.cos(L.h), s = Math.sin(L.h), tx = L.x + c * e.slot[0] - s * e.slot[1], ty = L.y + s * e.slot[0] + c * e.slot[1], px = e.x, py = e.y;
@@ -11997,21 +11998,21 @@ function pfeilTick(e) {
     else {
       if (outside && !e.ret) { e.ret = true; e.brk = false; e.tele = e.bn = 0; }
       if (e.ret && e.x > 8 && e.x < W - 8 && e.y > 8) { e.ret = false; e.mode = 'straight'; e.modeT = rnd(P.leg[0] * 0.5, P.leg[1] * 0.5) | 0; }
-      if (!e.ret && !e.brk && (dq < P.breakR || (e.y > H * P.floor && Math.sin(e.h) > 0))) { e.brk = true; e.tele = e.bn = 0; }
+      if (!e.ret && !e.brk && ((dq < P.breakR && !e.tele && !e.bn) || dq < P.hard || (e.y > H * P.floor && Math.sin(e.h) > 0))) { e.brk = true; e.tele = e.bn = 0; }
     }
-    const away = dq < P.breakR * 1.3 ? Math.atan2(e.y - q.y, e.x - q.x) : -PI / 2;
-    if (e.brk && dq > P.breakR * 1.3 && e.y < H * P.floor - 20) { e.brk = false; e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
+    const away = dq < P.breakR * 1.3 ? Math.atan2(Math.min(e.y - q.y, -60), (e.x - q.x) * 0.4) : -PI / 2; // (always with some way up: below a ship it must not flee off the bottom of the screen)
+    if (e.brk && dq > P.breakR * 1.3 && e.y < H * P.floor - 20) { e.brk = false; e.mode = 'straight'; e.modeT = 0; } /* (clear of the ship: straight into the next circle, aimed back at it) */
     if (e.ret) tgt = Math.atan2(H * P.home - e.y, W / 2 - e.x); else if (e.brk) tgt = away;
     if (tgt !== null) e.h += clamp(angDiff(e.h, tgt), -P.turn, P.turn);
     else if (!e.tele && !e.bn) { // a straight leg, then a circle (an aimed one ends with the nose on the ship)
       if (e.mode === 'straight') {
         if (--e.modeT <= 0) {
-          const d = angDiff(e.h, aimA), aimed = live && dq > P.rMin + 10 && Math.abs(d) > 0.4 && Math.random() < P.aimedP;
-          e.td = aimed ? Math.sign(d) : Math.random() < 0.5 ? -1 : 1; e.aimed = aimed; e.arc = rnd(P.arc[0], P.arc[1]); e.mode = 'turn'; e.turnT = 0;
+          const d = angDiff(e.h, aimA), aimed = live && dq > P.aimMin && Math.abs(d) > 0.4 && Math.random() < P.aimedP;
+          e.td = aimed ? Math.sign(d) : Math.random() < P.inP ? Math.sign(angDiff(e.h, Math.atan2(H * P.home - e.y, W / 2 - e.x))) || 1 : Math.random() < 0.5 ? -1 : 1; /* (mostly the way that curves toward the middle, so a wide circle doesn't carry it off the screen every time) */ e.aimed = aimed; e.arc = rnd(P.arc[0], P.arc[1]); e.mode = 'turn'; e.turnT = 0;
         }
       } else {
         e.h += e.td * P.turn; e.arc -= P.turn; e.turnT++;
-        if (e.aimed ? (Math.abs(angDiff(e.h, aimA)) < 0.08 && e.turnT > 6) || e.turnT > 220 : e.arc <= 0) { e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
+        if (e.aimed ? (Math.abs(angDiff(e.h, aimA)) < 0.12 && e.turnT > 6) || e.turnT > 220 : e.arc <= 0) { e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
       }
     }
     e.vx = Math.cos(e.h) * P.cruise; e.vy = Math.sin(e.h) * P.cruise; e.x += e.vx; e.y += e.vy;
@@ -13710,7 +13711,7 @@ function update() {
   if (app.glows) { for (const g of app.glows) g.t++; app.glows = app.glows.filter(g => g.t < 60); if (!app.glows.length) app.glows = null; } // (ship glow clock)
   world.items = world.items.filter(it => it.y < H + 10 && !(it.kind === 'S' && (it.life <= 0 || it.y < -20)));
   if (run.medalLost > 0) run.medalLost--;
-  world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40)) && e.y > (e.type === 'boss' || e.keep ? -1700 : -(e.far || 140)) && e.x > -(e.far || 60) && e.x < W + (e.far || 60));
+  world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.far || (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40))) && e.y > (e.type === 'boss' || e.keep ? -1700 : -(e.far || 140)) && e.x > -(e.far || 60) && e.x < W + (e.far || 60));
 
   for (const d of world.decals) {
     if (d.kind === 'puddle') { d.life--; if (d.life <= 0) d.gone = true; }
