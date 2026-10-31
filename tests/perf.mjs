@@ -44,7 +44,7 @@ for (const rate of RATES) {
   const t0 = Date.now();
   await page.goto(PAGE);
   await page.waitForFunction(() => typeof window.__sf === 'function', null, { timeout: 120000 });
-  await page.waitForFunction(() => window.__sf('!booting'), null, { timeout: 120000, polling: 100 });
+  await page.waitForFunction(() => window.__sf('!app.booting'), null, { timeout: 120000, polling: 100 });
   const bootMs = Date.now() - t0; // page load + sprite generation + boot splash, until the title is usable
   await page.evaluate(s => window.__sf(s), harness);
   await page.evaluate(s => window.__sf(s), perf);

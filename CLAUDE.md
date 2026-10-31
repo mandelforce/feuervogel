@@ -12,7 +12,8 @@ Never read these whole. Grep first, then Read only the lines you need (offset/li
 | `tools/citygen.js` | 550 KB | settlement generator |
 | `docs/enigma-world-spec.md` | 210 KB | spec; grep for the heading you need |
 | `CHANGELOG.md` | 94 KB | newest entries at the top; read the first ~100 lines only |
-| `tests/enigma.mjs` | 80 KB | |
+| `tests/enigma.mjs` | 80 KB | prints only failures; `--verbose` lists every check |
+| `tests/citygen.mjs` | 60 KB | one block per preset; grep for the preset name |
 
 Line numbers above drift. To find a part of the game script, grep for its section comment:
 `/\* ================= <name>` (e.g. `director`, `AI`, `player`, `render`, `audio`, `terrain`, `state`, `input`).

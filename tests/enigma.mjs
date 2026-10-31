@@ -1,6 +1,7 @@
 // Enigma Run test (phase 1: the plumbing around a sortie). Needs Node and Playwright, like tests/replay.mjs; serve the folder first
 // (python3 -m http.server 8000).
-//   node tests/enigma.mjs            all checks
+//   node tests/enigma.mjs            all checks; prints only failures and a count of the checks that passed
+//   node tests/enigma.mjs --verbose  also print every check that passes
 //   node tests/enigma.mjs --bench    also print how long chunks take to build for each level, and level 6 by template (pixels and features apart)
 //   node tests/enigma.mjs --pixels   also compare the finished Campaign chunks (pixels, features included) with tests/enigma-pixels.json
 //   node tests/enigma.mjs --pixels --update   write tests/enigma-pixels.json (only when a Campaign look change is meant)
@@ -16,7 +17,7 @@ const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const golden = JSON.parse(readFileSync(new URL('./golden.json', import.meta.url), 'utf8'));
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const replay = readFileSync(new URL('./replay.js', import.meta.url), 'utf8');
-const bench = process.argv.includes('--bench'), pixels = process.argv.includes('--pixels'), update = process.argv.includes('--update');
+const bench = process.argv.includes('--bench'), pixels = process.argv.includes('--pixels'), update = process.argv.includes('--update'), verbose = process.argv.includes('--verbose');
 const pixUrl = new URL('./enigma-pixels.json', import.meta.url);
 
 // Same start as tests/replay.mjs: a seeded Math.random and no frame loop, so only the test moves the game.
@@ -26,8 +27,8 @@ const initScript = () => {
   window.requestAnimationFrame = () => 0;
 };
 
-let bad = 0;
-const ok = (cond, msg) => { if (cond) console.log('ok   ' + msg); else { bad++; console.error('FAIL ' + msg); } };
+let bad = 0, passed = 0;
+const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 
 const browser = await chromium.launch();
 async function freshPage() {
@@ -621,5 +622,5 @@ if (bench) {
 }
 
 await browser.close();
-if (bad) { console.error(`\n${bad} check(s) failed`); process.exit(1); }
-console.log('\nEnigma Run checks pass.');
+if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }
+console.log(`Enigma Run checks pass (${passed}).`);
