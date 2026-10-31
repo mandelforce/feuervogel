@@ -4123,11 +4123,13 @@ function bareTreePix(t, put) {
     put(X, Y, px[k + 2] < 1 ? C.bark[0] : lit > 0.15 && hh(X, Y * 3) < 0.5 ? C.snowRoof[pickI(5, 0.55 + (hh(X, Y) - 0.5) * 0.6, X, Y)] : C.bark[pickI(3, 0.55 + lit * 0.4 + (hh(Y, X) - 0.5) * 0.4, X, Y)]); }
 }
 
+// a spot within r px of a cow paddock (plan.pastures), where a dug-in tank would have cows grazing on it
+const nearPasture = (plan, x, y, r) => (plan.pastures || []).some(q => Math.hypot(Math.max(q.x0 - x, 0, x - q.x1), Math.max(q.y0 - y, 0, y - q.y1)) < r);
 // ---------- tank pits for the Drilling (Enigma Run, owner) ----------
 // Added to a finished plan by the game: one pit in each wanted row band [y0, y1] (plan rows), on open ground (fields, meadows, gardens, rubble,
 // sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
 // roads, the railway and water by 18 px (15 where nothing else fits), of every other
-// slot by 44 px (an AA tower is 38 px across) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a ragged oval scrape with its sand heaped in a lit crescent in front and at the sides;
+// slot by 44 px (an AA tower is 38 px across), of every cow paddock by 28 px (more than a Drilling's reach; where nothing else fits, a paddock that close gets no cows) and of every other tank pit by 520 rows (more than the tallest screen). In the desert a ragged oval scrape with its sand heaped in a lit crescent in front and at the sides;
 // elsewhere a dark trench ring inside a thick horseshoe earth bank, open at the back. The pit is cut short where it meets anything but open ground. Trees on it are cleared; in woodland it stands in a clearing. Each pit is a 'tank' slot ('pit', r 6). Pure: the same plan and bands give the same pits.
 function tankPits(plan, bands) {
   const { W, L, K: Kr, B: Br } = plan, desert = !!(plan.P && plan.P.climate === 'desert'), out = [];
@@ -4137,10 +4139,11 @@ function tankPits(plan, bands) {
     if (d <= rH && HARD.has(k)) return false; if (d <= rO && (!OPEN.has(k) || (Br[i] >= 0 && Kr[i] !== K.GARDEN))) return false; } return true; }; // (a garden's B is its house's: it may be dug up)
   bands.forEach(([y0, y1], bi) => {
     let best = null;
-    for (const [rH, rO] of [[22.5, 22], [18.5, 18], [15, 15]]) { if (best) break; // (where nothing fits, a tighter spot: the pit is then cut short where it meets something)
+    for (const avoid of [true, false]) for (const [rH, rO] of [[22.5, 22], [18.5, 18], [15, 15]]) { if (best) break; // (avoid: first clear of the cow paddocks) // (where nothing fits, a tighter spot: the pit is then cut short where it meets something)
     for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) { const m = plan.mx && plan.mx[y] ? plan.mx[y] : W / 2;
       for (let x = 26; x <= W - 26; x += 3) { const d = Math.abs(x - m); if (d < 22 || d > 90) continue;
         if (plan.slots.some(s => Math.hypot(s.x - x, s.y - y) < 44 || (s.kind === 'tank' && Math.abs(s.y - y) < 520))) continue; // (pits 520 rows apart, more than a screen: one Drilling at a time)
+        if (avoid && nearPasture(plan, x, y, 28)) continue; // (not in or by a cow paddock: the cows would graze on the tank)
         const sc = Math.abs(d - 36) + h32(plan.seed | 0, bi * 7919 + y * 31 + x) * 8; if (best && sc >= best.sc) continue; if (!fits(x, y, rH, rO)) continue; best = { x, y, sc }; } } }
     if (!best) return; const { x, y } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
     // in woodland a clearing round it (a Lichtung, owner): the wood's ground (a plantation's too) becomes meadow (the forest's clearing meadow, Br -33) in a ragged oval
@@ -4159,6 +4162,7 @@ function tankPits(plan, bands) {
     else for (let yy = -22; yy <= 22; yy++) for (let xx = -22; xx <= 22; xx++) { const d = Math.hypot(xx, yy * 0.85); if (yy >= 8) continue; // (the open side faces up the level, away from the ship)
       if (d >= 13 && d < 16) set(x + xx, y + yy, K.TRENCH, -1); else if (d >= 16 && d <= 20.5) set(x + xx, y + yy, K.BERM, -1); } // a dark ring inside a thick bank, so the pit reads round the tank
     if (plan.trees) plan.trees = plan.trees.filter(t => Math.hypot(t.x - x, t.y - y) > 20);
+    for (const q of plan.pastures || []) if (nearPasture({ pastures: [q] }, x, y, 28)) q.n = 0; // (where no spot clear of a paddock was left, the paddock gets no cows)
     const c = { kind: 'tank', on: 'pit', x, y, r: 6, id: plan.slots.length }; plan.slots.push(c); out.push(c);
   });
   return out;
@@ -4167,7 +4171,7 @@ function tankPits(plan, bands) {
 // Added to a finished plan by the game, after the tank pits: one emplacement in each wanted row band [y0, y1] (plan rows; in order, up to max), at the left or the right
 // edge of the screen, near the band's middle (the tank 18 to 44 px in from it, as near as fits, lying across the screen, its gun towards the middle), so it covers the play area along a long
 // firing line. On open ground (as for the tank pits) within 12 px of it and clear of buildings, roads, the railway and water by 14 px (cut off by
-// the screen's edge, which counts as clear); 44 px from every other slot, 420 rows from every tank pit and 520 from every other emplacement (one on
+// the screen's edge, which counts as clear); 44 px from every other slot, 40 px from every cow paddock, 420 rows from every tank pit and 520 from every other emplacement (one on
 // the screen at a time). A dug-in horseshoe open towards the middle of the screen: in the desert a scrape with its sand heaped round the outer side,
 // elsewhere a dark trench ring inside an earth bank. Trees on it are cleared. Each is a 'nest' slot (side -1: the left edge, 1: the right). Pure.
 function edgeNests(plan, bands, max = bands.length) {
@@ -4180,7 +4184,7 @@ function edgeNests(plan, bands, max = bands.length) {
     if (out.length >= max) return; let best = null;
     for (let y = Math.max(20, Math.round(y0)); y <= Math.min(L - 20, Math.round(y1)); y += 3) for (const side of [-1, 1]) for (let e = 18; e <= 44; e += 2) {
       const x = side < 0 ? e : W - e;
-      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520))) continue;
+      if (plan.slots.some(q => Math.hypot(q.x - x, q.y - y) < 44 || (q.kind === 'tank' && Math.abs(q.y - y) < 420) || (q.kind === 'nest' && Math.abs(q.y - y) < 520)) || nearPasture(plan, x, y, 40)) continue; // (not by a cow paddock)
       const sc = e + Math.abs(y - (y0 + y1) / 2) / 40 + (h32(plan.seed | 0, bi * 7919 + y * 31 + x) % 1000) / 100; if (best && sc >= best.sc) continue; if (!fits(x, y)) continue; best = { x, y, side, sc }; } // (near the edge and the band's middle)
     if (!best) return; const { x, y, side } = best, set = (X, Y, k, b) => { if (X < 0 || X >= W || Y < 0 || Y >= L) return; const i = Y * W + X; if (!OPEN.has(Kr[i]) || (Br[i] >= 0 && Kr[i] !== K.GARDEN)) return; Kr[i] = k; Br[i] = b; }; // (only free open ground is dug)
     for (let yy = -20; yy <= 20; yy++) for (let xx = -30; xx <= 30; xx++) { const d = Math.hypot(xx / 20, yy / 11), inward = -xx * side; // (inward > 0: towards the middle of the screen)
@@ -4213,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.9'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8116,7 +8120,7 @@ function newGame() {
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
-  world.midDone = false; world.bossSpawned = false;
+  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = null;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
   sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
@@ -8400,26 +8404,42 @@ function tutTick() {
     case 0: { // moving
       if (T.lx !== null) { T.mx += Math.abs(p.x - T.lx); T.my += Math.abs(p.y - T.ly); } T.lx = p.x; T.ly = p.y;
       if (T.mx > 120 && T.my > 50 && T.t > 90) tutNext(); break; }
-    case 1: { // shooting
+    case 1: { // the hit point: let shots slip past the wings without touching the centre dot
+      if (!T.pops) { T.pass = 0; T.flash = 0; T.pops = []; T.si = 0; T.t = 0; } // (T.t keeps counting through the fly-in, so start it here)
+      if (T.t > 20 && T.t % 26 === 0) {
+        const off = [-10, 10, 0, -13, 13, 0][T.si++ % 6], sx = clamp(p.x + off + rnd(-60, 60), 16, W - 16), n0 = world.ebul.length;
+        eshot(sx, -4, Math.atan2(p.y - -4, p.x + off - sx), 1.3);
+        if (world.ebul.length > n0) world.ebul[n0].tut = 1;
+      }
+      for (const b of world.ebul) {
+        if (!b.tut || b.tutDone) continue;
+        if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < (b.r + 1.6) ** 2) { b.tutDone = 1; T.pass = 0; T.flash = 24; sfx('die'); }
+        else if (b.y >= p.y) { b.tutDone = 1; if (Math.abs(b.x - p.x) <= 14) { T.pass++; T.pops.push({ x: b.x, y: p.y, t: 0 }); sfx('power'); } }
+      }
+      if (T.flash > 0) T.flash--;
+      for (const o of T.pops) o.t++; T.pops = T.pops.filter(o => o.t < 30);
+      if (T.pass >= 6) { world.ebul = world.ebul.filter(b => !b.tut); tutNext(); }
+      break; }
+    case 2: { // shooting
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
       if (T.t > 60 && !tutAlive()) { if (T.ids.every(e => e.dead && e.y < H)) tutNext(); else { T.t = 0; T.ids = []; } } break; }
-    case 2: { // power-up
+    case 3: { // power-up
       if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
-    case 3: { // medals and multiplier
+    case 4: { // medals and multiplier
       if (T.t === 1) { T.m0 = run.stats.medals; T.best = 1; }
       if (T.t < 260 && T.t % 45 === 1) world.items.push({ kind: 'M', x: clamp(p.x + rnd(-30, 30), 20, W - 20), y: -8, t: 0, vy: 0.6 });
       T.best = Math.max(T.best, run.medalMul);
       if (T.t > 300 && run.medalT === 0) { if (T.best >= 3) tutNext(); else { T.t = 0; } } break; }
-    case 4: { if (T.t > 300) tutNext(); break; } // extra lives
-    case 5: { // Nova bomb
+    case 5: { if (T.t > 300) tutNext(); break; } // extra lives
+    case 6: { // Nova bomb
       if (T.t === 1) { run.bombs = Math.max(run.bombs, 1); T.bombs0 = run.stats.novas; }
       if (T.t > 40 && T.t < 200 && T.t % 12 === 0) for (let k = 0; k < 10; k++) eshot(W / 2 + rnd(-90, 90), 10, PI / 2 + rnd(-0.5, 0.5), 0.45);
       if (run.stats.novas > T.bombs0) { tutNext(); } else if (T.t > 260) { T.t = 0; } break; }
-    case 6: { // super laser
+    case 7: { // super laser
       if (T.t === 1) { world.ebul.length = 0; tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
       if (T.t > 30 && !tutAlive()) { if (T.ids[0] && T.ids[0].dead && T.ids[0].y < H) tutNext(); else { T.t = 0; T.ids = []; } } break; }
-    case 7: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
+    case 8: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
       const sec = T.ids.find(e => e.type === 'secret' && !e.dead);
       if (run.stats.artifact && !T.art) { tutNext(); break; }
       if (T.t === 1) T.art = run.stats.artifact;
@@ -8435,6 +8455,7 @@ const TUT_TEXT = () => {
   const touch = tutTouch(), pad = tutPad();
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
+    '<b>A small target.</b> Only the glowing dot at the centre of the ship can be hit. Wings and fuselage pass through enemy fire. <b>Let 6 shots slip past your wings</b> without touching the dot.',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
     '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
     '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
@@ -8450,9 +8471,9 @@ const TUT_HAND = ['.....##.........', '....#oo#........', '....#oo#........', '.
 function drawTutorial() {
   const box = document.getElementById('tutBox');
   if (!app.tut || app.state !== 'play') { if (app.tutShown) { box.classList.remove('on'); app.tutShown = ''; const bb = document.getElementById('bombBtn'); if (bb) bb.classList.remove('tutHi'); } return; }
-  const k = Math.min(app.tut.step, 8), html = TUT_TEXT()[k], key = k + '|' + html;
-  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 5) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
-  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/9</span><span class="pips" aria-hidden="true">' + Array.from({ length: 9 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 9'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 8) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
+  const k = Math.min(app.tut.step, 9), html = TUT_TEXT()[k], key = k + '|' + html;
+  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 6) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
+  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/10</span><span class="pips" aria-hidden="true">' + Array.from({ length: 10 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 10'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 9) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
   // a ghost finger below the ship while learning to move
   if (app.tut.step === 0 && player && tutTouch()) {
     const fx = Math.round(player.x + Math.sin(gf * 0.05) * 16), fy = Math.round(player.y + 34);
@@ -8460,8 +8481,16 @@ function drawTutorial() {
     ctx.globalAlpha = 1; dk(fx, fy, 2, '#ffffff');
     ctx.globalAlpha = 0.92; for (let j = 0; j < TUT_HAND.length; j++) for (let i = 0; i < 16; i++) { const ch = TUT_HAND[j][i]; if (ch === '.') continue; ctx.fillStyle = ch === '#' ? '#2a2050' : j < 6 ? '#fff4e0' : '#f2dcc0'; ctx.fillRect(fx - 6 + i, fy + 2 + j, 1, 1); } ctx.globalAlpha = 1;
   }
-  if (app.tut.step === 7) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
-  if (app.tut.step === 4) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
+  if (app.tut.step === 1 && player && !player.dead) { // the hit point: a ring on the dot, the safe wing span, a tick per clean pass
+    const T = app.tut, px = Math.round(player.x), py = Math.round(player.y), r = 6 + Math.sin(gf * 0.15);
+    ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; for (let x = -14; x <= 14; x += 4) if (Math.abs(x) > 6) ctx.fillRect(px + x, py, 2, 1);
+    ctx.globalAlpha = 0.9; ctx.strokeStyle = T.flash > 0 ? '#ff3a6a' : '#a8f6dc'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px + 0.5, py + 0.5, T.flash > 0 ? r + (24 - T.flash) * 0.4 : r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    textO(T.flash > 0 ? 'HIT' : 'HIT POINT', px, py + 20, T.flash > 0 ? '#ff3a6a' : '#a8f6dc', 1, 'center', '#2a2050');
+    textO((T.pass || 0) + '/6', px, py - 26, '#fff0a0', 1, 'center', '#f8a83a');
+    for (const o of T.pops || []) { ctx.globalAlpha = 1 - o.t / 30; textO('THROUGH', Math.round(o.x), py - 8 - o.t * 0.3, '#a8f6dc', 1, 'center', '#2a2050'); } ctx.globalAlpha = 1;
+  }
+  if (app.tut.step === 8) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
+  if (app.tut.step === 5) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
 }
 function tutTap(gx, gy) {
   if (!app.tut) return false;
@@ -9251,6 +9280,7 @@ const ENIG_BOX = { truck: [6, 11], acar: [5.5, 10], moto: [4.5, 6.5], staff: [5,
 function E(type, o) {
   const e = Object.assign({ type, x: 0, y: 0, t: 0, hp: 1, hw: 6, hh: 6, score: 100, hit: 0, ground: false, big: false, mt: 0, rad: 10 }, baseStats(type), o);
   if (run.sortie) { const b = ENIG_BOX[type]; if (b) { e.hw = b[0]; e.hh = b[1]; } }
+  if (encTag) { e.enc = encTag.id; e.encEv = encTag.ev; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch; encEv: its index)
   return e;
 }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(world.scroll) }, o)); }
@@ -9330,8 +9360,17 @@ function blastTroops(x, y, r) {
   }
 }
 function critterHouse(x, y, r) { for (let dp = -1; dp <= 1; dp++) for (const [hx, hy, hw2 = 18, hh2 = 14] of (chunkHouses.get(-Math.floor(y / CH) + dp) || [])) if (Math.abs(x - hx) < r + hw2 / 2 && Math.abs(y - hy) < r + hh2 / 2) return true; return false; }
+// the animals (not people, boats or birds); they keep off water: sea, surf and river (a bridge or ice is dry ground for them)
+const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer']);
+function animalWet(x, y) { const t = terrainType(Math.floor(x), Math.floor(y)); return t === 'sea' || t === 'surf' || t === 'river'; }
+// Enigma Run: a Drilling or a Buechse within reach of a spot (its hull, its turret turned any way, a Buechse's sandbags), so no animal stands on it
+const GUN_REACH = { drill: 26, buechse: BUECHSE_L + 6 };
+function bigGunNear(nx, ny) {
+  for (const o of world.enemies) if ((o.drill || o.buechse) && !o.dead && o.wx !== undefined && Math.hypot(nx - o.wx, ny - o.wy) < (o.drill ? GUN_REACH.drill : GUN_REACH.buechse)) return o;
+  return null;
+}
 function critterBlocked(nx, ny) {
-  if (critterHouse(nx, ny, 3)) return true;
+  if (critterHouse(nx, ny, 3) || bigGunNear(nx, ny)) return true;
   for (const o of world.enemies) if (o.ground && !o.dead && o.type !== 'troop' && o.type !== 'secret' && o.wx !== undefined && Math.abs(nx - o.wx) < (o.hw || 6) + 5 && Math.abs(ny - o.wy) < (o.hh || 6) + 5) return true;
   return inTent(nx, ny, 2) || inStation(nx, ny, 2);
 }
@@ -9410,7 +9449,7 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = world.enemies.some(e => e.big && !e.dead);
-  if (!world.midDone && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); }
+  if (!world.midDone && !world.enc && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); } // (the Shadow Wing waits until an encounter and its rest are over)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -9430,6 +9469,7 @@ function directorInner() {
     else if (world.curTheme === 5) spawnProtoDuel(warn);
     else warn();
   }
+  encTick();
   if (world.bossSpawned) {
     if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead && (e.kind !== 'skyfort' || e.phase === 'fight'))) waveDive(3); }
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
@@ -9450,13 +9490,13 @@ function directorInner() {
   else if (zone === 'calm') world.podCd = Math.max(world.podCd, 30);
   if (zone === 'air' || zone === 'calm') world.groundCd = Math.max(world.groundCd, 30);
   if (world.carrier && !world.carrier.over) { world.waveCd = Math.max(world.waveCd, 30); world.groundCd = Math.max(world.groundCd, 30); if (world.carrier.t < CV.T1) world.podCd = Math.max(world.podCd, 30); } // the carrier's launches are the waves while it lasts
-  if (--world.groundCd <= 0) {
+  if (!encHeld('ground') && --world.groundCd <= 0) {
     if (zone === 'ground' && b !== 'sea' && b !== 'coastUp' && b !== 'coastDown') { if (Math.random() < 0.6) convoy(-34 - sc, Math.random() < 0.4); else spawnGround(b); }
     else spawnGround(b);
     world.groundCd = (1 / Math.max(0.4, dens)) * ({ factory: 46, sea: 95, coastUp: 75, coastDown: 75, country: 66, forest: 70, base: 54, bossland: 90, fortline: 50, castle: 70, city: 48 }[b] || 70) - Math.min(16, run.loop * 8);
   }
-  if (--world.waveCd <= 0) { spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
-  if (--world.podCd <= 0 && !big) { world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
+  if (!encHeld('air') && --world.waveCd <= 0) { spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
+  if (!encHeld('pod') && --world.podCd <= 0 && !big) { world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
 }
 function mkFighter(x, y, h, v, o) {
   const boom = (run.stage >= 2 || run.endless || settings.mode === 'gen') && Math.random() < 0.18 + run.loop * 0.08;
@@ -9501,8 +9541,8 @@ function runSetPiece(i, b) {
   else if (kind === 'flak') { for (let k = 0; k < 4; k++) world.later.push({ at: gf + k * 45, fn: () => { FORCE_GROUND = 'flak'; spawnGround(biomeAtSpawn()); FORCE_GROUND = null; } }); }
   haptic('warn');
 }
-function waveDive(n = 5) {
-  const cx = rnd(50, W - 50), offs = [[0, 0], [-15, -13], [15, -13], [-30, -26], [30, -26]];
+function waveDive(n = 5, cx0) {
+  const cx = cx0 === undefined ? rnd(50, W - 50) : cx0, offs = [[0, 0], [-15, -13], [15, -13], [-30, -26], [30, -26]];
   for (let i = 0; i < n; i++) world.enemies.push(mkFighter(cx + offs[i][0], -14 + offs[i][1], PI / 2, 1.9 + run.loop * 0.2));
 }
 function waveSweep() {
@@ -9517,14 +9557,14 @@ function waveChase() {
   const n = 2 + (run.loop >= 1 ? 1 : 0);
   for (let i = 0; i < n; i++) world.enemies.push(mkFighter(W * (i + 1) / (n + 1), -12 - i * 10, PI / 2, 2.1, { homeT: 70, fireAt: 50 }));
 }
-function waveBomber() {
+function waveBomber(cx) {
   const hp = 42 * (1 + 0.3 * run.loop);
-  world.enemies.push(E('bomber', { x: rnd(50, W - 50), y: -22, hp, maxhp: hp, gcd: 60 }));
+  world.enemies.push(E('bomber', { x: cx === undefined ? rnd(50, W - 50) : cx, y: -22, hp, maxhp: hp, gcd: 60 }));
 }
 function wavePfeil() { for (const side of [-1, 1]) world.enemies.push(E('pfeil', { side })); } // (a pair, one from each side; pfeilTick places them off the screen)
-function waveHeavy() { world.enemies.push(E('heavy', { x: rnd(40, W - 40), y: -20, cd: 50, ph: Math.random() * 6 })); }
-function waveLeader() {
-  const cx = rnd(60, W - 60), L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
+function waveHeavy(cx, o) { world.enemies.push(E('heavy', Object.assign({ x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 }, o))); }
+function waveLeader(cx0) {
+  const cx = cx0 === undefined ? rnd(60, W - 60) : cx0, L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
   for (const [ox, oy] of [[-18, -14], [18, -14], [-36, -28], [36, -28]]) world.enemies.push(mkFighter(cx + ox, -14 + oy, PI / 2, 1.45, { lead: L, ox, oy, fireAt: (rnd(30, 70)) | 0 }));
 }
 function spawnWave(b, big) {
@@ -9539,6 +9579,126 @@ function spawnWave(b, big) {
   else if (r < 0.6) waveSweep();
   else if (r < 0.8) waveStrafe();
   else waveChase();
+}
+// ---------- Encounter director (docs/encounter-director-plan.md): authored compositions of existing enemies on a frame clock ----------
+// An encounter's events (ev, sorted by t, in frames) are dispatched in order by spawn verbs. What they create is tagged (e.enc) and its
+// threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
+// rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
+// (world.enc, world.encLast), so snapshots and replays keep it. For now (plan step 3) only encStart starts one (tests), in the Campaign only.
+const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
+const ENC = {
+  // The Anvil: a Heavy that stops at 28% of the screen and holds for 7 s (it reaches its place at about frame 200), firing as usual, while
+  // two formations close in on it; then a chase pair, and a pod as the reward (plan 7.1, step 2: playtesting showed the passing Heavy
+  // didn't read as an anchor). budget: the soft bullet budget per difficulty (measured only, for now).
+  anvil: { name: 'THE ANVIL', len: 720, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
+    { t: 0, do: 'heavy', x: 0.5, hold: 0.28, holdT: 420 },
+    { t: 180, do: 'formation', x: 0.25 },
+    { t: 330, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
+    { t: 480, do: 'chase' },
+    { t: 660, do: 'pod', x: 0.5, own: false }] },
+  // Flak lane: two flak guns first; a formation only once they are on screen (15% down, or after 6 s at most), then a strafing run from the
+  // side the ship is not on. The flak covers the air the formation scatters into when its leader falls. Land only: the guns need ground
+  // (starts only over ENC_LAND; the guns go in the plan's flak slots where a level has them).
+  flaklane: { name: 'FLAK LANE', len: 720, max: 1500, rest: 180, budget: [16, 22, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'flak' },
+    { when: 'seen', of: 0, at: 0.15, by: 420, do: 'formation', x: 0.5 }, // (a plan slot's gun can stand up to 48 px higher: about 400 frames)
+    { after: 120, do: 'strafer', i: 0, diff: [1, 2] }, // (no strafing run on Rookie)
+    { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 2, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] },
+  // Bomber screen: a Bomber (tough, firing steadily, on screen for about 13 s if left alone) while three-plane dives come in at 1, 3 and 5 s,
+  // then a strafing run: burn the Bomber down, or clear the dives. Its budget is the lowest, so the Bomber's own shots stay readable.
+  // Rookie: two dives and no strafing run.
+  bomberscreen: { name: 'BOMBER SCREEN', len: 780, max: 1500, rest: 180, budget: [14, 18, 24], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
+    { t: 0, do: 'bomber', x: 0.5 },
+    { t: 60, do: 'dive', n: 3, x: 0.3 },
+    { t: 180, do: 'dive', n: 3, x: 0.7 },
+    { t: 300, do: 'dive', n: 3, x: 0.5, diff: [1, 2] },
+    { t: 420, do: 'strafer', i: 0, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 2, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] },
+  // Sower Window (level 4): it starts only when a Sower settles into its hold from the set2 stretch on (the level's second Sower; the first
+  // one, early in the level, stays the player's introduction to it), never for a Sower's called partner. The mines are the restriction (they
+  // don't count toward the budget); three tank convoys come up the road below (the first at once: ground units take time to scroll in).
+  // It never makes a Sower: sowerTick does. Its budget is the highest (owner): the Sower's bombs burst into rings of 8 that count, and the
+  // tanks need room beside them. Tank convoys, not flak: that stretch of forest rarely has ground for a gun (owner).
+  sowerwindow: { name: 'SOWER WINDOW', start: 'sower', len: 840, max: 1500, rest: 180, budget: [26, 34, 40], holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'convoy' },
+    { t: 180, do: 'convoy', diff: [1, 2] }, // (two convoys on Rookie)
+    { t: 360, do: 'convoy' }] }
+};
+// Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
+// dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
+// event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
+const ENC_VERB = {
+  heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
+  formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
+  chase: () => { waveChase(); return true; },
+  bomber: v => { waveBomber(v.x * W); return true; },
+  dive: v => { waveDive(v.n || 5, v.x * W); return true; },
+  pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; },
+  flak: () => { if (biomeAtSpawn() === 'bossland') return false; FORCE_GROUND = 'encFlak'; try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; } return false; }, // one or two guns where the ground allows (none over water: retried)
+  convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
+  strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
+    world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
+};
+let encTag = null; // { id, own } while a verb runs: E() tags what it makes
+const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1A, 2, 3, 4, 5, 6B in turn
+const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
+const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[Math.max(0, CAMP_LEVELS.indexOf(run.sortie ? run.sortie.level : 0))]; // (a level outside the Campaign's six: The Anvil)
+const ENC_SOWER_FROM = 0.7; // the level share where the set2 stretch begins (ARC): from here a settling Sower can open the Sower Window
+function encStart(id) {
+  const D = ENC[id]; if (!run.sortie || world.enc || !D || world.bossSpawned || app.tut || (D.biomes && !D.biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
+  if (world.enemies.some(e => e.type === 'wing' && !e.dead)) return false; // never while the Shadow Wing is on screen
+  if (D.start === 'sower') { // only for a settled Sower from the set2 stretch on, not its partner, once each
+    const sw = world.enemies.filter(e => e.type === 'sower' && !e.dead && !e.dying && e.st === 'hold' && !e.second && !e.encSeen);
+    if (!sw.length || !(world.ARC_U >= ENC_SOWER_FROM)) return false; for (const e of sw) e.encSeen = true;
+  } else if (world.enemies.some(e => e.type === 'sower' && !e.dead)) return false; // an ordinary encounter waits while a Sower is up
+  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [], lastT: 0 }; haptic('warn'); return true;
+}
+function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
+// The soft bullet budget: while an encounter runs (or is held), selected shooters ask volleyOK(n) once before a whole volley of n bullets
+// and wait a frame when it would go over. Nothing is deleted or cut; ungated fire (revenge shots, the Shadow Wing, other shooters) can still
+// go over, which encTick measures. The Sower's aerial mines are not counted: they are meant to fill the air (owner). Its falling bombs are.
+// A volley fired over the next frames (later: frames until its last bullet) reserves its bullets until then, so shooters admitted together
+// can't land their delayed volleys on top of each other (res: [bullets, frames left], counted down by encTick).
+function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine') n++; return n; }
+function encBudget() { const E0 = world.enc; return E0 && E0.st !== 'rest' ? ENC[E0.id].budget[settings.diff] : Infinity; }
+function volleyOK(n, later = 0) {
+  const B = encBudget(); if (B === Infinity) return true;
+  const E0 = world.enc; let held = 0; for (const r of E0.res) held += r[0];
+  if (encBullets() + held + n > B) return false;
+  if (later > 0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
+}
+const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
+function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own, ev: E0.i }; try { ok = ENC_VERB[ev.do](ev, E0); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
+function encDue(E0, ev) {
+  if (ev.when === 'seen') return E0.t >= ev.by || world.enemies.every(e => e.enc !== E0.id || e.encEv !== ev.of || e.dead || e.dying || harmlessE(e) || e.y >= ev.at * H);
+  return ev.after !== undefined ? E0.t >= E0.lastT + ev.after : E0.t >= ev.t;
+}
+function encEnd(why) {
+  const E0 = world.enc; world.encLast = { id: E0.id, why, t: E0.t, over: E0.over, peak: E0.peak, dropped: E0.dropped, at: gf };
+  if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
+}
+function encTick() {
+  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast && (LB_TEST || !run.ranked)) encStart(encTryId()); return; } // (encLast: one has already run in this level)
+  const D = ENC[E0.id];
+  if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
+  if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
+  if (E0.res.length) { for (const r of E0.res) r[1]--; E0.res = E0.res.filter(r => r[1] > 0); } // reservations of delayed volleys run out as they fire
+  if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || (e.type === 'sower' && D.start !== 'sower')) && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
+  E0.st = 'run'; E0.t++;
+  while (E0.i < D.ev.length && encDue(E0, D.ev[E0.i])) {
+    const ev = D.ev[E0.i];
+    if (ev.diff && !ev.diff.includes(settings.diff)) { E0.i++; continue; } // not on this difficulty: skipped, not dropped
+    if (encDispatch(E0, ev)) { E0.i++; E0.tries = 0; E0.lastT = E0.t; }
+    else if (++E0.tries > 60) { E0.i++; E0.tries = 0; E0.dropped++; } // nothing could be placed for a second: go on without it
+    else break; // try again next frame; the later events wait behind it
+  }
+  E0.owned = encOwned(E0.id);
+  const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
+  if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
 // Enigma Run (levels 2, 6, 6B): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
 // as the run comes up above the screen: a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, one train at a time,
@@ -9735,7 +9895,9 @@ function routeStep(e) {
   for (const o of world.enemies) { if (o === e || o.dead || !o.road || o.wx === undefined || (o.route !== rt.id && !cont.includes(o.route) && Math.abs(o.wx - e.wx) > 9)) continue; /* on the same route (round a bend too), or just ahead in line */ const ahead = (o.wy - e.wy) * e.dir; if (ahead > 0 && ahead < reach + o.hh) return null; }
   if ((e.type === 'tank' || e.type === 'htank') && !e.dug && !rt.legacy) for (const sd of sideRoutes(S)) for (const j of sd.junc) { // a junction with a side road here: turn into it now and then
     if (j.rt !== rt.id || Math.abs(sd.path[j.k][1] - nwy) > e.v + 0.5) continue; const key = sd.id + ':' + j.k; if (e.lastSide === key) continue; e.lastSide = key;
-    if (Math.random() < SIDE.turn) { const d = j.k <= 0 ? 1 : j.k >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: j.k, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[j.k].slice(); } }
+    if (Math.random() < SIDE.turn) { // (it joins the side road at its point nearest the tank: where two routes meet the side road close together, the junction found may be the other route's, a few px off)
+      let k0 = j.k, best = Infinity; for (let k = Math.max(0, j.k - 8); k <= Math.min(sd.path.length - 1, j.k + 8); k++) { const q = sd.path[k], dd = (q[0] - e.wx) ** 2 + (q[1] - e.wy) ** 2; if (dd < best) { best = dd; k0 = k; } }
+      const d = k0 <= 0 ? 1 : k0 >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: k0, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[k0].slice(); } }
   e.atEnd = false; return [routeX(rt, nwy) + e.lane, nwy];
 }
 // Level 1A: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
@@ -9907,6 +10069,7 @@ function spawnGround(b) {
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
     else world.enemies.push(G('bunker', sl.x, sl.y, { ga: PI / 2, cd: rnd(60, 120) | 0 }));
     return true; };
+  if (FORCE_GROUND === 'encFlak') { for (let k = 0; k < 2; k++) { const sl = slotAt(['flak']); if (sl) { makeFlak(sl.x, sl.y); continue; } const wx = tryLand(['field', 'grass', 'mud', 'forest', 'concrete', 'apron', 'roof', 'sand', 'yard'], 14); if (wx !== null) makeFlak(wx, wy); } return; } // an encounter's flak (encounter plan, section 6): only flak, in a plan's flak slot where there is one, before the branches below can place something else ('flak' is checked after them)
   { const S = run.sortie; if (S && S.gen && r >= 0.75 && r < 0.95 && planTrain(wy)) return; } // Enigma Run levels 2, 6, 6B: a train on the plan's railway
   // Enigma Run level 2: every gun slot of the desert plan (pits, sangars, bunkers, nests on flat roofs, planes in the pens; tanks dug in: planDrills) gets its unit as it comes up
   { const S = run.sortie; if (S && (S.level === 2 || S.level === 4 || S.level === 5) && S.gen && r < 0.75) { const ks = ['parked']; if (S.level === 4 && count('aatower') < 1 + run.loop) ks.push('aatower'); /* (level 4: the forest's gun sites too, spec 19.1; level 5 its slots) */ if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (!capB) ks.push('bunker'); /* (tank pits: planDrills) */
@@ -10461,7 +10624,7 @@ function doFinishResults() {
     world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = pBot - 2; chunkHouses.clear(); fieldOkCache.clear(); houseCache.clear(); railEndCache.clear(); flowCache.clear(); canopyCache.clear(); rxW = NaN;
     world.decals.length = 0; props.length = 0; world.items.length = 0; critters.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); world.enemies = world.enemies.filter(e => !e.ground);
     ensureChunks(); world.midDone = false; world.bossSpawned = false; }
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = null; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); sfx('start'); if (app.state === 'play') playSong(STAGE_SONGS[world.curTheme]);
   if (player && !player.dead) player.fly = 110;
   markStage();
@@ -11311,7 +11474,8 @@ function drillTick(e) {
   if (e.turHp < P.turHp / 2 && gf % 9 === 0) smokePuff(e.x + rnd(-2, 2), e.y + rnd(-2, 2)); // a damaged turret smokes
   if (e.dst === 'aim') {
     const a = aim(e.x, e.y); e.ta += clamp(angDiff(e.ta, a), -P.turn, P.turn);
-    if (--e.dT <= 0 && canFire(e, 90) && Math.abs(angDiff(e.ta, a)) < 0.3) { e.dst = 'prep'; e.dT = P.prep; e.a0 = a; e.sw = Math.random() < 0.5 ? -1 : 1; sfx('clunk'); }
+    const ns = P.n[settings.diff] + (run.loop >= 1 ? 1 : 0); // (8. the soft budget: the whole attack, ns salvos of three, is asked for here; its last salvo comes prep + (ns - 1) * gap frames later)
+    if (--e.dT <= 0 && canFire(e, 90) && Math.abs(angDiff(e.ta, a)) < 0.3 && volleyOK(3 * ns, P.prep + (ns - 1) * P.gap)) { e.dst = 'prep'; e.dT = P.prep; e.a0 = a; e.sw = Math.random() < 0.5 ? -1 : 1; sfx('clunk'); }
   } else if (e.dst === 'prep') {
     e.ta += clamp(angDiff(e.ta, e.a0 - e.sw * P.sweep), -P.wind, P.wind);
     if (--e.dT <= 0) { e.dst = 'fire'; e.dT = 0; e.ns = P.n[settings.diff] + (run.loop >= 1 ? 1 : 0); }
@@ -11335,11 +11499,11 @@ function makeDrill(wx, wy, o) {
 }
 const drillCount = () => world.enemies.reduce((n, e) => n + (e.drill && !e.dead ? 1 : 0), 0);
 // Enigma Run, the Buechse (a 'tank' with buechse set): a marksman that holds a firing line. States (e.bst), counted in ticks of the fixed 60 Hz step:
-// track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows where the ship will be when the shell gets there)
+// track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows the ship, on Ace a little ahead of it)
 // -> lock (the line freezes and turns red, the tank halts, the muzzle glows) -> one shell down the frozen line (it never steers) -> rest -> track.
-// Lead: the ship's velocity, smoothed, times the shell's flight time, times a share by difficulty. A popped turret or a dead tank ends the cycle at
+// Lead (Ace only): the ship's velocity, smoothed, times the shell's flight time, times half. A popped turret or a dead tank ends the cycle at
 // once (buechseTick runs only while the turret stands). Its turret has its own health like the Drilling's: an untouched one outlives a Nova, a full laser pops it.
-const BUECHSE = { turn: 0.03, aim: 60, lock: 21, rest: 90, cd: [50, 110], speed: 2, lead: [0.5, 0.8, 1], vel: 0.15, turHp: 42, top: 44 };
+const BUECHSE = { turn: 0.03, aim: 36, lock: 18, rest: 72, cd: [50, 110], speed: 2, lead: [0, 0, 0.5], vel: 0.15, turHp: 42, top: 44 }; // (aim 0.6 s, lock 0.3 s, rest 1.2 s; lead by difficulty: it aims at the ship on Rookie and Veteran)
 // the muzzle's spot on the screen: the bore of the turret sprite drawn for the turret's heading, placed as spr() places it
 function buechseBore(e) {
   const B = e.silver ? SPR.buechseN : SPR.buechseD, i = dirIdx(e.ta), s = B.t[i], b = B.bore[i];
@@ -11720,7 +11884,7 @@ const ENT = {
   fighter: { stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
     if (e.lead && !e.crash) {
       const L = e.lead;
-      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
+      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { if (volleyOK(1)) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } else e.fireAt++; } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
       e.lead = null; e.scatter = true; e.fireAt = -1; e.turn = rnd(-0.04, 0.04); e.v *= 1.15;
     }
     if (e.leader && !e.chased && e.t > 30 && !e.crash && !world.enemies.some(o => o.lead === e && !o.dead && !o.crash)) { e.chased = true; e.homeT = 140; e.fireAt = e.t + 30; }
@@ -11748,17 +11912,18 @@ const ENT = {
     }
     e.h += e.back ? 0 : e.turn; e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (e.back === 1) { e.x = clamp(e.x, -26, W + 26); e.y = Math.min(e.y, H + 26); }
-    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); }
-    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && hasT()) {
+    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { if (volleyOK(1)) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } else e.fireAt++; }
+    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && hasT() && volleyOK(run.loop >= 1 ? 3 : 1)) {
       e.fired = true; const a = aim(e.x, e.y);
       eshot(e.x, e.y, a, bspeed()); if (run.loop >= 1) { eshot(e.x, e.y, a - 0.2, bspeed()); eshot(e.x, e.y, a + 0.2, bspeed()); }
     }
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
   } },
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
-    e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
+    const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
+    e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
-    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
+    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
@@ -11774,7 +11939,7 @@ const ENT = {
       for (const ox of [-22, 22]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 1, vx: 0, vy: -0.05, life: 40, max: 40 });
       for (const ox of [-14, -7, 7, 14]) if (Math.random() < 0.5) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox + rnd(-0.5, 0.5), y: e.y - 6, vx: 0, vy: -0.05, life: 22, max: 22 });
     }
-    if (--e.gcd <= 0 && canFire(e, 100)) {
+    if (--e.gcd <= 0 && canFire(e, 100) && volleyOK(run.loop >= 1 ? 3 : 1)) {
       e.gcd = Math.round((Math.max(30, 50 - run.loop * 8)) * fireSlow());
       const top = (e.t >> 5) & 1, gx = e.x, gy = top ? e.y - 8 : e.y + 12, a = aim(gx, gy);
       eshot(gx, gy, a, bspeed()); if (run.loop >= 1) { eshot(gx, gy, a - 0.18, bspeed()); eshot(gx, gy, a + 0.18, bspeed()); }
@@ -11866,7 +12031,7 @@ const ENT = {
     if (e.drill) { if (hasT() && !e.turDead) drillTick(e); return; }
     if (e.buechse) { if (hasT() && !e.turDead) buechseTick(e); return; }
     if (hasT()) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -0.04, 0.04);
-    if (--e.cd <= 0 && canFire(e, 90)) {
+    if (--e.cd <= 0 && canFire(e, 90) && volleyOK(e.heavy ? 3 : 1)) { // (6. tanks: one shell, three from a heavy tank)
       e.cd = Math.round((Math.max(80, 150 - run.loop * 20) + rnd(0, 30)) * fireSlow());
       const a = e.ta, L = e.heavy ? 18 : 14, bx = e.x + Math.cos(a) * L, by = e.y + Math.sin(a) * L;
       eshot(bx, by, a, bspeed() * 1.1, 'shell');
@@ -11886,7 +12051,7 @@ const ENT = {
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (e.rd === undefined) e.rd = world.enemies.find(o => o.type === 'radar' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 140) || null;
     const tight = (e.rd && !e.rd.dead ? 0.3 : 1) * (run.sortie && world.nightF > 0.5 && nightLit(e) ? 0.6 : 1); // Enigma Run: a lit searchlight nearby also tightens the aim
-    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90))) {
+    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90)) && volleyOK((e.barrels || 1) + (world.nightF > 0.5 && nightLit(e) ? 3 : 0), world.nightF > 0.5 && nightLit(e) ? 21 : e.barrels === 4 ? 9 : 0)) {
       e.cd = Math.round((Math.max(90, 150 - run.loop * 20)) * fireSlow() * (e.barrels === 4 ? 1.15 : 1) * (e.rear ? 0.6 : 1));
       const bx = e.x + Math.cos(e.ga) * 12, by = e.y + Math.sin(e.ga) * 12, nb = e.barrels || 1;
       flakShot(bx, by, tight); flash(bx, by, 2); sfx('gun');
@@ -12095,7 +12260,7 @@ const ENT = {
   } },
   popup: { revenge: 2, guarded: true, medals: 0.5, stats: { hp: 6, hw: 8, hh: 8, score: 600, rad: 10 }, update(e) {
     groundPos(e); e.stT--;
-    if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
+    if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70 && (e.rocket || volleyOK(6, 74))) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } } // (7. the soft budget: it rises only when its three pairs fit; the rocket one fires a missile, not bullets)
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
     else if (e.st === 'up') {
       if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.08, 0.08);
@@ -13418,23 +13583,28 @@ function update() {
     c.t++;
     if (c.scared > 0) c.scared--;
     const k = c.kind || 'cow';
+    if (c.drownT !== undefined) { if (++c.drownT % 7 === 0) world.parts.push({ kind: 'bubble', layer: 'w', x: c.wx + rnd(-2, 2), y: c.wy + sc, vx: 0, vy: world.scrollV, life: 22, max: 22 }); if (c.drownT > 60) c.gone = true; continue; } // (an animal in the water sinks)
+    if (ANIMALS.has(k) && c.t % 10 === 0 && animalWet(c.wx, c.wy)) { c.drownT = 0; c.vx = c.vy = 0; splash(c.wx, c.wy + sc, 4); continue; } // (it ended up in the water anyway: it drowns)
     if (k === 'cow') {
+      if (c.t % 3 === 0) { const g = bigGunNear(c.wx, c.wy); if (g) { // (Enigma Run: a cow walks off a Drilling or a Buechse, staying in its paddock)
+        const dx = c.wx - g.wx, dy = c.wy - g.wy, d = Math.hypot(dx, dy) || 1, bx = c.box; if (!animalWet(c.wx + dx / d * 2, c.wy + dy / d * 2)) { c.wx += dx / d * 2; c.wy += dy / d * 2; } c.vx = dx / d * 0.3; c.vy = dy / d * 0.18; c.scared = 40;
+        if (bx) { c.wx = clamp(c.wx, bx[0] + 1, bx[1] - 1); c.wy = clamp(c.wy, bx[2] + 1, bx[3] - 1); } else if (c.f) { c.wx = clamp(c.wx, c.f.x0 + 5, c.f.x0 + 67); c.wy = clamp(c.wy, c.f.y0 + 33, c.f.y0 + 61); } } }
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
-      const bx = c.box; if (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (box: a plan's paddock, level 1A)
+      const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1A)
     } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
-      let bx = 0, by = 0; for (const o of world.enemies) if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < 24 && Math.abs(o.wy - c.wy) < 24) { bx += c.wx - o.wx; by += c.wy - o.wy; }
+      let bx = 0, by = 0; for (const o of world.enemies) { const w = o.drill || o.buechse ? 44 : 24; if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < w && Math.abs(o.wy - c.wy) < w) { bx += c.wx - o.wx; by += c.wy - o.wy; } } // (a big gun: from further off)
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }
-      const d = Math.hypot(bx, by) || 1; c.wx += bx / d * 2; c.wy += by / d * 2; c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40;
+      const d = Math.hypot(bx, by) || 1; if (!animalWet(c.wx + bx / d * 2, c.wy + by / d * 2)) { c.wx += bx / d * 2; c.wy += by / d * 2; } c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40; // (never into the water)
     } else if (k === 'sheep' || k === 'horse' || k === 'civ') {
       if (k === 'civ' && c.hidden > 0) { c.hidden--; continue; }
       if (k === 'civ' && c.scared > 0) { const dx = c.home[0] - c.wx, dy = c.home[1] - c.wy, d = Math.hypot(dx, dy); if (d < 3) { c.hidden = 420; c.scared = 0; c.wx = c.home[0]; c.wy = c.home[1] + 6; continue; } c.wx += dx / d * 0.6; c.wy += dy / d * 0.6; c.fl = dx < 0; continue; }
       if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy, tt = terrainType(Math.floor(nx), Math.floor(ny));
       const roam = c.free ? 46 : 18;
-      if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
+      if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'sea' && tt !== 'surf' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
     } else if (k === 'deer') {
-      if (critterBlocked(c.wx + c.vx * 6, c.wy + c.vy * 6)) { c.vx = -c.vx; c.vy = -c.vy; }
+      if (critterBlocked(c.wx + c.vx * 6, c.wy + c.vy * 6) || ((c.vx || c.vy) && animalWet(c.wx + c.vx * 6, c.wy + c.vy * 6))) { c.vx = -c.vx; c.vy = -c.vy; } // (and at the water's edge)
       if (c.scared > 0 && !c.run) { c.run = true; const a = Math.random() < 0.5 ? PI : 0; c.vx = Math.cos(a) * 1.2; c.vy = -0.4; c.fl = c.vx < 0; }
       if (!c.run && c.t % 120 === 0) { c.vx = rnd(-0.08, 0.08); c.vy = rnd(-0.04, 0.04); c.fl = c.vx < 0; }
       c.wx += c.vx; c.wy += c.vy; if (c.wx < -10 || c.wx > W + 10) c.gone = true;
@@ -13574,7 +13744,8 @@ function flipDraw(c, x, y, fl) { if (fl) { ctx.save(); ctx.translate(Math.round(
 function drawCritters() {
   const sc = Math.floor(world.scroll);
   for (const c of critters) {
-    const y = c.wy + sc, k = c.kind || 'cow';
+    const y = c.wy + sc + (c.drownT ? c.drownT * 0.05 : 0), k = c.kind || 'cow';
+    ctx.globalAlpha = c.drownT !== undefined ? Math.max(0, 1 - c.drownT / 60) : 1; // (a drowning animal sinks and fades)
     if (y < -12 || y > H + 12 || c.hidden > 0) continue;
     if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
     const moving = Math.abs(c.vx || 0) + Math.abs(c.vy || 0) > 0.01, fr = moving ? (c.t >> 3) & 1 : 0, fg = moving ? fr : ((c.t + (c.wx | 0) * 7) >> 6) % 3 === 0 ? 0 : 2;
@@ -14691,7 +14862,7 @@ function renderMain() {
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
   drawRoofs(); drawGorgeSnow(true);
   drawWreck(true);
-  drawCritters();
+  drawCritters(); ctx.globalAlpha = 1;
   drawCanopy();
   drawProps();
   drawParts('g');
@@ -14799,6 +14970,14 @@ function renderMain() {
   if (app.congrats) drawCongrats();
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
   if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
+  if (ENC_TRY && app.state === 'play') { const E0 = world.enc, L = world.encLast; // playtesting (?enc): name the encounter as it starts, while it waits, and when it ends
+    const t = E0 && E0.st === 'hold' && E0.t === 0 ? ENC[E0.id].name + ': WAITING' : E0 && E0.st === 'run' && E0.t < 150 ? 'ENCOUNTER: ' + ENC[E0.id].name
+      : L && gf - L.at < 120 ? ENC[L.id].name + ': ' + L.why.toUpperCase() : '';
+    if (t) textS(t, W / 2, SAFE_T + 46, '#c8b0ff', 1, 'center'); }
+  if (settings.fps && (LB_TEST || ENC_TRY) && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds, or with ?enc)
+    const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + encBullets() + '/' + ENC[E0.id].budget[settings.diff]
+      : L && gf - L.at < 180 ? 'ENC ' + L.id + ' ' + L.why.toUpperCase() + ' ' + L.t + ' OVER ' + L.over + ' PEAK ' + L.peak : '';
+    if (t) textS(t, W / 2, H - SAFE_B - 28, '#c8b0ff', 1, 'center'); }
 
   if (app.msg && app.state === 'play' && app.cont === 0 && !app.results && !app.congrats) {
     const warn = app.msg.a === 'WARNING';

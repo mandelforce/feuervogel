@@ -21,6 +21,11 @@ const SCENARIOS = [
   { name: 'level4-normal', diff: 1, sortie: 4, seed: 4, mode: 'immortal', saveAt: [4000, 10000], after: 1800 },
   { name: 'level5-normal', diff: 1, sortie: 5, seed: 5, mode: 'immortal', saveAt: [4000, 12000], after: 1800 },
   { name: 'level6B-easy-real', diff: 0, sortie: 7, seed: 42, mode: 'real', saveAt: [4000, 12000], after: 1800 },
+  // an encounter (docs/encounter-director-plan.md) started at frame encAt and saved while it runs: its clock, events and tagged enemies
+  { name: 'level2-anvil', diff: 1, sortie: 2, seed: 2, mode: 'immortal', enc: 'anvil', encAt: 300, saveAt: [450, 700], after: 1200 },
+  { name: 'level2-bomberscreen', diff: 1, sortie: 2, seed: 41, mode: 'immortal', enc: 'bomberscreen', encAt: 300, saveAt: [550], after: 1200 }, // (saved between its dives)
+  { name: 'level4-sowerwindow', diff: 1, sortie: 4, seed: 104, mode: 'immortal', enc: 'sowerwindow', encAt: 7322, saveAt: [7500], after: 1200 }, // (opened the frame after the second Sower settles; saved with the Sower, its mines and the convoy up)
+  { name: 'level2-flaklane', diff: 1, sortie: 2, seed: 31, mode: 'immortal', enc: 'flaklane', encAt: 300, saveAt: [450, 700], after: 1200 }, // (saved before and after its formation, which waits for the guns)
   { name: 'stage1-normal', diff: 1, stage: 1, seed: 1944, mode: 'immortal', saveAt: [1500, 4000], after: 1800 },
   { name: 'stage3-hard-real', diff: 2, stage: 3, seed: 7, mode: 'real', saveAt: [3000, 7000], after: 1800 },
   { name: 'stage4-castle', diff: 1, stage: 4, seed: 4, mode: 'immortal', saveAt: [6000, 9500], after: 2400 },
@@ -55,7 +60,7 @@ const DUMP = `(() => {
   const ent = e => Object.assign(flat(e), e.parts ? { parts: e.parts.map(q => flat(q)) } : {});
   return JSON.stringify({
     gf, simS, drandS, scroll: r(world.scroll), scrollV: r(world.scrollV), theme: world.curTheme,
-    director: flat(world, COSMETIC), run: flat(run), stats: flat(run.stats), camp: flat(run.camp),
+    director: flat(world, COSMETIC), enc: world.enc ? flat(world.enc) : null, encLast: world.encLast ? flat(world.encLast) : null, run: flat(run), stats: flat(run.stats), camp: flat(run.camp),
     player: flat(player), p2: p2 ? flat(p2) : null, feel: flat(feel), laserHeat: r(laserHeat), overheatT, guardCount,
     enemies: world.enemies.map(ent), ebul: world.ebul.map(b => flat(b)), shots: world.shots.map(b => flat(b)), items: world.items.map(b => flat(b)),
     decals: world.decals.map(d => flat(d, ['s'])).length, parts: world.parts.filter(q => q.kind === 'thrown' || q.kind === 'turfly').map(q => flat(q)), chutes: chutes.map(c => flat(c)), markers: markers.map(c => flat(c)),
@@ -82,7 +87,7 @@ for (const sc of SCENARIOS) for (const saveAt of sc.saveAt.filter(a => !AT || a 
     window.__forceSeed = ${sc.seed}; if (app.booting) finishBoot(); gf = 0; settings.fire = 100; settings.pb = false;
     ${sc.p2 ? `settings.p2 = '${sc.p2}';` : ''}
     SF.setMode('${sc.mode}'); ${sc.sortie ? `acc = -1e15; settings.diff = ${sc.diff}; startEnigma(${sc.sortie}, true);` : `SF.start(${sc.diff}, ${sc.stage || 1}${sc.endless !== undefined ? ', ' + sc.endless : ''});`}
-    SF.run(${saveAt});
+    ${sc.enc ? `SF.run(${sc.encAt}); encStart('${sc.enc}'); SF.run(${saveAt - sc.encAt});` : `SF.run(${saveAt});`}
     let tries = 0; while (!takeSnapshot() && tries++ < 1500) SF.run(1); // the save happens at the next moment the game can be written down
     if (tries >= 1500) return JSON.stringify({ error: 'no moment to save within 1500 frames' });
     snapNow(); saveResume();

@@ -16,6 +16,15 @@ const SCENARIOS = [
   { name: 'normal-2p-stage2-immortal', diff: 1, stage: 2, p2: 'mouse', seed: 22, mode: 'immortal', frames: 20000 },
   { name: 'normal-resume-stage2-immortal', diff: 1, stage: 2, resumeAt: 6000, seed: 33, mode: 'immortal', frames: 20000 },
 ];
+// The Campaign proper (Enigma levels, what START plays), compared with tests/golden-enigma.json (replay.mjs --enigma). enigma: the internal level
+// (8 is 1A); the frames reach past both set-piece slots of the level (set2 ends at about frame 6100 in 1A, 7500 in levels 3 and 4) and stop
+// before its boss. Unlike golden.json these runs use the game's real settings (gun speed 90, point-blank fire) and are meant to be refreshed
+// on purpose when a change to the Campaign's spawns or balance is made (docs/encounter-director-plan.md, Phase 0).
+const ENIGMA_SCENARIOS = [
+  { name: 'enigma-1A-rookie-real', diff: 0, enigma: 8, seed: 101, mode: 'real', frames: 7200 }, // the first set piece a new player meets
+  { name: 'enigma-3-ace-immortal', diff: 2, enigma: 3, seed: 103, mode: 'immortal', frames: 8400 },
+  { name: 'enigma-4-veteran-immortal', diff: 1, enigma: 4, seed: 104, mode: 'immortal', frames: 9000 }, // the forest and the Sower
+];
 
 // Checksum of the simulation state: the run's numbers, the seeded random stream, the ships, every enemy (and boss part) and bullet.
 // Taken every TRACE frames, so a difference shows when a run first went another way, not only that its end result changed.
@@ -40,9 +49,10 @@ SF.replay = sc => {
     if (app.booting) finishBoot(); // the boot splash would otherwise eat the first 300 frames of the run
     window.__forceSeed = sc.seed; // the game's own seeded stream (see 'random streams' in index.html); page-level Math.random no longer matters
     gf = 0; // the frame counter keeps running while the title screen idles; start every scenario from zero
-    settings.fire = 100; settings.pb = false; // the golden values predate v1.2.5's fixed gun speed (90) and point-blank fire: replays pin the old settings so they keep checking the simulation itself
+    if (!sc.enigma) { settings.fire = 100; settings.pb = false; } // the golden values predate v1.2.5's fixed gun speed (90) and point-blank fire: replays pin the old settings so they keep checking the simulation itself
     if (sc.p2) settings.p2 = sc.p2;
     SF.setMode(sc.mode); SF.start(sc.diff, sc.stage, sc.endless);
+    if (sc.enigma) startEnigma(sc.enigma, true); // as SF.flyCampaign starts the Campaign
     const trace = [];
     let status = 'ok';
     // play in steps (the same frames as one long run); the step is small enough for the drawing check
@@ -61,6 +71,7 @@ SF.replay = sc => {
 };
 SF.replayAll = () => Object.fromEntries(SCENARIOS.map(sc => [sc.name, SF.replay(sc)]));
 SF.SCENARIOS = SCENARIOS;
+SF.ENIGMA_SCENARIOS = ENIGMA_SCENARIOS;
 
 // Diagnostics for chasing differences between machines: environment facts plus a short frame-by-frame trace.
 SF.diag = (sc = SCENARIOS[0], frames = 1500, every = 25) => {
