@@ -7,7 +7,12 @@
 // the Shadow Wing waits for a running encounter; the soft budget: with the screen full a gated shooter (the Heavy) waits, the Sower's mines
 // don't count, and once there is room the whole spread fires; a delayed volley reserves its bullets until it has fired; the boss ends it ('boss') and a new level clears it;
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
-// it by itself, once per level.
+// it by itself, once per level. Flak lane: only flak is placed (a plan's slot first), the formation waits until the guns are on screen, the
+// strafing run follows from the other side (not on Rookie), it never starts over the sea, and a flak verb that can place nothing makes nothing.
+// Bomber screen: a Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), all spawn timers held, and a
+// Bomber left alone leaves the screen and the encounter. Sower Window (level 4): ordinary encounters wait while a Sower is up; the level's
+// first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
+// waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -165,7 +170,90 @@ const playOut = `
   await page.close();
 }
 {
-  // 6. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
+  // 6. Flak lane
+  const page = await freshPage();
+  const play = (lv, diff, seed, at) => `(() => { window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(${lv}, true); delete window.__forceSeed; SF.run(${at});
+    const started = encStart('flaklane'), D = ENC.flaklane, disp = {}, tagged = new Set(); let lastI = 0, f = 0, seenAt = -1;
+    while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
+      while (lastI < E0.i) disp[lastI++] = E0.t;
+      for (const e of world.enemies) if (e.enc === 'flaklane') tagged.add(e);
+      const guns = [...tagged].filter(e => e.type === 'flak' && !e.dead); if (seenAt < 0 && guns.length && guns.every(e => e.y >= 0.15 * H)) seenAt = E0.t; }
+    const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
+    return JSON.stringify({ started, disp, seenAt, types, last: world.encLast }); })()`;
+  const v = JSON.parse(await peek(page, play(2, 1, 31, 300)));
+  ok(v.started && v.types.flak >= 1 && v.types.flak <= 2 && Object.keys(v.types).every(k => ['flak', 'troop', 'fighter'].includes(k)), `Flak lane places one or two guns (with crews) and nothing else: ${JSON.stringify(v.types)}`);
+  ok(v.seenAt > 0 && v.disp[1] === v.seenAt + 1, `the formation goes as soon as the guns are 15% down the screen (they get there as the enemies move in frame ${v.seenAt}; the next frame's tick sends it: ${v.disp[1]})`);
+  ok(v.disp[2] === v.disp[1] + 120 && v.disp[3] === v.disp[2] + 16 && v.disp[5] === v.disp[4] + 16 && v.types.fighter === 9, `then a strafing run of four, 120 frames after the formation, 16 apart (${[2, 3, 4, 5].map(i => v.disp[i]).join(', ')})`);
+  ok(v.last && v.last.why === 'done' && v.last.dropped === 0, `Flak lane ends 'done' after ${v.last && v.last.t} frames, nothing dropped`);
+  const r = JSON.parse(await peek(page, play(2, 0, 31, 300)));
+  ok(r.types.fighter === 5 && r.last && r.last.why === 'done', `Rookie: no strafing run (${JSON.stringify(r.types)})`);
+  const p4 = JSON.parse(await peek(page, play(4, 1, 31, 2200)));
+  ok(p4.types.flak >= 1 && p4.last && p4.last.dropped === 0, `level 4 (a level with a plan): its gun is placed (${JSON.stringify(p4.types)})`);
+  const sea = JSON.parse(await peek(page, `(() => { window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed; SF.run(1500);
+    const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
+  ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
+  ok(sea.made === false && sea.same, 'over the sea the flak verb places nothing and says so, so a retry is safe');
+  await page.close();
+}
+{
+  // 7. Bomber screen
+  const page = await freshPage();
+  const play = (diff, seed, tough) => `(() => { window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(2, true); delete window.__forceSeed; SF.run(300);
+    const cd0 = { wave: world.waveCd, pod: world.podCd, ground: world.groundCd }, started = encStart('bomberscreen'), disp = [], tagged = new Set(); let lastI = 0, f = 0, moved = 0;
+    while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
+      while (lastI < E0.i) disp.push(lastI++ + '@' + E0.t);
+      for (const e of world.enemies) if (e.enc === 'bomberscreen') { tagged.add(e); if (${tough} && e.type === 'bomber') e.hp = e.maxhp = 99999; }
+      if (world.waveCd !== cd0.wave || world.podCd !== cd0.pod || world.groundCd !== cd0.ground) moved++; }
+    const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
+    return JSON.stringify({ started, disp, types, moved, last: world.encLast }); })()`;
+  const v = JSON.parse(await peek(page, play(1, 41, false)));
+  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@300 4@420 5@436 6@452 7@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s, a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
+  ok(v.types.bomber === 1 && v.types.fighter === 13 && Object.keys(v.types).length === 2, `tagged: ${JSON.stringify(v.types)}`);
+  ok(v.moved === 0, 'air waves, pods and ground spawns all wait while it runs (an air fight)');
+  ok(v.last && v.last.why === 'done', `it ends 'done' after ${v.last && v.last.t} frames (bullets peaked at ${v.last && v.last.peak}, budget ${18})`);
+  const r = JSON.parse(await peek(page, play(0, 41, false)));
+  ok(r.types.fighter === 6 && r.last && r.last.why === 'done', `Rookie: two dives and no strafing run (${JSON.stringify(r.types)})`);
+  const t = JSON.parse(await peek(page, play(1, 42, true)));
+  ok(t.last && t.last.why === 'done' && t.last.t < 1000, `a Bomber nobody can kill leaves the screen and the encounter still ends 'done' (${t.last && t.last.t} frames)`);
+  await page.close();
+}
+{
+  // 9. Sower Window: the same level 4 run (seed 104, Veteran, the plain immortal bot, Sowers made unkillable so both runs keep them as long),
+  // once with ?enc=sowerwindow and once without
+  const fly = `(() => { window.__forceSeed = 104; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(4, true); delete window.__forceSeed;
+    const out = { early: false, anvilRefused: null, startF: -1, holdF: -1, again: false, mines: 0, bombs: 0, partner: false, sowers: new Set(), tagged: {}, waveMoved: 0, end: null, resumed: null };
+    const seen = new WeakSet(); let wave0 = null, endF = -1;
+    for (let f = 0; f < 9000; f++) { SF.run(1);
+      for (const e of world.enemies) if (e.type === 'sower') { out.sowers.add(e); e.hp = 99999; }
+      const first = world.enemies.find(e => e.type === 'sower' && !e.dead && world.ARC_U < 0.5);
+      if (first && out.anvilRefused === null && !world.enc) out.anvilRefused = encStart('anvil') === false && !world.enc;
+      if (world.enc && world.ARC_U < 0.7) out.early = true;
+      if (out.holdF < 0 && world.ARC_U >= 0.7 && world.enemies.some(e => e.type === 'sower' && e.st === 'hold' && !e.second)) out.holdF = f;
+      if (out.startF < 0 && world.enc) { out.startF = f; wave0 = world.waveCd; }
+      if (world.enc && wave0 !== null && world.waveCd !== wave0) out.waveMoved++;
+      if (f >= 7000 && f < 8400) for (const b of world.ebul) if (!seen.has(b) && (b.kind === 'amine' || b.kind === 'fbomb')) { seen.add(b); if (b.kind === 'amine') out.mines++; else out.bombs++; }
+      if (world.enemies.some(e => e.type === 'sower' && e.second)) out.partner = true;
+      for (const e of world.enemies) if (e.enc) out.tagged[e.type] = 1;
+      if (out.startF >= 0 && !world.enc && endF < 0) { endF = f; out.end = world.encLast; out.resumed = world.waveCd === wave0 - 1 || wave0 <= 1; }
+      if (endF >= 0 && world.enc) out.again = true; }
+    out.sowers = out.sowers.size; return JSON.stringify(out); })()`;
+  const page = await freshPage('?enc=sowerwindow');
+  const w = JSON.parse(await peek(page, fly));
+  await page.close();
+  const page2 = await freshPage();
+  const n = JSON.parse(await peek(page2, fly));
+  await page2.close();
+  ok(w.anvilRefused === true, 'while a Sower is up, an ordinary encounter does not start');
+  ok(!w.early, "the level's first Sower (before the set2 stretch) does not open the Sower Window");
+  ok(w.holdF > 0 && w.startF === w.holdF + 1, `it opens the frame after the second Sower settles (settled ${w.holdF}, opened ${w.startF})`);
+  ok(!w.again, 'it opens once: not again for the partner the Sower calls');
+  ok(!w.tagged.sower && !w.tagged.wing && w.sowers === n.sowers, `it makes no Sower or Wing (Sowers in the level: ${w.sowers}, the same as without it: ${n.sowers}; tagged: ${Object.keys(w.tagged).join(', ')})`);
+  ok(w.waveMoved === 0, 'air waves stay held for the whole encounter');
+  ok(w.mines === n.mines && w.bombs === n.bombs && w.partner && n.partner, `the Sowers lay their mines (${w.mines}, ${n.mines} without), drop their bombs (${w.bombs}, ${n.bombs}) and call the partner as without it`);
+  ok(w.end && w.end.why === 'done' && w.resumed, `it ends 'done' after ${w.end && w.end.t} frames and air waves resume from where they were`);
+}
+{
+  // 8. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
   const page = await freshPage('?enc=anvil');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
@@ -180,6 +268,19 @@ const playOut = `
   ok(r.nextLevel, '?enc=anvil starts it again in the next level');
   ok(r.carrier, "?enc=anvil in level 1A: it waits in 'hold' while the carrier opening runs");
   ok(r.retro, '?enc=anvil does nothing outside the Campaign');
+  await page.close();
+}
+{
+  // ?enc=all: one encounter per level, the Campaign's tour (1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
+  // Flak lane), started as each level's practice run; and the playtest banner draws
+  const page = await freshPage('?enc=all');
+  const r = JSON.parse(await peek(page, `(() => { const out = {};
+    for (const lv of [8, 2, 3, 5, 7]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
+      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; // (6B opens over the sea: Flak lane waits for land, about frame 870)
+      if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
+    out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
+  ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
+  ok(r.drew === true, `the playtest banner (ENCOUNTER: <name>) draws${r.drew === true ? '' : ': ' + r.drew}`);
   await page.close();
 }
 await browser.close();

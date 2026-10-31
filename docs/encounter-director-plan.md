@@ -165,7 +165,8 @@ Retries draw from the seeded stream again (`convoy` draws its size), which stays
 
 Most events are timed (`t`). Two triggers are enough for the MVP:
 - `when: 'clear'`: the counted enemies spawned so far are all resolved. Use this for "next beat after you dealt with this one".
-- `when: 'seen'`: every ground unit placed by an earlier event (named by its index, `of: 0`) is on screen, `y` at least a set share of `H` (`at: 0.15`). Use this for "the pressure comes only after the restriction is visible". It's needed because ground units are placed above the screen and scroll in at the constant `SCROLL` of 0.4 px per frame: about 85 frames (1.4 s) before a unit is visible at all, and several more seconds before it reaches mid-screen. A frame-timed event can't express "after the flak is visible" reliably. **(checked)** Both ground spawners place on the row 34 px above the top edge (`wy = -34 - scroll`). `tryLand` picks only the x position, and `convoy` puts each further vehicle higher up the road. So the first unit is visible after about 85 frames, and reaches 15% of `H` after roughly 240 frames at `H = 408`.
+- **(built)** `after: n`: due `n` frames after the event before it was dispatched (`world.enc.lastT`). Used for staggered runs like Flak lane's strafers, so they keep their spacing whenever the event before them fires.
+- **(built)** `when: 'seen'`: every ground unit placed by an earlier event (named by its index, `of: 0`) is on screen, `y` at least a set share of `H` (`at: 0.15`). Use this for "the pressure comes only after the restriction is visible". It's needed because ground units are placed above the screen and scroll in at the constant `SCROLL` of 0.4 px per frame: about 85 frames (1.4 s) before a unit is visible at all, and several more seconds before it reaches mid-screen. A frame-timed event can't express "after the flak is visible" reliably. **(checked)** Both ground spawners place on the row 34 px above the top edge (`wy = -34 - scroll`). `tryLand` picks only the x position, and `convoy` puts each further vehicle higher up the road. So the first unit is visible after about 85 frames, and reaches 15% of `H` after roughly 240 frames at `H = 408`.
 
 A trigger event also has a `by` frame after which it fires anyway, so pacing never hangs on a dodging enemy.
 
@@ -229,16 +230,17 @@ Each verb wraps an existing spawner. The director owns when, where and which opt
 
 | Verb | Wraps | Options | Can fail? | Notes |
 |---|---|---|---|---|
-| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | Needs an optional `cx` argument. |
+| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | **(built)** With an optional centre; Bomber screen's three-plane dives. |
 | `formation` | `waveLeader()` or `waveDive(5)` | `x` | no, atomic | **(built)** A leader with four wingmen where `avail('leader')` allows (from stage 4 in the `FEAT` table), a five-plane dive before that, so one encounter works in every level. The Anvil uses this. |
 | `leader` | `waveLeader()` | `x` | no, atomic | Needs an optional `cx`. Gated by `avail('leader')`: check at selection that the level has it, so dispatch never meets it. |
 | `fighter` | `mkFighter` | `side`, `y` (0–1 of `H`), `heading`, `strafe`, `homeT`, `fireAt` | no, atomic | One fighter. Sweeps and strafes are written as 4–5 of these, 11–16 frames apart. |
 | `chase` | `waveChase()` | none | no, atomic | |
 | `heavy` | `waveHeavy()` | `x`, `hold`, `holdT` | no, atomic | `hold` needs the small Heavy option in 7.1. |
-| `bomber` | `waveBomber()` | `x` | no, atomic | |
+| `bomber` | `waveBomber()` | `x` | no, atomic | **(built)** With an optional centre. |
 | `pfeil` | `wavePfeil()` | none | no, atomic | Campaign level 3 and on, checked at selection. |
-| `flak` | `spawnGround` with a new value, `FORCE_GROUND = 'encFlak'` | none | yes | **(checked)** The existing `'flak'` value is checked only after `spawnGround`'s other branches, so it often places something else (section 2). The new value gets its own branch right after `tryLand` is defined, before the train, gun-slot and camouflage branches, and does only the two flak tries. The existing `'flak'` value and Retro Run's set piece stay exactly as they are. Placement is still the ground code's (`tryLand`), because it knows roads, water and houses. A call that places nothing only draws from the seeded stream and changes no world state, so the length check in 5.2 is enough. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. Not in the `bossland` biome, whose branch comes before `tryLand` (checked at selection). Guns appear 34 px above the screen: time later events with `when: 'seen'` (5.3). |
+| `flak` | `spawnGround` with a new value, `FORCE_GROUND = 'encFlak'` | none | yes | **(built)** It tries the level plan's free flak slot first (`slotAt(['flak'])`), then open ground. **(checked)** The existing `'flak'` value is checked only after `spawnGround`'s other branches, so it often places something else (section 2). The new value gets its own branch right after `tryLand` is defined, before the train, gun-slot and camouflage branches, and does only the two flak tries. The existing `'flak'` value and Retro Run's set piece stay exactly as they are. Placement is still the ground code's (`tryLand`), because it knows roads, water and houses. A call that places nothing only draws from the seeded stream and changes no world state, so the length check in 5.2 is enough. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. Not in the `bossland` biome, whose branch comes before `tryLand` (checked at selection). Guns appear 34 px above the screen: time later events with `when: 'seen'` (5.3). |
 | `convoy` | `convoy(wy, trucks)` | `trucks` | yes | Returns early off its route in the Campaign. 0 vehicles: `false`. 1–3: `true`. Not over sea or coast biomes (checked at selection). Placed above the screen like flak, so the same arrival delay applies. |
+| `strafer` | `mkFighter` | `i` (place in the run) | no, atomic | **(built)** One plane of a strafing run, as `waveStrafe` makes it. The side is chosen at `i: 0`, away from the ship, and kept in `world.enc.side`. |
 | `pod` | `E('pod', …)` | `x` | no, atomic | Always `own: false`. A pod is a reward: place it after the pressure, not during it. |
 
 Not a verb: the Sower and the Shadow Wing. They are level set pieces with their own directors (`sowerTick`, `spawnWing`). An encounter never spawns either. The Sower Window reacts to a Sower that `sowerTick` already made.
@@ -269,6 +271,10 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Placement:** if only one gun is placed, the encounter goes on with one (6, `flak`).
 - **Player choice:** kill the flak first (ground priority, Seekers), or hold a lane between the flak's fire and take the leader early.
 - **Rookie:** no strafe follow-up.
+- **Status: built (step 5, first encounter).**
+  - Definition: `flaklane` (two guns at frame 0; the formation with `when: 'seen'`, 15% down, `by` 420; four strafers at `after` 120, 16, 16, 16, from the side the ship is not on).
+  - It starts only over `ENC_LAND` biomes, so not over sea, coast or a boss's land. A level's plan slot is used for the guns first (level 4 has its gun sites in its plan; without that, its forest found no free spot in 60 frames).
+  - Measured ("human" bot): level 2 Veteran, one gun, formation at frame 244, done after 487–593 frames; level 3 Ace, two guns, done after 1207; level 4 Veteran, a plan slot's gun. Peaks of 6–23 bullets and 0 frames over budget in every run.
 
 ### 7.3 Bomber screen: prioritisation
 
@@ -277,16 +283,29 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Budget:** the lowest of the four, so the Bomber's shots stay readable. When the soft budget is reached, the gated fighters' shots wait, and so does the Bomber's next volley.
 - **Player choice:** focus the Bomber, or clear the dives. Scatter and Arc chains both have a clear job.
 - **Rookie:** two dives, not three, and no strafe.
+- **Status: built (step 5, second encounter).**
+  - Definition: `bomberscreen` (Bomber at frame 0; three-plane dives at 60, 180 and 300; a strafing run of four from 420). Budget 14 / 18 / 24, the lowest of the encounters.
+  - **All three spawn timers are held, the ground timer included.** The first measurement in level 3 on Veteran showed 154–170 frames over budget. The cause was new ground guns' fire that isn't gated (AA towers), which filled the low budget and made the gated Bomber wait. Bomber screen is an air fight, so new ground units now wait too: 0–40 frames over budget, and the Bomber fires 7–12 times per encounter.
+  - A Bomber that isn't shot down is removed 40 px below the screen (about frame 810), so the encounter ends `done` either way.
+  - Measured ("human" bot): level 2 on all difficulties, peaks of 10–20, over budget only once (19 frames on Veteran), done after 431–949 frames. Level 3 on Veteran and Ace with the ground held: peaks of 18–24, 0–40 frames over.
 
 ### 7.4 Sower Window (level 4 only)
 
 - **Start:** `start: 'sower'`. It starts only when `sowerTick`'s Sower settles into its hold, through the explicit rule in 5.5, and never spawns a Sower or a Wing itself.
 - **Restriction:** the Sower's mines, which persist and drift with the ground.
-- **Pressure:** a tank convoy on the road below and one flak gun, the flak `diff: [1, 2]`. Air waves (`holds.air`) are frozen for the whole encounter. Because ground units arrive late (5.3), the convoy and the flak are dispatched at the encounter's start, the moment the Sower settles.
+- **Pressure (as built):** three tank convoys on the road below, the second not on Rookie. The original plan had one convoy and a flak gun. Air waves (`holds.air`) are frozen for the whole encounter. Because ground units arrive late (5.3), the convoy and the flak are dispatched at the encounter's start, the moment the Sower settles.
 - **Player choice:** stay at the sides and work the ground targets, or move up beside the Sower and kill it.
 - **Ownership:** the Sower itself isn't owned (`sowerTick` made it), so completion depends on the convoy and the flak only. If the Sower outlasts them, normal spawning resumes after `rest` while the Sower is still on screen, as it does today.
 - **Budget (decided: the mines are meant to be many):** the Sower's aerial mines don't count toward the budget at all. They are the intended restriction, so they never hold back the convoy's or the flak's volleys, and they never show as overruns. Its falling bombs are aimed fire and do count. The budget therefore only keeps the tank and flak fire on top of the mine field readable.
 - **Setup:** `sowerTick` and the Sower's behaviour are unchanged.
+- **Status: built (step 5, third encounter).**
+  - Definition: `sowerwindow`, `start: 'sower'`: three tank convoys at frames 0, 180 (not on Rookie) and 360. Budget 26 / 34 / 40, the highest of the encounters. All spawn timers are held.
+  - Start rule (`encStart`): only for a Sower in `hold` from `ENC_SOWER_FROM` (0.7, the set2 stretch) on, not a called partner (`second`), and each Sower once (`encSeen`). Ordinary encounters don't start while a Sower or the Shadow Wing is up, and a running Sower Window isn't held by the Sower.
+  - Measured (level 4, seed 104): it opens at frame 7322, the frame after the second Sower settles, on every difficulty. The Sowers lay exactly the same mines (152) and bombs (10), and call their partner, as in the same run without it.
+  - **Decided after the first measurement (owner):**
+    - **A higher budget.** Each falling bomb bursts into a ring of 8 bullets that counts, and with the first budget (16 / 22 / 28) about 15–26 of the Sower's own bullets filled it: 274–391 frames over, and the convoy's gated tanks mostly waited.
+    - **Tank convoys instead of a flak gun.** The flak was dropped on Veteran and Ace, because that stretch of forest had no free gun site and no open spot.
+  - **Now** ("human" bot, seeds 104 and 7): 0–45 frames over budget, peaks of 25–44, nothing dropped, 3–7 tanks per encounter, and the tanks fire 7–30 shots.
 
 ## 8. Soft bullet budget
 
@@ -420,7 +439,7 @@ What this means for the plan:
     - tagging in `E()`, the counted total, `encTick` with `run`/`hold`/`rest`, and the end reasons `done`, `timeout` and `boss`;
     - the frozen timers, the `diff` filter, the start cue, the resets, `world.encLast`, `over`/`peak` (measured only), and the readout under Show FPS on local builds;
     - `encStart(id)` as the test hook, through `SF.peek` or the console;
-    - for hand playtests, also on a phone: `?enc=<id>` starts that encounter once per level, as early as it may. On the live site only in practice runs, which never go to the leaderboard (`run.ranked` is false); on local builds also in the Campaign. The readout shows with Show FPS whenever the switch is set. Shipped as hidden build 1.2.5.5 (leaderboard: version only, section 12).
+    - for hand playtests, also on a phone: `?enc=<id>` starts that encounter once per level, as early as it may. `?enc=all` plays a fixed tour, one encounter per Campaign level (`ENC_TOUR`). With the switch set, a banner names the encounter as it starts, while it waits and when it ends (drawing only). On the live site only in practice runs, which never go to the leaderboard (`run.ranked` is false); on local builds also in the Campaign. The readout shows with Show FPS whenever the switch is set. Shipped as hidden build 1.2.5.5 (leaderboard: version only, section 12).
   - **Deferred to the later steps:** the `encFlak` branch, the `seen` and `clear` triggers, `world.encPend` and the start rules with the Sower exception (step 6), and the Sower Window and its test (step 5).
   - **Tests:** `tests/encounter.mjs` passes 26 checks, including the `?enc` switch. A new `resume-exact.mjs` scenario, `level2-anvil`, saves at encounter frames 150 and 400 and resumes identically. `golden.json` and `golden-enigma.json` are unchanged.
   - **Learned:**

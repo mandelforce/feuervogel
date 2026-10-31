@@ -23,6 +23,9 @@ const SCENARIOS = [
   { name: 'level6B-easy-real', diff: 0, sortie: 7, seed: 42, mode: 'real', saveAt: [4000, 12000], after: 1800 },
   // an encounter (docs/encounter-director-plan.md) started at frame encAt and saved while it runs: its clock, events and tagged enemies
   { name: 'level2-anvil', diff: 1, sortie: 2, seed: 2, mode: 'immortal', enc: 'anvil', encAt: 300, saveAt: [450, 700], after: 1200 },
+  { name: 'level2-bomberscreen', diff: 1, sortie: 2, seed: 41, mode: 'immortal', enc: 'bomberscreen', encAt: 300, saveAt: [550], after: 1200 }, // (saved between its dives)
+  { name: 'level4-sowerwindow', diff: 1, sortie: 4, seed: 104, mode: 'immortal', enc: 'sowerwindow', encAt: 7322, saveAt: [7500], after: 1200 }, // (opened the frame after the second Sower settles; saved with the Sower, its mines and the convoy up)
+  { name: 'level2-flaklane', diff: 1, sortie: 2, seed: 31, mode: 'immortal', enc: 'flaklane', encAt: 300, saveAt: [450, 700], after: 1200 }, // (saved before and after its formation, which waits for the guns)
   { name: 'stage1-normal', diff: 1, stage: 1, seed: 1944, mode: 'immortal', saveAt: [1500, 4000], after: 1800 },
   { name: 'stage3-hard-real', diff: 2, stage: 3, seed: 7, mode: 'real', saveAt: [3000, 7000], after: 1800 },
   { name: 'stage4-castle', diff: 1, stage: 4, seed: 4, mode: 'immortal', saveAt: [6000, 9500], after: 2400 },

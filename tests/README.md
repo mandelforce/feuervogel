@@ -145,7 +145,9 @@ node tests/wing.mjs
 - a snapshot can be taken mid-encounter, and the readout draws;
 - the soft bullet budget: with the screen at the budget a gated shooter (the Heavy) waits, the Sower's aerial mines don't count, with room again the whole spread fires, and a delayed volley's reservation lasts until its last bullet.
 
-`resume-exact.mjs --only=anvil` checks a run saved in the middle of The Anvil.
+It also plays Flak lane: only flak is placed, a plan's slot first; the formation waits until the guns are on screen; the strafing run follows from the other side, but not on Rookie; it never starts over the sea; and a flak verb that can place nothing makes nothing. And Bomber screen: its Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), every spawn timer held, and a Bomber nobody can kill leaving the screen so the encounter still ends. And the Sower Window in level 4: ordinary encounters wait while a Sower is up; the level's first Sower doesn't open it; it opens the frame after the second Sower settles, once, not for its partner; it makes no Sower or Wing; air waves stay held and resume; and the Sowers lay the same mines, drop the same bombs and call their partner as in the same run without it.
+
+`resume-exact.mjs --only=anvil`, `--only=flaklane`, `--only=bomberscreen` and `--only=sowerwindow` check runs saved in the middle of each encounter.
 
 ```
 python3 -m http.server 8000   # in another terminal
@@ -156,7 +158,9 @@ On a local build, Settings > Show FPS adds a third line while an encounter runs:
 - **On a PC:** open the console and run `__sf('encStart("anvil")')` during a Campaign level.
 - **On a PC or a phone:** add `?enc=anvil` to the address. The encounter then starts by itself once per level, as early as it may: it waits in `hold` through level 1A's carrier opening. On a local build this works in the Campaign and in practice runs. On the live site (`https://mandelforce.github.io/feuervogel/?enc=anvil`) it works only in practice runs, picked in Settings > Enigma Run, which never go to the leaderboard; a ranked Campaign run ignores it.
 - **For a phone with a local build:** serve with `python3 scripts/devserver.py` and use the **by IP** link it prints, for example `http://192.168.1.20:8080/?enc=anvil`, with the phone on the same Wi-Fi. The `name.local` link isn't treated as a local build by the game's check (`LB_TEST` matches home-network IP addresses, not `.local` names), so the switch is treated as on the live site there (practice runs only).
-- Turn on Settings > Show FPS to see the readout.
+- **All four with one link:** `?enc=all` plays one encounter per level, a fixed tour through the Campaign: 1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B Flak lane. A practice run flies on from level to level, so one run shows them all. Flak lane waits for land (6B opens over the sea), and the Sower Window waits for level 4's second Sower.
+- **Knowing when one starts:** with the test link, a banner near the top names the encounter: `ENCOUNTER: FLAK LANE` for about 2.5 s as it starts, `<NAME>: WAITING` while it is held (for example during the carrier opening), and `<NAME>: DONE` briefly when it ends. It is drawn only with `?enc`; normal players never see it.
+- Turn on Settings > Show FPS to see the readout as well.
 
 ## Drilling test (run by hand)
 
