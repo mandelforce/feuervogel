@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.12'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.13'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8121,7 +8121,7 @@ function newGame() {
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
-  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = 0;
+  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = 0;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
   sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
@@ -8244,10 +8244,10 @@ function sortiePlan(S) {
   if (typeof CityGen === 'undefined') return null;
   const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); } return P;
 }
-// The Drilling's tank pits (owner): two in every level with a plan but levels 1 and 1A, three in level 2 (its held village's pit and two
+// The Drilling's tank pits (owner): two in every level with a plan but level 1 (1A has its islands; there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
 const DRILL_PITS = { 2: [['airbase_desert', 0.2], ['pass', 0.35]], 3: [['industrial_power', 0.5], ['airbase_searchlight', 0.5]], 4: [['forest_fortified', 0.5], ['valley', 0.5]],
-  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_suburb', 0.5], ['city_centre', 0.5]], 7: [['city_centre', 0.5], ['industrial_power', 0.5]] }; // (none in 1A: the owner introduces the Drilling in level 2)
+  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_suburb', 0.5], ['city_centre', 0.5]], 7: [['city_centre', 0.5], ['industrial_power', 0.5]], 8: [['island_chain', 0.2], ['island_airbase', 0.55]] }; // (1A's two hold a dug-in heavy tank: the owner introduces the Drilling in level 2)
 function drillPits(S, P) {
   const want = DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return;
   const bands = []; for (const [t, f] of want) { const g = S.segs.find(q => q.t === t); if (!g) continue; const c = (g.start - S.planC0 + f * g.n) * CH, h = Math.max(40, 0.4 * g.n * CH); bands.push([Math.max(0, c - h), Math.min(P.L - 1, c + h)]); }
@@ -9658,9 +9658,10 @@ const ENC = {
   wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
     { t: 0, do: 'wing' }] }
 };
-// A level's encounters at set places (owner's level layouts, section 7b of the plan), for now only with the test link ?enc=all: each starts
-// once the spawn line reaches chunk c of the level (or as soon after as it may), and is given up past chunk until.
-const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10 }, { id: 'anvil', c: 31, until: 50 }] };
+// A level's encounters at set places (owner's level layouts, section 7b of the plan): each starts once the spawn line reaches chunk c of the
+// level (or as soon after as it may), and is given up past chunk until. live: in every Campaign run (owner: First Contact's formations are
+// logged in); the others only with the test link ?enc=all.
+const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10, live: true }, { id: 'anvil', c: 31, until: 50 }] };
 const WING_STAY = 2500; // the Campaign's Shadow Wing: frames in its sequence before it flees (owner: about 15 s more than the old 1600)
 const WING_U = { 8: 0.47 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
@@ -9732,11 +9733,11 @@ function encEnd(why) {
 }
 function encTick() {
   const E0 = world.enc, L = world.encLast;
-  if (!E0) { if (!ENC_TRY || !(LB_TEST || !run.ranked)) return;
-    const P = ENC_TRY === 'all' && run.sortie && ENC_PLAN[run.sortie.level];
-    if (P) { const k = world.encPlanI || 0, c = -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; // a level with a layout: its encounters in order, at their places
-      if (k < P.length && c >= P[k].c) { if (c > P[k].until) world.encPlanI = k + 1; else if (encStart(P[k].id)) { world.encPlanI = k + 1; world.encTry = P[k].id; } } }
-    else if ((!world.encTry || (L && L.id === world.encTry && L.why === 'nolane' && gf - L.at > 600)) && encStart(encTryId())) world.encTry = encTryId();
+  if (!E0) { const tryOK = !!ENC_TRY && (LB_TEST || !run.ranked), all = tryOK && ENC_TRY === 'all', P = run.sortie && ENC_PLAN[run.sortie.level];
+    if (P) { let k = world.encPlanI || 0; while (k < P.length && !P[k].live && !all) k++; world.encPlanI = k; // a level with a layout: its encounters in order, at their places (live ones always, the rest with ?enc=all)
+      const c = -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP;
+      if (k < P.length && c >= P[k].c) { if (c > P[k].until) world.encPlanI = k + 1; else if (encStart(P[k].id)) { world.encPlanI = k + 1; if (all) world.encTry = P[k].id; } } }
+    if (tryOK && !(all && P) && (!world.encTry || (L && L.id === world.encTry && L.why === 'nolane' && gf - L.at > 600)) && encStart(encTryId())) world.encTry = encTryId();
     return; } // (encTry: the test link's encounter has run in this level; the Shadow Wing's doesn't count)
   const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
@@ -9979,6 +9980,7 @@ function planDrills(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind !== 'tank' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 12)) continue;
+    if (S.level === 8) { world.enemies.push(G('htank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); continue; } // level 1A (owner): a dug-in heavy tank, no Drilling before level 2
     world.enemies.push(drillCount() < 1 + run.loop ? makeDrill(sl.x, y, { dug: true }) : G('tank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); }
 }
 // Enigma Run: every side emplacement of the plan (a 'nest' slot) gets its Buechse once, as it comes up above the screen: dug in, lying across the
@@ -10315,9 +10317,9 @@ function convoy(wy, trucks) {
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on)
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && (S.level !== 8 || (world.buechseN || 0) < 2) && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on; 1A (internal 8) too, but two at most there (owner))
       const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
-      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o)));
+      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) world.buechseN = (world.buechseN || 0) + 1;
     }
   }
 }
@@ -10688,7 +10690,7 @@ function doFinishResults() {
     world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = pBot - 2; chunkHouses.clear(); fieldOkCache.clear(); houseCache.clear(); railEndCache.clear(); flowCache.clear(); canopyCache.clear(); rxW = NaN;
     world.decals.length = 0; props.length = 0; world.items.length = 0; critters.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); world.enemies = world.enemies.filter(e => !e.ground);
     ensureChunks(); world.midDone = false; world.bossSpawned = false; }
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = 0; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = 0; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); sfx('start'); if (app.state === 'play') playSong(STAGE_SONGS[world.curTheme]);
   if (player && !player.dead) player.fly = 110;
   markStage();

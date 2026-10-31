@@ -76,10 +76,10 @@ const alone = `settings.diff = 1; startEnigma(2); world.enemies = []; world.ebul
   ok(h.turned >= 1 && h.side, `level 6: it turns back at its street's end and keeps to its street (${h.turned} turns)`);
   await page.close();
 }
-// 3b. its tank pits: three in level 2, two in every other level with a plan (3, 4, 5, 6, 6B), none in levels 1 and 1A (the owner: it is introduced in level 2); more than a screen apart
+// 3b. its tank pits: three in level 2, two in every other level with a plan (1A, 3, 4, 5, 6, 6B), none in level 1 (1A's hold heavy tanks: encounter.mjs); more than a screen apart
 {
   const page = await freshPage();
-  const want = { 1: 0, 2: 3, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 0 }, name = { 7: '6B', 8: '1A' };
+  const want = { 1: 0, 2: 3, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2 }, name = { 7: '6B', 8: '1A' };
   for (const lv of [1, 2, 3, 4, 5, 6, 7, 8]) {
     const ys = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const S = run.sortie, P = sortiePlan(S); return JSON.stringify(P ? P.slots.filter(s => s.kind === 'tank').map(s => s.y).sort((a, b) => a - b) : []); })()`));
     const gap = ys.slice(1).reduce((m, y, k) => Math.min(m, y - ys[k]), Infinity);

@@ -7,18 +7,18 @@
     "enigma-1A-rookie-real": {
       "H": 408,
       "status": "ok",
-      "score": 94170,
+      "score": 109600,
       "stage": 1,
-      "lives": 2,
-      "bombs": 6,
+      "lives": 3,
+      "bombs": 4,
       "frames": 7200,
-      "kills": 160,
-      "medals": 30,
+      "kills": 132,
+      "medals": 32,
       "hits": 0,
-      "enemies": 13,
-      "bullets": 3,
+      "enemies": 17,
+      "bullets": 4,
       "errors": 0,
-      "trace": "03b290b7 b2c21e27 bcfa2226 84b40f24 b59d6de6 5775f89b b0575b45 2e519b5f ba716de9 2414004d 6663db2b 43834dfb 7ad74582 698409ee"
+      "trace": "34d2c6bd 46fb89f0 0f6940c9 400223bc 980b2fb2 23692e99 cee184b5 9d47bf87 a7591cc9 8f6175f4 c8cbc028 f41690e8 294d7934 3fb8424b"
     },
     "enigma-3-ace-immortal": {
       "H": 408,
