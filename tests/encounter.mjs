@@ -146,7 +146,7 @@ const playOut = `
     world.ebul = world.ebul.filter(b => !b.dummy); let minePause = -1;
     for (let f = 0; f < 300 && minePause < 0; f++) { while (world.ebul.filter(b => b.kind === 'amine').length < B + 10) world.ebul.push(dummy('amine')); SF.run(1); if (hv.pause > 0) minePause = f; }
     out.mines = minePause >= 0;
-    world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); // let that pause finish
+    world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); /* let that pause finish */
     const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if (Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; return e0(x, y, a, sp, kind); };
     let started = -1; for (let f = 0; f < 400; f++) { SF.run(1); if (started < 0 && hv.pause > 0) started = f; if (started >= 0 && hv.pause === 0) break; }
     eshot = e0; out.spread = spread; out.started = started >= 0;
@@ -165,7 +165,7 @@ const playOut = `
     encStart('anvil'); SF.run(1); const B = encBudget();
     const fill = k => { world.ebul = []; for (let i = 0; i < k; i++) world.ebul.push({ x: 8 + i * 9 % 208, y: 3, vx: 0, vy: 0, r: 2, kind: 's', a: 0 }); };
     fill(B - 6); out.first = volleyOK(3, 30); out.overReserved = volleyOK(4); out.fits = volleyOK(3); world.enc.res = world.enc.res.slice(0, 1);
-    for (let f = 0; f < 30; f++) { SF.run(1); } out.stillHeld = world.enc.res.length === 1; // (through the frame of its last bullet, 30 frames on)
+    for (let f = 0; f < 30; f++) { SF.run(1); } out.stillHeld = world.enc.res.length === 1; /* (through the frame of its last bullet, 30 frames on) */
     SF.run(1); fill(B - 6); out.released = world.enc.res.length === 0 && volleyOK(6);
     return JSON.stringify(out); })()`));
   ok(r.first && !r.overReserved && r.fits, 'a delayed volley reserves its bullets: with it admitted, only what still fits is admitted next');
@@ -284,7 +284,7 @@ const playOut = `
   const page = await freshPage('?enc=all');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     for (const lv of [8, 2, 3, 5, 7]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
-      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; // (6B opens over the sea: Flak lane waits for land, about frame 870)
+      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (6B opens over the sea: Flak lane waits for land, about frame 870) */
       if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
     out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
   ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
