@@ -5378,13 +5378,13 @@ lazySpr('drillG', () => drillSet(false)); lazySpr('drillS', () => drillSet(true)
 // The bore's spot in each of the 16 turned turrets is looked up from a copy of the turret with the bore in a marker colour (rotated the same way),
 // so the lock glow and the sight line start on the muzzle at every heading.
 const BUECHSE_L = 33; // the bore's distance from the turret's pivot
-function buechseTur(OL, mark) {
+function buechseTur(OL, mark, gun = true) { // (gun false: the turret without its gun, which buechseGun draws at the turret's exact heading)
   const G2 = ['#1e1e24', '#3a3a44', '#5c5c68', '#868692', '#b4b4be'], SA = ['#8c7646', '#b09a62'], L = BUECHSE_L, P = L + 3, o = P - 30, px = (x, c, a, b) => rect(x, c, a, b, 1, 1);
   const dith = (x, c1, c2, a, b, w, h) => { for (let j = b; j < b + h; j++) for (let i = a; i < a + w; i++) px(x, (i + j) & 1 ? c2 : c1, i, j); };
   return sprite(30, 2 * P, x => { // pivot (15, P); the gun points down the sprite (heading PI / 2)
-    rect(x, G2[2], 14, P + 5, 2, L - 9); rect(x, G2[3], 14, P + 5, 1, L - 9); rect(x, '#d8d0b8', 14, P + 5 + ((L - 9) >> 1), 2, 1); // barrel, one pale band
+    if (gun) { rect(x, G2[2], 14, P + 5, 2, L - 9); rect(x, G2[3], 14, P + 5, 1, L - 9); rect(x, '#d8d0b8', 14, P + 5 + ((L - 9) >> 1), 2, 1); // barrel, one pale band (BUECHSE_GUN draws the same)
     rect(x, G2[1], 13, P + L - 5, 4, 5); rect(x, G2[3], 13, P + L - 5, 4, 1); rect(x, '#0e0e12', 13, P + L - 3, 4, 1); // muzzle brake with its slot
-    rect(x, mark ? '#ff00ff' : '#0e0e12', 14, P + L - 2, 2, 2); // the bore
+    rect(x, mark ? '#ff00ff' : '#0e0e12', 14, P + L - 2, 2, 2); } // the bore
     const DK = [OL[0], OL[1], OL[1], OL[2], OL[3]], armL = [[15, 28 + o], [15, 32 + o], [3, 26 + o], [3, 22 + o]], armR = [[15, 28 + o], [27, 22 + o], [27, 26 + o], [15, 32 + o]];
     for (const a of [armL, armR]) polyS(x, ['#0c0e08', '#0c0e08'], a.map(([i, j]) => [i + 1, j + 1]), 0, 0); // the arms' shadow
     polyS(x, DK, armL, 0.15, 0.3); polyS(x, DK, armR, 0.15, 0.3);
@@ -5393,24 +5393,6 @@ function buechseTur(OL, mark) {
     disk(x, OL[0], 15, 25 + o, 1.6); // cupola
   });
 }
-// the turret's turned sprites, by heading (owner: the sight line runs straight out of the barrel, and the Buechse mostly aims down the screen):
-// fine steps over the lower half (64 over 180 degrees: the barrel at most about 2 degrees off the line there, the pixel limit of a 33 px barrel),
-// coarse over the upper half (16: up to about 7). With 16 all around the barrel was up to 11 degrees off.
-const BUECHSE_ANG = [...Array.from({ length: 64 }, (_, k) => k * PI / 64), ...Array.from({ length: 16 }, (_, k) => PI + k * PI / 16)];
-const BUECHSE_DIRS = BUECHSE_ANG.length;
-function buechseNear(a) { let best = 0, bd = Infinity; for (let i = 0; i < BUECHSE_DIRS; i++) { const d = Math.abs(angDiff(a, BUECHSE_ANG[i])); if (d < bd) { bd = d; best = i; } } return best; } // the sprite nearest heading a
-let buechseBores = null;
-// the bore's centre in each turned turret, from the sprite's centre: the turret with its bore in a marker colour, turned as rotated() turns
-// it (only its colour canvas: the flash and silhouette copies aren't needed), and the marker's pixels found
-function buechseBoreSet(mark) {
-  const out = []; for (let n = 0; n < BUECHSE_DIRS; n++) {
-    const d0 = Math.ceil(Math.hypot(mark.w, mark.h)) + 2, [c, x] = mk(d0, d0); x.translate(d0 / 2, d0 / 2); x.rotate(BUECHSE_ANG[n] - PI / 2); x.drawImage(mark.c, -mark.w / 2, -mark.h / 2); crisp(c);
-    const d = x.getImageData(0, 0, d0, d0).data; let sx = 0, sy = 0, k = 0;
-    for (let j = 0; j < d0; j++) for (let i = 0; i < d0; i++) { const q = (j * d0 + i) * 4; if (d[q + 3] && d[q] === 255 && d[q + 1] === 0 && d[q + 2] === 255) { sx += i + 0.5; sy += j + 0.5; k++; } }
-    out.push(k ? [sx / k - d0 / 2, sy / k - d0 / 2] : [0, 0]); }
-  return out;
-}
-const BUECHSE_EARLY = i => i >= 64 || i % 4 === 0; // the turret headings built at start-up
 function buechseSet(night) {
   const OL = night ? ['#2c3420', '#46523a', '#62704c', '#808e62', '#a0ac7c', '#c0ca9c'] : ['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'];
   const SA = ['#8c7646', '#b09a62'], G2 = ['#1e1e24', '#3a3a44', '#5c5c68'], H = 34, px = (x, c, a, b) => rect(x, c, a, b, 1, 1);
@@ -5423,10 +5405,7 @@ function buechseSet(night) {
     disk(x, OL[0], 8, H >> 1, 5); disk(x, '#22281a', 8, H >> 1, 4); // turret ring
     rect(x, OL[4], 5, H - 5, 6, 1); for (const lx of [6, 9]) { px(x, '#e8f4ff', lx, H - 1); px(x, '#8cc0e0', lx, H - 2); } // lamps
   });
-  const bore = buechseBores || (buechseBores = buechseBoreSet(buechseTur(OL, true))); // (the same for day and night: built once)
-  const src = buechseTur(OL, false), t = BUECHSE_ANG.map((a, i) => BUECHSE_EARLY(i) ? rotated(src, a - PI / 2) : null); // (start-up builds the coarse ones; the warm-up jobs the rest, one a frame: drawing only, the bores above are exact from the start)
-  for (let i = 0; i < BUECHSE_DIRS; i++) if (!t[i]) { let k = i; while (!BUECHSE_EARLY(k)) k--; t[i] = t[k]; } // (meanwhile the nearest one built before it)
-  t.angs = BUECHSE_ANG; return { h: [rotSet(hull(0)), rotSet(hull(1))], t, bore, src };
+  return { h: [rotSet(hull(0)), rotSet(hull(1))], t: rotSet(buechseTur(OL, false)), b: rotSet(buechseTur(OL, false, false)) }; // (t: with its gun, for a turret blown off; b: without, the gun drawn by buechseGun)
 }
 SPR.buechseD = buechseSet(false); SPR.buechseN = buechseSet(true); // (built now, not lazily: a wreck or a flying turret must be in the snapshot's sprite table, which lists only SPR's own entries)
 // a side emplacement's sandbags: a horseshoe round a tank lying across the screen, open towards the middle ([0]: at the left edge, open to the right; [1]: the right edge)
@@ -11599,26 +11578,23 @@ const drillCount = () => world.enemies.reduce((n, e) => n + (e.drill && !e.dead 
 // Lead (Ace only): the ship's velocity, smoothed, times the shell's flight time, times half. A popped turret or a dead tank ends the cycle at
 // once (buechseTick runs only while the turret stands). Its turret has its own health like the Drilling's: an untouched one outlives a Nova, a full laser pops it.
 const BUECHSE = { turn: 0.03, aim: 36, lock: 18, rest: 72, cd: [50, 110], speed: 2, lead: [0, 0, 0.5], vel: 0.15, turHp: 42, top: 44 }; // (aim 0.6 s, lock 0.3 s, rest 1.2 s; lead by difficulty: it aims at the ship on Rookie and Veteran)
-// the muzzle's spot on the screen: the bore of the turret sprite drawn for the turret's heading, placed as spr() places it
-function buechseBore(e, i = buechseIdx(e)) {
-  const B = e.silver ? SPR.buechseN : SPR.buechseD, s = B.t[i], b = B.bore[i];
-  return [Math.round(e.x - s.w / 2) + s.w / 2 + b[0], Math.round(e.y - s.h / 2) + s.h / 2 + b[1]];
-}
-// the turned turret sprite drawn while the sight shows: of the sprites next to the turret's heading, the one whose drawn barrel (pivot to bore)
-// lines up best with the sight line from its bore (owner: the line runs straight out of the barrel); in the lock the one frozen with the line
-function buechseIdx(e) {
-  const i0 = buechseNear(e.ta); if (e.bst === 'lock' && e.li !== undefined) return e.li; if (e.bst !== 'aim') return i0;
-  const B = e.silver ? SPR.buechseN : SPR.buechseD; let best = i0, bd = Infinity;
-  for (let k = -2; k <= 2; k++) { const i = (i0 + k + BUECHSE_DIRS) % BUECHSE_DIRS, b = B.bore[i], d = Math.abs(angDiff(Math.atan2(b[1], b[0]), buechseAng(e, i))); if (d < bd) { bd = d; best = i; } }
-  return best;
-}
-function buechseAng(e, i) { const [bx, by] = buechseBore(e, i), [tx, ty] = e.tgt || [player.x, player.y]; return e.ta + angDiff(Math.atan2(ty - e.y, tx - e.x), Math.atan2(ty - by, tx - bx)); }
-// the sight line: from the muzzle, along the turret's aim, turned by the small angle that makes it pass through the aim point from the muzzle
-// (the muzzle sits off the turret's centre line in the turned sprites); frozen in the lock. With BUECHSE_DIRS turned sprites (buechseIdx picks
-// the best-lined one) the drawn barrel is at most about 2 degrees off this line over the lower half (7 over the upper): it runs straight out of the barrel (owner)
-function buechseLine(e) {
-  const i = buechseIdx(e), [bx, by] = buechseBore(e, i); if (e.bst === 'lock') return [bx, by, e.la];
-  return [bx, by, buechseAng(e, i), i];
+// The gun is drawn at the turret's exact heading (owner: the sight line is always a perfect extension of the barrel), on the turret's pivot as
+// spr() places the turned turret sprite (its turned sprites are drawn without the gun). Muzzle and sight follow the same axis, so they line up.
+function buechsePivot(e) { const s = (e.silver ? SPR.buechseN : SPR.buechseD).b[dirIdx(e.ta)]; return [Math.round(e.x - s.w / 2) + s.w / 2, Math.round(e.y - s.h / 2) + s.h / 2]; }
+// the muzzle's spot on the screen: the bore's centre, BUECHSE_L - 1 out along the barrel
+function buechseBore(e) { const [ax, ay] = buechsePivot(e); return [ax + Math.cos(e.ta) * (BUECHSE_L - 1), ay + Math.sin(e.ta) * (BUECHSE_L - 1)]; }
+// the sight line: from the muzzle along the barrel; frozen in the lock (the turret too)
+function buechseLine(e) { const [bx, by] = buechseBore(e); return [bx, by, e.bst === 'lock' ? e.la : e.ta]; }
+// The gun's pixels, as the turret sprite had them pointing down (from just past the turret's nose, which the turret sprite keeps): [from, to] along the barrel (from the pivot), [from, to] across it (the sprite's x - 15
+// when it points down), colour; first the dark outline every sprite gets (not where it would cut into the turret). Later rows paint over earlier ones.
+const BUECHSE_GUN = [[8, BUECHSE_L - 5, -2, 2, '#120e1a'], [BUECHSE_L - 5, BUECHSE_L + 1, -3, 3, '#120e1a'], [7, BUECHSE_L - 4, -1, 1, '#5c5c68'], [7, BUECHSE_L - 4, -1, 0, '#868692'], [17, 18, -1, 1, '#d8d0b8'], [BUECHSE_L - 5, BUECHSE_L, -2, 2, '#3a3a44'],
+  [BUECHSE_L - 5, BUECHSE_L - 4, -2, 2, '#868692'], [BUECHSE_L - 3, BUECHSE_L - 2, -2, 2, '#0e0e12'], [BUECHSE_L - 2, BUECHSE_L, -1, 1, '#0e0e12']];
+function buechseGun(e, fl) { // each screen pixel near the barrel whose centre falls in the gun at the exact heading
+  const [ax, ay] = buechsePivot(e), c = Math.cos(e.ta), sn = Math.sin(e.ta), R = BUECHSE_L + 4;
+  for (let py = Math.floor(ay - R); py <= ay + R; py++) for (let px = Math.floor(ax - R); px <= ax + R; px++) {
+    const dx = px + 0.5 - ax, dy = py + 0.5 - ay, t = dx * c + dy * sn, w = dx * sn - dy * c; if (t < 7 || t >= BUECHSE_L + 1 || w < -3 || w >= 3) continue;
+    let col = null; for (const g of BUECHSE_GUN) if (t >= g[0] && t < g[1] && w >= g[2] && w < g[3]) col = g[4];
+    if (col) { ctx.fillStyle = fl && col !== '#120e1a' ? '#ffffff' : col; ctx.fillRect(px, py, 1, 1); } }
 }
 // where the ship will be when a shell fired now gets there (by the smoothed velocity), kept on the screen
 function buechseLead(e) {
@@ -11631,10 +11607,10 @@ function buechseTick(e) {
   e.pvx += (p.x - e.plx - e.pvx) * P.vel; e.pvy += (p.y - e.ply - e.pvy) * P.vel; e.plx = p.x; e.ply = p.y; // the ship's velocity, smoothed
   if (e.turHp < P.turHp / 2 && gf % 9 === 0) smokePuff(e.x + rnd(-2, 2), e.y + rnd(-2, 2)); // a damaged turret smokes
   if (e.bst === 'track' || e.bst === 'aim') {
-    const [tx, ty] = e.bst === 'aim' ? buechseLead(e) : [p.x, p.y], a = Math.atan2(ty - e.y, tx - e.x); e.ta += clamp(angDiff(e.ta, a), -P.turn, P.turn); e.tgt = [tx, ty];
+    const [tx, ty] = e.bst === 'aim' ? buechseLead(e) : [p.x, p.y], [ax0, ay0] = buechsePivot(e), a = Math.atan2(ty - ay0, tx - ax0); e.ta += clamp(angDiff(e.ta, a), -P.turn, P.turn); e.tgt = [tx, ty];
     if (e.bst === 'track') { if (--e.bT <= 0 && canFire(e, 90) && e.y > P.top && Math.abs(angDiff(e.ta, a)) < 0.3) { e.bst = 'aim'; e.bT = P.aim; } } // (it aims only once it is well on the screen, clear of the score bar)
     else if (!canFire(e, 60)) { e.bst = 'track'; e.bT = 30; } // (off the screen, or the ship gone: it stands down)
-    else if (--e.bT <= 0) { const [bx, by, a, li] = buechseLine(e); e.bst = 'lock'; e.bT = P.lock; e.lta = e.ta; e.la = a; e.li = li; e.ld = Math.hypot(tx - bx, ty - by); sfx('clunk'); } // (e.la: the frozen line; e.ld: the locked point's distance down it)
+    else if (--e.bT <= 0) { const [bx, by, a] = buechseLine(e); e.bst = 'lock'; e.bT = P.lock; e.lta = e.ta; e.la = a; e.ld = Math.hypot(tx - bx, ty - by); sfx('clunk'); } // (e.la: the frozen line; e.ld: the locked point's distance down it)
   } else if (e.bst === 'lock') {
     e.ta = e.lta;
     if (--e.bT <= 0) { const [bx, by] = buechseBore(e); eshot(bx, by, e.la, bspeed() * P.speed, 'shell'); flash(bx, by, 4); smokePuff(bx, by); sfx('cannon'); e.bst = 'rest'; e.bT = Math.round(P.rest * fireSlow()); }
@@ -14088,7 +14064,7 @@ function drawPart(q) {
       break;
     }
     case 'turfly': {
-      const s2 = q.set[q.set.angs ? buechseNear(q.a) : dirIdx(q.a, q.set.length)], sc = 1 + q.z * 0.03; // (the Buechse turret's headings aren't evenly spaced)
+      const s2 = q.set[dirIdx(q.a)], sc = 1 + q.z * 0.03;
       ctx.globalAlpha = 0.3; ctx.drawImage(s2.k, Math.round(q.x - s2.w / 2 + q.z * 0.5), Math.round(q.y - s2.h / 2 + q.z * 0.6)); ctx.globalAlpha = 1;
       ctx.drawImage(s2.c, Math.round(q.x - s2.w * sc / 2), Math.round(q.y - q.z - s2.h * sc / 2), Math.round(s2.w * sc), Math.round(s2.h * sc));
       break;
@@ -14160,7 +14136,7 @@ function buechseSight(e) {
   const put = s => { const X = Math.round(bx + dx * s), Y = Math.round(by + dy * s); ctx.globalAlpha = al * 0.75; ctx.fillStyle = '#14100c'; ctx.fillRect(X, Y + 1, 1, 1); ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(X, Y, 1, 1); };
   if (lock) { for (let s0 = 4; s0 < len; s0 += 6) for (let k = 0; k < 4; k++) put(s0 + k); } else for (let s0 = 4; s0 < len; s0 += 4) put(s0);
   ctx.globalAlpha = 1;
-  const [tx, ty] = e.tgt || [player.x, player.y], ds = lock ? e.ld : Math.max(0, (tx - bx) * dx + (ty - by) * dy), mx = bx + dx * ds, my = by + dy * ds, X = Math.round(mx), Y = Math.round(my), r = 6; // (the sight mark on the line, abreast of the aim point)
+  const [tx, ty] = e.tgt || [player.x, player.y], ds = lock ? e.ld : Math.max(0, (tx - bx) * dx + (ty - by) * dy), X = Math.round(bx + dx * ds), Y = Math.round(by + dy * ds), r = 6; // (the sight mark on the line, abreast of the aim point)
   for (const [c, oy] of [['#14100c', 1], [col, 0]]) { ctx.fillStyle = c; for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.fillRect(X + sx * r - (sx < 0 ? 0 : 2), Y + oy + sy * r, 3, 1); ctx.fillRect(X + sx * r, Y + oy + sy * r - (sy < 0 ? 0 : 2), 1, 3); } }
   if (lock) { const g = 1 - e.bT / BUECHSE.lock; glowAt(bx, by, 1.8 + g * 1.4, '#ff5a3a', 0.45 + 0.35 * g); glowAt(bx, by, 1.01, (gf >> 1) & 1 ? '#fff0c0' : '#ffd070', 1); }
 }
@@ -14170,7 +14146,7 @@ const LOOKS = {
   tank(e, fl) {
     const bu = e.buechse && (e.silver ? SPR.buechseN : SPR.buechseD), dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : bu ? bu.h : e.type === 'tank' ? SPR.tank : SPR.htank, tur = dr ? dr.t : bu ? bu.t : e.type === 'tank' ? SPR.tankTur : SPR.htankTur; // (the Buechse and the Drilling: Enigma Run)
     spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
-    if (!e.turDead) spr(tur[bu ? buechseIdx(e) : dirIdx(e.ta, tur.length)], e.x, e.y, fl); else turStub(e.x, e.y, e.type === 'htank' ? 5 : 4);
+    if (!e.turDead) { if (bu) { spr(bu.b[dirIdx(e.ta)], e.x, e.y, fl); buechseGun(e, fl); } else spr(tur[dirIdx(e.ta)], e.x, e.y, fl); } else turStub(e.x, e.y, e.type === 'htank' ? 5 : 4);
     if (dr && !e.turDead && e.dst === 'prep') { // the Drilling's warning: its three muzzles glow brighter until the salvos
       const g = 1 - e.dT / DRILL.prep, c = Math.cos(e.ta), sn = Math.sin(e.ta); ctx.globalAlpha = 0.3 + 0.55 * g;
       for (const lat of [-3, 0, 3]) dk(e.x + c * DRILL.tip - sn * lat, e.y + sn * DRILL.tip + c * lat, 1 + g * 1.5, '#ff8a3a');
@@ -15632,7 +15608,6 @@ let warmIdx = 0;
 // So build them up front instead, one per frame once the first-frame warm-up is done.
 const warmJobs = [];
 for (let L = 1; L <= 4; L++) { warmJobs.push(() => seekClass(L)); for (let r = 0; r <= 6; r++) if (L > 1 || r === 3) warmJobs.push(() => scatClass(L, r / 6)); }
-for (let k = 0; k < BUECHSE_DIRS; k++) if (!BUECHSE_EARLY(k)) for (const day of [true, false]) warmJobs.push(() => { const B = day ? SPR.buechseD : SPR.buechseN; B.t[k] = rotated(B.src, BUECHSE_ANG[k] - PI / 2); }); // the Buechse turret's other headings (buechseSet), one sprite a frame
 let warmJob = 0;
 let errCount = 0;
 function logError(where, e) {
