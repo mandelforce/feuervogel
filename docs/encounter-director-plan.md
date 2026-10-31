@@ -230,13 +230,13 @@ Each verb wraps an existing spawner. The director owns when, where and which opt
 
 | Verb | Wraps | Options | Can fail? | Notes |
 |---|---|---|---|---|
-| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | Needs an optional `cx` argument. |
+| `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | **(built)** With an optional centre; Bomber screen's three-plane dives. |
 | `formation` | `waveLeader()` or `waveDive(5)` | `x` | no, atomic | **(built)** A leader with four wingmen where `avail('leader')` allows (from stage 4 in the `FEAT` table), a five-plane dive before that, so one encounter works in every level. The Anvil uses this. |
 | `leader` | `waveLeader()` | `x` | no, atomic | Needs an optional `cx`. Gated by `avail('leader')`: check at selection that the level has it, so dispatch never meets it. |
 | `fighter` | `mkFighter` | `side`, `y` (0–1 of `H`), `heading`, `strafe`, `homeT`, `fireAt` | no, atomic | One fighter. Sweeps and strafes are written as 4–5 of these, 11–16 frames apart. |
 | `chase` | `waveChase()` | none | no, atomic | |
 | `heavy` | `waveHeavy()` | `x`, `hold`, `holdT` | no, atomic | `hold` needs the small Heavy option in 7.1. |
-| `bomber` | `waveBomber()` | `x` | no, atomic | |
+| `bomber` | `waveBomber()` | `x` | no, atomic | **(built)** With an optional centre. |
 | `pfeil` | `wavePfeil()` | none | no, atomic | Campaign level 3 and on, checked at selection. |
 | `flak` | `spawnGround` with a new value, `FORCE_GROUND = 'encFlak'` | none | yes | **(built)** It tries the level plan's free flak slot first (`slotAt(['flak'])`), then open ground. **(checked)** The existing `'flak'` value is checked only after `spawnGround`'s other branches, so it often places something else (section 2). The new value gets its own branch right after `tryLand` is defined, before the train, gun-slot and camouflage branches, and does only the two flak tries. The existing `'flak'` value and Retro Run's set piece stay exactly as they are. Placement is still the ground code's (`tryLand`), because it knows roads, water and houses. A call that places nothing only draws from the seeded stream and changes no world state, so the length check in 5.2 is enough. 0 placed: `false`, retry next frame. 1 or 2 placed: `true`, done. Not in the `bossland` biome, whose branch comes before `tryLand` (checked at selection). Guns appear 34 px above the screen: time later events with `when: 'seen'` (5.3). |
 | `convoy` | `convoy(wy, trucks)` | `trucks` | yes | Returns early off its route in the Campaign. 0 vehicles: `false`. 1–3: `true`. Not over sea or coast biomes (checked at selection). Placed above the screen like flak, so the same arrival delay applies. |
@@ -283,6 +283,11 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Budget:** the lowest of the four, so the Bomber's shots stay readable. When the soft budget is reached, the gated fighters' shots wait, and so does the Bomber's next volley.
 - **Player choice:** focus the Bomber, or clear the dives. Scatter and Arc chains both have a clear job.
 - **Rookie:** two dives, not three, and no strafe.
+- **Status: built (step 5, second encounter).**
+  - Definition: `bomberscreen` (Bomber at frame 0; three-plane dives at 60, 180 and 300; a strafing run of four from 420). Budget 14 / 18 / 24, the lowest of the encounters.
+  - **All three spawn timers are held, the ground timer included.** The first measurement in level 3 on Veteran showed 154–170 frames over budget. The cause was new ground guns' fire that isn't gated (AA towers), which filled the low budget and made the gated Bomber wait. Bomber screen is an air fight, so new ground units now wait too: 0–40 frames over budget, and the Bomber fires 7–12 times per encounter.
+  - A Bomber that isn't shot down is removed 40 px below the screen (about frame 810), so the encounter ends `done` either way.
+  - Measured ("human" bot): level 2 on all difficulties, peaks of 10–20, over budget only once (19 frames on Veteran), done after 431–949 frames. Level 3 on Veteran and Ace with the ground held: peaks of 18–24, 0–40 frames over.
 
 ### 7.4 Sower Window (level 4 only)
 

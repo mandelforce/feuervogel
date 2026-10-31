@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9557,9 +9557,9 @@ function waveChase() {
   const n = 2 + (run.loop >= 1 ? 1 : 0);
   for (let i = 0; i < n; i++) world.enemies.push(mkFighter(W * (i + 1) / (n + 1), -12 - i * 10, PI / 2, 2.1, { homeT: 70, fireAt: 50 }));
 }
-function waveBomber() {
+function waveBomber(cx) {
   const hp = 42 * (1 + 0.3 * run.loop);
-  world.enemies.push(E('bomber', { x: rnd(50, W - 50), y: -22, hp, maxhp: hp, gcd: 60 }));
+  world.enemies.push(E('bomber', { x: cx === undefined ? rnd(50, W - 50) : cx, y: -22, hp, maxhp: hp, gcd: 60 }));
 }
 function wavePfeil() { for (const side of [-1, 1]) world.enemies.push(E('pfeil', { side })); } // (a pair, one from each side; pfeilTick places them off the screen)
 function waveHeavy(cx, o) { world.enemies.push(E('heavy', Object.assign({ x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 }, o))); }
@@ -9605,6 +9605,18 @@ const ENC = {
     { after: 120, do: 'strafer', i: 0, diff: [1, 2] }, // (no strafing run on Rookie)
     { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
     { after: 16, do: 'strafer', i: 2, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] },
+  // Bomber screen: a Bomber (tough, firing steadily, on screen for about 13 s if left alone) while three-plane dives come in at 1, 3 and 5 s,
+  // then a strafing run: burn the Bomber down, or clear the dives. Its budget is the lowest, so the Bomber's own shots stay readable.
+  // Rookie: two dives and no strafing run.
+  bomberscreen: { len: 780, max: 1500, rest: 180, budget: [14, 18, 24], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
+    { t: 0, do: 'bomber', x: 0.5 },
+    { t: 60, do: 'dive', n: 3, x: 0.3 },
+    { t: 180, do: 'dive', n: 3, x: 0.7 },
+    { t: 300, do: 'dive', n: 3, x: 0.5, diff: [1, 2] },
+    { t: 420, do: 'strafer', i: 0, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
+    { after: 16, do: 'strafer', i: 2, diff: [1, 2] },
     { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] }
 };
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
@@ -9614,6 +9626,8 @@ const ENC_VERB = {
   heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
   formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
   chase: () => { waveChase(); return true; },
+  bomber: v => { waveBomber(v.x * W); return true; },
+  dive: v => { waveDive(v.n || 5, v.x * W); return true; },
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; },
   flak: () => { if (biomeAtSpawn() === 'bossland') return false; FORCE_GROUND = 'encFlak'; try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; } return false; }, // one or two guns where the ground allows (none over water: retried)
   strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
