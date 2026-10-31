@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9578,7 +9578,7 @@ const ENC_VERB = {
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
-const ENC_TRY = LB_TEST ? new URLSearchParams(location.search).get('enc') : null; // local builds only: ?enc=anvil starts that encounter once in every Campaign level, as early as it may (for playtesting, also on a phone)
+const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
 function encStart(id) {
   if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut) return false;
   world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0 }; haptic('warn'); return true;
@@ -9591,7 +9591,7 @@ function encEnd(why) {
   if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
 }
 function encTick() {
-  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast) encStart(ENC_TRY); return; } // (encLast: one has already run in this level)
+  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast && (LB_TEST || !run.ranked)) encStart(ENC_TRY); return; } // (encLast: one has already run in this level)
   const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
@@ -14875,7 +14875,7 @@ function renderMain() {
   if (app.congrats) drawCongrats();
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
   if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
-  if (settings.fps && LB_TEST && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds only)
+  if (settings.fps && (LB_TEST || ENC_TRY) && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds, or with ?enc)
     const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + world.ebul.length + '/' + ENC[E0.id].budget[settings.diff]
       : L && gf - L.at < 180 ? 'ENC ' + L.id + ' ' + L.why.toUpperCase() + ' ' + L.t + ' OVER ' + L.over + ' PEAK ' + L.peak : '';
     if (t) textS(t, W / 2, H - SAFE_B - 28, '#c8b0ff', 1, 'center'); }
