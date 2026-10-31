@@ -131,6 +131,28 @@ python3 -m http.server 8000   # in another terminal
 node tests/wing.mjs
 ```
 
+## Encounter director test (run by hand)
+
+`encounter.mjs` checks the encounter director (`docs/encounter-director-plan.md`). For now it plays The Anvil, started by hand with `encStart('anvil')` in level 2, because level 1A's carrier opening holds encounters. It checks:
+- every event is dispatched once, in order, on its frame;
+- what an event makes is tagged, and the pod never counts toward completion;
+- the encounter ends `done`, then rests;
+- the held timers (air waves, pods) keep their value and resume from it, while the ground timer runs on;
+- Rookie skips the second formation;
+- pause, `world.quiet`, the carrier and the Shadow Wing freeze its clock, and a death doesn't;
+- the boss ends it (`boss`), and a new level clears it;
+- it never starts outside the Campaign, or twice;
+- a snapshot can be taken mid-encounter, and the readout draws.
+
+`resume-exact.mjs --only=anvil` checks a run saved in the middle of The Anvil.
+
+```
+python3 -m http.server 8000   # in another terminal
+node tests/encounter.mjs
+```
+
+On a local build, Settings > Show FPS adds a third line while an encounter runs: `ENC anvil RUN 312 OWN 4 B 19/22` (id, state, clock, counted enemies, enemy bullets / soft budget). For a few seconds after the end it shows the end reason, the clock, the frames over budget and the peak. To try one by hand, open the console and run `__sf('encStart("anvil")')` during a Campaign level.
+
 ## Drilling test (run by hand)
 
 `drilling.mjs` checks the Enigma Run's Drilling (the three-barrel tank): its attack cycle runs aim, prep, fire, rest in that order, with a warning before and a pause after; it fires salvos of three shells while its turret sweeps; its turret takes many ordinary hits, an untouched one outlives a Nova and the next hits pop it, a full laser pops it at once (a weak laser frame does not); a turret popped during the warning ends the cycle. Its tank pits: three in level 2, two in each other level with a plan (1A, 3, 4, 5, 6, 6B), none in level 1, more than a screen apart. On a level 6 side street it stands still while it fires and turns back at the street's end. Flown through by the bot, it stands in a dug-in slot of level 2 and fires, and patrols a side street of level 6.

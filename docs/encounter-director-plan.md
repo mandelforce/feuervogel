@@ -1,6 +1,6 @@
 # Encounter Director: plan
 
-Status: Phase 0 done (baseline numbers and the Campaign replay baseline; findings in section 10), nothing of the director built yet. Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30. Revised after review: Sower exception, ownership counting, soft budget, atomic verbs, timeout and hold rules, Sower Window test. Second revision: Rookie event filter, ground arrival timing, loops and rank, tuning readout, start cue, two-player and weak-weapon checks.
+Status: Phase 0 done (baseline numbers and the Campaign replay baseline; findings in section 10). Execution step 3 done: the director runs The Anvil end to end, started only by `encStart` from tests, so players see no change (section 10, Phase 2). Based on the design brief "Feuervogel: Encounter Director" and checked against the code as of 2026-10-30. Revised after review: Sower exception, ownership counting, soft budget, atomic verbs, timeout and hold rules, Sower Window test. Second revision: Rookie event filter, ground arrival timing, loops and rank, tuning readout, start cue, two-player and weak-weapon checks.
 Line numbers drift; search for the names given here. Points marked **(inspect)** need a look at the source or a test before they are built; the plan does not assume an answer. Points marked **(checked)** were answered in Phase 0.
 
 ## 1. Summary
@@ -228,6 +228,7 @@ Each verb wraps an existing spawner. The director owns when, where and which opt
 | Verb | Wraps | Options | Can fail? | Notes |
 |---|---|---|---|---|
 | `dive` | `waveDive(n)` | `n`, `x` (0–1 of `W`) | no, atomic | Needs an optional `cx` argument. |
+| `formation` | `waveLeader()` or `waveDive(5)` | `x` | no, atomic | **(built)** A leader with four wingmen where `avail('leader')` allows (from stage 4 in the `FEAT` table), a five-plane dive before that, so one encounter works in every level. The Anvil uses this. |
 | `leader` | `waveLeader()` | `x` | no, atomic | Needs an optional `cx`. Gated by `avail('leader')`: check at selection that the level has it, so dispatch never meets it. |
 | `fighter` | `mkFighter` | `side`, `y` (0–1 of `H`), `heading`, `strafe`, `homeT`, `fireAt` | no, atomic | One fighter. Sweeps and strafes are written as 4–5 of these, 11–16 frames apart. |
 | `chase` | `waveChase()` | none | no, atomic | |
@@ -404,6 +405,17 @@ What this means for the plan:
 - Add a hook so tests can force an encounter, and the tuning readout.
 - Add `tests/encounter.mjs` with the Sower Window test, and the mid-encounter resume scenarios.
 - **Done when:** the new tests pass, and `golden.json` is unchanged.
+- **Status: The Anvil slice is done** (execution step 3: one encounter end to end, not reachable by players).
+  - **Built:**
+    - `ENC` with The Anvil, and the verbs `heavy`, `formation`, `chase` and `pod`, with optional centres for `waveHeavy`, `waveLeader` and `waveDive`;
+    - tagging in `E()`, the counted total, `encTick` with `run`/`hold`/`rest`, and the end reasons `done`, `timeout` and `boss`;
+    - the frozen timers, the `diff` filter, the start cue, the resets, `world.encLast`, `over`/`peak` (measured only), and the readout under Show FPS on local builds;
+    - `encStart(id)` as the test hook, through `SF.peek`, with no other hook.
+  - **Deferred to the later steps:** the `encFlak` branch, the `seen` and `clear` triggers, `world.encPend` and the start rules with the Sower exception (step 6), and the Sower Window and its test (step 5).
+  - **Tests:** `tests/encounter.mjs` passes 22 checks. A new `resume-exact.mjs` scenario, `level2-anvil`, saves at encounter frames 150 and 400 and resumes identically. `golden.json` and `golden-enigma.json` are unchanged.
+  - **Learned:**
+    - **The carrier holds encounters.** Level 1A opens with the carrier scene, which holds an encounter for its first 1000+ frames, as designed. The tests run in level 2 instead. Level 1A's first slot (frame 2130) comes after the carrier, so the real slots are not affected.
+    - **First numbers.** The Anvil on Veteran in level 2 (immortal bot): bullets peaked at 19, against a budget of 22, with 0 frames over. The bot cleared every counted enemy by frame 540, so the encounter ended on its last event. The bot is stronger than people, so the hand playtest decides whether the Heavy reads as an anchor (7.1).
 
 **Phase 3: soft budget**
 - Add `volleyOK` at the six call sites with their real `n`.
