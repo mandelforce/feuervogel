@@ -1,5 +1,6 @@
 // Enigma Run, the Drilling (a small Sand Colossus with three barrels). Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/drilling.mjs
+//   node tests/drilling.mjs --verbose   also print every check that passes (by default only failures and a count)
 // Checks: its attack cycle (aim, prep, fire, rest) in that order, with a halt, a warning and a pause; salvos of three while the turret sweeps;
 // its turret takes several hits, outlives a Nova untouched and is popped by a full laser; a popped turret stops the cycle at once;
 // its tank pits (three in level 2, two in the other levels with a plan but level 1, more than a screen apart);
@@ -15,8 +16,9 @@ const initScript = () => {
   Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   window.requestAnimationFrame = () => 0;
 };
-let bad = 0;
-const ok = (cond, msg) => { if (cond) console.log('ok   ' + msg); else { bad++; console.error('FAIL ' + msg); } };
+let bad = 0, passed = 0;
+const verbose = process.argv.includes('--verbose');
+const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 const browser = await chromium.launch();
 async function freshPage() {
   const page = await browser.newPage({ viewport: golden.viewport });
@@ -99,5 +101,5 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 await browser.close();
-console.log(bad ? `${bad} FAILED` : 'all ok');
+console.log(bad ? `${bad} FAILED, ${passed} passed` : `all ok (${passed})`);
 process.exit(bad ? 1 : 0);

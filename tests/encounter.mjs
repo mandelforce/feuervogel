@@ -1,6 +1,7 @@
 // The encounter director (docs/encounter-director-plan.md), step 3: The Anvil, started by hand (encStart) in level 2.
 // Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/encounter.mjs
+//   node tests/encounter.mjs --verbose   also print every check that passes (by default only failures and a count)
 // Checks: every event is dispatched once, in order, on its frame; what it makes is tagged and the pod never counts; the encounter ends 'done'
 // and rests; the held timers (air waves, pods) keep their value and resume from it, the ground timer runs on; Rookie skips the second
 // formation; its Heavy stops and holds; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't;
@@ -24,8 +25,9 @@ const initScript = () => {
   Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   window.requestAnimationFrame = () => 0;
 };
-let bad = 0;
-const ok = (cond, msg) => { if (cond) console.log('ok   ' + msg); else { bad++; console.error('FAIL ' + msg); } };
+let bad = 0, passed = 0;
+const verbose = process.argv.includes('--verbose');
+const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 const browser = await chromium.launch();
 async function freshPage(query = '') {
   const page = await browser.newPage({ viewport: golden.viewport });
@@ -284,5 +286,5 @@ const playOut = `
   await page.close();
 }
 await browser.close();
-if (bad) { console.error(`\n${bad} problem(s) found.`); process.exit(1); }
-console.log('\nEncounter test passed.');
+if (bad) { console.error(`\n${bad} problem(s) found, ${passed} passed.`); process.exit(1); }
+console.log(`Encounter test passed (${passed}).`);
