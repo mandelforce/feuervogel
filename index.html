@@ -5612,7 +5612,8 @@ lazySpr('proto', () => {
   for (const [px, py] of [[30, 30], [62, 34], [44, 50]]) { x.fillStyle = '#1a1a1e'; x.fillRect(px, py, 6, 4); x.fillStyle = '#5a5e66'; x.fillRect(px, py - 1, 6, 1); }
   x.globalCompositeOperation = 'destination-out'; x.fillRect(w - 20, 36, 10, 14); x.globalCompositeOperation = 'source-over';
   x.fillStyle = '#0e0d10'; x.fillRect(w / 2 - 1, 22, 3, 7); x.fillRect(w / 2 - 6, 24, 13, 2); x.fillRect(w / 2 - 3, 29, 2, 3); x.fillRect(w / 2 + 2, 29, 2, 3);
-  return { c, w, h };
+  const [oc, ox] = mk(w + 2, h + 2); ox.drawImage(c, 1, 1); outline(oc, '#0a080c'); // the enigma black outline, like every other sprite (the grey wash alone melted into the ground)
+  return { c: oc, w: w + 2, h: h + 2 };
 });
 lazySpr('keep', () => [0, 1].map(open => sprite(84, 84, x => {
   boxS(x, ['#2a2730', '#3a3640', '#4a4650', '#5a5660', '#6e6a74'], 4, 4, 76, 76, 0.1);
