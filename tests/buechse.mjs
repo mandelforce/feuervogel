@@ -1,5 +1,6 @@
 // Enigma Run, the Buechse (the long-range marksman tank). Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/buechse.mjs
+//   node tests/buechse.mjs --verbose   also print every check that passes (by default only failures and a count)
 // Checks: its attack cycle (track, aim, lock, one shot, rest) in that order and on time; it halts in its lock; one straight shell down the frozen line,
 // from the muzzle, at 2x the enemy shell speed; it aims at the ship on Veteran (a ship that holds still is hit, one that moves off at the lock is missed)
 // and a little ahead of a moving ship on Ace;
@@ -18,8 +19,9 @@ const initScript = () => {
   Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   window.requestAnimationFrame = () => 0;
 };
-let bad = 0;
-const ok = (cond, msg) => { if (cond) console.log('ok   ' + msg); else { bad++; console.error('FAIL ' + msg); } };
+let bad = 0, passed = 0;
+const verbose = process.argv.includes('--verbose');
+const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 const browser = await chromium.launch();
 async function freshPage() {
   const page = await browser.newPage({ viewport: golden.viewport });
@@ -162,5 +164,5 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   await page.close();
 }
 await browser.close();
-console.log(bad ? `${bad} FAILED` : 'all ok');
+console.log(bad ? `${bad} FAILED, ${passed} passed` : `all ok (${passed})`);
 process.exit(bad ? 1 : 0);

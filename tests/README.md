@@ -154,7 +154,8 @@ It also plays Flak lane: only flak is placed, a plan's slot first; the formation
 
 ```
 python3 -m http.server 8000   # in another terminal
-node tests/encounter.mjs
+node tests/encounter.mjs             # prints only failures and the number that passed
+node tests/encounter.mjs --verbose   # also print every check that passes, with its measured values
 ```
 
 On a local build, Settings > Show FPS adds a third line while an encounter runs: `ENC anvil RUN 312 OWN 4 B 19/22` (id, state, clock, counted enemies, enemy bullets / soft budget). For a few seconds after the end it shows the end reason, the clock, the frames over budget and the peak. To try one by hand:
@@ -171,7 +172,8 @@ On a local build, Settings > Show FPS adds a third line while an encounter runs:
 
 ```
 python3 -m http.server 8000   # in another terminal
-node tests/drilling.mjs
+node tests/drilling.mjs             # prints only failures and the number that passed
+node tests/drilling.mjs --verbose   # also print every check that passes, with its measured values
 ```
 
 ## Büchse test (run by hand)
@@ -180,7 +182,8 @@ node tests/drilling.mjs
 
 ```
 python3 -m http.server 8000   # in another terminal
-node tests/buechse.mjs
+node tests/buechse.mjs             # prints only failures and the number that passed
+node tests/buechse.mjs --verbose   # also print every check that passes, with its measured values
 ```
 
 ## Vehicle jitter test (runs in CI, blocking)
