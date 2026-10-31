@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.10'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.11'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9561,7 +9561,7 @@ function waveBomber(cx) {
   const hp = 42 * (1 + 0.3 * run.loop);
   world.enemies.push(E('bomber', { x: cx === undefined ? rnd(50, W - 50) : cx, y: -22, hp, maxhp: hp, gcd: 60 }));
 }
-function wavePfeil() { for (const side of [-1, 1]) world.enemies.push(E('pfeil', { side })); } // (a pair, one from each side; pfeilTick places them off the screen)
+function waveKolibri() { for (const side of [-1, 1]) world.enemies.push(E('kolibri', { side })); } // (the old Pfeil, unused: a pair, one from each side; kolibriTick places them off the screen)
 function waveHeavy(cx, o) { world.enemies.push(E('heavy', Object.assign({ x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 }, o))); }
 function waveLeader(cx0) {
   const cx = cx0 === undefined ? rnd(60, W - 60) : cx0, L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
@@ -9570,7 +9570,7 @@ function waveLeader(cx0) {
 function spawnWave(b, big) {
   if (big) { waveDive(3); return; }
   const r = Math.random();
-  if (run.sortie && run.sortie.level >= 3 && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level; if (lv >= 4 && Math.random() < 0.5) waveWing(lv >= 5 || run.loop >= 1 ? 3 : 2); else wavePfeil(); return; } // (the Pfeil, Enigma Run, level 3 on; from level 4 sometimes a Wingman Formation, never two groups at once)
+  if (run.sortie && run.sortie.level >= 3 && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, Enigma Run, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once)
   if (avail('heavy') && r < 0.1 && count('heavy') < 1) { waveHeavy(); return; }
   if (avail('leader') && r >= 0.1 && r < 0.2 && !world.enemies.some(e => e.leader && !e.dead)) { waveLeader(); return; }
   const bomberOK = (b === 'country' || b === 'base' || b === 'forest') && count('bomber') < 1 + (run.loop >= 1 ? 1 : 0);
@@ -11734,19 +11734,19 @@ function bomberTrails(e) {
   });
   for (const ox of [-26, 26]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 1, vx: 0, vy: -0.05, life: 40, max: 40 });
 }
-// The Pfeil (Enigma Run, level 3 on; the hornet). It comes in a pair, one from each side of the screen (never down through the guns), and hunts the nearer ship from a band above it, a
+// The Kolibri (the Pfeil as it was until the dart replaced it: the hornet, kept in case it is wanted again; nothing spawns it, see waveKolibri / waveKolibriWing). It comes in a pair, one from each side of the screen (never down through the guns), and hunts the nearer ship from a band above it, a
 // little to the side of its guns, its nose always on the ship (it flies one way and looks another: e.face is the nose, e.vx/e.vy the flight).
 // It won't sit in the line of fire: time in the column above a ship, and every hit, build up exposure, and when that runs high it breaks for
 // the nearer side, leaves the screen for a moment and comes back from a flank (mostly the other side, at another height) for an ambush: the
-// nose locks and flares for PFEIL.tele frames (the warning, and the player's window), then a short burst along the nose. A Seeker coming
+// nose locks and flares for KOLIBRI.tele frames (the warning, and the player's window), then a short burst along the nose. A Seeker coming
 // straight at it gets a hard break across its path and back past it (a Seeker only sees what is ahead), on a cooldown, so a stream still gets one in. It fears the Arc: against an Arc ship it holds
 // beside the cone, a little slower than the ship so a chase catches it, and it bolts when the bolt locks on (never out of an ambush; locked
 // again, or pinned at an edge, it leaves the screen). Every gun fires upward, so it always keeps above the ship (a flank pass aside): beside
 // the ship at its height it could not be hit at all. A ship charging its laser stands still: the Pfeil goes in for the kill (from hiding at
 // once, no waiting, to a spot just beside the beam's reach, one shot more). The warning stays, so moving off (which fires a full laser,
-// sweeping it with the ship) can catch it hanging there. After PFEIL.atkN ambushes, or PFEIL.life frames, it dives away.
+// sweeping it with the ship) can catch it hanging there. After KOLIBRI.atkN ambushes, or KOLIBRI.life frames, it dives away.
 // States (e.st): hunt, dodge, out (to the side), hide (off the screen), flank (coming back), aim (the ambush), leave.
-const PFEIL = {
+const KOLIBRI = {
   band: [70, 150], minUp: 50,        // hunt: height above the nearest ship, and the least it keeps above it
   off: [25, 60], regoal: [40, 90],   // hunt: how far beside the ship's column, and how often it picks a new spot (frames)
   cruise: 2.2, acc: 0.14, turn: 0.09, // top speed and acceleration (px/frame), how fast the nose turns (rad/frame)
@@ -11761,15 +11761,15 @@ const PFEIL = {
   killCharge: 40, killX: [55, 75], killY: [55, 85], // a ship whose laser charge (0-100) is at least killCharge: go in at once, killX beside it and killY above (a full laser swept at it the moment it flares catches it about 2 times in 3)
   tele: 18, burst: 2, gap: 6, hold: 60, atkCd: 150, atkN: 3, life: 1200 // the ambush: warning frames, shots (one more on Hard or a later loop), frames apart; from the hunt after `hold` frames lined up, atkCd apart; atkN ambushes or life frames, then it leaves
 };
-function pfeilTick(e) {
-  const P = PFEIL, q = nearShip(e.x, e.y), live = hasT(), R = ([a, b]) => rnd(a, b);
+function kolibriTick(e) {
+  const P = KOLIBRI, q = nearShip(e.x, e.y), live = hasT(), R = ([a, b]) => rnd(a, b);
   if (e.st === undefined) { // it comes in as it comes back: from its side, off the screen, never down through the guns
     Object.assign(e, { st: 'hide', sT: 0, hideT: R(P.enterT) | 0, first: 1, vx: 0, vy: 0, face: PI / 2, exp: 0, dcd: 0, acd: 90, atk: 0, good: 0, reT: 0, hp0: e.hp, snapCd: 0, side: e.side || (e.x < W / 2 ? -1 : 1) });
     e.hideT += e.delay || 0; e.x = e.side < 0 ? -40 : W + 40; e.y = 40; e.face = e.side < 0 ? 0 : PI;
   }
   const go = st => { e.st = st; e.sT = 0; }, goOut = (d = e.x < W / 2 ? -1 : 1) => { e.od = d; go('out'); };
   e.sT++; if (e.dcd > 0) e.dcd--; if (e.acd > 0) e.acd--; if (e.snapCd > 0) e.snapCd--;
-  if (e.wing && e.wing.tick !== gf) { e.wing.tick = gf; wingTick(e.wing); } // a formation's turns, once a frame
+  if (e.wing && e.wing.tick !== gf) { e.wing.tick = gf; kolibriWingTick(e.wing); } // a formation's turns, once a frame
   const g = e.wing && !e.wing.solo ? e.wing : null;
   const hurt = e.hp0 - e.hp; e.hp0 = e.hp;
   const onScr = e.x > 8 && e.x < W - 8 && e.y > 8, ships = liveShips().filter(s => !s.dead);
@@ -11799,18 +11799,18 @@ function pfeilTick(e) {
     if (Math.random() < P.snapP) { const d = Math.sign(e.x - q.x) || e.side; if ((d < 0 ? e.x : W - e.x) < 40) goOut(d); else { e.bx = d * P.snapSp; e.by = -0.8; e.bT = P.snapT; e.side = d; go('dodge'); } }
   }
   if (e.exp >= P.expMax && (e.st === 'hunt' || e.st === 'flank')) goOut();
-  const canAim = () => live && onScr && e.y < H - 60 && (!g || g.turn === e) && world.enemies.every(o => o === e || o.type !== 'pfeil' || o.dead || o.st !== 'aim'); // the pair never ambushes at once
+  const canAim = () => live && onScr && e.y < H - 60 && (!g || g.turn === e) && world.enemies.every(o => o === e || o.type !== 'kolibri' || o.dead || o.st !== 'aim'); // the pair never ambushes at once
   let gx = e.x, gy = e.y, sp = P.cruise, acc = P.acc, steer = true;
   if (e.st === 'hunt') {
     const arc = q.wpn === 'A';
     if (e.arcM !== arc) { e.arcM = arc; e.reT = 0; }
     if (--e.reT <= 0) { e.reT = R(P.regoal) | 0; e.oy = R(arc ? P.arcBand : P.band); e.ox = R(arc ? P.arcOff : P.off); if (!arc && !g && Math.random() < 0.4) e.side = -e.side; }
-    if (g) { if (e.lane < 2) { if (!arc && !kill) e.side = e.lane ? 1 : -1; e.oy = Math.min(e.oy, WING.lowUp); } else { e.oy = Math.max(e.oy, WING.highUp); e.ox = Math.min(e.ox, 40); } } // a formation member keeps its lane: left and right low, or high
+    if (g) { if (e.lane < 2) { if (!arc && !kill) e.side = e.lane ? 1 : -1; e.oy = Math.min(e.oy, KWING.lowUp); } else { e.oy = Math.max(e.oy, KWING.highUp); e.ox = Math.min(e.ox, 40); } } // a formation member keeps its lane: left and right low, or high
     if (arc) { const A = ARC_LV[q.lvl] || ARC_LV[1]; e.side = Math.sign(e.x - q.x) || e.side; e.ox = Math.max(e.ox, A.cone + (e.oy - 12) * A.slope + P.arcMargin); sp = P.arcCruise; } // stays on its side of the cone; pinned at the edge, the Arc gets it or it leaves
     if (kill) { e.side = Math.sign(e.x - q.x) || e.side; if ((e.side < 0 ? q.x : W - q.x) < e.kx + 24) e.side = -e.side; } // its side of the ship, if there is room
     const lined = g && (g.next === e || g.turn === e); // its turn is coming: it peels off to its attack spot, for the player to see
     gx = clamp(q.x + e.side * (kill ? Math.max(e.kx, arc ? e.ox : 0) : lined ? Math.max(e.fx, arc ? e.ox : 0) : e.ox), 24, W - 24); gy = clamp(q.y - (kill ? e.ky : lined ? e.fy : e.oy), 24, q.y - P.minUp);
-    if (g) { for (const o of g.m) if (o !== e) { const dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy); if (d < WING.sep) { const k = (WING.sep - d) / (d || 1); gx += dx * k; gy += dy * k; } } gx = clamp(gx, 24, W - 24); gy = clamp(gy, 24, q.y - P.minUp); } // kept apart
+    if (g) { for (const o of g.m) if (o !== e) { const dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy); if (d < KWING.sep) { const k = (KWING.sep - d) / (d || 1); gx += dx * k; gy += dy * k; } } gx = clamp(gx, 24, W - 24); gy = clamp(gy, 24, q.y - P.minUp); } // kept apart
     if (!kill && !arc && !lined && Math.abs(gx - q.x) < e.ox * 0.6) { e.side = -e.side; gx = clamp(q.x + e.side * e.ox, 24, W - 24); } // no room on this side
     e.good = onScr && Math.abs(angDiff(e.face, aim(e.x, e.y))) < 0.2 && Math.hypot(gx - e.x, gy - e.y) < 30 ? e.good + 1 : 0;
     if ((e.good >= P.hold || ((kill || lined) && e.good >= 4)) && (g || e.acd <= 0) && canAim()) go('aim');
@@ -11824,7 +11824,7 @@ function pfeilTick(e) {
   } else if (e.st === 'hide') {
     steer = false;
     if (e.sT >= Math.min(kill ? 10 : e.hideT, P.hideMax)) {
-      let from = e.first ? e.side : Math.random() < P.same ? e.od : -e.od, y = q.y - (g ? (e.lane === 2 ? R([WING.highUp, WING.highUp + 40]) : R([40, WING.lowUp])) : R(P.reH)); // a formation comes in at its lanes' heights
+      let from = e.first ? e.side : Math.random() < P.same ? e.od : -e.od, y = q.y - (g ? (e.lane === 2 ? R([KWING.highUp, KWING.highUp + 40]) : R([40, KWING.lowUp])) : R(P.reH)); // a formation comes in at its lanes' heights
       if ((from < 0 ? q.x : W - q.x) < P.flankX[1] + 30) from = -from; // no room beside the ship on that side: the other side
       if (Math.abs(y - e.exitY) < P.reGap) y = e.exitY + (y < e.exitY ? -P.reGap : P.reGap);
       e.x = from < 0 ? -40 : W + 40; e.y = clamp(y, 30, q.y - P.minUp); e.vx = -from * P.flankSp; e.vy = 0;
@@ -11841,7 +11841,7 @@ function pfeilTick(e) {
     if (e.sT === 1) e.kn = e.kill ? 1 : 0;
     const n = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0) + e.kn, k = e.sT - P.tele;
     if (k >= 0 && k % P.gap === 0 && k / P.gap < n && live && onScr && e.y < H - 60) { const nx = e.x + Math.cos(e.face) * 15, ny = e.y + Math.sin(e.face) * 15; eshot(nx, ny, e.face, bspeed()); sfx('gun'); }
-    if (k >= (n - 1) * P.gap + 10) { e.atk++; e.acd = P.atkCd; e.good = 0; e.reT = 0; e.lastAtk = gf; if (g) { g.turn = null; g.atk++; g.wait = rnd(WING.gap[0], WING.gap[1]) * (e.kill ? 0.5 : 1) | 0; } if (e.exp >= P.expMax * 0.6) goOut(); else go('hunt'); }
+    if (k >= (n - 1) * P.gap + 10) { e.atk++; e.acd = P.atkCd; e.good = 0; e.reT = 0; e.lastAtk = gf; if (g) { g.turn = null; g.atk++; g.wait = rnd(KWING.gap[0], KWING.gap[1]) * (e.kill ? 0.5 : 1) | 0; } if (e.exp >= P.expMax * 0.6) goOut(); else go('hunt'); }
   } else if (e.st === 'leave') {
     gx = e.od < 0 ? -90 : W + 90; gy = e.y + 60; sp = 2.8; acc = 0.2;
     if (e.x < -40 || e.x > W + 40 || e.y > H + 40) { e.dead = true; return; }
@@ -11852,48 +11852,138 @@ function pfeilTick(e) {
     e.vx += ax; e.vy += ay;
   }
   if (g && e.st !== 'hide' && e.st !== 'aim') for (const o of g.m) { // members on the screen push gently apart, whatever they are doing
-    const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (o === e || o.st === 'hide' || d >= WING.sep) continue;
-    const k = WING.push * (1 - d / WING.sep) / (d || 1); e.vx += (dx || e.side) * k; e.vy += dy * k;
+    const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (o === e || o.st === 'hide' || d >= KWING.sep) continue;
+    const k = KWING.push * (1 - d / KWING.sep) / (d || 1); e.vx += (dx || e.side) * k; e.vy += dy * k;
   }
   if (e.st !== 'hide') { e.x += e.vx; e.y += e.vy; }
   if ((e.st === 'hunt' || e.st === 'aim' || e.st === 'dodge') && e.x > 0 && e.x < W) { const cx = clamp(e.x, 12, W - 12); if (cx !== e.x) { e.x = cx; e.vx = 0; } } // the screen's edge holds outside the deliberate exits
   if (e.st !== 'aim') e.face += clamp(angDiff(e.face, aim(e.x, e.y)), -P.turn, P.turn);
   if (gf % 3 === 0 && e.st !== 'hide') world.parts.push({ kind: 'trail', layer: 'a', x: e.x - Math.cos(e.face) * 17, y: e.y - Math.sin(e.face) * 17, vx: 0, vy: -0.05, life: 24, max: 24 });
 }
-// The Wingman Formation (Enigma Run, level 4 on): two or three Pfeile that take turns. Each flies as a Pfeil, but only the one holding the
-// formation's turn may ambush. The next one is named WING.lineUp frames ahead and peels off to its attack spot, so the player can see who
+// The Kolibri Wingman Formation (unused; the Pfeil formation is PFEIL / wavePfeil): two or three Kolibris that take turns. Each flies as a Kolibri, but only the one holding the
+// formation's turn may ambush. The next one is named KWING.lineUp frames ahead and peels off to its attack spot, so the player can see who
 // comes next and choose: the attacker, or the next one before its turn (shot down while lining up, it costs the formation a longer pause).
-// The others hold their lanes (left, right, and high above the ship) and keep apart. One left, it is a plain Pfeil again. Shooting down
-// every member pays WING.bonus a member. The group lives on its members (e.wing) and is ticked by the first of them to fly each frame.
-const WING = {
+// The others hold their lanes (left, right, and high above the ship) and keep apart. One left, it is a plain Kolibri again. Shooting down
+// every member pays KWING.bonus a member. The group lives on its members (e.wing) and is ticked by the first of them to fly each frame.
+const KWING = {
   lineUp: [40, 60],                  // frames the next one lines up before it gets the turn (halved against a charging ship)
   gap: [45, 75],                     // frames after a burst before the next one is named (halved against a charging ship)
   afterKill: 50, preKill: 90,        // frames before the next is named: after the attacker is shot down, after the one lining up is
   turnWait: 60,                      // a turn that can't start in this many frames (its holder hidden, dodging) passes on
   sep: 40, push: 0.5, lowUp: 85, highUp: 125, // members keep this far apart (their spots, and a push of up to `push` px/frame² between them); the side lanes' most and the high lane's least height above the ship
   enterGap: [20, 40],                // members fly in this many frames apart
-  atkPer: 3, extraLife: 600,         // the formation leaves together after atkPer ambushes a member, or PFEIL.life + extraLife frames
+  atkPer: 3, extraLife: 600,         // the formation leaves together after atkPer ambushes a member, or KOLIBRI.life + extraLife frames
   bonus: 2500                        // a member, for shooting down the whole formation
 };
-function waveWing(n) {
+function waveKolibriWing(n) {
   const g = { n, m: [], turn: null, next: null, wait: 90, lineT: 0, turnT: 0, atk: 0, age: 0, killed: 0, solo: false, leave: false, tick: -1 };
-  for (let i = 0; i < n; i++) { const e = E('pfeil', { side: i < 2 ? (i ? 1 : -1) : (Math.random() < 0.5 ? -1 : 1), wing: g, lane: i, delay: i * rnd(WING.enterGap[0], WING.enterGap[1]) | 0 }); g.m.push(e); world.enemies.push(e); }
+  for (let i = 0; i < n; i++) { const e = E('kolibri', { side: i < 2 ? (i ? 1 : -1) : (Math.random() < 0.5 ? -1 : 1), wing: g, lane: i, delay: i * rnd(KWING.enterGap[0], KWING.enterGap[1]) | 0 }); g.m.push(e); world.enemies.push(e); }
 }
-function wingTick(g) {
+function kolibriWingTick(g) {
   g.m = g.m.filter(o => !o.dead && !o.dying);
   if (g.solo) return;
-  if (g.turn && !g.m.includes(g.turn)) { g.turn = null; g.wait = WING.afterKill; }
-  if (g.next && !g.m.includes(g.next)) { g.next = null; g.wait = WING.preKill; }
-  if (g.m.length < 2) { g.solo = true; g.turn = g.next = null; for (const o of g.m) { o.atk = Math.min(o.atk, PFEIL.atkN - 1); o.t = Math.min(o.t, PFEIL.life - 300); o.acd = Math.max(o.acd, WING.afterKill); } return; } // the last one flies on alone (after the usual pause)
-  if (++g.age > PFEIL.life + WING.extraLife || g.atk >= WING.atkPer * g.n) g.leave = true;
+  if (g.turn && !g.m.includes(g.turn)) { g.turn = null; g.wait = KWING.afterKill; }
+  if (g.next && !g.m.includes(g.next)) { g.next = null; g.wait = KWING.preKill; }
+  if (g.m.length < 2) { g.solo = true; g.turn = g.next = null; for (const o of g.m) { o.atk = Math.min(o.atk, KOLIBRI.atkN - 1); o.t = Math.min(o.t, KOLIBRI.life - 300); o.acd = Math.max(o.acd, KWING.afterKill); } return; } // the last one flies on alone (after the usual pause)
+  if (++g.age > KOLIBRI.life + KWING.extraLife || g.atk >= KWING.atkPer * g.n) g.leave = true;
   if (g.leave) return;
-  if (g.turn) { if (g.turn.st !== 'aim' && ++g.turnT > WING.turnWait) { g.turn = null; g.wait = 0; } return; }
+  if (g.turn) { if (g.turn.st !== 'aim' && ++g.turnT > KWING.turnWait) { g.turn = null; g.wait = 0; } return; }
   if (g.next) { if (--g.lineT <= 0) { g.turn = g.next; g.next = null; g.turnT = 0; } return; }
   if (--g.wait > 0) return;
   let best = null; // the one that has waited longest, flying on the screen
   for (const o of g.m) if ((o.st === 'hunt' || o.st === 'flank') && o.x > 8 && o.x < W - 8 && (!best || (o.lastAtk || 0) < (best.lastAtk || 0))) best = o;
   if (!best) { g.wait = 10; return; }
-  g.next = best; g.lineT = rnd(WING.lineUp[0], WING.lineUp[1]) * (g.m.some(o => o.kill) ? 0.5 : 1) | 0; best.fx = rnd(PFEIL.flankX[0], PFEIL.flankX[1]); best.fy = rnd(PFEIL.flankY[0], PFEIL.flankY[1]);
+  g.next = best; g.lineT = rnd(KWING.lineUp[0], KWING.lineUp[1]) * (g.m.some(o => o.kill) ? 0.5 : 1) | 0; best.fx = rnd(KOLIBRI.flankX[0], KOLIBRI.flankX[1]); best.fy = rnd(KOLIBRI.flankY[0], KOLIBRI.flankY[1]);
+}
+// The Pfeil (Enigma Run, level 3 on; the dart). One ship from a side of the screen, fast, that mostly flies straight and turns in wide circles. It may leave the
+// screen on a circle and curves back in (beyond PFEIL.away outside an edge it turns for the middle of the screen), and it never retreats: it keeps flying until it is
+// shot down. It shoots when the straight leg lines its nose up with the nearer ship, from PFEIL.rMin to PFEIL.rMax away: a small flare at the nose for PFEIL.tele
+// frames (the warning), then a short burst along the nose. It never flies on into a ship: closer than PFEIL.breakR (or lower than PFEIL.floor of the height) it
+// breaks away in a turn. From level 4 it sometimes comes with 2 (from level 5 or a later loop, sometimes 4) wingmen in formation (PFEIL_SLOTS: a V, then a second
+// row). The wingmen hold their slots beside and behind the leader, which is drawn with yellow markings (leaderSet) and flies as above; they shoot too, one
+// member after another (PFEIL.stagger). Shot down, the leader is replaced by the wingman nearest to its slot. Shooting down the whole formation pays PFEIL.bonus a member.
+// Modes (e.mode): straight (modeT frames), turn (a circle: e.td side, e.arc radians; an aimed circle ends with the nose on the ship); e.ret (back in from
+// outside) and e.brk (breaking away) go before them. e.st: wait (off the screen, before it comes in), fly.
+const PFEIL = {
+  cruise: 2.9, turn: 0.042,          // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 70 px
+  leg: [20, 80], arc: [2.2, 6], aimedP: 0.9, // frames of a straight leg; radians of a circle; the share of circles that end with the nose on the ship
+  away: 40, far: 260, home: 0.35,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)
+  breakR: 105, floor: 0.68,          // closer than this to a ship, or lower than this share of H heading down: it breaks away
+  rMin: 150, rMax: 330, aimTol: 0.16, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
+  tele: 12, burst: 2, gap: 4, atkCd: 120, shotSp: 1.15, stagger: 22, // the warning (frames), shots (one more on Hard or a later loop), frames apart, pause between a member's bursts, shot speed against bspeed(), pause before the next member may start
+  enterT: [10, 50], bonus: 2500      // frames off the screen before it comes in; a member, for the whole formation
+};
+const PFEIL_SLOTS = [[-34, -38], [-34, 38], [-68, -76], [-68, 76]]; // [behind the leader, beside it (+ right)] for the 1st to 4th wingman
+function wavePfeil(wingmen = 0) {
+  const side = Math.random() < 0.5 ? -1 : 1, g = wingmen ? { n: wingmen + 1, m: [], lead: null, killed: 0, vt: 0, tick: -1 } : null;
+  const L = E('pfeil', { side, far: PFEIL.far, grp: g }); world.enemies.push(L);
+  if (g) { g.m.push(L); g.lead = L; for (let i = 0; i < wingmen; i++) { const w = E('pfeil', { side, far: PFEIL.far, grp: g, fm: true, slot: PFEIL_SLOTS[i] }); g.m.push(w); world.enemies.push(w); } }
+}
+function pfeilGroup(g) { // once a frame: the dead leave, a shot down leader is replaced by the wingman nearest its slot, the wingmen take the slots in order
+  g.m = g.m.filter(o => !o.dead && !o.dying); if (!g.m.length) return;
+  if (!g.m.includes(g.lead)) { const n = g.lead = g.m[0]; n.fm = false; n.mode = 'straight'; n.modeT = 40; n.ret = n.brk = false; n.tele = n.bn = 0; n.acd = Math.max(n.acd, 40); }
+  let i = 0; for (const o of g.m) if (o !== g.lead) o.slot = PFEIL_SLOTS[i++];
+}
+function pfeilTick(e) {
+  const P = PFEIL, live = hasT(), g = e.grp || null;
+  if (e.st === undefined) { // it comes in from its side, off the screen, never down through the guns
+    const side = e.side || (e.x < W / 2 ? -1 : 1), up = rnd(-0.15, 0.5);
+    Object.assign(e, { st: 'wait', side, mode: 'straight', modeT: 20, td: 1, ret: false, brk: false, tele: 0, bn: 0, bc: 0, acd: 70, vx: 0, vy: 0, waitT: rnd(P.enterT[0], P.enterT[1]) | 0, h: side < 0 ? up : PI - up });
+    e.x = side < 0 ? -40 : W + 40; e.y = rnd(40, 120); e.face = e.h;
+  }
+  if (g && g.tick !== gf) { g.tick = gf; pfeilGroup(g); }
+  if (e.acd > 0) e.acd--;
+  e.isLead = !!g && g.lead === e && g.m.length > 1; // (the yellow skin: a lone Pfeil, or the last of a formation, has none)
+  const q = nearShip(e.x, e.y), dq = Math.hypot(q.x - e.x, q.y - e.y), aimA = aim(e.x, e.y), onScr = e.x > 10 && e.x < W - 10 && e.y > 10;
+  if (e.fm && g && g.lead && g.lead !== e) { // a wingman: its slot beside and behind the leader
+    const L = g.lead; if (L.st === undefined) return;
+    const c = Math.cos(L.h), s = Math.sin(L.h), tx = L.x + c * e.slot[0] - s * e.slot[1], ty = L.y + s * e.slot[0] + c * e.slot[1], px = e.x, py = e.y;
+    if (e.st === 'wait') { e.st = 'fly'; e.x = tx; e.y = ty; } else { e.x += (L.vx || 0) + (tx - e.x) * 0.12; e.y += (L.vy || 0) + (ty - e.y) * 0.12; }
+    e.h += clamp(angDiff(e.h, L.h), -0.1, 0.1); e.vx = e.x - px; e.vy = e.y - py;
+  } else {
+    if (e.st === 'wait') { if (--e.waitT > 0) return; e.st = 'fly'; }
+    let tgt = null; // an angle it turns for at the full turn rate, or null
+    const outside = e.x < -P.away || e.x > W + P.away || e.y < -P.away;
+    if (!live) { e.ret = e.brk = false; }
+    else {
+      if (outside && !e.ret) { e.ret = true; e.brk = false; e.tele = e.bn = 0; }
+      if (e.ret && e.x > 8 && e.x < W - 8 && e.y > 8) { e.ret = false; e.mode = 'straight'; e.modeT = rnd(P.leg[0] * 0.5, P.leg[1] * 0.5) | 0; }
+      if (!e.ret && !e.brk && (dq < P.breakR || (e.y > H * P.floor && Math.sin(e.h) > 0))) { e.brk = true; e.tele = e.bn = 0; }
+    }
+    const away = dq < P.breakR * 1.3 ? Math.atan2(e.y - q.y, e.x - q.x) : -PI / 2;
+    if (e.brk && dq > P.breakR * 1.3 && e.y < H * P.floor - 20) { e.brk = false; e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
+    if (e.ret) tgt = Math.atan2(H * P.home - e.y, W / 2 - e.x); else if (e.brk) tgt = away;
+    if (tgt !== null) e.h += clamp(angDiff(e.h, tgt), -P.turn, P.turn);
+    else if (!e.tele && !e.bn) { // a straight leg, then a circle (an aimed one ends with the nose on the ship)
+      if (e.mode === 'straight') {
+        if (--e.modeT <= 0) {
+          const d = angDiff(e.h, aimA), aimed = live && dq > P.rMin + 10 && Math.abs(d) > 0.4 && Math.random() < P.aimedP;
+          e.td = aimed ? Math.sign(d) : Math.random() < 0.5 ? -1 : 1; e.aimed = aimed; e.arc = rnd(P.arc[0], P.arc[1]); e.mode = 'turn'; e.turnT = 0;
+        }
+      } else {
+        e.h += e.td * P.turn; e.arc -= P.turn; e.turnT++;
+        if (e.aimed ? (Math.abs(angDiff(e.h, aimA)) < 0.08 && e.turnT > 6) || e.turnT > 220 : e.arc <= 0) { e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
+      }
+    }
+    e.vx = Math.cos(e.h) * P.cruise; e.vy = Math.sin(e.h) * P.cruise; e.x += e.vx; e.y += e.vy;
+  }
+  e.face = e.h;
+  // the shot: warning flare, then a burst along the nose (one member of a formation at a time)
+  if (live && !e.tele && !e.bn && e.acd <= 0 && !e.ret && !e.brk && onScr && e.y < H - 60 && dq >= P.rMin && dq <= P.rMax && Math.abs(angDiff(e.h, aimA)) < P.aimTol && (!g || g.vt <= gf)) { e.tele = P.tele; if (g) g.vt = gf + P.stagger; }
+  if (e.tele > 0 && --e.tele === 0) { e.bn = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0); e.bc = 0; }
+  if (e.bn > 0 && --e.bc <= 0) {
+    if (live && onScr && e.y < H - 60) { eshot(e.x + Math.cos(e.h) * 15, e.y + Math.sin(e.h) * 15, e.h, bspeed() * P.shotSp); sfx('gun'); }
+    e.bc = P.gap; if (--e.bn === 0) e.acd = P.atkCd;
+  }
+  if (!live && (e.x < -150 || e.x > W + 150 || e.y < -150 || e.y > H + 100)) { e.dead = true; return; } // nobody left to hunt: it flies off
+  if (gf % 3 === 0 && e.st !== 'wait') world.parts.push({ kind: 'trail', layer: 'a', x: e.x - Math.cos(e.h) * 17, y: e.y - Math.sin(e.h) * 17, vx: 0, vy: -0.05, life: 24, max: 24 });
+}
+function leaderSet(s) { // the leader's art: the Pfeil with yellow bands across the tail plane, the wings and the fuselage (painted on the body only), turned like the plain one
+  const [c, x] = mk(s.w, s.h); x.drawImage(s.c, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#ffd62a';
+  const m = (X, Y, w, h) => { x.fillRect(X, Y, w, h); x.fillRect(s.w - X - w, Y, w, h); }; // (and its mirror)
+  m(11, 7, 3, 2); m(12, 13, 2, 6); x.fillRect(Math.round(s.w / 2) - 3, 26, 6, 2);
+  x.fillStyle = '#b8860b'; m(11, 9, 3, 1); m(14, 13, 1, 6);
+  return rotSet({ c, f: s.f, k: s.k, w: s.w, h: s.h }, 32);
 }
 const harmlessE = o => ENT[o.type].harmless && !o.armed; // (the Gespann, Enigma Run: an armed bike is not harmless)
 const ENT = {
@@ -11943,8 +12033,9 @@ const ENT = {
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
-  // The Pfeil (Enigma Run, level 3 on; the hornet): see PFEIL and pfeilTick.
+  // The Pfeil (Enigma Run, level 3 on; the dart): see PFEIL and pfeilTick. The old one is the Kolibri.
   pfeil: { revenge: 2, medals: 1, stats: { hp: 10, hw: 15, hh: 15, score: 1500 }, update(e) { pfeilTick(e); } },
+  kolibri: { revenge: 2, medals: 1, stats: { hp: 10, hw: 15, hh: 15, score: 1500 }, update(e) { kolibriTick(e); } },
   bomber: { revenge: 3, stats: { hw: 21, hh: 13, score: 2500 }, update(e) {
     if (e.dying) return dyingTick(e);
     if (e.ph === undefined) e.ph = Math.random() * 6;
@@ -13018,7 +13109,8 @@ const DEATHS = {
     },
   },
   heavy: { onKill(e) { if (Math.random() < 0.35) bailOut(e.x, e.y, 1); } },
-  pfeil: { onKill(e) { if (Math.random() < 0.35) bailOut(e.x, e.y, 1); const g = e.wing; if (g && ++g.killed === g.n) { const b = WING.bonus * g.n; addScore(b); label(e.x, e.y - 16, 'FORMATION ' + b); sfx('power'); haptic('power'); } } }, // (the whole Wingman Formation shot down)
+  pfeil: { onKill(e) { if (Math.random() < 0.35) bailOut(e.x, e.y, 1); const g = e.grp; if (g && ++g.killed === g.n) { const b = PFEIL.bonus * g.n; addScore(b); label(e.x, e.y - 30, 'FORMATION ' + b); sfx('power'); haptic('power'); } } }, // (the whole Pfeil formation shot down)
+  kolibri: { onKill(e) { if (Math.random() < 0.35) bailOut(e.x, e.y, 1); const g = e.wing; if (g && ++g.killed === g.n) { const b = WING.bonus * g.n; addScore(b); label(e.x, e.y - 16, 'FORMATION ' + b); sfx('power'); haptic('power'); } } }, // (the whole Wingman Formation shot down)
   bomber: {
     blast: 30,
     onKill(e) { if (Math.random() < 0.3) bailOut(e.x, e.y, 1); },
@@ -13569,7 +13661,7 @@ function update() {
   if (app.glows) { for (const g of app.glows) g.t++; app.glows = app.glows.filter(g => g.t < 60); if (!app.glows.length) app.glows = null; } // (ship glow clock)
   world.items = world.items.filter(it => it.y < H + 10 && !(it.kind === 'S' && (it.life <= 0 || it.y < -20)));
   if (run.medalLost > 0) run.medalLost--;
-  world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40)) && e.y > (e.type === 'boss' || e.keep ? -1700 : -140) && e.x > -60 && e.x < W + 60);
+  world.enemies = world.enemies.filter(e => !e.dead && (e.type === 'boss' || e.y < H + (e.up || e.boom ? 240 : e.type === 'destroyer' || e.type === 'sub' ? 60 : 40)) && e.y > (e.type === 'boss' || e.keep ? -1700 : -(e.far || 140)) && e.x > -(e.far || 60) && e.x < W + (e.far || 60));
 
   for (const d of world.decals) {
     if (d.kind === 'puddle') { d.life--; if (d.life <= 0) d.gone = true; }
@@ -14100,10 +14192,16 @@ const LOOKS = {
   sower(e, fl) { const b = e.bank || 0, s2 = SPR.sower, w = Math.round(s2.w * (1 - Math.abs(b) * 0.1)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h);
     const ph = (gf >> 1) & 1, py = Math.round(e.y - s2.h / 2) + 8; ctx.fillStyle = '#c8ccd0'; for (const nx of [-23, 23]) { const px = Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2); ctx.globalAlpha = 0.22; ctx.fillRect(px - 7, py, 15, 2); ctx.globalAlpha = 0.8; if (ph) ctx.fillRect(px - 7, py, 15, 1); else ctx.fillRect(px, py - 1, 1, 4); } ctx.globalAlpha = 1; }, // propeller discs and a blade
   heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + (ENIG_ART.on ? 10 : 6), ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
-  pfeil(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use); the ambush flares at the nose
+  pfeil(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use; the leader of a formation in its yellow skin); a small flare at the nose warns of a burst
+    const s2 = SPR.pfeil; if (!s2) { spr(SPR.heavy, e.x, e.y, fl); return; }
+    const a = e.face === undefined ? PI / 2 : e.face, set = e.isLead ? (s2.lrot || (s2.lrot = leaderSet(s2))) : (s2.rot || (s2.rot = rotSet(s2, 32)));
+    spr(set[dirIdx(a, 32)], e.x, e.y, fl);
+    if (e.tele > 0 && (gf >> 1) & 1) { ctx.globalAlpha = 0.85; dk(Math.round(e.x + Math.cos(a) * 16), Math.round(e.y + Math.sin(a) * 16), 2, '#ffe08a'); ctx.globalAlpha = 1; }
+  },
+  kolibri(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use); the ambush flares at the nose
     const s2 = SPR.pfeil; if (!s2) { spr(SPR.heavy, e.x, e.y, fl); return; }
     const a = e.face === undefined ? PI / 2 : e.face; spr((s2.rot || (s2.rot = rotSet(s2, 32)))[dirIdx(a, 32)], e.x, e.y, fl);
-    if (e.st === 'aim' && e.sT < PFEIL.tele && (gf >> 1) & 1) { ctx.globalAlpha = 0.85; dk(Math.round(e.x + Math.cos(a) * 15), Math.round(e.y + Math.sin(a) * 15), 3, '#ffe08a'); ctx.globalAlpha = 1; }
+    if (e.st === 'aim' && e.sT < KOLIBRI.tele && (gf >> 1) & 1) { ctx.globalAlpha = 0.85; dk(Math.round(e.x + Math.cos(a) * 15), Math.round(e.y + Math.sin(a) * 15), 3, '#ffe08a'); ctx.globalAlpha = 1; }
   },
   bomber(e, fl) {
     { const b = e.bank || 0, s2 = SPR.bomber, w = Math.round(s2.w * (1 - Math.abs(b) * 0.12)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h); }
