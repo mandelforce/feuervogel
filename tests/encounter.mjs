@@ -9,6 +9,8 @@
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
 // it by itself, once per level. Flak lane: only flak is placed (a plan's slot first), the formation waits until the guns are on screen, the
 // strafing run follows from the other side (not on Rookie), it never starts over the sea, and a flak verb that can place nothing makes nothing.
+// Bomber screen: a Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), all spawn timers held, and a
+// Bomber left alone leaves the screen and the encounter.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -192,7 +194,29 @@ const playOut = `
   await page.close();
 }
 {
-  // 7. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
+  // 7. Bomber screen
+  const page = await freshPage();
+  const play = (diff, seed, tough) => `(() => { window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(2, true); delete window.__forceSeed; SF.run(300);
+    const cd0 = { wave: world.waveCd, pod: world.podCd, ground: world.groundCd }, started = encStart('bomberscreen'), disp = [], tagged = new Set(); let lastI = 0, f = 0, moved = 0;
+    while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
+      while (lastI < E0.i) disp.push(lastI++ + '@' + E0.t);
+      for (const e of world.enemies) if (e.enc === 'bomberscreen') { tagged.add(e); if (${tough} && e.type === 'bomber') e.hp = e.maxhp = 99999; }
+      if (world.waveCd !== cd0.wave || world.podCd !== cd0.pod || world.groundCd !== cd0.ground) moved++; }
+    const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
+    return JSON.stringify({ started, disp, types, moved, last: world.encLast }); })()`;
+  const v = JSON.parse(await peek(page, play(1, 41, false)));
+  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@300 4@420 5@436 6@452 7@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s, a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
+  ok(v.types.bomber === 1 && v.types.fighter === 13 && Object.keys(v.types).length === 2, `tagged: ${JSON.stringify(v.types)}`);
+  ok(v.moved === 0, 'air waves, pods and ground spawns all wait while it runs (an air fight)');
+  ok(v.last && v.last.why === 'done', `it ends 'done' after ${v.last && v.last.t} frames (bullets peaked at ${v.last && v.last.peak}, budget ${18})`);
+  const r = JSON.parse(await peek(page, play(0, 41, false)));
+  ok(r.types.fighter === 6 && r.last && r.last.why === 'done', `Rookie: two dives and no strafing run (${JSON.stringify(r.types)})`);
+  const t = JSON.parse(await peek(page, play(1, 42, true)));
+  ok(t.last && t.last.why === 'done' && t.last.t < 1000, `a Bomber nobody can kill leaves the screen and the encounter still ends 'done' (${t.last && t.last.t} frames)`);
+  await page.close();
+}
+{
+  // 8. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
   const page = await freshPage('?enc=anvil');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;

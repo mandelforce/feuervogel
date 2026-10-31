@@ -145,9 +145,9 @@ node tests/wing.mjs
 - a snapshot can be taken mid-encounter, and the readout draws;
 - the soft bullet budget: with the screen at the budget a gated shooter (the Heavy) waits, the Sower's aerial mines don't count, with room again the whole spread fires, and a delayed volley's reservation lasts until its last bullet.
 
-It also plays Flak lane: only flak is placed, a plan's slot first; the formation waits until the guns are on screen; the strafing run follows from the other side, but not on Rookie; it never starts over the sea; and a flak verb that can place nothing makes nothing.
+It also plays Flak lane: only flak is placed, a plan's slot first; the formation waits until the guns are on screen; the strafing run follows from the other side, but not on Rookie; it never starts over the sea; and a flak verb that can place nothing makes nothing. And Bomber screen: its Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), every spawn timer held, and a Bomber nobody can kill leaving the screen so the encounter still ends.
 
-`resume-exact.mjs --only=anvil` and `--only=flaklane` check runs saved in the middle of The Anvil and of Flak lane.
+`resume-exact.mjs --only=anvil`, `--only=flaklane` and `--only=bomberscreen` check runs saved in the middle of each encounter.
 
 ```
 python3 -m http.server 8000   # in another terminal
