@@ -10,7 +10,9 @@
 // it by itself, once per level. Flak lane: only flak is placed (a plan's slot first), the formation waits until the guns are on screen, the
 // strafing run follows from the other side (not on Rookie), it never starts over the sea, and a flak verb that can place nothing makes nothing.
 // Bomber screen: a Bomber, three dives and a strafing run on their frames (two dives and no run on Rookie), all spawn timers held, and a
-// Bomber left alone leaves the screen and the encounter.
+// Bomber left alone leaves the screen and the encounter. Sower Window (level 4): ordinary encounters wait while a Sower is up; the level's
+// first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
+// waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -214,6 +216,41 @@ const playOut = `
   const t = JSON.parse(await peek(page, play(1, 42, true)));
   ok(t.last && t.last.why === 'done' && t.last.t < 1000, `a Bomber nobody can kill leaves the screen and the encounter still ends 'done' (${t.last && t.last.t} frames)`);
   await page.close();
+}
+{
+  // 9. Sower Window: the same level 4 run (seed 104, Veteran, the plain immortal bot, Sowers made unkillable so both runs keep them as long),
+  // once with ?enc=sowerwindow and once without
+  const fly = `(() => { window.__forceSeed = 104; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(4, true); delete window.__forceSeed;
+    const out = { early: false, anvilRefused: null, startF: -1, holdF: -1, again: false, mines: 0, bombs: 0, partner: false, sowers: new Set(), tagged: {}, waveMoved: 0, end: null, resumed: null };
+    const seen = new WeakSet(); let wave0 = null, endF = -1;
+    for (let f = 0; f < 9000; f++) { SF.run(1);
+      for (const e of world.enemies) if (e.type === 'sower') { out.sowers.add(e); e.hp = 99999; }
+      const first = world.enemies.find(e => e.type === 'sower' && !e.dead && world.ARC_U < 0.5);
+      if (first && out.anvilRefused === null && !world.enc) out.anvilRefused = encStart('anvil') === false && !world.enc;
+      if (world.enc && world.ARC_U < 0.7) out.early = true;
+      if (out.holdF < 0 && world.ARC_U >= 0.7 && world.enemies.some(e => e.type === 'sower' && e.st === 'hold' && !e.second)) out.holdF = f;
+      if (out.startF < 0 && world.enc) { out.startF = f; wave0 = world.waveCd; }
+      if (world.enc && wave0 !== null && world.waveCd !== wave0) out.waveMoved++;
+      if (f >= 7000 && f < 8400) for (const b of world.ebul) if (!seen.has(b) && (b.kind === 'amine' || b.kind === 'fbomb')) { seen.add(b); if (b.kind === 'amine') out.mines++; else out.bombs++; }
+      if (world.enemies.some(e => e.type === 'sower' && e.second)) out.partner = true;
+      for (const e of world.enemies) if (e.enc) out.tagged[e.type] = 1;
+      if (out.startF >= 0 && !world.enc && endF < 0) { endF = f; out.end = world.encLast; out.resumed = world.waveCd === wave0 - 1 || wave0 <= 1; }
+      if (endF >= 0 && world.enc) out.again = true; }
+    out.sowers = out.sowers.size; return JSON.stringify(out); })()`;
+  const page = await freshPage('?enc=sowerwindow');
+  const w = JSON.parse(await peek(page, fly));
+  await page.close();
+  const page2 = await freshPage();
+  const n = JSON.parse(await peek(page2, fly));
+  await page2.close();
+  ok(w.anvilRefused === true, 'while a Sower is up, an ordinary encounter does not start');
+  ok(!w.early, "the level's first Sower (before the set2 stretch) does not open the Sower Window");
+  ok(w.holdF > 0 && w.startF === w.holdF + 1, `it opens the frame after the second Sower settles (settled ${w.holdF}, opened ${w.startF})`);
+  ok(!w.again, 'it opens once: not again for the partner the Sower calls');
+  ok(!w.tagged.sower && !w.tagged.wing && w.sowers === n.sowers, `it makes no Sower or Wing (Sowers in the level: ${w.sowers}, the same as without it: ${n.sowers}; tagged: ${Object.keys(w.tagged).join(', ')})`);
+  ok(w.waveMoved === 0, 'air waves stay held for the whole encounter');
+  ok(w.mines === n.mines && w.bombs === n.bombs && w.partner && n.partner, `the Sowers lay their mines (${w.mines}, ${n.mines} without), drop their bombs (${w.bombs}, ${n.bombs}) and call the partner as without it`);
+  ok(w.end && w.end.why === 'done' && w.resumed, `it ends 'done' after ${w.end && w.end.t} frames and air waves resume from where they were`);
 }
 {
   // 8. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch

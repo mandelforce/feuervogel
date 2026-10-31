@@ -298,6 +298,12 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Ownership:** the Sower itself isn't owned (`sowerTick` made it), so completion depends on the convoy and the flak only. If the Sower outlasts them, normal spawning resumes after `rest` while the Sower is still on screen, as it does today.
 - **Budget (decided: the mines are meant to be many):** the Sower's aerial mines don't count toward the budget at all. They are the intended restriction, so they never hold back the convoy's or the flak's volleys, and they never show as overruns. Its falling bombs are aimed fire and do count. The budget therefore only keeps the tank and flak fire on top of the mine field readable.
 - **Setup:** `sowerTick` and the Sower's behaviour are unchanged.
+- **Status: built (step 5, third encounter), with two open points.**
+  - Definition: `sowerwindow`, `start: 'sower'` (a convoy and a flak gun at frame 0, the flak not on Rookie, a second convoy at 360). All spawn timers are held.
+  - Start rule (`encStart`): only for a Sower in `hold` from `ENC_SOWER_FROM` (0.7, the set2 stretch) on, not a called partner (`second`), and each Sower once (`encSeen`). Ordinary encounters don't start while a Sower or the Shadow Wing is up, and a running Sower Window isn't held by the Sower.
+  - Measured (level 4, seed 104): it opens at frame 7322, the frame after the second Sower settles, on every difficulty. The Sowers lay exactly the same mines (152) and bombs (10), and call their partner, as in the same run without it.
+  - **Open 1: the Sower's bomb bursts fill the budget.** Each falling bomb bursts into a ring of 8 bullets. They count (decided: bombs count, and their burst rings with them). While over budget, the screen held about 15–26 of the Sower's own bullets against about 1 from the convoy. So the encounter was over budget for 274–391 frames on Rookie and Veteran (peaks of 25–39), and the convoy's gated tanks mostly waited. The ground pressure this encounter is for hardly happens. Options: a higher budget for the Sower Window, not counting the burst rings, or accepting it.
+  - **Open 2: the flak gun is usually not placed.** On Veteran and Ace the flak event was dropped after 60 frames: that stretch of forest had no free flak slot and no open spot. The encounter then runs with the convoys only.
 
 ## 8. Soft bullet budget
 
