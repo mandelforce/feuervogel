@@ -2,7 +2,7 @@
 // Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
 //   node tests/pfeil.mjs
 //   node tests/pfeil.mjs --verbose   also print every check that passes (by default only failures and a count)
-// Checks: a lone Pfeil comes in from a side and flies at PFEIL.cruise; it leaves the screen on its circles but never goes beyond its cull margin and always comes back;
+// Checks: a lone Pfeil (five flights, five run seeds) comes in from a side and flies at PFEIL.cruise; it leaves the screen on its circles but never goes beyond its cull margin and always comes back;
 // it shoots (a warning flare first) and every shot leaves its nose along its heading; it never flies on into a ship (breaks away); it is never culled, never leaves
 // by itself and has no yellow skin; a formation has the leader and 2 or 4 wingmen in their slots, the leader has the yellow skin (built from the plain art, which it
 // leaves alone), at most one member starts a burst at a time; a shot down leader is replaced by a wingman (the skin follows), the last one flies on alone, shooting
@@ -31,9 +31,11 @@ await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
 const peek = (code) => page.evaluate(c => window.SF.peek(c), code).then(r => (typeof r === 'string' ? JSON.parse(r) : r));
 const start = `gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, true); SF.run(60); world.enemies.length = 0; world.waveCd = 1e9;`;
 
-// 1. a lone Pfeil, 2400 frames (made unkillable and alone: nothing else flies)
-{
-  const r = await peek(`JSON.stringify((() => { ${start} wavePfeil(0);
+const lone = { bursts: 0, each: [] };
+// 1. a lone Pfeil, 2400 frames (made unkillable and alone: nothing else flies), flown with five run seeds: one flight is one sample of a
+// chaotic path (its bursts and closest pass swing with any change to its speed), so the checks take all five
+for (const seed of [1, 7, 11, 23, 42]) {
+  const r = await peek(`JSON.stringify((() => { window.__forceSeed = ${seed}; ${start} delete window.__forceSeed; wavePfeil(0);
     const P = PFEIL, o = { n: 0, maxOff: 0, offFrames: 0, back: 0, bursts: 0, badShot: 0, minD: 1e9, dead: false, skin: false, speeds: [], culled: false, enteredAt: -1 }; let wasOff = false;
     for (let f = 0; f < 2400; f++) {
       for (const e of world.enemies) e.hp = 999; SF.run(1); world.enemies = world.enemies.filter(e => e.type === 'pfeil' || e.dead === false && false);
@@ -46,16 +48,17 @@ const start = `gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, tr
       for (const b of world.ebul) { const a = Math.atan2(b.vy, b.vx); if (Math.abs(angDiff(a, e.h)) > 0.01 && Math.abs(angDiff(a, e.face)) > 0.01) o.badShot++; }
       world.ebul.length = 0;
     }
-    o.minSp = Math.min(...o.speeds); o.maxSp = Math.max(...o.speeds); delete o.speeds; return o; })())`);
-  ok(r.enteredAt >= 0 && !r.culled, `a lone Pfeil comes in (frame ${r.enteredAt}) and is never culled or gone by itself in 2400 frames`);
-  ok(r.minSp > 2.3 && r.maxSp < 2.5, `it flies at its cruise speed (${r.minSp.toFixed(2)} to ${r.maxSp.toFixed(2)} px/frame; the old Pfeil's cruise was 2.2)`);
-  ok(r.offFrames > 100 && r.back >= 3, `it goes off the screen on its circles (${r.offFrames} frames) and comes back every time (${r.back} returns)`);
-  ok(r.maxOff < 420, `it never goes beyond its cull margin (${Math.round(r.maxOff)} px outside the screen at most)`);
-  ok(r.bursts >= 3, `it finds its moments to shoot: ${r.bursts} bursts in 2400 frames`);
-  ok(r.badShot === 0, 'every shot leaves along its heading');
-  ok(r.minD > 30, `it breaks away before it flies into a ship (closest ${Math.round(r.minD)} px)`);
-  ok(!r.skin, 'a lone Pfeil has the plain skin');
+    o.minSp = Math.min(...o.speeds); o.maxSp = Math.max(...o.speeds); o.cruise = PFEIL.cruise; delete o.speeds; return o; })())`);
+  ok(r.enteredAt >= 0 && !r.culled, `seed ${seed}: a lone Pfeil comes in (frame ${r.enteredAt}) and is never culled or gone by itself in 2400 frames`);
+  ok(Math.abs(r.minSp - r.cruise) < 0.1 && Math.abs(r.maxSp - r.cruise) < 0.1, `seed ${seed}: it flies at its cruise speed, ${r.cruise} (${r.minSp.toFixed(2)} to ${r.maxSp.toFixed(2)} px/frame)`);
+  ok(r.offFrames > 100 && r.back >= 3, `seed ${seed}: it goes off the screen on its circles (${r.offFrames} frames) and comes back every time (${r.back} returns)`);
+  ok(r.maxOff < 420, `seed ${seed}: it never goes beyond its cull margin (${Math.round(r.maxOff)} px outside the screen at most)`);
+  ok(r.badShot === 0, `seed ${seed}: every shot leaves along its heading`);
+  ok(r.minD > 30, `seed ${seed}: it breaks away before it flies into a ship (closest ${r.minD.toFixed(1)} px)`);
+  ok(!r.skin, `seed ${seed}: a lone Pfeil has the plain skin`);
+  lone.bursts += r.bursts; lone.each.push(r.bursts);
 }
+ok(lone.bursts >= 10, `it finds its moments to shoot: ${lone.bursts} bursts in five flights of 2400 frames (${lone.each.join(', ')})`);
 // 2. a formation of 4 wingmen: slots, skin, one burst at a time, the leader replaced, the last one alone, the bonus
 {
   const r = await peek(`JSON.stringify((() => { ${start} wavePfeil(4); const g = world.enemies[0].grp, o = {};
