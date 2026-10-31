@@ -103,7 +103,8 @@ Level 3 (The Long Night) has its own block: its night plan passes the generator'
 Level 5 (The Winter Line) has its own block: its plan passes the generator's rules and covers 70 chunks; it begins over the frozen sea with U-boat holes and places to break through; the mountain village (no green), the frozen lake with its huts and ice road; ground types from the plan; the plan reaches 48 chunks past the level's end as the train boss's gorge arena, the four tracks running through into it (chasm 'ravine', viaducts 'railbridge') with no buffer stops. Flown by the bot: U-boats in the ice and a break through it, the train boss called once the gorge fills the screen, the boss comes, its trains keep to their own viaduct and the supply trains to the outer tracks, and the level returns to the picker. A second block checks that a gallery covers its outer track and nothing beside it, that the explosives car's blast wrecks the car coupled to it, and the avalanches: an open cornice's slide buries the supply car on its track and leaves a mound that stops the next train, a car under a gallery is safe, an explosives car breaks the cornice above it, a boss train smashes a supply car on its track, a supply train on the bridge follows its curve to the other outer track, and a car destroyed over the chasm falls with the car coupled to it. In flight, a supply train is sent to a bridge as it comes into view and crosses it.
 
 ```
-node tests/enigma.mjs            # all checks
+node tests/enigma.mjs            # all checks; prints only failures and the number that passed
+node tests/enigma.mjs --verbose  # also print every check that passes
 node tests/enigma.mjs --bench    # also print chunk build times per level, and level 6 by template (pixel pass and features apart)
 node tests/enigma.mjs --pixels   # also compare finished Campaign chunks (pixels and features) with tests/enigma-pixels.json
 ```
