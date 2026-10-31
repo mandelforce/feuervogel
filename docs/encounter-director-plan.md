@@ -369,7 +369,7 @@ Each phase ends with its check passing.
 - **Done when:** the numbers are saved, and the baseline reproduces on two runs.
 - **Status: done.**
   - The balance numbers are in `tests/balance-encounter-phase0.json` (for `balance-real.mjs --baseline`), and the per-level figures are below.
-  - The Campaign replay baseline is `tests/golden-enigma.json`, run with `node tests/replay.mjs --enigma`. It covers level 1A on Rookie with the bot able to die, level 3 on Ace, and level 4 on Veteran with both Sowers. It reproduced on two runs, and `golden.json` still matches. It is not in CI yet.
+  - The Campaign replay baseline is `tests/golden-enigma.json`, run with `node tests/replay.mjs --enigma`. It covers level 1A on Rookie with the bot able to die, level 3 on Ace, and level 4 on Veteran with both Sowers. It reproduced on two runs, and `golden.json` still matches. It is run by hand, not in CI, and is not a blocking check (decided).
 
 Phase 0 numbers (human bot, 4 runs per difficulty; the window is the worst 10 s of enemy bullets on screen before the boss):
 
@@ -423,6 +423,7 @@ What this means for the plan:
   - one run pinned to a weak weapon (`SF.human(…, 'S1')`): gun speed is fixed for everyone, so weapon power is what makes clearing slow, and slow clearing is what makes a `timeout` likely.
 - Playtest by hand: the bot dodges better than people do, so its numbers are for comparison only.
 - Refresh the Enigma baseline and note the change in `CHANGELOG.md`.
+- Bump `VERSION` in `index.html` and `sw.js` to a new visible version (the first three parts, e.g. `1.2.6`). That is the whole leaderboard step: scores carry the version, and the board is not reset (section 12).
 - **Done when:** the playtest questions in section 11 have acceptable answers for all four encounters on all three difficulties, and no encounter ends in `timeout` in the bot runs.
 
 ## 11. Playtesting
@@ -440,7 +441,7 @@ These are the brief's questions, plus numbers to look at alongside them:
 
 ## 12. Risks and open questions
 
-1. **Leaderboard comparability.** The Campaign is ranked. Changing its spawns changes what scores are possible. Decide whether this ships with a version note only, or needs a board reset or season mark.
+1. **Leaderboard (decided: version number only, no reset for now).** The Campaign is ranked, and changing its spawns changes what scores are possible. Every submitted score already carries the game's `VERSION` (stored by the Worker in `scores.version`), so encounter-era scores can always be told apart. The release bumps a visible part of the version (not only the hidden fourth part), and nothing on the board is reset.
 2. **Heavy hold (decided: timing first).** The Anvil is built without changing the Heavy (7.1, step 1). The hold is added only if playtesting shows the Heavy doesn't read as an anchor.
 3. **Ground placement can fail** (water, towns, plans with fixed guns). The retry window and the dispatch contract in 5.2 keep this safe, but an encounter whose restriction never appears, or appears at half strength, is a different encounter. The test reports how often each verb fails or places only part of its units, per level.
 4. **The soft budget can be exceeded** by ungated sources: revenge shots, the Sower's mines, shooters outside the six call sites. Whether that matters is a measurement question (`over`, `--attrib`). The answer may be to gate one more call site, never to delete bullets.

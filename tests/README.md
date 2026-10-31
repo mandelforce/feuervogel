@@ -66,7 +66,7 @@ node tests/replay.mjs --update   # write new expected values
 
 Only use `--update` after a change that is *meant* to alter gameplay (balance, spawns, scoring), and say so in the commit. For a refactor, any difference is a bug.
 
-`golden.json` flies the old campaign (stage numbers, what Retro Run plays). The Campaign's own levels have a separate baseline, `golden-enigma.json`: three scenarios in `SF.ENIGMA_SCENARIOS` (level 1A on Rookie with the bot able to die, level 3 on Ace, level 4 on Veteran with both Sowers), each stopping before the level's boss. They use the game's real settings (gun speed 90, point-blank fire), not the pinned old ones. They have no isolation or terrain checks (those stay with `golden.json`) and are not in CI yet. Refresh the file on purpose after a change to the Campaign's spawns or balance (see `docs/encounter-director-plan.md`):
+`golden.json` flies the old campaign (stage numbers, what Retro Run plays). The Campaign's own levels have a separate baseline, `golden-enigma.json`: three scenarios in `SF.ENIGMA_SCENARIOS` (level 1A on Rookie with the bot able to die, level 3 on Ace, level 4 on Veteran with both Sowers), each stopping before the level's boss. They use the game's real settings (gun speed 90, point-blank fire), not the pinned old ones. They have no isolation or terrain checks (those stay with `golden.json`) and are run by hand, not in CI. Refresh the file on purpose after a change to the Campaign's spawns or balance (see `docs/encounter-director-plan.md`):
 
 ```
 node tests/replay.mjs --enigma            # compare with golden-enigma.json
