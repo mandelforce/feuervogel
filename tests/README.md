@@ -308,3 +308,5 @@ Balance lessons from the 1.2.5 pass: check which code path a test flies before t
 ## Nothing pops in, guns stay off runways (by hand)
 
 `guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.
+
+`flagship-crush.mjs` checks the level 1 flagship's hull, on a Retro Run start and a Campaign start: no ship is placed under it or sails into it, and its "Hard to port" turn crushes the destroyer and PT boat under its stern (no points, no loot, the player unaffected) while a ship clear of the hull is left alone. In the Campaign it also flies the scene with and without ships to crush and fails if the flagship's own random stream (every frame) or any number on it (every 10 frames) differs: a crushed ship's random draws are its own. Serve the folder first and run `node tests/flagship-crush.mjs`.

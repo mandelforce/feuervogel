@@ -9320,7 +9320,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 // gun by itself). ttSeen: true for a critter the timetable ignores.
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
+  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
@@ -11129,6 +11129,22 @@ function drawLocks() {
 // with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
 const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
   RAM_REACT_VOLLEYS = [280, 345], RAM_RIPPLE = 5, RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
+// The flagship's hull is a rectangle (half width HULL_HW, half length HULL_HL) turned by e.hd. Ships on the water never sail under it:
+// they are not placed there and do not move into it (hullOver), and while the flagship swings its stern round, any ship it overlaps is crushed.
+const HULL_HW = 30, HULL_HL = 112, CRUSHABLE = new Set(['pt', 'destroyer', 'sub']);
+function hullOver(b, x, y, r) { // does a circle of radius r at (x, y) touch the flagship b's hull?
+  const dx = x - b.x, dy = y - b.y, c = Math.cos(b.hd || 0), s = Math.sin(b.hd || 0), lx = dx * c + dy * s, ly = -dx * s + dy * c;
+  return Math.abs(lx) < HULL_HW + r && Math.abs(ly) < HULL_HL + r;
+}
+function flagship() { for (const b of world.enemies) if (b.type === 'boss' && b.kind === 'ship' && !b.dying && !b.dead) return b; return null; }
+function underFlagship(x, y, r) { const b = flagship(); return !!b && hullOver(b, x, y, r); }
+function crushShip(o) { fate(o, 'fs', () => crushShipE(o)); } // (the Campaign: on the crushed ship's own fate stream, never the flagship's, so how many it crushes doesn't change what the flagship does next)
+function crushShipE(o) { // no points, no loot, no medals: it just goes down (no kill(), so no addScore, dropMedals or kill count)
+  o.dead = true; o.crushed = true;
+  boom(o.x, o.y, 20, 'g'); sfx('gboom'); haptic('gkill');
+  world.decals.push({ kind: 'oil', wx: o.wx, wy: o.wy, r: o.type === 'pt' ? 10 : o.type === 'sub' ? 16 : 22, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+  world.decals.push({ kind: 'sink', s: SPR[o.type], wx: o.wx, wy: o.wy, t: 0, max: o.type === 'destroyer' ? 300 : 200, dir: Math.random() < 0.5 ? -1 : 1, len: o.hh, smokeT: 0 });
+}
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
@@ -11178,6 +11194,7 @@ function shipRam(e) {
     }
   }
   placeTankParts(e);
+  if (R.t > RAM_WARN) for (const o of world.enemies) if (!o.dead && o.ground && CRUSHABLE.has(o.type) && hullOver(e, o.x, o.y, Math.min(o.hw, 8))) crushShip(o);
   if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.x = R.bx; e.y = R.by; e.ramCd = 240; placeTankParts(e); }
   return true;
 }
@@ -12323,7 +12340,7 @@ const ENT = {
     }
   } },
   pt: { turret: true, turretAt: [0, 7], medals: 0.5, stats: { hp: 8, hw: 5, hh: 14, score: 400, rad: 16 }, update(e) {
-    if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v)) { e.wy += e.v; e.wx += e.dx; }
+    if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v) && !underFlagship(e.x + e.dx, e.y + e.v, e.hw)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
     const gx = e.x, gy = e.y + 7;
@@ -12331,7 +12348,7 @@ const ENT = {
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
   destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, stats: { hw: 12, hh: 36, score: 2000, rad: 34 }, update(e) {
-    if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
+    if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v) && !underFlagship(e.x, e.y + e.v, e.hw)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
     if (gf % 7 === 0) smokePuff(e.x, e.y - 14);
