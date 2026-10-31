@@ -4,7 +4,8 @@
 // Checks: every event is dispatched once, in order, on its frame; what it makes is tagged and the pod never counts; the encounter ends 'done'
 // and rests; the held timers (air waves, pods) keep their value and resume from it, the ground timer runs on; Rookie skips the second
 // formation; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't; the boss ends it ('boss') and a new level clears it;
-// it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws.
+// it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
+// it by itself, once per level.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -19,12 +20,12 @@ const initScript = () => {
 let bad = 0;
 const ok = (cond, msg) => { if (cond) console.log('ok   ' + msg); else { bad++; console.error('FAIL ' + msg); } };
 const browser = await chromium.launch();
-async function freshPage() {
+async function freshPage(query = '') {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => { bad++; console.error('page error:', e.message); });
   await page.addInitScript(initScript);
-  await page.goto(PAGE);
+  await page.goto(PAGE + query);
   await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness);
   await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
@@ -111,6 +112,24 @@ const playOut = `
   ok(r.level && r.noTags, 'a new level starts with no encounter and nothing tagged');
   ok(r.carrier, "level 1A's carrier opening holds it: the clock doesn't start while the carrier scene runs");
   ok(r.retro, 'it cannot start outside the Campaign (the old campaign, Retro Run)');
+  await page.close();
+}
+{
+  // 5. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
+  const page = await freshPage('?enc=anvil');
+  const r = JSON.parse(await peek(page, `(() => { const out = {};
+    window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
+    SF.run(5); out.auto = !!world.enc && world.enc.id === 'anvil';
+    let f = 0; while (world.enc && f < 4000) { SF.run(1); f++; } out.done = !world.enc && world.encLast && world.encLast.why === 'done';
+    SF.run(600); out.once = !world.enc;
+    startEnigma(3, true); SF.run(5); out.nextLevel = !!world.enc;
+    startEnigma(8, true); SF.run(60); out.carrier = !!world.enc && world.enc.st === 'hold';
+    SF.start(1, 1); SF.run(60); out.retro = !world.enc;
+    return JSON.stringify(out); })()`));
+  ok(r.auto && r.done && r.once, '?enc=anvil starts it by itself in a level, it plays out, and it does not start again in that level');
+  ok(r.nextLevel, '?enc=anvil starts it again in the next level');
+  ok(r.carrier, "?enc=anvil in level 1A: it waits in 'hold' while the carrier opening runs");
+  ok(r.retro, '?enc=anvil does nothing outside the Campaign');
   await page.close();
 }
 await browser.close();

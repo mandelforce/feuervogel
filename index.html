@@ -9578,6 +9578,7 @@ const ENC_VERB = {
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
+const ENC_TRY = LB_TEST ? new URLSearchParams(location.search).get('enc') : null; // local builds only: ?enc=anvil starts that encounter once in every Campaign level, as early as it may (for playtesting, also on a phone)
 function encStart(id) {
   if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut) return false;
   world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0 }; haptic('warn'); return true;
@@ -9590,7 +9591,8 @@ function encEnd(why) {
   if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
 }
 function encTick() {
-  const E0 = world.enc; if (!E0) return; const D = ENC[E0.id];
+  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast) encStart(ENC_TRY); return; } // (encLast: one has already run in this level)
+  const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
   if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || e.type === 'sower') && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits

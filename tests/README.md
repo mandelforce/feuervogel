@@ -151,7 +151,11 @@ python3 -m http.server 8000   # in another terminal
 node tests/encounter.mjs
 ```
 
-On a local build, Settings > Show FPS adds a third line while an encounter runs: `ENC anvil RUN 312 OWN 4 B 19/22` (id, state, clock, counted enemies, enemy bullets / soft budget). For a few seconds after the end it shows the end reason, the clock, the frames over budget and the peak. To try one by hand, open the console and run `__sf('encStart("anvil")')` during a Campaign level.
+On a local build, Settings > Show FPS adds a third line while an encounter runs: `ENC anvil RUN 312 OWN 4 B 19/22` (id, state, clock, counted enemies, enemy bullets / soft budget). For a few seconds after the end it shows the end reason, the clock, the frames over budget and the peak. To try one by hand:
+- **On a PC:** open the console and run `__sf('encStart("anvil")')` during a Campaign level.
+- **On a PC or a phone:** add `?enc=anvil` to a local build's address. The encounter then starts by itself once in every Campaign level, as early as it may: it waits in `hold` through level 1A's carrier opening. Local builds only; the live site ignores the switch.
+- **For a phone:** serve with `python3 scripts/devserver.py` and use the **by IP** link it prints, for example `http://192.168.1.20:8080/?enc=anvil`, with the phone on the same Wi-Fi. The `name.local` link isn't treated as a local build by the game's check (`LB_TEST` matches home-network IP addresses, not `.local` names), so the switch and the readout don't work there.
+- Turn on Settings > Show FPS to see the readout.
 
 ## Drilling test (run by hand)
 

@@ -410,9 +410,10 @@ What this means for the plan:
     - `ENC` with The Anvil, and the verbs `heavy`, `formation`, `chase` and `pod`, with optional centres for `waveHeavy`, `waveLeader` and `waveDive`;
     - tagging in `E()`, the counted total, `encTick` with `run`/`hold`/`rest`, and the end reasons `done`, `timeout` and `boss`;
     - the frozen timers, the `diff` filter, the start cue, the resets, `world.encLast`, `over`/`peak` (measured only), and the readout under Show FPS on local builds;
-    - `encStart(id)` as the test hook, through `SF.peek`, with no other hook.
+    - `encStart(id)` as the test hook, through `SF.peek` or the console;
+    - for hand playtests, also on a phone: `?enc=<id>` on a local build starts that encounter once in every Campaign level, as early as it may. The live site ignores it.
   - **Deferred to the later steps:** the `encFlak` branch, the `seen` and `clear` triggers, `world.encPend` and the start rules with the Sower exception (step 6), and the Sower Window and its test (step 5).
-  - **Tests:** `tests/encounter.mjs` passes 22 checks. A new `resume-exact.mjs` scenario, `level2-anvil`, saves at encounter frames 150 and 400 and resumes identically. `golden.json` and `golden-enigma.json` are unchanged.
+  - **Tests:** `tests/encounter.mjs` passes 26 checks, including the `?enc` switch. A new `resume-exact.mjs` scenario, `level2-anvil`, saves at encounter frames 150 and 400 and resumes identically. `golden.json` and `golden-enigma.json` are unchanged.
   - **Learned:**
     - **The carrier holds encounters.** Level 1A opens with the carrier scene, which holds an encounter for its first 1000+ frames, as designed. The tests run in level 2 instead. Level 1A's first slot (frame 2130) comes after the carrier, so the real slots are not affected.
     - **First numbers.** The Anvil on Veteran in level 2 (immortal bot): bullets peaked at 19, against a budget of 22, with 0 frames over. The bot cleared every counted enemy by frame 540, so the encounter ended on its last event. The bot is stronger than people, so the hand playtest decides whether the Heavy reads as an anchor (7.1).
