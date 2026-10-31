@@ -3,7 +3,8 @@
 //   node tests/encounter.mjs
 // Checks: every event is dispatched once, in order, on its frame; what it makes is tagged and the pod never counts; the encounter ends 'done'
 // and rests; the held timers (air waves, pods) keep their value and resume from it, the ground timer runs on; Rookie skips the second
-// formation; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't; the boss ends it ('boss') and a new level clears it;
+// formation; its Heavy stops and holds; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't;
+// the Shadow Wing waits for a running encounter; the boss ends it ('boss') and a new level clears it;
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
 // it by itself, once per level.
 import { chromium } from 'playwright';
@@ -38,18 +39,19 @@ const level2 = (diff, seed) => `window.__forceSeed = ${seed}; gf = 0; SF.setMode
 // The Anvil played out: the dispatches (event index @ encounter frame), every entity it tagged, the timers, and how it ended
 const playOut = `
   const cd0 = { wave: world.waveCd, pod: world.podCd, ground: world.groundCd }, started = encStart('anvil'), D = ENC.anvil;
-  const disp = [], tagged = new Set(); let lastI = 0, heldMoved = 0, groundMoved = false, podCounted = false, rest = 0, f = 0;
+  const disp = [], tagged = new Set(); let lastI = 0, heldMoved = 0, groundMoved = false, podCounted = false, rest = 0, f = 0, still = 0, stillAt = null, hy = null;
   for (; f < 4000 && world.enc; f++) {
     SF.run(1); const E0 = world.enc; if (!E0) break;
     while (lastI < E0.i) disp.push(lastI++ + '@' + E0.t);
     for (const e of world.enemies) if (e.enc === 'anvil') { tagged.add(e); if (e.type === 'pod' && encOwned('anvil') > world.enemies.filter(o => o.enc === 'anvil' && o.type !== 'pod' && !o.dead && !o.dying && !o.crash && !harmlessE(o)).length) podCounted = true; }
     if (world.waveCd !== cd0.wave || world.podCd !== cd0.pod) heldMoved++;
     if (world.groundCd !== cd0.ground) groundMoved = true;
+    const hv = world.enemies.find(e => e.enc === 'anvil' && e.type === 'heavy' && !e.dead); if (hv) { if (hv.y === hy) { still++; stillAt = hv.y; } hy = hv.y; }
     if (E0.st === 'rest') rest++;
   }
   const types = {}; for (const e of tagged) types[e.type + (e.encOwn === false ? '(not counted)' : '')] = (types[e.type + (e.encOwn === false ? '(not counted)' : '')] || 0) + 1;
   return JSON.stringify({ started, disp, want: D.ev.map((ev, i) => i + '@' + Math.max(1, ev.t)), types, last: world.encLast, heldMoved, groundMoved, podCounted, rest, frames: f,
-    gone: !world.enc, waveAfter: world.waveCd, podAfter: world.podCd, cd0, leader: avail('leader') });`;
+    gone: !world.enc, waveAfter: world.waveCd, podAfter: world.podCd, cd0, leader: avail('leader'), still, stillAt: stillAt === null ? null : stillAt / H, holdT: D.ev[0].holdT });`;
 
 {
   // 1. Veteran: the whole encounter
@@ -60,6 +62,7 @@ const playOut = `
   const fighters = 12; // two five-plane formations (a leader and four wingmen from stage 4, a five-plane dive before) and a chase pair
   ok(r.types.heavy === 1 && r.types.fighter === fighters && r.types['pod(not counted)'] === 1 && Object.keys(r.types).length === 3, `tagged: ${JSON.stringify(r.types)}`);
   ok(!r.podCounted, 'the pod is never counted toward completion');
+  ok(r.still >= r.holdT - 2 && Math.abs(r.stillAt - 0.28) < 0.01, `the Heavy stops at 28% of the screen and holds (${r.still} frames still, at ${(r.stillAt * 100).toFixed(1)}%)`);
   ok(r.last && r.last.why === 'done' && r.last.dropped === 0, `it ends 'done' after ${r.last && r.last.t} frames (nothing dropped; bullets peaked at ${r.last && r.last.peak}, over the budget for ${r.last && r.last.over} frames)`);
   ok(r.rest === 180 && r.gone, `then it rests ${r.rest} frames and clears`);
   ok(r.heldMoved === 0, 'air waves and pods keep their countdown while it runs and rests');
@@ -107,11 +110,15 @@ const playOut = `
     startEnigma(8, true); SF.run(10); encStart('anvil'); SF.run(60); out.carrier = !!world.carrier && !world.carrier.over && world.enc.st === 'hold' && world.enc.t === 0;
     SF.run(600); out.noTags = !world.enemies.some(e => e.enc);
     SF.start(1, 1); out.retro = encStart('anvil') === false && !world.enc;
+    startEnigma(2, true); SF.run(4300); encStart('anvil'); let wingAt = -1, encEnd = -1;
+    for (let f = 0; f < 4000 && wingAt < 0; f++) { SF.run(1); if (!world.enc && encEnd < 0) encEnd = f; if (world.enemies.some(e => e.type === 'wing')) wingAt = f; }
+    out.wing = wingAt > 0 && encEnd >= 0 && wingAt > encEnd; out.wingAt = wingAt; out.encEnd = encEnd;
     return JSON.stringify(out); })()`));
   ok(r.boss, "the boss's arrival ends it ('boss')");
   ok(r.level && r.noTags, 'a new level starts with no encounter and nothing tagged');
   ok(r.carrier, "level 1A's carrier opening holds it: the clock doesn't start while the carrier scene runs");
   ok(r.retro, 'it cannot start outside the Campaign (the old campaign, Retro Run)');
+  ok(r.wing, `the Shadow Wing waits until the encounter and its rest are over (encounter gone ${r.encEnd} frames in, Wing ${r.wingAt})`);
   await page.close();
 }
 {

@@ -9424,7 +9424,7 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = world.enemies.some(e => e.big && !e.dead);
-  if (!world.midDone && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); }
+  if (!world.midDone && !world.enc && qTop >= Math.round(14 * STAGE_LEN) * arcScale()) { world.midDone = true; spawnWing(); } // (the Shadow Wing waits until an encounter and its rest are over)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -9537,7 +9537,7 @@ function waveBomber() {
   world.enemies.push(E('bomber', { x: rnd(50, W - 50), y: -22, hp, maxhp: hp, gcd: 60 }));
 }
 function wavePfeil() { for (const side of [-1, 1]) world.enemies.push(E('pfeil', { side })); } // (a pair, one from each side; pfeilTick places them off the screen)
-function waveHeavy(cx) { world.enemies.push(E('heavy', { x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 })); }
+function waveHeavy(cx, o) { world.enemies.push(E('heavy', Object.assign({ x: cx === undefined ? rnd(40, W - 40) : cx, y: -20, cd: 50, ph: Math.random() * 6 }, o))); }
 function waveLeader(cx0) {
   const cx = cx0 === undefined ? rnd(60, W - 60) : cx0, L = mkFighter(cx, -14, PI / 2, 1.45, { leader: true, hp: 5 * hpm(), score: 600, fireAt: 45 }); world.enemies.push(L);
   for (const [ox, oy] of [[-18, -14], [18, -14], [-36, -28], [36, -28]]) world.enemies.push(mkFighter(cx + ox, -14 + oy, PI / 2, 1.45, { lead: L, ox, oy, fireAt: (rnd(30, 70)) | 0 }));
@@ -9561,18 +9561,19 @@ function spawnWave(b, big) {
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. For now (plan step 3) only encStart starts one (tests), in the Campaign only.
 const ENC = {
-  // The Anvil: a Heavy in its firing band while two formations close in, then a chase pair and a pod as the reward (the Heavy as it is,
-  // timed only: plan 7.1, step 1). budget: the soft bullet budget per difficulty (measured only, for now).
-  anvil: { len: 600, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
-    { t: 0, do: 'heavy', x: 0.5 },
-    { t: 90, do: 'formation', x: 0.25 },
-    { t: 210, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
-    { t: 330, do: 'chase' },
-    { t: 540, do: 'pod', x: 0.5, own: false }] }
+  // The Anvil: a Heavy that stops at 28% of the screen and holds for 7 s (it reaches its place at about frame 200), firing as usual, while
+  // two formations close in on it; then a chase pair, and a pod as the reward (plan 7.1, step 2: playtesting showed the passing Heavy
+  // didn't read as an anchor). budget: the soft bullet budget per difficulty (measured only, for now).
+  anvil: { len: 720, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
+    { t: 0, do: 'heavy', x: 0.5, hold: 0.28, holdT: 420 },
+    { t: 180, do: 'formation', x: 0.25 },
+    { t: 330, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
+    { t: 480, do: 'chase' },
+    { t: 660, do: 'pod', x: 0.5, own: false }] }
 };
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also checks)
 const ENC_VERB = {
-  heavy: v => { waveHeavy(v.x * W); return true; },
+  heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
   formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
   chase: () => { waveChase(); return true; },
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; }
@@ -11826,7 +11827,8 @@ const ENT = {
     if (e.t > 40 && e.back !== 1 && (e.x < -30 || e.x > W + 30 || e.y > H + 30 || (e.back === 2 && e.y < -40))) e.dead = true;
   } },
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
-    e.y += e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
+    const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
+    e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
     else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });

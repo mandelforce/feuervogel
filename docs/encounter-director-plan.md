@@ -203,6 +203,8 @@ Slots:
 | No counted enemy of an earlier encounter alive (also after a timeout, 5.6). | yes | yes |
 | Boss not spawned, and `ARC_U` below 0.9 (not in `still`). | yes | yes |
 | No Shadow Wing on screen. | yes | yes (`sowerTick` already keeps them apart) |
+
+The other direction matters as well: **the Shadow Wing waits for a running encounter** and its rest (`spawnWing` is not called while `world.enc` exists). Without this, the first slot would run into the Wing: in level 1A, `set1` starts at frame 2130 and the Wing is due at about frame 2930, while The Anvil with its rest takes 900–1300 frames. A playtest also reported the Wing arriving together with The Anvil. The Wing comes the frame after the rest ends, so the rest is the only gap between the two. If that feels too tight, the Wing can wait a little longer after the encounter.
 | No Sower active (any `sower` not dead). | yes | n/a: this is its start condition |
 | The `set2` zone has been reached, a Sower has entered `st === 'hold'` since then, and that Sower isn't marked `encSeen`. | n/a | yes. The Sower is marked `encSeen` so it starts one encounter only, and its called partner doesn't start a second. |
 
@@ -250,12 +252,13 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Anchor:** the Heavy, built in two steps (decided: timing first).
   - **Step 1, no behaviour change:** the Heavy as it is. It sinks at 0.7 px per frame, and between 20 px from the top and 55% of `H` it pauses for 42 frames and fires its spread every 100–140 frames (longer on Veteran). The formations are timed to arrive while it is in that band. That's about 6 s, and the Heavy keeps closing in.
   - **Step 2, only if playtesting shows step 1 doesn't read as an anchor:** a Heavy that stops at about 28% of `H` and holds for 7 s, firing on its normal cycle (the behaviour change below).
+  - **Result (2026-10-31): step 2 is built.** In the owner's playtest the passing Heavy gave no clear hold. The Anvil's Heavy now stops at 28% of `H` (reached at about frame 200) for 420 frames. The formations come at frames 180 and 330, the chase pair at 480 and the pod at 660, so the pressure arrives while it holds. With the immortal bot the encounter ends after about 1150 frames, because the Heavy is left to sink off on its own.
 - **Pressure:** two leader formations from the sides, 1.5 s and 3.5 s in, then a chase pair. In step 1 these times are set so both formations meet the Heavy inside its firing band.
 - **Reward:** a pod at 9 s, `own: false`, so it never keeps the encounter alive.
 - **Readability:** the Heavy is visible before the first formation arrives (and in step 2, stopped).
 - **Player choice:** burn the Heavy down (Lance, Arc ramp) and take the formations on the way, or kill the leaders so their wingmen scatter, then go back to the Heavy.
 - **Rookie:** one formation, not two (`diff: [1, 2]` on the second).
-- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This would be the only change to enemy code in the MVP, and it is built only if step 1 isn't enough.
+- **Behaviour change:** `ENT.heavy` gets two optional fields, `holdY` and `holdT`. While holding, it doesn't drift down, and when `holdT` runs out it resumes its old motion. Without these fields it behaves exactly as now. This is the only change to enemy code in the MVP (built: step 1 wasn't enough). A Heavy without these fields is unchanged, as both replay baselines confirm.
 
 ### 7.2 Flak lane: a formation breaking up over flak
 
