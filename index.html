@@ -8242,7 +8242,7 @@ function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
   if (typeof CityGen === 'undefined') return null;
-  const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); } return P;
+  const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); roadTip(S, P); } return P;
 }
 // The Drilling's tank pits (owner): two in every level with a plan but level 1 (1A has its islands; there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
@@ -8262,6 +8262,15 @@ function buechseNests(S, P) {
   const ys = [0, ...P.slots.filter(q => q.kind === 'tank').map(q => q.y).sort((a, b) => a - b), P.L - 1], gaps = [];
   for (let k = 1; k < ys.length; k++) { const a = ys[k - 1] + (k > 1 ? 420 : 120), b = ys[k] - (k < ys.length - 1 ? 420 : 120); if (b - a < 60) continue; if (b - a > 1100) gaps.push([a, (a + b) / 2], [(a + b) / 2, b]); else gaps.push([a, b]); } // (a long stretch: a band in each half)
   CityGen.edgeNests(P, gaps.sort((g, h) => (h[1] - h[0]) - (g[1] - g[0])), n); // (the widest first, until n fit: built-up edges have none)
+}
+// Level 1A (owner): a Buechse stands at the road's tip on the first big island: where its main road begins at the south shore, the first
+// road the player meets. A 'tip' slot a little inland on the road (planDrills puts the Buechse there, dug in, facing down the screen).
+function roadTip(S, P) {
+  if (!S.isles || !P.streets) return; let tip = null;
+  for (const st of P.streets) if (st.cls === 'arterial') for (const q of st.pts) if (!tip || q[1] < tip[1]) tip = q;
+  if (!tip) return; const x = Math.round(tip[0]); let y = Math.round(tip[1]) + 10;
+  while (y < tip[1] + 40 && P.K[y * P.W + x] === CityGen.K.SEA) y++; // (on land)
+  P.slots.push({ kind: 'tip', on: 'road', x, y, r: 8, id: P.slots.length });
 }
 function sortiePlanBuild(S) {
   if (S.isles) return sortiePlanIslands(S);
@@ -9969,7 +9978,7 @@ function routeStep(e) {
 function planGuns(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set()), m = hpm();
-  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind === 'tank' || sl.kind === 'nest' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 10)) continue; // (tank pits: planDrills; side emplacements: planNests)
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind === 'tank' || sl.kind === 'nest' || sl.kind === 'tip' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 10)) continue; // (tank pits and the road tip: planDrills; side emplacements: planNests)
     if (sl.kind === 'flak') makeFlak(sl.x, y); else if (sl.kind === 'arty') spawnArty(sl.x, y); else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, y - 8, { cd: 60 }));
     else if (sl.kind === 'parked') world.enemies.push(G('parked', sl.x, y, { hd: PI / 2 }));
     else if (sl.kind === 'bunker') world.enemies.push(G('bunker', sl.x, y, { ga: PI / 2, cd: rnd(60, 120) | 0 })); }
@@ -9979,7 +9988,9 @@ function planGuns(sc) {
 function planDrills(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
-  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind !== 'tank' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 12)) continue;
+  for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if ((sl.kind !== 'tank' && sl.kind !== 'tip') || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i);
+    if (sl.kind === 'tip') { if (world.enemies.every(e => !e.ground || Math.hypot(e.wx - sl.x, e.wy - y) > 12 + (e.rad || 0))) world.enemies.push(makeBuechse(sl.x, y, { road: false, hd: PI / 2, v: 0, dug: true })); continue; } // level 1A's road tip (roadTip; a planned spot: only a ground unit on it blocks it)
+    if (!placeOK(sl.x, y, 12)) continue;
     if (S.level === 8) { world.enemies.push(G('htank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); continue; } // level 1A (owner): a dug-in heavy tank, no Drilling before level 2
     world.enemies.push(drillCount() < 1 + run.loop ? makeDrill(sl.x, y, { dug: true }) : G('tank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); }
 }
@@ -10317,7 +10328,7 @@ function convoy(wy, trucks) {
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && (S.level !== 8 || (world.buechseN || 0) < 2) && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on; 1A (internal 8) too, but two at most there (owner))
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && (S.level !== 8 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on; 1A (internal 8) too, but there one in a convoy at most, besides the one at the big island's road tip (owner))
       const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
       world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) world.buechseN = (world.buechseN || 0) + 1;
     }

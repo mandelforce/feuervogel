@@ -15,7 +15,7 @@
 // first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
 // waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
 // Shadow Wing (every Campaign level): opened by the director where the Wing used to come, holding nothing, the Wing staying 2500 frames
-// before it flees; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: heavy tanks in its pits, no Drilling, two Buechse at most, First Contact live, one submarine (not before
+// before it flees; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: heavy tanks in its pits, no Drilling, two Buechse at most (one at the big island's road tip), First Contact live, one submarine (not before
 // the island chain) and one from the flagship at about half its health. ?enc=all in level 1A: its layout (First Contact, then The Anvil).
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -325,15 +325,15 @@ const playOut = `
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed;
-    const seen = new Set(), out = { subs: [], boss: [], drills: 0, dugHeavy: 0, buechse: 0, encs: [], chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
+    const seen = new Set(), out = { subs: [], boss: [], drills: 0, dugHeavy: 0, buechse: 0, tipB: null, encs: [], chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
     for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
       if (world.enc && out.encs[out.encs.length - 1] !== world.enc.id) out.encs.push(world.enc.id);
-      for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) out.buechse++; if (e.type === 'htank' && e.dug) out.dugHeavy++;
+      for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) { out.buechse++; const sl = sortiePlan(run.sortie).slots.find(q => q.kind === 'tip'); if (sl && Math.hypot(e.wx - sl.x, e.wy - (run.sortie.planY0 - sl.y)) < 2) out.tipB = { dug: !!e.dug, road: terrainType(Math.floor(e.wx), Math.floor(e.wy)) }; } if (e.type === 'htank' && e.dug) out.dugHeavy++;
         if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(+bossLeft(b).toFixed(2)); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
       if (st !== 'ok' || run.sortie.level !== 8) break; }
     return JSON.stringify(out); })()`));
   ok(r.drills === 0 && r.dugHeavy === 2, `level 1A: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
-  ok(r.buechse <= 2, `level 1A: two Buechse at most (${r.buechse})`);
+  ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1A: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
   ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1A: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
   ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
   ok(r.encs.join() === 'firstcontact,wing', `without the test link level 1A plays First Contact and the Shadow Wing, not The Anvil (${r.encs.join()})`);
