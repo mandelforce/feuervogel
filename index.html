@@ -9584,7 +9584,7 @@ function spawnWave(b, big) {
 // ---------- Encounter director (docs/encounter-director-plan.md): authored compositions of existing enemies on a frame clock ----------
 // An encounter's events (ev, sorted by t, in frames) are dispatched in order by spawn verbs. What they create is tagged (e.enc) and its
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
-// rests. While it exists, the normal timers named in holds stay frozen and resume from the same value (alone: only for its first frames). Its state is plain data on world
+// rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. In the Campaign the director opens the Shadow Wing's (ENC.wing); the others start only by encStart (tests) or the test link (?enc).
 const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
@@ -9638,11 +9638,6 @@ const ENC = {
     { t: 180, do: 'convoy', diff: [1, 2] }, // (three convoys on Rookie)
     { t: 360, do: 'convoy' },
     { t: 540, do: 'convoy' }] },
-  // The Shadow Wing (owner: its own encounter, in every Campaign level; Retro Run keeps the old one): the director opens it where the Wing
-  // used to appear (level 1A later, after the airbase island: WING_U). It opens with 2 s of calm, then the Wing; for its first 1120 frames (the
-  // calm, the Wing's 100-frame entry and about 15 s) it has the screen to itself: air waves, ground units and pods are held (a wave already
-  // coming in finishes); after that they resume while it fights on. Killed, it ends and rests 3 s; left
-  // alone it leaves after about 27 s, as before. No soft budget: the Wing's own volleys were never gated, and the screen is its own.
   // First Contact (level 1A right after the carrier, over the island chain's water; owner's playtest: the start was too empty): the formation
   // types one after another, so each reads on its own, over ships. A sweep of five from the left, then one from the right, a destroyer, two
   // PT boats, a five-plane dive up the middle, a strafing run from the side the ship is not on (not on Rookie); a pod as the reward. Sea only.
@@ -9655,12 +9650,17 @@ const ENC = {
     { t: 520, do: 'dive', n: 5, x: 0.5 },
     { t: 680, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] },
     { t: 960, do: 'pod', x: 0.5, own: false }] },
-  wing: { name: 'SHADOW WING', start: 'wing', len: 1120, max: 2800, rest: 180, alone: 1120, holds: { air: true, pod: true, ground: true }, ev: [
-    { t: 120, do: 'wing' }] }
+  // The Shadow Wing (owner: its own encounter, in every Campaign level; Retro Run keeps the old one): the director opens it where the Wing
+  // used to appear (level 1A later, after the airbase island: WING_U). It holds nothing: the level goes on around the Wing as before (owner).
+  // The Wing stays about 15 s longer than the old one before it flees (WING_STAY: about 42 s). Killed, it ends and rests 3 s. No soft budget:
+  // the Wing's own volleys were never gated.
+  wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
+    { t: 0, do: 'wing' }] }
 };
 // A level's encounters at set places (owner's level layouts, section 7b of the plan), for now only with the test link ?enc=all: each starts
 // once the spawn line reaches chunk c of the level (or as soon after as it may), and is given up past chunk until.
-const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10 }, { id: 'anvil', c: 31, until: 44 }] };
+const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10 }, { id: 'anvil', c: 31, until: 50 }] };
+const WING_STAY = 2500; // the Campaign's Shadow Wing: frames in its sequence before it flees (owner: about 15 s more than the old 1600)
 const WING_U = { 8: 0.47 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
 // dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
@@ -9705,7 +9705,7 @@ function encStart(id) {
   } else if (world.enemies.some(e => e.type === 'sower' && !e.dead)) return false; // an ordinary encounter waits while a Sower is up
   world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [], lastT: 0 }; haptic('warn'); return true;
 }
-function encHeld(k) { const E0 = world.enc; if (!E0) return false; const D = ENC[E0.id]; return !!D.holds[k] && !(D.alone !== undefined && E0.t >= D.alone); } // (alone: held only for its first frames, its rest included when it ends sooner)
+function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
 // The soft bullet budget: while an encounter runs (or is held), selected shooters ask volleyOK(n) once before a whole volley of n bullets
 // and wait a frame when it would go over. Nothing is deleted or cut; ungated fire (revenge shots, the Shadow Wing, other shooters) can still
 // go over, which encTick measures. The Sower's aerial mines are not counted: they are meant to fill the air (owner). Its falling bombs are.
@@ -12155,7 +12155,7 @@ const ENT = {
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.011) * 50; e.y = 70 + Math.sin(e.mt * 0.02) * 8;
     if (e.mt % 4 === 0) { smokePuff(e.x - 10, e.y - 14, 'a'); smokePuff(e.x + 10, e.y - 14, 'a'); }
-    if (e.mt > 1600) { e.leaving = true; e.y = 70 - (e.mt - 1600) * 0.8; return; }
+    { const stay = e.v === undefined ? 1600 : WING_STAY; if (e.mt > stay) { e.leaving = true; e.y = 70 - (e.mt - stay) * 0.8; return; } } // (Retro Run's wing keeps its old 1600)
     if (!hasT()) return;
     if (e.v !== undefined) return wingSeq(e); // Enigma Run: the sequence of states (docs/shadow-wing-design.md)
     const sp = bspeed();

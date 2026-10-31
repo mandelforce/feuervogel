@@ -326,9 +326,9 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 
 ### 7.5 Shadow Wing (every Campaign level)
 
-- **Owner's decision (playtest of level 1):** the Shadow Wing becomes its own encounter, everywhere, with more time: about 15 s of the screen to itself.
+- **Owner's decision (playtest of level 1):** the Shadow Wing becomes its own encounter, everywhere, and stays about 15 s longer before it flees. The extra time is not exclusive: the level goes on around it.
 - **Status: built, live in the Campaign** (build 1.2.5.12; Retro Run keeps the old Wing, so `golden.json` is unchanged).
-  - Definition: `wing`, `start: 'wing'`: 2 s of calm, then the Wing (the `wing` verb calls `spawnWing`) at frame 120. `alone: 1120`: air waves, ground units and pods are held for its first 1120 frames (the calm, the Wing's 100-frame entry and about 15 s), its rest included when it ends sooner; after that they run again while the Wing fights on. No soft budget: the Wing's volleys were never gated. Killed, it ends and rests 3 s; left alone it leaves after about 27 s, as before (`max` 2800).
+  - Definition: `wing`, `start: 'wing'`: the Wing at frame 0 (the `wing` verb calls `spawnWing`). It holds nothing and has no soft budget (the Wing's volleys were never gated). `WING_STAY` 2500: the Campaign's Wing flees after 2500 frames in its sequence, about 42 s (the old one: 1600, about 27 s). Killed, it ends and rests 3 s (`max` 3200).
   - Start: the director opens it where the Wing used to come (14/37 of the arc), after any running encounter and its rest. `WING_U` moves it per level: level 1A at 0.47, after the airbase island. A Sower below doesn't hold it, and it isn't held by one.
   - The test link counts only its own encounter (`world.encTry`), so a Shadow Wing that ran first doesn't use up `?enc`.
 
@@ -344,11 +344,11 @@ The owner found level 1 too empty before the first encounter, the two Drillings 
 | island chain, after First Contact | normal director and the islet guns; **the level's one submarine** comes here | built |
 | airbase island (16–25) | set piece 1; no Drilling pit | built (pits removed) |
 | sea and beach (25–31) | **Shadow Wing** (7.5) | built |
-| farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so it often starts in the village | built (test link) |
+| farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so with a Wing left alone (about 42 s) it starts in the village or the forest (chunks 40–45; given up past 50) | built (test link) |
 | forest, coast, sea | normal director, then the flagship; **one submarine at about half its health** | built |
 
 - **Built (1.2.5.12, live):** no Drilling pits in 1A (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
-- **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1A: First Contact at 4, The Anvil at 31). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
+- **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1A: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
 - **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
 
 ## 8. Soft bullet budget

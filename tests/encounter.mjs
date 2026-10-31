@@ -14,8 +14,8 @@
 // Bomber left alone leaves the screen and the encounter. Sower Window (level 4): ordinary encounters wait while a Sower is up; the level's
 // first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
 // waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
-// Shadow Wing (every Campaign level): opened by the director where the Wing used to come, 2 s of calm, the Wing, all timers frozen for its
-// first 1120 frames; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: no Drilling, one submarine (not before
+// Shadow Wing (every Campaign level): opened by the director where the Wing used to come, holding nothing, the Wing staying 2500 frames
+// before it flees; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: no Drilling, one submarine (not before
 // the island chain) and one from the flagship at about half its health. ?enc=all in level 1A: its layout (First Contact, then The Anvil).
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
@@ -234,7 +234,7 @@ const playOut = `
   const fly = `(() => { window.__forceSeed = 104; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(4, true); delete window.__forceSeed;
     const out = { early: false, anvilRefused: null, startF: -1, holdF: -1, again: false, mines: 0, bombs: 0, partner: false, sowers: new Set(), tagged: {}, waveMoved: 0, end: null, resumed: null };
     const seen = new WeakSet(); let wave0 = null, endF = -1; const SW = () => !!world.enc && world.enc.id === 'sowerwindow'; /* (the Shadow Wing's own encounter is not the window) */
-    for (let f = 0; f < 9000; f++) { SF.run(1);
+    for (let f = 0; f < 10500; f++) { SF.run(1);
       for (const e of world.enemies) if (e.type === 'sower') { out.sowers.add(e); e.hp = 99999; }
       const first = world.enemies.find(e => e.type === 'sower' && !e.dead && world.ARC_U < 0.5);
       if (first && out.anvilRefused === null && !world.enc) out.anvilRefused = encStart('anvil') === false && !world.enc;
@@ -296,25 +296,24 @@ const playOut = `
 }
 {
   // 10. The Shadow Wing as its own encounter (owner): in the Campaign the director opens it where the Wing used to come (level 2 at 14/37 of
-  // the arc); 2 s of calm, then the Wing; the air, ground and pod timers stay frozen for its first 1120 frames and run again after; it ends
-  // when the Wing is gone. Retro Run keeps the old Wing, with no encounter. Level 1A: later, after the airbase island.
+  // the arc); the Wing comes at once; it holds nothing (the level goes on around it); the Wing stays WING_STAY frames (about 15 s more than the
+  // old 1600) before it flees, and the encounter ends when it is gone. Retro Run keeps the old Wing, with no encounter. Level 1A: later.
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
     let f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
-    const E0 = world.enc; out.u = world.ARC_U; out.noWing = !world.enemies.some(e => e.type === 'wing');
-    const cd0 = [world.waveCd, world.groundCd, world.podCd];
-    while (world.enc && world.enc.t < 120) SF.run(1); out.wingAt = world.enc && world.enemies.some(e => e.type === 'wing' && e.enc === 'wing') ? world.enc.t : -1;
-    while (world.enc && world.enc.t < 1119) SF.run(1); out.held = [world.waveCd, world.groundCd, world.podCd].join() === cd0.join();
-    SF.run(240); out.moved = [world.waveCd, world.groundCd, world.podCd].some((v, i) => v !== cd0[i]);
-    f = 0; while (world.enc && world.enc.id === 'wing' && f < 3000) { SF.run(1); f++; } out.end = world.encLast && world.encLast.id === 'wing' ? world.encLast.why : null; out.gone = !world.enemies.some(e => e.type === 'wing' && !e.dead);
+    out.u = world.ARC_U; out.wingAt = world.enemies.some(e => e.type === 'wing' && e.enc === 'wing') ? world.enc.t : -1;
+    const cd0 = [world.waveCd, world.groundCd, world.podCd]; SF.run(300); out.moved = [world.waveCd, world.groundCd, world.podCd].every((v, i) => v !== cd0[i]);
+    for (const e of world.enemies) if (e.type === 'wing') e.hp = 1e9;
+    f = 0; let fled = -1; while (world.enc && world.enc.id === 'wing' && f < 4000) { SF.run(1); f++; const w = world.enemies.find(e => e.type === 'wing'); if (w && w.leaving && fled < 0) fled = w.mt; }
+    out.fled = fled; out.stay = WING_STAY; out.end = world.encLast && world.encLast.id === 'wing' ? world.encLast.why : null; out.gone = !world.enemies.some(e => e.type === 'wing' && !e.dead);
     window.__forceSeed = 31; gf = 0; SF.start(1, 1); delete window.__forceSeed; f = 0; while (!world.enemies.some(e => e.type === 'wing') && f < 9000) { SF.run(1); f++; } out.retro = world.enemies.some(e => e.type === 'wing') && !world.enc;
     window.__forceSeed = 33; gf = 0; startEnigma(8, true); delete window.__forceSeed; f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
     const S = run.sortie, ab = S.segs.find(g => g.t === 'island_airbase'); out.c1A = -Math.floor((-40 - Math.floor(world.scroll)) / CH) - world.stageBaseP; out.ab1A = ab.start + ab.n;
     return JSON.stringify(out); })()`));
-  ok(r.u >= 14 / 37 - 0.01 && r.u < 0.45 && r.noWing, `level 2: the director opens the Shadow Wing's encounter where the Wing used to come (at ${r.u.toFixed(3)} of the arc), the Wing not yet there`);
-  ok(r.wingAt === 120, `2 s of calm first: the Wing comes on its frame 120 (${r.wingAt}), tagged as the encounter's`);
-  ok(r.held && r.moved, 'air waves, ground units and pods stay frozen for its first 1120 frames (calm, entry and about 15 s), then run again while the Wing fights on');
+  ok(r.u >= 14 / 37 - 0.01 && r.u < 0.45 && r.wingAt >= 0 && r.wingAt <= 1, `level 2: the director opens the Shadow Wing's encounter where the Wing used to come (at ${r.u.toFixed(3)} of the arc), the Wing with it`);
+  ok(r.moved, 'it holds nothing: air waves, ground units and pods go on while the Wing is up');
+  ok(r.fled === r.stay + 1 && r.stay === 2500, `the Wing flees after ${r.fled - 1} frames in its sequence (WING_STAY ${r.stay}; the old one 1600)`);
   ok(r.end === 'done' && r.gone, `it ends when the Wing is gone (${r.end})`);
   ok(r.retro, 'Retro Run: the old Shadow Wing, no encounter');
   ok(r.c1A >= r.ab1A, `level 1A: the Shadow Wing comes after the airbase island (chunk ${r.c1A}; the island ends at ${r.ab1A})`);
