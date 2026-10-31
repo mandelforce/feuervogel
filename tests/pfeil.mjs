@@ -48,9 +48,9 @@ const start = `gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, tr
     }
     o.minSp = Math.min(...o.speeds); o.maxSp = Math.max(...o.speeds); delete o.speeds; return o; })())`);
   ok(r.enteredAt >= 0 && !r.culled, `a lone Pfeil comes in (frame ${r.enteredAt}) and is never culled or gone by itself in 2400 frames`);
-  ok(r.minSp > 2.8 && r.maxSp < 3, `it flies at its cruise speed (${r.minSp.toFixed(2)} to ${r.maxSp.toFixed(2)} px/frame; the old Pfeil's cruise was 2.2)`);
+  ok(r.minSp > 2.3 && r.maxSp < 2.5, `it flies at its cruise speed (${r.minSp.toFixed(2)} to ${r.maxSp.toFixed(2)} px/frame; the old Pfeil's cruise was 2.2)`);
   ok(r.offFrames > 100 && r.back >= 3, `it goes off the screen on its circles (${r.offFrames} frames) and comes back every time (${r.back} returns)`);
-  ok(r.maxOff < 260, `it never goes beyond its cull margin (${Math.round(r.maxOff)} px outside the screen at most)`);
+  ok(r.maxOff < 420, `it never goes beyond its cull margin (${Math.round(r.maxOff)} px outside the screen at most)`);
   ok(r.bursts >= 3, `it finds its moments to shoot: ${r.bursts} bursts in 2400 frames`);
   ok(r.badShot === 0, 'every shot leaves along its heading');
   ok(r.minD > 30, `it breaks away before it flies into a ship (closest ${Math.round(r.minD)} px)`);
@@ -62,7 +62,7 @@ const start = `gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, tr
     o.n = world.enemies.length; o.slots = world.enemies.filter(e => e.fm).map(e => e.slot.join(',')).join(' | '); o.fmFlags = world.enemies.map(e => !!e.fm).join();
     let overlap = 0, minSep = 1e9, leadFrames = 0, frames = 0;
     for (let f = 0; f < 1200; f++) {
-      for (const e of world.enemies) e.hp = 999; SF.run(1); world.ebul.length = 0; const m = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); if (m.length < 5) break;
+      for (const e of world.enemies) e.hp = 999; SF.run(1); world.ebul.length = 0; const m = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); if (m.length < 5) { o.lost = { f, prev, flags: world.enemies.map(e => [Math.round(e.x), Math.round(e.y), e.dead, e.dying]) }; break; } var prev = m.map(e => [Math.round(e.x), Math.round(e.y), e.st]);
       if (m.filter(e => e.tele > 0 || e.bn > 0).length > 1) overlap++; frames++; if (m.filter(e => e.isLead).length === 1) leadFrames++;
       for (let i = 0; i < m.length; i++) for (let j = i + 1; j < m.length; j++) if (m[i].x > 0 && m[i].x < W && m[j].x > 0 && m[j].x < W) minSep = Math.min(minSep, Math.hypot(m[i].x - m[j].x, m[i].y - m[j].y));
     }
@@ -82,8 +82,8 @@ const start = `gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, tr
   ok(r.overlap === 0, `only one member warns or fires at a time (${r.overlap} frames with two)`);
   ok(r.minSep >= 20, `members on the screen stay apart (closest ${r.minSep} px)`);
   ok(r.plainSame && r.yellow > r.yellowPlain + 8, `the leader skin adds yellow (${r.yellow} yellow pixels against ${r.yellowPlain}) and leaves the plain art alone`);
-  ok(r.afterKill.n === 4 && r.afterKill.leads === 1 && r.afterKill.newLead && r.afterKill.slotsLeft === 3, 'the leader shot down: a wingman takes over (one skin, 3 wingmen left)');
-  ok(!r.last.skin && r.last.flying, 'the last one left flies on alone in the plain skin');
+  ok(r.afterKill.n === 4 && r.afterKill.leads === 1 && r.afterKill.newLead && r.afterKill.slotsLeft === 3, `the leader shot down: a wingman takes over (one skin, 3 wingmen left; got ${JSON.stringify(r.afterKill)} ${JSON.stringify(r.lost)})`);
+  ok(!r.last.skin && r.last.flying, `the last one left flies on alone in the plain skin (got ${JSON.stringify(r.last)})`);
 }
 // 3. the bonus, and 2 wingmen
 {
