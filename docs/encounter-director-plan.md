@@ -293,17 +293,19 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 
 - **Start:** `start: 'sower'`. It starts only when `sowerTick`'s Sower settles into its hold, through the explicit rule in 5.5, and never spawns a Sower or a Wing itself.
 - **Restriction:** the Sower's mines, which persist and drift with the ground.
-- **Pressure:** a tank convoy on the road below and one flak gun, the flak `diff: [1, 2]`. Air waves (`holds.air`) are frozen for the whole encounter. Because ground units arrive late (5.3), the convoy and the flak are dispatched at the encounter's start, the moment the Sower settles.
+- **Pressure (as built):** three tank convoys on the road below, the second not on Rookie. The original plan had one convoy and a flak gun. Air waves (`holds.air`) are frozen for the whole encounter. Because ground units arrive late (5.3), the convoy and the flak are dispatched at the encounter's start, the moment the Sower settles.
 - **Player choice:** stay at the sides and work the ground targets, or move up beside the Sower and kill it.
 - **Ownership:** the Sower itself isn't owned (`sowerTick` made it), so completion depends on the convoy and the flak only. If the Sower outlasts them, normal spawning resumes after `rest` while the Sower is still on screen, as it does today.
 - **Budget (decided: the mines are meant to be many):** the Sower's aerial mines don't count toward the budget at all. They are the intended restriction, so they never hold back the convoy's or the flak's volleys, and they never show as overruns. Its falling bombs are aimed fire and do count. The budget therefore only keeps the tank and flak fire on top of the mine field readable.
 - **Setup:** `sowerTick` and the Sower's behaviour are unchanged.
-- **Status: built (step 5, third encounter), with two open points.**
-  - Definition: `sowerwindow`, `start: 'sower'` (a convoy and a flak gun at frame 0, the flak not on Rookie, a second convoy at 360). All spawn timers are held.
+- **Status: built (step 5, third encounter).**
+  - Definition: `sowerwindow`, `start: 'sower'`: three tank convoys at frames 0, 180 (not on Rookie) and 360. Budget 26 / 34 / 40, the highest of the encounters. All spawn timers are held.
   - Start rule (`encStart`): only for a Sower in `hold` from `ENC_SOWER_FROM` (0.7, the set2 stretch) on, not a called partner (`second`), and each Sower once (`encSeen`). Ordinary encounters don't start while a Sower or the Shadow Wing is up, and a running Sower Window isn't held by the Sower.
   - Measured (level 4, seed 104): it opens at frame 7322, the frame after the second Sower settles, on every difficulty. The Sowers lay exactly the same mines (152) and bombs (10), and call their partner, as in the same run without it.
-  - **Open 1: the Sower's bomb bursts fill the budget.** Each falling bomb bursts into a ring of 8 bullets. They count (decided: bombs count, and their burst rings with them). While over budget, the screen held about 15–26 of the Sower's own bullets against about 1 from the convoy. So the encounter was over budget for 274–391 frames on Rookie and Veteran (peaks of 25–39), and the convoy's gated tanks mostly waited. The ground pressure this encounter is for hardly happens. Options: a higher budget for the Sower Window, not counting the burst rings, or accepting it.
-  - **Open 2: the flak gun is usually not placed.** On Veteran and Ace the flak event was dropped after 60 frames: that stretch of forest had no free flak slot and no open spot. The encounter then runs with the convoys only.
+  - **Decided after the first measurement (owner):**
+    - **A higher budget.** Each falling bomb bursts into a ring of 8 bullets that counts, and with the first budget (16 / 22 / 28) about 15–26 of the Sower's own bullets filled it: 274–391 frames over, and the convoy's gated tanks mostly waited.
+    - **Tank convoys instead of a flak gun.** The flak was dropped on Veteran and Ace, because that stretch of forest had no free gun site and no open spot.
+  - **Now** ("human" bot, seeds 104 and 7): 0–45 frames over budget, peaks of 25–44, nothing dropped, 3–7 tanks per encounter, and the tanks fire 7–30 shots.
 
 ## 8. Soft bullet budget
 

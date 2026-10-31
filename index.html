@@ -9620,11 +9620,12 @@ const ENC = {
     { after: 16, do: 'strafer', i: 3, diff: [1, 2] }] },
   // Sower Window (level 4): it starts only when a Sower settles into its hold from the set2 stretch on (the level's second Sower; the first
   // one, early in the level, stays the player's introduction to it), never for a Sower's called partner. The mines are the restriction (they
-  // don't count toward the budget); a tank convoy and a flak gun come up below at once, the ground units take time to scroll in, and a
-  // second convoy follows. It never makes a Sower: sowerTick does.
-  sowerwindow: { start: 'sower', len: 840, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: true }, ev: [
+  // don't count toward the budget); three tank convoys come up the road below (the first at once: ground units take time to scroll in).
+  // It never makes a Sower: sowerTick does. Its budget is the highest (owner): the Sower's bombs burst into rings of 8 that count, and the
+  // tanks need room beside them. Tank convoys, not flak: that stretch of forest rarely has ground for a gun (owner).
+  sowerwindow: { start: 'sower', len: 840, max: 1500, rest: 180, budget: [26, 34, 40], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'convoy' },
-    { t: 0, do: 'flak', diff: [1, 2] }, // (no flak on Rookie)
+    { t: 180, do: 'convoy', diff: [1, 2] }, // (two convoys on Rookie)
     { t: 360, do: 'convoy' }] }
 };
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
