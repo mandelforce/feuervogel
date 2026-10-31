@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Encounter playtesting: `?enc=all` plays one encounter per level in a fixed tour (1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B Flak lane), and with the test link a banner names each encounter as it starts, while it waits and when it ends. Normal play is unchanged.
 - Encounter director, Sower Window (build 1.2.5.9; no change to play): the fourth encounter, for playtesting with `?enc=sowerwindow` in level 4. When the level's second Sower settles over the forest, three tank convoys come up the road below (two on Rookie). The level's first Sower stays on its own. No other encounter starts while a Sower or the Shadow Wing is up.
 - Encounter director, Bomber screen (build 1.2.5.8; no change to play): a third encounter for playtesting with `?enc=bomberscreen`. A Bomber comes in while three-plane dives arrive at 1, 3 and 5 seconds, then a strafing run (Rookie: two dives, no run). No new ground units appear while it runs.
 - Encounter director, Flak lane (build 1.2.5.7; no change to play): a second encounter for playtesting with `?enc=flaklane`. Two flak guns come first, a formation follows once they are on screen, then a strafing run from the side you are not on (not on Rookie). It only starts over land, and its guns use a level's planned gun sites where there are some.

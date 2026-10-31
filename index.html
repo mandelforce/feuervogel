@@ -9590,7 +9590,7 @@ const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 7 s (it reaches its place at about frame 200), firing as usual, while
   // two formations close in on it; then a chase pair, and a pod as the reward (plan 7.1, step 2: playtesting showed the passing Heavy
   // didn't read as an anchor). budget: the soft bullet budget per difficulty (measured only, for now).
-  anvil: { len: 720, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
+  anvil: { name: 'THE ANVIL', len: 720, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: true, pod: true, ground: false }, ev: [
     { t: 0, do: 'heavy', x: 0.5, hold: 0.28, holdT: 420 },
     { t: 180, do: 'formation', x: 0.25 },
     { t: 330, do: 'formation', x: 0.75, diff: [1, 2] }, // (not on Rookie)
@@ -9599,7 +9599,7 @@ const ENC = {
   // Flak lane: two flak guns first; a formation only once they are on screen (15% down, or after 6 s at most), then a strafing run from the
   // side the ship is not on. The flak covers the air the formation scatters into when its leader falls. Land only: the guns need ground
   // (starts only over ENC_LAND; the guns go in the plan's flak slots where a level has them).
-  flaklane: { len: 720, max: 1500, rest: 180, budget: [16, 22, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
+  flaklane: { name: 'FLAK LANE', len: 720, max: 1500, rest: 180, budget: [16, 22, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'flak' },
     { when: 'seen', of: 0, at: 0.15, by: 420, do: 'formation', x: 0.5 }, // (a plan slot's gun can stand up to 48 px higher: about 400 frames)
     { after: 120, do: 'strafer', i: 0, diff: [1, 2] }, // (no strafing run on Rookie)
@@ -9609,7 +9609,7 @@ const ENC = {
   // Bomber screen: a Bomber (tough, firing steadily, on screen for about 13 s if left alone) while three-plane dives come in at 1, 3 and 5 s,
   // then a strafing run: burn the Bomber down, or clear the dives. Its budget is the lowest, so the Bomber's own shots stay readable.
   // Rookie: two dives and no strafing run.
-  bomberscreen: { len: 780, max: 1500, rest: 180, budget: [14, 18, 24], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
+  bomberscreen: { name: 'BOMBER SCREEN', len: 780, max: 1500, rest: 180, budget: [14, 18, 24], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
     { t: 0, do: 'bomber', x: 0.5 },
     { t: 60, do: 'dive', n: 3, x: 0.3 },
     { t: 180, do: 'dive', n: 3, x: 0.7 },
@@ -9623,7 +9623,7 @@ const ENC = {
   // don't count toward the budget); three tank convoys come up the road below (the first at once: ground units take time to scroll in).
   // It never makes a Sower: sowerTick does. Its budget is the highest (owner): the Sower's bombs burst into rings of 8 that count, and the
   // tanks need room beside them. Tank convoys, not flak: that stretch of forest rarely has ground for a gun (owner).
-  sowerwindow: { start: 'sower', len: 840, max: 1500, rest: 180, budget: [26, 34, 40], holds: { air: true, pod: true, ground: true }, ev: [
+  sowerwindow: { name: 'SOWER WINDOW', start: 'sower', len: 840, max: 1500, rest: 180, budget: [26, 34, 40], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'convoy' },
     { t: 180, do: 'convoy', diff: [1, 2] }, // (two convoys on Rookie)
     { t: 360, do: 'convoy' }] }
@@ -9644,7 +9644,9 @@ const ENC_VERB = {
     world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
+const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1A, 2, 3, 4, 5, 6B in turn
 const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
+const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[Math.max(0, CAMP_LEVELS.indexOf(run.sortie ? run.sortie.level : 0))]; // (a level outside the Campaign's six: The Anvil)
 const ENC_SOWER_FROM = 0.7; // the level share where the set2 stretch begins (ARC): from here a settling Sower can open the Sower Window
 function encStart(id) {
   const D = ENC[id]; if (!run.sortie || world.enc || !D || world.bossSpawned || app.tut || (D.biomes && !D.biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
@@ -9680,7 +9682,7 @@ function encEnd(why) {
   if (why === 'done' || why === 'timeout') { E0.st = 'rest'; E0.rest = ENC[E0.id].rest; } else world.enc = null;
 }
 function encTick() {
-  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast && (LB_TEST || !run.ranked)) encStart(ENC_TRY); return; } // (encLast: one has already run in this level)
+  const E0 = world.enc; if (!E0) { if (ENC_TRY && !world.encLast && (LB_TEST || !run.ranked)) encStart(encTryId()); return; } // (encLast: one has already run in this level)
   const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
@@ -14968,6 +14970,10 @@ function renderMain() {
   if (app.congrats) drawCongrats();
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
   if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
+  if (ENC_TRY && app.state === 'play') { const E0 = world.enc, L = world.encLast; // playtesting (?enc): name the encounter as it starts, while it waits, and when it ends
+    const t = E0 && E0.st === 'hold' && E0.t === 0 ? ENC[E0.id].name + ': WAITING' : E0 && E0.st === 'run' && E0.t < 150 ? 'ENCOUNTER: ' + ENC[E0.id].name
+      : L && gf - L.at < 120 ? ENC[L.id].name + ': ' + L.why.toUpperCase() : '';
+    if (t) textS(t, W / 2, SAFE_T + 46, '#c8b0ff', 1, 'center'); }
   if (settings.fps && (LB_TEST || ENC_TRY) && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds, or with ?enc)
     const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + encBullets() + '/' + ENC[E0.id].budget[settings.diff]
       : L && gf - L.at < 180 ? 'ENC ' + L.id + ' ' + L.why.toUpperCase() + ' ' + L.t + ' OVER ' + L.over + ' PEAK ' + L.peak : '';

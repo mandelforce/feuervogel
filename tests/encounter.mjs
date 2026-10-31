@@ -270,6 +270,19 @@ const playOut = `
   ok(r.retro, '?enc=anvil does nothing outside the Campaign');
   await page.close();
 }
+{
+  // ?enc=all: one encounter per level, the Campaign's tour (1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
+  // Flak lane), started as each level's practice run; and the playtest banner draws
+  const page = await freshPage('?enc=all');
+  const r = JSON.parse(await peek(page, `(() => { const out = {};
+    for (const lv of [8, 2, 3, 5, 7]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
+      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; // (6B opens over the sea: Flak lane waits for land, about frame 870)
+      if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
+    out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
+  ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
+  ok(r.drew === true, `the playtest banner (ENCOUNTER: <name>) draws${r.drew === true ? '' : ': ' + r.drew}`);
+  await page.close();
+}
 await browser.close();
 if (bad) { console.error(`\n${bad} problem(s) found.`); process.exit(1); }
 console.log('\nEncounter test passed.');
