@@ -88,19 +88,19 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(t.nova && t.after, `an untouched turret outlives a Nova (${t.left} of 42 left), and two more hits pop it`);
   ok(!t.weakPop && t.laser, 'a weak laser frame leaves the turret; a full charged laser pops it at once');
   ok(t.inLock && t.pop && t.shots === 0 && t.hull && t.rolled > 50, `a turret popped in the lock ends the cycle: no shot after it, the hull stays and drives on (${t.rolled.toFixed(0)} px)`);
-  // 4. the muzzle spot is the drawn bore at 16 headings around (the turret has BUECHSE_DIRS) (a copy of the turret with the bore in a marker colour, drawn as the game draws it)
-  const m = JSON.parse(await peek(page, `(() => { ${alone()} const set = rotSet(buechseTur(['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'], true), BUECHSE_DIRS); let worst = 0, found = 0;
-    for (let i = 0; i < 16; i++) { e.x = 112.37; e.y = 200.71; e.ta = i * TAU / 16 + 0.04; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); spr(set[dirIdx(e.ta, BUECHSE_DIRS)], e.x, e.y);
+  // 4. the muzzle spot is the drawn bore at 16 headings around (the turret has BUECHSE_DIRS headings, fine below and coarse above) (a copy of the turret with the bore in a marker colour, drawn as the game draws it)
+  const m = JSON.parse(await peek(page, `(() => { ${alone()} const mark = buechseTur(['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'], true), set = BUECHSE_ANG.map(a => rotated(mark, a - PI / 2)); let worst = 0, found = 0;
+    for (let i = 0; i < 16; i++) { e.x = 112.37; e.y = 200.71; e.ta = i * TAU / 16 + 0.04; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); spr(set[buechseNear(e.ta)], e.x, e.y);
       const d = ctx.getImageData(0, 0, W, H).data; let sx = 0, sy = 0, n = 0; for (let j = 0; j < H; j++) for (let q = 0; q < W; q++) { const p = (j * W + q) * 4; if (d[p] === 255 && d[p + 1] === 0 && d[p + 2] === 255) { sx += q + 0.5; sy += j + 0.5; n++; } }
       if (n) found++; const [bx, by] = buechseBore(e); worst = Math.max(worst, Math.hypot(sx / n - bx, sy / n - by)); }
     return JSON.stringify({ worst, found }); })()`));
   ok(m.found === 16 && m.worst < 0.01, `the muzzle spot sits on the drawn bore at 16 headings around (worst ${m.worst.toFixed(3)} px)`);
-  // 4b. the sight line runs straight out of the barrel (owner): for aim points all around, the line's angle is within 1.5 degrees of the drawn barrel's (pivot to bore), under a pixel over its length; it was up to 11 with 16 turret sprites
-  const st = JSON.parse(await peek(page, `(() => { ${alone()} let worst = 0; e.bst = 'aim';
+  // 4b. the sight line runs straight out of the barrel (owner): for aim points all around, aiming down the screen the line is within 2.5 degrees of the drawn barrel (pivot to bore), about a pixel over its length; up the screen, where it rarely aims, within 9; it was up to 11 all around with 16 turret sprites
+  const st = JSON.parse(await peek(page, `(() => { ${alone()} let worst = 0, up = 0; e.bst = 'aim';
     for (let k = 0; k < 72; k++) { const tx = e.x + Math.cos(k * 0.0873) * 140, ty = e.y + Math.sin(k * 0.0873) * 140; e.ta = Math.atan2(ty - e.y, tx - e.x); e.tgt = [tx, ty];
-      const [, , a] = buechseLine(e); const b = (e.silver ? SPR.buechseN : SPR.buechseD).bore[buechseIdx(e)]; worst = Math.max(worst, Math.abs(angDiff(a, Math.atan2(b[1], b[0])))); /* (the drawn barrel: pivot to bore) */ }
-    return JSON.stringify({ deg: worst * 180 / PI }); })()`));
-  ok(st.deg < 2.5, `the sight line runs straight out of the barrel: at most ${st.deg.toFixed(2)} degrees off the drawn barrel, all around`);
+      const [, , a] = buechseLine(e); const b = (e.silver ? SPR.buechseN : SPR.buechseD).bore[buechseIdx(e)]; const d = Math.abs(angDiff(a, Math.atan2(b[1], b[0]))); /* (the drawn barrel: pivot to bore) */ if (Math.sin(e.ta) >= 0) worst = Math.max(worst, d); else up = Math.max(up, d); }
+    return JSON.stringify({ deg: worst * 180 / PI, up: up * 180 / PI }); })()`));
+  ok(st.deg < 2.5 && st.up < 9, `the sight line runs straight out of the barrel: aiming down the screen at most ${st.deg.toFixed(2)} degrees off the drawn barrel, up it ${st.up.toFixed(2)} (coarser headings there)`);
   await page.close();
 }
 // 5. its side emplacements: two in levels 2 to 7 (one in 6, whose edges are built up), none in 1 and 1A; at the screen's edges,

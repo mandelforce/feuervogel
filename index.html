@@ -5393,18 +5393,24 @@ function buechseTur(OL, mark) {
     disk(x, OL[0], 15, 25 + o, 1.6); // cupola
   });
 }
-const BUECHSE_DIRS = 128; // the turret's turned sprites (owner: the sight line runs straight out of the barrel; at 16 the drawn barrel was up to 11 degrees off it, now about 2, the pixel limit of a 33 px barrel; the hull keeps 16)
+// the turret's turned sprites, by heading (owner: the sight line runs straight out of the barrel, and the Buechse mostly aims down the screen):
+// fine steps over the lower half (64 over 180 degrees: the barrel at most about 2 degrees off the line there, the pixel limit of a 33 px barrel),
+// coarse over the upper half (16: up to about 7). With 16 all around the barrel was up to 11 degrees off.
+const BUECHSE_ANG = [...Array.from({ length: 64 }, (_, k) => k * PI / 64), ...Array.from({ length: 16 }, (_, k) => PI + k * PI / 16)];
+const BUECHSE_DIRS = BUECHSE_ANG.length;
+function buechseNear(a) { let best = 0, bd = Infinity; for (let i = 0; i < BUECHSE_DIRS; i++) { const d = Math.abs(angDiff(a, BUECHSE_ANG[i])); if (d < bd) { bd = d; best = i; } } return best; } // the sprite nearest heading a
 let buechseBores = null;
 // the bore's centre in each turned turret, from the sprite's centre: the turret with its bore in a marker colour, turned as rotated() turns
 // it (only its colour canvas: the flash and silhouette copies aren't needed), and the marker's pixels found
 function buechseBoreSet(mark) {
   const out = []; for (let n = 0; n < BUECHSE_DIRS; n++) {
-    const d0 = Math.ceil(Math.hypot(mark.w, mark.h)) + 2, [c, x] = mk(d0, d0); x.translate(d0 / 2, d0 / 2); x.rotate(n * TAU / BUECHSE_DIRS - PI / 2); x.drawImage(mark.c, -mark.w / 2, -mark.h / 2); crisp(c);
+    const d0 = Math.ceil(Math.hypot(mark.w, mark.h)) + 2, [c, x] = mk(d0, d0); x.translate(d0 / 2, d0 / 2); x.rotate(BUECHSE_ANG[n] - PI / 2); x.drawImage(mark.c, -mark.w / 2, -mark.h / 2); crisp(c);
     const d = x.getImageData(0, 0, d0, d0).data; let sx = 0, sy = 0, k = 0;
     for (let j = 0; j < d0; j++) for (let i = 0; i < d0; i++) { const q = (j * d0 + i) * 4; if (d[q + 3] && d[q] === 255 && d[q + 1] === 0 && d[q + 2] === 255) { sx += i + 0.5; sy += j + 0.5; k++; } }
     out.push(k ? [sx / k - d0 / 2, sy / k - d0 / 2] : [0, 0]); }
   return out;
 }
+const BUECHSE_EARLY = i => i >= 64 || i % 4 === 0; // the turret headings built at start-up
 function buechseSet(night) {
   const OL = night ? ['#2c3420', '#46523a', '#62704c', '#808e62', '#a0ac7c', '#c0ca9c'] : ['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'];
   const SA = ['#8c7646', '#b09a62'], G2 = ['#1e1e24', '#3a3a44', '#5c5c68'], H = 34, px = (x, c, a, b) => rect(x, c, a, b, 1, 1);
@@ -5418,8 +5424,9 @@ function buechseSet(night) {
     rect(x, OL[4], 5, H - 5, 6, 1); for (const lx of [6, 9]) { px(x, '#e8f4ff', lx, H - 1); px(x, '#8cc0e0', lx, H - 2); } // lamps
   });
   const bore = buechseBores || (buechseBores = buechseBoreSet(buechseTur(OL, true))); // (the same for day and night: built once)
-  const src = buechseTur(OL, false), base = rotSet(src, BUECHSE_DIRS / 4); // (start-up builds a quarter of the turret's headings; buechseFill the rest, a few a frame: drawing only, the bores above are exact from the start)
-  return { h: [rotSet(hull(0)), rotSet(hull(1))], t: Array.from({ length: BUECHSE_DIRS }, (_, i) => base[Math.round(i / 4) % (BUECHSE_DIRS / 4)]), bore, src };
+  const src = buechseTur(OL, false), t = BUECHSE_ANG.map((a, i) => BUECHSE_EARLY(i) ? rotated(src, a - PI / 2) : null); // (start-up builds the coarse ones; the warm-up jobs the rest, one a frame: drawing only, the bores above are exact from the start)
+  for (let i = 0; i < BUECHSE_DIRS; i++) if (!t[i]) { let k = i; while (!BUECHSE_EARLY(k)) k--; t[i] = t[k]; } // (meanwhile the nearest one built before it)
+  t.angs = BUECHSE_ANG; return { h: [rotSet(hull(0)), rotSet(hull(1))], t, bore, src };
 }
 SPR.buechseD = buechseSet(false); SPR.buechseN = buechseSet(true); // (built now, not lazily: a wreck or a flying turret must be in the snapshot's sprite table, which lists only SPR's own entries)
 // a side emplacement's sandbags: a horseshoe round a tank lying across the screen, open towards the middle ([0]: at the left edge, open to the right; [1]: the right edge)
@@ -11600,7 +11607,7 @@ function buechseBore(e, i = buechseIdx(e)) {
 // the turned turret sprite drawn while the sight shows: of the sprites next to the turret's heading, the one whose drawn barrel (pivot to bore)
 // lines up best with the sight line from its bore (owner: the line runs straight out of the barrel); in the lock the one frozen with the line
 function buechseIdx(e) {
-  const i0 = dirIdx(e.ta, BUECHSE_DIRS); if (e.bst === 'lock' && e.li !== undefined) return e.li; if (e.bst !== 'aim') return i0;
+  const i0 = buechseNear(e.ta); if (e.bst === 'lock' && e.li !== undefined) return e.li; if (e.bst !== 'aim') return i0;
   const B = e.silver ? SPR.buechseN : SPR.buechseD; let best = i0, bd = Infinity;
   for (let k = -2; k <= 2; k++) { const i = (i0 + k + BUECHSE_DIRS) % BUECHSE_DIRS, b = B.bore[i], d = Math.abs(angDiff(Math.atan2(b[1], b[0]), buechseAng(e, i))); if (d < bd) { bd = d; best = i; } }
   return best;
@@ -11608,7 +11615,7 @@ function buechseIdx(e) {
 function buechseAng(e, i) { const [bx, by] = buechseBore(e, i), [tx, ty] = e.tgt || [player.x, player.y]; return e.ta + angDiff(Math.atan2(ty - e.y, tx - e.x), Math.atan2(ty - by, tx - bx)); }
 // the sight line: from the muzzle, along the turret's aim, turned by the small angle that makes it pass through the aim point from the muzzle
 // (the muzzle sits off the turret's centre line in the turned sprites); frozen in the lock. With BUECHSE_DIRS turned sprites (buechseIdx picks
-// the best-lined one) the drawn barrel is at most about 2 degrees off this line, a pixel over its length: it runs straight out of the barrel (owner)
+// the best-lined one) the drawn barrel is at most about 2 degrees off this line over the lower half (7 over the upper): it runs straight out of the barrel (owner)
 function buechseLine(e) {
   const i = buechseIdx(e), [bx, by] = buechseBore(e, i); if (e.bst === 'lock') return [bx, by, e.la];
   return [bx, by, buechseAng(e, i), i];
@@ -14081,7 +14088,7 @@ function drawPart(q) {
       break;
     }
     case 'turfly': {
-      const s2 = q.set[dirIdx(q.a, q.set.length)], sc = 1 + q.z * 0.03;
+      const s2 = q.set[q.set.angs ? buechseNear(q.a) : dirIdx(q.a, q.set.length)], sc = 1 + q.z * 0.03; // (the Buechse turret's headings aren't evenly spaced)
       ctx.globalAlpha = 0.3; ctx.drawImage(s2.k, Math.round(q.x - s2.w / 2 + q.z * 0.5), Math.round(q.y - s2.h / 2 + q.z * 0.6)); ctx.globalAlpha = 1;
       ctx.drawImage(s2.c, Math.round(q.x - s2.w * sc / 2), Math.round(q.y - q.z - s2.h * sc / 2), Math.round(s2.w * sc), Math.round(s2.h * sc));
       break;
@@ -15625,7 +15632,7 @@ let warmIdx = 0;
 // So build them up front instead, one per frame once the first-frame warm-up is done.
 const warmJobs = [];
 for (let L = 1; L <= 4; L++) { warmJobs.push(() => seekClass(L)); for (let r = 0; r <= 6; r++) if (L > 1 || r === 3) warmJobs.push(() => scatClass(L, r / 6)); }
-for (let k = 0; k < BUECHSE_DIRS; k++) if (k % 4) for (const day of [true, false]) warmJobs.push(() => { const B = day ? SPR.buechseD : SPR.buechseN; B.t[k] = rotated(B.src, k * TAU / BUECHSE_DIRS - PI / 2); }); // the Buechse turret's other headings (buechseSet), one sprite a frame
+for (let k = 0; k < BUECHSE_DIRS; k++) if (!BUECHSE_EARLY(k)) for (const day of [true, false]) warmJobs.push(() => { const B = day ? SPR.buechseD : SPR.buechseN; B.t[k] = rotated(B.src, BUECHSE_ANG[k] - PI / 2); }); // the Buechse turret's other headings (buechseSet), one sprite a frame
 let warmJob = 0;
 let errCount = 0;
 function logError(where, e) {
