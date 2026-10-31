@@ -142,7 +142,8 @@ node tests/wing.mjs
 - pause, `world.quiet`, the carrier and the Shadow Wing freeze its clock, and a death doesn't;
 - the boss ends it (`boss`), and a new level clears it;
 - it never starts outside the Campaign, or twice;
-- a snapshot can be taken mid-encounter, and the readout draws.
+- a snapshot can be taken mid-encounter, and the readout draws;
+- the soft bullet budget: with the screen at the budget a gated shooter (the Heavy) waits, the Sower's aerial mines don't count, with room again the whole spread fires, and a delayed volley's reservation lasts until its last bullet.
 
 `resume-exact.mjs --only=anvil` checks a run saved in the middle of The Anvil.
 

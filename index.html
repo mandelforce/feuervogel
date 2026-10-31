@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.6'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9582,9 +9582,22 @@ let encTag = null; // { id, own } while a verb runs: E() tags what it makes
 const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
 function encStart(id) {
   if (!run.sortie || world.enc || !ENC[id] || world.bossSpawned || app.tut) return false;
-  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0 }; haptic('warn'); return true;
+  world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [] }; haptic('warn'); return true;
 }
 function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
+// The soft bullet budget: while an encounter runs (or is held), selected shooters ask volleyOK(n) once before a whole volley of n bullets
+// and wait a frame when it would go over. Nothing is deleted or cut; ungated fire (revenge shots, the Shadow Wing, other shooters) can still
+// go over, which encTick measures. The Sower's aerial mines are not counted: they are meant to fill the air (owner). Its falling bombs are.
+// A volley fired over the next frames (later: frames until its last bullet) reserves its bullets until then, so shooters admitted together
+// can't land their delayed volleys on top of each other (res: [bullets, frames left], counted down by encTick).
+function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine') n++; return n; }
+function encBudget() { const E0 = world.enc; return E0 && E0.st !== 'rest' ? ENC[E0.id].budget[settings.diff] : Infinity; }
+function volleyOK(n, later = 0) {
+  const B = encBudget(); if (B === Infinity) return true;
+  const E0 = world.enc; let held = 0; for (const r of E0.res) held += r[0];
+  if (encBullets() + held + n > B) return false;
+  if (later > 0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
+}
 const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
 function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own }; try { ok = ENC_VERB[ev.do](ev); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
 function encEnd(why) {
@@ -9596,6 +9609,7 @@ function encTick() {
   const D = ENC[E0.id];
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
+  if (E0.res.length) { for (const r of E0.res) r[1]--; E0.res = E0.res.filter(r => r[1] > 0); } // reservations of delayed volleys run out as they fire
   if ((world.carrier && !world.carrier.over) || world.enemies.some(e => (e.type === 'wing' || e.type === 'sower') && !e.dead)) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
   E0.st = 'run'; E0.t++;
   while (E0.i < D.ev.length && E0.t >= D.ev[E0.i].t) {
@@ -9606,7 +9620,7 @@ function encTick() {
     else break; // try again next frame; the later events wait behind it
   }
   E0.owned = encOwned(E0.id);
-  const nb = world.ebul.length; E0.peak = Math.max(E0.peak, nb); if (nb > D.budget[settings.diff]) E0.over++;
+  const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
   if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
 // Enigma Run (levels 2, 6, 6B): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
@@ -11382,7 +11396,8 @@ function drillTick(e) {
   if (e.turHp < P.turHp / 2 && gf % 9 === 0) smokePuff(e.x + rnd(-2, 2), e.y + rnd(-2, 2)); // a damaged turret smokes
   if (e.dst === 'aim') {
     const a = aim(e.x, e.y); e.ta += clamp(angDiff(e.ta, a), -P.turn, P.turn);
-    if (--e.dT <= 0 && canFire(e, 90) && Math.abs(angDiff(e.ta, a)) < 0.3) { e.dst = 'prep'; e.dT = P.prep; e.a0 = a; e.sw = Math.random() < 0.5 ? -1 : 1; sfx('clunk'); }
+    const ns = P.n[settings.diff] + (run.loop >= 1 ? 1 : 0); // (8. the soft budget: the whole attack, ns salvos of three, is asked for here; its last salvo comes prep + (ns - 1) * gap frames later)
+    if (--e.dT <= 0 && canFire(e, 90) && Math.abs(angDiff(e.ta, a)) < 0.3 && volleyOK(3 * ns, P.prep + (ns - 1) * P.gap)) { e.dst = 'prep'; e.dT = P.prep; e.a0 = a; e.sw = Math.random() < 0.5 ? -1 : 1; sfx('clunk'); }
   } else if (e.dst === 'prep') {
     e.ta += clamp(angDiff(e.ta, e.a0 - e.sw * P.sweep), -P.wind, P.wind);
     if (--e.dT <= 0) { e.dst = 'fire'; e.dT = 0; e.ns = P.n[settings.diff] + (run.loop >= 1 ? 1 : 0); }
@@ -11791,7 +11806,7 @@ const ENT = {
   fighter: { stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
     if (e.lead && !e.crash) {
       const L = e.lead;
-      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
+      if (!L.dead && !L.crash) { const ca = Math.cos(L.h - PI / 2), sa = Math.sin(L.h - PI / 2); e.x = L.x + e.ox * ca - e.oy * sa; e.y = L.y + e.ox * sa + e.oy * ca; e.h = L.h; if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { if (volleyOK(1)) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } else e.fireAt++; } if (gf % 3 === 0 && e.y > -10) { const px = -Math.sin(e.h), py = Math.cos(e.h); for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + px * 10 * sd, y: e.y + py * 10 * sd, vx: 0, vy: 0, life: 16, max: 16 }); } if (e.y > H + 30) e.dead = true; return; }
       e.lead = null; e.scatter = true; e.fireAt = -1; e.turn = rnd(-0.04, 0.04); e.v *= 1.15;
     }
     if (e.leader && !e.chased && e.t > 30 && !e.crash && !world.enemies.some(o => o.lead === e && !o.dead && !o.crash)) { e.chased = true; e.homeT = 140; e.fireAt = e.t + 30; }
@@ -11819,8 +11834,8 @@ const ENT = {
     }
     e.h += e.back ? 0 : e.turn; e.x += Math.cos(e.h) * e.v; e.y += Math.sin(e.h) * e.v;
     if (e.back === 1) { e.x = clamp(e.x, -26, W + 26); e.y = Math.min(e.y, H + 26); }
-    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); }
-    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && hasT()) {
+    if (e.t === e.fireAt && e.y > 0 && e.y < H * 0.6 && hasT()) { if (volleyOK(1)) { eshot(e.x, e.y, aim(e.x, e.y), bspeed()); sfx('gun'); } else e.fireAt++; }
+    if (e.strafe && !e.fired && Math.abs(e.x - W / 2) < 40 && hasT() && volleyOK(run.loop >= 1 ? 3 : 1)) {
       e.fired = true; const a = aim(e.x, e.y);
       eshot(e.x, e.y, a, bspeed()); if (run.loop >= 1) { eshot(e.x, e.y, a - 0.2, bspeed()); eshot(e.x, e.y, a + 0.2, bspeed()); }
     }
@@ -11830,7 +11845,7 @@ const ENT = {
     const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
     e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
     if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
-    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
+    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
@@ -11846,7 +11861,7 @@ const ENT = {
       for (const ox of [-22, 22]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 1, vx: 0, vy: -0.05, life: 40, max: 40 });
       for (const ox of [-14, -7, 7, 14]) if (Math.random() < 0.5) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox + rnd(-0.5, 0.5), y: e.y - 6, vx: 0, vy: -0.05, life: 22, max: 22 });
     }
-    if (--e.gcd <= 0 && canFire(e, 100)) {
+    if (--e.gcd <= 0 && canFire(e, 100) && volleyOK(run.loop >= 1 ? 3 : 1)) {
       e.gcd = Math.round((Math.max(30, 50 - run.loop * 8)) * fireSlow());
       const top = (e.t >> 5) & 1, gx = e.x, gy = top ? e.y - 8 : e.y + 12, a = aim(gx, gy);
       eshot(gx, gy, a, bspeed()); if (run.loop >= 1) { eshot(gx, gy, a - 0.18, bspeed()); eshot(gx, gy, a + 0.18, bspeed()); }
@@ -11938,7 +11953,7 @@ const ENT = {
     if (e.drill) { if (hasT() && !e.turDead) drillTick(e); return; }
     if (e.buechse) { if (hasT() && !e.turDead) buechseTick(e); return; }
     if (hasT()) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y)), -0.04, 0.04);
-    if (--e.cd <= 0 && canFire(e, 90)) {
+    if (--e.cd <= 0 && canFire(e, 90) && volleyOK(e.heavy ? 3 : 1)) { // (6. tanks: one shell, three from a heavy tank)
       e.cd = Math.round((Math.max(80, 150 - run.loop * 20) + rnd(0, 30)) * fireSlow());
       const a = e.ta, L = e.heavy ? 18 : 14, bx = e.x + Math.cos(a) * L, by = e.y + Math.sin(a) * L;
       eshot(bx, by, a, bspeed() * 1.1, 'shell');
@@ -11958,7 +11973,7 @@ const ENT = {
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (e.rd === undefined) e.rd = world.enemies.find(o => o.type === 'radar' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 140) || null;
     const tight = (e.rd && !e.rd.dead ? 0.3 : 1) * (run.sortie && world.nightF > 0.5 && nightLit(e) ? 0.6 : 1); // Enigma Run: a lit searchlight nearby also tightens the aim
-    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90))) {
+    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90)) && volleyOK((e.barrels || 1) + (world.nightF > 0.5 && nightLit(e) ? 3 : 0), world.nightF > 0.5 && nightLit(e) ? 21 : e.barrels === 4 ? 9 : 0)) {
       e.cd = Math.round((Math.max(90, 150 - run.loop * 20)) * fireSlow() * (e.barrels === 4 ? 1.15 : 1) * (e.rear ? 0.6 : 1));
       const bx = e.x + Math.cos(e.ga) * 12, by = e.y + Math.sin(e.ga) * 12, nb = e.barrels || 1;
       flakShot(bx, by, tight); flash(bx, by, 2); sfx('gun');
@@ -12167,7 +12182,7 @@ const ENT = {
   } },
   popup: { revenge: 2, guarded: true, medals: 0.5, stats: { hp: 6, hw: 8, hh: 8, score: 600, rad: 10 }, update(e) {
     groundPos(e); e.stT--;
-    if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } }
+    if (e.st === 'down') { e.untarget = true; if (!e.ctrl && e.stT <= 0 && e.y > 14 && e.y < H - 70 && (e.rocket || volleyOK(6, 74))) { e.st = 'rise'; e.stT = 18; sfx('clunk'); } } // (7. the soft budget: it rises only when its three pairs fit; the rocket one fires a missile, not bullets)
     else if (e.st === 'rise') { e.untarget = false; if (e.stT <= 0) { e.st = 'up'; e.stT = 74; } }
     else if (e.st === 'up') {
       if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.08, 0.08);
@@ -14878,7 +14893,7 @@ function renderMain() {
   if (settings.fps) textS((lowFX ? 'LITE ' : '') + 'FPS ' + fpsShown + ' MAX ' + Math.round(PERF.maxIv) + ' WORK ' + Math.round(PERF.maxWork), W / 2, H - SAFE_B - 8, PERF.maxIv > 34 ? '#ff9a8a' : '#a8f6dc', 1, 'center');
   if (settings.fps && settings.pb && PB.shown) textS(PB.shown, W / 2, H - SAFE_B - 18, '#ffd88a', 1, 'center');
   if (settings.fps && (LB_TEST || ENC_TRY) && app.state === 'play') { const E0 = world.enc, L = world.encLast; // the encounter director's readout (local builds, or with ?enc)
-    const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + world.ebul.length + '/' + ENC[E0.id].budget[settings.diff]
+    const t = E0 ? 'ENC ' + E0.id + ' ' + E0.st.toUpperCase() + ' ' + E0.t + ' OWN ' + E0.owned + ' B ' + encBullets() + '/' + ENC[E0.id].budget[settings.diff]
       : L && gf - L.at < 180 ? 'ENC ' + L.id + ' ' + L.why.toUpperCase() + ' ' + L.t + ' OVER ' + L.over + ' PEAK ' + L.peak : '';
     if (t) textS(t, W / 2, H - SAFE_B - 28, '#c8b0ff', 1, 'center'); }
 

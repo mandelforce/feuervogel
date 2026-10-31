@@ -167,13 +167,14 @@ window.SF = {
   },
   // Change DIFF without editing the page: { bs: [0.88, 1, 1.12] } replaces a whole row, { fs: { 0: 1.5 } } sets single entries.
   overrides(o) { for (const [k, v] of Object.entries(o || {})) { if (Array.isArray(v)) DIFF[k] = v; else for (const [i, x] of Object.entries(v)) DIFF[k][+i] = x; } },
-  // Count enemy shots by the nearest enemy (bosses together) per stage; the result is in SF.R.attr as { 'stage:type': shots }. Call before flying.
+  // Count enemy shots by the nearest enemy (bosses together) per stage; the result is in SF.R.attr as { 'stage:type': shots }, and during an
+  // encounter { 'stage:enc:<id>:type': shots }. Approximate: a shot counts for the nearest enemy within 50 px (a gun crew's troop can get a flak shell). Call before flying.
   attrib() {
     R.attr = {}; const e0 = eshot;
     eshot = function (x, y, a, sp, kind) {
       let best = null, bd = 2500;
       for (const e of world.enemies) { if (e.dead) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
-      const k = run.stage + ':' + (world.enemies.some(e => e.type === 'boss') ? 'boss fight' : best ? best.type : '?');
+      const k = run.stage + ':' + (world.enc ? 'enc:' + world.enc.id + ':' : '') + (world.enemies.some(e => e.type === 'boss') ? 'boss fight' : best ? best.type : '?'); // (shots during an encounter: 'stage:enc:<id>:type')
       R.attr[k] = (R.attr[k] || 0) + 1;
       return e0(x, y, a, sp, kind);
     };

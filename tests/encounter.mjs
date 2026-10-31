@@ -4,7 +4,8 @@
 // Checks: every event is dispatched once, in order, on its frame; what it makes is tagged and the pod never counts; the encounter ends 'done'
 // and rests; the held timers (air waves, pods) keep their value and resume from it, the ground timer runs on; Rookie skips the second
 // formation; its Heavy stops and holds; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't;
-// the Shadow Wing waits for a running encounter; the boss ends it ('boss') and a new level clears it;
+// the Shadow Wing waits for a running encounter; the soft budget: with the screen full a gated shooter (the Heavy) waits, the Sower's mines
+// don't count, and once there is room the whole spread fires; a delayed volley reserves its bullets until it has fired; the boss ends it ('boss') and a new level clears it;
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
 // it by itself, once per level.
 import { chromium } from 'playwright';
@@ -122,7 +123,49 @@ const playOut = `
   await page.close();
 }
 {
-  // 5. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
+  // 5. The soft budget, with the Heavy as the gated shooter (made tough so the bot can't kill it). Dummy bullets keep the screen at the
+  // budget: the Heavy must not start a volley. Mines instead of them must not block it. With room again its whole spread (3 in level 2) fires.
+  const page = await freshPage();
+  const r = JSON.parse(await peek(page, `(() => { ${level2(1, 17)} const out = {};
+    encStart('anvil'); let hv = null;
+    for (let f = 0; f < 800; f++) { SF.run(1); hv = world.enemies.find(e => e.enc === 'anvil' && e.type === 'heavy' && !e.dead); if (hv) hv.hp = 9999; if (hv && hv.holdT < 400 && hv.pause === 0 && hv.cd > 3) break; }
+    if (!hv) return JSON.stringify({ error: 'no Heavy' });
+    const B = encBudget(); out.budget = B;
+    const dummy = kind => ({ x: 8 + (world.ebul.length * 9) % 208, y: 3, vx: 0, vy: 0, r: 2, kind, a: 0, life: 9999, max: 9999, dummy: true });
+    let paused = 0, maxB = 0;
+    for (let f = 0; f < 300; f++) { while (encBullets() < B) world.ebul.push(dummy('s')); SF.run(1); if (hv.pause > 0) paused++; }
+    out.waited = paused === 0 && hv.cd <= 0;
+    world.ebul = world.ebul.filter(b => !b.dummy); let minePause = -1;
+    for (let f = 0; f < 300 && minePause < 0; f++) { while (world.ebul.filter(b => b.kind === 'amine').length < B + 10) world.ebul.push(dummy('amine')); SF.run(1); if (hv.pause > 0) minePause = f; }
+    out.mines = minePause >= 0;
+    world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); // let that pause finish
+    const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if (Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; return e0(x, y, a, sp, kind); };
+    let started = -1; for (let f = 0; f < 400; f++) { SF.run(1); if (started < 0 && hv.pause > 0) started = f; if (started >= 0 && hv.pause === 0) break; }
+    eshot = e0; out.spread = spread; out.started = started >= 0;
+    out.last = world.encLast || world.enc;
+    return JSON.stringify(out); })()`));
+  ok(!r.error, r.error || 'the Heavy is held for the budget checks');
+  ok(r.waited, `with the screen at the budget (${r.budget}) the Heavy starts no volley; it waits with its cooldown run out`);
+  ok(r.mines, "the Sower's mines don't count toward the budget: with more mines than the budget the Heavy still fires");
+  ok(r.started && r.spread === 3, `with room again it fires its whole spread (${r.spread} of 3 bullets)`);
+  await page.close();
+}
+{
+  // 5b. Reservations: an admitted delayed volley holds its bullets until it has fired, so a second one can't land on top of it
+  const page = await freshPage();
+  const r = JSON.parse(await peek(page, `(() => { ${level2(1, 19)} const out = {};
+    encStart('anvil'); SF.run(1); const B = encBudget();
+    const fill = k => { world.ebul = []; for (let i = 0; i < k; i++) world.ebul.push({ x: 8 + i * 9 % 208, y: 3, vx: 0, vy: 0, r: 2, kind: 's', a: 0 }); };
+    fill(B - 6); out.first = volleyOK(3, 30); out.overReserved = volleyOK(4); out.fits = volleyOK(3); world.enc.res = world.enc.res.slice(0, 1);
+    for (let f = 0; f < 30; f++) { SF.run(1); } out.stillHeld = world.enc.res.length === 1; // (through the frame of its last bullet, 30 frames on)
+    SF.run(1); fill(B - 6); out.released = world.enc.res.length === 0 && volleyOK(6);
+    return JSON.stringify(out); })()`));
+  ok(r.first && !r.overReserved && r.fits, 'a delayed volley reserves its bullets: with it admitted, only what still fits is admitted next');
+  ok(r.stillHeld && r.released, 'the reservation lasts until the frame of its last bullet, then the room is free again');
+  await page.close();
+}
+{
+  // 6. ?enc=anvil: started by itself as soon as it may, once per level; held while the carrier opening runs; nothing without the switch
   const page = await freshPage('?enc=anvil');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
