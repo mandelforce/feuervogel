@@ -41,6 +41,7 @@ async function freshPage(query = '') {
   return page;
 }
 const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
+const W_ = 224; // the playfield's fixed width
 // level 2, flown by the immortal bot to frame 300: the 'mix' stretch, well before its first set piece (about frame 3510). Not level 1A,
 // whose carrier opening holds an encounter for its first 1000 frames or more (checked on its own below).
 const level2 = (diff, seed) => `window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(2, true); delete window.__forceSeed; SF.run(300);`;
@@ -51,7 +52,7 @@ const playOut = `
   for (; f < 4000 && world.enc; f++) {
     SF.run(1); const E0 = world.enc; if (!E0) break;
     while (lastI < E0.i) disp.push(lastI++ + '@' + E0.t);
-    for (const e of world.enemies) if (e.enc === 'anvil') { tagged.add(e); if (e.type === 'pod' && encOwned('anvil') > world.enemies.filter(o => o.enc === 'anvil' && o.type !== 'pod' && !o.dead && !o.dying && !o.crash && !harmlessE(o)).length) podCounted = true; }
+    for (const e of world.enemies) if (e.enc === 'anvil') { tagged.add(e); if (e.type === 'heavy') e.hp = 9999; /* (tough: the bot would shoot it down in its hold, and the hold is what this measures) */ if (e.type === 'pod' && encOwned('anvil') > world.enemies.filter(o => o.enc === 'anvil' && o.type !== 'pod' && !o.dead && !o.dying && !o.crash && !harmlessE(o)).length) podCounted = true; }
     if (world.waveCd !== cd0.wave || world.podCd !== cd0.pod) heldMoved++;
     if (world.groundCd !== cd0.ground) groundMoved = true;
     const hv = world.enemies.find(e => e.enc === 'anvil' && e.type === 'heavy' && !e.dead); if (hv) { if (hv.y === hy) { still++; stillAt = hv.y; } hy = hv.y; }
@@ -67,7 +68,7 @@ const playOut = `
   const r = JSON.parse(await peek(page, `(() => { ${level2(1, 7)} ${playOut} })()`));
   ok(r.started, 'encStart starts The Anvil in level 2');
   ok(r.disp.join() === r.want.join(), `every event dispatched once, in order, on its frame (${r.disp.join(' ')})`);
-  const fighters = 12; // two five-plane formations (a leader and four wingmen from stage 4, a five-plane dive before) and a chase pair
+  const fighters = 17; // two five-plane formations at once (a leader and four wingmen from stage 4, a five-plane dive before), a five-plane dive and a chase pair
   ok(r.types.heavy === 1 && r.types.fighter === fighters && r.types['pod(not counted)'] === 1 && Object.keys(r.types).length === 3, `tagged: ${JSON.stringify(r.types)}`);
   ok(!r.podCounted, 'the pod is never counted toward completion');
   ok(r.still >= r.holdT - 2 && Math.abs(r.stillAt - 0.28) < 0.01, `the Heavy stops at 28% of the screen and holds (${r.still} frames still, at ${(r.stillAt * 100).toFixed(1)}%)`);
@@ -82,7 +83,7 @@ const playOut = `
   // 2. Rookie: the second formation is skipped, not dropped
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { ${level2(0, 7)} ${playOut} })()`));
-  ok(r.types.fighter === 7 && r.types.heavy === 1, `Rookie: one formation and the chase pair (${JSON.stringify(r.types)})`);
+  ok(r.types.fighter === 12 && r.types.heavy === 1, `Rookie: one formation, the dive and the chase pair (${JSON.stringify(r.types)})`);
   ok(r.last && r.last.why === 'done' && r.last.dropped === 0, `Rookie: it still ends 'done' with nothing dropped`);
   await page.close();
 }
@@ -145,7 +146,7 @@ const playOut = `
     world.ebul = world.ebul.filter(b => !b.dummy); let minePause = -1;
     for (let f = 0; f < 300 && minePause < 0; f++) { while (world.ebul.filter(b => b.kind === 'amine').length < B + 10) world.ebul.push(dummy('amine')); SF.run(1); if (hv.pause > 0) minePause = f; }
     out.mines = minePause >= 0;
-    world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); // let that pause finish
+    world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); /* let that pause finish */
     const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if (Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; return e0(x, y, a, sp, kind); };
     let started = -1; for (let f = 0; f < 400; f++) { SF.run(1); if (started < 0 && hv.pause > 0) started = f; if (started >= 0 && hv.pause === 0) break; }
     eshot = e0; out.spread = spread; out.started = started >= 0;
@@ -164,7 +165,7 @@ const playOut = `
     encStart('anvil'); SF.run(1); const B = encBudget();
     const fill = k => { world.ebul = []; for (let i = 0; i < k; i++) world.ebul.push({ x: 8 + i * 9 % 208, y: 3, vx: 0, vy: 0, r: 2, kind: 's', a: 0 }); };
     fill(B - 6); out.first = volleyOK(3, 30); out.overReserved = volleyOK(4); out.fits = volleyOK(3); world.enc.res = world.enc.res.slice(0, 1);
-    for (let f = 0; f < 30; f++) { SF.run(1); } out.stillHeld = world.enc.res.length === 1; // (through the frame of its last bullet, 30 frames on)
+    for (let f = 0; f < 30; f++) { SF.run(1); } out.stillHeld = world.enc.res.length === 1; /* (through the frame of its last bullet, 30 frames on) */
     SF.run(1); fill(B - 6); out.released = world.enc.res.length === 0 && volleyOK(6);
     return JSON.stringify(out); })()`));
   ok(r.first && !r.overReserved && r.fits, 'a delayed volley reserves its bullets: with it admitted, only what still fits is admitted next');
@@ -180,17 +181,20 @@ const playOut = `
       while (lastI < E0.i) disp[lastI++] = E0.t;
       for (const e of world.enemies) if (e.enc === 'flaklane') tagged.add(e);
       const guns = [...tagged].filter(e => e.type === 'flak' && !e.dead); if (seenAt < 0 && guns.length && guns.every(e => e.y >= 0.15 * H)) seenAt = E0.t; }
-    const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
-    return JSON.stringify({ started, disp, seenAt, types, last: world.encLast }); })()`;
-  const v = JSON.parse(await peek(page, play(2, 1, 31, 300)));
-  ok(v.started && v.types.flak >= 1 && v.types.flak <= 2 && Object.keys(v.types).every(k => ['flak', 'troop', 'fighter'].includes(k)), `Flak lane places one or two guns (with crews) and nothing else: ${JSON.stringify(v.types)}`);
-  ok(v.seenAt > 0 && v.disp[1] === v.seenAt + 1, `the formation goes as soon as the guns are 15% down the screen (they get there as the enemies move in frame ${v.seenAt}; the next frame's tick sends it: ${v.disp[1]})`);
-  ok(v.disp[2] === v.disp[1] + 120 && v.disp[3] === v.disp[2] + 16 && v.disp[5] === v.disp[4] + 16 && v.types.fighter === 9, `then a strafing run of four, 120 frames after the formation, 16 apart (${[2, 3, 4, 5].map(i => v.disp[i]).join(', ')})`);
+    const types = {}, guns = []; for (const e of tagged) { types[e.type] = (types[e.type] || 0) + 1; if (e.type === 'flak') guns.push(Math.round(e.x)); }
+    return JSON.stringify({ started, disp, seenAt, types, guns: guns.sort((a, b) => a - b), last: world.encLast }); })()`;
+  const v = JSON.parse(await peek(page, play(3, 1, 31, 300)));
+  ok(v.started && v.types.flak === 2 && Object.keys(v.types).every(k => ['flak', 'troop', 'fighter'].includes(k)), `Flak lane places two guns (with crews) and nothing else: ${JSON.stringify(v.types)}`);
+  ok(v.guns[0] < W_ / 2 && v.guns[1] > W_ / 2 && v.guns[1] - v.guns[0] >= 70, `one gun on each side, a lane between them (x ${v.guns.join(' and ')})`);
+  ok(v.seenAt > 0 && v.disp[2] === v.seenAt + 1, `the first formation goes as soon as both guns are 15% down the screen (they get there as the enemies move in frame ${v.seenAt}; the next frame's tick sends it: ${v.disp[2]})`);
+  ok(v.disp[3] === v.disp[2] + 90 && v.disp[4] === v.disp[3] + 120 && v.disp[5] === v.disp[4] + 16 && v.disp[8] === v.disp[7] + 16 && v.types.fighter === 15, `a second formation 90 frames later, then a strafing run of five, 16 apart (${[3, 4, 5, 6, 7, 8].map(i => v.disp[i]).join(', ')}; fighters ${v.types.fighter})`);
   ok(v.last && v.last.why === 'done' && v.last.dropped === 0, `Flak lane ends 'done' after ${v.last && v.last.t} frames, nothing dropped`);
-  const r = JSON.parse(await peek(page, play(2, 0, 31, 300)));
-  ok(r.types.fighter === 5 && r.last && r.last.why === 'done', `Rookie: no strafing run (${JSON.stringify(r.types)})`);
-  const p4 = JSON.parse(await peek(page, play(4, 1, 31, 2200)));
-  ok(p4.types.flak >= 1 && p4.last && p4.last.dropped === 0, `level 4 (a level with a plan): its gun is placed (${JSON.stringify(p4.types)})`);
+  const r = JSON.parse(await peek(page, play(3, 0, 31, 300)));
+  ok(r.types.fighter === 5 && r.types.flak === 2 && r.last && r.last.why === 'done', `Rookie: both guns, one formation, no strafing run (${JSON.stringify(r.types)})`);
+  const p4 = JSON.parse(await peek(page, play(4, 1, 31, 2200))); // (after the level's first Sower: no ordinary encounter starts while it is up)
+  ok(p4.types.flak === 2 && p4.last && p4.last.dropped === 0, `level 4 (a level with a plan): both guns stand in its gun sites (${JSON.stringify(p4.types)}, x ${p4.guns.join(' and ')})`);
+  const off = JSON.parse(await peek(page, play(2, 1, 21, 300)));
+  ok(off.last && off.last.why === 'nolane' && (off.types.flak || 0) <= 1 && !off.types.fighter, `with no ground for the second gun (level 2's town, at its start) it is called off before any formation (${off.last && off.last.why}, ${JSON.stringify(off.types)})`);
   const sea = JSON.parse(await peek(page, `(() => { window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed; SF.run(1500);
     const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
   ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
@@ -209,12 +213,14 @@ const playOut = `
     const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
     return JSON.stringify({ started, disp, types, moved, last: world.encLast }); })()`;
   const v = JSON.parse(await peek(page, play(1, 41, false)));
-  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@300 4@420 5@436 6@452 7@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s, a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
-  ok(v.types.bomber === 1 && v.types.fighter === 13 && Object.keys(v.types).length === 2, `tagged: ${JSON.stringify(v.types)}`);
+  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@240 4@300 5@420 6@436 7@452 8@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s (the Ace-only second Bomber skipped at 4 s), a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
+  ok(v.types.bomber === 1 && v.types.fighter === 19 && Object.keys(v.types).length === 2, `tagged: three dives of five and a run of four (${JSON.stringify(v.types)})`);
   ok(v.moved === 0, 'air waves, pods and ground spawns all wait while it runs (an air fight)');
   ok(v.last && v.last.why === 'done', `it ends 'done' after ${v.last && v.last.t} frames (bullets peaked at ${v.last && v.last.peak}, budget ${18})`);
   const r = JSON.parse(await peek(page, play(0, 41, false)));
-  ok(r.types.fighter === 6 && r.last && r.last.why === 'done', `Rookie: two dives and no strafing run (${JSON.stringify(r.types)})`);
+  ok(r.types.fighter === 10 && r.last && r.last.why === 'done', `Rookie: two dives and no strafing run (${JSON.stringify(r.types)})`);
+  const a = JSON.parse(await peek(page, play(2, 41, false)));
+  ok(a.types.bomber === 2 && a.last && a.last.why === 'done', `Ace: a second Bomber joins (${JSON.stringify(a.types)})`);
   const t = JSON.parse(await peek(page, play(1, 42, true)));
   ok(t.last && t.last.why === 'done' && t.last.t < 1000, `a Bomber nobody can kill leaves the screen and the encounter still ends 'done' (${t.last && t.last.t} frames)`);
   await page.close();
@@ -278,7 +284,7 @@ const playOut = `
   const page = await freshPage('?enc=all');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     for (const lv of [8, 2, 3, 5, 7]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
-      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; // (6B opens over the sea: Flak lane waits for land, about frame 870)
+      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (6B opens over the sea: Flak lane waits for land, about frame 870) */
       if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
     out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
   ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
