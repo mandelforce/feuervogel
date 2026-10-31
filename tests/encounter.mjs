@@ -16,7 +16,7 @@
 // waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
 // Shadow Wing (every Campaign level): opened by the director where the Wing used to come, 2 s of calm, the Wing, all timers frozen for its
 // first 1120 frames; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: no Drilling, one submarine (not before
-// the island chain) and one from the flagship at about half its health.
+// the island chain) and one from the flagship at about half its health. ?enc=all in level 1A: its layout (First Contact, then The Anvil).
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -282,7 +282,7 @@ const playOut = `
   await page.close();
 }
 {
-  // ?enc=all: one encounter per level, the Campaign's tour (1A The Anvil, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
+  // ?enc=all: one encounter per level, the Campaign's tour (1A its layout, starting with First Contact, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
   // Flak lane), started as each level's practice run; and the playtest banner draws
   const page = await freshPage('?enc=all');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
@@ -290,7 +290,7 @@ const playOut = `
       for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (6B opens over the sea: Flak lane waits for land, about frame 870) */
       if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
     out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
-  ok(r[8] === 'anvil' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
+  ok(r[8] === 'firstcontact' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
   ok(r.drew === true, `the playtest banner (ENCOUNTER: <name>) draws${r.drew === true ? '' : ': ' + r.drew}`);
   await page.close();
 }
@@ -334,6 +334,25 @@ const playOut = `
   ok(r.drills === 0, `level 1A: no Drilling (${r.drills})`);
   ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1A: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
   ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
+  await page.close();
+}
+{
+  // 12. Level 1A's layout with ?enc=all (owner's playtest): First Contact right after the carrier, over the water (sweeps from both sides, a
+  // destroyer, two PT boats, a dive, a strafing run, a pod), then the Shadow Wing, then The Anvil from the farmland on; each plays out once
+  const page = await freshPage('?enc=all');
+  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); settings.diff = 1; startEnigma(8, true); delete window.__forceSeed;
+    const log = [], seen = new Set(), chunk = () => -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; let cur = null, wingSea = true;
+    for (let f = 0; f < 9000; f++) { const st = SF.run(1), E0 = world.enc;
+      if (E0 && (!cur || cur.id !== E0.id)) { cur = { id: E0.id, c: chunk(), n: {} }; log.push(cur); }
+      if (E0) for (const e of world.enemies) if (e.enc === E0.id && !seen.has(e)) { seen.add(e); cur.n[e.type] = (cur.n[e.type] || 0) + 1; if ((e.type === 'pt' || e.type === 'destroyer') && !WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)))) wingSea = false; }
+      if (cur && !cur.end && world.encLast && world.encLast.id === cur.id) cur.end = world.encLast.why;
+      if (st !== 'ok' || world.bossSpawned) break; }
+    const P = ENC_PLAN[8]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c }); })()`));
+  const ids = r.log.map(x => x.id).join(), fc = r.log.find(x => x.id === 'firstcontact') || { n: {} }, an = r.log.find(x => x.id === 'anvil') || {};
+  ok(ids === 'firstcontact,wing,anvil', `?enc=all in level 1A plays its layout in order: ${ids}`);
+  ok(fc.c >= r.fcAt && fc.end === 'done' && fc.n.fighter >= 19 && fc.n.destroyer === 1 && fc.n.pt === 2 && fc.n.pod === 1, `First Contact from chunk ${fc.c}: ${JSON.stringify(fc.n)}, ends ${fc.end}`);
+  ok(r.water, 'its ships are placed on water');
+  ok(an.c >= r.anvilAt && an.end === 'done', `The Anvil from chunk ${an.c} (the farmland starts at ${r.anvilAt}), ends ${an.end}`);
   await page.close();
 }
 await browser.close();
