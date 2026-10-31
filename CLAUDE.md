@@ -28,6 +28,10 @@ Don't open `docs/*.mp4`, `docs/*.html`, `*.png` or `licenses/`: not code.
 - `VERSION` in `sw.js` must match `VERSION` in `index.html`.
 - Run locally: `python3 -m http.server`. Unit tests: `node --test tests/`.
 
+## In-page test code
+
+Code passed to `page.evaluate` / `addInitScript` (especially as a string, or anything that may get collapsed onto one line) must never contain `//` comments: a `//` swallows the rest of the line and silently breaks the code. Use `/* ... */` or put the comment outside the in-page code.
+
 ## Test output
 
 `tests/enigma.mjs`, `encounter.mjs`, `buechse.mjs` and `drilling.mjs` print only failures and a count of the checks that passed. That is what you need to know whether a change broke something. Add `--verbose` when you need what the passing checks measured: when tuning balance, timing or counts (steps held, mines, bursts, shell speed, hit counts), when comparing numbers before and after a change, or when a failure needs its neighbouring checks for context. Don't add it just to confirm a green run.
