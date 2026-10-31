@@ -247,6 +247,23 @@ Not a verb: the Sower and the Shadow Wing. They are level set pieces with their 
 
 ## 7. MVP encounters
 
+**Owner's playtest, round 2 (2026-10-31): the encounters didn't feel significant, and Flak lane in level 6B had only one gun.** Changes since:
+- **Flak lane gets a real lane.**
+  - Each gun has its own event and its own third of the screen (left 6–38%, right 62–94%), and waits up to 4 s (`wait: 240`) for ground.
+  - Halfway through that wait it may stand anywhere on the far side of the other gun, 70 px clear of it.
+  - In a level with a plan, any free gun site takes the gun (flak, artillery, AA tower, bunker), as `slotGun` already does for flak on an artillery site.
+  - Without both guns, Flak lane is **called off** before its formations (`needAll`, end reason `nolane`). The gun that was placed stays as an ordinary gun, and the test link tries again 600 frames later.
+  - Measured: one gun on each side in 6 of 6 runs (old: 2 of 6). Level 2's and 6B's towns call it off at the very start, then it runs a little later.
+- **One size bigger.**
+  - The Anvil: two formations at once, plus a five-plane dive, and an 8 s hold.
+  - Flak lane: a second formation down the lane and a strafing run of five.
+  - Bomber screen: dives of five, and a second Bomber on Ace.
+  - Sower Window: a fourth convoy.
+  - About 40–60% more enemies per encounter: on Veteran 13 → 18, 10 → 17, 14 → 20 and 6 → 9.
+- **Budgets raised to fit:** 20/28/34 for The Anvil and Flak lane, 18/24/30 for Bomber screen, 30/38/46 for the Sower Window. The peaks now mostly stay under the budget (Veteran peaks 24, 20, 19, 40). So the budget trims only the worst moments and lets the bigger compositions show.
+- **Caps:** Flak lane's safety cap rose to 1800 frames (a gun nobody destroys takes about 1100 to scroll off), the Sower Window's to 2100.
+- **Still open:** the "human" bot takes 0–0.5 hits per encounter before and after. It's too good to tell whether the encounters now feel harder, so the next playtest is the measure. An entrance cue (a warning sound or message) was proposed and not built yet.
+
 Four compositions, one per idea from the earlier discussion. Each has one anchor, one pressure and one restriction, and announces the restriction before the pressure arrives.
 
 ### 7.1 The Anvil: Heavy holding while fighters close in
