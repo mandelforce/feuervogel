@@ -340,15 +340,16 @@ The owner found level 1 too empty before the first encounter, the two Drillings 
 |---|---|---|
 | carrier (chunks 0–4) | the carrier opening, unchanged | existing |
 | open sea (4–10) | the carrier scene: it runs until about chunk 11 | existing |
-| island chain (11–16) | **First Contact** right after the carrier: the formation types one after another so each reads on its own (a sweep from the left, one from the right, a five-plane dive, a strafing run), over a destroyer and two PT boats; a pod at the end | built (test link) |
+| island chain (11–16) | **First Contact** right after the carrier: the formation types one after another so each reads on its own (a sweep from the left, one from the right, a five-plane dive, a strafing run), over a destroyer and two PT boats; a pod at the end | built, live since 1.2.5.13 (owner: its formations are logged in) |
 | island chain, after First Contact | normal director and the islet guns; **the level's one submarine** comes here | built |
-| airbase island (16–25) | set piece 1; no Drilling pit | built (pits removed) |
+| airbase island (16–25) | set piece 1; the two tank pits (chain and airbase) hold dug-in heavy tanks, no Drilling | built |
 | sea and beach (25–31) | **Shadow Wing** (7.5) | built |
 | farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so with a Wing left alone (about 42 s) it starts in the village or the forest (chunks 40–45; given up past 50) | built (test link) |
 | forest, coast, sea | normal director, then the flagship; **one submarine at about half its health** | built |
 
 - **Built (1.2.5.12, live):** no Drilling pits in 1A (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
 - **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1A: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
+- **Second playtest (1.2.5.13, live):** First Contact is live in every Campaign run (`ENC_PLAN` entry `live: true`; The Anvil stays on `?enc=all`). Level 1A's two tank pits are back, each with a dug-in heavy tank (`planDrills`). Two Büchse at most in 1A: one dug in at the big island's road tip (`roadTip`: a `tip` slot where the main road begins at the south shore, filled by `planDrills`), and at most one in a convoy (`world.buechseN`); the "level 2 on" rule had matched 1A's internal 8.
 - **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
 
 ## 8. Soft bullet budget

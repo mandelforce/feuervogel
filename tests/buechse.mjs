@@ -88,13 +88,17 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(t.nova && t.after, `an untouched turret outlives a Nova (${t.left} of 42 left), and two more hits pop it`);
   ok(!t.weakPop && t.laser, 'a weak laser frame leaves the turret; a full charged laser pops it at once');
   ok(t.inLock && t.pop && t.shots === 0 && t.hull && t.rolled > 50, `a turret popped in the lock ends the cycle: no shot after it, the hull stays and drives on (${t.rolled.toFixed(0)} px)`);
-  // 4. the muzzle spot is the drawn bore at all 16 headings (a copy of the turret with the bore in a marker colour, drawn as the game draws it)
-  const m = JSON.parse(await peek(page, `(() => { ${alone()} const set = rotSet(buechseTur(['#1c2014', '#2c3420', '#3e482c', '#56623c', '#748050', '#96a06c'], true)); let worst = 0, found = 0;
-    for (let i = 0; i < 16; i++) { e.x = 112.37; e.y = 200.71; e.ta = i * TAU / 16 + 0.04; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); spr(set[dirIdx(e.ta)], e.x, e.y);
-      const d = ctx.getImageData(0, 0, W, H).data; let sx = 0, sy = 0, n = 0; for (let j = 0; j < H; j++) for (let q = 0; q < W; q++) { const p = (j * W + q) * 4; if (d[p] === 255 && d[p + 1] === 0 && d[p + 2] === 255) { sx += q + 0.5; sy += j + 0.5; n++; } }
-      if (n) found++; const [bx, by] = buechseBore(e); worst = Math.max(worst, Math.hypot(sx / n - bx, sy / n - by)); }
-    return JSON.stringify({ worst, found }); })()`));
-  ok(m.found === 16 && m.worst < 0.01, `the muzzle spot sits on the drawn bore at all 16 headings (worst ${m.worst.toFixed(3)} px)`);
+  // 4. the gun is drawn at the turret's exact heading (owner: the sight line is always a perfect extension of the barrel). At 48 headings all around, the line run back from the
+  // muzzle lies on the drawn barrel all the way to the turret, and the muzzle is on the dark bore
+  const m = JSON.parse(await peek(page, `(() => { ${alone()} const B = SPR.buechseD; e.silver = false; e.x = 112.3; e.y = 200.6;
+    const clear = () => { ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, W, H); };
+    let off = 0, bore = 0;
+    for (let k = 0; k < 48; k++) { e.ta = k * TAU / 48 + 0.03; clear(); buechseGun(e); const [bx, by, la] = buechseLine(e), d = ctx.getImageData(0, 0, W, H).data, at = (x, y) => { const q = (Math.floor(y) * W + Math.floor(x)) * 4; return [d[q], d[q + 1], d[q + 2]]; };
+      if (Math.abs(angDiff(la, e.ta)) > 1e-9) off++;
+      for (let s = 1; s <= BUECHSE_L - 9; s += 0.5) { const c = at(bx - Math.cos(la) * s, by - Math.sin(la) * s); if (c[0] === 255 && c[1] === 0 && c[2] === 255) { off++; break; } }
+      const c0 = at(bx, by); if (c0[0] === 14 && c0[1] === 14 && c0[2] === 18) bore++; }
+    return JSON.stringify({ off, bore }); })()`));
+  ok(m.off === 0 && m.bore === 48, `the sight line is a perfect extension of the barrel at 48 headings: on the barrel back to the turret (${m.off} misses), the muzzle on the bore (${m.bore} of 48)`);
   await page.close();
 }
 // 5. its side emplacements: two in levels 2 to 7 (one in 6, whose edges are built up), none in 1 and 1A; at the screen's edges,
