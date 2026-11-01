@@ -12367,7 +12367,7 @@ const ENT = {
     if (--e.cdA <= 0 && canFire(e, 60)) { e.cdA = Math.round((Math.max(70, 110 - run.loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12, e.ta + (k - 0.5) * 0.1, bspeed()); flash(A[0] + Math.cos(e.ta) * 12, A[1] + Math.sin(e.ta) * 12); sfx('cannon'); }
     if (--e.cdB <= 0 && canFire(e, 60)) { e.cdB = Math.round((Math.max(70, 110 - run.loop * 15)) * fireSlow()); for (let k = 0; k < 2; k++) eshot(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12, e.tb + (k - 0.5) * 0.1, bspeed()); flash(B[0] + Math.cos(e.tb) * 12, B[1] + Math.sin(e.tb) * 12); sfx('cannon'); }
   } },
-  htank: { turret: true, treads: true, medals: 1, stats: { hp: 26, hw: 9, hh: 12, score: 1500, rad: 14, heavy: true }, update(e) { ENT.tank.update(e); } },
+  htank: { turret: true, treads: true, medals: 1, stats: { hp: 26, hw: 9, hh: 12, score: 1500, rad: 14, heavy: true, turHp: 3 }, update(e) { ENT.tank.update(e); } },
   pstation: { medals: 1, stats: { hp: 40, hw: 6, score: 1500, rad: 16 }, update(e) { groundPos(e); } },
   bridge: { harmless: true, uncounted: true, showScore: true, medals: 1, stats: { hp: 18, hw: 8, score: 800, rad: 10 }, update(e) { groundPos(e); } },
   secret: { harmless: true, uncounted: true, stats: { fixedHp: 4, hw: 7, hh: 7, score: 0, rad: 1 }, update(e) {
