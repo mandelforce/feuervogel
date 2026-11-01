@@ -8353,6 +8353,10 @@ function resetTerrainState() {
 function startEnigma(level, ranked) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
 }
+function restartStage() { // pause menu: restart the stage in the mode being played (startAt alone would drop the Enigma sortie and fly the Retro Run)
+  const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;
+  if (lv) startEnigma(lv, ranked); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
+}
 function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
@@ -15351,7 +15355,7 @@ function toggleAudio(key) {
 document.getElementById('pmSound').addEventListener('click', () => toggleAudio('sfxOn'));
 document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('musicOn'));
 document.getElementById('pmResume').addEventListener('click', closeMenu);
-document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); startAt(run.stage); });
+document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); restartStage(); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
 document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); stopMusic(); if (app.state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); app.state = 'over'; app.overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
