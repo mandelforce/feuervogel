@@ -10087,7 +10087,7 @@ function planCows(sc) {
    the origin at the carrier's centre, bow up (v < 0). world.carrier is null in every other run, so none of this touches the Campaign. */
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
-const CV = { VEE: 510, K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
+const CV = { VEES: [[510, [0.2, 0.8]], [800, [0.5]], [1080, [0.3, 0.7]]], K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
@@ -10113,7 +10113,7 @@ function carrierTick() {
     if (gf % 2 === 0) { const [bx, by] = carrierXY(C, 0, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, sd * 34, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, sd * 37, rnd(-120, 160)); foam(hx, hy); } }
     if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
   }
-  if (t === CV.VEE) { waveDive(5, W * 0.2, 1.3); waveDive(5, W * 0.8, 1.3); } // right after the take-off the pause is filled: a V formation on each side, straight from north to south (owner)
+  for (const [vt, xs] of CV.VEES) if (t === vt) for (const vx of xs) waveDive(5, W * vx, 1.3); // the pause after the take-off is filled: a V on each side (3 s after the carrier is nearly off), then one up the middle, then a pair again; straight from north to south (owner)
   if (t >= C.nextL && t < CV.T1 + CV.PURSUIT && C.launched < CV.LAUNCHES[settings.diff]) { // only CV.LAUNCHES fighters follow the Feuervogel (by difficulty; few: easier for new players)
     const chasers = world.enemies.filter(e => (e.chase || e.type === 'cfighter') && !e.dead).length, cap = (settings.diff === 0 ? 2 : 3) + run.loop;
     C.nextL = t + CV.GAP; // the second (Veteran, Ace) rolls GAP frames after the first, on the other catapult
