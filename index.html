@@ -9933,7 +9933,7 @@ function subOK(wy) {
 // Level 1 (owner): its one submarine in the whole level, at a fixed place: the island chain's water, from chunk TT_SUB on (the open water
 // nearest the middle; tried each frame for 3 chunks, the same in every run). The flagship sends two more (bossTick).
 const TT_SUB = { 1: 13 };
-const TT_BOSS_SUB = [[3300, 4800], [1300, 2200], [1250, 1550]]; // per difficulty: frames after the flagship appears (its age, e.t) for its two submarines: where the bot has it at about half and a quarter of its health (its fight lasts about 5800, 3100 to 3600 and 2200 frames)
+const TT_BOSS_SUB = [1200, 2100]; // frames after the flagship appears (its age, e.t) for its two submarines, the same on every difficulty (owner: 20 s and 35 s; the shortest fight the bot flew, on Ace, lasts about 37 s)
 function ttSub(sc) {
   const S = run.sortie, c0 = S ? TT_SUB[S.level] : undefined; if (c0 === undefined || world.subN > 0 || world.bossSpawned) return;
   const wy = -34 - sc, c = -Math.floor(wy / CH) - world.stageBaseP; if (c < c0 || c > c0 + 3) return;
@@ -11519,6 +11519,7 @@ const BOSSMOVE = {
     for (const c of e.crew) { const sp = e.panicT > 0 ? 3 : 1; c.oy += c.v * sp; c.ox += c.vx * sp; if (Math.abs(c.oy) > 96 || (Math.abs(c.ox) < 20 && c.oy > -32 && c.oy < 34)) c.v = -c.v; if (Math.abs(c.ox) > 28) c.vx = -c.vx; if (Math.random() < 0.01) { c.v = rnd(-0.18, 0.18); c.vx = e.panicT > 0 ? rnd(-0.2, 0.2) : 0; } }
     if (e.panicT > 0) e.panicT--;
     if (e.mt === 0 && e.y < 118 + BY) { e.y += 0.55; if (gf % 2 === 0) { if (run.sortie) shipWake(e); else foam(e.x + rnd(-14, 14), e.y + 114); } return false; }
+    if (run.sortie && !world.quiet) { const k = e.subs || 0; if (k < 2 && e.t >= TT_BOSS_SUB[k]) { const s0 = k ? (e.subX < W / 2 ? W - 30 : 30) : W - 30, wy = 90 + BY - Math.floor(world.scroll), xs = [s0, s0 < W / 2 ? 54 : W - 54, W - s0, s0 < W / 2 ? W - 54 : 54], sx = xs.find(x => placeOK(x, wy, 26)) ?? s0; e.subs = k + 1; e.subX = sx; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } // the Campaign (owner): two submarines, the first at about half the battle, the second at about a quarter of the flagship's health left, on the other side: 20 s and 35 s after it appears on every difficulty (TT_BOSS_SUB, the timetable; on time: at its side, else the first free spot along either edge, else at its side anyway, still submerged)
     if (shipRam(e)) return true;
     e.mt++;
     e.x = W / 2 + Math.sin(e.mt * 0.008) * 26; e.y = 118 + BY + Math.sin(e.mt * 0.013) * 6;
@@ -11532,8 +11533,7 @@ const BOSSMOVE = {
         else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
       }
       e.subT = (e.subT ?? 600) - 1;
-      if (run.sortie) { const k = e.subs || 0; if (k < 2 && e.t >= TT_BOSS_SUB[settings.diff][k]) { const sx = k ? (e.subX < W / 2 ? W - 30 : 30) : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = k + 1; e.subX = sx; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): two submarines, the first at about half the battle, the second at about a quarter of the flagship's health left, on the other side: at fixed frames of the fight (TT_BOSS_SUB, the timetable; each tried every frame until there is room)
-      else if (e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
+      if (!run.sortie && e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
     }
     return true;
   },

@@ -321,7 +321,7 @@ const playOut = `
 }
 {
   // 11. Level 1 (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; one submarine in the whole level, at a fixed place (chunk 13) and not
-  // before the island chain; the flagship sends two more, at fixed frames of its fight (about half and a quarter of its health) (the Campaign; Retro Run's flagship keeps its two); First
+  // before the island chain; the flagship sends two more, 20 s and 35 s after it appears (the Campaign; Retro Run's flagship keeps its two); First
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed;
@@ -329,13 +329,13 @@ const playOut = `
     for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
       if (world.enc && out.encs[out.encs.length - 1] !== world.enc.id) out.encs.push(world.enc.id);
       for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) { out.buechse++; const sl = sortiePlan(run.sortie).slots.find(q => q.kind === 'tip'); if (sl && Math.hypot(e.wx - sl.x, e.wy - (run.sortie.planY0 - sl.y)) < 2) out.tipB = { dug: !!e.dug, road: terrainType(Math.floor(e.wx), Math.floor(e.wy)) }; } if (e.type === 'htank' && e.dug) out.dugHeavy++;
-        if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(+bossLeft(b).toFixed(2)); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
+        if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(b.t); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
       if (st !== 'ok' || run.sortie.level !== 1) break; }
     return JSON.stringify(out); })()`));
   ok(r.drills === 0 && r.dugHeavy === 2, `level 1: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
   ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
   ok(r.subs.length === 1 && r.subs[0] === 13 && r.subs[0] >= r.chain, `level 1: one submarine before the boss, at its fixed place in the island chain (chunk 13, the timetable) (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
-  ok(r.boss.length === 2 && r.boss[0] <= 0.7 && r.boss[0] > 0.3 && r.boss[1] < r.boss[0] && r.boss[1] > 0.1, `the flagship sends two submarines at fixed frames of its fight, where the bot has it at about half and a quarter of its health (${r.boss.join(', ')})`);
+  ok(r.boss.length === 2 && r.boss[0] >= 1200 && r.boss[0] < 1206 && r.boss[1] >= 2100 && r.boss[1] < 2106, `the flagship sends two submarines, 20 s and 35 s after it appears (frames ${r.boss.join(' and ')} of its life, sampled every 5)`);
   ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1 plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }
