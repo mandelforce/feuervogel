@@ -316,7 +316,7 @@ for (const lv of [2, 6]) {
     SF.run(SF.peek('CV.FLY') - 30 + 2); Object.assign(o, SF.peek(`({ deckAfter: player.deck, alt: player.alt, steerAfter: canSteer(), cf: world.enemies.filter(e => e.type === 'cfighter').length + world.enemies.filter(e => e.chase).length })`));
     o.gunKill = SF.peek(`(() => { const g = world.enemies.find(e => e.type === 'cgun' && !e.dead); if (!g) return false; damage(g, 999); return g.dead && world.carrier.gunDead[g.gi] === true; })()`);
     o.ships = 0; o.minS = 9; o.chase = 0;
-    for (let i = 0; i < 250; i++) { SF.run(10); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
+    for (let i = 0; i < 250; i++) { SF.run(10); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
       if (!v.over) o.ships += v.ships; o.minS = Math.min(o.minS, v.s); o.chase = Math.max(o.chase, v.chase); o.gone = v.gone; o.over = v.over; }
     o.launched = SF.peek('world.carrier.launched'); o.t = SF.peek('world.carrier.t'); SF.run(1500); o.later = SF.peek(`world.enemies.filter(e => !e.chase && !e.dead && ['fighter', 'bomber', 'heavy', 'sub', 'destroyer', 'pt', 'flak'].includes(e.type)).length + run.stats.seen`); o.errs = SF.R.errs.slice(0, 2); return o; });
   ok(r.camp, 'a Campaign run has no carrier');
@@ -324,7 +324,7 @@ for (const lv of [2, 6]) {
   ok(!r.deckAfter && r.alt === 1 && r.steerAfter && r.cf >= 1, `the Feuervogel lifts off over the bow and can steer; fighters are launching after it (${r.cf})`);
   ok(r.gunKill, 'a deck gun can be destroyed and leaves its stub on the deck');
   ok(r.minS === r.sEnd && r.gone && r.over, `the carrier shrinks to ${r.sEnd} and slides off the bottom, and the pursuit ends (scene over at frame ${r.t})`);
-  ok(r.launched === 2 && r.chase >= 1 && r.ships === 0, `${r.launched} fighters launched on Veteran in the pursuit (up to ${r.chase} chasing at once); no ships spawned during the scene`);
+  ok(r.launched === 2 && r.chase >= 1 && r.ships === 0, `${r.launched} fighters launched on Veteran in the pursuit (up to ${r.chase} chasing at once); no destroyer or submarine spawned during the scene (only its two PT boats)`);
   ok(r.later > 0 && r.errs.length === 0, `after the scene the director takes over (${r.later} enemies seen)${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }

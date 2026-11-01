@@ -9602,8 +9602,8 @@ function waveDive(n = 5, cx0, v0) {
   const cx = cx0 === undefined ? rnd(50, W - 50) : cx0, offs = [[0, 0], [-15, -13], [15, -13], [-30, -26], [30, -26]];
   for (let i = 0; i < n; i++) world.enemies.push(mkFighter(cx + offs[i][0], -14 + offs[i][1], PI / 2, (v0 || 1.9) + run.loop * 0.2));
 }
-function waveSweep() {
-  const side = Math.random() < 0.5 ? -1 : 1, y0 = rnd(10, 50);
+function waveSweep(side0) {
+  const side = side0 || (Math.random() < 0.5 ? -1 : 1), y0 = rnd(10, 50);
   for (let i = 0; i < 5; i++) world.later.push({ at: gf + i * 11, fn: () => world.enemies.push(mkFighter(side < 0 ? -12 : W + 12, y0, side < 0 ? 0.3 : PI - 0.3, 2, { turn: side < 0 ? 0.0065 : -0.0065 })) });
 }
 function waveStrafe() {
@@ -9731,6 +9731,14 @@ const WING_U = { 1: 0.44 }; // where a level's Shadow Wing comes, as a share of 
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
 // dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
 // event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
+// A PT boat or a destroyer on open water near x (shares of W); false while there is none (retried). The encounters' ship verb and the carrier scene use it.
+function seaShip(v) { const wy = -34 - Math.floor(world.scroll), m = hpm(); if (biomeAtSpawn() !== 'sea') return false; // a PT boat or a destroyer on open water near x (retried while there is none)
+    const xs = []; for (let x = 40; x <= W - 40; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - v.x * W) - Math.abs(b - v.x * W)); // (the nearest free water to x, anywhere across)
+    for (const wx of xs) {
+      if (v.kind === 'destroyer') { if (placeOK(wx, wy - 30, 34) && seaOK(wx, wy - 30, 16, 46)) { world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 })); return true; } }
+      else if (placeOK(wx, wy, 16) && seaOK(wx, wy, 6, 16)) { world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; } }
+    return false;
+}
 const ENC_VERB = {
   heavy: v => { waveHeavy(v.x * W, v.hold ? { holdY: v.hold * H, holdT: v.holdT } : undefined); return true; },
   formation: v => { if (avail('leader')) waveLeader(v.x * W); else waveDive(5, v.x * W); return true; }, // a leader with wingmen from stage 4 (FEAT), a five-plane dive before
@@ -9748,12 +9756,7 @@ const ENC_VERB = {
   convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
   wing: () => { spawnWing(); return true; },
   sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
-  ship: v => { const wy = -34 - Math.floor(world.scroll), m = hpm(); if (biomeAtSpawn() !== 'sea') return false; // a PT boat or a destroyer on open water near x (retried while there is none)
-    const xs = []; for (let x = 40; x <= W - 40; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - v.x * W) - Math.abs(b - v.x * W)); // (the nearest free water to x, anywhere across)
-    for (const wx of xs) {
-      if (v.kind === 'destroyer') { if (placeOK(wx, wy - 30, 34) && seaOK(wx, wy - 30, 16, 46)) { world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 })); return true; } }
-      else if (placeOK(wx, wy, 16) && seaOK(wx, wy, 6, 16)) { world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; } }
-    return false; },
+  ship: v => seaShip(v),
   strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = ttOn() ? (Math.random() < 0.5 ? -1 : 1) : player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
     world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
 };
@@ -10087,7 +10090,7 @@ function planCows(sc) {
    the origin at the carrier's centre, bow up (v < 0). world.carrier is null in every other run, so none of this touches the Campaign. */
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
-const CV = { VEE: 510, K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
+const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 'lead', 0.5], [860, 'pt', 0.65], [1060, 'sweep', -1], [1120, 'sweep', 1]], K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
@@ -10113,7 +10116,7 @@ function carrierTick() {
     if (gf % 2 === 0) { const [bx, by] = carrierXY(C, 0, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, sd * 34, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, sd * 37, rnd(-120, 160)); foam(hx, hy); } }
     if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
   }
-  if (t === CV.VEE) { waveDive(5, W * 0.2, 1.3); waveDive(5, W * 0.8, 1.3); } // right after the take-off the pause is filled: a V formation on each side, straight from north to south (owner)
+  for (const [st, what, x] of CV.SCENE) if (what === 'pt') { if (t >= st && t < st + 90 && !(C.ptDone || (C.ptDone = [])).includes(st) && seaShip({ kind: 'pt', x })) C.ptDone.push(st); } else if (t === st) { if (what === 'v') waveDive(5, W * x, 1.3); else if (what === 'lead') waveLeader(W * x); else if (what === 'sweep') waveSweep(x); } // the pause after the take-off is filled (owner): two V's straight down, a leader formation, a sweep from each side and two PT boats
   if (t >= C.nextL && t < CV.T1 + CV.PURSUIT && C.launched < CV.LAUNCHES[settings.diff]) { // only CV.LAUNCHES fighters follow the Feuervogel (by difficulty; few: easier for new players)
     const chasers = world.enemies.filter(e => (e.chase || e.type === 'cfighter') && !e.dead).length, cap = (settings.diff === 0 ? 2 : 3) + run.loop;
     C.nextL = t + CV.GAP; // the second (Veteran, Ace) rolls GAP frames after the first, on the other catapult
@@ -10124,7 +10127,7 @@ function carrierTick() {
       C.launched++;
     }
   }
-  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (!ttOn() && C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone (not in the Campaign's timetable: at its time)
+  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (!ttOn() && t > CV.SCENE[CV.SCENE.length - 1][0] && C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone, but not before the last V formation (not in the Campaign's timetable: at its time)
 }
 // The Feuervogel on the deck (player.fly counts CV.FLY down, so steering and firing wait as in a fly-in): standing, then rolling down the
 // centre line to the bow (lift-off at CV.T1), then climbing on, slowing, with its shadow drawing away from it.
