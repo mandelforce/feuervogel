@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10400,16 +10400,16 @@ function squad(wy, types) {
 const DRUM_AS_CRATE = { hw: 3, hh: 3, score: 150, rad: 5 }; // (the drum in a crate pile has always been a crate-sized, crate-priced barrel; a drum anywhere else is the 200-point one)
 function tankStats(o) { return Object.assign({ ta: PI / 2, cd: rnd(60, 140) | 0 }, o); }
 function convoy(wy, trucks) {
-  const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0, S = run.sortie, rt = S ? routePick(S, wy) : null; if (S && !rt) return; // Enigma Run: on a route, its vehicles further apart
+  const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0, S = run.sortie, rt = S ? routePick(S, wy) : null, bcap = S ? (S.level === 3 ? 1 : S.level === 4 ? 2 : 3) : 0; let bc = 0; if (S && !rt) return; // Enigma Run: on a route, its vehicles further apart
   for (let i = 0; i < n; i++) {
     const twy = wy - i * (S ? ROUTE_SPACE : 26), wx = (rt ? routeX(rt, twy) : roadX(twy)) + lane;
     if (rt && !routeOn(S, rt, twy)) continue;
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && !heavy && (S.level !== 1 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: every Campaign level; in level 1 one in a convoy at most, besides the one at the big island's road tip (owner))
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && !heavy && bc < bcap && (S.level !== 1 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: every Campaign level; at most 1 in a convoy in level 3 and 2 in level 4 (bcap); in level 1 one in a convoy at most, besides the one at the big island's road tip (owner))
       const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
-      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) world.buechseN = (world.buechseN || 0) + 1;
+      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) { world.buechseN = (world.buechseN || 0) + 1; bc++; }
     }
   }
 }
