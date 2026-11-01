@@ -36,7 +36,7 @@ const lone = { bursts: 0, each: [] };
 // chaotic path (its bursts and closest pass swing with any change to its speed), so the checks take all five
 for (const seed of [1, 7, 11, 23, 42]) {
   const r = await peek(`JSON.stringify((() => { window.__forceSeed = ${seed}; ${start} delete window.__forceSeed; wavePfeil(0);
-    const P = PFEIL, o = { n: 0, maxOff: 0, offFrames: 0, back: 0, bursts: 0, badShot: 0, minD: 1e9, dead: false, skin: false, speeds: [], culled: false, enteredAt: -1 }; let wasOff = false;
+    const P = PFEIL, o = { n: 0, maxOff: 0, offFrames: 0, back: 0, bursts: 0, badShot: 0, minD: 1e9, dead: false, skin: false, speeds: [], culled: false, enteredAt: -1, maxJerk: 0, reversals: 0, maxOffLap: 0 }; let wasOff = false, ph = null, pdh = 0, lap = 0;
     for (let f = 0; f < 2400; f++) {
       for (const e of world.enemies) e.hp = 999; SF.run(1); world.enemies = world.enemies.filter(e => e.type === 'pfeil' || e.dead === false && false);
       const e = world.enemies.find(x => x.type === 'pfeil'); if (!e) { o.culled = true; break; } o.n = world.enemies.length;
@@ -44,6 +44,7 @@ for (const seed of [1, 7, 11, 23, 42]) {
       o.speeds.push(Math.hypot(e.vx, e.vy)); const off = Math.max(-e.x, e.x - W, -e.y); o.maxOff = Math.max(o.maxOff, off);
       const out = e.x < 0 || e.x > W || e.y < 0; if (out) o.offFrames++; if (wasOff && !out) o.back++; wasOff = out;
       const q = nearShip(e.x, e.y); o.minD = Math.min(o.minD, Math.hypot(q.x - e.x, q.y - e.y));
+      if (ph !== null) { const dh = angDiff(ph, e.h); o.maxJerk = Math.max(o.maxJerk, Math.abs(dh - pdh)); if (Math.abs(dh) > 0.004 && Math.abs(pdh) > 0.004 && dh * pdh < 0) o.reversals++; lap = out ? lap + Math.abs(dh) : 0; o.maxOffLap = Math.max(o.maxOffLap, lap); pdh = dh; } ph = e.h;
       if (e.tele === P.tele - 1) o.bursts++;
       for (const b of world.ebul) { const a = Math.atan2(b.vy, b.vx); if (Math.abs(angDiff(a, e.h)) > 0.01 && Math.abs(angDiff(a, e.face)) > 0.01) o.badShot++; }
       world.ebul.length = 0;
@@ -53,6 +54,9 @@ for (const seed of [1, 7, 11, 23, 42]) {
   ok(Math.abs(r.minSp - r.cruise) < 0.1 && Math.abs(r.maxSp - r.cruise) < 0.1, `seed ${seed}: it flies at its cruise speed, ${r.cruise} (${r.minSp.toFixed(2)} to ${r.maxSp.toFixed(2)} px/frame)`);
   ok(r.offFrames > 100 && r.back >= 3, `seed ${seed}: it goes off the screen on its circles (${r.offFrames} frames) and comes back every time (${r.back} returns)`);
   ok(r.maxOff < 420, `seed ${seed}: it never goes beyond its cull margin (${Math.round(r.maxOff)} px outside the screen at most)`);
+  ok(r.maxJerk < 0.0045, `seed ${seed}: its turn rate changes smoothly, never by more than ${r.maxJerk.toFixed(4)} rad a frame (no sudden start or stop of a curve)`);
+  ok(r.reversals === 0, `seed ${seed}: it never reverses the direction of a turn from one frame to the next (${r.reversals} reversals)`);
+  ok(r.maxOffLap < 7.5, `seed ${seed}: it never orbits outside the screen (at most ${(r.maxOffLap / 6.283).toFixed(2)} laps in one stretch off the screen)`);
   ok(r.badShot === 0, `seed ${seed}: every shot leaves along its heading`);
   ok(r.minD > 30, `seed ${seed}: it breaks away before it flies into a ship (closest ${r.minD.toFixed(1)} px)`);
   ok(!r.skin, `seed ${seed}: a lone Pfeil has the plain skin`);
@@ -71,9 +75,9 @@ ok(lone.bursts >= 10, `it finds its moments to shoot: ${lone.bursts} bursts in f
     }
     o.maxStep = maxStep; o.maxTurn = maxTurn; o.overlap = overlap; o.minSep = Math.round(minSep); o.leadFrames = leadFrames; o.frames = frames;
     // the skin is built from the plain art, which it leaves alone
-    const s2 = SPR.pfeil, plain = s2.rot ? s2.rot[8].c.toDataURL() : null; leaderSet(s2); o.plainSame = !s2.rot || s2.rot[8].c.toDataURL() === plain;
+    const s2 = SPR.pfeil, plain = s2.rot64 ? s2.rot64[16].c.toDataURL() : null; leaderSet(s2); o.plainSame = !s2.rot64 || s2.rot64[16].c.toDataURL() === plain;
     const px = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] > 220 && d[i + 1] > 180 && d[i + 2] < 90) n++; return n; };
-    o.yellow = px(leaderSet(s2)[8].c); o.yellowPlain = px(rotSet(s2, 32)[8].c);
+    o.yellow = px(leaderSet(s2)[16].c); o.yellowPlain = px(rotSet(s2, 64)[16].c);
     // the leader is shot down: a wingman takes over, and wears the skin
     const L = g.lead, before = world.enemies.filter(e => e.fm).map(e => [e, e.x, e.y]); L.dead = true; SF.run(1); let jump = 0; for (const [e, x, y] of before) jump = Math.max(jump, Math.hypot(e.x - x, e.y - y)); o.jump = jump; let after = 0; for (let k = 0; k < 120; k++) { const b2 = world.enemies.filter(e => !e.dead).map(e => [e, e.x, e.y]); for (const e of world.enemies) e.hp = 999; SF.run(1); for (const [e, x, y] of b2) after = Math.max(after, Math.hypot(e.x - x, e.y - y)); world.ebul.length = 0; } o.afterStep = after; const ps = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); o.afterKill = { n: ps.length, leads: ps.filter(e => e.isLead).length, newLead: g.lead !== L && g.lead.fm === false, slotsLeft: ps.filter(e => e.fm).length };
     // down to the last one: no skin, flies on alone
