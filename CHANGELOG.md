@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Campaign level 1, the flagship sends a second submarine (build 1.2.5.19): the first still comes at half its health, the second at a quarter, on the other side of the screen.
 - The Campaign is the same for every player (build 1.2.5.18). Every level starts from the same seed, 1944, with its own number mixed in, in the Campaign and in practice; flown the same way, a level plays exactly the same on any device. The secret's place and the carrier's deck guns no longer come from the device's own randomness, and the frame count starts at 0 with each level. Endless and Retro Run still change from run to run. New test: `tests/fixed-seed.mjs`.
 - Campaign level 1 plays as the first level again (build 1.2.5.17). No Pfeil in level 1 (from level 3 on, as meant), and the Heavy fires its standard volleys there (the extra one and the bigger bullet allowance are for level 3 on). Level 1 had counted as a late level because of its old internal number 8.
 - The Campaign's levels are numbered 1 to 6 everywhere (build 1.2.5.16; no change to play). The islands level that was 1A is level 1, and the harbour city that was 6B is level 6, also inside the game, the tests and the docs. The old levels 1 (without the islands) and 6 (the river town) are gone; they were no longer in the Campaign or the practice picker. The ground, the enemies and the replays stay exactly as they were. A saved run from an earlier build carries on in the right level; one saved in the old level 1 or 6 is dropped.

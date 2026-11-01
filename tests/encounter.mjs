@@ -321,7 +321,7 @@ const playOut = `
 }
 {
   // 11. Level 1 (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; at most one submarine in the whole level and not
-  // before the island chain; the flagship sends one more at about half its health (the Campaign; Retro Run's flagship keeps its two); First
+  // before the island chain; the flagship sends two more, at about half and a quarter of its health (the Campaign; Retro Run's flagship keeps its two); First
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed;
@@ -335,7 +335,7 @@ const playOut = `
   ok(r.drills === 0 && r.dugHeavy === 2, `level 1: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
   ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
   ok(r.subs.length <= 1 && r.subs.every(c => c >= r.chain), `level 1: at most one submarine before the boss, not before the island chain (the director rolls it: about 1 run in 3 has one) (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
-  ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
+  ok(r.boss.length === 2 && r.boss[0] <= 0.5 && r.boss[0] > 0.3 && r.boss[1] <= 0.25 && r.boss[1] > 0.1, `the flagship sends two submarines, at about half and a quarter of its health (${r.boss.join(', ')})`);
   ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1 plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }

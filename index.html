@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.18'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.19'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -11491,7 +11491,7 @@ const BOSSMOVE = {
         else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
       }
       e.subT = (e.subT ?? 600) - 1;
-      if (run.sortie) { if (!e.subs && bossLeft(e) <= 0.5) { const sx = Math.random() < 0.5 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = 1; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): one submarine, at half the battle (tried each frame until there is room on either side)
+      if (run.sortie) { const k = e.subs || 0; if (k < 2 && bossLeft(e) <= [0.5, 0.25][k]) { const sx = k ? (e.subX < W / 2 ? W - 30 : 30) : Math.random() < 0.5 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = k + 1; e.subX = sx; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): two submarines, the first at half the battle, the second at a quarter of the flagship's health left, on the other side (each tried every frame until there is room)
       else if (e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
     }
     return true;
