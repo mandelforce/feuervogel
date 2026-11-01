@@ -141,6 +141,7 @@ const playOut = `
     encStart('anvil'); let hv = null;
     for (let f = 0; f < 800; f++) { SF.run(1); hv = world.enemies.find(e => e.enc === 'anvil' && e.type === 'heavy' && !e.dead); if (hv) hv.hp = 9999; if (hv && hv.holdT < 400 && hv.pause === 0 && hv.cd > 3) break; }
     if (!hv) return JSON.stringify({ error: 'no Heavy' });
+    hv.holdT = 99999; /* held for the whole check: its cooldown is random, so with an ordinary hold it might sink off the screen before its next volley */
     const B = encBudget(); out.budget = B;
     const dummy = kind => ({ x: 8 + (world.ebul.length * 9) % 208, y: 3, vx: 0, vy: 0, r: 2, kind, a: 0, life: 9999, max: 9999, dummy: true });
     let paused = 0, maxB = 0;
@@ -150,7 +151,7 @@ const playOut = `
     for (let f = 0; f < 300 && minePause < 0; f++) { while (world.ebul.filter(b => b.kind === 'amine').length < B + 10) world.ebul.push(dummy('amine')); SF.run(1); if (hv.pause > 0) minePause = f; }
     out.mines = minePause >= 0;
     world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); /* let that pause finish */
-    const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if (Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; return e0(x, y, a, sp, kind); };
+    const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if ((hv.pause === 12 || hv.pause === 26) && Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; /* (its own firing frame: another plane may pass close by) */ return e0(x, y, a, sp, kind); };
     let started = -1; for (let f = 0; f < 400; f++) { SF.run(1); if (started < 0 && hv.pause > 0) started = f; if (started >= 0 && hv.pause === 0) break; }
     eshot = e0; out.spread = spread; out.started = started >= 0;
     out.last = world.encLast || world.enc;
