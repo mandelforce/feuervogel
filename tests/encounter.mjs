@@ -203,6 +203,13 @@ const playOut = `
     const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
   ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
   ok(sea.made === false && sea.same, 'over the sea the flak verb places nothing and says so, so a retry is safe');
+  /* the Campaign's lane is fixed: when a gun's own third has no ground, the far side of where the first gun was placed (E0.gunX), whether
+     it still stands or was shot; the range the verb gives the placement is read through a stand-in spawnGround */
+  const lane = JSON.parse(await peek(page, `(() => { ${level2(1, 31)} const os = spawnGround, got = []; spawnGround = () => got.push(encFlakX && encFlakX.map(Math.round).join('-'));
+    try { const v = { x: [0.66, 1], wait: 60 }, g = G('flak', 60, -40 - Math.floor(world.scroll), { enc: 'flaklane' }); world.enemies.push(g);
+      ENC_VERB.flak(v, { id: 'flaklane', tries: 99, gunX: 60 }); g.dead = true; ENC_VERB.flak(v, { id: 'flaklane', tries: 99, gunX: 60 }); ENC_VERB.flak(v, { id: 'flaklane', tries: 99 }); }
+    finally { spawnGround = os; } return JSON.stringify(got); })()`));
+  ok(lane[0] === '130-210' && lane[1] === lane[0] && lane[2] === '14-210', `the Campaign: the second gun's lane comes from where the first was placed, standing or shot (${lane.join(', ')})`);
   await page.close();
 }
 {

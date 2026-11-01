@@ -9739,10 +9739,12 @@ const ENC_VERB = {
   dive: v => { waveDive(v.n || 5, v.x * W); return true; },
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; },
   flak: (v, E0) => { if (biomeAtSpawn() === 'bossland') return false; encFlakX = v.x ? [v.x[0] * W, v.x[1] * W] : null; // one gun, inside x (shares of W) where the ground allows (none: retried)
-    if (v.x && E0.tries > (v.wait || 60) / 2) { const g = world.enemies.find(e => e.enc === E0.id && e.type === 'flak' && !e.dead); // its third has no ground: anywhere on the far side of the other gun, 70 px clear of it (still a lane)
-      encFlakX = !g ? [14, W - 14] : g.x < W / 2 ? [g.x + 70, W - 14] : [14, g.x - 70]; if (encFlakX[1] <= encFlakX[0]) return false; }
-    FORCE_GROUND = 'encFlak';
-    try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; encFlakX = null; } return false; },
+    if (v.x && E0.tries > (v.wait || 60) / 2) { const g = run.sortie ? null : world.enemies.find(e => e.enc === E0.id && e.type === 'flak' && !e.dead), gx = run.sortie ? E0.gunX : g && g.x; // its third has no ground: anywhere on the far side of the other gun, 70 px clear of it (still a lane). The Campaign: where the other gun was placed, shot or not (E0.gunX), as the timetable's
+      encFlakX = gx === undefined || gx === null ? [14, W - 14] : gx < W / 2 ? [gx + 70, W - 14] : [14, gx - 70]; if (encFlakX[1] <= encFlakX[0]) return false; }
+    FORCE_GROUND = 'encFlak'; const n0 = world.enemies.length;
+    try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; encFlakX = null; }
+    if (E0 && E0.gunX === undefined) for (let k = n0; k < world.enemies.length; k++) if (world.enemies[k].type === 'flak') { E0.gunX = world.enemies[k].x; break; } // (the first gun's place, for the Campaign's rule above)
+    return false; },
   convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
   wing: () => { spawnWing(); return true; },
   sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
