@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.26'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.27'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10097,7 +10097,7 @@ function planCows(sc) {
 const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 'lead', 0.5], [860, 'pt', 0.65], [1060, 'sweep', -1], [1120, 'sweep', 1]], K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [44, -116], [44, 62]], CATS: [-16, 8], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]], // parked behind the Feuervogel, which stands at v = V0
-  SHAPE: 'painting', FINISH: 'dazzle' }; // the carrier's outline and paint: keys of CV_SHAPE and CV_FINISH (below, at its picture)
+  SHAPE: 'zeppelin', FINISH: 'dazzle' }; // the carrier's outline and paint: keys of CV_SHAPE and CV_FINISH (below, at its picture)
 function carrierStart() {
   const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
     A: (CV.V0 - CV.V1) * CV.K - (ys0 - yl), parked: CV.PARKED.length, gunDead: [], nextL: CV.T1 - 40, cat: 0, launched: 0, gone: false, over: false };
@@ -10157,12 +10157,13 @@ const CV_SHAPE = {
   classic: { front: 26, slope: 0.9, sternCut: 0.8, transom: true },
   painting: { front: 44, rF: 14, rS: 16, transom: false },
   plan: { front: 32, taper: 70, rF: 6, rS: 10, transom: true },
+  zeppelin: { front: 28, taper: 50, rF: 3, rS: 20 }, // after the 3D plan of the Graf Zeppelin: a gentle taper to a squared front, a rounded stern
 };
 // CV_FINISH: the ramps (from RP) and lightness of each part; camo: dazzle chevrons, mirrored about the centre line, over deck, hull and island.
 const CV_FINISH = {
   wood: { hull: RP.grey, trim: RP.grey, walk: RP.teak, deck: RP.teak, elev: RP.grey, dark: RP.grey, isl: RP.grey, islu: RP.conc,
     hl: 0.5, bl: 0.5, tl: 0.15, wl: 0.12, dl: 0.6, sl: 0.55, el: 0.5, il: 0.5, iu: 0.62 },
-  dazzle: { hull: RP.hull, trim: RP.grey, walk: RP.teak, deck: RP.teak, deck2: RP.grey, elev: RP.grey, dark: RP.grey, isl: RP.hull, islu: RP.grey,
+  dazzle: { hull: RP.grey, trim: RP.grey, walk: RP.teak, deck: RP.teak, deck2: RP.grey, elev: RP.grey, dark: RP.grey, isl: RP.grey, islu: RP.conc,
     hl: 0.45, bl: 0.5, tl: 0.1, wl: 0.12, dl: 0.6, sl: 0.5, el: 0.5, il: 0.5, iu: 0.6, camoL: -0.36,
     camo: (du, v) => Math.floor((Math.abs(du) * 0.9 + v * 0.55 + 400) / 16) % 3 === 0 },
 };
@@ -10179,34 +10180,44 @@ function carrierPaint(S, F, q) {
   const hull = y => y < -184 ? 0 : y < -104 ? 2 + 38 * (1 - Math.pow(1 - (y + 184) / 80, 2)) : y <= 150 ? 40 : S.transom ? (y > 182 ? 0 : 40 - (y - 150) * 0.3) : (y > 170 ? 0 : 40 - (y - 150) * 0.5);
   const HULL = 1, BOW = 2, TRIM = 3, WALK = 4, DECK = 5, DECK2 = 6, ELEV = 7, ELEVD = 8, ISL = 9, ISLU = 10, FUN = 11, WHITE = 20, YEL = 21, BLK = 22, RED = 23, GLS = 24, LITE = 25, STL = 26;
   // the shadow on the water: the silhouette's, the island's beyond the deck and the sponsons'
-  rows(y => Math.max(hull(y), deck(y)), 0, null, 5, 7, sh); for (let j = oy + pu(-55); j < oy + pu(39); j++) for (let i = ox + pu(45); i < ox + pu(63); i++) sh[j * w + i] = 1;
-  for (const [u, v] of CV.GUNS) for (let j = oy + pu(v + 6); j < oy + pu(v + 15); j++) for (let i = ox + pu(u < 0 ? -58 : 41); i < ox + pu(u < 0 ? -43 : 55); i++) sh[j * w + i] = 1;
+  rows(y => Math.max(hull(y), deck(y)), 0, null, 5, 7, sh); for (let j = oy + pu(-85); j < oy + pu(63); j++) for (let i = ox + pu(45); i < ox + pu(61); i++) sh[j * w + i] = 1;
+  const tubs = [-100, -20, 44, 90, 140].filter(v => deck(v) >= 42), sq = (u0, v0, u1, v1) => { for (let j = oy + pu(v0); j < oy + pu(v1); j++) for (let i = ox + pu(u0); i < ox + pu(u1); i++) sh[j * w + i] = 1; };
+  for (const [u, v] of CV.GUNS) sq(u < 0 ? -55 : 49, v - 1, u < 0 ? -43 : 57, v + 15); for (const v of tubs) { sq(-52, v + 2, -43, v + 12); sq(48, v + 2, 53, v + 12); }
   // the hull: a rounded ridge lit from the middle (so both sides match); the bow beyond the flight deck with its forecastle, and the stern
   const ridge = (b, k) => (du, v) => { const r = Math.abs(du) / Math.max(1, hull(v)); return b + k * (1 - r * r); };
   rows(hull, HULL, ridge(F.hl, 0.32)); rows(y => y < -150 || y > 172 ? hull(y) - 3 : 0, BOW, ridge(F.bl, 0.3)); rows(y => y < -166 ? hull(y) - 7 : 0, BOW, ridge(F.bl + 0.14, 0.2));
   Z(0, 1, -183, -161, STL, 0.2); Z(12, 14, -166, -163, BLK); Z(7, 10, -174, -170, BLK); Z(7, 8, -174, -173, STL); Z(0, 3, -170, -166, BLK); Z(0, 2, -169, -167, STL); Z(0, 1, -184, -181, WHITE); // keel line, bollards, hawse holes, windlass, jack staff
   if (S.transom) { Z(0, 8, 175, 177, BLK); Z(0, 1, 177, 183, STL); Z(18, 20, 176, 179, BLK); } // the stern's rail, ensign staff and bollards
-  for (const [u, v] of CV.GUNS) { const a = u < 0 ? u - 6 : u - 8, b = u < 0 ? u + 8 : u + 6, e = Math.min(40, deck(v) - 2); R(a, v - 8, b, v + 8, HULL, F.sl, 0.3); if (e < 40) R(u > 0 ? m + e : m - 40, v - 3, u > 0 ? m + 40 : m - e, v + 3, HULL, F.sl, 0.3); } // gun sponsons (a strut where the deck narrows)
-  for (const v of [-20, 44, 84, 130]) if (deck(v) >= 43) Z(44, 48, v - 4, v + 4, HULL, F.sl, 0.3); // the 15 cm casemates along the sides
+  for (const [u, v] of CV.GUNS) { const e = Math.min(40, deck(v) - 2); R(u > 0 ? m + e : u, v - 4, u > 0 ? u : m - e, v + 4, HULL, F.sl, 0.3); ell(u, v, 8, 8, HULL, F.sl, 0.4); } // the deck guns' round sponsons, each on a strut from the deck edge
+  for (const v of tubs) { Z(40, 47, v - 2, v + 2, HULL, F.sl, 0.3); ell(m - 47, v, 5, 5, HULL, F.sl, 0.4); ell(m + 47, v, 5, 5, HULL, F.sl, 0.4); } // light AA tubs along both edges, as on the plan
   // the flight deck: trim, walkway, planking (alternate planks a shade apart, worn in patches), joints
   rows(deck, TRIM, () => F.tl); rows(y => y >= -158 && y <= 172 ? deck(y) - 2 : 0, WALK, () => F.wl);
   rows(y => y >= -157 && y <= 169 ? deck(y) - 6 : 0, DECK, (du, v) => { const k = Math.floor(Math.abs(du) / 6); return F.dl + (k % 2 ? 0.07 : -0.03) + 0.2 * (vnoise(du * 0.08 + 9, v * 0.045 + 4) - 0.5) + ((v * 0.37 + k * 5) % 11 < 1 ? -0.08 : 0); });
   if (F.camo) for (let k = 0; k < n; k++) { const id = idb[k]; if (id !== DECK && id !== HULL && id !== BOW) continue; const du = (k % w + 0.5 - cx) / q, v = ((k / w | 0) + 0.5 - oy) / q; if (!F.camo(du, v)) continue; if (id === DECK) { idb[k] = DECK2; lb[k] += F.camoL; } else lb[k] -= 0.14; }
   for (let a = 0; a <= 36; a += 6) { let y0 = -157, y1 = 168; while (y0 < 0 && deck(y0) - 6 <= a + 1) y0++; while (y1 > 0 && deck(y1) - 6 <= a + 1) y1--; Z(a, a + 1, y0 + 1, y1, DECK, F.dl - 0.2); }
+  for (let v = -130; v < 166; v += 28) Z(0, deck(v) - 6, v, v + 1, DECK, F.dl - 0.14); // the deck's section joints
+  for (const [u, v] of CV.GUNS) ell(u, v, 5, 5, ELEVD, 0.55, 0.5); for (const v of tubs) for (const s of [-1, 1]) { ell(m + s * 47, v, 2.5, 2.5, ELEVD, 0.45, 0.5); R(m + s * 47 - 0.5, v - 1, m + s * 47 + 0.5, v + 1, BLK); }
   for (let v = -134; v < 170; v += 12) if (deck(v) >= 43 && deck(v + 1) >= 43) Z(40, 41, v, v + 1, STL, 0.7); // net posts
   for (let a = 0; a + 3 <= deck(-154) - 6; a += 3) Z(a, a + 3, -156, -153, a % 6 ? BLK : YEL); for (let a = 0; a + 3 <= deck(169) - 6; a += 3) Z(a, a + 3, 166, 169, a % 6 ? BLK : YEL); // hazard stripes
   for (let v = -146; v < 160; v += 18) Z(0, 1, v, v + 10, WHITE); // the centre line
-  for (const u of CV.CATS) { R(u - 1, CV.CAT1 + 2, u + 1, CV.CAT0, BLK); R(u - 2, CV.CAT0 - 4, u + 2, CV.CAT0, STL); for (let v = CV.CAT1 + 6; v < CV.CAT0 - 6; v += 8) R(u - 2, v, u + 2, v + 1, ELEVD, 0.5); }
-  Z(0, 18, -70, -42, ELEVD, 0.3); Z(0, 17, -69, -43, ELEV, F.el, 0.3); Z(0, 17, -57, -56, ELEVD, 0.5); Z(16, 17, -69, -43, YEL); Z(0, 18, 108, 136, BLK); Z(0, 17, 109, 113, ELEVD, 0.1); // fore elevator up, aft one lowered
+  for (const u of CV.CATS) { R(u - 3, CV.CAT1, u + 3, CV.CAT1 + 34, ELEV, F.el + 0.12, 0.3); R(u - 1, CV.CAT1 + 2, u + 1, CV.CAT0, BLK); R(u - 2, CV.CAT0 - 4, u + 2, CV.CAT0, STL);
+    for (let k = 0; k <= 16; k++) { const f = k / 16, e = f * f * (3 - 2 * f); R(u + (m - u) * e - 1, CV.CAT0 + f * 16, u + (m - u) * e + 1, CV.CAT0 + f * 16 + 1.5, BLK); } } // the two catapults, their rails joining in a Y
+  R(m - 1, CV.CAT0 + 16, m + 1, -76, BLK); // and running on to the fore elevator
+  const oct = (cv, hw, hh, cut, id, l) => { for (let v = cv - hh; v < cv + hh; v++) { const e = Math.min(v - cv + hh, cv + hh - 1 - v); Z(0, hw - Math.max(0, cut - e), v, v + 1, id, l); } };
+  for (const cv of [-62, 26]) { oct(cv, 16, 14, 6, ELEVD, 0.3); oct(cv, 15, 13, 5, ELEV, F.el); Z(0, 15, cv, cv + 1, ELEVD, 0.5); } oct(117, 16, 14, 6, BLK); Z(0, 10, 104, 108, ELEVD, 0.1); // three octagonal elevators: fore and middle up, the aft one lowered
   for (const v of [144, 152, 160]) { const e = Math.min(40, deck(v) - 4); Z(0, e, v, v + 1, ELEVD, 0.45); Z(e - 3, e, v - 1, v + 2, BLK); } // arrester wires
-  { const cy = 12; for (let dy = -13; dy <= 13; dy++) { const ww = Math.sqrt(169 - dy * dy); R(m - ww, cy + dy, m + ww, cy + dy + 1, RED); const w2 = Math.sqrt(Math.max(0, 100 - dy * dy)); if (w2) R(m - w2, cy + dy, m + w2, cy + dy + 1, BLK); }
+  { const cy = -18; for (let dy = -13; dy <= 13; dy++) { const ww = Math.sqrt(169 - dy * dy); R(m - ww, cy + dy, m + ww, cy + dy + 1, RED); const w2 = Math.sqrt(Math.max(0, 100 - dy * dy)); if (w2) R(m - w2, cy + dy, m + w2, cy + dy + 1, BLK); }
     for (let i = 0; i < 8; i++) { R(m - 1 - i, cy - 2 + i * 0.6, m - i + 1, cy + i * 0.6, WHITE); R(m + i - 1, cy - 2 + i * 0.6, m + i + 1, cy + i * 0.6, WHITE); }
     R(m - 2, cy - 5, m + 2, cy - 1, WHITE); R(m - 1, cy - 7, m + 1, cy - 5, WHITE); R(m - 2, cy, m + 2, cy + 6, WHITE); R(m - 3, cy + 6, m + 3, cy + 8, WHITE); } // the raven clan's mark
-  for (let j = oy + pu(-58); j < oy + pu(36); j++) for (let i = ox + pu(36); i < ox + pu(40); i++) { const k = j * w + i; if (idb[k] && idb[k] < 20) lb[k] -= 0.3; } // the island's shadow on the deck
-  // the island (to starboard), lit from the top left like the game's other boxes: bridge, command tower with radar, the big round funnel cap
-  R(40, -62, 58, 32, ISL, F.il, 0.3); R(41, -58, 57, -34, ISLU, F.iu, 0.4); R(43, -52, 55, -48, GLS); for (let u = 44; u < 55; u += 3) R(u, -51, u + 1, -50, LITE); R(39, -54, 41, -50, ISL, F.il); R(57, -54, 59, -50, ISL, F.il);
-  R(44, -33, 55, -20, ISLU, F.iu + 0.1, 0.4); R(46, -30, 53, -28, ELEVD, 0.5); R(49, -32, 51, -22, ELEVD, 0.5); R(45, -26, 55, -25, BLK);
-  ell(50, 8, 7.5, 14, FUN, 0.35, 0.3); ell(50, 8, 5.5, 11.5, BLK); R(44, 24, 55, 30, ISLU, F.iu, 0.4); R(46, 25, 53, 29, ELEVD, 0.4);
+  for (let j = oy + pu(-88); j < oy + pu(60); j++) for (let i = ox + pu(36); i < ox + pu(40); i++) { const k = j * w + i; if (idb[k] && idb[k] < 20) lb[k] -= 0.3; } // the island's shadow on the deck
+  // the island (to starboard), lit from the top left like the game's other boxes: a long narrow block with the bridge, director domes fore and aft
+  // of the big oval funnel, and the 10.5 cm twin mounts on platforms ahead of it and behind it
+  R(40, -92, 54, -66, ISL, F.il, 0.3); R(40, 34, 54, 56, ISL, F.il, 0.3);
+  for (const v of [-86, -74]) { R(42, v - 4, 51, v + 4, ISLU, F.iu, 0.4); R(44, v - 9, 45, v - 4, BLK); R(48, v - 9, 49, v - 4, BLK); }
+  for (const v of [40, 50]) { R(42, v - 4, 51, v + 4, ISLU, F.iu, 0.4); R(44, v + 4, 45, v + 8, BLK); R(48, v + 4, 49, v + 8, BLK); }
+  R(40, -62, 56, 32, ISL, F.il, 0.3); R(41, -58, 55, -40, ISLU, F.iu, 0.4); R(43, -52, 53, -48, GLS); for (let u = 44; u < 53; u += 3) R(u, -51, u + 1, -50, LITE); R(38, -54, 41, -50, ISL, F.il); R(55, -54, 58, -50, ISL, F.il);
+  R(46, -44, 50, -38, ELEVD, 0.4); ell(48, -30, 5, 5, ISLU, F.iu + 0.15, 0.5); R(46, -31, 51, -30, BLK); // mast foot, the forward director dome
+  ell(48, 8, 7, 14, FUN, 0.35, 0.3); ell(48, 8, 5, 11.5, BLK); ell(48, 25, 4.5, 4.5, ISLU, F.iu + 0.15, 0.5); R(46, 25, 51, 26, BLK); // the funnel cap, the after dome
   if (F.camo) for (let k = 0; k < n; k++) { const id = idb[k]; if ((id === ISL || id === ISLU) && F.camo((k % w + 0.5 - cx) / q, ((k / w | 0) + 0.5 - oy) / q)) lb[k] -= 0.18; }
   // edges: boxes bevel (lit top and left), the hull and deck darken evenly at their rim (so the two sides match); markings never bevel what they sit on
   const grp = [0, 1, 1, 2, 2, 2, 2, 5, 5, 3, 4, 6], sym = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0], lf = new Float32Array(n);
