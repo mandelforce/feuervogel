@@ -63,25 +63,28 @@ ok(lone.bursts >= 10, `it finds its moments to shoot: ${lone.bursts} bursts in f
 {
   const r = await peek(`JSON.stringify((() => { ${start} wavePfeil(4); const g = world.enemies[0].grp, o = {};
     o.n = world.enemies.length; o.slots = world.enemies.filter(e => e.fm).map(e => e.slot.join(',')).join(' | '); o.fmFlags = world.enemies.map(e => !!e.fm).join();
-    let overlap = 0, minSep = 1e9, leadFrames = 0, frames = 0;
+    let overlap = 0, minSep = 1e9, leadFrames = 0, frames = 0, maxStep = 0, maxTurn = 0; const pm = new Map();
     for (let f = 0; f < 1200; f++) {
       for (const e of world.enemies) e.hp = 999; SF.run(1); world.ebul.length = 0; const m = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); if (m.length < 5) { o.lost = { f, prev, flags: world.enemies.map(e => [Math.round(e.x), Math.round(e.y), e.dead, e.dying]) }; break; } var prev = m.map(e => [Math.round(e.x), Math.round(e.y), e.st]);
-      if (m.filter(e => e.tele > 0 || e.bn > 0).length > 1) overlap++; frames++; if (m.filter(e => e.isLead).length === 1) leadFrames++;
+      for (const e of m) { const p0 = pm.get(e); if (p0) { maxStep = Math.max(maxStep, Math.hypot(e.x - p0[0], e.y - p0[1])); maxTurn = Math.max(maxTurn, Math.abs(angDiff(p0[2], e.h))); } pm.set(e, [e.x, e.y, e.h]); } if (m.filter(e => e.tele > 0 || e.bn > 0).length > 1) overlap++; frames++; if (m.filter(e => e.isLead).length === 1) leadFrames++;
       for (let i = 0; i < m.length; i++) for (let j = i + 1; j < m.length; j++) if (m[i].x > 0 && m[i].x < W && m[j].x > 0 && m[j].x < W) minSep = Math.min(minSep, Math.hypot(m[i].x - m[j].x, m[i].y - m[j].y));
     }
-    o.overlap = overlap; o.minSep = Math.round(minSep); o.leadFrames = leadFrames; o.frames = frames;
+    o.maxStep = maxStep; o.maxTurn = maxTurn; o.overlap = overlap; o.minSep = Math.round(minSep); o.leadFrames = leadFrames; o.frames = frames;
     // the skin is built from the plain art, which it leaves alone
     const s2 = SPR.pfeil, plain = s2.rot ? s2.rot[8].c.toDataURL() : null; leaderSet(s2); o.plainSame = !s2.rot || s2.rot[8].c.toDataURL() === plain;
     const px = (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] > 220 && d[i + 1] > 180 && d[i + 2] < 90) n++; return n; };
     o.yellow = px(leaderSet(s2)[8].c); o.yellowPlain = px(rotSet(s2, 32)[8].c);
     // the leader is shot down: a wingman takes over, and wears the skin
-    const L = g.lead; L.dead = true; SF.run(2); const ps = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); o.afterKill = { n: ps.length, leads: ps.filter(e => e.isLead).length, newLead: g.lead !== L && g.lead.fm === false, slotsLeft: ps.filter(e => e.fm).length };
+    const L = g.lead, before = world.enemies.filter(e => e.fm).map(e => [e, e.x, e.y]); L.dead = true; SF.run(1); let jump = 0; for (const [e, x, y] of before) jump = Math.max(jump, Math.hypot(e.x - x, e.y - y)); o.jump = jump; let after = 0; for (let k = 0; k < 120; k++) { const b2 = world.enemies.filter(e => !e.dead).map(e => [e, e.x, e.y]); for (const e of world.enemies) e.hp = 999; SF.run(1); for (const [e, x, y] of b2) after = Math.max(after, Math.hypot(e.x - x, e.y - y)); world.ebul.length = 0; } o.afterStep = after; const ps = world.enemies.filter(e => e.type === 'pfeil' && !e.dead); o.afterKill = { n: ps.length, leads: ps.filter(e => e.isLead).length, newLead: g.lead !== L && g.lead.fm === false, slotsLeft: ps.filter(e => e.fm).length };
     // down to the last one: no skin, flies on alone
     for (const e of ps.slice(1)) e.dead = true; SF.run(2); const last = world.enemies.find(e => e.type === 'pfeil' && !e.dead); o.last = { skin: last.isLead, flying: last.st === 'fly' };
     // the bonus: all 5 shot down through the normal route
     const s0 = run.score ?? 0; return o; })())`);
   ok(r.n === 5 && r.slots === '-34,-38 | -34,38 | -68,-76 | -68,76' && r.fmFlags === 'false,true,true,true,true', `a formation of 4 wingmen: leader first, slots in a V and a second row (${r.slots})`);
   ok(r.leadFrames === r.frames && r.frames > 600, `exactly one leader wears the skin all the time (${r.leadFrames}/${r.frames} frames)`);
+  ok(r.maxStep < 4.2, `no member moves faster than a plane can in a frame (${r.maxStep.toFixed(2)} px at most; the leader flies 2.2, a wingman's top speed is at most 4.1, only while far behind)`);
+  ok(r.maxTurn < 0.065, `no member turns faster than its limit (${r.maxTurn.toFixed(3)} rad a frame at most)`);
+  ok(r.jump < 4.2 && r.afterStep < 4.2, `the leader shot down: no wingman jumps (${r.jump.toFixed(2)} px the frame after, ${r.afterStep.toFixed(2)} at most in the next 120 frames)`);
   ok(r.overlap === 0, `only one member warns or fires at a time (${r.overlap} frames with two)`);
   ok(r.minSep >= 20, `members on the screen stay apart (closest ${r.minSep} px)`);
   ok(r.plainSame && r.yellow > r.yellowPlain + 8, `the leader skin adds yellow (${r.yellow} yellow pixels against ${r.yellowPlain}) and leaves the plain art alone`);

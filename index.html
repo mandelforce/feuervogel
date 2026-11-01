@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12082,17 +12082,18 @@ const PFEIL = {
   breakR: 130, hard: 95, floor: 0.68,          // closer than this to a ship (hard: even in the middle of a burst), or lower than this share of H heading down: it breaks away
   rMin: 165, rMax: 360, aimTol: 0.2, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
   tele: 12, burst: 2, gap: 4, atkCd: 90, shotSp: 1.15, stagger: 22, // the warning (frames), shots (one more on Hard or a later loop), frames apart, pause between a member's bursts, shot speed against bspeed(), pause before the next member may start
+  wvm: [1.35, 1.5], wacc: 0.05, wgain: 0.1, wturn: 0.06, wsep: 38, wdrift: 3, wtight: 0.5, wcatch: 0.25, // wingmen: top speed against cruise (each its own), how fast the velocity may change, how hard it closes on its slot, its turn (rad/frame), the least distance it keeps from another member, the slow drift around its slot (px), how much its slot closes up sideways while the leader turns hard, and how much faster it may fly to catch up
   enterT: [10, 50], bonus: 2500      // frames off the screen before it comes in; a member, for the whole formation
 };
 const PFEIL_SLOTS = [[-34, -38], [-34, 38], [-68, -76], [-68, 76]]; // [behind the leader, beside it (+ right)] for the 1st to 4th wingman
 function wavePfeil(wingmen = 0) {
   const side = Math.random() < 0.5 ? -1 : 1, g = wingmen ? { n: wingmen + 1, m: [], lead: null, killed: 0, vt: 0, tick: -1 } : null;
   const L = E('pfeil', { side, far: PFEIL.far, grp: g }); world.enemies.push(L);
-  if (g) { g.m.push(L); g.lead = L; for (let i = 0; i < wingmen; i++) { const w = E('pfeil', { side, far: PFEIL.far, grp: g, fm: true, slot: PFEIL_SLOTS[i] }); g.m.push(w); world.enemies.push(w); } }
+  if (g) { g.m.push(L); g.lead = L; for (let i = 0; i < wingmen; i++) { const w = E('pfeil', { side, far: PFEIL.far, grp: g, fm: true, slot: PFEIL_SLOTS[i], cs: PFEIL_SLOTS[i].slice(), vm: PFEIL.cruise * rnd(PFEIL.wvm[0], PFEIL.wvm[1]), dph: Math.random() * 6 }); g.m.push(w); world.enemies.push(w); } }
 }
 function pfeilGroup(g) { // once a frame: the dead leave, a shot down leader is replaced by the wingman nearest its slot, the wingmen take the slots in order
   g.m = g.m.filter(o => !o.dead && !o.dying); if (!g.m.length) return;
-  if (!g.m.includes(g.lead)) { const n = g.lead = g.m[0]; n.fm = false; n.mode = 'straight'; n.modeT = 40; n.ret = n.brk = false; n.tele = n.bn = 0; n.acd = Math.max(n.acd, 40); }
+  if (!g.m.includes(g.lead)) { const n = g.lead = g.m[0], c = Math.cos(n.h), s = Math.sin(n.h); for (const o of g.m) if (o !== n) { const dx = o.x - n.x, dy = o.y - n.y; o.cs = [dx * c + dy * s, -dx * s + dy * c]; } /* (every wingman keeps the spot it is at, now measured from the new leader; it eases to its slot, see pfeilTick) */ n.fm = false; n.mode = 'straight'; n.modeT = 40; n.ret = n.brk = false; n.tele = n.bn = 0; n.acd = Math.max(n.acd, 40); }
   let i = 0; for (const o of g.m) if (o !== g.lead) o.slot = PFEIL_SLOTS[i++];
 }
 function pfeilTick(e) {
@@ -12106,11 +12107,18 @@ function pfeilTick(e) {
   if (e.acd > 0) e.acd--;
   e.isLead = !!g && g.lead === e && g.m.length > 1; // (the yellow skin: a lone Pfeil, or the last of a formation, has none)
   const q = nearShip(e.x, e.y), dq = Math.hypot(q.x - e.x, q.y - e.y), aimA = aim(e.x, e.y), onScr = e.x > 10 && e.x < W - 10 && e.y > -6;
-  if (e.fm && g && g.lead && g.lead !== e) { // a wingman: its slot beside and behind the leader
+  if (e.fm && g && g.lead && g.lead !== e) { // a wingman: it flies to its slot beside and behind the leader like a plane of its own, with a top speed, a limit on how fast its velocity changes and its heading following its flight path, so it lags in a turn and closes up again, never jumps
     const L = g.lead; if (L.st === undefined) return;
-    const c = Math.cos(L.h), s = Math.sin(L.h), tx = L.x + c * e.slot[0] - s * e.slot[1], ty = L.y + s * e.slot[0] + c * e.slot[1], px = e.x, py = e.y;
-    if (e.st === 'wait') { e.st = 'fly'; e.x = tx; e.y = ty; } else { e.x += (L.vx || 0) + (tx - e.x) * 0.12; e.y += (L.vy || 0) + (ty - e.y) * 0.12; }
-    e.h += clamp(angDiff(e.h, L.h), -0.1, 0.1); e.vx = e.x - px; e.vy = e.y - py;
+    e.cs[0] += (e.slot[0] - e.cs[0]) * 0.025; e.cs[1] += (e.slot[1] - e.cs[1]) * 0.025; // (a new slot is reached slowly)
+    const c = Math.cos(L.h), s = Math.sin(L.h), tight = 1 - P.wtight * clamp(L.tr || 0, 0, 1), sx = e.cs[0] + Math.sin(gf * 0.021 + e.dph) * P.wdrift, sy = e.cs[1] * tight + Math.cos(gf * 0.017 + e.dph * 1.3) * P.wdrift, tx = L.x + c * sx - s * sy, ty = L.y + s * sx + c * sy;
+    if (e.st === 'wait') { e.st = 'fly'; e.x = tx; e.y = ty; e.vx = L.vx || 0; e.vy = L.vy || 0; e.h = L.h; }
+    let wx = (L.vx || 0) + (tx - e.x) * P.wgain, wy = (L.vy || 0) + (ty - e.y) * P.wgain;
+    for (const o of g.m) if (o !== e && o.st !== 'wait') { const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (d < P.wsep) { const k = (P.wsep - d) / P.wsep * 0.8 / (d || 1); wx += (dx || 1) * k * 3; wy += dy * k * 3; } } // (members keep apart)
+    const wm = Math.hypot(wx, wy), vmax = e.vm * (1 + P.wcatch * clamp((Math.hypot(tx - e.x, ty - e.y) - 60) / 100, 0, 1)); /* (a wingman far behind opens up to catch up) */ if (wm > vmax) { wx *= vmax / wm; wy *= vmax / wm; }
+    const ax = wx - e.vx, ay = wy - e.vy, am = Math.hypot(ax, ay); if (am > P.wacc) { e.vx += ax * P.wacc / am; e.vy += ay * P.wacc / am; } else { e.vx = wx; e.vy = wy; }
+    e.x += e.vx; e.y += e.vy;
+    for (const o of g.m) if (o !== e && o.st !== 'wait') { const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (d < P.wsep * 0.75) { const k = (P.wsep * 0.75 - d) * 0.12 / (d || 1); e.x += (dx || 1) * k; e.y += dy * k; } } /* (and never closer than this: a gentle push on the spot) */
+    e.h += clamp(angDiff(e.h, Math.hypot(e.vx, e.vy) > 0.8 ? Math.atan2(e.vy, e.vx) : L.h), -P.wturn, P.wturn);
   } else {
     if (e.st === 'wait') { if (--e.waitT > 0) return; e.st = 'fly'; }
     let tgt = null; // an angle it turns for at the full turn rate, or null
@@ -12138,6 +12146,7 @@ function pfeilTick(e) {
     }
     e.vx = Math.cos(e.h) * P.cruise; e.vy = Math.sin(e.h) * P.cruise; e.x += e.vx; e.y += e.vy;
   }
+  e.tr = (e.tr || 0) * 0.92 + Math.abs(angDiff(e.h0 === undefined ? e.h : e.h0, e.h)) / P.turn * 0.08; e.h0 = e.h; /* (how hard it is turning, smoothed: a formation closes up in a turn) */
   e.face = e.h;
   // the shot: warning flare, then a burst along the nose (one member of a formation at a time)
   if (live && !e.tele && !e.bn && e.acd <= 0 && !e.ret && !e.brk && onScr && e.y < H - 60 && dq >= P.rMin && dq <= P.rMax && Math.abs(angDiff(e.h, aimA)) < P.aimTol && (!g || g.vt <= gf)) { e.tele = P.tele; if (g) g.vt = gf + P.stagger; }
