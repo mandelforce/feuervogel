@@ -4,7 +4,7 @@
 //   node tests/encounter.mjs --verbose   also print every check that passes (by default only failures and a count)
 // Checks: every event is dispatched once, in order, on its frame; what it makes is tagged and the pod never counts; the encounter ends 'done'
 // and rests; the held timers (air waves, pods) keep their value and resume from it, the ground timer runs on; Rookie skips the second
-// formation; its Heavy stops and holds; pause, world.quiet, the carrier opening (level 1A) and the Shadow Wing freeze its clock, a death doesn't;
+// formation; its Heavy stops and holds; pause, world.quiet, the carrier opening (level 1) and the Shadow Wing freeze its clock, a death doesn't;
 // the Shadow Wing waits for a running encounter; the soft budget: with the screen full a gated shooter (the Heavy) waits, the Sower's mines
 // don't count, and once there is room the whole spread fires; a delayed volley reserves its bullets until it has fired; the boss ends it ('boss') and a new level clears it;
 // it can't start outside the Campaign or twice; a snapshot can be taken mid-encounter; the readout draws; ?enc=anvil (local builds) starts
@@ -15,8 +15,8 @@
 // first Sower doesn't open it; it opens the frame after the second Sower settles, once (not for its partner); it makes no Sower or Wing; air
 // waves stay held; the Sowers lay their mines, drop their bombs and call their partner exactly as without it; it ends and air waves resume.
 // Shadow Wing (every Campaign level): opened by the director where the Wing used to come, holding nothing, the Wing staying 2500 frames
-// before it flees; Retro Run keeps the old Wing; level 1A has it after the airbase island. Level 1A: heavy tanks in its pits, no Drilling, two Buechse at most (one at the big island's road tip), First Contact live, one submarine (not before
-// the island chain) and one from the flagship at about half its health. ?enc=all in level 1A: its layout (First Contact, then The Anvil).
+// before it flees; Retro Run keeps the old Wing; level 1 has it after the airbase island. Level 1: heavy tanks in its pits, no Drilling, two Buechse at most (one at the big island's road tip), First Contact live, one submarine (not before
+// the island chain) and one from the flagship at about half its health. ?enc=all in level 1: its layout (First Contact, then The Anvil).
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -45,7 +45,7 @@ async function freshPage(query = '') {
 }
 const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 const W_ = 224; // the playfield's fixed width
-// level 2, flown by the immortal bot to frame 300: the 'mix' stretch, well before its first set piece (about frame 3510). Not level 1A,
+// level 2, flown by the immortal bot to frame 300: the 'mix' stretch, well before its first set piece (about frame 3510). Not level 1,
 // whose carrier opening holds an encounter for its first 1000 frames or more (checked on its own below).
 const level2 = (diff, seed) => `window.__forceSeed = ${seed}; gf = 0; SF.setMode('immortal'); SF.start(${diff}, 1); startEnigma(2, true); delete window.__forceSeed; SF.run(300);`;
 // The Anvil played out: the dispatches (event index @ encounter frame), every entity it tagged, the timers, and how it ended
@@ -119,7 +119,7 @@ const playOut = `
   const r = JSON.parse(await peek(page, `(() => { ${level2(1, 13)} const out = {};
     encStart('anvil'); SF.run(100); world.bossSpawned = true; SF.run(1); out.boss = !world.enc && world.encLast && world.encLast.why === 'boss';
     startEnigma(2, true); SF.run(300); encStart('anvil'); SF.run(100); startEnigma(3, true); out.level = !world.enc && !world.encLast;
-    startEnigma(8, true); SF.run(10); encStart('anvil'); SF.run(60); out.carrier = !!world.carrier && !world.carrier.over && world.enc.st === 'hold' && world.enc.t === 0;
+    startEnigma(1, true); SF.run(10); encStart('anvil'); SF.run(60); out.carrier = !!world.carrier && !world.carrier.over && world.enc.st === 'hold' && world.enc.t === 0;
     SF.run(600); out.noTags = !world.enemies.some(e => e.enc);
     SF.start(1, 1); out.retro = encStart('anvil') === false && !world.enc;
     startEnigma(2, true); SF.run(4300); encStart('anvil'); let wingAt = -1, encEnd = -1;
@@ -128,7 +128,7 @@ const playOut = `
     return JSON.stringify(out); })()`));
   ok(r.boss, "the boss's arrival ends it ('boss')");
   ok(r.level && r.noTags, 'a new level starts with no encounter and nothing tagged');
-  ok(r.carrier, "level 1A's carrier opening holds it: the clock doesn't start while the carrier scene runs");
+  ok(r.carrier, "level 1's carrier opening holds it: the clock doesn't start while the carrier scene runs");
   ok(r.retro, 'it cannot start outside the Campaign (the old campaign, Retro Run)');
   ok(r.wing, `the Shadow Wing waits until the encounter and its rest are over (encounter gone ${r.encEnd} frames in, Wing ${r.wingAt})`);
   await page.close();
@@ -198,7 +198,7 @@ const playOut = `
   ok(p4.types.flak === 2 && p4.last && p4.last.dropped === 0, `level 4 (a level with a plan): both guns stand in its gun sites (${JSON.stringify(p4.types)}, x ${p4.guns.join(' and ')})`);
   const off = JSON.parse(await peek(page, play(2, 1, 21, 300)));
   ok(off.last && off.last.why === 'nolane' && (off.types.flak || 0) <= 1 && !off.types.fighter, `with no ground for the second gun (level 2's town, at its start) it is called off before any formation (${off.last && off.last.why}, ${JSON.stringify(off.types)})`);
-  const sea = JSON.parse(await peek(page, `(() => { window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed; SF.run(1500);
+  const sea = JSON.parse(await peek(page, `(() => { window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed; SF.run(1500);
     const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
   ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
   ok(sea.made === false && sea.same, 'over the sea the flak verb places nothing and says so, so a retry is safe');
@@ -272,32 +272,32 @@ const playOut = `
     let f = 0; while (world.enc && f < 4000) { SF.run(1); f++; } out.done = !world.enc && world.encLast && world.encLast.why === 'done';
     SF.run(600); out.once = !world.enc;
     startEnigma(3, true); SF.run(5); out.nextLevel = !!world.enc;
-    startEnigma(8, true); SF.run(60); out.carrier = !!world.enc && world.enc.st === 'hold';
+    startEnigma(1, true); SF.run(60); out.carrier = !!world.enc && world.enc.st === 'hold';
     SF.start(1, 1); SF.run(60); out.retro = !world.enc;
     return JSON.stringify(out); })()`));
   ok(r.auto && r.done && r.once, '?enc=anvil starts it by itself in a level, it plays out, and it does not start again in that level');
   ok(r.nextLevel, '?enc=anvil starts it again in the next level');
-  ok(r.carrier, "?enc=anvil in level 1A: it waits in 'hold' while the carrier opening runs");
+  ok(r.carrier, "?enc=anvil in level 1: it waits in 'hold' while the carrier opening runs");
   ok(r.retro, '?enc=anvil does nothing outside the Campaign');
   await page.close();
 }
 {
-  // ?enc=all: one encounter per level, the Campaign's tour (1A its layout, starting with First Contact, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6B
+  // ?enc=all: one encounter per level, the Campaign's tour (level 1 its layout, starting with First Contact, 2 Flak lane, 3 Bomber screen, 4 Sower Window, 5 The Anvil, 6
   // Flak lane), started as each level's practice run; and the playtest banner draws
   const page = await freshPage('?enc=all');
   const r = JSON.parse(await peek(page, `(() => { const out = {};
-    for (const lv of [8, 2, 3, 5, 7]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
-      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (6B opens over the sea: Flak lane waits for land, about frame 870) */
+    for (const lv of [1, 2, 3, 5, 6]) { window.__forceSeed = 5; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(lv, false); delete window.__forceSeed;
+      for (let f = 0; f < 1500 && !world.enc; f++) SF.run(1); out[lv] = world.enc ? world.enc.id : null; /* (level 6 opens over the sea: Flak lane waits for land, about frame 870) */
       if (lv === 2) { let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } out.drew = drew; } }
     out.tour = ENC_TOUR.join(); return JSON.stringify(out); })()`));
-  ok(r[8] === 'firstcontact' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[7] === 'flaklane', `?enc=all plays the tour: 1A ${r[8]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6B ${r[7]} (level 4's Sower Window waits for its second Sower: checked above)`);
+  ok(r[1] === 'firstcontact' && r[2] === 'flaklane' && r[3] === 'bomberscreen' && r[5] === 'anvil' && r[6] === 'flaklane', `?enc=all plays the tour: 1 ${r[1]}, 2 ${r[2]}, 3 ${r[3]}, 5 ${r[5]}, 6 ${r[6]} (level 4's Sower Window waits for its second Sower: checked above)`);
   ok(r.drew === true, `the playtest banner (ENCOUNTER: <name>) draws${r.drew === true ? '' : ': ' + r.drew}`);
   await page.close();
 }
 {
   // 10. The Shadow Wing as its own encounter (owner): in the Campaign the director opens it where the Wing used to come (level 2 at 14/37 of
   // the arc); the Wing comes at once; it holds nothing (the level goes on around it); the Wing stays WING_STAY frames (about 15 s more than the
-  // old 1600) before it flees, and the encounter ends when it is gone. Retro Run keeps the old Wing, with no encounter. Level 1A: later.
+  // old 1600) before it flees, and the encounter ends when it is gone. Retro Run keeps the old Wing, with no encounter. Level 1: later.
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { const out = {};
     window.__forceSeed = 31; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, true); delete window.__forceSeed;
@@ -308,51 +308,51 @@ const playOut = `
     f = 0; let fled = -1; while (world.enc && world.enc.id === 'wing' && f < 4000) { SF.run(1); f++; const w = world.enemies.find(e => e.type === 'wing'); if (w && w.leaving && fled < 0) fled = w.mt; }
     out.fled = fled; out.stay = WING_STAY; out.end = world.encLast && world.encLast.id === 'wing' ? world.encLast.why : null; out.gone = !world.enemies.some(e => e.type === 'wing' && !e.dead);
     window.__forceSeed = 31; gf = 0; SF.start(1, 1); delete window.__forceSeed; f = 0; while (!world.enemies.some(e => e.type === 'wing') && f < 9000) { SF.run(1); f++; } out.retro = world.enemies.some(e => e.type === 'wing') && !world.enc;
-    window.__forceSeed = 33; gf = 0; startEnigma(8, true); delete window.__forceSeed; f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
-    const S = run.sortie, ab = S.segs.find(g => g.t === 'island_airbase'); out.c1A = -Math.floor((-40 - Math.floor(world.scroll)) / CH) - world.stageBaseP; out.ab1A = ab.start + ab.n;
+    window.__forceSeed = 33; gf = 0; startEnigma(1, true); delete window.__forceSeed; f = 0; while (!(world.enc && world.enc.id === 'wing') && f < 9000) { SF.run(1); f++; }
+    const S = run.sortie, ab = S.segs.find(g => g.t === 'island_airbase'); out.c1 = -Math.floor((-40 - Math.floor(world.scroll)) / CH) - world.stageBaseP; out.ab1 = ab.start + ab.n;
     return JSON.stringify(out); })()`));
   ok(r.u >= 14 / 37 - 0.01 && r.u < 0.45 && r.wingAt >= 0 && r.wingAt <= 1, `level 2: the director opens the Shadow Wing's encounter where the Wing used to come (at ${r.u.toFixed(3)} of the arc), the Wing with it`);
   ok(r.moved, 'it holds nothing: air waves, ground units and pods go on while the Wing is up');
   ok(r.fled === r.stay + 1 && r.stay === 2500, `the Wing flees after ${r.fled - 1} frames in its sequence (WING_STAY ${r.stay}; the old one 1600)`);
   ok(r.end === 'done' && r.gone, `it ends when the Wing is gone (${r.end})`);
   ok(r.retro, 'Retro Run: the old Shadow Wing, no encounter');
-  ok(r.c1A >= r.ab1A, `level 1A: the Shadow Wing comes after the airbase island (chunk ${r.c1A}; the island ends at ${r.ab1A})`);
+  ok(r.c1 >= r.ab1, `level 1: the Shadow Wing comes after the airbase island (chunk ${r.c1}; the island ends at ${r.ab1})`);
   await page.close();
 }
 {
-  // 11. Level 1A (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; one submarine in the whole level and not
+  // 11. Level 1 (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; one submarine in the whole level and not
   // before the island chain; the flagship sends one more at about half its health (the Campaign; Retro Run's flagship keeps its two); First
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
-  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(8, true); delete window.__forceSeed;
+  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed;
     const seen = new Set(), out = { subs: [], boss: [], drills: 0, dugHeavy: 0, buechse: 0, tipB: null, encs: [], chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
     for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
       if (world.enc && out.encs[out.encs.length - 1] !== world.enc.id) out.encs.push(world.enc.id);
       for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) { out.buechse++; const sl = sortiePlan(run.sortie).slots.find(q => q.kind === 'tip'); if (sl && Math.hypot(e.wx - sl.x, e.wy - (run.sortie.planY0 - sl.y)) < 2) out.tipB = { dug: !!e.dug, road: terrainType(Math.floor(e.wx), Math.floor(e.wy)) }; } if (e.type === 'htank' && e.dug) out.dugHeavy++;
         if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(+bossLeft(b).toFixed(2)); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
-      if (st !== 'ok' || run.sortie.level !== 8) break; }
+      if (st !== 'ok' || run.sortie.level !== 1) break; }
     return JSON.stringify(out); })()`));
-  ok(r.drills === 0 && r.dugHeavy === 2, `level 1A: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
-  ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1A: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
-  ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1A: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
+  ok(r.drills === 0 && r.dugHeavy === 2, `level 1: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
+  ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
+  ok(r.subs.length === 1 && r.subs[0] >= r.chain, `level 1: one submarine before the boss, not before the island chain (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
   ok(r.boss.length === 1 && r.boss[0] <= 0.5 && r.boss[0] > 0.3, `the flagship sends one submarine at about half its health (${r.boss.join(', ')})`);
-  ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1A plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
+  ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1 plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }
 {
-  // 12. Level 1A's layout with ?enc=all (owner's playtest): First Contact right after the carrier, over the water (sweeps from both sides, a
+  // 12. Level 1's layout with ?enc=all (owner's playtest): First Contact right after the carrier, over the water (sweeps from both sides, a
   // destroyer, two PT boats, a dive, a strafing run, a pod), then the Shadow Wing, then The Anvil from the farmland on; each plays out once
   const page = await freshPage('?enc=all');
-  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); settings.diff = 1; startEnigma(8, true); delete window.__forceSeed;
+  const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); settings.diff = 1; startEnigma(1, true); delete window.__forceSeed;
     const log = [], seen = new Set(), chunk = () => -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP; let cur = null, wingSea = true;
     for (let f = 0; f < 9000; f++) { const st = SF.run(1), E0 = world.enc;
       if (E0 && (!cur || cur.id !== E0.id)) { cur = { id: E0.id, c: chunk(), n: {} }; log.push(cur); }
       if (E0) for (const e of world.enemies) if (e.enc === E0.id && !seen.has(e)) { seen.add(e); cur.n[e.type] = (cur.n[e.type] || 0) + 1; if (e.leader) cur.n.leader = (cur.n.leader || 0) + 1; if ((e.type === 'pt' || e.type === 'destroyer') && !WATER.has(terrainType(Math.floor(e.wx), Math.floor(e.wy)))) wingSea = false; }
       if (cur && !cur.end && world.encLast && world.encLast.id === cur.id) cur.end = world.encLast.why;
       if (st !== 'ok' || world.bossSpawned) break; }
-    const P = ENC_PLAN[8]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c, fmAt: P[2].c }); })()`));
+    const P = ENC_PLAN[1]; return JSON.stringify({ log, water: wingSea, fcAt: P[0].c, anvilAt: P[1].c, fmAt: P[2].c }); })()`));
   const ids = r.log.map(x => x.id).join(), fc = r.log.find(x => x.id === 'firstcontact') || { n: {} }, an = r.log.find(x => x.id === 'anvil') || {};
-  ok(ids === 'firstcontact,wing,anvil,formations', `?enc=all in level 1A plays its layout in order: ${ids}`);
+  ok(ids === 'firstcontact,wing,anvil,formations', `?enc=all in level 1 plays its layout in order: ${ids}`);
   ok(fc.c >= r.fcAt && fc.end === 'done' && fc.n.fighter >= 19 && fc.n.destroyer === 1 && fc.n.pt === 2 && fc.n.pod === 1, `First Contact from chunk ${fc.c}: ${JSON.stringify(fc.n)}, ends ${fc.end}`);
   ok(r.water, 'its ships are placed on water');
   const fm = r.log.find(x => x.id === 'formations') || { n: {} };

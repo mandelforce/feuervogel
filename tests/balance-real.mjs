@@ -1,4 +1,4 @@
-// Balance report for the real Campaign (START: Enigma levels 1A, 2, 3, 4, 5, 6B) on all three difficulties, flown by the "human" bot (tests/harness.js).
+// Balance report for the real Campaign (START: levels 1 to 6) on all three difficulties, flown by the "human" bot (tests/harness.js).
 // Needs Node and Playwright:  npm install --no-save playwright@1 && npx playwright install chromium
 // Serve the folder (python3 -m http.server 8000), then:  node tests/balance-real.mjs [options]
 //   --runs 4              runs per difficulty (the numbers are noisy: about +-2 hits and +-1.5 on the window with 4 runs)

@@ -377,7 +377,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
-          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="8" hidden>1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button><button type="button" data-s="7" hidden>6</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.15'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.16'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6133,7 +6133,7 @@ function sortieInfo(S, p, c) {
   const m = S.infos || (S.infos = new Map()); let I = m.get(p); if (I) return I;
   const g = c >= S.len ? null : sortieSeg(S, c);
   let b = !g ? (S.seq ? 'sea' : S.theme === 5 ? 'secret' : S.theme === 4 ? 'castle' : 'bossland') : S.level === 4 && g.t === 'beach_cliff' && c === g.start ? 'sea' : S.level === 4 && g.t === 'valley' ? 'forest' : S.level === 3 && g.t === 'beach_fortified' && c - g.start < 2 ? (c === g.start ? 'sea' : 'coastUp') : (g.t === 'coast_plain' || g.t === 'beach_fortified') && c === g.start ? 'coastUp' : SORTIE_BIOME[g.t] || 'country'; // level 3 comes in over the sea onto its beach
-  const planned = (S.gen || S.isles) && sortiePlan(S) && c >= S.planC0 && c < S.planC1; if (planned && S.planBiome) b = S.planBiome[c - S.planC0]; // level 1A: land or sea by the plan
+  const planned = (S.gen || S.isles) && sortiePlan(S) && c >= S.planC0 && c < S.planC1; if (planned && S.planBiome) b = S.planBiome[c - S.planC0]; // level 1: land or sea by the plan
   let river = false, rw = 7, island = null; // level 1's farmland keeps the Campaign's rivers (from its third chunk on), with their bridges and river islands
   if (S.seq && g && g.t === 'farmland' && c - g.start >= 2 && (((p % 5) + 5) % 5) === 0 && hash(p, 991) < 0.7) { river = true; if (hash(p, 333) < 0.5) { rw = 11; const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; } }
   I = infoRails(b, S.theme, river, rw, island, null, c);
@@ -6805,7 +6805,7 @@ function farmAt(ci, cj) {
   let f = null;
   if (ci >= 0 && ci <= 1 && hash(ci * 11 + 5, cj * 17 + 3) < 0.45 && themeAtWy(cj * 150 + 80) === 0) {
     const x0 = Math.round(ci * 112 + 6 + hash(ci + 3, cj) * 32), y0 = Math.round(cj * 150 + 14 + hash(ci, cj + 9) * 56), cx = x0 + 36;
-    let ok = themeAtWy(y0) === 0 && themeAtWy(y0 + 68) === 0 && x0 + 74 < W && !info(-Math.floor(y0 / CH)).plan && !info(-Math.floor((y0 + 68) / CH)).plan; // (not on a settlement plan's ground: level 1A's island has its own farms)
+    let ok = themeAtWy(y0) === 0 && themeAtWy(y0 + 68) === 0 && x0 + 74 < W && !info(-Math.floor(y0 / CH)).plan && !info(-Math.floor((y0 + 68) / CH)).plan; // (not on a settlement plan's ground: level 1's island has its own farms)
     if (ok) for (let yy = y0 - 2; yy <= y0 + 68 && ok; yy += 10) for (let xx = x0 - 2; xx <= x0 + 74; xx += 12) if (terrainType(xx, yy) !== 'field') { ok = false; break; }
     if (ok) for (const yy of [y0, y0 + 34, y0 + 68]) if (Math.abs(roadX(yy) - cx) < 56) { ok = false; break; }
     if (ok && waterIn(x0 - 4, y0 - 4, x0 + 76, y0 + 70, 4)) ok = false;
@@ -8129,26 +8129,23 @@ const STAGE_ACC = ['#4a92c4', '#d6dce6', '#e4c58e', '#6a5ab0', '#4a7e3a', '#d84a
    built once when the level starts (run.sortie; null in the Campaign). docs/enigma-world-spec.md is the specification; docs/enigma-world-audit.md the audit.
    Phase 1: the sortie is carried and saved, ends its own way and never counts, but the ground still comes from the legacy theme of the level.
    The run's terrain code must keep reading run.sortie, never the Enigma look setting (run.enigma / ENIGMA_T are the unrelated calmer-look slider). */
-// Levels 1 to 6; level 7 shown as "6B", a second level 6, the harbour city; level 8 shown as "1A", level 1 with its islands (spec 17.4).
-// ENIGMA_BASE: the Campaign stage each level flies (its theme, music and boss).
-const ENIGMA_LABEL = ['1', '2', '3', '4', '5', '6', '6', '1'], // what the player sees: the Campaign's levels are 1 to 6 (levels 8 and 7 are its 1 and 6; the plain levels 1 and 6 are not in the Campaign)
-   ENIGMA_N = ENIGMA_LABEL.length, ENIGMA_BASE = [1, 2, 3, 4, 5, 6, 6, 1];
-function enigmaTheme(level) { return STAGE_ORDER[ENIGMA_BASE[level - 1] - 1]; }
-const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate', 'temperate', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
-const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk', 'dusk', 'day'];
-const ENIGMA_LEN = [56, 72, 58, 60, 84, 70, 70, 62]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
+// The Campaign's levels 1 to 6 (spec 17.4 for level 1's islands; level 6 is the harbour city). ENIGMA_N: how many there are.
+// ENIGMA_RNG: the number each level's sortie hash is keyed with: the levels' old internal numbers (level 1 was 8, level 6 was 7), so the
+// ground, plans and placements stay exactly as they were before the old levels 1 and 6 were removed (build 1.2.5.16).
+const ENIGMA_N = 6, ENIGMA_RNG = [8, 2, 3, 4, 5, 7];
+function enigmaTheme(level) { return STAGE_ORDER[level - 1]; } // each level flies the Campaign stage of its number (its theme, music and boss)
+const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
+const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk'];
+const ENIGMA_LEN = [62, 72, 58, 60, 84, 70]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
-  [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 10], ['coast_down', 1], ['open_sea', 4]], // (1A: 62 chunks; the last farmland 6 longer for the formations before the boss, owner; the boss comes over the last sea) owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
+  [['carrier_start', 4], ['open_sea', 6], ['island_chain', 6], ['island_airbase', 9], ['open_sea', 3], ['beach_fortified', 3], ['farmland', 8], ['village', 4], ['forest_deciduous', 4], ['farmland', 10], ['coast_down', 1], ['open_sea', 4]], // (62 chunks; the last farmland 6 longer for the formations before the boss, owner; the boss comes over the last sea) owner: the carrier, a lot of ocean, small islands, the large island with the airbase, ocean, the fortified beach and the old land, ocean
   [['harbour_commercial', 4], ['beach_town', 3], ['valley', 7], ['village', 4], ['station_junction', 6], ['desert_open', 4], ['airbase_desert', 6], ['pass', 7], ['desert_open', 7]],
   [['beach_fortified', 3], ['industrial_power', 7], ['farmland', 7], ['city_small', 4], ['airbase_searchlight', 6], ['forest_deciduous', 5], ['industrial_light', 6], ['rail_corridor', 6], ['station_marshalling', 7]], // 3: the yard right before the boss (owner)
   [['beach_cliff', 3], ['forest_conifer', 8], ['forest_fortified', 7], ['clearing_village', 4], ['airbase_forest_hidden', 6], ['forest_fortified', 7], ['forest_conifer', 5], ['valley', 6], ['farmland_approach', 6]],
   [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8], ['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7], ['pass', 7], ['farmland_winter', 11]], // 5: weights in chunks (84); the frozen sea 18, the U-boats spread along it; the last 11: the depot, 6 chunks of high mountain with the glacier, the gorge
-  [['open_sea', 2], ['coast_plain', 2], ['farmland', 7], ['village', 5], ['city_suburb', 6], ['city_town', 5], ['city_river', 12], ['city_centre', 6], ['industrial_power', 5], ['ruins', 4], ['station_main', 4]],
-  [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]], // 6B: in over the sea to the south harbour (with the east harbour beside it)
-  null // 1A: level 1's sequence (filled in below)
+  [['open_sea', 5], ['harbour_south', 14], ['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5], ['station_main', 6]], // 6: in over the sea to the south harbour (with the east harbour beside it)
 ];
-ENIGMA_SEQ[7] = ENIGMA_SEQ[0];
 // The boss arena's rails besides the Campaign's (level 3: the marshalling yard's two outer tracks run on through the supergun's bossland).
 const ENIGMA_ARENA = { 3: { arenaRails: [55, 169] } };
 // Weather plans (spec 8), per level: the strength of each effect by segment, blended between segment middles. Level 3: low mist over the
@@ -8202,17 +8199,17 @@ function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b |
 // Level 5: the train boss comes as in the Campaign, once the yard fills the screen (the trigger adds ceil(XH / CH) chunks; the yard begins at the level's end)
 function yardWait() { return Math.max(1, Math.ceil(H / CH) - 1 - Math.ceil(XH / CH)); }
 function buildSortie(level, seed) {
-  const i = level - 1, city = level === 6 || level === 7, one = level === 1 || level === 8, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
-    // isles: level 1A, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
-    gen: city ? 6 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : level === 5 ? 5 : 0, seq: one, isles: level === 8, // levels 2 and 3: their own ground too (spec 18, 16.z)
+    // isles: level 1, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
+    gen: city ? 6 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : level === 5 ? 5 : 0, seq: one, isles: one, // levels 2 and 3: their own ground too (spec 18, 16.z)
     bossAt: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, arcLen: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, // level 3: the supergun 3 chunks into its arena, as in the Campaign
-    ...ENIGMA_ARENA[level], name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + level * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
+    ...ENIGMA_ARENA[level], name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
@@ -8228,38 +8225,34 @@ function sortieUD(segs, len) {
   }
   return { U, D, n };
 }
-// Enigma Run level 6: the settlement plan (tools/citygen.js, embedded as CityGen; spec 16) from the start of the farmland to the end of the
-// level: fields, the village, the town with its river, island and old town, the dense and burning centre, the works in the industrial
-// segment, the station in the last one, and the final airfield's perimeter (road, fence, gate, apron) in the last chunk. Density and damage
-// follow the sortie's U and D per segment, the river lies in the middle of the river segment, and the plan's main road starts where the
-// legacy road enters it. Built once per sortie and stage base (about 0.2 s, 0.5 s cold), pure, so a resumed level gets the same town. Plan row y is world
-// row S.planY0 - y (row 0 is the bottom row of the first farmland chunk).
+// A level's settlement plan (tools/citygen.js, embedded as CityGen; spec 16), built by sortiePlanBuild. Built once per sortie and stage base
+// (about 0.2 s, 0.5 s cold), pure, so a resumed level gets the same ground. Plan row y is world row S.planY0 - y.
 function sortiePlan(S) {
   if (S.planFor === world.stageBaseP) return S.plan;
   S.planFor = world.stageBaseP; S.plan = null;
   if (typeof CityGen === 'undefined') return null;
   const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); roadTip(S, P); } return P;
 }
-// The Drilling's tank pits (owner): two in every level with a plan but level 1 (1A has its islands; there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
+// The Drilling's tank pits (owner): two in every level with a plan but level 1 (its islands: there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
 const DRILL_PITS = { 2: [['airbase_desert', 0.2], ['pass', 0.35]], 3: [['industrial_power', 0.5], ['airbase_searchlight', 0.5]], 4: [['forest_fortified', 0.5], ['valley', 0.5]],
-  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_suburb', 0.5], ['city_centre', 0.5]], 7: [['city_centre', 0.5], ['industrial_power', 0.5]], 8: [['island_chain', 0.2], ['island_airbase', 0.55]] }; // (1A's two hold a dug-in heavy tank: the owner introduces the Drilling in level 2)
+  5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_centre', 0.5], ['industrial_power', 0.5]], 1: [['island_chain', 0.2], ['island_airbase', 0.55]] }; // (level 1's two hold a dug-in heavy tank: the owner introduces the Drilling in level 2)
 function drillPits(S, P) {
   const want = DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return;
   const bands = []; for (const [t, f] of want) { const g = S.segs.find(q => q.t === t); if (!g) continue; const c = (g.start - S.planC0 + f * g.n) * CH, h = Math.max(40, 0.4 * g.n * CH); bands.push([Math.max(0, c - h), Math.min(P.L - 1, c + h)]); }
   CityGen.tankPits(P, bands);
 }
-// The Buechse's side emplacements (owner): two in every level with a plan but levels 1 and 1A (whose plan is the islands, sea at both edges), each
+// The Buechse's side emplacements (owner): two in every level with a plan but level 1 (whose plan is the islands, sea at both edges), each
 // in the widest stretches between the tank pits (or a pit and the plan's end) where one fits, kept 420 rows from the pits. CityGen.edgeNests picks
 // the spot there (at the screen's left or right edge, as near the stretch's middle as fits).
-const BUECHSE_NESTS = { 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2 };
+const BUECHSE_NESTS = { 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 };
 function buechseNests(S, P) {
   const n = BUECHSE_NESTS[S.level]; if (!n || !CityGen.edgeNests) return;
   const ys = [0, ...P.slots.filter(q => q.kind === 'tank').map(q => q.y).sort((a, b) => a - b), P.L - 1], gaps = [];
   for (let k = 1; k < ys.length; k++) { const a = ys[k - 1] + (k > 1 ? 420 : 120), b = ys[k] - (k < ys.length - 1 ? 420 : 120); if (b - a < 60) continue; if (b - a > 1100) gaps.push([a, (a + b) / 2], [(a + b) / 2, b]); else gaps.push([a, b]); } // (a long stretch: a band in each half)
   CityGen.edgeNests(P, gaps.sort((g, h) => (h[1] - h[0]) - (g[1] - g[0])), n); // (the widest first, until n fit: built-up edges have none)
 }
-// Level 1A (owner): a Buechse stands at the road's tip on the first big island: where its main road begins at the south shore, the first
+// Level 1 (owner): a Buechse stands at the road's tip on the first big island: where its main road begins at the south shore, the first
 // road the player meets. A 'tip' slot a little inland on the road (planDrills puts the Buechse there, dug in, facing down the screen).
 function roadTip(S, P) {
   if (!S.isles || !P.streets) return; let tip = null;
@@ -8274,20 +8267,11 @@ function sortiePlanBuild(S) {
   if (S.level === 4) return sortiePlanLevel4(S);
   if (S.level === 5) return sortiePlanLevel5(S);
   if (!S.gen) return null;
-  if (S.level === 7) return sortiePlanHarbour(S);
+  if (S.level === 6) return sortiePlanHarbour(S);
   if (S.level === 2) return sortiePlanLevel2(S);
-  const c0 = S.segs.find(g => g.t === 'farmland').start, n = S.len - c0, dens = [], dmg = [];
-  let lastU = 0;
-  for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; if (g.start < c0) continue; const f = (g.start + g.n / 2 - c0) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
-  dens.unshift([0, dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, 0]); dmg.push([1, dmg[dmg.length - 1][1]]);
-  const rv = S.segs.find(g => g.t === 'city_river'), y0w = -(world.stageBaseP + c0) * CH + CH - 1;
-  const fr = t => { const g = S.segs.find(q => q.t === t); return [(g.start - c0) / n, (g.start + g.n - c0) / n]; }; // a segment's share of the plan
-  const params = { L: n * CH, density: dens, damageCurve: dmg, damage: 1, farms: 0.4, road0: roadXl(y0w), river: Object.assign({}, CityGen.PRESETS.river.river, { at: (rv.start + rv.n / 2 - c0) / n }),
-    stationAt: [fr('station_main')[0], 1 - 170 / (n * CH)], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH }; // the station and its yard in the last segment, the works and power station in theirs, the airfield's fence at the end
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'river', params }); S.planC0 = c0; S.planC1 = S.len; S.planY0 = y0w;
-  return S.plan;
+  return null;
 }
-// Level 6B (S.level 7): the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
+// Level 6: the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
 // harbour (piers, U-boat bunker, breakwater, fairway) with the east side harbour opening into it (portSouth preset, corner form, sea to
 // the east), the old town, the works in their segment, the station in the last one, and the airfield's perimeter in the last chunk.
 function sortiePlanHarbour(S) {
@@ -8300,7 +8284,7 @@ function sortiePlanHarbour(S) {
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
-// Level 1A (S.level 8): level 1 with its islands. One plan of the islands preset from the level's first chunk to the fortified beach: the
+// Level 1: the islands. One plan of the islands preset from the level's first chunk to the fortified beach: the
 // carrier's open sea, the chain of islets in the island_chain segment, the large island (jetty, village, wood, pond, farmstead, airbase) from
 // the start of island_airbase (running about 1.5 chunks into the open sea after it), then sea up to the beach. Its water is the game's own sea.
 // A plan chunk that is mostly land plays as 'country', the others as 'sea' (S.planBiome). From the beach on, the legacy ground (S.seq).
@@ -8361,14 +8345,12 @@ function resetTerrainState() {
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level, ranked) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
-  app.enigmaLast = level; startAt(ENIGMA_BASE[level - 1], false, level); run.ranked = !!ranked; // 6B flies the old stage 6 (theme, music, boss) on its own ground, 1A stage 1
+  app.enigmaLast = level; startAt(level, false, level); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
 }
 function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
-// continues, weapon and drones carried over; after the last level (6, or 6B, the second level 6) came the congratulations (finishResults),
-// then the title. 1A, the second level 1, leads on to level 2. Nothing is counted (no loop, no best score).
-const ENIGMA_NEXT = [2, 3, 4, 5, 7, 0, 0, 2]; // 1A (8) leads to 2, 5 to 6B (7); plain 1 and 6 are kept for the lab
-const CAMP_LEVELS = [8, 2, 3, 4, 5, 7]; // the Campaign's levels 1 to 6 (internal levels 1A, 2, 3, 4, 5, 6B; level 5 leads to 6B, not the plain 6; the plain levels 1 and 6 stay out of it)
+// continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
+const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
 function endEnigmaLevel() {
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
@@ -8378,10 +8360,10 @@ function endEnigmaLevel() {
     if (lp) { run.loops = lp; run.stage += 6 * lp; run.loop = rankFor(run.stage); } // a repeat of the Campaign: stage 7 to 12 and so on, harder as before
     return;
   }
-  if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1A with score, lives and weapon, one loop harder
+  if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; startEnigma(8, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    app.congrats = null; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
     run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
@@ -8508,12 +8490,12 @@ function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma 
   newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
   if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); }
   setEnigmaArt(!!run.sortie);
-  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + ENIGMA_LABEL[run.sortie.level - 1], STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') carrierStart(); } markStage(); return; } // level 1 opens on the carrier's deck
+  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') carrierStart(); } markStage(); return; } // level 1 opens on the carrier's deck
   run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  showMsg((run.sortie ? 'LEVEL ' + ENIGMA_LABEL[run.sortie.level - 1] : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
+  showMsg((run.sortie ? 'LEVEL ' + run.sortie.level : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
 function startEndless() {
@@ -8528,27 +8510,27 @@ const ENDLESS_BTN = { w: 96, h: 16 };
 // Two views: the campaign (difficulty only, tutorial and practice offered underneath) and practice (a stage row above the difficulties).
 function setDiffView(prac) {
   app.diffNext.prac = prac;
-  const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign (1A to 6B), 'retro': the old campaign
+  const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign, 'retro': the old campaign
   document.getElementById('dStage').hidden = !prac;
   document.getElementById('dExtra').hidden = !camp || prac;
   document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : 'Endless';
   document.getElementById('dStageLbl').textContent = 'Level';
   if (prac) {
     document.querySelector('#dStage .dsel').classList.add('eni');
-    document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1, th = enigmaTheme(i + 1); b.hidden = !CAMP_LEVELS.includes(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.remove('art'); b.setAttribute('aria-label', 'Level ' + ENIGMA_LABEL[i]); });
-    setDiffStage(CAMP_LEVELS.includes(app.diffNext.n) ? app.diffNext.n : CAMP_LEVELS[0]);
+    document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1, th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.remove('art'); b.setAttribute('aria-label', 'Level ' + (i + 1)); });
+    setDiffStage(app.diffNext.n >= 1 && app.diffNext.n <= ENIGMA_N ? app.diffNext.n : 1);
   } else app.diffNext.n = 1;
 }
 function setDiffStage(n) {
   app.diffNext.n = n;
   for (const b of document.querySelectorAll('#dStage [data-s]')) b.setAttribute('aria-pressed', String(+b.dataset.s === n));
   const note = document.getElementById('dNote');
-  note.textContent = ENIGMA_LABEL[n - 1] + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 7 ? ': the harbour city' : n === 8 ? ': the islands' : '') + '. Practice runs do not count for the board.';
+  note.textContent = n + '. ' + STAGE_NAMES[enigmaTheme(n)] + (n === 6 ? ': the harbour city' : n === 1 ? ': the islands' : '') + '. Practice runs do not count for the board.';
   note.classList.add('prac');
 }
-function openDiff(kind, n) { // n: for the Campaign, a level (1 = the full Campaign from 1A; anything else opens Practice on that level)
+function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open Practice on that level (else the full Campaign from level 1)
   app.diffNext = { kind, n }; app.diffDown = false;
-  setDiffView(kind === 'camp' && n > 1);
+  setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
@@ -9068,7 +9050,7 @@ function saveResume() {
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, ranked: run.ranked, retro: run.retro };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, lvn: 2, ranked: run.ranked, retro: run.retro };
   if (app.snap && app.snap.stage === run.stage && app.snap.seed === run.seed && st === run.stage && !run.gameOverPending && !(app.cont > 0) && !app.results && !app.congrats) { r.snap = app.snap.text; r.sv = VERSION; r.snapScore = app.snap.score; }
   store.setJSON(KEY.resume, r);
 }
@@ -9079,8 +9061,15 @@ function clearResume() { app.snap = null; store.remove(KEY.resume); }
 // A save from an earlier build still resumes: the record only holds numbers the game rebuilds the stage from, and a hidden 4th version part is a fix, not a format change.
 function resumeCompat(v) { return typeof v === 'string' && v.split('.').slice(0, 3).join('.') === VERSION.split('.').slice(0, 3).join('.'); }
 function loadResume() {
-  { const r = store.getJSON(KEY.resume); if (r && resumeCompat(r.v) && Date.now() - r.at < 48 * 3600e3 && r.stage >= 1) return r; }
+  { const r = store.getJSON(KEY.resume); if (r && resumeCompat(r.v) && Date.now() - r.at < 48 * 3600e3 && r.stage >= 1 && resumeLevels(r)) return r; }
   clearResume(); return null;
+}
+// Saves from before build 1.2.5.16 (no lvn) number the levels the old way: level 1 was 8 and level 6 was 7; the old levels 1 and 6 are gone,
+// so a save in one of them is dropped. False: drop the save.
+function resumeLevels(r) {
+  if (!r.sortie || r.lvn === 2) return true;
+  const lv = { 8: 1, 2: 2, 3: 3, 4: 4, 5: 5, 7: 6 }[r.sortie.level]; if (!lv) return false;
+  r.sortie.level = lv; r.lvn = 2; return true;
 }
 /* ---------- exact resume: the whole simulation, saved while it is in a state that can be written down ---------- */
 // While you play, the game keeps a snapshot of everything that decides what happens next (the ship, every enemy and bullet, the
@@ -9225,7 +9214,7 @@ function resumeRun(r) {
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + ENIGMA_LABEL[r.sortie.level - 1] : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap && r.sv === VERSION ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap && r.sv === VERSION ? 'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
+  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + r.sortie.level : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap && r.sv === VERSION ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap && r.sv === VERSION ? 'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -9577,7 +9566,7 @@ function waveLeader(cx0) {
 function spawnWave(b, big) {
   if (big) { waveDive(3); return; }
   const r = Math.random();
-  if (run.sortie && run.sortie.level >= 3 && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, Enigma Run, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once)
+  if (run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level === 1 ? 9 : run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once. Level 1 too, as a late level: its internal number was 8 until build 1.2.5.16, and it plays as it did)
   if (avail('heavy') && r < 0.1 && count('heavy') < 1) { waveHeavy(); return; }
   if (avail('leader') && r >= 0.1 && r < 0.2 && !world.enemies.some(e => e.leader && !e.dead)) { waveLeader(); return; }
   const bomberOK = (b === 'country' || b === 'base' || b === 'forest') && count('bomber') < 1 + (run.loop >= 1 ? 1 : 0);
@@ -9644,7 +9633,7 @@ const ENC = {
     { t: 180, do: 'convoy', diff: [1, 2] }, // (three convoys on Rookie)
     { t: 360, do: 'convoy' },
     { t: 540, do: 'convoy' }] },
-  // First Contact (level 1A right after the carrier, over the island chain's water; owner's playtest: the start was too empty): the formation
+  // First Contact (level 1 right after the carrier, over the island chain's water; owner's playtest: the start was too empty): the formation
   // types one after another, so each reads on its own, over ships. A sweep of five from the left, then one from the right, a destroyer, two
   // PT boats, a five-plane dive up the middle, a strafing run from the side the ship is not on (not on Rookie); a pod as the reward. Sea only.
   // (The destroyer comes early: the chain's water narrows toward the airbase island.)
@@ -9657,10 +9646,10 @@ const ENC = {
     { t: 680, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] },
     { t: 960, do: 'pod', x: 0.5, own: false }] },
   // The Shadow Wing (owner: its own encounter, in every Campaign level; Retro Run keeps the old one): the director opens it where the Wing
-  // used to appear (level 1A later, after the airbase island: WING_U). It holds nothing: the level goes on around the Wing as before (owner).
+  // used to appear (level 1 later, after the airbase island: WING_U). It holds nothing: the level goes on around the Wing as before (owner).
   // The Wing stays about 15 s longer than the old one before it flees (WING_STAY: about 42 s). Killed, it ends and rests 3 s. No soft budget:
   // the Wing's own volleys were never gated.
-  // Formations (level 1A, in the stretch before the boss the owner added for it): formations with a leader, the leader flying first and its
+  // Formations (level 1, in the stretch before the boss the owner added for it): formations with a leader, the leader flying first and its
   // wingmen holding their slots until it falls. Two side by side (one on Rookie), then one up the middle, then a chase pair; a pod as the reward.
   formations: { name: 'FORMATIONS', len: 720, max: 1500, rest: 180, budget: [18, 24, 30], holds: { air: true, pod: true, ground: false }, ev: [
     { t: 0, do: 'formation', x: 0.3 },
@@ -9674,9 +9663,9 @@ const ENC = {
 // A level's encounters at set places (owner's level layouts, section 7b of the plan): each starts once the spawn line reaches chunk c of the
 // level (or as soon after as it may), and is given up past chunk until. live: in every Campaign run (owner: First Contact's formations are
 // logged in); the others only with the test link ?enc=all.
-const ENC_PLAN = { 8: [{ id: 'firstcontact', c: 4, until: 10, live: true }, { id: 'anvil', c: 31, until: 46 }, { id: 'formations', c: 48, until: 58, live: true }] };
+const ENC_PLAN = { 1: [{ id: 'firstcontact', c: 4, until: 10, live: true }, { id: 'anvil', c: 31, until: 46 }, { id: 'formations', c: 48, until: 58, live: true }] };
 const WING_STAY = 2500; // the Campaign's Shadow Wing: frames in its sequence before it flees (owner: about 15 s more than the old 1600)
-const WING_U = { 8: 0.44 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1A after the airbase island (owner)
+const WING_U = { 1: 0.44 }; // where a level's Shadow Wing comes, as a share of its arc, where it isn't 14/37 (about 0.38): level 1 after the airbase island (owner)
 // Spawn verbs: true when the event was dispatched; false only when nothing was made, so a retry is safe (encDispatch also counts an event
 // dispatched when it made something, whatever the verb returned). An event is due at t (frames from the start), after (frames after the
 // event before it), or when: 'seen' (the ground units of event 'of' are all on screen, at least 'at' of H down, or gone; at 'by' anyway).
@@ -9706,9 +9695,9 @@ const ENC_VERB = {
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
 let encFlakX = null; // while the flak verb runs: the x range its gun must stand in
-const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1A, 2, 3, 4, 5, 6B in turn (a level with a layout in ENC_PLAN plays that instead: 1A)
+const ENC_TOUR = ['anvil', 'flaklane', 'bomberscreen', 'sowerwindow', 'anvil', 'flaklane']; // ?enc=all: the Campaign's levels 1 to 6 in turn (a level with a layout in ENC_PLAN plays that instead: level 1)
 const ENC_TRY = new URLSearchParams(location.search).get('enc'); // ?enc=anvil, for playtesting (also on a phone): starts that encounter once per level, as early as it may. On the live site only in practice runs (off the board); local builds also in the Campaign
-const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[Math.max(0, CAMP_LEVELS.indexOf(run.sortie ? run.sortie.level : 0))]; // (a level outside the Campaign's six: The Anvil)
+const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[run.sortie ? run.sortie.level - 1 : 0];
 const ENC_SOWER_FROM = 0.7; // the level share where the set2 stretch begins (ARC): from here a settling Sower can open the Sower Window
 function encStart(id) {
   const D = ENC[id]; if (!run.sortie || world.enc || !D || world.bossSpawned || app.tut || (D.biomes && !D.biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
@@ -9770,7 +9759,7 @@ function encTick() {
   const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (D.budget && nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
   if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
-// Enigma Run (levels 2, 6, 6B): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
+// Enigma Run (levels 2 and 6): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
 // as the run comes up above the screen: a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, one train at a time,
 // each 900 px of a run at most once. It rolls south along the run and stops where the rails end (trainMove).
 function planTrain(wy) {
@@ -9797,7 +9786,7 @@ function planViaducts(sc) {
   P.viaducts.forEach((v, i) => { const y = S.planY0 - (v.y0 + v.y1) / 2; if (done.has(i) || y < wy - 60 || y > wy + 12) return; done.add(i);
     world.enemies.push(G('bridge', v.x, y, { via: true, hw: 10, hh: Math.round((v.y1 - v.y0) / 2), hp: 30, rad: 14, bkey: 'via' + i })); });
 }
-// Enigma Run's towns (levels 2, 6, 6B): the station's train shed and its hall (with the clock tower, where it still stands) are ground targets, placed as
+// Enigma Run's towns (levels 2 and 6): the station's train shed and its hall (with the clock tower, where it still stands) are ground targets, placed as
 // they come up above the screen (their look is the plan's own roof). Destroyed, the roof is painted over with a collapsed mound in the ground chunks;
 // a shed that is gone no longer covers its trains.
 function planStations(sc) {
@@ -9891,14 +9880,14 @@ function planTrains(sc) {
   world.enemies.push(G('loco', wx, wy, { train: tid, diesel: true, hp: 26 * m2, hh: 19, v }));
   for (let k = 0; k < n; k++) { const flak = Math.random() < 0.45; world.enemies.push(G(flak ? 'flatcar' : 'boxcar', wx, wy - 36 - k * 30, { train: tid, v, ga: PI / 2, cd: flak ? rnd(60, 120) | 0 : 999 })); }
 }
-// Whether the director may surface a submarine at wy. Level 1A (owner): one in the whole level, not before the island chain (the open sea
+// Whether the director may surface a submarine at wy. Level 1 (owner): one in the whole level, not before the island chain (the open sea
 // after the carrier is for planes and ships); the boss sends one more at half its health. Elsewhere: one at a time early on, then two.
 function subOK(wy) {
   const S = run.sortie;
-  if (S && S.level === 8) { const ch = S.segs.find(g => g.t === 'island_chain'); return !(world.subN > 0) && !!ch && -Math.floor(wy / CH) - world.stageBaseP >= ch.start; }
+  if (S && S.level === 1) { const ch = S.segs.find(g => g.t === 'island_chain'); return !(world.subN > 0) && !!ch && -Math.floor(wy / CH) - world.stageBaseP >= ch.start; }
   return count('sub') < (world.ARC_U < 0.15 ? 1 : 2);
 }
-// Level 1A: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
+// Level 1: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
 function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && (S.isles || S.level === 5))) return true; /* (level 5: never on the ice) */ for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
 function roadOK(x, y) { const S = run.sortie; return !(S && S.isles) || terrainType(Math.floor(x), Math.floor(y)) === 'road'; }
 /* Enigma Run: route objects (spec 2, Tier A; owner decision). A route is a road that vehicles follow, x a function of the world row: each tank
@@ -9977,7 +9966,7 @@ function routeStep(e) {
       const d = k0 <= 0 ? 1 : k0 >= sd.path.length - 1 ? -1 : Math.random() < 0.5 ? 1 : -1; e.side = { s: sd.id, k: k0, d, from: rt.id, passed: true }; e.atEnd = false; return sd.path[k0].slice(); } }
   e.atEnd = false; return [routeX(rt, nwy) + e.lane, nwy];
 }
-// Level 1A: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
+// Level 1: every gun slot of the islands plan gets its gun as it comes up above the screen, each once, whatever the director's pacing (as
 // planBerths does for submarines): turrets (the game's bunker) and flak on the islets, flak pits, an AA tower and planes in their blast pens at the airbase.
 function planGuns(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP) return;
@@ -9993,9 +9982,9 @@ function planDrills(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set());
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if ((sl.kind !== 'tank' && sl.kind !== 'tip') || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i);
-    if (sl.kind === 'tip') { if (world.enemies.every(e => !e.ground || Math.hypot(e.wx - sl.x, e.wy - y) > 12 + (e.rad || 0))) world.enemies.push(makeBuechse(sl.x, y, { road: false, hd: PI / 2, v: 0, dug: true })); continue; } // level 1A's road tip (roadTip; a planned spot: only a ground unit on it blocks it)
+    if (sl.kind === 'tip') { if (world.enemies.every(e => !e.ground || Math.hypot(e.wx - sl.x, e.wy - y) > 12 + (e.rad || 0))) world.enemies.push(makeBuechse(sl.x, y, { road: false, hd: PI / 2, v: 0, dug: true })); continue; } // level 1's road tip (roadTip; a planned spot: only a ground unit on it blocks it)
     if (!placeOK(sl.x, y, 12)) continue;
-    if (S.level === 8) { world.enemies.push(G('htank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); continue; } // level 1A (owner): a dug-in heavy tank, no Drilling before level 2
+    if (S.level === 1) { world.enemies.push(G('htank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); continue; } // level 1 (owner): a dug-in heavy tank, no Drilling before level 2
     world.enemies.push(drillCount() < 1 + run.loop ? makeDrill(sl.x, y, { dug: true }) : G('tank', sl.x, y, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }))); }
 }
 // Enigma Run: every side emplacement of the plan (a 'nest' slot) gets its Buechse once, as it comes up above the screen: dug in, lying across the
@@ -10006,7 +9995,7 @@ function planNests(sc) {
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i], y = S.planY0 - sl.y; if (sl.kind !== 'nest' || used.has(i) || y < wy - 48 || y > wy + 12) continue; used.add(i); if (!placeOK(sl.x, y, 12)) continue;
     const hd = sl.side < 0 ? 0 : PI; world.decals.push({ kind: 'bags', wx: sl.x, wy: y, side: sl.side }); world.enemies.push(makeBuechse(sl.x, y, { road: false, hd, ta: hd + (sl.side < 0 ? 0.6 : -0.6), v: 0, hw: 15, hh: 7, dug: true, nest: sl.side })); } // (lying across: a wide hit box)
 }
-// Level 1A: the game's cows in the plan's paddocks, each paddock once as it comes up above the screen; they graze inside its fence (c.box).
+// Level 1: the game's cows in the plan's paddocks, each paddock once as it comes up above the screen; they graze inside its fence (c.box).
 function planCows(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || !S.isles || S.planFor !== world.stageBaseP || !P.pastures) return;
   const done = S.cowsDone || (S.cowsDone = new Set());
@@ -10128,7 +10117,7 @@ function spawnGround(b) {
     return;
   }
   // Enigma Run plans carry their railway, roads and runways in the plan, which railDist and roadX don't see: a gun's footprint never touches them
-  // (a plan's runway reads as 'concrete' in terrainType, so the plan itself is asked; level 1A's islands plan counts too; a runway keeps its parked planes only)
+  // (a plan's runway reads as 'concrete' in terrainType, so the plan itself is asked; level 1's islands plan counts too; a runway keeps its parked planes only)
   const onLines = (wx, rad, rw = true) => { const S = run.sortie; if (!S || !(S.gen || S.isles)) return false; const h = Math.min(rad, 16) + 2; for (let dx = -h; dx <= h; dx += 4) for (let dy = -h - 8; dy <= h; dy += 4) { const t = terrainType(wx + dx, wy + dy); if (t === 'rail' || t === 'road' || t === 'runway' || t === 'bridge' || t === 'railbridge' || (rw && planRunway(wx + dx, wy + dy))) return true; } return false; };
   const tryLand = (types, rad = 12, rw = true, xr = null) => { // (xr: an x range to keep to, [x0, x1])
     for (let k = 0; k < 10; k++) {
@@ -10150,7 +10139,7 @@ function spawnGround(b) {
     else world.enemies.push(G('bunker', sl.x, sl.y, { ga: PI / 2, cd: rnd(60, 120) | 0 }));
     return true; };
   if (FORCE_GROUND === 'encFlak') { const sl = slotAt(['flak', 'arty', 'aatower', 'bunker'], encFlakX); if (sl) makeFlak(sl.x, sl.y); else { const wx = tryLand(['field', 'grass', 'mud', 'forest', 'concrete', 'apron', 'roof', 'sand', 'yard'], 14, true, encFlakX); if (wx !== null) makeFlak(wx, wy); } return; } // an encounter's flak (encounter plan, section 6): only flak, before the branches below can place something else ('flak' is checked after them); in a plan's free gun site where there is one (a plan keeps its ground for its gun sites; slotGun puts flak in an arty site too)
-  { const S = run.sortie; if (S && S.gen && r >= 0.75 && r < 0.95 && planTrain(wy)) return; } // Enigma Run levels 2, 6, 6B: a train on the plan's railway
+  { const S = run.sortie; if (S && S.gen && r >= 0.75 && r < 0.95 && planTrain(wy)) return; } // Enigma Run levels 2 and 6: a train on the plan's railway
   // Enigma Run level 2: every gun slot of the desert plan (pits, sangars, bunkers, nests on flat roofs, planes in the pens; tanks dug in: planDrills) gets its unit as it comes up
   { const S = run.sortie; if (S && (S.level === 2 || S.level === 4 || S.level === 5) && S.gen && r < 0.75) { const ks = ['parked']; if (S.level === 4 && count('aatower') < 1 + run.loop) ks.push('aatower'); /* (level 4: the forest's gun sites too, spec 19.1; level 5 its slots) */ if (!capF) ks.push('flak'); if (avail('arty') ? count('arty') < 3 : !capF) ks.push('arty'); if (!capB) ks.push('bunker'); /* (tank pits: planDrills) */
     const sl = slotAt(ks); if (sl) { if (sl.kind === 'flak' || (sl.kind === 'arty' && !avail('arty'))) makeFlak(sl.x, sl.y); else if (sl.kind === 'arty') spawnArty(sl.x, sl.y);
@@ -10332,7 +10321,7 @@ function convoy(wy, trucks) {
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && S.level >= 2 && !heavy && (S.level !== 8 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: Enigma Run, level 2 on; 1A (internal 8) too, but there one in a convoy at most, besides the one at the big island's road tip (owner))
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && !heavy && (S.level !== 1 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: every Campaign level; in level 1 one in a convoy at most, besides the one at the big island's road tip (owner))
       const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
       world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) world.buechseN = (world.buechseN || 0) + 1;
     }
@@ -10340,7 +10329,7 @@ function convoy(wy, trucks) {
 }
 function wingDead(e) { world.items.push(mkItem('W', e.x - 12, e.y)); world.items.push(mkItem(player && player.drones < 2 ? 'T' : 'B', e.x, e.y + 6)); world.items.push(mkItem('B', e.x + 12, e.y)); }
 function spawnWing() {
-  const hp = 520 * (1 + 0.35 * run.loop), v = run.sortie ? ENIGMA_BASE[run.sortie.level - 1] - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
+  const hp = 520 * (1 + 0.35 * run.loop), v = run.sortie ? run.sortie.level - 1 : -1, V = WING_V[v]; // Retro Run (no sortie) keeps the old wing
   world.enemies.push(E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, onDead: wingDead },
     V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)));
 }
@@ -11632,7 +11621,7 @@ function makeBuechse(wx, wy, o) {
   const S = run.sortie, night = !!S && ENIGMA_TIME[S.level - 1] !== 'day';
   return G('tank', wx, wy, tankStats(Object.assign({ buechse: true, silver: night, hp: 14 * hpm(), hw: 7, hh: 15, rad: 16, score: 1500, turHp: BUECHSE.turHp }, o)));
 }
-// Enigma Run cities (levels 6, 6B): a Drilling comes up on a side street of the plan (sideRoutes) and patrols it, back and forth between its ends
+// Enigma Run cities (level 6): a Drilling comes up on a side street of the plan (sideRoutes) and patrols it, back and forth between its ends
 function drillStreet(wy) {
   const S = run.sortie; if (!S || drillCount() >= 1 + run.loop) return false;
   for (const sd of sideRoutes(S)) {
@@ -12102,8 +12091,8 @@ const ENT = {
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
     const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
     e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
-    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
-    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
+    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
+    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
@@ -13773,7 +13762,7 @@ function update() {
         if (bx) { c.wx = clamp(c.wx, bx[0] + 1, bx[1] - 1); c.wy = clamp(c.wy, bx[2] + 1, bx[3] - 1); } else if (c.f) { c.wx = clamp(c.wx, c.f.x0 + 5, c.f.x0 + 67); c.wy = clamp(c.wy, c.f.y0 + 33, c.f.y0 + 61); } } }
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
-      const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1A)
+      const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1)
     } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
       let bx = 0, by = 0; for (const o of world.enemies) { const w = o.drill || o.buechse ? 44 : 24; if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < w && Math.abs(o.wy - c.wy) < w) { bx += c.wx - o.wx; by += c.wy - o.wy; } } // (a big gun: from further off)
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }
@@ -13857,7 +13846,7 @@ function updParts() {
 
 /* ================= render ================= */
 // Level 5's gorge: the galleries' roofs and the rock spurs drawn again over the trains under them (the plan's own pixels, from the painted chunks)
-// Enigma Run's towns (levels 2, 6, 6B): the station's glass train shed too, so the trains run in under its roof and not over it
+// Enigma Run's towns (levels 2 and 6): the station's glass train shed too, so the trains run in under its roof and not over it
 function shedRoofs() { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.items) return [];
   return P.items.filter(b => b.part === 'shed' && !(S.stnDown && S.stnDown.has(b.id))).map(b => ({ x0: b.x0, x1: b.x0 + b.w - 1, y0: b.y0, y1: b.y0 + b.h - 1, glass: true })); }
 function drawRoofs() {
@@ -15442,7 +15431,7 @@ for (const b of document.querySelectorAll('#sP2 button')) b.addEventListener('cl
 for (const b of document.querySelectorAll('#sShare button')) b.addEventListener('click', () => { settings.share = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); });
 for (const b of document.querySelectorAll('#sRumble button')) b.addEventListener('click', () => { settings.rumble = b.dataset.v === 'on'; syncSettingsUI(); saveSettings(); if (settings.rumble) padRumble(200, 0.6, 0.6); });
 document.getElementById('howTut').addEventListener('click', () => { app.paused = false; setPauseIcon(); startTutorial(); });
-for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startEnigma(8, true); });
+for (const b of document.querySelectorAll('#tutBtns button')) b.addEventListener('click', () => { settings.diff = +b.dataset.d; saveSettings(); app.tut = null; drawTutorial(); startEnigma(1, true); });
 document.getElementById('tutBox').addEventListener('pointerdown', e => e.stopPropagation());
 document.getElementById('pmHow').addEventListener('click', () => { showPauseMenu(false); openHowTo(); });
 document.getElementById('howClose').addEventListener('click', () => { document.getElementById('howto').classList.remove('open'); showPauseMenu(true); document.getElementById('pmHow').focus(); });
@@ -15470,7 +15459,7 @@ addEventListener('keydown', e => {
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
     if (go && app.state === 'title') openDiff('camp', 1);
-    else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', CAMP_LEVELS[+k - 1]); // the number keys open Practice on that Campaign level
+    else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
     return;
   }
@@ -15551,7 +15540,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false); else startEnigma(8, true); // START: the Campaign from 1A; Practice: one level, not ranked
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false); else startEnigma(1, true); // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });

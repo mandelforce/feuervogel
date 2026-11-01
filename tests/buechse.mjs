@@ -101,12 +101,12 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(m.off === 0 && m.bore === 48, `the sight line is a perfect extension of the barrel at 48 headings: on the barrel back to the turret (${m.off} misses), the muzzle on the bore (${m.bore} of 48)`);
   await page.close();
 }
-// 5. its side emplacements: two in levels 2 to 7 (one in 6, whose edges are built up), none in 1 and 1A; at the screen's edges,
+// 5. its side emplacements: two in levels 2 to 6, none in level 1 (its islands); at the screen's edges,
 // 520 rows apart and 420 from the tank pits; the same plan gives the same emplacements
 {
   const page = await freshPage();
-  const want = { 1: [0, 0], 2: [2, 2], 3: [2, 2], 4: [2, 2], 5: [2, 2], 6: [1, 2], 7: [2, 2], 8: [0, 0] }, name = { 7: '6B', 8: '1A' };
-  for (const lv of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  const want = { 1: [0, 0], 2: [2, 2], 3: [2, 2], 4: [2, 2], 5: [2, 2], 6: [2, 2] };
+  for (const lv of [1, 2, 3, 4, 5, 6]) {
     const r = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const S = run.sortie, P = sortiePlan(S); if (!P) return JSON.stringify({ n: [], pits: [] });
       const n = P.slots.filter(s => s.kind === 'nest').map(s => [s.x, s.y, s.side]), pits = P.slots.filter(s => s.kind === 'tank').map(s => s.y);
       S.planFor = null; const P2 = sortiePlan(S), again = JSON.stringify(P2.slots.filter(s => s.kind === 'nest').map(s => [s.x, s.y, s.side])) === JSON.stringify(n);
@@ -114,7 +114,7 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
     const ys = r.n.map(q => q[1]).sort((a, b) => a - b), gap = ys.slice(1).reduce((g, y, k) => Math.min(g, y - ys[k]), Infinity), pit = Math.min(Infinity, ...r.n.flatMap(q => r.pits.map(p => Math.abs(p - q[1]))));
     const edge = r.n.every(([x, , side]) => side < 0 ? x <= 44 : x >= r.W - 44);
     ok(r.n.length >= want[lv][0] && r.n.length <= want[lv][1] && edge && gap >= 520 && pit >= 420 && (r.again !== false),
-      `level ${name[lv] || lv}: ${r.n.length} side emplacements${r.n.length ? ' at x ' + r.n.map(q => q[0]).join(', ') + (r.n.length > 1 ? ', ' + gap + ' rows apart' : '') + ', ' + pit + ' rows from the nearest tank pit' : ''}`);
+      `level ${lv}: ${r.n.length} side emplacements${r.n.length ? ' at x ' + r.n.map(q => q[0]).join(', ') + (r.n.length > 1 ? ', ' + gap + ' rows apart' : '') + ', ' + pit + ' rows from the nearest tank pit' : ''}`);
   }
   await page.close();
 }
@@ -122,16 +122,16 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
 // Drilling and a Buechse walk off them within 3 s (cows staying in their paddock); the two tanks stand on land, far enough apart that an animal can stand clear of both
 {
   const page = await freshPage();
-  let cowLv = 0, cows1A = 0, near = [];
-  for (const lv of [2, 3, 4, 5, 6, 7, 8]) {
+  let cowLv = 0, cows1 = 0, near = [];
+  for (const lv of [1, 2, 3, 4, 5, 6]) {
     const pas = JSON.parse(await peek(page, `(() => { settings.diff = 1; startEnigma(${lv}); const P = sortiePlan(run.sortie), ps = (P && P.pastures) || [];
       const d = sl => Math.min(1e9, ...ps.filter(q => q.n > 0).map(q => Math.hypot(Math.max(q.x0 - sl.x, 0, sl.x - q.x1), Math.max(q.y0 - sl.y, 0, sl.y - q.y1)))); /* (to the nearest paddock with cows) */
       return JSON.stringify({ cows: ps.filter(q => q.n > 0).length, pits: P ? P.slots.filter(s => s.kind === 'tank' || s.kind === 'nest').map(s => Math.round(d(s))) : [] }); })()`));
     if (pas.cows > 0 && pas.pits.length) cowLv++;
-    if (lv === 8) cows1A = pas.cows;
+    if (lv === 1) cows1 = pas.cows;
     near.push(...pas.pits.filter(v => v < 28).map(v => `level ${lv}: ${v} px`));
   }
-  ok(cows1A > 0 && near.length === 0, `tank pits and emplacements keep 28 px from paddocks with cows (${cowLv} levels with both; level 1A has ${cows1A} paddocks with cows and no pits${near.length ? '; too near: ' + near.join(', ') : ''})`);
+  ok(cows1 > 0 && near.length === 0, `tank pits and emplacements keep 28 px from paddocks with cows (${cowLv} levels with both; level 1 has ${cows1} paddocks with cows and no pits${near.length ? '; too near: ' + near.join(', ') : ''})`);
   const a = JSON.parse(await peek(page, `(() => { ${alone()} world.enemies = []; const sc = Math.floor(world.scroll);
     const b = makeBuechse(60, 100 - sc, { road: false, hd: PI / 2, v: 0 }), d = makeDrill(60, 230 - sc, {}); world.enemies.push(b, d); groundPos(b); groundPos(d);
     critters.length = 0; for (const g of [b, d]) for (let k = 0; k < 4; k++) { const x = g.wx + rnd(-6, 6), y = g.wy + rnd(-6, 6);

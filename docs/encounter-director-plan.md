@@ -28,7 +28,7 @@ The brief is sound. The changes below come from how the game is actually built: 
 | Player death doesn't stop the director. | `die()` | Matches the brief: death never resets an encounter. |
 | Once the boss is triggered, `directorInner` returns early and only sends a 3-fighter dive every 360 frames. Boss weapon pods are spawned from the boss's own update. | `directorInner`, `ENT.boss` | Boss fights stay out of scope. Boss spawn cancels any pending encounter events. |
 | Level-specific "mini-directors" already run beside the waves: `sowerTick` (level 4), `planTrains`, `planGuns`, `planNests` and others, plus the Shadow Wing at 14/37 of the level (`spawnWing`). `sowerTick` already keeps the Wing and the Sower off the screen together. | `directorInner`, `sowerTick` | Ordinary encounters don't start while the Wing or a Sower is active. The Sower Window (7.4) is the one explicit exception. |
-| The Campaign is the Enigma levels 1A, 2, 3, 4, 5, 6B (`CAMP_LEVELS`), with `run.sortie` set. Retro Run is the old campaign, "as it was". | `startEnigma`, `startRetro` | Ship encounters in the Campaign (`run.sortie`) only. Retro Run, Endless and `gen` mode stay unchanged. |
+| The Campaign is the Enigma levels 1 to 6, with `run.sortie` set. Retro Run is the old campaign, "as it was". | `startEnigma`, `startRetro` | Ship encounters in the Campaign (`run.sortie`) only. Retro Run, Endless and `gen` mode stay unchanged. |
 | `golden.json` replays fly the old campaign. There is no Enigma replay baseline. | `tests/replay.js`, `tests/README.md` | Gating on `run.sortie` leaves `golden.json` untouched, which is a useful proof that nothing else changed. The Campaign needs its own regression check (Phase 0). |
 | Enemy bullets: `eshot` drops new bullets past 420 on screen and during a Nova; on Rookie it drops every third ordinary bullet (`DIFF.skip`). | `eshot` | A hard technical limit already exists and already truncates patterns. The encounter budget is a design limit well below it and delays volleys instead. Both existing rules stay as they are. |
 | `canFire(e, margin)` is the shared "may I shoot now" test, used about 23 times. Several shooters (Heavy, fighters) have their own checks. | `canFire`, `ENT.*.update` | This is the natural place to hang the admission check later. The MVP calls it directly at a few sites. |
@@ -41,7 +41,7 @@ The brief is sound. The changes below come from how the game is actually built: 
 Small corrections to the brief:
 - "Talons, Lance, Nova bombs": the Lance is one of the four weapons, the Talon is the drone pickup and the Nova is the bomb.
 - Daily Sortie doesn't exist yet, so it stays under future work.
-- The six-level Campaign is correct (1A, 2, 3, 4, 5, 6B).
+- The six-level Campaign is correct (1 to 6).
 
 ## 3. Scope
 
@@ -86,7 +86,7 @@ Fields:
 - `ev`: the events, sorted by `t`.
 - An event's `do` names a *spawn verb* (section 6). The other fields are that verb's options. An event may have `when` instead of `t` (a trigger, see 5.3). `own: false` marks an event whose entities are tagged for diagnostics but never counted toward completion (rewards and scenery). `diff` lists the difficulties the event runs on (default: all), so an encounter can be lighter on Rookie than a budget alone would make it.
 
-Why `diff` matters: today the director thins waves on Rookie (to 70% in stage 1, 85% elsewhere) through the `dens` factor, which only scales the normal timers and never touches an encounter. The first slot (`set1`, about 28% into level 1A) is one of the first things a new player meets, so each encounter is checked on Rookie and drops events with `diff` until it reads as clearly as today's set piece there.
+Why `diff` matters: today the director thins waves on Rookie (to 70% in stage 1, 85% elsewhere) through the `dens` factor, which only scales the normal timers and never touches an encounter. The first slot (`set1`, about 28% into level 1) is one of the first things a new player meets, so each encounter is checked on Rookie and drops events with `diff` until it reads as clearly as today's set piece there.
 
 Runtime state is plain data on `world`, so the snapshot saves it with no extra code:
 
@@ -150,7 +150,7 @@ The normal timers stay frozen while `world.enc` is not null, whatever the state 
 - **Freezing:** each timer named in `holds` skips its decrement. The three lines in `directorInner` become, for example, `if (!encHeld('air') && --world.waveCd <= 0)`.
 - **Resuming:** when `world.enc` becomes `null`, each timer resumes from the value it had. Nothing is reset or shortened, so a normal wave can't fire early or late because of the encounter.
 - **Not the zone clamp:** this differs from the zones' `Math.max(cd, 30)` clamp, which lets a timer fire 30 frames after the zone ends. The zone clamps keep working as before.
-- **(checked) Zone clamps:** the zones' clamps only ever raise a timer to 30, never lower it. If a clamp hits a frozen timer below 30 (an encounter running into `calm`, for example), that timer resumes 30 frames later than it would have. No wave can come early, so no ordering code is needed. For scale, the `set` zones themselves are short: in level 1A, `set1` lasts 300 frames (frame 2130–2430) and `set2` 330 frames (5790–6120), so an encounter of 10–25 s always runs on into the next zone. That's fine, because the freeze, not the zone, holds the timers.
+- **(checked) Zone clamps:** the zones' clamps only ever raise a timer to 30, never lower it. If a clamp hits a frozen timer below 30 (an encounter running into `calm`, for example), that timer resumes 30 frames later than it would have. No wave can come early, so no ordering code is needed. For scale, the `set` zones themselves are short: in level 1, `set1` lasts 300 frames (frame 2130–2430) and `set2` 330 frames (5790–6120), so an encounter of 10–25 s always runs on into the next zone. That's fine, because the freeze, not the zone, holds the timers.
 
 **Dispatch contract (all verbs):**
 - **`true`:** the event was dispatched. It may have created fewer entities than the verb could make, for example one flak gun of two. Partial success counts as success and is never retried.
@@ -205,7 +205,7 @@ Slots:
 | Boss not spawned, and `ARC_U` below 0.9 (not in `still`). | yes | yes |
 | No Shadow Wing on screen. | yes | yes (`sowerTick` already keeps them apart) |
 
-The other direction matters as well: **the Shadow Wing waits for a running encounter** and its rest (`spawnWing` is not called while `world.enc` exists). Without this, the first slot would run into the Wing: in level 1A, `set1` starts at frame 2130 and the Wing is due at about frame 2930, while The Anvil with its rest takes 900–1300 frames. A playtest also reported the Wing arriving together with The Anvil. The Wing comes the frame after the rest ends, so the rest is the only gap between the two. If that feels too tight, the Wing can wait a little longer after the encounter.
+The other direction matters as well: **the Shadow Wing waits for a running encounter** and its rest (`spawnWing` is not called while `world.enc` exists). Without this, the first slot would run into the Wing: in level 1, `set1` starts at frame 2130 and the Wing is due at about frame 2930, while The Anvil with its rest takes 900–1300 frames. A playtest also reported the Wing arriving together with The Anvil. The Wing comes the frame after the rest ends, so the rest is the only gap between the two. If that feels too tight, the Wing can wait a little longer after the encounter.
 | No Sower active (any `sower` not dead). | yes | n/a: this is its start condition |
 | The `set2` zone has been reached, a Sower has entered `st === 'hold'` since then, and that Sower isn't marked `encSeen`. | n/a | yes. The Sower is marked `encSeen` so it starts one encounter only, and its called partner doesn't start a second. |
 
@@ -247,13 +247,13 @@ Not a verb: the Sower and the Shadow Wing. They are level set pieces with their 
 
 ## 7. MVP encounters
 
-**Owner's playtest, round 2 (2026-10-31): the encounters didn't feel significant, and Flak lane in level 6B had only one gun.** Changes since:
+**Owner's playtest, round 2 (2026-10-31): the encounters didn't feel significant, and Flak lane in level 6 had only one gun.** Changes since:
 - **Flak lane gets a real lane.**
   - Each gun has its own event and its own third of the screen (left 6–38%, right 62–94%), and waits up to 4 s (`wait: 240`) for ground.
   - Halfway through that wait it may stand anywhere on the far side of the other gun, 70 px clear of it.
   - In a level with a plan, any free gun site takes the gun (flak, artillery, AA tower, bunker), as `slotGun` already does for flak on an artillery site.
   - Without both guns, Flak lane is **called off** before its formations (`needAll`, end reason `nolane`). The gun that was placed stays as an ordinary gun, and the test link tries again 600 frames later.
-  - Measured: one gun on each side in 6 of 6 runs (old: 2 of 6). Level 2's and 6B's towns call it off at the very start, then it runs a little later.
+  - Measured: one gun on each side in 6 of 6 runs (old: 2 of 6). Level 2's and 6's towns call it off at the very start, then it runs a little later.
 - **One size bigger.**
   - The Anvil: two formations at once, plus a five-plane dive, and an 8 s hold.
   - Flak lane: a second formation down the lane and a strafing run of five.
@@ -329,7 +329,7 @@ Four compositions, one per idea from the earlier discussion. Each has one anchor
 - **Owner's decision (playtest of level 1):** the Shadow Wing becomes its own encounter, everywhere, and stays about 15 s longer before it flees. The extra time is not exclusive: the level goes on around it.
 - **Status: built, live in the Campaign** (build 1.2.5.12; Retro Run keeps the old Wing, so `golden.json` is unchanged).
   - Definition: `wing`, `start: 'wing'`: the Wing at frame 0 (the `wing` verb calls `spawnWing`). It holds nothing and has no soft budget (the Wing's volleys were never gated). `WING_STAY` 2500: the Campaign's Wing flees after 2500 frames in its sequence, about 42 s (the old one: 1600, about 27 s). Killed, it ends and rests 3 s (`max` 3200).
-  - Start: the director opens it where the Wing used to come (14/37 of the arc), after any running encounter and its rest. `WING_U` moves it per level: level 1A at 0.47, after the airbase island. A Sower below doesn't hold it, and it isn't held by one.
+  - Start: the director opens it where the Wing used to come (14/37 of the arc), after any running encounter and its rest. `WING_U` moves it per level: level 1 at 0.47, after the airbase island. A Sower below doesn't hold it, and it isn't held by one.
   - The test link counts only its own encounter (`world.encTry`), so a Shadow Wing that ran first doesn't use up `?enc`.
 
 ## 7b. Level 1 as encounters (owner's playtest)
@@ -347,10 +347,10 @@ The owner found level 1 too empty before the first encounter, the two Drillings 
 | farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so with a Wing left alone (about 42 s) it starts in the village or the forest (chunks 40–45; given up past 50) | built (test link) |
 | forest, coast, sea | normal director, then the flagship; **one submarine at about half its health** | built |
 
-- **Built (1.2.5.12, live):** no Drilling pits in 1A (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
-- **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1A: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
-- **Second playtest (1.2.5.13, live):** First Contact is live in every Campaign run (`ENC_PLAN` entry `live: true`; The Anvil stays on `?enc=all`). Level 1A's two tank pits are back, each with a dug-in heavy tank (`planDrills`). Two Büchse at most in 1A: one dug in at the big island's road tip (`roadTip`: a `tip` slot where the main road begins at the south shore, filled by `planDrills`), and at most one in a convoy (`world.buechseN`); the "level 2 on" rule had matched 1A's internal 8.
-- **Third playtest (1.2.5.15, live):** formations with a leader from level 1 on in the Campaign (`avail('leader')`); level 1A is 62 chunks (its last farmland 10, was 4) and plays **Formations** there (`ENC_PLAN` live at chunk 48: two leader formations side by side, one on Rookie, then one up the middle and a chase pair, a pod); `WING_U` 0.44 keeps the Shadow Wing over the sea after the airbase island.
+- **Built (1.2.5.12, live):** no Drilling pits in level 1 (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
+- **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
+- **Second playtest (1.2.5.13, live):** First Contact is live in every Campaign run (`ENC_PLAN` entry `live: true`; The Anvil stays on `?enc=all`). Level 1's two tank pits are back, each with a dug-in heavy tank (`planDrills`). Two Büchse at most in level 1: one dug in at the big island's road tip (`roadTip`: a `tip` slot where the main road begins at the south shore, filled by `planDrills`), and at most one in a convoy (`world.buechseN`); the "level 2 on" rule had matched level 1's internal 8.
+- **Third playtest (1.2.5.15, live):** formations with a leader from level 1 on in the Campaign (`avail('leader')`); level 1 is 62 chunks (its last farmland 10, was 4) and plays **Formations** there (`ENC_PLAN` live at chunk 48: two leader formations side by side, one on Rookie, then one up the middle and a chase pair, a pod); `WING_U` 0.44 keeps the Shadow Wing over the sea after the airbase island.
 - **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
 
 ## 8. Soft bullet budget
@@ -388,7 +388,7 @@ The first implementation is a **soft** budget. Selected shooters ask before a vo
 - **Gated (built):** fighter `fireAt` and strafe shots, Heavy pause start, Bomber `gcd`, flak and tank cooldowns, plus pop-up turrets and the Drilling, which the first measurement showed to be the main sources of overruns. That's 9 call sites in 8 places; the fighter's aimed shot appears twice, for the lead plane and the wingmen. They are gated whoever owns them, because the player sees all bullets, including those of the normal director's ground units.
 - **Not gated:** boss parts (no encounters during bosses), revenge shots (immediate feedback to a kill), the Shadow Wing, the Sower's falling bombs, artillery, AA towers, flak cars on trains, the Büchse, and any shooter not in the list above. The Sower's mines aren't counted at all. They still count toward the total, so they can push it over the budget, and the gated shooters then wait until it falls.
 - **Measuring:** while an encounter runs, each frame with `world.ebul.length` above the budget adds to `over`, and `peak` keeps the maximum. Both go into `world.encLast`. The cause of an overrun comes from the existing shooter attribution (`SF.attrib()`, `balance-real.mjs --attrib`). **(checked)** It can't be limited to a frame range, and it is approximate: it credits each bullet to the nearest enemy within 50 px, so flak and revenge fire next to a gun crew shows up as "troop" (troops don't shoot). In Phase 3 the harness wrapper gets an encounter key (`<stage>:enc:<id>:<type>` while `world.enc` is set). That change goes in `tests/harness.js` only, not the game, and the attribution stays approximate.
-- **Repeat loops and rank:** after level 6B the Campaign can loop (stage 7–12 and on). `rankFor` raises `run.loop` by 1 per loop, and on Ace also per stage. That makes bullets faster (`bspeed`) and makes more fighters shoot. The budget is not scaled for this:
+- **Repeat loops and rank:** after level 6 the Campaign can loop (stage 7–12 and on). `rankFor` raises `run.loop` by 1 per loop, and on Ace also per stage. That makes bullets faster (`bspeed`) and makes more fighters shoot. The budget is not scaled for this:
   - it counts bullets on screen, and faster bullets leave the screen sooner, so the same budget already admits more fire per second on a loop;
   - a fixed number keeps the "how busy the screen looks" ceiling the same, which is what the budget is for.
   Phase 4 checks one looped level per difficulty. If the loop reads as too easy under the budget, add a per-loop factor then, not before.
@@ -444,11 +444,11 @@ Each phase ends with its check passing.
 - **Done when:** the numbers are saved, and the baseline reproduces on two runs.
 - **Status: done.**
   - The balance numbers are in `tests/balance-encounter-phase0.json` (for `balance-real.mjs --baseline`), and the per-level figures are below.
-  - The Campaign replay baseline is `tests/golden-enigma.json`, run with `node tests/replay.mjs --enigma`. It covers level 1A on Rookie with the bot able to die, level 3 on Ace, and level 4 on Veteran with both Sowers. It reproduced on two runs, and `golden.json` still matches. It is run by hand, not in CI, and is not a blocking check (decided).
+  - The Campaign replay baseline is `tests/golden-enigma.json`, run with `node tests/replay.mjs --enigma`. It covers level 1 on Rookie with the bot able to die, level 3 on Ace, and level 4 on Veteran with both Sowers. It reproduced on two runs, and `golden.json` still matches. It is run by hand, not in CI, and is not a blocking check (decided).
 
 Phase 0 numbers (human bot, 4 runs per difficulty; the window is the worst 10 s of enemy bullets on screen before the boss):
 
-| | Level | 1A | 2 | 3 | 4 | 5 | 6B |
+| | Level | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|---|
 | Rookie | window | 11 | 10 | 12 | **40** | 10 | 18 |
 | | shots/s | 1.75 | 1.48 | 1.76 | 1.44 | 1.14 | 2.52 |
@@ -489,7 +489,7 @@ What this means for the plan:
   - **Deferred to the later steps:** the `encFlak` branch, the `seen` and `clear` triggers, `world.encPend` and the start rules with the Sower exception (step 6), and the Sower Window and its test (step 5).
   - **Tests:** `tests/encounter.mjs` passes 26 checks, including the `?enc` switch. A new `resume-exact.mjs` scenario, `level2-anvil`, saves at encounter frames 150 and 400 and resumes identically. `golden.json` and `golden-enigma.json` are unchanged.
   - **Learned:**
-    - **The carrier holds encounters.** Level 1A opens with the carrier scene, which holds an encounter for its first 1000+ frames, as designed. The tests run in level 2 instead. Level 1A's first slot (frame 2130) comes after the carrier, so the real slots are not affected.
+    - **The carrier holds encounters.** Level 1 opens with the carrier scene, which holds an encounter for its first 1000+ frames, as designed. The tests run in level 2 instead. Level 1's first slot (frame 2130) comes after the carrier, so the real slots are not affected.
     - **First numbers.** The Anvil on Veteran in level 2 (immortal bot): bullets peaked at 19, against a budget of 22, with 0 frames over. The bot cleared every counted enemy by frame 540, so the encounter ended on its last event. The bot is stronger than people, so the hand playtest decides whether the Heavy reads as an anchor (7.1).
 
 **Phase 3: soft budget**
@@ -524,7 +524,7 @@ What this means for the plan:
 - In the Campaign, `set1`/`set2` slots start encounters (5.5); level 4's `set2` slot is the Sower Window.
 - Compare with the Phase 0 numbers per level and difficulty.
 - Also fly these, which the per-difficulty runs don't cover:
-  - level 1A on Rookie, where new players meet the first encounter;
+  - level 1 on Rookie, where new players meet the first encounter;
   - one looped level per difficulty (section 8);
   - one two-player run: enemies split their aim between two ships, so the budget and readability can feel different;
   - one run pinned to a weak weapon (`SF.human(…, 'S1')`): gun speed is fixed for everyone, so weapon power is what makes clearing slow, and slow clearing is what makes a `timeout` likely.
@@ -543,7 +543,7 @@ These are the brief's questions, plus numbers to look at alongside them:
 | What's the cognitive load? | The worst 10 s bullet window inside the encounter, its `over` and `peak`, and which shooters fill it (`--attrib`). |
 | Is there tactical variety? | Time to clear per weapon (`SF.human(…, 'S4')` etc.). If one weapon is far ahead in every encounter, the compositions aren't asking different things. |
 | Is there pacing and recovery? | Bullets on screen over time, which should show a peak, then the `rest` gap visibly lower. |
-| Is it fair? | Ace has more hits than Veteran, and Veteran more than Rookie (`balance-checks.mjs` already asserts this per run). On Rookie in level 1A, hits in the first encounter are no higher than in today's first set piece. |
+| Is it fair? | Ace has more hits than Veteran, and Veteran more than Rookie (`balance-checks.mjs` already asserts this per run). On Rookie in level 1, hits in the first encounter are no higher than in today's first set piece. |
 | Do Novas and Lance matter? | Novas fired inside encounters, and the share of counted enemies killed versus escaped. |
 
 ## 12. Risks and open questions

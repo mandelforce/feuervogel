@@ -3,7 +3,7 @@
 //   node tests/carrier-shots.mjs OUTDIR                    frames 0, 40, 100, 140, 170, 230, 330, 480, 700, 1000
 //   node tests/carrier-shots.mjs OUTDIR 0,60,120           chosen frames
 //   node tests/carrier-shots.mjs OUTDIR - K=1.5,END=0.5,PLANE=1 NAME   default frames with other carrier settings (CV in index.html), files NAME-<frame>.png
-//   node tests/carrier-shots.mjs OUTDIR 2000,3000 - 1a 8                 another Enigma Run level (8 is 1A), no carrier settings
+//   node tests/carrier-shots.mjs OUTDIR 2000,3000 - l3 3                 another level, no carrier settings
 // Writes OUTDIR/carrier-<frame>.png (224 px wide) and OUTDIR/sheet-carrier.html (all of them on one page).
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

@@ -1,5 +1,7 @@
 # Shadow Wing: six variants (design, step 1)
 
+> **Level numbers (build 1.2.5.16).** 1A is now level 1 and 6B is level 6; the old levels 1 and 6 were removed. `ENIGMA_BASE` is gone: each level flies the stage of its number. The text below keeps the names of its time.
+
 Status: proposal for approval. Nothing is wired into the game. Mock-up: `docs/shadow-wing-looks.png`, made by `docs/shadow-wing-art-v1.js` (`makeWingsV1()`, built with the game's own sprite helpers, same 100 x 40 size and shading as `SPR.wing`).
 
 ![The six looks](shadow-wing-looks.png)

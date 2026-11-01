@@ -1,11 +1,11 @@
-// Enigma Run: flies level N (default 8, level 1A) with a seeded Math.random and fails if a ground unit or a carrier fighter first exists inside the
+// Enigma Run: flies level N (default 1) with a seeded Math.random and fails if a ground unit or a carrier fighter first exists inside the
 // visible playfield (it must be created above the top edge or, on the carrier, already be drawn): nothing pops in.
 //   node tests/no-pop-in.mjs [level]     (serve the folder first: python3 -m http.server 8000; CHROME=<path> picks the browser; SEED=<n> the random seed)
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 const golden = JSON.parse(readFileSync(new URL('./golden.json', import.meta.url), 'utf8'));
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8'), replay = readFileSync(new URL('./replay.js', import.meta.url), 'utf8');
-const lv = +process.argv[2] || 8;
+const lv = +process.argv[2] || 1;
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
 const page = await browser.newPage({ viewport: golden.viewport });
 await page.route(/workers\.dev/, r => r.abort());
