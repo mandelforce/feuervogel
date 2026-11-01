@@ -353,6 +353,17 @@ The owner found level 1 too empty before the first encounter, the two Drillings 
 - **Third playtest (1.2.5.15, live):** formations with a leader from level 1 on in the Campaign (`avail('leader')`); level 1 is 62 chunks (its last farmland 10, was 4) and plays **Formations** there (`ENC_PLAN` live at chunk 48: two leader formations side by side, one on Rookie, then one up the middle and a chase pair, a pod); `WING_U` 0.44 keeps the Shadow Wing over the sea after the airbase island.
 - **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
 
+## 7c. The Campaign's timetable (build 1.2.5.20, owner: every player gets the same challenge)
+
+In the Campaign the encounter director plays on a timetable (ARCHITECTURE.md, "The Campaign's timetable"):
+- an encounter ends at its fixed length (`TT_ENC`: First Contact 1364, Formations 720, the Shadow Wing 2864 frames; the test link's ones their `len` plus 300), not when its enemies are dead; it rests as before;
+- only the carrier holds an encounter; the Shadow Wing or a Sower on screen don't, and an ordinary encounter starts on time with a Sower up;
+- a `when: 'seen'` event reads where its ground units stand (recorded at dispatch), killed or not;
+- the strafers' side comes from the encounter's own stream, not from the ship's side;
+- the soft bullet budget is unchanged (it gates enemy fire, not spawns).
+
+Retro Run keeps the reactive rules above.
+
 ## 8. Soft bullet budget
 
 The first implementation is a **soft** budget. Selected shooters ask before a volley and wait when the screen is full, while other sources fire as before. The total can go above the budget, and the implementation measures how often and why.

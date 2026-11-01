@@ -127,7 +127,9 @@ node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
 
 ## Fixed seed test (runs in CI, blocking)
 
-`fixed-seed.mjs` checks that the Campaign is the same for every player. It flies every level for 3000 frames with the bot in two fresh pages whose own `Math.random` differs (standing in for two devices) and requires the same seed (1944), a frame count starting at 0, the same spawns (type, frame, place), the same score and the same end state. A practice start of a level must play the same as its Campaign start, and a level reached by finishing the one before must start the same stream. Endless must still get a new seed every run. CI runs it after `enigma.mjs`.
+`fixed-seed.mjs` checks that the Campaign is the same for every player. It flies every level for 3000 frames with the bot in two fresh pages whose own `Math.random` differs (standing in for two devices) and requires the same seed (1944), a frame count starting at 0, the same spawns (type, frame, place), the same score and the same end state. A practice start of a level must play the same as its Campaign start, and a level reached by finishing the one before must start the same stream. Endless must still get a new seed every run. And the timetable: every level flown to the boss by a bot that shoots everything and by one that never fires must get the same spawns from the director (type, frame, place, logged through `ttGhost`) and the boss at the same frame. CI runs it after `enigma.mjs`.
+
+The timetable's numbers come from the bot on today's reactive director (build 1.2.5.19): `TT_LIFE` from a bot that never fires (Heavy 720 frames, Bomber 810, Sower 1204, fighters about 250; the Pfeil never leaves unshot, so its life against the bot, about 600); `TT_ENC` from the encounters' median length against the bot (First Contact 1364, Formations 720, the Shadow Wing 2864); `TT_AIR` from the highest number of planes up at an air wave on any level (Rookie 16, Veteran 18, Ace 20: it skips 21 of 1686 waves, 11 of them on Ace in level 4); `TT_BOSS_SUB` from where the bot has the flagship at about half and a quarter of its health.
 
 ```
 node tests/fixed-seed.mjs

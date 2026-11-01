@@ -5,7 +5,8 @@
 // Checks, for every level: flown by the same bot in two fresh pages whose own Math.random differs (the device's randomness), the run is the
 // same: the same enemies spawned at the same frames and places, the same score and the same state at the end; a practice start of the level
 // starts the same stream as the Campaign's start, and a level reached by finishing the one before starts the same stream as well.
-// Endless still gets a new seed every run.
+// Endless still gets a new seed every run. And the timetable (step 3): flown to the boss by a bot that shoots everything and by one that never
+// fires, every level gets the same spawns from its director, at the same frames and places, and the boss comes at the same frame.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -52,6 +53,17 @@ for (const lv of [1, 2, 3, 4, 5, 6]) {
   ok(a.score === b.score && a.end === b.end, `level ${lv}: the same score (${a.score}) and end state (${a.end}${a.end === b.end ? '' : ' / ' + b.end})`);
   const p = JSON.parse(await peek(pageB, fly(lv, false)));
   ok(p.s0 === a.s0 && p.end === a.end, `level ${lv}: a practice start plays the same as the Campaign's (${p.end === a.end ? 'same end state' : p.end + ' / ' + a.end})`);
+}
+/* the timetable: very different play, the same spawns. The director's spawns are logged through ttGhost (every enemy it makes) */
+const toBoss = pac => `(() => { const log = []; const og = ttGhost; ttGhost = e => { log.push(e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.ground ? e.wy : e.y)); og(e); };
+  SF.setMode('immortal'); SF.start(1, 1); startEnigma(LV, true); SF.human(8, 15);
+  for (let f = 0; f < 30000 && !world.bossSpawned; f++) { if (${pac}) { world.shots.length = 0; run.bombs = 0; } if (SF.run(1) !== 'ok') break; }
+  ttGhost = og; return JSON.stringify({ log, boss: gf, score: run.score }); })()`;
+for (const lv of [1, 2, 3, 4, 5, 6]) {
+  const a = JSON.parse(await peek(pageA, toBoss(false).replace('LV', lv))), p = JSON.parse(await peek(pageB, toBoss(true).replace('LV', lv)));
+  const i = a.log.findIndex((x, k) => x !== p.log[k]);
+  ok(a.log.length > 100 && i < 0 && a.log.length === p.log.length && a.boss === p.boss && a.score > p.score,
+    `level ${lv}: shooting everything (${a.score} points) or never firing (${p.score}), the director makes the same ${a.log.length} spawns and the boss comes at frame ${a.boss}${i >= 0 ? ' (first difference #' + i + ': ' + a.log[i] + ' / ' + p.log[i] + ')' : a.boss !== p.boss ? ' / ' + p.boss : ''}`);
 }
 /* a level reached in a run starts the stream a practice start of it does */
 {

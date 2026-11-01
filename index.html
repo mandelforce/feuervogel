@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.19'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.20'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8494,6 +8494,7 @@ function campSeed(level) {
   const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED;
   simS = forced ? run.seed | 0 : (Math.imul(run.seed, 31) + level * 977) | 0; onStream(true, newSecret)(); // (a test's forced seed is the stream's seed, as in newGame)
   gf = 0; zapLast = -99; for (const k in sfxLast) delete sfxLast[k]; // (the sound throttles hold frame counts)
+  world.ttGhosts = []; // (the timetable's ghosts: a new level starts with none)
 }
 function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
@@ -9273,7 +9274,7 @@ function flakShot(x, y, spread = 1) {
   eshot(x, y, Math.atan2(ty - y, tx - x), bspeed() * 1.15, 'shell');
 }
 function ring(x, y, n, sp, off, kind = 's') { const rf = DIFF.ring[settings.diff]; if (rf !== 1) n = Math.max(6, Math.round(n * rf)); for (let i = 0; i < n; i++) eshot(x, y, off + i * TAU / n, sp, kind); }
-const count = type => world.enemies.reduce((n, e) => n + (e.type === type && !e.dead ? 1 : 0), 0);
+const count = type => ttDir ? ttCount(type) : world.enemies.reduce((n, e) => n + (e.type === type && !e.dead ? 1 : 0), 0); // (the Campaign's director counts its timetable's ghosts: ttCount)
 // A new enemy: the defaults, then its type's base stats (ENT[type].stats), then what this spawn sets. Stats hp scales with the
 // difficulty and loop (hpm()), as spawn sites always did; fixedHp is the same on every difficulty.
 function baseStats(type) {
@@ -9287,12 +9288,16 @@ function E(type, o) {
   const e = Object.assign({ type, x: 0, y: 0, t: 0, hp: 1, hw: 6, hh: 6, score: 100, hit: 0, ground: false, big: false, mt: 0, rad: 10 }, baseStats(type), o);
   if (run.sortie) { const b = ENIG_BOX[type]; if (b) { e.hw = b[0]; e.hh = b[1]; } }
   if (encTag) { e.enc = encTag.id; e.encEv = encTag.ev; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch; encEv: its index)
+  if (ttDir) ttGhost(e); // (the Campaign's timetable keeps a ghost of what its director makes)
   return e;
 }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(world.scroll) }, o)); }
-function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && Math.hypot(c.wx - wx, c.wy - wy) < r + 30); }
+function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !ttSeen(c) && Math.hypot(c.wx - wx, c.wy - wy) < r + 30); }
+// The Campaign's timetable places without minding animals and boats: they wander, and bolt or sink because of the player (an animal walks off a
+// gun by itself). ttSeen: true for a critter the timetable ignores.
+const ttSeen = c => ttDir;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); }
+  if (boatNear(wx, wy, r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || (ttDir && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
 function boom(x, y, size, layer = 'a') {
@@ -9404,12 +9409,32 @@ function director() {
   if (app.tut) { tutTick(); return; }
   if (app.results || app.congrats || world.quiet) return;
   if (settings.mode === 'gen') return directorInner();
-  const rr = Math.random; Math.random = drand; try { directorInner(); } finally { Math.random = rr; }
+  const rr = Math.random; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
 }
+/* ---------- The Campaign's timetable (owner: every player gets the same challenge) ----------
+   In the Campaign (and practice of its levels: run.sortie) the director keeps its zones, densities, timers and encounters, but nothing it
+   decides reads the player or what the player has shot:
+   - each decision draws from a stream seeded by the level, the frame and the slot (ttSeed), so an earlier choice never shifts a later one;
+   - its counts (count(type) while ttDir: "at most one Heavy", "fewer than two flak guns", a leader formation up) count the timetable's
+     ghosts: every enemy it made, alive until it would have left the screen unshot (ground: scrolled off the bottom; air: TT_LIFE frames);
+   - a slot that finds TT_AIR planes up (ghosts) is skipped, never moved later;
+   - encounters run their fixed length (TT_ENC) and are held only by the carrier, the strafers and the Sower take fixed sides, the
+     flagship's submarines come at fixed frames, level 1's submarine at a fixed place.
+   Endless, generated mode and Retro Run keep the reactive director. */
+let ttDir = false;
+const ttOn = () => !!run.sortie;
+function ttSeed(k) { if (ttOn()) drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + k * 7919, gf) * 4294967296) | 0; }
+const TT_LIFE = { heavy: 720, bomber: 810, sower: 1204, pfeil: 600, kolibri: 600, '@leader': 400 }; // frames an air enemy of the type stays when nobody shoots it (measured with a bot that never fires: Heavy 720, Bomber 810, Sower 1204, fighters about 250, the default); the Pfeil never leaves unshot, so its typical life against the bot (about 600)
+const TT_AIR = [16, 18, 20]; // per difficulty: at most this many timetabled planes up (ghosts) when an air wave is due, else the wave is skipped (today's highest count of planes up at a wave, measured with the bot on every level)
+function ttGhost(e) { const G0 = world.ttGhosts || (world.ttGhosts = []); G0.push([e.type, gf, e.ground ? e.wy : null]); if (e.leader) G0.push(['@leader', gf, null]); if (e.drill) G0.push(['@drill', gf, e.wy]); }
+function ttAlive(g) { return g[2] !== null ? g[2] + Math.floor(world.scroll) < H + 24 : gf - g[1] < (TT_LIFE[g[0]] || 250); }
+function ttCount(type) { const G0 = world.ttGhosts; if (!G0) return 0; if (G0.length > 400) world.ttGhosts = G0.filter(ttAlive); let n = 0; for (const g of world.ttGhosts) if (g[0] === type && ttAlive(g)) n++; return n; }
+function ttAirUp() { const G0 = world.ttGhosts; let n = 0; if (G0) for (const g of G0) if (g[2] === null && g[0][0] !== '@' && g[0] !== 'pod' && ttAlive(g)) n++; return n; }
 // Pacing of a stage, in chunks, relative to the Campaign's 48: an Enigma Run level with its own ground stretches it to its length (1 everywhere else).
 function arcScale() { const S = run.sortie; return S && S.arcLen ? S.arcLen / Math.round(37 * STAGE_LEN) : 1; }
 function directorInner() {
   const sc = Math.floor(world.scroll), qTop = Math.floor(sc / CH) - world.stageBaseP;
+  ttSeed(0);
   if (world.carrier) carrierTick(); // Enigma Run level 1's opening scene
   if (world.curTheme === 0 || world.prevTheme === 0 || world.curTheme === 4) for (let cj = Math.floor((-110 - sc) / 150); cj <= Math.floor((-40 - sc) / 150); cj++) {
     if (towerRows.has('farm' + cj)) continue; towerRows.add('farm' + cj);
@@ -9454,9 +9479,9 @@ function directorInner() {
     }
   }
   const b = biomeAtSpawn();
-  const big = world.enemies.some(e => e.big && !e.dead);
+  const big = !ttOn() && world.enemies.some(e => e.big && !e.dead); // (the Campaign's timetable doesn't wait for a big enemy to die)
   if (!world.midDone && !world.enc && qTop >= (run.sortie && WING_U[run.sortie.level] ? WING_U[run.sortie.level] * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale()) { // the Shadow Wing, after any encounter and its rest
-    if (!run.sortie) { world.midDone = true; spawnWing(); } else if (encStart('wing')) world.midDone = true; } // (the Campaign: as its own encounter; Retro Run as it always was)
+    if (!run.sortie) { world.midDone = true; spawnWing(); } else { ttSeed(16); if (encStart('wing')) world.midDone = true; } } // (the Campaign: as its own encounter; Retro Run as it always was)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -9476,13 +9501,13 @@ function directorInner() {
     else if (world.curTheme === 5) spawnProtoDuel(warn);
     else warn();
   }
-  encTick();
+  ttSeed(4); encTick();
   if (world.bossSpawned) {
-    if (--world.waveCd <= 0) { world.waveCd = 360; if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead && (e.kind !== 'skyfort' || e.phase === 'fight'))) waveDive(3); }
+    if (--world.waveCd <= 0) { world.waveCd = 360; ttSeed(17); if (!world.quiet && world.enemies.some(e => e.type === 'boss' && !e.dying && !e.dead && (e.kind !== 'skyfort' || e.phase === 'fight'))) waveDive(3); }
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  sowerTick(sc); planBerths(sc); planIceBreaks(sc); planGuns(sc); planDrills(sc); planNests(sc); planCows(sc); planViaducts(sc); planStations(sc); planPosts(sc);
+  [sowerTick, planBerths, planIceBreaks, planGuns, planDrills, planNests, planCows, planViaducts, planStations, planPosts, ttSub].forEach((fn, k) => { ttSeed(5 + k); fn(sc); }); // (each from its own stream in the Campaign)
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -9498,12 +9523,13 @@ function directorInner() {
   if (zone === 'air' || zone === 'calm') world.groundCd = Math.max(world.groundCd, 30);
   if (world.carrier && !world.carrier.over) { world.waveCd = Math.max(world.waveCd, 30); world.groundCd = Math.max(world.groundCd, 30); if (world.carrier.t < CV.T1) world.podCd = Math.max(world.podCd, 30); } // the carrier's launches are the waves while it lasts
   if (!encHeld('ground') && --world.groundCd <= 0) {
+    ttSeed(1);
     if (zone === 'ground' && b !== 'sea' && b !== 'coastUp' && b !== 'coastDown') { if (Math.random() < 0.6) convoy(-34 - sc, Math.random() < 0.4); else spawnGround(b); }
     else spawnGround(b);
     world.groundCd = (1 / Math.max(0.4, dens)) * ({ factory: 46, sea: 95, coastUp: 75, coastDown: 75, country: 66, forest: 70, base: 54, bossland: 90, fortline: 50, castle: 70, city: 48 }[b] || 70) - Math.min(16, run.loop * 8);
   }
-  if (!encHeld('air') && --world.waveCd <= 0) { spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
-  if (!encHeld('pod') && --world.podCd <= 0 && !big) { world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
+  if (!encHeld('air') && --world.waveCd <= 0) { ttSeed(2); if (!ttOn() || ttAirUp() < TT_AIR[settings.diff]) spawnWave(b, big); world.waveCd = (big ? 200 : Math.max(48, 115 - run.loop * 16)) * (zone === 'air' ? 0.6 : 1) / Math.max(0.4, dens); }
+  if (!encHeld('pod') && --world.podCd <= 0 && !big) { ttSeed(3); world.enemies.push(E('pod', { x: rnd(30, W - 30), y: -16 })); world.podCd = rnd(520, 700); }
 }
 function mkFighter(x, y, h, v, o) {
   const boom = (run.stage >= 2 || run.endless || settings.mode === 'gen') && Math.random() < 0.18 + run.loop * 0.08;
@@ -9579,7 +9605,7 @@ function spawnWave(b, big) {
   const r = Math.random();
   if (run.sortie && run.sortie.level >= 3 && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once. Never in levels 1 and 2 (owner))
   if (avail('heavy') && r < 0.1 && count('heavy') < 1) { waveHeavy(); return; }
-  if (avail('leader') && r >= 0.1 && r < 0.2 && !world.enemies.some(e => e.leader && !e.dead)) { waveLeader(); return; }
+  if (avail('leader') && r >= 0.1 && r < 0.2 && !(ttDir ? ttCount('@leader') > 0 : world.enemies.some(e => e.leader && !e.dead))) { waveLeader(); return; }
   const bomberOK = (b === 'country' || b === 'base' || b === 'forest') && count('bomber') < 1 + (run.loop >= 1 ? 1 : 0);
   if (bomberOK && r < 0.16) waveBomber();
   else if (r < 0.38) waveDive();
@@ -9592,6 +9618,7 @@ function spawnWave(b, big) {
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. In the Campaign the director opens the Shadow Wing's (ENC.wing); the others start only by encStart (tests) or the test link (?enc).
+const TT_ENC = { firstcontact: 1364, formations: 720, wing: 2864, anvil: 1080, flaklane: 1140, bomberscreen: 1140, sowerwindow: 1700 }; // the Campaign's timetable: each encounter's length in frames (the live ones: today's median against the bot; the test link's: its len plus 300)
 const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 8 s (it reaches its place at about frame 200), firing as usual, while
@@ -9701,7 +9728,7 @@ const ENC_VERB = {
       if (v.kind === 'destroyer') { if (placeOK(wx, wy - 30, 34) && seaOK(wx, wy - 30, 16, 46)) { world.enemies.push(G('destroyer', wx, wy - 30, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 })); return true; } }
       else if (placeOK(wx, wy, 16) && seaOK(wx, wy, 6, 16)) { world.enemies.push(G('pt', wx, wy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; } }
     return false; },
-  strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
+  strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = ttOn() ? (Math.random() < 0.5 ? -1 : 1) : player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
     world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
@@ -9712,12 +9739,12 @@ const encTryId = () => ENC_TRY !== 'all' ? ENC_TRY : ENC_TOUR[run.sortie ? run.s
 const ENC_SOWER_FROM = 0.7; // the level share where the set2 stretch begins (ARC): from here a settling Sower can open the Sower Window
 function encStart(id) {
   const D = ENC[id]; if (!run.sortie || world.enc || !D || world.bossSpawned || app.tut || (D.biomes && !D.biomes.includes(biomeAtSpawn()))) return false; // (biomes: where it may start)
-  if (world.enemies.some(e => e.type === 'wing' && !e.dead)) return false; // never while the Shadow Wing is on screen
+  if (!ttOn() && world.enemies.some(e => e.type === 'wing' && !e.dead)) return false; // never while the Shadow Wing is on screen (the Campaign: its encounter's fixed length keeps the others out)
   if (D.start === 'wing') {} // (the Shadow Wing comes whatever is below it, a Sower included, as it always has)
   else if (D.start === 'sower') { // only for a settled Sower from the set2 stretch on, not its partner, once each
     const sw = world.enemies.filter(e => e.type === 'sower' && !e.dead && !e.dying && e.st === 'hold' && !e.second && !e.encSeen);
     if (!sw.length || !(world.ARC_U >= ENC_SOWER_FROM)) return false; for (const e of sw) e.encSeen = true;
-  } else if (world.enemies.some(e => e.type === 'sower' && !e.dead)) return false; // an ordinary encounter waits while a Sower is up
+  } else if (!ttOn() && world.enemies.some(e => e.type === 'sower' && !e.dead)) return false; // an ordinary encounter waits while a Sower is up (not in the Campaign's timetable)
   world.enc = { id, st: 'run', t: 0, i: 0, owned: 0, tries: 0, rest: 0, over: 0, peak: 0, dropped: 0, res: [], lastT: 0 }; haptic('warn'); return true;
 }
 function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]; }
@@ -9735,8 +9762,11 @@ function volleyOK(n, later = 0) {
   if (later > 0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
 }
 const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
-function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; encTag = { id: E0.id, own: ev.own, ev: E0.i }; try { ok = ENC_VERB[ev.do](ev, E0); } finally { encTag = null; } return !!ok || world.enemies.length > n0; }
+function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; ttSeed(40 + E0.i); encTag = { id: E0.id, own: ev.own, ev: E0.i }; try { ok = ENC_VERB[ev.do](ev, E0); } finally { encTag = null; }
+  if (ttOn()) for (let k = n0; k < world.enemies.length; k++) { const e = world.enemies[k]; if (e.ground) { const w = E0.wy || (E0.wy = {}); w[E0.i] = Math.min(w[E0.i] ?? Infinity, e.wy); } } // (the Campaign: where an event's ground units stand, for 'seen')
+  return !!ok || world.enemies.length > n0; }
 function encDue(E0, ev) {
+  if (ev.when === 'seen' && ttOn()) return E0.t >= ev.by || [].concat(ev.of).every(i => E0.wy && E0.wy[i] !== undefined && E0.wy[i] + Math.floor(world.scroll) >= ev.at * H); // (the Campaign: where its units stand, killed or not)
   if (ev.when === 'seen') return E0.t >= ev.by || world.enemies.every(e => e.enc !== E0.id || ![].concat(ev.of).includes(e.encEv) || e.dead || e.dying || harmlessE(e) || e.y >= ev.at * H);
   return ev.after !== undefined ? E0.t >= E0.lastT + ev.after : E0.t >= ev.t;
 }
@@ -9756,7 +9786,7 @@ function encTick() {
   if (world.bossSpawned) { if (E0.st === 'rest') world.enc = null; else encEnd('boss'); return; } // pending events are dropped; what it made lives on
   if (E0.st === 'rest') { if (--E0.rest <= 0) world.enc = null; return; }
   if (E0.res.length) { for (const r of E0.res) r[1]--; E0.res = E0.res.filter(r => r[1] > 0); } // reservations of delayed volleys run out as they fire
-  if ((world.carrier && !world.carrier.over) || (D.start !== 'wing' && world.enemies.some(e => (e.type === 'wing' || (e.type === 'sower' && D.start !== 'sower')) && !e.dead))) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
+  if ((world.carrier && !world.carrier.over) || (!ttOn() && D.start !== 'wing' && world.enemies.some(e => (e.type === 'wing' || (e.type === 'sower' && D.start !== 'sower')) && !e.dead))) { E0.st = 'hold'; E0.owned = encOwned(E0.id); return; } // the carrier, the Shadow Wing or a Sower has the screen: the clock waits
   E0.st = 'run'; E0.t++;
   while (E0.i < D.ev.length && encDue(E0, D.ev[E0.i])) {
     const ev = D.ev[E0.i];
@@ -9768,7 +9798,8 @@ function encTick() {
   }
   E0.owned = encOwned(E0.id);
   const nb = encBullets(); E0.peak = Math.max(E0.peak, nb); if (D.budget && nb > D.budget[settings.diff]) E0.over++; // (without the Sower's mines, as the budget counts)
-  if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
+  if (ttOn()) { if (E0.i >= D.ev.length && E0.t >= TT_ENC[E0.id]) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout'); } // (the Campaign: a fixed length, whatever was shot)
+  else if (E0.i >= D.ev.length && E0.owned === 0) encEnd('done'); else if (E0.t >= D.max) encEnd('timeout');
 }
 // Enigma Run (levels 2 and 6): a train on one of the settlement plan's train runs (the straight stretches its railway lays for the game's trains)
 // as the run comes up above the screen: a locomotive (a diesel in the desert, as in the Campaign) and three to five cars, one train at a time,
@@ -9824,11 +9855,11 @@ function viaBroken() { // the broken viaduct: the middle of the span fallen into
 const SOWER = { first: 360, gap: 1800, hold: 840, y: 72, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 140, pairAfter: 300, laneX: 52, laneWeave: 14 };
 function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
-  const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = world.enemies.some(e => e.type === 'sower' && !e.dead);
+  const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
   if (live) { z.cd = SOWER.gap; return; }
-  if (world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
+  if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
-  if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX;
+  if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = ttOn() ? (z.n % 2 ? W / 2 - SOWER.laneX : W / 2 + SOWER.laneX) : player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX; // (the Campaign: right, then left)
     world.enemies.push(E('sower', { x: side, y: H + 50, side, hp, maxhp: hp, big: true, air: true, up: true })); /* (up: kept while it is still below the screen) */ z.n++; sfx('drone'); z.cd = SOWER.gap; }
 }
 // Level 5 (owner: submarines break through the ice): at each of the frozen sea's break places (plan.iceBreaks), once it is high on the screen,
@@ -9870,7 +9901,7 @@ function planPosts(sc) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.searchPosts) return;
   const wy = -34 - sc, used = S.slotUsed || (S.slotUsed = new Set()), m = hpm();
   for (let i = 0; i < P.slots.length; i++) { const sl = P.slots[i]; if (sl.kind !== 'search' || used.has(i)) continue; const y = S.planY0 - sl.y; if (y < wy - 48 || y > wy + 12) continue;
-    used.add(i); if (world.enemies.filter(o => o.type === 'search' && !o.dead).length >= 3) continue;
+    used.add(i); if (count('search') >= 3) continue; // (count: the Campaign's timetable counts its ghosts)
     world.enemies.push(G('search', sl.x, y, { ba: PI / 2, ph: Math.random() * 6 }));
     for (let j = 0; j < P.slots.length; j++) { const o = P.slots[j]; if (used.has(j) || o.on !== 'post' || o.kind === 'search' || Math.hypot(o.x - sl.x, o.y - sl.y) > 60) continue; used.add(j);
       const oy = S.planY0 - o.y; if (o.kind === 'gen') { if (avail('gen')) world.enemies.push(G('gen', o.x, oy, {})); } else if (placeOK(o.x, oy, 10)) makeFlak(o.x, oy); } }
@@ -9895,10 +9926,20 @@ function planTrains(sc) {
 // after the carrier is for planes and ships); the boss sends one more at half its health. Elsewhere: one at a time early on, then two.
 function subOK(wy) {
   const S = run.sortie;
-  if (S && S.level === 1) { const ch = S.segs.find(g => g.t === 'island_chain'); return !(world.subN > 0) && !!ch && -Math.floor(wy / CH) - world.stageBaseP >= ch.start; }
+  if (S && S.level === 1) return false; // (level 1's one submarine comes at its fixed place: ttSub)
   return count('sub') < (world.ARC_U < 0.15 ? 1 : 2);
 }
 // Level 1: ships, submarines and boats only on open water (never on an islet or the large island), road vehicles only on a road. True everywhere else.
+// Level 1 (owner): its one submarine in the whole level, at a fixed place: the island chain's water, from chunk TT_SUB on (the open water
+// nearest the middle; tried each frame for 3 chunks, the same in every run). The flagship sends two more (bossTick).
+const TT_SUB = { 1: 13 };
+const TT_BOSS_SUB = [[3300, 4800], [1300, 2200], [1250, 1550]]; // per difficulty: frames after the flagship appears (its age, e.t) for its two submarines: where the bot has it at about half and a quarter of its health (its fight lasts about 5800, 3100 to 3600 and 2200 frames)
+function ttSub(sc) {
+  const S = run.sortie, c0 = S ? TT_SUB[S.level] : undefined; if (c0 === undefined || world.subN > 0 || world.bossSpawned) return;
+  const wy = -34 - sc, c = -Math.floor(wy / CH) - world.stageBaseP; if (c < c0 || c > c0 + 3) return;
+  const xs = []; for (let x = 26; x <= W - 26; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - W / 2) - Math.abs(b - W / 2));
+  for (const wx of xs) if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) { world.enemies.push(G('sub', wx, wy, { st: 'under', stT: 100, ta: PI / 2, cd: 30, untarget: true })); world.subN = 1; return; }
+}
 function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && (S.isles || S.level === 5))) return true; /* (level 5: never on the ice) */ for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
 function roadOK(x, y) { const S = run.sortie; return !(S && S.isles) || terrainType(Math.floor(x), Math.floor(y)) === 'road'; }
 /* Enigma Run: route objects (spec 2, Tier A; owner decision). A route is a road that vehicles follow, x a function of the world row: each tank
@@ -10049,14 +10090,14 @@ function carrierTick() {
   if (t >= C.nextL && t < CV.T1 + CV.PURSUIT && C.launched < CV.LAUNCHES[settings.diff]) { // only CV.LAUNCHES fighters follow the Feuervogel (by difficulty; few: easier for new players)
     const chasers = world.enemies.filter(e => (e.chase || e.type === 'cfighter') && !e.dead).length, cap = (settings.diff === 0 ? 2 : 3) + run.loop;
     C.nextL = t + CV.GAP; // the second (Veteran, Ace) rolls GAP frames after the first, on the other catapult
-    if (chasers < cap) {
+    if (ttOn() || chasers < cap) { // (the Campaign's timetable launches on time: LAUNCHES stays under the cap anyway)
       const [bx, by] = carrierXY(C, 0, CV.CAT1);
       if (!C.gone && by < H - 30 && C.parked > 0) { const tu = CV.CATS[C.cat++ % 2], [u0, v0] = CV.PARKED[CV.PARKED.length - C.parked--]; world.enemies.push(G('cfighter', 0, 0, { u: u0, v: v0, u0, v0, tu, vv: 0, untarget: true, up: true })); sfx('whistle'); } // (the parked plane itself rolls off: nothing appears on the deck; up: kept while its parking spot is still below the bottom edge)
       else world.enemies.push(mkFighter(rnd(40, W - 40), H + 20, -PI / 2, 2.2, { homeT: 150, fireAt: (rnd(30, 80)) | 0, boom: false, chase: true }));
       C.launched++;
     }
   }
-  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone
+  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (!ttOn() && C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone (not in the Campaign's timetable: at its time)
 }
 // The Feuervogel on the deck (player.fly counts CV.FLY down, so steering and firing wait as in a fly-in): standing, then rolling down the
 // centre line to the bow (lift-off at CV.T1), then climbing on, slowing, with its shadow drawing away from it.
@@ -10133,7 +10174,7 @@ function spawnGround(b) {
   const tryLand = (types, rad = 12, rw = true, xr = null) => { // (xr: an x range to keep to, [x0, x1])
     for (let k = 0; k < 10; k++) {
       const wx = xr ? rnd(xr[0], xr[1]) : rnd(18, W - 18);
-      if (types.includes(terrainType(wx, wy)) && !onLines(wx, rad, rw) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
+      if (types.includes(terrainType(wx, wy)) && !onLines(wx, rad, rw) && Math.abs(wx - roadX(wy)) > Math.max(20, rad + 12) && railDist(wx, wy) > rad + 8 && railDist(wx, wy - rad) > rad + 8 && railDist(wx, wy + rad) > rad + 8 && placeOK(wx, wy, rad) && !critterHouse(wx, wy, rad + 3) && !critters.some(c => c.kind !== 'gull' && c.kind !== 'sock' && !ttSeen(c) && Math.abs(c.wx - wx) < rad + 6 && Math.abs(c.wy - wy) < rad + 6) && !props.some(pr => Math.abs(wx - pr.wx) < pr.w / 2 + 12 && Math.abs(wy - pr.wy) < pr.d / 2 + 12) && !inFarm(wx, wy, rad + 4) && !inTent(wx, wy, rad + 8) && !inStation(wx, wy, rad + 4) && !waterIn(wx - rad - 2, wy - rad - 2, wx + rad + 2, wy + rad + 2, rad > 12 ? 6 : 4) && treeList(wx, wy, rad * 0.75 + 3, true).length === 0 && treeList(wx, wy, rad + 9, true).length <= 3) return wx;
     }
     return null;
   };
@@ -11491,7 +11532,7 @@ const BOSSMOVE = {
         else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
       }
       e.subT = (e.subT ?? 600) - 1;
-      if (run.sortie) { const k = e.subs || 0; if (k < 2 && bossLeft(e) <= [0.5, 0.25][k]) { const sx = k ? (e.subX < W / 2 ? W - 30 : 30) : Math.random() < 0.5 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = k + 1; e.subX = sx; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): two submarines, the first at half the battle, the second at a quarter of the flagship's health left, on the other side (each tried every frame until there is room)
+      if (run.sortie) { const k = e.subs || 0; if (k < 2 && e.t >= TT_BOSS_SUB[settings.diff][k]) { const sx = k ? (e.subX < W / 2 ? W - 30 : 30) : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) { e.subs = k + 1; e.subX = sx; world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); } } } // the Campaign (owner): two submarines, the first at about half the battle, the second at about a quarter of the flagship's health left, on the other side: at fixed frames of the fight (TT_BOSS_SUB, the timetable; each tried every frame until there is room)
       else if (e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
     }
     return true;
@@ -11579,7 +11620,7 @@ function makeDrill(wx, wy, o) {
   const S = run.sortie, night = !!S && ENIGMA_TIME[S.level - 1] !== 'day';
   return G('htank', wx, wy, tankStats(Object.assign({ drill: true, silver: night, road: false, hd: PI / 2, v: 0, hp: 18 * hpm(), hw: 10, hh: 13, rad: 15, score: 2000, turHp: DRILL.turHp }, o)));
 }
-const drillCount = () => world.enemies.reduce((n, e) => n + (e.drill && !e.dead ? 1 : 0), 0);
+const drillCount = () => ttDir ? ttCount('@drill') : world.enemies.reduce((n, e) => n + (e.drill && !e.dead ? 1 : 0), 0); // (the Campaign's director counts its ghosts)
 // Enigma Run, the Buechse (a 'tank' with buechse set): a marksman that holds a firing line. States (e.bst), counted in ticks of the fixed 60 Hz step:
 // track (the turret follows the ship) -> aim (a pale sight line from the muzzle; the turret follows the ship, on Ace a little ahead of it)
 // -> lock (the line freezes and turns red, the tank halts, the muzzle glows) -> one shell down the frozen line (it never steers) -> rest -> track.
@@ -11638,7 +11679,7 @@ function drillStreet(wy) {
   for (const sd of sideRoutes(S)) {
     const ks = []; sd.path.forEach(([x, y], k) => { if (y >= wy - 48 && y <= wy + 12 && x > 30 && x < W - 30 && k > 6 && k < sd.path.length - 7) ks.push(k); });
     if (!ks.length) continue; const k = ks[ks.length >> 1], [x, y] = sd.path[k];
-    if (!placeOK(x, y, 18) || world.enemies.some(o => o.road && !o.dead && Math.hypot(o.wx - x, o.wy - y) < 40)) continue;
+    if (!placeOK(x, y, 18) || !ttDir && world.enemies.some(o => o.road && !o.dead && Math.hypot(o.wx - x, o.wy - y) < 40)) continue;
     const d = Math.random() < 0.5 ? 1 : -1;
     world.enemies.push(makeDrill(x, y, { road: true, dir: 1, lane: 0, v: 0.18, hd: d > 0 ? 0 : PI, side: { s: sd.id, k, d, from: -1, passed: true } }));
     return true;
