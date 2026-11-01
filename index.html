@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.17'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.18'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8484,13 +8484,24 @@ function tutTap(gx, gy) {
   if (!app.tut) return false;
   return false;
 }
+// The Campaign is the same for every player (owner): a level's simulation stream starts from CAMP_SEED and the level's number, so it plays
+// the same whether it is reached in a run or started as practice, and the same inputs give the same level. What a level sets up before its
+// first frame (the secret's place, the carrier's deck guns) draws from that stream too. The ground already comes from world.SEED (1944).
+// Endless, generated mode and Retro Run keep a new random seed every run. Test builds may force a seed (window.__forceSeed).
+const CAMP_SEED = 1944;
+// gf, the frame count, starts at 0 too: the play reads it (cadences such as gf % 4), so a level must not depend on how long the page has run.
+function campSeed(level) {
+  const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED;
+  simS = forced ? run.seed | 0 : (Math.imul(run.seed, 31) + level * 977) | 0; onStream(true, newSecret)(); // (a test's forced seed is the stream's seed, as in newGame)
+  gf = 0; zapLast = -99; for (const k in sfxLast) delete sfxLast[k]; // (the sound throttles hold frame counts)
+}
 function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
   if (!keepEndless) run.endless = false;
   newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
-  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); }
+  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); campSeed(sortieLevel); }
   setEnigmaArt(!!run.sortie);
-  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') carrierStart(); } markStage(); return; } // level 1 opens on the carrier's deck
+  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } markStage(); return; } // level 1 opens on the carrier's deck
   run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
@@ -9191,7 +9202,7 @@ function resumeRun(r) {
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
   newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
-  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) run.sortie = buildSortie(r.sortie.level, r.sortie.seed); // an Enigma Run level is rebuilt from {level, seed}
+  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = buildSortie(r.sortie.level, r.sortie.seed); campSeed(r.sortie.level); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
   setEnigmaArt(!!run.sortie); run.ranked = !!r.ranked; run.retro = !!r.retro;
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);

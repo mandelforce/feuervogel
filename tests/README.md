@@ -125,9 +125,17 @@ node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 
 node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
 ```
 
+## Fixed seed test (runs in CI, blocking)
+
+`fixed-seed.mjs` checks that the Campaign is the same for every player. It flies every level for 3000 frames with the bot in two fresh pages whose own `Math.random` differs (standing in for two devices) and requires the same seed (1944), a frame count starting at 0, the same spawns (type, frame, place), the same score and the same end state. A practice start of a level must play the same as its Campaign start, and a level reached by finishing the one before must start the same stream. Endless must still get a new seed every run. CI runs it after `enigma.mjs`.
+
+```
+node tests/fixed-seed.mjs
+```
+
 ## Shadow Wing test (run by hand)
 
-`wing.mjs` flies the Shadow Wing's fight in all eight Enigma Run levels, each twice (as it is, and with a very tough wing so the whole sequence plays), and checks: the right ship and hit box for the level (levels 7 and 8 reuse the ships of 6 and 1), the states in the order of the ship's sequence, no state starting while its own shots are still in the upper half of the screen, every shot starting within 12 px of one of the ship's muzzles, and no page errors. It also checks that Retro Run still gets the old wing. It prints the peak of the wing's own bullets and how long the fight lasted. It does not use `golden.json` (there is no Enigma Run baseline; see ARCHITECTURE.md).
+`wing.mjs` flies the Shadow Wing's fight in all six Campaign levels, each twice (as it is, and with a very tough wing so the whole sequence plays), and checks: the right ship and hit box for the level (levels 7 and 8 reuse the ships of 6 and 1), the states in the order of the ship's sequence, no state starting while its own shots are still in the upper half of the screen, every shot starting within 12 px of one of the ship's muzzles, and no page errors. It also checks that Retro Run still gets the old wing. It prints the peak of the wing's own bullets and how long the fight lasted. It does not use `golden.json` (there is no Enigma Run baseline; see ARCHITECTURE.md).
 
 ```
 python3 -m http.server 8000   # in another terminal

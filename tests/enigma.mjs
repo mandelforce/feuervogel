@@ -316,7 +316,7 @@ for (const lv of [2, 6]) {
     SF.run(SF.peek('CV.FLY') - 30 + 2); Object.assign(o, SF.peek(`({ deckAfter: player.deck, alt: player.alt, steerAfter: canSteer(), cf: world.enemies.filter(e => e.type === 'cfighter').length + world.enemies.filter(e => e.chase).length })`));
     o.gunKill = SF.peek(`(() => { const g = world.enemies.find(e => e.type === 'cgun' && !e.dead); if (!g) return false; damage(g, 999); return g.dead && world.carrier.gunDead[g.gi] === true; })()`);
     o.ships = 0; o.minS = 9; o.chase = 0;
-    for (let i = 0; i < 50; i++) { SF.run(50); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
+    for (let i = 0; i < 250; i++) { SF.run(10); const v = SF.peek(`({ over: world.carrier.over, gone: world.carrier.gone, s: world.carrier.s, ships: world.enemies.filter(e => ['destroyer', 'sub', 'pt'].includes(e.type)).length, chase: world.enemies.filter(e => e.chase && !e.dead).length })`);
       if (!v.over) o.ships += v.ships; o.minS = Math.min(o.minS, v.s); o.chase = Math.max(o.chase, v.chase); o.gone = v.gone; o.over = v.over; }
     o.launched = SF.peek('world.carrier.launched'); o.t = SF.peek('world.carrier.t'); SF.run(1500); o.later = SF.peek(`world.enemies.filter(e => !e.chase && !e.dead && ['fighter', 'bomber', 'heavy', 'sub', 'destroyer', 'pt', 'flak'].includes(e.type)).length + run.stats.seen`); o.errs = SF.R.errs.slice(0, 2); return o; });
   ok(r.camp, 'a Campaign run has no carrier');
