@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.25'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10095,7 +10095,7 @@ function planCows(sc) {
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
 const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 'lead', 0.5], [860, 'pt', 0.65], [1060, 'sweep', -1], [1120, 'sweep', 1]], K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
-  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [50, -116], [50, 62]], CATS: [-17, 7], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
+  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [44, -116], [44, 62]], CATS: [-18, 6], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
   const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
@@ -10117,7 +10117,7 @@ function carrierTick() {
   if (t < CV.T1 + 60) world.scrollV = world.scrollTarget = C.vy + 0.15; else if (t === CV.T1 + 60) world.scrollTarget = SCROLL;
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) C.gone = true;
   if (!C.gone) {
-    if (gf % 2 === 0) { const [bx, by] = carrierXY(C, 0, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, sd * 34, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, sd * 37, rnd(-120, 160)); foam(hx, hy); } }
+    if (gf % 2 === 0) { const [bx, by] = carrierXY(C, -4, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, -4 + sd * 38, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, -4 + sd * 41, rnd(-120, 160)); foam(hx, hy); } }
     if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
   }
   for (const [st, what, x] of CV.SCENE) if (what === 'pt') { if (t >= st && t < st + 90 && !(C.ptDone || (C.ptDone = [])).includes(st) && seaShip({ kind: 'pt', x })) C.ptDone.push(st); } else if (t === st) { if (what === 'v') waveDive(5, W * x, 1.3); else if (what === 'lead') waveLeader(W * x); else if (what === 'sweep') waveSweep(x); } // the pause after the take-off is filled (owner): two V's straight down, a leader formation, a sweep from each side and two PT boats
@@ -10152,28 +10152,44 @@ function carrierPic(q) {
   let P = carrierPics.get(q); if (P) return P;
   if (carrierPics.size > 3) carrierPics.clear();
   const M = 10, ox = Math.round((62 + M) * q), oy = Math.round((186 + M) * q), [c, x] = mk(Math.ceil((124 + 2 * M) * q), Math.ceil((372 + 2 * M) * q));
+  // The centre line is u = m (the Feuervogel's line): hull, bow, deck, markings, elevators and gun sponsons are all drawn as mirror pairs about it
+  // (Z, rows), so the two halves can never drift apart; only the island (and the funnel's smoke) stands on the right.
+  const m = -4, cx = ox + Math.round(m * q), py = y => oy + Math.round(y * q);
   const R = (x0, y0, x1, y1, col) => { const a = ox + Math.round(x0 * q), b = oy + Math.round(y0 * q); x.fillStyle = col; x.fillRect(a, b, Math.max(1, ox + Math.round(x1 * q) - a), Math.max(1, oy + Math.round(y1 * q) - b)); };
-  const hull = y => y < -182 || y > 177 ? 0 : y < -112 ? 36 * Math.sqrt((y + 182) / 70) : 36 - (y > 150 ? (y - 150) * 0.15 : 0);
-  const rows = (fn, dx, dy, col) => { x.fillStyle = col; for (let py = 0; py < c.height; py++) { const y = (py + 0.5 - oy) / q - dy, e = fn(y); if (!e) continue; const a = ox + Math.round((e[0] + dx) * q), b = ox + Math.round((e[1] + dx) * q); if (b > a) x.fillRect(a, py, b - a, 1); } };
-  const outline = y => { const h = hull(y); if (y >= -158 && y <= 174) return [-46, y > -62 && y < 32 ? 58 : 40]; return h ? [-h, h] : null; };
-  rows(outline, 5, 7, 'rgba(8,14,30,0.42)'); // the shadow on the water
-  rows(y => { const h = hull(y); return h ? [-h, h] : null; }, 0, 0, '#4a4e56'); rows(y => { const h = hull(y) - 2; return h > 0 && y < -150 ? [-h, h] : null; }, 0, 0, '#5c6068');
-  R(-12, -170, -9, -167, '#1a1a1e'); R(9, -170, 12, -167, '#1a1a1e'); R(-1, -178, 1, -158, '#3a3e46'); // anchors and the bow's keel line
-  R(-40, -158, 34, -150, '#6e665a'); R(-46, -150, 40, 174, '#6e665a'); // the flight deck
-  for (let u = -42; u < 38; u += 6) R(u, -150, u + 1, 172, '#655d51');
-  R(-46, -150, -44, 174, '#3a3c42'); R(38, -150, 40, 174, '#3a3c42'); R(-46, 172, 40, 174, '#3a3c42');
-  for (let u = -40; u < 34; u += 6) { R(u, -158, u + 3, -155, '#e8c040'); R(u + 3, -158, u + 6, -155, '#1c1c20'); R(u, 167, u + 3, 170, '#e8c040'); R(u + 3, 167, u + 6, 170, '#1c1c20'); }
-  for (let v = -146; v < 160; v += 18) R(-5, v, -3, v + 10, '#d8d4c8');
-  for (const u of CV.CATS) { R(u - 1, CV.CAT1 + 2, u + 1, CV.CAT0, '#2a2c32'); R(u - 2, CV.CAT0 - 4, u + 2, CV.CAT0, '#8a8e96'); }
-  R(-32, -70, -4, -42, '#3e3a32'); R(-31, -69, -5, -43, '#7a7264'); R(-32, 108, -4, 136, '#1c1d22'); R(-31, 109, -5, 113, '#121216'); // fore elevator up, aft one lowered
-  for (const v of [144, 152, 160]) R(-40, v, 34, v + 1, '#4a4438');
-  { const cx = -3, cy = 12; for (let dy = -13; dy <= 13; dy++) { const w = Math.sqrt(169 - dy * dy); R(cx - w, cy + dy, cx + w, cy + dy + 1, '#a83028'); const w2 = Math.sqrt(Math.max(0, 100 - dy * dy)); if (w2) R(cx - w2, cy + dy, cx + w2, cy + dy + 1, '#1a1416'); }
-    for (let i = 0; i < 8; i++) { R(cx - 1 - i, cy - 2 + i * 0.6, cx - i + 1, cy + i * 0.6, '#e8e4d8'); R(cx + i - 1, cy - 2 + i * 0.6, cx + i + 1, cy + i * 0.6, '#e8e4d8'); }
-    R(cx - 2, cy - 5, cx + 2, cy - 1, '#e8e4d8'); R(cx - 1, cy - 7, cx + 1, cy - 5, '#e8e4d8'); R(cx - 2, cy, cx + 2, cy + 6, '#e8e4d8'); R(cx - 3, cy + 6, cx + 3, cy + 8, '#e8e4d8'); } // the raven clan's mark: a raven, wings spread
-  for (const [u, v] of CV.GUNS) { const a = u < 0 ? u - 6 : u - 8, b = u < 0 ? u + 8 : u + 6; R(a, v - 8, b, v + 8, '#5a5e66'); R(a, v - 8, b, v - 7, '#8a8e96'); R(a, v + 7, b, v + 8, '#2e3036'); }
-  R(40, -62, 58, 32, '#5e626a'); R(42, -50, 56, 12, '#8e939c'); R(42, -50, 56, -47, '#b0b5bd'); R(43, -44, 55, -41, '#22262c');
-  for (let u = 45; u < 54; u += 3) R(u, -43, u + 1, -42, '#d8e8f0');
-  R(45, -32, 53, -29, '#3e424a'); R(48, -36, 50, -25, '#3e424a'); R(44, -4, 55, 18, '#3a3c42'); R(46, -2, 53, 16, '#141416');
+  const Z = (a, b, y0, y1, col) => { x.fillStyle = col; const ya = py(y0), yh = Math.max(1, py(y1) - ya), pa = Math.round(a * q), pb = Math.max(pa + 1, Math.round(b * q)); if (a <= 0) x.fillRect(cx - pb, ya, 2 * pb, yh); else { x.fillRect(cx - pb, ya, pb - pa, yh); x.fillRect(cx + pa, ya, pb - pa, yh); } };
+  const rows = (fn, col, dx = 0, dy = 0) => { x.fillStyle = col; for (let r = 0; r < c.height; r++) { const h = fn((r + 0.5 - oy) / q - dy); if (h <= 0) continue; const w = Math.round(h * q), mid = cx + Math.round(dx * q); x.fillRect(mid - w, r, 2 * w, 1); } };
+  // half widths: the hull (a curved bow to a narrow stem, a blunt stern), the flight deck (square forward edge with cut corners, square stern)
+  const hull = y => y < -184 || y > 182 ? 0 : y < -104 ? 2 + 38 * (1 - Math.pow(1 - (y + 184) / 80, 2)) : y > 150 ? 40 - (y - 150) * 0.3 : 40;
+  const deck = y => y < -160 || y > 174 ? 0 : Math.min(44, 26 + (y + 160) * 0.9, 44 - Math.max(0, y - 168) * 0.8);
+  rows(y => Math.max(hull(y), deck(y)), 'rgba(8,14,30,0.42)', 5, 7); R(45, -55, 63, 39, 'rgba(8,14,30,0.42)'); // the shadow on the water, and the island's beyond the deck
+  for (const [u, v] of CV.GUNS) R(u < 0 ? -55 : 45, v - 1, u < 0 ? -43 : 55, v + 15, 'rgba(8,14,30,0.42)');
+  rows(hull, '#2e3239'); rows(y => y < -150 || y > 172 ? hull(y) - 1.5 : 0, '#454951'); rows(y => y < -150 ? hull(y) - 4 : 0, '#5a5e66'); rows(y => y > 172 ? hull(y) - 4 : 0, '#50545c');
+  rows(y => y < -166 ? hull(y) - 6 : 0, '#6a6f78'); // the bow: dark rim, grey plating, a lighter forecastle
+  Z(0, 1, -183, -161, '#3a3e46'); Z(12, 14, -166, -163, '#2a2c32'); Z(7, 10, -174, -170, '#1a1a1e'); Z(7, 8, -174, -173, '#5a5e66'); // keel line, mooring bollards, the two hawse holes
+  Z(0, 3, -170, -166, '#2c2e34'); Z(0, 2, -169, -167, '#9a9ea6'); Z(0, 1, -184, -181, '#c8c8c8'); // the windlass and the jack staff
+  Z(0, 8, 175, 177, '#2c2e34'); Z(0, 1, 177, 183, '#9a9ea6'); Z(18, 20, 176, 179, '#2a2c32'); // the stern: a rail, the ensign staff, bollards
+  for (const [u, v] of CV.GUNS) { const a = u < 0 ? u - 6 : u - 8, b = u < 0 ? u + 8 : u + 6; R(a, v - 8, b, v + 8, '#5a5e66'); R(a, v - 8, b, v - 7, '#8a8e96'); R(a, v + 7, b, v + 8, '#2e3036'); } // the gun sponsons (the flight deck covers their inner edge)
+  rows(deck, '#33353b'); rows(y => y >= -158 && y <= 172 ? deck(y) - 2 : 0, '#58514a'); rows(y => y >= -157 && y <= 169 ? deck(y) - 6 : 0, '#6e665a'); // the flight deck: trim, walkway, planking
+  for (let a = 0; a <= 36; a += 6) { const y0 = Math.max(-156, Math.ceil((a - 18) / 0.9 - 158)); Z(a, a + 1, y0, 168, '#655d51'); } // plank joints along the deck
+  for (let a = 0; a <= 36; a += 6) for (let v = -150 + ((a * 7) % 40); v < 166; v += 40) Z(a, a + 6, v, v + 1, '#655d51'); // and the butt joints between the planks
+  for (let v = -134; v < 170; v += 12) Z(40, 41, v, v + 1, '#8a8e96'); // net posts along the deck edge
+  for (let a = 0; a < 24; a += 3) Z(a, a + 3, -156, -153, a % 6 ? '#1c1c20' : '#e8c040'); for (let a = 0; a < 36; a += 3) Z(a, a + 3, 166, 169, a % 6 ? '#1c1c20' : '#e8c040'); // the hazard stripes at both ends
+  for (let v = -146; v < 160; v += 18) Z(0, 1, v, v + 10, '#d8d4c8'); // the centre line
+  for (const u of CV.CATS) { R(u - 1, CV.CAT1 + 2, u + 1, CV.CAT0, '#2a2c32'); R(u - 2, CV.CAT0 - 4, u + 2, CV.CAT0, '#8a8e96'); for (let v = CV.CAT1 + 6; v < CV.CAT0 - 6; v += 8) R(u - 2, v, u + 2, v + 1, '#4a4c52'); }
+  Z(0, 18, -70, -42, '#3e3a32'); Z(0, 17, -69, -43, '#7a7264'); Z(0, 17, -57, -56, '#6a6256'); Z(0, 18, 108, 136, '#1c1d22'); Z(0, 17, 109, 113, '#121216'); Z(16, 17, -69, -43, '#e8c040'); // fore elevator up, aft one lowered
+  for (const v of [144, 152, 160]) { Z(0, 40, v, v + 1, '#4a4438'); Z(37, 40, v - 1, v + 2, '#2e3036'); } // arrester wires
+  { const cx0 = m, cy = 12; for (let dy = -13; dy <= 13; dy++) { const w = Math.sqrt(169 - dy * dy); R(cx0 - w, cy + dy, cx0 + w, cy + dy + 1, '#a83028'); const w2 = Math.sqrt(Math.max(0, 100 - dy * dy)); if (w2) R(cx0 - w2, cy + dy, cx0 + w2, cy + dy + 1, '#1a1416'); }
+    for (let i = 0; i < 8; i++) { R(cx0 - 1 - i, cy - 2 + i * 0.6, cx0 - i + 1, cy + i * 0.6, '#e8e4d8'); R(cx0 + i - 1, cy - 2 + i * 0.6, cx0 + i + 1, cy + i * 0.6, '#e8e4d8'); }
+    R(cx0 - 2, cy - 5, cx0 + 2, cy - 1, '#e8e4d8'); R(cx0 - 1, cy - 7, cx0 + 1, cy - 5, '#e8e4d8'); R(cx0 - 2, cy, cx0 + 2, cy + 6, '#e8e4d8'); R(cx0 - 3, cy + 6, cx0 + 3, cy + 8, '#e8e4d8'); } // the raven clan's mark: a raven, wings spread
+  R(36, -58, 40, 36, 'rgba(10,12,18,0.22)'); // the island's shadow on the deck
+  R(40, -62, 58, 32, '#4a4e56'); R(40, -62, 58, -61, '#6a6e76'); R(40, 31, 58, 32, '#2e3036'); R(57, -62, 58, 32, '#3a3e46'); // the island: base, lit edge, shaded far edge
+  R(41, -58, 57, -34, '#7c818a'); R(41, -58, 57, -57, '#a8adb5'); R(41, -35, 57, -34, '#5a5e66'); // the bridge block
+  R(43, -52, 55, -48, '#1c2430'); for (let u = 44; u < 55; u += 3) R(u, -51, u + 1, -50, '#9cc8e0'); // its windows
+  R(39, -54, 41, -50, '#5a5e66'); R(57, -54, 59, -50, '#5a5e66'); // the bridge wings
+  R(44, -33, 55, -20, '#8e939c'); R(44, -33, 55, -32, '#b0b5bd'); R(44, -21, 55, -20, '#6a6e76'); // the command tower
+  R(46, -30, 53, -28, '#3e424a'); R(49, -32, 51, -22, '#3e424a'); R(45, -26, 55, -25, '#2a2d33'); // radar: dish and mast
+  R(44, -4, 55, 18, '#3a3c42'); R(44, -4, 55, -3, '#6a6e76'); R(46, -2, 53, 16, '#141416'); R(44, 2, 55, 3, '#a83028'); R(43, 19, 56, 20, '#2e3036'); // the funnel: rim, black stack, the clan's band
+  R(44, 24, 55, 30, '#6a6e76'); R(46, 25, 53, 29, '#3e424a'); // aft deckhouse
   return (P = { c, ox, oy }), carrierPics.set(q, P), P;
 }
 // Drawn after the water's foam and before the ground enemies (its guns and launching planes stand on it). Drawing only.
