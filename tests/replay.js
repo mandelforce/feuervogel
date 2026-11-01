@@ -16,12 +16,12 @@ const SCENARIOS = [
   { name: 'normal-2p-stage2-immortal', diff: 1, stage: 2, p2: 'mouse', seed: 22, mode: 'immortal', frames: 20000 },
   { name: 'normal-resume-stage2-immortal', diff: 1, stage: 2, resumeAt: 6000, seed: 33, mode: 'immortal', frames: 20000 },
 ];
-// The Campaign proper (Enigma levels, what START plays), compared with tests/golden-enigma.json (replay.mjs --enigma). enigma: the internal level
-// (8 is 1A); the frames reach past both set-piece slots of the level (set2 ends at about frame 6100 in 1A, 7500 in levels 3 and 4) and stop
+// The Campaign proper (Enigma levels, what START plays), compared with tests/golden-enigma.json (replay.mjs --enigma). enigma: the level;
+// the frames reach past both set-piece slots of the level (set2 ends at about frame 6100 in level 1, 7500 in levels 3 and 4) and stop
 // before its boss. Unlike golden.json these runs use the game's real settings (gun speed 90, point-blank fire) and are meant to be refreshed
 // on purpose when a change to the Campaign's spawns or balance is made (docs/encounter-director-plan.md, Phase 0).
 const ENIGMA_SCENARIOS = [
-  { name: 'enigma-1A-rookie-real', diff: 0, enigma: 8, seed: 101, mode: 'real', frames: 7200 }, // the first set piece a new player meets
+  { name: 'enigma-1-rookie-real', diff: 0, enigma: 1, seed: 101, mode: 'real', frames: 7200 }, // the first set piece a new player meets
   { name: 'enigma-3-ace-immortal', diff: 2, enigma: 3, seed: 103, mode: 'immortal', frames: 8400 },
   { name: 'enigma-4-veteran-immortal', diff: 1, enigma: 4, seed: 104, mode: 'immortal', frames: 9000 }, // the forest and the Sower
 ];

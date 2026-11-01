@@ -1,5 +1,7 @@
 # Enigma Run: world generator specification (draft 2)
 
+> **Level numbers (build 1.2.5.16).** The Campaign's levels are now numbered 1 to 6 in the game, the tests and the current docs. What this spec calls **1A** (the islands, internal level 8) is **level 1**, and **6B** (the harbour city, internal level 7) is **level 6**. The old level 1 (without the islands) and the old level 6 (the river town of section 16) were removed. The sections below are the design history and keep the names of their time.
+
 Status: draft 2. Draft 1 was written by Sonnet and then reviewed adversarially by an Opus agent against `index.html`; its findings are folded in below (see "Changes from review" at the end, which also lists what I verified myself and what is still the reviewer's claim). It builds on `docs/enigma-world-audit.md` (read that first). Numbers in this file are starting values to tune, not decisions. Items marked **[you]** are for the owner to add or decide. Items marked **[verify]** are claims from the review that phase 1 must confirm in code before anything depends on them.
 
 ## 0. Scope

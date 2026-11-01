@@ -16,7 +16,7 @@ const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const fi = process.argv.indexOf('--frames'), FRAMES = fi > 0 ? +process.argv[fi + 1] : 9000;
 const RUNS = [...[1, 2, 3, 4, 5, 6].map(n => ({ name: `campaign stage ${n}`, start: `startAt(${n})` })),
-  ...[[1, '1'], [8, '1A'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '6B']].map(([lv, nm]) => ({ name: `enigma level ${nm}`, start: `startEnigma(${lv})` }))];
+  ...[1, 2, 3, 4, 5, 6].map(lv => ({ name: `enigma level ${lv}`, start: `startEnigma(${lv})` }))];
 
 const initScript = () => {
   let a = 1944;

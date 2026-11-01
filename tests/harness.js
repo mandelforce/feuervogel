@@ -179,13 +179,13 @@ window.SF = {
       return e0(x, y, a, sp, kind);
     };
   },
-  // Fly the real Campaign (what START plays: Enigma levels 1A, 2, 3, 4, 5, 6B) and return the numbers that matter:
+  // Fly the real Campaign (what START plays: levels 1 to 6) and return the numbers that matter:
   //   hits (bullets, rams), laser (Black Fortress beam hits), top (the worst 10 s window of enemy bullets on screen before each boss, averaged over the
   //   stages), pre (average bullets before the bosses), bossB (average during boss fights), boss (seconds each boss lasted), per-stage hits.
   flyCampaign(diff, o = {}) {
     const { lag = 8, react = 15, force = null, overrides = null, code = null } = o;
     SF.setMode('immortal'); SF.start(diff, 1); if (overrides) SF.overrides(overrides); if (code) SF.peek(code); // (code: anything to run in the game's scope first, e.g. a changed rankFor)
-    startEnigma(8, true); SF.human(lag, react, force);
+    startEnigma(1, true); SF.human(lag, react, force);
     const rows = [];
     for (let n = 0; n < 6000; n++) {
       const r = SF.run(60);
@@ -208,9 +208,9 @@ window.SF = {
     const flame = R.hits.filter(h => h.why === 'flame').length;
     return { hits: hitsBy.reduce((a, b) => a + b, 0), laser: flame, lasers: R.lasers, top: +avg(top).toFixed(1), pre: +avg(pre).toFixed(1), bossB: +avg(bossB).toFixed(1), boss, hitsBy: hitsBy.slice(1), topBy, preBy, shotsBy, killed: boss.filter(v => v !== null).length, attr: R.attr || null, errs: R.errs.length };
   },
-  // The Black Fortress alone (Campaign level 6, 6B): how many of its laser beams hit a ship that reacts after `react` frames (60 = 1 s).
+  // The Black Fortress alone (Campaign level 6): how many of its laser beams hit a ship that reacts after `react` frames (60 = 1 s).
   laserTest(diff, react = 15, force = 'S4') {
-    SF.setMode('immortal'); SF.start(diff, 1); startEnigma(7, true); SF.human(0, react, force);
+    SF.setMode('immortal'); SF.start(diff, 1); startEnigma(6, true); SF.human(0, react, force);
     let t0 = null, fight = null;
     for (let n = 0; n < 600; n++) {
       if (SF.run(60) !== 'ok') break;

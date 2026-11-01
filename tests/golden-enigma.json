@@ -4,7 +4,7 @@
     "height": 700
   },
   "scenarios": {
-    "enigma-1A-rookie-real": {
+    "enigma-1-rookie-real": {
       "H": 408,
       "status": "ok",
       "score": 128310,

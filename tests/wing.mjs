@@ -27,14 +27,14 @@ await page.evaluate(s => window.__sf(s), harness);
 let fails = 0;
 const say = (ok, msg) => { if (!ok) fails++; console.log((ok ? 'ok   ' : 'FAIL ') + msg); };
 
-for (let level = 1; level <= 8; level++) for (const tough of [false, true]) {
+for (let level = 1; level <= 6; level++) for (const tough of [false, true]) {
   const tag = `level ${level}${tough ? ' (tough wing)' : ''}`;
   const r = await page.evaluate(([level, tough]) => {
     const P = c => window.SF.peek(c);
     P('app.booting && finishBoot(), 0'); window.SF.setMode('immortal');
     P('settings.diff = 1; startEnigma(' + level + ')');
     window.SF.run(120); P('spawnWing()'); if (tough) P("world.enemies.forEach(e => { if (e.type === 'wing') e.hp = e.maxhp = 1e9; })");
-    const want = P('ENIGMA_BASE[' + level + ' - 1] - 1'), out = { want, v: null, hw: null, hh: null, order: [], overlap: 0, far: 0, shots: 0, peak: 0, frames: 0, ended: false };
+    const want = level - 1, out = { want, v: null, hw: null, hh: null, order: [], overlap: 0, far: 0, shots: 0, peak: 0, frames: 0, ended: false };
     const seen = new WeakSet(); let lastPh = -1;
     for (let i = 0; i < 1800; i++) {
       window.SF.run(1);

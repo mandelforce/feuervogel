@@ -14,19 +14,19 @@ const SAMPLE = +((process.argv.find(a => a.startsWith('--sample=')) || '--sample
 // each scenario: where to start, how long to fly before the save, and for how many frames after it
 const ONLY = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7);
 const SCENARIOS = [
-  // the Campaign's own levels (Enigma sorties 1A, 2, 3, 4, 5, 6B)
-  { name: 'level1A-normal', diff: 1, sortie: 8, seed: 1944, mode: 'immortal', saveAt: [1500, 5000], after: 1800 },
+  // the Campaign's own levels (levels 1 to 6)
+  { name: 'level1-normal', diff: 1, sortie: 1, seed: 1944, mode: 'immortal', saveAt: [1500, 5000], after: 1800 },
   { name: 'level2-hard-real', diff: 2, sortie: 2, seed: 7, mode: 'real', saveAt: [3000, 8000], after: 1800 },
   { name: 'level3-normal', diff: 1, sortie: 3, seed: 3, mode: 'immortal', saveAt: [4000, 9000], after: 1800 },
   { name: 'level4-normal', diff: 1, sortie: 4, seed: 4, mode: 'immortal', saveAt: [4000, 10000], after: 1800 },
   { name: 'level5-normal', diff: 1, sortie: 5, seed: 5, mode: 'immortal', saveAt: [4000, 12000], after: 1800 },
-  { name: 'level6B-easy-real', diff: 0, sortie: 7, seed: 42, mode: 'real', saveAt: [4000, 12000], after: 1800 },
+  { name: 'level6-easy-real', diff: 0, sortie: 6, seed: 42, mode: 'real', saveAt: [4000, 12000], after: 1800 },
   // an encounter (docs/encounter-director-plan.md) started at frame encAt and saved while it runs: its clock, events and tagged enemies
   { name: 'level2-anvil', diff: 1, sortie: 2, seed: 2, mode: 'immortal', enc: 'anvil', encAt: 300, saveAt: [450, 700], after: 1200 },
   { name: 'level2-bomberscreen', diff: 1, sortie: 2, seed: 41, mode: 'immortal', enc: 'bomberscreen', encAt: 300, saveAt: [550], after: 1200 }, // (saved between its dives)
   { name: 'level4-sowerwindow', diff: 1, sortie: 4, seed: 104, mode: 'immortal', enc: 'sowerwindow', encAt: 7322, saveAt: [7500], after: 1200 }, // (opened the frame after the second Sower settles; saved with the Sower, its mines and the convoy up)
   { name: 'level2-shadowwing', diff: 1, sortie: 2, seed: 41, mode: 'immortal', enc: 'wing', encAt: 300, saveAt: [700], after: 1200 }, // (the Shadow Wing's encounter, saved with the Wing in its sequence)
-  { name: 'level6B-firstcontact', diff: 1, sortie: 7, seed: 47, mode: 'immortal', enc: 'firstcontact', encAt: 60, saveAt: [400], after: 1200 }, // (over the open sea at 6B's start: its sweeps, destroyer and boats)
+  { name: 'level6-firstcontact', diff: 1, sortie: 6, seed: 47, mode: 'immortal', enc: 'firstcontact', encAt: 60, saveAt: [400], after: 1200 }, // (over the open sea at level 6's start: its sweeps, destroyer and boats)
   { name: 'level2-flaklane', diff: 1, sortie: 2, seed: 31, mode: 'immortal', enc: 'flaklane', encAt: 300, saveAt: [450, 700], after: 1200 }, // (saved before and after its formation, which waits for the guns)
   { name: 'stage1-normal', diff: 1, stage: 1, seed: 1944, mode: 'immortal', saveAt: [1500, 4000], after: 1800 },
   { name: 'stage3-hard-real', diff: 2, stage: 3, seed: 7, mode: 'real', saveAt: [3000, 7000], after: 1800 },
