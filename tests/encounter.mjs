@@ -141,6 +141,7 @@ const playOut = `
     encStart('anvil'); let hv = null;
     for (let f = 0; f < 800; f++) { SF.run(1); hv = world.enemies.find(e => e.enc === 'anvil' && e.type === 'heavy' && !e.dead); if (hv) hv.hp = 9999; if (hv && hv.holdT < 400 && hv.pause === 0 && hv.cd > 3) break; }
     if (!hv) return JSON.stringify({ error: 'no Heavy' });
+    hv.holdT = 99999; /* held for the whole check: its cooldown is random, so with an ordinary hold it might sink off the screen before its next volley */
     const B = encBudget(); out.budget = B;
     const dummy = kind => ({ x: 8 + (world.ebul.length * 9) % 208, y: 3, vx: 0, vy: 0, r: 2, kind, a: 0, life: 9999, max: 9999, dummy: true });
     let paused = 0, maxB = 0;
@@ -150,7 +151,7 @@ const playOut = `
     for (let f = 0; f < 300 && minePause < 0; f++) { while (world.ebul.filter(b => b.kind === 'amine').length < B + 10) world.ebul.push(dummy('amine')); SF.run(1); if (hv.pause > 0) minePause = f; }
     out.mines = minePause >= 0;
     world.ebul = world.ebul.filter(b => !b.dummy); for (let f = 0; f < 60 && hv.pause > 0; f++) SF.run(1); /* let that pause finish */
-    const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if (Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; return e0(x, y, a, sp, kind); };
+    const e0 = eshot; let spread = 0; eshot = function (x, y, a, sp, kind) { if ((hv.pause === 12 || hv.pause === 26) && Math.abs(x - hv.x) < 16 && Math.abs(y - hv.y) < 20) spread++; /* (its own firing frame: another plane may pass close by) */ return e0(x, y, a, sp, kind); };
     let started = -1; for (let f = 0; f < 400; f++) { SF.run(1); if (started < 0 && hv.pause > 0) started = f; if (started >= 0 && hv.pause === 0) break; }
     eshot = e0; out.spread = spread; out.started = started >= 0;
     out.last = world.encLast || world.enc;
@@ -202,6 +203,13 @@ const playOut = `
     const biome = biomeAtSpawn(), n0 = world.enemies.length, made = ENC_VERB.flak({}), n1 = world.enemies.length; return JSON.stringify({ biome, start: encStart('flaklane'), made, same: n0 === n1 }); })()`));
   ok(sea.biome === 'sea' && sea.start === false, `it does not start over the sea (${sea.biome})`);
   ok(sea.made === false && sea.same, 'over the sea the flak verb places nothing and says so, so a retry is safe');
+  /* the Campaign's lane is fixed: when a gun's own third has no ground, the far side of where the first gun was placed (E0.gunX), whether
+     it still stands or was shot; the range the verb gives the placement is read through a stand-in spawnGround */
+  const lane = JSON.parse(await peek(page, `(() => { ${level2(1, 31)} const os = spawnGround, got = []; spawnGround = () => got.push(encFlakX && encFlakX.map(Math.round).join('-'));
+    try { const v = { x: [0.66, 1], wait: 60 }, g = G('flak', 60, -40 - Math.floor(world.scroll), { enc: 'flaklane' }); world.enemies.push(g);
+      ENC_VERB.flak(v, { id: 'flaklane', tries: 99, gunX: 60 }); g.dead = true; ENC_VERB.flak(v, { id: 'flaklane', tries: 99, gunX: 60 }); ENC_VERB.flak(v, { id: 'flaklane', tries: 99 }); }
+    finally { spawnGround = os; } return JSON.stringify(got); })()`));
+  ok(lane[0] === '130-210' && lane[1] === lane[0] && lane[2] === '14-210', `the Campaign: the second gun's lane comes from where the first was placed, standing or shot (${lane.join(', ')})`);
   await page.close();
 }
 {

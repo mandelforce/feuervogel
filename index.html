@@ -4211,13 +4211,19 @@ performance.mark('game-start'); // start-up marks: tests/smoke.mjs and tests/per
 // inputs give the same run. Drawing, sound and the idle weather use the real Math.random (the "free" stream), so cosmetics can
 // never change how a run plays. Every new run still picks a new random seed, so play stays varied.
 const realRandom = () => globalThis.Math.random();
-const Math = (() => { const M = {}; for (const k of Object.getOwnPropertyNames(globalThis.Math)) M[k] = globalThis.Math[k]; M.random = () => simOn ? simNext() : realRandom(); return M; })();
+const Math = (() => { const M = {}; for (const k of Object.getOwnPropertyNames(globalThis.Math)) M[k] = globalThis.Math[k]; M.random = () => simOn ? (rsObj ? rsNext() : simNext()) : realRandom(); return M; })();
 let simOn = false, simS = 1;
 const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^ (simS >>> 15), 1 | simS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+// Per-enemy streams (the Campaign only, step 4): each enemy carries its own seeded streams as plain numbers (rs: what it does while it flies;
+// fs: its fate when it is shot: drops, revenge, bail-outs; ts: when its turret is shot off). While rsRun runs code for it, the sim stream's draws
+// come from that enemy's stream instead of simS, so shooting one enemy never changes what another one does. Seeds: rsSeed in E().
+let rsObj = null, rsKey = 'rs';
+const rsNext = () => { const s = rsObj[rsKey] = (rsObj[rsKey] + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; try { return fn(); } finally { rsObj = po; rsKey = pk; } }
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.20'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8494,7 +8500,7 @@ function campSeed(level) {
   const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED;
   simS = forced ? run.seed | 0 : (Math.imul(run.seed, 31) + level * 977) | 0; onStream(true, newSecret)(); // (a test's forced seed is the stream's seed, as in newGame)
   gf = 0; zapLast = -99; for (const k in sfxLast) delete sfxLast[k]; // (the sound throttles hold frame counts)
-  world.ttGhosts = []; // (the timetable's ghosts: a new level starts with none)
+  world.ttGhosts = []; world.rsF = null; // (the timetable's ghosts: a new level starts with none; rsF: the count behind rsSeed's seeds for what nothing else made)
 }
 function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
@@ -9265,7 +9271,7 @@ function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
   if (world.ebul.length > 420 || feel.bombFx > 20) return;
   const sk = DIFF.skip[settings.diff];
-  if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && ++eshotN % sk === 0) return;
+  if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && (rsObj && rsObj.rs0 !== undefined ? (rsObj.sn = (rsObj.sn | 0) + 1) : ++eshotN) % sk === 0) return; // (the Campaign: counted per enemy, so shooting one doesn't change which of another's shots are left out)
   world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
 }
 function flakShot(x, y, spread = 1) {
@@ -9289,21 +9295,38 @@ function E(type, o) {
   if (run.sortie) { const b = ENIG_BOX[type]; if (b) { e.hw = b[0]; e.hh = b[1]; } }
   if (encTag) { e.enc = encTag.id; e.encEv = encTag.ev; if (encTag.own === false) e.encOwn = false; } // made by an encounter's event (encDispatch; encEv: its index)
   if (ttDir) ttGhost(e); // (the Campaign's timetable keeps a ghost of what its director makes)
+  if (run.sortie) rsSeed(e);
   return e;
 }
+// The Campaign: an enemy's own stream (rsObj, rsRun). The director's enemies are seeded by the level, the frame, the timetable's slot and their
+// order in it (nothing drawn, so the timetable stays as it is); an enemy made by another one (a troop, an escort, a pod, a missile) by its
+// parent's seed and how many it has made; anything else (the boss, made by a delayed call; a troop from a parachute) by the frame, its type and
+// how many of that type were made in that frame.
+const rsHash = (a, b) => (sortieHash(a, b) * 4294967296) | 0;
+const rsType = t => { let h = 7; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 31) + t.charCodeAt(i)) | 0; return h; };
+function rsSeed(e) {
+  const L = world.SEED * 31 + run.stage * 977, P = rsObj && rsObj.rs0 !== undefined ? rsObj : null;
+  if (ttDir) e.rs = rsHash(rsHash(L + ttSlot * 7919, gf), ttOrd++);
+  else if (P) e.rs = rsHash(P.rs0, P.kids = (P.kids | 0) + 1);
+  else { const F = world.rsF && world.rsF.g === gf ? world.rsF : (world.rsF = { g: gf, m: {} }); e.rs = rsHash(rsHash(L ^ rsType(e.type), gf), F.m[e.type] = (F.m[e.type] | 0) + 1); }
+  e.rs0 = e.rs;
+}
+// fate(e, 'fs' | 'ts', fn): run fn on the enemy's fate stream (fs: shot down; ts: its turret shot off), seeded from the enemy alone, so a drop
+// or a revenge burst is the same whenever it is shot. Not the Campaign (no rs0): the shared stream, as before.
+function fate(e, k, fn) { if (e.rs0 === undefined) return fn(); if (e[k] === undefined) e[k] = rsHash(e.rs0, k === 'fs' ? 0xF : 0x7); return rsRun(e, k, fn); }
 function G(type, wx, wy, o) { return E(type, Object.assign({ ground: true, wx, wy, x: wx, y: wy + Math.floor(world.scroll) }, o)); }
 function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !ttSeen(c) && Math.hypot(c.wx - wx, c.wy - wy) < r + 30); }
 // The Campaign's timetable places without minding animals and boats: they wander, and bolt or sink because of the player (an animal walks off a
 // gun by itself). ttSeen: true for a critter the timetable ignores.
-const ttSeen = c => ttDir;
+const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || (ttDir && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
+  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
-function boom(x, y, size, layer = 'a') {
+function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
   setPos(x, y); boomInner(x, y, size, layer); SPOS = null;
   if (layer === 'g' && size >= 14) worldDamage(x, y - Math.floor(world.scroll), size * 0.5);
-}
+}); }
 function boomInner(x, y, size, layer) {
   const si = size < 13 ? 0 : size < 22 ? 1 : size < 36 ? 2 : 3, L = SPR.fx[si].length * 3 + 2;
   const fvy = layer === 'g' ? world.scrollV * 0.92 : -0.12;
@@ -9387,7 +9410,7 @@ function critterBlocked(nx, ny) {
 }
 function scare(x, y, r) {
   { const sc = Math.floor(world.scroll); for (const c of critters) if ((c.wx - x) ** 2 + (c.wy + sc - y) ** 2 < (r * 1.5) ** 2) c.scared = 120; }
-  for (const e of world.enemies) if (e.type === 'troop' && !e.dead && (e.x - x) ** 2 + (e.y - y) ** 2 < r * r) { e.scared = 70; e.hd = Math.atan2(e.y - y, e.x - x) + rnd(-0.4, 0.4); }
+  for (const e of world.enemies) if (e.type === 'troop' && !e.dead && (e.x - x) ** 2 + (e.y - y) ** 2 < r * r) { e.scared = 70; e.hd = Math.atan2(e.y - y, e.x - x) + (e.rs0 === undefined ? rnd(-0.4, 0.4) : rsRun(e, 'rs', () => rnd(-0.4, 0.4))); } // (the Campaign: on the troop's own stream)
   for (const b of birds) if ((b.x - x) ** 2 + (b.y - y) ** 2 < (r * 2) ** 2) { b.vx *= 1.8; b.vy -= 0.6; }
 }
 function groundPuff(x, y) {
@@ -9409,7 +9432,8 @@ function director() {
   if (app.tut) { tutTick(); return; }
   if (app.results || app.congrats || world.quiet) return;
   if (settings.mode === 'gen') return directorInner();
-  const rr = Math.random; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
+  const rr = Math.random, nL = world.later.length; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
+  if (ttOn()) for (let k = nL; k < world.later.length; k++) { const it = world.later[k]; if (it.rs === undefined) it.rs = it.rs0 = rsHash(rsHash(world.SEED * 31 + run.stage * 977 + 0x1A7E, gf), k - nL); } // (the Campaign: what the director left for later frames, the rest of a wave or the boss, runs on its own stream seeded now: rsRun in update)
 }
 /* ---------- The Campaign's timetable (owner: every player gets the same challenge) ----------
    In the Campaign (and practice of its levels: run.sortie) the director keeps its zones, densities, timers and encounters, but nothing it
@@ -9421,9 +9445,9 @@ function director() {
    - encounters run their fixed length (TT_ENC) and are held only by the carrier, the strafers and the Sower take fixed sides, the
      flagship's submarines come at fixed frames, level 1's submarine at a fixed place.
    Endless, generated mode and Retro Run keep the reactive director. */
-let ttDir = false;
+let ttDir = false, ttFix = false, ttSlot = 0, ttOrd = 0; // ttFix: placement as the timetable's (placeOK) for a fixed rule outside the director; ttSlot, ttOrd: the slot ttSeed last seeded and how many enemies it made (rsSeed)
 const ttOn = () => !!run.sortie;
-function ttSeed(k) { if (ttOn()) drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + k * 7919, gf) * 4294967296) | 0; }
+function ttSeed(k) { if (ttOn()) { drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + k * 7919, gf) * 4294967296) | 0; ttSlot = k; ttOrd = 0; } }
 const TT_LIFE = { heavy: 720, bomber: 810, sower: 1204, pfeil: 600, kolibri: 600, '@leader': 400 }; // frames an air enemy of the type stays when nobody shoots it (measured with a bot that never fires: Heavy 720, Bomber 810, Sower 1204, fighters about 250, the default); the Pfeil never leaves unshot, so its typical life against the bot (about 600)
 const TT_AIR = [16, 18, 20]; // per difficulty: at most this many timetabled planes up (ghosts) when an air wave is due, else the wave is skipped (today's highest count of planes up at a wave, measured with the bot on every level)
 function ttGhost(e) { const G0 = world.ttGhosts || (world.ttGhosts = []); G0.push([e.type, gf, e.ground ? e.wy : null]); if (e.leader) G0.push(['@leader', gf, null]); if (e.drill) G0.push(['@drill', gf, e.wy]); }
@@ -9715,10 +9739,12 @@ const ENC_VERB = {
   dive: v => { waveDive(v.n || 5, v.x * W); return true; },
   pod: v => { world.enemies.push(E('pod', { x: v.x * W, y: -16 })); return true; },
   flak: (v, E0) => { if (biomeAtSpawn() === 'bossland') return false; encFlakX = v.x ? [v.x[0] * W, v.x[1] * W] : null; // one gun, inside x (shares of W) where the ground allows (none: retried)
-    if (v.x && E0.tries > (v.wait || 60) / 2) { const g = world.enemies.find(e => e.enc === E0.id && e.type === 'flak' && !e.dead); // its third has no ground: anywhere on the far side of the other gun, 70 px clear of it (still a lane)
-      encFlakX = !g ? [14, W - 14] : g.x < W / 2 ? [g.x + 70, W - 14] : [14, g.x - 70]; if (encFlakX[1] <= encFlakX[0]) return false; }
-    FORCE_GROUND = 'encFlak';
-    try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; encFlakX = null; } return false; },
+    if (v.x && E0.tries > (v.wait || 60) / 2) { const g = run.sortie ? null : world.enemies.find(e => e.enc === E0.id && e.type === 'flak' && !e.dead), gx = run.sortie ? E0.gunX : g && g.x; // its third has no ground: anywhere on the far side of the other gun, 70 px clear of it (still a lane). The Campaign: where the other gun was placed, shot or not (E0.gunX), as the timetable's
+      encFlakX = gx === undefined || gx === null ? [14, W - 14] : gx < W / 2 ? [gx + 70, W - 14] : [14, gx - 70]; if (encFlakX[1] <= encFlakX[0]) return false; }
+    FORCE_GROUND = 'encFlak'; const n0 = world.enemies.length;
+    try { spawnGround(biomeAtSpawn()); } finally { FORCE_GROUND = null; encFlakX = null; }
+    if (E0 && E0.gunX === undefined) for (let k = n0; k < world.enemies.length; k++) if (world.enemies[k].type === 'flak') { E0.gunX = world.enemies[k].x; break; } // (the first gun's place, for the Campaign's rule above)
+    return false; },
   convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
   wing: () => { spawnWing(); return true; },
   sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
@@ -10939,7 +10965,7 @@ function dyingTick(e) {
     if (e.type === 'boss') for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + Math.random() * 0.5; world.later.push({ at: gf + 4 + i * 5, fn: () => boom(e.x + Math.cos(a) * 40, e.y + Math.sin(a) * 34, 40, lay) }); } feel.hitStop = Math.max(feel.hitStop, 8); feel.shake = 16; feel.flashFx = 10; sfx('bigboom'); haptic(e.type === 'boss' ? 'boss' : 'big');
     { const wyb = e.y - Math.floor(world.scroll), D = (ox, oy, kind, r, sm) => { const wet = WATER.has(terrainType(Math.floor(e.x + ox), Math.floor(wyb + oy))); if (wet && kind === 'crater') { world.decals.unshift({ kind: 'oil', wx: e.x + ox, wy: wyb + oy, r: Math.min(30, r), smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 }); splash(e.x + ox, e.y + oy, Math.min(24, r)); } else world.decals.unshift({ kind, wx: e.x + ox, wy: wyb + oy, r, smokeT: sm }); };
       { const B = BOSS[e.kind]; if (e.type === 'boss' && B.remains) B.remains(e, D, wyb); else D(0, 0, 'crater', 30, 300); } }
-    if (e.onDead) e.onDead(e);
+    if (e.onDead) fate(e, 'fs', () => e.onDead(e));
   }
 }
 function yardX(t, y) {
@@ -11105,6 +11131,22 @@ function drawLocks() {
 // with momentum (slow to start, a small overshoot, then it settles), a curved wake and funnel smoke trailing behind.
 const RAM_WARN = 40, RAM_VOLLEYS = [330, 372], RAM_BACK = 400, RAM_END = 720, RAM_ANG = 1.05, RAM_SIDE = 33,
   RAM_REACT_VOLLEYS = [280, 345], RAM_RIPPLE = 5, RAM_PIVOT = 40, RAM_K = 0.00018, RAM_DAMP = 0.0185, RAM_CREEP = 0.09;
+// The flagship's hull is a rectangle (half width HULL_HW, half length HULL_HL) turned by e.hd. Ships on the water never sail under it:
+// they are not placed there and do not move into it (hullOver), and while the flagship swings its stern round, any ship it overlaps is crushed.
+const HULL_HW = 30, HULL_HL = 112, CRUSHABLE = new Set(['pt', 'destroyer', 'sub']);
+function hullOver(b, x, y, r) { // does a circle of radius r at (x, y) touch the flagship b's hull?
+  const dx = x - b.x, dy = y - b.y, c = Math.cos(b.hd || 0), s = Math.sin(b.hd || 0), lx = dx * c + dy * s, ly = -dx * s + dy * c;
+  return Math.abs(lx) < HULL_HW + r && Math.abs(ly) < HULL_HL + r;
+}
+function flagship() { for (const b of world.enemies) if (b.type === 'boss' && b.kind === 'ship' && !b.dying && !b.dead) return b; return null; }
+function underFlagship(x, y, r) { const b = flagship(); return !!b && hullOver(b, x, y, r); }
+function crushShip(o) { fate(o, 'fs', () => crushShipE(o)); } // (the Campaign: on the crushed ship's own fate stream, never the flagship's, so how many it crushes doesn't change what the flagship does next)
+function crushShipE(o) { // no points, no loot, no medals: it just goes down (no kill(), so no addScore, dropMedals or kill count)
+  o.dead = true; o.crushed = true;
+  boom(o.x, o.y, 20, 'g'); sfx('gboom'); haptic('gkill');
+  world.decals.push({ kind: 'oil', wx: o.wx, wy: o.wy, r: o.type === 'pt' ? 10 : o.type === 'sub' ? 16 : 22, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+  world.decals.push({ kind: 'sink', s: SPR[o.type], wx: o.wx, wy: o.wy, t: 0, max: o.type === 'destroyer' ? 300 : 200, dir: Math.random() < 0.5 ? -1 : 1, len: o.hh, smokeT: 0 });
+}
 function shipRam(e) {
   const core = e.parts.find(p => p.k === 'core'), armored = e.parts.some(p => p.k === 'main' && !p.dead);
   e.ramN = e.ramN || 0;
@@ -11154,6 +11196,7 @@ function shipRam(e) {
     }
   }
   placeTankParts(e);
+  if (R.t > RAM_WARN) for (const o of world.enemies) if (!o.dead && o.ground && CRUSHABLE.has(o.type) && hullOver(e, o.x, o.y, Math.min(o.hw, 8))) crushShip(o);
   if (R.t >= RAM_END) { e.ram = null; e.hd = 0; e.x = R.bx; e.y = R.by; e.ramCd = 240; placeTankParts(e); }
   return true;
 }
@@ -11529,8 +11572,13 @@ const BOSSMOVE = {
       e.helpT = (e.helpT ?? 360) - 1;
       if (e.helpT <= 0) {
         e.helpT = (rnd(520, 700)) | 0; const sc = Math.floor(world.scroll), m = hpm(), side = Math.random() < 0.5 ? 34 : W - 34, wy = -60 - sc;
-        if (count('destroyer') < 1 && Math.random() < 0.55) { if (placeOK(side, wy, 34)) world.enemies.push(G('destroyer', side, wy, { hp: 40 * m, maxhp: 40 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.35 })); }
-        else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
+        // (the Campaign: a fixed rule, as the timetable's: its last destroyer counts as up until it would have passed the bottom of the screen,
+        // shot or not, and placement minds only what stands well above the screen)
+        const dUp = run.sortie ? e.escWy !== undefined && e.escWy + sc < H + 24 : count('destroyer') >= 1; ttFix = !!run.sortie;
+        try {
+          if (!dUp && Math.random() < 0.55) { if (placeOK(side, wy, 34)) { world.enemies.push(G('destroyer', side, wy, { hp: 40 * m, maxhp: 40 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.35 })); e.escWy = wy; } }
+          else for (const ox of [-10, 10]) if (placeOK(side + ox, wy + ox, 16)) world.enemies.push(G('pt', side + ox, wy + ox * 2, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.7, dx: side < W / 2 ? 0.1 : -0.1 }));
+        } finally { ttFix = false; }
       }
       e.subT = (e.subT ?? 600) - 1;
       if (!run.sortie && e.subT <= 0 && (e.subs || 0) < 2) { e.subT = 900; e.subs = (e.subs || 0) + 1; const sx = e.subs % 2 ? 30 : W - 30, wy = 90 + BY - Math.floor(world.scroll); if (placeOK(sx, wy, 26)) world.enemies.push(G('sub', sx, wy, { st: 'under', stT: 40, ta: PI / 2, cd: 30, untarget: true })); }
@@ -12294,7 +12342,7 @@ const ENT = {
     }
   } },
   pt: { turret: true, turretAt: [0, 7], medals: 0.5, stats: { hp: 8, hw: 5, hh: 14, score: 400, rad: 16 }, update(e) {
-    if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v)) { e.wy += e.v; e.wx += e.dx; }
+    if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v) && !underFlagship(e.x + e.dx, e.y + e.v, e.hw)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
     const gx = e.x, gy = e.y + 7;
@@ -12302,7 +12350,7 @@ const ENT = {
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
   destroyer: { turret: true, turretAt: [0, 22], revenge: 3, medals: 2, stats: { hw: 12, hh: 36, score: 2000, rad: 34 }, update(e) {
-    if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v)) e.wy += e.v;
+    if (terrainType(e.wx, e.wy + 46) === 'sea' && !blockedMove(e, 0, e.v) && !underFlagship(e.x, e.y + e.v, e.hw)) e.wy += e.v;
     groundPos(e);
     if (gf % 3 === 0) { foam(e.x + rnd(-10, 10), e.y - 38); foam(e.x + rnd(-12, 12), e.y + 30); }
     if (gf % 7 === 0) smokePuff(e.x, e.y - 14);
@@ -13119,7 +13167,8 @@ function checkExtend() {
   // after the first two score extends, each gap is 1.5x the one before
   if (run.score >= run.nextExtend) { if (scorer === 2 && p2) { if (run.lives2 < LIFE_CAP) run.lives2++; } else if (run.lives < LIFE_CAP) run.lives++; run.extendsGot++; run.nextExtend += Math.round(DIFF.ext[settings.diff][1] * Math.pow(1.5, Math.max(0, run.extendsGot - 1))); sfx('extend'); haptic('extend'); const who = scorer === 2 && p2 ? p2 : player; if (who) label(who.x, who.y - 14, '1UP'); }
 }
-function popTurret(e) {
+function popTurret(e) { return fate(e, 'ts', () => popTurretE(e)); } // (the Campaign: on the enemy's turret stream)
+function popTurretE(e) {
   e.turDead = true;
   const [ox, oy] = ENT[e.type].turretAt || [0, 0], tx = e.x + ox, ty = e.y + oy;
   boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
@@ -13146,7 +13195,7 @@ function damage(e, d) {
   if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
-    if (!e.crash) { startCrash(e); return; }
+    if (!e.crash) { fate(e, 'fs', () => startCrash(e)); return; }
     e.score = 100; label(e.x, e.y - 14, 'AIRBURST 100'); kill(e); return;
   }
   if (ENT[e.type].turret && !e.turDead) {
@@ -13366,7 +13415,8 @@ function wreckDefault(e) {
   if (RUINS[e.type]) world.decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
   else world.decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
 }
-function kill(e) {
+function kill(e) { return fate(e, 'fs', () => killE(e)); } // (the Campaign: on the enemy's fate stream)
+function killE(e) {
   const T = ENT[e.type];
   if (T.revenge && !T.turret) revenge(e.x, e.y, T.revenge); // (a turret's revenge burst came when it was shot off: popTurret)
   if (e.seenC && !e.kc) { e.kc = true; run.stats.kills++; }
@@ -13479,6 +13529,7 @@ function pollPad() {
   }
 }
 function update() {
+  rsObj = null; // (a step that threw must not leave an enemy's stream in use)
   if (app.booting) { if (++app.bootT >= 110 && warmIdx >= warmList.length || app.bootT > 300) finishBoot(); return; }
   SPOS = null;
   if (app.state === 'play' && !app.paused && app.resumeT <= 0) { heatTick(); heatTick2(p2); }
@@ -13536,7 +13587,7 @@ function update() {
 
   updFlyby();
   director();
-  for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const f = world.later[i].fn; world.later.splice(i, 1); f(); }
+  for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const it = world.later[i]; world.later.splice(i, 1); if (it.rs === undefined) { it.fn(); continue; } const nL = world.later.length; rsRun(it, 'rs', it.fn); for (let k = nL; k < world.later.length; k++) { const q = world.later[k]; if (q.rs === undefined) q.rs = q.rs0 = rsHash(it.rs, 0x200 + k - nL); } } // (the Campaign: a delayed call runs on its own stream, and what it leaves for later gets one seeded by it)
   if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
   if (run.sortie && run.sortie.falls) gorgeFallTick(); // (level 5: cars falling from the bridge)
   if (app.fade) {
@@ -13631,10 +13682,11 @@ function update() {
     if (bad) { e.dead = true; for (const o of world.enemies) if (o.post === e) o.dead = true; guardCount++; }
   }
   for (const e of world.enemies) if (!e.seenC && !ENT[e.type].uncounted && !e.dead && !e.untarget && e.y > 0 && e.y < H && !(e.type === 'troop')) { e.seenC = true; run.stats.seen++; }
-  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); ENT[e.type].update(e); aimOv = null; SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
+  // (the Campaign: each enemy runs on its own stream; its new bullets and what it leaves for later frames get streams seeded by its own)
+  for (const e of world.enemies) { e.t++; if (e.hit > 0) e.hit--; setPos(e.x, e.y); if (e.rs0 === undefined) ENT[e.type].update(e); else { const n0 = world.ebul.length, nL = world.later.length; rsRun(e, 'rs', () => ENT[e.type].update(e)); for (let k = n0; k < world.ebul.length; k++) if (world.ebul[k].rs === undefined) world.ebul[k].rs = rsHash(e.rs, k - n0); for (let k = nL; k < world.later.length; k++) { const it = world.later[k]; if (it.rs === undefined) it.rs = it.rs0 = rsHash(e.rs, 0x100 + k - nL); } } aimOv = null; SPOS = null; if (e.turDead && !(e.type === 'sub' && e.st !== 'up') && !lowFX && gf % 7 === 0 && e.y > -10 && e.y < H + 10) fx(() => { const [ox, oy] = ENT[e.type].turretAt || [0, 0]; fireAt(e.x + ox + rnd(-2, 2), e.y + oy + 2, 'g', false); if (gf % 14 === 0) smokePuff(e.x + ox, e.y + oy - 2); }); }
 
   updStorm(); updGust2(); checkProto();
-  for (const b of world.ebul) {
+  for (const b of world.ebul) { rsObj = b.rs !== undefined ? b : null; rsKey = 'rs'; // (the Campaign: a bullet's own stream, seeded by its shooter's, for where a burst's ring points)
     if (world.windX && (b.kind === 's' || b.kind === 'B')) b.vx += world.windX * 0.012;
     b.x += b.vx; b.y += b.vy;
     if (b.kind === 'rocket') {
@@ -13679,6 +13731,7 @@ function update() {
       const off = Math.random() * TAU; for (let i = 0; i < 6; i++) { const a = off + i * TAU / 6; world.ebul.push({ x: b.x, y: b.y, vx: Math.cos(a) * bspeed() * 0.8, vy: Math.sin(a) * bspeed() * 0.8, r: 2, kind: 's', a }); }
     }
   }
+  rsObj = null;
   world.ebul = world.ebul.filter(b => !b.dead && b.x > -8 && b.x < W + 8 && b.y > -8 && b.y < H + 8);
 
   for (const it of world.items) {

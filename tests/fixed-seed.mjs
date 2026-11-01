@@ -6,7 +6,9 @@
 // same: the same enemies spawned at the same frames and places, the same score and the same state at the end; a practice start of the level
 // starts the same stream as the Campaign's start, and a level reached by finishing the one before starts the same stream as well.
 // Endless still gets a new seed every run. And the timetable (step 3): flown to the boss by a bot that shoots everything and by one that never
-// fires, every level gets the same spawns from its director, at the same frames and places, and the boss comes at the same frame.
+// fires, every level gets the same spawns from its director, at the same frames and places, and the boss comes at the same frame. And the
+// per-enemy streams (step 4): shooting some planes leaves every other enemy flying and firing exactly the same, and a pod drops the same
+// item whenever it is shot.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -64,6 +66,38 @@ for (const lv of [1, 2, 3, 4, 5, 6]) {
   const i = a.log.findIndex((x, k) => x !== p.log[k]);
   ok(a.log.length > 100 && i < 0 && a.log.length === p.log.length && a.boss === p.boss && a.score > p.score,
     `level ${lv}: shooting everything (${a.score} points) or never firing (${p.score}), the director makes the same ${a.log.length} spawns and the boss comes at frame ${a.boss}${i >= 0 ? ' (first difference #' + i + ': ' + a.log[i] + ' / ' + p.log[i] + ')' : a.boss !== p.boss ? ' / ' + p.boss : ''}`);
+}
+/* per-enemy streams (step 4): the ship holds still, never fires, picks nothing up and can't be hit. One flight kills nothing; the other kills the first
+   lone planes (no formation, no leader, not big) as they come on screen. Every enemy left alive must do exactly the same in both: the same
+   path and the same timers, every 10 frames. Designed reactions are left out: troops (they run from explosions; a bail-out lands as a new
+   troop) and planes whose leader was shot (they scatter). The train number is a count kept across levels, so it is not compared. */
+const still = kills => `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(LV, true);
+  const key = new WeakMap(), tr = new Map(), dead = new Set(), rx = new Set(); let n = 0, k = 0;
+  const lone = e => !e.dead && !e.dying && !e.big && !e.ground && (e.type === 'fighter' || e.type === 'heavy') && !e.grp && !e.leader && !e.lead && !world.enemies.some(o => o.lead === e) && e.t > 30 && e.y > 12 && e.y < H * 0.6;
+  for (let f = 0; f < ${FRAMES} && app.state === 'play'; f++) {
+    for (const q in keys) keys[q] = false; player.inv = 999; player.cd = 99; player.drones = 0; world.shots.length = 0; world.items.length = 0; run.bombs = 0;
+    if (${kills} && k < 12) for (const e of world.enemies) if (k < 12 && lone(e)) { k++; dead.add(key.get(e)); onStream(true, kill)(e); }
+    update(); world.shots.length = 0;
+    for (const e of world.enemies) { if (!key.has(e)) { key.set(e, e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.y) + '#' + (n++)); } }
+    if (gf % 10 === 0) for (const e of world.enemies) { if (e.dead || e.type === 'troop') continue; if (e.scatter || (e.lead && dead.has(key.get(e.lead)))) rx.add(key.get(e).replace(/#\\d+$/, '')); const s = [Math.round(e.x * 10), Math.round(e.y * 10)]; for (const [q, v] of Object.entries(e)) if (typeof v === 'number' && q !== 'hit' && q !== 'train') s.push(q + v.toFixed(3));
+      const kk = key.get(e).replace(/#\\d+$/, ''); tr.set(kk, (tr.get(kk) || '') + gf + ':' + s.join(',') + ';'); } }
+  return JSON.stringify({ tr: [...tr], dead: [...dead, ...rx].map(s => s.replace(/#\\d+$/, '')), k }); })()`;
+for (const lv of [1, 2, 3, 4, 5, 6]) {
+  const a = JSON.parse(await peek(pageA, still(false).replace('LV', lv))), b = JSON.parse(await peek(pageB, still(true).replace('LV', lv)));
+  const A = new Map(a.tr), B = new Map(b.tr), dead = new Set(b.dead); let same = 0, diff = null, lost = null, extra = null;
+  for (const [kk, t] of A) { if (dead.has(kk)) continue; if (!B.has(kk)) { lost = lost || kk; continue; } const tb = B.get(kk); if (tb === t) same++; else if (!diff) { const i = [...t].findIndex((c, j) => c !== tb[j]); diff = kk + ' at ' + t.slice(Math.max(0, t.lastIndexOf(';', i) + 1), i + 40) + ' / ' + tb.slice(Math.max(0, tb.lastIndexOf(';', i) + 1), i + 40); } }
+  for (const kk of B.keys()) if (!A.has(kk) && !kk.startsWith('troop@')) extra = extra || kk;
+  ok(b.k >= 5 && same > 20 && !diff && !lost && !extra, `level ${lv}: ${b.k} lone planes shot down or left alone, the other ${same} enemies fly and fire the same${diff ? ' (first difference: ' + diff + ')' : ''}${lost ? ' (missing: ' + lost + ')' : ''}${extra ? ' (new: ' + extra + ')' : ''}`);
+}
+/* a drop is the enemy's own: a pod gives the same item whether it is shot as soon as it shows or a second later */
+const pods = late => `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(LV, true); const got = [], seen = new Map();
+  for (let f = 0; f < 6000 && app.state === 'play' && got.length < 4; f++) { for (const q in keys) keys[q] = false; player.inv = 999; player.cd = 99; player.x = 12; player.y = H - 20; world.shots.length = 0; run.bombs = 0;
+    for (const e of world.enemies) if (e.type === 'pod' && !e.dead && e.y > 20) { const s = seen.get(e) ?? gf; seen.set(e, s); if (gf - s >= ${late ? 60 : 0}) { const n0 = world.items.length; onStream(true, kill)(e); got.push(world.items.slice(n0).map(it => it.kind + (it.w || '')).join('+')); } }
+    update(); world.shots.length = 0; world.items.length = 0; }
+  return got.join(' '); })()`;
+for (const lv of [1, 3, 5]) {
+  const a = await peek(pageA, pods(false).replace('LV', lv)), b = await peek(pageB, pods(true).replace('LV', lv));
+  ok(a.split(' ').length >= 2 && a === b, `level ${lv}: pods shot at once or a second later drop the same (${a}${a === b ? '' : ' / ' + b})`);
 }
 /* a level reached in a run starts the stream a practice start of it does */
 {

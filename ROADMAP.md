@@ -88,6 +88,24 @@ Done inside `index.html` before the module split (Phase 3): modules are easier t
 - [ ] Script to export generated sprites and audio to files, for an engine port.
 - [ ] Try a web wrapper (Capacitor or Tauri) first; it should need little change.
 
+## Gameplay: interactive structures (planned, after the Campaign's per-enemy seeds)
+
+Source: the owner's design note "Interactive Scenery, Structures and Ground Encounter Mechanics" (scenery that takes part in encounters: structures that launch a finite stock of enemies, armour the charged laser breaks, a radar that strengthens nearby guns, chain reactions, reactive ground units). Assessed in November 2026: feasible and in line with the Campaign's rules (a fixed sequence of events, designed reactions to the player). Built in this order, each step with its own test:
+
+1. **A hangar with a stock** on an airbase level (`tools/citygen.js` has an airbase preset). It holds a fixed number of fighters and launches them on a schedule from its own seed. Destroying it cancels the launches still to come. Doors, an alarm and doors that close when it is empty show its state without a HUD counter. The carrier's launches (`CV.LAUNCHES`) are the working model. Test: the same launches whether or not other enemies were shot, fewer when the hangar is destroyed.
+2. **A vehicle depot** with the same mechanism (tanks), then **armour on structures**: the charged laser breaks it, other weapons get through slowly (for example a quarter of their damage), so a player without the laser can still destroy it. Shown on the structure itself (plating that cracks); the boss bar's armour segment is for bosses.
+3. **Radar and defences**: while a radar in range stands, nearby flak and turrets aim better. Only once its effect is visible (a link between radar and guns, a clear change when it falls).
+4. **Chain reactions**, extending the existing `explosive` rule (fuel depot, tanker, armoury, ammo car) to new structures, with a short delay and a visible spread so the player sees the cause.
+5. **Reactive ground units**, one type at a time: convoys that speed up or bunch when attacked (scattering only where the road allows), soldiers that run and take cover (troops already flee and use houses), surrender as a visual detail with no scoring.
+6. **Scripted locations** (alarms, lights, opening doors around a whole base) last: mostly art and sound, the most work per minute of play.
+
+Rules for this phase:
+
+- **Campaign determinism.** A structure activates at a scroll position, never by the ship's distance. Its whole stock counts in the timetable's ghosts as if every unit launched, so destroying it never changes what the director spawns. Everything it launches is seeded from it (`rsSeed`). Coordinated guns follow a schedule their group shares, not each other's state.
+- **No going back.** The game never scrolls back, so the window to react is the few seconds a structure is on screen. The first launch comes early enough to answer.
+- **Readable on 224 px.** Two or three interacting structures per encounter, not six, and each encounter keeps a bullet budget like the existing ones.
+- **Scores** for new structures need the owner's OK (scoring rules are fixed).
+
 ## Open decisions
 
 - Should replays be sent with scores? (leaderboard rules, ask first)
