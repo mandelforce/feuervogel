@@ -4217,7 +4217,7 @@ const simNext = () => { simS = (simS + 0x6D2B79F5) | 0; let t = Math.imul(simS ^
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.16'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.17'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9566,7 +9566,7 @@ function waveLeader(cx0) {
 function spawnWave(b, big) {
   if (big) { waveDive(3); return; }
   const r = Math.random();
-  if (run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level === 1 ? 9 : run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once. Level 1 too, as a late level: its internal number was 8 until build 1.2.5.16, and it plays as it did)
+  if (run.sortie && run.sortie.level >= 3 && r >= 0.2 && r < 0.26 && count('pfeil') === 0) { const lv = run.sortie.level; wavePfeil(lv >= 4 && Math.random() < 0.5 ? ((lv >= 5 || run.loop >= 1) && Math.random() < 0.5 ? 4 : 2) : 0); return; } // (the Pfeil, level 3 on; from level 4 sometimes with 2 wingmen, from level 5 or a later loop sometimes with 4, never two groups at once. Never in levels 1 and 2 (owner))
   if (avail('heavy') && r < 0.1 && count('heavy') < 1) { waveHeavy(); return; }
   if (avail('leader') && r >= 0.1 && r < 0.2 && !world.enemies.some(e => e.leader && !e.dead)) { waveLeader(); return; }
   const bomberOK = (b === 'country' || b === 'base' || b === 'forest') && count('bomber') < 1 + (run.loop >= 1 ? 1 : 0);
@@ -12091,8 +12091,8 @@ const ENT = {
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
     const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
     e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
-    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
-    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && (run.sortie.level >= 3 || run.sortie.level === 1) ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
+    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
+    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },

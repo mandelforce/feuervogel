@@ -94,13 +94,14 @@ ok(lone.bursts >= 10, `it finds its moments to shoot: ${lone.bursts} bursts in f
     for (const e of m) { const b = run.score; ENT.pfeil.onKill(e); } return { n: m.length, gain: run.score - s0, bonus: PFEIL.bonus * m.length }; })())`);
   ok(r.n === 3 && r.gain === r.bonus, `a formation of 2 wingmen: shooting down all 3 pays the bonus (${r.gain} of ${r.bonus})`);
 }
-// 4. the spawn: from level 4 sometimes with 2 or 4 wingmen, 4 only from level 5; never at level 2; at most one group
+// 4. the spawn: from level 4 sometimes with 2 or 4 wingmen, 4 only from level 5; never in levels 1 and 2; at most one group
 {
   const r = await peek(`JSON.stringify((() => { const out = {}; const orig = Math.random;
-    for (const lv of [3, 4, 5]) { startEnigma(lv, true); const sizes = new Set(); let spawned = 0;
+    for (const lv of [1, 2, 3, 4, 5]) { startEnigma(lv, true); const sizes = new Set(); let spawned = 0;
       for (let i = 0; i < 400; i++) { world.enemies.length = 0; run.sortie.level = lv; const ro = orig; spawnWave(0, false); const n = world.enemies.filter(e => e.type === 'pfeil').length; if (n) { spawned++; sizes.add(n); } }
       out[lv] = [...sizes].sort().join(','); }
     return out; })())`);
+  ok(r[1] === '' && r[2] === '', `no Pfeil in levels 1 and 2 (sizes: '${r[1]}', '${r[2]}')`);
   ok(r[3] === '1', `level 3: a single Pfeil only (sizes: ${r[3]})`);
   ok(r[4].includes('1') && r[4].includes('3') && !r[4].includes('5'), `level 4: single or with 2 wingmen, never 4 (sizes: ${r[4]})`);
   ok(r[5].includes('1') && r[5].includes('3') && r[5].includes('5'), `level 5: single, 2 or 4 wingmen (sizes: ${r[5]})`);
