@@ -98,7 +98,7 @@ const playOut = `
     let t = E0().t; app.paused = true; SF.run(60); app.paused = false; out.pause = E0().t === t;
     t = E0().t; world.quiet = true; SF.run(60); world.quiet = false; out.quiet = E0().t === t;
     t = E0().t; const w = E('wing', { x: W / 2, y: -40, hp: 9999, maxhp: 9999 }); world.enemies.push(w); const wave = world.waveCd;
-    SF.run(60); out.wing = E0().t === t && E0().st === 'hold' && world.waveCd === wave; w.dead = true; SF.run(2); out.wingOff = E0().st === 'run' && E0().t > t;
+    SF.run(60); out.wing = E0().t === t + 60 && E0().st === 'run'; w.dead = true; SF.run(2); out.wingOff = E0().st === 'run' && E0().t === t + 62;
     t = E0().t; const i = E0().i; die('test'); SF.run(120); out.death = !!world.enc && E0().t >= t + 100 && E0().i >= i;
     let snap = null; for (let k = 0; k < 300 && !snap && world.enc; k++) { snap = takeSnapshot(); if (!snap) SF.run(1); } out.snap = !!snap && snapDecode(snap).world.enc.id === 'anvil';
     settings.fps = true; let drew = true; try { SF.draw(); } catch (e) { drew = String(e); } settings.fps = false; out.drew = drew;
@@ -106,7 +106,7 @@ const playOut = `
     return JSON.stringify(out); })()`));
   ok(r.pause, 'pause freezes the encounter clock');
   ok(r.quiet, 'world.quiet (stage end, flyby) freezes the encounter clock');
-  ok(r.wing && r.wingOff, 'the Shadow Wing on screen holds it (clock and air timer frozen) and it runs on once the Wing is gone');
+  ok(r.wing && r.wingOff, "the Campaign's timetable: a Shadow Wing on screen doesn't hold it, its clock runs on");
   ok(r.death, 'a death does not reset or stop it');
   ok(r.snap, 'a snapshot can be taken mid-encounter and carries world.enc');
   ok(r.drew === true, `the readout draws (Show FPS, local build)${r.drew === true ? '' : ': ' + r.drew}`);
@@ -189,7 +189,7 @@ const playOut = `
   const v = JSON.parse(await peek(page, play(3, 1, 31, 300)));
   ok(v.started && v.types.flak === 2 && Object.keys(v.types).every(k => ['flak', 'troop', 'fighter'].includes(k)), `Flak lane places two guns (with crews) and nothing else: ${JSON.stringify(v.types)}`);
   ok(v.guns[0] < W_ / 2 && v.guns[1] > W_ / 2 && v.guns[1] - v.guns[0] >= 70, `one gun on each side, a lane between them (x ${v.guns.join(' and ')})`);
-  ok(v.seenAt > 0 && v.disp[2] === v.seenAt + 1, `the first formation goes as soon as both guns are 15% down the screen (they get there as the enemies move in frame ${v.seenAt}; the next frame's tick sends it: ${v.disp[2]})`);
+  ok(v.seenAt > 0 && Math.abs(v.disp[2] - v.seenAt) <= 1, `the first formation goes as soon as both guns are 15% down the screen (they get there in frame ${v.seenAt}; the timetable reads where they stand, so it goes in frame ${v.disp[2]})`);
   ok(v.disp[3] === v.disp[2] + 90 && v.disp[4] === v.disp[3] + 120 && v.disp[5] === v.disp[4] + 16 && v.disp[8] === v.disp[7] + 16 && v.types.fighter === 15, `a second formation 90 frames later, then a strafing run of five, 16 apart (${[3, 4, 5, 6, 7, 8].map(i => v.disp[i]).join(', ')}; fighters ${v.types.fighter})`);
   ok(v.last && v.last.why === 'done' && v.last.dropped === 0, `Flak lane ends 'done' after ${v.last && v.last.t} frames, nothing dropped`);
   const r = JSON.parse(await peek(page, play(3, 0, 31, 300)));
@@ -225,7 +225,7 @@ const playOut = `
   const a = JSON.parse(await peek(page, play(2, 41, false)));
   ok(a.types.bomber === 2 && a.last && a.last.why === 'done', `Ace: a second Bomber joins (${JSON.stringify(a.types)})`);
   const t = JSON.parse(await peek(page, play(1, 42, true)));
-  ok(t.last && t.last.why === 'done' && t.last.t < 1000, `a Bomber nobody can kill leaves the screen and the encounter still ends 'done' (${t.last && t.last.t} frames)`);
+  ok(t.last && t.last.why === 'done' && t.last.t === 1140, `a Bomber nobody can kill: the encounter still ends 'done' at its fixed length (the timetable: ${t.last && t.last.t} frames of 1140)`);
   await page.close();
 }
 {
@@ -254,7 +254,7 @@ const playOut = `
   const page2 = await freshPage();
   const n = JSON.parse(await peek(page2, fly));
   await page2.close();
-  ok(w.anvilRefused === true, 'while a Sower is up, an ordinary encounter does not start');
+  ok(w.anvilRefused === false, "the Campaign's timetable: an ordinary encounter starts on time, a Sower up or not");
   ok(!w.early, "the level's first Sower (before the set2 stretch) does not open the Sower Window");
   ok(w.holdF > 0 && w.startF === w.holdF + 1, `it opens the frame after the second Sower settles (settled ${w.holdF}, opened ${w.startF})`);
   ok(!w.again, 'it opens once: not again for the partner the Sower calls');
@@ -320,8 +320,8 @@ const playOut = `
   await page.close();
 }
 {
-  // 11. Level 1 (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; at most one submarine in the whole level and not
-  // before the island chain; the flagship sends two more, at about half and a quarter of its health (the Campaign; Retro Run's flagship keeps its two); First
+  // 11. Level 1 (owner): no Drilling: its two tank pits hold dug-in heavy tanks; two Buechse at most; one submarine in the whole level, at a fixed place (chunk 13) and not
+  // before the island chain; the flagship sends two more, 20 s and 35 s after it appears (the Campaign; Retro Run's flagship keeps its two); First
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed;
@@ -329,13 +329,13 @@ const playOut = `
     for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
       if (world.enc && out.encs[out.encs.length - 1] !== world.enc.id) out.encs.push(world.enc.id);
       for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) { out.buechse++; const sl = sortiePlan(run.sortie).slots.find(q => q.kind === 'tip'); if (sl && Math.hypot(e.wx - sl.x, e.wy - (run.sortie.planY0 - sl.y)) < 2) out.tipB = { dug: !!e.dug, road: terrainType(Math.floor(e.wx), Math.floor(e.wy)) }; } if (e.type === 'htank' && e.dug) out.dugHeavy++;
-        if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(+bossLeft(b).toFixed(2)); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
+        if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(b.t); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
       if (st !== 'ok' || run.sortie.level !== 1) break; }
     return JSON.stringify(out); })()`));
   ok(r.drills === 0 && r.dugHeavy === 2, `level 1: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
   ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
-  ok(r.subs.length <= 1 && r.subs.every(c => c >= r.chain), `level 1: at most one submarine before the boss, not before the island chain (the director rolls it: about 1 run in 3 has one) (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
-  ok(r.boss.length === 2 && r.boss[0] <= 0.5 && r.boss[0] > 0.3 && r.boss[1] <= 0.25 && r.boss[1] > 0.1, `the flagship sends two submarines, at about half and a quarter of its health (${r.boss.join(', ')})`);
+  ok(r.subs.length === 1 && r.subs[0] === 13 && r.subs[0] >= r.chain, `level 1: one submarine before the boss, at its fixed place in the island chain (chunk 13, the timetable) (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
+  ok(r.boss.length === 2 && r.boss[0] >= 1200 && r.boss[0] < 1206 && r.boss[1] >= 2100 && r.boss[1] < 2106, `the flagship sends two submarines, 20 s and 35 s after it appears (frames ${r.boss.join(' and ')} of its life, sampled every 5)`);
   ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1 plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }

@@ -345,13 +345,24 @@ The owner found level 1 too empty before the first encounter, the two Drillings 
 | airbase island (16–25) | set piece 1; the two tank pits (chain and airbase) hold dug-in heavy tanks, no Drilling | built |
 | sea and beach (25–31) | **Shadow Wing** (7.5) | built |
 | farmland and village (31–42) | **The Anvil**, the first Heavy as an anchor (over land); it waits for the Shadow Wing, so with a Wing left alone (about 42 s) it starts in the village or the forest (chunks 40–45; given up past 50) | built (test link) |
-| forest, coast, sea | normal director, then the flagship; **two submarines, at about half and a quarter of its health** (the second on the other side) | built |
+| forest, coast, sea | normal director, then the flagship; **two submarines, 20 s and 35 s after it appears, on every difficulty** (the second on the other side) | built |
 
 - **Built (1.2.5.12, live):** no Drilling pits in level 1 (`DRILL_PITS`; the Drilling is introduced in level 2); `subOK`: one submarine in the whole level, from the island chain on (`world.subN`); the flagship sends one submarine once its health bar is at half (`bossLeft`), in the Campaign only (Retro Run's flagship keeps its two on a timer); the Shadow Wing as 7.5, at 0.47 of the arc.
 - **Built on the test link (1.2.5.12):** `firstcontact` with the new verbs `sweep` (one plane of a sweep, synchronous so it is tagged) and `ship` (a PT boat or a destroyer on the nearest free water to x, retried while there is none); `ENC_PLAN`: a level's encounters at set chunks (`c`, given up past `until`), played with `?enc=all` (level 1: First Contact at 4, The Anvil at 31, given up past 50). Measured (immortal bot, seeds 101 and 102, all difficulties): everything placed, all three encounters end `done`, no frame over budget; First Contact peaks at 5–11 bullets.
 - **Second playtest (1.2.5.13, live):** First Contact is live in every Campaign run (`ENC_PLAN` entry `live: true`; The Anvil stays on `?enc=all`). Level 1's two tank pits are back, each with a dug-in heavy tank (`planDrills`). Two Büchse at most in level 1: one dug in at the big island's road tip (`roadTip`: a `tip` slot where the main road begins at the south shore, filled by `planDrills`), and at most one in a convoy (`world.buechseN`); the "level 2 on" rule had matched level 1's internal 8.
 - **Third playtest (1.2.5.15, live):** formations with a leader from level 1 on in the Campaign (`avail('leader')`); level 1 is 62 chunks (its last farmland 10, was 4) and plays **Formations** there (`ENC_PLAN` live at chunk 48: two leader formations side by side, one on Rookie, then one up the middle and a chase pair, a pod); `WING_U` 0.44 keeps the Shadow Wing over the sea after the airbase island.
 - **Owner's rule:** new encounter types are added as the levels need them. Live placement in the Campaign (step 6) waits for the owner.
+
+## 7c. The Campaign's timetable (build 1.2.5.20, owner: every player gets the same challenge)
+
+In the Campaign the encounter director plays on a timetable (ARCHITECTURE.md, "The Campaign's timetable"):
+- an encounter ends at its fixed length (`TT_ENC`: First Contact 1364, Formations 720, the Shadow Wing 2864 frames; the test link's ones their `len` plus 300), not when its enemies are dead; it rests as before;
+- only the carrier holds an encounter; the Shadow Wing or a Sower on screen don't, and an ordinary encounter starts on time with a Sower up;
+- a `when: 'seen'` event reads where its ground units stand (recorded at dispatch), killed or not;
+- the strafers' side comes from the encounter's own stream, not from the ship's side;
+- the soft bullet budget is unchanged (it gates enemy fire, not spawns).
+
+Retro Run keeps the reactive rules above.
 
 ## 8. Soft bullet budget
 
