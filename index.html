@@ -10124,7 +10124,7 @@ function carrierTick() {
       C.launched++;
     }
   }
-  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (!ttOn() && C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone (not in the Campaign's timetable: at its time)
+  if (C.gone && (t >= CV.T1 + CV.PURSUIT || (!ttOn() && t > CV.VEES[CV.VEES.length - 1][0] && C.launched >= CV.LAUNCHES[settings.diff] && !world.enemies.some(e => (e.chase || e.type === 'cfighter') && !e.dead)))) C.over = true; // ends early once the last pursuer is gone, but not before the last V formation (not in the Campaign's timetable: at its time)
 }
 // The Feuervogel on the deck (player.fly counts CV.FLY down, so steering and firing wait as in a fly-in): standing, then rolling down the
 // centre line to the bow (lift-off at CV.T1), then climbing on, slowing, with its shadow drawing away from it.
