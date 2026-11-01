@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12075,25 +12075,49 @@ function kolibriWingTick(g) {
 // Modes (e.mode): straight (modeT frames), turn (a circle: e.td side, e.arc radians; an aimed circle ends with the nose on the ship); e.ret (back in from
 // outside) and e.brk (breaking away) go before them. e.st: wait (off the screen, before it comes in), fly.
 const PFEIL = {
-  cruise: 2.2, turn: 0.021,          // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 105 px (owner: a bit slower: 2.4 before)
-  leg: [30, 100], arc: [2.2, 6], aimedP: 0.9, // frames of a straight leg; radians of a plain circle; the share of circles that end with the nose on the ship
-  aimMin: 230, inP: 0.75,            // an aimed circle needs the ship at least this far off (about two circle radii and a margin; nearer it flies a plain one); the share of plain circles that curve toward the middle
-  away: 40, far: 420, home: 0.35,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)
-  breakR: 130, hard: 95, floor: 0.68,          // closer than this to a ship (hard: even in the middle of a burst), or lower than this share of H heading down: it breaks away
-  rMin: 165, rMax: 360, aimTol: 0.2, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
+  cruise: 2.2, turn: 0.021, tacc: 0.0035, // speed (px/frame) and the turn of a circle (rad/frame): its radius is cruise / turn, about 105 px (owner: a bit slower: 2.4 before)
+  leg: [25, 80], arc: [1.2, 3.6], aimedP: 0.9, // frames of a straight leg; radians of a plain circle; the share of circles that end with the nose on the ship
+  inP: 0.75,                         // the share of plain circles that curve toward the middle
+  away: 40, look: 45, far: 420, home: 0.42,    // beyond this outside an edge it turns back in; it is not culled before this far outside the screen; the height of the middle it turns for (of H)
+  breakR: 150, hard: 105, floor: 0.68,          // closer than this to a ship (hard: even in the middle of a burst), or lower than this share of H heading down: it breaks away
+  rMin: 175, rMax: 360, aimTol: 0.2, // the shooting window: distance to the ship, and how far the nose may be off it (rad)
   tele: 12, burst: 2, gap: 4, atkCd: 90, shotSp: 1.15, stagger: 22, // the warning (frames), shots (one more on Hard or a later loop), frames apart, pause between a member's bursts, shot speed against bspeed(), pause before the next member may start
+  wvm: [1.35, 1.5], wacc: 0.05, wgain: 0.1, wturn: 0.06, wsep: 38, wdrift: 3, wtight: 0.5, wcatch: 0.25, // wingmen: top speed against cruise (each its own), how fast the velocity may change, how hard it closes on its slot, its turn (rad/frame), the least distance it keeps from another member, the slow drift around its slot (px), how much its slot closes up sideways while the leader turns hard, and how much faster it may fly to catch up
   enterT: [10, 50], bonus: 2500      // frames off the screen before it comes in; a member, for the whole formation
 };
 const PFEIL_SLOTS = [[-34, -38], [-34, 38], [-68, -76], [-68, 76]]; // [behind the leader, beside it (+ right)] for the 1st to 4th wingman
 function wavePfeil(wingmen = 0) {
   const side = Math.random() < 0.5 ? -1 : 1, g = wingmen ? { n: wingmen + 1, m: [], lead: null, killed: 0, vt: 0, tick: -1 } : null;
   const L = E('pfeil', { side, far: PFEIL.far, grp: g }); world.enemies.push(L);
-  if (g) { g.m.push(L); g.lead = L; for (let i = 0; i < wingmen; i++) { const w = E('pfeil', { side, far: PFEIL.far, grp: g, fm: true, slot: PFEIL_SLOTS[i] }); g.m.push(w); world.enemies.push(w); } }
+  if (g) { g.m.push(L); g.lead = L; for (let i = 0; i < wingmen; i++) { const w = E('pfeil', { side, far: PFEIL.far, grp: g, fm: true, slot: PFEIL_SLOTS[i], cs: PFEIL_SLOTS[i].slice(), vm: PFEIL.cruise * rnd(PFEIL.wvm[0], PFEIL.wvm[1]), dph: Math.random() * 6 }); g.m.push(w); world.enemies.push(w); } }
 }
 function pfeilGroup(g) { // once a frame: the dead leave, a shot down leader is replaced by the wingman nearest its slot, the wingmen take the slots in order
   g.m = g.m.filter(o => !o.dead && !o.dying); if (!g.m.length) return;
-  if (!g.m.includes(g.lead)) { const n = g.lead = g.m[0]; n.fm = false; n.mode = 'straight'; n.modeT = 40; n.ret = n.brk = false; n.tele = n.bn = 0; n.acd = Math.max(n.acd, 40); }
+  if (!g.m.includes(g.lead)) { const n = g.lead = g.m[0], c = Math.cos(n.h), s = Math.sin(n.h); for (const o of g.m) if (o !== n) { const dx = o.x - n.x, dy = o.y - n.y; o.cs = [dx * c + dy * s, -dx * s + dy * c]; } /* (every wingman keeps the spot it is at, now measured from the new leader; it eases to its slot, see pfeilTick) */ n.fm = false; n.mode = 'straight'; n.modeT = 40; n.ret = n.brk = false; n.tele = n.bn = 0; n.acd = Math.max(n.acd, 40); }
   let i = 0; for (const o of g.m) if (o !== g.lead) o.slot = PFEIL_SLOTS[i++];
+}
+function pfeilAimTurn(e, q, aimA) { // the side of an aimed circle, or 0: flown ahead in its head (the ship where it is), a circle that lines the nose up with the ship in firing range without leaving the screen far
+  const P = PFEIL, d = angDiff(e.h, aimA); if (Math.abs(d) < 0.4) return 0;
+  for (const sd of [Math.sign(d), -Math.sign(d)]) {
+    let x = e.x, y = e.y, h = e.h;
+    for (let k = 0; k < 160; k++) {
+      h += sd * P.turn; x += Math.cos(h) * P.cruise; y += Math.sin(h) * P.cruise;
+      if (x < -25 || x > W + 25 || y < -25 || y > H * P.floor) break;
+      const ddx = q.x - x, ddy = q.y - y, dist = Math.hypot(ddx, ddy);
+      if (dist < P.rMin + 25) break;
+      if (Math.abs(angDiff(h, Math.atan2(ddy, ddx))) < 0.1) { if (dist <= P.rMax) return sd; break; }
+    }
+  }
+  return 0;
+}
+function rayHitsScreen(x, y, h) { // does a plane at (x, y) flying straight on along h cross the middle of the play area (the middle 60 % across, from the top down to 45 % of the height)?
+  const dx = Math.cos(h), dy = Math.sin(h); let t0 = 0, t1 = 1e9;
+  for (const [p, d, a, b] of [[x, dx, W * 0.2, W * 0.8], [y, dy, H * 0.08, H * 0.45]]) {
+    if (Math.abs(d) < 1e-6) { if (p < a || p > b) return false; continue; }
+    let ta = (a - p) / d, tb = (b - p) / d; if (ta > tb) { const t = ta; ta = tb; tb = t; }
+    t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
+  }
+  return t0 <= t1;
 }
 function pfeilTick(e) {
   const P = PFEIL, live = hasT(), g = e.grp || null;
@@ -12106,41 +12130,67 @@ function pfeilTick(e) {
   if (e.acd > 0) e.acd--;
   e.isLead = !!g && g.lead === e && g.m.length > 1; // (the yellow skin: a lone Pfeil, or the last of a formation, has none)
   const q = nearShip(e.x, e.y), dq = Math.hypot(q.x - e.x, q.y - e.y), aimA = aim(e.x, e.y), onScr = e.x > 10 && e.x < W - 10 && e.y > -6;
-  if (e.fm && g && g.lead && g.lead !== e) { // a wingman: its slot beside and behind the leader
+  if (e.fm && g && g.lead && g.lead !== e) { // a wingman: it flies to its slot beside and behind the leader like a plane of its own, with a top speed, a limit on how fast its velocity changes and its heading following its flight path, so it lags in a turn and closes up again, never jumps
     const L = g.lead; if (L.st === undefined) return;
-    const c = Math.cos(L.h), s = Math.sin(L.h), tx = L.x + c * e.slot[0] - s * e.slot[1], ty = L.y + s * e.slot[0] + c * e.slot[1], px = e.x, py = e.y;
-    if (e.st === 'wait') { e.st = 'fly'; e.x = tx; e.y = ty; } else { e.x += (L.vx || 0) + (tx - e.x) * 0.12; e.y += (L.vy || 0) + (ty - e.y) * 0.12; }
-    e.h += clamp(angDiff(e.h, L.h), -0.1, 0.1); e.vx = e.x - px; e.vy = e.y - py;
+    e.cs[0] += (e.slot[0] - e.cs[0]) * 0.025; e.cs[1] += (e.slot[1] - e.cs[1]) * 0.025; // (a new slot is reached slowly)
+    const c = Math.cos(L.h), s = Math.sin(L.h), tight = 1 - P.wtight * clamp(L.tr || 0, 0, 1), sx = e.cs[0] + Math.sin(gf * 0.021 + e.dph) * P.wdrift, sy = e.cs[1] * tight + Math.cos(gf * 0.017 + e.dph * 1.3) * P.wdrift, tx = L.x + c * sx - s * sy, ty = L.y + s * sx + c * sy;
+    if (e.st === 'wait') { e.st = 'fly'; e.x = tx; e.y = ty; e.vx = L.vx || 0; e.vy = L.vy || 0; e.h = L.h; }
+    let wx = (L.vx || 0) + (tx - e.x) * P.wgain, wy = (L.vy || 0) + (ty - e.y) * P.wgain;
+    for (const o of g.m) if (o !== e && o.st !== 'wait') { const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (d < P.wsep) { const k = (P.wsep - d) / P.wsep * 0.8 / (d || 1); wx += (dx || 1) * k * 3; wy += dy * k * 3; } } // (members keep apart)
+    const wm = Math.hypot(wx, wy), vmax = e.vm * (1 + P.wcatch * clamp((Math.hypot(tx - e.x, ty - e.y) - 60) / 100, 0, 1)); /* (a wingman far behind opens up to catch up) */ if (wm > vmax) { wx *= vmax / wm; wy *= vmax / wm; }
+    const ax = wx - e.vx, ay = wy - e.vy, am = Math.hypot(ax, ay); if (am > P.wacc) { e.vx += ax * P.wacc / am; e.vy += ay * P.wacc / am; } else { e.vx = wx; e.vy = wy; }
+    e.x += e.vx; e.y += e.vy;
+    for (const o of g.m) if (o !== e && o.st !== 'wait') { const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy); if (d < P.wsep * 0.75) { const k = (P.wsep * 0.75 - d) * 0.12 / (d || 1); e.x += (dx || 1) * k; e.y += dy * k; } } /* (and never closer than this: a gentle push on the spot) */
+    e.h += clamp(angDiff(e.h, Math.hypot(e.vx, e.vy) > 0.8 ? Math.atan2(e.vy, e.vx) : L.h), -P.wturn, P.wturn);
   } else {
     if (e.st === 'wait') { if (--e.waitT > 0) return; e.st = 'fly'; }
     let tgt = null; // an angle it turns for at the full turn rate, or null
     const outside = e.x < -P.away || e.x > W + P.away || e.y < -P.away;
     if (!live) { e.ret = e.brk = false; }
     else {
-      if (outside && !e.ret) { e.ret = true; e.brk = false; e.tele = e.bn = 0; }
+      if (outside && !e.ret) { e.ret = true; e.brk = false; e.bd = undefined; e.tele = e.bn = 0; }
       if (e.ret && e.x > 8 && e.x < W - 8 && e.y > 8) { e.ret = false; e.mode = 'straight'; e.modeT = rnd(P.leg[0] * 0.5, P.leg[1] * 0.5) | 0; }
-      if (!e.ret && !e.brk && ((dq < P.breakR && !e.tele && !e.bn) || dq < P.hard || (e.y > H * P.floor && Math.sin(e.h) > 0))) { e.brk = true; e.tele = e.bn = 0; }
+      if (!e.brk && ((dq < P.breakR && !e.tele && !e.bn) || dq < P.hard || (e.y > H * P.floor && Math.sin(e.h) > 0))) { e.brk = true; e.bd = undefined; e.tele = e.bn = 0; }
     }
-    const away = dq < P.breakR * 1.3 ? Math.atan2(Math.min(e.y - q.y, -60), (e.x - q.x) * 0.4) : -PI / 2; // (always with some way up: below a ship it must not flee off the bottom of the screen)
-    if (e.brk && dq > P.breakR * 1.3 && e.y < H * P.floor - 20) { e.brk = false; e.mode = 'straight'; e.modeT = 0; } /* (clear of the ship: straight into the next circle, aimed back at it) */
-    if (e.ret) tgt = Math.atan2(H * P.home - e.y, W / 2 - e.x); else if (e.brk) tgt = away;
-    if (tgt !== null) e.h += clamp(angDiff(e.h, tgt), -P.turn, P.turn);
-    else if (!e.tele && !e.bn) { // a straight leg, then a circle (an aimed one ends with the nose on the ship)
+    const away = -PI / 2 + (e.x < W / 2 ? 1 : -1); /* (up and toward the middle: breaking away straight up would carry it off the top of the screen every time, and below a ship it must not flee off the bottom) */ // (always with some way up: below a ship it must not flee off the bottom of the screen)
+    if (e.brk && dq > P.breakR * 1.3 && e.y < H * P.floor - 20) { e.brk = false; e.mode = 'straight'; e.modeT = rnd(5, 25) | 0; } /* (clear of the ship: a short leg, then the next circle, aimed back at it when the geometry allows, else curving toward the middle) */
+    let want = 0; /* the turn it wants this frame (rad/frame); the turn itself eases toward it (P.tacc), so a curve never starts or reverses in one frame */
+    if (e.brk) tgt = away; else if (e.ret && !rayHitsScreen(e.x, e.y, e.h)) tgt = Math.atan2(H * P.home - e.y, W / 2 - e.x); /* (back in: it turns only until its heading crosses the screen, then flies straight on; a plane turning for a point inside its own circle would orbit it) */
+    if (tgt !== null) {
+      const df = angDiff(e.h, tgt); let dir = Math.sign(df) || 1;
+      if (e.bd === undefined) { /* the way it turns: breaking away, the side whose circle lies farther from the ship (it must not sweep past it); returning, the shorter way */
+        const r = P.cruise / P.turn, dd = sd => Math.hypot(q.x - (e.x - Math.sin(e.h) * r * sd), q.y - (e.y + Math.cos(e.h) * r * sd));
+        e.bd = e.brk ? (dd(1) >= dd(-1) ? 1 : -1) : dir;
+      }
+      /* (it goes on turning that way, unless the way out lies close on the other side) */
+      if (dir !== e.bd && Math.abs(df) > 0.8) dir = e.bd; else e.bd = dir;
+      want = Math.abs(df) < 0.25 ? df / 0.25 * P.turn : dir * P.turn;
+    }
+    if (tgt === null && !e.tele && !e.bn) { // a straight leg, then a circle (an aimed one ends with the nose on the ship)
       if (e.mode === 'straight') {
+        if (!e.ret && (e.x + Math.cos(e.h) * P.cruise * P.look < -30 || e.x + Math.cos(e.h) * P.cruise * P.look > W + 30 || e.y + Math.sin(e.h) * P.cruise * P.look < -30) && e.modeT > 1) e.modeT = 1; /* (a straight leg that would carry it off the screen ends in time) */
+        if (live && gf % 5 === 0 && e.acd < 40 && !e.ret && e.modeT > 1 && Math.random() < P.aimedP) { const t2 = pfeilAimTurn(e, q, aimA); if (t2) e.modeT = 1; } /* (the moment for an aimed circle comes and goes with where the ship is: it looks for it during the leg) */
         if (--e.modeT <= 0) {
-          const d = angDiff(e.h, aimA), aimed = live && dq > P.aimMin && Math.abs(d) > 0.4 && Math.random() < P.aimedP;
-          e.td = aimed ? Math.sign(d) : Math.random() < P.inP ? Math.sign(angDiff(e.h, Math.atan2(H * P.home - e.y, W / 2 - e.x))) || 1 : Math.random() < 0.5 ? -1 : 1; /* (mostly the way that curves toward the middle, so a wide circle doesn't carry it off the screen every time) */ e.aimed = aimed; e.arc = rnd(P.arc[0], P.arc[1]); e.mode = 'turn'; e.turnT = 0;
+          let td = 0, aimed = false; if (live && Math.random() < P.aimedP) td = pfeilAimTurn(e, q, aimA); if (td) aimed = true;
+          e.arc = rnd(P.arc[0], P.arc[1]);
+          if (!aimed) { /* a plain circle: the way that stays nearer the screen (flown ahead in its head), the other way sometimes */
+            const out = sd => { let x = e.x, y = e.y, h = e.h, m = 0; for (let k = 0, n = e.arc / P.turn + 30; k < n; k++) { if (k < e.arc / P.turn) h += sd * P.turn; x += Math.cos(h) * P.cruise; y += Math.sin(h) * P.cruise; m = Math.max(m, -x, x - W, -y, y - H * P.floor); } return m; };
+            const o1 = out(1), o2 = out(-1); td = Math.random() < P.inP ? (o1 <= o2 ? 1 : -1) : Math.random() < 0.5 ? -1 : 1;
+          }
+          e.td = td; /* (the others: mostly the way that curves toward the middle, so a wide circle doesn't carry it off the screen every time) */ e.aimed = aimed; e.mode = 'turn'; e.turnT = 0;
         }
       } else {
-        e.h += e.td * P.turn; e.arc -= P.turn; e.turnT++;
+        want = e.td * P.turn; e.arc -= P.turn; e.turnT++;
         if (e.aimed ? (Math.abs(angDiff(e.h, aimA)) < 0.12 && e.turnT > 6) || e.turnT > 220 : e.arc <= 0) { e.mode = 'straight'; e.modeT = rnd(P.leg) | 0; }
       }
     }
+    e.w = (e.w || 0) + clamp(want - (e.w || 0), -P.tacc, P.tacc); e.h += e.w;
     e.vx = Math.cos(e.h) * P.cruise; e.vy = Math.sin(e.h) * P.cruise; e.x += e.vx; e.y += e.vy;
   }
+  e.tr = (e.tr || 0) * 0.92 + Math.abs(angDiff(e.h0 === undefined ? e.h : e.h0, e.h)) / P.turn * 0.08; e.h0 = e.h; /* (how hard it is turning, smoothed: a formation closes up in a turn) */
   e.face = e.h;
   // the shot: warning flare, then a burst along the nose (one member of a formation at a time)
-  if (live && !e.tele && !e.bn && e.acd <= 0 && !e.ret && !e.brk && onScr && e.y < H - 60 && dq >= P.rMin && dq <= P.rMax && Math.abs(angDiff(e.h, aimA)) < P.aimTol && (!g || g.vt <= gf)) { e.tele = P.tele; if (g) g.vt = gf + P.stagger; }
+  if (live && !e.tele && !e.bn && e.acd <= 0 && onScr && e.y < H - 60 && dq >= P.rMin && dq <= P.rMax && Math.abs(angDiff(e.h, aimA)) < P.aimTol && (!g || g.vt <= gf)) { e.tele = P.tele; if (g) g.vt = gf + P.stagger; }
   if (e.tele > 0 && --e.tele === 0) { e.bn = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0); e.bc = 0; }
   if (e.bn > 0 && --e.bc <= 0) {
     if (live && onScr && e.y < H - 60) { eshot(e.x + Math.cos(e.h) * 15, e.y + Math.sin(e.h) * 15, e.h, bspeed() * P.shotSp); sfx('gun'); }
@@ -12154,7 +12204,7 @@ function leaderSet(s) { // the leader's art: the Pfeil with yellow bands across 
   const m = (X, Y, w, h) => { x.fillRect(X, Y, w, h); x.fillRect(s.w - X - w, Y, w, h); }; // (and its mirror)
   m(11, 7, 3, 2); m(12, 13, 2, 6); x.fillRect(Math.round(s.w / 2) - 3, 26, 6, 2);
   x.fillStyle = '#b8860b'; m(11, 9, 3, 1); m(14, 13, 1, 6);
-  return rotSet({ c, f: s.f, k: s.k, w: s.w, h: s.h }, 32);
+  return rotSet({ c, f: s.f, k: s.k, w: s.w, h: s.h }, 64);
 }
 const harmlessE = o => ENT[o.type].harmless && !o.armed; // (the Gespann, Enigma Run: an armed bike is not harmless)
 const ENT = {
@@ -12574,7 +12624,7 @@ const ENT = {
   staff: { harmless: true, treads: true, medals: 0.6, stats: { hp: 2.5, hw: 4, hh: 6, score: 500, rad: 6 }, update(e) {
     if (run.sortie) { // (the Kuebel, Enigma Run: it speeds up for a while when it is hit, or when shots pass close by)
       if (e.hit > 0 || world.shots.some(b => (b.x - e.x) ** 2 + (b.y - e.y) ** 2 < 36 * 36)) e.alarm = 90;
-      if (e.alarm > 0) e.alarm--; e.v = e.alarm > 0 ? 0.9 : 0.65;
+      if (e.alarm > 0) e.alarm--; const vt = e.alarm > 0 ? 0.9 : 0.65; e.v += Math.max(-0.05, Math.min(0.05, vt - e.v)); /* (it eases to the new speed: a jump in the middle of a bend looks like a hitch) */
     }
     ENT.truck.update(e);
   } },
@@ -14368,10 +14418,10 @@ const LOOKS = {
   sower(e, fl) { const b = e.bank || 0, s2 = SPR.sower, w = Math.round(s2.w * (1 - Math.abs(b) * 0.1)); ctx.drawImage(fl ? s2.f : s2.c, Math.round(e.x - w / 2 + b * 2), Math.round(e.y - s2.h / 2), w, s2.h);
     const ph = (gf >> 1) & 1, py = Math.round(e.y - s2.h / 2) + 8; ctx.fillStyle = '#c8ccd0'; for (const nx of [-23, 23]) { const px = Math.round(e.x + nx * (1 - Math.abs(b) * 0.1) + b * 2); ctx.globalAlpha = 0.22; ctx.fillRect(px - 7, py, 15, 2); ctx.globalAlpha = 0.8; if (ph) ctx.fillRect(px - 7, py, 15, 1); else ctx.fillRect(px, py - 1, 1, 4); } ctx.globalAlpha = 1; }, // propeller discs and a blade
   heavy(e, fl) { spr(SPR.heavy, e.x, e.y, fl); for (const nx of [-7, 7]) { const ph = (gf >> 1) & 1; ctx.fillStyle = '#c8ccd0'; ctx.fillRect(Math.round(e.x + nx) - (ph ? 3 : 0), Math.round(e.y) + (ENIG_ART.on ? 10 : 6), ph ? 7 : 1, 1); } if (e.pause > 12) { ctx.globalAlpha = 0.5; dk(e.x, e.y + 11, 2 + (e.pause & 1), '#ff8a3a'); ctx.globalAlpha = 1; } },
-  pfeil(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use; the leader of a formation in its yellow skin); a small flare at the nose warns of a burst
+  pfeil(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (64 headings, built on first use; the leader of a formation in its yellow skin); a small flare at the nose warns of a burst
     const s2 = SPR.pfeil; if (!s2) { spr(SPR.heavy, e.x, e.y, fl); return; }
-    const a = e.face === undefined ? PI / 2 : e.face, set = e.isLead ? (s2.lrot || (s2.lrot = leaderSet(s2))) : (s2.rot || (s2.rot = rotSet(s2, 32)));
-    spr(set[dirIdx(a, 32)], e.x, e.y, fl);
+    const a = e.face === undefined ? PI / 2 : e.face, set = e.isLead ? (s2.lrot || (s2.lrot = leaderSet(s2))) : (s2.rot64 || (s2.rot64 = rotSet(s2, 64)));
+    spr(set[dirIdx(a, 64)], e.x, e.y, fl); /* (64 headings: at its turn rate the nose steps every few frames, not every nine) */
     if (e.tele > 0 && (gf >> 1) & 1) { ctx.globalAlpha = 0.85; dk(Math.round(e.x + Math.cos(a) * 16), Math.round(e.y + Math.sin(a) * 16), 2, '#ffe08a'); ctx.globalAlpha = 1; }
   },
   kolibri(e, fl) { // (Enigma Run) the nose-south art, turned to e.face (32 headings, built on first use); the ambush flares at the nose
