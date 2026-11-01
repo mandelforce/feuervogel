@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.23'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12624,7 +12624,7 @@ const ENT = {
   staff: { harmless: true, treads: true, medals: 0.6, stats: { hp: 2.5, hw: 4, hh: 6, score: 500, rad: 6 }, update(e) {
     if (run.sortie) { // (the Kuebel, Enigma Run: it speeds up for a while when it is hit, or when shots pass close by)
       if (e.hit > 0 || world.shots.some(b => (b.x - e.x) ** 2 + (b.y - e.y) ** 2 < 36 * 36)) e.alarm = 90;
-      if (e.alarm > 0) e.alarm--; e.v = e.alarm > 0 ? 0.9 : 0.65;
+      if (e.alarm > 0) e.alarm--; const vt = e.alarm > 0 ? 0.9 : 0.65; e.v += Math.max(-0.05, Math.min(0.05, vt - e.v)); /* (it eases to the new speed: a jump in the middle of a bend looks like a hitch) */
     }
     ENT.truck.update(e);
   } },
