@@ -10095,7 +10095,7 @@ function planCows(sc) {
 // K: the carrier's scale at the start (1.5: half again as big as scale 1); END: its scale at the end as a share of K; PLANE: true keeps the
 // planes and guns on it at their ordinary size while the ship is bigger (false: they grow with it, and the Feuervogel too while on the deck).
 const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 'lead', 0.5], [860, 'pt', 0.65], [1060, 'sweep', -1], [1120, 'sweep', 1]], K: 1.5, END: 0.5, PLANE: true, PIV: -120, T0: 50, T1: 160, FLY: 200, PURSUIT: 1200, LAUNCHES: [1, 2, 2], V0: 40, V1: -165, SHRINK: 500, DRIFT: 0.2, X: 4, BOW: -182,
-  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [44, -116], [44, 62]], CATS: [-18, 6], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
+  GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [44, -116], [44, 62]], CATS: [-16, 8], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]] }; // parked behind the Feuervogel, which stands at v = V0
 function carrierStart() {
   const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
