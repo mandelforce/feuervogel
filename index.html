@@ -15268,7 +15268,7 @@ function drawBossBar(big, by) {
   barSeg(bx, by, hw, h, Math.min(fh, r), Math.min(b.hg, r), BAR_HP, blink);
   if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
   const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
-  if (nm) { const ns = textW(nm, 2) <= bw ? 2 : 1; textS(nm, bx, by + h + 3, '#f48a60', ns, 'left', '#d84a34'); } // the name at double size where it fits (readable), else the small one
+  if (nm) { const y0 = by + h + 3; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) text(nm, bx + ox, y0 + oy, OUT, 1, 'left'); text(nm, bx, y0, '#f48a60', 1, 'left', '#d84a34'); } // the name at the small size, with a full black outline (a drop shadow got lost on busy backgrounds)
 }
 function render() {
   renderMain();

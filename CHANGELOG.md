@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
-- Boss names are bigger (build 1.2.5.34). The name under the boss bar (level bosses, the Shadow Wing, the Raven prototype, the Sower) is drawn at double size where it fits the bar's width, otherwise at the old size.
+- Boss names read better (build 1.2.5.34). The name under the boss bar (level bosses, the Shadow Wing, the Raven prototype, the Sower) has a full black outline on all eight sides instead of a drop shadow to the bottom right, which got lost on busy backgrounds. The size is unchanged.
 - The tutorial uses the Enigma Run sprites (build 1.2.5.33). The training flew with the classic sprites (the older drone planes, among others) because only Enigma Run levels switched the Enigma art on; `startTutorial` now switches it on too (looks only; the next game puts the classic art back as before).
 - Practice from level 6 loops too (build 1.2.5.32). Finishing level 6 in practice (from any level) used to end at the congratulations; it now flies on from level 1, one loop harder, like the Campaign, and stays unranked. A new game also starts with the loop counter at 0 (it was kept from the previous run, which would have inflated the stage numbers after a loop).
 - Level 6, player 2 can duel the sky fortress's fire laser (build 1.2.5.31). The beam clash (the charged laser fired up into the fire laser from under the core) only looked at player 1; when the shot was aimed at player 2 its laser just burned through. It now works for whichever ship the shot is aimed at, exactly as for player 1: the beams lock, the meeting point is pushed up into the core, which takes 8 % damage (scored for that player) and staggers.
