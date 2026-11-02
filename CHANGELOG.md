@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- PC HUD, bottom corners (build 1.2.5.35). The weapon level is shown as four blocks above the Novas, as on the phone; the Nova icons are double size (10 px); the lives sit directly under the Novas in the same columns (12 px apart). The same for player 2, mirrored on the right. The phone HUD is unchanged.
 - Boss names read better (build 1.2.5.34). The name under the boss bar (level bosses, the Shadow Wing, the Raven prototype, the Sower) has a full black outline on all eight sides instead of a drop shadow to the bottom right, which got lost on busy backgrounds. The size is unchanged.
 - The tutorial uses the Enigma Run sprites (build 1.2.5.33). The training flew with the classic sprites (the older drone planes, among others) because only Enigma Run levels switched the Enigma art on; `startTutorial` now switches it on too (looks only; the next game puts the classic art back as before).
 - Practice from level 6 loops too (build 1.2.5.32). Finishing level 6 in practice (from any level) used to end at the congratulations; it now flies on from level 1, one loop harder, like the Campaign, and stays unranked. A new game also starts with the loop counter at 0 (it was kept from the previous run, which would have inflated the stage numbers after a loop).
