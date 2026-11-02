@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.32'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.33'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8395,7 +8395,7 @@ const tutTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer:
 const tutPad = () => gf - app.padSeen < 1800;
 function startTutorial() {
   closeAllPanels();
-  startAt(1); run.enigma = 0; setLook(0); app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
+  startAt(1); run.enigma = 0; setLook(0); setEnigmaArt(true); /* the training shows the Enigma Run sprites too (looks only) */ app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
   run.start = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }

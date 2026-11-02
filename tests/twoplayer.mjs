@@ -68,6 +68,11 @@ ok(r.who.every(w => w.clashed && w.hit), `both ships can duel the fire laser of 
 // Practice from level 6 loops too (unranked)
 r = await sf(`(() => { startEnigma(6, false); const o = { ranked: run.ranked }; endEnigmaLevel(); o.level = run.sortie && run.sortie.level; o.loops = run.loops; o.rankedAfter = run.ranked; o.state = app.state; return o; })()`);
 ok(r.level === 1 && r.loops === 1 && r.ranked === false && r.rankedAfter === false && r.state === 'play', `practice from level 6 loops to level 1 and stays unranked (${JSON.stringify(r)})`);
+// The tutorial flies with the Enigma Run sprites (looks only), and the next game puts the classic ones back
+r = await sf(`(() => { const o = {}; ENIG_ART.S || loadEnigmaArt(); return o; })()`);
+await page.waitForFunction(() => window.__sf('!!ENIG_ART.S'), null, { timeout: 60000, polling: 100 });
+r = await sf(`(() => { startTutorial(); const o = { on: ENIG_ART.on, fighter: SPR.fighter === ENIG_ART.S.fighter }; startAt(1); o.after = ENIG_ART.on; return o; })()`);
+ok(r.on && r.fighter && r.after === false, `the tutorial uses the Enigma Run art, the Campaign the classic one (${JSON.stringify(r)})`);
 if (shot) { await sf('settings.sensKey = 100; 0'); await steps(30); await sf('render(), 0'); await page.screenshot({ path: shot }); }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `all ${passed} checks passed`);
