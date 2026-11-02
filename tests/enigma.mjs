@@ -96,8 +96,8 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   // the end of the last level (6): the congratulations, then the title; no picker, no loop counted, the sortie cleared
   const end = await peek(page, `(() => { world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); const o = { congrats: !!app.congrats, fade0: !!app.fade }; finishResults(); o.fade = !!app.fade; const f = app.fade && app.fade.fn; app.fade = null; if (f) f();
     const q = id => document.getElementById(id); o.state = app.state; o.sortieAfter = run.sortie; o.picker = q('diffAsk').classList.contains('open'); o.loops = loopsWon; return o; })()`);
-  ok(end.congrats && !end.fade0 && end.fade && end.state === 'title' && end.sortieAfter === null && !end.picker && end.loops === before.loops,
-    'finishing the last level: the congratulations, then the title (no picker, no loop counted, sortie cleared)');
+  ok(end.congrats && !end.fade0 && end.fade && end.state === 'play' && end.sortieAfter && end.sortieAfter.level === 1 && !end.picker && end.loops === before.loops,
+    'finishing the last level in practice: the congratulations, then level 1 again, one loop harder (no picker, no loop counted)');
   // any other level flies on into the next, with the run's score, lives, Novas and weapon carried over
   const nx = await peek(page, `(() => { startEnigma(5); run.score = 123450; run.lives = 4; run.bombs = 1; player.wpn = 'L'; player.lvl = 3; world.bossSpawned = true; app.results = null; app.fade = null; finishResults();
     const o = { congrats: !!app.congrats }; const f = app.fade && app.fade.fn; app.fade = null; if (f) f(); return Object.assign(o, { level: run.sortie && run.sortie.level, score: run.score, lives: run.lives, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, state: app.state, picker: document.getElementById('diffAsk').classList.contains('open') }); })()`);
@@ -258,7 +258,7 @@ for (const lv of [2, 6]) {
     o.sub = false; for (let i = 0; i < 20000 && o.status === 'ok'; i++) { o.status = SF.run(100); if (!o.sub) o.sub = SF.peek(`(() => { if (!run.sortie || !run.sortie.plan) return false; const P = run.sortie.plan, i = P.slots.findIndex(q => q.kind === 'sub'); return i >= 0 && !!(run.sortie.slotUsed && run.sortie.slotUsed.has(i)); })()`); if (o.boss === undefined && SF.peek('world.bossSpawned')) o.boss = SF.peek('(-Math.floor((H - 1 - Math.floor(world.scroll)) / CH)) - world.stageBaseP'); }
     Object.assign(o, SF.peek(`({ state: app.state, picker: document.getElementById('diffAsk').classList.contains('open'), n: app.diffNext && app.diffNext.n, errs: SF.R.errs.slice(0, 2) })`)); return o; });
   ok(f.sub, `on the way the game's submarine took its berth by the U-boat bunker`);
-  ok(f.boss !== undefined && f.state === 'title' && !f.picker && f.errs.length === 0, `level 6 flown through: the boss comes (screen bottom at chunk ${f.boss}) and, the last level, it ends at the title (no picker) (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
+  ok(f.boss !== undefined && f.state === 'play' && !f.picker && f.errs.length === 0, `level 6 flown through: the boss comes (screen bottom at chunk ${f.boss}) and, the last level, the run loops to level 1 (no picker) (${f.status}${f.errs.length ? ', errors: ' + f.errs.join(' | ') : ''})`);
   await page2.close();
 }
 
@@ -418,7 +418,7 @@ for (const lv of [2, 6]) {
   });
   ok(r.bottomC !== undefined && r.bottomB === 'secret' && r.bottomC === r.len + 1 && r.final, `level 6 boss comes where the Campaign's does: screen bottom one chunk into the secret ground (bottom chunk ${r.bottomC}, secret from ${r.len}; Campaign stage 6: 44 and 43)`);
   ok(r.slots >= 8, `ground guns stood in the plan's slots on the way (${r.slots} of ${r.nSlots} slots used)`);
-  ok(r.state === 'title' && !r.picker && r.errs.length === 0, `level 6, the last, flown to the end: the congratulations, then the title (no picker) (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
+  ok(r.state === 'play' && !r.picker && r.errs.length === 0, `level 6, the last, flown to the end: the congratulations, then level 1 again (no picker) (${r.status}, state ${r.state}${r.errs.length ? ', errors: ' + r.errs.join(' | ') : ''})`);
   await page.close();
 }
 
