@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.36'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.37'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15166,6 +15166,12 @@ function levelBlocks(x, by, lvl, w, right) {
     if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
   }
 }
+// A weapon's name in its colours (light top, the block colour below) with a full black outline; the level is shown by the blocks, not a number
+function weaponName(nm, x, y, w, right) {
+  const al = right ? 'right' : 'left';
+  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) text(nm, x + ox, y + oy, OUT, 1, al);
+  text(nm, x, y, w.hud[0], 1, al, w.hud[1]);
+}
 function drawHUD() { ctx.save(); ctx.translate(0, SAFE_T); drawHUDBody(HFULL - SAFE_T - SAFE_B); ctx.restore(); }
 function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the higher score
   ctx.fillStyle = OUT; ctx.fillRect(x - 1, y - 1, 7, 6);
@@ -15209,7 +15215,7 @@ function drawHUDBody(H) {
   }
   if (p2) { // player 2's corner mirrors player 1's: weapon, Nova bombs and lives, right-aligned at the bottom
     const w2 = WPN[p2.wpn] || WPN.S;
-    textS(w2.name + ' ' + p2.lvl, W - 4, H - 43, w2.hud[0], 1, 'right', w2.hud[1]);
+    weaponName(w2.name, W - 4, H - 43, w2, true);
     levelBlocks(W - 4, H - 35, p2.lvl, w2, true);
     for (let i = 0; i < Math.min(run.bombs2, 6); i++) ctx.drawImage(SPR.novaIcon.c, W - 14 - i * 12, H - 27, 10, 10); // Novas at double size, the lives below them in the same columns
     for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 9 - i * 12, H - 9);
@@ -15228,7 +15234,7 @@ function drawHUDBody(H) {
   } else for (let i = 0; i < Math.min(run.bombs, 6); i++) ctx.drawImage(SPR.novaIcon.c, 4 + i * 12, H - 27, 10, 10);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
-    textS(w.name + ' ' + player.lvl, 4, TOUCH_HUD ? H - 31 : H - 43, w.hud[0], 1, 'left', w.hud[1]);
+    weaponName(w.name, 4, TOUCH_HUD ? H - 31 : H - 43, w, false);
     levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false);
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
