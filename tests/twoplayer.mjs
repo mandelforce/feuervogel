@@ -50,6 +50,10 @@ ok(r.row && r.mid && r.label === '100%' && r.set === 150 && r.label2 === '150%',
 r = await sf(`(() => { const o = {}; app.resumeT = 0; app.results = null; const move = k => { player.x = 112; player.y = 150; player.lx = 112; settings.sensKey = k; keys.arrowright = true; for (let i = 0; i < 4; i++) player.x = player.x, update(); keys.arrowright = false; return player.x - 112; };
   o.lo = move(50); o.mid = move(100); o.hi = move(150); return o; })()`);
 ok(r.lo > 0 && r.lo < r.mid && r.mid < r.hi, `keyboard sensitivity scales movement (${JSON.stringify(r)})`);
+// The Campaign loops after level 6 with two players too, and a two-player run may enter the board (with the combined score)
+r = await sf(`(() => { startEnigma(6, true); run.start = 1; run.score = 12345; run.score2 = 2345; p2.wpn = 'A'; p2.lvl = 3; const o = { elig: lbEligible(), twoP: run.twoP }; endEnigmaLevel();
+  o.level = run.sortie && run.sortie.level; o.loops = run.loops; o.stage = run.stage; o.hasP2 = !!p2; o.score = run.score; o.score2 = run.score2; o.p2 = p2 && [p2.wpn, p2.lvl]; return o; })()`);
+ok(r.elig && r.twoP && r.level === 1 && r.loops === 1 && r.stage === 7 && r.hasP2 && r.score === 12345 && r.score2 === 2345 && r.p2.join() === 'A,3', `two players loop to level 1 again after level 6 (${JSON.stringify(r)})`);
 if (shot) { await sf('settings.sensKey = 100; 0'); await steps(30); await sf('render(), 0'); await page.screenshot({ path: shot }); }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `all ${passed} checks passed`);
