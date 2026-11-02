@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.29'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.30'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8380,10 +8380,10 @@ function endEnigmaLevel() {
     if (lp) { run.loops = lp; run.stage += 6 * lp; run.loop = rankFor(run.stage); } // a repeat of the Campaign: stage 7 to 12 and so on, harder as before
     return;
   }
-  if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1 with score, lives and weapon, one loop harder
+  if (run.ranked && run.start === 1) { // the Campaign's last level is done (one or two players): back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
-    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
+    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
     run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
@@ -8577,7 +8577,7 @@ function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORE
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
-function lbEligible() { return run.score > 0 && run.ranked && run.start === 1 && !run.twoP; } // only the Campaign (START) is ranked; Retro Run, practice and 2-player runs stay off the board
+function lbEligible() { return run.score > 0 && run.ranked && run.start === 1; } // only the Campaign (START) is ranked, alone or with two players (the board takes the combined score); Retro Run and practice stay off
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
 const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100, ORB_BREAK = 26, SINK_T = 170; // ORB_BREAK: frames after release when the orb comes out of the water
