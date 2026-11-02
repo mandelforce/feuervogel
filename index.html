@@ -10908,7 +10908,7 @@ function drawCongratsBody() {
   const pulse = (gf >> 3) & 1;
   if (run.diff === 2) { textO('CONGRATULATIONS!', W / 2, 16, pulse ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); textO("YOU'RE GREATEST PLAYER", W / 2, 38, '#f4d050', 2, 'center', '#d0a020'); }
   else { textO('CONGRATULATIONS', W / 2, 30, pulse ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a');
-  textS('THE SKIES ARE FREE AGAIN', W / 2, 52, '#a8f6dc', 1, 'center', '#4ccfae'); }
+  textO('YOU ARE UNSTOPPABLE!', W / 2, 50, pulse ? '#a8f6dc' : '#ffffff', 1, 'center', '#4ccfae'); }
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 64, W - 24, 1); ctx.fillRect(12, 232, W - 24, 1);
   const rows = [
     [p2 ? 'TEAM SCORE' : 'TOTAL SCORE', String(run.score)], ['MEDALS COLLECTED', String(run.camp.medals)], ['GROUND TARGETS', String(run.camp.ground)],
