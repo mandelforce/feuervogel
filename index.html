@@ -4223,7 +4223,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.27'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.28'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8373,7 +8373,7 @@ function endEnigmaLevel() {
   if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
     run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
@@ -10098,7 +10098,37 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
   GUNS: [[-52, -126], [-52, -56], [-52, 24], [-52, 104], [44, -116], [44, 62]], CATS: [-16, 8], CAT0: -96, CAT1: -158, ACC: 0.04, GAP: 10,
   PARKED: [[-28, 70], [-4, 70], [20, 70], [-28, 92], [-4, 92], [20, 92]], // parked behind the Feuervogel, which stands at v = V0
   SHAPE: 'zeppelin', FINISH: 'dazzle' }; // the carrier's outline and paint: keys of CV_SHAPE and CV_FINISH (below, at its picture)
+// The flyover (owner): when the Campaign loops back to level 1, the Feuervogel no longer starts on the deck. It comes in over the water behind the
+// carrier and overtakes it low, at a scale where the ship fills the screen's width (SPAN native units across W), shooting the planes parked on
+// the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
+// the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
+const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [3, 4, 5], GAP: 45, LV0: -72, SMOKE: 10,
+  PARKED: [[-4, 26], [-28, 52], [-4, 52], [20, 52], [-28, 72], [-4, 72], [20, 72], [-28, 92], [20, 92], [-28, 140], [-4, 140], [20, 140], [-28, 160], [20, 160]] };
+let carrierFlyNext = false; // set by the Campaign's loop for the level 1 that follows
+function carrierFlyStart() {
+  const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
+  carrierPic(s); // (paints the master at this larger scale, once)
+  CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0 })));
+  CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v })));
+  world.scrollV = world.scrollTarget = CVF.SCROLL; sfx('horn');
+}
+// One frame of the flyover, inside the director: the ship moves down the screen a little slower than the sea, launches while its bow is up the
+// screen, and the scene is over once the bow is gone below and no launched plane is still rolling.
+function carrierFlyTick(C, t) {
+  C.vy = world.scrollV - CVF.SAIL; C.y += C.vy;
+  if (!C.gone && C.y + CV.BOW * C.s > H + 24) { C.gone = true; world.scrollTarget = SCROLL; }
+  if (!C.gone) { carrierWake(C); if (gf % CVF.SMOKE === 0) for (const [u, v] of C.burnt) { const [x, y] = carrierXY(C, u, v); if (y > -8 && y < H + 8) smokePuff(x + rnd(-2, 2), y); } }
+  const by = carrierXY(C, 0, CV.CAT1)[1];
+  if (!C.gone && t >= C.nextL && by > 20 && by < H * 0.55 && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
+    const tu = CV.CATS[C.cat++ % 2]; world.enemies.push(G('cfighter', 0, 0, { u: tu, v: CVF.LV0, u0: tu, v0: CVF.LV0, tu, vv: 0, up: true })); sfx('whistle'); C.launched++; C.nextL = t + CVF.GAP; } // (up from the fore elevator onto a catapult; a target while it rolls)
+  if (C.gone && !world.enemies.some(e => e.type === 'cfighter' && !e.dead)) C.over = true;
+}
+function carrierWake(C) { // bow wave, hull foam and the wake; the funnel's smoke
+  if (gf % 2 === 0) { const [bx, by] = carrierXY(C, -4, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, -4 + sd * 38, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, -4 + sd * 41, rnd(-120, 160)); foam(hx, hy); } }
+  if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
+}
 function carrierStart() {
+  if (carrierFlyNext) { carrierFlyNext = false; carrierFlyStart(); return; }
   const ys0 = H * 0.86, yl = H * 0.42, C = world.carrier = { t: 0, x: W / 2 + CV.X, y: ys0 - CV.V0 * CV.K, y0: ys0 - CV.V0 * CV.K, s: CV.K, ys0, yl, vy: 0,
     A: (CV.V0 - CV.V1) * CV.K - (ys0 - yl), parked: CV.PARKED.length, gunDead: [], nextL: CV.T1 - 40, cat: 0, launched: 0, gone: false, over: false };
   CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0 })));
@@ -10113,15 +10143,13 @@ function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of th
 function carrierTick() {
   const C = world.carrier; if (C.over) return;
   const t = ++C.t;
+  if (C.fly) { carrierFlyTick(C, t); return; }
   if (t >= CV.T0 && t < CV.T1) { const f = (t - CV.T0) / (CV.T1 - CV.T0), y = C.y0 + C.A * f * f; C.vy = y - C.y; C.y = y; }
   else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 12); C.y += C.vy;
     const f = clamp((t - CV.T1) / CV.SHRINK, 0, 1), s0 = C.s; C.s = Math.round(CV.K * (1 - (1 - CV.END) * f * f * (3 - 2 * f)) * 128) / 128; C.y += CV.PIV * (s0 - C.s); } // it shrinks about a point near the bow (CV.PIV), so it stays in view while it shrinks // scale in 1/128 steps (one picture per step)
   if (t < CV.T1 + 60) world.scrollV = world.scrollTarget = C.vy + 0.15; else if (t === CV.T1 + 60) world.scrollTarget = SCROLL;
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) C.gone = true;
-  if (!C.gone) {
-    if (gf % 2 === 0) { const [bx, by] = carrierXY(C, -4, CV.BOW + 4); foam(bx + rnd(-3, 3), by); for (const sd of [-1, 1]) { const [sx, sy] = carrierXY(C, -4 + sd * 38, 176); foam(sx + rnd(-3, 3), sy + rnd(0, 6)); const [hx, hy] = carrierXY(C, -4 + sd * 41, rnd(-120, 160)); foam(hx, hy); } }
-    if (gf % 6 === 0) { const [fx, fy] = carrierXY(C, 49, 6); smokePuff(fx + rnd(-2, 2), fy); }
-  }
+  if (!C.gone) carrierWake(C);
   for (const [st, what, x] of CV.SCENE) if (what === 'pt') { if (t >= st && t < st + 90 && !(C.ptDone || (C.ptDone = [])).includes(st) && seaShip({ kind: 'pt', x })) C.ptDone.push(st); } else if (t === st) { if (what === 'v') waveDive(5, W * x, 1.3); else if (what === 'lead') waveLeader(W * x); else if (what === 'sweep') waveSweep(x); } // the pause after the take-off is filled (owner): two V's straight down, a leader formation, a sweep from each side and two PT boats
   if (t >= C.nextL && t < CV.T1 + CV.PURSUIT && C.launched < CV.LAUNCHES[settings.diff]) { // only CV.LAUNCHES fighters follow the Feuervogel (by difficulty; few: easier for new players)
     const chasers = world.enemies.filter(e => (e.chase || e.type === 'cfighter') && !e.dead).length, cap = (settings.diff === 0 ? 2 : 3) + run.loop;
@@ -10251,7 +10279,7 @@ const carrierPics = new Map(); let carrierM = null;
 function carrierPic(q) {
   let P = carrierPics.get(q); if (P) return P;
   if (carrierPics.size > 3) carrierPics.clear();
-  if (!carrierM) carrierM = carrierPaint(CV_SHAPE[CV.SHAPE], CV_FINISH[CV.FINISH], CV.K);
+  if (!carrierM || carrierM.q < q) { carrierM = carrierPaint(CV_SHAPE[CV.SHAPE], CV_FINISH[CV.FINISH], Math.max(q, CV.K)); carrierPics.clear(); } // (painted at the largest scale asked for: the deck start's, or the flyover's)
   return (P = carrierPicAt(carrierM, q)), carrierPics.set(q, P), P;
 }
 // Drawn after the water's foam and before the ground enemies (its guns and launching planes stand on it). Drawing only.
@@ -10261,6 +10289,7 @@ function drawCarrier() {
   ctx.drawImage(P.c, x0 - P.ox, y0 - P.oy);
   const pk = carrierPK(C), ps = SPR.fighter[dirIdx(-PI / 2)], pw = Math.round(ps.w * pk), ph = Math.round(ps.h * pk);
   for (let i = CV.PARKED.length - C.parked; i < CV.PARKED.length; i++) { const [px, py] = at(CV.PARKED[i][0], CV.PARKED[i][1]); ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, px - (pw >> 1) + 1, py - (ph >> 1) + 2, pw, ph); ctx.globalAlpha = 1; ctx.drawImage(ps.c, px - (pw >> 1), py - (ph >> 1), pw, ph); }
+  if (C.burnt) for (const [u, v] of C.burnt) { const [px, py] = at(u, v); ctx.globalAlpha = 0.85; ctx.drawImage(ps.k, px - (pw >> 1), py - (ph >> 1), pw, ph); ctx.globalAlpha = 1; } // the flyover: burnt-out planes
   for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
@@ -14543,6 +14572,11 @@ Object.assign(ENT, {
     if (--e.cd <= 0 && canFire(e, 60)) { e.cd = Math.round(Math.max(90, 150 - run.loop * 20) * fireSlow()); const r = 14 * k, bx = e.x + Math.cos(e.ga) * r, by = e.y + Math.sin(e.ga) * r; flakShot(bx, by, 1); flash(bx, by, 2); sfx('gun'); }
   }, wreck(e) { if (world.carrier) world.carrier.gunDead[e.gi] = true; },
   draw(e, fl) { const k = world.carrier ? carrierPK(world.carrier) : 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); dk(0, 0, 7, '#2e3036'); dk(0, 0, 6, '#6a6e76'); spr(SPR.dGun[dirIdx(e.ga)], 0, 0, fl); ctx.restore(); } },
+  cparked: { harmless: true, uncounted: true, showScore: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { // a plane parked on the carrier's deck (the flyover)
+    const C = world.carrier; if (!C || C.gone) { e.dead = true; return; }
+    [e.x, e.y] = carrierXY(C, e.u, e.v); e.wx = e.x; e.wy = e.y - Math.floor(world.scroll); e.k = carrierPK(C); e.hw = 8 * e.k; e.hh = 7 * e.k; e.rad = 10 * e.k;
+  }, wreck(e) { if (world.carrier && world.carrier.burnt) world.carrier.burnt.push([e.u, e.v]); },
+  draw(e, fl) { const s = SPR.fighter[dirIdx(-PI / 2)], k = e.k || 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); ctx.globalAlpha = 0.3; ctx.drawImage(s.k, -s.w / 2 + 1, -s.h / 2 + 2); ctx.globalAlpha = 1; spr(s, 0, 0, fl); ctx.restore(); } },
   cfighter: { harmless: true, uncounted: true, stats: { hp: 3, hw: 8, hh: 7, score: 150 }, update(e) {
     const C = world.carrier; if (!C) { e.dead = true; return; }
     if (!e.air) { e.vv += CV.ACC; e.v -= e.vv; const f = clamp((e.v0 - e.v) / (e.v0 - CV.CAT0), 0, 1); e.u = lerp(e.u0, e.tu, f * f * (3 - 2 * f)); // one run from its parking spot: it accelerates the whole way, swinging onto its catapult's line on the way, and lifts off at the bow

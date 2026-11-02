@@ -123,6 +123,7 @@ node tests/contact.mjs OUTDIR 6 12   # level 6, 12 points
 ```
 node tests/carrier-shots.mjs OUTDIR              # frames 0, 40, 100, 140, 170, 230, 330, 480, 700, 1000, plus an HTML sheet
 node tests/carrier-shots.mjs OUTDIR 0,60,120     # chosen frames
+LOOP=1 node tests/carrier-shots.mjs OUTDIR        # level 1 as the Campaign's first loop: the flyover over the carrier
 ```
 
 ## Fixed seed test (runs in CI, blocking)
