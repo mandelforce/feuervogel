@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Boss names, softer edge (build 1.2.5.39). The name under the boss bar uses the same soft shadow as the HUD weapon names (full strength at the bottom right, a fainter edge to the right and below) instead of the full black outline.
 - HUD weapon name, softer edge (build 1.2.5.38). The full black outline is replaced by a soft shadow: full strength at the bottom right plus a fainter edge to the right and below. The two-tone colours stay.
 - HUD weapon name (build 1.2.5.37, PC and phone). The number after the name is gone (the four blocks show the level) and the name has a full black outline in the weapon's two colours (light top, block colour below), for both players.
 - PC top HUD (build 1.2.5.36). The medal chain looks like the phone's on PC too: the coin with the draining ring and the double-size xN (or the medal count) beside it, right of the score alone and in the middle with two players. With two players the leading score turns the high-score yellow and the crown sits right beside it.
