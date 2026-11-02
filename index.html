@@ -8027,7 +8027,7 @@ const STAGE_NAMES = ['CROSS THE CHANNEL', 'THE WINTER LINE', 'SEA OF SAND', 'THE
  const trainBonus = {};
 let mixF = 1;
 let loopsWon = +store.get(KEY.loops) || 0;
-const newCamp = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, secrets: 0, t0: 0, frames: 0, credits0: 0 });
+const newCamp = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, secrets: 0, novas: 0, t0: 0, frames: 0, credits0: 0 });
 run.camp = newCamp();
 let endlessBest = { score: 0, stage: 0 };
 endlessBest = Object.assign(endlessBest, store.getJSON(KEY.endless, {}));
@@ -10826,6 +10826,7 @@ function clearBanner() { jingle([[62, 2], [65, 2], [69, 2], [74, 4], [72, 2], [7
 function splitBonus(r, v) { addScore(v); if (p2) { const h = Math.floor(v / 2); run.score2 += h; r.b2 = (r.b2 || 0) + h; } }
 function openResults() {
   for (const k of ['medals', 'ground', 'air', 'shots', 'hits']) run.camp[k] += run.stats[k];
+  run.camp.novas = (run.camp.novas || 0) + run.stats.novas;
   if (run.stats.artifact) run.camp.secrets++;
   const acc = run.stats.shots ? Math.min(1, run.stats.hits / run.stats.shots) : 0;
   const pct = run.stats.seen ? Math.min(1, run.stats.kills / run.stats.seen) : 0;
@@ -10908,16 +10909,24 @@ function drawCongratsBody() {
   const pulse = (gf >> 3) & 1;
   if (run.diff === 2) { textO('CONGRATULATIONS!', W / 2, 16, pulse ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); textO("YOU'RE GREATEST PLAYER", W / 2, 38, '#f4d050', 2, 'center', '#d0a020'); }
   else { textO('CONGRATULATIONS', W / 2, 30, pulse ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a');
-  textS('THE SKIES ARE FREE AGAIN', W / 2, 52, '#a8f6dc', 1, 'center', '#4ccfae'); }
+  textO('YOU ARE UNSTOPPABLE!', W / 2, 50, pulse ? '#a8f6dc' : '#ffffff', 1, 'center', '#4ccfae'); }
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 64, W - 24, 1); ctx.fillRect(12, 232, W - 24, 1);
-  const rows = [
-    [p2 ? 'TEAM SCORE' : 'TOTAL SCORE', String(run.score)], ['MEDALS COLLECTED', String(run.camp.medals)], ['GROUND TARGETS', String(run.camp.ground)],
-    ['AIR KILLS', String(run.camp.air)], ['ACCURACY', acc + '%'], ['SECRETS FOUND', run.camp.secrets + ' / 6'],
-    ['CONTINUES USED', String(Math.max(0, app.credits - run.camp.credits0))], ['FLIGHT TIME', Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0')]
+  /* Big team/total score on top, then a two-column grid of label + large value, so it reads on small phones. */
+  const lead = run.score - run.score2 > run.score2 ? 1 : run.score2 > run.score - run.score2 ? 2 : 0;
+  const cells = [
+    ['MEDALS', String(run.camp.medals)], ['GROUND TARGETS', String(run.camp.ground)], ['AIR KILLS', String(run.camp.air)],
+    ['ACCURACY', acc + '%'], ['SECRETS FOUND', run.camp.secrets + '/6'], ['NOVAS USED', String(run.camp.novas || 0)], ['CONTINUES USED', String(Math.max(0, app.credits - run.camp.credits0))],
+    ['FLIGHT TIME', Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0')]
   ];
-  if (p2) rows.splice(1, 0, ['1P SCORE', String(run.score - run.score2), 1], ['2P SCORE', String(run.score2), 2]); // each player's share, the leader marked with a crown
-  const st = p2 ? 15 : 19, lead = run.score - run.score2 > run.score2 ? 1 : run.score2 > run.score - run.score2 ? 2 : 0;
-  rows.forEach((r, i) => { if (c.t < 20 + i * 14) return; const y = 76 + i * st; textS(r[0], 16, y, '#e8dcff', 1, 'left', '#bba4ff'); textS(r[1], W - 16, y, '#ffffff', 1, 'right', '#c4c9ce'); if (r[2] && r[2] === lead) crown(16 + textW(r[0], 1) + 6, y); });
+  if (p2) cells.unshift(['1P SCORE', String(run.score - run.score2), 1], ['2P SCORE', String(run.score2), 2]);
+  const st = p2 ? 25 : 30, y0 = 70;
+  if (c.t >= 20) { textS(p2 ? 'TEAM SCORE' : 'TOTAL SCORE', W / 2, y0, '#e8dcff', 1, 'center', '#bba4ff'); textO(String(run.score), W / 2, y0 + 10, '#fff0a0', 3, 'center', '#f4d050'); }
+  cells.forEach((r, i) => {
+    if (c.t < 34 + i * 12) return;
+    const x = i % 2 ? W / 2 + 6 : 16, y = y0 + 32 + (i >> 1) * st;
+    textS(r[0], x, y, '#e8dcff', 1, 'left', '#bba4ff'); textO(r[1], x, y + 9, '#ffffff', 2, 'left', '#c4c9ce');
+    if (r[2] && r[2] === lead) crown(x + textW(r[0], 1) + 6, y);
+  });
   if (c.t > 150) {
     textS('NEXT: STAGE ' + stageLabel(run.stage + 1), W / 2, 246, '#ffd0e8', 1, 'center', '#ff8ac0');
     textS('THE ENEMY GROWS STRONGER', W / 2, 258, '#ffd0e8', 1, 'center', '#ff8ac0');
