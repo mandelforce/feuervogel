@@ -65,6 +65,9 @@ r = await sf(`(() => { startEnigma(6, true); update(); spawnBoss(); const e = wo
     o.who.push({ who, clashed, hit: core.hp < hp0, stun: e.stun > 0 || !e.fl }); beam = null; if (p2) p2.beam = null; }
   return o; })()`);
 ok(r.who.every(w => w.clashed && w.hit), `both ships can duel the fire laser of the level 6 boss (${JSON.stringify(r)})`);
+// Practice from level 6 loops too (unranked)
+r = await sf(`(() => { startEnigma(6, false); const o = { ranked: run.ranked }; endEnigmaLevel(); o.level = run.sortie && run.sortie.level; o.loops = run.loops; o.rankedAfter = run.ranked; o.state = app.state; return o; })()`);
+ok(r.level === 1 && r.loops === 1 && r.ranked === false && r.rankedAfter === false && r.state === 'play', `practice from level 6 loops to level 1 and stays unranked (${JSON.stringify(r)})`);
 if (shot) { await sf('settings.sensKey = 100; 0'); await steps(30); await sf('render(), 0'); await page.screenshot({ path: shot }); }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `all ${passed} checks passed`);
