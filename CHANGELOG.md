@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Menus by keyboard and controller (build 1.2.5.41). The difficulty picker (from the title and the tutorial's last step), Resume, the pause menu, Settings and the other dialogs open with a highlighted button (the saved difficulty, or Resume); the arrows or WASD and the D-pad / stick move it to the nearest button in that direction, Enter, Space or Z (and A on a controller) press it, Esc (B) goes back. On the title, Up and Down pick START or Scores, Enter opens it. The Enter or Space that opened a menu no longer presses the button that gets the highlight, and a held key does not repeat on a button. New `tests/menunav.mjs`.
+- Sensitivity, rebased (build 1.2.5.41). 100 % on the Keyboard and Controller sliders is now 1.2 times the old speed (`SENS_BASE`; the Mouse slider is unchanged). The slider still runs from 25 % to 175 % with 100 % in the middle, and values players saved earlier keep their number, so they play 20 % faster than before.
 - Darker soft shadow (build 1.2.5.40). The fainter edge of the soft shadow under the HUD weapon names and the boss names is 50 % stronger (0.6 to 0.9 opacity); the bottom-right shadow was already full strength.
 - Boss names, softer edge (build 1.2.5.39). The name under the boss bar uses the same soft shadow as the HUD weapon names (full strength at the bottom right, a fainter edge to the right and below) instead of the full black outline.
 - HUD weapon name, softer edge (build 1.2.5.38). The full black outline is replaced by a soft shadow: full strength at the bottom right plus a fainter edge to the right and below. The two-tone colours stay.
