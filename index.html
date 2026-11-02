@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.37'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.38'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15166,10 +15166,14 @@ function levelBlocks(x, by, lvl, w, right) {
     if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
   }
 }
-// A weapon's name in its colours (light top, the block colour below) with a full black outline; the level is shown by the blocks, not a number
+// A weapon's name in its colours (light top, the block colour below) on a soft shadow: a full-strength one at the bottom right plus a fainter edge to the right and below; the level is shown by the blocks, not a number
+function softShadow(nm, x, y, al) {
+  ctx.globalAlpha = 0.6; text(nm, x + 1, y, OUT, 1, al); text(nm, x, y + 1, OUT, 1, al); ctx.globalAlpha = 1;
+  text(nm, x + 1, y + 1, OUT, 1, al);
+}
 function weaponName(nm, x, y, w, right) {
   const al = right ? 'right' : 'left';
-  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) text(nm, x + ox, y + oy, OUT, 1, al);
+  softShadow(nm, x, y, al);
   text(nm, x, y, w.hud[0], 1, al, w.hud[1]);
 }
 function drawHUD() { ctx.save(); ctx.translate(0, SAFE_T); drawHUDBody(HFULL - SAFE_T - SAFE_B); ctx.restore(); }
