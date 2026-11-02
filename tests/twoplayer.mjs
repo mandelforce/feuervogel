@@ -54,6 +54,17 @@ ok(r.lo > 0 && r.lo < r.mid && r.mid < r.hi, `keyboard sensitivity scales moveme
 r = await sf(`(() => { startEnigma(6, true); run.start = 1; run.score = 12345; run.score2 = 2345; p2.wpn = 'A'; p2.lvl = 3; const o = { elig: lbEligible(), twoP: run.twoP }; endEnigmaLevel();
   o.level = run.sortie && run.sortie.level; o.loops = run.loops; o.stage = run.stage; o.hasP2 = !!p2; o.score = run.score; o.score2 = run.score2; o.p2 = p2 && [p2.wpn, p2.lvl]; return o; })()`);
 ok(r.elig && r.twoP && r.level === 1 && r.loops === 1 && r.stage === 7 && r.hasP2 && r.score === 12345 && r.score2 === 2345 && r.p2.join() === 'A,3', `two players loop to level 1 again after level 6 (${JSON.stringify(r)})`);
+// Level 6 boss (the sky fortress): player 2's charged laser duels its fire laser like player 1's, and a won duel hurts the core and staggers it
+r = await sf(`(() => { startEnigma(6, true); update(); spawnBoss(); const e = world.enemies.find(x => x.type === 'boss'); e.phase = 'fight'; e.untarget = false; e.scale = 1; e.y = 110 + BY;
+  const core = e.parts.find(p => p.k === 'core'), o = { who: [] }; const hp0 = core.hp;
+  for (const who of [1, 2]) { e.fl = null; e.stun = 0; core.hp = hp0; const sh = who === 2 ? p2 : player; let clashed = false, seen = false;
+    const cx = e.x + core.ox, cy = e.y + core.oy; e.fl = { ph: 'fire', t: 5, who: sh, a: PI / 2 };
+    for (let i = 0; i < 90; i++) { sh.dead = 0; sh.inv = 0; sh.x = e.x + core.ox; sh.y = e.y + core.oy + 80; sh.lx = sh.x; sh.ly = sh.y; sh.charge = 0;
+      if (!(who === 2 ? p2.beam : beam)) { if (who === 2) p2.beam = { t: 18, max: 18, w: 24, dmg: 1, pw: 1, hit: false }; else beam = { t: 18, max: 18, w: 24, dmg: 1, pw: 1, hit: false }; }
+      update(); if (e.fl && e.fl.clash) clashed = true; }
+    o.who.push({ who, clashed, hit: core.hp < hp0, stun: e.stun > 0 || !e.fl }); beam = null; if (p2) p2.beam = null; }
+  return o; })()`);
+ok(r.who.every(w => w.clashed && w.hit), `both ships can duel the fire laser of the level 6 boss (${JSON.stringify(r)})`);
 if (shot) { await sf('settings.sensKey = 100; 0'); await steps(30); await sf('render(), 0'); await page.screenshot({ path: shot }); }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `all ${passed} checks passed`);

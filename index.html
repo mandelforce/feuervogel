@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.30'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.31'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10684,19 +10684,20 @@ function skyLaser(e, ea) {
   }
   // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
   // the player's beam pushes the meeting point up into the orb, which overloads (8% of the core) and the fortress staggers
-  const under = !player.dead && F.who === player && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
-  if (!F.clash && beam && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + player.y - 26) / 2 }; sfx('clash'); }
+  const sh = F.who === p2 && p2 ? p2 : player, sb = sh === p2 ? p2.beam : beam; // the ship the shot is aimed at, and its laser (player 2 can duel the beam exactly like player 1)
+  const under = !sh.dead && F.who === sh && Math.abs(sh.x - cx) < 30 && sh.y > cy + 50;
+  if (!F.clash && sb && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + sh.y - 26) / 2 }; sfx('clash'); }
   if (F.clash) {
     const C = F.clash;
-    if (!beam || !under) F.clash = null; // the clash breaks and the fire laser carries on
+    if (!sb || !under) F.clash = null; // the clash breaks and the fire laser carries on
     else {
       C.t++; F.t--;
       const f = Math.min(1, C.t / 60); C.y = C.y0 + (cy + 14 - C.y0) * f * f;
-      beam.clashY = C.y; beam.clashK = 2; player.inv = Math.max(player.inv, 45);
-      F.a = Math.atan2(C.y - cy, player.x - cx); feel.shake = Math.max(feel.shake, 3);
-      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; world.parts.push({ kind: 'spark', layer: 'a', x: player.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
+      sb.clashY = C.y; sb.clashK = 2; sh.inv = Math.max(sh.inv, 45);
+      F.a = Math.atan2(C.y - cy, sh.x - cx); feel.shake = Math.max(feel.shake, 3);
+      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; world.parts.push({ kind: 'spark', layer: 'a', x: sh.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
       if (C.t >= 60) {
-        damagePart(e, core, core.maxhp * 0.08); e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
+        scorer = sh === p2 ? 2 : 1; damagePart(e, core, core.maxhp * 0.08); scorer = 1; e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
         flash(cx, cy, 14); boom(cx, cy, 24, 'a'); feel.flashFx = Math.max(feel.flashFx, 6); feel.shake = 12; feel.hitStop = Math.max(feel.hitStop, 6); sfx('bigboom'); sfx('nova');
         world.parts.push({ kind: 'ring', layer: 'a', x: cx, y: cy, vx: 0, vy: 0, life: 24, max: 24, r: 70 });
         for (let k = 0; k < 28; k++) { const a = k * TAU / 28; world.parts.push({ kind: 'spark', layer: 'a', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2.6), vy: Math.sin(a) * rnd(1, 2.2), life: 22, max: 22, col: k & 1 ? '#e8dcff' : '#ffd060' }); }
@@ -10729,7 +10730,7 @@ function drawSkyLaser(e) {
     if (F.t >= 60 && F.a !== undefined) { ctx.save(); ctx.globalAlpha = (gf & 2) ? 0.7 : 0.35; ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(F.a) * 700, cy + Math.sin(F.a) * 700); ctx.stroke(); ctx.restore(); }
     return;
   }
-  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
+  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot((F.who === p2 && p2 ? p2 : player).x - cx, C.y - cy) - 6 : 700;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
   // like the player's super laser: a triangle flaring out of the muzzle (y 6..FLARE), then the straight column
   const FLARE = 34, tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(1, 6); ctx.lineTo(ww / 2, FLARE); ctx.lineTo(-ww / 2, FLARE); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
@@ -10751,7 +10752,7 @@ function drawSkyLaser(e) {
   ctx.restore(); ctx.globalAlpha = 1;
   if (C) {
     // the meeting point: a ball of light ringed in purple, throwing crackling arcs to the sides
-    const mx = player.x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
+    const mx = (F.who === p2 && p2 ? p2 : player).x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
     ctx.globalAlpha = 0.3; dk(mx, my, R + 14, '#8466dc'); ctx.globalAlpha = 0.55; dk(mx, my, R + 7, '#bba4ff'); ctx.globalAlpha = 1;
     dk(mx, my, R, '#ffd060'); dk(mx, my, R * 0.75, '#fff2b0'); dk(mx, my, R * 0.45, '#ffffff');
     ctx.strokeStyle = '#e8dcff'; ctx.lineWidth = 1;
