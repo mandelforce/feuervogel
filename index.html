@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.35'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15157,6 +15157,15 @@ function drawHitbox() {
   ctx.globalAlpha = pu * 0.6; dk(p.x, p.y, 3, '#ff3a6a'); ctx.globalAlpha = 1;
   dk(p.x, p.y, 1, '#ffffff');
 }
+// Weapon level as four blocks in the weapon's colour, filled up to the level (phone: bottom left; PC: above the Novas, mirrored for player 2 with `right`)
+function levelBlocks(x, by, lvl, w, right) {
+  for (let k = 0; k < 4; k++) {
+    const bx = right ? x - 10 - k * 12 : x + k * 12, on = k < Math.min(lvl, 4);
+    ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
+    ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
+    if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
+  }
+}
 function drawHUD() { ctx.save(); ctx.translate(0, SAFE_T); drawHUDBody(HFULL - SAFE_T - SAFE_B); ctx.restore(); }
 function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the higher score
   ctx.fillStyle = OUT; ctx.fillRect(x - 1, y - 1, 7, 6);
@@ -15205,12 +15214,13 @@ function drawHUDBody(H) {
   }
   if (p2) { // player 2's corner mirrors player 1's: weapon, Nova bombs and lives, right-aligned at the bottom
     const w2 = WPN[p2.wpn] || WPN.S;
-    textS(w2.name + ' ' + p2.lvl, W - 4, H - 31, w2.hud[0], 1, 'right', w2.hud[1]);
-    for (let i = 0; i < Math.min(run.bombs2, 6); i++) spr(SPR.novaIcon, W - 7 - i * 8, H - 18);
-    for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 8 - i * 11, H - 9);
+    textS(w2.name + ' ' + p2.lvl, W - 4, H - 43, w2.hud[0], 1, 'right', w2.hud[1]);
+    levelBlocks(W - 4, H - 35, p2.lvl, w2, true);
+    for (let i = 0; i < Math.min(run.bombs2, 6); i++) ctx.drawImage(SPR.novaIcon.c, W - 14 - i * 12, H - 27, 10, 10); // Novas at double size, the lives below them in the same columns
+    for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 9 - i * 12, H - 9);
     if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
   }
-  for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
+  for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, TOUCH_HUD ? 8 + i * 11 : 9 + i * 12, H - 9);
   { const off = TOUCH_HUD && run.bombs <= 0 && !(app.cont > 0); if (app.bombOff !== off) { app.bombOff = off; bombBtn.classList.toggle('empty', off); } } // no Nova left: the button greys out (not during the continue countdown, when it is the Continue button)
   if (TOUCH_HUD) { // the Nova count is a half circle of icons above the Nova button (page element), not in the corner
     const nb = Math.min(run.bombs, 6);
@@ -15220,16 +15230,11 @@ function drawHUDBody(H) {
       for (let i = 0; i < nb; i++) { const a = (90 + (i - (nb - 1) / 2) * 36) * PI / 180; h += '<img src="' + app.pipSrc + '" alt="" style="left:' + (Math.cos(a) * 40 - 5).toFixed(1) + 'px;top:' + (-Math.sin(a) * 40 - 5).toFixed(1) + 'px">'; }
       document.getElementById('bombPips').innerHTML = h;
     }
-  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
+  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) ctx.drawImage(SPR.novaIcon.c, 4 + i * 12, H - 27, 10, 10);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
-    textS(w.name + ' ' + player.lvl, 4, H - 31, w.hud[0], 1, 'left', w.hud[1]);
-    if (TOUCH_HUD) for (let k = 0; k < 4; k++) { // weapon level: four blocks in the weapon's colour, filled up to the level
-      const bx = 4 + k * 12, by = H - 23, on = k < Math.min(player.lvl, 4);
-      ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
-      ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
-      if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
-    }
+    textS(w.name + ' ' + player.lvl, 4, TOUCH_HUD ? H - 31 : H - 43, w.hud[0], 1, 'left', w.hud[1]);
+    levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false);
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) drawBossBar(big, TOUCH_HUD && !p2 ? 29 - SAFE_T : 22);
