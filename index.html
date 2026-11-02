@@ -8123,7 +8123,7 @@ function newGame() {
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
-  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = 0;
+  world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = world.buechseC = world.buechseD = 0;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
   showMsg('STAGE 1', STAGE_NAMES[0], 170); run.camp.credits0 = app.credits; app.congrats = null; app.congratsShown = 0;
   sfx('start'); app.cont = 0; playSong('stage'); player.fly = 110; seedStage(); app.fade = { t: 0, phase: 'in' }; newSecret(); app.results = null; feel.hitStop = 0; feel.slowT = 0; rrNew();
@@ -10508,15 +10508,16 @@ const DRUM_AS_CRATE = { hw: 3, hh: 3, score: 150, rad: 5 }; // (the drum in a cr
 function tankStats(o) { return Object.assign({ ta: PI / 2, cd: rnd(60, 140) | 0 }, o); }
 function convoy(wy, trucks) {
   const dir = 1, n = 1 + ((Math.random() * 3) | 0), lane = 0, S = run.sortie, rt = S ? routePick(S, wy) : null; if (S && !rt) return; // Enigma Run: on a route, its vehicles further apart
+  const bCap = !S ? 0 : S.level === 1 ? ((world.buechseC || 0) < 2 ? 1 : 0) : S.level === 2 ? (n >= 3 && (world.buechseD || 0) < 3 ? 2 : 1) : 99; let bN = 0; // (Buechse per convoy, owner: level 1 one, in two convoys at most; level 2 one, two in the long convoy of three, in three convoys at most; later levels no cap)
   for (let i = 0; i < n; i++) {
     const twy = wy - i * (S ? ROUTE_SPACE : 26), wx = (rt ? routeX(rt, twy) : roadX(twy)) + lane;
     if (rt && !routeOn(S, rt, twy)) continue;
     if (!placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue;
     if (trucks) world.enemies.push(G('truck', wx, twy, { road: true, dir, lane, v: dir > 0 ? 0.32 : 0.22, hd: PI / 2, route: rt ? rt.id : undefined }));
     else {
-      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && !heavy && (S.level !== 1 || (world.buechseN || 0) < 1) && Math.random() < 0.25; // (the Buechse: every Campaign level; in level 1 one in a convoy at most, besides the one at the big island's road tip (owner))
+      const heavy = (run.loop >= 1 && Math.random() < 0.3) || (i === 0 && Math.random() < 0.18), buechse = !!S && !heavy && bN < bCap && Math.random() < 0.25; // (the Buechse: every Campaign level, capped per convoy by bCap; level 1 also has the one at the big island's road tip)
       const o = { road: true, dir, lane, v: dir > 0 ? 0.2 : 0.13, hd: dir > 0 ? PI / 2 : -PI / 2, route: rt ? rt.id : undefined };
-      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) world.buechseN = (world.buechseN || 0) + 1;
+      world.enemies.push(buechse ? makeBuechse(wx, twy, o) : G(heavy ? 'htank' : 'tank', wx, twy, tankStats(o))); if (buechse) { bN++; world.buechseN = (world.buechseN || 0) + 1; if (bN === 1) world.buechseC = (world.buechseC || 0) + 1; else if (bN === 2) world.buechseD = (world.buechseD || 0) + 1; }
     }
   }
 }
@@ -10888,7 +10889,7 @@ function doFinishResults() {
     world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = pBot - 2; chunkHouses.clear(); fieldOkCache.clear(); houseCache.clear(); railEndCache.clear(); flowCache.clear(); canopyCache.clear(); rxW = NaN;
     world.decals.length = 0; props.length = 0; world.items.length = 0; critters.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); world.enemies = world.enemies.filter(e => !e.ground);
     ensureChunks(); world.midDone = false; world.bossSpawned = false; }
-  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = 0; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
+  world.waveCd = 95; world.groundCd = 70; world.podCd = 200; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = world.buechseC = world.buechseD = 0; run.stats = newStats(); newSecret(); world.trainDone = false; world.quiet = false; seedStage(); setPieceDone.clear();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); sfx('start'); if (app.state === 'play') playSong(STAGE_SONGS[world.curTheme]);
   if (player && !player.dead) player.fly = 110;
   markStage();
