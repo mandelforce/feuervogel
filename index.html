@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.35'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.36'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15173,12 +15173,14 @@ function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the
   ctx.fillRect(x, y + 1, 5, 2); ctx.fillStyle = '#d0a020'; ctx.fillRect(x, y + 3, 5, 1); ctx.fillStyle = '#ff6a50'; ctx.fillRect(x + 2, y + 2, 1, 1);
 }
 // Both players' scores on one line, mirrored: 1P at the left margin m, 2P at the right, and a crown beside whoever is ahead (HUD, stage results, game over)
-function scoreStrip(y, m, s1, s2, sz = 1) { // sz 2: the double-size HUD score
+function scoreStrip(y, m, s1, s2, sz = 1) { // sz 2: the double-size HUD score (the leader's score in the high-score yellow, the crown right beside it)
+  const big = sz === 2, y1 = big && s1 > s2, y2 = big && s2 > s1;
   textS('1P', m, y, '#bba4ff', 1, 'left', '#8466dc');
-  textS(pad(s1, 8), m + 10, y, '#ffffff', sz, 'left', '#c4c9ce');
+  textS(pad(s1, 8), m + 10, y, y1 ? '#fff0a0' : '#ffffff', sz, 'left', y1 ? '#f4d050' : '#c4c9ce');
   textS('2P', W - m, y, '#dde1e7', 1, 'right', '#8c919b');
-  textS(pad(s2, 8), W - m - 10, y, '#ffffff', sz, 'right', '#c4c9ce');
-  const cw = sz === 2 ? 38 : 0; if (s1 > s2) crown(m + 44 + cw, y); else if (s2 > s1) crown(W - m - 49 - cw, y);
+  textS(pad(s2, 8), W - m - 10, y, y2 ? '#fff0a0' : '#ffffff', sz, 'right', y2 ? '#f4d050' : '#c4c9ce');
+  if (big) { const dw = textW('00000000', 2); if (y1) crown(m + 10 + dw + 4, y + 3); else if (y2) crown(W - m - 10 - dw - 9, y + 3); }
+  else if (s1 > s2) crown(m + 44, y); else if (s2 > s1) crown(W - m - 49, y);
 }
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score;
@@ -15189,8 +15191,8 @@ function drawHUDBody(H) {
     textS('1P', 4, ty, '#bba4ff', 1, 'left', '#8466dc');
     textS(pad(s1, 8), 14, ty, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
   }
-  if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
-    const cx = 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
+  if (player) { // coin + medals collected this stage (phone, and PC alone or with two players: in the middle); during a chain the count gives way to xN and a ring drains around the coin
+    const cx = p2 ? 100 : 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
     if (pop && !app.paused) app.medalPop--;
     if (open) {
       const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
@@ -15198,19 +15200,12 @@ function drawHUDBody(H) {
       for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = i / N < fr ? (low ? '#ff8a60' : '#f4d050') : '#4a3a14'; ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1); }
     }
     coin(cx, cy, 4, 5, RP.yel);
-    if (xn) textS('x' + run.medalMul, 102, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
+    if (xn) textS('x' + run.medalMul, cx + 12, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
     else {
       const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
       const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
-      textS(String(v), 102, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
+      textS(String(v), cx + 12, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
     }
-  } else if (player) {
-    const mb = p2 ? 96 : 84; // medal chain: right of the double-size score (or in the gap between the two scores)
-    coin(mb, 7, 2, 3, RP.yel);
-    if (run.medalMul > 1 && run.medalT > 0) {
-      textS('x' + run.medalMul, mb + 5, 4, '#fff0a0', 1, 'left', '#d0a020');
-      const bw = 20, f = run.medalT / MEDAL_WIN; ctx.fillStyle = OUT; ctx.fillRect(mb + 5, 11, bw + 2, 3); ctx.fillStyle = '#3a2a10'; ctx.fillRect(mb + 6, 12, bw, 1); ctx.fillStyle = f < 0.3 && (gf >> 2) & 1 ? '#ff8a60' : '#f4d050'; ctx.fillRect(mb + 6, 12, Math.round(bw * f), 1);
-    } else textS(String(MEDAL_BASE), mb + 5, 4, '#fff0a0', 1, 'left', '#d0a020');
   }
   if (p2) { // player 2's corner mirrors player 1's: weapon, Nova bombs and lives, right-aligned at the bottom
     const w2 = WPN[p2.wpn] || WPN.S;
