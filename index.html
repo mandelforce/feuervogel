@@ -14198,6 +14198,7 @@ function updParts() {
 // Enigma Run's towns (levels 2 and 6): the station's glass train shed too, so the trains run in under its roof and not over it
 function shedRoofs() { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.items) return [];
   return P.items.filter(b => b.part === 'shed' && !(S.stnDown && S.stnDown.has(b.id))).map(b => ({ x0: b.x0, x1: b.x0 + b.w - 1, y0: b.y0, y1: b.y0 + b.h - 1, glass: true })); }
+function roofOver(wx, wy) { return gorgeArena() && roofAt(wx, wy); } // (level 5's gorge: on a gallery's roof or a rock spur)
 function drawRoofs() {
   const S = run.sortie, sc = Math.floor(world.scroll);
   const blit = (xa, xb, ya, yb) => { const t = S.planY0 - yb, b = S.planY0 - ya + 1; // the plan's rows ya..yb (inclusive), columns xa..xb, from the painted chunks
@@ -14363,7 +14364,7 @@ function drawDecals() {
     if (d.kind === 'crater') { const si = d.r <= 8 ? 0 : d.r <= 13 ? 1 : d.r <= 22 ? 2 : d.r <= 36 ? 3 : 4, c = SCORCH[si][d.v]; ctx.drawImage(c, Math.round(d.wx - c.width / 2), Math.round(y - c.height / 2)); }
     else if (d.kind === 'oil') { const si = d.r <= 11 ? 0 : d.r <= 17 ? 1 : d.r <= 24 ? 2 : d.r <= 32 ? 4 : 3, c = OILS[si][d.v], k = d.grow ? 0.5 + 0.6 * Math.min(1, (d.age || 0) / 900) : 1, w = Math.round(c.width * k), h = Math.round(c.height * k); ctx.drawImage(c, Math.round(d.wx - w / 2), Math.round(y - h / 2), w, h); }
     else if (d.kind === 'spr') spr(d.s, d.wx, y);
-    else if (d.kind === 'bags') spr(SPR.nestBags[d.side < 0 ? 0 : 1], d.wx, y); // (a Buechse's side emplacement)
+    else if (d.kind === 'bags') { if (!roofOver(d.wx, d.wy)) spr(SPR.nestBags[d.side < 0 ? 0 : 1], d.wx, y); } // (a Buechse's side emplacement; on a roof: drawn after the roofs)
     else if (d.kind === 'icebreak') drawIceBreak(d, y);
     else if (d.kind === 'sink') {
       if (d.t >= d.max) continue;
@@ -15384,7 +15385,7 @@ function renderMain() {
   drawParts('w');
   drawCarrier();
   { const sc0 = Math.floor(world.scroll);
-    for (const e of world.enemies) if (e.ground) {
+    for (const e of world.enemies) if (e.ground && !(e.buechse && roofOver(e.wx, e.wy))) {
       drawEnemy(e);
       if (ENT[e.type].treesInFront) {
         if (e.front === undefined) e.front = treeList(e.wx, e.wy, e.hw + 10).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
@@ -15392,7 +15393,11 @@ function renderMain() {
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
-  drawRoofs(); drawGorgeSnow(true);
+  drawRoofs();
+  { const sc0 = Math.floor(world.scroll); /* (a Buechse's emplacement on a gallery's or a spur's roof stands on top of it: its sandbags and the gun over the roof) */
+    for (const d of world.decals) if (d.kind === 'bags' && roofOver(d.wx, d.wy)) spr(SPR.nestBags[d.side < 0 ? 0 : 1], d.wx, d.wy + sc0);
+    for (const e of world.enemies) if (e.ground && e.buechse && roofOver(e.wx, e.wy)) drawEnemy(e); }
+  drawGorgeSnow(true);
   drawWreck(true);
   drawCritters(); ctx.globalAlpha = 1;
   drawCanopy();
