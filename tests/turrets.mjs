@@ -2,8 +2,8 @@
 //   node tests/turrets.mjs
 //   node tests/turrets.mjs --verbose        also print every check that passes (by default only failures and a count)
 //   node tests/turrets.mjs --shots <dir>    also write a screenshot of every type to <dir>
-// Checks: the 4-gun AA fort keeps its four guns, fires from all of them and shows recoil; the twin AA gun fires fast six-shot bursts; the
-// Panzerturm fires two big shells, then a fan of five on its third volley; the missile site launches one homing missile and then reloads;
+// Checks: the 4-gun AA fort keeps its four guns, fires from all of them and shows recoil; the Panzerturm fires two single big shells 14 frames
+// apart and never a fan; the missile site launches one homing missile and then reloads;
 // the barrage battery never aims at the ship (the same zones for a ship at either edge), marks every zone for the full warning before it
 // bursts, leaves a way through its wall, hurts nothing while a zone is only marked, bursts into shrapnel that does, and leaves a cloud that
 // keeps spraying; a Nova clears its zones; and no variant is picked in the Enigma Run, nor before its first level.
@@ -56,21 +56,14 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
   ok(f.maxRc >= 6, `its guns recoil when they fire (recoil ${f.maxRc})`);
   ok(f.kinds.includes('shell'), `it mixes flak shells with its direct fire (${f.kinds})`);
 
-  /* the twin AA gun */
-  const a = JSON.parse(await peek(page, `(() => { ${setup}
-    const e = put('aagun', W / 2, 90, { ga: PI / 2, cd: 5 }); const ts = [];
-    for (let k = 0; k < 160; k++) { const n = world.ebul.length; tick(); for (let i = n; i < world.ebul.length; i++) ts.push([k, Math.hypot(world.ebul[i].vx, world.ebul[i].vy)]); }
-    return JSON.stringify({ ts, want: bspeed() * 1.3 }); })()`));
-  const first = a.ts.length ? a.ts[0][0] : 0, burst = a.ts.filter(q => q[0] < first + 30).length;
-  ok(burst === 6 && a.ts.every(q => Math.abs(q[1] - a.want) < 1e-6), `a burst of six fast shots (${burst}; speed ${a.ts[0] && a.ts[0][1].toFixed(2)} = 1.3 x bspeed)`);
-
   /* the Panzerturm */
   const g = JSON.parse(await peek(page, `(() => { ${setup}
     const e = put('fortgun', W / 2, 90, { ga: PI / 2, cd: 5 }); const vol = [];
     for (let k = 0; k < 700; k++) { const n = world.ebul.length; tick(); if (world.ebul.length > n) vol.push([k, world.ebul.length - n, world.ebul[world.ebul.length - 1].kind]); }
     return JSON.stringify({ vol, hp: e.hp, turret: ENT.fortgun.turret }); })()`));
-  ok(g.vol.length >= 5 && g.vol.every(v => v[2] === 'B'), `it fires only big shells (${g.vol.length} shots)`);
-  ok(g.vol.some(v => v[1] >= 4) && g.vol.filter(v => v[1] === 1).length >= 2, `two single shells, then a fan of five (four on Normal, where the difficulty drops some shots: ${g.vol.map(v => v[1]).join(',')})`);
+  ok(g.vol.length >= 5 && g.vol.every(v => v[2] === 'B' && v[1] === 1), `it fires only single big shells, never a fan (${g.vol.length} shots)`);
+  const gaps = g.vol.slice(1).map((v, i) => v[0] - g.vol[i][0]);
+  ok(gaps.filter(d => d === 14).length >= 2, `two shells 14 frames apart in every volley (gaps ${gaps.slice(0, 6)})`);
 
   /* the missile site */
   const s = JSON.parse(await peek(page, `(() => { ${setup}
@@ -132,19 +125,20 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
     SF.start(1, 1); run.sortie = {}; const sortie = pickTurretVariant(100, -50); run.sortie = null;
     return JSON.stringify({ res, sortie }); })()`));
   ok(pk.sortie === null, 'no variant is picked in the Enigma Run');
-  ok(!pk.res[1].sam && !pk.res[1].barrage && !pk.res[1].fortgun && pk.res[1].aagun > 0, `stage 1 has only the twin AA gun (${JSON.stringify(pk.res[1])})`);
-  ok(pk.res[3].sam > 0 && pk.res[3].barrage > 0 && pk.res[3].fortgun > 0 && pk.res[3].none > pk.res[3].aagun, `stage 3 has them all, and plain flak stays the most common (${JSON.stringify(pk.res[3])})`);
+  ok(Object.keys(pk.res[1]).join() === 'none', `level 1 has plain flak only (${JSON.stringify(pk.res[1])})`);
+  ok(!pk.res[2].fortgun && pk.res[2].sam > 0 && pk.res[2].barrage > 0, `level 2 adds the missile site and the barrage battery (${JSON.stringify(pk.res[2])})`);
+  ok(pk.res[3].sam > 0 && pk.res[3].barrage > 0 && pk.res[3].fortgun > 0 && pk.res[3].none > pk.res[3].sam, `level 3 has them all, and plain flak stays the most common (${JSON.stringify(pk.res[3])})`);
 
   /* nothing threw, and every type draws */
   const d = JSON.parse(await peek(page, `(() => { ${setup}
-    put('aatower', 60, 70, { cd: 1e9 }); put('aagun', 150, 70, { ga: PI / 2, cd: 1e9 }); put('fortgun', 60, 150, { ga: PI / 2, cd: 1e9 }); put('sam', 150, 150, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 240, { cd: 40 });
+    put('aatower', 60, 70, { cd: 1e9 }); put('fortgun', 60, 150, { ga: PI / 2, cd: 1e9 }); put('sam', 150, 150, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 240, { cd: 40 });
     put('flak', 60, 230, { ga: PI / 2, cd: 1e9, barrels: 2 }); put('flak', 160, 230, { ga: PI / 2, cd: 1e9, barrels: 4 }); put('flak', 112, 290, { ga: PI / 2, cd: 1e9, barrels: 1 });
     zoneMark(60, 330); const z = world.ebul[0]; z.life = 40; zoneMark(160, 330);
     for (let k = 0; k < 10; k++) tick(); SF.draw(); return JSON.stringify({ errs: R.errs.length }); })()`));
   ok(d.errs === errs0, `nothing threw while the new types updated and drew (${d.errs - errs0} errors)`);
   if (shotDir) {
     await peek(page, `(() => { ${setup}
-      put('aatower', 60, 80, { cd: 1e9 }); put('aagun', 160, 60, { ga: PI / 2, cd: 1e9 }); put('fortgun', 60, 170, { ga: PI / 2, cd: 1e9 }); put('sam', 160, 170, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 260, { cd: 1e9 });
+      put('aatower', 60, 80, { cd: 1e9 }); put('fortgun', 60, 170, { ga: PI / 2, cd: 1e9 }); put('sam', 160, 170, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 260, { cd: 1e9 });
       zoneMark(60, 330); world.ebul[0].life = 50; zoneMark(160, 330); world.ebul[1].life = 20; zoneMark(110, 330); world.ebul[2].life = 3;
       for (let k = 0; k < 6; k++) tick(); globalThis.__tick = tick; SF.draw(); })()`);
     await page.screenshot({ path: shotDir + '/types.png' });
