@@ -68,8 +68,9 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
   /* the missile site */
   const s = JSON.parse(await peek(page, `(() => { ${setup}
     const e = put('sam', W / 2, 90, { ga: PI / 2, cd: 5 }); const at = []; let maxLive = 0;
-    for (let k = 0; k < 900; k++) { const m0 = world.enemies.filter(o => o.type === 'missile').length; tick(); const m1 = world.enemies.filter(o => o.type === 'missile' && o.t < 2).length; if (m1) at.push(k); maxLive = Math.max(maxLive, world.enemies.filter(o => o.type === 'missile').length); }
-    return JSON.stringify({ at, maxLive }); })()`));
+    const emp = []; for (let k = 0; k < 900; k++) { tick(); const m1 = world.enemies.filter(o => o.type === 'missile' && o.t < 2).length; if (m1) at.push(k); maxLive = Math.max(maxLive, world.enemies.filter(o => o.type === 'missile').length); emp.push(e.empty ? 1 : 0); }
+    return JSON.stringify({ at, maxLive, emp: emp.join('') }); })()`));
+  ok(s.emp.includes('1') && !s.emp.slice(s.at[1] - 80, s.at[1]).includes('1') && s.emp[s.at[0] + 5] === '1', 'the rack shows an empty place right after a launch and is full again before the next one');
   ok(s.at.length >= 2 && s.at[1] - s.at[0] >= 150, `one missile at a time, a long reload between (launched at ${s.at.slice(0, 4)})`);
 
   /* the barrage battery */

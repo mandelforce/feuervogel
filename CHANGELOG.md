@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Missile site, three missiles (build 1.2.5.49). The launcher holds three ready missiles instead of four; when it fires one the rack shows an empty place, which fills again about 1.5 s before the next launch.
 - AA fort fires flak shells only (build 1.2.5.48). All four guns shoot one flak shell each in turn; the pairs of direct shots from two of the guns are gone.
 - Fewer new gun types (build 1.2.5.47). The separate twin AA gun is gone (the 2- and 4-barrel flak have its look and keep their own shooting), and the Panzerturm fires only its two big shells: the fan of five on every third volley is removed.
 - Flak with 2 and 4 barrels look like the twin AA gun (build 1.2.5.46): its sandbag pit and twin barrels. They shoot as before (2 shells at once; 4 barrels add 2 more 9 frames later); only the 1-barrel flak keeps the old look, and the separate 2-barrel and 4-barrel gun sprites are gone.

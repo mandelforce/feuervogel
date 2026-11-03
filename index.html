@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.48'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.49'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5573,19 +5573,22 @@ SPR.samBase = sprite(30, 30, x => {
   disk(x, '#6a6c72', 24, 5, 3); disk(x, '#4a7ea6', 24, 5, 2); rect(x, '#d8f2ff', 23, 4, 1, 1);
   ellS(x, RP.grey, 25, 25, 3, 3, 0.2); ellS(x, RP.red, 4, 25, 2.5, 2.5, 0);
 });
-/* the launcher: four ready missiles (white body, yellow band, red nose, dark fins) in a grey transport frame on a turntable; they point down at rest */
-SPR.samRack = rotSet(sprite(24, 38, x => {
-  for (let m = 0; m < 4; m++) {
-    const bx = 3 + m * 5;
+/* the launcher: three ready missiles (white body, yellow band, red nose, dark fins) in a grey transport frame on a turntable; they point down
+   at rest. samRack2 is the same with the left missile gone: it has just been fired, and comes back a while before the next launch */
+const samRackN = skip => rotSet(sprite(19, 38, x => {
+  for (let m = 0; m < 3; m++) {
+    if (m === skip) continue;
+    const bx = 2 + m * 5;
     rect(x, '#e8e4d8', bx, 11, 4, 22); rect(x, '#fffdf4', bx, 11, 1, 22); rect(x, '#a8a498', bx + 3, 11, 1, 22);
     rect(x, '#d8b020', bx, 18, 4, 2); rect(x, '#101012', bx, 14, 4, 1);
     polyS(x, RP.red, [[bx, 33], [bx + 4, 33], [bx + 3, 35], [bx + 2, 37], [bx + 1, 35]], 0.15);
     rect(x, '#2a2c30', bx - 1, 11, 1, 4); rect(x, '#2a2c30', bx + 4, 11, 1, 4);
   }
-  polyS(x, RP.grey, [[1, 9], [23, 9], [22, 14], [2, 14]], 0.2); polyS(x, RP.grey, [[2, 23], [22, 23], [23, 26], [1, 26]], 0.1);
-  rect(x, '#18181a', 1, 14, 1, 12); rect(x, '#18181a', 22, 14, 1, 12);
-  polyS(x, RP.grey, [[8, 3], [16, 3], [18, 9], [6, 9]], 0.3); disk(x, '#33373d', 12, 6, 2.6); rect(x, '#8cc0e0', 11, 5, 2, 1); rect(x, '#d84a34', 3, 4, 2, 2);
+  polyS(x, RP.grey, [[0, 9], [19, 9], [18, 14], [1, 14]], 0.2); polyS(x, RP.grey, [[1, 23], [18, 23], [19, 26], [0, 26]], 0.1);
+  rect(x, '#18181a', 0, 14, 1, 12); rect(x, '#18181a', 18, 14, 1, 12);
+  polyS(x, RP.grey, [[5, 3], [14, 3], [16, 9], [3, 9]], 0.3); disk(x, '#33373d', 9.5, 6, 2.6); rect(x, '#8cc0e0', 8, 5, 2, 1);
 }));
+SPR.samRack = samRackN(-1); SPR.samRack2 = samRackN(0);
 /* Barrage battery: a sandbag ring with a fan of three mortar tubes, an observer mast and ammo stacks. It never aims: it marks zones. */
 SPR.barBase = sprite(34, 34, x => {
   disk(x, '#3a3220', 17, 17, 16);
@@ -12858,12 +12861,13 @@ const ENT = {
   } },
   sam: { turret: true, revenge: 1, guarded: true, medals: 0.9, treesInFront: true, stats: { hp: 12, hw: 12, hh: 12, score: 900, rad: 16 }, update(e) {
     groundPos(e);
+    if (e.empty && e.cd < 90) e.empty = false; // the fired missile's place is filled again well before the next launch
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
     if (--e.cd <= 0 && canFire(e, 130)) {
       if (world.enemies.reduce((n, o) => n + (o.type === 'missile' && !o.dead ? 1 : 0), 0) >= 3) { e.cd = 40; return; }
       e.cd = Math.round(Math.max(200, 280 - run.loop * 30) * fireSlow()); // one homing missile, then a long reload
       const bx = e.x + Math.cos(e.ga) * 16, by = e.y + Math.sin(e.ga) * 16;
-      world.enemies.push(E('missile', { x: bx, y: by, h: e.ga, v: 0.9, life: 420 })); flash(bx, by, 5); smokePuff(bx, by); sfx('rocket');
+      world.enemies.push(E('missile', { x: bx, y: by, h: e.ga, v: 0.9, life: 420 })); flash(bx, by, 5); smokePuff(bx, by); sfx('rocket'); e.empty = true;
     }
   } },
   /* Barrage battery: it never aims. It marks zones on the ground (a telegraphed ring), the shells burst there in a ring of shrapnel and
@@ -14827,7 +14831,7 @@ const LOOKS = {
   sam(e, fl) {
     spr(SPR.samBase, e.x, e.y, fl);
     if (e.turDead) { turStub(e.x, e.y, 5); return; }
-    spr(SPR.samRack[dirIdx(e.ga)], e.x, e.y, fl);
+    spr((e.empty ? SPR.samRack2 : SPR.samRack)[dirIdx(e.ga)], e.x, e.y, fl);
     if (e.cd > 0 && e.cd < 40 && canFire(e, 120) && (gf >> 2) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x) - 1, Math.round(e.y) - 1, 3, 3); }
   },
   barrage(e, fl) {
