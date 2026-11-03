@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.54'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.55'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8346,6 +8346,7 @@ const ENIGMA_N = 6, ENIGMA_RNG = [8, 2, 3, 4, 5, 7];
 function enigmaTheme(level) { return STAGE_ORDER[level - 1]; } // each level flies the Campaign stage of its number (its theme, music and boss)
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk'];
+const FLY_SEA = 14; // chunks: the carrier is 372 units long, drawn at about 1.87, 700 px; its bow starts 700 px up and the sea gains on it 0.1 px a frame: a ship length of water needs the first island 24 chunks out
 const ENIGMA_LEN = [62, 72, 58, 60, 84, 70]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
@@ -8409,7 +8410,9 @@ function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b |
 // Level 5: the train boss comes as in the Campaign, once the yard fills the screen (the trigger adds ceil(XH / CH) chunks; the yard begins at the level's end)
 function yardWait() { return Math.max(1, Math.ceil(H / CH) - 1 - Math.ceil(XH / CH)); }
 function buildSortie(level, seed) {
-  const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
+  /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
+  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
@@ -10334,13 +10337,15 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
 // the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
 // the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
 const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [3, 4, 5], GAP: 45, LV0: -72, SMOKE: 10,
-  PARKED: [[-4, 26], [-28, 52], [-4, 52], [20, 52], [-28, 72], [-4, 72], [20, 72], [-28, 92], [20, 92], [-28, 140], [-4, 140], [20, 140], [-28, 160], [20, 160]] };
+  BOARD: 70, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
+  LANES: [-28, -4, 20], ROWS: [[-134, 0], [-110, 0], [-86, 0], [-62, 0], [-38, 0], [-14, 0], [26, 0], [50, 1], [72, 1], [94, 1], [140, 1], [160, 0]] }; // the deck park, from the bow aft: ROWS of [v, lanes]: 0 the two outer lanes only (the catapult rails, the elevators and the raven mark take the middle), 1 all three
+CVF.PARKED = CVF.ROWS.flatMap(([v, k]) => (k ? CVF.LANES : [CVF.LANES[0], CVF.LANES[2]]).map(u => [u, v])); // 28 planes, spread along the whole deck
 let carrierFlyNext = false; // set by the Campaign's loop for the level 1 that follows
 function carrierFlyStart() {
   const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
   carrierPic(s); // (paints the master at this larger scale, once)
-  CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0 })));
-  CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v })));
+  CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0, keep: true })));
+  CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v, keep: true }))); // (keep: the ship starts a screen and more above the top, where the cull would drop them)
   world.scrollV = world.scrollTarget = CVF.SCROLL; sfx('horn');
 }
 // One frame of the flyover, inside the director: the ship moves down the screen a little slower than the sea, launches while its bow is up the
@@ -10350,8 +10355,13 @@ function carrierFlyTick(C, t) {
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) { C.gone = true; world.scrollTarget = SCROLL; }
   if (!C.gone) { carrierWake(C); if (gf % CVF.SMOKE === 0) for (const [u, v] of C.burnt) { const [x, y] = carrierXY(C, u, v); if (y > -8 && y < H + 8) smokePuff(x + rnd(-2, 2), y); } }
   const by = carrierXY(C, 0, CV.CAT1)[1];
-  if (!C.gone && t >= C.nextL && by > 20 && by < H * 0.55 && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
-    const tu = CV.CATS[C.cat++ % 2]; world.enemies.push(G('cfighter', 0, 0, { u: tu, v: CVF.LV0, u0: tu, v0: CVF.LV0, tu, vv: 0, up: true })); sfx('whistle'); C.launched++; C.nextL = t + CVF.GAP; } // (up from the fore elevator onto a catapult; a target while it rolls)
+  const B = C.board; // two soldiers run across the deck to a parked plane and board it; then it rolls (a target while it rolls). A plane shot before they get there drops the launch.
+  if (B && (B.e.dead || C.gone)) { C.board = null; C.launched--; C.nextL = t; }
+  else if (B && t >= B.t0 + CVF.BOARD) { const e = B.e, tu = CV.CATS[C.cat++ % 2]; e.dead = true; C.board = null; world.enemies.push(G('cfighter', 0, 0, { u: e.u, v: e.v, u0: e.u, v0: e.v, tu, vv: 0, up: true })); sfx('whistle'); }
+  else if (!B && !C.gone && t >= C.nextL && by > 20 && by < H * 0.55 && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
+    let pl = null; for (const e of world.enemies) if (e.type === 'cparked' && !e.dead && e.y > 0 && (!pl || e.v < pl.v || (e.v === pl.v && e.u < pl.u))) pl = e; // the foremost plane still on the deck
+    if (pl) { C.board = { e: pl, t0: t }; C.launched++; C.nextL = t + CVF.BOARD + CVF.GAP; }
+  }
   if (C.gone && !world.enemies.some(e => e.type === 'cfighter' && !e.dead)) C.over = true;
 }
 function carrierWake(C) { // bow wave, hull foam and the wake; the funnel's smoke
@@ -10524,6 +10534,9 @@ function drawCarrier() {
   for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
+  if (C.fly) { const B = C.board; if (B && !B.e.dead) { const f = Math.min(1, (T - B.t0) / (CVF.BOARD - 12)); if (f < 1) for (let k = 0; k < 2; k++) { // the flyover's crew: two soldiers per plane, running in from the deck's edge to its cockpit
+      const cs = Math.max(2, Math.round(2.4 * pk)), [cx, cy] = at(lerp(CVF.RUN[B.e.u <= -4 ? 0 : 1], B.e.u + (k ? 4 : -4), f), lerp(B.e.v + (k ? 9 : -7), B.e.v + 2, f)), st = ((T >> 2) + k) & 1;
+      ctx.fillStyle = '#e8c9a0'; ctx.fillRect(cx, cy, cs, cs); ctx.fillStyle = k ? '#f2eee2' : '#4f78c4'; ctx.fillRect(cx - 1, cy + cs, cs + 2, cs); ctx.fillStyle = '#141418'; ctx.fillRect(cx + (st ? -1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); ctx.fillRect(cx + cs - 1 + (st ? 1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); } } return; }
   for (let i = 0; i < 16; i++) { // the deck crew, running about in the panic
     const dur = 34 + ((hash(i, 3) * 40) | 0), k = Math.floor((T + i * 13) / dur), f = Math.min(1, ((T + i * 13) % dur) / dur * 1.7);
     const tg = j => [-40 + 72 * hash(i * 31 + j, 7), -140 + 300 * hash(i * 17 + j, 9)], a = tg(k), b = tg(k + 1), [cx, cy] = at(lerp(a[0], b[0], f), lerp(a[1], b[1], f));
