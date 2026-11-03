@@ -138,6 +138,7 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
   /* nothing threw, and every type draws */
   const d = JSON.parse(await peek(page, `(() => { ${setup}
     put('aatower', 60, 70, { cd: 1e9 }); put('aagun', 150, 70, { ga: PI / 2, cd: 1e9 }); put('fortgun', 60, 150, { ga: PI / 2, cd: 1e9 }); put('sam', 150, 150, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 240, { cd: 40 });
+    put('flak', 60, 230, { ga: PI / 2, cd: 1e9, barrels: 2 }); put('flak', 160, 230, { ga: PI / 2, cd: 1e9, barrels: 4 }); put('flak', 112, 290, { ga: PI / 2, cd: 1e9, barrels: 1 });
     zoneMark(60, 330); const z = world.ebul[0]; z.life = 40; zoneMark(160, 330);
     for (let k = 0; k < 10; k++) tick(); SF.draw(); return JSON.stringify({ errs: R.errs.length }); })()`));
   ok(d.errs === errs0, `nothing threw while the new types updated and drew (${d.errs - errs0} errors)`);

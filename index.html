@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.45'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.46'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6039,8 +6039,6 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 }
 {
   const GN = ['#0e0f12', '#1a1c22', '#2a2e36', '#3e444e', '#5a616c'], FGx = ['#1e2214', '#30382a', '#4a5440', '#66725a', '#8a9878'];
-  const gunN = n => sprite(12, 28, x => { const xs = n === 2 ? [3, 8] : [2, 4, 7, 9]; for (const bx of xs) { rect(x, '#18181a', bx, 15, 1, 12); rect(x, '#4a4a52', bx, 15, 1, 3); } ellS(x, RP.conc, 6, 14, 4.5, 4, 0.05); rect(x, '#2a2a2e', 4, 12, 4, 4); });
-  SPR.flakGun2 = rotSet(gunN(2)); SPR.flakGun4 = rotSet(gunN(4));
   { const c = document.createElement('canvas'); c.width = fighterBase.c.width; c.height = fighterBase.c.height; const x = c.getContext('2d'); x.drawImage(fighterBase.c, 0, 0);
     const d = x.getImageData(0, 0, c.width, c.height), a = d.data, Wd = c.width, Hd = c.height;
     for (let j = 0; j < Hd; j++) for (let i = 0; i < Wd; i++) { const k = (j * Wd + i) * 4; if (!a[k + 3]) continue; const lum = (a[k] + a[k + 1] + a[k + 2]) / 3; if (lum < 45 || (a[k] > 200 && a[k + 1] > 200 && a[k + 2] > 200)) continue; if (j < 5 || i < 5 || i > Wd - 6) { const l = lum / 255; a[k] = 120 + l * 130 | 0; a[k + 1] = 20 + l * 40 | 0; a[k + 2] = 20 + l * 30 | 0; } }
@@ -13631,7 +13629,7 @@ function popTurretE(e) {
   sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
   if (ENT[e.type].revenge) revenge(tx, ty, ENT[e.type].revenge, DIFF.turRevengeP[run.diff]);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
-  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.aaQ : e.type === 'aagun' ? SPR.aaZw : e.type === 'fortgun' ? SPR.fortGun : e.type === 'sam' ? SPR.samRack : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
+  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' && e.barrels >= 2 ? SPR.aaZw : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.aaQ : e.type === 'aagun' ? SPR.aaZw : e.type === 'fortgun' ? SPR.fortGun : e.type === 'sam' ? SPR.samRack : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
   if ((e.type === 'tank' || e.type === 'htank') && Math.random() < 0.7) for (let i = 0; i < 2; i++) world.enemies.push(G('troop', e.wx + rnd(-6, 6), e.wy + rnd(-6, 6), { hd: Math.random() * TAU, scared: 90 }));
 }
@@ -14764,10 +14762,11 @@ const LOOKS = {
   sandbag(e, fl) { spr(SPR.sandbag, e.x, e.y, fl); },
   tower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 14, 14, 20, CONCW, null, 0.3, true); spr(SPR.towerTop, e.x + tox, e.y + toy, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x + tox), Math.round(e.y + toy) - 7, 1, 1); } },
   flak(e, fl) {
-    spr(SPR.flakBase, e.x, e.y, fl);
+    const twin = e.barrels >= 2; // 2 and 4 barrels (they differ only in how they shoot) look like the twin AA gun: its sandbag pit and twin barrels
+    spr(twin ? SPR.aaPit : SPR.flakBase, e.x, e.y, fl);
     if (!e.turDead) {
-      const set = e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
-      if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
+      spr((twin ? SPR.aaZw : SPR.flakGun)[dirIdx(e.ga)], e.x, e.y, fl);
+      if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mr = twin ? 16 : 13, mx = e.x + Math.cos(e.ga) * mr, my = e.y + Math.sin(e.ga) * mr; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
     } else turStub(e.x, e.y, 4);
   },
   popup(e, fl) {
