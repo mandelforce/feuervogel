@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.53'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.54'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9784,6 +9784,7 @@ function avail(f) { return settings.mode === 'gen' || run.endless || run.loop >=
 function flakBarrels() { if (world.ARC_U >= 0.78) return 4; if (world.ARC_U >= 0.47 || run.loop >= 1) return 2; return 1; }
 /* Stationary-gun variants. A flak spawn becomes one of them by a hash of its position (no random draw, so the layouts and streams of
    levels that spawn none are unchanged); each has its own cap and first level (FEAT). Enigma Run only: the Retro Run keeps its guns. */
+const BARRAGE_IN_LEVELS = false; // the shrapnel battery is built but waits for its redesign: no level places it yet (tests put it on the screen directly)
 function pickTurretVariant(wx, wy) {
   if (!run.sortie) return null;
   const u = world.ARC_U || 0;
@@ -9791,7 +9792,7 @@ function pickTurretVariant(wx, wy) {
   const roof = terrainType(wx, wy) === 'roof', c = [];
   if (avail('sam') && count('sam') < 2 && !roof) c.push('sam');
   if (run.loop >= 1 && count('nebel') < 1 + Math.min(1, run.loop - 1) && !roof) c.push('nebel'); // the smoke battery: looped runs only
-  if (avail('barrage') && u >= 0.25 && count('barrage') < 1 + Math.min(1, run.loop) && !roof) c.push('barrage');
+  if (BARRAGE_IN_LEVELS && avail('barrage') && u >= 0.25 && count('barrage') < 1 + Math.min(1, run.loop) && !roof) c.push('barrage');
   if (avail('fortgun') && u >= 0.2 && count('fortgun') < 2 && !roof) c.push('fortgun');
   if (!c.length) return null;
   return c[Math.floor(hash(Math.round(wx * 5) + 91, Math.round(wy * 5) + 17) * c.length)];

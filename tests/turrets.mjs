@@ -129,8 +129,9 @@ const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkS
   ok(pk.retro === 0, 'no variant is picked in the Retro Run');
   ok(pk.art && pk.same, 'the Enigma Run swaps in the new bunker, casemate and AA fort art');
   ok(Object.keys(pk.res[1]).join() === 'none', `level 1 has plain flak only (${JSON.stringify(pk.res[1])})`);
-  ok(!pk.res[2].fortgun && pk.res[2].sam > 0 && pk.res[2].barrage > 0, `level 2 adds the missile site and the barrage battery (${JSON.stringify(pk.res[2])})`);
-  ok(pk.res[3].sam > 0 && pk.res[3].barrage > 0 && pk.res[3].fortgun > 0 && pk.res[3].none > pk.res[3].sam, `level 3 has them all, and plain flak stays the most common (${JSON.stringify(pk.res[3])})`);
+  ok(!pk.res[2].fortgun && pk.res[2].sam > 0, `level 2 adds the missile site (${JSON.stringify(pk.res[2])})`);
+  ok(![1, 2, 3].some(l => pk.res[l].barrage), 'no level places the barrage battery yet (it waits for its redesign)');
+  ok(pk.res[3].sam > 0 && pk.res[3].fortgun > 0 && pk.res[3].none > pk.res[3].sam, `level 3 adds the Panzerturm, and plain flak stays the most common (${JSON.stringify(pk.res[3])})`);
 
   /* the Retro Run keeps the old art and the old fort: pairs of direct shots from guns 2 and 4, the old gun sprites for 2 and 4 barrels */
   const rt = JSON.parse(await peek(page, `(() => { ${retroSetup}
