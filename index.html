@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.51'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.52'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5980,6 +5980,22 @@ function hangarVariant(kind) {
   return finalize(c);
 }
 SPR.hangarV = [SPR.hangar, hangarVariant(1), hangarVariant(2)];
+let fullBeamHit = false; // true while a fully charged laser's damage is being dealt: what it kills may leave a different wreck (wreckDefault)
+/* The Enigma Run's ruins of the bunker, casemate and AA fort: the three stock ruins made from the new art, and a fourth, blasted open, which a
+   fully charged laser leaves (it burns longer and glimmers with many embers, see drawGlimmer). */
+function laserRuin(src) {
+  const w = src.w, h = src.h, [c, x] = mk(w, h), RUB = ['#1a1614', '#2e2824', '#46403a', '#5e5850', '#7a7266'].map(hexRGB); x.drawImage(src.c, 0, 0);
+  const d = x.getImageData(0, 0, w, h), a = d.data, put = (k, col) => { a[k] = col[0]; a[k + 1] = col[1]; a[k + 2] = col[2]; a[k + 3] = 255; };
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const k = (j * w + i) * 4; if (!a[k + 3]) continue;
+    const n = vnoise(i * 0.24 + 5, j * 0.24), dx = (i + 0.5 - w / 2) / (w / 2), dy = (j + 0.5 - h / 2) / (h / 2), r = dx * dx + dy * dy + (n - 0.5) * 0.5;
+    if (r < 0.3) put(k, hash(i * 3, j * 3) < 0.07 ? [255, 138, 58] : RUB[r < 0.14 ? 0 : 1]);
+    else if (r < 0.46) put(k, hash(i * 5, j * 3) < 0.12 ? [255, 190, 90] : [122, 46, 16]);
+    else { a[k] *= 0.55; a[k + 1] *= 0.55; a[k + 2] *= 0.55; if (hash(i, j) < 0.05 && r < 0.9) put(k, RUB[0]); if (n > 0.66) put(k, RUB[2]); if (r < 0.7 && hash(i * 7, j * 5) < 0.03) put(k, [255, 138, 58]); }
+  }
+  x.putImageData(d, 0, 0); return finalize(c);
+}
+const RUINS_N = {}; for (const t of ['bunker', 'casemate', 'aatower']) { const src = SPR[t + 'N']; RUINS_N[t] = [...ruinVariants(src), laserRuin(src)]; }
 const RUINS = { station: ruinVariants(SPR.station), tower: ruinVariants(SPR.towerTop), hangar: ruinVariants(SPR.hangar), bunker: ruinVariants(SPR.bunker), casemate: ruinVariants(SPR.casemate), aatower: ruinVariants(SPR.aatower), fuel: ruinVariants(SPR.fuel) };
 SPR.barn = sprite(24, 15, x => { for (let j = 0; j < 15; j++) for (let i = 0; i < 24; i++) { let l = j < 7 ? 0.78 : 0.34; if (j === 7) l = 0.95; if (i % 3 === 0) l -= 0.1; rect(x, pick(RP.red, l, i, j), i, j, 1, 1); } rect(x, '#2a0c08', 0, 7, 24, 1); });
 SPR.farmhouse = sprite(14, 11, x => { for (let j = 0; j < 11; j++) for (let i = 0; i < 14; i++) { let l = i < 7 ? 0.75 : 0.32; if (i === 7) l = 0.95; if (j % 3 === 0) l -= 0.1; rect(x, pick(['#3a2618', '#523622', '#6c482e', '#86603e', '#a07a54'], l, i, j), i, j, 1, 1); } boxS(x, RP.conc, 2, 1, 2, 3, 0.2); });
@@ -13356,7 +13372,7 @@ function updBeamOf(beam, player, who) { // one ship's laser for this frame; retu
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
     if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
-    else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); beam.hit = true; } // a full laser would take a fifth of the duel's health at once
+    else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ fullBeamHit = beam.pw >= 0.9; damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); fullBeamHit = false; beam.hit = true; } // a full laser would take a fifth of the duel's health at once
   }
   scorer = 1;
   if (beam.t === beam.max - 1 && beam.hit) run.stats.hits++;
@@ -13884,7 +13900,10 @@ const DEATHS = {
 };
 for (const t in DEATHS) Object.assign(ENT[t], DEATHS[t]);
 function wreckDefault(e) {
-  if (RUINS[e.type]) world.decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
+  const rn = ENIG_GUN.on && RUINS_N[e.type]; // the Enigma Run's ruins: the stock three, or the blasted-open one when a full laser made the kill
+  if (rn && fullBeamHit) world.decals.push({ kind: 'spr', s: rn[3], wx: e.wx, wy: e.wy, r: 17, smokeT: 700, hot: true });
+  else if (rn) world.decals.push({ kind: 'spr', s: rn[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
+  else if (RUINS[e.type]) world.decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
   else world.decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
 }
 function kill(e) { return fate(e, 'fs', () => killE(e)); } // (the Campaign: on the enemy's fate stream)
@@ -14357,7 +14376,7 @@ function update() {
         if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fx(() => fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5)); }
       }
     }
-    if (d.fireT <= 0 && !lowFX) { if (d.glimT === undefined) d.glimT = 0; else if (d.glimT < GLIM_LEN) d.glimT++; } // the flames are out: a glimmer takes over and fades (see drawGlimmer)
+    if (d.fireT <= 0 && !lowFX) { if (d.glimT === undefined) d.glimT = 0; else if (d.glimT < glimLen(d)) d.glimT++; } // the flames are out: a glimmer takes over and fades (see drawGlimmer)
   }
   world.decals = world.decals.filter(d => !d.gone && d.wy + sc < H + (d.kind === 'ruinBig' ? 320 : 60));
   for (let i = props.length - 1; i >= 0; i--) if (props[i].wy + sc > H + 80) props.splice(i, 1);
@@ -14642,18 +14661,19 @@ function drawDecals() {
     else if (d.kind === 'ruinBig') { ctx.globalAlpha = 0.85; ctx.drawImage(SPR.castle.k, Math.round(d.wx - SPR.castle.w / 2), Math.round(y - SPR.castle.h / 2)); ctx.globalAlpha = 1; for (const [a, b, sz] of [[-40, -30, 2], [30, -20, 2], [0, 20, 3], [-30, 40, 2], [40, 45, 2], [0, -170, 4], [-50, 200, 3], [40, 160, 2], [-20, 268, 3], [60, -240, 2]]) { const c = SCORCH[sz][(a + b + 300) % 3]; ctx.drawImage(c, Math.round(d.wx + a - c.width / 2), Math.round(y + b - c.height / 2)); } }
     else if (d.kind === 'ruin') { dk(d.wx, y, 20, '#1a1612'); spr(SPR.ruin, d.wx, y); }
     else if (d.kind === 'wreck') { dk(d.wx, y, 8, '#221a12'); ctx.globalAlpha = 0.85; ctx.drawImage(d.s.k, Math.round(d.wx - d.s.w / 2), Math.round(y - d.s.h / 2)); ctx.globalAlpha = 1; }
-    if (d.glimT < GLIM_LEN && !lowFX) drawGlimmer(d, y);
+    if (d.glimT < glimLen(d) && !lowFX) drawGlimmer(d, y);
   }
 }
 // The glimmer where a wreck burned (after its flames went out): a soft warm glow with a slow pulse and two ember pixels, about 15 seconds, fading in and out.
 // Low alpha, drawn with the ground decals (under every unit and bullet), one drawImage and two fillRects each, on screen only.
-const GLIM_LEN = 900; let glimSpr = null;
+const GLIM_LEN = 900; let glimSpr = null; const glimLen = d => d.hot ? GLIM_LEN * 2 : GLIM_LEN; // (a laser-blasted wreck, d.hot, glimmers twice as long, and brighter)
 function drawGlimmer(d, y) {
   if (!glimSpr) { glimSpr = document.createElement('canvas'); glimSpr.width = glimSpr.height = 32; const g = glimSpr.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,170,80,1)'); gr.addColorStop(0.45, 'rgba(255,120,40,0.45)'); gr.addColorStop(1, 'rgba(255,100,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }
-  const f = d.glimT / GLIM_LEN, fade = f < 0.1 ? f / 0.1 : f > 0.6 ? (1 - f) / 0.4 : 1, ph = d.wx * 0.37 + d.wy * 0.23, pulse = 0.65 + 0.35 * Math.sin(gf * 0.03 + ph), night = 1 + 0.6 * world.nightF;
-  const sz = clamp(Math.round((d.r || 8) * 1.6), 12, 34), a = 0.2 * fade * pulse * night;
+  const hot = !!d.hot, f = d.glimT / glimLen(d), fade = f < 0.1 ? f / 0.1 : f > 0.6 ? (1 - f) / 0.4 : 1, ph = d.wx * 0.37 + d.wy * 0.23, pulse = 0.65 + 0.35 * Math.sin(gf * 0.03 + ph), night = 1 + 0.6 * world.nightF;
+  const sz = clamp(Math.round((d.r || 8) * 1.6), 12, hot ? 44 : 34), a = (hot ? 0.34 : 0.2) * fade * pulse * night;
   if (a < 0.01) return;
-  ctx.globalAlpha = Math.min(0.3, a); ctx.drawImage(glimSpr, Math.round(d.wx - sz / 2), Math.round(y - sz / 2), sz, sz);
+  if (hot) { ctx.fillStyle = '#ffc070'; for (let k = 0; k < 10; k++) { const p2 = ph * (k + 1.7), t2 = (gf * 0.02 + k * 0.37) % 1; ctx.globalAlpha = Math.min(0.9, a * 2.4) * (0.4 + 0.6 * Math.sin(gf * 0.07 + k * 2.1) ** 2) * (1 - t2 * 0.6); if (k % 3 === 0) ctx.fillStyle = '#fff2a8'; else ctx.fillStyle = '#ffa850'; ctx.fillRect(Math.round(d.wx + Math.cos(p2 * 3.1) * sz * 0.34), Math.round(y + Math.sin(p2 * 2.3) * sz * 0.24 - t2 * 7), 1, k % 4 === 0 ? 2 : 1); } }
+  ctx.globalAlpha = Math.min(hot ? 0.5 : 0.3, a); ctx.drawImage(glimSpr, Math.round(d.wx - sz / 2), Math.round(y - sz / 2), sz, sz);
   ctx.globalAlpha = Math.min(0.5, a * 2) * (0.5 + 0.5 * Math.sin(gf * 0.05 + ph * 3)); ctx.fillStyle = '#ffc070';
   ctx.fillRect(Math.round(d.wx + Math.cos(ph) * sz * 0.2), Math.round(y + Math.sin(ph) * sz * 0.12), 1, 1); ctx.fillRect(Math.round(d.wx - Math.cos(ph * 2) * sz * 0.18), Math.round(y + Math.sin(ph * 2) * sz * 0.1), 1, 1);
   ctx.globalAlpha = 1;

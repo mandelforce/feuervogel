@@ -147,6 +147,19 @@ const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkS
     return JSON.stringify({ art: ENIG_GUN.on, bunker: !!bk, islets: isl.length, under: !!bk && isl.length > 0 && Math.abs(isl[0].wx - bk.wx) < 1 && Math.abs(isl[0].wy - bk.wy) < 1, errs: R.errs.length }); })()`));
   ok(tr.art && tr.bunker && tr.islets === 1 && tr.under, `the training level's gun stands on a little island, with the Enigma Run's gun art (${JSON.stringify(tr)})`);
 
+  /* a fully charged laser leaves the blasted-open ruin, burning and glimmering; anything else a stock ruin */
+  const killWith = (setupCode, pw, type) => `(() => { ${setupCode}
+    const e = put('${type}', 112, 120, { cd: 1e9 }); e.turDead = true; e.hp = 0.5; player.x = 112; player.y = 260; world.ebul = []; world.decals = [];
+    fireBeam(${pw}); let n = 0; for (let k = 0; k < 40 && !world.decals.some(d => d.kind === 'spr'); k++) { world.ebul = []; tick(); n++; }
+    const d = world.decals.find(q => q.kind === 'spr'); const set = (ENIG_GUN.on ? RUINS_N : RUINS)['${type}'];
+    return JSON.stringify({ got: !!d, hot: !!(d && d.hot), blasted: !!d && ENIG_GUN.on && d.s === set[3], stock: !!d && set.slice(0, 3).includes(d.s), r: d && d.r, smoke: d && d.smokeT, glim: d && glimLen(d) }); })()`;
+  for (const type of ['bunker', 'casemate', 'aatower']) {
+    const full = JSON.parse(await peek(page, killWith(setup, 1, type))), weak = JSON.parse(await peek(page, killWith(setup, 0.3, type))), retro = JSON.parse(await peek(page, killWith(retroSetup, 1, type)));
+    ok(full.got && full.hot && full.blasted && full.smoke >= 600 && full.glim === 1800, `${type}: a full laser kill leaves the blasted-open ruin that burns and glimmers longest (${JSON.stringify(full)})`);
+    ok(weak.got && !weak.hot && weak.stock, `${type}: a weak laser leaves a stock ruin (${JSON.stringify(weak)})`);
+    ok(retro.got && !retro.hot && !retro.blasted, `${type}: in the Retro Run even a full laser leaves its original ruin (${JSON.stringify(retro)})`);
+  }
+
   /* nothing threw, and every type draws */
   const d = JSON.parse(await peek(page, `(() => { ${setup}
     put('aatower', 60, 70, { cd: 1e9 }); put('fortgun', 60, 150, { ga: PI / 2, cd: 1e9 }); put('sam', 150, 150, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 240, { cd: 40 });
