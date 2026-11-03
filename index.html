@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.55'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.57'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9537,7 +9537,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 // gun by itself). ttSeen: true for a critter the timetable ignores.
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
+  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
@@ -10336,8 +10336,8 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
 // carrier and overtakes it low, at a scale where the ship fills the screen's width (SPAN native units across W), shooting the planes parked on
 // the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
 // the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
-const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [3, 4, 5], GAP: 45, LV0: -72, SMOKE: 10,
-  BOARD: 70, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
+const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [6, 7, 8], GAP: 24, LV0: -72, SMOKE: 10,
+  BOARD: 60, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
   LANES: [-28, -4, 20], ROWS: [[-134, 0], [-110, 0], [-86, 0], [-62, 0], [-38, 0], [-14, 0], [26, 0], [50, 1], [72, 1], [94, 1], [140, 1], [160, 0]] }; // the deck park, from the bow aft: ROWS of [v, lanes]: 0 the two outer lanes only (the catapult rails, the elevators and the raven mark take the middle), 1 all three
 CVF.PARKED = CVF.ROWS.flatMap(([v, k]) => (k ? CVF.LANES : [CVF.LANES[0], CVF.LANES[2]]).map(u => [u, v])); // 28 planes, spread along the whole deck
 let carrierFlyNext = false; // set by the Campaign's loop for the level 1 that follows
@@ -10355,12 +10355,14 @@ function carrierFlyTick(C, t) {
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) { C.gone = true; world.scrollTarget = SCROLL; }
   if (!C.gone) { carrierWake(C); if (gf % CVF.SMOKE === 0) for (const [u, v] of C.burnt) { const [x, y] = carrierXY(C, u, v); if (y > -8 && y < H + 8) smokePuff(x + rnd(-2, 2), y); } }
   const by = carrierXY(C, 0, CV.CAT1)[1];
-  const B = C.board; // two soldiers run across the deck to a parked plane and board it; then it rolls (a target while it rolls). A plane shot before they get there drops the launch.
-  if (B && (B.e.dead || C.gone)) { C.board = null; C.launched--; C.nextL = t; }
-  else if (B && t >= B.t0 + CVF.BOARD) { const e = B.e, tu = CV.CATS[C.cat++ % 2]; e.dead = true; C.board = null; world.enemies.push(G('cfighter', 0, 0, { u: e.u, v: e.v, u0: e.u, v0: e.v, tu, vv: 0, up: true })); sfx('whistle'); }
-  else if (!B && !C.gone && t >= C.nextL && by > 20 && by < H * 0.55 && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
-    let pl = null; for (const e of world.enemies) if (e.type === 'cparked' && !e.dead && e.y > 0 && (!pl || e.v < pl.v || (e.v === pl.v && e.u < pl.u))) pl = e; // the foremost plane still on the deck
-    if (pl) { C.board = { e: pl, t0: t }; C.launched++; C.nextL = t + CVF.BOARD + CVF.GAP; }
+  /* two soldiers run across the deck to a parked plane and board it; then it rolls (a target while it rolls). Several crews run at once, a new plane every GAP frames, the foremost plane first (the front rows go first), while there are planes on the screen. A plane shot before they get there drops the launch. */
+  const bd = C.boards || (C.boards = []);
+  for (let i = bd.length - 1; i >= 0; i--) { const B = bd[i];
+    if (B.e.dead || C.gone) { bd.splice(i, 1); C.launched--; }
+    else if (t >= B.t0 + CVF.BOARD) { const e = B.e, tu = CV.CATS[C.cat++ % 2]; e.dead = true; bd.splice(i, 1); world.enemies.push(G('cfighter', 0, 0, { u: e.u, v: e.v, u0: e.u, v0: e.v, tu, vv: 0, up: true })); sfx('whistle'); } }
+  if (!C.gone && t >= C.nextL && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
+    let pl = null; for (const e of world.enemies) if (e.type === 'cparked' && !e.dead && !bd.some(B => B.e === e) && (!pl || e.v < pl.v || (e.v === pl.v && e.u < pl.u))) pl = e; // the foremost plane still on the deck, once it is on the screen
+    if (pl && pl.y > 0 && pl.y < H - 24) { bd.push({ e: pl, t0: t }); C.launched++; C.nextL = t + CVF.GAP; }
   }
   if (C.gone && !world.enemies.some(e => e.type === 'cfighter' && !e.dead)) C.over = true;
 }
@@ -10377,6 +10379,8 @@ function carrierStart() {
   world.scrollV = world.scrollTarget = 0.15; sfx('horn');
   carrierPic(CV.K); // paints the master now (some 30 to 70 ms, once per page), not in the first frame of the take-off
 }
+/* Is the screen point (x, y), with radius r, over the carrier's hull, or within ahead px of its bow (the sea sails into what lies there, the ship being slower than the sea)? Ships, boats and submarines are never placed there. */
+function underCarrier(x, y, r, ahead = 160) { const C = world.carrier; if (!C || C.gone) return false; return Math.abs(x - C.x) < 52 * C.s + r && y > C.y + (CV.BOW - 4) * C.s - ahead - r && y < C.y + 190 * C.s + r; }
 function carrierXY(C, u, v) { return [C.x + u * C.s, C.y + v * C.s]; }
 function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of the planes, guns and crew on the deck
 // One frame of the scene, inside the director (the run's own random stream): the carrier's motion and scale, the scroll while the Feuervogel
@@ -10384,6 +10388,7 @@ function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of th
 function carrierTick() {
   const C = world.carrier; if (C.over) return;
   const t = ++C.t;
+  for (const e of world.enemies) if ((e.type === 'sub' || e.type === 'pt' || e.type === 'destroyer') && !e.dead && underCarrier(e.x, e.y, 10, 0)) e.dead = true; // (a ship or submarine the carrier has sailed over: gone)
   if (C.fly) { carrierFlyTick(C, t); return; }
   if (t >= CV.T0 && t < CV.T1) { const f = (t - CV.T0) / (CV.T1 - CV.T0), y = C.y0 + C.A * f * f; C.vy = y - C.y; C.y = y; }
   else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 12); C.y += C.vy;
@@ -10534,7 +10539,7 @@ function drawCarrier() {
   for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
-  if (C.fly) { const B = C.board; if (B && !B.e.dead) { const f = Math.min(1, (T - B.t0) / (CVF.BOARD - 12)); if (f < 1) for (let k = 0; k < 2; k++) { // the flyover's crew: two soldiers per plane, running in from the deck's edge to its cockpit
+  if (C.fly) { for (const B of C.boards || []) if (!B.e.dead) { const f = Math.min(1, (T - B.t0) / (CVF.BOARD - 12)); if (f < 1) for (let k = 0; k < 2; k++) { // the flyover's crew: two soldiers per plane, running in from the deck's edge to its cockpit
       const cs = Math.max(2, Math.round(2.4 * pk)), [cx, cy] = at(lerp(CVF.RUN[B.e.u <= -4 ? 0 : 1], B.e.u + (k ? 4 : -4), f), lerp(B.e.v + (k ? 9 : -7), B.e.v + 2, f)), st = ((T >> 2) + k) & 1;
       ctx.fillStyle = '#e8c9a0'; ctx.fillRect(cx, cy, cs, cs); ctx.fillStyle = k ? '#f2eee2' : '#4f78c4'; ctx.fillRect(cx - 1, cy + cs, cs + 2, cs); ctx.fillStyle = '#141418'; ctx.fillRect(cx + (st ? -1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); ctx.fillRect(cx + cs - 1 + (st ? 1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); } } return; }
   for (let i = 0; i < 16; i++) { // the deck crew, running about in the panic
