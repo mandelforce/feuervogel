@@ -2980,7 +2980,7 @@ function desertLand(o) {
   const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
   const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], gantries: [], wires: [], barrels: [], beachSlots: [], rivers: [], river: null,
-    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
+    wells: [], caravans: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
@@ -3090,6 +3090,12 @@ function desertLand(o) {
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
+      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: where the game's camels start (plan.caravans, each { x, y }; the game draws and moves them)
+        for (const sy of [gy + ry + 9, gy - ry - 9, gy + ry + 22, gy - ry - 22]) { const got = [];
+          for (let k = 0; k < 6; k++) { const cx = gx - 46 + k * 21 + Math.round((rnd(TD, 60, k + fi) - 0.5) * 3), cy = sy + Math.round((rnd(TD, 61, k + fi) - 0.5) * 3);
+            let ok = true; for (let yy = cy - 5; ok && yy <= cy + 5; yy++) for (let xx = cx - 9; xx <= cx + 9; xx++) if (!inB(xx, yy) || (Kr[idx(xx, yy)] !== K.DESERT && Kr[idx(xx, yy)] !== K.OASIS) || Br[idx(xx, yy)] !== -1 || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) { ok = false; break; }
+            if (ok) got.push({ x: cx, y: cy, s: k + fi * 7 }); }
+          if (got.length >= 3) { plan.caravans.push(...got); break; } } }
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
@@ -3272,7 +3278,7 @@ function sandSea(o) {
   const WAR = new Set(['harbour_commercial', 'beach_town', 'village', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
   let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
     if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
-    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small' }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', caravan: true }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
   const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { wear: P0.wear, L: Ld, road0: A.mx[Lp - 1], rail: { x: 74, x0: 18, x1: 18 }, features: feats } });
   // join: rasters row on row, lists with B's positions moved up by Lp and its ids renumbered
   const N = W * L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
@@ -3286,7 +3292,7 @@ function sandSea(o) {
   plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
-  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
+  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
     plan[key] = (A[key] || []).concat((B[key] || []).map(up));
   if ((P0.wear || 0) > 0) plan.worn = cat(Uint8Array, A.worn || new Uint8Array(W * Lp), B.worn || new Uint8Array(W * Ld));
   plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
@@ -4013,7 +4019,7 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
-const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
+const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, A, { preset, L, seed: A.seed });
@@ -4266,7 +4272,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.59'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.61'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6139,6 +6145,12 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   const hp = (b2, B, sh, m, l) => ({ b: b2, B, s: sh, m, l, h: '#141012', k: '#141012', t: m });
   SPR.horseV = [hp('#7a4020', '#9a5a30', '#5a2c12', '#1a1010', '#5a2c12'), hp('#c4c4c8', '#e8e8ec', '#9a9aa0', '#5a5a62', '#8a8a92'), hp('#24222a', '#3e3a46', '#141216', '#0a0a0c', '#24222a')].map(pal => HR.map(r => rowSprite(r, pal)));
   const sP = { w: '#f2efe6', W: '#ffffff', s: '#cfc9bc', k: '#1e1a18', l: '#2a2420' };
+  { const CR = [
+      ['.....bB.....mm.', '....bBBb...mbbk', '...bbrrbb..bbb.', 'tbbbbbbbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..'],
+      ['.....bB.....mm.', '....bBBb...mbbk', '...bbrrbb..bbb.', 'tbbbbbbbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '...ll.....ll...', '...ll.....ll...', '..h..h...h..h..'],
+      ['.....bB........', '....bBBb.......', '...bbrrbb......', 'tbbbbbbbbbbm...', 'tbbbbbbbbbsbb..', '.sbbbbbbbs.bbk.', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..']];
+    const cp = (r2) => ({ b: '#8a6236', B: '#a67c48', s: '#5e3c20', m: '#3a2414', t: '#3a2414', k: '#141012', h: '#141012', l: '#5e3c20', r: r2 });
+    SPR.camelV = [cp('#a67c48'), cp('#9a3a28')].map(pal => CR.map(r => rowSprite(r, pal, '#1e1208'))); } // (a camel: the plain one, and one in a red saddle blanket; two walk frames and grazing)
   SPR.sheepV = [['.wWw.', 'wwWwk', 'swwsk', '.l.l.'], ['.wWw.', 'wwWwk', 'swwsk', 'l..l.'], ['.wWw.', 'wwWw.', 'swwwk', '.l.lk']].map(r => rowSprite(r, sP));
 }
 {
@@ -9663,7 +9675,7 @@ function blastTroops(x, y, r) {
 }
 function critterHouse(x, y, r) { for (let dp = -1; dp <= 1; dp++) for (const [hx, hy, hw2 = 18, hh2 = 14] of (chunkHouses.get(-Math.floor(y / CH) + dp) || [])) if (Math.abs(x - hx) < r + hw2 / 2 && Math.abs(y - hy) < r + hh2 / 2) return true; return false; }
 // the animals (not people, boats or birds); they keep off water: sea, surf and river (a bridge or ice is dry ground for them)
-const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer']);
+const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer', 'camel']);
 function animalWet(x, y) { const t = terrainType(Math.floor(x), Math.floor(y)); return t === 'sea' || t === 'surf' || t === 'river'; }
 // Enigma Run: a Drilling or a Buechse within reach of a spot (its hull, its turret turned any way, a Buechse's sandbags), so no animal stands on it
 const GUN_REACH = { drill: 26, buechse: BUECHSE_L + 6 };
@@ -9799,7 +9811,7 @@ function directorInner() {
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  [sowerTick, planBerths, planIceBreaks, planGuns, planDrills, planNests, planCows, planViaducts, planStations, planPosts, ttSub].forEach((fn, k) => { ttSeed(5 + k); fn(sc); }); // (each from its own stream in the Campaign)
+  [sowerTick, planBerths, planIceBreaks, planGuns, planDrills, planNests, planCows, planViaducts, planStations, planPosts, ttSub, planCamels].forEach((fn, k) => { ttSeed(5 + k); fn(sc); }); // (each from its own stream in the Campaign)
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -10371,6 +10383,14 @@ function planCows(sc) {
   const done = S.cowsDone || (S.cowsDone = new Set());
   for (let i = 0; i < P.pastures.length; i++) { const q = P.pastures[i], top = S.planY0 - q.y1, bot = S.planY0 - q.y0; if (done.has(i) || bot + sc < -60 || top + sc > -10) continue; done.add(i);
     for (let k = 0; k < q.n; k++) critters.push({ var: Math.random() < 0.7 ? 0 : 1, f: null, box: [q.x0 + 3, q.x1 - 5, top + 3, bot - 2], wx: rnd(q.x0 + 4, q.x1 - 6), wy: rnd(top + 4, bot - 3), vx: 0, vy: 0, t: (Math.random() * 200) | 0, fl: Math.random() < 0.5 }); }
+}
+// Level 2: the camels of the small oasis' caravan (the plan's caravans: where each starts), each once as it comes up above the screen. They
+// wander round their spot like the sheep and horses, bolt when shot at, and keep off the water.
+function planCamels(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.caravans || !P.caravans.length) return;
+  const wy = -34 - sc, done = S.camelsDone || (S.camelsDone = new Set());
+  for (let i = 0; i < P.caravans.length; i++) { const cm = P.caravans[i], y = S.planY0 - cm.y; if (done.has(i) || y < wy - 60 || y > wy + 12) continue; done.add(i);
+    critters.push({ kind: 'camel', var: cm.s % 2, free: false, wx: cm.x, wy: y, home: [cm.x, y], t: (Math.random() * 80) | 0, vx: 0, vy: 0, fl: Math.random() < 0.5 }); }
 }
 /* Enigma Run level 1: the carrier start (spec 5 and 10). The player steals the Feuervogel from the enemy carrier: it stands on the deck amid
    the panic, rolls down the deck and lifts off over the bow, and CV.LAUNCHES fighters (one on Rookie, two on Veteran and Ace) launch from the catapults after it, within CV.PURSUIT frames. The carrier
@@ -14526,14 +14546,14 @@ function update() {
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
       const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1)
-    } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
+    } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer' || k === 'camel') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
       let bx = 0, by = 0; for (const o of world.enemies) { const w = o.drill || o.buechse ? 44 : 24; if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < w && Math.abs(o.wy - c.wy) < w) { bx += c.wx - o.wx; by += c.wy - o.wy; } } // (a big gun: from further off)
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }
       const d = Math.hypot(bx, by) || 1; if (!animalWet(c.wx + bx / d * 2, c.wy + by / d * 2)) { c.wx += bx / d * 2; c.wy += by / d * 2; } c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40; // (never into the water)
-    } else if (k === 'sheep' || k === 'horse' || k === 'civ') {
+    } else if (k === 'sheep' || k === 'horse' || k === 'camel' || k === 'civ') {
       if (k === 'civ' && c.hidden > 0) { c.hidden--; continue; }
       if (k === 'civ' && c.scared > 0) { const dx = c.home[0] - c.wx, dy = c.home[1] - c.wy, d = Math.hypot(dx, dy); if (d < 3) { c.hidden = 420; c.scared = 0; c.wx = c.home[0]; c.wy = c.home[1] + 6; continue; } c.wx += dx / d * 0.6; c.wy += dy / d * 0.6; c.fl = dx < 0; continue; }
-      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
+      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : k === 'camel' ? 0.5 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy, tt = terrainType(Math.floor(nx), Math.floor(ny));
       const roam = c.free ? 46 : 18;
       if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'sea' && tt !== 'surf' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
@@ -14682,11 +14702,12 @@ function drawCritters() {
     const y = c.wy + sc + (c.drownT ? c.drownT * 0.05 : 0), k = c.kind || 'cow';
     ctx.globalAlpha = c.drownT !== undefined ? Math.max(0, 1 - c.drownT / 60) : 1; // (a drowning animal sinks and fades)
     if (y < -12 || y > H + 12 || c.hidden > 0) continue;
-    if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
+    if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'camel' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
     const moving = Math.abs(c.vx || 0) + Math.abs(c.vy || 0) > 0.01, fr = moving ? (c.t >> 3) & 1 : 0, fg = moving ? fr : ((c.t + (c.wx | 0) * 7) >> 6) % 3 === 0 ? 0 : 2;
     if (k === 'cow') flipDraw(SPR.cowV[c.var || 0][fg].c, c.wx, y, c.fl);
     else if (k === 'sheep') flipDraw(SPR.sheepV[fg].c, c.wx, y, c.fl);
     else if (k === 'horse') flipDraw(SPR.horseV[c.var || 0][fg].c, c.wx, y, c.fl);
+    else if (k === 'camel') flipDraw(SPR.camelV[c.var || 0][fg].c, c.wx, y, c.fl);
     else if (k === 'deer') flipDraw(SPR.deerV[c.var || 0][c.run ? (c.t >> 2) & 1 : fg].c, c.wx, y - 2, c.fl);
     else if (k === 'civ') flipDraw(SPR.civ[c.v || 0].c, c.wx, y, c.fl);
     else if (k === 'duck') { if (c.fly) { ctx.drawImage(BIRD_IMG[1][(c.t >> 2) & 1], Math.round(c.wx) - 2, Math.round(y) - 1); } else ctx.drawImage(SPR.duck.c, Math.round(c.wx) - 2, Math.round(y) - 1); }
@@ -14742,7 +14763,7 @@ function drawCanopy() {
   const sc = Math.floor(world.scroll), seen = new Set(), out = [];
   const add = (wx, wy) => chunkTreesNear(wx, wy, 10, out, seen);
   for (const e of world.enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
-  for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
+  for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'camel' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
   out.sort((a, b) => a.y - b.y);
   for (const t of out) spr(t.gs, t.x, t.y + sc);
 }

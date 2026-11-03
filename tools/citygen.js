@@ -2509,7 +2509,7 @@ function desertLand(o) {
   const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
   const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], gantries: [], wires: [], barrels: [], beachSlots: [], rivers: [], river: null,
-    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
+    wells: [], caravans: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
@@ -2619,6 +2619,12 @@ function desertLand(o) {
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
+      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: where the game's camels start (plan.caravans, each { x, y }; the game draws and moves them)
+        for (const sy of [gy + ry + 9, gy - ry - 9, gy + ry + 22, gy - ry - 22]) { const got = [];
+          for (let k = 0; k < 6; k++) { const cx = gx - 46 + k * 21 + Math.round((rnd(TD, 60, k + fi) - 0.5) * 3), cy = sy + Math.round((rnd(TD, 61, k + fi) - 0.5) * 3);
+            let ok = true; for (let yy = cy - 5; ok && yy <= cy + 5; yy++) for (let xx = cx - 9; xx <= cx + 9; xx++) if (!inB(xx, yy) || (Kr[idx(xx, yy)] !== K.DESERT && Kr[idx(xx, yy)] !== K.OASIS) || Br[idx(xx, yy)] !== -1 || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) { ok = false; break; }
+            if (ok) got.push({ x: cx, y: cy, s: k + fi * 7 }); }
+          if (got.length >= 3) { plan.caravans.push(...got); break; } } }
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
@@ -2801,7 +2807,7 @@ function sandSea(o) {
   const WAR = new Set(['harbour_commercial', 'beach_town', 'village', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
   let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
     if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
-    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small' }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', caravan: true }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
   const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { wear: P0.wear, L: Ld, road0: A.mx[Lp - 1], rail: { x: 74, x0: 18, x1: 18 }, features: feats } });
   // join: rasters row on row, lists with B's positions moved up by Lp and its ids renumbered
   const N = W * L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
@@ -2815,7 +2821,7 @@ function sandSea(o) {
   plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
-  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
+  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
     plan[key] = (A[key] || []).concat((B[key] || []).map(up));
   if ((P0.wear || 0) > 0) plan.worn = cat(Uint8Array, A.worn || new Uint8Array(W * Lp), B.worn || new Uint8Array(W * Ld));
   plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
@@ -3542,7 +3548,7 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
-const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
+const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, A, { preset, L, seed: A.seed });
