@@ -41,7 +41,7 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 const mkSetup = start => `SF.setMode('immortal'); ${start} for (let i = 0; i < 150; i++) { player.inv = 99; world.enemies = []; world.ebul = []; update(); }
   world.enemies = []; world.ebul = []; world.later = []; player.x = 20; player.inv = 99;
   const mine = new Set(); const put = (type, x, y, o = {}) => { const e = G(type, x, Math.round(y - Math.floor(world.scroll)), Object.assign({ noGuard: true }, o)); world.enemies.push(e); e.sy = y; mine.add(e); return e; };
-  const tick = () => { player.inv = 99; world.shots = []; for (const e of mine) if (e.sy !== undefined) e.wy = Math.round(e.sy - Math.floor(world.scroll)); update(); world.enemies = world.enemies.filter(e => mine.has(e) || e.type === 'missile'); };`;
+  const tick = () => { player.inv = 99; world.shots = []; for (const e of mine) if (e.sy !== undefined) e.wy = Math.round(e.sy - Math.floor(world.scroll)); update(); world.enemies = world.enemies.filter(e => mine.has(e) || e.type === 'missile' || e.type === 'smoke'); };`;
 const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkSetup('SF.start(1, 3);'); /* the new guns are the Enigma Run's; the Retro Run is the old campaign */
 
 {
@@ -146,6 +146,31 @@ const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkS
     const bk = world.enemies.find(e => e.type === 'bunker'), isl = world.decals.filter(d => d.s === SPR.islet);
     return JSON.stringify({ art: ENIG_GUN.on, bunker: !!bk, islets: isl.length, under: !!bk && isl.length > 0 && Math.abs(isl[0].wx - bk.wx) < 1 && Math.abs(isl[0].wy - bk.wy) < 1, errs: R.errs.length }); })()`));
   ok(tr.art && tr.bunker && tr.islets === 1 && tr.under, `the training level's gun stands on a little island, with the Enigma Run's gun art (${JSON.stringify(tr)})`);
+
+  /* the Nebelwerfer: looped Enigma runs only */
+  const nb = JSON.parse(await peek(page, `(() => { ${setup}
+    const cnt = lp => { run.loop = lp; run.stage = 3; world.ARC_U = 0.6; let n = 0; for (let x = 20; x < 200; x++) for (let y = -300; y < 0; y += 9) if (pickTurretVariant(x, y) === 'nebel') n++; return n; };
+    const r = { l0: cnt(0), l1: cnt(1) }; const so = run.sortie; run.sortie = null; r.retro = cnt(1); run.sortie = so; run.loop = 0; return JSON.stringify(r); })()`));
+  ok(nb.l0 === 0 && nb.l1 > 0 && nb.retro === 0, `the smoke battery is picked in looped Enigma runs only (first pass ${nb.l0}, looped ${nb.l1}, looped Retro Run ${nb.retro})`);
+
+  /* its smoke: it fires only when there is a gun to cover; a marked ring shields nothing; a dense cloud shields every gun in it from everything but a full laser; the thinning cloud no longer does */
+  const sm = JSON.parse(await peek(page, `(() => { ${setup}
+    world.scrollV = 0; world.scrollTarget = 0; run.loop = 1; const nbl = put('nebel', 180, 230, { cd: 5 }); const clouds = () => world.enemies.filter(o => o.type === 'smoke');
+    for (let k = 0; k < 120; k++) tick(); const idle = clouds().length;
+    const g1 = put('bunker', 90, 150, { ga: PI / 2, cd: 1e9 }), g1b = put('bunker', 100, 156, { ga: PI / 2, cd: 1e9 }), far = put('bunker', 90, 60, { ga: PI / 2, cd: 1e9 }), g1c = put('bunker', 82, 146, { ga: PI / 2, cd: 1e9 });
+    let marked = 0, markedHit = false, dense = null, k0 = 0;
+    for (let k = 0; k < 400 && !dense; k++) { tick(); const c = clouds()[0]; if (c && c.ph === 0) { if (!marked) { marked = 1; damage(g1c, 0.1); markedHit = g1c.turHp !== undefined; } } if (c && c.ph === 1) dense = c; k0 = k; }
+    const out = { idle, made: clouds().length, markT: k0, markedHit };
+    if (dense) { for (let k = 0; k < 10; k++) tick(); const pr0 = g1.turHp; damage(g1, 5); out.shielded = g1.turHp === pr0 && !g1.turDead && g1.hit === 0; damage(far, 0.1); out.farHurt = far.turHp !== undefined;
+      fullBeamHit = true; damage(g1b, 99); fullBeamHit = false; out.laser = !!g1b.turDead; SF.draw();
+      let ph2 = null; for (let k = 0; k < 400 && !ph2; k++) { tick(); const c = clouds()[0]; if (c && c.ph === 2) ph2 = c; } out.thin = !!ph2; if (ph2) { damage(g1, 99); out.thinHurt = !!g1.turDead; SF.draw(); }
+      for (let k = 0; k < 200 && clouds().length; k++) tick(); out.gone = clouds().length === 0; }
+    out.errs = R.errs.length; return JSON.stringify(out); })()`));
+  ok(sm.idle === 0, 'with no gun to cover the Nebelwerfer lays no smoke');
+  ok(sm.made === 1 && sm.markT > 0, `with guns near it it marks one cloud over them (${sm.made} cloud, in frame ${sm.markT})`);
+  ok(sm.markedHit, 'a gun inside the warning ring is not shielded yet');
+  ok(sm.shielded && sm.farHurt && sm.laser, `a dense cloud shields a gun (shots do nothing), not one outside it, and a full laser still hurts it (${JSON.stringify(sm)})`);
+  ok(sm.thin && sm.thinHurt && sm.gone, 'the thinning cloud no longer shields, and the cloud ends');
 
   /* a fully charged laser leaves the blasted-open ruin, burning and glimmering; anything else a stock ruin */
   const killWith = (setupCode, pw, type) => `(() => { ${setupCode}
