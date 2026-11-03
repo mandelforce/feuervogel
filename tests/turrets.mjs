@@ -54,7 +54,7 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
     return JSON.stringify({ shots, kinds: Object.keys(kinds), maxRc, guns: [...guns].filter(g => g !== undefined).sort(), gas: e.gas.length }); })()`));
   ok(f.shots >= 6 && f.guns.length === 4 && f.gas === 4, `the 4-gun fort fires from all four guns (${f.shots} volleys, guns ${f.guns})`);
   ok(f.maxRc >= 6, `its guns recoil when they fire (recoil ${f.maxRc})`);
-  ok(f.kinds.includes('shell'), `it mixes flak shells with its direct fire (${f.kinds})`);
+  ok(f.kinds.length === 1 && f.kinds[0] === 'shell', `it shoots flak shells only (${f.kinds})`);
 
   /* the Panzerturm */
   const g = JSON.parse(await peek(page, `(() => { ${setup}

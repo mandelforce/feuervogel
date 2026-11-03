@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- AA fort fires flak shells only (build 1.2.5.48). All four guns shoot one flak shell each in turn; the pairs of direct shots from two of the guns are gone.
 - Fewer new gun types (build 1.2.5.47). The separate twin AA gun is gone (the 2- and 4-barrel flak have its look and keep their own shooting), and the Panzerturm fires only its two big shells: the fan of five on every third volley is removed.
 - Flak with 2 and 4 barrels look like the twin AA gun (build 1.2.5.46): its sandbag pit and twin barrels. They shoot as before (2 shells at once; 4 barrels add 2 more 9 frames later); only the 1-barrel flak keeps the old look, and the separate 2-barrel and 4-barrel gun sprites are gone.
 - Bunker, casemate and missile site redrawn (build 1.2.5.45). The bunker has a recessed gun ring, rivets, corner sandbag mounds, a vent grate and camouflage, with an armoured faceted cupola, fume extractor and muzzle brake on its gun (the casemate uses the same gun). The casemate is a stepped concrete front with sandbags along the roof, observation slits, buttresses and an armoured gun port. The missile site has a hazard-striped pad with a turntable, a generator and a radar dome, and its launcher shows four white, red-nosed missiles in a frame; it is a little larger (12 px half-size).
