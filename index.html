@@ -142,7 +142,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a7eb0}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-#diffAsk .dsel.eni{grid-template-columns:repeat(6,1fr)}
+#diffAsk .dsel.eni{grid-template-columns:repeat(6,1fr)}#diffAsk .dsel.two{grid-template-columns:repeat(2,1fr)}#diffAsk .dsel.two button{padding:8px 0 6px;font-size:14px}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#211a3c;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4a3e70);box-shadow:inset 2px 2px 0 #3a2e60;color:#a99cc8;text-shadow:1px 1px 0 #120e1a}
 #diffAsk .dsel button[aria-pressed="true"]{background:#3a2a70;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
 @keyframes dframe{50%{outline-color:#d0a020}}
@@ -382,6 +382,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dmenu">
           <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
+          <div class="dstage" id="dSeed" hidden><span class="dlbl" id="dSeedLbl">Seed</span><div class="dsel two" role="group" aria-labelledby="dSeedLbl"><button type="button" data-l="0">1 &middot; 1944</button><button type="button" data-l="1">2 &middot; 1945</button></div></div>
           <button type="button" data-d="0"><b>Rookie</b><span>Fewer, slower bullets</span></button>
           <button type="button" data-d="1"><b>Veteran</b><span>For seasoned pilots</span></button>
           <button type="button" data-d="2"><b>Ace</b><span>Tough as nails</span></button>
@@ -4232,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.41'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.42'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8119,14 +8120,14 @@ function createRun(diff, seed) {
   return { seed, loops: 0, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
     gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
-function newGame() {
+function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944; 1: seed 1945 ...)
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
   Object.assign(run, createRun(settings.diff, seed)); simS = run.seed | 0;
   run.enigma = settings.enigma; setLook(run.enigma); // the look is fixed for the run: moving the slider later applies from the next one
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
   world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.roll = null; app.medalPop = 0; app.glows = null;
-  world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : 1944;
+  world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : CAMP_SEED + (lp | 0);
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
@@ -8362,12 +8363,12 @@ function resetTerrainState() {
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
-function startEnigma(level, ranked) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
-  app.enigmaLast = level; startAt(level, false, level); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
+function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
+  app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
 }
 function restartStage() { // pause menu: restart the stage in the mode being played (startAt alone would drop the Enigma sortie and fly the Retro Run)
   const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;
-  if (lv) startEnigma(lv, ranked); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
+  if (lv) startEnigma(lv, ranked, run.loops || 0); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
 }
 function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
@@ -8378,15 +8379,14 @@ function endEnigmaLevel() {
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = run.loops || 0;
-    startEnigma(nx, run.ranked); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2); // both ships keep weapon, level and Talons
-    if (lp) { run.loops = lp; run.stage += 6 * lp; run.loop = rankFor(run.stage); } // a repeat of the Campaign: stage 7 to 12 and so on, harder as before
+    startEnigma(nx, run.ranked, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2); // both ships keep weapon, level and Talons
     return;
   }
   if (run.sortie) { // level 6 is done (the Campaign, or practice from any level; one or two players): back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
-    run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
+    app.congrats = null; carrierFlyNext = true; startEnigma(1, true, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
+    run.camp = newCamp(); run.camp.credits0 = app.credits; return; // (startEnigma made the loop: its seed, stage 7 and so on, harder)
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
   stopMusic(); toTitle();
@@ -8512,20 +8512,21 @@ function tutTap(gx, gy) {
 // Endless, generated mode and Retro Run keep a new random seed every run. Test builds may force a seed (window.__forceSeed).
 const CAMP_SEED = 1944;
 // gf, the frame count, starts at 0 too: the play reads it (cadences such as gf % 4), so a level must not depend on how long the page has run.
-function campSeed(level) {
-  const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED;
+function campSeed(level, lp) { // lp: the loop; each loop is its own seed (1944, 1945, ...), so the ground, the secret and the placements differ
+  const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED + (lp | 0);
   simS = forced ? run.seed | 0 : (Math.imul(run.seed, 31) + level * 977) | 0; onStream(true, newSecret)(); // (a test's forced seed is the stream's seed, as in newGame)
   gf = 0; zapLast = -99; for (const k in sfxLast) delete sfxLast[k]; // (the sound throttles hold frame counts)
   world.ttGhosts = []; world.rsF = null; // (the timetable's ghosts: a new level starts with none; rsF: the count behind rsSeed's seeds for what nothing else made)
 }
-function startAt(n, keepEndless, sortieLevel) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
+function startAt(n, keepEndless, sortieLevel, loops) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
   if (!keepEndless) run.endless = false;
-  newGame(); run.start = run.endless ? 1 : n; run.diff = settings.diff;
-  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, 1944); campSeed(sortieLevel); }
+  const lp = sortieLevel ? Math.max(0, loops | 0) : 0; // (only the Campaign's levels loop)
+  newGame(lp); run.start = run.endless ? 1 : n; run.diff = settings.diff; run.loops = lp;
+  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, CAMP_SEED + lp); campSeed(sortieLevel, lp); }
   setEnigmaArt(!!run.sortie);
-  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } markStage(); return; } // level 1 opens on the carrier's deck
-  run.stage = n; run.loop = rankFor(n); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
+  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } if (lp) { run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); } markStage(); return; } // level 1 opens on the carrier's deck
+  run.stage = n + 6 * lp; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
@@ -8545,15 +8546,19 @@ const ENDLESS_BTN = { w: 96, h: 16 };
 function setDiffView(prac) {
   app.diffNext.prac = prac;
   const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign, 'retro': the old campaign
-  document.getElementById('dStage').hidden = !prac;
+  document.getElementById('dStage').hidden = !prac; document.getElementById('dSeed').hidden = !prac;
   document.getElementById('dExtra').hidden = !camp || prac;
   document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : 'Endless';
   document.getElementById('dStageLbl').textContent = 'Level';
   if (prac) {
     document.querySelector('#dStage .dsel').classList.add('eni');
     document.querySelectorAll('#dStage [data-s]').forEach(b => { const i = +b.dataset.s - 1, th = enigmaTheme(i + 1); b.style.setProperty('--acc', STAGE_ACC[th]); b.classList.remove('art'); b.setAttribute('aria-label', 'Level ' + (i + 1)); });
-    setDiffStage(app.diffNext.n >= 1 && app.diffNext.n <= ENIGMA_N ? app.diffNext.n : 1);
-  } else app.diffNext.n = 1;
+    setDiffSeed(app.diffNext.loops | 0); setDiffStage(app.diffNext.n >= 1 && app.diffNext.n <= ENIGMA_N ? app.diffNext.n : 1);
+  } else { app.diffNext.n = 1; app.diffNext.loops = 0; }
+}
+function setDiffSeed(lp) { // Practice: seed 1 (loop 0, the Campaign's 1944) or seed 2 (loop 1, 1945: new ground, harder as in a real loop)
+  app.diffNext.loops = lp;
+  for (const b of document.querySelectorAll('#dSeed [data-l]')) b.setAttribute('aria-pressed', String(+b.dataset.l === lp));
 }
 function setDiffStage(n) {
   app.diffNext.n = n;
@@ -9225,8 +9230,9 @@ function resumeRun(r) {
   clearResume(); closeAllPanels();
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
-  newGame(); run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
-  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = buildSortie(r.sortie.level, r.sortie.seed); campSeed(r.sortie.level); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
+  const lp = r.sortie && r.sortie.seed >= CAMP_SEED && r.sortie.seed < CAMP_SEED + 100 ? r.sortie.seed - CAMP_SEED : 0; // (the loop is in the level's seed)
+  newGame(lp); run.loops = lp; run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
+  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = buildSortie(r.sortie.level, r.sortie.seed); campSeed(r.sortie.level, lp); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
   setEnigmaArt(!!run.sortie); run.ranked = !!r.ranked; run.retro = !!r.retro;
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
@@ -15908,8 +15914,9 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false); else startEnigma(1, true); // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else startEnigma(1, true); // START: the Campaign from level 1; Practice: one level, not ranked
 });
+for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
 document.getElementById('dTut').addEventListener('click', () => { closeDiff(); audio(); startTutorial(); });
 document.getElementById('dBack').addEventListener('click', () => { if (app.diffNext && app.diffNext.prac) { setDiffView(false); document.getElementById('dPrac').focus(); } else closeDiff(); });
