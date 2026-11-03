@@ -4232,7 +4232,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.29'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.41'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4281,7 +4281,9 @@ const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: fal
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
-const sensOf = k => { const v = +settings[k]; return (v >= 25 && v <= 175 ? v : 100) / 100; }; // Settings > Sensitivity: 100% is the original speed
+const SENS_BASE = { sensMouse: 1, sensKey: 1.2, sensPad: 1.2 }; // what 100% on the slider means for the ship: the keyboard and the controller were too slow at the original speed, 120 % of it is the new 100 %
+const sensPct = k => { const v = +settings[k]; return v >= 25 && v <= 175 ? v : 100; }; // the slider's value
+const sensOf = k => sensPct(k) / 100 * (SENS_BASE[k] || 1); // Settings > Sensitivity
 function saveSettings() { store.setJSON(KEY.settings, settings); }
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
 const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
@@ -8114,7 +8116,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // A fresh run's starting values on a difficulty, from a seed. newGame() puts them in run. run.endless (chosen before the run starts)
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
-  return { seed, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
+  return { seed, loops: 0, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
     gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame() {
@@ -8380,10 +8382,10 @@ function endEnigmaLevel() {
     if (lp) { run.loops = lp; run.stage += 6 * lp; run.loop = rankFor(run.stage); } // a repeat of the Campaign: stage 7 to 12 and so on, harder as before
     return;
   }
-  if (run.ranked && run.start === 1 && !run.twoP) { // the Campaign's last level is done: back to level 1 with score, lives and weapon, one loop harder
+  if (run.sortie) { // level 6 is done (the Campaign, or practice from any level; one or two players): back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
-    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw);
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
+    app.congrats = null; carrierFlyNext = true; startEnigma(1, true); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
     run.camp = newCamp(); run.camp.credits0 = app.credits; run.loops = lp; run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); return;
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
@@ -8395,7 +8397,7 @@ const tutTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer:
 const tutPad = () => gf - app.padSeen < 1800;
 function startTutorial() {
   closeAllPanels();
-  startAt(1); run.enigma = 0; setLook(0); app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
+  startAt(1); run.enigma = 0; setLook(0); setEnigmaArt(true); /* the training shows the Enigma Run sprites too (looks only) */ app.tut = { step: 0, t: 0, moved: 0, mx: 0, my: 0, lx: null, ly: null, ids: [], got: 0, bombs0: 0, done: false };
   run.start = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
@@ -8577,7 +8579,7 @@ function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORE
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
-function lbEligible() { return run.score > 0 && run.ranked && run.start === 1 && !run.twoP; } // only the Campaign (START) is ranked; Retro Run, practice and 2-player runs stay off the board
+function lbEligible() { return run.score > 0 && run.ranked && run.start === 1; } // only the Campaign (START) is ranked, alone or with two players (the board takes the combined score); Retro Run and practice stay off
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
    (a small orb inside the wreck) lifts free and grows as it rises toward the viewer. Nothing here touches score, lives or the leaderboard. */
 const FLYBY_FORM = [[0, 0, 0], [-18, 15, 0], [18, 15, 0], [0, 30, 1]], FLYBY_IN = 60, FLYBY_SPD = 1.3, ORB_RISE = 100, ORB_BREAK = 26, SINK_T = 170; // ORB_BREAK: frames after release when the orb comes out of the water
@@ -10684,19 +10686,20 @@ function skyLaser(e, ea) {
   }
   // beam clash: the player's charged laser fired into the fire laser from under the orb locks the two beams together;
   // the player's beam pushes the meeting point up into the orb, which overloads (8% of the core) and the fortress staggers
-  const under = !player.dead && F.who === player && Math.abs(player.x - cx) < 30 && player.y > cy + 50;
-  if (!F.clash && beam && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + player.y - 26) / 2 }; sfx('clash'); }
+  const sh = F.who === p2 && p2 ? p2 : player, sb = sh === p2 ? p2.beam : beam; // the ship the shot is aimed at, and its laser (player 2 can duel the beam exactly like player 1)
+  const under = !sh.dead && F.who === sh && Math.abs(sh.x - cx) < 30 && sh.y > cy + 50;
+  if (!F.clash && sb && under && F.t < FL_FIRE - 12) { F.clash = { t: 0, y0: (cy + sh.y - 26) / 2 }; sfx('clash'); }
   if (F.clash) {
     const C = F.clash;
-    if (!beam || !under) F.clash = null; // the clash breaks and the fire laser carries on
+    if (!sb || !under) F.clash = null; // the clash breaks and the fire laser carries on
     else {
       C.t++; F.t--;
       const f = Math.min(1, C.t / 60); C.y = C.y0 + (cy + 14 - C.y0) * f * f;
-      beam.clashY = C.y; beam.clashK = 2; player.inv = Math.max(player.inv, 45);
-      F.a = Math.atan2(C.y - cy, player.x - cx); feel.shake = Math.max(feel.shake, 3);
-      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; world.parts.push({ kind: 'spark', layer: 'a', x: player.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
+      sb.clashY = C.y; sb.clashK = 2; sh.inv = Math.max(sh.inv, 45);
+      F.a = Math.atan2(C.y - cy, sh.x - cx); feel.shake = Math.max(feel.shake, 3);
+      for (let k = 0; k < 2; k++) { const sd = Math.random() < 0.5 ? -1 : 1; world.parts.push({ kind: 'spark', layer: 'a', x: sh.x, y: C.y, vx: sd * rnd(1, 2.6), vy: rnd(-1, 1), life: 14, max: 14, col: ['#ffffff', '#bba4ff', '#ffd060', '#a8f6dc'][(Math.random() * 4) | 0] }); }
       if (C.t >= 60) {
-        damagePart(e, core, core.maxhp * 0.08); e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
+        scorer = sh === p2 ? 2 : 1; damagePart(e, core, core.maxhp * 0.08); scorer = 1; e.fl = null; e.flT = 0; e.stun = 120; e.tilt = (e.tilt || 0) + 0.07;
         flash(cx, cy, 14); boom(cx, cy, 24, 'a'); feel.flashFx = Math.max(feel.flashFx, 6); feel.shake = 12; feel.hitStop = Math.max(feel.hitStop, 6); sfx('bigboom'); sfx('nova');
         world.parts.push({ kind: 'ring', layer: 'a', x: cx, y: cy, vx: 0, vy: 0, life: 24, max: 24, r: 70 });
         for (let k = 0; k < 28; k++) { const a = k * TAU / 28; world.parts.push({ kind: 'spark', layer: 'a', x: cx, y: cy, vx: Math.cos(a) * rnd(1.2, 2.6), vy: Math.sin(a) * rnd(1, 2.2), life: 22, max: 22, col: k & 1 ? '#e8dcff' : '#ffd060' }); }
@@ -10729,7 +10732,7 @@ function drawSkyLaser(e) {
     if (F.t >= 60 && F.a !== undefined) { ctx.save(); ctx.globalAlpha = (gf & 2) ? 0.7 : 0.35; ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(F.a) * 700, cy + Math.sin(F.a) * 700); ctx.stroke(); ctx.restore(); }
     return;
   }
-  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot(player.x - cx, C.y - cy) - 6 : 700;
+  const C = F.clash, env = C ? 1 : Math.min(1, F.t / 24, (FL_FIRE - F.t) / 8), w = 22 * env, L = C ? Math.hypot((F.who === p2 && p2 ? p2 : player).x - cx, C.y - cy) - 6 : 700;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(F.a - PI / 2);
   // like the player's super laser: a triangle flaring out of the muzzle (y 6..FLARE), then the straight column
   const FLARE = 34, tri = (ww, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(1, 6); ctx.lineTo(ww / 2, FLARE); ctx.lineTo(-ww / 2, FLARE); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
@@ -10751,7 +10754,7 @@ function drawSkyLaser(e) {
   ctx.restore(); ctx.globalAlpha = 1;
   if (C) {
     // the meeting point: a ball of light ringed in purple, throwing crackling arcs to the sides
-    const mx = player.x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
+    const mx = (F.who === p2 && p2 ? p2 : player).x, my = C.y, R = 13 + (gf % 3) + 4 * C.t / 60;
     ctx.globalAlpha = 0.3; dk(mx, my, R + 14, '#8466dc'); ctx.globalAlpha = 0.55; dk(mx, my, R + 7, '#bba4ff'); ctx.globalAlpha = 1;
     dk(mx, my, R, '#ffd060'); dk(mx, my, R * 0.75, '#fff2b0'); dk(mx, my, R * 0.45, '#ffffff');
     ctx.strokeStyle = '#e8dcff'; ctx.lineWidth = 1;
@@ -13666,7 +13669,40 @@ function targetPos(e) {
 }
 
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } return null; }
+function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } const tb = document.getElementById('tutBtns'); return tb && tb.classList.contains('on') && app.tut ? tb : null; } // (the tutorial's own difficulty buttons count as a dialog)
+// Menus by keyboard and controller: the highlight (the focus) starts on the saved difficulty / Resume, the arrows and the D-pad move it to the nearest button in that direction, Enter / Space / A press it
+const menuItems = dlg => [...dlg.querySelectorAll('button, input')].filter(el => el.offsetParent !== null && !el.disabled);
+function menuDefault(dlg) {
+  const items = menuItems(dlg), by = sel => items.find(el => el.matches(sel));
+  if (dlg.id === 'diffAsk' || dlg.id === 'tutBtns') return by('[data-d="' + settings.diff + '"]') || items[0];
+  if (dlg.id === 'resumeAsk') return by('#resYes') || items[0];
+  return items[0];
+}
+function menuMove(dlg, dir) {
+  const items = menuItems(dlg); if (!items.length) return;
+  const cur = items.indexOf(document.activeElement);
+  if (cur < 0) { menuDefault(dlg).focus(); return; }
+  const r0 = items[cur].getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2, vert = dir === 'up' || dir === 'down';
+  let best = null, bd = 1e9;
+  items.forEach((el, i) => {
+    if (i === cur) return; const r = el.getBoundingClientRect(), x = r.left + r.width / 2 - cx, y = r.top + r.height / 2 - cy;
+    const along = dir === 'up' ? -y : dir === 'down' ? y : dir === 'left' ? -x : x, across = vert ? Math.abs(x) : Math.abs(y);
+    if (along <= 2) return; const d = along + across * 2; if (d < bd) { bd = d; best = el; }
+  });
+  if (!best) best = items[(cur + (dir === 'down' || dir === 'right' ? 1 : items.length - 1)) % items.length]; // nothing that way: on to the next one, wrapping round
+  best.focus();
+}
+function menuFocusTick() { // a dialog that has just opened gets its highlight at once, so Enter / A has something to press
+  const dlg = openDialog(); if (!dlg || dlg.id === 'lbPanel' || dlg.contains(document.activeElement)) return;
+  const b = menuDefault(dlg); if (b) b.focus();
+}
+function menuKey(dlg, k) { // true: the key was used for the menu
+  const dir = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' }[k];
+  const ae = document.activeElement;
+  if (dir) { if (ae && ae.type === 'range' && (dir === 'left' || dir === 'right')) return false; menuMove(dlg, dir); return true; } // (a slider keeps its own left and right)
+  if (k === 'enter' || k === ' ' || k === 'z') { if (!(ae && dlg.contains(ae) && ae.tagName === 'BUTTON')) { const b = menuDefault(dlg); if (b) { b.click(); return true; } } }
+  return false;
+}
 function padMenus(nav) {
   const dlg = openDialog(); if (!dlg) return false;
   const nameBox = document.getElementById('lbName'), entering = dlg.id === 'lbPanel' && document.getElementById('lbSubmit').style.display !== 'none';
@@ -13682,21 +13718,20 @@ function padMenus(nav) {
     if (nav.a || nav.start) lbSend(); if (nav.b) closeLB();
     return true;
   }
-  const items = [...dlg.querySelectorAll('button, input')].filter(el => el.offsetParent !== null && !el.disabled);
+  const items = menuItems(dlg);
   if (!items.length) return true;
-  let i = items.indexOf(document.activeElement);
-  if (nav.down || nav.right) i = (i + 1) % items.length; else if (nav.up || nav.left) i = i <= 0 ? items.length - 1 : i - 1;
-  if (nav.down || nav.right || nav.up || nav.left) items[Math.max(0, i)].focus();
+  if (nav.up) menuMove(dlg, 'up'); else if (nav.down) menuMove(dlg, 'down'); else if (nav.left) menuMove(dlg, 'left'); else if (nav.right) menuMove(dlg, 'right');
   if (nav.a && document.activeElement && items.includes(document.activeElement)) document.activeElement.click();
-  if (nav.b || nav.start) { if (dlg.id === 'credits') closeCredits(); else if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else if (dlg.id === 'installAsk') document.getElementById('insNo').click(); else closeMenu(); }
+  if (nav.b || nav.start) { if (dlg.id === 'tutBtns') { /* the tutorial's last step has no way back */ } else if (dlg.id === 'credits') closeCredits(); else if (dlg.id === 'lbPanel') closeLB(); else if (dlg.id === 'howto') document.getElementById('howClose').click(); else if (dlg.id === 'settings') closeSettings(); else if (dlg.id === 'diffAsk') closeDiff(); else if (dlg.id === 'resumeAsk') document.getElementById('resNo').click(); else if (dlg.id === 'installAsk') document.getElementById('insNo').click(); else closeMenu(); }
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
+function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 function padTitle(nav) {
   const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
-  if (nav.a || nav.start) { if (app.titleFocus === 0) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+  if (nav.a || nav.start) titleActivate();
 }
 function pollPad() {
   const pads = (typeof navigator !== 'undefined' && navigator.getGamepads) ? navigator.getGamepads() : null;
@@ -13712,8 +13747,9 @@ function pollPad() {
   const own = app.state === 'play' && !app.paused && p2Pad >= 0, lent = p2Lent && !own; p2Lent = own; // menus and pauses use any pad
   if (own && p2In.start) { togglePause(); return; }
   let gp = null; for (const x of cps) if (!(own && x.index === p2Pad)) { gp = x; break; }
-  if (!gp) { gpad = null; padIdx = -1; return; }
+  if (!gp) { gpad = null; padIdx = -1; menuFocusTick(); return; }
   padIdx = gp.index;
+  menuFocusTick();
   const btn = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
   if (lent) { for (const i of [0, 1, 2, 3, 4, 5, 9, 12, 13, 14, 15]) padPrev[i] = btn(i); padPrev.ay = padPrev.ax = true; } // buttons still held from flying player 2 are not presses
   const press = i => btn(i) && !padPrev[i];
@@ -15156,6 +15192,25 @@ function drawHitbox() {
   ctx.globalAlpha = pu * 0.6; dk(p.x, p.y, 3, '#ff3a6a'); ctx.globalAlpha = 1;
   dk(p.x, p.y, 1, '#ffffff');
 }
+// Weapon level as four blocks in the weapon's colour, filled up to the level (phone: bottom left; PC: above the Novas, mirrored for player 2 with `right`)
+function levelBlocks(x, by, lvl, w, right) {
+  for (let k = 0; k < 4; k++) {
+    const bx = right ? x - 10 - k * 12 : x + k * 12, on = k < Math.min(lvl, 4);
+    ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
+    ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
+    if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
+  }
+}
+// A weapon's name in its colours (light top, the block colour below) on a soft shadow: a full-strength one at the bottom right plus a fainter edge to the right and below; the level is shown by the blocks, not a number
+function softShadow(nm, x, y, al) {
+  ctx.globalAlpha = 0.9; text(nm, x + 1, y, OUT, 1, al); text(nm, x, y + 1, OUT, 1, al); ctx.globalAlpha = 1;
+  text(nm, x + 1, y + 1, OUT, 1, al);
+}
+function weaponName(nm, x, y, w, right) {
+  const al = right ? 'right' : 'left';
+  softShadow(nm, x, y, al);
+  text(nm, x, y, w.hud[0], 1, al, w.hud[1]);
+}
 function drawHUD() { ctx.save(); ctx.translate(0, SAFE_T); drawHUDBody(HFULL - SAFE_T - SAFE_B); ctx.restore(); }
 function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the higher score
   ctx.fillStyle = OUT; ctx.fillRect(x - 1, y - 1, 7, 6);
@@ -15163,12 +15218,14 @@ function crown(x, y) { // a tiny gold crown, 5x4 pixels, for the player with the
   ctx.fillRect(x, y + 1, 5, 2); ctx.fillStyle = '#d0a020'; ctx.fillRect(x, y + 3, 5, 1); ctx.fillStyle = '#ff6a50'; ctx.fillRect(x + 2, y + 2, 1, 1);
 }
 // Both players' scores on one line, mirrored: 1P at the left margin m, 2P at the right, and a crown beside whoever is ahead (HUD, stage results, game over)
-function scoreStrip(y, m, s1, s2, sz = 1) { // sz 2: the double-size HUD score
+function scoreStrip(y, m, s1, s2, sz = 1) { // sz 2: the double-size HUD score (the leader's score in the high-score yellow, the crown right beside it)
+  const big = sz === 2, y1 = big && s1 > s2, y2 = big && s2 > s1;
   textS('1P', m, y, '#bba4ff', 1, 'left', '#8466dc');
-  textS(pad(s1, 8), m + 10, y, '#ffffff', sz, 'left', '#c4c9ce');
+  textS(pad(s1, 8), m + 10, y, y1 ? '#fff0a0' : '#ffffff', sz, 'left', y1 ? '#f4d050' : '#c4c9ce');
   textS('2P', W - m, y, '#dde1e7', 1, 'right', '#8c919b');
-  textS(pad(s2, 8), W - m - 10, y, '#ffffff', sz, 'right', '#c4c9ce');
-  const cw = sz === 2 ? 38 : 0; if (s1 > s2) crown(m + 44 + cw, y); else if (s2 > s1) crown(W - m - 49 - cw, y);
+  textS(pad(s2, 8), W - m - 10, y, y2 ? '#fff0a0' : '#ffffff', sz, 'right', y2 ? '#f4d050' : '#c4c9ce');
+  if (big) { const dw = textW('00000000', 2); if (y1) crown(m + 10 + dw + 4, y + 3); else if (y2) crown(W - m - 10 - dw - 9, y + 3); }
+  else if (s1 > s2) crown(m + 44, y); else if (s2 > s1) crown(W - m - 49, y);
 }
 function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score;
@@ -15179,8 +15236,8 @@ function drawHUDBody(H) {
     textS('1P', 4, ty, '#bba4ff', 1, 'left', '#8466dc');
     textS(pad(s1, 8), 14, ty, beat ? '#fff0a0' : '#ffffff', 2, 'left', beat ? '#f4d050' : '#c4c9ce');
   }
-  if (player && TOUCH_HUD) { // phone: coin + medals collected this stage; during a chain the count gives way to xN and a ring drains around the coin
-    const cx = 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
+  if (player) { // coin + medals collected this stage (phone, and PC alone or with two players: in the middle); during a chain the count gives way to xN and a ring drains around the coin
+    const cx = p2 ? 100 : 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
     if (pop && !app.paused) app.medalPop--;
     if (open) {
       const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
@@ -15188,28 +15245,22 @@ function drawHUDBody(H) {
       for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = i / N < fr ? (low ? '#ff8a60' : '#f4d050') : '#4a3a14'; ctx.fillRect(Math.round(cx + Math.cos(a) * 8), Math.round(cy + Math.sin(a) * 8), 1, 1); }
     }
     coin(cx, cy, 4, 5, RP.yel);
-    if (xn) textS('x' + run.medalMul, 102, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
+    if (xn) textS('x' + run.medalMul, cx + 12, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
     else {
       const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
       const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
-      textS(String(v), 102, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
+      textS(String(v), cx + 12, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
     }
-  } else if (player) {
-    const mb = p2 ? 96 : 84; // medal chain: right of the double-size score (or in the gap between the two scores)
-    coin(mb, 7, 2, 3, RP.yel);
-    if (run.medalMul > 1 && run.medalT > 0) {
-      textS('x' + run.medalMul, mb + 5, 4, '#fff0a0', 1, 'left', '#d0a020');
-      const bw = 20, f = run.medalT / MEDAL_WIN; ctx.fillStyle = OUT; ctx.fillRect(mb + 5, 11, bw + 2, 3); ctx.fillStyle = '#3a2a10'; ctx.fillRect(mb + 6, 12, bw, 1); ctx.fillStyle = f < 0.3 && (gf >> 2) & 1 ? '#ff8a60' : '#f4d050'; ctx.fillRect(mb + 6, 12, Math.round(bw * f), 1);
-    } else textS(String(MEDAL_BASE), mb + 5, 4, '#fff0a0', 1, 'left', '#d0a020');
   }
   if (p2) { // player 2's corner mirrors player 1's: weapon, Nova bombs and lives, right-aligned at the bottom
     const w2 = WPN[p2.wpn] || WPN.S;
-    textS(w2.name + ' ' + p2.lvl, W - 4, H - 31, w2.hud[0], 1, 'right', w2.hud[1]);
-    for (let i = 0; i < Math.min(run.bombs2, 6); i++) spr(SPR.novaIcon, W - 7 - i * 8, H - 18);
-    for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 8 - i * 11, H - 9);
+    weaponName(w2.name, W - 4, H - 43, w2, true);
+    levelBlocks(W - 4, H - 35, p2.lvl, w2, true);
+    for (let i = 0; i < Math.min(run.bombs2, 6); i++) ctx.drawImage(SPR.novaIcon.c, W - 14 - i * 12, H - 27, 10, 10); // Novas at double size, the lives below them in the same columns
+    for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 9 - i * 12, H - 9);
     if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
   }
-  for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, 8 + i * 11, H - 9);
+  for (let i = 0; i < Math.min(run.lives, 6); i++) spr(SPR.life, TOUCH_HUD ? 8 + i * 11 : 9 + i * 12, H - 9);
   { const off = TOUCH_HUD && run.bombs <= 0 && !(app.cont > 0); if (app.bombOff !== off) { app.bombOff = off; bombBtn.classList.toggle('empty', off); } } // no Nova left: the button greys out (not during the continue countdown, when it is the Continue button)
   if (TOUCH_HUD) { // the Nova count is a half circle of icons above the Nova button (page element), not in the corner
     const nb = Math.min(run.bombs, 6);
@@ -15219,16 +15270,11 @@ function drawHUDBody(H) {
       for (let i = 0; i < nb; i++) { const a = (90 + (i - (nb - 1) / 2) * 36) * PI / 180; h += '<img src="' + app.pipSrc + '" alt="" style="left:' + (Math.cos(a) * 40 - 5).toFixed(1) + 'px;top:' + (-Math.sin(a) * 40 - 5).toFixed(1) + 'px">'; }
       document.getElementById('bombPips').innerHTML = h;
     }
-  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) spr(SPR.novaIcon, 7 + i * 8, H - 18);
+  } else for (let i = 0; i < Math.min(run.bombs, 6); i++) ctx.drawImage(SPR.novaIcon.c, 4 + i * 12, H - 27, 10, 10);
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
-    textS(w.name + ' ' + player.lvl, 4, H - 31, w.hud[0], 1, 'left', w.hud[1]);
-    if (TOUCH_HUD) for (let k = 0; k < 4; k++) { // weapon level: four blocks in the weapon's colour, filled up to the level
-      const bx = 4 + k * 12, by = H - 23, on = k < Math.min(player.lvl, 4);
-      ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
-      ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
-      if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
-    }
+    weaponName(w.name, 4, TOUCH_HUD ? H - 31 : H - 43, w, false);
+    levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false);
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) drawBossBar(big, TOUCH_HUD && !p2 ? 29 - SAFE_T : 22);
@@ -15267,7 +15313,7 @@ function drawBossBar(big, by) {
   barSeg(bx, by, hw, h, Math.min(fh, r), Math.min(b.hg, r), BAR_HP, blink);
   if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
   const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
-  if (nm) textS(nm, bx, by + h + 3, '#f48a60', 1, 'left', '#d84a34');
+  if (nm) { const y0 = by + h + 3; softShadow(nm, bx, y0, 'left'); text(nm, bx, y0, '#f48a60', 1, 'left', '#d84a34'); } // the name at the small size, on the same soft shadow as the weapon names
 }
 function render() {
   renderMain();
@@ -15558,7 +15604,7 @@ setPauseIcon();
 function useGold() { return arts.size >= 6 && settings.gold; }
 const SENS_UI = [['sSensMouse', 'sensMouse'], ['sSensKey', 'sensKey'], ['sSensPad', 'sensPad']];
 function syncSettingsUI() {
-  for (const [id, k] of SENS_UI) { const r = document.getElementById(id); r.value = Math.round(sensOf(k) * 100); rangeFill(r); document.getElementById(id + 'V').textContent = r.value + '%'; }
+  for (const [id, k] of SENS_UI) { const r = document.getElementById(id); r.value = sensPct(k); rangeFill(r); document.getElementById(id + 'V').textContent = r.value + '%'; }
   document.getElementById('sMusic').value = settings.music; document.getElementById('sSfx').value = settings.sfx; for (const id of ['sMusic', 'sSfx']) rangeFill(document.getElementById(id));
 for (const b of document.querySelectorAll('#sMouse button')) b.setAttribute('aria-pressed', String(b.dataset.v === (settings.mouseMode || 'drag')));
 for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-pressed', String(b.dataset.v === p2Mode()));
@@ -15755,10 +15801,14 @@ function setSoundLabel() {
   const pmm = document.getElementById('pmMusic'); if (pmm) pmLabel(pmm, 'Music', !live && !muted ? 'Tap to enable' : muted || settings.musicOn === false ? 'Off' : 'On'); const k = muted ? 'off' : (actx && actx.state === 'running') ? 'on' : 'wait'; if (soundBtn.dataset.k !== k) { soundBtn.innerHTML = ICON[k]; soundBtn.dataset.k = k; soundBtn.setAttribute('aria-label', k === 'off' ? 'Sound off' : k === 'on' ? 'Sound on' : 'Tap to enable sound'); } }
 setSoundLabel();
 
+// A key that opens a menu must not also press the button that gets the highlight: no key repeat on a button, and a Space that went down elsewhere does not click on release
+addEventListener('keydown', e => { if (e.target && e.target.tagName === 'BUTTON') { if (e.repeat) e.preventDefault(); if (e.key === ' ') app.spDown = e.target; } }, true);
+addEventListener('keyup', e => { if (e.key === ' ' && e.target && e.target.tagName === 'BUTTON' && app.spDown !== e.target) e.preventDefault(); if (e.key === ' ') app.spDown = null; }, true);
 addEventListener('keydown', e => {
-  if (app.lbOpen || (e.target && e.target.tagName === 'INPUT')) return;
+  if (app.lbOpen || (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'range')) return;
   const k = e.key.toLowerCase();
-  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) || (k === 'enter' && !(e.target && e.target.tagName === 'BUTTON'))) e.preventDefault(); // (an Enter that opens a menu must not go on to press the button that gets the highlight)
+  { const dlg = openDialog(); if (dlg && dlg.id !== 'lbPanel' && !e.ctrlKey && !e.metaKey && !e.altKey && menuKey(dlg, k)) { e.preventDefault(); return; } } // menus: the arrows move the highlight
   if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
   if (document.getElementById('credits').classList.contains('open')) { if (k === 'escape') closeCredits(); return; }
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
@@ -15769,7 +15819,8 @@ addEventListener('keydown', e => {
   if (app.booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
-    if (go && app.state === 'title') openDiff('camp', 1);
+    if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
     return;
