@@ -7346,7 +7346,8 @@ function workChunk(job, rows) {
     world.featTheme = job.I.th; TRGB = THEME_RGB[job.I.th];
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
-    if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
+    if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); job.c.grade = 'sunset'; } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
+    else if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') job.c.grade = 'night'; // (the grade applied above: the trees redrawn over a unit must carry it too)
     world.chunks.set(job.p, job.c); return true;
   }
   return false;
@@ -14711,7 +14712,17 @@ function drawCritters() {
   }
 }
 const canopyCache = new Map();
-/* the trees a chunk painted into its ground within r of (wx, wy), read from the chunk's own record: never recomputed, so they cannot disagree with the pixels underneath */
+/* a tree sprite with the chunk's colour grade (sunset, night) applied the way the ground got it, so a tree drawn over a unit matches the baked one. Both grades only look at a pixel's own colour and its column in the chunk, so the sprite is graded in a chunk-wide strip at its own x. Built on first use, kept on the tree's record */
+function gradeTree(kind, t) {
+  const s = t.s, sw = s.c.width, sh = s.c.height, x0 = Math.round(t.x - s.w / 2), src = s.c.getContext('2d').getImageData(0, 0, sw, sh).data, buf = new Uint8ClampedArray(W * sh * 4);
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i; if (X < 0 || X >= W) continue; const a = (j * sw + i) * 4, b = (j * W + X) * 4; buf[b] = src[a]; buf[b + 1] = src[a + 1]; buf[b + 2] = src[a + 2]; buf[b + 3] = src[a + 3]; }
+  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else CityGen.nightGrade(buf);
+  const [c, x] = mk(sw, sh), im = x.createImageData(sw, sh);
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i, a = (j * sw + i) * 4, b = (j * W + X) * 4, inside = X >= 0 && X < W, d = inside ? buf : src, o = inside ? b : a; im.data[a] = d[o]; im.data[a + 1] = d[o + 1]; im.data[a + 2] = d[o + 2]; im.data[a + 3] = src[a + 3]; }
+  x.putImageData(im, 0, 0);
+  return { c, w: s.w, h: s.h };
+}
+/* the trees a chunk painted into its ground within r of (wx, wy), read from the chunk's own record: never recomputed, so they cannot disagree with the pixels underneath. t.gs is the sprite to draw (graded where the chunk is) */
 function chunkTreesNear(wx, wy, r, out, seen) {
   const R = r + 6;
   for (const pp of new Set([-Math.floor((wy - R) / CH), -Math.floor((wy + R) / CH)])) {
@@ -14721,6 +14732,7 @@ function chunkTreesNear(wx, wy, r, out, seen) {
       const t = L[i], rr = t.av ? R : r, dx = t.x - wx, dy = t.y - wy; if (dx * dx + dy * dy > rr * rr) continue;
       if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue;
       if (seen) { const k2 = t.x + ',' + t.y; if (seen.has(k2)) continue; seen.add(k2); }
+      if (!t.gs) t.gs = c.grade ? gradeTree(c.grade, t) : t.s;
       out.push(t);
     }
   }
@@ -14732,7 +14744,7 @@ function drawCanopy() {
   for (const e of world.enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
   for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
   out.sort((a, b) => a.y - b.y);
-  for (const t of out) spr(t.s, t.x, t.y + sc);
+  for (const t of out) spr(t.gs, t.x, t.y + sc);
 }
 function drawTreads() {
   const sc = Math.floor(world.scroll);
@@ -15868,7 +15880,7 @@ function renderMain() {
       drawEnemy(e);
       if (ENT[e.type].treesInFront) {
         if (e.front === undefined) e.front = chunkTreesNear(e.wx, e.wy, e.hw + 10, [], new Set()).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
-        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.s, t.x, t.y + sc0);
+        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.gs, t.x, t.y + sc0);
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
