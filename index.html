@@ -9093,7 +9093,8 @@ function snapNow() { // keep the newest snapshot the game can write down (the on
 }
 function clearResume() { app.snap = null; store.remove(KEY.resume); }
 // A save from an earlier build still resumes: the record only holds numbers the game rebuilds the stage from, and a hidden 4th version part is a fix, not a format change.
-function resumeCompat(v) { return typeof v === 'string' && v.split('.').slice(0, 3).join('.') === VERSION.split('.').slice(0, 3).join('.'); }
+// A new build must never throw a player's run away: any earlier build's save resumes. If the format of the exact-resume snapshot changes, bump SNAP_FMT (the snapshot is then skipped and the stage restarts from the record).
+function resumeCompat(v) { return typeof v === 'string'; }
 function loadResume() {
   { const r = store.getJSON(KEY.resume); if (r && resumeCompat(r.v) && Date.now() - r.at < 48 * 3600e3 && r.stage >= 1 && resumeLevels(r)) return r; }
   clearResume(); return null;
@@ -9202,7 +9203,7 @@ function snapPlain(v, fns, spr, d) { // true when v holds only what snapEncode c
   return true;
 }
 function snapApply(S) { // put a decoded snapshot into the running game (the stage's terrain is rebuilt from the seed afterwards)
-  if (!S || S.fmt !== SNAP_FMT || S.v !== VERSION || !S.world || !S.run || !S.player || Math.abs(S.H - H) > 24) return false;
+  if (!S || S.fmt !== SNAP_FMT || !S.world || !S.run || !S.player || Math.abs(S.H - H) > 24) return false;
   // the terrain caches again, for this seed (cleared first: it also empties the sets and lists put back below)
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState();
@@ -9237,7 +9238,7 @@ function resumeRun(r) {
   run.nextExtend = r.nextExtend; run.extendsGot = r.extendsGot; run.camp = Object.assign(newCamp(), r.camp);
   markStage();
   showMsg('STAGE ' + stageLabel(run.stage), STAGE_NAMES[world.curTheme], 170); playSong(STAGE_SONGS[world.curTheme]);
-  if (r.snap && r.sv === VERSION) { // the snapshot puts everything back where it was; a short countdown starts the game again
+  if (r.snap) { // the snapshot puts everything back where it was; a short countdown starts the game again
     let ok = false;
     try { ok = snapApply(snapDecode(r.snap)); } catch (e) { try { store.set(KEY.lastError, 'resume: ' + (e && e.stack || e)); } catch (e2) {} resumeRun(Object.assign({}, r, { snap: null })); return; }
     if (!ok) { resumeRun(Object.assign({}, r, { snap: null })); return; }
@@ -9248,7 +9249,7 @@ function resumeRun(r) {
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + r.sortie.level : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap && r.sv === VERSION ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap && r.sv === VERSION ? 'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
+  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + r.sortie.level : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap ?'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
