@@ -7219,6 +7219,8 @@ function houseAt(ci, cj) {
 function drawFeatures(x, p, wy0) {
   if (info(p).plan) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees
   const y0 = wy0 - 16, y1 = wy0 + CH + 16;
+  const TL = x.canvas.trees = []; // the trees this chunk really paints into its ground, kept on the chunk: what draws over a unit hiding under one (drawCanopy) is exactly what is already here
+  const plant = (s, tx, ty, av) => { stamp(x, s, tx, ty - wy0); TL.push({ s, x: tx, y: ty, av }); };
   drawStations(x, p, wy0);
   // old battle scars: shell holes and burnt-out wrecks
   for (let cj = Math.floor(y0 / 46); cj <= Math.floor(y1 / 46); cj++) for (let ci = 0; ci < 5; ci++) {
@@ -7246,11 +7248,11 @@ function drawFeatures(x, p, wy0) {
     if (h > 0.82) continue;
     const tx = ci * cs + hash(ci, cj + 101) * cs, ty = cj * cs + hash(ci + 55, cj) * cs;
     const th = themeAtWy(ty);
-    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) stamp(x, SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], tx, ty - wy0);
+    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) plant(SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], tx, ty);
   }
   if (world.featTheme === 5) for (let ty = Math.floor(y0 / 12) * 12; ty <= y1; ty += 12) for (const sd of [-1, 1]) {
     const tx = roadX(ty) + sd * 8.2;
-    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city' && roadHalf(ty) >= 13) stamp(x, SPR.trees[2], tx, ty - wy0);
+    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city' && roadHalf(ty) >= 13) plant(SPR.trees[2], tx, ty, true);
   }
   cs = 34;
   for (let cj = Math.floor(y0 / cs) - 1; cj <= Math.floor(y1 / cs) + 1; cj++) for (let ci = 0; ci <= Math.ceil(W / cs); ci++) {
@@ -7278,7 +7280,8 @@ function drawFeatures(x, p, wy0) {
     stamp(x, SPR.barn, ox + 12, oy + 8); stamp(x, SPR.farmhouse, ox + 40, oy + 7); stamp(x, SPR.silo, ox + 28, oy + 20);
     disk(x, '#3a6a8a', ox + 62, oy + 56, 3); x.fillStyle = '#8cc0e0'; x.fillRect(ox + 61, oy + 55, 2, 1);
   }
-  if (world.featTheme === 5) for (const t of avenueTrees(y0, y1)) stamp(x, SPR.trees[2], t.x, t.y - wy0);
+  if (world.featTheme === 5) for (const t of avenueTrees(y0, y1)) plant(SPR.trees[2], t.x, t.y, true);
+  TL.sort((a, b) => a.y - b.y); /* ordered by y, so a lookup near a unit is a binary search */
   cs = 11;
   for (let cj = Math.floor(y0 / cs); cj <= Math.floor(y1 / cs); cj++) for (let ci = 0; ci <= Math.ceil(W / cs); ci++) {
     const h = hash(ci * 5 + 2, cj * 3 + 8);
@@ -14708,13 +14711,24 @@ function drawCritters() {
   }
 }
 const canopyCache = new Map();
+/* the trees a chunk painted into its ground within r of (wx, wy), read from the chunk's own record: never recomputed, so they cannot disagree with the pixels underneath */
+function chunkTreesNear(wx, wy, r, out, seen) {
+  const R = r + 6;
+  for (const pp of new Set([-Math.floor((wy - R) / CH), -Math.floor((wy + R) / CH)])) {
+    const c = world.chunks.get(pp), L = c && c.trees; if (!L) continue;
+    let lo = 0, hi = L.length; while (lo < hi) { const m = (lo + hi) >> 1; if (L[m].y < wy - R) lo = m + 1; else hi = m; }
+    for (let i = lo; i < L.length && L[i].y <= wy + R; i++) {
+      const t = L[i], rr = t.av ? R : r, dx = t.x - wx, dy = t.y - wy; if (dx * dx + dy * dy > rr * rr) continue;
+      if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue;
+      if (seen) { const k2 = t.x + ',' + t.y; if (seen.has(k2)) continue; seen.add(k2); }
+      out.push(t);
+    }
+  }
+  return out;
+}
 function drawCanopy() {
   const sc = Math.floor(world.scroll), seen = new Set(), out = [];
-  const add = (wx, wy) => {
-    const key = (wy >> 2) * 128 + (wx >> 2) + 16; let L = canopyCache.get(key);
-    if (!L) { L = treeList(wx, wy, 10); canopyCache.set(key, L); if (canopyCache.size > 3000) canopyCache.clear(); }
-    for (const t of L) { if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue; const k2 = t.x + ',' + t.y; if (!seen.has(k2)) { seen.add(k2); out.push(t); } }
-  };
+  const add = (wx, wy) => chunkTreesNear(wx, wy, 10, out, seen);
   for (const e of world.enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
   for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
   out.sort((a, b) => a.y - b.y);
@@ -15853,7 +15867,7 @@ function renderMain() {
     for (const e of world.enemies) if (e.ground && !(e.buechse && roofOver(e.wx, e.wy))) {
       drawEnemy(e);
       if (ENT[e.type].treesInFront) {
-        if (e.front === undefined) e.front = treeList(e.wx, e.wy, e.hw + 10).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
+        if (e.front === undefined) e.front = chunkTreesNear(e.wx, e.wy, e.hw + 10, [], new Set()).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
         for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.s, t.x, t.y + sc0);
       }
     } }
