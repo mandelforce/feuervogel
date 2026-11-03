@@ -140,6 +140,13 @@ const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkS
   ok(!rt.art && rt.classic && rt.gun2, 'the Retro Run draws the original bunker, casemate, AA fort and 2- and 4-barrel flak sprites');
   ok(rt.kinds.includes('shell') && rt.kinds.includes('s'), `the Retro Run's fort still mixes flak shells with direct shots (${rt.kinds})`);
 
+  /* the training level: the Enigma Run's guns, and the gun stands on a little island */
+  const tr = JSON.parse(await peek(page, `(() => { startTutorial(); for (let i = 0; i < 200; i++) { player.inv = 99; update(); } app.tut.step = 7; app.tut.t = 0; app.tut.ids = [];
+    for (let i = 0; i < 80; i++) { player.inv = 99; world.shots = []; update(); }
+    const bk = world.enemies.find(e => e.type === 'bunker'), isl = world.decals.filter(d => d.s === SPR.islet);
+    return JSON.stringify({ art: ENIG_GUN.on, bunker: !!bk, islets: isl.length, under: !!bk && isl.length > 0 && Math.abs(isl[0].wx - bk.wx) < 1 && Math.abs(isl[0].wy - bk.wy) < 1, errs: R.errs.length }); })()`));
+  ok(tr.art && tr.bunker && tr.islets === 1 && tr.under, `the training level's gun stands on a little island, with the Enigma Run's gun art (${JSON.stringify(tr)})`);
+
   /* nothing threw, and every type draws */
   const d = JSON.parse(await peek(page, `(() => { ${setup}
     put('aatower', 60, 70, { cd: 1e9 }); put('fortgun', 60, 150, { ga: PI / 2, cd: 1e9 }); put('sam', 150, 150, { ga: PI / 2, cd: 1e9 }); put('barrage', 112, 240, { cd: 40 });

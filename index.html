@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.50'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.51'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5553,6 +5553,13 @@ SPR.aaQ = rotSet(sprite(12, 26, x => {
   rect(x, '#d84a34', 5, 10, 2, 1);
 }));
 /* Twin AA gun ("Zwilling"): a light fast pedestal mount; its pit has a camouflage net and ammo crates */
+/* A little island for the training level's guns: shallows, a sand beach, a grassy middle and a few rocks (the training flies over open sea) */
+SPR.islet = sprite(52, 44, x => {
+  ellS(x, RP.glass, 26, 22, 25.5, 21, 0.45); ellS(x, RP.glass, 26, 22, 22.5, 18, 0.6);
+  ellS(x, RP.sand, 26, 22, 20, 16, 0.2); ellS(x, RP.sand, 14, 26, 8, 6, 0.1); ellS(x, RP.sand, 38, 17, 9, 6.5, 0.1);
+  ellS(x, RP.fg, 26, 22, 14.5, 10.5, 0.1); ellS(x, RP.fg, 26, 21, 11.5, 8, 0.3);
+  for (const [a, b] of [[8, 30], [43, 28], [20, 36], [37, 8]]) { ellS(x, RP.grey, a, b, 2.4, 1.8, 0.1); rect(x, '#9aa1a8', a - 1, b - 1, 1, 1); }
+}, { outline: false });
 SPR.aaPit = sprite(24, 24, x => {
   disk(x, '#3a3220', 12, 12, 11);
   for (let k = 0; k < 14; k++) { const an = k * TAU / 14; ellS(x, RP.sand, 12 + Math.cos(an) * 9.6, 12 + Math.sin(an) * 9.6, 2.6, 2.2, 0); }
@@ -8589,7 +8596,7 @@ function tutTick() {
       if (T.t > 40 && T.t < 200 && T.t % 12 === 0) for (let k = 0; k < 10; k++) eshot(W / 2 + rnd(-90, 90), 10, PI / 2 + rnd(-0.5, 0.5), 0.45);
       if (run.stats.novas > T.bombs0) { tutNext(); } else if (T.t > 260) { T.t = 0; } break; }
     case 7: { // super laser
-      if (T.t === 1) { world.ebul.length = 0; tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
+      if (T.t === 1) { world.ebul.length = 0; world.decals.push({ kind: 'spr', s: SPR.islet, wx: W / 2, wy: -40 - sc, r: 0 }); tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
       if (T.t > 30 && !tutAlive()) { if (T.ids[0] && T.ids[0].dead && T.ids[0].y < H) tutNext(); else { T.t = 0; T.ids = []; } } break; }
     case 8: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
       const sec = T.ids.find(e => e.type === 'secret' && !e.dead);
@@ -12855,12 +12862,12 @@ const ENT = {
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
     const rc = e.rc || (e.rc = [0, 0, 0, 0]); for (let i = 0; i < 4; i++) if (rc[i] > 0) rc[i]--;
     if (e.hp0 === undefined) e.hp0 = e.hp;
-    if (run.sortie && e.hp < e.hp0 * 0.45 && gf % 7 === 0 && e.y > -20 && e.y < H) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-12, 12), y: e.y + rnd(-12, 12), vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.3, r: rnd(1.5, 2.5), life: 34, max: 34 });
+    if ((run.sortie || app.tut) && e.hp < e.hp0 * 0.45 && gf % 7 === 0 && e.y > -20 && e.y < H) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-12, 12), y: e.y + rnd(-12, 12), vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.3, r: rnd(1.5, 2.5), life: 34, max: 34 });
     for (let i = 0; i < 4; i++) if (hasT()) e.gas[i] += clamp(angDiff(e.gas[i], aim(e.x + cs[i][0], e.y + cs[i][1])), -0.05, 0.05);
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(34, 50 - run.loop * 5)) * (e.slow || 1) * fireSlow()); const i = e.gi = ((e.gi || 0) + 1) % 4, gx = e.x + cs[i][0], gy = e.y + cs[i][1];
-      if (run.sortie || i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); } // (Enigma Run: every gun of the fort fires flak shells only)
+      if (run.sortie || app.tut || i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); } // (Enigma Run: every gun of the fort fires flak shells only)
       flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun'); rc[i] = 7;
     }
   } },
