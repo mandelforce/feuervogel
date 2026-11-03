@@ -2631,6 +2631,27 @@ function cloud(kind, seed) {
   return { kind, seed, w, h, data, shadow, high: !!T.high };
 }
 // the night grade alone, over a whole RGBA buffer: for a host's own ground painted by day (the game's legacy chunks in a night level)
+// The sunset grade (Enigma level 1, from its first loop on): the sun is low on the left. Applied to a painted image after everything else (buildings,
+// trees, the game's own ground), so it needs no plan. Land, surf and buildings go warm (amber light from the left, rose and violet in the shade); water
+// (the pixels that are clearly blue) is mapped through a dusk ramp (teal, olive, gold by its lightness), and wave crests glitter in the sun's path, a
+// lane along the left of the screen (x is the screen's own, so the lane stays put while the sea scrolls). d: RGBA bytes, w: the row width,
+// wyAt(row): the world row of an image row (the glitter's waves are fixed to the world and drift with the scroll). Fires are drawn after it.
+const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a050', '#f0c060']), SUNGLINT = HX(['#e8b050', '#ffd070', '#fff4c0']), SUNLAND = [0.95, 0.6, 0.48, 27, 5, 20];
+function sunsetGrade(d, w, wyAt) {
+  const n = d.length >> 2; let wy = 0;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) wy = wyAt((i / w) | 0);
+    const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (b - r > 40 && b >= g) { // water
+      const f = clamp((l - 40) / 140, 0, 1) * (SUNSEA.length - 1), a = SUNSEA[Math.floor(f)], z = SUNSEA[Math.min(SUNSEA.length - 1, Math.ceil(f))], k = f % 1;
+      let c0 = a[0] + (z[0] - a[0]) * k, c1 = a[1] + (z[1] - a[1]) * k, c2 = a[2] + (z[2] - a[2]) * k;
+      const lane = Math.exp(-(((x - w * 0.2) / (w * 0.16)) ** 2)) * (0.6 + 0.4 * Math.sin(wy * 0.013 + 1.7)) * 0.72, wave = Math.sin(x * 0.19 + wy * 0.11 + Math.sin(x * 0.035 + wy * 0.05) * 8) * 0.5 + 0.5;
+      const gl = lane * (0.45 + 0.55 * wave) + (hh(x * 7 + 3, wy) - 0.5) * 0.35, G = gl > 0.62 ? SUNGLINT[2] : gl > 0.5 ? SUNGLINT[1] : gl > 0.4 ? SUNGLINT[0] : null;
+      if (G) { c0 = G[0]; c1 = G[1]; c2 = G[2]; } else if (gl > 0.32) { c0 = c0 * 0.6 + 94; c1 = c1 * 0.6 + 60; c2 = c2 * 0.6 + 24; }
+      d[o] = c0; d[o + 1] = c1; d[o + 2] = c2;
+    } else { // land, surf, buildings
+      const s = 0.55 + 0.45 * Math.min(1, (l / 255) * 1.4), wx = 1.12 - 0.3 * x / w;
+      d[o] = Math.min(255, (l + (r - l) * 0.7) * (SUNLAND[0] - 0.1 + 0.36 * s) * wx + SUNLAND[3]); d[o + 1] = (l + (g - l) * 0.7) * (SUNLAND[1] - 0.02 + 0.2 * s) * wx + SUNLAND[4]; d[o + 2] = (l + (b - l) * 0.7) * (SUNLAND[2] - 0.04 + 0.06 * s) + SUNLAND[5]; } }
+}
 function nightGrade(d) { for (let o = 0; o < d.length; o += 4) { const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
 const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0], red: HX(['#ff3428'])[0], green: HX(['#3cff78'])[0], lamp: HX(['#aaa078'])[0], flare: HX(['#ffc46e'])[0] };
 // The plan's lights at night, built once per plan: about one house in ten shows a crack of light in a facade window (blocks and public buildings up
@@ -2849,6 +2870,18 @@ function islands(o) {
       for (let y = vy0; y < vy0 + VL; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Br[i] === it.id) { Kr[i] = K.MEADOW; Br[i] = -1; } } it.w = it.h = 0; it.gone = true; it.t = 'gone'; } }
   plan.village = { y0: vy0, y1: vy0 + VL - 1, items: plan.items.filter(it => !it.gone).length, farms: v.farms.filter(f => Kr[idx(f.x0 + 1, f.y0 + 1)] === K.COURT).length, green: !!v.oldTown };
   plan.stage.village = +(now() - t0).toFixed(2);
+  // 3b. the burning church (params.burn, Enigma level 1 from its first loop on): the village church, hit and on fire. The nave has lost its roof at one end,
+  // the transept is gutted, the tower has a shell hole, the apse stands; one big blaze runs along the nave, one over the transept and one in the tower
+  // (their seeds are 2 mod 3, which gives each three hot spots), so the church burns brightly and the smoke runs a long way over the green.
+  if (P.burn) { const ch = plan.churches.find(c => c.parts.every(id => !plan.items[id].gone)), part = n => ch && plan.items[ch.parts.find(id => plan.items[id].part === n)];
+    const tower = part('tower'), nave = part('nave'), trans = part('trans'), apse = part('apse');
+    if (tower && nave && trans && apse) {
+      const rub = (it, x0, y0, x1, y1) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (Br[idx(x, y)] === it.id) Kr[idx(x, y)] = K.RUBBLE; };
+      nave.dmg = 2; nave.cut = { end: 0, at: 12 }; trans.dmg = 3; tower.dmg = 1; for (const it of [tower, nave, trans, apse]) it.fire = true;
+      rub(nave, nave.x0, nave.y0 + nave.h - 11, nave.x0 + nave.w, nave.y0 + nave.h); rub(trans, trans.x0 + 1, trans.y0 + 1, trans.x0 + trans.w - 1, trans.y0 + trans.h - 1);
+      const fs = id => (h32(seed, 78000 + id) % 33333) * 3 + 2;
+      const blaze = (it, pad) => ({ x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, w: it.w + 2 * pad, h: it.h + 2 * pad, x0: it.x0 - pad, y0: it.y0 - pad, item: it.id, seed: fs(it.id) }); // a margin round each part: a wider glow and bigger flames
+      plan.fires.push(blaze(nave, 4), blaze(trans, 4), blaze(tower, 2)); plan.burning = true; } }
 
   // 4. the main road beyond the village: south to the shore and out on a jetty (a barge moored beside it), north through the fields to the airbase
   const rowOf = y => { const out = []; for (let x = 0; x < W; x++) { const k = v.K[y * W + x]; if (k === K.ROAD || k === K.WALK) out.push([x, k]); } return out; };
@@ -4207,7 +4240,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4233,7 +4266,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.57'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.58'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5210,6 +5243,18 @@ function enigmaSprites(pct) {
   const big = [0, 2].map(i => softCloud(SPR.clouds[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
   S = { low, big }; ENIGMA_SPR.set(pct, S); return S;
 }
+// Sunset clouds (a loop's level 1): the same sprites in the evening's colours. A cloud's day ramp (blue-grey to white) becomes a sunset ramp
+// (plum belly, rose, coral, peach, cream rim on the sunward side), and its ground shadow plum instead of near black. Made once per sprite.
+const SUN_CLOUD = ['#5a3a66', '#8a5476', '#c27a7e', '#eba484', '#ffd8a8'].map(hexRGB);
+const sunsetOn = () => !!run.sortie && run.sortie.timeOfDay === 'sunset';
+function sunCloud(s) {
+  if (s._sun) return s._sun;
+  const tint = (cv, shade) => { const [c, x] = mk(cv.width, cv.height), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height), a = d.data;
+    for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; if (shade) { a[i] = 44; a[i + 1] = 18; a[i + 2] = 52; } else { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2], q = SUN_CLOUD[clamp(Math.round((l - 140) / 115 * 4), 0, 4)]; a[i] = q[0]; a[i + 1] = q[1]; a[i + 2] = q[2]; } }
+    x.putImageData(d, 0, 0); return c; };
+  return s._sun = { c: tint(s.c, false), k: s.k ? tint(s.k, true) : s.k, w: s.w, h: s.h };
+}
+const sunSpr = s => sunsetOn() ? sunCloud(s) : s;
 let ENG_S = null;
 // the strength of the look for the run now starting (or none, on the title screen and in the tutorial). Rebuilds what depends on it.
 function setLook(pct) {
@@ -7298,6 +7343,7 @@ function workChunk(job, rows) {
     world.featTheme = job.I.th; TRGB = THEME_RGB[job.I.th];
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
+    if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
     world.chunks.set(job.p, job.c); return true;
   }
   return false;
@@ -8415,7 +8461,7 @@ function buildSortie(level, seed) {
   const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
+  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : ENIGMA_TIME[i], len: at, segs,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -8504,6 +8550,7 @@ function sortiePlanHarbour(S) {
 function sortiePlanIslands(S) {
   const seg = t => S.segs.find(g => g.t === t), n = seg('beach_fortified').start, L = n * CH, ch = seg('island_chain'), ab = seg('island_airbase');
   const params = { L, chain: [ch.start / n, (ch.start + ch.n) / n], big: [ab.start / n, Math.min(0.94, (ab.start * CH + 620) / L)] };
+  if (S.timeOfDay === 'sunset') params.burn = true; // a loop's level 1 is flown at sunset, and the island's church is on fire
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'islands', params }); S.planC0 = 0; S.planC1 = n; S.planY0 = -world.stageBaseP * CH + CH - 1;
   const P = S.plan, bio = S.planBiome = [];
   for (let c = 0; c < n; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P.W; x += 4) if (P.K[y * P.W + x] !== CityGen.K.SEA) land++; bio.push(land / (CH * P.W / 4) > 0.45 ? 'country' : 'sea'); }
@@ -15376,17 +15423,17 @@ function drawProps() {
 // Enigma: soft low clouds with soft shadows, and the soft ground shadows of the two big clouds above the screen (drawn under everything that moves)
 function drawEnigmaClouds() {
   const T = ENIGMA_T, S = ENG_S;
-  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = S.big[c.s === 2 ? 1 : 0]; ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
+  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
   ctx.globalAlpha = 0.1;
-  for (const c of clouds) if (!c.hide) { const s = S.low[c.s % S.low.length]; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
+  for (const c of clouds) if (!c.hide) { const s = sunSpr(S.low[c.s % S.low.length]); ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
   ctx.globalAlpha = 1 - 0.45 * world.nightF;
-  for (const c of clouds) if (!c.hide) spr(S.low[c.s % S.low.length], c.x, c.y);
+  for (const c of clouds) if (!c.hide) spr(sunSpr(S.low[c.s % S.low.length]), c.x, c.y);
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
   if (lowFX || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
-  for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
+  for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
 }
 function drawWeather() {
@@ -15824,11 +15871,11 @@ function renderMain() {
   drawWx2Low();
   drawBirds();
   if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
-  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
+  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
   else {
-    for (const c of clouds) if (!c.hide) shadow(SPR.clouds[c.s], c.x, c.y, 20, 30, 0.14);
-    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(SPR.clouds[c.s], c.x, c.y); ctx.globalAlpha = 1; }
+    for (const c of clouds) if (!c.hide) shadow(sunSpr(SPR.clouds[c.s]), c.x, c.y, 20, 30, 0.14);
+    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(sunSpr(SPR.clouds[c.s]), c.x, c.y); ctx.globalAlpha = 1; }
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();

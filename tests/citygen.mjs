@@ -46,6 +46,25 @@ if (part()) { let fails = 0; const c = { farmIsle: 0, paddock: 0, houses: 0, gun
   const low = Object.entries(c).filter(([k, v]) => v < (k === 'paddock' || k === 'pens' || k === 'houses' ? 90 : 100));
   if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} islands: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median; of 100: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
+// islands at sunset (Enigma level 1 from its first loop on): params.burn sets the village church on fire (three blazes with three hot spots each, parts
+// damaged and burning, every hard rule still holds) and changes nothing else; without it the plan has no fire. sunsetGrade turns day sea into dusk
+// water (no longer blue), lights land warm (red above blue), keeps the alpha, and gives the same pixels for the same world rows.
+if (part()) { let fails = 0;
+  for (let seed = 1; seed <= 12; seed++) { const a = CG.generate({ seed, preset: 'islands' }), b = CG.generate({ seed, preset: 'islands', params: { burn: true } }), m = CG.validate(b);
+    const ch = b.churches[0], parts = ch ? ch.parts.map(id => b.items[id]) : [];
+    if (a.fires.length || a.churches[0].parts.some(id => a.items[id].fire || a.items[id].dmg)) { fails++; fail(`islands seed ${seed}: the plain plan has a fire or a damaged church`); }
+    if (!m.pass) { fails++; fail(`islands burn seed ${seed}: a hard rule fails`); }
+    if (b.fires.length !== 3 || b.fires.some(f => f.seed % 3 !== 2) || !parts.length || !parts.every(it => it.fire)) { fails++; fail(`islands burn seed ${seed}: ${b.fires.length} fires, church parts burning ${parts.filter(it => it.fire).length}/${parts.length}`); }
+    if (b.fires.some(f => !parts.some(it => it.id === f.item))) { fails++; fail(`islands burn seed ${seed}: a blaze that is not on a church part`); }
+    if (b.items.length !== a.items.length || b.slots.length !== a.slots.length) { fails++; fail(`islands burn seed ${seed}: burning changed the number of items or slots`); }
+    if (hash(CG.generate({ seed, preset: 'islands', params: { burn: true } })) !== hash(b)) { fails++; fail(`islands burn seed ${seed}: not deterministic`); } }
+  const px = (r, g, b, a = 255) => [r, g, b, a], img = [px(0x2e, 0x72, 0xaa), px(0x1f, 0x58, 0x90), px(0x3a, 0x64, 0x28, 200), px(0x8c, 0x76, 0x46)], d = new Uint8ClampedArray(img.flat()), d2 = d.slice();
+  CG.sunsetGrade(d, 4, r => 100 + r); CG.sunsetGrade(d2, 4, r => 100 + r);
+  if (d.some((v, i) => v !== d2[i])) { fails++; fail('sunsetGrade is not deterministic'); }
+  for (let k = 0; k < 2; k++) if (d[k * 4 + 2] - d[k * 4] >= 40) { fails++; fail(`sunsetGrade: sea pixel ${k} is still blue (${[...d.slice(k * 4, k * 4 + 3)]})`); }
+  for (let k = 2; k < 4; k++) if (d[k * 4] <= d[k * 4 + 2]) { fails++; fail(`sunsetGrade: land pixel ${k} is not warm (${[...d.slice(k * 4, k * 4 + 3)]})`); }
+  if (d[11] !== 200) { fails++; fail('sunsetGrade changed the alpha'); }
+  console.log(`${fails ? 'FAIL' : 'ok  '} islands at sunset: burning church in 12 plans (3 blazes of 3 hot spots, parts on fire, nothing else changed), the sunset grade turns sea to dusk water and land warm`); }
 // the desert (Enigma Run level 2): every hard rule in 60 desert ports with their beach towns and 60 desert villages; houses and farmsteads
 // have flat roofs, every church is a domed hall, every tree a palm, open desert and no fields (owner: no farmland in the desert); the beach
 // town is at war (owner mockup E): its promenade, obstacles in the shallows, wire, casemates and bunker slots on the beach, the pier cut
