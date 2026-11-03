@@ -183,7 +183,7 @@ const playOut = `
     const started = encStart('flaklane'), D = ENC.flaklane, disp = {}, tagged = new Set(); let lastI = 0, f = 0, seenAt = -1;
     while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
       while (lastI < E0.i) disp[lastI++] = E0.t;
-      for (const e of world.enemies) if (e.enc === 'flaklane') tagged.add(e);
+      for (const e of world.enemies) if (e.enc === 'flaklane') { tagged.add(e); if (e.type === 'flak') e.hp = 9999; /* (tough: which gun the bot shoots down first depends on everything else on the screen, and this measures where the guns stand) */ }
       const guns = [...tagged].filter(e => e.type === 'flak' && !e.dead); if (seenAt < 0 && guns.length && guns.every(e => e.y >= 0.15 * H)) seenAt = E0.t; }
     const types = {}, guns = []; for (const e of tagged) { types[e.type] = (types[e.type] || 0) + 1; if (e.type === 'flak') guns.push(Math.round(e.x)); }
     return JSON.stringify({ started, disp, seenAt, types, guns: guns.sort((a, b) => a - b), last: world.encLast }); })()`;
