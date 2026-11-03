@@ -1583,7 +1583,7 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   water: HX(['#1e6a74', '#2a8890', '#4aaaa8']), river: HX(['#0e3a40', '#14484e', '#1c5a5e', '#286c6c', '#3a8280', '#5aa09a']),
   dune: HX(['#b4884c', '#c69c5c', '#d6b070', '#e4c488', '#f0d6a2']), dome: HX(['#8a8070', '#b4ab98', '#d4ccba', '#ece6d8', '#fbf8f0']),
   wash: [HX(['#7e7464', '#b4ab98', '#d4ccba', '#ece6d8']), HX(['#8c7646', '#ae9660', '#ccb682', '#e6d4a6']), HX(['#7a5e4e', '#a88a74', '#c4a690', '#dcc2ae']), HX(['#7a6c50', '#a49676', '#c2b492', '#dccfb0']), HX(['#6a5e4c', '#9a8e7a', '#b4a68e', '#d0c4ac'])], // white, sand (the game's desert house), pink, buff, and stone (a fort's towers)
-  rock: HX(['#4e3c2a', '#6a5238', '#88694a', '#a6865e', '#c2a276', '#dabd92']), deep: HX(['#0e0a06', '#1a120a', '#241a10', '#2e2216']), stone: HX(['#6a5e4c', '#9a8e7a', '#b4a68e', '#d0c4ac']), camel: HX(['#2e1c10', '#5e3c20', '#7a5230', '#98683a', '#9a3a28', '#e6dcc4']), canvas: HX(['#8a7048', '#b49668', '#c2a676', '#d6be8e']),
+  rock: HX(['#4e3c2a', '#6a5238', '#88694a', '#a6865e', '#c2a276', '#dabd92']), deep: HX(['#0e0a06', '#1a120a', '#241a10', '#2e2216']), stone: HX(['#6a5e4c', '#9a8e7a', '#b4a68e', '#d0c4ac']), canvas: HX(['#8a7048', '#b49668', '#c2a676', '#d6be8e']),
   hatch: HX(['#3a2a18'])[0], dirt: HX(['#946e42', '#a88052', '#bc9464', '#cea878']), spoil: HX(['#6e5636', '#9c7e50', '#c4a46c', '#dcbe86', '#ecd4a0']), trench: HX(['#2e2216', '#4a3a26']),
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
@@ -2081,15 +2081,6 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     for (let yy = -4; yy <= 4; yy++) for (let xx = -4; xx <= 4; xx++) { const rr = Math.hypot(xx, yy); if (rr < 3.6) put(wl.x + xx + 1, wl.y + yy - 1, C.shadow, 0.35); }
     for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) { const rr = Math.hypot(xx + 0.5, yy + 0.5); if (rr < 1.6) put(wl.x + xx, wl.y + yy, C.dark); else if (rr < 3.2) put(wl.x + xx, wl.y + yy, (xx < 0 || yy >= 0) ? C.wash[0][3] : C.wash[0][1]); }
     for (let xx = -3; xx <= 2; xx++) put(wl.x + xx, wl.y, C.beam); }
-  for (const cm of plan.caravans || []) { if (cm.y + 10 < y0 || cm.y - 10 >= y0 + h) continue; // a camel seen from above, head along u (east): a long body with its hump, the neck and head ahead, folded legs when it lies down, a bale load and its shadow
-    const Lh = cm.down ? 5 : 6, P = (u, v, c, a, dx, dy) => put(cm.x + (cm.hz ? u : v) + (dx || 0), cm.y + (cm.hz ? v : u) + (dy || 0), c, a);
-    for (let u = -Lh - 3; u <= Lh + 4; u++) for (let v = -2; v <= 2; v++) if (Math.abs(v) < 2 || Math.abs(u) < Lh) P(u, v, C.shadow, 0.35, 2, -2);
-    for (let u = -Lh; u <= Lh; u++) { const w = Math.abs(u) > Lh - 1 ? 1 : 2; for (let v = -w; v <= w; v++) P(u, v, v < 0 ? C.camel[1] : v > 0 ? C.camel[3] : C.camel[2]); }
-    for (let u = Lh + 1; u <= Lh + 4; u++) { P(u, 0, C.camel[2]); if (u < Lh + 4) P(u, -1, C.camel[1]); } P(Lh + 5, 0, C.camel[0]); P(Lh + 5, 1, C.camel[0]); P(Lh + 6, 0, C.camel[0]); /* neck, head */
-    P(-Lh - 1, 0, C.camel[1]); P(-Lh - 2, 0, C.camel[1]); /* tail */
-    if (!cm.down) for (const u of [-Lh + 1, Lh - 1]) { P(u, -3, C.camel[0]); P(u, 3, C.camel[0]); }
-    if (cm.load) { for (let u = -3; u <= 2; u++) for (let v = -3; v <= 3; v++) { if (Math.abs(v) === 3 && (u === -3 || u === 2)) continue; P(u, v, u === -1 || u === 0 ? C.camel[4] : v < 0 ? C.camel[5] : C.camel[3]); } P(0, 0, C.camel[0]); }
-    else { P(0, 0, C.camel[3]); P(-1, 0, C.camel[3]); P(-1, 1, C.camel[2]); } } /* (the hump of an unladen camel) */
   for (const nt of plan.nets || []) { if (nt.y + nt.ry + 4 < y0 || nt.y - nt.ry - 4 >= y0 + h) continue; // a sand-coloured camouflage net on poles: blotched, a mesh, a ragged edge; what is under it is only a darker shape
     const ex = (xx, yy) => Math.hypot(xx / nt.rx, yy / nt.ry) + (vn((nt.x + xx) * 0.4, (nt.y + yy) * 0.4 + nt.s) - 0.5) * 0.35;
     for (let yy = -nt.ry - 2; yy <= nt.ry + 2; yy++) for (let xx = -nt.rx - 2; xx <= nt.rx + 2; xx++) if (ex(xx, yy) < 1) put(nt.x + xx + 3, nt.y + yy - 3, C.shadow, 0.3);
@@ -2628,11 +2619,11 @@ function desertLand(o) {
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
-      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: camels in a file, head east, laden with bales, one lying down
+      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: where the game's camels start (plan.caravans, each { x, y }; the game draws and moves them)
         for (const sy of [gy + ry + 9, gy - ry - 9, gy + ry + 22, gy - ry - 22]) { const got = [];
           for (let k = 0; k < 6; k++) { const cx = gx - 46 + k * 21 + Math.round((rnd(TD, 60, k + fi) - 0.5) * 3), cy = sy + Math.round((rnd(TD, 61, k + fi) - 0.5) * 3);
             let ok = true; for (let yy = cy - 5; ok && yy <= cy + 5; yy++) for (let xx = cx - 9; xx <= cx + 9; xx++) if (!inB(xx, yy) || (Kr[idx(xx, yy)] !== K.DESERT && Kr[idx(xx, yy)] !== K.OASIS) || Br[idx(xx, yy)] !== -1 || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) { ok = false; break; }
-            if (ok) got.push({ x: cx, y: cy, hz: true, load: k % 3 !== 2, down: k === 4, s: k + fi * 7 }); }
+            if (ok) got.push({ x: cx, y: cy, s: k + fi * 7 }); }
           if (got.length >= 3) { plan.caravans.push(...got); break; } } }
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
