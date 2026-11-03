@@ -38,10 +38,11 @@ async function freshPage() {
 const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
 /* A stage-3 run with an empty field: put() places one ground enemy at a screen point; tick() runs one frame keeping only what the test placed.
    (No // comments in this string: it may be collapsed onto one line.) */
-const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; i++) { player.inv = 99; world.enemies = []; world.ebul = []; update(); }
+const mkSetup = start => `SF.setMode('immortal'); ${start} for (let i = 0; i < 150; i++) { player.inv = 99; world.enemies = []; world.ebul = []; update(); }
   world.enemies = []; world.ebul = []; world.later = []; player.x = 20; player.inv = 99;
   const mine = new Set(); const put = (type, x, y, o = {}) => { const e = G(type, x, Math.round(y - Math.floor(world.scroll)), Object.assign({ noGuard: true }, o)); world.enemies.push(e); e.sy = y; mine.add(e); return e; };
   const tick = () => { player.inv = 99; world.shots = []; for (const e of mine) if (e.sy !== undefined) e.wy = Math.round(e.sy - Math.floor(world.scroll)); update(); world.enemies = world.enemies.filter(e => mine.has(e) || e.type === 'missile'); };`;
+const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkSetup('SF.start(1, 3);'); /* the new guns are the Enigma Run's; the Retro Run is the old campaign */
 
 {
   const page = await freshPage();
@@ -120,15 +121,24 @@ const setup = `SF.setMode('immortal'); SF.start(1, 3); for (let i = 0; i < 150; 
     zoneMark(60, 100); zoneMark(160, 100); const before = world.ebul.length; world.ebul.length = 0; return JSON.stringify({ before }); })()`));
   ok(n.before === 2, 'zones can be marked and cleared like any bullet');
 
-  /* picking: not in the Enigma Run, not before the first level */
+  /* picking: only in the Enigma Run, and not before each type's first level */
   const pk = JSON.parse(await peek(page, `(() => { ${setup}
-    const res = {}; for (const st of [1, 2, 3]) { SF.start(1, st); world.ARC_U = 0.6; const got = {}; for (let x = 20; x < 200; x++) for (let y = -300; y < 0; y += 9) { const v = pickTurretVariant(x, y); got[v || 'none'] = (got[v || 'none'] || 0) + 1; } res[st] = got; }
-    SF.start(1, 1); run.sortie = {}; const sortie = pickTurretVariant(100, -50); run.sortie = null;
-    return JSON.stringify({ res, sortie }); })()`));
-  ok(pk.sortie === null, 'no variant is picked in the Enigma Run');
+    const res = {}; for (const st of [1, 2, 3]) { run.stage = st; world.ARC_U = 0.6; const got = {}; for (let x = 20; x < 200; x++) for (let y = -300; y < 0; y += 9) { const v = pickTurretVariant(x, y); got[v || 'none'] = (got[v || 'none'] || 0) + 1; } res[st] = got; }
+    const sortie = run.sortie; run.sortie = null; run.stage = 3; let retro = 0; for (let x = 20; x < 200; x++) for (let y = -300; y < 0; y += 9) if (pickTurretVariant(x, y)) retro++; run.sortie = sortie;
+    return JSON.stringify({ res, retro, art: ENIG_GUN.on, same: SPR.bunker === SPR.bunkerN && SPR.casemate === SPR.casemateN && SPR.aatower === SPR.aatowerN && SPR.bunkerGun === SPR.bunkerGunN }); })()`));
+  ok(pk.retro === 0, 'no variant is picked in the Retro Run');
+  ok(pk.art && pk.same, 'the Enigma Run swaps in the new bunker, casemate and AA fort art');
   ok(Object.keys(pk.res[1]).join() === 'none', `level 1 has plain flak only (${JSON.stringify(pk.res[1])})`);
   ok(!pk.res[2].fortgun && pk.res[2].sam > 0 && pk.res[2].barrage > 0, `level 2 adds the missile site and the barrage battery (${JSON.stringify(pk.res[2])})`);
   ok(pk.res[3].sam > 0 && pk.res[3].barrage > 0 && pk.res[3].fortgun > 0 && pk.res[3].none > pk.res[3].sam, `level 3 has them all, and plain flak stays the most common (${JSON.stringify(pk.res[3])})`);
+
+  /* the Retro Run keeps the old art and the old fort: pairs of direct shots from guns 2 and 4, the old gun sprites for 2 and 4 barrels */
+  const rt = JSON.parse(await peek(page, `(() => { ${retroSetup}
+    const e = put('aatower', W / 2, 90, { cd: 20 }); const kinds = {}; for (let k = 0; k < 400; k++) { tick(); for (const b of world.ebul) kinds[b.kind] = 1; }
+    put('flak', 60, 230, { ga: PI / 2, cd: 1e9, barrels: 2 }); put('flak', 160, 230, { ga: PI / 2, cd: 1e9, barrels: 4 }); for (let k = 0; k < 4; k++) tick(); SF.draw();
+    return JSON.stringify({ kinds: Object.keys(kinds), art: ENIG_GUN.on, classic: SPR.bunker !== SPR.bunkerN && SPR.casemate !== SPR.casemateN && SPR.aatower !== SPR.aatowerN && SPR.bunkerGun !== SPR.bunkerGunN, gun2: !!SPR.flakGun2 && !!SPR.flakGun4, rc: e.rc ? 1 : 0, errs: R.errs.length }); })()`));
+  ok(!rt.art && rt.classic && rt.gun2, 'the Retro Run draws the original bunker, casemate, AA fort and 2- and 4-barrel flak sprites');
+  ok(rt.kinds.includes('shell') && rt.kinds.includes('s'), `the Retro Run's fort still mixes flak shells with direct shots (${rt.kinds})`);
 
   /* nothing threw, and every type draws */
   const d = JSON.parse(await peek(page, `(() => { ${setup}

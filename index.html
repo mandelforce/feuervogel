@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.49'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.50'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4943,8 +4943,19 @@ SPR.flakGun = rotSet(sprite(12, 28, x => {
   ellS(x, RP.conc, 6, 14, 4, 4, 0.05);
   rect(x, '#2a2a2e', 5, 12, 2, 4);
 }));
-/* Bunker: a riveted concrete octagon with a recessed gun ring, sandbag mounds at the corners, a vent grate, an ammo hatch and camouflage */
+/* The Retro Run keeps the original bunker, gun, casemate and AA fort (the code below, as it was); the Enigma Run swaps in the N versions (setEnigmaGuns). */
 SPR.bunker = sprite(24, 24, x => {
+  polyS(x, RP.conc, [[7, 0], [17, 0], [24, 7], [24, 17], [17, 24], [7, 24], [0, 17], [0, 7]], 0, 0.5);
+  polyS(x, RP.conc, [[8, 4], [16, 4], [20, 8], [20, 16], [16, 20], [8, 20], [4, 16], [4, 8]], -0.15, 0.3);
+  rect(x, '#101012', 8, 21, 8, 2);
+});
+SPR.bunkerGun = rotSet(sprite(14, 32, x => {
+  rect(x, '#18181a', 6, 18, 3, 13); rect(x, '#44444c', 6, 18, 1, 13); rect(x, '#18181a', 5, 28, 5, 3);
+  ellS(x, RP.conc, 7, 16, 5.5, 5.5, 0.1);
+  rect(x, '#2a2a2e', 6, 13, 3, 1);
+}));
+/* Bunker (Enigma Run): a riveted concrete octagon with a recessed gun ring, sandbag mounds at the corners, a vent grate, an ammo hatch and camouflage */
+SPR.bunkerN = sprite(24, 24, x => {
   polyS(x, RP.conc, [[7, 0], [17, 0], [24, 7], [24, 17], [17, 24], [7, 24], [0, 17], [0, 7]], 0, 0.5);
   polyS(x, RP.conc, [[8, 3], [16, 3], [21, 8], [21, 16], [16, 21], [8, 21], [3, 16], [3, 8]], -0.2, 0.3);
   camo(x, 0.5, 0.7, 0.2, 77);
@@ -4955,24 +4966,8 @@ SPR.bunker = sprite(24, 24, x => {
   rect(x, '#d8b020', 6, 5, 2, 1); boxS(x, RP.grey, 17, 16, 4, 3, 0.1);
   rect(x, '#101012', 8, 21, 8, 2); rect(x, '#3a3a40', 8, 21, 8, 1);
 });
-/* Bunker, plain variant: the original octagon and its colours (grey concrete only, no sandbags, camouflage or yellow), with a recessed gun
-   ring, rivets and a vent grate added. Gun: the same barrel with fume extractor and muzzle brake, and a grey cupola, no coloured marks. Not used by the director yet. */
-SPR.bunker2 = sprite(24, 24, x => {
-  polyS(x, RP.conc, [[7, 0], [17, 0], [24, 7], [24, 17], [17, 24], [7, 24], [0, 17], [0, 7]], 0, 0.5);
-  polyS(x, RP.conc, [[8, 4], [16, 4], [20, 8], [20, 16], [16, 20], [8, 20], [4, 16], [4, 8]], -0.15, 0.3);
-  disk(x, '#26282c', 12, 12, 6); disk(x, '#34363c', 12, 12, 5);
-  for (const [a, b] of [[8, 4], [16, 4], [20, 8], [20, 16], [16, 20], [8, 20], [4, 16], [4, 8]]) rect(x, '#8c8e94', a, b, 1, 1);
-  for (let i = 0; i < 3; i++) rect(x, '#2e3034', 15 + i * 2 - 1, 5, 1, 2);
-  rect(x, '#101012', 8, 21, 8, 2); rect(x, '#4a4c52', 8, 21, 8, 1);
-});
-SPR.bunkerGun2 = rotSet(sprite(14, 32, x => {
-  rect(x, '#26282c', 5, 18, 5, 13); rect(x, '#6c7078', 6, 18, 3, 13); rect(x, '#a8aeb8', 6, 18, 1, 13);
-  rect(x, '#26282c', 4, 28, 7, 3); rect(x, '#6c7078', 5, 28, 5, 2); rect(x, '#a8aeb8', 5, 28, 1, 2);
-  ellS(x, RP.conc, 7, 16, 5.5, 5.5, 0.1);
-  rect(x, '#2a2a2e', 5, 13, 5, 1); rect(x, '#2a2a2e', 6, 12, 3, 1);
-}));
 /* the bunker's gun: a heavy barrel with a fume extractor and muzzle brake, behind an armoured mantlet and a faceted cupola with a hatch */
-SPR.bunkerGun = rotSet(sprite(14, 32, x => {
+SPR.bunkerGunN = rotSet(sprite(14, 32, x => {
   rect(x, '#18181a', 6, 18, 3, 13); rect(x, '#5a5a64', 6, 18, 1, 13); rect(x, '#18181a', 5, 24, 5, 3); rect(x, '#3a3a42', 5, 24, 5, 1); rect(x, '#101012', 4, 28, 7, 3); rect(x, '#3a3a42', 4, 28, 7, 1);
   polyS(x, RP.grey, [[4, 16], [11, 16], [12, 19], [3, 19]], 0.2);
   polyS(x, RP.conc, [[7, 8], [11, 10], [13, 14], [13, 18], [10, 21], [4, 21], [1, 18], [1, 14], [3, 10]].map(([a, b]) => [a, b - 3]), 0.1, 0.6);
@@ -5128,7 +5123,15 @@ function loadEnigmaArt() {
   const conv = v => typeof v === 'string' ? decode(v) : Promise.all(v.map(conv));
   const S = {}; Promise.all(Object.keys(data).map(k => conv(data[k]).then(r => { S[k] = r; }))).then(() => { ENIG_ART.S = S; ENIG_ART.loading = false; if (ENIG_ART.want) setEnigmaArt(true); }).catch(() => { ENIG_ART.loading = false; });
 }
+/* Gun art of the Enigma Run (drawn in code, not in the PNG set): swapped in with the PNG art, so the Retro Run keeps the originals. */
+const ENIG_GUN = { on: false, classic: {}, keys: ['bunker', 'bunkerGun', 'casemate', 'aatower'] };
+function setEnigmaGuns(on) {
+  if (on === ENIG_GUN.on) return;
+  for (const k of ENIG_GUN.keys) { if (on) { ENIG_GUN.classic[k] = SPR[k]; SPR[k] = SPR[k + 'N']; } else SPR[k] = ENIG_GUN.classic[k]; }
+  ENIG_GUN.on = on;
+}
 function setEnigmaArt(on) {
+  setEnigmaGuns(!!on);
   ENIG_ART.want = on; if (on === ENIG_ART.on) return;
   if (on) {
     if (!ENIG_ART.S) { loadEnigmaArt(); return; } // (it is applied as soon as it has arrived)
@@ -5492,9 +5495,17 @@ SPR.troop = [0, 1, 2].map(fr => sprite(5, 7, x => {
   rect(x, '#2a2a22', 4, 2, 1, 2);
   rect(x, '#d8b48a', 4, 4, 1, 1); rect(x, '#d8b48a', 0, 5, 1, 1);
 }, { oc: '#141610' }));
-/* Casemate: a stepped concrete fortress front with sandbags along the roof edge, observation slits, buttresses, vents, and an armoured
-   port with a steel shutter where the gun looks out (the gun is drawn 8 px below the middle) */
+
 SPR.casemate = sprite(44, 30, x => {
+  polyS(x, RP.conc, [[5, 0], [39, 0], [44, 8], [44, 30], [0, 30], [0, 8]], 0, 0.45);
+  boxS(x, RP.conc, 6, 6, 32, 18, 0.12);
+  camo(x, 0.62, 0.82, 0.15, 51);
+  rect(x, '#0c0c0e', 13, 25, 18, 3); rect(x, '#3a3a40', 13, 24, 18, 1);
+  disk(x, '#2a2c30', 22, 15, 7);
+});
+/* Casemate (Enigma Run): a stepped concrete fortress front with sandbags along the roof edge, observation slits, buttresses, vents, and an armoured
+   port with a steel shutter where the gun looks out (the gun is drawn 8 px below the middle) */
+SPR.casemateN = sprite(44, 30, x => {
   polyS(x, RP.conc, [[5, 0], [39, 0], [44, 8], [44, 30], [0, 30], [0, 8]], 0, 0.45);
   boxS(x, RP.conc, 5, 4, 34, 20, 0.12);
   boxS(x, RP.conc, 9, 8, 26, 12, -0.1);
@@ -5507,9 +5518,16 @@ SPR.casemate = sprite(44, 30, x => {
   rect(x, '#3a3a40', 11, 22, 22, 1); disk(x, '#26282c', 22, 23, 8);
   for (const [a, b] of [[11, 22], [32, 22], [11, 28], [32, 28]]) rect(x, '#8c8e94', a, b, 1, 1);
 });
-/* The 4-gun AA fort: a concrete deck with hazard-striped edges, a cross of catwalks, four sandbagged gun pits at the corners and a
-   command hub in the middle (its radar arm and lamp are drawn live, see DRAW.aatower). */
+
 SPR.aatower = sprite(38, 38, x => {
+  boxS(x, RP.conc, 0, 0, 38, 38, 0.05);
+  boxS(x, RP.conc, 7, 7, 24, 24, -0.12);
+  for (const [a, b] of [[7, 7], [31, 7], [7, 31], [31, 31]]) { disk(x, '#26282c', a, b, 6); disk(x, '#3a3c42', a, b, 4); }
+  boxS(x, RP.conc, 15, 15, 8, 8, 0.25);
+});
+/* The 4-gun AA fort (Enigma Run): a concrete deck with hazard-striped edges, a cross of catwalks, four sandbagged gun pits at the corners and a
+   command hub in the middle (its radar arm and lamp are drawn live, see DRAW.aatower). */
+SPR.aatowerN = sprite(38, 38, x => {
   boxS(x, RP.conc, 0, 0, 38, 38, 0.05);
   boxS(x, RP.conc, 2, 2, 34, 34, -0.1);
   for (let i = 12; i < 26; i++) { const c = ((i >> 1) & 1) ? '#c8a41c' : '#1a1a1e'; rect(x, c, i, 0, 1, 2); rect(x, c, i, 36, 1, 2); rect(x, c, 0, i, 2, 1); rect(x, c, 36, i, 2, 1); }
@@ -6042,6 +6060,8 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 }
 {
   const GN = ['#0e0f12', '#1a1c22', '#2a2e36', '#3e444e', '#5a616c'], FGx = ['#1e2214', '#30382a', '#4a5440', '#66725a', '#8a9878'];
+  const gunN = n => sprite(12, 28, x => { const xs = n === 2 ? [3, 8] : [2, 4, 7, 9]; for (const bx of xs) { rect(x, '#18181a', bx, 15, 1, 12); rect(x, '#4a4a52', bx, 15, 1, 3); } ellS(x, RP.conc, 6, 14, 4.5, 4, 0.05); rect(x, '#2a2a2e', 4, 12, 4, 4); });
+  SPR.flakGun2 = rotSet(gunN(2)); SPR.flakGun4 = rotSet(gunN(4));
   { const c = document.createElement('canvas'); c.width = fighterBase.c.width; c.height = fighterBase.c.height; const x = c.getContext('2d'); x.drawImage(fighterBase.c, 0, 0);
     const d = x.getImageData(0, 0, c.width, c.height), a = d.data, Wd = c.width, Hd = c.height;
     for (let j = 0; j < Hd; j++) for (let i = 0; i < Wd; i++) { const k = (j * Wd + i) * 4; if (!a[k + 3]) continue; const lum = (a[k] + a[k + 1] + a[k + 2]) / 3; if (lum < 45 || (a[k] > 200 && a[k + 1] > 200 && a[k + 2] > 200)) continue; if (j < 5 || i < 5 || i > Wd - 6) { const l = lum / 255; a[k] = 120 + l * 130 | 0; a[k + 1] = 20 + l * 40 | 0; a[k + 2] = 20 + l * 30 | 0; } }
@@ -9714,9 +9734,9 @@ const FEAT = { popup: 1, heavy: 1, hay: 1, bush: 1, radar: 1, acar: 2, arty: 3, 
 function avail(f) { return settings.mode === 'gen' || run.endless || run.loop >= 1 || (f === 'leader' && !!run.sortie) || ((run.stage - 1) % 6) + 1 >= FEAT[f]; } // (the Campaign: formations with a leader from level 1 on (owner); Retro Run keeps level 4)
 function flakBarrels() { if (world.ARC_U >= 0.78) return 4; if (world.ARC_U >= 0.47 || run.loop >= 1) return 2; return 1; }
 /* Stationary-gun variants. A flak spawn becomes one of them by a hash of its position (no random draw, so the layouts and streams of
-   levels that spawn none are unchanged); each has its own cap and first level (FEAT). Not in the Enigma Run, which has its own plan. */
+   levels that spawn none are unchanged); each has its own cap and first level (FEAT). Enigma Run only: the Retro Run keeps its guns. */
 function pickTurretVariant(wx, wy) {
-  if (run.sortie) return null;
+  if (!run.sortie) return null;
   const u = world.ARC_U || 0;
   if (hash(Math.round(wx * 3), Math.round(wy * 3)) >= 0.22 + 0.2 * u + 0.08 * Math.min(2, run.loop)) return null;
   const roof = terrainType(wx, wy) === 'roof', c = [];
@@ -12835,12 +12855,12 @@ const ENT = {
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
     const rc = e.rc || (e.rc = [0, 0, 0, 0]); for (let i = 0; i < 4; i++) if (rc[i] > 0) rc[i]--;
     if (e.hp0 === undefined) e.hp0 = e.hp;
-    if (e.hp < e.hp0 * 0.45 && gf % 7 === 0 && e.y > -20 && e.y < H) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-12, 12), y: e.y + rnd(-12, 12), vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.3, r: rnd(1.5, 2.5), life: 34, max: 34 });
+    if (run.sortie && e.hp < e.hp0 * 0.45 && gf % 7 === 0 && e.y > -20 && e.y < H) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-12, 12), y: e.y + rnd(-12, 12), vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.3, r: rnd(1.5, 2.5), life: 34, max: 34 });
     for (let i = 0; i < 4; i++) if (hasT()) e.gas[i] += clamp(angDiff(e.gas[i], aim(e.x + cs[i][0], e.y + cs[i][1])), -0.05, 0.05);
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(34, 50 - run.loop * 5)) * (e.slow || 1) * fireSlow()); const i = e.gi = ((e.gi || 0) + 1) % 4, gx = e.x + cs[i][0], gy = e.y + cs[i][1];
-      flakShot(gx, gy); // every gun of the fort fires flak shells only
+      if (run.sortie || i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); } // (Enigma Run: every gun of the fort fires flak shells only)
       flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun'); rc[i] = 7;
     }
   } },
@@ -13617,7 +13637,7 @@ function popTurretE(e) {
   sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
   if (ENT[e.type].revenge) revenge(tx, ty, ENT[e.type].revenge, DIFF.turRevengeP[run.diff]);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
-  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' && e.barrels >= 2 ? SPR.aaZw : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.aaQ : e.type === 'fortgun' ? SPR.fortGun : e.type === 'sam' ? SPR.samRack : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
+  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' && ENIG_GUN.on && e.barrels >= 2 ? SPR.aaZw : e.type === 'flak' && e.barrels === 4 ? SPR.flakGun4 : e.type === 'flak' && e.barrels === 2 ? SPR.flakGun2 : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? (ENIG_GUN.on ? SPR.aaQ : SPR.bAA) : e.type === 'fortgun' ? SPR.fortGun : e.type === 'sam' ? SPR.samRack : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
   if ((e.type === 'tank' || e.type === 'htank') && Math.random() < 0.7) for (let i = 0; i < 2; i++) world.enemies.push(G('troop', e.wx + rnd(-6, 6), e.wy + rnd(-6, 6), { hd: Math.random() * TAU, scared: 90 }));
 }
@@ -14749,10 +14769,10 @@ const LOOKS = {
   sandbag(e, fl) { spr(SPR.sandbag, e.x, e.y, fl); },
   tower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 14, 14, 20, CONCW, null, 0.3, true); spr(SPR.towerTop, e.x + tox, e.y + toy, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x + tox), Math.round(e.y + toy) - 7, 1, 1); } },
   flak(e, fl) {
-    const twin = e.barrels >= 2; // 2 and 4 barrels (they differ only in how they shoot) look like the twin AA gun: its sandbag pit and twin barrels
+    const twin = ENIG_GUN.on && e.barrels >= 2; // Enigma Run: 2 and 4 barrels (they differ only in how they shoot) look alike: a sandbag pit and twin barrels
     spr(twin ? SPR.aaPit : SPR.flakBase, e.x, e.y, fl);
     if (!e.turDead) {
-      spr((twin ? SPR.aaZw : SPR.flakGun)[dirIdx(e.ga)], e.x, e.y, fl);
+      const set = twin ? SPR.aaZw : e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
       if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mr = twin ? 16 : 13, mx = e.x + Math.cos(e.ga) * mr, my = e.y + Math.sin(e.ga) * mr; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
     } else turStub(e.x, e.y, 4);
   },
@@ -14809,6 +14829,7 @@ const LOOKS = {
   },
   casemate(e, fl) { spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); },
   aatower(e, fl) {
+    if (!ENIG_GUN.on) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } return; }
     const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false), bx = e.x + tox, by = e.y + toy;
     spr(SPR.aatower, bx, by, fl);
     const ra = gf * 0.07 + (e.ph || 0); ctx.fillStyle = '#c4c9ce'; for (let k = 1; k <= 5; k++) ctx.fillRect(Math.round(bx + Math.cos(ra) * k), Math.round(by + Math.sin(ra) * k), 1, 1);

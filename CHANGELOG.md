@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The gun changes are the Enigma Run's only (build 1.2.5.50). The Retro Run has its original bunker, casemate, AA fort (with its pairs of direct shots) and 2- and 4-barrel flak guns again, and no new gun types; the new look of the bunker, casemate, AA fort and flak, the flak-only AA fort, the missile site, the Panzerturm and the barrage battery are in the Enigma Run (the art swaps in with the Enigma art, `setEnigmaGuns`; the new guns are picked only when `run.sortie` is set). The Retro replay output is identical to build 1.2.5.43 (both differ from `tests/golden.json` in the same 13 checks, so that file was already stale). The flak lane test makes its guns tough so which gun the bot shoots down first no longer moves its timing.
 - Missile site, three missiles (build 1.2.5.49). The launcher holds three ready missiles instead of four; when it fires one the rack shows an empty place, which fills again about 1.5 s before the next launch.
 - AA fort fires flak shells only (build 1.2.5.48). All four guns shoot one flak shell each in turn; the pairs of direct shots from two of the guns are gone.
 - Fewer new gun types (build 1.2.5.47). The separate twin AA gun is gone (the 2- and 4-barrel flak have its look and keep their own shooting), and the Panzerturm fires only its two big shells: the fan of five on every third volley is removed.
