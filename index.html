@@ -4272,7 +4272,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.61'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.62'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6146,9 +6146,9 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   SPR.horseV = [hp('#7a4020', '#9a5a30', '#5a2c12', '#1a1010', '#5a2c12'), hp('#c4c4c8', '#e8e8ec', '#9a9aa0', '#5a5a62', '#8a8a92'), hp('#24222a', '#3e3a46', '#141216', '#0a0a0c', '#24222a')].map(pal => HR.map(r => rowSprite(r, pal)));
   const sP = { w: '#f2efe6', W: '#ffffff', s: '#cfc9bc', k: '#1e1a18', l: '#2a2420' };
   { const CR = [
-      ['.....bB.....mm.', '....bBBb...mbbk', '...bbrrbb..bbb.', 'tbbbbbbbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..'],
-      ['.....bB.....mm.', '....bBBb...mbbk', '...bbrrbb..bbb.', 'tbbbbbbbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '...ll.....ll...', '...ll.....ll...', '..h..h...h..h..'],
-      ['.....bB........', '....bBBb.......', '...bbrrbb......', 'tbbbbbbbbbbm...', 'tbbbbbbbbbsbb..', '.sbbbbbbbs.bbk.', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..']];
+      ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '..l.l.....l.l..', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..'],
+      ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '...ll.....ll...', '...ll.....ll...', '...ll.....ll...', '..h..h...h..h..'],
+      ['....bB.........', '...bBBb........', '..brrrrb.......', 'tbbrrrrbbbb....', 'tbbbbbbbbbbbb..', '.sbbbbbbbbsbb..', '..l.l...l.l.bb.', '..l.l...l.l..bb', '..l.l...l.l.bbk', '..l.l...l.l....', '..h.h...h.h....']];
     const cp = (r2) => ({ b: '#8a6236', B: '#a67c48', s: '#5e3c20', m: '#3a2414', t: '#3a2414', k: '#141012', h: '#141012', l: '#5e3c20', r: r2 });
     SPR.camelV = [cp('#a67c48'), cp('#9a3a28')].map(pal => CR.map(r => rowSprite(r, pal, '#1e1208'))); } // (a camel: the plain one, and one in a red saddle blanket; two walk frames and grazing)
   SPR.sheepV = [['.wWw.', 'wwWwk', 'swwsk', '.l.l.'], ['.wWw.', 'wwWwk', 'swwsk', 'l..l.'], ['.wWw.', 'wwWw.', 'swwwk', '.l.lk']].map(r => rowSprite(r, sP));
@@ -13783,6 +13783,7 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
   if (q) run.bombs2--; else run.bombs--;
   run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; feel.bombFx = 64; feel.flashFx = 8; feel.shake = 10; feel.bombX = who.x; feel.bombY = who.y;
   who.inv = Math.max(who.inv, 110); scorer = q ? 2 : 1;
+  for (const c of critters) if (c.kind === 'camel') c.panic = 360; // (the whole herd bolts from a Nova)
   for (const b of world.ebul) world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   world.ebul.length = 0;
   // a Nova snuffs out the Black Fortress's fire laser, charging or firing
@@ -14537,6 +14538,7 @@ function update() {
     c.t++;
     if (c.scared > 0) c.scared--;
     const k = c.kind || 'cow';
+    if (k === 'camel') c.scared = c.panic > 0 ? (c.panic--, 2) : 0; // (a camel only bolts from a Nova bomb: the guns and shots do not scare it)
     if (c.drownT !== undefined) { if (++c.drownT % 7 === 0) world.parts.push({ kind: 'bubble', layer: 'w', x: c.wx + rnd(-2, 2), y: c.wy + sc, vx: 0, vy: world.scrollV, life: 22, max: 22 }); if (c.drownT > 60) c.gone = true; continue; } // (an animal in the water sinks)
     if (ANIMALS.has(k) && c.t % 10 === 0 && animalWet(c.wx, c.wy)) { c.drownT = 0; c.vx = c.vy = 0; splash(c.wx, c.wy + sc, 4); continue; } // (it ended up in the water anyway: it drowns)
     if (k === 'cow') {
@@ -14553,7 +14555,7 @@ function update() {
     } else if (k === 'sheep' || k === 'horse' || k === 'camel' || k === 'civ') {
       if (k === 'civ' && c.hidden > 0) { c.hidden--; continue; }
       if (k === 'civ' && c.scared > 0) { const dx = c.home[0] - c.wx, dy = c.home[1] - c.wy, d = Math.hypot(dx, dy); if (d < 3) { c.hidden = 420; c.scared = 0; c.wx = c.home[0]; c.wy = c.home[1] + 6; continue; } c.wx += dx / d * 0.6; c.wy += dy / d * 0.6; c.fl = dx < 0; continue; }
-      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : k === 'camel' ? 0.5 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
+      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : k === 'camel' ? 0.9 : 0.4) : (Math.random() < (k === 'camel' ? 0.2 : 0.5) ? 0 : k === 'civ' ? 0.12 : k === 'camel' ? 0.09 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy, tt = terrainType(Math.floor(nx), Math.floor(ny));
       const roam = c.free ? 46 : 18;
       if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'sea' && tt !== 'surf' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
@@ -14707,7 +14709,7 @@ function drawCritters() {
     if (k === 'cow') flipDraw(SPR.cowV[c.var || 0][fg].c, c.wx, y, c.fl);
     else if (k === 'sheep') flipDraw(SPR.sheepV[fg].c, c.wx, y, c.fl);
     else if (k === 'horse') flipDraw(SPR.horseV[c.var || 0][fg].c, c.wx, y, c.fl);
-    else if (k === 'camel') flipDraw(SPR.camelV[c.var || 0][fg].c, c.wx, y, c.fl);
+    else if (k === 'camel') flipDraw(SPR.camelV[c.var || 0][moving ? (c.panic > 0 ? (c.t >> 2) & 1 : (c.t >> 4) & 1) : fg].c, c.wx, y, c.fl);
     else if (k === 'deer') flipDraw(SPR.deerV[c.var || 0][c.run ? (c.t >> 2) & 1 : fg].c, c.wx, y - 2, c.fl);
     else if (k === 'civ') flipDraw(SPR.civ[c.v || 0].c, c.wx, y, c.fl);
     else if (k === 'duck') { if (c.fly) { ctx.drawImage(BIRD_IMG[1][(c.t >> 2) & 1], Math.round(c.wx) - 2, Math.round(y) - 1); } else ctx.drawImage(SPR.duck.c, Math.round(c.wx) - 2, Math.round(y) - 1); }
