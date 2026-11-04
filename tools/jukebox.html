@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Feuervogel Jukebox</title>
+<style>
+  :root { --bg: #14110d; --fg: #eadfc8; --dim: #9a8c70; --line: #3a3126; --acc: #f0a830; --on: #2a2216; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 120px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: .08em; }
+  h2 { font-size: 13px; margin: 26px 0 8px; color: var(--dim); letter-spacing: .12em; text-transform: uppercase; }
+  p.note { color: var(--dim); margin: 0 0 8px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; cursor: pointer; background: transparent; color: inherit; font: inherit; width: 100%; text-align: left; }
+  .row:hover { border-color: var(--dim); }
+  .row.playing { border-color: var(--acc); background: var(--on); }
+  .row .ico { width: 1.2em; color: var(--acc); }
+  .row .name { flex: 1; }
+  .row .meta { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .row .new { color: var(--acc); font-size: 11px; border: 1px solid var(--acc); border-radius: 3px; padding: 0 4px; margin-left: 6px; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; background: #0d0b08; border-top: 1px solid var(--line); padding: 10px 16px; }
+  #bar .in { max-width: 760px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  #now { flex: 1 1 220px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button.ctl { background: var(--on); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 14px; font: inherit; cursor: pointer; }
+  button.ctl:hover { border-color: var(--acc); }
+  label { color: var(--dim); display: flex; align-items: center; gap: 8px; }
+  input[type=range] { accent-color: var(--acc); width: 120px; }
+  #err { color: #ff7a5c; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FEUERVOGEL 89 · JUKEBOX</h1>
+  <p class="note">Plays the game's own music code, read live from <code>../index.html</code>, so it is always in step with the game. Serve the repo (<code>python3 -m http.server</code>) and open <code>/tools/jukebox.html</code>.</p>
+  <div id="err"></div>
+  <div id="list"></div>
+</main>
+<div id="bar"><div class="in">
+  <div id="now">Pick a track.</div>
+  <button class="ctl" id="stop">Stop</button>
+  <label>Volume <input type="range" id="vol" min="0" max="100" value="80"></label>
+</div></div>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id), errBox = $('err');
+  let G;
+  try {
+    /* the game keeps its music in one section of index.html: load that section as it stands, with stand-ins for the few game globals it touches */
+    const src = await (await fetch('../index.html', { cache: 'no-store' })).text();
+    const a = src.indexOf('/* ================= audio'), b = src.indexOf('/* ================= state', a);
+    if (a < 0 || b < 0) throw new Error('audio section not found in index.html');
+    const code = src.slice(a, b) + '\nreturn { SONGS, STAGE_SONGS, ARR, OPL_MAIN, OPL_BOSS, FM_MAIN, FM_BOSS, DESERT_DUNES, Music, playSong, stopMusic, audio, applyVolumes, secDur, getCtx: () => actx };';
+    const settings = { music: 80, sfx: 100, musicOn: true, sfxOn: true };
+    const shims = { settings, store: { get: () => null, set() {} }, KEY: { muted: 'muted' }, PI: Math.PI, run: { stage: 1 }, world: { curTheme: 0 }, app: { paused: false }, setSoundLabel() {},
+      rnd: (a, b) => a + Math.random() * (b - a), lerp: (a, b, t) => a + (b - a) * t, clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)) };
+    G = new Function(...Object.keys(shims), code)(...Object.values(shims));
+    G.settings = settings;
+  } catch (e) { errBox.textContent = 'Could not load the game music: ' + e.message; return; }
+
+  const NAMES = ['Cross the Channel', 'The Winter Line', 'Sea of Sand', 'The Long Night', 'The Iron Forest', 'The Burning City'];
+  const secs = (arr) => arr.reduce((t, s) => t + G.secDur(s), 0);
+  const dunes = G.ARR.desert.filter(s => s.song === G.DESERT_DUNES);
+  /* [group, [label, song name, arrangement, isNew]] */
+  const groups = [
+    ['Campaign and Enigma Run, first loop (stages 1–6)', G.STAGE_SONGS.map((n, i) => [NAMES[i] + (n === 'desert' ? ' (Enigma Run level 2)' : ''), n, G.ARR[n], false])
+      .concat([['Sea of Sand · the dunes only (new piece)', 'desert', dunes, true]])],
+    ['Bosses and the final airfield, first loop', [['Boss', 'boss', G.ARR.boss], ['Winter boss', 'boss', G.ARR.wboss], ['Final airfield', 'final', G.ARR.final]].map(x => x.concat(false))],
+    ['Second loop · Arcade 1989', [['Arcade 1989', 'stage', G.OPL_MAIN[0]], ['Sadness', 'stage', G.OPL_MAIN[1]], ['Boss · Arcade', 'boss', G.OPL_BOSS[0]], ['Boss · Last stand', 'boss', G.OPL_BOSS[1]]].map(x => x.concat(false))],
+    ['Third loop and on · FM studio', [['House', 'stage', G.FM_MAIN[0]], ['Night', 'stage', G.FM_MAIN[1]], ['Overdrive', 'stage', G.FM_MAIN[2]], ['Boss · FM', 'boss', G.FM_BOSS[0]], ['Boss · Breakbeat', 'boss', G.FM_BOSS[1]], ['Boss · Assault', 'boss', G.FM_BOSS[2]]].map(x => x.concat(false))]
+  ];
+
+  const rows = [];
+  let cur = null;
+  const list = $('list');
+  for (const [title, tracks] of groups) {
+    const h = document.createElement('h2'); h.textContent = title; list.appendChild(h);
+    for (const [label, song, arr, isNew] of tracks) {
+      const r = document.createElement('button');
+      r.className = 'row'; r.type = 'button';
+      r.innerHTML = '<span class="ico">▶</span><span class="name"></span><span class="meta"></span>';
+      r.querySelector('.name').textContent = label;
+      if (isNew) { const n = document.createElement('span'); n.className = 'new'; n.textContent = 'NEW'; r.querySelector('.name').appendChild(n); }
+      const m = Math.floor(secs(arr) / 60), s = Math.round(secs(arr) % 60);
+      r.querySelector('.meta').textContent = arr.length + (arr.length === 1 ? ' part · ' : ' parts · ') + m + ':' + String(s).padStart(2, '0');
+      r.onclick = () => play({ label, song, arr, r });
+      list.appendChild(r); rows.push(r);
+    }
+  }
+  function play(t) {
+    G.audio();
+    if (!G.getCtx()) { errBox.textContent = 'No audio available in this browser.'; return; }
+    G.playSong(t.song, true);
+    G.Music.arr = t.arr; G.Music.sec = 0; G.Music.rep = 0; G.Music.step = 0;
+    rows.forEach(r => { r.classList.toggle('playing', r === t.r); r.querySelector('.ico').textContent = r === t.r ? '♪' : '▶'; });
+    cur = t;
+  }
+  function stop() {
+    G.stopMusic(); cur = null;
+    rows.forEach(r => { r.classList.remove('playing'); r.querySelector('.ico').textContent = '▶'; });
+    $('now').textContent = 'Stopped.';
+  }
+  $('stop').onclick = stop;
+  $('vol').oninput = e => { G.settings.music = +e.target.value; G.audio(); G.applyVolumes(); };
+  setInterval(() => { if (cur) $('now').textContent = '♪ ' + cur.label + ' · part ' + (G.Music.sec + 1) + '/' + cur.arr.length; }, 150);
+})();
+</script>
+</body>
+</html>
