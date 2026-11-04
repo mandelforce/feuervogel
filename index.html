@@ -7777,9 +7777,11 @@ const NIGHT_OUTRO = buildSong(96, SG.night.bars.slice(0, 4), [[72,8],[73,8],[72,
 // the winter boss: the boss battle moved into the winter's key, with a chugging train rhythm, bells and brass
 const WBOSS = buildSong(172, SG.boss.bars, [[76,2],[76,2],[79,2],[76,2],[83,4],[81,2],[79,2], [84,4],[83,2],[81,2],[79,4],[76,4], [86,2],[86,2],[78,2],[81,2],[86,4],[84,2],[81,2], [83,4],[87,4],[90,8], [88,4],[86,2],[83,2],[79,4],[76,4], [88,2],[84,2],[79,2],[88,2],[84,4],[79,4], [81,2],[84,2],[88,4],[86,2],[84,2],[81,4], [83,2],[87,2],[90,2],[95,10]], 'drive', -12, 'bell');
 const WB = { tr: -7, chug: true, layer: 'brass', layerDown: true, dense: true };
+// the dunes: a new desert piece on the desert's own chords and Phrygian turns (E F G# A), slower, with a bell lead over the tribal drums
+const DESERT_DUNES = buildSong(148, SG.desert.bars, [[76,4],[77,2],[80,2],[81,4],[80,2],[77,2], [80,6],[77,2],[76,8], [76,2],[80,2],[83,4],[84,4],[83,2],[80,2], [81,6],[77,2],[74,8], [88,4],[86,2],[84,2],[83,4],[80,4], [81,2],[84,2],[88,4],[89,4],[88,2],[84,2], [88,6],[84,2],[83,4],[80,2],[77,2], [76,4],[74,4],[76,8]], 'tribal', -12, 'bell');
 const ARR = {
   stage: [sec(SG.stage, 1), sec(SG.stage, 1, { tr: 2, layer: 'brass', dense: true, crash: true, pad: true })],
-  desert: [sec(SG.desert, 2), sec(twist(SG.desert), 2, { hats16: true })],
+  desert: [sec(SG.desert, 2), sec(twist(SG.desert), 2, { hats16: true }), sec(DESERT_DUNES, 2, { layer: 'pulse', hats16: true }), sec(DESERT_DUNES, 2, { tr: 2, layer: 'brass', layerDown: true, dense: true, crash: true, pad: true })],
   night: [sec(SG.night, 1, { drums: false, arp: false, bpmFrom: 96, bpmTo: 110 }), sec(SG.night, 1, { arp: false, hats16: true, bpmFrom: 110, bpmTo: 124 }), sec(SG.night, 1, { tr: 1, dense: true, hats16: true, layer: 'pulse', crash: true, pad: true, bpmFrom: 124, bpmTo: 138 }), sec(NIGHT_THEME, 1, { dense: true, hats16: true, harm: -12, harmType: 'pulse', crash: true, bpmFrom: 138, bpmTo: 150 }), sec(NIGHT_OUTRO, 1, { drums: false, arp: false, bpmFrom: 150, bpmTo: 152 })],
   forest: [sec(SG.forest, 2), sec(SG.forest, 2, { layer: 'brass', layerDown: true, dense: true, rolls: true, crash: true }), sec(SG.forest, 1, { oct: true, layer: 'brass', layerDown: true, dense: true, rolls: true, crash: true, pad: true })],
   winter: [sec(SG.winter, 1), sec(SG.winter, 2, { kit: 'rock', chug: true, layer: 'pulse', crash: true }), sec(SG.winter, 2, { tr: 3, kit: 'rock', chug: true, layer: 'brass', layerDown: true, dense: true, crash: true, pad: true })],
