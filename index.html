@@ -6148,7 +6148,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   { const CR = [
       ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '..l.l.....l.l..', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..'],
       ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '...ll.....ll...', '...ll.....ll...', '...ll.....ll...', '..h..h...h..h..'],
-      ['....bB.........', '...bBBb........', '..brrrrb.......', 'tbbrrrrbbbb....', 'tbbbbbbbbbbbb..', '.sbbbbbbbbs..bb', '..l.l....l.l.bb', '..l.l....l.l.bb', '..l.l....l.l.bb', '..l.l....l.lbbk', '..h.h....h.h...']];
+      ['....bB.........', '...bBBb........', '..brrrrb.......', 'tbbrrrrbbbb....', 'tbbbbbbbbbbbb..', '.sbbbbbbbbsbb..', '..l.l...l.l.bb.', '..l.l...l.l..bb', '..l.l...l.l.bbk', '..l.l...l.l....', '..h.h...h.h....']];
     const cp = (r2) => ({ b: '#8a6236', B: '#a67c48', s: '#5e3c20', m: '#3a2414', t: '#3a2414', k: '#141012', h: '#141012', l: '#5e3c20', r: r2 });
     SPR.camelV = [cp('#a67c48'), cp('#9a3a28')].map(pal => CR.map(r => rowSprite(r, pal, '#1e1208'))); } // (a camel: the plain one, and one in a red saddle blanket; two walk frames and grazing)
   SPR.sheepV = [['.wWw.', 'wwWwk', 'swwsk', '.l.l.'], ['.wWw.', 'wwWwk', 'swwsk', 'l..l.'], ['.wWw.', 'wwWw.', 'swwwk', '.l.lk']].map(r => rowSprite(r, sP));
