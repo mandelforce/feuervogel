@@ -7799,13 +7799,17 @@ const OPL_MAIN = [[sec(SG.stage, 1, { opl: true, style: 'arcade' }), sec(SG.stag
 const OPL_BOSS = [[sec(SG.boss, 2, { opl: true, style: 'bossArcade' }), sec(SG.boss, 2, { opl: true, style: 'bossArcade', tr: 2, crash: true })], [sec(withBpm(SG.boss, 120), 2, { opl: true, style: 'laststand' }), sec(withBpm(SG.boss, 120), 2, { opl: true, style: 'laststand', oct: 12 })]];
 const DUNES_ARC = withBpm(DESERT_DUNES, 140), DUNES_SAD = withBpm(DESERT_DUNES, 92);
 const OPL_DESERT = [[sec(DUNES_ARC, 2, { opl: true, style: 'arcade' }), sec(DUNES_ARC, 2, { opl: true, style: 'arcade', harm: true, oct: 12, crash: true })], [sec(DUNES_SAD, 1, { opl: true, style: 'sadness' }), sec(DUNES_SAD, 1, { opl: true, style: 'sadness', drums: true, harm: true })]];
+// Arcade 1989 for the other themes: each level's own tune in the OPL styles, a bright mix and a slow Sadness mix (the desert's is the dunes above)
+const oplPair = (song, arcBpm, sadBpm) => { const A = withBpm(song, arcBpm), S = withBpm(song, sadBpm); return [[sec(A, 1, { opl: true, style: 'arcade' }), sec(A, 1, { opl: true, style: 'arcade', harm: true, oct: 12, crash: true })], [sec(S, 1, { opl: true, style: 'sadness' }), sec(S, 1, { opl: true, style: 'sadness', drums: true, harm: true })]]; };
+const OPL_THEME = { desert: OPL_DESERT, forest: oplPair(SG.forest, SG.forest.bpm, 72), winter: oplPair(SG.winter, SG.winter.bpm, 76), city: oplPair(SG.city, SG.city.bpm, 96) };
+const OPL_FINAL = [[sec(SG.final, 2, { opl: true, style: 'bossArcade' }), sec(SG.final, 2, { opl: true, style: 'bossArcade', tr: 2, crash: true })], [sec(withBpm(SG.final, 124), 2, { opl: true, style: 'laststand' }), sec(withBpm(SG.final, 124), 2, { opl: true, style: 'laststand', oct: 12 })]];
 const FM_MAIN = [[sec(withBpm(SG.stage, 132), 1, { style: 'house' }), sec(withBpm(SG.stage, 132), 1, { style: 'house', sparkle: true, tr: 2, crash: true })], [sec(withBpm(SG.stage, 112), 1, { style: 'night' })], [sec(withBpm(SG.stage, 164), 1, { style: 'overdrive' }), sec(withBpm(SG.stage, 164), 1, { style: 'overdrive', tr: 2, crash: true })]];
 const FM_BOSS = [[sec(SG.boss, 2, { style: 'bossFM' }), sec(SG.boss, 2, { style: 'bossFM', tr: 2, sparkle: true, crash: true })], [sec(withBpm(SG.boss, 140), 2, { style: 'breakbeat' })], [sec(withBpm(SG.boss, 184), 2, { style: 'assault' }), sec(withBpm(SG.boss, 184), 2, { style: 'assault', tr: 2, crash: true })]];
 function musicLoop() { return Math.floor(((run.stage || 1) - 1) / 6); }
 function arrangementFor(name) {
   const lp = musicLoop(), k = ((run.stage || 1) - 1);
   const isBoss = name === 'boss' || name === 'final';
-  if (lp === 1) return isBoss ? OPL_BOSS[k % 2] : name === 'desert' ? OPL_DESERT[k % 2] : OPL_MAIN[k % 2];
+  if (lp === 1) return isBoss ? (name === 'final' ? OPL_FINAL : OPL_BOSS)[k % 2] : (OPL_THEME[name] || OPL_MAIN)[k % 2];
   if (lp >= 2) return isBoss ? FM_BOSS[k % 3] : FM_MAIN[k % 3];
   if (name === 'final') return ARR.final;
   if (name === 'boss') return world.curTheme === 1 ? ARR.wboss : ARR.boss;
