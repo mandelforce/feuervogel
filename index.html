@@ -4272,7 +4272,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.62'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.64'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9600,7 +9600,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 // gun by itself). ttSeen: true for a critter the timetable ignores.
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
+  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r) || flyLow()) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
@@ -10408,12 +10408,13 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
 // the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
 // the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
 const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [6, 7, 8], GAP: 24, LV0: -72, SMOKE: 10,
-  BOARD: 60, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
+  ALT0: 0.15, CLIMB0: 0.3, CLIMB: 200, END: 0.5, // the player flies low over the deck (ALT0: its altitude, 0 the deck, 1 ordinary flight: the shadow lies close under it), then climbs: once the bow is below CLIMB0 of the screen's height, the ship shrinks to END of its size about its bow over CLIMB frames (as the deck take-off's does) and the altitude rises to 1
+  BOARD: 140, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
   LANES: [-28, -4, 20], ROWS: [[-134, 0], [-110, 0], [-86, 0], [-62, 0], [-38, 0], [-14, 0], [26, 0], [50, 1], [72, 1], [94, 1], [140, 1], [160, 0]] }; // the deck park, from the bow aft: ROWS of [v, lanes]: 0 the two outer lanes only (the catapult rails, the elevators and the raven mark take the middle), 1 all three
 CVF.PARKED = CVF.ROWS.flatMap(([v, k]) => (k ? CVF.LANES : [CVF.LANES[0], CVF.LANES[2]]).map(u => [u, v])); // 28 planes, spread along the whole deck
 let carrierFlyNext = false; // set by the Campaign's loop for the level 1 that follows
 function carrierFlyStart() {
-  const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
+  const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, s0: s, alt: CVF.ALT0, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
   carrierPic(s); // (paints the master at this larger scale, once)
   CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0, keep: true })));
   CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v, keep: true }))); // (keep: the ship starts a screen and more above the top, where the cull would drop them)
@@ -10423,6 +10424,8 @@ function carrierFlyStart() {
 // screen, and the scene is over once the bow is gone below and no launched plane is still rolling.
 function carrierFlyTick(C, t) {
   C.vy = world.scrollV - CVF.SAIL; C.y += C.vy;
+  if (C.cl === undefined && carrierXY(C, 0, CV.BOW)[1] > H * CVF.CLIMB0) C.cl = 0; // the climb begins (the ship's pass is nearly over): the ship shrinks about its bow, the player's altitude rises
+  if (C.cl !== undefined && C.cl < CVF.CLIMB) { const f = ++C.cl / CVF.CLIMB, e = f * f * (3 - 2 * f), s0 = C.s; C.s = Math.round(C.s0 * (1 - (1 - CVF.END) * e) * 128) / 128; C.y += CV.BOW * (s0 - C.s); C.alt = CVF.ALT0 + (1 - CVF.ALT0) * e; }
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) { C.gone = true; world.scrollTarget = SCROLL; }
   if (!C.gone) { carrierWake(C); if (gf % CVF.SMOKE === 0) for (const [u, v] of C.burnt) { const [x, y] = carrierXY(C, u, v); if (y > -8 && y < H + 8) smokePuff(x + rnd(-2, 2), y); } }
   const by = carrierXY(C, 0, CV.CAT1)[1];
@@ -10433,7 +10436,7 @@ function carrierFlyTick(C, t) {
     else if (t >= B.t0 + CVF.BOARD) { const e = B.e, tu = CV.CATS[C.cat++ % 2]; e.dead = true; bd.splice(i, 1); world.enemies.push(G('cfighter', 0, 0, { u: e.u, v: e.v, u0: e.u, v0: e.v, tu, vv: 0, up: true })); sfx('whistle'); } }
   if (!C.gone && t >= C.nextL && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
     let pl = null; for (const e of world.enemies) if (e.type === 'cparked' && !e.dead && !bd.some(B => B.e === e) && (!pl || e.v < pl.v || (e.v === pl.v && e.u < pl.u))) pl = e; // the foremost plane still on the deck, once it is on the screen
-    if (pl && pl.y > 0 && pl.y < H - 24) { bd.push({ e: pl, t0: t }); C.launched++; C.nextL = t + CVF.GAP; }
+    if (pl && pl.y > 0 && pl.y < H - 24 - CVF.BOARD) { bd.push({ e: pl, t0: t }); C.launched++; C.nextL = t + CVF.GAP; }
   }
   if (C.gone && !world.enemies.some(e => e.type === 'cfighter' && !e.dead)) C.over = true;
 }
@@ -10451,6 +10454,8 @@ function carrierStart() {
   carrierPic(CV.K); // paints the master now (some 30 to 70 ms, once per page), not in the first frame of the take-off
 }
 /* Is the screen point (x, y), with radius r, over the carrier's hull, or within ahead px of its bow (the sea sails into what lies there, the ship being slower than the sea)? Ships, boats and submarines are never placed there. */
+/* The flyover's player is low until its climb is done: no ship, boat or submarine is placed or stays on the sea until it is at full height (the rising effect would look wrong with them going by at one size). */
+function flyLow() { const C = world.carrier; return !!(C && C.fly && C.alt < 1); }
 function underCarrier(x, y, r, ahead = 160) { const C = world.carrier; if (!C || C.gone) return false; return Math.abs(x - C.x) < 52 * C.s + r && y > C.y + (CV.BOW - 4) * C.s - ahead - r && y < C.y + 190 * C.s + r; }
 function carrierXY(C, u, v) { return [C.x + u * C.s, C.y + v * C.s]; }
 function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of the planes, guns and crew on the deck
@@ -10459,7 +10464,8 @@ function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of th
 function carrierTick() {
   const C = world.carrier; if (C.over) return;
   const t = ++C.t;
-  for (const e of world.enemies) if ((e.type === 'sub' || e.type === 'pt' || e.type === 'destroyer') && !e.dead && underCarrier(e.x, e.y, 10, 0)) e.dead = true; // (a ship or submarine the carrier has sailed over: gone)
+  const low = flyLow(); if (low) { for (let i = critters.length - 1; i >= 0; i--) if (critters[i].kind === 'boat' || critters[i].kind === 'row') critters.splice(i, 1); }
+  for (const e of world.enemies) if ((e.type === 'sub' || e.type === 'pt' || e.type === 'destroyer') && !e.dead && (low || underCarrier(e.x, e.y, 10, 0))) e.dead = true; // (a ship or submarine the carrier has sailed over: gone)
   if (C.fly) { carrierFlyTick(C, t); return; }
   if (t >= CV.T0 && t < CV.T1) { const f = (t - CV.T0) / (CV.T1 - CV.T0), y = C.y0 + C.A * f * f; C.vy = y - C.y; C.y = y; }
   else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 12); C.y += C.vy;
@@ -15932,7 +15938,7 @@ function renderMain() {
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
   for (const e of world.enemies) if (!e.ground && !e.surface) airShadow(e);
-  if (player && !player.dead) { const ak = player.deck ? player.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
+  if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
