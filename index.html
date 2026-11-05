@@ -4233,7 +4233,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.43'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.44'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8222,6 +8222,7 @@ function buildSortie(level, seed) {
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
+    sunset: level === 2 && (seed | 0) > CAMP_SEED, // the desert in a loop (seed 1945 on): the afternoon sun is low and orange (drawSunset), not the bright noon of the first pass
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -14861,6 +14862,15 @@ function lightBeam(x, y, a, len, half, rgb = '255,248,200', al = 0.42) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y);
   ctx.arc(x, y, len, a - half, a + half); ctx.closePath(); ctx.fill();
 }
+function drawSunset() { // Enigma level 2 in a loop: a warm filter over the ground and the planes (the bullets, the ship's effects and the HUD stay as they are)
+  const g = ctx.createLinearGradient(0, 0, W * 0.4, H);
+  g.addColorStop(0, 'rgb(255,204,152)'); g.addColorStop(1, 'rgb(255,228,194)');
+  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; ctx.fillRect(-8, -8, W + 16, H + 16); // warms the colours and takes a little of the noon glare
+  const h = ctx.createLinearGradient(W, 0, 0, H * 0.8);
+  h.addColorStop(0, 'rgba(255,128,32,0.26)'); h.addColorStop(0.55, 'rgba(255,110,24,0.08)'); h.addColorStop(1, 'rgba(255,96,16,0.03)');
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = h; ctx.fillRect(-8, -8, W + 16, H + 16); // the low sun from the upper right
+  ctx.globalCompositeOperation = 'source-over';
+}
 function drawNight() {
   { const S = run.sortie, graded = S && S.gen && S.timeOfDay === 'night'; // Enigma level 3: all its ground is painted at night already (the plan's and the graded legacy chunks), so the layer is only a quarter as dark
     ctx.fillStyle = `rgba(6,8,30,${(graded ? 0.25 : 0.6) * world.nightF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
@@ -15420,6 +15430,7 @@ function renderMain() {
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
+  if (run.sortie && run.sortie.sunset) drawSunset();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
