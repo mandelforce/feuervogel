@@ -3259,12 +3259,17 @@ function forestLand(o) {
   // the whole lake is plain forest or clearing, so no road, track, building or gun site is ever cut or touched. K.WATER, tag -17; a ring of reeds (K.MEADOW, -36).
   if (P.lakes) { const LK_GAP = 10, free = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), lakes = plan.lakes = [];
     const ev = (x, y, c) => Math.hypot((x + 0.5 - c.cx) / c.rx, (y + 0.5 - c.cy) / c.ry) + (vn(x * 0.09 + c.tag, y * 0.09 + 5) - 0.5) * 0.4 + (vn(x * 0.25 + c.tag, y * 0.25) - 0.5) * 0.12; /* below 1: water */
-    feats.forEach((F, fi) => { if (F.kind !== 'conifer' || (F.seg !== 'forest_conifer' && F.seg !== 'forest_fortified')) return; const [a, b] = span(F); let pick = null;
+    feats.forEach((F, fi) => { if (F.kind !== 'conifer' || (F.seg !== 'forest_conifer' && F.seg !== 'forest_fortified' && F.seg !== 'clearing_village')) return; const [a, b] = span(F); let pick = null;
+      const nf = []; for (let y = Math.max(0, a - 24); y < Math.min(L, b + 24); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free(Kr[i], Br[i])) nf.push(x, y); } /* every pixel that is not plain forest or clearing: roads, tracks, buildings, gun sites, ... */
+      const rowAt = y => { let lo = 0, hi = nf.length >> 1; while (lo < hi) { const m = (lo + hi) >> 1; if (nf[m * 2 + 1] < y) lo = m + 1; else hi = m; } return lo * 2; }; /* nf is in row order */
+      const clear = c => { const y0c = Math.floor(c.cy - c.ry * 1.4 - LK_GAP - 2), cache = new Float32Array(W * (Math.ceil(c.ry * 2.8) + 2 * LK_GAP + 8)).fill(-1);
+        const evc = (x, y) => { if (x < 0 || x >= W) return 9; const k = (y - y0c) * W + x; let v = cache[k]; if (v < 0) v = cache[k] = ev(x, y, c); return v; }; /* (each pixel's outline value once per candidate) */
+        for (let q = rowAt(c.cy - c.ry * 1.4 - LK_GAP), q1 = rowAt(c.cy + c.ry * 1.4 + LK_GAP + 1); q < q1; q += 2) { const x = nf[q], y = nf[q + 1]; if (Math.abs(y - c.cy) > c.ry * 1.4 + LK_GAP || Math.abs(x - c.cx) > c.rx * 1.4 + LK_GAP || Math.hypot((x - c.cx) / c.rx, (y - c.cy) / c.ry) > 1.6) continue; /* near enough to matter: is any lake or reed pixel within LK_GAP of it? */
+          for (let dy = -LK_GAP; dy <= LK_GAP; dy += 3) for (let dx = -LK_GAP; dx <= LK_GAP; dx += 3) if (evc(x + dx, y + dy) < 1.07) return false; } return true; };
+      const area = c => { let n = 0; for (let y = Math.floor(c.cy - c.ry * 1.4); y <= c.cy + c.ry * 1.4; y += 4) for (let x = Math.max(0, Math.floor(c.cx - c.rx * 1.4)); x <= Math.min(W - 1, c.cx + c.rx * 1.4); x += 4) if (Math.hypot((x - c.cx) / c.rx, (y - c.cy) / c.ry) < 1) n++; return n * 16; }; /* (the plain ellipse: the rim's noise averages out) */
       const sides = rnd(70 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
-      for (const [rx, ry] of [[98, 76], [90, 70], [84, 64], [76, 58], [68, 52]]) { for (let dy = 0; dy <= (b - a) / 2 - ry - 12 && !pick; dy += 12) for (const sg of [1, -1]) for (const side of sides) { const cy = Math.round((a + b) / 2 + sg * dy); if (cy - ry - LK_GAP < a || cy + ry + LK_GAP > b) continue;
-        for (const off of [0, 14, 26]) { const c = { cx: side > 0 ? W + off : -off, cy, rx, ry, tag: 400 + fi * 31 }; let ok = true, n = 0;
-          for (let y = cy - ry - LK_GAP - 6; ok && y <= cy + ry + LK_GAP + 6; y++) for (let x = Math.max(0, Math.floor(c.cx - rx - LK_GAP - 6)); ok && x <= Math.min(W - 1, Math.ceil(c.cx + rx + LK_GAP + 6)); x++) { const e = ev(x, y, c); if (e < 1 + (LK_GAP + 2) / Math.min(rx, ry) + 0.1) { if (!inB(x, y) || !free(Kr[idx(x, y)], Br[idx(x, y)])) ok = false; else if (e < 1) n++; } }
-          if (ok && n > 4000) { pick = c; break; } } } }
+      for (const [rx, ry] of [[98, 76], [90, 70], [84, 64], [76, 58], [68, 52], [60, 46]]) { for (let dy = 0; dy <= (b - a) / 2 - ry * 1.3 - LK_GAP && !pick; dy += 16) for (const sg of [1, -1]) for (const side of sides) { const cy = Math.round((a + b) / 2 + sg * dy);
+        for (const off of [0, 18]) { const c = { cx: side > 0 ? W + off : -off, cy, rx, ry, tag: 400 + fi * 31 }; if (area(c) > 3400 && clear(c)) { pick = c; break; } } } }
       if (!pick) return; lakes.push(pick);
       for (let y = pick.cy - pick.ry - 8; y <= pick.cy + pick.ry + 8; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const e = ev(x, y, pick), i = idx(x, y); if (e < 1) { Kr[i] = K.WATER; Br[i] = -17; } else if (e < 1.07 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } } });
     lap('lakes'); }
