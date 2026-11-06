@@ -17,10 +17,10 @@ async function page_(loops) {
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => { bad++; console.error('page error:', e.message); });
   await page.addInitScript(() => { let a = 1944; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; window.requestAnimationFrame = () => 0; });
-  await page.goto(PAGE); await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
+  await page.goto(PAGE + '?boss'); await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
   const peek = c => page.evaluate(c2 => window.SF.peek(c2), c);
-  /* level 3 flown by the immortal bot to its boss, once the boss is in place (its fight code has begun: the tick runs) */
+  /* level 3 started with the boss test link (?boss: a few chunks before the boss) and flown by the immortal bot until the boss is in place (its fight code has begun: the tick runs) */
   const r = await peek(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(3, false, ${loops}); let n = 0; for (; n < 40000; n += 30) { SF.run(30); ensureChunks(); const b = world.enemies.find(e => e.type === 'boss' && e.kind === 'railgun'); if (b && b.y > 130 && !b.intro) break; } SF.run(60); const b = world.enemies.find(e => e.type === 'boss'); return JSON.stringify({ n, kind: b && b.kind, moon: !!run.sortie.moon }); })()`);
   return { page, peek, info: JSON.parse(r) };
 }
