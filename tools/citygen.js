@@ -1589,7 +1589,8 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
+let LIGHT_R = false; /* the moonrise (plan.shadowMask): the light is on the right, so sloped roofs, domes and round roofs (tanks, towers, chimneys) are lit from the right, not the first pass's left */
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP;  LIGHT_R = !!plan.shadowMask;};
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -1648,9 +1649,9 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   }
   const along = b.ori === 'h', a = along ? lx : ly, c = along ? ly : lx, Lg = along ? w : h, Dd = along ? h : w, mid = (Dd - 1) / 2;
   if (style === 'saw') { const ph = c % 5; return ph === 0 ? C.roofs[3][4] : ph === 1 ? ramp[0] : (C.snowRoof || ramp)[pickI(5, 0.25 + ph * 0.14, wx, wy)]; } // a sawtooth roof: rows of north lights (winter: snow on the slopes)
-  let l = c < mid ? 0.78 : 0.34;
+  let l = (LIGHT_R && !along ? c > mid : c < mid) ? 0.78 : 0.34; // (the moonrise: a roof whose ridge runs up the screen is lit on its right slope)
   if (Math.abs(c - mid) < 0.6) l = 0.95;
-  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = 0.62; else if (Lg - 1 - a < e) l = 0.22; }
+  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = LIGHT_R && along ? 0.22 : 0.62; else if (Lg - 1 - a < e) l = LIGHT_R && along ? 0.62 : 0.22; }
   if (a % 3 === 0) l -= 0.08;
   const ch = 2 + ((hh(b.seed, 9) * Math.max(1, Lg - 5)) | 0);
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
@@ -1659,7 +1660,7 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
 }
 // a round building's pixel: a copper dome with ribs and a lantern, a gas holder inside its guide frame, or a column with a gilded figure
 function roundPix(b, x, y) {
-  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = (-dx + dy) / b.r; // lit from the upper left
+  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = ((LIGHT_R ? dx : -dx) + dy) / b.r; // lit from the upper left (the moonrise: the upper right)
   if (b.t === 'monument') { if (rr < 1.3) return C.fire[0]; if (rr < 1.9) return C.fire[1]; return e > 0.86 ? C.shadow : C.side[light > 0 ? 2 : 1]; }
   if (b.part === 'pavilion' || (b.part === 'dome' && C === C_DESERT)) { if (e > 0.88) return C.shadow; if (rr < 1.2) return C.lit; return C.dome[pickI(5, domeLit(dx / b.r, dy / b.r, e), x, y)]; } // a white dome (a pier pavilion; in the desert any dome)
   if (b.part === 'pillbox') { if (e > 0.88) return C.shadow; const toward = (b.sea < 0 ? -dy : dy) / b.r; if (e > 0.62 && toward > 0.3 && Math.abs(dx) < b.r * 0.7) return C.shadow; return C.conc[pickI(4, 0.6 - e * 0.25 + light * 0.3, x, y)]; } // a pillbox: slits towards the sea
@@ -2249,7 +2250,7 @@ function nightLights(plan) {
 }
 // The desert's domed hall (it takes the church's place and footprint, never a minaret): a big white dome over the crossing, a small dome on
 // the front tower, a half dome over the apse, flat plastered roofs on the nave and the transepts. Domes are lit from the upper left.
-function domeLit(dx, dy, dd) { return 0.42 + 0.42 * (-0.55 * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
+function domeLit(dx, dy, dd) { return 0.42 + 0.42 * ((LIGHT_R ? 0.55 : -0.55) * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
 function domedHallPix(b, x, y) {
   const D = b.church.dome, ddx = (x + 0.5 - D.x) / D.r, ddy = (y + 0.5 - D.y) / D.r, dd = Math.hypot(ddx, ddy);
   if (dd < 1) { if (dd > 0.86) return C.dome[0]; if (dd < 0.16) return C.dome[4]; if (dd < 0.27) return C.dome[1]; return C.dome[pickI(5, domeLit(ddx, ddy, dd), x, y)]; } // the drum's rim, a lantern on top
