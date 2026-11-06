@@ -1589,7 +1589,7 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -1863,7 +1863,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (sl) { const rr = Math.hypot(x + 0.5 - sl.x, y + 0.5 - sl.y), ring = sl.kind === 'arty' ? 6 : 4.5; if (Math.abs(rr - ring) < 1.1) { c = ((Math.atan2(y - sl.y, x - sl.x) * 3 | 0) & 1) ? C.sand[1] : C.sand[0]; break; } } // sandbag ring of a gun pit
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
-        case K.MEADOW: if (Br[i] <= -32 && Br[i] >= -39 && C === C_FOREST) { c = forestMeadowPix(x, y, Br[i]); break; } // the Iron Forest's heath, clearings, clear-cuts and verges
+        case K.MEADOW: if (Br[i] <= -32 && Br[i] >= -39 && (C === C_FOREST || C === C_AUTUMN)) { c = forestMeadowPix(x, y, Br[i]); break; } // the Iron Forest's heath, clearings, clear-cuts and verges
           if (Br[i] === -30) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Br[q] !== -30); c = ed ? ((x + y) % 3 === 0 ? C.beam : C.fence) : C.grass[pickI(4, 0.62 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)]; break; } // a paddock: grazed grass inside a post-and-rail fence
           if (Br[i] === -31) { c = C.field.grass[pickI(5, 0.12 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3, x, y)]; break; } // the floor of a wood, dark under the trees
           if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.64 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
@@ -2970,9 +2970,30 @@ const C_FOREST = Object.assign({}, C_TEMP, {
   wire: HX(['#141412', '#3a3832', '#221e18']), trench: HX(['#16120c', '#241e14']), spoil: HX(['#2a2216', '#3a3020', '#4c402a', '#5e523a', '#72664a']),
   hatch: HX(['#2a2016'])[0], canvas: HX(['#3a3c2a', '#4a4c34', '#5a5c3e', '#6a6c48']),
 });
+// Late autumn (params.autumn, the Iron Forest's first loop): the conifers stay dark, but a share of the forest is broadleaf and larch, each crown
+// its own colour: birch and aspen in yellow, beech and oak in rust and copper, maples in red. The meadows are dry straw, with no flowers.
+const dimRamp = (r, k, g) => r.map(c => { const m = (c[0] + c[1] + c[2]) / 3; return c.map(v => Math.round((m + (v - m) * g) * k)); }); /* a ramp darker (k) and a little greyer (g) */
+const C_AUTUMN = Object.assign({}, C_FOREST, {
+  grass: HX(['#4a4222', '#5e5428', '#766a34', '#8e8040']), tree: HX(['#0c0c06', '#14120a', '#1c180e', '#241e12', '#2e2616', '#382e1a']),
+  heath: HX(['#3a2c18', '#4c3a20', '#5e4828', '#4a2e2a', '#5c3c38']), larch: HX(['#4a3408', '#6e500c', '#947212', '#b8941c', '#d4b02c', '#e6c844', '#f2dc70']),
+  leaf: [
+    [HX(['#5a3c0c', '#8a5c10', '#b88a1a', '#dcb02a', '#f0cc3c', '#f8e066', '#fff2a0']), HX(['#6a5a10', '#9a8418', '#c8b028', '#e4cc3a', '#f2e056', '#faf08a', '#fffbc0'])], /* birch, aspen */
+    [HX(['#3a1608', '#5e240c', '#8a3a12', '#b4561c', '#d27428', '#e8943c', '#f6b45a']), HX(['#2e1a0c', '#4e2c12', '#72441a', '#96602a', '#b8803c', '#d4a054', '#e8c070'])], /* beech, oak */
+    [HX(['#34080c', '#5a0e12', '#841820', '#ac2a2a', '#cc4430', '#e46a3c', '#f4905a']), HX(['#4a1006', '#741c0a', '#a02e0e', '#c8481a', '#e46a28', '#f48c3a', '#fcb058'])], /* maple */
+  ],
+});
+C_AUTUMN.leaf = C_AUTUMN.leaf.map(sp => sp.map(r => dimRamp(r, 0.8, 0.85))); C_AUTUMN.larch = dimRamp(C_AUTUMN.larch, 0.78, 0.85);
 // one conifer crown seen from above: a cone of branches round its tip, lit from the upper left (dy is up). Returns the light 0..1, or -1 off the crown.
 // Spruce and larch are stars of branches with dark gaps between them; a pine is a rounder, clumpy crown.
+function leafLit(t, dx, dy) { /* a broadleaf crown: a round mass of leaf clumps, wavy at the rim, lit from the upper left */
+  const rr = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), R = t.r + 0.9 + 0.35 * Math.sin(ang * 3 + t.rot) + 0.25 * Math.sin(ang * 5 + t.rot * 2); if (rr > R) return -1;
+  const m = t.r >= 5 ? 6 : t.r >= 3 ? 5 : 4, cr = t.r * 0.62 + 0.9, off = t.r * 0.55; let best = -1, bx = 0, by = 0;
+  for (let k = 0; k <= m; k++) { const a = t.rot + k * 6.283 / m, cx = k === m ? 0 : Math.cos(a) * off, cy = k === m ? 0 : Math.sin(a) * off, e = 1 - Math.hypot(dx - cx, dy - cy) / cr; if (e > best) { best = e; bx = dx - cx; by = dy - cy; } }
+  const l = 0.34 + 0.3 * (-0.55 * bx + 0.75 * by) / cr + 0.3 * Math.max(best, 0) + 0.12 * (-0.55 * dx + 0.75 * dy) / (t.r + 1) - (best < 0.12 ? 0.14 : 0) - (rr > R - 0.9 ? 0.06 : 0);
+  return l < 0 ? 0 : l > 1 ? 1 : l;
+}
 function coniferLit(t, dx, dy) {
+  if (t.sp >= 3) return leafLit(t, dx, dy);
   const rr = Math.hypot(dx, dy); if (rr > t.r + 0.6) return -1;
   if (t.sp === 1) { const m = t.r >= 4 ? 5 : t.r >= 3 ? 4 : 3, cr = t.r * (t.r >= 4 ? 0.48 : 0.56) + 0.5, off = t.r - cr + 0.3; let best = -1, bx = 0, by = 0; // a pine: tufts round a middle one, each lit on its own
     for (let k = 0; k <= m; k++) { const a = t.rot + k * 6.283 / m, cx = k === m ? 0 : Math.cos(a) * off, cy = k === m ? 0 : Math.sin(a) * off, e = 1 - Math.hypot(dx - cx, dy - cy) / (k === m ? cr * 0.9 : cr); if (e > best) { best = e; bx = dx - cx; by = dy - cy; } }
@@ -2985,12 +3006,12 @@ function coniferLit(t, dx, dy) {
 const CONIF = ['spruce', 'pine', 'larch'];
 // the conifers of a band of rows: per size class (small, medium, large) its shadows, then its crowns, so a taller tree's shadow falls on the smaller ones
 const crownCache = new Map();
-function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = t.sp * 1000 + t.r * 10 + rq; let c = crownCache.get(key); if (c) return c; c = [];
+function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = (t.sp >= 3 ? 3 : t.sp) * 1000 + t.r * 10 + rq; let c = crownCache.get(key); if (c) return c; c = [];
   const u = Object.assign({}, t, { rot: rq * 6.283 / 8 }); for (let dy = -t.r - 1; dy <= t.r + 1; dy++) for (let dx = -t.r - 1; dx <= t.r + 1; dx++) { const l = coniferLit(u, dx, dy); if (l >= 0) c.push(dx, dy, l); } crownCache.set(key, c); return c; }
 function paintConifers(plan, put, y0, h) {
   for (const cls of plan.conifers) { let lo = 0, hi = cls.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cls[m].y < y0 - 12) lo = m + 1; else hi = m; } let k1 = lo; while (k1 < cls.length && cls[k1].y <= y0 + h + 12) k1++;
     for (let k = lo; k < k1; k++) { const t = cls[k], s = Math.round(t.r * 0.55) + 1 + t.lean, c = crownOf(t); for (let q = 0; q < c.length; q += 3) put(t.x + c[q] + s, t.y + c[q + 1] - s, C.shadow, 0.5); }
-    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, C.snowRoof && c[q + 2] > 0.48 && hh(px, py) < 0.88 ? C.snowRoof[pickI(5, 0.35 + (c[q + 2] - 0.48) * 1.3, px, py)] : ramp[pickI(7, c[q + 2], px, py)]); } /* (winter: snow on the lit side of the branches) */ } }
+    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = t.sp >= 3 ? C.leaf[t.sp - 3][t.tone] : C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, C.snowRoof && c[q + 2] > 0.48 && hh(px, py) < 0.88 ? C.snowRoof[pickI(5, 0.35 + (c[q + 2] - 0.48) * 1.3, px, py)] : ramp[pickI(7, c[q + 2], px, py)]); } /* (winter: snow on the lit side of the branches) */ } }
 }
 // a cliff pixel (K.CRAG). Br -40 - k: the south face of tier k, rows from its foot to its rim; -50 / -51: the road gorge's left and right
 // walls; -60 - s: sea stack s. Rock in strata, buttresses lighter and gullies darker, lit at the rim, darkening to the foot; a face that turns
@@ -3022,7 +3043,7 @@ function ledgePix(plan, x, y, b) {
 function forestMeadowPix(x, y, b) {
   const n = vn(x * 0.18, y * 0.18), r = hh(x, y);
   if (b === -32) return n > 0.64 ? C.heath[pickI(5, 0.75 + (r - 0.5) * 0.5, x, y)] : n < 0.3 ? C.heath[pickI(5, 0.3 + (r - 0.5) * 0.5, x, y)] : C.grass[pickI(4, 0.35 + (n - 0.5) * 0.6, x, y)];
-  if (b === -33) return r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
+  if (b === -33) return C === C_AUTUMN ? C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)] : r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
   if (b === -34) return r < 0.035 ? C.stone[3] : r < 0.06 ? C.char[1] : n > 0.5 ? C.heath[pickI(5, 0.4 + (r - 0.5) * 0.4, x, y)] : C.grass[pickI(4, 0.2 + (r - 0.5) * 0.4, x, y)];
   if (b === -39) return n > 0.55 || r < 0.2 ? C.dirt[pickI(4, 0.35 + (n - 0.5) * 0.6 + (r - 0.5) * 0.3, x, y)] : C.grass[pickI(4, 0.15 + (r - 0.5) * 0.4, x, y)]; // a gun site's trampled earth
   return r < 0.35 ? C.gravel[pickI(3, 0.5 + (r - 0.2), x, y)] : C.grass[pickI(4, 0.3 + (n - 0.5) * 0.4, x, y)]; // -35
@@ -3227,8 +3248,12 @@ function forestLand(o) {
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) { const g = grid.get(cy * cw + cx); if (g) for (const t of g) if (Math.hypot(t.x - x, t.y - y) < (t.r + r) * sp) return true; } return false; };
     const add = t => { const key = Math.floor(t.y / cell) * cw + Math.floor(t.x / cell); let g = grid.get(key); if (!g) grid.set(key, g = []); g.push(t); all.push(t); };
     const okAt = (x, y, r, ground) => { for (const [dx, dy] of [[0, 0], [r - 1, 0], [1 - r, 0], [0, r - 1], [0, 1 - r]]) { const xx = x + dx, yy = y + dy; if (!inB(xx, yy)) return false; const i = idx(xx, yy); if (!ground(Kr[i], Br[i])) return false; } return true; };
-    const species = (x, y) => { const p = vn(x * 0.011 + 30, y * 0.011); return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
-    const tree = (x, y, r, sp, lean = 0) => ({ x, y, r, sp, lean, rot: hh(x, y * 3) * 6.283, n: sp === 1 ? 5 : r >= 4 ? 8 : 6 });
+    const autumn = !!P.autumn, species = (x, y, r) => { const p = vn(x * 0.011 + 30, y * 0.011);
+      if (autumn) { const g = vn(x * 0.017 + 90, y * 0.017 + 40), q = hh(x * 11, y * 5), grove = g > 0.55 ? 0.7 : 0.1; /* broadleaf groves in slow patches, single ones between */
+        if (q < grove && p <= 0.62) { const kind = vn(x * 0.03 + 5, y * 0.03 + 60); return r <= 3 ? kind < 0.55 ? 3 : kind < 0.8 ? 4 : 5 : kind < 0.3 ? 3 : kind < 0.7 ? 4 : 5; }
+        if (hh(x * 3, y * 7) < 0.05) return 2; }
+      return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
+    const tree = (x, y, r, sp, lean = 0) => ({ x, y, r, sp, lean, rot: hh(x, y * 3) * 6.283, n: sp === 1 ? 5 : r >= 4 ? 8 : 6, tone: hh(x * 7, y * 13) < 0.5 ? 0 : 1 });
     const wood = (k, b) => k === K.WOOD && b === -1, any = (k) => k === K.WOOD;
     // plantations: rows of young trees (r 2, 5 px) or pole-stage trees (r 3, 7 px)
     for (const pl of plan.forest.plantations) { const r = pl.age === -37 ? 2 : 3, sp = r === 2 ? 5 : 7; for (let y = pl.y0 + r; y < pl.y0 + pl.h - r; y += sp) for (let x = pl.x0 + r; x < pl.x0 + pl.w - r; x += sp) { const i = idx(x, y); if (Kr[i] !== K.WOOD || Br[i] !== pl.age || hh(x, y) < 0.06) continue; add(tree(x, y, r, 0)); } }
@@ -3236,7 +3261,7 @@ function forestLand(o) {
     const passes = [{ step: 10, sizes: [5, 6, 7], p: (age) => 0.15 + age * 0.75 }, { step: 6, sizes: [3, 4], p: (age) => 0.75 - age * 0.2 }, { step: 4, sizes: [2], p: () => 0.85 }];
     passes.forEach((ps, pi) => { for (let gy = 0; gy < L; gy += ps.step) for (let gx = 0; gx < W; gx += ps.step) { const x = gx + Math.floor(hh(gx + pi * 977, gy) * ps.step), y = gy + Math.floor(hh(gy + pi * 331, gx * 3) * ps.step); if (!inB(x, y)) continue;
       const k = Kr[idx(x, y)], b = Br[idx(x, y)], age = vn(x * 0.014 + 7, y * 0.014); let r = ps.sizes[Math.floor(hh(x * 5, y * 11) * ps.sizes.length)];
-      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y))); continue; }
+      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y, r))); continue; }
       if (pi === 2 && ((k === K.LEDGE && b === -1) || (k === K.MEADOW && b === -32))) { if (hh(x * 17, y * 5) > 0.07 || !okAt(x, y, 2, (kk, bb) => kk === k && bb === b) || near(x, y, 2, 1.4)) continue; add(tree(x, y, hh(x, y) < 0.7 ? 2 : 3, 1, 1)); continue; } // wind-bent pines
       if (pi === 0 && k === K.MEADOW && b === -33 && hh(x * 19, y * 3) < 0.05 && okAt(x, y, r, (kk, bb) => kk === K.MEADOW && bb === -33) && !near(x, y, r, 1.6)) add(tree(x, y, r, 0)); } });
     for (const t of all) plan.conifers[t.r <= 2 ? 0 : t.r <= 4 ? 1 : 2].push(t);
