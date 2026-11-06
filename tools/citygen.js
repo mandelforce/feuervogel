@@ -2166,6 +2166,18 @@ function cloud(kind, seed) {
 // lane along the left of the screen (x is the screen's own, so the lane stays put while the sea scrolls). d: RGBA bytes, w: the row width,
 // wyAt(row): the world row of an image row (the glitter's waves are fixed to the world and drift with the scroll). Fires are drawn after it.
 const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a050', '#f0c060']), SUNGLINT = HX(['#e8b050', '#ffd070', '#fff4c0']), SUNLAND = [0.95, 0.6, 0.48, 27, 5, 20];
+// The morning (level 2 in a loop): golden dawn. Every pixel goes warm and a little low in blue (a multiply), its shadows toward a cool lilac and its highlights toward gold, the
+// colours a touch calmer, and the east side (the left of the screen: the sun is low there) gets an extra warm glow. Water keeps its blue. Looks only at a pixel's own colour and its
+// column, so a tree redrawn over a unit matches the ground. d: RGBA bytes, w: the row width.
+function morningGrade(d, w) {
+  const n = d.length >> 2;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; let r = d[o] / 255 * 1.04, g = d[o + 1] / 255 * 0.97, b = d[o + 2] / 255 * 0.87;
+    const l = Math.min(1, 0.299 * r + 0.587 * g + 0.114 * b), sh = 0.2 * (1 - l), hi = 0.14 * l;
+    r = r * (1 - sh) + 0.36 * sh; g = g * (1 - sh) + 0.40 * sh; b = b * (1 - sh) + 0.64 * sh; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.88 * hi; b = b * (1 - hi) + 0.62 * hi;
+    const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.96; g = l2 + (g - l2) * 0.96; b = l2 + (b - l2) * 0.96;
+    const t = 1 - x / w, gl = 0.22 * t * t; r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
+    d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
+}
 function sunsetGrade(d, w, wyAt) {
   const n = d.length >> 2; let wy = 0;
   for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) wy = wyAt((i / w) | 0);
@@ -3792,7 +3804,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

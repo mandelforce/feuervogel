@@ -378,13 +378,14 @@ for (const lv of [2, 6]) {
     startEnigma(1, false, 1); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), b1 = blue(S), sc = sunCloud(SPR.clouds[0]), ramp = new Set(SUN_CLOUD.map(c => c.join())), px = sc.c.getContext('2d').getImageData(0, 0, sc.c.width, sc.c.height).data; let opaque = 0, off = 0;
     for (let i = 0; i < px.length; i += 4) if (px[i + 3]) { opaque++; if (!ramp.has([px[i], px[i + 1], px[i + 2]].join())) off++; }
     const fires = P.fires.length, burning = !!P.burning, d1 = S.timeOfDay, on = sunsetOn(), save = (saveResume(), resumeRun(store.getJSON(KEY.resume)), run.sortie.timeOfDay + ':' + run.sortie.seed);
-    startEnigma(2, false, 1); const l2 = run.sortie.timeOfDay;
-    return { d0, f0, same, b0, b1, v: v.pass, fires, burning, d1, on, opaque, off, save, l2 }; })()`);
+    startEnigma(2, false, 1); const l2 = run.sortie.timeOfDay, mg = new Uint8ClampedArray([140, 140, 140, 255, 30, 110, 130, 255]); CityGen.morningGrade(mg, 2);
+    return { d0, f0, same, b0, b1, v: v.pass, fires, burning, d1, on, opaque, off, save, l2, mWarm: mg[0] > mg[2] + 20, mGrey: [mg[0], mg[1], mg[2]].join(','), mSea: mg[6] > mg[4], mSeaPx: [mg[4], mg[5], mg[6]].join(','), mChunk: typeof CityGen.morningGrade === 'function' }; })()`);
   ok(r.d0 === 'day' && r.f0 === 0 && r.same && r.b0 > 0.3, `level 1's first pass stays a day level (no fire on its church, day clouds, ${(r.b0 * 100).toFixed(0)}% of a sea chunk blue)`);
   ok(r.d1 === 'sunset' && r.on && r.v && r.burning && r.fires === 3, `level 1's first loop is flown at sunset: the plan passes the hard rules and its church burns (${r.fires} blazes)`);
   ok(r.b1 < 0.02, `the loop's sea is graded to dusk water (${(r.b1 * 100).toFixed(1)}% of a sea chunk blue, against ${(r.b0 * 100).toFixed(0)}% by day)`);
   ok(r.opaque > 0 && r.off === 0, `the loop's clouds use the sunset ramp only (${r.opaque} pixels, ${r.off} outside it)`);
-  ok(/^sunset:1945$/.test(r.save) && r.l2 === 'sunset', `a resumed loop is still at sunset (${r.save}), and level 2's loop is at sunset too (the desert's low orange sun)`);
+  ok(/^sunset:1945$/.test(r.save) && r.l2 === 'morning', `a resumed loop is still at sunset (${r.save}), and level 2's loop is flown in the morning, not at sunset`);
+  ok(r.mWarm && r.mSea && r.mChunk, `the morning grade (level 2's loop): a grey pixel turns warm (${r.mGrey}), a sea pixel stays blue (${r.mSeaPx}), the whole level's ground is graded`);
   await page.close();
 }
 

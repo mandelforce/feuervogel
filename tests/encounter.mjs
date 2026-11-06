@@ -384,7 +384,7 @@ const playOut = `
       if (world.ambushGo != null) { seen.flak = Math.max(seen.flak, n('flak')); seen.tank = Math.max(seen.tank, n('tank')); seen.arty = Math.max(seen.arty, n('arty')); seen.panic = Math.max(seen.panic, critters.filter(c => c.kind === 'camel' && c.panic > 0).length); } }
     return JSON.stringify({ plan: plan.map(p => p.id).join(), log, seen, go: world.ambushGo != null, left: run.sortie.oilLeft, tod: run.sortie.timeOfDay, wingU: run.sortie.wingU, boss: world.bossSpawned }); })()`));
   const ids = r.log.map(x => x.id).join();
-  ok(r.plan === 'oasisambush,burningfield,fuelconvoy' && r.tod === 'sunset' && r.wingU === 0.6, `level 2 in a loop: its layout ${r.plan}, sunset, the Wing at ${r.wingU} of the arc`);
+  ok(r.plan === 'oasisambush,burningfield,fuelconvoy' && r.tod === 'morning' && r.wingU === 0.6, `level 2 in a loop: its layout ${r.plan}, the morning, the Wing at ${r.wingU} of the arc`);
   ok(ids === 'oasisambush,burningfield,wing,fuelconvoy' && r.log.every(x => x.end === 'done'), `the encounters play in place, each to its end: ${r.log.map(x => x.id + '@' + x.c + ':' + x.end).join(' ')}`);
   ok(r.seen.cover >= 4 && r.go, `Oasis Ambush: ${r.seen.cover} covers round the grove, dropped together`);
   ok(r.seen.flak >= 1 && r.seen.tank >= 1 && r.seen.arty >= 1, `the covers hid flak ${r.seen.flak}, a tank ${r.seen.tank} and artillery ${r.seen.arty}`);
