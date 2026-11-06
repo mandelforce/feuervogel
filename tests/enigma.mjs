@@ -459,6 +459,24 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 
+// 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
+// over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
+// and a snapshot can still be taken.
+{
+  const page = await freshPage();
+  const a = await peek(page, `(() => { startEnigma(4, true, 0); const S0 = run.sortie, P0 = sortiePlan(S0), first = { autumn: !!S0.autumn, lakes: (P0.lakes || []).length, pa: !!P0.P.autumn }; startEnigma(4, true, 1); const S = run.sortie, P = sortiePlan(S);
+    return { first, loop: { seed: S.seed, autumn: !!S.autumn, variant: S.variant, lakes: (P.lakes || []).length, pa: !!P.P.autumn } }; })()`);
+  ok(!a.first.autumn && a.first.lakes === 0 && !a.first.pa, 'level 4, seed 1944: no autumn, no lakes');
+  ok(a.loop.seed === 1945 && a.loop.autumn && a.loop.pa && a.loop.lakes >= 2, `level 4, seed 1945: autumn, ${a.loop.lakes} lakes`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek("startEnigma(4, true, 1)"); const o = { found: false };
+    for (let i = 0; i < 400 && !o.found; i++) { SF.run(60); o.found = SF.peek("run.sortie.plan.lakes.some(l => { const y = run.sortie.planY0 - l.cy + Math.floor(world.scroll); return y > 110 && y < 210; })"); }
+    if (o.found) { const cv = document.getElementById('game'), px = () => cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      SF.draw(); const A = px().slice(); SF.peek('run.sortie.autumn = false'); SF.draw(); const B = px(); SF.peek('run.sortie.autumn = true'); let d = 0; for (let i = 0; i < A.length; i += 4) if (A[i] !== B[i] || A[i + 1] !== B[i + 1] || A[i + 2] !== B[i + 2]) d++;
+      o.diff = d; o.snap = !!SF.peek('takeSnapshot()'); o.errs = SF.R.errs.slice(0, 2); }
+    return o; });
+  ok(f.found && f.diff > 800 && f.snap && !(f.errs && f.errs.length), `level 4 seed 1945: mist over a lake on the screen changes ${f.diff} pixels, draws without errors, snapshot ok`);
+  await page.close();
+}
 // 3g. Level 4, The Iron Forest (spec 19): one forest plan over the whole level from its first chunk (ironForest), passing the hard rules,
 // opening over the sea onto the cliffs, its road ending at x 112 on the castle road; types and pixels from the plan; past it the Campaign's
 // castle ground (theme 4). Flown through by the bot: guns take the plan's slots, the castle boss comes, and the run flies on into level 5.

@@ -4377,7 +4377,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.79'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.80'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8579,6 +8579,41 @@ function drawMist(sc) {
     for (let ty = -256 + oy; ty < H; ty += 256) { ctx.drawImage(mistTile, ox - W, ty); ctx.drawImage(mistTile, ox, ty); }
     ctx.restore(); }
 }
+// Lake mist (level 4's first loop, run.sortie.autumn): pale, patchy banks hang over each lake and a little way past its shore, drifting two ways at once while the
+// ground scrolls under them; drawn over the ground, under every bullet, enemy and the player. Per lake a mask (the water and its reeds blurred, so the mist thins
+// out over the land) is made once from the plan; each frame two drifting noise layers are cut to it. Visual only: no random numbers, nothing saved.
+let lakeMist = null, lakeTile = null, lakeTmp = null;
+function lakeMistFor(S) {
+  if (lakeMist && lakeMist.S === S) return lakeMist;
+  const P = S.plan, KW = CityGen.K.WATER, KM = CityGen.K.MEADOW, list = [];
+  for (const l of P.lakes || []) {
+    const ya = Math.max(0, Math.floor(l.cy - l.ry * 1.4) - 16), yb = Math.min(P.L - 1, Math.ceil(l.cy + l.ry * 1.4) + 16), h = yb - ya + 1; let w = new Float32Array(W * h), t = new Float32Array(W * h);
+    for (let r = 0; r < h; r++) for (let x = 0; x < W; x++) { const i = (yb - r) * W + x, k = P.K[i], b = P.B[i]; w[r * W + x] = k === KW && b === -17 ? 1 : k === KM && b === -36 ? 0.9 : 0; }
+    for (let pass = 0; pass < 2; pass++) { const R = 6, n = 2 * R + 1; /* two box blurs, across and down */
+      for (let r = 0; r < h; r++) { let acc = 0; for (let x = -R; x <= R; x++) acc += w[r * W + clamp(x, 0, W - 1)]; for (let x = 0; x < W; x++) { t[r * W + x] = acc / n; acc += w[r * W + Math.min(W - 1, x + R + 1)] - w[r * W + Math.max(0, x - R)]; } }
+      for (let x = 0; x < W; x++) { let acc = 0; for (let r = -R; r <= R; r++) acc += t[clamp(r, 0, h - 1) * W + x]; for (let r = 0; r < h; r++) { w[r * W + x] = acc / n; acc += t[Math.min(h - 1, r + R + 1) * W + x] - t[Math.max(0, r - R) * W + x]; } } }
+    const [c, x] = mk(W, h), im = x.createImageData(W, h), d = im.data;
+    for (let i = 0; i < W * h; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = clamp(w[i] * 1.5 - 0.05, 0, 1) * 255; }
+    x.putImageData(im, 0, 0); list.push({ c, h, yb });
+  }
+  return lakeMist = { S, list };
+}
+function drawLakeMist(sc) {
+  const S = run.sortie; if (!S || !S.autumn || !S.plan || !S.plan.lakes || !S.plan.lakes.length) return;
+  const M = lakeMistFor(S); let tmp = null;
+  M.list.forEach((m, n) => { const top = S.planY0 - m.yb + sc; if (top > H || top + m.h < 0) return;
+    if (!lakeTile) { const [c, x] = mk(W, 256), im = x.createImageData(W, 256), d = im.data, h2 = (a, b) => sortieHash(a * 7 + 5, b * 13 + 2);
+      const vn2 = (u, v) => { const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv), w2 = (a, b) => h2(((a % 7) + 7) % 7, ((b % 8) + 8) % 8); /* tiles every 7 x 8 cells */
+        return w2(i, j) * (1 - su) * (1 - sv) + w2(i + 1, j) * su * (1 - sv) + w2(i, j + 1) * (1 - su) * sv + w2(i + 1, j + 1) * su * sv; };
+      for (let y = 0; y < 256; y++) for (let xx = 0; xx < W; xx++) { const q = vn2(xx / 30, y / 32) * 0.65 + vn2(xx / 9.5, y / 10.67) * 0.35, a = Math.round(clamp((q - 0.36) * 1.9, 0, 1) * 5) / 5, o = (y * W + xx) * 4; d[o] = 218; d[o + 1] = 228; d[o + 2] = 232; d[o + 3] = a * 255; }
+      x.putImageData(im, 0, 0); lakeTile = c; }
+    if (!lakeTmp) lakeTmp = mk(W, H); tmp = lakeTmp; const [tc, tx] = tmp; if (tc.height !== H) { tc.height = H; tx.imageSmoothingEnabled = false; }
+    const t = run.frames; tx.globalCompositeOperation = 'source-over'; tx.globalAlpha = 1; tx.clearRect(0, 0, W, H);
+    for (const [vx, vy, ph, al] of [[0.06, 0.03, n * 71, 0.8], [-0.04, 0.02, 128 + n * 37, 0.6]]) { const ox = (((t * vx + ph) % W) + W) % W, oy = (((sc + t * vy + ph) % 256) + 256) % 256; tx.globalAlpha = al;
+      for (let ty = -256 + oy; ty < H; ty += 256) { tx.drawImage(lakeTile, ox - W, ty); tx.drawImage(lakeTile, ox, ty); } }
+    tx.globalCompositeOperation = 'destination-in'; tx.globalAlpha = 1; tx.drawImage(m.c, 0, top);
+    ctx.globalAlpha = 0.62 + 0.1 * Math.sin(t * 0.011 + n * 2); ctx.drawImage(tc, 0, 0); ctx.globalAlpha = 1; });
+}
 // Only a pure hash is used here: a sortie must come out the same whenever and wherever it is built (never Math.random).
 function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
 // Level 5: the train boss comes as in the Campaign, once the yard fills the screen (the trigger adds ceil(XH / CH) chunks; the yard begins at the level's end)
@@ -8760,6 +8795,7 @@ function resetTerrainState() {
   for (const m of [roadCache, farmCache, tentCache, houseCache, fieldOkCache, railEndCache, parcelRowCache, parcelBlkCache, flowCache, canopyCache]) m.clear();
   castleCache = { base: null, v: null }; finalCache = { k: null, y: null };
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
+  lakeMist = null;
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
@@ -14933,7 +14969,7 @@ function drawGround() {
   const kTop = Math.floor(-sc / CH), kBot = Math.floor((H - 1 - sc) / CH);
   for (let k = kTop; k <= kBot; k++) { const c = world.chunks.get(-k); if (c) ctx.drawImage(c, 0, k * CH + sc); }
   shimmer2(sc);
-  drawPlanFx(sc); drawMist(sc);
+  drawPlanFx(sc); drawMist(sc); drawLakeMist(sc);
   for (const g of glints) {
     if (g.life < 8) continue;
     const gt = terrainType(Math.floor(g.x), Math.floor(g.y - sc)); if (gt !== 'sea' && gt !== 'river') continue;
