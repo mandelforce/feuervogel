@@ -15450,7 +15450,7 @@ function skyHalf(e, sd) { const t = e.split || 0; return { dx: sd * (t * 0.15 + 
 function drawSkyBody(e, fl, core) {
   const alt = ((e.scale || 1) - 0.72) / 0.28;
   for (const p of e.parts) if (p.box !== undefined) { p.rx = p.ox; p.ry = p.oy; p.ox = p.box; p.oy = p.boy; }
-  shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt);
+  shadow(SPR.skyfort, e.x, e.y, 3 + 26 * alt, 4 + 44 * alt, 0.3 - 0.08 * alt, 1 - (1 - AIRSH.s) * alt);
   spr(SPR.skyfort, e.x, e.y, fl);
   for (const p of e.parts) if (p.k === 'engine' && !p.dead) { ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gf * 0.5 + p.ox); dk(e.x + p.ox, e.y + p.oy - 17, 3, '#ff6a3a'); ctx.globalAlpha = 1; }
   if ((gf >> 4) & 1) { dk(e.x - 100, e.y + 2, 1, '#ff3a2a'); dk(e.x + 100, e.y + 2, 1, '#ff3a2a'); dk(e.x, e.y - 70, 1, '#ff3a2a'); }
