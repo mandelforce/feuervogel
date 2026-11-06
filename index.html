@@ -4323,7 +4323,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.75'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.77'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8710,6 +8710,18 @@ function resetTerrainState() {
 }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
+  bossJump();
+}
+/* The boss test link (?boss, levels 2 to 6): the level starts a few chunks before its boss (the Campaign's unchanged: only a practice run, or a local build, takes it, as ?enc does).
+   The Shadow Wing and the level's encounters are skipped, the weapon is at level 4 and there are three Novas, so a boss can be tried at once. Every level started in the run is moved the same way. */
+const BOSS_TRY = new URLSearchParams(location.search).get('boss');
+function bossJump() {
+  const S = run.sortie; if (BOSS_TRY === null || !S || S.level < 2 || S.bossAt == null || !(LB_TEST || !run.ranked) || app.tut || world.bossSpawned) return;
+  const sc = Math.round((world.stageBaseP + S.bossAt + Math.ceil(XH / CH) - 3) * CH); /* 3 chunks (about 8 s) before the trigger */
+  world.scroll = sc; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; /* (the scroll speed stays as the level start set it) */
+  for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; }
+  world.midDone = true; const P = S.encPlan || ENC_PLAN[S.level]; if (P) world.encPlanI = P.length;
+  if (player) player.lvl = Math.max(player.lvl, 4); run.bombs = Math.max(run.bombs, 3);
 }
 function restartStage() { // pause menu: restart the stage in the mode being played (startAt alone would drop the Enigma sortie and fly the Retro Run)
   const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;

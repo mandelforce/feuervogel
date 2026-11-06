@@ -319,3 +319,11 @@ Balance lessons from the 1.2.5 pass: check which code path a test flies before t
 ```
 node tests/nighthammer.mjs
 ```
+
+## Boss test link
+
+`bosslink.mjs` checks the `?boss` link: without it level 3 starts at its beginning; with it levels 2 to 6 (loops 0 and 1) start three chunks before their boss, the boss spawns within a few seconds, the weapon is at level 4 with three Novas, and there are no errors. To try a boss by hand open the game with `?boss` (for example `http://localhost:8000/?boss`), choose Practice, the level and, for a loop, Seed 2.
+
+```
+node tests/bosslink.mjs
+```
