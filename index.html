@@ -2642,11 +2642,11 @@ const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a0
 // column, so a tree redrawn over a unit matches the ground. d: RGBA bytes, w: the row width.
 function morningGrade(d, w) {
   const n = d.length >> 2;
-  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; let r = d[o] / 255 * 1.04, g = d[o + 1] / 255 * 0.97, b = d[o + 2] / 255 * 0.87;
-    const l = Math.min(1, 0.299 * r + 0.587 * g + 0.114 * b), sh = 0.2 * (1 - l), hi = 0.14 * l;
-    r = r * (1 - sh) + 0.36 * sh; g = g * (1 - sh) + 0.40 * sh; b = b * (1 - sh) + 0.64 * sh; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.88 * hi; b = b * (1 - hi) + 0.62 * hi;
-    const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.96; g = l2 + (g - l2) * 0.96; b = l2 + (b - l2) * 0.96;
-    const t = 1 - x / w, gl = 0.22 * t * t; r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; let r = d[o] / 255 * 1.07, g = d[o + 1] / 255 * 0.95, b = d[o + 2] / 255 * 0.78;
+    const l = Math.min(1, 0.299 * r + 0.587 * g + 0.114 * b), sh = 0.3 * (1 - l), hi = 0.2 * l;
+    r = r * (1 - sh) + 0.34 * sh; g = g * (1 - sh) + 0.38 * sh; b = b * (1 - sh) + 0.66 * sh; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.85 * hi; b = b * (1 - hi) + 0.55 * hi;
+    const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.98; g = l2 + (g - l2) * 0.98; b = l2 + (b - l2) * 0.98;
+    const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
 function sunsetGrade(d, w, wyAt) {
@@ -4301,7 +4301,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.67'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.68'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5282,14 +5282,19 @@ function enigmaSprites(pct) {
 // (plum belly, rose, coral, peach, cream rim on the sunward side), and its ground shadow plum instead of near black. Made once per sprite.
 const SUN_CLOUD = ['#5a3a66', '#8a5476', '#c27a7e', '#eba484', '#ffd8a8'].map(hexRGB);
 const sunsetOn = () => !!run.sortie && run.sortie.timeOfDay === 'sunset';
-function sunCloud(s) {
-  if (s._sun) return s._sun;
+function tintCloud(s, key, ramp, dark) { // a cloud sprite recoloured through a 5-colour ramp, its ground shadow (.k) in one dark colour; made once per sprite and ramp
+  if (s[key]) return s[key];
   const tint = (cv, shade) => { const [c, x] = mk(cv.width, cv.height), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height), a = d.data;
-    for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; if (shade) { a[i] = 44; a[i + 1] = 18; a[i + 2] = 52; } else { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2], q = SUN_CLOUD[clamp(Math.round((l - 140) / 115 * 4), 0, 4)]; a[i] = q[0]; a[i + 1] = q[1]; a[i + 2] = q[2]; } }
+    for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; if (shade) { a[i] = dark[0]; a[i + 1] = dark[1]; a[i + 2] = dark[2]; } else { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2], q = ramp[clamp(Math.round((l - 140) / 115 * 4), 0, 4)]; a[i] = q[0]; a[i + 1] = q[1]; a[i + 2] = q[2]; } }
     x.putImageData(d, 0, 0); return c; };
-  return s._sun = { c: tint(s.c, false), k: s.k ? tint(s.k, true) : s.k, w: s.w, h: s.h };
+  return s[key] = { c: tint(s.c, false), k: s.k ? tint(s.k, true) : s.k, w: s.w, h: s.h };
 }
-const sunSpr = s => sunsetOn() ? sunCloud(s) : s;
+function sunCloud(s) { return tintCloud(s, '_sun', SUN_CLOUD, [44, 18, 52]); }
+// Morning clouds (a loop's level 2): rose-lilac bellies, peach, gold and a cream rim, their ground shadow a soft lilac.
+const MORN_CLOUD = ['#8a7a9e', '#c4a0b4', '#f4bea6', '#ffdcb0', '#fff6e2'].map(hexRGB);
+const morningOn = () => !!run.sortie && run.sortie.timeOfDay === 'morning';
+function morningCloud(s) { return tintCloud(s, '_morn', MORN_CLOUD, [66, 48, 92]); }
+const sunSpr = s => sunsetOn() ? sunCloud(s) : morningOn() ? morningCloud(s) : s;
 let ENG_S = null;
 // the strength of the look for the run now starting (or none, on the title screen and in the tutorial). Rebuilds what depends on it.
 function setLook(pct) {
@@ -15473,7 +15478,7 @@ function lightBeam(x, y, a, len, half, rgb = '255,248,200', al = 0.42) {
   ctx.arc(x, y, len, a - half, a + half); ctx.closePath(); ctx.fill();
 }
 function drawDawn() { // a loop's level 2 (the morning): the low sun's glow from the upper left, over the ground and the planes (bullets, the ship's effects and the HUD are drawn after it)
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, H * 0.82); g.addColorStop(0, 'rgba(255,170,90,0.22)'); g.addColorStop(0.5, 'rgba(255,150,70,0.08)'); g.addColorStop(1, 'rgba(255,140,60,0)');
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, H * 0.82); g.addColorStop(0, 'rgba(255,170,90,0.34)'); g.addColorStop(0.5, 'rgba(255,150,70,0.12)'); g.addColorStop(1, 'rgba(255,140,60,0)');
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
 }
 function drawNight() {

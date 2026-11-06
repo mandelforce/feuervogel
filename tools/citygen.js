@@ -2171,11 +2171,11 @@ const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a0
 // column, so a tree redrawn over a unit matches the ground. d: RGBA bytes, w: the row width.
 function morningGrade(d, w) {
   const n = d.length >> 2;
-  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; let r = d[o] / 255 * 1.04, g = d[o + 1] / 255 * 0.97, b = d[o + 2] / 255 * 0.87;
-    const l = Math.min(1, 0.299 * r + 0.587 * g + 0.114 * b), sh = 0.2 * (1 - l), hi = 0.14 * l;
-    r = r * (1 - sh) + 0.36 * sh; g = g * (1 - sh) + 0.40 * sh; b = b * (1 - sh) + 0.64 * sh; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.88 * hi; b = b * (1 - hi) + 0.62 * hi;
-    const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.96; g = l2 + (g - l2) * 0.96; b = l2 + (b - l2) * 0.96;
-    const t = 1 - x / w, gl = 0.22 * t * t; r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; let r = d[o] / 255 * 1.07, g = d[o + 1] / 255 * 0.95, b = d[o + 2] / 255 * 0.78;
+    const l = Math.min(1, 0.299 * r + 0.587 * g + 0.114 * b), sh = 0.3 * (1 - l), hi = 0.2 * l;
+    r = r * (1 - sh) + 0.34 * sh; g = g * (1 - sh) + 0.38 * sh; b = b * (1 - sh) + 0.66 * sh; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.85 * hi; b = b * (1 - hi) + 0.55 * hi;
+    const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.98; g = l2 + (g - l2) * 0.98; b = l2 + (b - l2) * 0.98;
+    const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
 function sunsetGrade(d, w, wyAt) {
