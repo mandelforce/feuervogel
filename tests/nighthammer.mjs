@@ -66,6 +66,18 @@ const core = `(() => { const b = world.enemies.find(e => e.type === 'boss'); ret
   const errs = await peek('SF.R.errs.length'); ok(errs === 0, `no script errors (${errs})`);
   await page.close();
 }
+{
+  /* a player who shoots the guns and turrets off first: the boss bar halves while the core is still healthy, and the salvo goes then */
+  const { page, peek } = await page_(1);
+  const r = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'), c = ${core}; for (const p of b.parts) if (p.k !== 'core') { p.hp = 0; p.dead = true; } c.hp = Math.floor(c.maxhp * 0.8); let bh = 0, bm = 0; for (const q of b.parts) { bh += Math.max(0, q.hp); bm += q.maxhp; }
+    const before = b.nr ? b.nr.salvo : 0; for (let f = 0; f < 120; f++) { c.hp = Math.max(c.hp, Math.floor(c.maxhp * 0.8)); SF.run(1); } return JSON.stringify({ bar: bh / bm, core: c.hp / c.maxhp, before, salvo: b.nr.salvo, zones: b.nr.zones.length + b.nr.pend.length }); })()`));
+  ok(r.bar < 0.5 && r.core > 0.7 && r.before === 0 && r.salvo === 1 && r.zones > 0, `the bar at ${(r.bar * 100).toFixed(0)}% with the core at ${(r.core * 100).toFixed(0)}%: the first salvo goes (${r.salvo}, ${r.zones} areas on the way)`);
+  /* the areas show whatever the art: with the launcher picture missing they are still drawn */
+  const d = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'); let zones = 0, rockets = 0, cradles = 0; const oz = drawNRzones, orr = drawNRrockets; drawNRzones = e => { zones++; oz(e); }; drawNRrockets = (e, cr) => { rockets++; if (cr) cradles++; orr(e, cr); };
+    const art = SPR.rgBaseL1; SPR.rgBaseL1 = undefined; SF.draw(); const noArt = { zones, rockets, cradles }; SPR.rgBaseL1 = art; zones = rockets = cradles = 0; SF.draw(); const withArt = { zones, rockets, cradles }; drawNRzones = oz; drawNRrockets = orr; return JSON.stringify({ noArt, withArt }); })()`));
+  ok(d.noArt.zones === 1 && d.noArt.rockets === 1 && d.noArt.cradles === 0 && d.withArt.cradles === 1, `without the launcher picture the areas and rockets in flight are still drawn (${JSON.stringify(d.noArt)}), with it the cradles' rockets too (${JSON.stringify(d.withArt)})`);
+  await page.close();
+}
 await browser.close();
 if (bad) { console.error(`\n${bad} problem(s) found, ${passed} passed.`); process.exit(1); }
 console.log(`Night Hammer test passed (${passed}).`);
