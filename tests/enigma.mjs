@@ -459,6 +459,28 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 
+// 3f2. The Sower in level 4's first loop (seed 1945): it flies a zigzag (a triangle wave, not the first pass's sine), so its mines lay a zigzag line; the mines last 400
+// frames, not 250; one Sower first, then the pair in step (both turn at the same moment, a constant gap between them). The first pass keeps its sweep (3f).
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => {
+    const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1); SOWER.hp = 99999; SOWER_L.hp = 99999');
+    const o = { solo: [], pairGap: [], turns: 0, mineMax: 0, left: false, held: 0 }; let lastDir = 0, lastX = null;
+    for (let i = 0; i < 1500 && !o.left; i++) { SF.run(3);
+      const q = SF.peek(`(() => { const L = world.enemies.filter(e => e.type === 'sower' && !e.dead && e.st === 'hold'), m = world.ebul.filter(b => b.kind === 'amine');
+        return { n: L.length, xs: L.map(e => e.x), mine: m.length ? m[0].max : 0, all: world.enemies.filter(e => e.type === 'sower' && !e.dead).length }; })()`);
+      o.mineMax = Math.max(o.mineMax, q.mine); if (q.n) o.held++;
+      if (q.n === 1 && q.all === 1) { o.solo.push(q.xs[0]); const dir = lastX === null ? 0 : Math.sign(q.xs[0] - lastX); if (dir && lastDir && dir !== lastDir) o.turns++; if (dir) lastDir = dir; lastX = q.xs[0]; }
+      if (q.n === 2) o.pairGap.push(Math.abs(q.xs[0] - q.xs[1]));
+      if (o.held && q.all === 0) o.left = true; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const span = Math.max(...r.solo) - Math.min(...r.solo), pg = r.pairGap.slice(Math.floor(r.pairGap.length * 0.4)), gapSpread = pg.length ? Math.max(...pg) - Math.min(...pg) : 999; /* (once the second one has settled into its lane) */
+  ok(r.solo.length > 60 && span > 80 && r.turns >= 2, `level 4 first loop: the lone Sower flies a zigzag (${span.toFixed(0)} px wide, ${r.turns} turns)`);
+  ok(r.mineMax === 400, `its mines last 400 frames (${r.mineMax})`);
+  ok(r.pairGap.length > 30 && gapSpread < 30 && Math.min(...pg) > 60, `then the pair flies in step: ${r.pairGap.length} steps, the gap between them stays within ${gapSpread.toFixed(0)} px once settled`);
+  ok(r.left && r.errs.length === 0, `then they climb away, with no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
 // over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
 // and a snapshot can still be taken.

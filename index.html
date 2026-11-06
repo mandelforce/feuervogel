@@ -4377,7 +4377,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.80'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.81'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10435,6 +10435,9 @@ function viaBroken() { // the broken viaduct: the middle of the span fallen into
 // stretch and then SOWER.gap frames after the last one (or pair) has gone. No warning (owner): it comes up from below the screen on the side
 // away from the player.
 const SOWER = { first: 360, gap: 1800, hold: 840, y: 72, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 140, pairAfter: 300, laneX: 52, laneWeave: 14 };
+/* The first loop's Sower (level 4, seed 1945: run.sortie.autumn): it flies a zigzag instead of the smooth sweep, so its mines lay a zigzag line (one Sower first, then the pair in step: two parallel zigzags with a lane between them); its mines last longer so the line can be read. Mines as often as before. */
+const SOWER_L = Object.assign({}, SOWER, { weave: 60, per: 200, zigV: 2, pairA: 40, laneX: 42, mineLife: 400, hold: 960 });
+const zigTri = u => 4 * Math.abs(u - Math.floor(u) - 0.5) - 1; /* a triangle wave from -1 to 1 */
 function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
@@ -13092,12 +13095,12 @@ const ENT = {
   // with one shot down the other weaves across the middle again. Shot down, it breaks up like the big bomber.
   sower: { revenge: 4, medals: 2, stats: { hw: 44, hh: 30, score: 4000, rad: 44 }, update(e) {
     if (e.dying) return dyingTick(e);
-    const S0 = SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
+    const zig = !!(run.sortie && run.sortie.autumn), S0 = zig ? SOWER_L : SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
     if (e.partner && (e.partner.dead || e.partner.dying)) { e.lane = undefined; e.partner = null; }
     e.ghost = e.st !== 'hold'; // it passes over the player while it climbs in from behind and away again (no ram: there is no warning)
     if (e.st === 'in') { e.y -= S0.climb; e.x += (e.side - e.x) * 0.02; if (e.y <= S0.y) { e.st = 'hold'; e.ht = 0; } }
-    else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? S0.laneWeave : S0.weave;
-      const tx = cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = vx; e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
+    else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? (zig ? S0.pairA : S0.laneWeave) : S0.weave;
+      const tx = zig ? cx + amp * zigTri(gf / S0.per) : cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = zig ? clamp((tx - e.x) * 0.25, -S0.zigV, S0.zigV) : clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = clamp(vx, -0.9, 0.9); e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
       if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 38, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
       if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 8, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
       if (!e.second && !e.called && e.ht === S0.pairAfter) { e.called = true; e.lane = e.x < W / 2 ? -1 : 1; const sx = W / 2 - e.lane * S0.laneX, P2 = E('sower', { x: sx, y: H + 50, side: sx, hp: e.maxhp, maxhp: e.maxhp, big: true, air: true, up: true, second: true, lane: -e.lane, partner: e, hold: (e.hold || S0.hold) - S0.pairAfter, ph: e.ph + PI }); e.partner = P2; world.enemies.push(P2); sfx('drone'); }
