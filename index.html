@@ -2314,7 +2314,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (Br[i] === -4) { const st = plan.stars.reduce((a, o) => Math.abs(o.y - y) < Math.abs(a.y - y) ? o : a), r = Math.hypot(x + 0.5 - st.x, y + 0.5 - st.y); // the roundabout's lawn with a ring of flowers and a stone kerb
             c = r > st.ri - 1 ? C.side[2] : Math.abs(r - st.ri + 2.6) < 0.7 ? C.fruit[(x + y) & 1] : r < 3.6 ? C.pave[2] : C.grass[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
           c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
-        case K.WATER: if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
+        case K.WATER: if (Br[i] === -17) { c = lakePix(plan, x, y, i, at); break; } /* a forest lake */
+          if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
           if (Br[i] === -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.pool[6] : C.pool[pickI(7, 0.35 + Math.sin(x * 0.5 + y) * 0.06, x, y)]; break; } // an oasis pool
           if (Br[i] === -7) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.river[pickI(6, 0.35 + Math.sin(x * 0.5 + y) * 0.08, x, y)]; break; } // the pond, reeds round its edge
           c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
@@ -3511,8 +3512,15 @@ function ledgePix(plan, x, y, b) {
 }
 // open ground in the forest (K.MEADOW): Br -32 heath on the clifftop and in firebreaks (grass, heather, dead bracken), -33 a clearing's meadow
 // with flowers, -34 a clear-cut (slash and stumps), -35 a road's verge
+const LAKE = HX(['#12202a', '#18303a', '#1e404a', '#285260', '#346676', '#427a88']);
+// a forest lake: smooth deep water, lighter toward the shore and in glints, a darker ripple, reeds on its outer pixels
+function lakePix(plan, x, y, i, at) { const K_ = plan.K, edge = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && K_[j] !== K.WATER);
+  if (edge) return hh(x, y) < 0.5 ? C.heath[1] : C.dirt[0];
+  const n = vn(x * 0.06, y * 0.09) * 0.7 + vn(x * 0.21, y * 0.3) * 0.3, rip = ((x * 3 + y) % 7) < 2 && vn(x * 0.5 + 9, y * 0.2) > 0.78;
+  return LAKE[pickI(6, clamp(0.42 + (n - 0.5) * 0.45 + (rip ? 0.16 : 0), 0, 1), x, y)]; }
 function forestMeadowPix(x, y, b) {
   const n = vn(x * 0.18, y * 0.18), r = hh(x, y);
+  if (b === -36) return r < 0.4 ? C.heath[pickI(5, 0.55 + (r - 0.2) * 0.6, x, y)] : C.dirt[pickI(4, 0.2 + (n - 0.5) * 0.5 + (r - 0.5) * 0.3, x, y)]; /* the reeds and mud round a lake */
   if (b === -32) return n > 0.64 ? C.heath[pickI(5, 0.75 + (r - 0.5) * 0.5, x, y)] : n < 0.3 ? C.heath[pickI(5, 0.3 + (r - 0.5) * 0.5, x, y)] : C.grass[pickI(4, 0.35 + (n - 0.5) * 0.6, x, y)];
   if (b === -33) return C === C_AUTUMN ? C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)] : r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
   if (b === -34) return r < 0.035 ? C.stone[3] : r < 0.06 ? C.char[1] : n > 0.5 ? C.heath[pickI(5, 0.4 + (r - 0.5) * 0.4, x, y)] : C.grass[pickI(4, 0.2 + (r - 0.5) * 0.4, x, y)];
@@ -3711,6 +3719,21 @@ function forestLand(o) {
     for (const s of [1, -1]) { const cx = Math.round(m + s * 16), cy = ly + 12; const it = round('pillbox', 'Pillbox', cx, cy, 3, { sea: -1 }); if (it) slot('bunker', 'line', cx, cy, 4, it.id); }
     for (const fx of [0.15, 0.85]) pit(Math.round(fx * W), ly + 20, 4, 'flak'); }
   lap('forest');
+
+  // 4b. lakes (params.lakes, the Iron Forest's first loop): one in each stretch of conifer forest, on the side of the road with room for it, half a screen
+  // across and running off the strip's edge as if it went on. Placed after the roads, clearings and gun sites and only where a clear margin (LK_GAP px) round
+  // the whole lake is plain forest or clearing, so no road, track, building or gun site is ever cut or touched. K.WATER, tag -17; a ring of reeds (K.MEADOW, -36).
+  if (P.lakes) { const LK_GAP = 10, free = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), lakes = plan.lakes = [];
+    const ev = (x, y, c) => Math.hypot((x + 0.5 - c.cx) / c.rx, (y + 0.5 - c.cy) / c.ry) + (vn(x * 0.09 + c.tag, y * 0.09 + 5) - 0.5) * 0.4 + (vn(x * 0.25 + c.tag, y * 0.25) - 0.5) * 0.12; /* below 1: water */
+    feats.forEach((F, fi) => { if (F.kind !== 'conifer' || (F.seg !== 'forest_conifer' && F.seg !== 'forest_fortified')) return; const [a, b] = span(F); let pick = null;
+      const sides = rnd(70 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
+      for (const [rx, ry] of [[98, 76], [90, 70], [84, 64], [76, 58], [68, 52]]) { for (let dy = 0; dy <= (b - a) / 2 - ry - 12 && !pick; dy += 12) for (const sg of [1, -1]) for (const side of sides) { const cy = Math.round((a + b) / 2 + sg * dy); if (cy - ry - LK_GAP < a || cy + ry + LK_GAP > b) continue;
+        for (const off of [0, 14, 26]) { const c = { cx: side > 0 ? W + off : -off, cy, rx, ry, tag: 400 + fi * 31 }; let ok = true, n = 0;
+          for (let y = cy - ry - LK_GAP - 6; ok && y <= cy + ry + LK_GAP + 6; y++) for (let x = Math.max(0, Math.floor(c.cx - rx - LK_GAP - 6)); ok && x <= Math.min(W - 1, Math.ceil(c.cx + rx + LK_GAP + 6)); x++) { const e = ev(x, y, c); if (e < 1 + (LK_GAP + 2) / Math.min(rx, ry) + 0.1) { if (!inB(x, y) || !free(Kr[idx(x, y)], Br[idx(x, y)])) ok = false; else if (e < 1) n++; } }
+          if (ok && n > 4000) { pick = c; break; } } } }
+      if (!pick) return; lakes.push(pick);
+      for (let y = pick.cy - pick.ry - 8; y <= pick.cy + pick.ry + 8; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const e = ev(x, y, pick), i = idx(x, y); if (e < 1) { Kr[i] = K.WATER; Br[i] = -17; } else if (e < 1.07 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } } });
+    lap('lakes'); }
 
   // 5. the trees: single conifer crowns of six sizes. Old stands (big spruces), young growth and pine stands follow slow noise fields; a few
   // larches; young trees in rows in the plantations; small wind-bent pines on the ledges and the heath; now and then one in a clearing.
@@ -8581,7 +8604,7 @@ function buildSortie(level, seed) {
   })();
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
-    variant,
+    variant, autumn: level === 4 && (seed | 0) === CAMP_SEED + 1, // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -8704,7 +8727,7 @@ function sortiePlanLevel3(S) {
 // onto the high cliff coast, then the conifer forest with its gun sites, firebreaks, plantations, clearings and forest roads (the village,
 // the hidden airbase and the valley are forest for now), and the approach: meadow, a defence line, the road at x 112 where the castle road runs.
 function sortiePlanLevel4(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: { L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 } }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
