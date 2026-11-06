@@ -4323,7 +4323,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.73'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.74'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6260,6 +6260,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   SPR.straw = sprite(30, 24, x => { for (let i = 0; i < 26; i++) { const a2 = i * 2.6, r2 = 9 + (i % 4) * 2; rect(x, STRAW[2 + (i % 3)], Math.round(15 + Math.cos(a2) * r2), Math.round(12 + Math.sin(a2) * r2 * 0.75), 2, 1); } }, { outline: false });
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
+const AIRSH = { d: 1.6, a: 0.28 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity */
 function shadow(s, x, y, ox, oy, a = 0.32) { if (!s || !s.k) return; if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
@@ -9206,7 +9207,7 @@ function drawFlyby() {
     const gx = wx + fx, gy = lead + fy; let x = gx, y = gy, k = 1;
     if (leave && f.pt) { const q = Math.min(1, (f.t - f.pt) / 100); k = 1 + 0.9 * q; y -= 150 * q * q + Math.max(0, f.t - f.pt - 100) * 3.2; x += 10 * q; }
     if (y < -40) continue;
-    shadow(s, gx, gy, 3 + (k - 1) * 8, 5 + (k - 1) * 10, 0.28);
+    shadow(s, gx, gy, (3 + (k - 1) * 8) * AIRSH.d, (5 + (k - 1) * 10) * AIRSH.d, AIRSH.a);
     ctx.drawImage(s.c, Math.round(x - s.w * k / 2), Math.round(y - s.h * k / 2), Math.round(s.w * k), Math.round(s.h * k));
   }
 }
@@ -15725,12 +15726,12 @@ function drawWeather() {
 }
 function airShadow(e) {
   let s = null;
-  if (e.type === 'fighter') { s = SPR.fighter[dirIdx(e.h)]; if (e.crash) { const f = Math.min(1, e.ct / 85); shadow(s, e.x, e.y, 12 * (1 - f), 20 * (1 - f), 0.28 + 0.2 * f); return; } }
+  if (e.type === 'fighter') { s = SPR.fighter[dirIdx(e.h)]; if (e.crash) { const f = Math.min(1, e.ct / 85); shadow(s, e.x, e.y, 12 * AIRSH.d * (1 - f), 20 * AIRSH.d * (1 - f), AIRSH.a + 0.2 * f); return; } }
   else if (e.type === 'bomber') s = SPR.bomber;
   else if (e.type === 'sower') s = SPR.sower;
   else if (e.type === 'wing') s = e.v === undefined ? SPR.wing : SPR.wingV[e.v];
   else if (e.type === 'pod') s = SPR.pod;
-  if (s) shadow(s, e.x, e.y, 12, 20, 0.28);
+  if (s) shadow(s, e.x, e.y, 12 * AIRSH.d, 20 * AIRSH.d, AIRSH.a);
 }
 function coin(x, y, rx, ry, ramp) {
   for (let dy = -ry - 1; dy <= ry + 1; dy++) { const w = Math.round((rx + 1) * Math.sqrt(Math.max(0, 1 - (dy / (ry + 1)) ** 2))); ctx.fillStyle = OUT; ctx.fillRect(x - w, y + dy, w * 2 + 1, 1); }
@@ -16168,7 +16169,7 @@ function renderMain() {
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
   for (const e of world.enemies) if (!e.ground && !e.surface) airShadow(e);
-  if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
+  if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * AIRSH.d * ak, 2 + 18 * AIRSH.d * ak, AIRSH.a); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
