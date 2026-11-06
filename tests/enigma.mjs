@@ -367,6 +367,27 @@ for (const lv of [2, 6]) {
 
 // 3b''''''. Route objects (spec 2, Tier A): a mixed convoy put on a route drives along it, switching routes where one route ends and another
 // goes on (the lanes round a village green, the plan's edge), never leaves the road, keeps its distance (at least both half-lengths and
+// 3b'. Level 1 at sunset: its loops (the level's seed past 1944) are flown in the evening, the first pass is unchanged. The loop's plan has the burning
+// church (three blazes), its sea and land chunks are graded (no blue water left), its clouds are in the sunset ramp, and a resumed run is still at sunset.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { settings.diff = 1; startEnigma(1, false, 0); const d0 = run.sortie.timeOfDay, f0 = sortiePlan(run.sortie).fires.length, same = sunSpr(SPR.clouds[0]) === SPR.clouds[0];
+    const blue = S => { const P = sortiePlan(S), c = S.planBiome.indexOf('sea') + 1, p = world.stageBaseP + c; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; let fin = false; while (!fin) fin = workChunk(jb, 8); world.chunkJobs.pop();
+      let n = 0, b = 0; const a = jb.x.getImageData(0, 0, W, CH).data; for (let i = 0; i < a.length; i += 4) { n++; if (a[i + 2] - a[i] >= 40 && a[i + 2] >= a[i + 1]) b++; } return b / n; };
+    const b0 = blue(run.sortie);
+    startEnigma(1, false, 1); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), b1 = blue(S), sc = sunCloud(SPR.clouds[0]), ramp = new Set(SUN_CLOUD.map(c => c.join())), px = sc.c.getContext('2d').getImageData(0, 0, sc.c.width, sc.c.height).data; let opaque = 0, off = 0;
+    for (let i = 0; i < px.length; i += 4) if (px[i + 3]) { opaque++; if (!ramp.has([px[i], px[i + 1], px[i + 2]].join())) off++; }
+    const fires = P.fires.length, burning = !!P.burning, d1 = S.timeOfDay, on = sunsetOn(), save = (saveResume(), resumeRun(store.getJSON(KEY.resume)), run.sortie.timeOfDay + ':' + run.sortie.seed);
+    startEnigma(2, false, 1); const l2 = run.sortie.timeOfDay;
+    return { d0, f0, same, b0, b1, v: v.pass, fires, burning, d1, on, opaque, off, save, l2 }; })()`);
+  ok(r.d0 === 'day' && r.f0 === 0 && r.same && r.b0 > 0.3, `level 1's first pass stays a day level (no fire on its church, day clouds, ${(r.b0 * 100).toFixed(0)}% of a sea chunk blue)`);
+  ok(r.d1 === 'sunset' && r.on && r.v && r.burning && r.fires === 3, `level 1's first loop is flown at sunset: the plan passes the hard rules and its church burns (${r.fires} blazes)`);
+  ok(r.b1 < 0.02, `the loop's sea is graded to dusk water (${(r.b1 * 100).toFixed(1)}% of a sea chunk blue, against ${(r.b0 * 100).toFixed(0)}% by day)`);
+  ok(r.opaque > 0 && r.off === 0, `the loop's clouds use the sunset ramp only (${r.opaque} pixels, ${r.off} outside it)`);
+  ok(/^sunset:1945$/.test(r.save) && r.l2 === 'sunset', `a resumed loop is still at sunset (${r.save}), and level 2's loop is at sunset too (the desert's low orange sun)`);
+  await page.close();
+}
+
 // ROUTE_GAP minus a pixel), and stops at a dead end: in level 1 from the airbase down the island's road to the jetty, switching routes on the way; in level 6 through the harbour city (one
 // route there: no switch needed). Only the convoy moves (its own update, no frame loop), so the test sees the route logic alone.
 {

@@ -46,6 +46,25 @@ if (part()) { let fails = 0; const c = { farmIsle: 0, paddock: 0, houses: 0, gun
   const low = Object.entries(c).filter(([k, v]) => v < (k === 'paddock' || k === 'pens' || k === 'houses' ? 90 : 100));
   if (low.length) fail(`islands: too few of ${low.map(([k, v]) => k + ' ' + v).join(', ')}`); ms.sort((a, b) => a - b);
   console.log(`${fails || low.length ? 'FAIL' : 'ok  '} islands: ${100 - fails}/100 pass, plan ${ms[50].toFixed(0)} ms median; of 100: ${Object.entries(c).map(([k, v]) => k + ' ' + v).join(', ')}`); }
+// islands at sunset (Enigma level 1 from its first loop on): params.burn sets the village church on fire (three blazes with three hot spots each, parts
+// damaged and burning, every hard rule still holds) and changes nothing else; without it the plan has no fire. sunsetGrade turns day sea into dusk
+// water (no longer blue), lights land warm (red above blue), keeps the alpha, and gives the same pixels for the same world rows.
+if (part()) { let fails = 0;
+  for (let seed = 1; seed <= 12; seed++) { const a = CG.generate({ seed, preset: 'islands' }), b = CG.generate({ seed, preset: 'islands', params: { burn: true } }), m = CG.validate(b);
+    const ch = b.churches[0], parts = ch ? ch.parts.map(id => b.items[id]) : [];
+    if (a.fires.length || a.churches[0].parts.some(id => a.items[id].fire || a.items[id].dmg)) { fails++; fail(`islands seed ${seed}: the plain plan has a fire or a damaged church`); }
+    if (!m.pass) { fails++; fail(`islands burn seed ${seed}: a hard rule fails`); }
+    if (b.fires.length !== 3 || b.fires.some(f => f.seed % 3 !== 2) || !parts.length || !parts.every(it => it.fire)) { fails++; fail(`islands burn seed ${seed}: ${b.fires.length} fires, church parts burning ${parts.filter(it => it.fire).length}/${parts.length}`); }
+    if (b.fires.some(f => !parts.some(it => it.id === f.item))) { fails++; fail(`islands burn seed ${seed}: a blaze that is not on a church part`); }
+    if (b.items.length !== a.items.length || b.slots.length !== a.slots.length) { fails++; fail(`islands burn seed ${seed}: burning changed the number of items or slots`); }
+    if (hash(CG.generate({ seed, preset: 'islands', params: { burn: true } })) !== hash(b)) { fails++; fail(`islands burn seed ${seed}: not deterministic`); } }
+  const px = (r, g, b, a = 255) => [r, g, b, a], img = [px(0x2e, 0x72, 0xaa), px(0x1f, 0x58, 0x90), px(0x3a, 0x64, 0x28, 200), px(0x8c, 0x76, 0x46)], d = new Uint8ClampedArray(img.flat()), d2 = d.slice();
+  CG.sunsetGrade(d, 4, r => 100 + r); CG.sunsetGrade(d2, 4, r => 100 + r);
+  if (d.some((v, i) => v !== d2[i])) { fails++; fail('sunsetGrade is not deterministic'); }
+  for (let k = 0; k < 2; k++) if (d[k * 4 + 2] - d[k * 4] >= 40) { fails++; fail(`sunsetGrade: sea pixel ${k} is still blue (${[...d.slice(k * 4, k * 4 + 3)]})`); }
+  for (let k = 2; k < 4; k++) if (d[k * 4] <= d[k * 4 + 2]) { fails++; fail(`sunsetGrade: land pixel ${k} is not warm (${[...d.slice(k * 4, k * 4 + 3)]})`); }
+  if (d[11] !== 200) { fails++; fail('sunsetGrade changed the alpha'); }
+  console.log(`${fails ? 'FAIL' : 'ok  '} islands at sunset: burning church in 12 plans (3 blazes of 3 hot spots, parts on fire, nothing else changed), the sunset grade turns sea to dusk water and land warm`); }
 // the desert (Enigma Run level 2): every hard rule in 60 desert ports with their beach towns and 60 desert villages; houses and farmsteads
 // have flat roofs, every church is a domed hall, every tree a palm, open desert and no fields (owner: no farmland in the desert); the beach
 // town is at war (owner mockup E): its promenade, obstacles in the shallows, wire, casemates and bunker slots on the beach, the pier cut
@@ -113,14 +132,14 @@ if (part()) { let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; se
   ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
   console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 whole plan: ${20 - fails}/20 pass, every feature and side tracks in ${20 - low}, plan ${ms[10].toFixed(0)} ms median`); }
 // Level 2 in a loop (params.variant 1 and 2, 10 seeds each): the hard rules hold with the moved railway, the larger oasis, the guarded oil fields (12 derricks,
-// more flak, artillery and dug-in tanks than the first pass) the camels by the oasis and the bastions on the approaches; variant 0 is the first pass, checked above and by the golden tests
+// more flak, artillery and dug-in tanks than the first pass) the caravan by the oasis and the bastions on the approaches; variant 0 is the first pass, checked above and by the golden tests
 if (part()) { let fails = 0, low = 0, n = 0; for (let seed = 1; seed <= 10; seed++) { const base = CG.generate({ seed, preset: 'sandSea' }), cnt = (p, k) => p.slots.filter(s2 => s2.kind === k).length;
     for (const variant of [1, 2]) { n++; const p = CG.generate({ seed, preset: 'sandSea', params: { variant } }), m = CG.validate(p);
       if (!m.pass) { fails++; if (fails <= 3) fail(`sandSea variant ${variant} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}, lanes blocked ${m.lanesBlocked}`); }
       const big = p.oasis.some(o => o.held && o.ry >= 60), x0 = base.trainRuns.find(r => r.line === 'main' && r.y0 > 800), x1 = p.trainRuns.find(r => r.line === 'main' && r.y0 > 800);
-      if (!(p.derricks.length >= 9 && cnt(p, 'flak') > cnt(base, 'flak') && cnt(p, 'tank') > cnt(base, 'tank') && cnt(p, 'arty') > cnt(base, 'arty') && big && (p.camels || []).length >= 3 && p.viaducts.length === 1 && p.airbase && x0 && x1)) low++; } }
+      if (!(p.derricks.length >= 9 && cnt(p, 'flak') > cnt(base, 'flak') && cnt(p, 'tank') > cnt(base, 'tank') && cnt(p, 'arty') > cnt(base, 'arty') && big && (p.caravans || []).length >= 3 && p.viaducts.length === 1 && p.airbase && x0 && x1)) low++; } }
   if (low) fail(`sandSea variants: ${low} of ${n} plans miss a feature`);
-  console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 in a loop: ${n - fails}/${n} pass, larger oasis with camels, guarded oil fields and bastions in ${n - low}`); }
+  console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 in a loop: ${n - fails}/${n} pass, larger oasis with the camel caravan, guarded oil fields and bastions in ${n - low}`); }
 // Level 2, nothing stands on a road or the railway (owner review): no gun slot, pit, shell hole, oil spill or oasis on a track, a road or the rail's
 // corridor; the oasis grove never straddles the line; the port's road wears through to the dirt track and the valley's rock rises from the join's
 // first rows (no straight cliff edge and no hard road end where the port plan meets the desert)

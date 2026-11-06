@@ -17,6 +17,7 @@
 // Shadow Wing (every Campaign level): opened by the director where the Wing used to come, holding nothing, the Wing staying 2500 frames
 // before it flees; Retro Run keeps the old Wing; level 1 has it after the airbase island. Level 1: heavy tanks in its pits, no Drilling, two Buechse at most (one at the big island's road tip), First Contact live, one submarine (not before
 // the island chain) and one from the flagship at about half its health. ?enc=all in level 1: its layout (First Contact, then The Anvil).
+// Level 2 in a loop: Oasis Ambush, Burning Field and Fuel Convoy at their stretches (run.sortie.encPlan), the Wing between them, the first pass untouched.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -183,7 +184,7 @@ const playOut = `
     const started = encStart('flaklane'), D = ENC.flaklane, disp = {}, tagged = new Set(); let lastI = 0, f = 0, seenAt = -1;
     while (world.enc && world.enc.st !== 'rest' && f < 3000) { SF.run(1); f++; const E0 = world.enc; if (!E0) break;
       while (lastI < E0.i) disp[lastI++] = E0.t;
-      for (const e of world.enemies) if (e.enc === 'flaklane') tagged.add(e);
+      for (const e of world.enemies) if (e.enc === 'flaklane') { tagged.add(e); if (e.type === 'flak') e.hp = 9999; /* (tough: which gun the bot shoots down first depends on everything else on the screen, and this measures where the guns stand) */ }
       const guns = [...tagged].filter(e => e.type === 'flak' && !e.dead); if (seenAt < 0 && guns.length && guns.every(e => e.y >= 0.15 * H)) seenAt = E0.t; }
     const types = {}, guns = []; for (const e of tagged) { types[e.type] = (types[e.type] || 0) + 1; if (e.type === 'flak') guns.push(Math.round(e.x)); }
     return JSON.stringify({ started, disp, seenAt, types, guns: guns.sort((a, b) => a - b), last: world.encLast }); })()`;
@@ -366,6 +367,31 @@ const playOut = `
   const fm = r.log.find(x => x.id === 'formations') || { n: {} };
   ok(fm.c >= r.fmAt && fm.end === 'done' && fm.n.leader === 3, `Formations in the stretch before the boss, from chunk ${fm.c} (its place ${r.fmAt}): ${fm.n.leader} formations with a leader (two side by side, one up the middle), ends ${fm.end}`);
   ok(an.c >= r.anvilAt && an.end === 'done', `The Anvil from chunk ${an.c} (the farmland starts at ${r.anvilAt}), ends ${an.end}`);
+  await page.close();
+}
+// Level 2 in a loop (seed 1945 on; run.sortie.encPlan): Oasis Ambush at the village's oasis (covers round the grove drop together, the camels bolt), Burning Field in the
+// first open desert (the oil farm's tanks are targets; the last tank of a farm drops a pod), Fuel Convoy in the last (tankers, escort), the Shadow Wing between them;
+// the first pass has none of it, no loop Wing change, and its day.
+{
+  const page = await freshPage();
+  const r0 = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false, 0); SF.run(60); return JSON.stringify({ plan: run.sortie.encPlan, wingU: run.sortie.wingU, tod: run.sortie.timeOfDay, variant: run.sortie.variant }); })()`));
+  ok(r0.plan === null && !r0.wingU && r0.tod === 'day' && !r0.variant, 'level 2, the first pass: no loop encounters, the Wing where it was, day');
+  const r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false, 1); const plan = run.sortie.encPlan, log = [], seen = { cover: 0, flak: 0, tank: 0, arty: 0, fuel: 0, ftruck: 0, panic: 0 }; let cur = null, errs = 0;
+    for (let f = 0; f < 14000 && !world.bossSpawned; f += 20) { SF.run(20); ensureChunks();
+      if (world.enc && (!cur || cur.id !== world.enc.id)) { cur = { id: world.enc.id, c: -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP, end: null }; log.push(cur); }
+      if (world.encLast && cur && world.encLast.id === cur.id && !cur.end) cur.end = world.encLast.why;
+      const n = t => world.enemies.filter(e => e.type === t && !e.dead).length; seen.cover = Math.max(seen.cover, world.enemies.filter(e => e.type === 'camo' && e.ambush && !e.dead).length); seen.fuel = Math.max(seen.fuel, n('fuel')); seen.ftruck = Math.max(seen.ftruck, n('ftruck'));
+      if (world.ambushGo != null) { seen.flak = Math.max(seen.flak, n('flak')); seen.tank = Math.max(seen.tank, n('tank')); seen.arty = Math.max(seen.arty, n('arty')); seen.panic = Math.max(seen.panic, critters.filter(c => c.kind === 'camel' && c.panic > 0).length); } }
+    return JSON.stringify({ plan: plan.map(p => p.id).join(), log, seen, go: world.ambushGo != null, left: run.sortie.oilLeft, tod: run.sortie.timeOfDay, wingU: run.sortie.wingU, boss: world.bossSpawned }); })()`));
+  const ids = r.log.map(x => x.id).join();
+  ok(r.plan === 'oasisambush,burningfield,fuelconvoy' && r.tod === 'sunset' && r.wingU === 0.6, `level 2 in a loop: its layout ${r.plan}, sunset, the Wing at ${r.wingU} of the arc`);
+  ok(ids === 'oasisambush,burningfield,wing,fuelconvoy' && r.log.every(x => x.end === 'done'), `the encounters play in place, each to its end: ${r.log.map(x => x.id + '@' + x.c + ':' + x.end).join(' ')}`);
+  ok(r.seen.cover >= 4 && r.go, `Oasis Ambush: ${r.seen.cover} covers round the grove, dropped together`);
+  ok(r.seen.flak >= 1 && r.seen.tank >= 1 && r.seen.arty >= 1, `the covers hid flak ${r.seen.flak}, a tank ${r.seen.tank} and artillery ${r.seen.arty}`);
+  ok(r.seen.panic >= 1, `the oasis' camels bolt from the ambush (${r.seen.panic})`);
+  ok(r.seen.fuel >= 3 && Object.values(r.left || {}).some(v => v === 0), `Burning Field: ${r.seen.fuel} fuel tanks at once; a farm cleared (${JSON.stringify(r.left)})`);
+  ok(r.seen.ftruck >= 2, `Fuel Convoy: ${r.seen.ftruck} tankers at once`);
+  ok(r.boss, 'the boss still comes');
   await page.close();
 }
 await browser.close();

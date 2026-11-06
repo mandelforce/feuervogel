@@ -2170,15 +2170,6 @@ function parcelPix(plan, i, x, y) {
 const OIL = { steelD: HX(['#2b3037'])[0], steel: HX(['#59606a'])[0], steelL: HX(['#9aa3ad'])[0], rust: HX(['#8c5a3a'])[0], rustL: HX(['#b87a4a'])[0], oil: HX(['#17120e'])[0], oilEdge: HX(['#4a3a24'])[0], scorch: HX(['#3a2e22'])[0],
   fire: HX(['#f0862a'])[0], fireY: HX(['#ffd25a'])[0], fireW: HX(['#fff4c0'])[0], white: HX(['#e8e2d2'])[0], cabin: HX(['#7e8a92'])[0], cabinD: HX(['#5a6670'])[0], deck: HX(['#b3a88e'])[0], deckD: HX(['#8a7f68'])[0],
   brick: HX(['#a8452f'])[0], roof: HX(['#6f7a86'])[0], roofD: HX(['#4d5662'])[0], coal0: HX(['#2a2622'])[0], coal1: HX(['#1c1814'])[0], coal2: HX(['#34302a'])[0], clay: HX(['#7a5a38'])[0], clayD: HX(['#5e4428'])[0] };
-// a camel seen from above (a loop's herd by the oasis): body with darker flanks, a hump, neck and head, a tail, four legs and a shadow. d: 0 faces east, 1 west, 2 north, 3 south; lie: kneeling
-function camelPix(put, c) {
-  const B = C.rock, n = c.lie ? 2 : 3, cells = [], tx = (lx, ly) => c.d === 0 ? [lx, ly] : c.d === 1 ? [-lx, ly] : c.d === 2 ? [ly, lx] : [ly, -lx];
-  for (let lx = -n; lx <= n; lx++) for (let ly = -1; ly <= 1; ly++) cells.push([lx, ly, ly === 0 ? B[2] : B[1]]);
-  cells.push([-1, 0, B[3]], [0, 0, B[3]], [n + 1, 0, B[2]], [n + 2, 0, B[2]], [n + 3, 0, B[1]], [n + 4, 0, B[0]], [-n - 1, 0, B[0]]);
-  if (!c.lie) cells.push([-n + 1, -2, B[0]], [-n + 1, 2, B[0]], [n - 1, -2, B[0]], [n - 1, 2, B[0]]);
-  for (const [lx, ly] of cells) { const [dx, dy] = tx(lx, ly); put(c.x + dx + 1, c.y + dy - 2, C.shadow, 0.4); }
-  for (const [lx, ly, col] of cells) { const [dx, dy] = tx(lx, ly); put(c.x + dx, c.y + dy, col); }
-}
 const oilPix = (() => {
   const P = (put, cx, cy, dx, dy, c, a = 1) => put(cx + dx, cy - dy, c, a);
   const line = (put, cx, cy, x0, y0, x1, y1, c, a = 1) => { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1); const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx - dy;
@@ -2535,7 +2526,6 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     for (let k = 0; k <= n; k++) { const px = Math.round(ax + (bx - ax) * k / n), py = Math.round(ay + (by - ay) * k / n); put(px, py, C.conc[1]); put(px + 1, py, C.conc[1]); put(px, py + 1, C.side[2]); put(px + 1, py + 1, C.side[2]); } put(ax + 2, ay - 1, C.shadow, 0.4); put(ax, ay - 1, C.hatch); }
   for (const pj of plan.pumps || []) { if (pj.y < y0 - 8 || pj.y > y0 + h + 8) continue; const { x: px, y: py, d } = pj; for (let k = -3; k <= 5; k++) { put(px + k + 1, py - 2, C.shadow, 0.4); put(px + k, py + 1, C.conc[2]); put(px + k, py, C.conc[0]); } put(px + 5 * d, py + 1, C.hatch); put(px + 5 * d, py, C.hatch); put(px + 5 * d, py - 1, C.hatch); put(px, py - 1, C.dark); put(px + 1, py - 1, C.dark); // a pumpjack: its beam, the horsehead, the base, an oil stain
     for (let yy = -3; yy <= 2; yy++) for (let xx = -2; xx <= 3; xx++) if (xx * xx + yy * yy < 7) put(px + 1 + xx, py - 4 + yy, C.char[0], 0.45); }
-  for (const cm of plan.camels || []) { if (cm.y < y0 - 8 || cm.y > y0 + h + 8) continue; camelPix(put, cm); } // a loop's camels by the oasis
   for (const dk of plan.derricks || []) { if (dk.y < y0 - 24 || dk.y > y0 + h + 24) continue; oilPix.derrick(put, dk.x, dk.y, 1); if (dk.pit) oilPix.pit(put, dk.x + dk.pit * 12, dk.y - 2); if (dk.flare) oilPix.flare(put, dk.x, dk.y, dk.flare); } // lattice derricks (with a mud pit, some with a flare stack)
   for (const ind of plan.industry || []) { if (ind.y < y0 - 40 || ind.y > y0 + h + 40) continue; oilPix[ind.kind](put, ind.x, ind.y); } // industry with chimneys
   for (const pf of plan.platforms || []) { if (pf.y < y0 - 30 || pf.y > y0 + h + 30) continue; oilPix.platform(put, pf.x, pf.y); } // an offshore rig out at sea
@@ -2641,6 +2631,27 @@ function cloud(kind, seed) {
   return { kind, seed, w, h, data, shadow, high: !!T.high };
 }
 // the night grade alone, over a whole RGBA buffer: for a host's own ground painted by day (the game's legacy chunks in a night level)
+// The sunset grade (Enigma level 1, from its first loop on): the sun is low on the left. Applied to a painted image after everything else (buildings,
+// trees, the game's own ground), so it needs no plan. Land, surf and buildings go warm (amber light from the left, rose and violet in the shade); water
+// (the pixels that are clearly blue) is mapped through a dusk ramp (teal, olive, gold by its lightness), and wave crests glitter in the sun's path, a
+// lane along the left of the screen (x is the screen's own, so the lane stays put while the sea scrolls). d: RGBA bytes, w: the row width,
+// wyAt(row): the world row of an image row (the glitter's waves are fixed to the world and drift with the scroll). Fires are drawn after it.
+const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a050', '#f0c060']), SUNGLINT = HX(['#e8b050', '#ffd070', '#fff4c0']), SUNLAND = [0.95, 0.6, 0.48, 27, 5, 20];
+function sunsetGrade(d, w, wyAt) {
+  const n = d.length >> 2; let wy = 0;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) wy = wyAt((i / w) | 0);
+    const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (b - r > 40 && b >= g) { // water
+      const f = clamp((l - 40) / 140, 0, 1) * (SUNSEA.length - 1), a = SUNSEA[Math.floor(f)], z = SUNSEA[Math.min(SUNSEA.length - 1, Math.ceil(f))], k = f % 1;
+      let c0 = a[0] + (z[0] - a[0]) * k, c1 = a[1] + (z[1] - a[1]) * k, c2 = a[2] + (z[2] - a[2]) * k;
+      const lane = Math.exp(-(((x - w * 0.2) / (w * 0.16)) ** 2)) * (0.6 + 0.4 * Math.sin(wy * 0.013 + 1.7)) * 0.72, wave = Math.sin(x * 0.19 + wy * 0.11 + Math.sin(x * 0.035 + wy * 0.05) * 8) * 0.5 + 0.5;
+      const gl = lane * (0.45 + 0.55 * wave) + (hh(x * 7 + 3, wy) - 0.5) * 0.35, G = gl > 0.62 ? SUNGLINT[2] : gl > 0.5 ? SUNGLINT[1] : gl > 0.4 ? SUNGLINT[0] : null;
+      if (G) { c0 = G[0]; c1 = G[1]; c2 = G[2]; } else if (gl > 0.32) { c0 = c0 * 0.6 + 94; c1 = c1 * 0.6 + 60; c2 = c2 * 0.6 + 24; }
+      d[o] = c0; d[o + 1] = c1; d[o + 2] = c2;
+    } else { // land, surf, buildings
+      const s = 0.55 + 0.45 * Math.min(1, (l / 255) * 1.4), wx = 1.12 - 0.3 * x / w;
+      d[o] = Math.min(255, (l + (r - l) * 0.7) * (SUNLAND[0] - 0.1 + 0.36 * s) * wx + SUNLAND[3]); d[o + 1] = (l + (g - l) * 0.7) * (SUNLAND[1] - 0.02 + 0.2 * s) * wx + SUNLAND[4]; d[o + 2] = (l + (b - l) * 0.7) * (SUNLAND[2] - 0.04 + 0.06 * s) + SUNLAND[5]; } }
+}
 function nightGrade(d) { for (let o = 0; o < d.length; o += 4) { const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
 const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0], red: HX(['#ff3428'])[0], green: HX(['#3cff78'])[0], lamp: HX(['#aaa078'])[0], flare: HX(['#ffc46e'])[0] };
 // The plan's lights at night, built once per plan: about one house in ten shows a crack of light in a facade window (blocks and public buildings up
@@ -2859,6 +2870,18 @@ function islands(o) {
       for (let y = vy0; y < vy0 + VL; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Br[i] === it.id) { Kr[i] = K.MEADOW; Br[i] = -1; } } it.w = it.h = 0; it.gone = true; it.t = 'gone'; } }
   plan.village = { y0: vy0, y1: vy0 + VL - 1, items: plan.items.filter(it => !it.gone).length, farms: v.farms.filter(f => Kr[idx(f.x0 + 1, f.y0 + 1)] === K.COURT).length, green: !!v.oldTown };
   plan.stage.village = +(now() - t0).toFixed(2);
+  // 3b. the burning church (params.burn, Enigma level 1 from its first loop on): the village church, hit and on fire. The nave has lost its roof at one end,
+  // the transept is gutted, the tower has a shell hole, the apse stands; one big blaze runs along the nave, one over the transept and one in the tower
+  // (their seeds are 2 mod 3, which gives each three hot spots), so the church burns brightly and the smoke runs a long way over the green.
+  if (P.burn) { const ch = plan.churches.find(c => c.parts.every(id => !plan.items[id].gone)), part = n => ch && plan.items[ch.parts.find(id => plan.items[id].part === n)];
+    const tower = part('tower'), nave = part('nave'), trans = part('trans'), apse = part('apse');
+    if (tower && nave && trans && apse) {
+      const rub = (it, x0, y0, x1, y1) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (Br[idx(x, y)] === it.id) Kr[idx(x, y)] = K.RUBBLE; };
+      nave.dmg = 2; nave.cut = { end: 0, at: 12 }; trans.dmg = 3; tower.dmg = 1; for (const it of [tower, nave, trans, apse]) it.fire = true;
+      rub(nave, nave.x0, nave.y0 + nave.h - 11, nave.x0 + nave.w, nave.y0 + nave.h); rub(trans, trans.x0 + 1, trans.y0 + 1, trans.x0 + trans.w - 1, trans.y0 + trans.h - 1);
+      const fs = id => (h32(seed, 78000 + id) % 33333) * 3 + 2;
+      const blaze = (it, pad) => ({ x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, w: it.w + 2 * pad, h: it.h + 2 * pad, x0: it.x0 - pad, y0: it.y0 - pad, item: it.id, seed: fs(it.id) }); // a margin round each part: a wider glow and bigger flames
+      plan.fires.push(blaze(nave, 4), blaze(trans, 4), blaze(tower, 2)); plan.burning = true; } }
 
   // 4. the main road beyond the village: south to the shore and out on a jetty (a barge moored beside it), north through the fields to the airbase
   const rowOf = y => { const out = []; for (let x = 0; x < W; x++) { const k = v.K[y * W + x]; if (k === K.ROAD || k === K.WALK) out.push([x, k]); } return out; };
@@ -2957,7 +2980,7 @@ function desertLand(o) {
   const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
   const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], gantries: [], wires: [], barrels: [], beachSlots: [], rivers: [], river: null,
-    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
+    wells: [], caravans: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
@@ -3067,10 +3090,12 @@ function desertLand(o) {
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
-      if (F.camels) { /* a herd by the pool (a loop's): on open ground at the water's edge, clear of the palms, the houses and the railway's corridor */
-        plan.camels = plan.camels || []; const herd = [], free = (x, y) => { for (let yy = y - 3; yy <= y + 3; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (!open(xx, yy) || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) return false; return !plan.trees.some(t => Math.abs(t.x - x) < 7 && Math.abs(t.y - y) < 5); };
-        for (let k = 0; k < 40 && herd.length < (F.camels | 0 || 4); k++) { const a = rnd(TD, 140 + fi, k) * 6.283, e = 1.2 + rnd(TD, 141 + fi, k) * 0.7, x = Math.round(gx + Math.cos(a) * prx * e), y = Math.round(gy + Math.sin(a) * pry * e * 1.2);
-          if (!free(x, y) || herd.some(q => Math.hypot(q.x - x, q.y - y) < 11)) continue; const d = Math.floor(rnd(TD, 142 + fi, k) * 4), c = { x, y, d, lie: rnd(TD, 143 + fi, k) < 0.3 }; herd.push(c); plan.camels.push(c); reserve(x - 6, x + 6, y - 3, y + 3); } }
+      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: where the game's camels start (plan.caravans, each { x, y }; the game draws and moves them)
+        for (const sy of [gy + ry + 9, gy - ry - 9, gy + ry + 22, gy - ry - 22]) { const got = [];
+          for (let k = 0; k < 6; k++) { const cx = gx - 46 + k * 21 + Math.round((rnd(TD, 60, k + fi) - 0.5) * 3), cy = sy + Math.round((rnd(TD, 61, k + fi) - 0.5) * 3);
+            let ok = true; for (let yy = cy - 5; ok && yy <= cy + 5; yy++) for (let xx = cx - 9; xx <= cx + 9; xx++) if (!inB(xx, yy) || (Kr[idx(xx, yy)] !== K.DESERT && Kr[idx(xx, yy)] !== K.OASIS) || Br[idx(xx, yy)] !== -1 || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) { ok = false; break; }
+            if (ok) got.push({ x: cx, y: cy, s: k + fi * 7 }); }
+          if (got.length >= 3) { plan.caravans.push(...got); break; } } }
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
@@ -3265,8 +3290,8 @@ function sandSea(o) {
   // held village is old through and through, the others are mixed: mostly kept up, a few old houses)
   const WAR = new Set(['harbour_commercial', 'beach_town', 'village', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
   let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
-    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1, guard: variant > 0 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, big: variant > 0, camels: variant > 0 ? 5 : 0, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
-    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1, strong: variant > 0 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', camels: variant > 0 ? 3 : 0 }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
+    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1, guard: variant > 0 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, big: variant > 0, caravan: variant > 0, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1, strong: variant > 0 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', caravan: true }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
   if (variant > 0) { // the loop's additions: guarded oil fields on the open desert (the valley's own is kept), and bastions on the approaches (the village, the airbase, the pass)
     let at2 = 0; for (const g of segs) { const s0 = at2, s1 = at2 + g.n * CHp; at2 = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld;
       if (g.t === 'desert_open') { const ln = (a1 - a0) * Ld; if (ln > 560) for (const q of [0.22, 0.62]) feats.push({ kind: 'oilfield', at: a0 + (a1 - a0) * q, half: Math.round(ln * 0.17), dry: true, guard: true }); else feats.push({ kind: 'oilfield', at: (a0 + a1) / 2, half: Math.max(60, Math.round(ln / 2) - 26), dry: true, guard: true }); } // (a long stretch gets two fields)
@@ -3284,7 +3309,7 @@ function sandSea(o) {
   plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
-  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'camels', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
+  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
     plan[key] = (A[key] || []).concat((B[key] || []).map(up));
   if ((P0.wear || 0) > 0) plan.worn = cat(Uint8Array, A.worn || new Uint8Array(W * Lp), B.worn || new Uint8Array(W * Ld));
   plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
@@ -4011,7 +4036,7 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
-const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'camels', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
+const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, A, { preset, L, seed: A.seed });
@@ -4238,7 +4263,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4264,7 +4289,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.46'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.66'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4974,6 +4999,7 @@ SPR.flakGun = rotSet(sprite(12, 28, x => {
   ellS(x, RP.conc, 6, 14, 4, 4, 0.05);
   rect(x, '#2a2a2e', 5, 12, 2, 4);
 }));
+/* The Retro Run keeps the original bunker, gun, casemate and AA fort (the code below, as it was); the Enigma Run swaps in the N versions (setEnigmaGuns). */
 SPR.bunker = sprite(24, 24, x => {
   polyS(x, RP.conc, [[7, 0], [17, 0], [24, 7], [24, 17], [17, 24], [7, 24], [0, 17], [0, 7]], 0, 0.5);
   polyS(x, RP.conc, [[8, 4], [16, 4], [20, 8], [20, 16], [16, 20], [8, 20], [4, 16], [4, 8]], -0.15, 0.3);
@@ -4983,6 +5009,26 @@ SPR.bunkerGun = rotSet(sprite(14, 32, x => {
   rect(x, '#18181a', 6, 18, 3, 13); rect(x, '#44444c', 6, 18, 1, 13); rect(x, '#18181a', 5, 28, 5, 3);
   ellS(x, RP.conc, 7, 16, 5.5, 5.5, 0.1);
   rect(x, '#2a2a2e', 6, 13, 3, 1);
+}));
+/* Bunker (Enigma Run): a riveted concrete octagon with a recessed gun ring, sandbag mounds at the corners, a vent grate, an ammo hatch and camouflage */
+SPR.bunkerN = sprite(24, 24, x => {
+  polyS(x, RP.conc, [[7, 0], [17, 0], [24, 7], [24, 17], [17, 24], [7, 24], [0, 17], [0, 7]], 0, 0.5);
+  polyS(x, RP.conc, [[8, 3], [16, 3], [21, 8], [21, 16], [16, 21], [8, 21], [3, 16], [3, 8]], -0.2, 0.3);
+  camo(x, 0.5, 0.7, 0.2, 77);
+  disk(x, '#1a1b1e', 12, 12, 7); disk(x, '#2c2e34', 12, 12, 6);
+  for (let k = 0; k < 12; k++) { const an = k * TAU / 12; rect(x, k % 3 ? '#5a5c62' : '#8c8e94', Math.round(12 + Math.cos(an) * 7.4), Math.round(12 + Math.sin(an) * 7.4), 1, 1); }
+  for (const [a, b] of [[3, 3], [21, 3], [3, 21], [21, 21]]) { ellS(x, RP.sand, a, b, 3.4, 2.6, 0); ellS(x, RP.sand, a + (a < 12 ? 2 : -2), b + (b < 12 ? 2 : -2), 2.6, 2, 0.1); }
+  for (let i = 0; i < 4; i++) rect(x, '#101012', 15 + i, 4, 1, 3);
+  rect(x, '#d8b020', 6, 5, 2, 1); boxS(x, RP.grey, 17, 16, 4, 3, 0.1);
+  rect(x, '#101012', 8, 21, 8, 2); rect(x, '#3a3a40', 8, 21, 8, 1);
+});
+/* the bunker's gun: a heavy barrel with a fume extractor and muzzle brake, behind an armoured mantlet and a faceted cupola with a hatch */
+SPR.bunkerGunN = rotSet(sprite(14, 32, x => {
+  rect(x, '#18181a', 6, 18, 3, 13); rect(x, '#5a5a64', 6, 18, 1, 13); rect(x, '#18181a', 5, 24, 5, 3); rect(x, '#3a3a42', 5, 24, 5, 1); rect(x, '#101012', 4, 28, 7, 3); rect(x, '#3a3a42', 4, 28, 7, 1);
+  polyS(x, RP.grey, [[4, 16], [11, 16], [12, 19], [3, 19]], 0.2);
+  polyS(x, RP.conc, [[7, 8], [11, 10], [13, 14], [13, 18], [10, 21], [4, 21], [1, 18], [1, 14], [3, 10]].map(([a, b]) => [a, b - 3]), 0.1, 0.6);
+  rect(x, '#101012', 5, 12, 5, 1); disk(x, '#2a2c30', 7, 13, 2); rect(x, '#8cc0e0', 6, 11, 2, 1);
+  rect(x, '#d84a34', 2, 14, 1, 3); rect(x, '#d84a34', 12, 14, 1, 3);
 }));
 
 SPR.pt = sprite(12, 34, x => {
@@ -5133,7 +5179,15 @@ function loadEnigmaArt() {
   const conv = v => typeof v === 'string' ? decode(v) : Promise.all(v.map(conv));
   const S = {}; Promise.all(Object.keys(data).map(k => conv(data[k]).then(r => { S[k] = r; }))).then(() => { ENIG_ART.S = S; ENIG_ART.loading = false; if (ENIG_ART.want) setEnigmaArt(true); }).catch(() => { ENIG_ART.loading = false; });
 }
+/* Gun art of the Enigma Run (drawn in code, not in the PNG set): swapped in with the PNG art, so the Retro Run keeps the originals. */
+const ENIG_GUN = { on: false, classic: {}, keys: ['bunker', 'bunkerGun', 'casemate', 'aatower'] };
+function setEnigmaGuns(on) {
+  if (on === ENIG_GUN.on) return;
+  for (const k of ENIG_GUN.keys) { if (on) { ENIG_GUN.classic[k] = SPR[k]; SPR[k] = SPR[k + 'N']; } else SPR[k] = ENIG_GUN.classic[k]; }
+  ENIG_GUN.on = on;
+}
 function setEnigmaArt(on) {
+  setEnigmaGuns(!!on);
   ENIG_ART.want = on; if (on === ENIG_ART.on) return;
   if (on) {
     if (!ENIG_ART.S) { loadEnigmaArt(); return; } // (it is applied as soon as it has arrived)
@@ -5212,6 +5266,18 @@ function enigmaSprites(pct) {
   const big = [0, 2].map(i => softCloud(SPR.clouds[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
   S = { low, big }; ENIGMA_SPR.set(pct, S); return S;
 }
+// Sunset clouds (a loop's level 1): the same sprites in the evening's colours. A cloud's day ramp (blue-grey to white) becomes a sunset ramp
+// (plum belly, rose, coral, peach, cream rim on the sunward side), and its ground shadow plum instead of near black. Made once per sprite.
+const SUN_CLOUD = ['#5a3a66', '#8a5476', '#c27a7e', '#eba484', '#ffd8a8'].map(hexRGB);
+const sunsetOn = () => !!run.sortie && run.sortie.timeOfDay === 'sunset';
+function sunCloud(s) {
+  if (s._sun) return s._sun;
+  const tint = (cv, shade) => { const [c, x] = mk(cv.width, cv.height), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height), a = d.data;
+    for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; if (shade) { a[i] = 44; a[i + 1] = 18; a[i + 2] = 52; } else { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2], q = SUN_CLOUD[clamp(Math.round((l - 140) / 115 * 4), 0, 4)]; a[i] = q[0]; a[i + 1] = q[1]; a[i + 2] = q[2]; } }
+    x.putImageData(d, 0, 0); return c; };
+  return s._sun = { c: tint(s.c, false), k: s.k ? tint(s.k, true) : s.k, w: s.w, h: s.h };
+}
+const sunSpr = s => sunsetOn() ? sunCloud(s) : s;
 let ENG_S = null;
 // the strength of the look for the run now starting (or none, on the title screen and in the tutorial). Rebuilds what depends on it.
 function setLook(pct) {
@@ -5497,6 +5563,7 @@ SPR.troop = [0, 1, 2].map(fr => sprite(5, 7, x => {
   rect(x, '#2a2a22', 4, 2, 1, 2);
   rect(x, '#d8b48a', 4, 4, 1, 1); rect(x, '#d8b48a', 0, 5, 1, 1);
 }, { oc: '#141610' }));
+
 SPR.casemate = sprite(44, 30, x => {
   polyS(x, RP.conc, [[5, 0], [39, 0], [44, 8], [44, 30], [0, 30], [0, 8]], 0, 0.45);
   boxS(x, RP.conc, 6, 6, 32, 18, 0.12);
@@ -5504,11 +5571,156 @@ SPR.casemate = sprite(44, 30, x => {
   rect(x, '#0c0c0e', 13, 25, 18, 3); rect(x, '#3a3a40', 13, 24, 18, 1);
   disk(x, '#2a2c30', 22, 15, 7);
 });
+/* Casemate (Enigma Run): a stepped concrete fortress front with sandbags along the roof edge, observation slits, buttresses, vents, and an armoured
+   port with a steel shutter where the gun looks out (the gun is drawn 8 px below the middle) */
+SPR.casemateN = sprite(44, 30, x => {
+  polyS(x, RP.conc, [[5, 0], [39, 0], [44, 8], [44, 30], [0, 30], [0, 8]], 0, 0.45);
+  boxS(x, RP.conc, 5, 4, 34, 20, 0.12);
+  boxS(x, RP.conc, 9, 8, 26, 12, -0.1);
+  camo(x, 0.55, 0.75, 0.15, 51);
+  for (let i = 0; i < 9; i++) ellS(x, RP.sand, 8 + i * 3.6, 2.4, 2.4, 1.8, i % 2 ? 0.05 : -0.05);
+  rect(x, '#0c0c0e', 8, 11, 6, 2); rect(x, '#0c0c0e', 30, 11, 6, 2); rect(x, '#3a3a40', 8, 10, 6, 1); rect(x, '#3a3a40', 30, 10, 6, 1);
+  for (const bx of [1, 40]) { boxS(x, RP.conc, bx, 9, 3, 18, 0.2); rect(x, '#d8b020', bx, 12, 3, 1); rect(x, '#d8b020', bx, 16, 3, 1); }
+  for (let k = 0; k < 4; k++) { rect(x, '#101012', 18 + k * 2, 6, 1, 3); }
+  rect(x, '#0c0c0e', 11, 22, 22, 7); polyS(x, RP.grey, [[10, 21], [34, 21], [33, 24], [11, 24]], 0.15);
+  rect(x, '#3a3a40', 11, 22, 22, 1); disk(x, '#26282c', 22, 23, 8);
+  for (const [a, b] of [[11, 22], [32, 22], [11, 28], [32, 28]]) rect(x, '#8c8e94', a, b, 1, 1);
+});
+
 SPR.aatower = sprite(38, 38, x => {
   boxS(x, RP.conc, 0, 0, 38, 38, 0.05);
   boxS(x, RP.conc, 7, 7, 24, 24, -0.12);
   for (const [a, b] of [[7, 7], [31, 7], [7, 31], [31, 31]]) { disk(x, '#26282c', a, b, 6); disk(x, '#3a3c42', a, b, 4); }
   boxS(x, RP.conc, 15, 15, 8, 8, 0.25);
+});
+/* The 4-gun AA fort (Enigma Run): a concrete deck with hazard-striped edges, a cross of catwalks, four sandbagged gun pits at the corners and a
+   command hub in the middle (its radar arm and lamp are drawn live, see DRAW.aatower). */
+SPR.aatowerN = sprite(38, 38, x => {
+  boxS(x, RP.conc, 0, 0, 38, 38, 0.05);
+  boxS(x, RP.conc, 2, 2, 34, 34, -0.1);
+  for (let i = 12; i < 26; i++) { const c = ((i >> 1) & 1) ? '#c8a41c' : '#1a1a1e'; rect(x, c, i, 0, 1, 2); rect(x, c, i, 36, 1, 2); rect(x, c, 0, i, 2, 1); rect(x, c, 36, i, 2, 1); }
+  rect(x, '#5a5c62', 17, 8, 4, 22); rect(x, '#5a5c62', 8, 17, 22, 4);
+  rect(x, '#9a9ca2', 17, 8, 1, 22); rect(x, '#9a9ca2', 8, 17, 22, 1);
+  for (let k = 9; k < 30; k += 3) { rect(x, '#3a3c42', 17, k, 4, 1); rect(x, '#3a3c42', k, 17, 1, 4); }
+  for (const [a, b] of [[7, 7], [31, 7], [7, 31], [31, 31]]) {
+    disk(x, '#4a3c26', a, b, 7);
+    for (let k = 0; k < 10; k++) { const an = k * TAU / 10; ellS(x, RP.sand, a + Math.cos(an) * 5.6, b + Math.sin(an) * 5.6, 2.3, 1.9, 0); }
+    disk(x, '#1c1d20', a, b, 4); disk(x, '#33353a', a, b, 3);
+  }
+  boxS(x, RP.conc, 14, 14, 10, 10, 0.3);
+  rect(x, '#101012', 15, 15, 8, 1); rect(x, '#101012', 15, 22, 8, 1);
+  disk(x, '#1c1d20', 19, 19, 3.6); disk(x, '#5c6068', 19, 19, 2.6);
+  rect(x, '#d84a34', 12, 20, 2, 2); rect(x, '#d8b020', 24, 16, 2, 2);
+});
+/* Quad-fort turret: shielded twin-barrel mount with muzzle brakes and an ammo drum; points down at rest, like the other gun sets */
+SPR.aaQ = rotSet(sprite(12, 26, x => {
+  rect(x, '#2a2a22', 0, 9, 3, 6); rect(x, '#5a5a44', 0, 9, 1, 6);
+  for (const bx of [3, 7]) { rect(x, '#18181a', bx, 14, 2, 11); rect(x, '#5a5a64', bx, 14, 1, 8); rect(x, '#0e0e10', bx - 1, 22, 4, 3); rect(x, '#3a3a40', bx - 1, 22, 1, 1); }
+  ellS(x, RP.conc, 6, 12, 4.6, 4.6, 0.1);
+  polyS(x, RP.grey, [[1, 14], [11, 14], [10, 17], [2, 17]], 0.15);
+  rect(x, '#d84a34', 5, 10, 2, 1);
+}));
+/* Twin AA gun ("Zwilling"): a light fast pedestal mount; its pit has a camouflage net and ammo crates */
+/* A little island for the training level's guns: shallows, a sand beach, a grassy middle and a few rocks (the training flies over open sea) */
+SPR.islet = sprite(52, 44, x => {
+  ellS(x, RP.glass, 26, 22, 25.5, 21, 0.45); ellS(x, RP.glass, 26, 22, 22.5, 18, 0.6);
+  ellS(x, RP.sand, 26, 22, 20, 16, 0.2); ellS(x, RP.sand, 14, 26, 8, 6, 0.1); ellS(x, RP.sand, 38, 17, 9, 6.5, 0.1);
+  ellS(x, RP.fg, 26, 22, 14.5, 10.5, 0.1); ellS(x, RP.fg, 26, 21, 11.5, 8, 0.3);
+  for (const [a, b] of [[8, 30], [43, 28], [20, 36], [37, 8]]) { ellS(x, RP.grey, a, b, 2.4, 1.8, 0.1); rect(x, '#9aa1a8', a - 1, b - 1, 1, 1); }
+}, { outline: false });
+SPR.aaPit = sprite(24, 24, x => {
+  disk(x, '#3a3220', 12, 12, 11);
+  for (let k = 0; k < 14; k++) { const an = k * TAU / 14; ellS(x, RP.sand, 12 + Math.cos(an) * 9.6, 12 + Math.sin(an) * 9.6, 2.6, 2.2, 0); }
+  disk(x, '#22241a', 12, 12, 7);
+  boxS(x, RP.olive, 1, 15, 5, 4, 0); rect(x, '#d8b020', 2, 16, 3, 1);
+  boxS(x, RP.olive, 18, 3, 5, 4, 0); rect(x, '#d8b020', 19, 4, 3, 1);
+});
+SPR.aaZw = rotSet(sprite(14, 32, x => {
+  for (const bx of [4, 9]) { rect(x, '#18181a', bx, 16, 2, 15); rect(x, '#62626c', bx, 16, 1, 11); rect(x, '#0e0e10', bx - 1, 28, 4, 3); }
+  rect(x, '#2a2a22', 5, 8, 4, 5);
+  ellS(x, RP.grey, 7, 15, 5, 5, 0.2);
+  rect(x, '#18181a', 6, 12, 2, 2); rect(x, '#e8c040', 6, 12, 2, 1);
+  polyS(x, RP.conc, [[3, 17], [11, 17], [10, 19], [4, 19]], 0.2);
+}));
+/* Armoured gun cupola ("Panzerturm"): a riveted concrete ring, a steel dome and one heavy barrel */
+SPR.fortBase = sprite(32, 32, x => {
+  polyS(x, RP.conc, [[9, 0], [23, 0], [32, 9], [32, 23], [23, 32], [9, 32], [0, 23], [0, 9]], 0, 0.5);
+  polyS(x, RP.conc, [[10, 4], [22, 4], [28, 10], [28, 22], [22, 28], [10, 28], [4, 22], [4, 10]], -0.2, 0.3);
+  for (let k = 0; k < 8; k++) { const an = k * TAU / 8 + TAU / 16; rect(x, '#d8b020', Math.round(16 + Math.cos(an) * 13), Math.round(16 + Math.sin(an) * 13), 2, 2); }
+  disk(x, '#1c1d20', 16, 16, 9); disk(x, '#2a2c32', 16, 16, 8);
+});
+SPR.fortGun = rotSet(sprite(22, 44, x => {
+  rect(x, '#18181a', 8, 22, 6, 21); rect(x, '#5a5a64', 8, 22, 1, 21); rect(x, '#101012', 7, 38, 8, 5); rect(x, '#3a3a42', 7, 38, 8, 1); rect(x, '#2a2a30', 9, 40, 4, 1);
+  polyS(x, RP.grey, [[11, 10], [17, 12], [20, 18], [20, 26], [17, 32], [11, 33], [5, 32], [2, 26], [2, 18], [5, 12]], 0.15, 0.7);
+  polyS(x, RP.grey, [[11, 14], [15, 16], [17, 20], [17, 24], [15, 28], [11, 29], [7, 28], [5, 24], [5, 20], [7, 16]], 0.3, 0.4);
+  rect(x, '#101012', 8, 31, 6, 2); rect(x, '#d84a34', 3, 20, 2, 4);
+  for (const [a, b] of [[4, 14], [18, 14], [4, 30], [18, 30]]) rect(x, '#3a3a42', a, b, 1, 1);
+}));
+/* Missile site: a dark pad with a fuel tank and generator, and a three-rail launcher that turns toward the player */
+SPR.samBase = sprite(30, 30, x => {
+  polyS(x, RP.conc, [[8, 0], [22, 0], [30, 8], [30, 22], [22, 30], [8, 30], [0, 22], [0, 8]], -0.05, 0.45);
+  for (let i = 0; i < 30; i++) { const c = ((i >> 2) & 1) ? '#d8b020' : '#1a1a1e'; if (i > 9 && i < 21) { rect(x, c, i, 0, 1, 2); rect(x, c, i, 28, 1, 2); rect(x, c, 0, i, 2, 1); rect(x, c, 28, i, 2, 1); } }
+  disk(x, '#1c1d20', 15, 15, 11); disk(x, '#3a3d44', 15, 15, 10); disk(x, '#22242a', 15, 15, 8.5);
+  for (let k = 0; k < 16; k++) { const an = k * TAU / 16; rect(x, k % 2 ? '#8c8e94' : '#4a4c52', Math.round(15 + Math.cos(an) * 9.8), Math.round(15 + Math.sin(an) * 9.8), 1, 1); }
+  boxS(x, RP.olive, 2, 3, 7, 6, 0); rect(x, '#d84a34', 3, 4, 5, 1); rect(x, '#101012', 3, 7, 5, 1);
+  disk(x, '#6a6c72', 24, 5, 3); disk(x, '#4a7ea6', 24, 5, 2); rect(x, '#d8f2ff', 23, 4, 1, 1);
+  ellS(x, RP.grey, 25, 25, 3, 3, 0.2); ellS(x, RP.red, 4, 25, 2.5, 2.5, 0);
+});
+/* the launcher: three ready missiles (white body, yellow band, red nose, dark fins) in a grey transport frame on a turntable; they point down
+   at rest. samRack2 is the same with the left missile gone: it has just been fired, and comes back a while before the next launch */
+const samRackN = skip => rotSet(sprite(19, 38, x => {
+  for (let m = 0; m < 3; m++) {
+    if (m === skip) continue;
+    const bx = 2 + m * 5;
+    rect(x, '#e8e4d8', bx, 11, 4, 22); rect(x, '#fffdf4', bx, 11, 1, 22); rect(x, '#a8a498', bx + 3, 11, 1, 22);
+    rect(x, '#d8b020', bx, 18, 4, 2); rect(x, '#101012', bx, 14, 4, 1);
+    polyS(x, RP.red, [[bx, 33], [bx + 4, 33], [bx + 3, 35], [bx + 2, 37], [bx + 1, 35]], 0.15);
+    rect(x, '#2a2c30', bx - 1, 11, 1, 4); rect(x, '#2a2c30', bx + 4, 11, 1, 4);
+  }
+  polyS(x, RP.grey, [[0, 9], [19, 9], [18, 14], [1, 14]], 0.2); polyS(x, RP.grey, [[1, 23], [18, 23], [19, 26], [0, 26]], 0.1);
+  rect(x, '#18181a', 0, 14, 1, 12); rect(x, '#18181a', 18, 14, 1, 12);
+  polyS(x, RP.grey, [[5, 3], [14, 3], [16, 9], [3, 9]], 0.3); disk(x, '#33373d', 9.5, 6, 2.6); rect(x, '#8cc0e0', 8, 5, 2, 1);
+}));
+SPR.samRack = samRackN(-1); SPR.samRack2 = samRackN(0);
+/* Barrage battery: a sandbag ring with a fan of three mortar tubes, an observer mast and ammo stacks. It never aims: it marks zones. */
+SPR.barBase = sprite(34, 34, x => {
+  disk(x, '#3a3220', 17, 17, 16);
+  for (let k = 0; k < 18; k++) { const an = k * TAU / 18; ellS(x, RP.sand, 17 + Math.cos(an) * 14.2, 17 + Math.sin(an) * 14.2, 3, 2.5, k % 2 ? 0.05 : -0.05); }
+  disk(x, '#1c1d18', 17, 17, 11); disk(x, '#26281e', 17, 17, 9);
+  boxS(x, RP.olive, 3, 22, 6, 5, 0); rect(x, '#d8b020', 4, 23, 4, 1);
+  boxS(x, RP.olive, 25, 22, 6, 5, 0); rect(x, '#d8b020', 26, 23, 4, 1);
+  boxS(x, RP.olive, 26, 6, 5, 4, 0.05);
+});
+SPR.barTubes = sprite(20, 26, x => {
+  for (const [bx, w] of [[1, 5], [7.5, 6], [14, 5]]) { rect(x, '#1c1c20', bx, 1, w, 22); rect(x, '#5a5e66', bx, 1, 1, 22); rect(x, '#0a0a0c', bx, 0, w, 3); rect(x, '#3a3a42', bx + 1, 1, w - 2, 1); }
+  polyS(x, RP.grey, [[0, 16], [20, 16], [19, 23], [1, 23]], 0.1);
+  rect(x, '#d84a34', 8, 18, 4, 2);
+});
+/* Nebelwerfer (Enigma Run, looped runs only): a six-tube smoke projector on a two-wheeled carriage with split trail legs, behind a sandbag wall
+   open to the front. It lays smoke over the guns near it (ENT.nebel, ENT.smoke): a dense cloud of billows that shields what stands in it,
+   which thins out into a dither fog just before the cover ends. */
+const SMOKE = { r: 26, mark: 72, dense: 270, thin: 100 }; // the cloud's radius, frames of warning ring, of cover and of thinning
+SPR.nebel = sprite(40, 40, x => {
+  const B = { dk: '#26282c', mid: '#6c7078', hi: '#a8aeb8' }, bag = (cx, cy, a, b2, l) => ellS(x, RP.sand, cx, cy, a, b2, l);
+  disk(x, '#2c2a24', 20, 17, 17);
+  for (let k = 0; k < 12; k++) { const a2 = -PI / 2 + (k - 5.5) * 0.4; bag(20 + Math.cos(a2) * 15, 17 + Math.sin(a2) * 14.2, 3, 2.4, k % 2 ? 0.1 : -0.08); }
+  for (let k = 0; k < 6; k++) { bag(4.5, 16 + k * 3.2, 2.6, 2.2, 0.05); bag(35.5, 16 + k * 3.2, 2.6, 2.2, 0.05); }
+  x.strokeStyle = '#18181a'; x.lineWidth = 2; x.beginPath(); x.moveTo(16, 27); x.lineTo(8, 38); x.moveTo(24, 27); x.lineTo(32, 38); x.stroke(); rect(x, '#3a3c42', 6, 37, 4, 2); rect(x, '#3a3c42', 30, 37, 4, 2);
+  for (const wx of [7, 30]) { rect(x, '#101012', wx, 20, 3, 8); rect(x, '#3a3c42', wx + 1, 21, 1, 6); }
+  for (let c = 0; c < 3; c++) { const tx = 13 + c * 5; rect(x, B.dk, tx - 1, 7, 5, 19); rect(x, B.mid, tx, 7, 3, 19); rect(x, B.hi, tx, 7, 1, 19); disk(x, '#0e0e10', tx + 1.5, 7.5, 1.5); rect(x, '#18181a', tx + 0.5, 10, 3, 2); }
+  polyS(x, RP.grey, [[11, 22], [29, 22], [28, 28], [12, 28]], 0.2); rect(x, '#8c8e94', 19, 23, 2, 3);
+  boxS(x, RP.olive, 3, 30, 5, 4, 0); rect(x, '#18181a', 3, 33, 5, 1); rect(x, '#9c9c74', 4, 31, 3, 1);
+  for (let i = 0; i < 3; i++) { rect(x, '#8c8e94', 31 + i * 2, 31, 1, 3); rect(x, '#d0d5dc', 31 + i * 2, 31, 1, 1); }
+});
+/* the cloud thinning out: a checkerboard fog that closes up towards the middle, in four sizes (drawn by DRAW.smoke) */
+SPR.fogD = [1, 0.8, 0.62, 0.44].map(f => {
+  const S = SMOKE.r * 2 + 6, [c, g] = mk(S, S), R = SMOKE.r;
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const dx = (i - S / 2) / (R * f * 1.05), dy = (j - S / 2) / (R * 0.85 * f * 1.05), r = Math.sqrt(dx * dx + dy * dy) + (vnoise(i * 0.18 + f * 9, j * 0.18) - 0.5) * 0.35;
+    if (r > 1) continue; const solid = r < 0.45, chk = ((i + j) & 1) === 0;
+    if (solid || (r < 0.75 ? chk : chk && ((i >> 1) + (j >> 1)) % 2 === 0)) { g.fillStyle = r < 0.3 ? '#dde4ea' : '#c3cbd3'; g.fillRect(i, j, 1, 1); }
+  }
+  return c;
 });
 SPR.birdF = [0, 1].map(fr => { const [c, x] = mk(5, 3); x.fillStyle = '#fff'; if (fr) { x.fillRect(0, 0, 1, 1); x.fillRect(1, 1, 1, 1); x.fillRect(2, 2, 1, 1); x.fillRect(3, 1, 1, 1); x.fillRect(4, 0, 1, 1); } else { x.fillRect(0, 1, 5, 1); x.fillRect(2, 2, 1, 1); } return c; });
 const STONE = ['#2e2a26', '#4a4540', '#66605a', '#847d74', '#a49c90'];
@@ -5862,6 +6074,22 @@ function hangarVariant(kind) {
   return finalize(c);
 }
 SPR.hangarV = [SPR.hangar, hangarVariant(1), hangarVariant(2)];
+let fullBeamHit = false; // true while a fully charged laser's damage is being dealt: what it kills may leave a different wreck (wreckDefault)
+/* The Enigma Run's ruins of the bunker, casemate and AA fort: the three stock ruins made from the new art, and a fourth, blasted open, which a
+   fully charged laser leaves (it burns longer and glimmers with many embers, see drawGlimmer). */
+function laserRuin(src) {
+  const w = src.w, h = src.h, [c, x] = mk(w, h), RUB = ['#1a1614', '#2e2824', '#46403a', '#5e5850', '#7a7266'].map(hexRGB); x.drawImage(src.c, 0, 0);
+  const d = x.getImageData(0, 0, w, h), a = d.data, put = (k, col) => { a[k] = col[0]; a[k + 1] = col[1]; a[k + 2] = col[2]; a[k + 3] = 255; };
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const k = (j * w + i) * 4; if (!a[k + 3]) continue;
+    const n = vnoise(i * 0.24 + 5, j * 0.24), dx = (i + 0.5 - w / 2) / (w / 2), dy = (j + 0.5 - h / 2) / (h / 2), r = dx * dx + dy * dy + (n - 0.5) * 0.5;
+    if (r < 0.3) put(k, hash(i * 3, j * 3) < 0.07 ? [255, 138, 58] : RUB[r < 0.14 ? 0 : 1]);
+    else if (r < 0.46) put(k, hash(i * 5, j * 3) < 0.12 ? [255, 190, 90] : [122, 46, 16]);
+    else { a[k] *= 0.55; a[k + 1] *= 0.55; a[k + 2] *= 0.55; if (hash(i, j) < 0.05 && r < 0.9) put(k, RUB[0]); if (n > 0.66) put(k, RUB[2]); if (r < 0.7 && hash(i * 7, j * 5) < 0.03) put(k, [255, 138, 58]); }
+  }
+  x.putImageData(d, 0, 0); return finalize(c);
+}
+const RUINS_N = {}; for (const t of ['bunker', 'casemate', 'aatower']) { const src = SPR[t + 'N']; RUINS_N[t] = [...ruinVariants(src), laserRuin(src)]; }
 const RUINS = { station: ruinVariants(SPR.station), tower: ruinVariants(SPR.towerTop), hangar: ruinVariants(SPR.hangar), bunker: ruinVariants(SPR.bunker), casemate: ruinVariants(SPR.casemate), aatower: ruinVariants(SPR.aatower), fuel: ruinVariants(SPR.fuel) };
 SPR.barn = sprite(24, 15, x => { for (let j = 0; j < 15; j++) for (let i = 0; i < 24; i++) { let l = j < 7 ? 0.78 : 0.34; if (j === 7) l = 0.95; if (i % 3 === 0) l -= 0.1; rect(x, pick(RP.red, l, i, j), i, j, 1, 1); } rect(x, '#2a0c08', 0, 7, 24, 1); });
 SPR.farmhouse = sprite(14, 11, x => { for (let j = 0; j < 11; j++) for (let i = 0; i < 14; i++) { let l = i < 7 ? 0.75 : 0.32; if (i === 7) l = 0.95; if (j % 3 === 0) l -= 0.1; rect(x, pick(['#3a2618', '#523622', '#6c482e', '#86603e', '#a07a54'], l, i, j), i, j, 1, 1); } boxS(x, RP.conc, 2, 1, 2, 3, 0.2); });
@@ -5934,6 +6162,12 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   const hp = (b2, B, sh, m, l) => ({ b: b2, B, s: sh, m, l, h: '#141012', k: '#141012', t: m });
   SPR.horseV = [hp('#7a4020', '#9a5a30', '#5a2c12', '#1a1010', '#5a2c12'), hp('#c4c4c8', '#e8e8ec', '#9a9aa0', '#5a5a62', '#8a8a92'), hp('#24222a', '#3e3a46', '#141216', '#0a0a0c', '#24222a')].map(pal => HR.map(r => rowSprite(r, pal)));
   const sP = { w: '#f2efe6', W: '#ffffff', s: '#cfc9bc', k: '#1e1a18', l: '#2a2420' };
+  { const CR = [
+      ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '..l.l.....l.l..', '..l.l.....l.l..', '..l.l.....l.l..', '..h.h.....h.h..'],
+      ['............mb.', '....bB.....bbbk', '...bBBb...bb...', '..brrrrb..bb...', 'tbbrrrrbbbbb...', 'tbbbbbbbbbbs...', '.sbbbbbbbbs....', '...ll.....ll...', '...ll.....ll...', '...ll.....ll...', '..h..h...h..h..'],
+      ['....bB.........', '...bBBb........', '..brrrrb.......', 'tbbrrrrbbbb....', 'tbbbbbbbbbbbb..', '.sbbbbbbbbsbb..', '..l.l...l.l.bb.', '..l.l...l.l..bb', '..l.l...l.l.bbk', '..l.l...l.l....', '..h.h...h.h....']];
+    const cp = (r2) => ({ b: '#8a6236', B: '#a67c48', s: '#5e3c20', m: '#3a2414', t: '#3a2414', k: '#141012', h: '#141012', l: '#5e3c20', r: r2 });
+    SPR.camelV = [cp('#a67c48'), cp('#9a3a28')].map(pal => CR.map(r => rowSprite(r, pal, '#1e1208'))); } // (a camel: the plain one, and one in a red saddle blanket; two walk frames and grazing)
   SPR.sheepV = [['.wWw.', 'wwWwk', 'swwsk', '.l.l.'], ['.wWw.', 'wwWwk', 'swwsk', 'l..l.'], ['.wWw.', 'wwWw.', 'swwwk', '.l.lk']].map(r => rowSprite(r, sP));
 }
 {
@@ -7014,6 +7248,8 @@ function houseAt(ci, cj) {
 function drawFeatures(x, p, wy0) {
   if (info(p).plan) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees
   const y0 = wy0 - 16, y1 = wy0 + CH + 16;
+  const TL = x.canvas.trees = []; // the trees this chunk really paints into its ground, kept on the chunk: what draws over a unit hiding under one (drawCanopy) is exactly what is already here
+  const plant = (s, tx, ty, av) => { stamp(x, s, tx, ty - wy0); TL.push({ s, x: tx, y: ty, av }); };
   drawStations(x, p, wy0);
   // old battle scars: shell holes and burnt-out wrecks
   for (let cj = Math.floor(y0 / 46); cj <= Math.floor(y1 / 46); cj++) for (let ci = 0; ci < 5; ci++) {
@@ -7041,11 +7277,11 @@ function drawFeatures(x, p, wy0) {
     if (h > 0.82) continue;
     const tx = ci * cs + hash(ci, cj + 101) * cs, ty = cj * cs + hash(ci + 55, cj) * cs;
     const th = themeAtWy(ty);
-    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) stamp(x, SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], tx, ty - wy0);
+    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) plant(SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], tx, ty);
   }
   if (world.featTheme === 5) for (let ty = Math.floor(y0 / 12) * 12; ty <= y1; ty += 12) for (const sd of [-1, 1]) {
     const tx = roadX(ty) + sd * 8.2;
-    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city' && roadHalf(ty) >= 13) stamp(x, SPR.trees[2], tx, ty - wy0);
+    if (terrainType(tx, ty) === 'road' && biomeOf(-Math.floor(ty / CH)) === 'city' && roadHalf(ty) >= 13) plant(SPR.trees[2], tx, ty, true);
   }
   cs = 34;
   for (let cj = Math.floor(y0 / cs) - 1; cj <= Math.floor(y1 / cs) + 1; cj++) for (let ci = 0; ci <= Math.ceil(W / cs); ci++) {
@@ -7073,7 +7309,8 @@ function drawFeatures(x, p, wy0) {
     stamp(x, SPR.barn, ox + 12, oy + 8); stamp(x, SPR.farmhouse, ox + 40, oy + 7); stamp(x, SPR.silo, ox + 28, oy + 20);
     disk(x, '#3a6a8a', ox + 62, oy + 56, 3); x.fillStyle = '#8cc0e0'; x.fillRect(ox + 61, oy + 55, 2, 1);
   }
-  if (world.featTheme === 5) for (const t of avenueTrees(y0, y1)) stamp(x, SPR.trees[2], t.x, t.y - wy0);
+  if (world.featTheme === 5) for (const t of avenueTrees(y0, y1)) plant(SPR.trees[2], t.x, t.y, true);
+  TL.sort((a, b) => a.y - b.y); /* ordered by y, so a lookup near a unit is a binary search */
   cs = 11;
   for (let cj = Math.floor(y0 / cs); cj <= Math.floor(y1 / cs); cj++) for (let ci = 0; ci <= Math.ceil(W / cs); ci++) {
     const h = hash(ci * 5 + 2, cj * 3 + 8);
@@ -7138,6 +7375,8 @@ function workChunk(job, rows) {
     world.featTheme = job.I.th; TRGB = THEME_RGB[job.I.th];
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
+    if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); job.c.grade = 'sunset'; } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
+    else if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') job.c.grade = 'night'; // (the grade applied above: the trees redrawn over a unit must carry it too)
     world.chunks.set(job.p, job.c); return true;
   }
   return false;
@@ -8186,6 +8425,7 @@ const ENIGMA_N = 6, ENIGMA_RNG = [8, 2, 3, 4, 5, 7];
 function enigmaTheme(level) { return STAGE_ORDER[level - 1]; } // each level flies the Campaign stage of its number (its theme, music and boss)
 const ENIGMA_CLIMATE = ['temperate', 'desert', 'night', 'forest', 'winter', 'temperate']; // per level: the look the level will get (the Campaign's theme palettes for now)
 const ENIGMA_TIME = ['day', 'day', 'night', 'day', 'day', 'dusk'];
+const FLY_SEA = 14; // chunks: the carrier is 372 units long, drawn at about 1.87, 700 px; its bow starts 700 px up and the sea gains on it 0.1 px a frame: a ship length of water needs the first island 24 chunks out
 const ENIGMA_LEN = [62, 72, 58, 60, 84, 70]; // (level 5: 84, the frozen sea 18 chunks, the mountain 6 more) // chunks before the open-ended boss arena (the Campaign is about 48)
 // Segment sequences per level (spec section 10): [template, weight]. The weights are scaled to the level's length by buildSortie.
 const ENIGMA_SEQ = [
@@ -8260,11 +8500,18 @@ function loopSeq(seq, seed) {
 }
 function buildSortie(level, seed) {
   const variant = level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : 0; // (a level 2 of the loops: loopSeq, and the generator's variant)
-  const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), len = ENIGMA_LEN[i], seq = variant ? loopSeq(ENIGMA_SEQ[i], seed) : ENIGMA_SEQ[i], sum = seq.reduce((s, q) => s + q[1], 0), segs = [];
+  const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
+  /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
+  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant ? loopSeq(ENIGMA_SEQ[i], seed) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: ENIGMA_TIME[i], len: at, segs,
-    variant, sunset: level === 2 && (seed | 0) > CAMP_SEED, // the desert in a loop (seed 1945 on): the afternoon sun is low and orange (drawSunset), not the bright noon of the first pass
+  const encPlan = !variant ? null : (() => { // a loop's level 2: three encounters at their stretches (ENC_PLAN's layout, here from the stretches this seed made): the ambush at the village's oasis, the burning field in the first open desert, the fuel convoy in the last
+    const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
+    return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
+  })();
+  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly || variant ? 'sunset' : ENIGMA_TIME[i], len: at, segs, encPlan, wingU: variant ? 0.6 : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+    // (a loop's level 1 and level 2 are flown at sunset: the ground, the trees and the clouds are graded, not the bright noon of the first pass)
+    variant,
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -8353,6 +8600,7 @@ function sortiePlanHarbour(S) {
 function sortiePlanIslands(S) {
   const seg = t => S.segs.find(g => g.t === t), n = seg('beach_fortified').start, L = n * CH, ch = seg('island_chain'), ab = seg('island_airbase');
   const params = { L, chain: [ch.start / n, (ch.start + ch.n) / n], big: [ab.start / n, Math.min(0.94, (ab.start * CH + 620) / L)] };
+  if (S.timeOfDay === 'sunset') params.burn = true; // a loop's level 1 is flown at sunset, and the island's church is on fire
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'islands', params }); S.planC0 = 0; S.planC1 = n; S.planY0 = -world.stageBaseP * CH + CH - 1;
   const P = S.plan, bio = S.planBiome = [];
   for (let c = 0; c < n; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P.W; x += 4) if (P.K[y * P.W + x] !== CityGen.K.SEA) land++; bio.push(land / (CH * P.W / 4) > 0.45 ? 'country' : 'sea'); }
@@ -8490,7 +8738,7 @@ function tutTick() {
       if (T.t > 40 && T.t < 200 && T.t % 12 === 0) for (let k = 0; k < 10; k++) eshot(W / 2 + rnd(-90, 90), 10, PI / 2 + rnd(-0.5, 0.5), 0.45);
       if (run.stats.novas > T.bombs0) { tutNext(); } else if (T.t > 260) { T.t = 0; } break; }
     case 7: { // super laser
-      if (T.t === 1) { world.ebul.length = 0; tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
+      if (T.t === 1) { world.ebul.length = 0; world.decals.push({ kind: 'spr', s: SPR.islet, wx: W / 2, wy: -40 - sc, r: 0 }); tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
       if (T.t > 30 && !tutAlive()) { if (T.ids[0] && T.ids[0].dead && T.ids[0].y < H) tutNext(); else { T.t = 0; T.ids = []; } } break; }
     case 8: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
       const sec = T.ids.find(e => e.type === 'secret' && !e.dead);
@@ -9386,7 +9634,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 // gun by itself). ttSeen: true for a critter the timetable ignores.
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
-  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r)) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
+  if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r) || flyLow()) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
 function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
@@ -9461,7 +9709,7 @@ function blastTroops(x, y, r) {
 }
 function critterHouse(x, y, r) { for (let dp = -1; dp <= 1; dp++) for (const [hx, hy, hw2 = 18, hh2 = 14] of (chunkHouses.get(-Math.floor(y / CH) + dp) || [])) if (Math.abs(x - hx) < r + hw2 / 2 && Math.abs(y - hy) < r + hh2 / 2) return true; return false; }
 // the animals (not people, boats or birds); they keep off water: sea, surf and river (a bridge or ice is dry ground for them)
-const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer']);
+const ANIMALS = new Set(['cow', 'sheep', 'horse', 'deer', 'camel']);
 function animalWet(x, y) { const t = terrainType(Math.floor(x), Math.floor(y)); return t === 'sea' || t === 'surf' || t === 'river'; }
 // Enigma Run: a Drilling or a Buechse within reach of a spot (its hull, its turret turned any way, a Buechse's sandbags), so no animal stands on it
 const GUN_REACH = { drill: 26, buechse: BUECHSE_L + 6 };
@@ -9570,7 +9818,7 @@ function directorInner() {
   }
   const b = biomeAtSpawn();
   const big = !ttOn() && world.enemies.some(e => e.big && !e.dead); // (the Campaign's timetable doesn't wait for a big enemy to die)
-  if (!world.midDone && !world.enc && qTop >= (run.sortie && WING_U[run.sortie.level] ? WING_U[run.sortie.level] * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale()) { // the Shadow Wing, after any encounter and its rest
+  if (!world.midDone && !world.enc && qTop >= (run.sortie && (run.sortie.wingU || WING_U[run.sortie.level]) ? (run.sortie.wingU || WING_U[run.sortie.level]) * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale()) { // the Shadow Wing, after any encounter and its rest
     if (!run.sortie) { world.midDone = true; spawnWing(); } else { ttSeed(16); if (encStart('wing')) world.midDone = true; } } // (the Campaign: as its own encounter; Retro Run as it always was)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
@@ -9597,7 +9845,8 @@ function directorInner() {
     planTrains(sc); // Enigma level 3: flak trains on the arena's extra tracks during the boss fight
     return;
   }
-  [sowerTick, planBerths, planIceBreaks, planGuns, planDrills, planNests, planCows, planViaducts, planStations, planPosts, ttSub].forEach((fn, k) => { ttSeed(5 + k); fn(sc); }); // (each from its own stream in the Campaign)
+  [sowerTick, planBerths, planIceBreaks, planGuns, planDrills, planNests, planCows, planViaducts, planStations, planPosts, ttSub, planCamels].forEach((fn, k) => { ttSeed(5 + k); fn(sc); }); // (each from its own stream in the Campaign)
+  if (run.sortie && run.sortie.variant > 0) { ttSeed(40); planOil(sc); } // (a loop's level 2 only: another call in the list above would shift the stream every level's later code draws from)
   const u = clamp(qTop / (Math.round(37 * STAGE_LEN) * arcScale()), 0, 1);
   let zone = 'mix', dens = 1;
   world.ARC_U = u;
@@ -9631,9 +9880,30 @@ const ARC = [[0.18, 'mix', 1.0], [0.28, 'mix', 0.95], [0.32, 'set1', 1], [0.38, 
 const setPieceDone = new Set();
 const SET_PIECES = [['squadron', 'bombers'], ['convoy', 'squadron'], ['bombers', 'tanks'], ['flak', 'squadron'], ['tanks', 'flak'], ['squadron', 'bombers']];
 let FORCE_GROUND = null;
-const FEAT = { popup: 1, heavy: 1, hay: 1, bush: 1, radar: 1, acar: 2, arty: 3, net: 3, leader: 4, gen: 4 };
+const FEAT = { popup: 1, heavy: 1, hay: 1, bush: 1, radar: 1, acar: 2, arty: 3, net: 3, leader: 4, gen: 4, sam: 2, barrage: 2, fortgun: 3 };
 function avail(f) { return settings.mode === 'gen' || run.endless || run.loop >= 1 || (f === 'leader' && !!run.sortie) || ((run.stage - 1) % 6) + 1 >= FEAT[f]; } // (the Campaign: formations with a leader from level 1 on (owner); Retro Run keeps level 4)
 function flakBarrels() { if (world.ARC_U >= 0.78) return 4; if (world.ARC_U >= 0.47 || run.loop >= 1) return 2; return 1; }
+/* Stationary-gun variants. A flak spawn becomes one of them by a hash of its position (no random draw, so the layouts and streams of
+   levels that spawn none are unchanged); each has its own cap and first level (FEAT). Enigma Run only: the Retro Run keeps its guns. */
+const BARRAGE_IN_LEVELS = false; // the shrapnel battery is built but waits for its redesign: no level places it yet (tests put it on the screen directly)
+function pickTurretVariant(wx, wy) {
+  if (!run.sortie) return null;
+  const u = world.ARC_U || 0;
+  if (hash(Math.round(wx * 3), Math.round(wy * 3)) >= 0.22 + 0.2 * u + 0.08 * Math.min(2, run.loop)) return null;
+  const roof = terrainType(wx, wy) === 'roof', c = [];
+  if (avail('sam') && count('sam') < 2 && !roof) c.push('sam');
+  if (run.loop >= 1 && count('nebel') < 1 + Math.min(1, run.loop - 1) && !roof) c.push('nebel'); // the smoke battery: looped runs only
+  if (BARRAGE_IN_LEVELS && avail('barrage') && u >= 0.25 && count('barrage') < 1 + Math.min(1, run.loop) && !roof) c.push('barrage');
+  if (avail('fortgun') && u >= 0.2 && count('fortgun') < 2 && !roof) c.push('fortgun');
+  if (!c.length) return null;
+  return c[Math.floor(hash(Math.round(wx * 5) + 91, Math.round(wy * 5) + 17) * c.length)];
+}
+function makeTurretVariant(kind, wx, wy) {
+  const o = kind === 'barrage' || kind === 'nebel' ? { cd: 90 } : { ga: PI / 2, cd: rnd(80, 150) | 0 };
+  const e = G(kind, wx, wy, o); world.enemies.push(e);
+  const sx = kind === 'barrage' || kind === 'nebel' ? 20 : 12; for (const d of kind === 'sam' ? [] : [-sx, sx]) world.enemies.push(G('troop', wx + d, wy + 8, { hd: PI / 2, scared: 0, post: e }));
+  return e;
+}
 function makeFlak(wx, wy) { const m = hpm(), f = G('flak', wx, wy, { ga: PI / 2, cd: rnd(60, 140) | 0, barrels: flakBarrels() }); world.enemies.push(f); for (const sx of [-12, 12]) world.enemies.push(G('troop', wx + sx, wy + 4, { hd: PI / 2, scared: 0, post: f })); return f; }
 function spawnArty(wx, wy) { const a = G('arty', wx, wy, { ga: PI / 2, cd: rnd(80, 140) | 0 }); world.enemies.push(a); for (const sx of [-12, 12]) world.enemies.push(G('troop', wx + sx, wy + 8, { hd: PI / 2, scared: 0, post: a })); }
 const markers = [], linkFx = [];
@@ -9708,7 +9978,7 @@ function spawnWave(b, big) {
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. In the Campaign the director opens the Shadow Wing's (ENC.wing); the others start only by encStart (tests) or the test link (?enc).
-const TT_ENC = { firstcontact: 1364, formations: 720, wing: 2864, anvil: 1080, flaklane: 1140, bomberscreen: 1140, sowerwindow: 1700 }; // the Campaign's timetable: each encounter's length in frames (the live ones: today's median against the bot; the test link's: its len plus 300)
+const TT_ENC = { firstcontact: 1364, formations: 720, wing: 2864, anvil: 1080, flaklane: 1140, bomberscreen: 1140, sowerwindow: 1700, oasisambush: 1000, burningfield: 900, fuelconvoy: 1100 }; // the Campaign's timetable: each encounter's length in frames (the live ones: today's median against the bot; the test link's: its len plus 300)
 const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 8 s (it reaches its place at about frame 200), firing as usual, while
@@ -9785,6 +10055,32 @@ const ENC = {
     { t: 360, do: 'formation', x: 0.5 },
     { t: 540, do: 'chase' },
     { t: 720, do: 'pod', x: 0.5, own: false }] },
+  // Level 2 in a loop (seed 1945 on; run.sortie.encPlan places them by the stretches). Oasis Ambush: covers (hay, bush, net) round the village's grove hide flak,
+  // tanks and an artillery piece; when the ship comes close they all drop together, the camels bolt, and two formations and a chase pair come in behind; a pod.
+  oasisambush: { name: 'OASIS AMBUSH', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'ambush', wait: 900 },
+    { t: 200, do: 'formation', x: 0.3 },
+    { t: 260, do: 'formation', x: 0.7, diff: [1, 2] },
+    { t: 520, do: 'chase' },
+    { t: 760, do: 'pod', x: 0.5, own: false }] },
+  // Burning Field (the first open desert; the oil tanks of its farm are targets, planOil): the air cover scrambles in dives while the ship is over the field, a
+  // bomber follows; shooting one tank sets off the next (the fuel tank's blast reaches 34 px), and the last tank of a farm drops a pod.
+  burningfield: { name: 'BURNING FIELD', len: 800, max: 1600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: false, ground: false }, ev: [
+    { t: 0, do: 'dive', n: 5, x: 0.3 },
+    { t: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] },
+    { t: 360, do: 'bomber', x: 0.5 },
+    { t: 600, do: 'chase' }] },
+  // Fuel Convoy (the last open desert): tankers (the Tanker, as in level 3) roll down the track in columns, one set off sets off the next; tanks escort them, a dive
+  // and a chase pair cover them, and a pod comes when it is over.
+  fuelconvoy: { name: 'FUEL CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+    { t: 0, do: 'tankers', n: 2, wait: 300 },
+    { t: 70, do: 'tankers', n: 2, wait: 300 },
+    { t: 120, do: 'convoy' },
+    { t: 190, do: 'tankers', n: 2, diff: [1, 2], wait: 300 },
+    { t: 300, do: 'dive', n: 5, x: 0.5 },
+    { t: 360, do: 'convoy', diff: [1, 2] },
+    { t: 560, do: 'chase' },
+    { t: 820, do: 'pod', x: 0.5, own: false }] },
   wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
     { t: 0, do: 'wing' }] }
 };
@@ -9824,7 +10120,17 @@ const ENC_VERB = {
   sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
   ship: v => seaShip(v),
   strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = ttOn() ? (Math.random() < 0.5 ? -1 : 1) : player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
-    world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; }
+    world.enemies.push(mkFighter(sd < 0 ? -12 : W + 12, 28 + v.i * 18, sd < 0 ? 0.14 : PI - 0.14, 2.1, { strafe: true, fireAt: -1 })); return true; },
+  tankers: v => { const S = run.sortie, wy = -34 - Math.floor(world.scroll), rt = S ? routePick(S, wy) : null; if (!rt) return false; let n = 0; // a column of tankers (ftruck) on a route, rolling down it; none where there is no route (retried)
+    for (let i = 0; i < (v.n || 2); i++) { const twy = wy - i * 30, wx = routeX(rt, twy); if (!routeOn(S, rt, twy) || !placeOK(wx, twy, 16) || !roadOK(wx, twy)) continue; const y2 = twy + 220;
+      world.enemies.push(G('ftruck', wx, twy, { hd: PI / 2, patrol: [[wx, twy], [routeX(rt, y2), y2]], pi: 1 })); n++; }
+    return n > 0; },
+  ambush: (v, E0) => { const S = run.sortie, P = S && S.plan; if (!P || !P.oasis) return false; const top = -34 - Math.floor(world.scroll); // covers round the grove of the oasis now at the top of the screen (retried until one is: wait)
+    const o = P.oasis.find(q => q.rx > 0 && Math.abs(S.planY0 - q.y - top) < 40); if (!o) return false; world.ambushGo = null; let n = 0;
+    for (let k = 0; k < 6; k++) { const a = k * PI / 3 + 0.4, px = o.x + Math.cos(a) * (o.rx + 12), py = o.y + Math.sin(a) * (o.ry * 0.7 + 10), wx = Math.round(px), wyy = Math.round(S.planY0 - py), cv = k % 3 === 0 ? 'hay' : k % 3 === 1 ? 'bush' : 'net';
+      if (wx < 14 || wx > W - 14 || WATER.has(terrainType(wx, wyy)) || !placeOK(wx, wyy, 14)) continue;
+      world.enemies.push(G('camo', wx, wyy, { hw: cv === 'net' ? 13 : 10, hh: cv === 'net' ? 12 : 8, rad: cv === 'net' ? 22 : 18, cv, ambush: E0.id, slot: k })); n++; }
+    return n > 0; }
 };
 let encTag = null; // { id, own } while a verb runs: E() tags what it makes
 let encFlakX = null; // while the flak verb runs: the x range its gun must stand in
@@ -9848,7 +10154,7 @@ function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]
 // go over, which encTick measures. The Sower's aerial mines are not counted: they are meant to fill the air (owner). Its falling bombs are.
 // A volley fired over the next frames (later: frames until its last bullet) reserves its bullets until then, so shooters admitted together
 // can't land their delayed volleys on top of each other (res: [bullets, frames left], counted down by encTick).
-function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine') n++; return n; }
+function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine' && b.kind !== 'zone') n++; return n; }
 function encBudget() { const E0 = world.enc, B = E0 && ENC[E0.id].budget; return B && E0.st !== 'rest' ? B[settings.diff] : Infinity; } // (none: no budget)
 function volleyOK(n, later = 0) {
   const B = encBudget(); if (B === Infinity) return true;
@@ -9871,7 +10177,7 @@ function encEnd(why) {
 }
 function encTick() {
   const E0 = world.enc, L = world.encLast;
-  if (!E0) { const tryOK = !!ENC_TRY && (LB_TEST || !run.ranked), all = tryOK && ENC_TRY === 'all', P = run.sortie && ENC_PLAN[run.sortie.level];
+  if (!E0) { const tryOK = !!ENC_TRY && (LB_TEST || !run.ranked), all = tryOK && ENC_TRY === 'all', P = run.sortie && (run.sortie.encPlan || ENC_PLAN[run.sortie.level]);
     if (P) { let k = world.encPlanI || 0; while (k < P.length && !P[k].live && !all) k++; world.encPlanI = k; // a level with a layout: its encounters in order, at their places (live ones always, the rest with ?enc=all)
       const c = -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP;
       if (k < P.length && c >= P[k].c) { if (c > P[k].until) world.encPlanI = k + 1; else if (encStart(P[k].id)) { world.encPlanI = k + 1; if (all) world.encTry = P[k].id; } } }
@@ -10149,6 +10455,23 @@ function planCows(sc) {
   for (let i = 0; i < P.pastures.length; i++) { const q = P.pastures[i], top = S.planY0 - q.y1, bot = S.planY0 - q.y0; if (done.has(i) || bot + sc < -60 || top + sc > -10) continue; done.add(i);
     for (let k = 0; k < q.n; k++) critters.push({ var: Math.random() < 0.7 ? 0 : 1, f: null, box: [q.x0 + 3, q.x1 - 5, top + 3, bot - 2], wx: rnd(q.x0 + 4, q.x1 - 6), wy: rnd(top + 4, bot - 3), vx: 0, vy: 0, t: (Math.random() * 200) | 0, fl: Math.random() < 0.5 }); }
 }
+// Level 2: the camels of the small oasis' caravan (the plan's caravans: where each starts), each once as it comes up above the screen. They
+// wander round their spot like the sheep and horses, bolt when shot at, and keep off the water.
+// Level 2 in a loop: every tank of the oil farms (the plan's 'Oil tank' items, painted) is a fuel tank you can shoot, each once as it comes up above the screen;
+// a farm is the tanks of one column (field). One set off sets off the next (the fuel tank's blast); the last of a field drops a pod (DEATHS.fuel).
+function planOil(sc) {
+  const S = run.sortie, P = S && S.plan; if (!S || !(S.variant > 0) || !P || S.planFor !== world.stageBaseP) return;
+  const wy = -34 - sc, done = S.oilDone || (S.oilDone = new Set()), tanks = S.oilTanks || (S.oilTanks = P.items.filter(it => it.label === 'Oil tank')), left = S.oilLeft || (S.oilLeft = {});
+  if (!S.oilCounted) { S.oilCounted = true; const reps = []; for (const it of tanks) { let f = reps.findIndex(q => Math.abs(q.acx - it.acx) < 20 && Math.abs(q.acy - it.acy) < 60); if (f < 0) { f = reps.length; reps.push(it); } it.fid = f; left[f] = (left[f] | 0) + 1; } } // (a farm: the tanks of one column, within 60 px)
+  for (let i = 0; i < tanks.length; i++) { const it = tanks[i], y = S.planY0 - it.acy; if (done.has(i) || y < wy - 60 || y > wy + 12) continue; done.add(i);
+    if (placeOK(it.acx, y, 6)) world.enemies.push(G('fuel', it.acx, y, { field: it.fid })); else left[it.fid]--; }
+}
+function planCamels(sc) {
+  const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP || !P.caravans || !P.caravans.length) return;
+  const wy = -34 - sc, done = S.camelsDone || (S.camelsDone = new Set());
+  for (let i = 0; i < P.caravans.length; i++) { const cm = P.caravans[i], y = S.planY0 - cm.y; if (done.has(i) || y < wy - 60 || y > wy + 12) continue; done.add(i);
+    critters.push({ kind: 'camel', var: cm.s % 2, free: false, wx: cm.x, wy: y, home: [cm.x, y], t: (Math.random() * 80) | 0, vx: 0, vy: 0, fl: Math.random() < 0.5 }); }
+}
 /* Enigma Run level 1: the carrier start (spec 5 and 10). The player steals the Feuervogel from the enemy carrier: it stands on the deck amid
    the panic, rolls down the deck and lifts off over the bow, and CV.LAUNCHES fighters (one on Rookie, two on Veteran and Ace) launch from the catapults after it, within CV.PURSUIT frames. The carrier
    is a drawn scene object over the sea, not ground: large at first (scale 1, nearly the whole screen), it shrinks to 0.5 and slides off the
@@ -10164,25 +10487,37 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
 // carrier and overtakes it low, at a scale where the ship fills the screen's width (SPAN native units across W), shooting the planes parked on
 // the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
 // the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
-const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [3, 4, 5], GAP: 45, LV0: -72, SMOKE: 10,
-  PARKED: [[-4, 26], [-28, 52], [-4, 52], [20, 52], [-28, 72], [-4, 72], [20, 72], [-28, 92], [20, 92], [-28, 140], [-4, 140], [20, 140], [-28, 160], [20, 160]] };
+const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [6, 7, 8], GAP: 24, LV0: -72, SMOKE: 10,
+  ALT0: 0.15, CLIMB0: 0.3, CLIMB: 200, END: 0.5, // the player flies low over the deck (ALT0: its altitude, 0 the deck, 1 ordinary flight: the shadow lies close under it), then climbs: once the bow is below CLIMB0 of the screen's height, the ship shrinks to END of its size about its bow over CLIMB frames (as the deck take-off's does) and the altitude rises to 1
+  BOARD: 140, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
+  LANES: [-28, -4, 20], ROWS: [[-134, 0], [-110, 0], [-86, 0], [-62, 0], [-38, 0], [-14, 0], [26, 0], [50, 1], [72, 1], [94, 1], [140, 1], [160, 0]] }; // the deck park, from the bow aft: ROWS of [v, lanes]: 0 the two outer lanes only (the catapult rails, the elevators and the raven mark take the middle), 1 all three
+CVF.PARKED = CVF.ROWS.flatMap(([v, k]) => (k ? CVF.LANES : [CVF.LANES[0], CVF.LANES[2]]).map(u => [u, v])); // 28 planes, spread along the whole deck
 let carrierFlyNext = false; // set by the Campaign's loop for the level 1 that follows
 function carrierFlyStart() {
-  const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
+  const s = Math.round(W / CVF.SPAN * 128) / 128, C = world.carrier = { t: 0, fly: true, s0: s, alt: CVF.ALT0, x: W / 2 + CV.X, y: -190 * s, s, vy: 0, parked: 0, gunDead: [], burnt: [], nextL: 0, cat: 0, launched: 0, gone: false, over: false };
   carrierPic(s); // (paints the master at this larger scale, once)
-  CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0 })));
-  CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v })));
+  CV.GUNS.forEach(([u, v], gi) => world.enemies.push(G('cgun', 0, 0, { u, v, gi, ga: u < 0 ? PI : 0, cd: (rnd(150, 230)) | 0, keep: true })));
+  CVF.PARKED.forEach(([u, v]) => world.enemies.push(G('cparked', 0, 0, { u, v, keep: true }))); // (keep: the ship starts a screen and more above the top, where the cull would drop them)
   world.scrollV = world.scrollTarget = CVF.SCROLL; sfx('horn');
 }
 // One frame of the flyover, inside the director: the ship moves down the screen a little slower than the sea, launches while its bow is up the
 // screen, and the scene is over once the bow is gone below and no launched plane is still rolling.
 function carrierFlyTick(C, t) {
   C.vy = world.scrollV - CVF.SAIL; C.y += C.vy;
+  if (C.cl === undefined && carrierXY(C, 0, CV.BOW)[1] > H * CVF.CLIMB0) C.cl = 0; // the climb begins (the ship's pass is nearly over): the ship shrinks about its bow, the player's altitude rises
+  if (C.cl !== undefined && C.cl < CVF.CLIMB) { const f = ++C.cl / CVF.CLIMB, e = f * f * (3 - 2 * f), s0 = C.s; C.s = Math.round(C.s0 * (1 - (1 - CVF.END) * e) * 128) / 128; C.y += CV.BOW * (s0 - C.s); C.alt = CVF.ALT0 + (1 - CVF.ALT0) * e; }
   if (!C.gone && C.y + CV.BOW * C.s > H + 24) { C.gone = true; world.scrollTarget = SCROLL; }
   if (!C.gone) { carrierWake(C); if (gf % CVF.SMOKE === 0) for (const [u, v] of C.burnt) { const [x, y] = carrierXY(C, u, v); if (y > -8 && y < H + 8) smokePuff(x + rnd(-2, 2), y); } }
   const by = carrierXY(C, 0, CV.CAT1)[1];
-  if (!C.gone && t >= C.nextL && by > 20 && by < H * 0.55 && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
-    const tu = CV.CATS[C.cat++ % 2]; world.enemies.push(G('cfighter', 0, 0, { u: tu, v: CVF.LV0, u0: tu, v0: CVF.LV0, tu, vv: 0, up: true })); sfx('whistle'); C.launched++; C.nextL = t + CVF.GAP; } // (up from the fore elevator onto a catapult; a target while it rolls)
+  /* two soldiers run across the deck to a parked plane and board it; then it rolls (a target while it rolls). Several crews run at once, a new plane every GAP frames, the foremost plane first (the front rows go first), while there are planes on the screen. A plane shot before they get there drops the launch. */
+  const bd = C.boards || (C.boards = []);
+  for (let i = bd.length - 1; i >= 0; i--) { const B = bd[i];
+    if (B.e.dead || C.gone) { bd.splice(i, 1); C.launched--; }
+    else if (t >= B.t0 + CVF.BOARD) { const e = B.e, tu = CV.CATS[C.cat++ % 2]; e.dead = true; bd.splice(i, 1); world.enemies.push(G('cfighter', 0, 0, { u: e.u, v: e.v, u0: e.u, v0: e.v, tu, vv: 0, up: true })); sfx('whistle'); } }
+  if (!C.gone && t >= C.nextL && C.launched < CVF.LAUNCHES[settings.diff] + Math.min(2, run.loop)) {
+    let pl = null; for (const e of world.enemies) if (e.type === 'cparked' && !e.dead && !bd.some(B => B.e === e) && (!pl || e.v < pl.v || (e.v === pl.v && e.u < pl.u))) pl = e; // the foremost plane still on the deck, once it is on the screen
+    if (pl && pl.y > 0 && pl.y < H - 24 - CVF.BOARD) { bd.push({ e: pl, t0: t }); C.launched++; C.nextL = t + CVF.GAP; }
+  }
   if (C.gone && !world.enemies.some(e => e.type === 'cfighter' && !e.dead)) C.over = true;
 }
 function carrierWake(C) { // bow wave, hull foam and the wake; the funnel's smoke
@@ -10198,6 +10533,10 @@ function carrierStart() {
   world.scrollV = world.scrollTarget = 0.15; sfx('horn');
   carrierPic(CV.K); // paints the master now (some 30 to 70 ms, once per page), not in the first frame of the take-off
 }
+/* Is the screen point (x, y), with radius r, over the carrier's hull, or within ahead px of its bow (the sea sails into what lies there, the ship being slower than the sea)? Ships, boats and submarines are never placed there. */
+/* The flyover's player is low until its climb is done: no ship, boat or submarine is placed or stays on the sea until it is at full height (the rising effect would look wrong with them going by at one size). */
+function flyLow() { const C = world.carrier; return !!(C && C.fly && C.alt < 1); }
+function underCarrier(x, y, r, ahead = 160) { const C = world.carrier; if (!C || C.gone) return false; return Math.abs(x - C.x) < 52 * C.s + r && y > C.y + (CV.BOW - 4) * C.s - ahead - r && y < C.y + 190 * C.s + r; }
 function carrierXY(C, u, v) { return [C.x + u * C.s, C.y + v * C.s]; }
 function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of the planes, guns and crew on the deck
 // One frame of the scene, inside the director (the run's own random stream): the carrier's motion and scale, the scroll while the Feuervogel
@@ -10205,6 +10544,8 @@ function carrierPK(C) { return CV.PLANE ? C.s / CV.K : C.s; } // the scale of th
 function carrierTick() {
   const C = world.carrier; if (C.over) return;
   const t = ++C.t;
+  const low = flyLow(); if (low) { for (let i = critters.length - 1; i >= 0; i--) if (critters[i].kind === 'boat' || critters[i].kind === 'row') critters.splice(i, 1); }
+  for (const e of world.enemies) if ((e.type === 'sub' || e.type === 'pt' || e.type === 'destroyer') && !e.dead && (low || underCarrier(e.x, e.y, 10, 0))) e.dead = true; // (a ship or submarine the carrier has sailed over: gone)
   if (C.fly) { carrierFlyTick(C, t); return; }
   if (t >= CV.T0 && t < CV.T1) { const f = (t - CV.T0) / (CV.T1 - CV.T0), y = C.y0 + C.A * f * f; C.vy = y - C.y; C.y = y; }
   else if (t >= CV.T1) { const vEnd = 2 * C.A / (CV.T1 - CV.T0); C.vy = CV.DRIFT + (vEnd - CV.DRIFT) * Math.exp(-(t - CV.T1) / 12); C.y += C.vy;
@@ -10355,6 +10696,9 @@ function drawCarrier() {
   for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
+  if (C.fly) { for (const B of C.boards || []) if (!B.e.dead) { const f = Math.min(1, (T - B.t0) / (CVF.BOARD - 12)); if (f < 1) for (let k = 0; k < 2; k++) { // the flyover's crew: two soldiers per plane, running in from the deck's edge to its cockpit
+      const cs = Math.max(2, Math.round(2.4 * pk)), [cx, cy] = at(lerp(CVF.RUN[B.e.u <= -4 ? 0 : 1], B.e.u + (k ? 4 : -4), f), lerp(B.e.v + (k ? 9 : -7), B.e.v + 2, f)), st = ((T >> 2) + k) & 1;
+      ctx.fillStyle = '#e8c9a0'; ctx.fillRect(cx, cy, cs, cs); ctx.fillStyle = k ? '#f2eee2' : '#4f78c4'; ctx.fillRect(cx - 1, cy + cs, cs + 2, cs); ctx.fillStyle = '#141418'; ctx.fillRect(cx + (st ? -1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); ctx.fillRect(cx + cs - 1 + (st ? 1 : 0), cy + 2 * cs, 1 + (cs >> 1), cs); } } return; }
   for (let i = 0; i < 16; i++) { // the deck crew, running about in the panic
     const dur = 34 + ((hash(i, 3) * 40) | 0), k = Math.floor((T + i * 13) / dur), f = Math.min(1, ((T + i * 13) % dur) / dur * 1.7);
     const tg = j => [-40 + 72 * hash(i * 31 + j, 7), -140 + 300 * hash(i * 17 + j, 9)], a = tg(k), b = tg(k + 1), [cx, cy] = at(lerp(a[0], b[0], f), lerp(a[1], b[1], f));
@@ -10402,7 +10746,7 @@ function spawnGround(b) {
       else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, sl.y - 8, { cd: 60 }));
       else world.enemies.push(G('parked', sl.x, sl.y, { hd: Math.random() < 0.5 ? PI / 2 : -PI / 2 })); return; } } }
   const flakRaw = wx => makeFlak(wx, wy);
-  const flak = wx => { if (capF) return; makeFlak(wx, wy); };
+  const flak = wx => { if (capF) return; const v = pickTurretVariant(wx, wy); if (v && placeOK(wx, wy, 20)) { makeTurretVariant(v, wx, wy); return; } makeFlak(wx, wy); };
   { const rr = Math.random(), landT = ['field', 'grass', 'mud', 'forest', 'sand', 'yard'];
     if (avail('acar') && (b === 'country' || b === 'forest' || b === 'fortline' || b === 'city') && rr < 0.06 && count('acar') < 2) { const wx = roadX(wy) + 3; if (placeOK(wx, wy, 8) && roadOK(wx, wy)) { world.enemies.push(G('acar', wx, wy, { road: true, dir: 1, lane: 3, v: 0.85, v0: 0.85, hd: PI / 2, cd: 70 })); return; } }
     if (avail('hay') && b === 'country' && (world.curTheme === 0 || world.curTheme === 1 || world.curTheme === 4) && rr >= 0.06 && rr < 0.14) { const wx = tryLand(['field'], 20); if (wx !== null) { world.enemies.push(G('camo', wx, wy, { hw: 10, hh: 8, rad: 18, cv: 'hay' })); return; } }
@@ -10844,6 +11188,64 @@ function mortarShot(x, y, off = 0) {
   if (!hasT()) return;
   const t = nearShip(x, y), tx = t.x + off + rnd(-10, 10), ty = t.y + rnd(-10, 10), life = 80;
   world.ebul.push({ x, y, sx: x, sy: y, tx, ty, vx: 0, vy: 0, r: 0, kind: 'mortar', life, max: life, a: 0 });
+}
+const SMOKE_GUNS = new Set(['flak', 'bunker', 'casemate', 'aatower', 'fortgun', 'sam', 'arty']);
+function smokeNear(o, phMax) { for (const c of world.enemies) if (c.type === 'smoke' && !c.dead && c.ph <= phMax && (c.wx - o.wx) ** 2 + (c.wy - o.wy) ** 2 < SMOKE.r * SMOKE.r) return c; return null; }
+function smokeCover(o) { return world.enemies.some(c => c.type === 'smoke' && !c.dead && c.ph === 1 && (c.wx - o.wx) ** 2 + (c.wy - o.wy) ** 2 < SMOKE.r * SMOKE.r); }
+function smokeTargets(e) { // up to two guns near the battery, on the screen, not already under (or about to be under) smoke, apart from each other
+  const c = world.enemies.filter(o => o.ground && !o.dead && !o.turDead && SMOKE_GUNS.has(o.type) && o.y > 12 && o.y < H - 50 && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < 170 * 170 && !smokeNear(o, 1))
+    .sort((a, b) => (a.x - e.x) ** 2 + (a.y - e.y) ** 2 - ((b.x - e.x) ** 2 + (b.y - e.y) ** 2)), out = [];
+  for (const o of c) if (out.length < 2 && out.every(q => (q.wx - o.wx) ** 2 + (q.wy - o.wy) ** 2 > (SMOKE.r * 1.4) ** 2)) out.push(o);
+  return out;
+}
+function smokePing(o) { // a shot at a covered gun: a dull ping and a few grey sparks, so it is plain that it did nothing
+  if (gf % 4 === 0) sfx('hitm');
+  for (let k = 0; k < 2; k++) world.parts.push({ kind: 'spark', layer: 'a', x: o.x + rnd(-6, 6), y: o.y + rnd(-6, 6), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.2), life: 10, max: 10, col: '#c3cbd3' });
+}
+const ZONE = { r: 21, tel: 84, cloud: 80 }; // the barrage's zone: ring radius, frames of warning before it bursts, frames its cloud lingers
+function zoneMark(sx, sy) { // a zone marked at the screen point (sx, sy); it stays where it is on the screen, so the area it closes is the one the player sees
+  if (world.ebul.length > 380) return;
+  world.ebul.push({ x: sx, y: sy, vx: 0, vy: 0, r: 0, kind: 'zone', life: ZONE.tel, max: ZONE.tel, ph: 0, a: 0 });
+}
+function zoneTick(b) {
+  if (--b.life <= 0) {
+    if (b.ph === 0) { // the shell bursts overhead: a fast ring and a slow ring of shrapnel, then a cloud that keeps spraying
+      boom(b.x, b.y, 16, 'a'); flash(b.x, b.y, 8); sfx('boom'); feel.shake = Math.max(feel.shake, 1.5);
+      const off = b.x * 0.13; ring(b.x, b.y, 14, bspeed() * 0.9, off); ring(b.x, b.y, 10, bspeed() * 0.5, off + 0.2);
+      b.ph = 1; b.life = b.max = ZONE.cloud;
+    } else b.dead = true;
+  } else if (b.ph === 1 && b.life % 16 === 0) {
+    for (let k = 0; k < 3; k++) { const a = Math.random() * TAU, d = Math.random() * ZONE.r * 0.6; eshot(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, a, bspeed() * 0.55); }
+    if (b.life % 32 === 0) smokePuff(b.x + rnd(-8, 8), b.y + rnd(-8, 8), 'a');
+  }
+}
+function drawZone(b) {
+  const R = ZONE.r, cx = Math.round(b.x), cy = Math.round(b.y);
+  if (b.ph === 0) {
+    const f = 1 - b.life / b.max, hot = (gf >> (f > 0.7 ? 1 : 2)) & 1;
+    ctx.globalAlpha = 0.08 + 0.22 * f; dk(b.x, b.y, R, '#ff3a1c'); ctx.globalAlpha = 1;
+    ctx.fillStyle = hot ? '#ffd070' : '#ff5a3a';
+    for (let k = 0; k < 28; k++) { const an = k * TAU / 28 + gf * 0.015; if ((k & 1) === (hot ? 1 : 0)) ctx.fillRect(Math.round(cx + Math.cos(an) * R), Math.round(cy + Math.sin(an) * R), 1, 1); }
+    const r2 = R * (1 - f); ctx.fillStyle = '#ff8a5a';
+    for (let k = 0; k < 16; k++) { const an = -PI / 2 + k * TAU / 16; ctx.fillRect(Math.round(cx + Math.cos(an) * r2), Math.round(cy + Math.sin(an) * r2), 1, 1); }
+    ctx.fillStyle = '#ff3a2a'; ctx.fillRect(cx - 4, cy, 9, 1); ctx.fillRect(cx, cy - 4, 1, 9);
+  } else {
+    const f = b.life / b.max;
+    for (let k = 0; k < 7; k++) { const an = k * 0.9 + gf * 0.01, d = R * 0.55 * (k % 2 ? 1 : 0.5); ctx.globalAlpha = 0.55 * f; dk(cx + Math.cos(an) * d, cy + Math.sin(an) * d * 0.85, 5 + (k % 3), '#1c1819'); }
+    ctx.globalAlpha = 1;
+    if (f > 0.15 && (gf & 3) === 0) { ctx.fillStyle = '#ffb040'; ctx.fillRect(cx + ((gf * 7) % 15) - 7, cy + ((gf * 5) % 13) - 6, 1, 1); }
+  }
+}
+// One salvo of a barrage battery: a pattern of zones that closes part of the screen. Never aimed at the player; the one thing that follows
+// them is where the open gap in the wall is, so there is always a way through (a ring is marked for 1.4 s before it bursts).
+function barrageSalvo(e) {
+  const pat = e.pn = ((e.pn | 0) + 1) % 4, t = nearShip(e.x, e.y), zs = []; // [screen x, screen y, frames until it is marked]
+  if (pat === 0) { const gx = clamp(t.x + (e.sd = -(e.sd || 1)) * 44, 44, W - 44); for (let x = 16, k = 0; x < W; x += 34, k++) if (Math.abs(x - gx) > 34) zs.push([x, H * 0.3, k * 5]); } // a wall with one gap
+  else if (pat === 1) { [0.2, 0.36, 0.52].forEach((fy, k) => { zs.push([22, H * fy, k * 10], [W - 22, H * fy, k * 10 + 5]); }); } // both flanks closed, the middle open
+  else if (pat === 2) { [[40, 0.24], [112, 0.24], [184, 0.24], [76, 0.4], [148, 0.4]].forEach(([x, fy], k) => zs.push([x, H * fy, k * 7])); } // a lattice
+  else { const dir = e.x < W / 2 ? 1 : -1; for (let k = 0; k < 7; k++) zs.push([dir > 0 ? 16 + k * 32 : W - 16 - k * 32, H * 0.42, k * 13]); } // a sweep from the battery's side across
+  e.rc = 8; flash(e.x, e.y - 14, 6); smokePuff(e.x, e.y - 14); sfx('cannon');
+  for (const [sx, sy, d] of zs) world.later.push({ at: gf + d, fn: () => zoneMark(sx, sy) });
 }
 function rewardSfx() {
   if (muted || !actx) return;
@@ -12690,13 +13092,73 @@ const ENT = {
     groundPos(e);
     e.gas = e.gas || [PI / 2, PI / 2, PI / 2, PI / 2];
     const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
+    const rc = e.rc || (e.rc = [0, 0, 0, 0]); for (let i = 0; i < 4; i++) if (rc[i] > 0) rc[i]--;
+    if (e.hp0 === undefined) e.hp0 = e.hp;
+    if ((run.sortie || app.tut) && e.hp < e.hp0 * 0.45 && gf % 7 === 0 && e.y > -20 && e.y < H) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x + rnd(-12, 12), y: e.y + rnd(-12, 12), vx: rnd(-0.1, 0.1), vy: world.scrollV - 0.3, r: rnd(1.5, 2.5), life: 34, max: 34 });
     for (let i = 0; i < 4; i++) if (hasT()) e.gas[i] += clamp(angDiff(e.gas[i], aim(e.x + cs[i][0], e.y + cs[i][1])), -0.05, 0.05);
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (--e.cd <= 0 && canFire(e, 90)) {
       e.cd = Math.round((Math.max(34, 50 - run.loop * 5)) * (e.slow || 1) * fireSlow()); const i = e.gi = ((e.gi || 0) + 1) % 4, gx = e.x + cs[i][0], gy = e.y + cs[i][1];
-      if (i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); }
-      flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun');
+      if (run.sortie || app.tut || i % 2) flakShot(gx, gy); else { eshot(gx, gy, e.gas[i], bspeed() * 1.15); eshot(gx, gy, e.gas[i] + 0.12, bspeed() * 1.15); } // (Enigma Run: every gun of the fort fires flak shells only)
+      flash(gx + Math.cos(e.gas[i]) * 8, gy + Math.sin(e.gas[i]) * 8, 2); sfx('gun'); rc[i] = 7;
     }
+  } },
+  fortgun: { turret: true, revenge: 2, guarded: true, medals: 1.5, treesInFront: true, stats: { hp: 40, hw: 15, hh: 15, score: 2500, rad: 20 }, update(e) {
+    groundPos(e);
+    if (e.rc > 0) e.rc--;
+    if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.022, 0.022); // heavy: slow to traverse
+    if (--e.cd <= 0 && canFire(e, 100) && volleyOK(2, 16)) {
+      e.cd = Math.round(Math.max(130, 190 - run.loop * 20) * fireSlow());
+      const fire = () => { // two big shells in a row, 14 frames apart
+        if (e.dead || e.turDead || !hasT()) return;
+        const bx = e.x + Math.cos(e.ga) * 22, by = e.y + Math.sin(e.ga) * 22;
+        eshot(bx, by, e.ga, bspeed(), 'B');
+        flash(bx, by, 5); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 2); sfx('cannon'); e.rc = 9;
+      };
+      fire(); world.later.push({ at: gf + 14, fn: fire });
+    }
+  } },
+  sam: { turret: true, revenge: 1, guarded: true, medals: 0.9, treesInFront: true, stats: { hp: 12, hw: 12, hh: 12, score: 900, rad: 16 }, update(e) {
+    groundPos(e);
+    if (e.empty && e.cd < 90) e.empty = false; // the fired missile's place is filled again well before the next launch
+    if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
+    if (--e.cd <= 0 && canFire(e, 130)) {
+      if (world.enemies.reduce((n, o) => n + (o.type === 'missile' && !o.dead ? 1 : 0), 0) >= 3) { e.cd = 40; return; }
+      e.cd = Math.round(Math.max(200, 280 - run.loop * 30) * fireSlow()); // one homing missile, then a long reload
+      const bx = e.x + Math.cos(e.ga) * 16, by = e.y + Math.sin(e.ga) * 16;
+      world.enemies.push(E('missile', { x: bx, y: by, h: e.ga, v: 0.9, life: 420 })); flash(bx, by, 5); smokePuff(bx, by); sfx('rocket'); e.empty = true;
+    }
+  } },
+  /* Barrage battery: it never aims. It marks zones on the ground (a telegraphed ring), the shells burst there in a ring of shrapnel and
+     leave a lingering cloud that sprays more of it, so the player is herded out of part of the screen rather than shot at. */
+  barrage: { guarded: true, medals: 1.2, treesInFront: true, stats: { hp: 22, hw: 14, hh: 14, score: 1500, rad: 18 }, update(e) {
+    groundPos(e);
+    if (e.rc > 0) e.rc--;
+    if (!canFire(e, 60) || e.y < 20) return;
+    if (--e.cd > 0) return;
+    e.cd = Math.round(Math.max(240, 330 - run.loop * 30) * fireSlow());
+    barrageSalvo(e);
+  } },
+  /* Nebelwerfer (Enigma Run, looped runs): it never aims. Every few seconds it lays smoke over the guns near it. A cloud is marked with a pale
+     ring first (1.2 s), then shields what stands in it (4.5 s: shots at it only ping, a full laser still goes through), then thins out for
+     1.7 s (the cover is already over). It only fires when there is a gun to cover. */
+  nebel: { guarded: true, medals: 1.2, treesInFront: true, stats: { hp: 20, hw: 16, hh: 16, score: 1500, rad: 20 }, update(e) {
+    groundPos(e);
+    if (e.rc > 0) e.rc--;
+    if (!canFire(e, 60) || e.y < 20) return;
+    if (--e.cd > 0) return;
+    const tg = smokeTargets(e);
+    if (!tg.length) { e.cd = 45; return; } // nothing to cover: look again soon, with no reload
+    e.cd = Math.round(Math.max(300, 400 - run.loop * 30) * fireSlow());
+    e.rc = 12; smokePuff(e.x, e.y - 14); flash(e.x, e.y - 14, 5); sfx('rocket');
+    for (const g of tg) world.enemies.push(G('smoke', g.wx, g.wy, { ph: 0, st: 0, untarget: true }));
+  } },
+  smoke: { harmless: true, uncounted: true, medals: 0, stats: { hp: 1, hw: 1, hh: 1, score: 0, rad: 1 }, update(e) {
+    groundPos(e); e.st++;
+    if (e.ph === 0 && e.st >= SMOKE.mark) { e.ph = 1; e.st = 0; sfx('smoke'); }
+    else if (e.ph === 1 && e.st >= SMOKE.dense) { e.ph = 2; e.st = 0; }
+    else if (e.ph === 2 && e.st >= SMOKE.thin) e.dead = true;
+    if (e.y > H + 70) e.dead = true;
   } },
   search: { guarded: true, medals: 0.7, treesInFront: true, stats: { hp: 5, hw: 6, hh: 6, score: 500, rad: 10 }, update(e) {
     groundPos(e);
@@ -12761,6 +13223,9 @@ const ENT = {
   bldg: { arcLow: true, medals: 1, treesInFront: true, stats: { hp: 12, hw: 6, hh: 13, score: 1200, rad: 14 }, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
   camo: { harmless: true, guarded: true, uncounted: true, stats: { fixedHp: 1, score: 0 }, update(e) {
     groundPos(e); e.untarget = true;
+    if (e.ambush) { // Oasis Ambush: all the covers round the grove drop together, when the ship comes within 120 px of one (or the last has scrolled well down), the camels bolting from it
+      e.warn = e.y > H * 0.05; if (world.ambushGo == null && ((hasT() && Math.hypot(player.x - e.x, player.y - e.y) < 120) || e.y > H * 0.5)) { world.ambushGo = gf; for (const c of critters) if (c.kind === 'camel' && Math.hypot(c.wx - e.wx, c.wy - e.wy) < 140) c.panic = 360; }
+      if (world.ambushGo != null && gf >= world.ambushGo + (e.slot | 0) * 5) revealCamo(e, false); return; }
     if (e.cv === 'hay') { const tg = nearShip(e.x, e.y); e.warn = hasT() && e.y > tg.y - 40; if ((hasT() && e.y > tg.y - 4) || e.y > H - 50) revealCamo(e, false); }
     else if (e.cv === 'bush') { e.warn = e.y > H * 0.22; if (e.y > H * 0.34) revealCamo(e, false); }
     else { e.warn = e.y > H * 0.1; if (e.y > H * 0.2) revealCamo(e, false); }
@@ -13147,7 +13612,7 @@ function updBeamOf(beam, player, who) { // one ship's laser for this frame; retu
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
     if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
-    else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); beam.hit = true; } // a full laser would take a fifth of the duel's health at once
+    else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ fullBeamHit = beam.pw >= 0.9; damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); fullBeamHit = false; beam.hit = true; } // a full laser would take a fifth of the duel's health at once
   }
   scorer = 1;
   if (beam.t === beam.max - 1 && beam.hit) run.stats.hits++;
@@ -13333,7 +13798,7 @@ function updP2() {
   for (let i = n0; i < world.shots.length; i++) world.shots[i].o = 2;
   if (q.inv > 0) return;
   let hit = false;
-  for (const b of world.ebul) { if (b.kind === 'mortar') continue; if ((b.x - q.x) ** 2 + (b.y - q.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
+  for (const b of world.ebul) { if (b.kind === 'mortar' || b.kind === 'zone') continue; if ((b.x - q.x) ** 2 + (b.y - q.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = true; break; } }
   if (!hit) for (const e of world.enemies) {
     if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
     if (Math.abs(e.x - q.x) < e.hw * 0.75 + 2 && Math.abs(e.y - q.y) < e.hh * 0.75 + 2) { hit = true; if (!e.big) { scorer = 2; damage(e, 5); scorer = 1; } break; }
@@ -13407,6 +13872,7 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
   if (q) run.bombs2--; else run.bombs--;
   run.stats.novas++; if (app.rr && app.rr.cur) app.rr.cur.nb++; feel.bombFx = 64; feel.flashFx = 8; feel.shake = 10; feel.bombX = who.x; feel.bombY = who.y;
   who.inv = Math.max(who.inv, 110); scorer = q ? 2 : 1;
+  for (const c of critters) if (c.kind === 'camel') c.panic = 360; // (the whole herd bolts from a Nova)
   for (const b of world.ebul) world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   world.ebul.length = 0;
   // a Nova snuffs out the Black Fortress's fire laser, charging or firing
@@ -13431,11 +13897,11 @@ function popTurret(e) { return fate(e, 'ts', () => popTurretE(e)); } // (the Cam
 function popTurretE(e) {
   e.turDead = true;
   const [ox, oy] = ENT[e.type].turretAt || [0, 0], tx = e.x + ox, ty = e.y + oy;
-  boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' ? 18 : 12, 'g');
+  boom(tx, ty, e.type === 'destroyer' || e.type === 'casemate' || e.type === 'aatower' || e.type === 'fortgun' ? 18 : 12, 'g');
   sfx('gboom'); haptic('gkill'); feel.hitStop = Math.max(feel.hitStop, 1);
   if (ENT[e.type].revenge) revenge(tx, ty, ENT[e.type].revenge, DIFF.turRevengeP[run.diff]);
   const pts = Math.round(e.score * 0.3 / 10) * 10; addScore(pts); label(tx, ty - 8, String(pts)); checkExtend();
-  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? SPR.bAA : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
+  const set = e.drill ? (e.silver ? SPR.drillS : SPR.drillG).t : e.buechse ? (e.silver ? SPR.buechseN : SPR.buechseD).t : e.type === 'tank' ? SPR.tankTur : e.type === 'htank' ? SPR.htankTur : e.type === 'flak' && ENIG_GUN.on && e.barrels >= 2 ? SPR.aaZw : e.type === 'flak' && e.barrels === 4 ? SPR.flakGun4 : e.type === 'flak' && e.barrels === 2 ? SPR.flakGun2 : e.type === 'flak' || e.type === 'flatcar' ? SPR.flakGun : e.type === 'bunker' || e.type === 'casemate' ? SPR.bunkerGun : e.type === 'aatower' ? (ENIG_GUN.on ? SPR.aaQ : SPR.bAA) : e.type === 'fortgun' ? SPR.fortGun : e.type === 'sam' ? SPR.samRack : e.type === 'destroyer' ? SPR.dGun : SPR.ptGun;
   world.parts.push({ kind: 'turfly', layer: 'g', x: tx, y: ty, vx: rnd(-0.9, 0.9), vy: rnd(-2.2, -1.4), g: 0.09, z: 0, vz: 2.2, set, a: e.ta || e.ga || PI / 2, spin: rnd(-0.3, 0.3), life: 46, max: 46 });
   if ((e.type === 'tank' || e.type === 'htank') && Math.random() < 0.7) for (let i = 0; i < 2; i++) world.enemies.push(G('troop', e.wx + rnd(-6, 6), e.wy + rnd(-6, 6), { hd: Math.random() * TAU, scared: 90 }));
 }
@@ -13452,6 +13918,7 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
+  if (e.ground && !fullBeamHit && smokeCover(e)) { smokePing(e); return; } // (a Nebelwerfer's smoke: only a full laser gets through)
   if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
@@ -13649,6 +14116,7 @@ const DEATHS = {
   fuel: {
     blast: 30,
     wreck(e) {
+      if (e.field !== undefined && run.sortie && run.sortie.oilLeft && --run.sortie.oilLeft[e.field] === 0) { const px = e.x, py = e.y; world.later.push({ at: gf + 40, fn: () => world.enemies.push(E('pod', { x: px, y: Math.max(24, py) })) }); } // (the last tank of a field in a loop's level 2: a pod)
       world.decals.push({ kind: 'spr', s: RUINS.fuel[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 11, smokeT: 300 });
       for (const g of world.enemies) if (g.ground && !g.dead && (g.wx - e.wx) ** 2 + (g.wy - e.wy) ** 2 < 34 * 34) { const tg = g; world.later.push({ at: gf + 8, fn: () => damage(tg, 25) }); }
       for (const b of world.enemies) if (b.type === 'boss' && !b.dying) for (const pt of b.parts) if (!pt.dead && (b.x + pt.ox - e.x) ** 2 + (b.y + pt.oy - e.y) ** 2 < 48 * 48) { const bb = b, pp = pt; world.later.push({ at: gf + 10, fn: () => { if (!pp.dead) damagePart(bb, pp, 45); } }); }
@@ -13668,11 +14136,18 @@ const DEATHS = {
   drums: { stats: { hp: 3, hw: 4, hh: 4, score: 200, rad: 4 }, blast: 20 },
   casemate: { blast: 32 },
   aatower: { blast: 36 },
+  fortgun: { blast: 28 },
+  sam: { blast: 18 },
+  barrage: { blast: 24 },
+  nebel: { blast: 22 },
   bunker: { blast: 18 },
 };
 for (const t in DEATHS) Object.assign(ENT[t], DEATHS[t]);
 function wreckDefault(e) {
-  if (RUINS[e.type]) world.decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
+  const rn = ENIG_GUN.on && RUINS_N[e.type]; // the Enigma Run's ruins: the stock three, or the blasted-open one when a full laser made the kill
+  if (rn && fullBeamHit) world.decals.push({ kind: 'spr', s: rn[3], wx: e.wx, wy: e.wy, r: 17, smokeT: 700, hot: true });
+  else if (rn) world.decals.push({ kind: 'spr', s: rn[(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
+  else if (RUINS[e.type]) world.decals.push({ kind: 'spr', s: RUINS[e.type][(Math.random() * 3) | 0], wx: e.wx, wy: e.wy, r: 10, smokeT: 200 });
   else world.decals.push({ kind: 'crater', wx: e.wx, wy: e.wy, r: 7, smokeT: 120 });
 }
 function kill(e) { return fate(e, 'fs', () => killE(e)); } // (the Campaign: on the enemy's fate stream)
@@ -14005,6 +14480,7 @@ function update() {
         if (player && !player.dead && player.inv === 0 && (player.x - b.x) ** 2 + (player.y - b.y) ** 2 < 13 * 13) die('mortar');
       }
     }
+    if (b.kind === 'zone') zoneTick(b);
     if (b.hb && --b.fuse <= 0 && !b.dead) {
       b.dead = true; boom(b.x, b.y, 22, 'a'); flash(b.x, b.y, 10); feel.shake = Math.max(feel.shake, 8); sfx('bigboom');
       // the gap is random; when the player was close it faces them, so a burst just ahead is never unavoidable
@@ -14109,7 +14585,7 @@ function update() {
     }
     if (p.inv === 0) {
       let hit = false;
-      for (const b of world.ebul) { if (b.kind === 'mortar') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = 'shot:' + (b.kind || 'b'); break; } }
+      for (const b of world.ebul) { if (b.kind === 'mortar' || b.kind === 'zone') continue; if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < ((b.kind === 'mega' ? 5 : b.r) + 1.6) ** 2) { hit = 'shot:' + (b.kind || 'b'); break; } }
       if (!hit) for (const e of world.enemies) {
         if (e.ground || e.surface || e.dead || e.dying || e.crash || e.ghost) continue;
         if (Math.abs(e.x - p.x) < e.hw * 0.75 + 2 && Math.abs(e.y - p.y) < e.hh * 0.75 + 2) { hit = 'ram:' + (e.type || '?'); if (!e.big) damage(e, 5); break; }
@@ -14144,7 +14620,7 @@ function update() {
         if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fx(() => fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5)); }
       }
     }
-    if (d.fireT <= 0 && !lowFX) { if (d.glimT === undefined) d.glimT = 0; else if (d.glimT < GLIM_LEN) d.glimT++; } // the flames are out: a glimmer takes over and fades (see drawGlimmer)
+    if (d.fireT <= 0 && !lowFX) { if (d.glimT === undefined) d.glimT = 0; else if (d.glimT < glimLen(d)) d.glimT++; } // the flames are out: a glimmer takes over and fades (see drawGlimmer)
   }
   world.decals = world.decals.filter(d => !d.gone && d.wy + sc < H + (d.kind === 'ruinBig' ? 320 : 60));
   for (let i = props.length - 1; i >= 0; i--) if (props[i].wy + sc > H + 80) props.splice(i, 1);
@@ -14152,6 +14628,7 @@ function update() {
     c.t++;
     if (c.scared > 0) c.scared--;
     const k = c.kind || 'cow';
+    if (k === 'camel') c.scared = c.panic > 0 ? (c.panic--, 2) : 0; // (a camel only bolts from a Nova bomb: the guns and shots do not scare it)
     if (c.drownT !== undefined) { if (++c.drownT % 7 === 0) world.parts.push({ kind: 'bubble', layer: 'w', x: c.wx + rnd(-2, 2), y: c.wy + sc, vx: 0, vy: world.scrollV, life: 22, max: 22 }); if (c.drownT > 60) c.gone = true; continue; } // (an animal in the water sinks)
     if (ANIMALS.has(k) && c.t % 10 === 0 && animalWet(c.wx, c.wy)) { c.drownT = 0; c.vx = c.vy = 0; splash(c.wx, c.wy + sc, 4); continue; } // (it ended up in the water anyway: it drowns)
     if (k === 'cow') {
@@ -14161,14 +14638,14 @@ function update() {
       if (c.t % 90 === 0 || (c.scared && c.t % 20 === 0)) { const sp = c.scared ? 0.35 : (Math.random() < 0.45 ? 0 : 0.06); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.6; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy;
       const bx = c.box, wet = (c.vx || c.vy) && c.t % 3 === 0 && animalWet(nx + Math.sign(c.vx) * 4, ny + Math.sign(c.vy) * 4); if (!wet && (bx ? nx > bx[0] && nx < bx[1] && ny > bx[2] && ny < bx[3] : nx > c.f.x0 + 4 && nx < c.f.x0 + 68 && ny > c.f.y0 + 32 && ny < c.f.y0 + 62)) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; } // (wet: it turns back at the water) // (box: a plan's paddock, level 1)
-    } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
+    } else if ((k === 'sheep' || k === 'horse' || k === 'cow' || k === 'deer' || k === 'camel') && c.t % 6 === 0 && critterBlocked(c.wx, c.wy)) {
       let bx = 0, by = 0; for (const o of world.enemies) { const w = o.drill || o.buechse ? 44 : 24; if (o.ground && !o.dead && o.wx !== undefined && Math.abs(o.wx - c.wx) < w && Math.abs(o.wy - c.wy) < w) { bx += c.wx - o.wx; by += c.wy - o.wy; } } // (a big gun: from further off)
       for (const [hx, hy] of (chunkHouses.get(-Math.floor(c.wy / CH)) || [])) if (Math.abs(hx - c.wx) < 14 && Math.abs(hy - c.wy) < 12) { bx += c.wx - hx; by += c.wy - hy; }
       const d = Math.hypot(bx, by) || 1; if (!animalWet(c.wx + bx / d * 2, c.wy + by / d * 2)) { c.wx += bx / d * 2; c.wy += by / d * 2; } c.vx = bx / d * 0.3; c.vy = by / d * 0.3; c.scared = 40; // (never into the water)
-    } else if (k === 'sheep' || k === 'horse' || k === 'civ') {
+    } else if (k === 'sheep' || k === 'horse' || k === 'camel' || k === 'civ') {
       if (k === 'civ' && c.hidden > 0) { c.hidden--; continue; }
       if (k === 'civ' && c.scared > 0) { const dx = c.home[0] - c.wx, dy = c.home[1] - c.wy, d = Math.hypot(dx, dy); if (d < 3) { c.hidden = 420; c.scared = 0; c.wx = c.home[0]; c.wy = c.home[1] + 6; continue; } c.wx += dx / d * 0.6; c.wy += dy / d * 0.6; c.fl = dx < 0; continue; }
-      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : 0.4) : (Math.random() < 0.5 ? 0 : k === 'civ' ? 0.12 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
+      if (c.t % 80 === 0 || (c.scared && c.t % 15 === 0)) { const sp = c.scared ? (k === 'horse' ? 0.7 : k === 'camel' ? 0.9 : 0.4) : (Math.random() < (k === 'camel' ? 0.2 : 0.5) ? 0 : k === 'civ' ? 0.12 : k === 'camel' ? 0.09 : 0.05); const a = Math.random() * TAU; c.vx = Math.cos(a) * sp; c.vy = Math.sin(a) * sp * 0.7; if (c.vx) c.fl = c.vx < 0; }
       const nx = c.wx + c.vx, ny = c.wy + c.vy, tt = terrainType(Math.floor(nx), Math.floor(ny));
       const roam = c.free ? 46 : 18;
       if ((nx - c.home[0]) ** 2 + (ny - c.home[1]) ** 2 < (c.scared ? roam + 24 : roam) ** 2 && tt !== 'road' && tt !== 'river' && tt !== 'sea' && tt !== 'surf' && tt !== 'rail' && (k === 'civ' || (c.t % 3 !== 0 && !c.blk) || !(c.blk = critterBlocked(nx, ny))) && (k === 'civ' || themeAtWy(ny) !== 0 || isMeadow(nx, ny))) { c.wx = nx; c.wy = ny; } else { c.vx = -c.vx; c.vy = -c.vy; }
@@ -14317,11 +14794,12 @@ function drawCritters() {
     const y = c.wy + sc + (c.drownT ? c.drownT * 0.05 : 0), k = c.kind || 'cow';
     ctx.globalAlpha = c.drownT !== undefined ? Math.max(0, 1 - c.drownT / 60) : 1; // (a drowning animal sinks and fades)
     if (y < -12 || y > H + 12 || c.hidden > 0) continue;
-    if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
+    if ((k === 'cow' || k === 'sheep' || k === 'horse' || k === 'camel' || k === 'deer') && Math.abs(c.vx || 0) > 0.02) { const want = c.vx < 0; if (want !== c.fl) { if ((c.flT = (c.flT || 0) + 1) > 16) { c.fl = want; c.flT = 0; } } else c.flT = 0; }
     const moving = Math.abs(c.vx || 0) + Math.abs(c.vy || 0) > 0.01, fr = moving ? (c.t >> 3) & 1 : 0, fg = moving ? fr : ((c.t + (c.wx | 0) * 7) >> 6) % 3 === 0 ? 0 : 2;
     if (k === 'cow') flipDraw(SPR.cowV[c.var || 0][fg].c, c.wx, y, c.fl);
     else if (k === 'sheep') flipDraw(SPR.sheepV[fg].c, c.wx, y, c.fl);
     else if (k === 'horse') flipDraw(SPR.horseV[c.var || 0][fg].c, c.wx, y, c.fl);
+    else if (k === 'camel') flipDraw(SPR.camelV[c.var || 0][moving ? (c.panic > 0 ? (c.t >> 2) & 1 : (c.t >> 4) & 1) : fg].c, c.wx, y, c.fl);
     else if (k === 'deer') flipDraw(SPR.deerV[c.var || 0][c.run ? (c.t >> 2) & 1 : fg].c, c.wx, y - 2, c.fl);
     else if (k === 'civ') flipDraw(SPR.civ[c.v || 0].c, c.wx, y, c.fl);
     else if (k === 'duck') { if (c.fly) { ctx.drawImage(BIRD_IMG[1][(c.t >> 2) & 1], Math.round(c.wx) - 2, Math.round(y) - 1); } else ctx.drawImage(SPR.duck.c, Math.round(c.wx) - 2, Math.round(y) - 1); }
@@ -14347,17 +14825,39 @@ function drawCritters() {
   }
 }
 const canopyCache = new Map();
+/* a tree sprite with the chunk's colour grade (sunset, night) applied the way the ground got it, so a tree drawn over a unit matches the baked one. Both grades only look at a pixel's own colour and its column in the chunk, so the sprite is graded in a chunk-wide strip at its own x. Built on first use, kept on the tree's record */
+function gradeTree(kind, t) {
+  const s = t.s, sw = s.c.width, sh = s.c.height, x0 = Math.round(t.x - s.w / 2), src = s.c.getContext('2d').getImageData(0, 0, sw, sh).data, buf = new Uint8ClampedArray(W * sh * 4);
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i; if (X < 0 || X >= W) continue; const a = (j * sw + i) * 4, b = (j * W + X) * 4; buf[b] = src[a]; buf[b + 1] = src[a + 1]; buf[b + 2] = src[a + 2]; buf[b + 3] = src[a + 3]; }
+  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else CityGen.nightGrade(buf);
+  const [c, x] = mk(sw, sh), im = x.createImageData(sw, sh);
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i, a = (j * sw + i) * 4, b = (j * W + X) * 4, inside = X >= 0 && X < W, d = inside ? buf : src, o = inside ? b : a; im.data[a] = d[o]; im.data[a + 1] = d[o + 1]; im.data[a + 2] = d[o + 2]; im.data[a + 3] = src[a + 3]; }
+  x.putImageData(im, 0, 0);
+  return { c, w: s.w, h: s.h };
+}
+/* the trees a chunk painted into its ground within r of (wx, wy), read from the chunk's own record: never recomputed, so they cannot disagree with the pixels underneath. t.gs is the sprite to draw (graded where the chunk is) */
+function chunkTreesNear(wx, wy, r, out, seen) {
+  const R = r + 6;
+  for (const pp of new Set([-Math.floor((wy - R) / CH), -Math.floor((wy + R) / CH)])) {
+    const c = world.chunks.get(pp), L = c && c.trees; if (!L) continue;
+    let lo = 0, hi = L.length; while (lo < hi) { const m = (lo + hi) >> 1; if (L[m].y < wy - R) lo = m + 1; else hi = m; }
+    for (let i = lo; i < L.length && L[i].y <= wy + R; i++) {
+      const t = L[i], rr = t.av ? R : r, dx = t.x - wx, dy = t.y - wy; if (dx * dx + dy * dy > rr * rr) continue;
+      if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue;
+      if (seen) { const k2 = t.x + ',' + t.y; if (seen.has(k2)) continue; seen.add(k2); }
+      if (!t.gs) t.gs = c.grade ? gradeTree(c.grade, t) : t.s;
+      out.push(t);
+    }
+  }
+  return out;
+}
 function drawCanopy() {
   const sc = Math.floor(world.scroll), seen = new Set(), out = [];
-  const add = (wx, wy) => {
-    const key = (wy >> 2) * 128 + (wx >> 2) + 16; let L = canopyCache.get(key);
-    if (!L) { L = treeList(wx, wy, 10); canopyCache.set(key, L); if (canopyCache.size > 3000) canopyCache.clear(); }
-    for (const t of L) { if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue; const k2 = t.x + ',' + t.y; if (!seen.has(k2)) { seen.add(k2); out.push(t); } }
-  };
+  const add = (wx, wy) => chunkTreesNear(wx, wy, 10, out, seen);
   for (const e of world.enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
-  for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
+  for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'camel' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
   out.sort((a, b) => a.y - b.y);
-  for (const t of out) spr(t.s, t.x, t.y + sc);
+  for (const t of out) spr(t.gs, t.x, t.y + sc);
 }
 function drawTreads() {
   const sc = Math.floor(world.scroll);
@@ -14429,18 +14929,19 @@ function drawDecals() {
     else if (d.kind === 'ruinBig') { ctx.globalAlpha = 0.85; ctx.drawImage(SPR.castle.k, Math.round(d.wx - SPR.castle.w / 2), Math.round(y - SPR.castle.h / 2)); ctx.globalAlpha = 1; for (const [a, b, sz] of [[-40, -30, 2], [30, -20, 2], [0, 20, 3], [-30, 40, 2], [40, 45, 2], [0, -170, 4], [-50, 200, 3], [40, 160, 2], [-20, 268, 3], [60, -240, 2]]) { const c = SCORCH[sz][(a + b + 300) % 3]; ctx.drawImage(c, Math.round(d.wx + a - c.width / 2), Math.round(y + b - c.height / 2)); } }
     else if (d.kind === 'ruin') { dk(d.wx, y, 20, '#1a1612'); spr(SPR.ruin, d.wx, y); }
     else if (d.kind === 'wreck') { dk(d.wx, y, 8, '#221a12'); ctx.globalAlpha = 0.85; ctx.drawImage(d.s.k, Math.round(d.wx - d.s.w / 2), Math.round(y - d.s.h / 2)); ctx.globalAlpha = 1; }
-    if (d.glimT < GLIM_LEN && !lowFX) drawGlimmer(d, y);
+    if (d.glimT < glimLen(d) && !lowFX) drawGlimmer(d, y);
   }
 }
 // The glimmer where a wreck burned (after its flames went out): a soft warm glow with a slow pulse and two ember pixels, about 15 seconds, fading in and out.
 // Low alpha, drawn with the ground decals (under every unit and bullet), one drawImage and two fillRects each, on screen only.
-const GLIM_LEN = 900; let glimSpr = null;
+const GLIM_LEN = 900; let glimSpr = null; const glimLen = d => d.hot ? GLIM_LEN * 2 : GLIM_LEN; // (a laser-blasted wreck, d.hot, glimmers twice as long, and brighter)
 function drawGlimmer(d, y) {
   if (!glimSpr) { glimSpr = document.createElement('canvas'); glimSpr.width = glimSpr.height = 32; const g = glimSpr.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,170,80,1)'); gr.addColorStop(0.45, 'rgba(255,120,40,0.45)'); gr.addColorStop(1, 'rgba(255,100,30,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }
-  const f = d.glimT / GLIM_LEN, fade = f < 0.1 ? f / 0.1 : f > 0.6 ? (1 - f) / 0.4 : 1, ph = d.wx * 0.37 + d.wy * 0.23, pulse = 0.65 + 0.35 * Math.sin(gf * 0.03 + ph), night = 1 + 0.6 * world.nightF;
-  const sz = clamp(Math.round((d.r || 8) * 1.6), 12, 34), a = 0.2 * fade * pulse * night;
+  const hot = !!d.hot, f = d.glimT / glimLen(d), fade = f < 0.1 ? f / 0.1 : f > 0.6 ? (1 - f) / 0.4 : 1, ph = d.wx * 0.37 + d.wy * 0.23, pulse = 0.65 + 0.35 * Math.sin(gf * 0.03 + ph), night = 1 + 0.6 * world.nightF;
+  const sz = clamp(Math.round((d.r || 8) * 1.6), 12, hot ? 44 : 34), a = (hot ? 0.34 : 0.2) * fade * pulse * night;
   if (a < 0.01) return;
-  ctx.globalAlpha = Math.min(0.3, a); ctx.drawImage(glimSpr, Math.round(d.wx - sz / 2), Math.round(y - sz / 2), sz, sz);
+  if (hot) { ctx.fillStyle = '#ffc070'; for (let k = 0; k < 10; k++) { const p2 = ph * (k + 1.7), t2 = (gf * 0.02 + k * 0.37) % 1; ctx.globalAlpha = Math.min(0.9, a * 2.4) * (0.4 + 0.6 * Math.sin(gf * 0.07 + k * 2.1) ** 2) * (1 - t2 * 0.6); if (k % 3 === 0) ctx.fillStyle = '#fff2a8'; else ctx.fillStyle = '#ffa850'; ctx.fillRect(Math.round(d.wx + Math.cos(p2 * 3.1) * sz * 0.34), Math.round(y + Math.sin(p2 * 2.3) * sz * 0.24 - t2 * 7), 1, k % 4 === 0 ? 2 : 1); } }
+  ctx.globalAlpha = Math.min(hot ? 0.5 : 0.3, a); ctx.drawImage(glimSpr, Math.round(d.wx - sz / 2), Math.round(y - sz / 2), sz, sz);
   ctx.globalAlpha = Math.min(0.5, a * 2) * (0.5 + 0.5 * Math.sin(gf * 0.05 + ph * 3)); ctx.fillStyle = '#ffc070';
   ctx.fillRect(Math.round(d.wx + Math.cos(ph) * sz * 0.2), Math.round(y + Math.sin(ph) * sz * 0.12), 1, 1); ctx.fillRect(Math.round(d.wx - Math.cos(ph * 2) * sz * 0.18), Math.round(y + Math.sin(ph * 2) * sz * 0.1), 1, 1);
   ctx.globalAlpha = 1;
@@ -14563,10 +15064,11 @@ const LOOKS = {
   sandbag(e, fl) { spr(SPR.sandbag, e.x, e.y, fl); },
   tower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 14, 14, 20, CONCW, null, 0.3, true); spr(SPR.towerTop, e.x + tox, e.y + toy, fl); if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x + tox), Math.round(e.y + toy) - 7, 1, 1); } },
   flak(e, fl) {
-    spr(SPR.flakBase, e.x, e.y, fl);
+    const twin = ENIG_GUN.on && e.barrels >= 2; // Enigma Run: 2 and 4 barrels (they differ only in how they shoot) look alike: a sandbag pit and twin barrels
+    spr(twin ? SPR.aaPit : SPR.flakBase, e.x, e.y, fl);
     if (!e.turDead) {
-      const set = e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
-      if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
+      const set = twin ? SPR.aaZw : e.barrels === 4 ? SPR.flakGun4 : e.barrels === 2 ? SPR.flakGun2 : SPR.flakGun; spr(set[dirIdx(e.ga)], e.x, e.y, fl);
+      if (e.cd > 0 && e.cd < 26 && (e.rear || canFire(e, 90))) { const g2 = 1 - e.cd / 26, mr = twin ? 16 : 13, mx = e.x + Math.cos(e.ga) * mr, my = e.y + Math.sin(e.ga) * mr; ctx.globalAlpha = 0.25 + 0.5 * g2; dk(mx, my, 1.5 + g2 * 2, '#ff8a3a'); ctx.globalAlpha = 1; if ((gf >> 1) & 1) { ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1); } }
     } else turStub(e.x, e.y, 4);
   },
   popup(e, fl) {
@@ -14621,7 +15123,60 @@ const LOOKS = {
     if (vis > 0) { ctx.globalAlpha = vis; spr(SPR.sub, e.x, e.y, fl); if (vis > 0.6) { if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 10, fl); else turStub(e.x, e.y + 10, 3); } ctx.globalAlpha = 1; }
   },
   casemate(e, fl) { spr(SPR.casemate, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y + 8, fl); else turStub(e.x, e.y + 8, 6); },
-  aatower(e, fl) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } },
+  aatower(e, fl) {
+    if (!ENIG_GUN.on) { const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false); spr(SPR.aatower, e.x + tox, e.y + toy, fl); const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]]; for (let i = 0; i < 4; i++) { if (!e.turDead) spr(SPR.bAA[dirIdx((e.gas || [PI / 2])[i] || PI / 2)], e.x + tox + cs[i][0], e.y + toy + cs[i][1], fl); else turStub(e.x + tox + cs[i][0], e.y + toy + cs[i][1], 3); } return; }
+    const [tox, toy] = drawBlock(e.x, e.y, 38, 38, 14, CONCW, null, 0, false), bx = e.x + tox, by = e.y + toy;
+    spr(SPR.aatower, bx, by, fl);
+    const ra = gf * 0.07 + (e.ph || 0); ctx.fillStyle = '#c4c9ce'; for (let k = 1; k <= 5; k++) ctx.fillRect(Math.round(bx + Math.cos(ra) * k), Math.round(by + Math.sin(ra) * k), 1, 1);
+    if ((gf >> 4) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(bx) - 7, Math.round(by) + 1, 2, 2); }
+    const cs = [[-12, -12], [12, -12], [-12, 12], [12, 12]];
+    for (let i = 0; i < 4; i++) {
+      const gx = bx + cs[i][0], gy = by + cs[i][1];
+      if (e.turDead) { turStub(gx, gy, 3); continue; }
+      const a = (e.gas || [PI / 2])[i] || PI / 2, rc = e.rc ? e.rc[i] : 0;
+      spr(SPR.aaQ[dirIdx(a)], gx - Math.cos(a) * rc * 0.35, gy - Math.sin(a) * rc * 0.35, fl);
+      if (e.cd > 0 && e.cd < 12 && i === ((e.gi || 0) + 1) % 4 && canFire(e, 90)) { ctx.fillStyle = (gf >> 1) & 1 ? '#ffd070' : '#ff8a3a'; ctx.fillRect(Math.round(gx + Math.cos(a) * 11), Math.round(gy + Math.sin(a) * 11), 1, 1); }
+    }
+  },
+  fortgun(e, fl) {
+    spr(SPR.fortBase, e.x, e.y, fl);
+    if (e.turDead) { turStub(e.x, e.y, 6); return; }
+    const a = e.ga, rc = e.rc || 0; spr(SPR.fortGun[dirIdx(a)], e.x - Math.cos(a) * rc * 0.4, e.y - Math.sin(a) * rc * 0.4, fl);
+    if (e.cd > 0 && e.cd < 24 && canFire(e, 90)) { const g2 = 1 - e.cd / 24; ctx.globalAlpha = 0.3 + 0.5 * g2; dk(e.x + Math.cos(a) * 21, e.y + Math.sin(a) * 21, 2 + g2 * 2.5, '#ff8a3a'); ctx.globalAlpha = 1; }
+  },
+  sam(e, fl) {
+    spr(SPR.samBase, e.x, e.y, fl);
+    if (e.turDead) { turStub(e.x, e.y, 5); return; }
+    spr((e.empty ? SPR.samRack2 : SPR.samRack)[dirIdx(e.ga)], e.x, e.y, fl);
+    if (e.cd > 0 && e.cd < 40 && canFire(e, 120) && (gf >> 2) & 1) { ctx.fillStyle = '#ff3a2a'; ctx.fillRect(Math.round(e.x) - 1, Math.round(e.y) - 1, 3, 3); }
+  },
+  barrage(e, fl) {
+    spr(SPR.barBase, e.x, e.y, fl); spr(SPR.barTubes, e.x, e.y - 2, fl);
+    if (e.rc > 0) { ctx.globalAlpha = Math.min(1, e.rc / 8); dk(e.x - 6, e.y - 14, 3, '#ff8a3a'); dk(e.x, e.y - 14, 4, '#ffd070'); dk(e.x + 6, e.y - 14, 3, '#ff8a3a'); ctx.globalAlpha = 1; }
+    if (e.cd < 70 && canFire(e, 60) && (gf >> 2) & 1) { ctx.fillStyle = '#ffb020'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) - 14, 2, 2); }
+  },
+  nebel(e, fl) {
+    spr(SPR.nebel, e.x, e.y, fl);
+    const tubes = [-5.5, -0.5, 4.5];
+    if (e.rc > 0) { const f = e.rc / 12; for (const tx of tubes) { ctx.globalAlpha = f; dk(e.x + tx, e.y - 14, 3, '#eef4f8'); ctx.globalAlpha = 0.8 * f; dk(e.x + tx + 1, e.y - 20 - (1 - f) * 8, 5, '#d6dde3'); dk(e.x + tx - 2, e.y - 28 - (1 - f) * 10, 6, '#c3ccd4'); } ctx.globalAlpha = 1; }
+    else if (canFire(e, 60) && !lowFX) { for (let k = 0; k < 3; k++) { const t2 = ((gf * 0.012 + k * 0.33) % 1); ctx.globalAlpha = 0.28 * (1 - t2); dk(e.x + tubes[k] + t2 * 5, e.y - 14 - t2 * 12, 2 + t2 * 3, '#c3ccd4'); } ctx.globalAlpha = 1; }
+  },
+  smoke(e, fl) {
+    const R = SMOKE.r, x0 = Math.round(e.x), y0 = Math.round(e.y);
+    if (e.ph === 0) { // marked: a pale ring, its inner ring closing, a cross
+      const f = e.st / SMOKE.mark; ctx.fillStyle = '#ffffff';
+      for (let k = 0; k < 36; k++) if (k % 3 !== 2) { const an = k * TAU / 36 + gf * 0.01; ctx.fillRect(Math.round(x0 + Math.cos(an) * R), Math.round(y0 + Math.sin(an) * R * 0.85), 1, 1); }
+      ctx.fillStyle = '#9cc4d8'; for (let k = 0; k < 20; k++) { const an = -PI / 2 + k * TAU / 20, r2 = R * (1 - f); ctx.fillRect(Math.round(x0 + Math.cos(an) * r2), Math.round(y0 + Math.sin(an) * r2 * 0.85), 1, 1); }
+      ctx.fillRect(x0 - 3, y0, 7, 1); ctx.fillRect(x0, y0 - 3, 1, 7);
+    } else if (e.ph === 1) { // dense: soft billows, growing in the first moments, breathing a little
+      const g = Math.min(1, 0.45 + e.st / 24 * 0.55); ctx.globalAlpha = Math.min(1, 0.55 + e.st / 20 * 0.4);
+      for (let k = 0; k < 11; k++) { const a = k * 2.399 + Math.sin(gf * 0.012 + k) * 0.12, d = Math.sqrt((k + 0.5) / 11) * R * 0.78 * g, r = (7 + (k * 5 % 5)) * (0.5 + 0.5 * g) * (1 + 0.04 * Math.sin(gf * 0.03 + k * 2)), px = x0 + Math.cos(a) * d, py = y0 + Math.sin(a) * d * 0.85;
+        dk(px, py + 1.5, r, '#8a949e'); dk(px, py, r, '#c3cbd3'); dk(px - r * 0.25, py - r * 0.3, r * 0.6, '#e6ecf1'); }
+      ctx.globalAlpha = 1;
+    } else { // thinning: the dither fog, smaller and fainter as it goes (the cover is already over)
+      const f = e.st / SMOKE.thin, c = SPR.fogD[Math.min(3, (f * 4) | 0)]; ctx.globalAlpha = 0.9 * (1 - f * 0.75); ctx.drawImage(c, Math.round(e.x - c.width / 2), Math.round(e.y - c.height / 2)); ctx.globalAlpha = 1;
+    }
+  },
   search(e, fl) { spr(SPR.searchBase, e.x, e.y, fl); },
   loco(e, fl) { const s2 = e.type === 'boxcar' ? SPR.boxcar : e.type === 'ammocar' ? SPR.ammocar : e.diesel ? SPR.locoD : SPR.loco; if (e.up || e.ang) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate((e.up ? PI : 0) + (e.ang || 0)); ctx.drawImage(fl ? s2.f : s2.c, -Math.round(s2.w / 2), -Math.round(s2.h / 2)); ctx.restore(); } else spr(s2, e.x, e.y, fl); },
   boxcar(e, fl) { LOOKS.loco(e, fl); },
@@ -14904,15 +15459,6 @@ function lightBeam(x, y, a, len, half, rgb = '255,248,200', al = 0.42) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y);
   ctx.arc(x, y, len, a - half, a + half); ctx.closePath(); ctx.fill();
 }
-function drawSunset() { // Enigma level 2 in a loop: a warm filter over the ground and the planes (the bullets, the ship's effects and the HUD stay as they are)
-  const g = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  g.addColorStop(0, 'rgb(255,204,152)'); g.addColorStop(1, 'rgb(255,228,194)');
-  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; ctx.fillRect(-8, -8, W + 16, H + 16); // warms the colours and takes a little of the noon glare
-  const h = ctx.createLinearGradient(W, 0, 0, H * 0.8);
-  h.addColorStop(0, 'rgba(255,128,32,0.26)'); h.addColorStop(0.55, 'rgba(255,110,24,0.08)'); h.addColorStop(1, 'rgba(255,96,16,0.03)');
-  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = h; ctx.fillRect(-8, -8, W + 16, H + 16); // the low sun from the upper right
-  ctx.globalCompositeOperation = 'source-over';
-}
 function drawNight() {
   { const S = run.sortie, graded = S && S.gen && S.timeOfDay === 'night'; // Enigma level 3: all its ground is painted at night already (the plan's and the graded legacy chunks), so the layer is only a quarter as dark
     ctx.fillStyle = `rgba(6,8,30,${(graded ? 0.25 : 0.6) * world.nightF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
@@ -15016,17 +15562,17 @@ function drawProps() {
 // Enigma: soft low clouds with soft shadows, and the soft ground shadows of the two big clouds above the screen (drawn under everything that moves)
 function drawEnigmaClouds() {
   const T = ENIGMA_T, S = ENG_S;
-  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = S.big[c.s === 2 ? 1 : 0]; ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
+  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
   ctx.globalAlpha = 0.1;
-  for (const c of clouds) if (!c.hide) { const s = S.low[c.s % S.low.length]; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
+  for (const c of clouds) if (!c.hide) { const s = sunSpr(S.low[c.s % S.low.length]); ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
   ctx.globalAlpha = 1 - 0.45 * world.nightF;
-  for (const c of clouds) if (!c.hide) spr(S.low[c.s % S.low.length], c.x, c.y);
+  for (const c of clouds) if (!c.hide) spr(sunSpr(S.low[c.s % S.low.length]), c.x, c.y);
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
   if (lowFX || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
-  for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
+  for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
 }
 function drawWeather() {
@@ -15446,8 +15992,8 @@ function renderMain() {
     for (const e of world.enemies) if (e.ground && !(e.buechse && roofOver(e.wx, e.wy))) {
       drawEnemy(e);
       if (ENT[e.type].treesInFront) {
-        if (e.front === undefined) e.front = treeList(e.wx, e.wy, e.hw + 10).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
-        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.s, t.x, t.y + sc0);
+        if (e.front === undefined) e.front = chunkTreesNear(e.wx, e.wy, e.hw + 10, [], new Set()).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
+        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.gs, t.x, t.y + sc0);
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
@@ -15464,20 +16010,19 @@ function renderMain() {
   drawWx2Low();
   drawBirds();
   if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
-  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = SPR.clouds[c.s]; ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
+  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
   else {
-    for (const c of clouds) if (!c.hide) shadow(SPR.clouds[c.s], c.x, c.y, 20, 30, 0.14);
-    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(SPR.clouds[c.s], c.x, c.y); ctx.globalAlpha = 1; }
+    for (const c of clouds) if (!c.hide) shadow(sunSpr(SPR.clouds[c.s]), c.x, c.y, 20, 30, 0.14);
+    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(sunSpr(SPR.clouds[c.s]), c.x, c.y); ctx.globalAlpha = 1; }
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
-  if (run.sortie && run.sortie.sunset) drawSunset();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
   for (const e of world.enemies) if (!e.ground && !e.surface) airShadow(e);
-  if (player && !player.dead) { const ak = player.deck ? player.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
+  if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * ak, 2 + 18 * ak, 0.28); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
   for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
@@ -15506,7 +16051,7 @@ function renderMain() {
   const fr = (gf >> 2) & 1;
   { const crowd = Math.min(1, world.ebul.length / 50), halo = world.nightF > 0.5 ? '#f0e8ff' : '#0a0812';
     ctx.globalAlpha = (world.nightF > 0.5 ? 0.3 : 0.5) + 0.15 * crowd;
-    for (const b of world.ebul) if (b.kind !== 'mortar') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
+    for (const b of world.ebul) if (b.kind !== 'mortar' && b.kind !== 'zone') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
     ctx.globalAlpha = 1; }
   for (const b of world.ebul) {
     if (b.kind === 'B') spr(SPR.ebB[fr], b.x, b.y);
@@ -15523,6 +16068,7 @@ function renderMain() {
       seg(4, '#120e1a'); seg(2, '#b4b6ba'); dk(b.x + c * 4, b.y + sn * 4, 1.4, '#d84a34');
     }
     else if (b.kind === 'mega') { if (world.nightF > 0.3) { ctx.globalAlpha = 0.35; dk(b.x, b.y, 10, '#ff8a5a'); ctx.globalAlpha = 1; } spr(SPR.mega, b.x, b.y); }
+    else if (b.kind === 'zone') drawZone(b);
     else if (b.kind === 'mortar') {
       const f = 1 - b.life / b.max, hgt = Math.sin(f * PI);
       if ((gf >> 2) & 1) { ctx.fillStyle = '#ff5a3a'; ctx.fillRect(Math.round(b.tx) - 4, Math.round(b.ty), 9, 1); ctx.fillRect(Math.round(b.tx), Math.round(b.ty) - 4, 1, 9); }

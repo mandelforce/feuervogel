@@ -1699,15 +1699,6 @@ function parcelPix(plan, i, x, y) {
 const OIL = { steelD: HX(['#2b3037'])[0], steel: HX(['#59606a'])[0], steelL: HX(['#9aa3ad'])[0], rust: HX(['#8c5a3a'])[0], rustL: HX(['#b87a4a'])[0], oil: HX(['#17120e'])[0], oilEdge: HX(['#4a3a24'])[0], scorch: HX(['#3a2e22'])[0],
   fire: HX(['#f0862a'])[0], fireY: HX(['#ffd25a'])[0], fireW: HX(['#fff4c0'])[0], white: HX(['#e8e2d2'])[0], cabin: HX(['#7e8a92'])[0], cabinD: HX(['#5a6670'])[0], deck: HX(['#b3a88e'])[0], deckD: HX(['#8a7f68'])[0],
   brick: HX(['#a8452f'])[0], roof: HX(['#6f7a86'])[0], roofD: HX(['#4d5662'])[0], coal0: HX(['#2a2622'])[0], coal1: HX(['#1c1814'])[0], coal2: HX(['#34302a'])[0], clay: HX(['#7a5a38'])[0], clayD: HX(['#5e4428'])[0] };
-// a camel seen from above (a loop's herd by the oasis): body with darker flanks, a hump, neck and head, a tail, four legs and a shadow. d: 0 faces east, 1 west, 2 north, 3 south; lie: kneeling
-function camelPix(put, c) {
-  const B = C.rock, n = c.lie ? 2 : 3, cells = [], tx = (lx, ly) => c.d === 0 ? [lx, ly] : c.d === 1 ? [-lx, ly] : c.d === 2 ? [ly, lx] : [ly, -lx];
-  for (let lx = -n; lx <= n; lx++) for (let ly = -1; ly <= 1; ly++) cells.push([lx, ly, ly === 0 ? B[2] : B[1]]);
-  cells.push([-1, 0, B[3]], [0, 0, B[3]], [n + 1, 0, B[2]], [n + 2, 0, B[2]], [n + 3, 0, B[1]], [n + 4, 0, B[0]], [-n - 1, 0, B[0]]);
-  if (!c.lie) cells.push([-n + 1, -2, B[0]], [-n + 1, 2, B[0]], [n - 1, -2, B[0]], [n - 1, 2, B[0]]);
-  for (const [lx, ly] of cells) { const [dx, dy] = tx(lx, ly); put(c.x + dx + 1, c.y + dy - 2, C.shadow, 0.4); }
-  for (const [lx, ly, col] of cells) { const [dx, dy] = tx(lx, ly); put(c.x + dx, c.y + dy, col); }
-}
 const oilPix = (() => {
   const P = (put, cx, cy, dx, dy, c, a = 1) => put(cx + dx, cy - dy, c, a);
   const line = (put, cx, cy, x0, y0, x1, y1, c, a = 1) => { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1); const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx - dy;
@@ -2064,7 +2055,6 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
     for (let k = 0; k <= n; k++) { const px = Math.round(ax + (bx - ax) * k / n), py = Math.round(ay + (by - ay) * k / n); put(px, py, C.conc[1]); put(px + 1, py, C.conc[1]); put(px, py + 1, C.side[2]); put(px + 1, py + 1, C.side[2]); } put(ax + 2, ay - 1, C.shadow, 0.4); put(ax, ay - 1, C.hatch); }
   for (const pj of plan.pumps || []) { if (pj.y < y0 - 8 || pj.y > y0 + h + 8) continue; const { x: px, y: py, d } = pj; for (let k = -3; k <= 5; k++) { put(px + k + 1, py - 2, C.shadow, 0.4); put(px + k, py + 1, C.conc[2]); put(px + k, py, C.conc[0]); } put(px + 5 * d, py + 1, C.hatch); put(px + 5 * d, py, C.hatch); put(px + 5 * d, py - 1, C.hatch); put(px, py - 1, C.dark); put(px + 1, py - 1, C.dark); // a pumpjack: its beam, the horsehead, the base, an oil stain
     for (let yy = -3; yy <= 2; yy++) for (let xx = -2; xx <= 3; xx++) if (xx * xx + yy * yy < 7) put(px + 1 + xx, py - 4 + yy, C.char[0], 0.45); }
-  for (const cm of plan.camels || []) { if (cm.y < y0 - 8 || cm.y > y0 + h + 8) continue; camelPix(put, cm); } // a loop's camels by the oasis
   for (const dk of plan.derricks || []) { if (dk.y < y0 - 24 || dk.y > y0 + h + 24) continue; oilPix.derrick(put, dk.x, dk.y, 1); if (dk.pit) oilPix.pit(put, dk.x + dk.pit * 12, dk.y - 2); if (dk.flare) oilPix.flare(put, dk.x, dk.y, dk.flare); } // lattice derricks (with a mud pit, some with a flare stack)
   for (const ind of plan.industry || []) { if (ind.y < y0 - 40 || ind.y > y0 + h + 40) continue; oilPix[ind.kind](put, ind.x, ind.y); } // industry with chimneys
   for (const pf of plan.platforms || []) { if (pf.y < y0 - 30 || pf.y > y0 + h + 30) continue; oilPix.platform(put, pf.x, pf.y); } // an offshore rig out at sea
@@ -2170,6 +2160,27 @@ function cloud(kind, seed) {
   return { kind, seed, w, h, data, shadow, high: !!T.high };
 }
 // the night grade alone, over a whole RGBA buffer: for a host's own ground painted by day (the game's legacy chunks in a night level)
+// The sunset grade (Enigma level 1, from its first loop on): the sun is low on the left. Applied to a painted image after everything else (buildings,
+// trees, the game's own ground), so it needs no plan. Land, surf and buildings go warm (amber light from the left, rose and violet in the shade); water
+// (the pixels that are clearly blue) is mapped through a dusk ramp (teal, olive, gold by its lightness), and wave crests glitter in the sun's path, a
+// lane along the left of the screen (x is the screen's own, so the lane stays put while the sea scrolls). d: RGBA bytes, w: the row width,
+// wyAt(row): the world row of an image row (the glitter's waves are fixed to the world and drift with the scroll). Fires are drawn after it.
+const SUNSEA = HX(['#14302e', '#1e4440', '#2e5a50', '#4a7458', '#8a8a58', '#c8a050', '#f0c060']), SUNGLINT = HX(['#e8b050', '#ffd070', '#fff4c0']), SUNLAND = [0.95, 0.6, 0.48, 27, 5, 20];
+function sunsetGrade(d, w, wyAt) {
+  const n = d.length >> 2; let wy = 0;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) wy = wyAt((i / w) | 0);
+    const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (b - r > 40 && b >= g) { // water
+      const f = clamp((l - 40) / 140, 0, 1) * (SUNSEA.length - 1), a = SUNSEA[Math.floor(f)], z = SUNSEA[Math.min(SUNSEA.length - 1, Math.ceil(f))], k = f % 1;
+      let c0 = a[0] + (z[0] - a[0]) * k, c1 = a[1] + (z[1] - a[1]) * k, c2 = a[2] + (z[2] - a[2]) * k;
+      const lane = Math.exp(-(((x - w * 0.2) / (w * 0.16)) ** 2)) * (0.6 + 0.4 * Math.sin(wy * 0.013 + 1.7)) * 0.72, wave = Math.sin(x * 0.19 + wy * 0.11 + Math.sin(x * 0.035 + wy * 0.05) * 8) * 0.5 + 0.5;
+      const gl = lane * (0.45 + 0.55 * wave) + (hh(x * 7 + 3, wy) - 0.5) * 0.35, G = gl > 0.62 ? SUNGLINT[2] : gl > 0.5 ? SUNGLINT[1] : gl > 0.4 ? SUNGLINT[0] : null;
+      if (G) { c0 = G[0]; c1 = G[1]; c2 = G[2]; } else if (gl > 0.32) { c0 = c0 * 0.6 + 94; c1 = c1 * 0.6 + 60; c2 = c2 * 0.6 + 24; }
+      d[o] = c0; d[o + 1] = c1; d[o + 2] = c2;
+    } else { // land, surf, buildings
+      const s = 0.55 + 0.45 * Math.min(1, (l / 255) * 1.4), wx = 1.12 - 0.3 * x / w;
+      d[o] = Math.min(255, (l + (r - l) * 0.7) * (SUNLAND[0] - 0.1 + 0.36 * s) * wx + SUNLAND[3]); d[o + 1] = (l + (g - l) * 0.7) * (SUNLAND[1] - 0.02 + 0.2 * s) * wx + SUNLAND[4]; d[o + 2] = (l + (b - l) * 0.7) * (SUNLAND[2] - 0.04 + 0.06 * s) + SUNLAND[5]; } }
+}
 function nightGrade(d) { for (let o = 0; o < d.length; o += 4) { const r = d[o], g = d[o + 1], b = d[o + 2], l = 0.299 * r + 0.587 * g + 0.114 * b; d[o] = (l + (r - l) * 0.4) * 0.42 + 6; d[o + 1] = (l + (g - l) * 0.4) * 0.48 + 9; d[o + 2] = (l + (b - l) * 0.4) * 0.66 + 24; } }
 const NL = { warm: HX(['#e8c46e'])[0], warm2: HX(['#c8a05a'])[0], fire: HX(['#ff8028'])[0], furnace: HX(['#ff5a28'])[0], shift: HX(['#ff9638'])[0], steam: HX(['#ff8c46'])[0], red: HX(['#ff3428'])[0], green: HX(['#3cff78'])[0], lamp: HX(['#aaa078'])[0], flare: HX(['#ffc46e'])[0] };
 // The plan's lights at night, built once per plan: about one house in ten shows a crack of light in a facade window (blocks and public buildings up
@@ -2388,6 +2399,18 @@ function islands(o) {
       for (let y = vy0; y < vy0 + VL; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Br[i] === it.id) { Kr[i] = K.MEADOW; Br[i] = -1; } } it.w = it.h = 0; it.gone = true; it.t = 'gone'; } }
   plan.village = { y0: vy0, y1: vy0 + VL - 1, items: plan.items.filter(it => !it.gone).length, farms: v.farms.filter(f => Kr[idx(f.x0 + 1, f.y0 + 1)] === K.COURT).length, green: !!v.oldTown };
   plan.stage.village = +(now() - t0).toFixed(2);
+  // 3b. the burning church (params.burn, Enigma level 1 from its first loop on): the village church, hit and on fire. The nave has lost its roof at one end,
+  // the transept is gutted, the tower has a shell hole, the apse stands; one big blaze runs along the nave, one over the transept and one in the tower
+  // (their seeds are 2 mod 3, which gives each three hot spots), so the church burns brightly and the smoke runs a long way over the green.
+  if (P.burn) { const ch = plan.churches.find(c => c.parts.every(id => !plan.items[id].gone)), part = n => ch && plan.items[ch.parts.find(id => plan.items[id].part === n)];
+    const tower = part('tower'), nave = part('nave'), trans = part('trans'), apse = part('apse');
+    if (tower && nave && trans && apse) {
+      const rub = (it, x0, y0, x1, y1) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (Br[idx(x, y)] === it.id) Kr[idx(x, y)] = K.RUBBLE; };
+      nave.dmg = 2; nave.cut = { end: 0, at: 12 }; trans.dmg = 3; tower.dmg = 1; for (const it of [tower, nave, trans, apse]) it.fire = true;
+      rub(nave, nave.x0, nave.y0 + nave.h - 11, nave.x0 + nave.w, nave.y0 + nave.h); rub(trans, trans.x0 + 1, trans.y0 + 1, trans.x0 + trans.w - 1, trans.y0 + trans.h - 1);
+      const fs = id => (h32(seed, 78000 + id) % 33333) * 3 + 2;
+      const blaze = (it, pad) => ({ x: it.x0 + it.w / 2, y: it.y0 + it.h / 2, w: it.w + 2 * pad, h: it.h + 2 * pad, x0: it.x0 - pad, y0: it.y0 - pad, item: it.id, seed: fs(it.id) }); // a margin round each part: a wider glow and bigger flames
+      plan.fires.push(blaze(nave, 4), blaze(trans, 4), blaze(tower, 2)); plan.burning = true; } }
 
   // 4. the main road beyond the village: south to the shore and out on a jetty (a barge moored beside it), north through the fields to the airbase
   const rowOf = y => { const out = []; for (let x = 0; x < W; x++) { const k = v.K[y * W + x]; if (k === K.ROAD || k === K.WALK) out.push([x, k]); } return out; };
@@ -2486,7 +2509,7 @@ function desertLand(o) {
   const idx = (x, y) => y * W + x, inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
   const plan = { v: 1, tunnels: [], seed, preset: o.preset, W, L, P, K: Kr, B: Br, F: new Int32Array(N).fill(-1), parcels: [], U: new Float32Array(L), D: new Float32Array(L), mx: new Float32Array(L), aw: new Float32Array(L).fill(9),
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], stage: {}, ships: [], shipLanes: [], obstacles: [], farms: [], coast: null, quarters: [], trainRuns: [], stars: [], civic: [], works: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], gantries: [], wires: [], barrels: [], beachSlots: [], rivers: [], river: null,
-    wells: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
+    wells: [], caravans: [], pits: [], coils: [], mines: [], signs: [], nets: [], barriers: [], oasis: [], posts: [], tufts: [], plots: [], industry: [] };
   const addItem = it => { it.id = plan.items.length; plan.items.push(it); return it; };
   const set = (x, y, k, b = -1) => { if (inB(x, y)) { const i = idx(x, y); Kr[i] = k; Br[i] = b; } };
   const open = (x, y) => inB(x, y) && (Kr[idx(x, y)] === K.DESERT || Kr[idx(x, y)] === K.OASIS) && Br[idx(x, y)] === -1;
@@ -2596,10 +2619,12 @@ function desertLand(o) {
       const nc = F.size === 'small' ? 2 : F.size === 'medium' ? 4 : 7; for (let k = 0; k < nc * 3 && plan.craters.length < 400; k++) { const x = Math.round(16 + rnd(TD, 40, k + fi * 99) * (W - 32)), y = Math.round(gy - span - 30 + rnd(TD, 41, k + fi * 99) * (2 * span + 60)), r = 2 + rnd(TD, 42, k) * 3;
         let ok = true; for (let yy = y - 5; ok && yy <= y + 5; yy++) for (let xx = x - 5; xx <= x + 5; xx++) if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.DESERT || Br[idx(xx, yy)] !== -1) { ok = false; break; } if (ok && k % 3 === 0) plan.craters.push({ x, y, r }); }
       for (let y = Math.round(gy - span), k = 0; y < gy + span && !sideTrack(y, hs > 0 ? W - 6 : 5); y += 2, k++); // a track into the village, along the first gap between its blocks
-      if (F.camels) { /* a herd by the pool (a loop's): on open ground at the water's edge, clear of the palms, the houses and the railway's corridor */
-        plan.camels = plan.camels || []; const herd = [], free = (x, y) => { for (let yy = y - 3; yy <= y + 3; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (!open(xx, yy) || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) return false; return !plan.trees.some(t => Math.abs(t.x - x) < 7 && Math.abs(t.y - y) < 5); };
-        for (let k = 0; k < 40 && herd.length < (F.camels | 0 || 4); k++) { const a = rnd(TD, 140 + fi, k) * 6.283, e = 1.2 + rnd(TD, 141 + fi, k) * 0.7, x = Math.round(gx + Math.cos(a) * prx * e), y = Math.round(gy + Math.sin(a) * pry * e * 1.2);
-          if (!free(x, y) || herd.some(q => Math.hypot(q.x - x, q.y - y) < 11)) continue; const d = Math.floor(rnd(TD, 142 + fi, k) * 4), c = { x, y, d, lie: rnd(TD, 143 + fi, k) < 0.3 }; herd.push(c); plan.camels.push(c); reserve(x - 6, x + 6, y - 3, y + 3); } }
+      if (F.caravan) { // a caravan halted at the grove's edge, on whichever end has the room: where the game's camels start (plan.caravans, each { x, y }; the game draws and moves them)
+        for (const sy of [gy + ry + 9, gy - ry - 9, gy + ry + 22, gy - ry - 22]) { const got = [];
+          for (let k = 0; k < 6; k++) { const cx = gx - 46 + k * 21 + Math.round((rnd(TD, 60, k + fi) - 0.5) * 3), cy = sy + Math.round((rnd(TD, 61, k + fi) - 0.5) * 3);
+            let ok = true; for (let yy = cy - 5; ok && yy <= cy + 5; yy++) for (let xx = cx - 9; xx <= cx + 9; xx++) if (!inB(xx, yy) || (Kr[idx(xx, yy)] !== K.DESERT && Kr[idx(xx, yy)] !== K.OASIS) || Br[idx(xx, yy)] !== -1 || (RX !== null && Math.abs(xx - RXat(yy)) < 14)) { ok = false; break; }
+            if (ok) got.push({ x: cx, y: cy, s: k + fi * 7 }); }
+          if (got.length >= 3) { plan.caravans.push(...got); break; } } }
       plan.oasis.push({ x: gx, y: gy, rx, ry, size: F.size || 'medium', houses: houses.length, ruins: houses.filter(h2 => h2.dmg >= 2).length, hall: !!hall, held: !!F.held, style, y0: gy - span, y1: gy + span });
       if (F.held) fortify(gy - span - 12, houses, { gx, gy, rx, ry });
     } else if (F.kind === 'roadside') { // a roadside hamlet: houses of mixed sizes strung along the track on both sides, a small square with a well and a shrine, gardens behind
@@ -2794,8 +2819,8 @@ function sandSea(o) {
   // held village is old through and through, the others are mixed: mostly kept up, a few old houses)
   const WAR = new Set(['harbour_commercial', 'beach_town', 'village', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
   let at = 0; const feats = []; for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld, mid = (a0 + a1) / 2;
-    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1, guard: variant > 0 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, big: variant > 0, camels: variant > 0 ? 5 : 0, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
-    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1, strong: variant > 0 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', camels: variant > 0 ? 3 : 0 }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
+    if (g.t === 'valley') feats.push({ kind: 'valley', at0: a0 + 0.004, at1: a1, guard: variant > 0 }); else if (g.t === 'village') feats.push({ kind: 'oasis', at: mid, size: 'medium', held: true, big: variant > 0, caravan: variant > 0, style: P0.wear > 0 ? 'old' : undefined }); else if (g.t === 'station_junction') feats.push({ kind: 'junction', at0: a0, at1: a1 });
+    else if (g.t === 'airbase_desert') feats.push({ kind: 'airbase', at0: a0, at1: a1 }); else if (g.t === 'pass') feats.push({ kind: 'pass', at0: a0, at1: a1, strong: variant > 0 }); else if (g.t === 'desert_open' && !feats.some(f => f.size === 'small')) feats.push(Object.assign({ kind: 'oasis', at: mid, size: 'small', caravan: true }, P0.wear > 0 ? { mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + mid * Ld) } : {})); else if (g.t === 'desert_open') { feats.push({ kind: 'works', at: mid }); if (P0.wear > 0) { const hm = a0 + (a1 - a0) * 0.74; feats.push({ kind: 'roadside', at: hm, span: 90, shift: 50, mix: P0.mixVillage, damage: 0.06 + 0.5 * warAt(Lp + hm * Ld) }); } } } // (the quiet desert before the boss: the works at its middle, and in the new look a roadside hamlet beyond it, towards the boss)
   if (variant > 0) { // the loop's additions: guarded oil fields on the open desert (the valley's own is kept), and bastions on the approaches (the village, the airbase, the pass)
     let at2 = 0; for (const g of segs) { const s0 = at2, s1 = at2 + g.n * CHp; at2 = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld;
       if (g.t === 'desert_open') { const ln = (a1 - a0) * Ld; if (ln > 560) for (const q of [0.22, 0.62]) feats.push({ kind: 'oilfield', at: a0 + (a1 - a0) * q, half: Math.round(ln * 0.17), dry: true, guard: true }); else feats.push({ kind: 'oilfield', at: (a0 + a1) / 2, half: Math.max(60, Math.round(ln / 2) - 26), dry: true, guard: true }); } // (a long stretch gets two fields)
@@ -2813,7 +2838,7 @@ function sandSea(o) {
   plan.streets = A.streets.concat(B.streets.map(st => { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + Lp, p[2]]); return r; }));
   plan.slots = A.slots.concat(B.slots.map(sl => { const r = up(sl); if (r.item !== undefined) r.item += nI; return r; })); plan.slots.forEach((sl, i) => { sl.id = i; });
   plan.fires = A.fires.concat(B.fires.map(f => { const r = up(f); if (r.item >= 0) r.item += nI; return r; }));
-  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'camels', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
+  for (const key of ['trees', 'tufts', 'plots', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'industry'])
     plan[key] = (A[key] || []).concat((B[key] || []).map(up));
   if ((P0.wear || 0) > 0) plan.worn = cat(Uint8Array, A.worn || new Uint8Array(W * Lp), B.worn || new Uint8Array(W * Ld));
   plan.coils = (A.coils || []).concat((B.coils || []).map(c => c.map(p => [p[0], p[1] + Lp]))); plan.wires = A.wires || []; plan.barrels = A.barrels || [];
@@ -3540,7 +3565,7 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
-const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'derricks', 'pumps', 'spills', 'camels', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
+const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, A, { preset, L, seed: A.seed });
@@ -3767,7 +3792,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
