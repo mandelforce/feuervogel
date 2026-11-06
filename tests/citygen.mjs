@@ -256,6 +256,13 @@ if (part()) { let fails = 0, have = 0, posts = 0;
     if (p.yard && p.yard.wagons.length >= 20 && runs && p.airbase && p.airbase.planes.length >= 4 && p.forest && p.pylons && p.pylons.filter(q => q.ok).length >= 4 && p.searchPosts.length >= 4 && p.slots.filter(q => q.kind === 'gen').length >= 3) have++; posts += p.searchPosts.length; }
   const ok = !fails && have === 30; if (!ok) fail(`level 3: ${fails} fail the rules, ${have}/30 have all their parts`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 (The Long Night): ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} searchlight posts per level`); }
+// Enigma level 3 in its first loop (params.variant 1 with railShift 3: the rail further in, the beach deeper, more searchlight posts; the game's stretch-driven density and damage are not part of this): the hard
+// rules and every part hold over 30 seeds, and variant 0 (the first pass) is not moved by the new parameters.
+if (part()) { let fails = 0, have = 0, posts = 0, posts0 = 0;
+  for (let seed = 1; seed <= 30; seed++) { const p = CG.generate({ seed, preset: 'longNight', params: { variant: 1, railShift: 3 } }), p0 = CG.generate({ seed, preset: 'longNight' }); if (!CG.validate(p).pass) fails++;
+    if (p.yard && p.yard.wagons.length >= 20 && p.airbase && p.forest && p.pylons && p.searchPosts.length >= 4) have++; posts += p.searchPosts.length; posts0 += p0.searchPosts.length; }
+  const ok = !fails && have === 30 && posts >= posts0; if (!ok) fail(`level 3 variant 1: ${fails} fail the rules, ${have}/30 have all their parts, ${posts} posts against ${posts0}`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 in the first loop: ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} posts per level (${(posts0 / 30).toFixed(1)} in the first pass)`); }
 // Enigma level 4, the Iron Forest (forest land): every hard rule; on the cliff coast the sea, stacks, coves, three tiers of cliff with the road's
 // gorge from the slipway to the plateau, the clifftop battery (three casemates with arty slots), a lighthouse, a radar, a pillbox and a flak pit on
 // the ledges; in the conifer forest crowns of every size class and all three kinds, two forest roads that are tank routes, firebreaks, plantations,

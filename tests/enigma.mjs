@@ -388,6 +388,21 @@ for (const lv of [2, 6]) {
   ok(r.mWarm && r.mSea && r.mChunk, `the morning grade (level 2's loop): a grey pixel turns warm (${r.mGrey}), a sea pixel stays blue (${r.mSeaPx}), the whole level's ground is graded`);
   await page.close();
 }
+// 3b''. Level 3's first loop (seed 1945 only) is flown in the moonrise: the night's ground lifted into silver-blue moonlight (CityGen.moonGrade over every baked chunk, trees carry it), a pale glow from the moon's side;
+// the first pass (1944) and the second loop (1946) keep the plain night. Its plan passes the hard rules, its stretches differ from the first pass's, and the first pass's are unchanged.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; for (const lp of [0, 1, 2]) { settings.diff = 1; startEnigma(3, false, lp); const S = run.sortie; o['l' + lp] = { moon: !!S.moon, tod: S.timeOfDay, variant: S.variant, segs: S.segs.map(g => g.n).join(), valid: CityGen.validate(sortiePlan(S)).pass }; }
+    startEnigma(3, false, 1); const S = run.sortie, P = sortiePlan(S), c = 40; startChunk(world.stageBaseP + c); const jb = world.chunkJobs[world.chunkJobs.length - 1]; let fin = false; while (!fin) fin = workChunk(jb, 8); world.chunkJobs.pop();
+    const mg = new Uint8ClampedArray([40, 40, 40, 255, 60, 40, 30, 255]); CityGen.moonGrade(mg, 2); const g1 = jb.c.grade;
+    startEnigma(3, false, 0); startChunk(world.stageBaseP + c); const j0 = world.chunkJobs[world.chunkJobs.length - 1]; fin = false; while (!fin) fin = workChunk(j0, 8); world.chunkJobs.pop(); const g0 = j0.c.grade || null;
+    return JSON.stringify({ o, mgLift: mg[2] > 40 * 1.5 && mg[2] > mg[0] + 20, mgPx: [mg[0], mg[1], mg[2]].join(','), g1, g0 }); })()`);
+  const q = JSON.parse(r);
+  ok(q.o.l0.tod === 'night' && !q.o.l0.moon && !q.o.l2.moon && q.o.l1.moon && q.o.l1.tod === 'night' && q.o.l1.variant === 1 && !q.o.l2.variant && q.o.l0.valid && q.o.l1.valid, `level 3: the moonrise in seed 1945 only (first pass ${q.o.l0.moon}, first loop ${q.o.l1.moon}, second loop ${q.o.l2.moon}); both plans pass the hard rules`);
+  ok(q.o.l1.segs !== q.o.l0.segs && q.o.l1.segs.split(',').reduce((a, b) => a + +b, 0) === q.o.l0.segs.split(',').reduce((a, b) => a + +b, 0), `the first loop's stretches (${q.o.l1.segs}) differ from the first pass's (${q.o.l0.segs}) and add up to the same length`);
+  ok(q.mgLift && /^(moon|moonp)$/.test(q.g1) && !q.g0, `the moon grade lifts a dark grey pixel into blue-silver (${q.mgPx}); a loop chunk is graded (${q.g1}), a first-pass chunk is not (${q.g0})`);
+  await page.close();
+}
 
 // ROUTE_GAP minus a pixel), and stops at a dead end: in level 1 from the airbase down the island's road to the jetty, switching routes on the way; in level 6 through the harbour city (one
 // route there: no switch needed). Only the convoy moves (its own update, no frame loop), so the test sees the route logic alone.

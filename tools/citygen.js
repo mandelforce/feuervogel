@@ -438,7 +438,7 @@ function generate(opts) {
   let RL = null, ST = null; const edgeBusy = (ya, yb) => { for (let y = Math.max(0, Math.floor(ya)); y <= Math.min(L - 1, yb); y += 4) if (edgeW[y] > 0.001) return true; return false; }; // the road is at the far edge there: no station, no branch line
   (() => { if (!P.railway) return; const belt = P.oldTown && P.oldTown.belt ? P.oldTown.belt[1] : 0;
     const clearOf = (x, y, m) => x > 9 && x < W - 10 && !(CO && (CO.cs * (x - CO.xs[clamp(Math.round(y), 0, L - 1)]) > -6 || past(y, 10))) && !(OT && inOval(x, y, OT.rw / 2 + m)) /* through the green belt is fine */ && !(HB && x >= HB.x0 - m && x <= HB.x1 + m && y >= HB.yLo - m && y <= HB.yHi + m);
-    for (const sr of railSide ? [railSide] : []) { if (RL) break; const xA = sr > 0 ? W - 19 : 18; let ok = true;
+    for (const sr of railSide ? [railSide] : []) { if (RL) break; const xA = (sr > 0 ? W - 19 : 18) - sr * (P.railShift | 0); let ok = true;
       const yTop = CO && CO.hd > 0 ? Math.min(L, Math.round(CO.wfH) - 12) : L, yBot = CO && CO.hd < 0 && CO.yC !== null ? Math.max(0, Math.round(CO.wfH) + 12) : 0; // in a port the line ends at a buffer stop before the end quay's street
       for (let y = yBot; ok && y < yTop; y += 3) if (!clearOf(xA, y, 8)) ok = false; // the 8 px corridor
       if (!ok) continue;
@@ -1467,9 +1467,9 @@ function generate(opts) {
     if (P.searchlights) { const posts = [], open = new Uint8Array(64); for (const k of [K.TURF, K.MEADOW, K.PARK, K.PLAZA, K.WORKS, K.BEACH, K.FIELD, K.GARDEN, K.LOT, K.COURT]) open[k] = 1;
       const okAt = (x, y, r) => { for (let yy = Math.round(y - r); yy <= y + r; yy++) for (let xx = Math.round(x - r); xx <= x + r; xx++) if (!inB(xx, yy) || !open[Kr[idx(xx, yy)]]) return false; return true; };
       if (AB) posts.push(...AB.posts); if (FO) posts.push({ x: FO.clearing.x + FO.clearing.side * 8, y: FO.clearing.y - 4 }); if (YD && YD.y0y != null) posts.push({ x: YD.sr < 0 ? 188 : W - 189, y: YD.y0y + 180 });
-      if (CO && CO.mode === 'beach') for (const f of [0.2, 0.5, 0.8]) { const x = Math.round(W * f); for (let d = 4; d < CO.duneD + 6; d += 2) { const y = Math.round(CO.wfH + CO.hd * d); if (inB(x, y) && Kr[idx(x, y)] === K.BEACH && Br[idx(x, y)] === -13 && okAt(x, y, 3)) { posts.push({ x, y }); break; } } } // on the dunes behind the beach
+      if (CO && CO.mode === 'beach') for (const f of P.variant ? [0.15, 0.35, 0.5, 0.65, 0.85] : [0.2, 0.5, 0.8]) { const x = Math.round(W * f); for (let d = 4; d < CO.duneD + 6; d += 2) { const y = Math.round(CO.wfH + CO.hd * d); if (inB(x, y) && Kr[idx(x, y)] === K.BEACH && Br[idx(x, y)] === -13 && okAt(x, y, 3)) { posts.push({ x, y }); break; } } } // on the dunes behind the beach
       for (const sq of plan.squares) posts.push({ x: sq.x0 + sq.w / 2, y: sq.y0 + sq.h / 2 }); for (const pk of plan.parks) posts.push({ x: Math.round(plan.mx[(pk.ya + pk.yb) >> 1] + pk.s * 30), y: (pk.ya + pk.yb) >> 1 });
-      const used = []; for (const pt of posts) { if (!okAt(pt.x, pt.y, 3) || used.some(u => Math.hypot(u.x - pt.x, u.y - pt.y) < 70)) continue; used.push(pt);
+      const used = []; for (const pt of posts) { if (!okAt(pt.x, pt.y, 3) || used.some(u => Math.hypot(u.x - pt.x, u.y - pt.y) < (P.variant ? 50 : 70))) continue; used.push(pt);
         cands.push({ kind: 'search', on: 'post', x: pt.x, y: pt.y, r: 4, prio: true }); let nf = 0;
         for (let k = 0; k < 12 && nf < 2; k++) { const a = k * 2.618 + rnd(T.SLOT, pt.x, pt.y) * 6.283, x = Math.round(pt.x + Math.cos(a) * 14), y = Math.round(pt.y + Math.sin(a) * 14); if (okAt(x, y, 3)) { cands.push({ kind: 'flak', on: 'post', x, y, r: 4, prio: true, post: used.length - 1 }); nf++; } }
         for (let k = 0; k < 16; k++) { const a = k * 2.4 + rnd(T.SLOT, pt.y, pt.x) * 6.283, d = 26 + (k % 4) * 8, x = Math.round(pt.x + Math.cos(a) * d), y = Math.round(pt.y + Math.sin(a) * d); if (okAt(x, y, 4)) { cands.push({ kind: 'gen', on: 'post', x, y, r: 5, prio: true }); break; } } }
@@ -2177,6 +2177,11 @@ function morningGrade(d, w) {
     const l2 = 0.299 * r + 0.587 * g + 0.114 * b; r = l2 + (r - l2) * 0.98; g = l2 + (g - l2) * 0.98; b = l2 + (b - l2) * 0.98;
     const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
+}
+function moonGrade(d, w) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into cool silver-blue moonlight; a little brighter toward the moon's side (right). Only a pixel's own colour and its column are read (gradeTree relies on it)
+  const n = d.length >> 2;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w, l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], k = 1.5 + 0.2 * x / w;
+    d[o] = Math.min(255, (l + (d[o] - l) * 0.5) * 0.95 * k + 8); d[o + 1] = Math.min(255, (l + (d[o + 1] - l) * 0.5) * 1.1 * k + 8); d[o + 2] = Math.min(255, (l + (d[o + 2] - l) * 0.5) * 1.45 * k + 10); }
 }
 function sunsetGrade(d, w, wyAt) {
   const n = d.length >> 2; let wy = 0;
@@ -3804,7 +3809,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
