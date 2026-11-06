@@ -2178,10 +2178,11 @@ function morningGrade(d, w) {
     const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
-function moonGrade(d, w) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into cool silver-blue moonlight; a little brighter toward the moon's side (right). Only a pixel's own colour and its column are read (gradeTree relies on it)
-  const n = d.length >> 2;
-  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w, l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], k = 1.5 + 0.2 * x / w;
-    d[o] = Math.min(255, (l + (d[o] - l) * 0.5) * 0.95 * k + 8); d[o + 1] = Math.min(255, (l + (d[o + 1] - l) * 0.5) * 1.1 * k + 8); d[o + 2] = Math.min(255, (l + (d[o + 2] - l) * 0.5) * 1.45 * k + 10); }
+function moonGrade(d, w, pAt) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into moonlight; a little brighter toward the moon's side (right). pAt: the level's progress (0 to 1) at a row (or one number): the moon starts low and warm (amber haze over the beach) and climbs to a high, white-blue light, so the tone changes smoothly along the level. Only a pixel's own colour, its column and its row are read (gradeTree relies on it)
+  const n = d.length >> 2; let p = 1, wm = 0, kb = 1;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) { p = typeof pAt === 'function' ? pAt((i / w) | 0) : pAt === undefined ? 1 : pAt; const q = clamp(1 - p / 0.5, 0, 1); wm = q * q * 0.6; kb = 1.25 + 0.4 * clamp(p / 0.5, 0, 1); }
+    const l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], k = kb + 0.2 * x / w, mr = 0.95 + (1.4 - 0.95) * wm, mg = 1.1 + (1.0 - 1.1) * wm, mb = 1.45 + (0.72 - 1.45) * wm;
+    d[o] = Math.min(255, (l + (d[o] - l) * 0.5) * mr * k + 8); d[o + 1] = Math.min(255, (l + (d[o + 1] - l) * 0.5) * mg * k + 8); d[o + 2] = Math.min(255, (l + (d[o + 2] - l) * 0.5) * mb * k + 10); }
 }
 function sunsetGrade(d, w, wyAt) {
   const n = d.length >> 2; let wy = 0;

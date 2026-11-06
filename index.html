@@ -2649,10 +2649,11 @@ function morningGrade(d, w) {
     const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
-function moonGrade(d, w) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into cool silver-blue moonlight; a little brighter toward the moon's side (right). Only a pixel's own colour and its column are read (gradeTree relies on it)
-  const n = d.length >> 2;
-  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w, l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], k = 1.5 + 0.2 * x / w;
-    d[o] = Math.min(255, (l + (d[o] - l) * 0.5) * 0.95 * k + 8); d[o + 1] = Math.min(255, (l + (d[o + 1] - l) * 0.5) * 1.1 * k + 8); d[o + 2] = Math.min(255, (l + (d[o + 2] - l) * 0.5) * 1.45 * k + 10); }
+function moonGrade(d, w, pAt) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into moonlight; a little brighter toward the moon's side (right). pAt: the level's progress (0 to 1) at a row (or one number): the moon starts low and warm (amber haze over the beach) and climbs to a high, white-blue light, so the tone changes smoothly along the level. Only a pixel's own colour, its column and its row are read (gradeTree relies on it)
+  const n = d.length >> 2; let p = 1, wm = 0, kb = 1;
+  for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) { p = typeof pAt === 'function' ? pAt((i / w) | 0) : pAt === undefined ? 1 : pAt; const q = clamp(1 - p / 0.5, 0, 1); wm = q * q * 0.6; kb = 1.25 + 0.4 * clamp(p / 0.5, 0, 1); }
+    const l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], k = kb + 0.2 * x / w, mr = 0.95 + (1.4 - 0.95) * wm, mg = 1.1 + (1.0 - 1.1) * wm, mb = 1.45 + (0.72 - 1.45) * wm;
+    d[o] = Math.min(255, (l + (d[o] - l) * 0.5) * mr * k + 8); d[o + 1] = Math.min(255, (l + (d[o + 1] - l) * 0.5) * mg * k + 8); d[o + 2] = Math.min(255, (l + (d[o + 2] - l) * 0.5) * mb * k + 10); }
 }
 function sunsetGrade(d, w, wyAt) {
   const n = d.length >> 2; let wy = 0;
@@ -4306,7 +4307,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.69'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.70'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -7397,7 +7398,7 @@ function workChunk(job, rows) {
     world.featTheme = job.I.th; TRGB = THEME_RGB[job.I.th];
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
-    if (run.sortie && run.sortie.moon && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.moonGrade(im.data, W); job.x.putImageData(im, 0, 0); job.c.grade = job.I.plan ? 'moonp' : 'moon'; } /* the first loop's level 3: the night's ground (the plan's own night, the legacy chunks' night grade) lifted into moonlight; a tree redrawn over a unit carries it (moon: night then moonlight; moonp: the plan's trees are night already) */
+    if (run.sortie && run.sortie.moon && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.moonGrade(im.data, W, r => moonP(wy0 + r)); job.x.putImageData(im, 0, 0); job.c.moonP = moonP(wy0 + CH / 2); job.c.grade = job.I.plan ? 'moonp' : 'moon'; } /* the first loop's level 3: the night's ground (the plan's own night, the legacy chunks' night grade) lifted into moonlight; a tree redrawn over a unit carries it (moon: night then moonlight; moonp: the plan's trees are night already) */
     else if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); job.c.grade = 'sunset'; } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
     else if (run.sortie && run.sortie.timeOfDay === 'morning' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.morningGrade(im.data, W); job.x.putImageData(im, 0, 0); job.c.grade = 'morning'; } // a loop's level 2: the whole ground in the golden light of a morning
     else if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') job.c.grade = 'night'; // (the grade applied above: the trees redrawn over a unit must carry it too)
@@ -14888,10 +14889,10 @@ function drawCritters() {
 }
 const canopyCache = new Map();
 /* a tree sprite with the chunk's colour grade (sunset, night) applied the way the ground got it, so a tree drawn over a unit matches the baked one. Both grades only look at a pixel's own colour and its column in the chunk, so the sprite is graded in a chunk-wide strip at its own x. Built on first use, kept on the tree's record */
-function gradeTree(kind, t) {
+function gradeTree(kind, t, moonPr) {
   const s = t.s, sw = s.c.width, sh = s.c.height, x0 = Math.round(t.x - s.w / 2), src = s.c.getContext('2d').getImageData(0, 0, sw, sh).data, buf = new Uint8ClampedArray(W * sh * 4);
   for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i; if (X < 0 || X >= W) continue; const a = (j * sw + i) * 4, b = (j * W + X) * 4; buf[b] = src[a]; buf[b + 1] = src[a + 1]; buf[b + 2] = src[a + 2]; buf[b + 3] = src[a + 3]; }
-  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else if (kind === 'morning') CityGen.morningGrade(buf, W); else if (kind === 'moonp') CityGen.moonGrade(buf, W); else { CityGen.nightGrade(buf); if (kind === 'moon') CityGen.moonGrade(buf, W); }
+  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else if (kind === 'morning') CityGen.morningGrade(buf, W); else if (kind === 'moonp') CityGen.moonGrade(buf, W, moonPr); else { CityGen.nightGrade(buf); if (kind === 'moon') CityGen.moonGrade(buf, W, moonPr); }
   const [c, x] = mk(sw, sh), im = x.createImageData(sw, sh);
   for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i, a = (j * sw + i) * 4, b = (j * W + X) * 4, inside = X >= 0 && X < W, d = inside ? buf : src, o = inside ? b : a; im.data[a] = d[o]; im.data[a + 1] = d[o + 1]; im.data[a + 2] = d[o + 2]; im.data[a + 3] = src[a + 3]; }
   x.putImageData(im, 0, 0);
@@ -14907,7 +14908,7 @@ function chunkTreesNear(wx, wy, r, out, seen) {
       const t = L[i], rr = t.av ? R : r, dx = t.x - wx, dy = t.y - wy; if (dx * dx + dy * dy > rr * rr) continue;
       if (burntTrees.has((t.x | 0) + ',' + (t.y | 0))) continue;
       if (seen) { const k2 = t.x + ',' + t.y; if (seen.has(k2)) continue; seen.add(k2); }
-      if (!t.gs) t.gs = c.grade ? gradeTree(c.grade, t) : t.s;
+      if (!t.gs) t.gs = c.grade ? gradeTree(c.grade, t, c.moonP) : t.s;
       out.push(t);
     }
   }
@@ -15525,9 +15526,14 @@ function drawDawn() { // a loop's level 2 (the morning): the low sun's glow from
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, H * 0.82); g.addColorStop(0, 'rgba(255,170,90,0.34)'); g.addColorStop(0.5, 'rgba(255,150,70,0.12)'); g.addColorStop(1, 'rgba(255,140,60,0)');
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
 }
-function drawMoonGlow() { /* the first loop's level 3: the rising moon's pale glow from the upper right, over the ground and the planes (bullets, the ship's effects and the HUD are drawn after it) */
-  const g = ctx.createRadialGradient(W, 0, 0, W, 0, H * 0.8); g.addColorStop(0, 'rgba(150,170,235,0.36)'); g.addColorStop(0.5, 'rgba(120,140,215,0.13)'); g.addColorStop(1, 'rgba(110,130,210,0)');
+const moonP = wy => { const S = run.sortie; return S ? clamp((-wy / CH - world.stageBaseP) / S.len, 0, 1) : 1; }; /* the level's progress at a world y */
+function drawMoonGlow() { /* the first loop's level 3: the moon climbs along the level. Its pale glow comes from the right edge, low and amber over the beach, and rises to the upper right, white-blue, by the yard (over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it) */
+  const p = moonP(H / 2 - world.scroll), q = clamp(p / 0.5, 0, 1), cx = W * (1.05 - 0.15 * q), cy = H * (0.55 - 0.6 * q), r = H * (0.62 + 0.2 * q), a = 0.3 + 0.12 * q, R = Math.round(255 - 105 * q), G = Math.round(176 - 6 * q), B = Math.round(120 + 115 * q);
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${R},${G},${B},${a})`); g.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+}
+function moonRim(s, x, y) { /* the moon's light on the ship's upper right edge: its silhouette in pale blue, one pixel up and right, under the ship */
+  const r = s.rim || (s.rim = sil(s.c, '#c4d2ff')); ctx.globalAlpha = 0.7; ctx.drawImage(r, Math.round(x - s.w / 2) + 1, Math.round(y - s.h / 2) - 1); ctx.globalAlpha = 1;
 }
 function drawNight() {
   { const S = run.sortie, graded = S && S.gen && S.timeOfDay === 'night'; // Enigma level 3: all its ground is painted at night already (the plan's and the graded legacy chunks), so the layer is only a quarter as dark
@@ -15849,6 +15855,7 @@ function drawPlayer() {
   if (!p2 && useNacht()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
   if (fk === 1) drawGlowBehind(p, 1);
   const sp = (p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
+  if (run.sortie && run.sortie.moon && fk === 1) moonRim(sp, p.x, p.y);
   spr(sp, p.x, p.y);
   if (fk === 1) drawGlowFront(p, 1, sp);
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
