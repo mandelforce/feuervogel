@@ -1486,6 +1486,7 @@ function generate(opts) {
     }
   })(); // its own function, so the engine optimises it (generate is too big to be optimised whole)
   lap('slots');
+  if (P.shadows) castShadows(plan); // a loop's level 3 (the moonrise): the moon's shadows, painted under the buildings
   return plan;
 }
 
@@ -1758,6 +1759,16 @@ const oilPix = (() => {
     { const [hx, hy] = o(36, 4); shadow(put, cx, cy, hx + 8, hy + 1, 3, 3, 0.28); rect(put, cx, cy, hx, hy, 8, 4, OIL.cabin); rect(put, cx, cy, hx, hy, 8, 1, OIL.cabinD); rect(put, cx, cy, hx + 1, hy + 1, 5, 1, OIL.white, 0.8); } }
   return { derrick, pit, flare, platform, refinery, brickworks };
 })();
+/* The moon's cast shadows (params.shadows, the first loop's level 3): every building throws a shadow away from the moon (upper right on the screen: down and to the left), a mask of strengths 1 to 255 over the plan's cells that paint() darkens the ground by. Buildings paint over their own and their neighbours' shadows (a mask is only read for a cell that is not a building) and the sea and rivers take none. Only the footprint's edge is swept along the shadow, one cell at a time, so the area is filled without a cost per cell of the roof. Plan rows grow upward on the screen: the shadow runs to lower x and lower y. */
+function castShadows(plan) {
+  const { W, L, K: Kr } = plan, mask = new Uint8Array(W * L), dx = -0.8, dy = -0.55;
+  for (const it of plan.items) { if (it.gone || !(it.w > 1) || !(it.h > 1)) continue;
+    const hgt = Math.min(20, 1.4 * (it.part === 'chimney' ? 14 : it.part === 'cooling' ? 12 : it.part === 'tank' ? 7 : it.part === 'casemate' || it.part === 'atwall' || it.part === 'tobruk' || it.part === 'pillbox' ? 3 : (it.roof || 2) * 1.4 + 3)), n = Math.ceil(hgt), x0 = it.x0, x1 = it.x0 + it.w - 1, y0 = it.y0, y1 = it.y0 + it.h - 1;
+    for (let t = 1; t <= n; t++) { const sv = Math.round(255 * (1 - 0.4 * t / n)), ox = Math.round(dx * t), oy = Math.round(dy * t);
+      const mark = (x, y) => { x += ox; y += oy; if (x < 0 || x >= W || y < 0 || y >= L) return; const i = y * W + x, k = Kr[i]; if (k === K.BLDG || k === K.SEA || k === K.WATER || k === K.RIVER) return; if (mask[i] < sv) mask[i] = sv; };
+      for (let x = x0; x <= x1; x++) { mark(x, y0); mark(x, y1); } for (let y = y0; y <= y1; y++) { mark(x0, y); mark(x1, y); } } }
+  plan.shadowMask = mask;
+}
 function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
@@ -1944,6 +1955,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           else if (kk === 3) c = C.shadow; else { const pal = C.facade[b.church ? 2 : (hh(b.seed, 51) * 3) | 0]; c = x % 3 === 1 ? (hh(x >> 1, b.seed + kk) < (b.dmg ? 0.04 : 0.12) ? C.lit : C.dark) : pal[kk === 1 ? 2 : 1]; } }
         else if (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4)) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
       }
+      if (plan.shadowMask && plan.shadowMask[i] && k !== K.BLDG) { const sk = plan.shadowMask[i] / 255 * 0.6; c = [c[0] * (1 - sk) | 0, c[1] * (1 - sk * 0.92) | 0, c[2] * (1 - sk * 0.7) | 0]; } // the moon's cast shadow (castShadows)
       const o = (sr * W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
   }
