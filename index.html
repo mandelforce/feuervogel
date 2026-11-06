@@ -4323,7 +4323,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.76'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.77'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -11753,7 +11753,7 @@ function bossIntro(e) {
   BOSS[e.kind].intro(e);
 }
 /* Night Hammer rocket launcher (the first loop's level 3 only, run.sortie.moon): the tender behind the gun carries twelve rockets on its cradles. Twice they go, six at a time:
-   when the core is at half its health and again at a tenth. A salvo makes its six red areas one after another (NR.GAP frames apart), each made at the player's place: it follows
+   when the core, or the boss bar (all parts), is at half its health and again at a tenth, whichever gets there first. A salvo makes its six red areas one after another (NR.GAP frames apart), each made at the player's place: it follows
    the ship for NR.FOLLOW frames, locks where it is for NR.LOCK frames, then its rocket leaves its cradle and flies to the area (NR.FLY frames) and bursts. The ship has to be out of the
    area by then. State is plain data on the boss (e.nr: fired cradles, the areas), so a snapshot keeps it; nothing here draws a random number. */
 const NR = { SLOTS: [[27, 17], [36, 17], [44, 17], [53, 17], [27, 38], [36, 38], [44, 38], [53, 38], [27, 59], [36, 59], [44, 59], [53, 59]], SALVO: [[0, 2, 5, 7, 8, 10], [1, 3, 4, 6, 9, 11]], AT: [0.5, 0.1], GAP: 20, FOLLOW: 16, LOCK: 26, FLY: 34, R: 19, DX: -40, DY: -159 };
@@ -11772,8 +11772,8 @@ function nightRockets(e, core) {
   }
   S.zones = S.zones.filter(z => z.ph < 2);
   if (e.dying || !core || core.dead || !hasT()) { S.zones = []; S.pend = []; return; }
-  const at = NR.AT[S.salvo];
-  if (at !== undefined && core.hp <= core.maxhp * at && !S.pend.length && !S.zones.length) { /* the next salvo: the six cradles of its set, one area every GAP frames */
+  const at = NR.AT[S.salvo]; let bh = 0, bm = 0; for (const q of e.parts) { bh += Math.max(0, q.hp); bm += q.maxhp; } /* the boss bar's health (all parts) and the core's: the salvo goes at the first of them to reach its mark */
+  if (at !== undefined && Math.min(core.hp / core.maxhp, bh / Math.max(1, bm)) <= at && !S.pend.length && !S.zones.length) { /* the next salvo: the six cradles of its set, one area every GAP frames */
     S.pend = NR.SALVO[S.salvo].slice(); S.pt = 30; S.salvo++; sfx('charge'); haptic('warn');
   }
   if (S.pend.length && --S.pt <= 0) { const slot = S.pend.shift(), s = nearShip(e.x, e.y); S.zones.push({ ph: 0, t: 0, x: clamp(s.x, NR.R, W - NR.R), y: clamp(s.y, 30, H - 30), slot, who: s === p2 ? 2 : 1 }); S.pt = NR.GAP; sfx('tick'); } /* the next area, made at the ship's place (a queue, not a delayed call: a snapshot keeps it) */
@@ -11794,9 +11794,9 @@ function nrBody(x, y, a, flame) { /* one rocket, lying along angle a: grey body 
   if (flame) dk(x - c * 8, y - sn * 8, 2.5 + (gf & 1), (gf & 2) ? '#ffd060' : '#ff6a1a');
   seg(4, '#120e1a', -6, 6); seg(2, '#b4b6ba', -5, 4); seg(2, '#d84a34', 4, 6); dk(x - c * 6, y - sn * 6, 1.2, '#3a3e46');
 }
-function drawNRrockets(e) { /* the rockets still on their cradles (nose to the south), then the ones in flight */
+function drawNRrockets(e, cradles) { /* the rockets still on their cradles (nose to the south, only when the launcher picture is up), then the ones in flight */
   const S = e.nr || { fired: [], zones: [] };
-  for (let i = 0; i < NR.SLOTS.length; i++) if (!S.fired[i]) { const [x, y] = nrSlotPos(e, i); nrBody(x, y, PI / 2, false); }
+  if (cradles) for (let i = 0; i < NR.SLOTS.length; i++) if (!S.fired[i]) { const [x, y] = nrSlotPos(e, i); nrBody(x, y, PI / 2, false); }
   if (!e.dying) for (const z of S.zones) if (z.ph === 1) { const f = Math.min(1, z.t / NR.FLY), [x, y] = nrPos(z, f), [x2, y2] = nrPos(z, Math.min(1, f + 0.04)); nrBody(x, y, Math.atan2(y2 - y + 0.001, x2 - x), true); }
 }
 // Night Hammer: when a searchlight catches the player, a red lock-on follows them for ~2/3 s, freezes,
@@ -15546,10 +15546,10 @@ const BOSS_LOOKS = {
   },
   railgun(e, fl, core) {
     const NRL = run.sortie && run.sortie.moon && SPR.rgBaseL1; /* the first loop's level 3: the carriage with the rocket launcher behind it (the same coordinates for everything else) */
-    if (NRL) drawNRzones(e);
+    if (run.sortie && run.sortie.moon) drawNRzones(e); /* (whatever art is on: an area must show even if the launcher picture has not arrived) */
     spr(NRL || SPR.rgBase, e.x, e.y - ((NRL || SPR.rgBase).h - 152) / 2, fl); // the Enigma carriage is longer behind (the girder frame): the old carriage's centre stays on the boss position, so the parts sit where they always did
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, light: SPR.searchBase, core: SPR.rgBarrel });
-    if (NRL) drawNRrockets(e);
+    if (run.sortie && run.sortie.moon) drawNRrockets(e, !!NRL);
     if (e.hb && !core.dead) { // Hammer Blow charging: the muzzle glows hotter, orange to white
       const f = Math.min(1, e.hb.t / 120), mx = e.x + core.ox + Math.cos(core.ang) * 58, my = e.y + core.oy + Math.sin(core.ang) * 58;
       ctx.globalAlpha = 0.35 + 0.3 * f; dk(mx, my, 5 + f * 9 + ((gf >> 2) & 1), '#ff6a1a'); ctx.globalAlpha = 1; dk(mx, my, 2 + f * 5, f > 0.7 && (gf & 4) ? '#ffffff' : '#ffd060');
