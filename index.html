@@ -2319,7 +2319,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (Br[i] === -4) { const st = plan.stars.reduce((a, o) => Math.abs(o.y - y) < Math.abs(a.y - y) ? o : a), r = Math.hypot(x + 0.5 - st.x, y + 0.5 - st.y); // the roundabout's lawn with a ring of flowers and a stone kerb
             c = r > st.ri - 1 ? C.side[2] : Math.abs(r - st.ri + 2.6) < 0.7 ? C.fruit[(x + y) & 1] : r < 3.6 ? C.pave[2] : C.grass[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
           c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
-        case K.WATER: if (Br[i] === -17) { c = lakePix(plan, x, y, i, at); break; } /* a forest lake */
+        case K.WATER: if (Br[i] === -17 || Br[i] === -18) { c = lakePix(plan, x, y, i, at, Br[i] === -18); break; } /* a forest lake */
           if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
           if (Br[i] === -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.pool[6] : C.pool[pickI(7, 0.35 + Math.sin(x * 0.5 + y) * 0.06, x, y)]; break; } // an oasis pool
           if (Br[i] === -7) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.river[pickI(6, 0.35 + Math.sin(x * 0.5 + y) * 0.08, x, y)]; break; } // the pond, reeds round its edge
@@ -3519,10 +3519,11 @@ function ledgePix(plan, x, y, b) {
 // with flowers, -34 a clear-cut (slash and stumps), -35 a road's verge
 const LAKE = HX(['#12202a', '#18303a', '#1e404a', '#285260', '#346676', '#427a88']);
 // a forest lake: smooth deep water, lighter toward the shore and in glints, a darker ripple, reeds on its outer pixels
-function lakePix(plan, x, y, i, at) { const K_ = plan.K, edge = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && K_[j] !== K.WATER);
+function lakePix(plan, x, y, i, at, river) { const K_ = plan.K, edge = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && K_[j] !== K.WATER);
   if (edge) return hh(x, y) < 0.5 ? C.heath[1] : C.dirt[0];
   const n = vn(x * 0.06, y * 0.09) * 0.7 + vn(x * 0.21, y * 0.3) * 0.3, rip = ((x * 3 + y) % 7) < 2 && vn(x * 0.5 + 9, y * 0.2) > 0.78;
-  return LAKE[pickI(6, clamp(0.42 + (n - 0.5) * 0.45 + (rip ? 0.16 : 0), 0, 1), x, y)]; }
+  const cur = river && ((x + Math.floor(y * 7.3)) % 17) < 3 && hh(x >> 2, y) < 0.35; /* streaks of the current */
+  return LAKE[pickI(6, clamp(0.42 + (n - 0.5) * 0.45 + (rip || cur ? 0.16 : 0), 0, 1), x, y)]; }
 function forestMeadowPix(x, y, b) {
   const n = vn(x * 0.18, y * 0.18), r = hh(x, y);
   if (b === -36) return r < 0.4 ? C.heath[pickI(5, 0.55 + (r - 0.2) * 0.6, x, y)] : C.dirt[pickI(4, 0.2 + (n - 0.5) * 0.5 + (r - 0.5) * 0.3, x, y)]; /* the reeds and mud round a lake */
@@ -3573,6 +3574,7 @@ function forestLand(o) {
   const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; plan.slots.push(c); return c; };
   let nSeed = 0; const sd = () => h32(seed, 94000 + nSeed++);
   const feats = P.segs ? ironForestFeatures(P.segs) : P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
+  if (P.autumn) for (const F of feats) if (F.seg === 'valley') Object.assign(F, { roads: 0, rides: 1, plantations: 0, clearings: 1, cuts: 0, guns: 2, river: true }); /* the first loop's valley: a river along the strip (4c), so no forest roads or clear-cuts of its own */
   const isWood = (x, y) => inB(x, y) && Kr[idx(x, y)] === K.WOOD;
   const lap = name => { plan.stage[name] = +(now() - t0).toFixed(2); };
 
@@ -3657,6 +3659,27 @@ function forestLand(o) {
       if (k === 0 && nPb < 2 && ledgeOK(x, cy, 4)) { const it = addItem({ t: 'works', label: 'Pillbox', part: 'pillbox', round: true, x0: x - 4, y0: cy - 4, w: 9, h: 9, acx: x, acy: cy, r: 4, sea: -1, seed: sd(), dmg: 0 }); for (let y = it.y0; y < it.y0 + 9; y++) for (let xx = it.x0; xx < it.x0 + 9; xx++) if (Math.hypot(xx + 0.5 - x, y + 0.5 - cy) < 4.5) set(xx, y, K.BLDG, it.id); slot('bunker', 'ledge', x, cy, 5, it.id); nPb++; continue; }
       if (k === 1 && nFl < 2 && ledgeOK(x, cy, 5) && !plan.pits.some(p => Math.abs(p.x - x) < 40)) { plan.pits.push({ x, y: cy, r: 5 }); slot('flak', 'pit', x, cy, 5); nFl++; } }
     lap('defences'); }
+
+  // 3b. the valley's river (the first loop, F.river), carved before the forest's open ground so that clearings, rides and gun sites keep to the dry land: a wide river along one side of the strip, winding a little, entering and leaving through the strip's edge, with a
+  // harbour on its road-side bank: a quay and three piers. Water is K.WATER, tag -18; reeds (K.MEADOW, -36) on its banks. Placed after the main road, on the side
+  // and at the distance where 10 px all round stay clear of the road; with no such place the valley has no river.
+  if (P.autumn) { const rivers = plan.rivers2 = [], GAP = 10, free2 = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), sm = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+    feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
+      const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
+      const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
+        R.c = y => base + 9 * Math.sin(y * 0.028 + ph) + (1 - R.f(y)) * 76; R.hw = y => (24 + 3 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+        R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
+      const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
+      const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
+      for (const base of [168, 162, 174, 156, 180, 150]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
+      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b });
+      const R = pick, xb = y => Math.round((R.side > 0 ? R.c(y) - R.hw(y) : W - 1 - (R.c(y) - R.hw(y)))); /* the road-side bank's x, at row y */
+      for (let y = a - 4; y <= b + 4; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = R.d(x, y); if (d > 0) { Kr[i] = K.WATER; Br[i] = -18; } else if (d > -3 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } }
+      const qa = Math.round(a + 0.5 * (b - a)), qb = qa + 84, bank = R.side > 0 ? -1 : 1; /* the harbour: a quay along the bank, three piers out over the water */
+      for (let y = qa; y <= qb; y++) for (let k = 0; k <= 8; k++) { const x = xb(y) + bank * k * (R.side > 0 ? 1 : 1) * (R.side > 0 ? 1 : 1); if (!inB(x, y)) continue; const i = idx(x, y); if (Kr[i] === K.WATER) continue; Kr[i] = K.QUAY; Br[i] = -13; }
+      for (let q = 0; q < 3; q++) { const y0 = qa + 10 + q * 28; for (let dy = 0; dy < 3; dy++) for (let k = -2; k < 16; k++) { const x = xb(y0 + dy) - bank * k; if (!inB(x, y0 + dy)) continue; const i = idx(x, y0 + dy); if (Kr[i] === K.WATER || Kr[i] === K.QUAY) { Kr[i] = K.QUAY; Br[i] = -14; } } }
+      rivers[rivers.length - 1].qa = qa; rivers[rivers.length - 1].qb = qb; });
+    lap('valley'); }
 
   // 4. the forest's open ground and its roads, per conifer feature: firebreaks with a track, clearings, clear-cuts with log piles, plantations
   // of young trees in rows, and forest roads (tank routes) that leave the main road and join it again, or end at a timber depot
