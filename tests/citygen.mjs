@@ -131,6 +131,15 @@ if (part()) { let fails = 0, low = 0, ms = []; for (let seed = 1; seed <= 20; se
     const sides = p.streets.filter(s => s.side).length; if (!(sides >= 4 && p.viaducts.length === 1 && p.airbase && p.oasis.length === 3 && p.derricks.length >= 2 && p.trainRuns.length >= 3 && p.beachTown && p.beachTown.war)) low++; }
   ms.sort((a, b) => a - b); if (low) fail(`sandSea: ${low} of 20 plans miss a feature or side tracks`);
   console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 whole plan: ${20 - fails}/20 pass, every feature and side tracks in ${20 - low}, plan ${ms[10].toFixed(0)} ms median`); }
+// Level 2 in a loop (params.variant 1 and 2, 10 seeds each): the hard rules hold with the moved railway, the larger oasis, the guarded oil fields (12 derricks,
+// more flak, artillery and dug-in tanks than the first pass) the caravan by the oasis and the bastions on the approaches; variant 0 is the first pass, checked above and by the golden tests
+if (part()) { let fails = 0, low = 0, n = 0; for (let seed = 1; seed <= 10; seed++) { const base = CG.generate({ seed, preset: 'sandSea' }), cnt = (p, k) => p.slots.filter(s2 => s2.kind === k).length;
+    for (const variant of [1, 2]) { n++; const p = CG.generate({ seed, preset: 'sandSea', params: { variant } }), m = CG.validate(p);
+      if (!m.pass) { fails++; if (fails <= 3) fail(`sandSea variant ${variant} seed ${seed}: overlap ${m.overlapPx}, tank reach ${m.tankReach.toFixed(3)}, trains blocked ${m.trainBlocked}, lanes blocked ${m.lanesBlocked}`); }
+      const big = p.oasis.some(o => o.held && o.ry >= 60), x0 = base.trainRuns.find(r => r.line === 'main' && r.y0 > 800), x1 = p.trainRuns.find(r => r.line === 'main' && r.y0 > 800);
+      if (!(p.derricks.length >= 9 && cnt(p, 'flak') > cnt(base, 'flak') && cnt(p, 'tank') > cnt(base, 'tank') && cnt(p, 'arty') > cnt(base, 'arty') && big && (p.caravans || []).length >= 3 && p.viaducts.length === 1 && p.airbase && x0 && x1)) low++; } }
+  if (low) fail(`sandSea variants: ${low} of ${n} plans miss a feature`);
+  console.log(`${fails || low ? 'FAIL' : 'ok  '} level 2 in a loop: ${n - fails}/${n} pass, larger oasis with the camel caravan, guarded oil fields and bastions in ${n - low}`); }
 // Level 2, nothing stands on a road or the railway (owner review): no gun slot, pit, shell hole, oil spill or oasis on a track, a road or the rail's
 // corridor; the oasis grove never straddles the line; the port's road wears through to the dirt track and the valley's rock rises from the join's
 // first rows (no straight cliff edge and no hard road end where the port plan meets the desert)
