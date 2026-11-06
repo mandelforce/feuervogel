@@ -3249,7 +3249,7 @@ function forestLand(o) {
     const add = t => { const key = Math.floor(t.y / cell) * cw + Math.floor(t.x / cell); let g = grid.get(key); if (!g) grid.set(key, g = []); g.push(t); all.push(t); };
     const okAt = (x, y, r, ground) => { for (const [dx, dy] of [[0, 0], [r - 1, 0], [1 - r, 0], [0, r - 1], [0, 1 - r]]) { const xx = x + dx, yy = y + dy; if (!inB(xx, yy)) return false; const i = idx(xx, yy); if (!ground(Kr[i], Br[i])) return false; } return true; };
     const autumn = !!P.autumn, species = (x, y, r) => { const p = vn(x * 0.011 + 30, y * 0.011);
-      if (autumn) { const g = vn(x * 0.017 + 90, y * 0.017 + 40), q = hh(x * 11, y * 5), grove = g > 0.55 ? 0.7 : 0.1; /* broadleaf groves in slow patches, single ones between */
+      if (autumn) { const g = vn(x * 0.017 + 90, y * 0.017 + 40), q = hh(x * 11, y * 5), grove = g > 0.4 ? 0.8 : 0.22; /* broadleaf groves in slow patches, single ones between */
         if (q < grove && p <= 0.62) { const kind = vn(x * 0.03 + 5, y * 0.03 + 60); return r <= 3 ? kind < 0.55 ? 3 : kind < 0.8 ? 4 : 5 : kind < 0.3 ? 3 : kind < 0.7 ? 4 : 5; }
         if (hh(x * 3, y * 7) < 0.05) return 2; }
       return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
