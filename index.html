@@ -3667,17 +3667,18 @@ function forestLand(o) {
     feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
       const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
       const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
-        R.c = y => base + 9 * Math.sin(y * 0.028 + ph) + (1 - R.f(y)) * 76; R.hw = y => (24 + 3 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+        R.c = y => base + 5 * Math.sin(y * 0.022 + ph) + (1 - R.f(y)) * 80; R.hw = y => (31 + 2 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
         R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
       const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
       const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
-      for (const base of [168, 162, 174, 156, 180, 150]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
-      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b });
+      for (const base of [174, 170, 178, 166, 182, 162]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
+      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b, cx: [], hw: [] }); /* (cx, hw: the centre line and half-width at each row a to b, for the game's boats) */
       const R = pick, xb = y => Math.round((R.side > 0 ? R.c(y) - R.hw(y) : W - 1 - (R.c(y) - R.hw(y)))); /* the road-side bank's x, at row y */
       for (let y = a - 4; y <= b + 4; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = R.d(x, y); if (d > 0) { Kr[i] = K.WATER; Br[i] = -18; } else if (d > -3 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } }
       const qa = Math.round(a + 0.5 * (b - a)), qb = qa + 84, bank = R.side > 0 ? -1 : 1; /* the harbour: a quay along the bank, three piers out over the water */
       for (let y = qa; y <= qb; y++) for (let k = 0; k <= 8; k++) { const x = xb(y) + bank * k * (R.side > 0 ? 1 : 1) * (R.side > 0 ? 1 : 1); if (!inB(x, y)) continue; const i = idx(x, y); if (Kr[i] === K.WATER) continue; Kr[i] = K.QUAY; Br[i] = -13; }
       for (let q = 0; q < 3; q++) { const y0 = qa + 10 + q * 28; for (let dy = 0; dy < 3; dy++) for (let k = -2; k < 16; k++) { const x = xb(y0 + dy) - bank * k; if (!inB(x, y0 + dy)) continue; const i = idx(x, y0 + dy); if (Kr[i] === K.WATER || Kr[i] === K.QUAY) { Kr[i] = K.QUAY; Br[i] = -14; } } }
+      for (let y = a; y <= b; y++) { const rv = rivers[rivers.length - 1]; rv.cx.push(Math.round((R.side > 0 ? R.c(y) : W - 1 - R.c(y)) * 10) / 10); rv.hw.push(Math.round(R.hw(y) * 10) / 10); }
       rivers[rivers.length - 1].qa = qa; rivers[rivers.length - 1].qb = qb; });
     lap('valley'); }
 
@@ -4400,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.81'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.82'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5149,6 +5150,12 @@ SPR.pt = sprite(12, 34, x => {
   rect(x, '#8cc0e0', 4, 17, 4, 1);
 });
 SPR.ptGun = rotSet(sprite(8, 20, x => { rect(x, '#18181a', 3, 11, 1, 8); rect(x, '#18181a', 5, 11, 1, 8); ellS(x, RP.hull, 4, 10, 3, 3, 0.1); }));
+/* The valley convoy's river craft (level 4's first loop), bow up: they sail north. A tug, and barges with fuel tanks, crates (the Ravens' prototype parts under a tarpaulin) and a gun. */
+const bargeHull = (x, w, h) => { polyS(x, RP.hull, [[w / 2, 0], [w - 3, 5], [w - 2, 10], [w - 2, h], [2, h], [2, 10], [3, 5]], 0.05); polyS(x, RP.teak, [[w / 2, 4], [w - 5, 9], [w - 5, h - 2], [5, h - 2], [5, 9]], 0); rect(x, '#d8e8f0', 3, h - 1, w - 6, 1); };
+SPR.tug = sprite(16, 30, x => { bargeHull(x, 16, 30); boxS(x, RP.hull, 4, 11, 8, 11, 0.15); rect(x, '#8cc0e0', 5, 13, 6, 1); disk(x, '#202428', 8, 25, 2); rect(x, '#18181a', 7, 5, 2, 5); });
+SPR.bargeF = sprite(16, 44, x => { bargeHull(x, 16, 44); for (let k = 0; k < 3; k++) { disk(x, '#5a2418', 8, 14 + k * 10, 4); disk(x, '#a8402c', 8, 13 + k * 10, 3); rect(x, '#e07858', 7, 11 + k * 10, 2, 1); } });
+SPR.bargeC = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.teak, 4, 10, 8, 28, 0.1); rect(x, '#6e5a34', 4, 10, 8, 28); rect(x, '#8a7448', 5, 11, 6, 26); for (let k = 0; k < 4; k++) rect(x, '#4a3c20', 4, 14 + k * 7, 8, 1); rect(x, '#3a2c18', 4, 10, 8, 1); rect(x, '#3a2c18', 4, 37, 8, 1); });
+SPR.bargeG = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.hull, 4, 12, 8, 20, 0.1); rect(x, '#8cc0e0', 5, 14, 6, 1); rect(x, '#202428', 5, 24, 6, 5); });
 SPR.destroyer = sprite(28, 80, x => {
   polyS(x, RP.hull, [[14, 80], [2, 56], [1, 9], [5, 1], [23, 1], [27, 9], [26, 56]], 0.05);
   polyS(x, RP.teak, [[14, 72], [4, 55], [3, 10], [6, 3], [22, 3], [25, 10], [24, 55]], 0);
@@ -8663,7 +8670,8 @@ function buildSortie(level, seed) {
   const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant ? loopSeq(ENIGMA_SEQ[i], seed, level) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  const encPlan = !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
+  const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
+    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
   })() : (() => { // a loop's level 2: three encounters at their stretches (ENC_PLAN's layout, here from the stretches this seed made): the ambush at the village's oasis, the burning field in the first open desert, the fuel convoy in the last
@@ -8672,7 +8680,7 @@ function buildSortie(level, seed) {
   })();
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
-    variant, autumn: level === 4 && (seed | 0) === CAMP_SEED + 1, // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
+    variant, autumn: autumn4, // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -10465,6 +10473,7 @@ function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
   if (live) { z.cd = SOWER.gap; return; }
+  if (world.enc && world.enc.id === 'valleyconvoy') { if (z.cd < 300) z.cd = 300; return; } /* (level 4's first loop: no Sower comes while the valley convoy is on) */
   if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
   if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = ttOn() ? (z.n % 2 ? W / 2 - SOWER.laneX : W / 2 + SOWER.laneX) : player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX; // (the Campaign: right, then left)
@@ -13507,6 +13516,7 @@ const ENT = {
     }
   } },
   acar: { revenge: 2, treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 700, rad: 9 }, update(e) {
+    if (e.cv) { cvRoad(e); if (hasT() && --e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 140) * fireSlow()); const fire = () => { if (!e.dead && !e.dying && hasT()) { eshot(e.x, e.y, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }; fire(); world.later.push({ at: gf + 6, fn: fire }); } return; } /* the valley convoy's escort: drives north along the road, firing back */
     if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { const mx = (tx - e.wx) / d * e.v, my = (ty - e.wy) / d * e.v; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && hasT()) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
@@ -13528,6 +13538,7 @@ const ENT = {
     ENT.truck.update(e);
   } },
   ftruck: { harmless: true, explosive: true, treads: true, medals: 0.5, stats: { hp: 5, hw: 5, hh: 9, score: 600, rad: 10 }, update(e) {
+    if (e.cv) { cvRoad(e); return; } /* the valley convoy's tanker */
     const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
     if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
     else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } }
@@ -15597,6 +15608,43 @@ function drawSkyBody(e, fl, core) {
   for (const p of e.parts) if (p.box !== undefined) { p.ox = p.rx; p.oy = p.ry; }
 }
 // Each boss's look, put on BOSS[kind].draw(e, fl, core): fl flashes while it is dying, core is its core part.
+/* ================= valley convoy (level 4's first loop, seed 1945: run.sortie.encPlan, the valley's river) =================
+   A column of river craft sails north up the valley's river (a tug, a gun barge, a fuel barge, the barge with the Ravens' prototype parts, a gun barge astern) and a column of
+   armoured cars and tankers drives north along the road beside it. The player hunts it from below: both columns are slow (VC.v, the ground scrolls past at 0.4), so they come
+   down the screen from the top and linger, and the armed ones fire back at the player while they go. The parts are a prize only: shot down or not, the Ravens' prototype
+   is built already and the castle fight is the same. All the numbers are in VC. */
+const VC = { v: 0.12, boatGap: 46, roadGap: 30, hp: { tug: 9, bargeF: 10, bargeC: 14, bargeG: 14 }, fire: [75, 115] };
+const valleyRiver = S => S && S.plan && S.plan.rivers2 && S.plan.rivers2[0] || null;
+function cvRoad(e) { /* a road vehicle of the convoy: north along the plan's main road, its heading eased by steer */
+  const S = run.sortie, P = S.plan; e.wy -= e.v; const nx = P.mx[clamp(Math.round(S.planY0 - e.wy), 0, P.L - 1)] + (e.off || 0); steer(e, nx - e.wx, -e.v); e.wx = nx; groundPos(e); }
+function bargeUpdate(e) { /* a river craft: north along the river's centre line; the armed ones turn their gun on the player and fire */
+  const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; }
+  e.wy -= e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i >= R.cx.length - 6) { e.dead = true; e.gone = true; return; } /* it has sailed out of the valley */
+  e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + (e.off || 0); groundPos(e);
+  if (gf % 4 === 0) foam(e.x + rnd(-5, 5), e.y + e.hh);
+  if (e.armed) { const gx = e.x, gy = e.y + (e.type === 'tug' ? 2 : 4); if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
+    if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round(rnd(VC.fire[0], VC.fire[1]) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); if (e.type === 'bargeG') eshot(gx, gy, e.ta + 0.12, bspeed()); sfx('gun'); } }
+}
+const bargeWreck = e => { world.decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: 13, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+  world.decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: 220, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 }); };
+ENT.tug = { medals: 0.6, stats: { hp: VC.hp.tug, hw: 8, hh: 15, score: 900, rad: 15 }, update: bargeUpdate };
+ENT.bargeF = { harmless: true, explosive: true, medals: 0.6, stats: { hp: VC.hp.bargeF, hw: 8, hh: 22, score: 800, rad: 22 }, update: bargeUpdate };
+ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 8, hh: 22, score: 2500, rad: 22 }, update: bargeUpdate };
+ENT.bargeG = { medals: 1, stats: { hp: VC.hp.bargeG, hw: 8, hh: 22, score: 1200, rad: 22 }, update: bargeUpdate };
+DEATHS.tug = { wreck: bargeWreck }; DEATHS.bargeC = { wreck: bargeWreck }; DEATHS.bargeG = { wreck: bargeWreck }; DEATHS.bargeF = { blast: 34, wreck: bargeWreck };
+for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { spr(SPR[t], e.x, e.y, fl); if (e.armed) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + (t === 'tug' ? 2 : 4), fl); };
+ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.valleyconvoy = 1500;
+ENC_VERB.rivercon = () => { const S = run.sortie, R = valleyRiver(S); if (!R) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['tug', 'bargeG', 'bargeF', 'bargeC', 'bargeG']; /* lead (northmost) first */
+  const ys = Math.max(R.a + 14, yT + 30); let n = 0;
+  kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.boatGap; if (y > R.b - 70) return; const armed = t === 'tug' || t === 'bargeG', off = k % 2 ? 8 : -8;
+    world.enemies.push(G(t, R.cx[y - R.a] + off, S.planY0 - y, Object.assign({ v: VC.v, off, keep: true, hh: t === 'tug' ? 15 : 22 }, armed ? { armed: true, ta: PI / 2, cd: 60 + k * 17 } : {}))); n++; });
+  return n > 0; };
+ENC_VERB.roadcon = () => { const S = run.sortie, P = S && S.plan; if (!P) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['acar', 'ftruck', 'ftruck', 'acar', 'ftruck', 'acar']; /* lead first */
+  const ys = yT + 40; kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.roadGap, yy = clamp(y, 0, P.L - 1), wx = P.mx[yy], wy = S.planY0 - y;
+    world.enemies.push(G(t, wx, wy, Object.assign({ v: VC.v, cv: true, keep: true, hd: -PI / 2, off: 0 }, t === 'acar' ? { cd: 50 + k * 23 } : { patrol: [[wx, wy]], pi: 0 }))); });
+  return true; };
 const BOSS_LOOKS = {
   ship(e, fl, core) {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }

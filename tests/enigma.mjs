@@ -481,6 +481,29 @@ for (const lv of [2, 6]) {
   ok(r.left && r.errs.length === 0, `then they climb away, with no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
+// 3h. Level 4's first loop (seed 1945): the valley convoy. The encounter is placed at the valley (run.sortie.encPlan); the valley has a river along the strip; five
+// river craft (a tug, two gun barges, a fuel barge, the parts barge) sail north up it, each on water, and armoured cars and tankers drive north along the road; the armed ones fire
+// back; it comes once; the first pass has no such encounter and no river. No errors.
+{
+  const page = await freshPage();
+  const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
+    return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
+  ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
+  ok(a.river === 1 && a.plan && a.plan.length === 1 && a.plan[0] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
+    for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
+      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead);
+        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, wys: B.map(e => e.wy), ebul: world.ebul.length }; })()`);
+      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.wys.slice(); o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.shots = Math.max(o.shots, q.ebul);
+        if (q.t > 500 && !o.wy1) o.wy1 = q.wys.slice(); }
+      else if (o.started) o.ended = q.enc || 'none'; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5, `the convoy comes: ${f.kinds}; ${f.road} road vehicles`);
+  ok(f.dry === 0 && f.wet > 10, `every river craft sails on water (${f.wet} samples on the river, ${f.dry} off it)`);
+  ok(f.wy1 && f.wy0.length === f.boats && f.wy1.every((w, k) => w <= f.wy0[k] + 1) && f.wy1.some((w, k) => w < f.wy0[k] - 20), 'the river craft sail north (their world y falls)');
+  ok(f.shots > 0 && f.ended !== null && f.errs.length === 0, `the armed ones fire back, the encounter ends and rests, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
 // over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
 // and a snapshot can still be taken.

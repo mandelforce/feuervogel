@@ -3196,17 +3196,18 @@ function forestLand(o) {
     feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
       const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
       const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
-        R.c = y => base + 9 * Math.sin(y * 0.028 + ph) + (1 - R.f(y)) * 76; R.hw = y => (24 + 3 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+        R.c = y => base + 5 * Math.sin(y * 0.022 + ph) + (1 - R.f(y)) * 80; R.hw = y => (31 + 2 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
         R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
       const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
       const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
-      for (const base of [168, 162, 174, 156, 180, 150]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
-      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b });
+      for (const base of [174, 170, 178, 166, 182, 162]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
+      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b, cx: [], hw: [] }); /* (cx, hw: the centre line and half-width at each row a to b, for the game's boats) */
       const R = pick, xb = y => Math.round((R.side > 0 ? R.c(y) - R.hw(y) : W - 1 - (R.c(y) - R.hw(y)))); /* the road-side bank's x, at row y */
       for (let y = a - 4; y <= b + 4; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = R.d(x, y); if (d > 0) { Kr[i] = K.WATER; Br[i] = -18; } else if (d > -3 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } }
       const qa = Math.round(a + 0.5 * (b - a)), qb = qa + 84, bank = R.side > 0 ? -1 : 1; /* the harbour: a quay along the bank, three piers out over the water */
       for (let y = qa; y <= qb; y++) for (let k = 0; k <= 8; k++) { const x = xb(y) + bank * k * (R.side > 0 ? 1 : 1) * (R.side > 0 ? 1 : 1); if (!inB(x, y)) continue; const i = idx(x, y); if (Kr[i] === K.WATER) continue; Kr[i] = K.QUAY; Br[i] = -13; }
       for (let q = 0; q < 3; q++) { const y0 = qa + 10 + q * 28; for (let dy = 0; dy < 3; dy++) for (let k = -2; k < 16; k++) { const x = xb(y0 + dy) - bank * k; if (!inB(x, y0 + dy)) continue; const i = idx(x, y0 + dy); if (Kr[i] === K.WATER || Kr[i] === K.QUAY) { Kr[i] = K.QUAY; Br[i] = -14; } } }
+      for (let y = a; y <= b; y++) { const rv = rivers[rivers.length - 1]; rv.cx.push(Math.round((R.side > 0 ? R.c(y) : W - 1 - R.c(y)) * 10) / 10); rv.hw.push(Math.round(R.hw(y) * 10) / 10); }
       rivers[rivers.length - 1].qa = qa; rivers[rivers.length - 1].qb = qb; });
     lap('valley'); }
 
