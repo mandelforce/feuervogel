@@ -1589,7 +1589,8 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
+let LIGHT_R = false; /* the moonrise (plan.shadowMask): the light is on the right, so sloped roofs, domes and round roofs (tanks, towers, chimneys) are lit from the right, not the first pass's left */
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP;  LIGHT_R = !!plan.shadowMask;};
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -1648,9 +1649,9 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   }
   const along = b.ori === 'h', a = along ? lx : ly, c = along ? ly : lx, Lg = along ? w : h, Dd = along ? h : w, mid = (Dd - 1) / 2;
   if (style === 'saw') { const ph = c % 5; return ph === 0 ? C.roofs[3][4] : ph === 1 ? ramp[0] : (C.snowRoof || ramp)[pickI(5, 0.25 + ph * 0.14, wx, wy)]; } // a sawtooth roof: rows of north lights (winter: snow on the slopes)
-  let l = c < mid ? 0.78 : 0.34;
+  let l = (LIGHT_R && !along ? c > mid : c < mid) ? 0.78 : 0.34; // (the moonrise: a roof whose ridge runs up the screen is lit on its right slope)
   if (Math.abs(c - mid) < 0.6) l = 0.95;
-  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = 0.62; else if (Lg - 1 - a < e) l = 0.22; }
+  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = LIGHT_R && along ? 0.22 : 0.62; else if (Lg - 1 - a < e) l = LIGHT_R && along ? 0.62 : 0.22; }
   if (a % 3 === 0) l -= 0.08;
   const ch = 2 + ((hh(b.seed, 9) * Math.max(1, Lg - 5)) | 0);
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
@@ -1659,7 +1660,7 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
 }
 // a round building's pixel: a copper dome with ribs and a lantern, a gas holder inside its guide frame, or a column with a gilded figure
 function roundPix(b, x, y) {
-  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = (-dx + dy) / b.r; // lit from the upper left
+  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = ((LIGHT_R ? dx : -dx) + dy) / b.r; // lit from the upper left (the moonrise: the upper right)
   if (b.t === 'monument') { if (rr < 1.3) return C.fire[0]; if (rr < 1.9) return C.fire[1]; return e > 0.86 ? C.shadow : C.side[light > 0 ? 2 : 1]; }
   if (b.part === 'pavilion' || (b.part === 'dome' && C === C_DESERT)) { if (e > 0.88) return C.shadow; if (rr < 1.2) return C.lit; return C.dome[pickI(5, domeLit(dx / b.r, dy / b.r, e), x, y)]; } // a white dome (a pier pavilion; in the desert any dome)
   if (b.part === 'pillbox') { if (e > 0.88) return C.shadow; const toward = (b.sea < 0 ? -dy : dy) / b.r; if (e > 0.62 && toward > 0.3 && Math.abs(dx) < b.r * 0.7) return C.shadow; return C.conc[pickI(4, 0.6 - e * 0.25 + light * 0.3, x, y)]; } // a pillbox: slits towards the sea
@@ -1767,9 +1768,13 @@ function castShadows(plan) {
     for (let t = 1; t <= n; t++) { const sv = Math.round(255 * (1 - 0.4 * t / n)), ox = Math.round(dx * t), oy = Math.round(dy * t);
       const mark = (x, y) => { x += ox; y += oy; if (x < 0 || x >= W || y < 0 || y >= L) return; const i = y * W + x, k = Kr[i]; if (k === K.BLDG || k === K.SEA || k === K.WATER || k === K.RIVER) return; if (mask[i] < sv) mask[i] = sv; };
       for (let x = x0; x <= x1; x++) { mark(x, y0); mark(x, y1); } for (let y = y0; y <= y1; y++) { mark(x0, y); mark(x1, y); } } }
+  const spot = (cx, cy, r, v) => { for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { if (xx * xx + yy * yy > r * r) continue; const x = Math.round(cx + xx), y = Math.round(cy + yy); if (x < 0 || x >= W || y < 0 || y >= L) continue; const i = y * W + x, k = Kr[i]; if (k === K.BLDG || k === K.SEA || k === K.WATER || k === K.RIVER) continue; if (mask[i] < v) mask[i] = v; } };
+  for (const t of plan.trees || []) { if (t.palm || t.bare) continue; spot(t.x - 2, t.y - 2, t.scrub ? 2 : t.r, 150); } /* a tree's shadow: its crown's disc, two cells to the lower left (the first pass's went to the lower right) */
+  for (const p of plan.pylons || []) if (p.ok) for (let d = -3; d <= 3; d++) spot(p.x - d - 2, p.y + d - 2, 1, 120);
   plan.shadowMask = mask;
 }
 function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
+  const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
@@ -1948,20 +1953,20 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
       if (iceSh < 1) c = [c[0] * iceSh | 0, c[1] * iceSh | 0, c[2] * (0.25 + 0.75 * iceSh) | 0];
       if (plan.shadeM && plan.shadeM[i] && k !== K.BLDG) c = [c[0] * 0.76 | 0, c[1] * 0.8 | 0, c[2] * 0.9 | 0]; // (winter) in a mountain's shadow
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
-      if (k !== K.BLDG && desert) { const sb = bAt(x - 3, y + 3); if (sb && !(sb.part === 'apse')) c = [c[0] * 0.6 + 7 | 0, c[1] * 0.6 + 6 | 0, c[2] * 0.6 + 10 | 0]; } // the desert: no facades, the shadow of the game's sprites (3 px right, 3 px down)
+      if (k !== K.BLDG && desert && !moonSh) { const sb = bAt(x - 3, y + 3); if (sb && !(sb.part === 'apse')) c = [c[0] * 0.6 + 7 | 0, c[1] * 0.6 + 6 | 0, c[2] * 0.6 + 10 | 0]; } // the desert: no facades, the shadow of the game's sprites (3 px right, 3 px down)
       else if (k !== K.BLDG) {
         let f = null; for (let kk = 1; kk <= 3; kk++) { const b = bAt(x, y + kk); if (b) { f = [b, kk]; break; } }
         if (f) { const [b, kk] = f; if (b.part === 'apse' || b.dmg >= 3) { if (kk === 1) c = C.shadow; }
           else if (b.part === 'casemate' || b.part === 'atwall' || b.part === 'pillbox' || b.part === 'tobruk' || b.part === 'radar') { if (kk === 1) c = C.conc[0]; else if (kk === 2) c = C.shadow; } // low concrete: a bare wall, no windows
           else if (kk === 3) c = C.shadow; else { const pal = C.facade[b.church ? 2 : (hh(b.seed, 51) * 3) | 0]; c = x % 3 === 1 ? (hh(x >> 1, b.seed + kk) < (b.dmg ? 0.04 : 0.12) ? C.lit : C.dark) : pal[kk === 1 ? 2 : 1]; } }
-        else if (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4)) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
+        else if (!moonSh && (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4))) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
       }
       if (plan.shadowMask && plan.shadowMask[i] && k !== K.BLDG) { const sk = plan.shadowMask[i] / 255 * 0.6; c = [c[0] * (1 - sk) | 0, c[1] * (1 - sk * 0.92) | 0, c[2] * (1 - sk * 0.7) | 0]; } // the moon's cast shadow (castShadows)
       const o = (sr * W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
   }
   // craters, trees (shadow first), fires: drawn over the ground
-  const put = (x, y, c, a = 1) => { const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
+  const put = (x, y, c, a = 1) => { if (moonSh && a < 1 && c === C.shadow) return; const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
   for (const cr of plan.craters) { if (cr.y + cr.r + 3 < y0 || cr.y - cr.r - 3 >= y0 + h) continue; // its rim reaches 2 px past r
     for (let yy = Math.floor(cr.y - cr.r - 2); yy <= cr.y + cr.r + 2; yy++) for (let xx = Math.floor(cr.x - cr.r - 2); xx <= cr.x + cr.r + 2; xx++) { const rr = Math.hypot(xx + 0.5 - cr.x, yy + 0.5 - cr.y); if (rr < cr.r) put(xx, yy, rr < cr.r - 1.2 ? C.rubble[0] : C.rubble[2]); else if (rr < cr.r + 2 && hh(xx, yy) < 0.6) put(xx, yy, C.shadow, 0.45); } }
   for (const b of plan.boats) { if (b.y0 + b.h < y0 || b.y0 >= y0 + h) continue; // a barge: dark hull, a lighter deck, cargo, a cabin at the stern
@@ -2246,7 +2251,7 @@ function nightLights(plan) {
 }
 // The desert's domed hall (it takes the church's place and footprint, never a minaret): a big white dome over the crossing, a small dome on
 // the front tower, a half dome over the apse, flat plastered roofs on the nave and the transepts. Domes are lit from the upper left.
-function domeLit(dx, dy, dd) { return 0.42 + 0.42 * (-0.55 * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
+function domeLit(dx, dy, dd) { return 0.42 + 0.42 * ((LIGHT_R ? 0.55 : -0.55) * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
 function domedHallPix(b, x, y) {
   const D = b.church.dome, ddx = (x + 0.5 - D.x) / D.r, ddy = (y + 0.5 - D.y) / D.r, dd = Math.hypot(ddx, ddy);
   if (dd < 1) { if (dd > 0.86) return C.dome[0]; if (dd < 0.16) return C.dome[4]; if (dd < 0.27) return C.dome[1]; return C.dome[pickI(5, domeLit(ddx, ddy, dd), x, y)]; } // the drum's rim, a lantern on top

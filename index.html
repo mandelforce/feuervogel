@@ -2060,7 +2060,8 @@ const C_DESERT = Object.assign({}, C_TEMP, {
   bag: HX(['#d8c290', '#c2aa76', '#a68e5c', '#5e4a30']), pool: HX(['#0a3442', '#0e4a5a', '#146272', '#1c7c8a', '#2a96a2', '#48b0b4', '#78ccc4']), net: HX(['#6e5432', '#8a6c40', '#9c7c4c', '#b8975c', '#d6b678']), wire: HX(['#1e1a16', '#4a443c', '#2a2016']),
 });
 let C = C_TEMP;
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP; };
+let LIGHT_R = false; /* the moonrise (plan.shadowMask): the light is on the right, so sloped roofs, domes and round roofs (tanks, towers, chimneys) are lit from the right, not the first pass's left */
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP;  LIGHT_R = !!plan.shadowMask;};
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -2119,9 +2120,9 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
   }
   const along = b.ori === 'h', a = along ? lx : ly, c = along ? ly : lx, Lg = along ? w : h, Dd = along ? h : w, mid = (Dd - 1) / 2;
   if (style === 'saw') { const ph = c % 5; return ph === 0 ? C.roofs[3][4] : ph === 1 ? ramp[0] : (C.snowRoof || ramp)[pickI(5, 0.25 + ph * 0.14, wx, wy)]; } // a sawtooth roof: rows of north lights (winter: snow on the slopes)
-  let l = c < mid ? 0.78 : 0.34;
+  let l = (LIGHT_R && !along ? c > mid : c < mid) ? 0.78 : 0.34; // (the moonrise: a roof whose ridge runs up the screen is lit on its right slope)
   if (Math.abs(c - mid) < 0.6) l = 0.95;
-  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = 0.62; else if (Lg - 1 - a < e) l = 0.22; }
+  if (style === 'hip') { const e = Math.min(c, Dd - 1 - c); if (a < e) l = LIGHT_R && along ? 0.22 : 0.62; else if (Lg - 1 - a < e) l = LIGHT_R && along ? 0.62 : 0.22; }
   if (a % 3 === 0) l -= 0.08;
   const ch = 2 + ((hh(b.seed, 9) * Math.max(1, Lg - 5)) | 0);
   if (!b.church && Math.abs(c - (mid - 2)) < 1 && (a === ch || a === ch + 1)) return a === ch ? C.side[2] : C.shadow; // chimney
@@ -2130,7 +2131,7 @@ function roofPix(lx, ly, b, ramp, wx, wy) {
 }
 // a round building's pixel: a copper dome with ribs and a lantern, a gas holder inside its guide frame, or a column with a gilded figure
 function roundPix(b, x, y) {
-  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = (-dx + dy) / b.r; // lit from the upper left
+  const dx = x + 0.5 - b.acx, dy = y + 0.5 - b.acy, rr = Math.hypot(dx, dy), e = rr / b.r, an = Math.atan2(dy, dx), light = ((LIGHT_R ? dx : -dx) + dy) / b.r; // lit from the upper left (the moonrise: the upper right)
   if (b.t === 'monument') { if (rr < 1.3) return C.fire[0]; if (rr < 1.9) return C.fire[1]; return e > 0.86 ? C.shadow : C.side[light > 0 ? 2 : 1]; }
   if (b.part === 'pavilion' || (b.part === 'dome' && C === C_DESERT)) { if (e > 0.88) return C.shadow; if (rr < 1.2) return C.lit; return C.dome[pickI(5, domeLit(dx / b.r, dy / b.r, e), x, y)]; } // a white dome (a pier pavilion; in the desert any dome)
   if (b.part === 'pillbox') { if (e > 0.88) return C.shadow; const toward = (b.sea < 0 ? -dy : dy) / b.r; if (e > 0.62 && toward > 0.3 && Math.abs(dx) < b.r * 0.7) return C.shadow; return C.conc[pickI(4, 0.6 - e * 0.25 + light * 0.3, x, y)]; } // a pillbox: slits towards the sea
@@ -2238,9 +2239,13 @@ function castShadows(plan) {
     for (let t = 1; t <= n; t++) { const sv = Math.round(255 * (1 - 0.4 * t / n)), ox = Math.round(dx * t), oy = Math.round(dy * t);
       const mark = (x, y) => { x += ox; y += oy; if (x < 0 || x >= W || y < 0 || y >= L) return; const i = y * W + x, k = Kr[i]; if (k === K.BLDG || k === K.SEA || k === K.WATER || k === K.RIVER) return; if (mask[i] < sv) mask[i] = sv; };
       for (let x = x0; x <= x1; x++) { mark(x, y0); mark(x, y1); } for (let y = y0; y <= y1; y++) { mark(x0, y); mark(x1, y); } } }
+  const spot = (cx, cy, r, v) => { for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { if (xx * xx + yy * yy > r * r) continue; const x = Math.round(cx + xx), y = Math.round(cy + yy); if (x < 0 || x >= W || y < 0 || y >= L) continue; const i = y * W + x, k = Kr[i]; if (k === K.BLDG || k === K.SEA || k === K.WATER || k === K.RIVER) continue; if (mask[i] < v) mask[i] = v; } };
+  for (const t of plan.trees || []) { if (t.palm || t.bare) continue; spot(t.x - 2, t.y - 2, t.scrub ? 2 : t.r, 150); } /* a tree's shadow: its crown's disc, two cells to the lower left (the first pass's went to the lower right) */
+  for (const p of plan.pylons || []) if (p.ok) for (let d = -3; d <= 3; d++) spot(p.x - d - 2, p.y + d - 2, 1, 120);
   plan.shadowMask = mask;
 }
 function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
+  const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
@@ -2419,20 +2424,20 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
       if (iceSh < 1) c = [c[0] * iceSh | 0, c[1] * iceSh | 0, c[2] * (0.25 + 0.75 * iceSh) | 0];
       if (plan.shadeM && plan.shadeM[i] && k !== K.BLDG) c = [c[0] * 0.76 | 0, c[1] * 0.8 | 0, c[2] * 0.9 | 0]; // (winter) in a mountain's shadow
       // facades and shadows: the view is slightly from the south, so a building shows its south wall below its roof (as in the game)
-      if (k !== K.BLDG && desert) { const sb = bAt(x - 3, y + 3); if (sb && !(sb.part === 'apse')) c = [c[0] * 0.6 + 7 | 0, c[1] * 0.6 + 6 | 0, c[2] * 0.6 + 10 | 0]; } // the desert: no facades, the shadow of the game's sprites (3 px right, 3 px down)
+      if (k !== K.BLDG && desert && !moonSh) { const sb = bAt(x - 3, y + 3); if (sb && !(sb.part === 'apse')) c = [c[0] * 0.6 + 7 | 0, c[1] * 0.6 + 6 | 0, c[2] * 0.6 + 10 | 0]; } // the desert: no facades, the shadow of the game's sprites (3 px right, 3 px down)
       else if (k !== K.BLDG) {
         let f = null; for (let kk = 1; kk <= 3; kk++) { const b = bAt(x, y + kk); if (b) { f = [b, kk]; break; } }
         if (f) { const [b, kk] = f; if (b.part === 'apse' || b.dmg >= 3) { if (kk === 1) c = C.shadow; }
           else if (b.part === 'casemate' || b.part === 'atwall' || b.part === 'pillbox' || b.part === 'tobruk' || b.part === 'radar') { if (kk === 1) c = C.conc[0]; else if (kk === 2) c = C.shadow; } // low concrete: a bare wall, no windows
           else if (kk === 3) c = C.shadow; else { const pal = C.facade[b.church ? 2 : (hh(b.seed, 51) * 3) | 0]; c = x % 3 === 1 ? (hh(x >> 1, b.seed + kk) < (b.dmg ? 0.04 : 0.12) ? C.lit : C.dark) : pal[kk === 1 ? 2 : 1]; } }
-        else if (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4)) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
+        else if (!moonSh && (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4))) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
       }
       if (plan.shadowMask && plan.shadowMask[i] && k !== K.BLDG) { const sk = plan.shadowMask[i] / 255 * 0.6; c = [c[0] * (1 - sk) | 0, c[1] * (1 - sk * 0.92) | 0, c[2] * (1 - sk * 0.7) | 0]; } // the moon's cast shadow (castShadows)
       const o = (sr * W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
   }
   // craters, trees (shadow first), fires: drawn over the ground
-  const put = (x, y, c, a = 1) => { const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
+  const put = (x, y, c, a = 1) => { if (moonSh && a < 1 && c === C.shadow) return; const sr = y0 + h - 1 - y; if (x < 0 || x >= W || sr < 0 || sr >= h) return; const o = (sr * W + x) * 4; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] = d[o] * (1 - a) + c[0] * a; d[o + 1] = d[o + 1] * (1 - a) + c[1] * a; d[o + 2] = d[o + 2] * (1 - a) + c[2] * a; } };
   for (const cr of plan.craters) { if (cr.y + cr.r + 3 < y0 || cr.y - cr.r - 3 >= y0 + h) continue; // its rim reaches 2 px past r
     for (let yy = Math.floor(cr.y - cr.r - 2); yy <= cr.y + cr.r + 2; yy++) for (let xx = Math.floor(cr.x - cr.r - 2); xx <= cr.x + cr.r + 2; xx++) { const rr = Math.hypot(xx + 0.5 - cr.x, yy + 0.5 - cr.y); if (rr < cr.r) put(xx, yy, rr < cr.r - 1.2 ? C.rubble[0] : C.rubble[2]); else if (rr < cr.r + 2 && hh(xx, yy) < 0.6) put(xx, yy, C.shadow, 0.45); } }
   for (const b of plan.boats) { if (b.y0 + b.h < y0 || b.y0 >= y0 + h) continue; // a barge: dark hull, a lighter deck, cargo, a cabin at the stern
@@ -2717,7 +2722,7 @@ function nightLights(plan) {
 }
 // The desert's domed hall (it takes the church's place and footprint, never a minaret): a big white dome over the crossing, a small dome on
 // the front tower, a half dome over the apse, flat plastered roofs on the nave and the transepts. Domes are lit from the upper left.
-function domeLit(dx, dy, dd) { return 0.42 + 0.42 * (-0.55 * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
+function domeLit(dx, dy, dd) { return 0.42 + 0.42 * ((LIGHT_R ? 0.55 : -0.55) * dx + 0.75 * dy) + 0.25 * (Math.sqrt(Math.max(0, 1 - dd * dd)) - 0.5); }
 function domedHallPix(b, x, y) {
   const D = b.church.dome, ddx = (x + 0.5 - D.x) / D.r, ddy = (y + 0.5 - D.y) / D.r, dd = Math.hypot(ddx, ddy);
   if (dd < 1) { if (dd > 0.86) return C.dome[0]; if (dd < 0.16) return C.dome[4]; if (dd < 0.27) return C.dome[1]; return C.dome[pickI(5, domeLit(ddx, ddy, dd), x, y)]; } // the drum's rim, a lantern on top
@@ -4367,7 +4372,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.72'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.78'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6304,7 +6309,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   SPR.straw = sprite(30, 24, x => { for (let i = 0; i < 26; i++) { const a2 = i * 2.6, r2 = 9 + (i % 4) * 2; rect(x, STRAW[2 + (i % 3)], Math.round(15 + Math.cos(a2) * r2), Math.round(12 + Math.sin(a2) * r2 * 0.75), 2, 1); } }, { outline: false });
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
-function shadow(s, x, y, ox, oy, a = 0.32) { if (!s || !s.k) return; ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
+function shadow(s, x, y, ox, oy, a = 0.32) { if (!s || !s.k) return; if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
   r = Math.max(0, Math.round(r));
@@ -8754,6 +8759,18 @@ function resetTerrainState() {
 }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
+  bossJump();
+}
+/* The boss test link (?boss, levels 2 to 6): the level starts a few chunks before its boss (the Campaign's unchanged: only a practice run, or a local build, takes it, as ?enc does).
+   The Shadow Wing and the level's encounters are skipped, the weapon is at level 4 and there are three Novas, so a boss can be tried at once. Every level started in the run is moved the same way. */
+const BOSS_TRY = new URLSearchParams(location.search).get('boss');
+function bossJump() {
+  const S = run.sortie; if (BOSS_TRY === null || !S || S.level < 2 || S.bossAt == null || !(LB_TEST || !run.ranked) || app.tut || world.bossSpawned) return;
+  const sc = Math.round((world.stageBaseP + S.bossAt + Math.ceil(XH / CH) - 3) * CH); /* 3 chunks (about 8 s) before the trigger */
+  world.scroll = sc; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; /* (the scroll speed stays as the level start set it) */
+  for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; }
+  world.midDone = true; const P = S.encPlan || ENC_PLAN[S.level]; if (P) world.encPlanI = P.length;
+  if (player) player.lvl = Math.max(player.lvl, 4); run.bombs = Math.max(run.bombs, 3);
 }
 function restartStage() { // pause menu: restart the stage in the mode being played (startAt alone would drop the Enigma sortie and fly the Retro Run)
   const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;
@@ -11785,7 +11802,7 @@ function bossIntro(e) {
   BOSS[e.kind].intro(e);
 }
 /* Night Hammer rocket launcher (the first loop's level 3 only, run.sortie.moon): the tender behind the gun carries twelve rockets on its cradles. Twice they go, six at a time:
-   when the core is at half its health and again at a tenth. A salvo makes its six red areas one after another (NR.GAP frames apart), each made at the player's place: it follows
+   when the core, or the boss bar (all parts), is at half its health and again at a tenth, whichever gets there first. A salvo makes its six red areas one after another (NR.GAP frames apart), each made at the player's place: it follows
    the ship for NR.FOLLOW frames, locks where it is for NR.LOCK frames, then its rocket leaves its cradle and flies to the area (NR.FLY frames) and bursts. The ship has to be out of the
    area by then. State is plain data on the boss (e.nr: fired cradles, the areas), so a snapshot keeps it; nothing here draws a random number. */
 const NR = { SLOTS: [[27, 17], [36, 17], [44, 17], [53, 17], [27, 38], [36, 38], [44, 38], [53, 38], [27, 59], [36, 59], [44, 59], [53, 59]], SALVO: [[0, 2, 5, 7, 8, 10], [1, 3, 4, 6, 9, 11]], AT: [0.5, 0.1], GAP: 20, FOLLOW: 16, LOCK: 26, FLY: 34, R: 19, DX: -40, DY: -159 };
@@ -11804,8 +11821,8 @@ function nightRockets(e, core) {
   }
   S.zones = S.zones.filter(z => z.ph < 2);
   if (e.dying || !core || core.dead || !hasT()) { S.zones = []; S.pend = []; return; }
-  const at = NR.AT[S.salvo];
-  if (at !== undefined && core.hp <= core.maxhp * at && !S.pend.length && !S.zones.length) { /* the next salvo: the six cradles of its set, one area every GAP frames */
+  const at = NR.AT[S.salvo]; let bh = 0, bm = 0; for (const q of e.parts) { bh += Math.max(0, q.hp); bm += q.maxhp; } /* the boss bar's health (all parts) and the core's: the salvo goes at the first of them to reach its mark */
+  if (at !== undefined && Math.min(core.hp / core.maxhp, bh / Math.max(1, bm)) <= at && !S.pend.length && !S.zones.length) { /* the next salvo: the six cradles of its set, one area every GAP frames */
     S.pend = NR.SALVO[S.salvo].slice(); S.pt = 30; S.salvo++; sfx('charge'); haptic('warn');
   }
   if (S.pend.length && --S.pt <= 0) { const slot = S.pend.shift(), s = nearShip(e.x, e.y); S.zones.push({ ph: 0, t: 0, x: clamp(s.x, NR.R, W - NR.R), y: clamp(s.y, 30, H - 30), slot, who: s === p2 ? 2 : 1 }); S.pt = NR.GAP; sfx('tick'); } /* the next area, made at the ship's place (a queue, not a delayed call: a snapshot keeps it) */
@@ -11826,9 +11843,9 @@ function nrBody(x, y, a, flame) { /* one rocket, lying along angle a: grey body 
   if (flame) dk(x - c * 8, y - sn * 8, 2.5 + (gf & 1), (gf & 2) ? '#ffd060' : '#ff6a1a');
   seg(4, '#120e1a', -6, 6); seg(2, '#b4b6ba', -5, 4); seg(2, '#d84a34', 4, 6); dk(x - c * 6, y - sn * 6, 1.2, '#3a3e46');
 }
-function drawNRrockets(e) { /* the rockets still on their cradles (nose to the south), then the ones in flight */
+function drawNRrockets(e, cradles) { /* the rockets still on their cradles (nose to the south, only when the launcher picture is up), then the ones in flight */
   const S = e.nr || { fired: [], zones: [] };
-  for (let i = 0; i < NR.SLOTS.length; i++) if (!S.fired[i]) { const [x, y] = nrSlotPos(e, i); nrBody(x, y, PI / 2, false); }
+  if (cradles) for (let i = 0; i < NR.SLOTS.length; i++) if (!S.fired[i]) { const [x, y] = nrSlotPos(e, i); nrBody(x, y, PI / 2, false); }
   if (!e.dying) for (const z of S.zones) if (z.ph === 1) { const f = Math.min(1, z.t / NR.FLY), [x, y] = nrPos(z, f), [x2, y2] = nrPos(z, Math.min(1, f + 0.04)); nrBody(x, y, Math.atan2(y2 - y + 0.001, x2 - x), true); }
 }
 // Night Hammer: when a searchlight catches the player, a red lock-on follows them for ~2/3 s, freezes,
@@ -15578,10 +15595,10 @@ const BOSS_LOOKS = {
   },
   railgun(e, fl, core) {
     const NRL = run.sortie && run.sortie.moon && SPR.rgBaseL1; /* the first loop's level 3: the carriage with the rocket launcher behind it (the same coordinates for everything else) */
-    if (NRL) drawNRzones(e);
+    if (run.sortie && run.sortie.moon) drawNRzones(e); /* (whatever art is on: an area must show even if the launcher picture has not arrived) */
     spr(NRL || SPR.rgBase, e.x, e.y - ((NRL || SPR.rgBase).h - 152) / 2, fl); // the Enigma carriage is longer behind (the girder frame): the old carriage's centre stays on the boss position, so the parts sit where they always did
     drawBossParts(e, { main: SPR.bMain, aa: SPR.bAA, light: SPR.searchBase, core: SPR.rgBarrel });
-    if (NRL) drawNRrockets(e);
+    if (run.sortie && run.sortie.moon) drawNRrockets(e, !!NRL);
     if (e.hb && !core.dead) { // Hammer Blow charging: the muzzle glows hotter, orange to white
       const f = Math.min(1, e.hb.t / 120), mx = e.x + core.ox + Math.cos(core.ang) * 58, my = e.y + core.oy + Math.sin(core.ang) * 58;
       ctx.globalAlpha = 0.35 + 0.3 * f; dk(mx, my, 5 + f * 9 + ((gf >> 2) & 1), '#ff6a1a'); ctx.globalAlpha = 1; dk(mx, my, 2 + f * 5, f > 0.7 && (gf & 4) ? '#ffffff' : '#ffd060');
