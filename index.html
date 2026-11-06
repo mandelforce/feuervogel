@@ -6260,7 +6260,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
   SPR.straw = sprite(30, 24, x => { for (let i = 0; i < 26; i++) { const a2 = i * 2.6, r2 = 9 + (i % 4) * 2; rect(x, STRAW[2 + (i % 3)], Math.round(15 + Math.cos(a2) * r2), Math.round(12 + Math.sin(a2) * r2 * 0.75), 2, 1); } }, { outline: false });
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
-const AIRSH = { d: 1.6, a: 0.28 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity */
+const AIRSH = { d: 1.6, a: 0.252 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity */
 function shadow(s, x, y, ox, oy, a = 0.32) { if (!s || !s.k) return; if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
