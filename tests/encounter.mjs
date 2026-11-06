@@ -394,6 +394,25 @@ const playOut = `
   ok(r.boss, 'the boss still comes');
   await page.close();
 }
+// Level 3 in the first loop only (seed 1945, variant 1; run.sortie.encPlan): Refinery Raid over the power works (tankers, the oil tanks of its plants are targets), Searchlight Net over the
+// light industry, Night Convoy in the rail corridor, the Shadow Wing between; the moonrise. The first pass and the second loop (seed 1946) have none of it.
+{
+  const page = await freshPage();
+  const r0 = JSON.parse(await peek(page, `(() => { const o = []; for (const lp of [0, 2]) { SF.setMode('immortal'); SF.start(1, 1); startEnigma(3, false, lp); SF.run(60); o.push({ plan: run.sortie.encPlan, wingU: run.sortie.wingU, tod: run.sortie.timeOfDay, variant: run.sortie.variant, moon: run.sortie.moon }); } return JSON.stringify(o); })()`));
+  ok(r0.every(q => q.plan === null && !q.wingU && q.tod === 'night' && !q.variant && !q.moon), 'level 3, the first pass and the second loop (seed 1946): no loop encounters, the Wing where it was, no moonrise');
+  const r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(3, false, 1); const plan = run.sortie.encPlan, log = [], seen = { flak: 0, fuel: 0, ftruck: 0, bomber: 0 }; let cur = null;
+    for (let f = 0; f < 16000 && !world.bossSpawned; f += 20) { SF.run(20); ensureChunks();
+      if (world.enc && (!cur || cur.id !== world.enc.id)) { cur = { id: world.enc.id, c: -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP, end: null }; log.push(cur); }
+      if (world.encLast && cur && world.encLast.id === cur.id && !cur.end) cur.end = world.encLast.why;
+      const n = t => world.enemies.filter(e => e.type === t && !e.dead).length; for (const k of ['flak', 'fuel', 'ftruck', 'bomber']) seen[k] = Math.max(seen[k], n(k)); }
+    return JSON.stringify({ plan: plan.map(p => p.id).join(), log, seen, tod: run.sortie.timeOfDay, moon: run.sortie.moon, wingU: run.sortie.wingU, seed: run.sortie.seed, valid: CityGen.validate(run.sortie.plan).pass, boss: world.bossSpawned }); })()`));
+  const ids = r.log.map(x => x.id).join();
+  ok(r.moon && r.tod === 'night' && r.seed === 1945 && r.valid, `level 3 in the first loop: the moonrise on seed ${r.seed}, its plan passes the hard rules (${r.valid})`);
+  ok(ids === 'refineryraid,wing,searchnet,nightconvoy' && r.plan === 'refineryraid,searchnet,nightconvoy' && r.log.every(x => x.end === 'done'), `the encounters play in place, each to its end: ${r.log.map(x => x.id + '@' + x.c + ':' + x.end).join(' ')} (plan ${r.plan})`);
+  ok(r.seen.ftruck >= 2 && r.seen.flak >= 1, `Night Convoy: ${r.seen.ftruck} tankers at once; Searchlight Net: ${r.seen.flak} guns at once; fuel tanks seen: ${r.seen.fuel}`);
+  ok(r.boss, 'the boss still comes');
+  await page.close();
+}
 await browser.close();
 if (bad) { console.error(`\n${bad} problem(s) found, ${passed} passed.`); process.exit(1); }
 console.log(`Encounter test passed (${passed}).`);
