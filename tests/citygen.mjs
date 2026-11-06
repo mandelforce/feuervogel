@@ -263,6 +263,18 @@ if (part()) { let fails = 0, have = 0, posts = 0, posts0 = 0;
     if (p.yard && p.yard.wagons.length >= 20 && p.airbase && p.forest && p.pylons && p.searchPosts.length >= 4) have++; posts += p.searchPosts.length; posts0 += p0.searchPosts.length; }
   const ok = !fails && have === 30 && posts >= posts0; if (!ok) fail(`level 3 variant 1: ${fails} fail the rules, ${have}/30 have all their parts, ${posts} posts against ${posts0}`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 in the first loop: ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} posts per level (${(posts0 / 30).toFixed(1)} in the first pass)`); }
+// The moon's shadow angle (level 3, first loop): the light is on the right (the moon at the upper right), so ground beside a building is darker on its left than on its right, and the first pass's
+// soft shadows (which fall to the right) are left out; the first pass itself keeps them (darker on the right). Painted at night as the game does, over a band of the level.
+if (part()) { const side = (params) => { let dl = 0, n = 0;
+    for (let seed = 1; seed <= 3; seed++) { const p = CG.generate({ seed, preset: 'longNight', params }), H0 = 1400, img = { data: new Uint8ClampedArray(p.W * H0 * 4) }, y0 = 700; CG.paint(p, img, y0, H0, { night: true });
+      const lum = (x, y) => { const o = ((H0 - 1 - (y - y0)) * p.W + x) * 4; return img.data[o] * 0.3 + img.data[o + 1] * 0.59 + img.data[o + 2] * 0.11; };
+      for (const it of p.items) { if (it.gone || it.round || it.w < 8 || it.h < 8 || it.y0 < y0 + 6 || it.y0 + it.h > y0 + H0 - 6 || it.x0 < 6 || it.x0 + it.w > p.W - 6) continue;
+        const ym = it.y0 + (it.h >> 1), xl = it.x0 - 2, xr = it.x0 + it.w + 1, kl = p.K[ym * p.W + xl], kr = p.K[ym * p.W + xr], ok = k => k !== CG.K.BLDG && k !== CG.K.ROAD && k !== CG.K.STREET && k !== CG.K.RAIL;
+        if (ok(kl) && ok(kr) && kl === kr) { dl += lum(xr, ym) - lum(xl, ym); n++; } } }
+    return n ? dl / n : 0; };
+  const loop = side({ variant: 1, railShift: 3, shadows: 1 }), first = side({}), ok = loop > 0.5 && first < loop - 0.5;
+  if (!ok) fail(`shadow angle: ground beside a building is ${loop.toFixed(2)} brighter on its right in the loop, ${first.toFixed(2)} in the first pass`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} the moon's shadows fall to the left: ground is ${loop.toFixed(1)} brighter on a building's right than on its left in the loop (${first.toFixed(1)} in the first pass)`); }
 // Enigma level 4, the Iron Forest (forest land): every hard rule; on the cliff coast the sea, stacks, coves, three tiers of cliff with the road's
 // gorge from the slipway to the plateau, the clifftop battery (three casemates with arty slots), a lighthouse, a radar, a pillbox and a flak pit on
 // the ledges; in the conifer forest crowns of every size class and all three kinds, two forest roads that are tank routes, firebreaks, plantations,
