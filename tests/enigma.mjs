@@ -489,7 +489,7 @@ for (const lv of [2, 6]) {
   const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
     return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
   ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
-  ok(a.river === 1 && a.plan && a.plan.length === 1 && a.plan[0] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
     for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
       const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead);
@@ -502,6 +502,23 @@ for (const lv of [2, 6]) {
   ok(f.dry === 0 && f.wet > 10, `every river craft sails on water (${f.wet} samples on the river, ${f.dry} off it)`);
   ok(f.wy1 && f.wy0.length === f.boats && f.wy1.every((w, k) => w <= f.wy0[k] + 1) && f.wy1.some((w, k) => w < f.wy0[k] - 20), 'the river craft sail north (their world y falls)');
   ok(f.shots > 0 && f.ended !== null && f.errs.length === 0, `the armed ones fire back, the encounter ends and rests, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3i. Level 4's first loop (seed 1945): the Cliff Battery at the start. It is placed at the cliff coast (encPlan, c 1); gentle at first (nothing for 300 frames, the radar then stands
+// on the plateau); the rim guns (the artillery) fire only in its four broadsides, on a beat, growing (3, 4, 5, 5 shells a gun); with the radar shot away the middle gun's aimed fan is
+// left out. The first pass has no such encounter. No errors.
+{
+  const page = await freshPage();
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { early: 0, radarAt: -1, beats: [], ended: null, started: false, peaks: [], dead: false };
+    for (let i = 0; i < 90 && o.ended === null; i++) { SF.run(20);
+      const q = SF.peek(`(() => { const E0 = world.enc; return { enc: E0 && E0.id, t: E0 ? E0.t : 0, i: E0 ? E0.i : 0, radar: world.enemies.filter(e => e.type === 'radar' && !e.dead).length, arty: world.enemies.filter(e => e.type === 'arty' && !e.dead && e.y > 0).length, markers: markers.length, eb: world.ebul.filter(b => b.kind === 's' || b.kind === undefined).length }; })()`);
+      if (q.enc === 'cliffbattery') { o.started = true; if (q.t < 420 && q.markers > 0) o.early++; if (q.radar && o.radarAt < 0) o.radarAt = q.t; o.peaks.push([q.i, q.eb]); }
+      else if (o.started) o.ended = q.enc || 'none'; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const mx = k => Math.max(0, ...f.peaks.filter(p => p[0] === k + 2).map(p => p[1]));
+  ok(f.started && f.radarAt > 250 && f.early === 0, `level 4 first loop: the Cliff Battery starts gently (radar up at t ${f.radarAt}, no artillery fire before the first salvo)`);
+  ok(f.peaks.some(p => p[0] >= 5) && f.ended !== null, `all four broadsides fire and the encounter ends and rests (${f.ended})`);
+  ok(f.errs.length === 0, `no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
   await page.close();
 }
 // 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist

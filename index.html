@@ -4401,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.82'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.83'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8671,7 +8671,7 @@ function buildSortie(level, seed) {
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
-    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
+    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
   })() : (() => { // a loop's level 2: three encounters at their stretches (ENC_PLAN's layout, here from the stretches this seed made): the ambush at the village's oasis, the burning field in the first open desert, the fuel convoy in the last
@@ -10473,7 +10473,7 @@ function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
   if (live) { z.cd = SOWER.gap; return; }
-  if (world.enc && world.enc.id === 'valleyconvoy') { if (z.cd < 300) z.cd = 300; return; } /* (level 4's first loop: no Sower comes while the valley convoy is on) */
+  if (world.enc && (world.enc.id === 'valleyconvoy' || world.enc.id === 'cliffbattery')) { if (z.cd < 300) z.cd = 300; return; } /* (level 4's first loop: no Sower comes while the Cliff Battery or the valley convoy is on) */
   if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
   if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = ttOn() ? (z.n % 2 ? W / 2 - SOWER.laneX : W / 2 + SOWER.laneX) : player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX; // (the Campaign: right, then left)
@@ -13509,6 +13509,7 @@ const ENT = {
   gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, stats: { hp: 8, hw: 10, hh: 8, score: 500, rad: 11 }, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
   arty: { revenge: 2, guarded: true, medals: 1, treesInFront: true, stats: { hp: 10, hw: 10, hh: 10, score: 1000, rad: 12 }, update(e) {
     groundPos(e); if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
+    if (world.enc && world.enc.id === 'cliffbattery') return; /* (level 4's first loop: while the Cliff Battery is on, the rim guns fire only in its broadsides) */
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
       const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
@@ -15633,6 +15634,23 @@ ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 8, hh: 
 ENT.bargeG = { medals: 1, stats: { hp: VC.hp.bargeG, hw: 8, hh: 22, score: 1200, rad: 22 }, update: bargeUpdate };
 DEATHS.tug = { wreck: bargeWreck }; DEATHS.bargeC = { wreck: bargeWreck }; DEATHS.bargeG = { wreck: bargeWreck }; DEATHS.bargeF = { blast: 34, wreck: bargeWreck };
 for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { spr(SPR[t], e.x, e.y, fl); if (e.armed) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + (t === 'tug' ? 2 : 4), fl); };
+/* Cliff Battery (level 4's first loop, the cliff coast: run.sortie.encPlan, at the start of the level). The rim battery's three artillery pads fire only in broadsides, on a beat:
+   each gun lays a stream of shells straight down its own lane, the streams a little closer together every salvo and longer (3, 4, 5, 5 shells), so the gaps between them are the
+   way through. The radar on the plateau behind them is the weak point: while it stands, the middle gun also fans a few shells at the player (from the second salvo on); shoot it
+   and the broadsides are only the lanes. The ledge bunkers and flak pits below fire as they always do (the tiers come up one after the other as the ground scrolls). It starts
+   gentle: nothing for 5 seconds, the first salvo is one short stream a gun. */
+const CB = { shells: [3, 4, 5, 5], gap: 7, speed: 0.8 };
+ENC.cliffbattery = { name: 'CLIFF BATTERY', len: 1100, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: false, pod: false, ground: false }, ev: [
+  { t: 300, do: 'radar', wait: 400 }, { t: 430, do: 'broadside', i: 0, wait: 200 }, { t: 640, do: 'broadside', i: 1 }, { t: 850, do: 'broadside', i: 2 }, { t: 1060, do: 'broadside', i: 3 }] };
+TT_ENC.cliffbattery = 1100;
+ENC_VERB.radar = () => { const S = run.sortie, P = S && S.plan, it = P && P.items.find(q => q.part === 'radar'); if (!it) return true; if (world.enemies.some(e => e.type === 'radar' && Math.abs(e.wx - (it.x0 + it.w / 2)) < 20 && Math.abs(e.wy - (S.planY0 - it.y0)) < 20)) return true; /* the plateau's radar: where the plan paints it, once it is at the top of the screen */
+  const wx = Math.round(it.x0 + it.w / 2), wy = S.planY0 - Math.round(it.y0 + it.h / 2); if (wy + Math.floor(world.scroll) > 0) return false; world.enemies.push(G('radar', wx, wy, { rot: 0 })); return true; };
+ENC_VERB.broadside = v => { const guns = world.enemies.filter(e => e.type === 'arty' && !e.dead && !e.dying && !e.turDead && e.y > 8 && e.y < H - 50); if (!guns.length || !hasT()) return false;
+  const lock = world.enemies.some(o => o.type === 'radar' && !o.dead && !o.dying), n = CB.shells[Math.min(v.i, CB.shells.length - 1)], lean = (v.i % 2 ? 1 : -1) * 0.02 * v.i; guns.sort((a, b) => a.x - b.x);
+  guns.forEach((g, gi) => { const mid = gi === (guns.length >> 1); flash(g.x, g.y + 10, 6); smokePuff(g.x, g.y + 10); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
+    for (let k = 0; k < n; k++) world.later.push({ at: gf + k * CB.gap, fn: () => { if (g.dead || g.dying || !hasT()) return; const side = g.x < W / 2 ? 1 : -1; eshot(g.x, g.y + 12, PI / 2 + side * lean, bspeed() * CB.speed); } });
+    if (lock && v.i >= 1 && mid) for (const da of [-0.16, 0, 0.16]) world.later.push({ at: gf + 10, fn: () => { if (g.dead || g.dying || !hasT()) return; eshot(g.x, g.y + 12, aim(g.x, g.y + 12) + da, bspeed() * CB.speed); } }); });
+  return true; };
 ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.valleyconvoy = 1500;
