@@ -248,6 +248,13 @@ if (part()) { const L = 4224, params = { L, density: [[0, 0.05], [0.061, 0.05], 
   const ok = !fails && st === 30 && !out && ind >= 20 && per === 30 && stops === 30;
   if (!ok) fail(`level: station in its stretch ${st}/30, works in theirs ${ind} (outside ${out}), perimeter ${per}/30, buffer stops ${stops}/30`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} whole level (4224 px): ${30 - fails}/30 pass, station in its stretch in ${st}, ${ind} works quarters in theirs and ${out} outside, the airfield's perimeter in ${per}, buffer stops in ${stops}`); }
+// Enigma level 6 in its first loop (index.html HARBOUR6: the shore 11 percent further west, a side channel of 62, piers of up to 50): the harbour's hard rules, the 40 px fairway, the fleet area and the quay
+// hold over 30 seeds, and the fairway lies clearly further west than the first pass's.
+if (part()) { const L = 7000, H6 = { land: 0.56, pier: [30, 50], sideChannel: 62 }; let fails = 0, have = 0, west = 0;
+  for (let seed = 1; seed <= 30; seed++) { const mk = v => CG.generate({ seed, preset: 'portSouth', params: { L, damage: 1, perimeter: 100, coast: Object.assign({}, CG.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: 0.14, side: [0.15, 0.2] }, v) } }), p = mk(H6), p0 = mk(null);
+    if (!CG.validate(p).pass) fails++; const f = p.shipLanes.find(q => q.kind === 'fairway'), f0 = p0.shipLanes.find(q => q.kind === 'fairway'); if (f && f.w >= 40 && p.fleetArea && p.port.piers >= 5) have++; if (f && f0 && f.x <= f0.x - 12) west++; }
+  const ok = !fails && have === 30 && west === 30; if (!ok) fail(`level 6 loop harbour: ${fails} fail the rules, ${have}/30 have fairway, fleet area and piers, ${west}/30 moved west`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} level 6 first loop harbour: ${30 - fails}/30 pass, fairway, fleet area and piers in ${have}, the fairway moved west in ${west}`); }
 // Enigma level 3, the whole level (longNight preset): every hard rule, the yard with wagons and its train runs to the end, the airbase, the
 // forest, the pylon line and the searchlight posts (each with a generator) in every seed
 if (part()) { let fails = 0, have = 0, posts = 0;
