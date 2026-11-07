@@ -31,12 +31,12 @@ let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 
 const browser = await chromium.launch();
-async function freshPage() {
+async function freshPage(query = '') {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => { bad++; console.error('page error:', e.message); });
   await page.addInitScript(initScript);
-  await page.goto(PAGE);
+  await page.goto(PAGE + query);
   await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
@@ -529,6 +529,30 @@ for (const lv of [2, 6]) {
     const a = px(0.05), b = px(0.85); startEnigma(4, true, 0); return { a, b, first: !!run.sortie.autumn }; })()`);
   ok(r.a[1] > r.a[0] + 4 && r.b[0] > r.b[1] + 40 && !r.first, `level 4 first loop: overcast at the start (R ${r.a[0]}, B ${r.a[1]}), golden by the valley (R ${r.b[0]}, B ${r.b[1]}); the first pass has no autumn light`);
   await page.close();
+}
+// 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
+// gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
+// tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
+// guns, has no aerial fight and no ruin. No errors.
+{
+  const a = await freshPage('?boss=1'), b = await freshPage('?boss=1');
+  const first = await b.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, false, 0)'); const o = { guns: 0, ruin: null };
+    for (let i = 0; i < 90 && !o.guns; i++) { SF.run(60); o.guns = SF.peek("world.enemies.filter(e => ['bunker', 'aatower', 'popup', 'arty'].includes(e.type) && !e.dead).length"); }
+    o.ruin = SF.peek('!!(run.sortie && run.sortie.autumn)'); o.aer = SF.peek("world.enemies.some(e => e.type === 'protoDuel')"); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(first.guns > 0 && !first.ruin && !first.aer, `level 4 first pass: the castle keeps its guns (${first.guns}), no ruin, no aerial fight`);
+  const f = await a.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, false, 1)');
+    const o = { turMax: 0, tanksMax: 0, castle: false, aerial: 0, keepHit: 0, protoMin: 1, flee: false, fled: false, dmg: 0, open: false, lvl5: false, ruinPx: false, windmill: 0 };
+    for (let i = 0; i < 260 && !o.lvl5; i++) { SF.run(60);
+      const q = SF.peek(`(() => { const c = world.enemies.find(e => e.type === 'boss' && e.kind === 'castle'), p = world.enemies.find(e => e.type === 'protoDuel' && e.castle && !e.dead);
+        return { c: !!c, tur: world.enemies.filter(e => ['bunker', 'aatower', 'popup', 'arty'].includes(e.type) && !e.dead).length, tanks: world.enemies.filter(e => (e.type === 'tank' || e.type === 'htank') && !e.dead).length,
+          ae: !!(c && c.aerial), tw: c ? c.parts.filter(q => q.tw && q.hp < q.maxhp).length : 0, op: !!(c && c.open), ph: p ? p.hp / p.maxhp : null, pf: !!(p && p.flee), fl: !!(c && c.proFled), dmg: run.proto.dmg, lv: run.sortie && run.sortie.level, oth: c ? c.parts.filter(q => q.k !== 'core' && q.k !== 'light' && !q.dead).length : -1, spin: c ? c.wmT || 0 : 0 }; })()`);
+      if (q.c) { o.castle = true; o.turMax = Math.max(o.turMax, q.tur); o.tanksMax = Math.max(o.tanksMax, q.tanks); if (q.ae) { o.aerial++; o.keepHit += q.tw; } if (q.ph !== null) o.protoMin = Math.min(o.protoMin, q.ph); if (q.pf) o.flee = true; if (q.fl) o.fled = true; o.dmg = q.dmg; if (q.op) o.open = true; o.windmill = Math.max(o.windmill, q.spin); }
+      if (q.lv === 5) o.lvl5 = true; }
+    o.ruinPx = SF.peek('(() => { const c = SPR.ravenFloorRuin, d = SPR.ravenFloor; return !!c && c !== d && c.width === d.width; })()'); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(f.castle && f.turMax === 0 && f.tanksMax >= 8, `level 4 first loop: Ravenhold has no ground turrets (${f.turMax}) and ${f.tanksMax} tanks`);
+  ok(f.aerial > 3 && f.keepHit === 0 && f.protoMin >= 0.1 - 1e-6 && f.protoMin < 0.12 && f.flee && f.fled && f.dmg > 0, `the prototype fights in the air while the keep waits (${f.aerial} steps, keep parts hit ${f.keepHit} times), cannot be killed (lowest ${f.protoMin.toFixed(2)} of its health), flees, and what it lost carries over (${Math.round(f.dmg)})`);
+  ok(f.open && f.windmill > 20 && f.lvl5 && f.ruinPx && f.errs.length === 0, `then the tower falls under its windmills (${f.windmill} steps), the stage clears into level 5, the ruin floor is its own picture, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await a.close(); await b.close();
 }
 // 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
 // over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
