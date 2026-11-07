@@ -530,6 +530,78 @@ for (const lv of [2, 6]) {
   ok(r.a[1] > r.a[0] + 4 && r.b[0] > r.b[1] + 40 && !r.first, `level 4 first loop: overcast at the start (R ${r.a[0]}, B ${r.a[1]}), golden by the valley (R ${r.b[0]}, B ${r.b[1]}); the first pass has no autumn light`);
   await page.close();
 }
+// 3k. Level 5's first loop (seed 1945, run.sortie.winter): the blizzard. The overcast (drawWinterLight) takes the colour out of a mid-grey and tints it cool (blue above red); the snow
+// squalls come by stretch (squallAt: hard over the pass, light over the open stretches, none in the first pass); the streaks change pixels where it snows hard and nowhere with the flag
+// off; the first pass (1944) and 1946 have no winter flag. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const flags = lv => { startEnigma(5, true, lv); const S = run.sortie; return [S.seed, !!S.winter]; }; o.f0 = flags(0); o.f1 = flags(1); o.f2 = flags(2);
+    startEnigma(5, true, 1); const S = run.sortie, g = S.segs.find(q => q.t === 'pass'), at = c => -(c + world.stageBaseP) * CH; o.pass = squallAt(at(g.start + g.n / 2)); o.sea = squallAt(at(2)); 
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, W, H); drawWinterLight(); const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; o.px = [d[0], d[1], d[2]];
+    const shot = () => { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#202020'; ctx.fillRect(0, 0, W, H); drawSquall(); return Array.from(ctx.getImageData(0, 0, W, H).data); };
+    world.scroll = at(g.start + g.n / 2) + H / 2; o.sq = squallAt(H / 2 - world.scroll); gf = 100; const a = shot(); gf = 130; const b = shot(); let dd = 0, lit = 0; for (let k = 0; k < a.length; k += 4) { if (a[k] !== b[k]) dd++; if (a[k] > 60) lit++; } o.moved = dd; o.lit = lit / (W * H);
+    S.winter = false; o.off = squallAt(H / 2 - world.scroll); o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.f0[0] === 1944 && !r.f0[1] && r.f1[0] === 1945 && r.f1[1] && r.f2[0] === 1946 && !r.f2[1], 'level 5: the winter flag is on in seed 1945 only');
+  ok(r.pass > 0.9 && r.sea < 0.3 && r.off === 0, `squalls by stretch: pass ${r.pass.toFixed(2)}, frozen sea ${r.sea.toFixed(2)}, none with the flag off`);
+  ok(r.px[2] > r.px[0] + 20 && Math.abs(r.px[0] - 128) < 50, `overcast: a mid-grey comes out cool (R ${r.px[0]}, B ${r.px[2]})`);
+  ok(r.moved > 50 && r.moved < 3000 && r.lit < 0.08, `the flakes float (${r.moved} pixels change in 30 frames) and cover under 8 percent of the screen (${(r.lit * 100).toFixed(1)}), so bullets stay readable`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3l. Level 5's first loop (seed 1945): the shape. The pass is 10 chunks (7 in the first pass and in 1946), the level keeps its 84 chunks, the frozen sea, the harbour and the first farmland stay first and the
+// pass and the depot's farmland stay last (loopSeq, over 30 seeds), the stretches are at least 4 chunks, the plan holds the basin with its base (hangars, nine tanks, factory, flak) in the pass, and the first pass
+// and 1946 have none of it. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const shape = lv => { startEnigma(5, true, lv); const S = run.sortie, g = S.segs.find(q => q.t === 'pass'); return { len: S.len, pass: g.n, order: S.segs.map(q => q.t).join(','), basin: !!sortiePlan(S).basin }; };
+    o.f0 = shape(0); o.f1 = shape(1); o.f2 = shape(2); o.f1b = shape(1); const bad = []; for (let sd = 1; sd <= 30; sd++) { const q = loopSeq(ENIGMA_SEQ[4], sd, 5), sum = q.reduce((n, x) => n + x[1], 0), t = q.map(x => x[0]);
+      if (sum !== 84 || t.slice(0, 3).join() !== 'open_sea_ice,harbour_winter,farmland_winter' || t.slice(-2).join() !== 'pass,farmland_winter' || q.some(x => x[1] < 4) || q[q.length - 2][1] !== 10 || q[q.length - 1][1] !== 11 || [...t].sort().join() !== ENIGMA_SEQ[4].map(x => x[0]).sort().join()) bad.push(sd); }
+    o.bad = bad; startEnigma(5, true, 1); const S = run.sortie, P = sortiePlan(S); o.parts = P.basin ? P.basin.parts : null; o.airbase = !!(P.airbase && P.airbase.basin); o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.f0.pass === 7 && r.f2.pass === 7 && !r.f0.basin && !r.f2.basin && r.f0.len === 84 && r.f2.len === 84, 'the first pass and seed 1946: the pass is 7 chunks, no basin');
+  ok(r.f1.pass === 10 && r.f1.len === 84 && r.f1.basin && r.f1.order === r.f1b.order && r.f1.order.startsWith('open_sea_ice,harbour_winter,farmland_winter'), `level 5, seed 1945: the pass is 10 chunks of the same 84, the basin is in the plan, the stretches (${r.f1.order}) come out the same each time`);
+  ok(r.bad.length === 0, `loopSeq keeps the length, the first and last stretches and 4 chunks or more over 30 seeds${r.bad.length ? ': bad ' + r.bad.join(',') : ''}`);
+  ok(r.parts && r.parts.hangar >= 4 && r.parts.tank >= 9 && r.parts.factory === 2 && r.parts.flak >= 5 && r.airbase, `the base: ${JSON.stringify(r.parts)}`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3m. Level 5's first loop (seed 1945): flying through the base. The screen goes to the pass, the ship cannot die, and over 1500 frames the base's guns, bunkers and parked aircraft come up (flak, a bunker, parked planes, an
+// artillery piece among them), nothing throws an error, and the frame draws.
+{
+  const page = await freshPage();
+  await page.evaluate(() => { window.SF.peek('settings.diff = 1'); window.SF.peek('startEnigma(5, false, 1)'); window.SF.setMode('immortal'); });
+  await peek(page, `(() => { const S = run.sortie, g = S.segs.find(q => q.t === 'pass'), sc = Math.round((world.stageBaseP + g.start) * CH); world.scroll = sc; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } world.midDone = true; return 1; })()`);
+  const seen = {}; for (let k = 0; k < 15; k++) { await page.evaluate(() => window.SF.run(100)); const t = await peek(page, `world.enemies.map(e => e.type)`); for (const q of t) seen[q] = (seen[q] || 0) + 1; }
+  const fin = await peek(page, `({ errs: SF.R.errs.slice(0, 2), y: Math.round((world.scroll - world.stageBaseP * CH) / CH), pass: run.sortie.segs.find(q => q.t === 'pass').start, state: app.state })`);
+  ok(fin.errs.length === 0 && fin.state === 'play', `flying through the base: no errors${fin.errs.length ? ': ' + fin.errs.join(' | ') : ''}`);
+  ok((seen.flak || 0) + (seen.aaflak || 0) > 0 && (seen.parked || 0) > 0 && (seen.bunker || 0) > 0, `the base's guns, bunkers and parked aircraft came up (${JSON.stringify(seen)})`);
+  await page.close();
+}
+// 3n. Level 5's first loop (seed 1945): the Winter Wolf's avalanche mortars. Each train's rear flak position is a mortar (the first pass has none); at 85, 55 and 25 percent of a train's core it lobs a salvo
+// of four shells (kind 'mortar', av) that land on red rings and burst into rings of shards, the train's guns holding fire meanwhile; the mortar's own flak is silent; one train acts at a time and Wolf Pack waits;
+// destroying the mortar stops the salvos; the first pass (seed 1944) has none of it. No errors.
+{
+  const run3 = async lp => { const page = await freshPage('?boss'); await page.evaluate(() => window.SF.setMode('immortal')); await peek(page, `settings.diff = 1; startEnigma(5, false, ${lp}); 0`);
+    for (let k = 0; k < 60; k++) { await page.evaluate(() => window.SF.run(120)); if (await peek(page, `world.enemies.some(e => e.type === 'boss' && e.trains && e.trains[0].ready)`)) break; } return page; };
+  const p0 = await run3(0);
+  const f = await peek(p0, `(() => { const b = world.enemies.find(e => e.type === 'boss'); return { boss: !!b, mortars: b ? b.parts.filter(q => q.mortar).length : -1 }; })()`);
+  ok(f.boss && f.mortars === 0, `the first pass: the Winter Wolf has no mortar (${f.mortars})`); await p0.close();
+  const page = await run3(1);
+  const g = await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'); return { boss: !!b, mortars: b ? b.parts.filter(q => q.mortar).map(q => q.tr + ':' + q.oy.toFixed(0)).join() : '', aa: b ? b.parts.filter(q => q.k === 'aa' && !q.mortar).length : 0 }; })()`);
+  ok(g.boss && g.mortars.split(',').length === 2 && g.aa === 2, `level 5, first loop: one mortar on each train (${g.mortars}), the other flak guns stay (${g.aa})`);
+  const salvo = async frac => { await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'); b.trains[0].packN = 2; return 1; })()`); /* (Wolf Pack is spent, so it does not interleave; the core is held at the fraction and the mortar cannot be shot down while a stage is measured) */
+    let seen = 0, landed = 0, maxActive = 0, hold = false, errs = 0; const ids = new Set();
+    for (let k = 0; k < 24; k++) { await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'); c.hp = c.maxhp * ${frac}; for (const q of b.parts) if (q.mortar) q.hp = q.maxhp = 1e6; return 1; })()`); await page.evaluate(() => window.SF.run(20)); const r = JSON.parse(await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), av = world.ebul.filter(x => x.av); return JSON.stringify({ n: av.length, tg: av.map(x => Math.round(x.tx) + ',' + Math.round(x.ty)), avN: b.trains[0].avN || 0, act: b.trains.filter(t => t.av).length, hold: BOSS.train.holdFire(b, 200) }); })()`));
+      for (const t of r.tg) ids.add(t); seen = Math.max(seen, r.n); maxActive = Math.max(maxActive, r.act); hold = hold || r.hold > 0; }
+    const e2 = JSON.parse(await peek(page, `JSON.stringify({ avN: world.enemies.find(e => e.type === 'boss').trains[0].avN, errs: SF.R.errs.length })`)); return { shells: ids.size, avN: e2.avN, maxActive, hold, errs: e2.errs }; };
+  const a1 = await salvo(0.8), a2 = await salvo(0.5), a3 = await salvo(0.2);
+  ok(a1.avN === 1 && a2.avN === 2 && a3.avN === 3 && a1.shells >= 3 && a2.shells >= 3 && a3.shells >= 3 && a1.maxActive === 1 && a1.hold, `three salvos at 85, 55 and 25 percent, about four shells each (${a1.shells}, ${a2.shells}, ${a3.shells}), one train at a time, the guns hold fire`);
+  const a4 = await salvo(0.1); ok(a4.avN === 3 && a4.shells === 0, `no fourth salvo (${a4.shells} shells)`);
+  await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'), m = b.parts.find(q => q.tr === 0 && q.mortar); b.trains[0].avN = 0; c.hp = c.maxhp * 0.3; m.dead = true; return 1; })()`);
+  let after = 0; for (let k = 0; k < 20; k++) { await page.evaluate(() => window.SF.run(20)); after += await peek(page, `world.ebul.filter(x => x.av).length`); }
+  ok(after === 0, 'a destroyed mortar fires no more salvos');
+  const fin = await peek(page, `SF.R.errs.slice(0, 2)`); ok(fin.length === 0, `no errors${fin.length ? ': ' + fin.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
