@@ -17,10 +17,10 @@ async function page_(loops) {
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => { bad++; console.error('page error:', e.message); });
   await page.addInitScript(() => { let a = 1944; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; window.requestAnimationFrame = () => 0; });
-  await page.goto(PAGE); await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
+  await page.goto(PAGE + '?boss'); await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
   const peek = c => page.evaluate(c2 => window.SF.peek(c2), c);
-  /* level 3 flown by the immortal bot to its boss, once the boss is in place (its fight code has begun: the tick runs) */
+  /* level 3 started with the boss test link (?boss: a few chunks before the boss) and flown by the immortal bot until the boss is in place (its fight code has begun: the tick runs) */
   const r = await peek(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(3, false, ${loops}); let n = 0; for (; n < 40000; n += 30) { SF.run(30); ensureChunks(); const b = world.enemies.find(e => e.type === 'boss' && e.kind === 'railgun'); if (b && b.y > 130 && !b.intro) break; } SF.run(60); const b = world.enemies.find(e => e.type === 'boss'); return JSON.stringify({ n, kind: b && b.kind, moon: !!run.sortie.moon }); })()`);
   return { page, peek, info: JSON.parse(r) };
 }
@@ -64,6 +64,18 @@ const core = `(() => { const b = world.enemies.find(e => e.type === 'boss'); ret
   const d = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'); b.nr.zones.push({ ph: 0, t: 0, x: 100, y: 200, slot: 1, who: null }); const c = ${core}; c.hp = 1; for (const p of b.parts) { p.hp = 0; } damagePart(b, c, 5); SF.run(20); return JSON.stringify({ dying: !!b.dying, zones: b.nr.zones.length }); })()`));
   ok(d.dying && d.zones === 0, `the boss dying clears the areas (${d.zones} left)`);
   const errs = await peek('SF.R.errs.length'); ok(errs === 0, `no script errors (${errs})`);
+  await page.close();
+}
+{
+  /* a player who shoots the guns and turrets off first: the boss bar halves while the core is still healthy, and the salvo goes then */
+  const { page, peek } = await page_(1);
+  const r = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'), c = ${core}; for (const p of b.parts) if (p.k !== 'core') { p.hp = 0; p.dead = true; } c.hp = Math.floor(c.maxhp * 0.8); let bh = 0, bm = 0; for (const q of b.parts) { bh += Math.max(0, q.hp); bm += q.maxhp; }
+    const before = b.nr ? b.nr.salvo : 0; for (let f = 0; f < 120; f++) { c.hp = Math.max(c.hp, Math.floor(c.maxhp * 0.8)); SF.run(1); } return JSON.stringify({ bar: bh / bm, core: c.hp / c.maxhp, before, salvo: b.nr.salvo, zones: b.nr.zones.length + b.nr.pend.length }); })()`));
+  ok(r.bar < 0.5 && r.core > 0.7 && r.before === 0 && r.salvo === 1 && r.zones > 0, `the bar at ${(r.bar * 100).toFixed(0)}% with the core at ${(r.core * 100).toFixed(0)}%: the first salvo goes (${r.salvo}, ${r.zones} areas on the way)`);
+  /* the areas show whatever the art: with the launcher picture missing they are still drawn */
+  const d = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'); let zones = 0, rockets = 0, cradles = 0; const oz = drawNRzones, orr = drawNRrockets; drawNRzones = e => { zones++; oz(e); }; drawNRrockets = (e, cr) => { rockets++; if (cr) cradles++; orr(e, cr); };
+    const art = SPR.rgBaseL1; SPR.rgBaseL1 = undefined; SF.draw(); const noArt = { zones, rockets, cradles }; SPR.rgBaseL1 = art; zones = rockets = cradles = 0; SF.draw(); const withArt = { zones, rockets, cradles }; drawNRzones = oz; drawNRrockets = orr; return JSON.stringify({ noArt, withArt }); })()`));
+  ok(d.noArt.zones === 1 && d.noArt.rockets === 1 && d.noArt.cradles === 0 && d.withArt.cradles === 1, `without the launcher picture the areas and rockets in flight are still drawn (${JSON.stringify(d.noArt)}), with it the cradles' rockets too (${JSON.stringify(d.withArt)})`);
   await page.close();
 }
 await browser.close();
