@@ -544,7 +544,7 @@ for (const lv of [2, 6]) {
   ok(r.f0[0] === 1944 && !r.f0[1] && r.f1[0] === 1945 && r.f1[1] && r.f2[0] === 1946 && !r.f2[1], 'level 5: the winter flag is on in seed 1945 only');
   ok(r.pass > 0.9 && r.sea < 0.3 && r.off === 0, `squalls by stretch: pass ${r.pass.toFixed(2)}, frozen sea ${r.sea.toFixed(2)}, none with the flag off`);
   ok(r.px[2] > r.px[0] + 20 && Math.abs(r.px[0] - 128) < 50, `overcast: a mid-grey comes out cool (R ${r.px[0]}, B ${r.px[2]})`);
-  ok(r.moved > 100 && r.lit < 0.08, `the streaks drift (${r.moved} pixels change in 30 frames) and cover under 8 percent of the screen (${(r.lit * 100).toFixed(1)}), so bullets stay readable`);
+  ok(r.moved > 50 && r.moved < 3000 && r.lit < 0.08, `the flakes float (${r.moved} pixels change in 30 frames) and cover under 8 percent of the screen (${(r.lit * 100).toFixed(1)}), so bullets stay readable`);
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }

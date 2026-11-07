@@ -4401,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.86'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.87'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15856,7 +15856,7 @@ function drawAutumnLight() { /* level 4's first loop: the light changes along th
   const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78); v.addColorStop(0, 'rgba(8,6,10,0)'); v.addColorStop(1, `rgba(8,6,10,${0.22 + 0.1 * k})`); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }
 /* Level 5's first loop (run.sortie.winter): a blizzard. SQUALL: the strength of the driving snow by stretch (blended between stretch middles by weatherAt), so it snows hard in parts of the level and eases in between.
-   drawWinterLight: a grey-blue overcast over the ground and the planes (desaturated, a cool multiply tint, a pale veil from above, a light vignette); drawSquall: thin streaks drifting down and to the left, few and low in
+   drawWinterLight: a grey-blue overcast over the ground and the planes (desaturated, a cool multiply tint, a pale veil from above, a light vignette); drawSquall: peaceful flakes floating slowly down with a gentle sway (a calm contrast to the action), few and low in
    contrast so bullets, drawn after, stay readable. Visual only: the streaks come from the frame counter, never the seeded stream, and nothing is saved. */
 const SQUALL = { open_sea_ice: 0.15, harbour_winter: 0.8, farmland_winter: 0.3, village: 0.05, lake_valley: 0.55, station_winter: 0.9, airbase_snow: 0.1, forest_conifer: 0.7, pass: 1 };
 const squallAt = wy => { const S = run.sortie; return S && S.winter ? weatherAt(S, 'squall', wy, SQUALL) : 0; };
@@ -15868,10 +15868,10 @@ function drawWinterLight() {
 }
 function drawSquall() {
   if (lowFX) return; const s = squallAt(H / 2 - world.scroll); if (s < 0.03) return;
-  ctx.fillStyle = `rgba(232,240,255,${0.1 * s})`; ctx.fillRect(0, 0, W, H); /* the whiteout stays faint: a veil, never an opaque wall */
-  ctx.strokeStyle = `rgba(240,246,255,${0.3 + 0.3 * s})`; ctx.lineWidth = 1; ctx.beginPath(); const n = Math.round(30 + 110 * s), t = gf;
-  for (let i = 0; i < n; i++) { const z = 0.5 + 0.5 * sortieHash(i, 41), L = 5 + 6 * z, x = ((sortieHash(i, 7) * (W + 80) - t * (0.9 + 0.6 * z)) % (W + 80) + (W + 80)) % (W + 80) - 20, y = ((sortieHash(i, 13) * (H + 40) + t * (2.2 + 1.8 * z)) % (H + 40)) - 20; ctx.moveTo(Math.round(x), Math.round(y)); ctx.lineTo(Math.round(x - L * 0.4), Math.round(y + L)); }
-  ctx.stroke();
+  ctx.fillStyle = `rgba(232,240,255,${0.05 * s})`; ctx.fillRect(0, 0, W, H); /* a faint haze only */
+  const n = Math.round(40 + 90 * s), t = gf; /* flakes float down slowly and sway gently, large ones a little faster (nearer); soft, 1 to 2 px, never streaks */
+  for (let i = 0; i < n; i++) { const z = sortieHash(i, 41), big = z > 0.6, v = 0.35 + 0.45 * z, ph = sortieHash(i, 5) * 6.28, y = ((sortieHash(i, 13) * (H + 20) + t * v) % (H + 20)) - 10, x = sortieHash(i, 7) * W + Math.sin(t * 0.012 + ph) * (6 + 6 * z) - t * 0.05;
+    ctx.fillStyle = `rgba(244,248,255,${(big ? 0.62 : 0.45) * Math.min(1, 0.5 + s)})`; const fx = Math.round(((x % W) + W) % W), fy = Math.round(y); ctx.fillRect(fx, fy, big ? 2 : 1, big ? 2 : 1); }
 }
 function moonRim(s, x, y) { /* the moon's light on the ship's upper right edge: its silhouette in pale blue, one pixel up and right, under the ship */
   const r = s.rim || (s.rim = sil(s.c, '#c4d2ff')); ctx.globalAlpha = 0.7; ctx.drawImage(r, Math.round(x - s.w / 2) + 1, Math.round(y - s.h / 2) - 1); ctx.globalAlpha = 1;
