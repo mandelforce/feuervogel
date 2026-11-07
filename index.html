@@ -4475,7 +4475,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', install: 'feuervogel-install'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4485,7 +4485,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -4914,6 +4914,42 @@ function notePhoenix() { // called when a secret's gem is caught: all six themes
   if (!run.artsRun.includes(world.curTheme)) run.artsRun.push(world.curTheme);
   if (run.artsRun.length >= 6 && settings.mode === 'camp' && !run.endless && !(run.loops | 0) && !phoenixOwned()) { store.set(KEY.phoenix, 1); phoenixJust = true; }
 }
+// Rotkehlchen (robin): the skin for finishing the Campaign's first loop. Seen from above, so there is no face: a rounded orange head with a dark beak tip, a brown back, brown wings with a cream edge.
+// Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
+function buildRotkehlchen(bank) {
+  const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], CREAM = ['#6e5a44', '#a8957a', '#d8c8a8', '#f0e4cc', '#fffaf0'];
+  const WING = [[15, 7], [12, 12], [4, 20], [0, 29], [5, 27], [9, 31], [12, 26], [15, 28]], TAIL = [[15, 24], [13, 35], [17, 31], [21, 35], [19, 24]], HEAD = [[17, 0], [19.5, 3], [21, 7], [19, 10], [15, 10], [13, 7], [14.5, 3]];
+  return sprite(36, 38, x => {
+    x.translate(1, 1);
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = WING.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = WING.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
+      if (!inL && !inR) continue;
+      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
+      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
+      rect(x, rim ? pick(CREAM, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j) : j >= 20 ? pick(BROWN, (j - 20) / 10 + 0.3, i, j) : pick(BROWN, (17 - u) / 14 + (j - 8) / 50, i, j), i, j, 1, 1);
+    }
+    for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(TAIL, i + 0.5, j + 0.5)) rect(x, pick(BROWN, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
+    const sb = Math.round(bank * 0.6), sh = Math.round(bank * 0.4);
+    for (let j = 6; j < 26; j++) { const dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)); for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d) <= hw) rect(x, pick(BROWN, 0.3 + (1 - Math.abs(d) / (hw + 0.5)) * 0.3 + (j - 6) / 40, 17 + d, j), 17 + d + sb, j, 1, 1); }
+    for (let j = 10; j < 25; j++) rect(x, pick(BROWN, 0.9 - (j - 10) * 0.035, 17, j), 17 + sb, j, 1, 1);
+    for (let j = 0; j < 11; j++) for (let i = 0; i < 34; i++) if (pip(HEAD, i + 0.5, j + 0.5)) rect(x, pick(ORANGE, 0.55 + (j < 6 ? 0.2 : 0), i, j), i + sh, j, 1, 1);
+    for (let j = 0; j < 30; j++) for (let i = 8; i < 26; i++) { // colour the head and the body: a deep orange head, a brown back
+      const inH = pip(HEAD, i + 0.5, j + 0.5), dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)), inB = j >= 6 && j < 26 && Math.abs(i + 0.5 - 17) <= hw;
+      if (inH || inB) rect(x, inH && j < 9 ? pick(ORANGE, 0.45 + (j - 6) / 40, i, j) : pick(BROWN, 0.5 - Math.abs(i + 0.5 - 17) * 0.015 + (j - 8) / 40, i, j), i + Math.round(bank * (inH && j < 10 ? 0.4 : 0.6)), j, 1, 1);
+    }
+    rect(x, '#2a1a10', 16 + sh, 0, 1, 2); rect(x, '#2a1a10', 17 + sh, 0, 1, 2); // the beak tip
+    if (bank === 0) { const id = x.getImageData(1, 1, 34, 36), d = id.data; for (let j = 0; j < 36; j++) for (let i = 0; i < 17; i++) { const a = (j * 34 + i) * 4, b = (j * 34 + 33 - i) * 4; d[b] = d[a]; d[b + 1] = d[a + 1]; d[b + 2] = d[a + 2]; d[b + 3] = d[a + 3]; } x.putImageData(id, 1, 1); }
+  }, { outline: false });
+}
+let robinCache = null;
+function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign's first loop (see unlockRobin).
+const robinState = () => +store.get(KEY.robin, 0) || 0;
+const robinOwned = () => robinState() > 0;
+function unlockRobin() { if (!robinOwned()) store.set(KEY.robin, 1); }
+function useRobin() { return robinOwned() && !!settings.robin; }
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
@@ -4925,24 +4961,24 @@ const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
 function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const skinSet = () => useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
 const FLAME = () => usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); saveSettings(); }
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
 const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); sfx('tick'); }
+function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); sfx('tick'); }
 function tapShipPick(gx, gy) {
   const list = shipList(), x0 = pickX0(list.length);
   for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   app.shipPick = false;
 }
 function drawShipPick() {
-  const list = shipList(), x0 = pickX0(list.length), cur = usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), x0 = pickX0(list.length), cur = useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
   list.forEach(([id, set], i) => {
     const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
@@ -11704,11 +11740,11 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); unlockRobin(); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
-    loopsWon++; store.set(KEY.loops, loopsWon);
+    loopsWon++; store.set(KEY.loops, loopsWon); unlockRobin();
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -16609,7 +16645,7 @@ function renderMain() {
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
     }
-    if ((nachtState() === 1 || phoenixState() === 1) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
