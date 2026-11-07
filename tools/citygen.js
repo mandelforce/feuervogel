@@ -3448,7 +3448,7 @@ function winterLine(o) {
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
-  const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, Lb = Lr + (fin ? (P0.arena || 16) * CHp : 0), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t }); } } // (station and airbase are plain valley until their own ground is built)
+  const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, Lb = Lr + (fin ? (P0.arena || 16) * CHp : 0), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t, basin: kind === 'pass' && !!P0.variant }); } } // (station and airbase are plain valley until their own ground is built)
   if (fin) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
   const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
@@ -3484,14 +3484,16 @@ function winterLand(o) {
   const lk = fs('lake')[0] || null, sL = rnd(40) < 0.5 ? -1 : 1, th = fs('throat')[0] || null, yT = th ? th[0] + 24 : L; // the lake's side; the throat's spur, where the valley ends
   const yM = th ? yT + 384 : L; // the massif's north face, where the tunnels come out: 384 rows (6 chunks) of high mountain, with the glacier, between the depot and the boss's gorge
   if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120), 40, W - 40); // the road skirts the lake
+  const basF = feats.find(F => F.kind === 'pass' && F.basin), bas = basF ? span(basF) : null; // a loop's pass (P.variant): a wide basin with a base in it, the road straight through it
+  if (bas) { const m0 = 112 + (rnd(70) - 0.5) * 8; for (let y = 0; y < L; y++) plan.mx[y] = lerp(plan.mx[y], m0, inF('pass', y, 120)); }
   const thF = (P.features || []).find(F => F.kind === 'throat'), yEnd = thF ? Math.round(L * thF.at0) + 24 - 152 : L, yRoad = thF ? yEnd - 12 : L; // the road ends in a depot at the foot of the throat's mountain (owner: no tunnel for the road): paved, then gravel, then a dirt track, then the turnaround
   const ar = { cls: 'arterial', axis: 'v', tank: true, pts: [], y0: 0, y1: yRoad - 1, id: 0 }; plan.streets.push(ar);
   const gv = { cls: 'lane', axis: 'v', pts: [], gravel: true, y0: yEnd - 125, y1: yEnd - 56, id: 1 }, dt = { cls: 'lane', axis: 'v', pts: [], dirt: true, y0: yEnd - 55, y1: yEnd + 16, id: 2 }; if (thF) plan.streets.push(gv, dt); // (the same carriageway, painted by its own streets: ids 1 and 2 only colour it; the tank route is the arterial)
   for (let y = 0; y < yRoad; y++) { ar.pts.push([plan.mx[y], y, 9]); const sid = !thF || y < gv.y0 ? 0 : y < dt.y0 ? 1 : 2, hw = sid === 0 ? 4.5 : sid === 1 ? 4.1 : lerp(3.6, 2.9, smooth(dt.y0, yRoad, y)) + (vn(y * 0.2, 7.1) - 0.5) * 0.6; for (let x = Math.floor(plan.mx[y] - 5); x <= plan.mx[y] + 5; x++) if (inB(x, y) && Math.abs(x + 0.5 - plan.mx[y]) < hw) { const i = idx(x, y); Kr[i] = K.ROAD; Br[i] = -2 - sid; reserved[i] = 1; } }
   const MX = y => plan.mx[clamp(Math.round(y), 0, L - 1)];
   // 2. the mountains: height from the valley's axis outward, crests and spurs from ridged noise; the village's floor is wider
-  const vx = y => MX(y) + 12 * Math.sin(y * 0.004 + ph * 2) + sL * 30 * inF('lake', y, 120), wide = y => inF('village', y);
-  const fw = y => lerp(26 + 12 * vn(y * 0.006, 5.5) + 16 * wide(y) + 34 * inF('lake', y, 120) + 6 * inF('forest', y), 13, inF('pass', y, 60)), rise = y => P.rise ? smooth(0, P.rise, y) : 1, ridged = (x, y, f, s) => 1 - Math.abs(2 * vn(x * f + s, y * f) - 1);
+  const vx = y => MX(y) + 12 * Math.sin(y * 0.004 + ph * 2) * (bas ? 1 - inF('pass', y, 100) : 1) + sL * 30 * inF('lake', y, 120), wide = y => inF('village', y);
+  const fw = y => lerp(26 + 12 * vn(y * 0.006, 5.5) + 16 * wide(y) + 34 * inF('lake', y, 120) + 6 * inF('forest', y), bas ? 74 + 4 * vn(y * 0.01, 8.8) : 13, inF('pass', y, bas ? 100 : 60)), rise = y => P.rise ? smooth(0, P.rise, y) : 1, ridged = (x, y, f, s) => 1 - Math.abs(2 * vn(x * f + s, y * f) - 1);
   const GW = (W >> 1) + 2, GL = (L >> 1) + 2, NZ = new Float32Array(GW * GL); // the large noise (spurs and gullies running down to the valley, crests) on a 2 px grid, interpolated
   for (let j = 0; j < GL; j++) for (let i = 0; i < GW; i++) { const x = i * 2, y = j * 2; NZ[j * GW + i] = 30 * (1 - Math.abs(2 * vn(x * 0.011 + seed % 13, y * 0.026) - 1)) + 10 * ridged(x, y, 0.045, 9); }
   const nz = (x, y) => { const i = x >> 1, j = y >> 1, fx = (x & 1) * 0.5, fy = (y & 1) * 0.5, a = NZ[j * GW + i], b = NZ[j * GW + i + 1], c = NZ[(j + 1) * GW + i], d = NZ[(j + 1) * GW + i + 1]; return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
@@ -3521,6 +3523,42 @@ function winterLand(o) {
       for (let x = Math.floor(gxc(y) - hw - 8); x <= gxc(y) + hw + 8; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - gxc(y)) + (vn(x * 0.1, y * 0.1) - 0.5) * 6; if (d >= hw) continue; Kr[i] = K.ICE; Br[i] = -89; reserved[i] = 1; Hg[i] = lerp(Hg[i], gsf(y) + (vn(x * 0.07, y * 0.07) - 0.5) * 3, smooth(0, 7, hw - d)); } }
     for (let y = gy1 - 8; y < yM - 2; y++) { const u = smooth(gy1, yM - 2, y), sx = lerp(sx0, xEnd, u) + 5 * Math.sin(y * 0.045 + phG) * smooth(gy1, gy1 + 30, y) * (1 - smooth(yM - 62, yM - 2, y)), hwS = 1.6 + 5.2 * u, fl = lerp(gsf(gy1), 4, u);
       for (let x = Math.floor(sx - hwS - 9); x <= sx + hwS + 9; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = lerp(fl, Hg[i], smooth(hwS, hwS + 9, d)); if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
+  // 2d. a loop's pass (P.variant, features[].basin): the valley opens into a wide basin (a floor about 150 px across, the road straight through its middle) holding a base, in the order the player meets it:
+  // the gate (a tank trap, wire, flak and bunkers, a guard hut), then side by side the airbase on the east (a runway beside the road, an apron with five hangars, a control tower) and the depot yard on the west (nine fuel tanks,
+  // warehouses, trucks), then the factory on the west (two saw-roof halls, chimneys, a cooling tower, stores) with a clear patch on the east for the Drilling's tank pit, artillery on the rim; the road's old end (the depot at the foot of the massif) follows it.
+  // Everything stands on the flat floor, clear of the road.
+  if (bas) { const [pa, pb] = bas, cx0 = Math.round(MX((pa + pb) / 2)), B0 = plan.basin = { y0: pa, y1: pb, cx: cx0, parts: {} };
+    const lay = (dx, u, w, h, k) => { for (let y = pa + u; y < pa + u + h; y++) for (let x = cx0 + dx; x < cx0 + dx + w; x++) if (inB(x, y) && !reserved[idx(x, y)]) { const i = idx(x, y); Kr[i] = k; Br[i] = -1; Hg[i] = 0; } }; // ground of a yard or a runway (not reserved: buildings go on it)
+    const bld = (dx, u, w, h, props) => { const x0 = cx0 + dx, y0 = pa + u; if (!free(x0, y0, w, h, 1)) return null; const it = addItem(Object.assign({ t: 'works', x0, y0, w, h, ori: w >= h ? 'h' : 'v', style: 'gable', roof: 3 }, props)); rect(x0, y0, w, h, K.BLDG, it.id, 0); return it; };
+    const rnd2 = (dx, u, r, props) => { const cx = cx0 + dx + 0.5, cy = pa + u + 0.5, x0 = Math.floor(cx - r), y0 = Math.floor(cy - r), w = Math.ceil(2 * r) + 2; if (!free(x0, y0, w, w, 1)) return null;
+      const it = addItem(Object.assign({ t: 'works', round: true, x0, y0, w, h: w, acx: cx, acy: cy, r }, props)); for (let y = y0; y < y0 + w; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { const i = idx(x, y); Kr[i] = K.BLDG; Br[i] = it.id; reserved[i] = 1; Hg[i] = 0; } return it; };
+    const pad = (dx, u, w, h, kind, on, r) => { const x0 = cx0 + dx - (w >> 1), y0 = pa + u - (h >> 1); if (!free(x0, y0, w, h)) return null; rect(x0, y0, w, h, K.LOT, -1, 0); return slot(kind, on, x0 + w / 2, y0 + h / 2, r); };
+    const count = k => { B0.parts[k] = (B0.parts[k] || 0) + 1; };
+    // the gate
+    for (const [u, kind] of [[46, 'trap'], [54, 'hedgehog']]) for (let dx = -60; dx <= 60; dx += kind === 'trap' ? 6 : 7) { if (Math.abs(dx) < 8) continue; plan.obstacles.push({ kind, x: cx0 + dx + ((rnd(71, dx, u) * 3) | 0) - 1, y: pa + u + ((rnd(72, dx, u) * 3) | 0) - 1 }); }
+    for (const [a, b] of [[-62, -9], [9, 62]]) for (const du of [0, 3]) { const wr = []; for (let x = cx0 + a; x <= cx0 + b; x += 2) wr.push([x, Math.round(pa + 40 - du + 1.5 * Math.sin(x * 0.4))]); plan.wires.push(wr); }
+    for (const dx of [-50, 50]) if (pad(dx, 66, 13, 13, 'bunker', 'pad', 6)) count('bunker'); for (const dx of [-30, 30]) if (pad(dx, 78, 13, 13, 'flak', 'lot', 5)) count('flak');
+    if (bld(12, 60, 7, 5, { label: 'Guard hut', style: 'gable', roof: 1 })) count('hut');
+    // the airbase on the east side of the road: the runway beside it, an apron with five hangars and the tower; the depot yard on the west side: nine fuel tanks and warehouses
+    const ry0 = pa + 96, ry1 = pa + 286; lay(10, 96, 18, 191, K.RUNWAY); lay(28, 104, 40, 173, K.APRON);
+    plan.airbase = { rx: cx0 + 19, rw: 18, y0: ry0, y1: ry1, tx: cx0 + 36, planes: [], lamps: [], basin: true }; B0.runway = [ry0, ry1];
+    for (const u of [108, 138, 168, 198, 228]) if (bld(46, u, 22, 22, { label: 'Hangar', style: 'gable', roof: 3 })) count('hangar');
+    for (const u of [120, 150, 180, 210, 240]) if (slot('parked', 'apron', cx0 + 36, pa + u, 7)) count('plane');
+    if (bld(30, 262, 10, 10, { label: 'Control tower', style: 'flat', roof: 3 })) count('tower');
+    lay(-66, 88, 56, 84, K.WORKS);
+    for (const u of [104, 124, 144]) for (const dx of [-56, -37, -18]) if (rnd2(dx, u, 7, { label: 'Fuel tank', part: 'tank' })) count('tank');
+    for (const u of [186, 208]) if (bld(-62, u, 32, 16, { label: 'Warehouse', style: 'gable', roof: 1 })) count('warehouse');
+    for (const [dx, u] of [[-20, 200], [-20, 232]]) if (slot('parked', 'pad', cx0 + dx, pa + u, 5)) count('truck');
+    if (pad(-58, 236, 13, 13, 'flak', 'lot', 5)) count('flak'); if (pad(62, 290, 13, 13, 'flak', 'lot', 5)) count('flak');
+    // the factory west of the road: two saw-roof halls, chimneys, a cooling tower, a store; the east side is left open (a tank pit goes there)
+    lay(-66, 254, 58, 168, K.WORKS);
+    for (const u of [262, 298]) if (bld(-64, u, 44, 26, { label: 'Factory', style: 'saw', roof: 3 })) count('factory');
+    for (const u of [276, 312]) { const c = rnd2(-14, u, 2.7, { label: 'Chimney', part: 'chimney' }); if (c) { plan.stacks.push({ x: c.acx, y: c.acy, big: true }); count('chimney'); } }
+    { const c = rnd2(-38, 364, 11, { label: 'Cooling tower', part: 'cooling' }); if (c) { plan.steam.push({ x: c.acx, y: c.acy, r: 11 }); count('cooling'); } }
+    if (bld(-64, 392, 40, 20, { label: 'Warehouse', style: 'gable', roof: 1 })) count('warehouse');
+    lay(10, 400, 48, 48, K.WORKS); for (const u of [404, 426]) if (bld(14, u, 34, 18, { label: 'Warehouse', style: 'gable', roof: 1 })) count('warehouse');
+    if (pad(-56, 440, 15, 15, 'arty', 'lot', 6)) count('arty'); if (pad(58, 452, 15, 15, 'arty', 'lot', 6)) count('arty');
+    for (const dx of [-56, 56]) if (pad(dx, 590, 13, 13, 'flak', 'lot', 5)) count('flak'); /* (beyond the road's old end: the basin's last rim guns) */ }
   // 3. the mountain village. The special places first (chapel, sawmill, cable car, ski jump, lanes), the chalets along the road last.
   if (vs) { const [ya, yb] = vs, sC = rnd(10) < 0.5 ? -1 : 1, A = plan.alpine = { y0: ya, y1: yb, chalets: 0, terraces: 0 };
     const house = (x0, y0, w, h, front, roof) => { const it = addItem({ t: 'house', label: 'Chalet', x0, y0, w, h, ori: front === 'W' || front === 'E' ? 'h' : 'v', front, style: 'gable', roof, run: -1 - plan.items.length }); rect(x0, y0, w, h, K.BLDG, it.id, flatten(x0, y0, w, h, 3)); return it; };
@@ -3699,6 +3737,7 @@ function stackPlans(A, B, preset) {
   plan.alpine = B.alpine && B.alpine.y0 !== undefined ? Object.assign(up(B.alpine), B.alpine.chapel ? { chapel: up(B.alpine.chapel) } : {}) : A.alpine || null;
   plan.ravines = (A.ravines || []).concat((B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + La, bot: x => r.bot(x) + La }))); plan.viaduct2 = B.viaduct2 ? up(B.viaduct2) : null;
   plan.gorge = B.gorge ? Object.assign(up(B.gorge), { cx: B.gorge.cx, gal: B.gorge.gal.map(up), spurs: B.gorge.spurs.map(up), corn: B.gorge.corn.map(up), bridges: B.gorge.bridges.map(up), refuges: B.gorge.refuges.map(up), wrecks: B.gorge.wrecks.map(up) }) : null;
+  plan.basin = B.basin ? up(B.basin) : null; plan.airbase = B.airbase ? up(B.airbase) : A.airbase || null;
   plan.lake = B.lake ? up(B.lake) : null; plan.throat = B.throat ? Object.assign(up(B.throat), { tracks: B.throat.tracks.map(t => Object.assign({}, t, { ya: t.ya + La, yb: t.yb + La })) }) : null;
   plan.parts = [{ preset: A.preset, y0: 0, y1: La - 1 }, { preset: B.preset, y0: La, y1: L - 1 }]; plan.stage = Object.assign({}, A.stage, { land: B.stage.total });
   return plan;

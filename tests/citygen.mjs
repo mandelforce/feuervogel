@@ -420,6 +420,25 @@ if (part()) { let fails = 0; const need = (c, m) => { if (!c) { fails++; if (fai
     need(jump === 0 && blunt === 0, `${preset} seed ${seed}: the riverbed jumps ${jump} times and has ${blunt} blunt ends`); }
   console.log(`${fails ? 'FAIL' : 'ok  '} level 2 valley mouth: the railway keeps clear of the rock, the riverbed tapers (24 plans)`); }
 // cloud types: the same sprite from the same kind and seed, sized within the type's range, visible, and only the solid types cast a shadow
+// Level 5's first loop (params.variant 1 on winterGorge, seed 1945 in the game): the pass is a wide basin holding a base: a gate (tank trap, wire, bunkers, flak), a runway beside the road with an apron and at least four
+// hangars, the control tower, nine fuel tanks, warehouses, two saw-roof factory halls with chimneys and a cooling tower, flak and artillery on pads; the floor is 120 px or more across at the base; no building on the road
+// or on another; a free patch for a tank pit; the ground before the pass unchanged; without the variant (the first pass, later loops) none of it. Over 12 seeds.
+if (part()) { let miss = 0; const need = (ok, m) => { if (!ok) { miss++; if (miss <= 6) fail('level 5 loop basin: ' + m); } }, SEQ = [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8], ['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7], ['pass', 7], ['farmland_winter', 11]];
+  const segsOf = pw => { const a = SEQ.map(q => q[0] === 'pass' ? ['pass', pw] : q.slice()), sum = a.reduce((n, q) => n + q[1], 0); let at = 0; return a.map(([t, w], k) => { const n = k === a.length - 1 ? Math.max(1, 84 - at) : Math.max(1, Math.round(w * 84 / sum)); at += n; return { t, n }; }); }, ms = [];
+  for (let seed = 1; seed <= 12; seed++) {
+    const segs = segsOf(10), t0 = performance.now(), p = CG.generate({ seed, preset: 'winterGorge', params: { segs, variant: 1 } }); ms.push(performance.now() - t0); const b = p.basin;
+    need(!!b && !!p.airbase && p.airbase.basin, `seed ${seed}: no basin or airbase`); if (!b) continue;
+    const cnt = k => b.parts[k] || 0; need(cnt('hangar') >= 4 && cnt('tank') >= 9 && cnt('factory') === 2 && cnt('chimney') === 2 && cnt('cooling') === 1 && cnt('warehouse') >= 5 && cnt('tower') === 1 && cnt('plane') >= 4, `seed ${seed}: parts ${JSON.stringify(b.parts)}`);
+    need(cnt('flak') >= 5 && cnt('bunker') === 2 && cnt('arty') >= 1, `seed ${seed}: guns ${JSON.stringify(b.parts)}`);
+    const W = p.W, ry = p.airbase; let run = 0, runway = 0, bldOnRoad = 0; for (let y = ry.y0; y <= ry.y1; y++) { let n = 0; for (let x = 0; x < W; x++) if (p.K[y * W + x] === CG.K.RUNWAY) n++; if (n >= 16) runway++; } need(runway >= 180, `seed ${seed}: runway ${runway} rows`);
+    const owner = new Map(); let overlap = 0; for (let y = b.y0; y < b.y1; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (p.K[i] === CG.K.BLDG && p.B[i] >= 0) { if (owner.has(p.B[i]) === false) owner.set(p.B[i], 1); if (p.K[i] === CG.K.ROAD) bldOnRoad++; } }
+    for (const it of p.items) if (it.y0 >= b.y0 && it.y0 < b.y1 && it.t === 'works') for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (p.K[y * W + x] === CG.K.BLDG && p.B[y * W + x] >= 0 && p.B[y * W + x] !== it.id && !it.round) overlap++;
+    need(overlap === 0 && bldOnRoad === 0, `seed ${seed}: ${overlap} building pixels overlap, ${bldOnRoad} on the road`);
+    let wide = 0; for (let y = b.y0 + 100; y < b.y0 + 450; y += 25) { let lo = 1e9, hi = -1; for (let x = 0; x < W; x++) if (p.hgt[y * W + x] < 1.5) { lo = Math.min(lo, x); hi = Math.max(hi, x); } if (hi - lo >= 120) wide++; } need(wide >= 12, `seed ${seed}: the floor is wide at only ${wide} of 14 rows`);
+    const pit = CG.tankPits(p, [[b.y0 + 100, b.y0 + 450]]); need(pit.length === 1, `seed ${seed}: no room for a tank pit in the base`);
+    const q = CG.generate({ seed, preset: 'winterGorge', params: { segs: segsOf(10) } }), cut = b.y0 - 260; let diff = 0; for (let i = 0; i < cut * W; i += 3) if (q.K[i] !== p.K[i]) diff++; need(!q.basin && !q.airbase && diff === 0, `seed ${seed}: without the variant: basin ${!!q.basin}, ground before the pass differs in ${diff} cells`);
+  }
+  ms.sort((a, c) => a - c); console.log(`${miss ? 'FAIL' : 'ok  '} level 5 loop basin: 12 seeds, plan ${ms[6].toFixed(0)} ms median`); }
 if (part()) { let bad2 = 0; const solid = new Set(['cumulus', 'scattered', 'storm']);
   for (const k of CG.CLOUD_KINDS) for (let seed = 1; seed <= 20; seed++) { const a = CG.cloud(k, seed), b = CG.cloud(k, seed); let n = 0; for (let i = 3; i < a.data.length; i += 4) if (a.data[i]) n++;
     if (a.w !== b.w || a.data.some((v, i) => v !== b.data[i]) || n < a.w * a.h * 0.08 || !!a.shadow !== solid.has(k)) bad2++; }

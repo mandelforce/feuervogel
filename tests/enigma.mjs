@@ -548,6 +548,34 @@ for (const lv of [2, 6]) {
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
+// 3l. Level 5's first loop (seed 1945): the shape. The pass is 10 chunks (7 in the first pass and in 1946), the level keeps its 84 chunks, the frozen sea, the harbour and the first farmland stay first and the
+// pass and the depot's farmland stay last (loopSeq, over 30 seeds), the stretches are at least 4 chunks, the plan holds the basin with its base (hangars, nine tanks, factory, flak) in the pass, and the first pass
+// and 1946 have none of it. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const shape = lv => { startEnigma(5, true, lv); const S = run.sortie, g = S.segs.find(q => q.t === 'pass'); return { len: S.len, pass: g.n, order: S.segs.map(q => q.t).join(','), basin: !!sortiePlan(S).basin }; };
+    o.f0 = shape(0); o.f1 = shape(1); o.f2 = shape(2); o.f1b = shape(1); const bad = []; for (let sd = 1; sd <= 30; sd++) { const q = loopSeq(ENIGMA_SEQ[4], sd, 5), sum = q.reduce((n, x) => n + x[1], 0), t = q.map(x => x[0]);
+      if (sum !== 84 || t.slice(0, 3).join() !== 'open_sea_ice,harbour_winter,farmland_winter' || t.slice(-2).join() !== 'pass,farmland_winter' || q.some(x => x[1] < 4) || q[q.length - 2][1] !== 10 || q[q.length - 1][1] !== 11 || [...t].sort().join() !== ENIGMA_SEQ[4].map(x => x[0]).sort().join()) bad.push(sd); }
+    o.bad = bad; startEnigma(5, true, 1); const S = run.sortie, P = sortiePlan(S); o.parts = P.basin ? P.basin.parts : null; o.airbase = !!(P.airbase && P.airbase.basin); o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.f0.pass === 7 && r.f2.pass === 7 && !r.f0.basin && !r.f2.basin && r.f0.len === 84 && r.f2.len === 84, 'the first pass and seed 1946: the pass is 7 chunks, no basin');
+  ok(r.f1.pass === 10 && r.f1.len === 84 && r.f1.basin && r.f1.order === r.f1b.order && r.f1.order.startsWith('open_sea_ice,harbour_winter,farmland_winter'), `level 5, seed 1945: the pass is 10 chunks of the same 84, the basin is in the plan, the stretches (${r.f1.order}) come out the same each time`);
+  ok(r.bad.length === 0, `loopSeq keeps the length, the first and last stretches and 4 chunks or more over 30 seeds${r.bad.length ? ': bad ' + r.bad.join(',') : ''}`);
+  ok(r.parts && r.parts.hangar >= 4 && r.parts.tank >= 9 && r.parts.factory === 2 && r.parts.flak >= 5 && r.airbase, `the base: ${JSON.stringify(r.parts)}`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3m. Level 5's first loop (seed 1945): flying through the base. The screen goes to the pass, the ship cannot die, and over 1500 frames the base's guns, bunkers and parked aircraft come up (flak, a bunker, parked planes, an
+// artillery piece among them), nothing throws an error, and the frame draws.
+{
+  const page = await freshPage();
+  await page.evaluate(() => { window.SF.peek('settings.diff = 1'); window.SF.peek('startEnigma(5, false, 1)'); window.SF.setMode('immortal'); });
+  await peek(page, `(() => { const S = run.sortie, g = S.segs.find(q => q.t === 'pass'), sc = Math.round((world.stageBaseP + g.start) * CH); world.scroll = sc; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } world.midDone = true; return 1; })()`);
+  const seen = {}; for (let k = 0; k < 15; k++) { await page.evaluate(() => window.SF.run(100)); const t = await peek(page, `world.enemies.map(e => e.type)`); for (const q of t) seen[q] = (seen[q] || 0) + 1; }
+  const fin = await peek(page, `({ errs: SF.R.errs.slice(0, 2), y: Math.round((world.scroll - world.stageBaseP * CH) / CH), pass: run.sortie.segs.find(q => q.t === 'pass').start, state: app.state })`);
+  ok(fin.errs.length === 0 && fin.state === 'play', `flying through the base: no errors${fin.errs.length ? ': ' + fin.errs.join(' | ') : ''}`);
+  ok((seen.flak || 0) + (seen.aaflak || 0) > 0 && (seen.parked || 0) > 0 && (seen.bunker || 0) > 0, `the base's guns, bunkers and parked aircraft came up (${JSON.stringify(seen)})`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
