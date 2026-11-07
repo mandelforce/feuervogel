@@ -620,6 +620,26 @@ for (const lv of [2, 6]) {
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
+// 3p. Level 4's first loop (seed 1945): the overcast sky of its own (drawOvercast, OVC). It is drawn in the loop and never in the first pass; the white fair-weather puffs are off in the loop; it changes along the level
+// (a pale veil at the clearing, heavy and smoke-brown over the fortified forest, fog at the hidden airbase, warm in the valley and on the farmland, low and dark at the castle), blends without steps between
+// stretches, and changes the frame. No errors, also with the low-effects setting.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const px = () => { const d = cv.getContext('2d').getImageData(0, 30, cv.width, 300).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return Math.round(s / (d.length / 4) / 3); };
+    const frame = (c, noOvc) => { world.enemies = []; world.ebul = []; const sc = Math.round((c + world.stageBaseP) * CH); world.scroll = sc; world.scrollV = world.scrollTarget = 0; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } app.state = 'play'; if (player) player.x = -60; app.fade = null; app.msg = null; let n = 0; const orig = drawOvercast; drawOvercast = () => { n++; if (!noOvc) orig(); }; resetCtx(); render(); drawOvercast = orig; return { n, mean: px() }; };
+    for (const lp of [0, 1]) { startEnigma(4, false, lp); const S = run.sortie, a = frame(30, false), b = frame(30, true); o['l' + lp] = { called: a.n, same: a.mean === b.mean, diff: a.mean - b.mean }; if (lp === 1) { const at = t => { const g = S.segs.find(q => q.t === t); return ovcAt(S, -(g.start + g.n / 2) * CH - world.stageBaseP * CH); };
+      o.clearing = at('clearing_village'); o.fort = at('forest_fortified'); o.air = at('airbase_forest_hidden'); o.valley = at('valley'); o.farm = at('farmland_approach'); o.castle = ovcAt(S, -(S.len + 5) * CH);
+      const tab = Object.values(OVC), rng = k => Math.max(...tab.map(v => v[k])) - Math.min(...tab.map(v => v[k])) || 1; let step = 0, prev = null; for (let wy = -3 * CH; wy > -(S.len + 4) * CH; wy -= 8) { const P = ovcAt(S, wy); if (prev) for (let k = 0; k < P.length; k++) step = Math.max(step, Math.abs(P[k] - prev[k]) / rng(k)); prev = P; } o.step = step;
+      lowFX = true; startEnigma(4, false, 1); frame(40, false); lowFX = false; o.lowOk = true; } }
+    o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.l1.called === 1 && r.l0.called === 0, `the overcast is drawn in the first loop (${r.l1.called}) and not in the first pass (${r.l0.called})`);
+  ok(r.l1.diff !== 0, `it changes the frame (mean brightness ${r.l1.diff >= 0 ? '+' : ''}${r.l1.diff})`);
+  ok(r.clearing[0] < r.fort[0] && r.clearing[0] < r.castle[0] && r.fort[12] === 1 && r.clearing[12] === 0 && r.air[11] > r.fort[11] && r.air[11] > r.valley[11], 'a pale veil at the clearing, the heaviest at the castle, smoke only in the fortified forest, the most fog at the hidden airbase');
+  ok(r.valley[8] > r.valley[10] && r.farm[8] > r.farm[10] && r.castle[1] < 0.4, `warm in the valley and on the farmland (tint R ${r.valley[8].toFixed(2)} B ${r.valley[10].toFixed(2)}), dark at the castle (veil R ${r.castle[1]})`);
+  ok(r.step < 0.05, `no steps between stretches (the largest change over 8 rows is ${(r.step * 100).toFixed(1)} percent of a value's range)`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
