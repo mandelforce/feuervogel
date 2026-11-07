@@ -489,19 +489,37 @@ for (const lv of [2, 6]) {
   const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
     return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
   ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
-  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley + 4}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
     for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
-      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead);
-        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, wys: B.map(e => e.wy), ebul: world.ebul.length }; })()`);
-      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.wys.slice(); o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.shots = Math.max(o.shots, q.ebul);
-        if (q.t > 500 && !o.wy1) o.wy1 = q.wys.slice(); }
+      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead), pt = world.enemies.filter(e => e.type === 'pt' && e.rv && !e.dead).length;
+        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, pt, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, first: Object.fromEntries(B.map(e => [e.type, e.wy]).reverse()), ebul: world.ebul.length }; })()`);
+      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.first; o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.pt = Math.max(o.pt || 0, q.pt); o.shots = Math.max(o.shots, q.ebul);
+        if (q.t > 500 && !o.wy1) o.wy1 = q.first; }
       else if (o.started) o.ended = q.enc || 'none'; }
     o.errs = SF.R.errs.slice(0, 2); return o; });
-  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5, `the convoy comes: ${f.kinds}; ${f.road} road vehicles`);
+  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5 && f.pt >= 2, `the convoy comes: ${f.kinds}; ${f.road} road vehicles; ${f.pt} PT boats come down the river with it`);
   ok(f.dry === 0 && f.wet > 10, `every river craft sails on water (${f.wet} samples on the river, ${f.dry} off it)`);
-  ok(f.wy1 && f.wy0.length === f.boats && f.wy1.every((w, k) => w <= f.wy0[k] + 1) && f.wy1.some((w, k) => w < f.wy0[k] - 20), 'the river craft sail north (their world y falls)');
+  const com = f.wy1 ? Object.keys(f.wy1).filter(k => k in f.wy0) : []; ok(com.length >= 2 && com.every(k => f.wy1[k] <= f.wy0[k] + 1) && com.some(k => f.wy1[k] < f.wy0[k] - 20), `the river craft sail north (their world y falls: ${com.join(', ')})`);
   ok(f.shots > 0 && f.ended !== null && f.errs.length === 0, `the armed ones fire back, the encounter ends and rests, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3h2. The convoy's boats: tougher than a PT boat, two PT boats come down the river with it, and a destroyed one goes down like the game's ships (an oil slick, a sinking hull,
+// swimmers; the fuel barge burns). The valley's river is long and wide (at least 40 px, no kink: the centre line never moves more than 1.5 px a row).
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { pts: 0, hp: {}, sunk: {}, minHw: 999, kink: 0, len: 0 };
+    const R = SF.peek("(() => { const r = run.sortie.plan.rivers2[0]; return { n: r.cx.length, hw: Math.min(...r.hw.slice(Math.round(r.hw.length * 0.3), Math.round(r.hw.length * 0.7))), kink: Math.max(...r.cx.slice(1).map((c, i) => Math.abs(c - r.cx[i]))) }; })()"); o.len = R.n; o.minHw = R.hw; o.kink = R.kink;
+    for (let i = 0; i < 600 && !SF.peek("world.enc && world.enc.id === 'valleyconvoy' && world.enc.t > 460"); i++) SF.run(30);
+    o.pts = SF.peek("world.enemies.filter(e => e.type === 'pt' && e.rv).length"); o.ptSeen = o.pts; o.hp = SF.peek("JSON.stringify(Object.fromEntries(world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type)).map(e => [e.type, e.hp / hpm()])))");
+    for (const ty of ['tug', 'bargeF', 'bargeC', 'bargeG']) { const q = SF.peek(`(() => { const e = world.enemies.find(o => o.type === '${ty}' && !o.dead); if (!e) return null; const d0 = world.decals.length, c0 = critters.length; kill(e); return { d0, c0 }; })()`); if (!q) continue; SF.run(120);
+      o.sunk[ty] = SF.peek(`({ oil: world.decals.some(d => d.kind === 'oil'), sink: world.decals.some(d => d.kind === 'sink' && d.s === SPR.${ty}), swim: critters.length > ${q.c0} })`); }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const hp = JSON.parse(r.hp), sunkAll = Object.values(r.sunk).length === 4 && Object.values(r.sunk).every(s => s.oil && s.sink && s.swim);
+  ok(r.pts >= 0 && hp.tug >= 12 && hp.bargeF >= 16 && hp.bargeC >= 28 && hp.bargeG >= 34, `the convoy's boats are tough (hit points: tug ${hp.tug}, fuel ${hp.bargeF}, parts ${hp.bargeC}, tank lighter ${hp.bargeG}; a PT boat has 8)`);
+  ok(sunkAll, `a destroyed boat goes down like the game's ships: ${JSON.stringify(r.sunk)}`);
+  ok(r.minHw >= 24 && r.kink <= 1.5 && r.len >= 600, `the river is long (${r.len} rows), wide (at least ${r.minHw.toFixed(0)} px each side of the centre at its narrowest middle) and smooth (largest step of its centre line ${r.kink.toFixed(2)} px a row)`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
 // 3i. Level 4's first loop (seed 1945): the Cliff Battery at the start. It is placed at the cliff coast (encPlan, c 1); gentle at first (nothing for 300 frames, the radar then stands
