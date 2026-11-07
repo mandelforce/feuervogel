@@ -5007,22 +5007,41 @@ const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, pr
 const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
-// the cards sit in rows of three (the playfield is 224 wide): row r of n cards is centred, and the rows are centred around PICK_CARD.y
-function cardRect(i, n) {
-  const rows = Math.ceil(n / 3), r = Math.floor(i / 3), inRow = Math.min(3, n - r * 3), c = i % 3;
-  return { x: Math.round(W / 2 - (inRow * PICK_CARD.w + (inRow - 1) * PICK_CARD.gap) / 2) + c * (PICK_CARD.w + PICK_CARD.gap), y: PICK_CARD.y - Math.round((rows - 1) * (PICK_CARD.h + PICK_CARD.gap) / 2) + r * (PICK_CARD.h + PICK_CARD.gap) };
+function openShipPick() { app.shipPick = true; app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
+// The picker shows three ships a page. With more than three, arrow buttons at the left and right edges turn the page (taps, or the left and right keys), and dots between the title and the cards show which page it is.
+const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SCHNEEVOGEL', 'NACHTVOGEL', 'PHOENIX', 'ROTKEHLCHEN', 'RAPTOR'];
+const pickPages = n => Math.max(1, Math.ceil(n / PICK_PER));
+const curSkinId = () => useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+const pickPage = n => clamp(app.pickPage | 0, 0, pickPages(n) - 1);
+function cardRect(i, n) { // the card for ship i of n: the cards of the last page are centred
+  const page = Math.floor(i / PICK_PER), inPage = Math.min(PICK_PER, n - page * PICK_PER), c = i % PICK_PER;
+  return { x: Math.round(W / 2 - (inPage * PICK_CARD.w + (inPage - 1) * PICK_CARD.gap) / 2) + c * (PICK_CARD.w + PICK_CARD.gap), y: PICK_CARD.y };
 }
+const pickArrow = dir => ({ x: dir < 0 ? 4 : W - 4 - PICK_ARW, y: PICK_CARD.y + Math.round(PICK_CARD.h / 2) - 15, w: PICK_ARW, h: 30 });
+function pickTurn(d) { const n = shipList().length, np = clamp(pickPage(n) + d, 0, pickPages(n) - 1); if (np !== pickPage(n)) { app.pickPage = np; sfx('tick'); } }
+function pickKey(k) { if (k === 'escape') app.shipPick = false; else pickTurn(k === 'arrowleft' || k === 'a' ? -1 : 1); }
 function tapShipPick(gx, gy) {
-  const list = shipList();
-  for (let i = 0; i < list.length; i++) { const { x: cx, y: cy } = cardRect(i, list.length); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= cy && gy <= cy + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
+  const list = shipList(), n = list.length, page = pickPage(n);
+  if (pickPages(n) > 1) for (const dir of [-1, 1]) { const r = pickArrow(dir); if (gx >= r.x - 4 && gx <= r.x + r.w + 4 && gy >= r.y - 4 && gy <= r.y + r.h + 4) { pickTurn(dir); return; } }
+  for (let i = page * PICK_PER; i < Math.min(n, (page + 1) * PICK_PER); i++) { const { x: cx, y: cy } = cardRect(i, n); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= cy && gy <= cy + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   app.shipPick = false;
 }
+function drawPickArrow(dir, on) { // a small framed button with a pixel chevron; dimmed at the first and last page, nudging outwards while it can be pressed
+  const r = pickArrow(dir), nudge = on && gf % 60 < 30 ? dir : 0, cx = r.x + (dir < 0 ? 5 : 6) + nudge, cy = r.y + 10;
+  ctx.globalAlpha = on ? 1 : 0.3;
+  ctx.fillStyle = OUT; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+  ctx.fillStyle = on ? '#6a4ad0' : '#34226a'; ctx.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  ctx.fillStyle = '#1c1630'; ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+  ctx.fillStyle = '#fff0a0';
+  for (let k = 0; k < 9; k++) { const o = Math.abs(k - 4); ctx.fillRect(cx + (dir < 0 ? o : 4 - o), cy + k, 2, 1); }
+  ctx.globalAlpha = 1;
+}
 function drawShipPick() {
-  const list = shipList(), cur = useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), n = list.length, pages = pickPages(n), page = pickPage(n), cur = curSkinId();
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
-  list.forEach(([id, set], i) => {
-    const { x: cx, y: cy } = cardRect(i, list.length), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
+  textS('CHOOSE YOUR SHIP', W / 2, PICK_CARD.y - 22, '#fff0a0', 1, 'center', '#ff9a40');
+  for (let i = page * PICK_PER; i < Math.min(n, (page + 1) * PICK_PER); i++) {
+    const [id, set] = list[i], { x: cx, y: cy } = cardRect(i, n), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
     ctx.fillStyle = OUT; ctx.fillRect(cx - 2, cy - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
     ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, cy - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
     ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, cy + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
@@ -5030,7 +5049,12 @@ function drawShipPick() {
     ctx.fillStyle = id === 2 ? '#8466dc' : id === 3 ? '#ffb838' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
     ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
     if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, cy + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
-  });
+  }
+  textS(PICK_NAMES[cur], W / 2, PICK_CARD.y + PICK_CARD.h + 14, '#e8e0ff', 1, 'center');
+  if (pages > 1) {
+    drawPickArrow(-1, page > 0); drawPickArrow(1, page < pages - 1);
+    for (let q = 0; q < pages; q++) { const dx = Math.round(W / 2 - (pages * 8 - 4) / 2) + q * 8, dy = PICK_CARD.y - 11; ctx.fillStyle = OUT; ctx.fillRect(dx - 1, dy - 1, 6, 6); ctx.fillStyle = q === page ? '#ffd84a' : '#4a3a8a'; ctx.fillRect(dx, dy, 4, 4); }
+  }
 }
 // 2nd player: a captured Raven prototype, the Ravens' bat-wing bomber shrunk to fighter size and flown nose-up
 const RAVEN = ['#1c1d22', '#30323a', '#4a4d56', '#686c76', '#8c919b', '#b4b9c2', '#dde1e7'];
@@ -17152,7 +17176,8 @@ addEventListener('keydown', e => {
   if (app.booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
-    if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    if (app.state === 'title' && app.shipPick && (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd' || k === 'escape')) pickKey(k);
+    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
     else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
@@ -17170,7 +17195,7 @@ let drag = null, scale = 2;
 onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }
