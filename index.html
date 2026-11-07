@@ -4858,10 +4858,11 @@ function buildFeuervogel(bank, skin) {
   });
 }
 // Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
-// 34x36 like the Feuervogel's drawing, but without the outline the other ships get, so the sprite is exactly 34x36.
+// The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
 function buildPhoenix(bank) {
   const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
-  return sprite(34, 36, x => {
+  return sprite(36, 38, x => { // the standard 36x38 of the other ships (their 34x36 drawing plus the 1-pixel outline), here with an empty border instead of the outline
+    x.translate(1, 1);
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
     const wl = base.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = base.map(([a, b]) => [17 + (17 - a) * fR, b]);
