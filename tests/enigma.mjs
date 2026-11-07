@@ -634,6 +634,24 @@ for (const lv of [2, 6]) {
   const fin = await peek(page, `SF.R.errs.slice(0, 2)`); ok(fin.length === 0, `no errors${fin.length ? ': ' + fin.join(' | ') : ''}`);
   await page.close();
 }
+// 3o. Level 4's first loop (seed 1945): the way into the castle. The legacy ground of the boss approach takes the plan's late-autumn look (straw meadow, not green grass; gold and rust trees), and the plan's end runs into it
+// without a line: the rows either side of the chunk line differ by little, the first 44 legacy rows carry plan pixels that fade out, and the cobbled road widens gradually from the plan's road. The first pass (seed 1944) keeps
+// its green grass and dark trees. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const build = (lv, p) => { world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; startChunk(p); const j = world.chunkJobs.pop(); let n = 0; while (!workChunk(j, CH) && n++ < 9); return j.x.getImageData(0, 0, W, CH).data; };
+    const mean = (d, y0, y1) => { const m = [0, 0, 0]; let n = 0; for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const k = (y * W + x) * 4; m[0] += d[k]; m[1] += d[k + 1]; m[2] += d[k + 2]; n++; } return m.map(v => v / n); };
+    for (const lp of [0, 1]) { startEnigma(4, true, lp); const S = run.sortie, pc = world.stageBaseP + S.len, leg = build(lp, pc), pl = build(lp, pc - 1); const above = mean(leg, CH - 1, CH), below = mean(pl, 0, 1), top = mean(leg, 0, CH - 50);
+      o['l' + lp] = { autumn: !!S.autumn, top, jump: Math.max(...[0, 1, 2].map(k => Math.abs(above[k] - below[k]))), trees: treeSet(4) === SPR.treeSets[4], hw: [croadHW(10), croadHW(60), croadHW(200)].map(v => +v.toFixed(1)), seam: SEAM.n }; }
+    o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  const a = r.l1, f = r.l0;
+  ok(a.autumn && !f.autumn && a.top[0] > a.top[2] + 25 && a.top[1] < a.top[0] * 1.2 && f.top[1] > f.top[0], `the castle's ground: straw in the first loop (R ${a.top[0].toFixed(0)} G ${a.top[1].toFixed(0)} B ${a.top[2].toFixed(0)}), green grass in the first pass (R ${f.top[0].toFixed(0)} G ${f.top[1].toFixed(0)})`);
+  ok(!a.trees && f.trees, 'the castle ground has autumn trees in the first loop and the old dark ones in the first pass');
+  ok(a.jump < 14, `no line at the seam: the rows either side differ by ${a.jump.toFixed(1)} in the first loop`);
+  ok(a.hw[0] === 5 && a.hw[1] > 5 && a.hw[1] < 13 && a.hw[2] === 13, `the cobbled road widens from 5 to 13 px (${a.hw})`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its

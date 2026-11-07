@@ -4448,7 +4448,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.93'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.94'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4605,6 +4605,10 @@ const CITYC = {
 };
 const THEME_RGB = THEME_TR.map(o => { const r = {}; for (const k in TR) r[k] = (o[k] || TR[k]).map(hexRGB); return r; });
 let TRGB = THEME_RGB[0];
+/* Level 4's first loop (run.sortie.autumn): the castle's ground (theme 4, the boss approach and arena on the legacy ground) takes the plan's late-autumn look: dry straw meadow instead of green grass, the same
+   ramp the generator's meadows use, so the plan's last stretch runs into it without a change of colour. */
+const THEME_RGB_AUT4 = Object.assign({}, THEME_RGB[4], { grass: ['#3e381c', '#4a4222', '#5e5428', '#766a34', '#8e8040'].map(hexRGB), forest: ['#12100a', '#1a160c', '#241e10', '#2e2614'].map(hexRGB), hedge: ['#1c180c', '#2a2410', '#3a3216'].map(hexRGB) });
+const themeRGB = th => th === 4 && run.sortie && run.sortie.autumn ? THEME_RGB_AUT4 : THEME_RGB[th];
 const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5];
 // crossovers: one per 240px stretch of yard, a long gentle S-bend (120px for one track spacing) that the trains follow exactly.
 // They run in a fixed sequence (from track -> to track, for a train moving up the yard) so the boss trains on tracks 3 and 5
@@ -7023,7 +7027,7 @@ function classify(wx, wy) {
     const cf = I.th === 4 ? castleInfo() : null;
     if (!cf) tt = onRoad ? 'road' : 'grass';
     else { const dIn = cf.wy0 - wy;
-      if (Math.abs(wx - 112) <= 13 && dIn > 24) tt = 'croad';
+      if (run.sortie && run.sortie.autumn ? Math.abs(wx - 112) <= croadHW(dIn) && dIn > SEAM.n : Math.abs(wx - 112) <= 13 && dIn > 24) tt = 'croad'; /* (the first loop: the cobbled road starts after the blended seam and widens from the plan's 5 px to its 13 over 70 rows) */
       else if (onRoad && wy > cf.wyEnd - 8) tt = 'road';
       else if (cf.fields.some(f => wx >= f[0] && wx <= f[2] && wy >= f[1] && wy <= f[3])) tt = 'field';
       else tt = 'grass'; }
@@ -7148,14 +7152,15 @@ function fieldColorE(wx, wy) {
 function pixelColor(wx, wy, rx) {
   const C = classify(wx, wy), p = C.p, ly = C.ly, I = C.I, b = I.b;
   let tt = C.tt, coastD = C.coastD;
-  TRGB = THEME_RGB[I.th];
+  TRGB = themeRGB(I.th);
   if (ENIGMA_T) engSat = b !== 'city' && b !== 'factory' && b !== 'secret' && b !== 'fortline' && b !== 'castle' && (tt === 'field' || tt === 'grass' || tt === 'sand' || tt === 'road'); // ground that Enigma pulls toward grey
   if (b === 'city') return cityColor(wx, wy, rx);
   if (b === 'factory' && tt !== 'rail') return factoryColor(wx, wy, rx);
   if (b === 'secret') return secretColor(wx, wy);
   if (b === 'fortline' && tt === 'mud') return fortColor(wx, wy, rx);
-  if (b === 'castle' && tt === 'grass') { const n = hash(wx, wy); if (n > 0.985) return hexRGB(n > 0.993 ? '#f4d050' : '#e8e0f0'); }
-  if (tt === 'croad') { const dx = Math.abs(wx - 112), n = hash(wx * 3, wy * 5); if (dx >= 12) return hexRGB(n < 0.5 ? '#3a3630' : '#4a443c'); const bx = (wx + ((wy >> 2) & 1) * 2) % 4, by = ((wy % 4) + 4) % 4; return hexRGB(bx === 0 || by === 0 ? '#4e4840' : n < 0.33 ? '#6e675c' : n < 0.66 ? '#7a7266' : '#857c6e'); }
+  if (b === 'castle' && tt === 'grass') { const n = hash(wx, wy); if (n > 0.985) return hexRGB(run.sortie && run.sortie.autumn ? (n > 0.993 ? '#c8962a' : '#a4541c') : n > 0.993 ? '#f4d050' : '#e8e0f0'); } /* (the first loop's autumn: fallen leaves instead of flowers) */
+  if (tt === 'croad') { const dx = Math.abs(wx - 112), n = hash(wx * 3, wy * 5), cf2 = run.sortie && run.sortie.autumn ? castleInfo() : null; if (dx >= (cf2 ? croadHW(cf2.wy0 - wy) - 1 : 12)) return hexRGB(n < 0.5 ? '#3a3630' : '#4a443c'); const bx = (wx + ((wy >> 2) & 1) * 2) % 4, by = ((wy % 4) + 4) % 4; return hexRGB(bx === 0 || by === 0 ? '#4e4840' : n < 0.33 ? '#6e675c' : n < 0.66 ? '#7a7266' : '#857c6e'); }
+  if (b === 'castle' && tt === 'field' && run.sortie && run.sortie.autumn) { const n = vnoise(wx * 0.09, wy * 0.09) - 0.5; return (((wy >> 1) % 3) < 1 ? TRGB.dirt : TRGB.grass)[pickI((((wy >> 1) % 3) < 1 ? 4 : 5), 0.5 + n * 0.5, wx, wy)]; } /* (the first loop's autumn: ploughed rows and stubble where the castle's fields are) */
   if (tt === 'bridge') tt = 'river';
   if (tt === 'taxi') {
     if (Math.abs(wx - rx) < 0.6 && ((wy % 12) + 12) % 12 < 6) return hexRGB('#d8b830');
@@ -7265,6 +7270,7 @@ function waterIn(x0, y0, x1, y1, st = 3) {
 }
 const farmCache = new Map();
 let castleCache = { base: null, v: null };
+const croadHW = dIn => { const u = clamp((dIn - SEAM.n) / 70, 0, 1); return 5 + 8 * u * u * (3 - 2 * u); };
 function castleInfo() {
   const ck = world.stageBaseP + '|' + world.curTheme + '|' + world.SEED; if (castleCache.base === ck) return castleCache.v;
   let v = null;
@@ -7356,6 +7362,12 @@ function avenueTrees(y0, y1) { const out = []; for (let ty = Math.floor(y0 / 18)
 // inside the settlement plan of an Enigma Run level (it draws its own ground, trees included)
 function inPlan(wy) { const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return false; const y = S.planY0 - wy; return y >= 0 && y < P.L; }
 // classic: the trees of the classic look, for code that runs in the simulation (explosion scorching, picking spots for ground targets); t.vis says if Enigma draws the tree
+function treeSet(th) { /* level 4's first loop: the castle's trees are turning: gold, rust and the dark green of the conifers, instead of one dark green */
+  if (th !== 4 || !run.sortie || !run.sortie.autumn) return SPR.treeSets[th];
+  if (!SPR.treeAut4) { const G = ['#3a2c08', '#5a420c', '#7a5c10', '#9c7a16', '#b8942a'], R = ['#2a1406', '#4a2410', '#6a3818', '#8a4e22', '#a8662e'], D = SPR.treeSets[4], mk2 = (ramp, w, h) => sprite(w, h, x => ellS(x, ramp, w / 2, h / 2, w / 2, h / 2, 0.05), { oc: '#0e0a04' });
+    SPR.treeAut4 = [mk2(G, 10, 12), mk2(R, 12, 12), D[2]]; }
+  return SPR.treeAut4;
+}
 function treeList(wx, wy, r, classic) {
   const out = [], cs = 9;
   if (themeAtWy(wy) === 5) for (const t of avenueTrees(wy - r - 18, wy + r + 18)) if (!inPlan(t.y) && (t.x - wx) ** 2 + (t.y - wy) ** 2 <= (r + 6) ** 2) out.push(t);
@@ -7366,8 +7378,8 @@ function treeList(wx, wy, r, classic) {
     const th = themeAtWy(ty);
     if (burntTrees.has((tx | 0) + ',' + (ty | 0))) continue;
     const tt = terrainType(tx, ty), plan = inPlan(ty); // the settlement plan paints its own trees into the ground: no hashed trees there
-    if (classic) { if (treeOk0(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], vis: !plan && (!ENIGMA_T || treeKeepE(tt, tx, ty, h, th)), ghost: plan }); }
-    else if (!plan && treeOk(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0] });
+    if (classic) { if (treeOk0(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: treeSet(th)[(hash(ci + 9, cj + 3) * 3) | 0], vis: !plan && (!ENIGMA_T || treeKeepE(tt, tx, ty, h, th)), ghost: plan }); }
+    else if (!plan && treeOk(tt, tx, ty, h, th)) out.push({ x: tx, y: ty, s: treeSet(th)[(hash(ci + 9, cj + 3) * 3) | 0] });
   }
   return out;
 }
@@ -7471,7 +7483,7 @@ function drawFeatures(x, p, wy0) {
     if (h > 0.82) continue;
     const tx = ci * cs + hash(ci, cj + 101) * cs, ty = cj * cs + hash(ci + 55, cj) * cs;
     const th = themeAtWy(ty);
-    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) plant(SPR.treeSets[th][(hash(ci + 9, cj + 3) * 3) | 0], tx, ty);
+    if (!burntTrees.has((tx | 0) + ',' + (ty | 0)) && treeOk(terrainType(tx, ty), tx, ty, h, th)) plant(treeSet(th)[(hash(ci + 9, cj + 3) * 3) | 0], tx, ty);
   }
   if (world.featTheme === 5) for (let ty = Math.floor(y0 / 12) * 12; ty <= y1; ty += 12) for (const sd of [-1, 1]) {
     const tx = roadX(ty) + sd * 8.2;
@@ -7495,7 +7507,7 @@ function drawFeatures(x, p, wy0) {
     const f = farmAt(ci, cj); if (!f) continue;
     const ox = f.x0, oy = f.y0 - wy0;
     for (let j = -2; j < 26; j++) for (let i = -2; i < 50; i++) if (hash(ox + i, f.y0 + j) < 0.92) rect(x, pick(['#5a4a32', '#6e5c40', '#86704e', '#9c8660'], 0.4 + hash(i, j) * 0.4, ox + i, f.y0 + j), ox + i, oy + j, 1, 1);
-    for (let j = 28; j < 66; j++) for (let i = 0; i < 72; i++) rect(x, pick(TR.grass, 0.6 + (vnoise((ox + i) * 0.2, (f.y0 + j) * 0.2) - 0.5) * 0.5, ox + i, f.y0 + j), ox + i, oy + j, 1, 1);
+    for (let j = 28; j < 66; j++) for (let i = 0; i < 72; i++) rect(x, pick(run.sortie && run.sortie.autumn && world.featTheme === 4 ? ['#3e381c', '#4a4222', '#5e5428', '#766a34', '#8e8040'] : TR.grass, 0.6 + (vnoise((ox + i) * 0.2, (f.y0 + j) * 0.2) - 0.5) * 0.5, ox + i, f.y0 + j), ox + i, oy + j, 1, 1); /* (the first loop's autumn: a dry paddock) */
     { const T = ENIGMA_T, soft = (hex) => { if (!T) return hex; const c = mixC(hexRGB(hex), hexRGB(TR.grass[3]), ENIGMA.fence * T); return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; }, st = T >= ENIGMA.postsFrom ? 8 : 4; // Enigma: fainter fence, every second post
       x.fillStyle = soft('#6a4a2a'); x.fillRect(ox, oy + 28, 72, 1); x.fillRect(ox, oy + 65, 72, 1); x.fillRect(ox, oy + 28, 1, 38); x.fillRect(ox + 71, oy + 28, 1, 38);
       x.fillStyle = soft('#3a2614'); for (let i = 0; i < 72; i += st) { x.fillRect(ox + i, oy + 27, 1, 2); x.fillRect(ox + i, oy + 64, 1, 2); } for (let j = 28; j < 66; j += st) { x.fillRect(ox - 1, oy + j, 2, 1); x.fillRect(ox + 70, oy + j, 2, 1); } }
@@ -7552,6 +7564,16 @@ function gorgeXoverPaint(a, wy0) {
     const cx = Math.round(X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L)), sl = ((wy % 5) + 5) % 5 < 2;
     for (let dx = -4; dx <= 4; dx++) { const c = dx === -3 || dx === 3 ? (wy & 1 ? [138, 142, 150] : [176, 180, 188]) : sl ? [90, 58, 32] : null; if (!c) continue; const o = (ly * W + cx + dx) * 4; a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; } }
 }
+/* Level 4's first loop (run.sortie.autumn): the plan ends and the castle's legacy ground begins on a chunk line. So that there is no line to see, the first legacy chunk's last SEAM.n rows (the ones next to the plan) take
+   the plan's own last rows mirrored over them, dithered with a 4 x 4 ordered pattern: all plan at the seam, fading to none, so the plan's meadow, its forest patches and its road run on into the castle's
+   ground and thin out. The plan rows are painted again here (pure: the same pixels the plan's last chunk has), so the result never depends on which chunk was built first; a hashed tree drawn after it stands on top. */
+const SEAM = { n: 44 };
+function castleSeam(job) {
+  const S = run.sortie, nb = info(job.p - 1); if (!nb || !nb.plan || typeof CityGen === 'undefined' || !S.plan) return;
+  const wyN = -(job.p - 1) * CH, n = SEAM.n, tmp = new Uint8ClampedArray(W * n * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + n - 1), n, planPaintOpts(S));
+  const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  for (let r = 0; r < n; r++) { const ly = CH - 1 - r, f = Math.pow(1 - r / n, 1.3); for (let x = 0; x < W; x++) { if ((B4[(ly & 3) * 4 + (x & 3)] + 0.5) / 16 >= f) continue; const o = (ly * W + x) * 4, s = (r * W + x) * 4; a[o] = tmp[s]; a[o + 1] = tmp[s + 1]; a[o + 2] = tmp[s + 2]; a[o + 3] = 255; } }
+}
 function workChunk(job, rows) {
   const wy0 = -job.p * CH, a = job.img.data;
   if (job.I.plan && job.ly < CH) { // Enigma Run level 6: the settlement plan paints the chunk (buildings, trees and fires included), in bands of at least 16 rows
@@ -7565,8 +7587,8 @@ function workChunk(job, rows) {
     for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
-    if (!job.painted) { job.painted = true; job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
-    world.featTheme = job.I.th; TRGB = THEME_RGB[job.I.th];
+    if (!job.painted) { job.painted = true; if (run.sortie && run.sortie.autumn && !job.I.plan && job.I.b === 'castle') castleSeam(job); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
+    world.featTheme = job.I.th; TRGB = themeRGB(job.I.th);
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
     if (run.sortie && run.sortie.moon && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.moonGrade(im.data, W, r => moonP(wy0 + r)); job.x.putImageData(im, 0, 0); job.c.moonP = moonP(wy0 + CH / 2); job.c.grade = job.I.plan ? 'moonp' : 'moon'; } /* the first loop's level 3: the night's ground (the plan's own night, the legacy chunks' night grade) lifted into moonlight; a tree redrawn over a unit carries it (moon: night then moonlight; moonp: the plan's trees are night already) */
