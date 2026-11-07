@@ -31,12 +31,12 @@ let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } };
 
 const browser = await chromium.launch();
-async function freshPage() {
+async function freshPage(query = '') {
   const page = await browser.newPage({ viewport: golden.viewport });
   await page.route(/workers\.dev/, r => r.abort());
   page.on('pageerror', e => { bad++; console.error('page error:', e.message); });
   await page.addInitScript(initScript);
-  await page.goto(PAGE);
+  await page.goto(PAGE + query);
   await page.waitForFunction(() => typeof window.__sf === 'function', null, { polling: 100, timeout: 60000 });
   await page.evaluate(s => window.__sf(s), harness); await page.evaluate(s => window.__sf(s), replay);
   await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
@@ -459,6 +459,119 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 
+// 3f2. The Sower in level 4's first loop (seed 1945): it flies a zigzag (a triangle wave, not the first pass's sine), so its mines lay a zigzag line; the mines last 400
+// frames, not 250; one Sower first, then the pair in step (both turn at the same moment, a constant gap between them). The first pass keeps its sweep (3f).
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => {
+    const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1); SOWER.hp = 99999; SOWER_L.hp = 99999');
+    const o = { solo: [], pairGap: [], turns: 0, mineMax: 0, left: false, held: 0 }; let lastDir = 0, lastX = null;
+    for (let i = 0; i < 1500 && !o.left; i++) { SF.run(3);
+      const q = SF.peek(`(() => { const L = world.enemies.filter(e => e.type === 'sower' && !e.dead && e.st === 'hold'), m = world.ebul.filter(b => b.kind === 'amine');
+        return { n: L.length, xs: L.map(e => e.x), mine: m.length ? m[0].max : 0, all: world.enemies.filter(e => e.type === 'sower' && !e.dead).length }; })()`);
+      o.mineMax = Math.max(o.mineMax, q.mine); if (q.n) o.held++;
+      if (q.n === 1 && q.all === 1) { o.solo.push(q.xs[0]); const dir = lastX === null ? 0 : Math.sign(q.xs[0] - lastX); if (dir && lastDir && dir !== lastDir) o.turns++; if (dir) lastDir = dir; lastX = q.xs[0]; }
+      if (q.n === 2) o.pairGap.push(Math.abs(q.xs[0] - q.xs[1]));
+      if (o.held && q.all === 0) o.left = true; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const span = Math.max(...r.solo) - Math.min(...r.solo), pg = r.pairGap.slice(Math.floor(r.pairGap.length * 0.4)), gapSpread = pg.length ? Math.max(...pg) - Math.min(...pg) : 999; /* (once the second one has settled into its lane) */
+  ok(r.solo.length > 60 && span > 80 && r.turns >= 2, `level 4 first loop: the lone Sower flies a zigzag (${span.toFixed(0)} px wide, ${r.turns} turns)`);
+  ok(r.mineMax === 400, `its mines last 400 frames (${r.mineMax})`);
+  ok(r.pairGap.length > 30 && gapSpread < 30 && Math.min(...pg) > 60, `then the pair flies in step: ${r.pairGap.length} steps, the gap between them stays within ${gapSpread.toFixed(0)} px once settled`);
+  ok(r.left && r.errs.length === 0, `then they climb away, with no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3h. Level 4's first loop (seed 1945): the valley convoy. The encounter is placed at the valley (run.sortie.encPlan); the valley has a river along the strip; five
+// river craft (a tug, two gun barges, a fuel barge, the parts barge) sail north up it, each on water, and armoured cars and tankers drive north along the road; the armed ones fire
+// back; it comes once; the first pass has no such encounter and no river. No errors.
+{
+  const page = await freshPage();
+  const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
+    return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
+  ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
+  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
+    for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
+      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead);
+        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, wys: B.map(e => e.wy), ebul: world.ebul.length }; })()`);
+      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.wys.slice(); o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.shots = Math.max(o.shots, q.ebul);
+        if (q.t > 500 && !o.wy1) o.wy1 = q.wys.slice(); }
+      else if (o.started) o.ended = q.enc || 'none'; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5, `the convoy comes: ${f.kinds}; ${f.road} road vehicles`);
+  ok(f.dry === 0 && f.wet > 10, `every river craft sails on water (${f.wet} samples on the river, ${f.dry} off it)`);
+  ok(f.wy1 && f.wy0.length === f.boats && f.wy1.every((w, k) => w <= f.wy0[k] + 1) && f.wy1.some((w, k) => w < f.wy0[k] - 20), 'the river craft sail north (their world y falls)');
+  ok(f.shots > 0 && f.ended !== null && f.errs.length === 0, `the armed ones fire back, the encounter ends and rests, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3i. Level 4's first loop (seed 1945): the Cliff Battery at the start. It is placed at the cliff coast (encPlan, c 1); gentle at first (nothing for 300 frames, the radar then stands
+// on the plateau); the rim guns (the artillery) fire only in its four broadsides, on a beat, growing (3, 4, 5, 5 shells a gun); with the radar shot away the middle gun's aimed fan is
+// left out. The first pass has no such encounter. No errors.
+{
+  const page = await freshPage();
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { early: 0, radarAt: -1, beats: [], ended: null, started: false, peaks: [], dead: false };
+    for (let i = 0; i < 90 && o.ended === null; i++) { SF.run(20);
+      const q = SF.peek(`(() => { const E0 = world.enc; return { enc: E0 && E0.id, t: E0 ? E0.t : 0, i: E0 ? E0.i : 0, radar: world.enemies.filter(e => e.type === 'radar' && !e.dead).length, arty: world.enemies.filter(e => e.type === 'arty' && !e.dead && e.y > 0).length, markers: markers.length, eb: world.ebul.filter(b => b.kind === 's' || b.kind === undefined).length }; })()`);
+      if (q.enc === 'cliffbattery') { o.started = true; if (q.t < 420 && q.markers > 0) o.early++; if (q.radar && o.radarAt < 0) o.radarAt = q.t; o.peaks.push([q.i, q.eb]); }
+      else if (o.started) o.ended = q.enc || 'none'; }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const mx = k => Math.max(0, ...f.peaks.filter(p => p[0] === k + 2).map(p => p[1]));
+  ok(f.started && f.radarAt > 250 && f.early === 0, `level 4 first loop: the Cliff Battery starts gently (radar up at t ${f.radarAt}, no artillery fire before the first salvo)`);
+  ok(f.peaks.some(p => p[0] >= 5) && f.ended !== null, `all four broadsides fire and the encounter ends and rests (${f.ended})`);
+  ok(f.errs.length === 0, `no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3j. Level 4's first loop (seed 1945): the light changes along the level (drawAutumnLight): cool and overcast at the cliffs (blue above red on a grey field), golden by the
+// valley (red well above blue); the first pass never draws it. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { startEnigma(4, true, 1); const S = run.sortie, px = p => { world.scroll = p * S.len * CH + world.stageBaseP * CH + H / 2; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, W, H); drawAutumnLight(); const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; return [d[0], d[2]]; };
+    const a = px(0.05), b = px(0.85); startEnigma(4, true, 0); return { a, b, first: !!run.sortie.autumn }; })()`);
+  ok(r.a[1] > r.a[0] + 4 && r.b[0] > r.b[1] + 40 && !r.first, `level 4 first loop: overcast at the start (R ${r.a[0]}, B ${r.a[1]}), golden by the valley (R ${r.b[0]}, B ${r.b[1]}); the first pass has no autumn light`);
+  await page.close();
+}
+// 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
+// gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
+// tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
+// guns, has no aerial fight and no ruin. No errors.
+{
+  const a = await freshPage('?boss=1'), b = await freshPage('?boss=1');
+  const first = await b.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, false, 0)'); const o = { guns: 0, ruin: null };
+    for (let i = 0; i < 90 && !o.guns; i++) { SF.run(60); o.guns = SF.peek("world.enemies.filter(e => ['bunker', 'aatower', 'popup', 'arty'].includes(e.type) && !e.dead).length"); }
+    o.ruin = SF.peek('!!(run.sortie && run.sortie.autumn)'); o.aer = SF.peek("world.enemies.some(e => e.type === 'protoDuel')"); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(first.guns > 0 && !first.ruin && !first.aer, `level 4 first pass: the castle keeps its guns (${first.guns}), no ruin, no aerial fight`);
+  const f = await a.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, false, 1)');
+    const o = { turMax: 0, tanksMax: 0, castle: false, aerial: 0, keepHit: 0, protoMin: 1, flee: false, fled: false, dmg: 0, open: false, lvl5: false, ruinPx: false, windmill: 0 };
+    for (let i = 0; i < 260 && !o.lvl5; i++) { SF.run(60);
+      const q = SF.peek(`(() => { const c = world.enemies.find(e => e.type === 'boss' && e.kind === 'castle'), p = world.enemies.find(e => e.type === 'protoDuel' && e.castle && !e.dead);
+        return { c: !!c, tur: world.enemies.filter(e => ['bunker', 'aatower', 'popup', 'arty'].includes(e.type) && !e.dead).length, tanks: world.enemies.filter(e => (e.type === 'tank' || e.type === 'htank') && !e.dead).length,
+          ae: !!(c && c.aerial), tw: c ? c.parts.filter(q => q.tw && q.hp < q.maxhp).length : 0, op: !!(c && c.open), ph: p ? p.hp / p.maxhp : null, pf: !!(p && p.flee), fl: !!(c && c.proFled), dmg: run.proto.dmg, lv: run.sortie && run.sortie.level, oth: c ? c.parts.filter(q => q.k !== 'core' && q.k !== 'light' && !q.dead).length : -1, spin: c ? c.wmT || 0 : 0 }; })()`);
+      if (q.c) { o.castle = true; o.turMax = Math.max(o.turMax, q.tur); o.tanksMax = Math.max(o.tanksMax, q.tanks); if (q.ae) { o.aerial++; o.keepHit += q.tw; } if (q.ph !== null) o.protoMin = Math.min(o.protoMin, q.ph); if (q.pf) o.flee = true; if (q.fl) o.fled = true; o.dmg = q.dmg; if (q.op) o.open = true; o.windmill = Math.max(o.windmill, q.spin); }
+      if (q.lv === 5) o.lvl5 = true; }
+    o.ruinPx = SF.peek('(() => { const c = SPR.ravenFloorRuin, d = SPR.ravenFloor; return !!c && c !== d && c.width === d.width; })()'); o.errs = SF.R.errs.slice(0, 2); return o; });
+  ok(f.castle && f.turMax === 0 && f.tanksMax >= 8, `level 4 first loop: Ravenhold has no ground turrets (${f.turMax}) and ${f.tanksMax} tanks`);
+  ok(f.aerial > 3 && f.keepHit === 0 && f.protoMin >= 0.1 - 1e-6 && f.protoMin < 0.12 && f.flee && f.fled && f.dmg > 0, `the prototype fights in the air while the keep waits (${f.aerial} steps, keep parts hit ${f.keepHit} times), cannot be killed (lowest ${f.protoMin.toFixed(2)} of its health), flees, and what it lost carries over (${Math.round(f.dmg)})`);
+  ok(f.open && f.windmill > 20 && f.lvl5 && f.ruinPx && f.errs.length === 0, `then the tower falls under its windmills (${f.windmill} steps), the stage clears into level 5, the ruin floor is its own picture, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await a.close(); await b.close();
+}
+// 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
+// over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
+// and a snapshot can still be taken.
+{
+  const page = await freshPage();
+  const a = await peek(page, `(() => { startEnigma(4, true, 0); const S0 = run.sortie, P0 = sortiePlan(S0), first = { autumn: !!S0.autumn, lakes: (P0.lakes || []).length, pa: !!P0.P.autumn }; startEnigma(4, true, 1); const S = run.sortie, P = sortiePlan(S);
+    return { first, loop: { seed: S.seed, autumn: !!S.autumn, variant: S.variant, lakes: (P.lakes || []).length, pa: !!P.P.autumn } }; })()`);
+  ok(!a.first.autumn && a.first.lakes === 0 && !a.first.pa, 'level 4, seed 1944: no autumn, no lakes');
+  ok(a.loop.seed === 1945 && a.loop.autumn && a.loop.pa && a.loop.lakes >= 2, `level 4, seed 1945: autumn, ${a.loop.lakes} lakes`);
+  const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek("startEnigma(4, true, 1)"); const o = { found: false };
+    for (let i = 0; i < 400 && !o.found; i++) { SF.run(60); o.found = SF.peek("run.sortie.plan.lakes.some(l => { const y = run.sortie.planY0 - l.cy + Math.floor(world.scroll); return y > 110 && y < 210; })"); }
+    if (o.found) { const cv = document.getElementById('game'), px = () => cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      SF.draw(); const A = px().slice(); SF.peek('run.sortie.autumn = false'); SF.draw(); const B = px(); SF.peek('run.sortie.autumn = true'); let d = 0; for (let i = 0; i < A.length; i += 4) if (A[i] !== B[i] || A[i + 1] !== B[i + 1] || A[i + 2] !== B[i + 2]) d++;
+      o.diff = d; o.snap = !!SF.peek('takeSnapshot()'); o.errs = SF.R.errs.slice(0, 2); }
+    return o; });
+  ok(f.found && f.diff > 800 && f.snap && !(f.errs && f.errs.length), `level 4 seed 1945: mist over a lake on the screen changes ${f.diff} pixels, draws without errors, snapshot ok`);
+  await page.close();
+}
 // 3g. Level 4, The Iron Forest (spec 19): one forest plan over the whole level from its first chunk (ironForest), passing the hard rules,
 // opening over the sea onto the cliffs, its road ending at x 112 on the castle road; types and pixels from the plan; past it the Campaign's
 // castle ground (theme 4). Flown through by the bot: guns take the plan's slots, the castle boss comes, and the run flies on into level 5.

@@ -2061,7 +2061,7 @@ const C_DESERT = Object.assign({}, C_TEMP, {
 });
 let C = C_TEMP;
 let LIGHT_R = false; /* the moonrise (plan.shadowMask): the light is on the right, so sloped roofs, domes and round roofs (tanks, towers, chimneys) are lit from the right, not the first pass's left */
-const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? C_FOREST : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP;  LIGHT_R = !!plan.shadowMask;};
+const usePalette = plan => { C = plan.P && plan.P.climate === 'desert' ? C_DESERT : plan.P && plan.P.climate === 'forest' ? (plan.P.autumn ? C_AUTUMN : C_FOREST) : plan.P && plan.P.climate === 'winter' ? C_WINTER : C_TEMP;  LIGHT_R = !!plan.shadowMask;};
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
 const bay = (i, j) => BAYER[((j & 3) << 2) | (i & 3)];
 const pickI = (n, l, i, j) => { const v = Math.round(l * (n - 1) + bay(i, j) * 0.95); return v < 0 ? 0 : v >= n ? n - 1 : v; };
@@ -2319,7 +2319,8 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (Br[i] === -4) { const st = plan.stars.reduce((a, o) => Math.abs(o.y - y) < Math.abs(a.y - y) ? o : a), r = Math.hypot(x + 0.5 - st.x, y + 0.5 - st.y); // the roundabout's lawn with a ring of flowers and a stone kerb
             c = r > st.ri - 1 ? C.side[2] : Math.abs(r - st.ri + 2.6) < 0.7 ? C.fruit[(x + y) & 1] : r < 3.6 ? C.pave[2] : C.grass[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; }
           c = C.pave[pickI(4, 0.5 + ((((x >> 2) + (y >> 2)) & 1) ? 0.15 : -0.1), x, y)]; break;
-        case K.WATER: if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
+        case K.WATER: if (Br[i] === -17 || Br[i] === -18) { c = lakePix(plan, x, y, i, at, Br[i] === -18); break; } /* a forest lake */
+          if (C.snowRoof && Br[i] !== -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.ice[pickI(6, 0.55 + (vn(x * 0.12, y * 0.2) - 0.5) * 0.5, x, y)]; break; } // winter: a frozen pond, reeds round it
           if (Br[i] === -16) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.pool[6] : C.pool[pickI(7, 0.35 + Math.sin(x * 0.5 + y) * 0.06, x, y)]; break; } // an oasis pool
           if (Br[i] === -7) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.WATER); c = ed ? C.field.hedge[2] : C.river[pickI(6, 0.35 + Math.sin(x * 0.5 + y) * 0.08, x, y)]; break; } // the pond, reeds round its edge
           c = C.water[pickI(3, 0.5 + Math.sin(x * 0.7 + y * 0.4) * 0.25, x, y)]; break;
@@ -2339,7 +2340,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           if (sl) { const rr = Math.hypot(x + 0.5 - sl.x, y + 0.5 - sl.y), ring = sl.kind === 'arty' ? 6 : 4.5; if (Math.abs(rr - ring) < 1.1) { c = ((Math.atan2(y - sl.y, x - sl.x) * 3 | 0) & 1) ? C.sand[1] : C.sand[0]; break; } } // sandbag ring of a gun pit
           c = C.gravel[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)]; break; }
         case K.CHYARD: c = ((x * 3 + y * 5) % 23 === 0 && hh(x, y) < 0.6) ? C.side[2] : C.grass[pickI(4, 0.45 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]; break; // gravestones
-        case K.MEADOW: if (Br[i] <= -32 && Br[i] >= -39 && C === C_FOREST) { c = forestMeadowPix(x, y, Br[i]); break; } // the Iron Forest's heath, clearings, clear-cuts and verges
+        case K.MEADOW: if (Br[i] <= -32 && Br[i] >= -39 && (C === C_FOREST || C === C_AUTUMN)) { c = forestMeadowPix(x, y, Br[i]); break; } // the Iron Forest's heath, clearings, clear-cuts and verges
           if (Br[i] === -30) { const ed = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Br[q] !== -30); c = ed ? ((x + y) % 3 === 0 ? C.beam : C.fence) : C.grass[pickI(4, 0.62 + (vn(x * 0.15, y * 0.15) - 0.5) * 0.4, x, y)]; break; } // a paddock: grazed grass inside a post-and-rail fence
           if (Br[i] === -31) { c = C.field.grass[pickI(5, 0.12 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.3, x, y)]; break; } // the floor of a wood, dark under the trees
           if (Br[i] === -8) { const n = vn(x * 0.13, y * 0.13); c = n > 0.64 ? C.soil[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.6, x, y)] : C.grass[pickI(4, 0.3 + n * 0.4 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } // waste ground: rough grass and bare earth
@@ -3446,9 +3447,30 @@ const C_FOREST = Object.assign({}, C_TEMP, {
   wire: HX(['#141412', '#3a3832', '#221e18']), trench: HX(['#16120c', '#241e14']), spoil: HX(['#2a2216', '#3a3020', '#4c402a', '#5e523a', '#72664a']),
   hatch: HX(['#2a2016'])[0], canvas: HX(['#3a3c2a', '#4a4c34', '#5a5c3e', '#6a6c48']),
 });
+// Late autumn (params.autumn, the Iron Forest's first loop): the conifers stay dark, but a share of the forest is broadleaf and larch, each crown
+// its own colour: birch and aspen in yellow, beech and oak in rust and copper, maples in red. The meadows are dry straw, with no flowers.
+const dimRamp = (r, k, g) => r.map(c => { const m = (c[0] + c[1] + c[2]) / 3; return c.map(v => Math.round((m + (v - m) * g) * k)); }); /* a ramp darker (k) and a little greyer (g) */
+const C_AUTUMN = Object.assign({}, C_FOREST, {
+  grass: HX(['#4a4222', '#5e5428', '#766a34', '#8e8040']), tree: HX(['#0c0c06', '#14120a', '#1c180e', '#241e12', '#2e2616', '#382e1a']),
+  heath: HX(['#3a2c18', '#4c3a20', '#5e4828', '#4a2e2a', '#5c3c38']), larch: HX(['#4a3408', '#6e500c', '#947212', '#b8941c', '#d4b02c', '#e6c844', '#f2dc70']),
+  leaf: [
+    [HX(['#5a3c0c', '#8a5c10', '#b88a1a', '#dcb02a', '#f0cc3c', '#f8e066', '#fff2a0']), HX(['#6a5a10', '#9a8418', '#c8b028', '#e4cc3a', '#f2e056', '#faf08a', '#fffbc0'])], /* birch, aspen */
+    [HX(['#3a1608', '#5e240c', '#8a3a12', '#b4561c', '#d27428', '#e8943c', '#f6b45a']), HX(['#2e1a0c', '#4e2c12', '#72441a', '#96602a', '#b8803c', '#d4a054', '#e8c070'])], /* beech, oak */
+    [HX(['#34080c', '#5a0e12', '#841820', '#ac2a2a', '#cc4430', '#e46a3c', '#f4905a']), HX(['#4a1006', '#741c0a', '#a02e0e', '#c8481a', '#e46a28', '#f48c3a', '#fcb058'])], /* maple */
+  ],
+});
+C_AUTUMN.leaf = C_AUTUMN.leaf.map(sp => sp.map(r => dimRamp(r, 0.8, 0.85))); C_AUTUMN.larch = dimRamp(C_AUTUMN.larch, 0.78, 0.85);
 // one conifer crown seen from above: a cone of branches round its tip, lit from the upper left (dy is up). Returns the light 0..1, or -1 off the crown.
 // Spruce and larch are stars of branches with dark gaps between them; a pine is a rounder, clumpy crown.
+function leafLit(t, dx, dy) { /* a broadleaf crown: a round mass of leaf clumps, wavy at the rim, lit from the upper left */
+  const rr = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), R = t.r + 0.9 + 0.35 * Math.sin(ang * 3 + t.rot) + 0.25 * Math.sin(ang * 5 + t.rot * 2); if (rr > R) return -1;
+  const m = t.r >= 5 ? 6 : t.r >= 3 ? 5 : 4, cr = t.r * 0.62 + 0.9, off = t.r * 0.55; let best = -1, bx = 0, by = 0;
+  for (let k = 0; k <= m; k++) { const a = t.rot + k * 6.283 / m, cx = k === m ? 0 : Math.cos(a) * off, cy = k === m ? 0 : Math.sin(a) * off, e = 1 - Math.hypot(dx - cx, dy - cy) / cr; if (e > best) { best = e; bx = dx - cx; by = dy - cy; } }
+  const l = 0.34 + 0.3 * (-0.55 * bx + 0.75 * by) / cr + 0.3 * Math.max(best, 0) + 0.12 * (-0.55 * dx + 0.75 * dy) / (t.r + 1) - (best < 0.12 ? 0.14 : 0) - (rr > R - 0.9 ? 0.06 : 0);
+  return l < 0 ? 0 : l > 1 ? 1 : l;
+}
 function coniferLit(t, dx, dy) {
+  if (t.sp >= 3) return leafLit(t, dx, dy);
   const rr = Math.hypot(dx, dy); if (rr > t.r + 0.6) return -1;
   if (t.sp === 1) { const m = t.r >= 4 ? 5 : t.r >= 3 ? 4 : 3, cr = t.r * (t.r >= 4 ? 0.48 : 0.56) + 0.5, off = t.r - cr + 0.3; let best = -1, bx = 0, by = 0; // a pine: tufts round a middle one, each lit on its own
     for (let k = 0; k <= m; k++) { const a = t.rot + k * 6.283 / m, cx = k === m ? 0 : Math.cos(a) * off, cy = k === m ? 0 : Math.sin(a) * off, e = 1 - Math.hypot(dx - cx, dy - cy) / (k === m ? cr * 0.9 : cr); if (e > best) { best = e; bx = dx - cx; by = dy - cy; } }
@@ -3461,12 +3483,12 @@ function coniferLit(t, dx, dy) {
 const CONIF = ['spruce', 'pine', 'larch'];
 // the conifers of a band of rows: per size class (small, medium, large) its shadows, then its crowns, so a taller tree's shadow falls on the smaller ones
 const crownCache = new Map();
-function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = t.sp * 1000 + t.r * 10 + rq; let c = crownCache.get(key); if (c) return c; c = [];
+function crownOf(t) { const rq = Math.round(t.rot / 6.283 * 8) & 7, key = (t.sp >= 3 ? 3 : t.sp) * 1000 + t.r * 10 + rq; let c = crownCache.get(key); if (c) return c; c = [];
   const u = Object.assign({}, t, { rot: rq * 6.283 / 8 }); for (let dy = -t.r - 1; dy <= t.r + 1; dy++) for (let dx = -t.r - 1; dx <= t.r + 1; dx++) { const l = coniferLit(u, dx, dy); if (l >= 0) c.push(dx, dy, l); } crownCache.set(key, c); return c; }
 function paintConifers(plan, put, y0, h) {
   for (const cls of plan.conifers) { let lo = 0, hi = cls.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cls[m].y < y0 - 12) lo = m + 1; else hi = m; } let k1 = lo; while (k1 < cls.length && cls[k1].y <= y0 + h + 12) k1++;
     for (let k = lo; k < k1; k++) { const t = cls[k], s = Math.round(t.r * 0.55) + 1 + t.lean, c = crownOf(t); for (let q = 0; q < c.length; q += 3) put(t.x + c[q] + s, t.y + c[q + 1] - s, C.shadow, 0.5); }
-    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, C.snowRoof && c[q + 2] > 0.48 && hh(px, py) < 0.88 ? C.snowRoof[pickI(5, 0.35 + (c[q + 2] - 0.48) * 1.3, px, py)] : ramp[pickI(7, c[q + 2], px, py)]); } /* (winter: snow on the lit side of the branches) */ } }
+    for (let k = lo; k < k1; k++) { const t = cls[k], ramp = t.sp >= 3 ? C.leaf[t.sp - 3][t.tone] : C[CONIF[t.sp]], c = crownOf(t); for (let q = 0; q < c.length; q += 3) { const px = t.x + c[q], py = t.y + c[q + 1]; put(px, py, C.snowRoof && c[q + 2] > 0.48 && hh(px, py) < 0.88 ? C.snowRoof[pickI(5, 0.35 + (c[q + 2] - 0.48) * 1.3, px, py)] : ramp[pickI(7, c[q + 2], px, py)]); } /* (winter: snow on the lit side of the branches) */ } }
 }
 // a cliff pixel (K.CRAG). Br -40 - k: the south face of tier k, rows from its foot to its rim; -50 / -51: the road gorge's left and right
 // walls; -60 - s: sea stack s. Rock in strata, buttresses lighter and gullies darker, lit at the rim, darkening to the foot; a face that turns
@@ -3495,10 +3517,18 @@ function ledgePix(plan, x, y, b) {
 }
 // open ground in the forest (K.MEADOW): Br -32 heath on the clifftop and in firebreaks (grass, heather, dead bracken), -33 a clearing's meadow
 // with flowers, -34 a clear-cut (slash and stumps), -35 a road's verge
+const LAKE = HX(['#12202a', '#18303a', '#1e404a', '#285260', '#346676', '#427a88']);
+// a forest lake: smooth deep water, lighter toward the shore and in glints, a darker ripple, reeds on its outer pixels
+function lakePix(plan, x, y, i, at, river) { const K_ = plan.K, edge = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && K_[j] !== K.WATER);
+  if (edge) return hh(x, y) < 0.5 ? C.heath[1] : C.dirt[0];
+  const n = vn(x * 0.06, y * 0.09) * 0.7 + vn(x * 0.21, y * 0.3) * 0.3, rip = ((x * 3 + y) % 7) < 2 && vn(x * 0.5 + 9, y * 0.2) > 0.78;
+  const cur = river && ((x + Math.floor(y * 7.3)) % 17) < 3 && hh(x >> 2, y) < 0.35; /* streaks of the current */
+  return LAKE[pickI(6, clamp(0.42 + (n - 0.5) * 0.45 + (rip || cur ? 0.16 : 0), 0, 1), x, y)]; }
 function forestMeadowPix(x, y, b) {
   const n = vn(x * 0.18, y * 0.18), r = hh(x, y);
+  if (b === -36) return r < 0.4 ? C.heath[pickI(5, 0.55 + (r - 0.2) * 0.6, x, y)] : C.dirt[pickI(4, 0.2 + (n - 0.5) * 0.5 + (r - 0.5) * 0.3, x, y)]; /* the reeds and mud round a lake */
   if (b === -32) return n > 0.64 ? C.heath[pickI(5, 0.75 + (r - 0.5) * 0.5, x, y)] : n < 0.3 ? C.heath[pickI(5, 0.3 + (r - 0.5) * 0.5, x, y)] : C.grass[pickI(4, 0.35 + (n - 0.5) * 0.6, x, y)];
-  if (b === -33) return r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
+  if (b === -33) return C === C_AUTUMN ? C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)] : r < 0.02 ? C.field.wheat[4] : r < 0.035 ? C.fruit[0] : C.grass[pickI(4, 0.5 + (n - 0.5) * 0.5, x, y)];
   if (b === -34) return r < 0.035 ? C.stone[3] : r < 0.06 ? C.char[1] : n > 0.5 ? C.heath[pickI(5, 0.4 + (r - 0.5) * 0.4, x, y)] : C.grass[pickI(4, 0.2 + (r - 0.5) * 0.4, x, y)];
   if (b === -39) return n > 0.55 || r < 0.2 ? C.dirt[pickI(4, 0.35 + (n - 0.5) * 0.6 + (r - 0.5) * 0.3, x, y)] : C.grass[pickI(4, 0.15 + (r - 0.5) * 0.4, x, y)]; // a gun site's trampled earth
   return r < 0.35 ? C.gravel[pickI(3, 0.5 + (r - 0.2), x, y)] : C.grass[pickI(4, 0.3 + (n - 0.5) * 0.4, x, y)]; // -35
@@ -3544,6 +3574,7 @@ function forestLand(o) {
   const slot = (kind, on, x, y, r, item) => { const c = { kind, on, x: Math.round(x), y: Math.round(y), r, id: plan.slots.length }; if (item !== undefined) c.item = item; plan.slots.push(c); return c; };
   let nSeed = 0; const sd = () => h32(seed, 94000 + nSeed++);
   const feats = P.segs ? ironForestFeatures(P.segs) : P.features || [], span = F => [Math.round(L * F.at0), Math.round(L * F.at1)];
+  if (P.autumn) for (const F of feats) if (F.seg === 'valley') Object.assign(F, { roads: 0, rides: 1, plantations: 0, clearings: 1, cuts: 0, guns: 2, river: true }); /* the first loop's valley: a river along the strip (4c), so no forest roads or clear-cuts of its own */
   const isWood = (x, y) => inB(x, y) && Kr[idx(x, y)] === K.WOOD;
   const lap = name => { plan.stage[name] = +(now() - t0).toFixed(2); };
 
@@ -3629,6 +3660,28 @@ function forestLand(o) {
       if (k === 1 && nFl < 2 && ledgeOK(x, cy, 5) && !plan.pits.some(p => Math.abs(p.x - x) < 40)) { plan.pits.push({ x, y: cy, r: 5 }); slot('flak', 'pit', x, cy, 5); nFl++; } }
     lap('defences'); }
 
+  // 3b. the valley's river (the first loop, F.river), carved before the forest's open ground so that clearings, rides and gun sites keep to the dry land: a wide river along one side of the strip, winding a little, entering and leaving through the strip's edge, with a
+  // harbour on its road-side bank: a quay and three piers. Water is K.WATER, tag -18; reeds (K.MEADOW, -36) on its banks. Placed after the main road, on the side
+  // and at the distance where 10 px all round stay clear of the road; with no such place the valley has no river.
+  if (P.autumn) { const rivers = plan.rivers2 = [], GAP = 10, free2 = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), sm = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+    feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
+      const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
+      const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
+        R.c = y => base + 5 * Math.sin(y * 0.022 + ph) + (1 - R.f(y)) * 80; R.hw = y => (31 + 2 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+        R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
+      const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
+      const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
+      for (const base of [174, 170, 178, 166, 182, 162]) { for (const side of sides) { const R = mk(side, base); if (clear(R)) { pick = R; break; } } if (pick) break; }
+      if (!pick) return; rivers.push({ side: pick.side, base: pick.base, a, b, cx: [], hw: [] }); /* (cx, hw: the centre line and half-width at each row a to b, for the game's boats) */
+      const R = pick, xb = y => Math.round((R.side > 0 ? R.c(y) - R.hw(y) : W - 1 - (R.c(y) - R.hw(y)))); /* the road-side bank's x, at row y */
+      for (let y = a - 4; y <= b + 4; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = R.d(x, y); if (d > 0) { Kr[i] = K.WATER; Br[i] = -18; } else if (d > -3 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } }
+      const qa = Math.round(a + 0.5 * (b - a)), qb = qa + 84, bank = R.side > 0 ? -1 : 1; /* the harbour: a quay along the bank, three piers out over the water */
+      for (let y = qa; y <= qb; y++) for (let k = 0; k <= 8; k++) { const x = xb(y) + bank * k * (R.side > 0 ? 1 : 1) * (R.side > 0 ? 1 : 1); if (!inB(x, y)) continue; const i = idx(x, y); if (Kr[i] === K.WATER) continue; Kr[i] = K.QUAY; Br[i] = -13; }
+      for (let q = 0; q < 3; q++) { const y0 = qa + 10 + q * 28; for (let dy = 0; dy < 3; dy++) for (let k = -2; k < 16; k++) { const x = xb(y0 + dy) - bank * k; if (!inB(x, y0 + dy)) continue; const i = idx(x, y0 + dy); if (Kr[i] === K.WATER || Kr[i] === K.QUAY) { Kr[i] = K.QUAY; Br[i] = -14; } } }
+      for (let y = a; y <= b; y++) { const rv = rivers[rivers.length - 1]; rv.cx.push(Math.round((R.side > 0 ? R.c(y) : W - 1 - R.c(y)) * 10) / 10); rv.hw.push(Math.round(R.hw(y) * 10) / 10); }
+      rivers[rivers.length - 1].qa = qa; rivers[rivers.length - 1].qb = qb; });
+    lap('valley'); }
+
   // 4. the forest's open ground and its roads, per conifer feature: firebreaks with a track, clearings, clear-cuts with log piles, plantations
   // of young trees in rows, and forest roads (tank routes) that leave the main road and join it again, or end at a timber depot
   const blob = (cx, cy, rx, ry, tag, fn) => { for (let y = Math.floor(cy - ry - 4); y <= cy + ry + 4; y++) for (let x = Math.floor(cx - rx - 4); x <= cx + rx + 4; x++) { if (!inB(x, y)) continue; const e = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry) + (vn(x * 0.12 + tag, y * 0.12) - 0.5) * 0.45; if (e < 1) fn(x, y); } };
@@ -3696,6 +3749,26 @@ function forestLand(o) {
     for (const fx of [0.15, 0.85]) pit(Math.round(fx * W), ly + 20, 4, 'flak'); }
   lap('forest');
 
+  // 4b. lakes (params.lakes, the Iron Forest's first loop): one in each stretch of conifer forest, on the side of the road with room for it, half a screen
+  // across and running off the strip's edge as if it went on. Placed after the roads, clearings and gun sites and only where a clear margin (LK_GAP px) round
+  // the whole lake is plain forest or clearing, so no road, track, building or gun site is ever cut or touched. K.WATER, tag -17; a ring of reeds (K.MEADOW, -36).
+  if (P.lakes) { const LK_GAP = 10, free = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), lakes = plan.lakes = [];
+    const ev = (x, y, c) => Math.hypot((x + 0.5 - c.cx) / c.rx, (y + 0.5 - c.cy) / c.ry) + (vn(x * 0.09 + c.tag, y * 0.09 + 5) - 0.5) * 0.4 + (vn(x * 0.25 + c.tag, y * 0.25) - 0.5) * 0.12; /* below 1: water */
+    feats.forEach((F, fi) => { if (F.kind !== 'conifer' || (F.seg !== 'forest_conifer' && F.seg !== 'forest_fortified' && F.seg !== 'clearing_village')) return; const [a, b] = span(F); let pick = null;
+      const nf = []; for (let y = Math.max(0, a - 24); y < Math.min(L, b + 24); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free(Kr[i], Br[i])) nf.push(x, y); } /* every pixel that is not plain forest or clearing: roads, tracks, buildings, gun sites, ... */
+      const rowAt = y => { let lo = 0, hi = nf.length >> 1; while (lo < hi) { const m = (lo + hi) >> 1; if (nf[m * 2 + 1] < y) lo = m + 1; else hi = m; } return lo * 2; }; /* nf is in row order */
+      const clear = c => { const y0c = Math.floor(c.cy - c.ry * 1.4 - LK_GAP - 2), cache = new Float32Array(W * (Math.ceil(c.ry * 2.8) + 2 * LK_GAP + 8)).fill(-1);
+        const evc = (x, y) => { if (x < 0 || x >= W) return 9; const k = (y - y0c) * W + x; let v = cache[k]; if (v < 0) v = cache[k] = ev(x, y, c); return v; }; /* (each pixel's outline value once per candidate) */
+        for (let q = rowAt(c.cy - c.ry * 1.4 - LK_GAP), q1 = rowAt(c.cy + c.ry * 1.4 + LK_GAP + 1); q < q1; q += 2) { const x = nf[q], y = nf[q + 1]; if (Math.abs(y - c.cy) > c.ry * 1.4 + LK_GAP || Math.abs(x - c.cx) > c.rx * 1.4 + LK_GAP || Math.hypot((x - c.cx) / c.rx, (y - c.cy) / c.ry) > 1.6) continue; /* near enough to matter: is any lake or reed pixel within LK_GAP of it? */
+          for (let dy = -LK_GAP; dy <= LK_GAP; dy += 3) for (let dx = -LK_GAP; dx <= LK_GAP; dx += 3) if (evc(x + dx, y + dy) < 1.07) return false; } return true; };
+      const area = c => { let n = 0; for (let y = Math.floor(c.cy - c.ry * 1.4); y <= c.cy + c.ry * 1.4; y += 4) for (let x = Math.max(0, Math.floor(c.cx - c.rx * 1.4)); x <= Math.min(W - 1, c.cx + c.rx * 1.4); x += 4) if (Math.hypot((x - c.cx) / c.rx, (y - c.cy) / c.ry) < 1) n++; return n * 16; }; /* (the plain ellipse: the rim's noise averages out) */
+      const sides = rnd(70 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
+      for (const [rx, ry] of [[98, 76], [90, 70], [84, 64], [76, 58], [68, 52], [60, 46]]) { for (let dy = 0; dy <= (b - a) / 2 - ry * 1.3 - LK_GAP && !pick; dy += 16) for (const sg of [1, -1]) for (const side of sides) { const cy = Math.round((a + b) / 2 + sg * dy);
+        for (const off of [0, 18]) { const c = { cx: side > 0 ? W + off : -off, cy, rx, ry, tag: 400 + fi * 31 }; if (area(c) > 3400 && clear(c)) { pick = c; break; } } } }
+      if (!pick) return; lakes.push(pick);
+      for (let y = pick.cy - pick.ry - 8; y <= pick.cy + pick.ry + 8; y++) for (let x = 0; x < W; x++) { if (!inB(x, y)) continue; const e = ev(x, y, pick), i = idx(x, y); if (e < 1) { Kr[i] = K.WATER; Br[i] = -17; } else if (e < 1.07 && Kr[i] !== K.WATER) { Kr[i] = K.MEADOW; Br[i] = -36; } } });
+    lap('lakes'); }
+
   // 5. the trees: single conifer crowns of six sizes. Old stands (big spruces), young growth and pine stands follow slow noise fields; a few
   // larches; young trees in rows in the plantations; small wind-bent pines on the ledges and the heath; now and then one in a clearing.
   { const cell = 16, cw = Math.ceil(W / cell), grid = new Map(), all = [];
@@ -3703,8 +3776,12 @@ function forestLand(o) {
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) { const g = grid.get(cy * cw + cx); if (g) for (const t of g) if (Math.hypot(t.x - x, t.y - y) < (t.r + r) * sp) return true; } return false; };
     const add = t => { const key = Math.floor(t.y / cell) * cw + Math.floor(t.x / cell); let g = grid.get(key); if (!g) grid.set(key, g = []); g.push(t); all.push(t); };
     const okAt = (x, y, r, ground) => { for (const [dx, dy] of [[0, 0], [r - 1, 0], [1 - r, 0], [0, r - 1], [0, 1 - r]]) { const xx = x + dx, yy = y + dy; if (!inB(xx, yy)) return false; const i = idx(xx, yy); if (!ground(Kr[i], Br[i])) return false; } return true; };
-    const species = (x, y) => { const p = vn(x * 0.011 + 30, y * 0.011); return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
-    const tree = (x, y, r, sp, lean = 0) => ({ x, y, r, sp, lean, rot: hh(x, y * 3) * 6.283, n: sp === 1 ? 5 : r >= 4 ? 8 : 6 });
+    const autumn = !!P.autumn, species = (x, y, r) => { const p = vn(x * 0.011 + 30, y * 0.011);
+      if (autumn) { const g = vn(x * 0.017 + 90, y * 0.017 + 40), q = hh(x * 11, y * 5), grove = g > 0.4 ? 0.8 : 0.22; /* broadleaf groves in slow patches, single ones between */
+        if (q < grove && p <= 0.62) { const kind = vn(x * 0.03 + 5, y * 0.03 + 60); return r <= 3 ? kind < 0.55 ? 3 : kind < 0.8 ? 4 : 5 : kind < 0.3 ? 3 : kind < 0.7 ? 4 : 5; }
+        if (hh(x * 3, y * 7) < 0.05) return 2; }
+      return hh(x * 3, y * 7) < 0.025 ? 2 : p > 0.62 ? 1 : 0; };
+    const tree = (x, y, r, sp, lean = 0) => ({ x, y, r, sp, lean, rot: hh(x, y * 3) * 6.283, n: sp === 1 ? 5 : r >= 4 ? 8 : 6, tone: hh(x * 7, y * 13) < 0.5 ? 0 : 1 });
     const wood = (k, b) => k === K.WOOD && b === -1, any = (k) => k === K.WOOD;
     // plantations: rows of young trees (r 2, 5 px) or pole-stage trees (r 3, 7 px)
     for (const pl of plan.forest.plantations) { const r = pl.age === -37 ? 2 : 3, sp = r === 2 ? 5 : 7; for (let y = pl.y0 + r; y < pl.y0 + pl.h - r; y += sp) for (let x = pl.x0 + r; x < pl.x0 + pl.w - r; x += sp) { const i = idx(x, y); if (Kr[i] !== K.WOOD || Br[i] !== pl.age || hh(x, y) < 0.06) continue; add(tree(x, y, r, 0)); } }
@@ -3712,7 +3789,7 @@ function forestLand(o) {
     const passes = [{ step: 10, sizes: [5, 6, 7], p: (age) => 0.15 + age * 0.75 }, { step: 6, sizes: [3, 4], p: (age) => 0.75 - age * 0.2 }, { step: 4, sizes: [2], p: () => 0.85 }];
     passes.forEach((ps, pi) => { for (let gy = 0; gy < L; gy += ps.step) for (let gx = 0; gx < W; gx += ps.step) { const x = gx + Math.floor(hh(gx + pi * 977, gy) * ps.step), y = gy + Math.floor(hh(gy + pi * 331, gx * 3) * ps.step); if (!inB(x, y)) continue;
       const k = Kr[idx(x, y)], b = Br[idx(x, y)], age = vn(x * 0.014 + 7, y * 0.014); let r = ps.sizes[Math.floor(hh(x * 5, y * 11) * ps.sizes.length)];
-      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y))); continue; }
+      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y, r))); continue; }
       if (pi === 2 && ((k === K.LEDGE && b === -1) || (k === K.MEADOW && b === -32))) { if (hh(x * 17, y * 5) > 0.07 || !okAt(x, y, 2, (kk, bb) => kk === k && bb === b) || near(x, y, 2, 1.4)) continue; add(tree(x, y, hh(x, y) < 0.7 ? 2 : 3, 1, 1)); continue; } // wind-bent pines
       if (pi === 0 && k === K.MEADOW && b === -33 && hh(x * 19, y * 3) < 0.05 && okAt(x, y, r, (kk, bb) => kk === K.MEADOW && bb === -33) && !near(x, y, r, 1.6)) add(tree(x, y, r, 0)); } });
     for (const t of all) plan.conifers[t.r <= 2 ? 0 : t.r <= 4 ? 1 : 2].push(t);
@@ -4324,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.79'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.85'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5073,6 +5150,12 @@ SPR.pt = sprite(12, 34, x => {
   rect(x, '#8cc0e0', 4, 17, 4, 1);
 });
 SPR.ptGun = rotSet(sprite(8, 20, x => { rect(x, '#18181a', 3, 11, 1, 8); rect(x, '#18181a', 5, 11, 1, 8); ellS(x, RP.hull, 4, 10, 3, 3, 0.1); }));
+/* The valley convoy's river craft (level 4's first loop), bow up: they sail north. A tug, and barges with fuel tanks, crates (the Ravens' prototype parts under a tarpaulin) and a gun. */
+const bargeHull = (x, w, h) => { polyS(x, RP.hull, [[w / 2, 0], [w - 3, 5], [w - 2, 10], [w - 2, h], [2, h], [2, 10], [3, 5]], 0.05); polyS(x, RP.teak, [[w / 2, 4], [w - 5, 9], [w - 5, h - 2], [5, h - 2], [5, 9]], 0); rect(x, '#d8e8f0', 3, h - 1, w - 6, 1); };
+SPR.tug = sprite(16, 30, x => { bargeHull(x, 16, 30); boxS(x, RP.hull, 4, 11, 8, 11, 0.15); rect(x, '#8cc0e0', 5, 13, 6, 1); disk(x, '#202428', 8, 25, 2); rect(x, '#18181a', 7, 5, 2, 5); });
+SPR.bargeF = sprite(16, 44, x => { bargeHull(x, 16, 44); for (let k = 0; k < 3; k++) { disk(x, '#5a2418', 8, 14 + k * 10, 4); disk(x, '#a8402c', 8, 13 + k * 10, 3); rect(x, '#e07858', 7, 11 + k * 10, 2, 1); } });
+SPR.bargeC = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.teak, 4, 10, 8, 28, 0.1); rect(x, '#6e5a34', 4, 10, 8, 28); rect(x, '#8a7448', 5, 11, 6, 26); for (let k = 0; k < 4; k++) rect(x, '#4a3c20', 4, 14 + k * 7, 8, 1); rect(x, '#3a2c18', 4, 10, 8, 1); rect(x, '#3a2c18', 4, 37, 8, 1); });
+SPR.bargeG = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.hull, 4, 12, 8, 20, 0.1); rect(x, '#8cc0e0', 5, 14, 6, 1); rect(x, '#202428', 5, 24, 6, 5); });
 SPR.destroyer = sprite(28, 80, x => {
   polyS(x, RP.hull, [[14, 80], [2, 56], [1, 9], [5, 1], [23, 1], [27, 9], [26, 56]], 0.05);
   polyS(x, RP.teak, [[14, 72], [4, 55], [3, 10], [6, 3], [22, 3], [25, 10], [24, 55]], 0);
@@ -5458,7 +5541,30 @@ SPR.rocketPod = rotSet(sprite(14, 26, x => {
 
 /* --- boss: land fortress --- */
 function lazySpr(name, make) { Object.defineProperty(SPR, name, { configurable: true, get() { const v = make(); Object.defineProperty(SPR, name, { value: v, writable: true, configurable: true }); return v; } }); }
-function prewarmBoss(th) { const k = BOSS_KINDS[th]; try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
+/* Level 4's first loop: Ravenhold is a ruin. The same floor image with the walls and the floor damaged (visual only): breaches in the curtain walls (the ground shows through, rubble in the
+   gap), chipped battlements, the outer gate's arch a heap of stones, cracks and missing flagstones in the courtyards, scorch marks and a few shell craters, autumn leaves. Seeded by hash. */
+lazySpr('ravenFloorRuin', () => {
+  const base = SPR.ravenFloor, [c, x] = mk(W, RV_H), Y = u => RV_GATE - u, h = (a, b) => hash(a * 13 + 7, b * 5 + 3), WALL = ['#2f2c28', '#413c35', '#524c43', '#645d52'], towers = [8, 432, 911, 1332];
+  x.drawImage(base, 0, 0);
+  const stones = (cx, cy, r, n, seed) => { for (let k = 0; k < n; k++) { const a = h(seed, k) * TAU, d = Math.sqrt(h(seed, k + 50)) * r, w = 2 + ((h(seed, k + 99) * 3) | 0), t = WALL[(h(seed, k + 150) * 4) | 0]; x.fillStyle = '#14110e'; x.fillRect(Math.round(cx + Math.cos(a) * d) + 1, Math.round(cy + Math.sin(a) * d * 0.8) + 1, w, 2); x.fillStyle = t; x.fillRect(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.8), w, 2); } };
+  for (const side of [0, 1]) for (let k = 0; k < 9; k++) { /* breaches in the curtain walls */
+    const u = 70 + k * 140 + h(k, side) * 70; if (towers.some(t => Math.abs(u - t) < 40)) continue; const len = 12 + Math.round(h(k, side + 5) * 20), y1 = Y(u);
+    x.globalCompositeOperation = 'destination-out';
+    for (let yy = 0; yy < len; yy++) { const depth = Math.round(23 * (0.4 + 0.6 * Math.sin((yy + 0.5) / len * PI)) * (0.7 + 0.3 * h(yy, k + side * 9))); x.fillRect(side ? W - depth : 0, y1 - yy, depth, 1); }
+    x.globalCompositeOperation = 'source-over'; stones(side ? W - 20 : 20, y1 - len / 2, 9, 10, k * 2 + side + 300); }
+  for (const side of [0, 1]) for (let k = 0; k < 70; k++) { const u = 40 + h(k, side + 40) * 1280; if (towers.some(t => Math.abs(u - t) < 30)) continue; x.globalCompositeOperation = 'destination-out'; x.fillRect(side ? W - 22 + ((h(k, side + 60) * 3) | 0) : 19 + ((h(k, side + 60) * 3) | 0), Y(u), 2 + ((h(k, 3) * 2) | 0), 2); x.globalCompositeOperation = 'source-over'; } /* chipped battlements */
+  stones(112, Y(12), 24, 46, 700); stones(96, Y(8), 8, 10, 701); stones(128, Y(10), 8, 10, 702); /* the outer gate's arch, a heap */
+  const floor = (px, py) => { const r = ravenU(RV_GATE - py, px); return r === 3 || r === 4 || r === 5 || r === 7; };
+  for (let k = 0; k < 70; k++) { /* cracks */
+    let cx = 26 + h(k, 71) * (W - 52), cy = 30 + h(k, 72) * (RV_H - 80), a = h(k, 73) * TAU; if (!floor(Math.round(cx), Math.round(cy))) continue;
+    for (let st = 0, n = 14 + Math.round(h(k, 74) * 40); st < n; st++) { a += (h(k, 100 + st) - 0.5) * 1.1; cx += Math.cos(a); cy += Math.sin(a); const px = Math.round(cx), py = Math.round(cy); if (!floor(px, py)) break; x.fillStyle = 'rgba(18,15,13,0.85)'; x.fillRect(px, py, 1, 1); if (st % 5 === 0) { x.fillStyle = 'rgba(120,112,98,0.35)'; x.fillRect(px + 1, py + 1, 1, 1); } } }
+  for (let k = 0; k < 40; k++) { const px = 28 + h(k, 81) * (W - 62), py = 40 + h(k, 82) * (RV_H - 90); if (!floor(Math.round(px), Math.round(py))) continue; const g = x.createRadialGradient(px, py, 1, px, py, 7 + h(k, 83) * 12); g.addColorStop(0, 'rgba(8,6,6,0.42)'); g.addColorStop(1, 'rgba(8,6,6,0)'); x.fillStyle = g; x.fillRect(px - 20, py - 20, 40, 40); } /* scorch marks */
+  for (let k = 0; k < 90; k++) { const px = 24 + Math.floor(h(k, 91) * ((W - 48) / 12)) * 12, py = 30 + Math.floor(h(k, 92) * ((RV_H - 70) / 8)) * 8; if (!floor(px + 6, py + 4) || !floor(px, py)) continue; x.fillStyle = '#1e1b18'; x.fillRect(px + 1, py + 1, 11, 7); x.fillStyle = '#2c2925'; x.fillRect(px + 2, py + 2, 9, 3); } /* missing flagstones */
+  for (let k = 0; k < 10; k++) { const px = 40 + h(k, 111) * (W - 80), py = 120 + h(k, 112) * (RV_H - 300); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = '#26221f'; x.beginPath(); x.ellipse(px, py, 7, 5, 0, 0, TAU); x.fill(); x.fillStyle = '#14110e'; x.beginPath(); x.ellipse(px, py, 4.5, 3, 0, 0, TAU); x.fill(); stones(px, py, 9, 6, 400 + k); } /* shell craters */
+  for (let k = 0; k < 320; k++) { const px = 24 + h(k, 121) * (W - 48), py = 24 + h(k, 122) * (RV_H - 60); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = ['#c47a2a', '#a8582a', '#d8a63c', '#8a4a24'][(h(k, 123) * 4) | 0]; x.fillRect(Math.round(px), Math.round(py), 2, 1); } /* autumn leaves */
+  return c;
+});
+function prewarmBoss(th) { const k = BOSS_KINDS[th]; try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
 function fortHull(fr) {
   return sprite(96, 112, x => {
     const TR2 = ['#0c0c0e', '#1c1c20', '#2e2e34', '#46464e', '#62626a'];
@@ -8527,6 +8633,41 @@ function drawMist(sc) {
     for (let ty = -256 + oy; ty < H; ty += 256) { ctx.drawImage(mistTile, ox - W, ty); ctx.drawImage(mistTile, ox, ty); }
     ctx.restore(); }
 }
+// Lake mist (level 4's first loop, run.sortie.autumn): pale, patchy banks hang over each lake and a little way past its shore, drifting two ways at once while the
+// ground scrolls under them; drawn over the ground, under every bullet, enemy and the player. Per lake a mask (the water and its reeds blurred, so the mist thins
+// out over the land) is made once from the plan; each frame two drifting noise layers are cut to it. Visual only: no random numbers, nothing saved.
+let lakeMist = null, lakeTile = null, lakeTmp = null;
+function lakeMistFor(S) {
+  if (lakeMist && lakeMist.S === S) return lakeMist;
+  const P = S.plan, KW = CityGen.K.WATER, KM = CityGen.K.MEADOW, list = [];
+  for (const l of P.lakes || []) {
+    const ya = Math.max(0, Math.floor(l.cy - l.ry * 1.4) - 16), yb = Math.min(P.L - 1, Math.ceil(l.cy + l.ry * 1.4) + 16), h = yb - ya + 1; let w = new Float32Array(W * h), t = new Float32Array(W * h);
+    for (let r = 0; r < h; r++) for (let x = 0; x < W; x++) { const i = (yb - r) * W + x, k = P.K[i], b = P.B[i]; w[r * W + x] = k === KW && b === -17 ? 1 : k === KM && b === -36 ? 0.9 : 0; }
+    for (let pass = 0; pass < 2; pass++) { const R = 6, n = 2 * R + 1; /* two box blurs, across and down */
+      for (let r = 0; r < h; r++) { let acc = 0; for (let x = -R; x <= R; x++) acc += w[r * W + clamp(x, 0, W - 1)]; for (let x = 0; x < W; x++) { t[r * W + x] = acc / n; acc += w[r * W + Math.min(W - 1, x + R + 1)] - w[r * W + Math.max(0, x - R)]; } }
+      for (let x = 0; x < W; x++) { let acc = 0; for (let r = -R; r <= R; r++) acc += t[clamp(r, 0, h - 1) * W + x]; for (let r = 0; r < h; r++) { w[r * W + x] = acc / n; acc += t[Math.min(h - 1, r + R + 1) * W + x] - t[Math.max(0, r - R) * W + x]; } } }
+    const [c, x] = mk(W, h), im = x.createImageData(W, h), d = im.data;
+    for (let i = 0; i < W * h; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = clamp(w[i] * 1.5 - 0.05, 0, 1) * 255; }
+    x.putImageData(im, 0, 0); list.push({ c, h, yb });
+  }
+  return lakeMist = { S, list };
+}
+function drawLakeMist(sc) {
+  const S = run.sortie; if (!S || !S.autumn || !S.plan || !S.plan.lakes || !S.plan.lakes.length) return;
+  const M = lakeMistFor(S); let tmp = null;
+  M.list.forEach((m, n) => { const top = S.planY0 - m.yb + sc; if (top > H || top + m.h < 0) return;
+    if (!lakeTile) { const [c, x] = mk(W, 256), im = x.createImageData(W, 256), d = im.data, h2 = (a, b) => sortieHash(a * 7 + 5, b * 13 + 2);
+      const vn2 = (u, v) => { const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv), w2 = (a, b) => h2(((a % 7) + 7) % 7, ((b % 8) + 8) % 8); /* tiles every 7 x 8 cells */
+        return w2(i, j) * (1 - su) * (1 - sv) + w2(i + 1, j) * su * (1 - sv) + w2(i, j + 1) * (1 - su) * sv + w2(i + 1, j + 1) * su * sv; };
+      for (let y = 0; y < 256; y++) for (let xx = 0; xx < W; xx++) { const q = vn2(xx / 30, y / 32) * 0.65 + vn2(xx / 9.5, y / 10.67) * 0.35, a = Math.round(clamp((q - 0.36) * 1.9, 0, 1) * 5) / 5, o = (y * W + xx) * 4; d[o] = 218; d[o + 1] = 228; d[o + 2] = 232; d[o + 3] = a * 255; }
+      x.putImageData(im, 0, 0); lakeTile = c; }
+    if (!lakeTmp) lakeTmp = mk(W, H); tmp = lakeTmp; const [tc, tx] = tmp; if (tc.height !== H) { tc.height = H; tx.imageSmoothingEnabled = false; }
+    const t = run.frames; tx.globalCompositeOperation = 'source-over'; tx.globalAlpha = 1; tx.clearRect(0, 0, W, H);
+    for (const [vx, vy, ph, al] of [[0.06, 0.03, n * 71, 0.8], [-0.04, 0.02, 128 + n * 37, 0.6]]) { const ox = (((t * vx + ph) % W) + W) % W, oy = (((sc + t * vy + ph) % 256) + 256) % 256; tx.globalAlpha = al;
+      for (let ty = -256 + oy; ty < H; ty += 256) { tx.drawImage(lakeTile, ox - W, ty); tx.drawImage(lakeTile, ox, ty); } }
+    tx.globalCompositeOperation = 'destination-in'; tx.globalAlpha = 1; tx.drawImage(m.c, 0, top);
+    ctx.globalAlpha = 0.62 + 0.1 * Math.sin(t * 0.011 + n * 2); ctx.drawImage(tc, 0, 0); ctx.globalAlpha = 1; });
+}
 // Only a pure hash is used here: a sortie must come out the same whenever and wherever it is built (never Math.random).
 function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
 // Level 5: the train boss comes as in the Campaign, once the yard fills the screen (the trigger adds ceil(XH / CH) chunks; the yard begins at the level's end)
@@ -8553,7 +8694,8 @@ function buildSortie(level, seed) {
   const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant ? loopSeq(ENIGMA_SEQ[i], seed, level) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  const encPlan = !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
+  const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
+    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
   })() : (() => { // a loop's level 2: three encounters at their stretches (ENC_PLAN's layout, here from the stretches this seed made): the ambush at the village's oasis, the burning field in the first open desert, the fuel convoy in the last
@@ -8562,7 +8704,7 @@ function buildSortie(level, seed) {
   })();
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
-    variant,
+    variant, autumn: autumn4, // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -8685,7 +8827,7 @@ function sortiePlanLevel3(S) {
 // onto the high cliff coast, then the conifer forest with its gun sites, firebreaks, plantations, clearings and forest roads (the village,
 // the hidden airbase and the valley are forest for now), and the approach: meadow, a defence line, the road at x 112 where the castle road runs.
 function sortiePlanLevel4(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: { L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 } }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
@@ -8708,6 +8850,7 @@ function resetTerrainState() {
   for (const m of [roadCache, farmCache, tentCache, houseCache, fieldOkCache, railEndCache, parcelRowCache, parcelBlkCache, flowCache, canopyCache]) m.clear();
   castleCache = { base: null, v: null }; finalCache = { k: null, y: null };
   chunkHouses.clear(); chunkFires.clear(); towerRows.clear(); towerCells.clear(); setPieceDone.clear(); bridgeDown.clear(); bridgeSpawned.clear(); burntTrees.clear(); damagedHouses.clear();
+  lakeMist = null;
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
@@ -10347,10 +10490,14 @@ function viaBroken() { // the broken viaduct: the middle of the span fallen into
 // stretch and then SOWER.gap frames after the last one (or pair) has gone. No warning (owner): it comes up from below the screen on the side
 // away from the player.
 const SOWER = { first: 360, gap: 1800, hold: 840, y: 72, weave: 50, climb: 1.5, mineEvery: 7, mineLife: 250, drift: 0.62, bombEvery: 95, burst: 8, near: 30, hp: 140, pairAfter: 300, laneX: 52, laneWeave: 14 };
+/* The first loop's Sower (level 4, seed 1945: run.sortie.autumn): it flies a zigzag instead of the smooth sweep, so its mines lay a zigzag line (one Sower first, then the pair in step: two parallel zigzags with a lane between them); its mines last longer so the line can be read. Mines as often as before. */
+const SOWER_L = Object.assign({}, SOWER, { weave: 60, per: 200, zigV: 2, pairA: 40, laneX: 42, mineLife: 400, hold: 960 });
+const zigTri = u => 4 * Math.abs(u - Math.floor(u) - 0.5) - 1; /* a triangle wave from -1 to 1 */
 function sowerTick(sc) {
   const S = run.sortie; if (!S || S.level !== 4 || world.bossSpawned) return;
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
   if (live) { z.cd = SOWER.gap; return; }
+  if (world.enc && (world.enc.id === 'valleyconvoy' || world.enc.id === 'cliffbattery')) { if (z.cd < 300) z.cd = 300; return; } /* (level 4's first loop: no Sower comes while the Cliff Battery or the valley convoy is on) */
   if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
   if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = ttOn() ? (z.n % 2 ? W / 2 - SOWER.laneX : W / 2 + SOWER.laneX) : player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX; // (the Campaign: right, then left)
@@ -11107,24 +11254,25 @@ function ravenInit(e) {
   e.rvInit = true; e.hatches = [];
   const g = e.gateWy, m = hpm(), K = o => Object.assign(o, { keep: true, noGuard: true });
   const add = (type, x, u, o) => { const en = G(type, x, g - u, K(o)); world.enemies.push(en); return en; };
-  add('cgate', 112, 10, { hp: 40 * m, cd: 60 });
+  const loop = !!(run.sortie && run.sortie.autumn); /* level 4's first loop: Ravenhold is a ruin held by tanks: no gate guns, no wall guns, no AA towers, no hatches, no artillery; the inner gate is silent */
+  if (!loop) add('cgate', 112, 10, { hp: 40 * m, cd: 60 });
   const en = !!run.sortie; // Enigma Run: the opening stretch of the keep yard is gentler (slower gate towers, wall guns that open up late)
-  for (const [x, u] of [[18, 12], [206, 12], [18, 432], [206, 432], [40, 911], [184, 911]]) add('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 });
+  if (!loop) for (const [x, u] of [[18, 12], [206, 12], [18, 432], [206, 432], [40, 911], [184, 911]]) add('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 });
   let i = 0;
-  for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++) {
+  if (!loop) for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++) {
     const rocket = [1, 7, 8, 10].includes(i++);
     e.hatches.push(add('popup', 46 + col * 44, 120 + row * 90, { score: rocket ? 900 : 600, st: 'down', stT: 999, ga: PI / 2, untarget: true, ctrl: true, rocket, row, col }));
   }
-  for (const x of [62, 162]) add('bunker', x, 432, { ga: PI / 2, cd: rnd(60, 120) | 0 });
+  if (!loop) for (const x of [62, 162]) add('bunker', x, 432, { ga: PI / 2, cd: rnd(60, 120) | 0 });
   // guns on both wall walks: a crossfire over the courtyards
-  for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 });
+  if (!loop) for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 });
   // the inner gate: the advance stops in front of it until it is blasted open
   // the Ravens' secret project: a half-size Black Fortress prototype on the apron behind the keep, with mechanics
   const proto = add('proto', 112, 1214, { untarget: true });
   for (const [dx, du] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + dx, 1248 + du, { hd: Math.random() * TAU, scared: 0, post: proto });
   // drill squads appear as they scroll into view: [u, kind, from]
   e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
-  e.gate2 = add('cgate', 112, 432, { hp: 80 * m, score: 5000, cd: 50, inner: true });
+  e.gate2 = add('cgate', 112, 432, { hp: 80 * m, score: 5000, cd: 50, inner: true, quiet: loop });
   add('bldg', 52, 560, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 172, 640, { bk: 'rbarracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 60, 760, { bk: 'chapel', hp: 22 * m, hw: 13, hh: 20, score: 2000, rad: 20 });
@@ -11132,10 +11280,15 @@ function ravenInit(e) {
   for (const [dx, du] of [[-22, 0], [22, 6], [0, -18]]) add('drums', 170 + dx, 820 + du, { rad: 6 });
   for (const ln of [[[80, 500], [150, 500]], [[150, 700], [70, 700]], [[36, 165], [188, 165]], [[188, 255], [36, 255]]]) add('tank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.25, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
   for (const ln of [[[60, 980], [164, 980]], [[164, 1060], [60, 1060]]]) add('htank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.18, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
-  for (const [x, u] of [[30, 230], [194, 230], [30, 690], [194, 690]]) add('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, rad: 20, cd: 80 });
+  if (!loop) for (const [x, u] of [[30, 230], [194, 230], [30, 690], [194, 690]]) add('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, rad: 20, cd: 80 });
   add('bldg', 40, 1000, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 184, 1040, { bk: 'armoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
-  const before = world.enemies.length; spawnArty(112, g - 860); for (let k = before; k < world.enemies.length; k++) Object.assign(world.enemies[k], { keep: true, noGuard: true });
+  if (loop) { /* the ruin's defenders: tanks dug in among the rubble (outer yard, keep yard), two heavy tanks at the inner gate and one at the keep, beside the patrolling ones above */
+    for (const [x, u] of [[44, 90], [180, 130], [60, 250], [168, 330]]) add('tank', x, u, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }));
+    for (const x of [58, 166]) add('htank', x, 408, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }));
+    for (const [x, u] of [[44, 560], [180, 700], [60, 800]]) add('tank', x, u, tankStats({ road: false, hd: PI / 2, v: 0, dug: true }));
+    add('htank', 112, 900, tankStats({ road: false, hd: PI / 2, v: 0, dug: true })); }
+  else { const before = world.enemies.length; spawnArty(112, g - 860); for (let k = before; k < world.enemies.length; k++) Object.assign(world.enemies[k], { keep: true, noGuard: true }); }
 }
 function castleUnits(e, grp) {
   const W0 = (sx, sy) => [e.wx - 112 + sx, e.wy + (sy - 300)], m = hpm();
@@ -12222,6 +12375,23 @@ function drawProtoPlane(e, rot, sc, flames) {
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
 }
+/* Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
+   (a cut-down duel: protoDuel with e.castle: two phases, no lunge, no missile). The keep tower waits meanwhile (its parts are shielded and silent). At a tenth of its health
+   the prototype breaks off for good (it cannot be killed; what it lost carries into level 6), and then the tower has to be destroyed: its windmills (castleWindmill) turn
+   faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
+   tower's parts harder. The first pass keeps the old castle. */
+function castleAerial(e) {
+  e.aerialT0 = gf; const pr = world.enemies.find(o => o.type === 'proto' && !o.dead), base = 200 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
+  if (pr) { pr.dead = true; pr.gone = true; for (const t of world.enemies) if (t.type === 'troop' && t.post === pr) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; } } /* (it lifted off behind the keep, out of sight) */
+  world.enemies.push(E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true })); e.aerial = true; e.barHide = true; sfx('flyin');
+}
+function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
+  const open = others === 0, arms = open ? 4 : 3; if (!e.spin) e.spin = 0; e.wmT = (e.wmT || 0) + 1; if (e.wmT % 24 === 1 && ((e.wmT / 24) | 0) % 14 === 0) e.wmDir = -(e.wmDir || 1); const dir = e.wmDir || 1;
+  p.cd = Math.round((open ? 10 : 13) * fireSlow()); e.spin += 0.17 * dir;
+  for (let k = 0; k < arms; k++) eshot(px, py, e.spin + k * TAU / arms, sp * 0.8);
+  if (open) { e.spin2 = (e.spin2 || 0) - 0.11 * dir; if (e.wmT % 2 === 0) for (let k = 0; k < 2; k++) eshot(px, py, e.spin2 + k * PI, sp * 0.7); }
+  if ((e.ringN = (e.ringN || 0) + 1) % (open ? 16 : 22) === 0) { ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); sfx('cannon'); }
+}
 const BOSSMOVE = {
   castle(e) {
     const sc = Math.floor(world.scroll); e.x = e.wx; e.y = e.wy + sc; if (e.towerH === undefined) e.towerH = 70; placeKeepParts(e);
@@ -12235,6 +12405,7 @@ const BOSSMOVE = {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
+    if (run.sortie && run.sortie.autumn) { if (e.breach && !e.aerialT0) castleAerial(e); if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
       q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
@@ -12563,15 +12734,16 @@ const BOSS_FIGHT = {
   castle: {
     dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } feel.shake = Math.max(feel.shake, 3); if (gf % 4 === 0) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
     introEarly(e) { return e.stage1; },
-    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
+    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt || e.aerial ? 30 : 0; },
     coreFire(e, p, px, py, core, others, sp, mz) {
+      if (run.sortie && run.sortie.autumn && others <= 4) return castleWindmill(e, p, px, py, others, sp);
       if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + run.loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
       // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
       else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
     },
-    deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
+    deflect(e, p) { if (e.aerial && p.tw) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } /* (the keep waits while the prototype is up) */ if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
     partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); feel.shake = Math.max(feel.shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
-    shielded(e, p) { return p.k === 'core' && !e.open; },
+    shielded(e, p) { return (e.aerial && !!p.tw) || (p.k === 'core' && !e.open); },
     delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
   },
   skyfort: {
@@ -13004,12 +13176,12 @@ const ENT = {
   // with one shot down the other weaves across the middle again. Shot down, it breaks up like the big bomber.
   sower: { revenge: 4, medals: 2, stats: { hw: 44, hh: 30, score: 4000, rad: 44 }, update(e) {
     if (e.dying) return dyingTick(e);
-    const S0 = SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
+    const zig = !!(run.sortie && run.sortie.autumn), S0 = zig ? SOWER_L : SOWER; if (e.ph === undefined) e.ph = Math.random() * 6; if (!e.st) e.st = 'in';
     if (e.partner && (e.partner.dead || e.partner.dying)) { e.lane = undefined; e.partner = null; }
     e.ghost = e.st !== 'hold'; // it passes over the player while it climbs in from behind and away again (no ram: there is no warning)
     if (e.st === 'in') { e.y -= S0.climb; e.x += (e.side - e.x) * 0.02; if (e.y <= S0.y) { e.st = 'hold'; e.ht = 0; } }
-    else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? S0.laneWeave : S0.weave;
-      const tx = cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = vx; e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
+    else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? (zig ? S0.pairA : S0.laneWeave) : S0.weave;
+      const tx = zig ? cx + amp * zigTri(gf / S0.per) : cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = zig ? clamp((tx - e.x) * 0.25, -S0.zigV, S0.zigV) : clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = clamp(vx, -0.9, 0.9); e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
       if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 38, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
       if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 8, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
       if (!e.second && !e.called && e.ht === S0.pairAfter) { e.called = true; e.lane = e.x < W / 2 ? -1 : 1; const sx = W / 2 - e.lane * S0.laneX, P2 = E('sower', { x: sx, y: H + 50, side: sx, hp: e.maxhp, maxhp: e.maxhp, big: true, air: true, up: true, second: true, lane: -e.lane, partner: e, hold: (e.hold || S0.hold) - S0.pairAfter, ph: e.ph + PI }); e.partner = P2; world.enemies.push(P2); sfx('drone'); }
@@ -13322,7 +13494,7 @@ const ENT = {
   hangar: { harmless: true, guarded: true, medals: 2, treesInFront: true, stats: { hp: 45, hw: 19, hh: 17, score: 500, rad: 26 }, update(e) { groundPos(e); } },
   cgate: { medals: 1.5, treesInFront: true, stats: { hw: 34, hh: 13, score: 3000, rad: 30 }, update(e) {
     groundPos(e);
-    if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && hasT()) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
+    if (--e.cd <= 0 && e.y > 10 && e.y < H - 60 && hasT() && !e.quiet) { e.cd = Math.round(rnd(55, 80) * fireSlow()); const sx = e.x + (e.side = -(e.side || 1)) * 25; eshot(sx, e.y, aim(sx, e.y), bspeed()); flash(sx, e.y, 2); sfx('gun'); }
     if (!e.out && e.y > 40) { e.out = true; for (const [dx, d] of [[-6, 0], [6, 50]]) world.later.push({ at: gf + 20 + d, fn: () => { if (!e.dead) world.enemies.push(G('acar', e.wx + dx, e.wy + 14, { v: 0.6, v0: 0.6, hd: PI / 2, cd: 60, patrol: [[e.wx + dx * 8, e.wy + 140]], pi: 0, keep: true, noGuard: true })); } }); }
   } },
   protoFly: { stats: { hw: 40, hh: 30, score: 0 }, update(e) {
@@ -13334,8 +13506,8 @@ const ENT = {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
     if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
-    if (e.t2 > 110 + PROTO_DUEL_T || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // not mandatory: after 2 minutes it breaks off and escapes
-    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
+    if ((e.t2 > 110 + PROTO_DUEL_T && !e.castle) || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.castle) { e.flare = 1; e.blink = false; if (gf % 3 === 0) for (const [ex, ey] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey + 6, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 }); } if (e.y < -90) e.dead = true; return; } /* (the castle's prototype breaks off for good once it is down to a tenth) */ // not mandatory: after 2 minutes it breaks off and escapes
+    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.castle ? (f > 0.55 ? 0 : 1) : f > 0.66 ? 0 : f > 0.33 ? 1 : 2; /* (the castle's: two phases, no lunge, no missile) */
     if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20, 20), e.y + rnd(-10, 10), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
     // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
@@ -13348,7 +13520,7 @@ const ENT = {
     // a slow fan of shells from the nose, wider with every phase
     if (k % Math.round(210 * fireSlow()) === 120) { const n = 5 + ph * 2, gx = e.x, gy = e.y + 24; for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
     // from phase 2 the bomb bay also launches a homing missile
-    if (ph >= 1 && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24, h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24, 5); sfx('rocket'); }
+    if (ph >= 1 && !e.castle && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24, h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24, 5); sfx('rocket'); }
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
     if (ph >= 1 && gf % (ph === 2 ? 4 : 9) === 0) smokePuff(e.x + rnd(-20, 20), e.y + rnd(-6, 10), 'a');
   } },
@@ -13386,6 +13558,7 @@ const ENT = {
   gen: { harmless: true, guarded: true, medals: 1, treesInFront: true, stats: { hp: 8, hw: 10, hh: 8, score: 500, rad: 11 }, update(e) { groundPos(e); if (gf % 50 === 0 && e.y > 0 && e.y < H) smokePuff(e.x + 6, e.y - 6); } },
   arty: { revenge: 2, guarded: true, medals: 1, treesInFront: true, stats: { hp: 10, hw: 10, hh: 10, score: 1000, rad: 12 }, update(e) {
     groundPos(e); if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.03, 0.03);
+    if (world.enc && world.enc.id === 'cliffbattery') return; /* (level 4's first loop: while the Cliff Battery is on, the rim guns fire only in its broadsides) */
     if (--e.cd <= 0 && canFire(e, 60)) {
       e.cd = Math.round(rnd(150, 210) * fireSlow());
       const mx = e.x + Math.cos(e.ga) * 13, my = e.y + Math.sin(e.ga) * 13; flash(mx, my, 6); smokePuff(mx, my); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
@@ -13393,6 +13566,7 @@ const ENT = {
     }
   } },
   acar: { revenge: 2, treads: true, medals: 0.5, stats: { hp: 4, hw: 5, hh: 9, score: 700, rad: 9 }, update(e) {
+    if (e.cv) { cvRoad(e); if (hasT() && --e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 140) * fireSlow()); const fire = () => { if (!e.dead && !e.dying && hasT()) { eshot(e.x, e.y, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }; fire(); world.later.push({ at: gf + 6, fn: fire }); } return; } /* the valley convoy's escort: drives north along the road, firing back */
     if (e.patrol && !e.road) { const [tx, ty] = e.patrol[0], d = Math.hypot(tx - e.wx, ty - e.wy); if (d > 2) { const mx = (tx - e.wx) / d * e.v, my = (ty - e.wy) / d * e.v; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } } groundPos(e); if (--e.cd <= 0 && canFire(e, 110)) { e.cd = Math.round(rnd(90, 130) * fireSlow()); for (let k = 0; k < 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) eshot(e.x, e.y + 4, aim(e.x, e.y), bspeed() * 0.95); } }); sfx('gun'); } return; }
     if (e.stopT > 0) { e.stopT--; e.v = 0; if ((e.stopT === 22 || e.stopT === 15 || e.stopT === 8) && hasT()) { eshot(e.x, e.y + 4, aim(e.x, e.y) + rnd(-0.07, 0.07), bspeed() * 0.95); sfx('gun'); } }
     else { e.v = e.v0; if (--e.cd <= 0 && canFire(e, 110) && e.y > 30) { e.stopT = 30; e.cd = Math.round(rnd(110, 160) * fireSlow()); } }
@@ -13414,6 +13588,7 @@ const ENT = {
     ENT.truck.update(e);
   } },
   ftruck: { harmless: true, explosive: true, treads: true, medals: 0.5, stats: { hp: 5, hw: 5, hh: 9, score: 600, rad: 10 }, update(e) {
+    if (e.cv) { cvRoad(e); return; } /* the valley convoy's tanker */
     const tg = e.patrol[e.pi], dx = tg[0] - e.wx, dy = tg[1] - e.wy, d = Math.hypot(dx, dy);
     if (d < 2) e.pi = (e.pi + 1) % e.patrol.length;
     else { const mx = dx / d * 0.25, my = dy / d * 0.25; if (!blockedMove(e, mx, my)) { steer(e, mx, my); e.wx += mx; e.wy += my; } }
@@ -13752,7 +13927,7 @@ function updBeamOf(beam, player, who) { // one ship's laser for this frame; retu
   for (const b of world.ebul) if (b.kind !== 'mega' && !b.shrapnel && Math.abs(b.x - bx) < half + 2 && b.y < top) { b.dead = true; world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: rnd(-0.6, 0.6), vy: -0.5, life: 8, max: 8, col: '#e8dcff' }); }
   for (const e of world.enemies) {
     if (e.dead || e.dying || e.untarget || (e.type !== 'boss' && (e.y > top || e.y < 4))) continue;
-    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55); beam.hit = true; } }
+    if (e.type === 'boss') { for (const pt of e.parts) if (!pt.dead && !bossShielded(e, pt) && e.y + pt.oy > 4 && Math.abs(e.x + pt.ox - bx) < pt.hw + half && e.y + pt.oy < top) { damagePart(e, pt, beam.dmg * 0.55 * (e.kind === 'castle' && run.sortie && run.sortie.autumn && beam.pw >= 0.9 ? 1.6 : 1)); beam.hit = true; } }
     else if (Math.abs(e.x - bx) < e.hw + half) { if ((e.drill || e.buechse) && !e.turDead && beam.pw >= 0.9) e.turHp = 0; /* (a full laser pops the Drilling's and the Buechse's turret at once) */ fullBeamHit = beam.pw >= 0.9; damage(e, e.type === 'protoDuel' ? beam.dmg * 0.4 : beam.dmg); fullBeamHit = false; beam.hit = true; } // a full laser would take a fifth of the duel's health at once
   }
   scorer = 1;
@@ -14059,6 +14234,11 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
+  if (e.type === 'protoDuel' && e.castle) { /* the castle's prototype: it cannot be killed; down to a tenth it flees, and what it lost carries into level 6 */
+    if (e.flee) return; run.proto.dmg = (run.proto.dmg || 0) + d; e.hit = 3; e.hp -= d; run.stats.hits++;
+    if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' });
+    if (e.hp <= e.maxhp * 0.1) { e.hp = e.maxhp * 0.1; e.flee = true; e.untarget = true; addScore(10000); label(e.x, e.y - 24, 'ESCAPED 10000'); boom(e.x, e.y, 22, 'a'); sfx('bigboom'); feel.shake = Math.max(feel.shake, 6); } else sfx('hitm');
+    return; }
   if (e.ground && !fullBeamHit && smokeCover(e)) { smokePing(e); return; } // (a Nebelwerfer's smoke: only a full laser gets through)
   if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
@@ -14881,7 +15061,7 @@ function drawGround() {
   const kTop = Math.floor(-sc / CH), kBot = Math.floor((H - 1 - sc) / CH);
   for (let k = kTop; k <= kBot; k++) { const c = world.chunks.get(-k); if (c) ctx.drawImage(c, 0, k * CH + sc); }
   shimmer2(sc);
-  drawPlanFx(sc); drawMist(sc);
+  drawPlanFx(sc); drawMist(sc); drawLakeMist(sc);
   for (const g of glints) {
     if (g.life < 8) continue;
     const gt = terrainType(Math.floor(g.x), Math.floor(g.y - sc)); if (gt !== 'sea' && gt !== 'river') continue;
@@ -15023,7 +15203,7 @@ function drawRaven() {
   const top = world.ravenGate - RV_GATE + Math.floor(world.scroll);
   if (top > H) { world.ravenGate = null; return; }
   const y0 = Math.max(0, -top), y1 = Math.min(RV_H, H - top);
-  if (y1 > y0) { ctx.drawImage(SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
+  if (y1 > y0) { ctx.drawImage(run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
 }
 function drawMarkers() {
   const sc = Math.floor(world.scroll);
@@ -15483,6 +15663,60 @@ function drawSkyBody(e, fl, core) {
   for (const p of e.parts) if (p.box !== undefined) { p.ox = p.rx; p.oy = p.ry; }
 }
 // Each boss's look, put on BOSS[kind].draw(e, fl, core): fl flashes while it is dying, core is its core part.
+/* ================= valley convoy (level 4's first loop, seed 1945: run.sortie.encPlan, the valley's river) =================
+   A column of river craft sails north up the valley's river (a tug, a gun barge, a fuel barge, the barge with the Ravens' prototype parts, a gun barge astern) and a column of
+   armoured cars and tankers drives north along the road beside it. The player hunts it from below: both columns are slow (VC.v, the ground scrolls past at 0.4), so they come
+   down the screen from the top and linger, and the armed ones fire back at the player while they go. The parts are a prize only: shot down or not, the Ravens' prototype
+   is built already and the castle fight is the same. All the numbers are in VC. */
+const VC = { v: 0.12, boatGap: 46, roadGap: 30, hp: { tug: 9, bargeF: 10, bargeC: 14, bargeG: 14 }, fire: [75, 115] };
+const valleyRiver = S => S && S.plan && S.plan.rivers2 && S.plan.rivers2[0] || null;
+function cvRoad(e) { /* a road vehicle of the convoy: north along the plan's main road, its heading eased by steer */
+  const S = run.sortie, P = S.plan; e.wy -= e.v; const nx = P.mx[clamp(Math.round(S.planY0 - e.wy), 0, P.L - 1)] + (e.off || 0); steer(e, nx - e.wx, -e.v); e.wx = nx; groundPos(e); }
+function bargeUpdate(e) { /* a river craft: north along the river's centre line; the armed ones turn their gun on the player and fire */
+  const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; }
+  e.wy -= e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i >= R.cx.length - 6) { e.dead = true; e.gone = true; return; } /* it has sailed out of the valley */
+  e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + (e.off || 0); groundPos(e);
+  if (gf % 4 === 0) foam(e.x + rnd(-5, 5), e.y + e.hh);
+  if (e.armed) { const gx = e.x, gy = e.y + (e.type === 'tug' ? 2 : 4); if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
+    if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round(rnd(VC.fire[0], VC.fire[1]) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); if (e.type === 'bargeG') eshot(gx, gy, e.ta + 0.12, bspeed()); sfx('gun'); } }
+}
+const bargeWreck = e => { world.decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: 13, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+  world.decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: 220, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 }); };
+ENT.tug = { medals: 0.6, stats: { hp: VC.hp.tug, hw: 8, hh: 15, score: 900, rad: 15 }, update: bargeUpdate };
+ENT.bargeF = { harmless: true, explosive: true, medals: 0.6, stats: { hp: VC.hp.bargeF, hw: 8, hh: 22, score: 800, rad: 22 }, update: bargeUpdate };
+ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 8, hh: 22, score: 2500, rad: 22 }, update: bargeUpdate };
+ENT.bargeG = { medals: 1, stats: { hp: VC.hp.bargeG, hw: 8, hh: 22, score: 1200, rad: 22 }, update: bargeUpdate };
+DEATHS.tug = { wreck: bargeWreck }; DEATHS.bargeC = { wreck: bargeWreck }; DEATHS.bargeG = { wreck: bargeWreck }; DEATHS.bargeF = { blast: 34, wreck: bargeWreck };
+for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { spr(SPR[t], e.x, e.y, fl); if (e.armed) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + (t === 'tug' ? 2 : 4), fl); };
+/* Cliff Battery (level 4's first loop, the cliff coast: run.sortie.encPlan, at the start of the level). The rim battery's three artillery pads fire only in broadsides, on a beat:
+   each gun lays a stream of shells straight down its own lane, the streams a little closer together every salvo and longer (3, 4, 5, 5 shells), so the gaps between them are the
+   way through. The radar on the plateau behind them is the weak point: while it stands, the middle gun also fans a few shells at the player (from the second salvo on); shoot it
+   and the broadsides are only the lanes. The ledge bunkers and flak pits below fire as they always do (the tiers come up one after the other as the ground scrolls). It starts
+   gentle: nothing for 5 seconds, the first salvo is one short stream a gun. */
+const CB = { shells: [3, 4, 5, 5], gap: 7, speed: 0.8 };
+ENC.cliffbattery = { name: 'CLIFF BATTERY', len: 1100, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: false, pod: false, ground: false }, ev: [
+  { t: 300, do: 'radar', wait: 400 }, { t: 430, do: 'broadside', i: 0, wait: 200 }, { t: 640, do: 'broadside', i: 1 }, { t: 850, do: 'broadside', i: 2 }, { t: 1060, do: 'broadside', i: 3 }] };
+TT_ENC.cliffbattery = 1100;
+ENC_VERB.radar = () => { const S = run.sortie, P = S && S.plan, it = P && P.items.find(q => q.part === 'radar'); if (!it) return true; if (world.enemies.some(e => e.type === 'radar' && Math.abs(e.wx - (it.x0 + it.w / 2)) < 20 && Math.abs(e.wy - (S.planY0 - it.y0)) < 20)) return true; /* the plateau's radar: where the plan paints it, once it is at the top of the screen */
+  const wx = Math.round(it.x0 + it.w / 2), wy = S.planY0 - Math.round(it.y0 + it.h / 2); if (wy + Math.floor(world.scroll) > 0) return false; world.enemies.push(G('radar', wx, wy, { rot: 0 })); return true; };
+ENC_VERB.broadside = v => { const guns = world.enemies.filter(e => e.type === 'arty' && !e.dead && !e.dying && !e.turDead && e.y > 8 && e.y < H - 50); if (!guns.length || !hasT()) return false;
+  const lock = world.enemies.some(o => o.type === 'radar' && !o.dead && !o.dying), n = CB.shells[Math.min(v.i, CB.shells.length - 1)], lean = (v.i % 2 ? 1 : -1) * 0.02 * v.i; guns.sort((a, b) => a.x - b.x);
+  guns.forEach((g, gi) => { const mid = gi === (guns.length >> 1); flash(g.x, g.y + 10, 6); smokePuff(g.x, g.y + 10); sfx('cannon'); feel.shake = Math.max(feel.shake, 2);
+    for (let k = 0; k < n; k++) world.later.push({ at: gf + k * CB.gap, fn: () => { if (g.dead || g.dying || !hasT()) return; const side = g.x < W / 2 ? 1 : -1; eshot(g.x, g.y + 12, PI / 2 + side * lean, bspeed() * CB.speed); } });
+    if (lock && v.i >= 1 && mid) for (const da of [-0.16, 0, 0.16]) world.later.push({ at: gf + 10, fn: () => { if (g.dead || g.dying || !hasT()) return; eshot(g.x, g.y + 12, aim(g.x, g.y + 12) + da, bspeed() * CB.speed); } }); });
+  return true; };
+ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.valleyconvoy = 1500;
+ENC_VERB.rivercon = () => { const S = run.sortie, R = valleyRiver(S); if (!R) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['tug', 'bargeG', 'bargeF', 'bargeC', 'bargeG']; /* lead (northmost) first */
+  const ys = Math.max(R.a + 14, yT + 30); let n = 0;
+  kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.boatGap; if (y > R.b - 70) return; const armed = t === 'tug' || t === 'bargeG', off = k % 2 ? 8 : -8;
+    world.enemies.push(G(t, R.cx[y - R.a] + off, S.planY0 - y, Object.assign({ v: VC.v, off, keep: true, hh: t === 'tug' ? 15 : 22 }, armed ? { armed: true, ta: PI / 2, cd: 60 + k * 17 } : {}))); n++; });
+  return n > 0; };
+ENC_VERB.roadcon = () => { const S = run.sortie, P = S && S.plan; if (!P) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['acar', 'ftruck', 'ftruck', 'acar', 'ftruck', 'acar']; /* lead first */
+  const ys = yT + 40; kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.roadGap, yy = clamp(y, 0, P.L - 1), wx = P.mx[yy], wy = S.planY0 - y;
+    world.enemies.push(G(t, wx, wy, Object.assign({ v: VC.v, cv: true, keep: true, hd: -PI / 2, off: 0 }, t === 'acar' ? { cd: 50 + k * 23 } : { patrol: [[wx, wy]], pi: 0 }))); });
+  return true; };
 const BOSS_LOOKS = {
   ship(e, fl, core) {
     { const hd = e.hd || 0; if (hd) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(hd); ctx.translate(-Math.round(e.x), -Math.round(e.y)); }
@@ -15612,6 +15846,14 @@ function drawMoonGlow() { /* the first loop's level 3: the moon climbs along the
   const p = moonP(H / 2 - world.scroll), q = clamp(p / 0.5, 0, 1), cx = W * (1.05 - 0.15 * q), cy = H * (0.55 - 0.6 * q), r = H * (0.62 + 0.2 * q), a = 0.3 + 0.12 * q, R = Math.round(255 - 105 * q), G = Math.round(176 - 6 * q), B = Math.round(120 + 115 * q);
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${R},${G},${B},${a})`); g.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+}
+function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
+  const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
+  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgb(${L(232, 255)},${L(244, 228)},${L(255, 188)})`; ctx.fillRect(0, 0, W, H); /* overcast: 0.91 0.96 1.0; golden: 1.0 0.89 0.74 */
+  const cx = W * (0.5 + 0.55 * k), cy = H * (-0.2 + 0.1 * k), r = H * (1.2 - 0.25 * k), a = 0.10 + 0.22 * k, gl = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  const R = L(214, 255), G = L(226, 184), B = L(255, 90); gl.addColorStop(0, `rgba(${R},${G},${B},${a})`); gl.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); gl.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78); v.addColorStop(0, 'rgba(8,6,10,0)'); v.addColorStop(1, `rgba(8,6,10,${0.22 + 0.1 * k})`); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }
 function moonRim(s, x, y) { /* the moon's light on the ship's upper right edge: its silhouette in pale blue, one pixel up and right, under the ship */
   const r = s.rim || (s.rim = sil(s.c, '#c4d2ff')); ctx.globalAlpha = 0.7; ctx.drawImage(r, Math.round(x - s.w / 2) + 1, Math.round(y - s.h / 2) - 1); ctx.globalAlpha = 1;
@@ -16040,7 +16282,7 @@ function drawHUDBody(H) {
     weaponName(w.name, 4, TOUCH_HUD ? H - 31 : H - 43, w, false);
     levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false);
   }
-  const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
+  const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && !e.barHide && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) drawBossBar(big, TOUCH_HUD && !p2 ? 29 - SAFE_T : 22);
   else bossBar.e = null;
 }
@@ -16178,6 +16420,7 @@ function renderMain() {
   if (world.nightF > 0.02) drawNight();
   if (run.sortie && run.sortie.timeOfDay === 'morning') drawDawn();
   if (run.sortie && run.sortie.moon) drawMoonGlow();
+  if (run.sortie && run.sortie.autumn) drawAutumnLight();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }
