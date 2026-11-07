@@ -413,6 +413,25 @@ const playOut = `
   ok(r.boss, 'the boss still comes');
   await page.close();
 }
+// Level 5 in the first loop only (seed 1945, run.sortie.winter; run.sortie.encPlan): Ice Breakers over the frozen sea, the Ice Road Convoy in the lake valley, The Base in the pass (flak both sides, tankers, a bomber), the Shadow Wing
+// between them; each plays in its own stretch to its end. The first pass (1944) and 1946 have none of it.
+{
+  const page = await freshPage();
+  const r0 = JSON.parse(await peek(page, `(() => { const o = []; for (const lp of [0, 2]) { SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, false, lp); SF.run(60); o.push({ plan: run.sortie.encPlan, winter: !!run.sortie.winter }); } return JSON.stringify(o); })()`));
+  ok(r0.every(q => q.plan === null && !q.winter), 'level 5, the first pass and the second loop (seed 1946): no loop encounters');
+  const r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(5, false, 1); const S = run.sortie, plan = S.encPlan, log = [], seen = { pt: 0, flak: 0, ftruck: 0, bomber: 0, tank: 0 }, seg = {}; for (const g of S.segs) seg[g.t] = [g.start, g.start + g.n]; let cur = null;
+    for (let f = 0; f < 24000 && !world.bossSpawned; f += 20) { SF.run(20); ensureChunks();
+      if (world.enc && (!cur || cur.id !== world.enc.id)) { cur = { id: world.enc.id, c: -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP, end: null }; log.push(cur); }
+      if (world.encLast && cur && world.encLast.id === cur.id && !cur.end) cur.end = world.encLast.why;
+      const n = t => world.enemies.filter(e => e.type === t && !e.dead).length; for (const k of ['pt', 'flak', 'ftruck', 'bomber', 'tank']) seen[k] = Math.max(seen[k], n(k)); }
+    return JSON.stringify({ plan: plan.map(p => p.id + '@' + p.c).join(), log, seen, seg, wingU: S.wingU, seed: S.seed, errs: SF.R.errs.slice(0, 2), boss: world.bossSpawned }); })()`));
+  const ids = r.log.map(x => x.id).join(), at = id => (r.log.find(x => x.id === id) || {}).c;
+  ok(r.seed === 1945 && ids.replace(',wing', '') === 'iceraid,iceroad,basebreak' && r.log.every(x => x.end === 'done'), `the encounters play in place, each to its end: ${r.log.map(x => x.id + '@' + x.c + ':' + x.end).join(' ')} (plan ${r.plan})`);
+  ok(at('iceraid') < r.seg.open_sea_ice[1] && at('iceroad') >= r.seg.lake_valley[0] && at('iceroad') < r.seg.lake_valley[1] && at('basebreak') >= r.seg.pass[0] && at('basebreak') < r.seg.pass[1], `each starts in its own stretch (sea ${r.seg.open_sea_ice}, lake ${r.seg.lake_valley}, pass ${r.seg.pass})`);
+  ok(r.seen.ftruck >= 2 && r.seen.flak >= 2, `Ice Road Convoy: ${r.seen.ftruck} tankers at once; The Base: ${r.seen.flak} flak guns at once; bombers seen: ${r.seen.bomber}`);
+  ok(r.errs.length === 0 && r.boss, `the boss still comes, no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 await browser.close();
 if (bad) { console.error(`\n${bad} problem(s) found, ${passed} passed.`); process.exit(1); }
 console.log(`Encounter test passed (${passed}).`);

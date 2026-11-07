@@ -4440,7 +4440,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.88'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.89'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8742,7 +8742,10 @@ function buildSortie(level, seed) {
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
-    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
+    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
+    const sg5 = tt => segs.find(g => g.t === tt), a5 = sg5('open_sea_ice'), b5 = sg5('lake_valley'), c5 = sg5('pass');
+    return [{ id: 'iceraid', c: 4, until: a5.start + a5.n - 6, live: true }, { id: 'iceroad', c: b5.start + 1, until: b5.start + b5.n - 2, live: true }, { id: 'basebreak', c: c5.start + 2, until: c5.start + c5.n - 3, live: true }];
+  })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
   })() : (() => { // a loop's level 2: three encounters at their stretches (ENC_PLAN's layout, here from the stretches this seed made): the ambush at the village's oasis, the burning field in the first open desert, the fuel convoy in the last
@@ -15755,6 +15758,17 @@ ENC_VERB.broadside = v => { const guns = world.enemies.filter(e => e.type === 'a
 ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.valleyconvoy = 1500;
+/* Level 5's first loop (run.sortie.winter, run.sortie.encPlan), from the existing verbs only. ICE BREAKERS: two five-plane dives over the frozen sea, a bomber, a strafing run of four from the side the ship is not on, a chase pair (the ice has no open water for patrol boats). ICE ROAD CONVOY: tankers chain along the road beside the frozen lake, tanks behind them, cover from the air. THE BASE: flak both sides of the lane, a formation down it, the depot's tankers, a bomber, a dive, a chase pair. */
+ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'dive', n: 5, x: 0.3 }, { t: 60, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 260, do: 'bomber', x: 0.5 }, { t: 480, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] }, { t: 700, do: 'chase' }, { t: 900, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.iceraid = 1000;
+ENC.iceroad = { name: 'ICE ROAD CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 190, do: 'tankers', n: 2, diff: [1, 2], wait: 300 }, { t: 300, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 560, do: 'chase' }, { t: 820, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.iceroad = 1100;
+ENC.basebreak = { name: 'THE BASE', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'flak', x: [0.06, 0.38], wait: 240 }, { t: 0, do: 'flak', x: [0.62, 0.94], wait: 240 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5, needAll: true }, { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
+  { t: 500, do: 'tankers', n: 2, wait: 300 }, { after: 150, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.basebreak = 1100;
 ENC_VERB.rivercon = () => { const S = run.sortie, R = valleyRiver(S); if (!R) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['tug', 'bargeG', 'bargeF', 'bargeC', 'bargeG']; /* lead (northmost) first */
   const ys = Math.max(R.a + 14, yT + 30); let n = 0;
   kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.boatGap; if (y > R.b - 70) return; const armed = t === 'tug' || t === 'bargeG', off = k % 2 ? 8 : -8;
