@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push -u origin *)",
+      "Bash(git ls-remote *)",
+      "Bash(git rev-parse *)",
+      "Bash(git status *)",
+      "Bash(rm -f node_modules)",
+      "Bash(rm -f tests/_*)",
+      "Bash(pkill -f http.server*)"
+    ]
+  }
+}
