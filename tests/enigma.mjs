@@ -576,6 +576,32 @@ for (const lv of [2, 6]) {
   ok((seen.flak || 0) + (seen.aaflak || 0) > 0 && (seen.parked || 0) > 0 && (seen.bunker || 0) > 0, `the base's guns, bunkers and parked aircraft came up (${JSON.stringify(seen)})`);
   await page.close();
 }
+// 3n. Level 5's first loop (seed 1945): the Winter Wolf's avalanche mortars. Each train's rear flak position is a mortar (the first pass has none); at 85, 55 and 25 percent of a train's core it lobs a salvo
+// of four shells (kind 'mortar', av) that land on red rings and burst into rings of shards, the train's guns holding fire meanwhile; the mortar's own flak is silent; one train acts at a time and Wolf Pack waits;
+// destroying the mortar stops the salvos; the first pass (seed 1944) has none of it. No errors.
+{
+  const run3 = async lp => { const page = await freshPage('?boss'); await page.evaluate(() => window.SF.setMode('immortal')); await peek(page, `settings.diff = 1; startEnigma(5, false, ${lp}); 0`);
+    for (let k = 0; k < 60; k++) { await page.evaluate(() => window.SF.run(120)); if (await peek(page, `world.enemies.some(e => e.type === 'boss' && e.trains && e.trains[0].ready)`)) break; } return page; };
+  const p0 = await run3(0);
+  const f = await peek(p0, `(() => { const b = world.enemies.find(e => e.type === 'boss'); return { boss: !!b, mortars: b ? b.parts.filter(q => q.mortar).length : -1 }; })()`);
+  ok(f.boss && f.mortars === 0, `the first pass: the Winter Wolf has no mortar (${f.mortars})`); await p0.close();
+  const page = await run3(1);
+  const g = await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'); return { boss: !!b, mortars: b ? b.parts.filter(q => q.mortar).map(q => q.tr + ':' + q.oy.toFixed(0)).join() : '', aa: b ? b.parts.filter(q => q.k === 'aa' && !q.mortar).length : 0 }; })()`);
+  ok(g.boss && g.mortars.split(',').length === 2 && g.aa === 2, `level 5, first loop: one mortar on each train (${g.mortars}), the other flak guns stay (${g.aa})`);
+  const salvo = async frac => { await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'); b.trains[0].packN = 2; return 1; })()`); /* (Wolf Pack is spent, so it does not interleave; the core is held at the fraction and the mortar cannot be shot down while a stage is measured) */
+    let seen = 0, landed = 0, maxActive = 0, hold = false, errs = 0; const ids = new Set();
+    for (let k = 0; k < 24; k++) { await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'); c.hp = c.maxhp * ${frac}; for (const q of b.parts) if (q.mortar) q.hp = q.maxhp = 1e6; return 1; })()`); await page.evaluate(() => window.SF.run(20)); const r = JSON.parse(await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), av = world.ebul.filter(x => x.av); return JSON.stringify({ n: av.length, tg: av.map(x => Math.round(x.tx) + ',' + Math.round(x.ty)), avN: b.trains[0].avN || 0, act: b.trains.filter(t => t.av).length, hold: BOSS.train.holdFire(b, 200) }); })()`));
+      for (const t of r.tg) ids.add(t); seen = Math.max(seen, r.n); maxActive = Math.max(maxActive, r.act); hold = hold || r.hold > 0; }
+    const e2 = JSON.parse(await peek(page, `JSON.stringify({ avN: world.enemies.find(e => e.type === 'boss').trains[0].avN, errs: SF.R.errs.length })`)); return { shells: ids.size, avN: e2.avN, maxActive, hold, errs: e2.errs }; };
+  const a1 = await salvo(0.8), a2 = await salvo(0.5), a3 = await salvo(0.2);
+  ok(a1.avN === 1 && a2.avN === 2 && a3.avN === 3 && a1.shells >= 3 && a2.shells >= 3 && a3.shells >= 3 && a1.maxActive === 1 && a1.hold, `three salvos at 85, 55 and 25 percent, about four shells each (${a1.shells}, ${a2.shells}, ${a3.shells}), one train at a time, the guns hold fire`);
+  const a4 = await salvo(0.1); ok(a4.avN === 3 && a4.shells === 0, `no fourth salvo (${a4.shells} shells)`);
+  await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'), m = b.parts.find(q => q.tr === 0 && q.mortar); b.trains[0].avN = 0; c.hp = c.maxhp * 0.3; m.dead = true; return 1; })()`);
+  let after = 0; for (let k = 0; k < 20; k++) { await page.evaluate(() => window.SF.run(20)); after += await peek(page, `world.ebul.filter(x => x.av).length`); }
+  ok(after === 0, 'a destroyed mortar fires no more salvos');
+  const fin = await peek(page, `SF.R.errs.slice(0, 2)`); ok(fin.length === 0, `no errors${fin.length ? ': ' + fin.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
