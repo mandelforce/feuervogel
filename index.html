@@ -4448,7 +4448,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.91'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.92'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8724,7 +8724,12 @@ function yardWait() { return Math.max(1, Math.ceil(H / CH) - 1 - Math.ceil(XH / 
 // the village and the junction may trade places, and the open desert and the airbase; the other stretches get 1 chunk (a weight of 1) longer or shorter, the pass
 // never shorter (its ravine and fort need the room). The level's length does not change (the weights are scaled to it below).
 function loopSeq(seq, seed, level) {
-  const r = k => sortieHash((seed | 0) + (level === 3 ? 3 : level === 5 ? 5 : 2) * 977 + 31, k), out = seq.map(q => q.slice());
+  const r = k => sortieHash((seed | 0) + (level === 3 ? 3 : level === 5 ? 5 : level === 6 ? 6 : 2) * 977 + 31, k), out = seq.map(q => q.slice());
+  if (level === 6) { /* the first loop's level 6: the sea in, the south harbour and the station last stay; the city centre and the town may trade places, and the power works and the ruins; the other stretches get a chunk longer or shorter (never under 3). The weights are scaled to the level's length by buildSortie, and every part of the plan finds its stretch by name */
+    const sw6 = (t1, t2, k) => { const a = out.findIndex(q => q[0] === t1), b = out.findIndex(q => q[0] === t2); if (a >= 0 && b === a + 1 && r(k) < 0.5) { const q = out[a]; out[a] = out[b]; out[b] = q; } };
+    sw6('city_centre', 'city_town', 1); sw6('industrial_power', 'ruins', 2);
+    out.forEach((q, k) => { if (k === 0 || k === out.length - 1 || q[0] === 'harbour_south') return; const d = r(10 + k); q[1] = Math.max(3, q[1] + (d < 1 / 3 ? -1 : d < 2 / 3 ? 0 : 1)); });
+    return out; }
   if (level === 5) { /* the first loop's level 5: the frozen sea, the harbour, the first farmland and the last stretch (the depot, the massif, the gorge) stay; the station and the airbase may trade places, and the village and the lake valley; the other stretches get 1 chunk longer or shorter (never under 4); the pass grows to 10 chunks (its basin holds the base) and the chunks come out of the others, so the level keeps its length */
     const sw5 = (t1, t2, k) => { const a = out.findIndex(q => q[0] === t1), b = out.findIndex(q => q[0] === t2); if (a >= 0 && b === a + 1 && r(k) < 0.5) { const q = out[a]; out[a] = out[b]; out[b] = q; } }, tot0 = seq.reduce((n, q) => n + q[1], 0), fixed = (q, k) => k === 0 || k === out.length - 1 || q[0] === 'open_sea_ice' || q[0] === 'harbour_winter' || q[0] === 'pass' || (q[0] === 'farmland_winter' && k < 4);
     sw5('village', 'lake_valley', 1); sw5('station_winter', 'airbase_snow', 2);
@@ -8745,9 +8750,10 @@ function loopSeq(seq, seed, level) {
 function buildSortie(level, seed) {
   const variant = level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
   const winter5 = level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const haze6 = level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
-  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 ? loopSeq(ENIGMA_SEQ[i], seed, level) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
+  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
@@ -8761,7 +8767,7 @@ function buildSortie(level, seed) {
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: level === 6 && (seed | 0) === CAMP_SEED + 1 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -8835,13 +8841,14 @@ function sortiePlanBuild(S) {
 // Level 6: the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
 // harbour (piers, U-boat bunker, breakwater, fairway) with the east side harbour opening into it (portSouth preset, corner form, sea to
 // the east), the old town, the works in their segment, the station in the last one, and the airfield's perimeter in the last chunk.
+const HARBOUR6 = { land: 0.56, pier: [30, 50], sideChannel: 62 };
 function sortiePlanHarbour(S) {
   const n = S.len, L = n * CH, dens = [], dmg = []; let lastU = 0;
   for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
   dens.unshift([0, dens[1][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
   const fr = t => { const g = S.segs.find(q => q.t === t); return [g.start / n, (g.start + g.n) / n]; }, sea = S.segs.find(g => g.t === 'open_sea'), hb = S.segs.find(g => g.t === 'harbour_south');
   const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
-    coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }) }; // the end quay just past the sea segment, the east harbour along most of the harbour segment
+    coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }, S.haze ? HARBOUR6 : null) }; /* (the first loop: HARBOUR6 moves the shore, lengthens the piers and widens the side channel, so the fairway and the breakwater's entrance lie elsewhere) */ // the end quay just past the sea segment, the east harbour along most of the harbour segment
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }

@@ -544,6 +544,24 @@ for (const lv of [2, 6]) {
   ok(r.errs.length === 0, 'level 6 haze: no errors');
   await page.close();
 }
+// 3l3. Level 6's first loop (seed 1945): the stretches are moved (loopSeq). The sea in stays first, the south harbour second and the station last; only the city centre and the town, and the power
+// works and the ruins, may trade places (each only with its neighbour); no stretch is under 3 chunks; the level keeps its length; the same seed always makes the same order; over 30 hashed seeds
+// both swaps and different lengths occur. The first pass (1944) and 1946 keep the authored order and lengths. The loop's harbour is moved (HARBOUR6: the shore, the side channel). No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}, names = S => S.segs.map(g => g.t).join(','), base = names(buildSortie(6, CAMP_SEED)); o.base = base; o.p1946 = names(buildSortie(6, CAMP_SEED + 2)) === base; o.lens0 = buildSortie(6, CAMP_SEED).segs.map(g => g.n).join(',');
+    o.lens2 = buildSortie(6, CAMP_SEED + 2).segs.map(g => g.n).join(','); const a = buildSortie(6, CAMP_SEED + 1), b = buildSortie(6, CAMP_SEED + 1); o.same = JSON.stringify(a.segs) === JSON.stringify(b.segs); o.len = a.len; o.haze = [a.haze, buildSortie(6, CAMP_SEED).haze, buildSortie(6, CAMP_SEED + 2).haze];
+    let bad = 0, swaps = 0, diff = 0, minN = 99, lens = new Set(); for (let k = 0; k < 30; k++) { const q = loopSeq(ENIGMA_SEQ[5], 5000 + k * 37, 6), n = q.map(x => x[0]);
+      if (n[0] !== 'open_sea' || n[1] !== 'harbour_south' || n[n.length - 1] !== 'station_main' || n.slice().sort().join() !== ENIGMA_SEQ[5].map(x => x[0]).sort().join()) bad++;
+      const nb = ENIGMA_SEQ[5].map(x => x[0]); for (let j = 0; j < n.length; j++) if (n[j] !== nb[j]) { const ok = (n[j] === 'city_town' && nb[j] === 'city_centre') || (n[j] === 'city_centre' && nb[j] === 'city_town') || (n[j] === 'ruins' && nb[j] === 'industrial_power') || (n[j] === 'industrial_power' && nb[j] === 'ruins'); if (!ok) bad++; }
+      if (n.join() !== nb.join()) swaps++; q.forEach((x, j) => { minN = Math.min(minN, x[1]); lens.add(x[1] + n[j]); }); if (q.map(x => x[1]).join() !== ENIGMA_SEQ[5].map(x => x[1]).join()) diff++; }
+    o.bad = bad; o.swaps = swaps; o.diff = diff; o.minN = minN; o.h6 = HARBOUR6; o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.p1946 && r.lens0 === r.lens2 && r.haze[0] === true && !r.haze[1] && !r.haze[2], 'level 6: 1944 and 1946 keep the authored stretches and have no haze flag');
+  ok(r.same && r.len === 70, `level 6 first loop: the same seed makes the same stretches, the level keeps ${r.len} chunks`);
+  ok(r.bad === 0 && r.minN >= 3 && r.swaps > 3 && r.swaps < 27 && r.diff > 20, `loopSeq level 6 over 30 seeds: the sea, the harbour and the station stay, only the legal neighbours swap (${r.swaps}/30 swapped, ${r.diff} with other lengths, shortest ${r.minN}, ${r.bad} bad)`);
+  ok(r.h6 && r.h6.land < 0.67 && r.errs.length === 0, 'level 6 first loop: the harbour is moved (the shore sits further west); no errors');
+  await page.close();
+}
 // 3k. Level 5's first loop (seed 1945, run.sortie.winter): the blizzard. The overcast (drawWinterLight) takes the colour out of a mid-grey and tints it cool (blue above red); the snow
 // squalls come by stretch (squallAt: hard over the pass, light over the open stretches, none in the first pass); the streaks change pixels where it snows hard and nowhere with the flag
 // off; the first pass (1944) and 1946 have no winter flag. No errors.
