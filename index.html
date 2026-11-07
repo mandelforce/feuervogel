@@ -4440,7 +4440,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.92'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.93'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -13388,11 +13388,11 @@ const ENT = {
     }
   } },
   pt: { turret: true, turretAt: [0, 7], medals: 0.5, stats: { hp: 8, hw: 5, hh: 14, score: 400, rad: 16 }, update(e) {
-    if (e.rv) { const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; } e.wy += e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i < 4) { e.dead = true; return; } e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + e.off; } /* (the valley convoy's escorts come down the river at the player) */
+    if (e.rv) { const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; } e.wy += e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i < 4) { e.dead = true; return; } e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + e.off; const want = riverHd(R, i, false); e.hd = e.hd === undefined ? want : e.hd + clamp(angDiff(e.hd, want), -0.012, 0.012); } /* (the valley convoy's escorts come down the river at the player) */
     else if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v) && !underFlagship(e.x + e.dx, e.y + e.v, e.hw)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
-    if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
-    const gx = e.x, gy = e.y + 7;
+    if (gf % 3 === 0) { if (e.rv) { foam(e.x - Math.cos(e.hd) * 16 + rnd(-4, 4), e.y - Math.sin(e.hd) * 16); foam(e.x + Math.cos(e.hd) * 12 + rnd(-6, 6), e.y + Math.sin(e.hd) * 12); } else { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); } }
+    const po = e.rv && e.hd !== undefined ? rotOff(e.hd - PI, 0, 7) : [0, 7], gx = e.x + po[0], gy = e.y + po[1];
     if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
@@ -15513,7 +15513,7 @@ const LOOKS = {
   },
   acar(e, fl) { spr(SPR.acar[dirIdx(e.hd)], e.x, e.y, fl); },
   bunker(e, fl) { spr(SPR.bunker, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 5); },
-  pt(e, fl) { spr(SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 7, fl); else turStub(e.x, e.y + 7, 3); },
+  pt(e, fl) { const po = e.rv && e.hd !== undefined ? rotOff(e.hd - PI, 0, 7) : [0, 7], gx = e.x + po[0], gy = e.y + po[1]; spr(e.rv && e.hd !== undefined ? ptRot(dirIdx(e.hd, 32)) : SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], gx, gy, fl); else turStub(gx, gy, 3); }, /* (the valley convoy's PT boats turn with the river) */
   destroyer(e, fl) { spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } },
   hangar(e, fl) { spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); },
   fuel(e, fl) { spr(SPR.fuel, e.x, e.y, fl); },
@@ -15767,20 +15767,26 @@ function drawSkyBody(e, fl, core) {
    is built already and the castle fight is the same. All the numbers are in VC. */
 const VC = { v: 0.12, boatGap: 14, roadGap: 30, hp: { tug: 14, bargeF: 18, bargeC: 30, bargeG: 36 }, len: { tug: 40, bargeG: 90, bargeF: 62, bargeC: 66 }, fire: [75, 115], pt: 0.45 };
 const valleyRiver = S => S && S.plan && S.plan.rivers2 && S.plan.rivers2[0] || null;
+function riverHd(R, i, north) { /* the river's course at row i as a heading: the way a boat goes, north (up the strip) or south */
+  const a = R.cx[clamp(i - 8, 0, R.cx.length - 1)], b = R.cx[clamp(i + 8, 0, R.cx.length - 1)], n = Math.atan2(-1, (b - a) / 16); return north ? n : n + PI; }
+const barRotC = {}; const barRot = (t, i) => barRotC[t + i] || (barRotC[t + i] = rotated(SPR[t], i * TAU / 32 + PI / 2)); /* a barge picture (bow up) turned to one of 32 headings, made when first needed */
+const ptRotC = {}; const ptRot = i => ptRotC[i] || (ptRotC[i] = rotated(SPR.pt, i * TAU / 32 - PI / 2)); /* the PT boat (bow down) likewise */
+const rotOff = (hd, ox, oy) => { const th = hd + PI / 2, c = Math.cos(th), sn = Math.sin(th); return [ox * c - oy * sn, ox * sn + oy * c]; }; /* an offset in a bow-up picture, turned to heading hd */
 function cvRoad(e) { /* a road vehicle of the convoy: north along the plan's main road, its heading eased by steer */
   const S = run.sortie, P = S.plan; e.wy -= e.v; const nx = P.mx[clamp(Math.round(S.planY0 - e.wy), 0, P.L - 1)] + (e.off || 0); steer(e, nx - e.wx, -e.v); e.wx = nx; groundPos(e); }
 function bargeUpdate(e) { /* a river craft: north along the river's centre line; the armed ones turn their gun on the player and fire */
   const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; }
   e.wy -= e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i >= R.cx.length - 6) { e.dead = true; e.gone = true; return; } /* it has sailed out of the valley */
   e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + (e.off || 0); groundPos(e);
-  if (gf % 4 === 0) foam(e.x + rnd(-5, 5), e.y + e.hh);
-  if (e.armed) { const gx = e.x, gy = e.y + (e.type === 'tug' ? -10 : e.alt ? 21 : -13); /* the tug's AA gun forward; the tank lighter's two heavy tanks fire in turn */ if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
+  const want = riverHd(R, i, true); e.hd = e.hd === undefined ? want : e.hd + clamp(angDiff(e.hd, want), -0.012, 0.012); /* it turns with the river */
+  if (gf % 4 === 0) foam(e.x - Math.cos(e.hd) * e.hh + rnd(-5, 5), e.y - Math.sin(e.hd) * e.hh);
+  if (e.armed) { const go = rotOff(e.hd, 0, e.type === 'tug' ? -10 : e.alt ? 21 : -13), gx = e.x + go[0], gy = e.y + go[1]; /* the tug's AA gun forward; the tank lighter's two heavy tanks fire in turn */ if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round(rnd(VC.fire[0], VC.fire[1]) * fireSlow()); e.alt = e.type === 'bargeG' ? 1 - (e.alt | 0) : 0; const mx = gx + Math.cos(e.ta) * 14, my = gy + Math.sin(e.ta) * 14; eshot(mx, my, e.ta, bspeed()); if (e.type === 'bargeG') eshot(mx, my, e.ta + 0.1, bspeed()); flash(mx, my, 3); sfx(e.type === 'bargeG' ? 'cannon' : 'gun'); } }
 }
 const bargeWreck = e => { /* as the game's ships go down: an oil slick, swimmers, the hull sinking slowly with a tilt; the fuel barge burns first */
   world.decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: e.type === 'tug' ? 16 : 24, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
   { const n = e.type === 'bargeG' ? 3 : e.type === 'tug' ? 2 : (Math.random() < 0.6 ? 2 : 1); spawnSwimmers(e.wx, e.wy, n, 8, e.hh); }
-  world.decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: e.type === 'tug' ? 220 : 320, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 });
+  world.decals.push({ kind: 'sink', s: barRot(e.type, dirIdx(e.hd === undefined ? -PI / 2 : e.hd, 32)), wx: e.wx, wy: e.wy, t: 0, max: e.type === 'tug' ? 220 : 320, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 });
   if (e.type === 'bargeF') for (let k = 0; k < 4; k++) fireAt(e.x + rnd(-8, 8), e.y + rnd(-e.hh * 0.6, e.hh * 0.6), 'g', true); };
 ENT.tug = { medals: 0.6, stats: { hp: VC.hp.tug, hw: 13, hh: 20, score: 900, rad: 20 }, update: bargeUpdate };
 ENT.bargeF = { harmless: true, explosive: true, medals: 0.6, stats: { hp: VC.hp.bargeF, hw: 13, hh: 31, score: 800, rad: 30 }, update: bargeUpdate };
@@ -15788,9 +15794,9 @@ ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 13, hh:
 ENT.bargeG = { medals: 1.5, stats: { hp: VC.hp.bargeG, hw: 16, hh: 45, score: 2000, rad: 44 }, update: bargeUpdate };
 DEATHS.tug = { wreck: bargeWreck }; DEATHS.bargeC = { wreck: bargeWreck }; DEATHS.bargeG = { wreck: bargeWreck }; DEATHS.bargeF = { blast: 34, wreck: bargeWreck };
 for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) Object.assign(ENT[t], DEATHS[t]); /* (the table merge above ran before these entries existed) */
-for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { spr(SPR[t], e.x, e.y, fl);
-  if (t === 'tug' && !e.turDead) spr(SPR.aaZw[dirIdx(e.ta)], e.x, e.y - 10, fl);
-  if (t === 'bargeG') for (const oy of [-13, 21]) { spr(SPR.htank[0][dirIdx(-PI / 2)], e.x, e.y + oy, fl); spr(SPR.htankTur[dirIdx(e.ta)], e.x, e.y + oy, fl); } };
+for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { const hd = e.hd === undefined ? -PI / 2 : e.hd; spr(barRot(t, dirIdx(hd, 32)), e.x, e.y, fl); /* turned to the river's course; the turrets and tanks sit at the turned places */
+  if (t === 'tug' && !e.turDead) { const o = rotOff(hd, 0, -10); spr(SPR.aaZw[dirIdx(e.ta)], e.x + o[0], e.y + o[1], fl); }
+  if (t === 'bargeG') for (const oy of [-13, 21]) { const o = rotOff(hd, 0, oy); spr(SPR.htank[0][dirIdx(hd)], e.x + o[0], e.y + o[1], fl); spr(SPR.htankTur[dirIdx(e.ta)], e.x + o[0], e.y + o[1], fl); } };
 /* Cliff Battery (level 4's first loop, the cliff coast: run.sortie.encPlan, at the start of the level). The rim battery's three artillery pads fire only in broadsides, on a beat:
    each gun lays a stream of shells straight down its own lane, the streams a little closer together every salvo and longer (3, 4, 5, 5 shells), so the gaps between them are the
    way through. The radar on the plateau behind them is the weak point: while it stands, the middle gun also fans a few shells at the player (from the second salvo on); shoot it
