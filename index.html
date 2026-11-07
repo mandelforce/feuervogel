@@ -4882,9 +4882,9 @@ function buildPhoenix(bank) {
     for (const poly of [[[17, 22], [16, 26], [14, 31], [13, 35], [16, 31], [17, 30]], [[17, 22], [18, 26], [20, 31], [21, 35], [18, 31], [17, 30]], [[17, 22], [17, 28], [17, 35], [17, 35]]])
       for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(poly, i + 0.5, j + 0.5)) rect(x, pick(TAILP, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
     for (let j = 24; j < 34; j++) { rect(x, pick(TAILP, (j - 24) / 10, 11, j), j > 29 ? 9 : 10, j, 1, 1); rect(x, pick(TAILP, (j - 24) / 10, 23, j), j > 29 ? 25 : 24, j, 1, 1); }
-    for (let j = 6; j < 26; j++) { // the Feuervogel's fuselage: an ellipse (3.6 x 10), so the head flows into the body without a pinched neck
+    for (let j = 6; j < 26; j++) { // the Feuervogel's fuselage: an ellipse (3.6 x 10), so the head flows into the body without a pinched neck; dark at the neck, brightening toward the tail
       const dy = (j + 0.5 - 16) / 10, hw = 3.6 * Math.sqrt(Math.max(0, 1 - dy * dy));
-      for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d + 0.0) <= hw) rect(x, pick(BODY, 0.55 + (1 - Math.abs(d) / (hw + 0.5)) * 0.3 - (j - 9) * 0.015, 17 + d, j), 17 + d + Math.round(bank * 0.6), j, 1, 1);
+      for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d + 0.0) <= hw) rect(x, pick(BODY, 0.1 + (j - 6) / 20 * 0.8 + (1 - Math.abs(d) / (hw + 0.5)) * 0.15, 17 + d, j), 17 + d + Math.round(bank * 0.6), j, 1, 1);
     }
     for (let j = 10; j < 25; j++) rect(x, pick(['#ffa030', '#ffe080', '#fff6c0'], 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
     const px = (col, d, j) => rect(x, col, 17 + d + Math.round(bank * 0.5), j, 1, 1);
