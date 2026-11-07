@@ -4857,10 +4857,10 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with a one-pixel glowing rim (no outline), flame-feather tail, a crested bird's head.
+// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
 // 34x36 like the Feuervogel's drawing, but without the outline the other ships get, so the sprite is exactly 34x36.
 function buildPhoenix(bank) {
-  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#2a0806', '#4a1008', '#6a160a', '#8a1e0c'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
+  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
   return sprite(34, 36, x => {
     const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
     const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
@@ -4873,8 +4873,10 @@ function buildPhoenix(bank) {
       let col;
       if (rim) col = pick(RIM, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j); // the glowing rim runs all the way round the wing, down the side tips too
       else if (j >= 20) col = pick(TAILP, (j - 20) / 10 + 0.3, i, j); // the trailing tips fade into flame
-      else col = pick(FILL, (17 - u) / 14 + (j - 8) / 50, i, j);
-      if (!rim && u >= 6.5 && u < 9.5 && j >= 14 && j < 21) col = u < 8 ? '#e0561a' : '#a02a0c';
+      else { // feather streaks fan out from the shoulder, lighter streaks alternating with dark ones, brighter toward the tip
+        const dx = Math.abs(i + 0.5 - 17) / f, st = Math.floor(Math.atan2(j - 10, Math.max(0.5, dx - 3)) * 9), dist = Math.hypot(dx - 3, j - 10);
+        col = pick(FILL, 0.1 + (st & 1 ? 0.28 : 0) + dist / 34, i, j);
+      }
       rect(x, col, i, j, 1, 1);
     }
     for (const poly of [[[17, 22], [16, 26], [14, 31], [13, 35], [16, 31], [17, 30]], [[17, 22], [18, 26], [20, 31], [21, 35], [18, 31], [17, 30]], [[17, 22], [17, 28], [17, 35], [17, 35]]])
@@ -4884,13 +4886,14 @@ function buildPhoenix(bank) {
     for (let j = 10; j < 25; j++) rect(x, pick(['#ffa030', '#ffe080', '#fff6c0'], 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
     const px = (col, d, j) => rect(x, col, 17 + d + Math.round(bank * 0.5), j, 1, 1);
     px('#ffe9a0', 0, 0); px('#ffd060', 0, 1); px('#e8a020', -1, 2); px('#ffd060', 0, 2); px('#e8a020', 1, 2); // beak
-    const rows = { 3: [-2, 2], 4: [-3, 3], 5: [-3, 3], 6: [-3, 3], 7: [-3, 3], 8: [-2, 2], 9: [-1, 1] }; // a broad face
+    const rows = { 3: [-1, 1], 4: [-2, 2], 5: [-2, 2], 6: [-2, 2], 7: [-2, 2], 8: [-1, 1], 9: [-1, 1] }; // a narrow face
     for (const j in rows) { const [lo, hi] = rows[j]; for (let d = lo; d <= hi; d++) px(d === 0 ? '#ffa030' : d === lo || d === hi ? '#c8300c' : '#e0561a', d, +j); }
     px('#ffd060', 0, 3); px('#ffe9a0', 0, 7);
-    px('#2a0806', -2, 4); px('#2a0806', 2, 4); px('#fff6c0', -2, 5); px('#fff6c0', 2, 5); px('#ffffff', -2, 6); px('#ffffff', 2, 6); // brow, white-hot eyes
-    for (const sg of [-1, 1]) { // the crest: two thick flame tips on each side of the head
-      px('#ffe9a0', sg * 4, 1); px('#ffd060', sg * 3, 2); px('#ffd060', sg * 4, 2); px('#ffa030', sg * 5, 2);
-      px('#ffa030', sg * 4, 3); px('#f2701c', sg * 5, 3); px('#f2701c', sg * 3, 3); px('#c8300c', sg * 6, 3); px('#c8300c', sg * 4, 4);
+    px('#2a0806', -1, 4); px('#2a0806', 1, 4); px('#2a0806', -2, 5); px('#2a0806', 2, 5); px('#fff6c0', -1, 5); px('#fff6c0', 1, 5); px('#ffffff', -1, 6); px('#ffffff', 1, 6); // brow, white-hot eyes
+    const GR = ['#ffe9a0', '#ffd060', '#ffa030', '#f2701c', '#c8300c'], ant = [[3, 3], [4, 4], [5, 5], [6, 6]]; // the antennae: swept back, fading from gold to red, each ending in a bright bead
+    for (const sg of [-1, 1]) {
+      ant.forEach(([dd, y], k) => px(GR[Math.min(4, Math.floor(k / 3 * 5))], sg * dd, y));
+      px('#fff6c0', sg * 7, 6); px('#ffe9a0', sg * 8, 6); px('#ffe9a0', sg * 7, 7); px('#ffd060', sg * 8, 7);
     }
     for (let j = 10; j <= 12; j++) px(j % 2 ? '#ffb838' : '#f2701c', 0, j);
   }, { outline: false });
