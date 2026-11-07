@@ -4401,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.85'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.86'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6368,7 +6368,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
 const AIRSH = { d: 1, a: 0.28, s: 0.6 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity, s its size at full altitude (1 = as big as the plane; it grows back to 1 toward the deck) */
-function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
+function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
   r = Math.max(0, Math.round(r));
@@ -8591,8 +8591,8 @@ const ENIGMA_ARENA = { 3: { arenaRails: [55, 169] } };
 // farmland and among the forest's trees.
 const ENIGMA_WEATHER = { 3: { mist: { farmland: 0.6, forest_deciduous: 0.45 }, clouds: { low: { mist: 0.6, stratus: 0.4 }, high: 'cirrus' } } }; // clouds: the generator's cloud types for the low clouds (weights) and the high ones (owner: see-through, in the mist's mood)
 // a weather effect's strength at a world y (0 where the level has none)
-function weatherAt(S, key, wy) {
-  const W8 = ENIGMA_WEATHER[S.level], tab = W8 && W8[key]; if (!tab) return 0;
+function weatherAt(S, key, wy, tab0) {
+  const W8 = ENIGMA_WEATHER[S.level], tab = tab0 || (W8 && W8[key]); if (!tab) return 0;
   const c = -wy / CH - world.stageBaseP; let a = null, b = null;
   for (const g of S.segs) { const m = g.start + g.n / 2, v = tab[g.t] || 0; if (m <= c) a = [m, v]; else if (!b) b = [m, v]; }
   if (!a) return b ? b[1] : 0; if (!b) return c - a[0] < 1 ? a[1] : 0;
@@ -8704,7 +8704,7 @@ function buildSortie(level, seed) {
   })();
   return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
-    variant, autumn: autumn4, // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
+    variant, autumn: autumn4, winter: level === 5 && (seed | 0) === CAMP_SEED + 1, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
     // Campaign's screen-height term); 5 chunks after the secret ground begins, as in the Campaign. arcLen: replaces the Campaign's 48 chunks for pacing.
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
@@ -15855,6 +15855,24 @@ function drawAutumnLight() { /* level 4's first loop: the light changes along th
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
   const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78); v.addColorStop(0, 'rgba(8,6,10,0)'); v.addColorStop(1, `rgba(8,6,10,${0.22 + 0.1 * k})`); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }
+/* Level 5's first loop (run.sortie.winter): a blizzard. SQUALL: the strength of the driving snow by stretch (blended between stretch middles by weatherAt), so it snows hard in parts of the level and eases in between.
+   drawWinterLight: a grey-blue overcast over the ground and the planes (desaturated, a cool multiply tint, a pale veil from above, a light vignette); drawSquall: thin streaks drifting down and to the left, few and low in
+   contrast so bullets, drawn after, stay readable. Visual only: the streaks come from the frame counter, never the seeded stream, and nothing is saved. */
+const SQUALL = { open_sea_ice: 0.15, harbour_winter: 0.8, farmland_winter: 0.3, village: 0.05, lake_valley: 0.55, station_winter: 0.9, airbase_snow: 0.1, forest_conifer: 0.7, pass: 1 };
+const squallAt = wy => { const S = run.sortie; return S && S.winter ? weatherAt(S, 'squall', wy, SQUALL) : 0; };
+function drawWinterLight() {
+  ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = 'rgba(128,128,128,0.45)'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(188,206,235)'; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+  const v = ctx.createLinearGradient(0, 0, 0, H); v.addColorStop(0, 'rgba(178,204,255,0.12)'); v.addColorStop(1, 'rgba(178,204,255,0)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  const o = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78); o.addColorStop(0, 'rgba(8,10,18,0)'); o.addColorStop(1, 'rgba(8,10,18,0.2)'); ctx.fillStyle = o; ctx.fillRect(0, 0, W, H);
+}
+function drawSquall() {
+  if (lowFX) return; const s = squallAt(H / 2 - world.scroll); if (s < 0.03) return;
+  ctx.fillStyle = `rgba(232,240,255,${0.1 * s})`; ctx.fillRect(0, 0, W, H); /* the whiteout stays faint: a veil, never an opaque wall */
+  ctx.strokeStyle = `rgba(240,246,255,${0.3 + 0.3 * s})`; ctx.lineWidth = 1; ctx.beginPath(); const n = Math.round(30 + 110 * s), t = gf;
+  for (let i = 0; i < n; i++) { const z = 0.5 + 0.5 * sortieHash(i, 41), L = 5 + 6 * z, x = ((sortieHash(i, 7) * (W + 80) - t * (0.9 + 0.6 * z)) % (W + 80) + (W + 80)) % (W + 80) - 20, y = ((sortieHash(i, 13) * (H + 40) + t * (2.2 + 1.8 * z)) % (H + 40)) - 20; ctx.moveTo(Math.round(x), Math.round(y)); ctx.lineTo(Math.round(x - L * 0.4), Math.round(y + L)); }
+  ctx.stroke();
+}
 function moonRim(s, x, y) { /* the moon's light on the ship's upper right edge: its silhouette in pale blue, one pixel up and right, under the ship */
   const r = s.rim || (s.rim = sil(s.c, '#c4d2ff')); ctx.globalAlpha = 0.7; ctx.drawImage(r, Math.round(x - s.w / 2) + 1, Math.round(y - s.h / 2) - 1); ctx.globalAlpha = 1;
 }
@@ -16421,6 +16439,7 @@ function renderMain() {
   if (run.sortie && run.sortie.timeOfDay === 'morning') drawDawn();
   if (run.sortie && run.sortie.moon) drawMoonGlow();
   if (run.sortie && run.sortie.autumn) drawAutumnLight();
+  if (run.sortie && run.sortie.winter) { drawWinterLight(); drawSquall(); }
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }

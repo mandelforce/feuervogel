@@ -530,6 +530,24 @@ for (const lv of [2, 6]) {
   ok(r.a[1] > r.a[0] + 4 && r.b[0] > r.b[1] + 40 && !r.first, `level 4 first loop: overcast at the start (R ${r.a[0]}, B ${r.a[1]}), golden by the valley (R ${r.b[0]}, B ${r.b[1]}); the first pass has no autumn light`);
   await page.close();
 }
+// 3k. Level 5's first loop (seed 1945, run.sortie.winter): the blizzard. The overcast (drawWinterLight) takes the colour out of a mid-grey and tints it cool (blue above red); the snow
+// squalls come by stretch (squallAt: hard over the pass, light over the open stretches, none in the first pass); the streaks change pixels where it snows hard and nowhere with the flag
+// off; the first pass (1944) and 1946 have no winter flag. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const flags = lv => { startEnigma(5, true, lv); const S = run.sortie; return [S.seed, !!S.winter]; }; o.f0 = flags(0); o.f1 = flags(1); o.f2 = flags(2);
+    startEnigma(5, true, 1); const S = run.sortie, g = S.segs.find(q => q.t === 'pass'), at = c => -(c + world.stageBaseP) * CH; o.pass = squallAt(at(g.start + g.n / 2)); o.sea = squallAt(at(2)); 
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, W, H); drawWinterLight(); const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; o.px = [d[0], d[1], d[2]];
+    const shot = () => { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#202020'; ctx.fillRect(0, 0, W, H); drawSquall(); return Array.from(ctx.getImageData(0, 0, W, H).data); };
+    world.scroll = at(g.start + g.n / 2) + H / 2; o.sq = squallAt(H / 2 - world.scroll); gf = 100; const a = shot(); gf = 130; const b = shot(); let dd = 0, lit = 0; for (let k = 0; k < a.length; k += 4) { if (a[k] !== b[k]) dd++; if (a[k] > 60) lit++; } o.moved = dd; o.lit = lit / (W * H);
+    S.winter = false; o.off = squallAt(H / 2 - world.scroll); o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.f0[0] === 1944 && !r.f0[1] && r.f1[0] === 1945 && r.f1[1] && r.f2[0] === 1946 && !r.f2[1], 'level 5: the winter flag is on in seed 1945 only');
+  ok(r.pass > 0.9 && r.sea < 0.3 && r.off === 0, `squalls by stretch: pass ${r.pass.toFixed(2)}, frozen sea ${r.sea.toFixed(2)}, none with the flag off`);
+  ok(r.px[2] > r.px[0] + 20 && Math.abs(r.px[0] - 128) < 50, `overcast: a mid-grey comes out cool (R ${r.px[0]}, B ${r.px[2]})`);
+  ok(r.moved > 100 && r.lit < 0.08, `the streaks drift (${r.moved} pixels change in 30 frames) and cover under 8 percent of the screen (${(r.lit * 100).toFixed(1)}), so bullets stay readable`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its
