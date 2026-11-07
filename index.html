@@ -4401,7 +4401,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.83'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.84'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15793,6 +15793,14 @@ function drawMoonGlow() { /* the first loop's level 3: the moon climbs along the
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${R},${G},${B},${a})`); g.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
 }
+function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
+  const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
+  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgb(${L(232, 255)},${L(244, 228)},${L(255, 188)})`; ctx.fillRect(0, 0, W, H); /* overcast: 0.91 0.96 1.0; golden: 1.0 0.89 0.74 */
+  const cx = W * (0.5 + 0.55 * k), cy = H * (-0.2 + 0.1 * k), r = H * (1.2 - 0.25 * k), a = 0.10 + 0.22 * k, gl = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  const R = L(214, 255), G = L(226, 184), B = L(255, 90); gl.addColorStop(0, `rgba(${R},${G},${B},${a})`); gl.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); gl.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78); v.addColorStop(0, 'rgba(8,6,10,0)'); v.addColorStop(1, `rgba(8,6,10,${0.22 + 0.1 * k})`); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
 function moonRim(s, x, y) { /* the moon's light on the ship's upper right edge: its silhouette in pale blue, one pixel up and right, under the ship */
   const r = s.rim || (s.rim = sil(s.c, '#c4d2ff')); ctx.globalAlpha = 0.7; ctx.drawImage(r, Math.round(x - s.w / 2) + 1, Math.round(y - s.h / 2) - 1); ctx.globalAlpha = 1;
 }
@@ -16358,6 +16366,7 @@ function renderMain() {
   if (world.nightF > 0.02) drawNight();
   if (run.sortie && run.sortie.timeOfDay === 'morning') drawDawn();
   if (run.sortie && run.sortie.moon) drawMoonGlow();
+  if (run.sortie && run.sortie.autumn) drawAutumnLight();
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;
     for (let k = kT; k <= kB; k++) { const L = lighthouseAt(-k); if (!L) continue; const ly3 = L[1] + sc3; if (ly3 < -90 || ly3 > H + 90) continue;
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = world.nightF > 0.5 ? 1 : 0.35; const a = gf * 0.02; lightBeam(L[0], ly3, a, 90, 0.12); lightBeam(L[0], ly3, a + PI, 90, 0.12); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; } }

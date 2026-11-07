@@ -521,6 +521,15 @@ for (const lv of [2, 6]) {
   ok(f.errs.length === 0, `no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
   await page.close();
 }
+// 3j. Level 4's first loop (seed 1945): the light changes along the level (drawAutumnLight): cool and overcast at the cliffs (blue above red on a grey field), golden by the
+// valley (red well above blue); the first pass never draws it. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { startEnigma(4, true, 1); const S = run.sortie, px = p => { world.scroll = p * S.len * CH + world.stageBaseP * CH + H / 2; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, W, H); drawAutumnLight(); const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; return [d[0], d[2]]; };
+    const a = px(0.05), b = px(0.85); startEnigma(4, true, 0); return { a, b, first: !!run.sortie.autumn }; })()`);
+  ok(r.a[1] > r.a[0] + 4 && r.b[0] > r.b[1] + 40 && !r.first, `level 4 first loop: overcast at the start (R ${r.a[0]}, B ${r.a[1]}), golden by the valley (R ${r.b[0]}, B ${r.b[1]}); the first pass has no autumn light`);
+  await page.close();
+}
 // 3g2. Level 4's first loop (seed 1945): the late-autumn forest with its lakes (the plan's params.autumn and params.lakes, run.sortie.autumn) and the mist
 // over them. The first pass (seed 1944) has neither. With a lake on the screen the mist changes pixels (and only with run.sortie.autumn), draws without errors,
 // and a snapshot can still be taken.
