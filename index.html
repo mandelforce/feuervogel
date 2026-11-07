@@ -4475,7 +4475,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', install: 'feuervogel-install'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4485,7 +4485,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -4857,6 +4857,57 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
+// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with a one-pixel glowing rim (no outline), flame-feather tail, a crested bird's head.
+// 34x36 like the Feuervogel's drawing, but without the outline the other ships get, so the sprite is exactly 34x36.
+function buildPhoenix(bank) {
+  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#2a0806', '#4a1008', '#6a160a', '#8a1e0c'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
+  return sprite(34, 36, x => {
+    const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = base.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = base.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
+      if (!inL && !inR) continue;
+      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
+      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
+      let col;
+      if (rim) col = pick(RIM, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j); // the glowing rim runs all the way round the wing, down the side tips too
+      else if (j >= 20) col = pick(TAILP, (j - 20) / 10 + 0.3, i, j); // the trailing tips fade into flame
+      else col = pick(FILL, (17 - u) / 14 + (j - 8) / 50, i, j);
+      if (!rim && u >= 6.5 && u < 9.5 && j >= 14 && j < 21) col = u < 8 ? '#e0561a' : '#a02a0c';
+      rect(x, col, i, j, 1, 1);
+    }
+    for (const poly of [[[17, 22], [16, 26], [14, 31], [13, 35], [16, 31], [17, 30]], [[17, 22], [18, 26], [20, 31], [21, 35], [18, 31], [17, 30]], [[17, 22], [17, 28], [17, 35], [17, 35]]])
+      for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(poly, i + 0.5, j + 0.5)) rect(x, pick(TAILP, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
+    for (let j = 24; j < 34; j++) { rect(x, pick(TAILP, (j - 24) / 10, 11, j), j > 29 ? 9 : 10, j, 1, 1); rect(x, pick(TAILP, (j - 24) / 10, 23, j), j > 29 ? 25 : 24, j, 1, 1); }
+    for (let j = 9; j < 25; j++) { const w = j < 14 ? 2 : j < 20 ? 3 : 2; for (let d = -w + 1; d < w; d++) rect(x, pick(BODY, 0.55 + (1 - Math.abs(d) / w) * 0.3 - (j - 9) * 0.015, 17 + d, j), 17 + d + Math.round(bank * 0.6), j, 1, 1); }
+    for (let j = 10; j < 25; j++) rect(x, pick(['#ffa030', '#ffe080', '#fff6c0'], 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
+    const px = (col, d, j) => rect(x, col, 17 + d + Math.round(bank * 0.5), j, 1, 1);
+    px('#ffe9a0', 0, 0); px('#ffd060', 0, 1); px('#e8a020', -1, 2); px('#ffd060', 0, 2); px('#e8a020', 1, 2); // beak
+    const rows = { 3: [-2, 2], 4: [-3, 3], 5: [-3, 3], 6: [-3, 3], 7: [-3, 3], 8: [-2, 2], 9: [-1, 1] }; // a broad face
+    for (const j in rows) { const [lo, hi] = rows[j]; for (let d = lo; d <= hi; d++) px(d === 0 ? '#ffa030' : d === lo || d === hi ? '#c8300c' : '#e0561a', d, +j); }
+    px('#ffd060', 0, 3); px('#ffe9a0', 0, 7);
+    px('#2a0806', -2, 4); px('#2a0806', 2, 4); px('#fff6c0', -2, 5); px('#fff6c0', 2, 5); px('#ffffff', -2, 6); px('#ffffff', 2, 6); // brow, white-hot eyes
+    for (const sg of [-1, 1]) { // the crest: two thick flame tips on each side of the head
+      px('#ffe9a0', sg * 4, 1); px('#ffd060', sg * 3, 2); px('#ffd060', sg * 4, 2); px('#ffa030', sg * 5, 2);
+      px('#ffa030', sg * 4, 3); px('#f2701c', sg * 5, 3); px('#f2701c', sg * 3, 3); px('#c8300c', sg * 6, 3); px('#c8300c', sg * 4, 4);
+    }
+    for (let j = 10; j <= 12; j++) px(j % 2 ? '#ffb838' : '#f2701c', 0, j);
+  }, { outline: false });
+}
+let phoenixCache = null;
+function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by all six secrets in one run of the first loop (see notePhoenix).
+const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
+const phoenixOwned = () => phoenixState() > 0;
+function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
+let phoenixJust = false;
+function notePhoenix() { // called when a secret's gem is caught: all six themes within one first-loop Campaign run unlock the Phönix
+  phoenixJust = false;
+  if (!run.artsRun) run.artsRun = [];
+  if (!run.artsRun.includes(world.curTheme)) run.artsRun.push(world.curTheme);
+  if (run.artsRun.length >= 6 && settings.mode === 'camp' && !run.endless && !(run.loops | 0) && !phoenixOwned()) { store.set(KEY.phoenix, 1); phoenixJust = true; }
+}
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
@@ -4868,24 +4919,24 @@ const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
 function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
-const FLAME = () => useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); saveSettings(); }
+const skinSet = () => usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const FLAME = () => usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
 const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); sfx('tick'); }
+function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); sfx('tick'); }
 function tapShipPick(gx, gy) {
   const list = shipList(), x0 = pickX0(list.length);
   for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   app.shipPick = false;
 }
 function drawShipPick() {
-  const list = shipList(), x0 = pickX0(list.length), cur = useNacht() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), x0 = pickX0(list.length), cur = usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
   list.forEach(([id, set], i) => {
     const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
@@ -4893,7 +4944,7 @@ function drawShipPick() {
     ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, PICK_CARD.y - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
     ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, PICK_CARD.y + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
     const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = PICK_CARD.y + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
-    ctx.fillStyle = id === 2 ? '#8466dc' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
+    ctx.fillStyle = id === 2 ? '#8466dc' : id === 3 ? '#ffb838' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
     ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
     if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, PICK_CARD.y + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
   });
@@ -8598,7 +8649,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
   return { seed, loops: 0, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
-    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
+    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats(), artsRun: [] };
 }
 function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944; 1: seed 1945 ...)
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
@@ -14230,7 +14281,7 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) { arts.add(world.curTheme); notePhoenix(); } else phoenixJust = false; store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, phoenixJust ? 'PHOENIX UNLOCKED' : arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
       run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
@@ -14973,8 +15024,8 @@ function update() {
       if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { addScore(10); checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); world.items.splice(i, 1); } continue; }
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
-          addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          addScore(20000); run.stats.artifact = true; if (!app.tut) { arts.add(world.curTheme); notePhoenix(); } else phoenixJust = false; store.setJSON(KEY.arts, [...arts]);
+          label(it.x, it.y - 8, phoenixJust ? 'PHOENIX UNLOCKED' : arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
@@ -16552,7 +16603,7 @@ function renderMain() {
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
     }
-    if (nachtState() === 1 && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if ((nachtState() === 1 || phoenixState() === 1) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
