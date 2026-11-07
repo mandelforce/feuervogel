@@ -4448,7 +4448,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.92'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.93'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8760,6 +8760,9 @@ function buildSortie(level, seed) {
     const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
     const sg5 = tt => segs.find(g => g.t === tt), a5 = sg5('open_sea_ice'), b5 = sg5('lake_valley'), c5 = sg5('pass');
     return [{ id: 'iceraid', c: 4, until: a5.start + a5.n - 6, live: true }, { id: 'iceroad', c: b5.start + 1, until: b5.start + b5.n - 2, live: true }, { id: 'basebreak', c: c5.start + 2, until: c5.start + c5.n - 3, live: true }];
+  })() : haze6 ? (() => { /* level 6's first loop: the harbour raid over the south harbour, the flak lane over the city centre, the station breakout at the main station (found by name: the stretches may have traded places) */
+    const sg6 = t => segs.find(g => g.t === t), a6 = sg6('harbour_south'), b6 = sg6('city_centre'), c6 = sg6('station_main');
+    return [{ id: 'harbourraid', c: a6.start + 1, until: a6.start + a6.n - 2, live: true }, { id: 'cityflak', c: b6.start, until: b6.start + b6.n - 1, live: true }, { id: 'stationrun', c: c6.start, until: c6.start + c6.n - 2, live: true }];
   })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
@@ -15799,6 +15802,22 @@ ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, bud
   { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.valleyconvoy = 1500;
 /* Level 5's first loop (run.sortie.winter, run.sortie.encPlan), from the existing verbs only. ICE BREAKERS: two five-plane dives over the frozen sea, a bomber, a strafing run of four from the side the ship is not on, a chase pair (the ice has no open water for patrol boats). ICE ROAD CONVOY: tankers chain along the road beside the frozen lake, tanks behind them, cover from the air. THE BASE: flak both sides of the lane, a formation down it, the depot's tankers, a bomber, a dive, a chase pair. */
+/* Level 6's first loop (run.sortie.haze, run.sortie.encPlan), from the existing verbs only. HARBOUR RAID over the south harbour: a destroyer and two patrol boats on the harbour water (portship: the verb 'ship' needs the open-sea biome, the harbour is a city's), two dives, a bomber, a chase pair, a pod. CITY FLAK over the city centre: a flak gun each side of the lane, a formation down it, a second, tankers chaining along the streets, a bomber, a dive, a chase pair. STATION BREAKOUT at the main station: tankers chain beside the tracks, tanks behind them, two dives, a chase pair, a bomber, a pod. */
+ENC_VERB.portship = v => { const wy = -34 - Math.floor(world.scroll), m = hpm(), dd = v.kind === 'destroyer', hw = dd ? 16 : 6, hh = dd ? 46 : 16, yy = dd ? wy - 30 : wy, xs = []; /* a destroyer or a patrol boat on the harbour's own water: the nearest free water to x (retried while there is none) */
+  for (let x = 24; x <= W - 24; x += 6) xs.push(x); xs.sort((a, b) => Math.abs(a - v.x * W) - Math.abs(b - v.x * W));
+  const wet = (x, y) => { for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; };
+  for (const wx of xs) if (placeOK(wx, yy, dd ? 34 : 16) && wet(wx, yy)) { world.enemies.push(dd ? G('destroyer', wx, yy, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 }) : G('pt', wx, yy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; }
+  return false; };
+ENC.harbourraid = { name: 'HARBOUR RAID', len: 1000, max: 2000, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'portship', kind: 'destroyer', x: 0.8, wait: 240 }, { t: 120, do: 'portship', kind: 'pt', x: 0.7, wait: 180 }, { t: 150, do: 'portship', kind: 'pt', x: 0.9, wait: 180, diff: [1, 2] }, { t: 300, do: 'dive', n: 5, x: 0.4 }, { t: 480, do: 'bomber', x: 0.5 }, { t: 640, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 800, do: 'chase' }, { t: 1000, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.harbourraid = 1100;
+ENC.cityflak = { name: 'CITY FLAK', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'flak', x: [0.04, 0.5], wait: 300 }, { t: 0, do: 'flak', x: [0.5, 0.96], wait: 300 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5 }, /* (a street grid has little ground for guns: the formation comes even when one gun found none) */ { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
+  { t: 520, do: 'tankers', n: 2, wait: 300 }, { after: 120, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.cityflak = 1100;
+ENC.stationrun = { name: 'STATION BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 260, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 480, do: 'bomber', x: 0.3 }, { t: 600, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 760, do: 'chase' }, { t: 920, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.stationrun = 1100;
 ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'dive', n: 5, x: 0.3 }, { t: 60, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 260, do: 'bomber', x: 0.5 }, { t: 480, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] }, { t: 700, do: 'chase' }, { t: 900, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.iceraid = 1000;

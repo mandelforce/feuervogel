@@ -432,6 +432,25 @@ const playOut = `
   ok(r.errs.length === 0 && r.boss, `the boss still comes, no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
+// Level 6 in the first loop only (seed 1945, run.sortie.haze; run.sortie.encPlan): the Harbour Raid over the south harbour (a destroyer and patrol boats on the harbour's water), City Flak over the city
+// centre (flak both sides, tankers), the Station Breakout at the main station; each plays in its own stretch to its end. The first pass (1944) and 1946 have none of it.
+{
+  const page = await freshPage();
+  const r0 = JSON.parse(await peek(page, `(() => { const o = []; for (const lp of [0, 2]) { SF.setMode('immortal'); SF.start(1, 1); startEnigma(6, false, lp); SF.run(60); o.push({ plan: run.sortie.encPlan, haze: !!run.sortie.haze }); } return JSON.stringify(o); })()`));
+  ok(r0.every(q => !q.haze && !(q.plan && q.plan.some(p => ['harbourraid', 'cityflak', 'stationrun'].includes(p.id)))), 'level 6, the first pass and the second loop (seed 1946): no loop encounters');
+  const r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(6, false, 1); const S = run.sortie, plan = S.encPlan, log = [], seen = { pt: 0, destroyer: 0, flak: 0, ftruck: 0, bomber: 0 }, seg = {}; for (const g of S.segs) seg[g.t] = [g.start, g.start + g.n]; let cur = null;
+    for (let f = 0; f < 30000 && !world.bossSpawned; f += 20) { SF.run(20); ensureChunks();
+      if (world.enc && (!cur || cur.id !== world.enc.id)) { cur = { id: world.enc.id, c: -Math.floor((-36 - Math.floor(world.scroll)) / CH) - world.stageBaseP, end: null }; log.push(cur); }
+      if (world.encLast && cur && world.encLast.id === cur.id && !cur.end) cur.end = world.encLast.why;
+      const n = t => world.enemies.filter(e => e.type === t && !e.dead).length; for (const k of ['pt', 'destroyer', 'flak', 'ftruck', 'bomber']) seen[k] = Math.max(seen[k], n(k)); }
+    return JSON.stringify({ plan: plan.map(p => p.id + '@' + p.c).join(), log, seen, seg, seed: S.seed, errs: SF.R.errs.slice(0, 2), boss: world.bossSpawned }); })()`));
+  const ids = r.log.map(x => x.id).join(), at = id => (r.log.find(x => x.id === id) || {}).c, mine = r.log.filter(x => ['harbourraid', 'cityflak', 'stationrun'].includes(x.id));
+  ok(r.seed === 1945 && mine.map(x => x.id).join() === 'harbourraid,cityflak,stationrun' && mine.every(x => x.end === 'done'), `the encounters play in place, each to its end: ${r.log.map(x => x.id + '@' + x.c + ':' + x.end).join(' ')} (plan ${r.plan})`);
+  ok(at('harbourraid') >= r.seg.harbour_south[0] && at('harbourraid') < r.seg.harbour_south[1] && at('cityflak') >= r.seg.city_centre[0] && at('cityflak') < r.seg.city_centre[1] && at('stationrun') >= r.seg.station_main[0] && at('stationrun') < r.seg.station_main[1], `each starts in its own stretch (harbour ${r.seg.harbour_south}, centre ${r.seg.city_centre}, station ${r.seg.station_main})`);
+  ok(r.seen.destroyer >= 1 && r.seen.pt >= 1 && r.seen.flak >= 2 && r.seen.ftruck >= 2, `Harbour Raid: ${r.seen.destroyer} destroyer and ${r.seen.pt} patrol boats on the water; City Flak: ${r.seen.flak} flak guns at once; ${r.seen.ftruck} tankers; bombers seen: ${r.seen.bomber}`);
+  ok(r.errs.length === 0 && r.boss, `the boss still comes, no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 await browser.close();
 if (bad) { console.error(`\n${bad} problem(s) found, ${passed} passed.`); process.exit(1); }
 console.log(`Encounter test passed (${passed}).`);
