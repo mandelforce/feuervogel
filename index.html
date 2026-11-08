@@ -4512,7 +4512,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv', chainBest: 'feuervogel-chainbest'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -5050,6 +5050,8 @@ const ACH = [
 let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
 const achHas = id => !!achv[id];
 const saveAchv = () => store.setJSON(KEY.achv, achv);
+let chainBest = +store.getJSON(KEY.chainBest, 0) || 0; // the best medal multiplier reached in a ranked Campaign, for the Chain Master progress bar
+function noteChain() { if (!rankedCamp()) return; if (run.medalMul > chainBest) { chainBest = run.medalMul; store.setJSON(KEY.chainBest, chainBest); } if (run.medalMul >= CHAIN_GOAL) award('chain'); }
 const CHAIN_GOAL = 20; // the medal chain has no cap now; a x20 chain is the goal
 let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
 function award(id, quiet) {
@@ -14540,7 +14542,7 @@ function p2Pickups(q) {
     if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); noteChain(); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
       run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
@@ -15286,7 +15288,7 @@ function update() {
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); noteChain(); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
           run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
@@ -17196,7 +17198,7 @@ function achIcon(name, color) {
 }
 // a small picture of the reward ship, and progress for goals that count something across runs
 const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Schneevogel: () => SPR.schnee, Rotkehlchen: () => robinSet(), Nachtvogel: () => nachtSet() };
-const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6], robin: () => [rankedCamp() && run.camp ? Math.min(run.camp.secrets | 0, 6) : 0, 6] }; // Eagle Eye counts the secrets of the Campaign loop in progress
+const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6], chain: () => [Math.min(chainBest, CHAIN_GOAL), CHAIN_GOAL], robin: () => [rankedCamp() && run.camp ? Math.min(run.camp.secrets | 0, 6) : 0, 6] }; // Eagle Eye counts the secrets of the Campaign loop in progress
 function achShip(name) {
   try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
     const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
