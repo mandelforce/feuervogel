@@ -16893,7 +16893,7 @@ function renderMain() {
     ctx.save(); ctx.translate(0, TY);
     drawTitleLogo();
     const ps = skinSet()[1], sw = ps.w * 2, sh = ps.h * 2, by = TITLE_SHIP_Y + Math.sin(gf * 0.05) * 3;
-    ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
+    { const ssw = sw * AIRSH.s, ssh = sh * AIRSH.s; ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - ssw / 2 + 18, by - ssh / 2 + 26, ssw, ssh); ctx.globalAlpha = 1; } /* same 60% size as the in-game shadow (AIRSH.s) */
     if (curSkinId() >= 3 && curSkinId() <= 5) for (const sg of [-1, 1]) { const fx = sg < 0 ? W / 2 - 9 : W / 2 + 5; const fy = useRaptor() ? by + 29 : by + 26; ctx.fillStyle = FLAME()[0]; ctx.fillRect(fx, fy, 4, 6 + ((gf >> 1) & 1) * 3 - (fy - by - 26)); ctx.fillStyle = FLAME()[2]; ctx.fillRect(fx + 1, fy, 2, 4 - (fy - by - 26)); } // the newer ships' tails end higher and sit closer to the centre line
     else for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
     ctx.drawImage(ps.c, W / 2 - sw / 2, by - sh / 2, sw, sh);
