@@ -4476,7 +4476,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.100'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.101'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16927,7 +16927,7 @@ function renderMain() {
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
       { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('ach'));
-        ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) - 1);
+        ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) + 1);
         if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
     }
     if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1 || (achv.rookie && achv.rookie.s)) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
