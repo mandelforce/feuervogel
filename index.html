@@ -17196,7 +17196,7 @@ function achIcon(name, color) {
 }
 // a small picture of the reward ship, and progress for goals that count something across runs
 const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Schneevogel: () => SPR.schnee, Rotkehlchen: () => robinSet(), Nachtvogel: () => nachtSet() };
-const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6] };
+const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6], robin: () => [rankedCamp() && run.camp ? Math.min(run.camp.secrets | 0, 6) : 0, 6] }; // Eagle Eye counts the secrets of the Campaign loop in progress
 function achShip(name) {
   try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
     const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
