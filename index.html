@@ -1032,7 +1032,9 @@ function generate(opts) {
       diag(74, a(149), 93, a(212)); diag(93, a(149), 74, a(212)); diag(131, a(109), 150, a(172)); diag(150, a(109), 131, a(172)); // crossovers
       // the yard's ground (cinder), from the main line's corridor to the strip's far side road
       out.top = new Int32Array(W); for (let x = 0; x < W; x++) out.top[x] = yB - 24 - Math.round(noise1(T.RAIL + 9, x * 0.09) * 20); // the cinder ends raggedly before the plan's end, grass beyond (as the arena's ground)
-      for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y <= out.top[x]; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } }
+      if (P.variant) { /* the first loop: the cinder runs to the plan's end, where the game dithers the plan into the arena's grass (no ragged edge with light wedges) */
+        for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y < L; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } } }
+      else for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y <= out.top[x]; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } }
       // rolling stock on the sidings, never on the through lines or the tracks that run on into the arena
       for (const [o, lo, hi] of [[36, a(146), b(190)], [74, a(20), a(144)], [74, a(218), b(72)], [112, a(34), b(60)], [150, a(80), a(104)], [150, a(178), b(74)], [55, a(84), b(134)]]) {
         for (let y = lo, k = 0; y + 26 <= hi; y += 28, k++) if (rnd(T.RAIL, o * 31 + k, 80) < 0.86) out.wagons.push({ x: X(o), y0: y, h: 26, kind: (rnd(T.RAIL, o * 31 + k, 81) * 3) | 0, dmg: rnd(T.RAIL, o * 31 + k, 82) < Dy(y) * 0.5 }); }
@@ -7846,7 +7848,7 @@ function gorgeXoverPaint(a, wy0) {
 const SEAM = { n: 44 };
 function castleSeam(job) {
   const S = run.sortie, nb = info(job.p - 1); if (!nb || !nb.plan || typeof CityGen === 'undefined' || !S.plan) return;
-  const wyN = -(job.p - 1) * CH, n = SEAM.n, tmp = new Uint8ClampedArray(W * n * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + n - 1), n, planPaintOpts(S));
+  const wyN = -(job.p - 1) * CH, n = SEAM.n, tmp = new Uint8ClampedArray(W * n * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + n - 1), n, S.moon ? Object.assign({}, planPaintOpts(S), { night: false }) : planPaintOpts(S)); /* (level 3's loop: the legacy chunk gets the night grade after this, so the plan rows go in ungraded) */
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   for (let r = 0; r < n; r++) { const ly = CH - 1 - r, f = Math.pow(1 - r / n, 1.3); for (let x = 0; x < W; x++) { if ((B4[(ly & 3) * 4 + (x & 3)] + 0.5) / 16 >= f) continue; const o = (ly * W + x) * 4, s = (r * W + x) * 4; a[o] = tmp[s]; a[o + 1] = tmp[s + 1]; a[o + 2] = tmp[s + 2]; a[o + 3] = 255; } }
 }
@@ -7863,7 +7865,7 @@ function workChunk(job, rows) {
     for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
-    if (!job.painted) { job.painted = true; if (run.sortie && run.sortie.autumn && !job.I.plan && job.I.b === 'castle') castleSeam(job); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
+    if (!job.painted) { job.painted = true; if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.moon && job.I.b === 'bossland'))) castleSeam(job); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
     world.featTheme = job.I.th; TRGB = themeRGB(job.I.th);
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
@@ -9188,7 +9190,7 @@ function sortiePlanLevel3(S) {
     const L3D = { beach_fortified: [0.12, 0.3], industrial_power: [0.5, 0.35], farmland: [0.06, 0.1], city_small: [0.58, 0.95], airbase_searchlight: [0.05, 0.3], forest_deciduous: [0.03, 0.3], industrial_light: [0.64, 0.3], rail_corridor: [0.1, 0.3], station_marshalling: [0.18, 0.4] }, dens = [], dmg = [];
     for (const g of S.segs) { const v = L3D[g.t] || [0.1, 0.3], f = (g.start + g.n / 2) / n; dens.push([f, v[0]]); dmg.push([f, v[1]]); }
     dens.unshift([0, dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[0][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
-    Object.assign(params, { variant: 1, railShift: 3, shadows: 1, density: dens, damageCurve: dmg, coast: Object.assign({}, CityGen.PRESETS.longNight.coast, { end: CityGen.PRESETS.longNight.coast.end * 1.3 }) }); }
+    Object.assign(params, { variant: 1, shadows: 1, density: dens, damageCurve: dmg, coast: Object.assign({}, CityGen.PRESETS.longNight.coast, { end: CityGen.PRESETS.longNight.coast.end * 1.3 }) }); }
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'longNight', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = y0w;
   return S.plan;
 }
