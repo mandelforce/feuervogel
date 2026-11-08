@@ -640,6 +640,24 @@ for (const lv of [2, 6]) {
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
+// 3q. Level 5's first loop (seed 1945): the snow-laden sky (the same drawOvercast, OVC5): drawn in the loop and not in the first pass, softer than level 4's (smaller gains), thin and calm at the village and the
+// airbase, heavy at the harbour, the station, the forest and the pass and the gorge, smoke only at the station, blending without steps, changing the frame. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const px = () => { const d = cv.getContext('2d').getImageData(0, 30, cv.width, 300).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return Math.round(s / (d.length / 4) / 3); };
+    const frame = (c, noOvc) => { world.enemies = []; world.ebul = []; const sc = Math.round((c + world.stageBaseP) * CH); world.scroll = sc; world.scrollV = world.scrollTarget = 0; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } app.state = 'play'; if (player) player.x = -60; app.fade = null; app.msg = null; let n = 0; const orig = drawOvercast; drawOvercast = () => { n++; if (!noOvc) orig(); }; resetCtx(); render(); drawOvercast = orig; return { n, mean: px() }; };
+    for (const lp of [0, 1]) { startEnigma(5, false, lp); const S = run.sortie, a = frame(40, false), b = frame(40, true); o['l' + lp] = { called: a.n, diff: a.mean - b.mean }; if (lp === 1) { const at = t => { const g = S.segs.find(q => q.t === t); return ovcAt(S, -(g.start + g.n / 2) * CH - world.stageBaseP * CH); };
+      o.village = at('village'); o.air = at('airbase_snow'); o.harbour = at('harbour_winter'); o.station = at('station_winter'); o.forest = at('forest_conifer'); o.pass = at('pass'); o.lake = at('lake_valley'); o.gorge = ovcAt(S, -(S.len + 5) * CH); o.soft = OVC5_G.veil < OVC_G.veil && OVC5_G.deck < OVC_G.deck;
+      const tab = Object.values(OVC5), rng = k => Math.max(...tab.map(v => v[k])) - Math.min(...tab.map(v => v[k])) || 1; let step = 0, prev = null; for (let wy = -3 * CH; wy > -(S.len + 4) * CH; wy -= 8) { const P = ovcAt(S, wy); if (prev) for (let k = 0; k < P.length; k++) step = Math.max(step, Math.abs(P[k] - prev[k]) / rng(k)); prev = P; } o.step = step; } }
+    o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.l1.called === 1 && r.l0.called === 0, `the sky is drawn in the first loop (${r.l1.called}) and not in the first pass (${r.l0.called})`);
+  ok(r.l1.diff !== 0 && r.soft, `it changes the frame (${r.l1.diff >= 0 ? '+' : ''}${r.l1.diff}) and is softer than level 4's (gains ${r.soft})`);
+  ok(r.village[0] < r.harbour[0] && r.air[0] < r.forest[0] && r.village[0] < r.pass[0] && r.pass[0] >= r.harbour[0] && r.gorge[0] >= r.pass[0] - 0.01, 'calm at the village and the airbase, heavy at the harbour, the forest, the pass and the gorge');
+  ok(r.station[12] === 1 && r.village[12] === 0 && r.pass[12] === 0 && r.lake[11] > r.pass[11], 'smoke only at the station; the most fog on the lake');
+  ok(r.step < 0.05, `no steps between stretches (the largest change over 8 rows is ${(r.step * 100).toFixed(1)} percent of a value's range)`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
 // gate's guns); tanks instead. Crossing the inner gate brings the prototype into the air; the keep tower waits (its parts untouched) while it fights; it cannot be killed: at a
 // tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its

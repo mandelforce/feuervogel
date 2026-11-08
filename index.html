@@ -4440,7 +4440,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.93'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.94'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16133,8 +16133,23 @@ const OVC = {
   farmland_approach: [0.16, 0.96, 0.90, 0.82, 0.10, 0.55, 2, 1.6, 1.00, 0.90, 0.78, 0.10, 0],
   castle: [0.46, 0.30, 0.29, 0.33, 0.40, 0.90, 5, 1.9, 0.40, 0.39, 0.43, 0, 0]
 }, OVC_G = { veil: 2.2, shade: 1.8, deck: 1.4, fog: 1.6, n: 1.4 }; /* (gains on the table's values: the table is the mockups' look; what a frame of the game shows needs more) */
+/* Level 5's first loop (run.sortie.winter) has the same sky machinery in snow-laden greys: broad sheets, no puffs (the generator's storm sprites came out lumpy), heavy where the level's snow squalls are and thin where it is calm
+   (the village and the airbase), softer than level 4's (smaller gains: the snow is bright, so a little goes a long way). The last farmland stretch (the depot, the massif, the glacier and the gorge) is 'gorge'. */
+const OVC5 = {
+  open_sea_ice: [0.22, 0.82, 0.88, 0.96, 0.16, 0.65, 4, 1.9, 0.82, 0.88, 0.96, 0.35, 0],
+  harbour_winter: [0.32, 0.62, 0.68, 0.78, 0.24, 0.70, 5, 2.0, 0.62, 0.68, 0.80, 0.15, 0],
+  farmland_winter: [0.14, 0.92, 0.94, 1.00, 0.08, 0.42, 3, 1.9, 0.92, 0.94, 1.00, 0.10, 0],
+  lake_valley: [0.18, 0.85, 0.90, 0.98, 0.12, 0.55, 3, 1.9, 0.86, 0.90, 0.98, 0.55, 0],
+  village: [0.10, 0.95, 0.95, 1.00, 0.05, 0.32, 1, 1.9, 0.95, 0.95, 1.00, 0.08, 0],
+  station_winter: [0.36, 0.55, 0.60, 0.70, 0.26, 0.72, 5, 2.0, 0.54, 0.58, 0.68, 0.12, 1],
+  airbase_snow: [0.12, 0.93, 0.94, 1.00, 0.06, 0.34, 2, 1.9, 0.93, 0.94, 1.00, 0.08, 0],
+  forest_conifer: [0.30, 0.64, 0.70, 0.80, 0.24, 0.68, 5, 2.0, 0.64, 0.70, 0.80, 0.35, 0],
+  pass: [0.38, 0.46, 0.52, 0.64, 0.30, 0.72, 6, 2.2, 0.46, 0.52, 0.66, 0.12, 0],
+  gorge: [0.38, 0.48, 0.55, 0.70, 0.30, 0.72, 5, 2.2, 0.48, 0.54, 0.70, 0.10, 0]
+}, OVC5_G = { veil: 1.6, shade: 1.3, deck: 1.1, fog: 1.2, n: 1.2 };
+const ovcCfg = S => S.winter ? { tab: OVC5, g: OVC5_G, end: 'gorge', smoke: [66, 68, 78], dflt: 'farmland_winter' } : { tab: OVC, g: OVC_G, end: 'castle', smoke: [120, 108, 100], dflt: 'forest_conifer' };
 function ovcAt(S, wy) {
-  const c = -wy / CH - world.stageBaseP, pts = S.segs.map(g => [g.start + g.n / 2, OVC[g.t] || OVC.forest_conifer]); pts.push([S.len + 2, OVC.castle]);
+  const c = -wy / CH - world.stageBaseP, cf = ovcCfg(S), last = S.segs.length - 1, pts = S.segs.map((g, k) => [g.start + g.n / 2, cf.tab[S.winter && k === last && g.t === 'farmland_winter' ? 'gorge' : g.t] || cf.tab[cf.dflt]]); pts.push([S.len + 2, cf.tab[cf.end]]);
   let a = pts[0], b = null; for (let k = 0; k < pts.length; k++) { if (pts[k][0] <= c) a = pts[k]; else { b = pts[k]; break; } }
   if (!b) return a[1]; if (c <= a[0]) return a[1]; const f = clamp((c - a[0]) / (b[0] - a[0]), 0, 1), u = f * f * (3 - 2 * f); return a[1].map((v, i) => v + (b[1][i] - v) * u);
 }
@@ -16153,17 +16168,17 @@ function ovcPass(color, a, fn) { /* one layer: draw into the scratch canvas, tin
   ctx.globalAlpha = a; ctx.drawImage(lc, 0, 0); ctx.globalAlpha = 1;
 }
 function drawOvercast() {
-  const S = run.sortie, P = ovcAt(S, H / 2 - world.scroll), t = gf, sc = Math.floor(world.scroll), rgb = (i, k = 1) => Math.round(clamp(P[i] * k, 0, 1) * 255); ovcMasks();
+  const S = run.sortie, P = ovcAt(S, H / 2 - world.scroll), G = ovcCfg(S).g, t = gf, sc = Math.floor(world.scroll), rgb = (i, k = 1) => Math.round(clamp(P[i] * k, 0, 1) * 255); ovcMasks();
   const masked = (lx, m, ox, oy) => { /* the mask tiled over the screen on a canvas of its own, then one destination-in (drawing tile by tile would clear all but the last tile) */
     if (!ovcMaskC) ovcMaskC = mk(W, H); const [mc, mx] = ovcMaskC; mx.globalCompositeOperation = 'source-over'; mx.clearRect(0, 0, W, H); for (let ty = -256 + (((oy % 256) + 256) % 256); ty < H; ty += 256) for (let tx = -256 + (((ox % 256) + 256) % 256); tx < W; tx += 256) mx.drawImage(m, Math.round(tx), Math.round(ty)); lx.globalCompositeOperation = 'destination-in'; lx.drawImage(mc, 0, 0); };
-  ovcPass({ r: 14, g: 12, b: 20 }, Math.min(0.55, P[4] * OVC_G.shade), lx => { lx.fillStyle = 'rgb(14,12,20)'; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.shade, t * 0.07, sc * 0.5 + t * 0.1); }); /* cloud shadows */
-  ovcPass({ r: rgb(1), g: rgb(2), b: rgb(3) }, Math.min(0.8, P[0] * OVC_G.veil), lx => { lx.fillStyle = `rgb(${rgb(1)},${rgb(2)},${rgb(3)})`; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.veil, -t * 0.06, sc * 0.35 + t * 0.12); }); /* the veil */
+  ovcPass({ r: 14, g: 12, b: 20 }, Math.min(0.55, P[4] * G.shade), lx => { lx.fillStyle = 'rgb(14,12,20)'; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.shade, t * 0.07, sc * 0.5 + t * 0.1); }); /* cloud shadows */
+  ovcPass({ r: rgb(1), g: rgb(2), b: rgb(3) }, Math.min(0.8, P[0] * G.veil), lx => { lx.fillStyle = `rgb(${rgb(1)},${rgb(2)},${rgb(3)})`; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.veil, -t * 0.06, sc * 0.35 + t * 0.12); }); /* the veil */
   if (lowFX || typeof CityGen === 'undefined') return;
   const spot = (lx, kind, i, sz, a, vx, vy, n) => { const h = k => sortieHash(i * 31 + 7, k), s = genCloud(kind, (i + ((h(1) * 4) | 0)) % 4), w = s.w * sz, hh = s.h * sz, span = W + w + 40, x = (((h(2) * span - t * (vx + 0.04 * h(3))) % span) + span) % span - w / 2, y = ((((i % n) + 0.15 + 0.7 * h(4)) / n * (H + 80) + t * vy) % (H + 80)) - 40; /* (spread evenly down the screen) */ lx.globalAlpha = a; lx.drawImage(s.c, Math.round(x), Math.round(y), Math.round(w), Math.round(hh)); };
-  ovcPass({ r: rgb(8), g: rgb(9), b: rgb(10), atop: 0.72 }, Math.min(1, P[5] * OVC_G.deck), lx => { /* decks and banks of fog */
-    const dn = P[6] * OVC_G.n, nd = Math.ceil(dn); for (let i = 0; i < nd; i++) spot(lx, 'stratus', i, P[7], Math.min(1, dn - i), 0.05, 0.16, nd);
-    const nf = P[11] * 5 * OVC_G.fog, nn = Math.max(1, Math.ceil(nf)); for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12, nn); });
-  if (P[12] > 0.05) ovcPass({ r: 120, g: 108, b: 100, atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14, 3); }); /* smoke from the fortified forest's guns, drifting */
+  ovcPass({ r: rgb(8), g: rgb(9), b: rgb(10), atop: 0.72 }, Math.min(1, P[5] * G.deck), lx => { /* decks and banks of fog */
+    const dn = P[6] * G.n, nd = Math.ceil(dn); for (let i = 0; i < nd; i++) spot(lx, 'stratus', i, P[7], Math.min(1, dn - i), 0.05, 0.16, nd);
+    const nf = P[11] * 5 * G.fog, nn = Math.max(1, Math.ceil(nf)); for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12, nn); });
+  if (P[12] > 0.05) { const sm = ovcCfg(S).smoke; ovcPass({ r: sm[0], g: sm[1], b: sm[2], atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14, 3); }); } /* smoke (the fortified forest's guns; level 5's station), drifting */
 }
 function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
   const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
@@ -16305,7 +16320,7 @@ function drawEnigmaClouds() {
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
-  if (lowFX || (run.sortie && run.sortie.autumn) || drawMistClouds(true)) return;
+  if (lowFX || (run.sortie && (run.sortie.autumn || run.sortie.winter)) || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
   for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
@@ -16746,7 +16761,7 @@ function renderMain() {
   drawParts('g');
   drawWx2Low();
   drawBirds();
-  if (run.sortie && run.sortie.autumn) drawOvercast(); /* level 4's first loop: the overcast sky of its own (no white puffs) */
+  if (run.sortie && (run.sortie.autumn || run.sortie.winter)) drawOvercast(); /* the first loops of levels 4 and 5: the overcast sky of its own (no white puffs) */
   else if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
   else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
