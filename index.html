@@ -4476,7 +4476,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.103'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.104'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12358,13 +12358,13 @@ function bossIntro(e) {
    when the core, or the boss bar (all parts), is at half its health and again at a tenth, whichever gets there first. A salvo makes its six red areas one after another (NR.GAP frames apart), each made at the player's place: it follows
    the ship for NR.FOLLOW frames, locks where it is for NR.LOCK frames, then its rocket leaves its cradle and flies to the area (NR.FLY frames) and bursts. The ship has to be out of the
    area by then. State is plain data on the boss (e.nr: fired cradles, the areas), so a snapshot keeps it; nothing here draws a random number. */
-const NR = { SLOTS: [[27, 17], [36, 17], [44, 17], [53, 17], [27, 38], [36, 38], [44, 38], [53, 38], [27, 59], [36, 59], [44, 59], [53, 59]], SALVO: [[0, 2, 5, 7, 8, 10], [1, 3, 4, 6, 9, 11]], AT: [0.5, 0.1], GAP: 20, FOLLOW: 16, LOCK: 26, FLY: 34, R: 19, DX: -40, DY: -159 };
+const NR = { SLOTS: [[27, 17], [36, 17], [44, 17], [53, 17], [27, 38], [36, 38], [44, 38], [53, 38], [27, 59], [36, 59], [44, 59], [53, 59]], SALVO: [[0, 2, 5, 7, 8, 10], [1, 3, 4, 6, 9, 11]], AT: [0.5, 0.1], WARN: 70, GAP: 30, FOLLOW: 56, LOCK: 40, FLY: 70, R: 19, DX: -40, DY: -159 };
 function nrSlotPos(e, i) { const [lx, ly] = NR.SLOTS[i]; return [e.x + NR.DX + lx, e.y + NR.DY + ly + 4]; } /* a cradle's centre on the screen: the long sprite is drawn about the old carriage's centre */
 function nightRockets(e, core) {
   const S = e.nr || (e.nr = { fired: [], zones: [], salvo: 0, pend: [], pt: 0 });
   for (const z of S.zones) {
     z.t++;
-    if (z.ph === 0) { if (z.t <= NR.FOLLOW) { const s = z.who === 2 && p2 && !p2.dead ? p2 : z.who === 1 && player && !player.dead ? player : nearShip(z.x, z.y); z.who = s === p2 ? 2 : 1; z.x = clamp(s.x, NR.R, W - NR.R); z.y = clamp(s.y, 30, H - 30); } if (z.t === NR.FOLLOW) sfx('tick'); if (z.t >= NR.FOLLOW + NR.LOCK) { const [sx, sy] = nrSlotPos(e, z.slot); z.sx = sx; z.sy = sy; z.ph = 1; z.t = 0; S.fired[z.slot] = true; flash(sx, sy, 6); smokePuff(sx, sy + 6, 'a'); sfx('rocket'); } }
+    if (z.ph === 0) { if (z.t <= NR.FOLLOW) { const s = z.who === 2 && p2 && !p2.dead ? p2 : z.who === 1 && player && !player.dead ? player : nearShip(z.x, z.y); z.who = s === p2 ? 2 : 1; const tx = clamp(s.x, NR.R, W - NR.R), ty = clamp(s.y, 30, H - 30), dx = tx - z.x, dy = ty - z.y, d = Math.hypot(dx, dy), st = Math.min(d, Math.max(1.6, d * 0.09)); if (d > 0.01) { z.x += dx / d * st; z.y += dy / d * st; } } if (z.t === NR.FOLLOW) sfx('tick'); if (z.t >= NR.FOLLOW + NR.LOCK) { const [sx, sy] = nrSlotPos(e, z.slot); z.sx = sx; z.sy = sy; z.ph = 1; z.t = 0; S.fired[z.slot] = true; flash(sx, sy, 6); smokePuff(sx, sy + 6, 'a'); sfx('rocket'); } }
     else if (z.t < NR.FLY) { if (z.t % 2 === 0) { const [x, y] = nrPos(z, z.t / NR.FLY); world.parts.push({ kind: 'smoke', layer: 'a', x: x - 2, y: y - 4, vx: 0, vy: -0.1, r: 1.5, life: 16, max: 16 }); } }
     else {
       z.ph = 2; boom(z.x, z.y, 20, 'a'); flash(z.x, z.y, 10); sfx('bigboom'); feel.shake = Math.max(feel.shake, 5); smokePuff(z.x, z.y, 'a'); fireAt(z.x, z.y, 'a', true);
@@ -12375,13 +12375,15 @@ function nightRockets(e, core) {
   S.zones = S.zones.filter(z => z.ph < 2);
   if (e.dying || !core || core.dead || !hasT()) { S.zones = []; S.pend = []; return; }
   const at = NR.AT[S.salvo]; let bh = 0, bm = 0; for (const q of e.parts) { bh += Math.max(0, q.hp); bm += q.maxhp; } /* the boss bar's health (all parts) and the core's: the salvo goes at the first of them to reach its mark */
-  if (at !== undefined && Math.min(core.hp / core.maxhp, bh / Math.max(1, bm)) <= at && !S.pend.length && !S.zones.length) { /* the next salvo: the six cradles of its set, one area every GAP frames */
-    S.pend = NR.SALVO[S.salvo].slice(); S.pt = 30; S.salvo++; sfx('charge'); haptic('warn');
-  }
-  if (S.pend.length && --S.pt <= 0) { const slot = S.pend.shift(), s = nearShip(e.x, e.y); S.zones.push({ ph: 0, t: 0, x: clamp(s.x, NR.R, W - NR.R), y: clamp(s.y, 30, H - 30), slot, who: s === p2 ? 2 : 1 }); S.pt = NR.GAP; sfx('tick'); } /* the next area, made at the ship's place (a queue, not a delayed call: a snapshot keeps it) */
+  if (at !== undefined && Math.min(core.hp / core.maxhp, bh / Math.max(1, bm)) <= at && !S.pend.length && !S.zones.length && !S.warn) S.armed = true; /* the mark is reached: the salvo waits for a searchlight to catch a ship */
+  const lamps = e.parts.some(q => q.k === 'light' && !q.dead) || count('flare');
+  if (S.armed) { S.aw = (S.aw || 0) + 1; if (!S.warn && !e.lock && !e.chargeT && (e.spot > 0 || !lamps || S.aw > 900)) { S.armed = false; S.aw = 0; S.warn = NR.WARN; S.who = e.spotWho && !e.spotWho.dead ? (e.spotWho === p2 ? 2 : 1) : 0; S.pend = NR.SALVO[S.salvo].slice(); S.pt = 0; S.salvo++; sfx('charge'); haptic('warn'); } }
+  if (S.warn > 0) { S.warn--; if (S.warn % 24 === 0) sfx('tick'); }
+  else if (S.pend.length && --S.pt <= 0) { const slot = S.pend.shift(), [sx, sy] = nrSlotPos(e, slot), s = S.who === 2 && p2 && !p2.dead ? p2 : S.who === 1 && player && !player.dead ? player : nearShip(e.x, e.y); S.zones.push({ ph: 0, t: 0, x: sx, y: sy + 8, slot, who: s === p2 ? 2 : 1 }); S.pt = NR.GAP; sfx('tick'); } /* each area starts at its cradle and homes in on the ship the light caught (a queue, not a delayed call: a snapshot keeps it) */ /* the next area, made at the ship's place (a queue, not a delayed call: a snapshot keeps it) */
 }
 function drawNRzones(e) { /* the red areas: filled and ringed, following the ship, then locked (frozen, flashing) until the rocket lands */
   const S = e.nr; if (!S || e.dying) return;
+  if (S.warn > 0) { const blink = (gf >> 2) & 1; ctx.fillStyle = blink ? '#ffffff' : '#ff3a2a'; for (const i of NR.SALVO[S.salvo - 1] || []) { const [cx, cy] = nrSlotPos(e, i); if (!S.fired[i]) { ctx.fillRect(Math.round(cx) - 5, Math.round(cy) - 12, 11, 1); ctx.fillRect(Math.round(cx) - 5, Math.round(cy) + 12, 11, 1); } } ctx.globalAlpha = 0.5 + 0.5 * blink; ctx.fillStyle = '#ff2a1a'; ctx.fillRect(W / 2 - 1, 20, 3, 8); ctx.fillRect(W / 2 - 1, 30, 3, 3); ctx.globalAlpha = 1; }
   for (const z of S.zones) {
     const locked = z.ph === 1 || z.t > NR.FOLLOW, x = Math.round(z.x), y = Math.round(z.y), R = NR.R, blink = (gf >> 2) & 1, f = z.ph === 1 ? 1 : Math.min(1, z.t / (NR.FOLLOW + NR.LOCK));
     ctx.globalAlpha = (locked ? 0.2 : 0.1) + 0.14 * f; dk(x, y, R, '#ff2a1a'); ctx.globalAlpha = 1;
