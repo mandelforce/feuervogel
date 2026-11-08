@@ -312,6 +312,14 @@ Balance lessons from the 1.2.5 pass: check which code path a test flies before t
 
 `flagship-crush.mjs` checks the level 1 flagship's hull, on a Retro Run start and a Campaign start: no ship is placed under it or sails into it, and its "Hard to port" turn crushes the destroyer and PT boat under its stern (no points, no loot, the player unaffected) while a ship clear of the hull is left alone. In the Campaign it also flies the scene with and without ships to crush and fails if the flagship's own random stream (every frame) or any number on it (every 10 frames) differs: a crushed ship's random draws are its own. Serve the folder first and run `node tests/flagship-crush.mjs`.
 
+## Black lance test
+
+`blacklance.mjs` flies level 6 to its boss on seeds 1944 and 1946 (no lance pods, none in the last act) and on seed 1945 (the first loop: two pods folded away until the engines are dead, volleys only after a fire laser and never together with it, the gap at the screen's bottom never below the difficulty's width, a ship at the pinch point never inside a beam, a ship in a beam hit, a destroyed pod's beam gone).
+
+```
+node tests/blacklance.mjs
+```
+
 ## Night Hammer test
 
 `nighthammer.mjs` flies level 3 to its boss on seed 1944 (the first pass: no rocket launcher, the girder frame's hull) and on seed 1945 (the first loop: the launcher carriage with its hull, the parts where they were, a salvo of six rockets at half the core's health made one area at a time at the ship's place, locked areas that stay put, a second salvo only at a tenth, hits inside an area and none outside, the areas ending with the boss). Needs Node and Playwright; serve the folder first (`python3 -m http.server 8000`).

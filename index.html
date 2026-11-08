@@ -4472,7 +4472,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.97'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.98'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -11618,6 +11618,47 @@ function castleUnits(e, grp) {
 // and every 8 seconds, slowly following the player, once all engines are gone. A Nova cuts it short.
 const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
 function laserAim(F, cx, cy) { const t = F.who && !F.who.dead ? F.who : nearShip(cx, cy); return Math.atan2(t.y - cy, t.x - cx); }
+/* Twin lance (the first loop's level 6, run.sortie.haze; the Black Fortress's last act, all four engines dead): two pods under the wing tips unfold (parts of kind 'lance': they can be shot, a dead pod's beam is gone). After a fire laser has been fired in the last act, and well before the next, each live pod charges (LANCE.charge frames, a dashed warning line to where its beam will end up) and then fires a thin cyan beam that sweeps in from the screen's edge to a pinch point at the bottom of the screen: the gap between the two beams at the bottom edge is LANCE.gap[difficulty] wide, centred on where the ship was when the charge reached frame 45 (then it stays), so the warning lines show the final place and the ship has the charge and the closing time (LANCE.close) to get there. The gap only widens going up. Never together with the fire laser (skyLaser waits for it). A Nova snuffs it out like the laser. All state is plain data on e.ln. */
+const LANCE = { podX: 92, podY: 6, hp: 160, charge: 70, aim: 45, close: 90, hold: 40, fade: 8, from: 120, gap: [64, 52, 48], half: 2.6, start: 36 };
+function lanceEnds(e, F) { /* the beams' end points on the screen's bottom edge: from outside the screen to the pinch (ease), per side (-1 left, 1 right) */
+  const f = F.ph === 'charge' ? 1 : Math.min(1, F.t / LANCE.close), z = F.ph === 'charge' ? 1 : f * f * (3 - 2 * f), g = LANCE.gap[clamp(settings.diff | 0, 0, 2)] / 2;
+  return { '-1': (F.cx - g) * z + (-LANCE.start) * (1 - z), '1': (F.cx + g) * z + (W + LANCE.start) * (1 - z) };
+}
+function lancePods(e) { return e.parts.filter(p => p.k === 'lance' && !p.off && !p.dead); }
+function skyLance(e, ea) {
+  const core = e.parts.find(p => p.k === 'core'), pods = e.parts.filter(p => p.k === 'lance'); if (!core || core.dead || e.dying || !pods.length) { e.ln = null; return; }
+  if (ea > 0) return;
+  for (const p of pods) if (p.off) { p.off = false; sfx('hitm'); } /* the pods unfold as the last act begins */
+  if (e.lnBase === undefined) e.lnBase = e.flN || 0;
+  const live = lancePods(e); if (!live.length) { e.ln = null; return; }
+  if (!e.ln) {
+    if (e.fl || e.stun > 0 || !hasT() || (e.flN || 0) <= e.lnBase) return;
+    if (e.lnFlN !== e.flN) { e.lnFlN = e.flN; e.lnDone = false; }
+    if (e.lnDone || (e.flT || 0) < LANCE.from) return;
+    e.lnDone = true; e.ln = { ph: 'charge', t: 0, cx: clamp(nearShip(e.x, e.y).x, 70, W - 70) }; sfx('fcharge'); return; }
+  const F = e.ln; F.t++;
+  if (F.ph === 'charge') { if (F.t <= LANCE.aim) F.cx = clamp(nearShip(e.x, e.y).x, 70, W - 70); if (F.t >= LANCE.charge) { F.ph = 'fire'; F.t = 0; sfx('fbeam'); feel.shake = Math.max(feel.shake, 3); } return; }
+  const total = LANCE.close + LANCE.hold, env = Math.min(1, F.t / 10, (total + LANCE.fade - F.t) / LANCE.fade), ends = lanceEnds(e, F); feel.shake = Math.max(feel.shake, 1);
+  for (const p of live) { const px = e.x + p.ox, py = e.y + p.oy, xi = ends[p.ox < 0 ? '-1' : '1'], dx = xi - px, dy = H + 40 - py, L = Math.hypot(dx, dy), c = dx / L, s = dy / L;
+    if (gf % 2 === 0) { const d = rnd(20, 300); world.parts.push({ kind: 'spark', layer: 'a', x: px + c * d, y: py + s * d, vx: rnd(-0.5, 0.5), vy: rnd(-0.5, 0.5), life: 10, max: 10, col: Math.random() < 0.5 ? '#9ff0ff' : '#ffffff' }); }
+    if (env > 0.5) for (const sh of [player, p2]) { if (!sh || sh.dead || sh.inv !== 0) continue; const ex = sh.x - px, ey = sh.y - py; if (ex * c + ey * s > 0 && Math.abs(-ex * s + ey * c) < LANCE.half) { if (sh === p2) hurtP2(); else die('flame'); } } }
+  if (F.t >= total + LANCE.fade) e.ln = null;
+}
+function drawSkyLance(e) {
+  const pods = e.parts.filter(p => p.k === 'lance' && !p.off), F = e.ln; if (e.dying) return;
+  for (const p of pods) { const px = Math.round(e.x + p.ox), py = Math.round(e.y + p.oy);
+    if (p.dead) { dk(px, py, 4, '#1a1410'); dk(px + 1, py + 1, 2, '#3a1a0c'); continue; }
+    ctx.fillStyle = '#141418'; ctx.fillRect(px - 4, py - 6, 9, 14); ctx.fillStyle = p.hit > 0 && (gf & 2) ? '#ffffff' : '#5c6472'; ctx.fillRect(px - 3, py - 5, 7, 12); ctx.fillStyle = '#2a2d36'; ctx.fillRect(px - 2, py + 4, 5, 4);
+    const hot = F && F.ph === 'fire'; ctx.fillStyle = hot ? '#e8fbff' : F ? ((gf & 4) ? '#9ff0ff' : '#3a8fa8') : '#c8503a'; ctx.fillRect(px - 1, py + 6, 3, 3); }
+  if (!F) return;
+  const live = pods.filter(p => !p.dead), ends = lanceEnds(e, F);
+  for (const p of live) { const px = e.x + p.ox, py = e.y + p.oy, xi = ends[p.ox < 0 ? '-1' : '1'], dx = xi - px, dy = H + 40 - py, L = Math.hypot(dx, dy) + 400, c = dx / (L - 400), s = dy / (L - 400);
+    ctx.save();
+    if (F.ph === 'charge') { ctx.globalAlpha = (gf & 2) ? 0.75 : 0.4; ctx.strokeStyle = '#9ff0ff'; ctx.lineWidth = 1; ctx.setLineDash([4, 5]); ctx.lineDashOffset = -gf * 0.5; ctx.beginPath(); ctx.moveTo(px, py + 8); ctx.lineTo(px + c * 700, py + s * 700); ctx.stroke(); }
+    else { const total = LANCE.close + LANCE.hold, env = Math.min(1, F.t / 10, (total + LANCE.fade - F.t) / LANCE.fade);
+      ctx.lineCap = 'butt'; for (const [w, col, al] of [[9, '#2a8cc8', 0.25], [5, '#5ad6ff', 0.5], [3, '#9ff0ff', 1], [1, '#ffffff', 1]]) { ctx.globalAlpha = al * Math.max(0.2, env); ctx.strokeStyle = col; ctx.lineWidth = w * Math.max(0.3, env); ctx.beginPath(); ctx.moveTo(px, py + 8); ctx.lineTo(px + c * 700, py + s * 700); ctx.stroke(); } }
+    ctx.restore(); }
+}
 function skyLaser(e, ea) {
   const core = e.parts.find(p => p.k === 'core'); if (!core || core.dead) { e.fl = null; return; }
   const cx = e.x + core.ox, cy = e.y + core.oy;
@@ -11629,6 +11670,7 @@ function skyLaser(e, ea) {
     let go = false;
     if (!e.foreDone) { if (ea <= 2 || core.hp < core.maxhp * 0.75 || e.flT >= 1500) { e.foreDone = true; go = true; } }
     else if (e.flT >= (ea === 0 ? FL_GAP3 : FL_GAP)) go = true;
+    if (go && e.ln) go = false; /* (the first loop's level 6: the fire laser waits for a lance volley in progress) */
     if (go) { const sh = liveShips(); e.flN = (e.flN || 0) + 1; e.fl = { ph: 'charge', t: 0, who: sh[(e.flN - 1) % sh.length] }; e.flT = 0; sfx('fcharge'); } // with two ships the shots alternate between them
     return;
   }
@@ -12790,6 +12832,7 @@ const BOSSMOVE = {
     { const c = Math.cos(e.tilt), s = Math.sin(e.tilt); for (const p of e.parts) { p.ox = (p.box * c - p.boy * s) * e.sag; p.oy = (p.box * s + p.boy * c) * e.sag; } }
     e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4) + e.tilt * 70; e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
     skyLaser(e, ea);
+    if (run.sortie && run.sortie.haze) skyLance(e, ea);
     for (const p of e.parts) if (p.k === 'engine' && p.dead && gf % 3 === 0) { smokePuff(e.x + p.ox, e.y + p.oy - 10, 'a'); if (Math.random() < 0.4) world.parts.push({ kind: 'fire', layer: 'a', x: e.x + p.ox + rnd(-2, 2), y: e.y + p.oy - 6, vx: 0, vy: -0.3, r: rnd(2, 3.5), life: 14, max: 14 }); }
     return true;
   },
@@ -13102,6 +13145,8 @@ const BOSS_FIGHT = {
     setup(e, sc) {
       const off = secOff(), wyPad = Math.floor((-30 - sc - 225 + off) / SEC_P) * SEC_P + 225 - off; // the landing pad (pattern offset: secOff)
       Object.assign(e, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
+      if (run.sortie && run.sortie.haze) { /* the first loop's level 6: two lance pods under the wing tips, folded away (off: not drawn, not hit) until the last act (skyLance); their health scales like the other parts' */
+        const m = e.parts[0].maxhp / BOSS.skyfort.parts[0].hp; for (const sd of [-1, 1]) e.parts.push({ k: 'lance', ox: sd * LANCE.podX, oy: LANCE.podY, hp: LANCE.hp * m, maxhp: LANCE.hp * m, ang: PI / 2, cd: 999, hit: 0, dead: false, hw: 6, hh: 8, off: true }); }
     },
   },
 };
@@ -13968,6 +14013,7 @@ const ENT = {
         p.lit = lit; if (p.caught > 0) p.caught--;
         continue;
       }
+      if (p.k === 'lance') continue; /* (the first loop's level 6: a lance pod only fires its beam, skyLance) */
       if (p.k === 'core' && BOSS[e.kind].aimCore) {
         BOSS[e.kind].aimCore(e, p, px, py);
       } else if (p.k !== 'core' || BOSS[e.kind].coreTurns) {
@@ -14532,6 +14578,7 @@ function bomb(q) { // q: player 2's ship, or nothing for player 1
   for (const b of world.ebul) world.parts.push({ kind: 'spark', layer: 'a', x: b.x, y: b.y, vx: 0, vy: -0.4, life: 14, max: 14, col: '#bba4ff' });
   world.ebul.length = 0;
   // a Nova snuffs out the Black Fortress's fire laser, charging or firing
+  for (const e of world.enemies) if (e.ln) e.ln = null; /* (and the twin lance of the first loop's level 6) */
   for (const e of world.enemies) if (e.fl) { e.fl = null; e.flT = 0; const c = e.parts.find(p => p.k === 'core'); if (c) for (let k = 0; k < 16; k++) { const a = k * TAU / 16; world.parts.push({ kind: 'spark', layer: 'a', x: e.x + c.ox, y: e.y + c.oy, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 18, max: 18, col: k & 1 ? '#bba4ff' : '#ff6a1a' }); } }
   for (const e of world.enemies) {
     if (e.dying || e.dead || (e.type !== 'boss' && (e.y < -20 || e.y > H + 20))) continue;
@@ -14626,7 +14673,7 @@ function damagePart(e, p, d) {
     else if (p.k === 'core') {
       if (e.seenC && !e.kc) { e.kc = true; run.stats.kills++; }
       addScore(e.score); checkExtend(); label(e.x, e.y, String(e.score));
-      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; cancelBullets(e.x, e.y, 0); clearField(); feel.slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); world.later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } feel.hitStop = 6; feel.flashFx = 8;
+      e.dying = BOSS[e.kind].dyingFrames || 220; e.fl = null; e.ln = null; cancelBullets(e.x, e.y, 0); clearField(); feel.slowT = 110; for (let i = 0; i < 10; i++) { const mx = e.x + rnd(-70, 70), my = e.y + rnd(-50, 40); world.later.push({ at: gf + 10 + i * 14, fn: () => dropMedals(clamp(mx, 12, W - 12), clamp(my, 10, H - 80), 1) }); } feel.hitStop = 6; feel.flashFx = 8;
     } else if (p.k === 'main' && e.parts.filter(q => q.k === 'main' && !q.dead).length === 0) {
 
     }
@@ -16169,6 +16216,7 @@ const BOSS_LOOKS = {
       ctx.beginPath(); ctx.rect(sd < 0 ? -200 : 0, -200, 200, 400); ctx.clip(); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore();
     }
     drawSkyLaser(e);
+    if (run.sortie && run.sortie.haze) drawSkyLance(e);
   },
   railgun(e, fl, core) {
     const NRL = run.sortie && run.sortie.moon && SPR.rgBaseL1; /* the first loop's level 3: the carriage with the rocket launcher behind it (the same coordinates for everything else) */
