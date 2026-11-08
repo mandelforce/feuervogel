@@ -4537,7 +4537,7 @@ let eshotN = 0;
 
 /* ================= noise ================= */
 // The world: the stage being flown. Scrolling, the terrain (its seed, chunks and theme), everything in it (enemies, bullets, shots, items, particles, decals, delayed effects), the director's timers and flags, and the weather.
-const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, gustX: 0, gustK: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
+const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], dust: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, gustX: 0, gustK: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
 
 function hash(x, y) {
   let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ world.SEED;
@@ -8897,7 +8897,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
-  world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
+  world.shots = []; world.ebul = []; world.dust = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
@@ -13997,6 +13997,7 @@ const ENT = {
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
     if (e.weak || e.hp <= e.maxhp * 0.2) { if (gf % 2 === 0) darkSmoke(e.x + rnd(-10, 10) * protoK(e), e.y + rnd(-4, 6) * protoK(e), -0.3); if (gf % 4 === 0) { const [ex, ey] = protoEngines(protoSpr(e), 1)[(gf >> 2) & 3]; darkSmoke(e.x + ex, e.y + ey - 4, -0.5); } } // at a fifth of its health it smokes black
     if (e.weak) engineSparks(e, 1, 0);
+    if (isMoth(e) && !e.weak) mothDust(e, ph);
     if (ph >= 1 && gf % (ph === 2 ? 4 : 9) === 0) smokePuff(e.x + rnd(-20 * protoK(e), 20 * protoK(e)), e.y + rnd(-6 * protoK(e), 10 * protoK(e)), 'a');
   } },
   proto: { stats: { fixedHp: 1000000000, hw: 40, hh: 26, score: 0, rad: 38 }, update(e) {
@@ -14362,6 +14363,60 @@ function heatTick() {
   laserHeat = Math.max(0, laserHeat - 0.2);
   if (laserHeat > 85) { if (gf % 4 === 0) steamPuff(p.x + rnd(-4, 4), p.y - 22, 1, false); if (gf % 30 === 0 && actx && !muted) noise(0.25, 0.05 * mixF, 6000); }
   else if (laserHeat > 60 && gf % 10 === 0) steamPuff(p.x + rnd(-4, 4), p.y - 22, 1, false);
+}
+// ---- The Moth's dust (the looped levels' duel): the two plus-ringed eyespots on its wings spray cones of dust, now to the sides, now to the middle, picked at random (mothDust, called from protoDuel's update).
+// A puff that touches a ship sets that ship's laser overheating at once (heat 100, five seconds without a laser, the same as a laser fired too long); it does no other harm and the Moth's dust does not burn.
+const DUST = {
+  life: 150, g: 0.0078, hit: 6, tel: 38, emit: 30, // life: frames a puff lasts; g: its downward pull; hit: its reach to a ship; tel: the warning; emit: the frames a spray lasts
+  side: { axis: 26, half: 9, reach: 96, n: 80 }, // narrow cones fanning out and down, one from each ring (axis: degrees from straight down; half: the cone's half angle; reach: px a second; n: puffs a cone)
+  mid: { axis: 8, half: 5, reach: 126, n: 36 }, // the cones close in on the middle: thinner, longer and with fewer puffs, crossing far below the Moth
+  ring: 16 // how far the rings sit from the Moth's centre
+};
+function dustOverheat(s) { // a ship touched the dust
+  if (s === player) { if (overheatT > 0) return; laserHeat = 100; overheatT = 300; steamPuff(s.x, s.y - 18, 8, true); world.later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 12, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
+  else { if (s.over > 0) return; s.over = 300; s.heat = 100; s.charge = 0; steamPuff(s.x, s.y - 18, 8, true); }
+}
+function mothDust(e, ph) { // the Moth's attack cycle: wait, warn at the rings, spray
+  const d = e.dd || (e.dd = { s: 'wait', t: 150, kind: 'side', last: '', run: 0 });
+  if (!hasT()) return;
+  if (d.s === 'wait') {
+    if (--d.t > 0) return;
+    d.kind = d.run >= 2 ? (d.last === 'side' ? 'mid' : 'side') : Math.random() < 0.5 ? 'side' : 'mid'; // random, never three of a kind in a row
+    d.run = d.kind === d.last ? d.run + 1 : 1; d.last = d.kind; d.s = 'tel'; d.t = DUST.tel; sfx('tick');
+  } else if (d.s === 'tel') { if (--d.t <= 0) { d.s = 'spray'; d.t = DUST.emit; sfx('gun'); } }
+  else {
+    const C = d.kind === 'side' ? DUST.side : DUST.mid, per = C.n / DUST.emit;
+    for (let sd = 0; sd < 2; sd++) {
+      const ox = e.x + (sd ? DUST.ring : -DUST.ring), oy = e.y + 2, axis = d.kind === 'side' ? (sd ? C.axis : -C.axis) : (sd ? -C.axis : C.axis);
+      for (let n = Math.floor(per) + (Math.random() < per % 1 ? 1 : 0); n > 0; n--) { const th = (axis + (Math.random() - 0.5) * 2 * C.half) * PI / 180, sp = C.reach * (0.55 + 0.45 * Math.random()) / 60; world.dust.push({ x: ox, y: oy, vx: Math.sin(th) * sp, vy: Math.cos(th) * sp, age: 0 }); }
+    }
+    if (--d.t <= 0) { d.s = 'wait'; d.t = Math.round(([300, 250, 200][ph] + Math.random() * 60) * fireSlow()); }
+  }
+}
+function updDust() {
+  const D = world.dust; if (!D || !D.length) return;
+  const ships = [player, p2].filter(q => q && !q.dead);
+  for (let i = D.length - 1; i >= 0; i--) {
+    const d = D[i]; d.age++; d.x += d.vx; d.y += d.vy; d.vy += DUST.g;
+    if (d.age > DUST.life || d.y > H + 10 || d.x < -10 || d.x > W + 10) { D.splice(i, 1); continue; }
+    if (d.age < 8) continue; // (a puff only counts a moment after it has left the ring)
+    for (const q of ships) if ((q.x - d.x) ** 2 + (q.y - d.y) ** 2 < DUST.hit * DUST.hit) { dustOverheat(q); D.splice(i, 1); break; }
+  }
+}
+function drawDust() {
+  const D = world.dust; if (!D || !D.length) return;
+  for (const d of D) { ctx.globalAlpha = Math.min(1, d.age / 8) * (0.55 + 0.4 * (1 - d.age / DUST.life)); ctx.fillStyle = ((d.x * 3 + d.y * 5) | 0) % 4 === 0 ? '#f6ecd0' : '#d8caa4'; ctx.fillRect(Math.round(d.x) - 1, Math.round(d.y) - 1, 2, 2); }
+  ctx.globalAlpha = 1;
+}
+function drawDustTell(e) { // the warning: the rings glow and dotted lines show the two cones
+  const d = e.dd; if (!d || d.s === 'wait') return;
+  const C = d.kind === 'side' ? DUST.side : DUST.mid, pulse = d.s === 'tel' ? 0.5 + 0.5 * Math.sin(gf * 0.5) : 0.35;
+  for (let sd = 0; sd < 2; sd++) {
+    const ox = Math.round(e.x + (sd ? DUST.ring : -DUST.ring)), oy = Math.round(e.y + 2), axis = d.kind === 'side' ? (sd ? C.axis : -C.axis) : (sd ? -C.axis : C.axis);
+    for (let k = 0; k < 2; k++) { ctx.globalAlpha = (0.7 - k * 0.25) * pulse; ctx.fillStyle = '#fff6d0'; const r = 5 + k * 2.5 + pulse * 1.5; for (let a = 0; a < 16; a++) ctx.fillRect(Math.round(ox + Math.cos(a * 0.3927) * r), Math.round(oy + Math.sin(a * 0.3927) * r), 1, 1); }
+    if (d.s === 'tel') { ctx.globalAlpha = 0.4; ctx.fillStyle = '#fff6d0'; for (const sg of [-1, 1]) { const th = (axis + sg * C.half) * PI / 180; for (let L = 10; L < C.reach * 0.9; L += 5) ctx.fillRect(Math.round(ox + Math.sin(th) * L), Math.round(oy + Math.cos(th) * L), 1, 1); } }
+  }
+  ctx.globalAlpha = 1;
 }
 // Player 2's laser works like player 1's: its own charge, heat and overheat live on the ship (q.charge, q.heat, q.over, q.beam)
 function heatTick2(q) {
@@ -15099,7 +15154,7 @@ function update() {
   rsObj = null; // (a step that threw must not leave an enemy's stream in use)
   if (app.booting) { if (++app.bootT >= 110 && warmIdx >= warmList.length || app.bootT > 300) finishBoot(); return; }
   SPOS = null;
-  if (app.state === 'play' && !app.paused && app.resumeT <= 0) { heatTick(); heatTick2(p2); }
+  if (app.state === 'play' && !app.paused && app.resumeT <= 0) { heatTick(); heatTick2(p2); updDust(); }
   if (app.state === 'play' && !app.paused && app.resumeT > 0) { app.resumeT--; return; }
   gf++;
   pollPad();
@@ -16031,7 +16086,7 @@ const LOOKS = {
   },
   wing(e, fl) { spr(e.v === undefined ? SPR.wing : SPR.wingV[e.v], e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); if (e.ph === 1 && !e.dying) wingGlow(e); },
   protoFly(e, fl) { return drawProtoPlane(e, PI, 1.15, true); },
-  protoDuel(e, fl) { return drawProtoPlane(e, 0, 1, true); },
+  protoDuel(e, fl) { drawProtoPlane(e, 0, 1, true); if (isMoth(e)) drawDustTell(e); },
   flare(e, fl) {
     if (e.ft <= 40) { dk(e.x, e.y, 2, '#fff2a8'); world.parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, life: 10, max: 10, col: '#ffd060' }); return; }
     ctx.strokeStyle = '#c4c9ce'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - 7); ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + 4, e.y - 7); ctx.stroke();
@@ -17087,6 +17142,7 @@ function renderMain() {
   drawHiClouds();
 
   const fr = (gf >> 2) & 1;
+  drawDust();
   { const crowd = Math.min(1, world.ebul.length / 50), halo = world.nightF > 0.5 ? '#f0e8ff' : '#0a0812';
     ctx.globalAlpha = (world.nightF > 0.5 ? 0.3 : 0.5) + 0.15 * crowd;
     for (const b of world.ebul) if (b.kind !== 'mortar' && b.kind !== 'zone') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
