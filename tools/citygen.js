@@ -1683,18 +1683,36 @@ function roundPix(b, x, y) {
   const rib = Math.abs(((an / 6.283 + 1) * 16) % 1 - 0.5) > 0.42 && e > 0.3;
   return C.roofs[5][pickI(5, 0.8 - e * 0.4 + light * 0.35 - (rib ? 0.3 : 0), x, y)];
 }
+// Hedge softening (the Enigma look's field edges): HEDGE_SOFT is the strength 0 to 1 (0 = the classic hard hedge). A normal field's hedge is
+// mixed toward a soft tone (its own crop and the grass) with weight hedgeW * T; a quarter of the fields stay prominent (promW * T). In a winter
+// plan there are no prominent fields; snow covers most of the hedge length instead (snowGain/snowCut patches), spilling 1 px onto the field.
+let HEDGE_SOFT = 0.5;
+const HEDGE = { hedgeW: 0.8, prom: 0.25, promW: 0.15, snow: 0.92, spill: 0.45, snowHalf: 0.5, snowCol: [236, 240, 248], snowScale: 0.045, snowCut: 0.28, snowGain: 9 };
+const mixRGB = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+function parcelInner(P, edge, x, y) { // the field's own colour (stripes, furrows, crop)
+  const lines = P.par ? x % 3 === 0 : y % 3 === 0, t = P.crop;
+  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (lines ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
+  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + ((P.par ? x : y) % 2 === 0 ? 0.25 : -0.05), x, y)];
+  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (lines ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
+  return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
+}
+function softHedge(plan, id, P, hedge, x, y, snowOnly) { // hedge: the classic hedge colour; returns it softened (and snowed in winter)
+  const T = HEDGE_SOFT, winter = !!(plan.P && plan.P.climate === 'winter'), E = HEDGE; if (T <= 0) return hedge;
+  let c = hedge;
+  if (!snowOnly) { const prom = !winter && h32(id * 7919 + 29, plan.parcels.length * 31 + 5) / 4294967296 < E.prom, w = (prom ? E.promW : E.hedgeW) * T;
+    c = mixRGB(hedge, mixRGB(parcelInner(P, 0, x, y), C.field.grass[pickI(5, 0.45, x, y)], 0.5), w); }
+  if (winter) { const s = Math.min(1, T / E.snowHalf), amt = Math.min(1, Math.max(0, (vn(x * E.snowScale + id * 3.1, y * E.snowScale + id * 1.7) - E.snowCut) * E.snowGain)); c = mixRGB(c, E.snowCol, (snowOnly ? E.spill : E.snow) * amt * s); }
+  return c;
+}
 // a field pixel from its parcel (5c): a hedge where the field block changes, a furrow line between strips, the crop's own pattern
 function parcelPix(plan, i, x, y) {
   const F = plan.F, W = plan.W, id = F[i]; if (id < 0) return C.field.grass[pickI(5, 0.5, x, y)];
   const P = plan.parcels[id], nb = j => j >= 0 && j < F.length && F[j] >= 0 && F[j] !== id ? plan.parcels[F[j]] : null;
   const a = nb(x > 0 ? i - 1 : -1), b2 = nb(i - W), c2 = nb(x < W - 1 ? i + 1 : -1), d2 = nb(i + W);
-  if ([a, b2, c2, d2].some(o => o && (o.block !== P.block || plan.P.bocage))) return C.field.hedge[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.7, x, y)]; // a hedge between field blocks (in bocage country between every field)
-  if (plan.P.bocage && [nb(x > 1 ? i - 2 : -1), nb(i - 2 * W), nb(x < W - 2 ? i + 2 : -1), nb(i + 2 * W)].some(o => o)) return C.field.hedge[pickI(3, 0.62 + (hh(x, y) - 0.5) * 0.6, x, y)]; // ... thick
-  const edge = (a || b2) ? -0.22 : 0, lines = P.par ? x % 3 === 0 : y % 3 === 0, t = P.crop;
-  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (lines ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
-  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + ((P.par ? x : y) % 2 === 0 ? 0.25 : -0.05), x, y)];
-  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (lines ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
-  return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
+  if ([a, b2, c2, d2].some(o => o && (o.block !== P.block || plan.P.bocage))) return softHedge(plan, id, P, C.field.hedge[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.7, x, y)], x, y, false); // a hedge between field blocks (in bocage country between every field)
+  if (plan.P.bocage && [nb(x > 1 ? i - 2 : -1), nb(i - 2 * W), nb(x < W - 2 ? i + 2 : -1), nb(i + 2 * W)].some(o => o)) return softHedge(plan, id, P, C.field.hedge[pickI(3, 0.62 + (hh(x, y) - 0.5) * 0.6, x, y)], x, y, false); // ... thick
+  const edge = (a || b2) ? -0.22 : 0, c = parcelInner(P, edge, x, y);
+  return plan.P && plan.P.climate === 'winter' && HEDGE_SOFT > 0 && (a || b2 || c2 || d2) ? softHedge(plan, id, P, c, x, y, true) : c;
 }
 // Paint plan rows y0 .. y0 + h - 1 into an ImageData that is W wide and h tall (screen row 0 = plan row y0 + h - 1, so north is up).
 // Oil field sprites painted into the ground (Enigma Run level 2). Offsets are screen pixels from the centre, dy down the screen; put takes the plan's y
@@ -3952,7 +3970,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
