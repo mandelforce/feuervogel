@@ -37,6 +37,13 @@ for (const [loops, seed] of [[0, 1944], [2, 1946]]) {
 {
   const { page, peek, info } = await page_(1);
   ok(info.kind === 'skyfort' && info.seed === 1945 && info.haze && info.pods === 2, `level 6, seed 1945: the Black Fortress with two lance pods (${info.pods})`);
+  await page.waitForFunction(() => window.SF.peek('!!SPR.bPod && !!SPR.bPodF'), null, { polling: 200, timeout: 20000 }).catch(() => {});
+  const art = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'), P = b.parts.filter(p => p.k === 'lance'); let draws = 0; const s0 = spr; spr = (s, x, y, f) => { if (s === SPR.bPod || s === SPR.bPodF) draws++; return s0(s, x, y, f); };
+    app.fade = null; app.msg = null; SF.draw = SF.draw || (() => { resetCtx(); render(); }); SF.draw(); const folded = draws; draws = 0; for (const p of P) p.off = false; b.ln = { ph: 'fire', t: 20, cx: 112 }; SF.draw(); b.ln = null; spr = s0; for (const p of P) p.off = true;
+    return JSON.stringify({ art: !!SPR.bPod && !!SPR.bPodF, dims: SPR.bPod ? [SPR.bPod.w, SPR.bPod.h, SPR.bPodF.w, SPR.bPodF.h] : null, hw: P.map(p => p.hw), hh: P.map(p => p.hh), folded, open: draws }); })()`));
+  ok(art.art && art.dims.join() === '13,20,13,7', 'the pod pictures are in the Enigma art set (bPod 13 x 20, bPodF 13 x 7)');
+  ok(art.hw.every(v => v >= 8) && art.hh.every(v => v >= 11), `the pods' hit boxes are a little bigger than the first drawing's 6 x 8 (${art.hw[0]} x ${art.hh[0]})`);
+  ok(art.folded === 2 && art.open === 2, `folded pods draw the hatch (${art.folded}), unfolded pods draw the pod (${art.open})`);
   const f0 = JSON.parse(await peek(`(() => { const b = world.enemies.find(e => e.type === 'boss'); SF.run(600); return JSON.stringify({ off: b.parts.filter(p => p.k === 'lance').every(p => p.off), ln: !!b.ln, hp: b.parts.filter(p => p.k === 'lance').map(p => p.hp) }); })()`));
   ok(f0.off && !f0.ln, 'while the engines stand the pods stay folded away and no lance fires');
   await peek(killEngines);
