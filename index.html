@@ -2691,6 +2691,14 @@ function morningGrade(d, w) {
     const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
+function hazeGrade(d, w) { /* the first loop's level 6 (dawn haze over the burning harbour city): colour taken out a fifth, a warm rose tint, the shadows lifted towards a soft violet so the ground stays readable, the highlights a touch peach. Only a pixel's own colour is read (gradeTree relies on it) */
+  const n = d.length >> 2;
+  for (let i = 0; i < n; i++) { const o = i * 4; let r = d[o] / 255, g = d[o + 1] / 255, b = d[o + 2] / 255;
+    const l = 0.299 * r + 0.587 * g + 0.114 * b; r = l + (r - l) * 0.8; g = l + (g - l) * 0.8; b = l + (b - l) * 0.8;
+    r *= 1.02; g *= 0.94; b *= 0.92; const sh = 0.16 * (1 - l); r = r * (1 - sh) + 0.42 * sh; g = g * (1 - sh) + 0.34 * sh; b = b * (1 - sh) + 0.46 * sh;
+    const hi = 0.12 * l; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.8 * hi; b = b * (1 - hi) + 0.66 * hi;
+    d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
+}
 function moonGrade(d, w, pAt) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into moonlight; a little brighter toward the moon's side (right). pAt: the level's progress (0 to 1) at a row (or one number): the moon starts low and warm (amber haze over the beach) and climbs to a high, white-blue light, so the tone changes smoothly along the level. Only a pixel's own colour, its column and its row are read (gradeTree relies on it)
   const n = d.length >> 2; let p = 1, wm = 0, kb = 1;
   for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) { p = typeof pAt === 'function' ? pAt((i / w) | 0) : pAt === undefined ? 1 : pAt; const q = clamp(1 - p / 0.5, 0, 1); wm = q * q * 0.6; kb = 1.25 + 0.4 * clamp(p / 0.5, 0, 1); }
@@ -4438,7 +4446,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4464,7 +4472,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.96'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.97'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6630,7 +6638,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
 const AIRSH = { d: 1, a: 0.28, s: 0.6 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity, s its size at full altitude (1 = as big as the plane; it grows back to 1 toward the deck) */
-function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
+function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.haze) a *= 0.8; /* level 6's first loop: haze, softer shadows */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
   r = Math.max(0, Math.round(r));
@@ -7803,6 +7811,7 @@ function workChunk(job, rows) {
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
     if (run.sortie && run.sortie.moon && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.moonGrade(im.data, W, r => moonP(wy0 + r)); job.x.putImageData(im, 0, 0); job.c.moonP = moonP(wy0 + CH / 2); job.c.grade = job.I.plan ? 'moonp' : 'moon'; } /* the first loop's level 3: the night's ground (the plan's own night, the legacy chunks' night grade) lifted into moonlight; a tree redrawn over a unit carries it (moon: night then moonlight; moonp: the plan's trees are night already) */
+    else if (run.sortie && run.sortie.haze && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.hazeGrade(im.data, W); job.x.putImageData(im, 0, 0); job.c.grade = 'haze'; } /* level 6's first loop: the whole ground (plan and legacy, sea and land) in the dawn haze; a tree redrawn over a unit carries it */
     else if (run.sortie && run.sortie.timeOfDay === 'sunset' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.sunsetGrade(im.data, W, r => wy0 + r); job.x.putImageData(im, 0, 0); job.c.grade = 'sunset'; } // a loop's level 1: the whole ground (plan and legacy, sea and land) is graded to sunset
     else if (run.sortie && run.sortie.timeOfDay === 'morning' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.morningGrade(im.data, W); job.x.putImageData(im, 0, 0); job.c.grade = 'morning'; } // a loop's level 2: the whole ground in the golden light of a morning
     else if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') job.c.grade = 'night'; // (the grade applied above: the trees redrawn over a unit must carry it too)
@@ -8957,7 +8966,12 @@ function yardWait() { return Math.max(1, Math.ceil(H / CH) - 1 - Math.ceil(XH / 
 // the village and the junction may trade places, and the open desert and the airbase; the other stretches get 1 chunk (a weight of 1) longer or shorter, the pass
 // never shorter (its ravine and fort need the room). The level's length does not change (the weights are scaled to it below).
 function loopSeq(seq, seed, level) {
-  const r = k => sortieHash((seed | 0) + (level === 3 ? 3 : level === 5 ? 5 : 2) * 977 + 31, k), out = seq.map(q => q.slice());
+  const r = k => sortieHash((seed | 0) + (level === 3 ? 3 : level === 5 ? 5 : level === 6 ? 6 : 2) * 977 + 31, k), out = seq.map(q => q.slice());
+  if (level === 6) { /* the first loop's level 6: the sea in, the south harbour and the station last stay; the city centre and the town may trade places, and the power works and the ruins; the other stretches get a chunk longer or shorter (never under 3). The weights are scaled to the level's length by buildSortie, and every part of the plan finds its stretch by name */
+    const sw6 = (t1, t2, k) => { const a = out.findIndex(q => q[0] === t1), b = out.findIndex(q => q[0] === t2); if (a >= 0 && b === a + 1 && r(k) < 0.5) { const q = out[a]; out[a] = out[b]; out[b] = q; } };
+    sw6('city_centre', 'city_town', 1); sw6('industrial_power', 'ruins', 2);
+    out.forEach((q, k) => { if (k === 0 || k === out.length - 1 || q[0] === 'harbour_south') return; const d = r(10 + k); q[1] = Math.max(3, q[1] + (d < 1 / 3 ? -1 : d < 2 / 3 ? 0 : 1)); });
+    return out; }
   if (level === 5) { /* the first loop's level 5: the frozen sea, the harbour, the first farmland and the last stretch (the depot, the massif, the gorge) stay; the station and the airbase may trade places, and the village and the lake valley; the other stretches get 1 chunk longer or shorter (never under 4); the pass grows to 10 chunks (its basin holds the base) and the chunks come out of the others, so the level keeps its length */
     const sw5 = (t1, t2, k) => { const a = out.findIndex(q => q[0] === t1), b = out.findIndex(q => q[0] === t2); if (a >= 0 && b === a + 1 && r(k) < 0.5) { const q = out[a]; out[a] = out[b]; out[b] = q; } }, tot0 = seq.reduce((n, q) => n + q[1], 0), fixed = (q, k) => k === 0 || k === out.length - 1 || q[0] === 'open_sea_ice' || q[0] === 'harbour_winter' || q[0] === 'pass' || (q[0] === 'farmland_winter' && k < 4);
     sw5('village', 'lake_valley', 1); sw5('station_winter', 'airbase_snow', 2);
@@ -8978,16 +8992,20 @@ function loopSeq(seq, seed, level) {
 function buildSortie(level, seed) {
   const variant = level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
   const winter5 = level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const haze6 = level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
   const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
-  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
+  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
   const encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, once the screen is well into the valley (4 chunks in: the Shadow Wing is over by then) */
     const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start + 4, until: v4.start + 7, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
     const sg5 = tt => segs.find(g => g.t === tt), a5 = sg5('open_sea_ice'), b5 = sg5('lake_valley'), c5 = sg5('pass');
     return [{ id: 'iceraid', c: 4, until: a5.start + a5.n - 6, live: true }, { id: 'iceroad', c: b5.start + 1, until: b5.start + b5.n - 2, live: true }, { id: 'basebreak', c: c5.start + 2, until: c5.start + c5.n - 3, live: true }];
+  })() : haze6 ? (() => { /* level 6's first loop: the harbour raid over the south harbour, the flak lane over the city centre, the station breakout at the main station (found by name: the stretches may have traded places) */
+    const sg6 = t => segs.find(g => g.t === t), a6 = sg6('harbour_south'), b6 = sg6('city_centre'), c6 = sg6('station_main');
+    return [{ id: 'harbourraid', c: a6.start + 1, until: a6.start + a6.n - 2, live: true }, { id: 'cityflak', c: b6.start, until: b6.start + b6.n - 1, live: true }, { id: 'stationrun', c: c6.start, until: c6.start + c6.n - 2, live: true }];
   })() : !variant ? null : level === 3 ? (() => { /* the first loop's level 3: the refinery raid over the power works, the searchlight net over the light industry, the night convoy in the rail corridor */
     const sg3 = t => segs.find(g => g.t === t), a = sg3('industrial_power'), b = sg3('industrial_light'), c = sg3('rail_corridor');
     return [{ id: 'refineryraid', c: a.start + 1, until: a.start + a.n - 2, live: true }, { id: 'searchnet', c: b.start, until: b.start + b.n - 1, live: true }, { id: 'nightconvoy', c: c.start + 1, until: c.start + c.n - 2, live: true }].sort((x, y) => x.c - y.c);
@@ -8995,7 +9013,7 @@ function buildSortie(level, seed) {
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -9069,13 +9087,14 @@ function sortiePlanBuild(S) {
 // Level 6: the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
 // harbour (piers, U-boat bunker, breakwater, fairway) with the east side harbour opening into it (portSouth preset, corner form, sea to
 // the east), the old town, the works in their segment, the station in the last one, and the airfield's perimeter in the last chunk.
+const HARBOUR6 = { land: 0.56, pier: [30, 50], sideChannel: 62 };
 function sortiePlanHarbour(S) {
   const n = S.len, L = n * CH, dens = [], dmg = []; let lastU = 0;
   for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
   dens.unshift([0, dens[1][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
   const fr = t => { const g = S.segs.find(q => q.t === t); return [g.start / n, (g.start + g.n) / n]; }, sea = S.segs.find(g => g.t === 'open_sea'), hb = S.segs.find(g => g.t === 'harbour_south');
   const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
-    coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }) }; // the end quay just past the sea segment, the east harbour along most of the harbour segment
+    coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }, S.haze ? HARBOUR6 : null) }; /* (the first loop: HARBOUR6 moves the shore, lengthens the piers and widens the side channel, so the fairway and the breakwater's entrance lie elsewhere) */ // the end quay just past the sea segment, the east harbour along most of the harbour segment
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
@@ -15472,7 +15491,7 @@ const canopyCache = new Map();
 function gradeTree(kind, t, moonPr) {
   const s = t.s, sw = s.c.width, sh = s.c.height, x0 = Math.round(t.x - s.w / 2), src = s.c.getContext('2d').getImageData(0, 0, sw, sh).data, buf = new Uint8ClampedArray(W * sh * 4);
   for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i; if (X < 0 || X >= W) continue; const a = (j * sw + i) * 4, b = (j * W + X) * 4; buf[b] = src[a]; buf[b + 1] = src[a + 1]; buf[b + 2] = src[a + 2]; buf[b + 3] = src[a + 3]; }
-  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else if (kind === 'morning') CityGen.morningGrade(buf, W); else if (kind === 'moonp') CityGen.moonGrade(buf, W, moonPr); else { CityGen.nightGrade(buf); if (kind === 'moon') CityGen.moonGrade(buf, W, moonPr); }
+  if (kind === 'sunset') CityGen.sunsetGrade(buf, W, () => 0); else if (kind === 'morning') CityGen.morningGrade(buf, W); else if (kind === 'haze') CityGen.hazeGrade(buf, W); else if (kind === 'moonp') CityGen.moonGrade(buf, W, moonPr); else { CityGen.nightGrade(buf); if (kind === 'moon') CityGen.moonGrade(buf, W, moonPr); }
   const [c, x] = mk(sw, sh), im = x.createImageData(sw, sh);
   for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) { const X = x0 + i, a = (j * sw + i) * 4, b = (j * W + X) * 4, inside = X >= 0 && X < W, d = inside ? buf : src, o = inside ? b : a; im.data[a] = d[o]; im.data[a + 1] = d[o + 1]; im.data[a + 2] = d[o + 2]; im.data[a + 3] = src[a + 3]; }
   x.putImageData(im, 0, 0);
@@ -16043,6 +16062,22 @@ ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 2100, max: 3400, rest: 180, bud
   { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 420, do: 'ptriver' }, { t: 700, do: 'dive', n: 5, x: 0.5 }, { t: 1000, do: 'ptriver', diff: [1, 2] }, { t: 1300, do: 'chase' }, { t: 1700, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 2100, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.valleyconvoy = 2100;
 /* Level 5's first loop (run.sortie.winter, run.sortie.encPlan), from the existing verbs only. ICE BREAKERS: two five-plane dives over the frozen sea, a bomber, a strafing run of four from the side the ship is not on, a chase pair (the ice has no open water for patrol boats). ICE ROAD CONVOY: tankers chain along the road beside the frozen lake, tanks behind them, cover from the air. THE BASE: flak both sides of the lane, a formation down it, the depot's tankers, a bomber, a dive, a chase pair. */
+/* Level 6's first loop (run.sortie.haze, run.sortie.encPlan), from the existing verbs only. HARBOUR RAID over the south harbour: a destroyer and two patrol boats on the harbour water (portship: the verb 'ship' needs the open-sea biome, the harbour is a city's), two dives, a bomber, a chase pair, a pod. CITY FLAK over the city centre: a flak gun each side of the lane, a formation down it, a second, tankers chaining along the streets, a bomber, a dive, a chase pair. STATION BREAKOUT at the main station: tankers chain beside the tracks, tanks behind them, two dives, a chase pair, a bomber, a pod. */
+ENC_VERB.portship = v => { const wy = -34 - Math.floor(world.scroll), m = hpm(), dd = v.kind === 'destroyer', hw = dd ? 16 : 6, hh = dd ? 46 : 16, yy = dd ? wy - 30 : wy, xs = []; /* a destroyer or a patrol boat on the harbour's own water: the nearest free water to x (retried while there is none) */
+  for (let x = 24; x <= W - 24; x += 6) xs.push(x); xs.sort((a, b) => Math.abs(a - v.x * W) - Math.abs(b - v.x * W));
+  const wet = (x, y) => { for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; };
+  for (const wx of xs) if (placeOK(wx, yy, dd ? 34 : 16) && wet(wx, yy)) { world.enemies.push(dd ? G('destroyer', wx, yy, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 }) : G('pt', wx, yy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; }
+  return false; };
+ENC.harbourraid = { name: 'HARBOUR RAID', len: 1000, max: 2000, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'portship', kind: 'destroyer', x: 0.8, wait: 240 }, { t: 120, do: 'portship', kind: 'pt', x: 0.7, wait: 180 }, { t: 150, do: 'portship', kind: 'pt', x: 0.9, wait: 180, diff: [1, 2] }, { t: 300, do: 'dive', n: 5, x: 0.4 }, { t: 480, do: 'bomber', x: 0.5 }, { t: 640, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 800, do: 'chase' }, { t: 1000, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.harbourraid = 1100;
+ENC.cityflak = { name: 'CITY FLAK', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'flak', x: [0.04, 0.5], wait: 300 }, { t: 0, do: 'flak', x: [0.5, 0.96], wait: 300 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5 }, /* (a street grid has little ground for guns: the formation comes even when one gun found none) */ { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
+  { t: 520, do: 'tankers', n: 2, wait: 300 }, { after: 120, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.cityflak = 1100;
+ENC.stationrun = { name: 'STATION BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 260, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 480, do: 'bomber', x: 0.3 }, { t: 600, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 760, do: 'chase' }, { t: 920, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.stationrun = 1100;
 ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'dive', n: 5, x: 0.3 }, { t: 60, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 260, do: 'bomber', x: 0.5 }, { t: 480, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] }, { t: 700, do: 'chase' }, { t: 900, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.iceraid = 1000;
@@ -16191,6 +16226,24 @@ function lightBeam(x, y, a, len, half, rgb = '255,248,200', al = 0.42) {
   g.addColorStop(0, `rgba(${rgb},${al})`); g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y);
   ctx.arc(x, y, len, a - half, a + half); ctx.closePath(); ctx.fill();
+}
+/* Level 6's first loop (run.sortie.haze): dawn haze over the burning harbour city. The ground is baked in hazeGrade (and the trees with it); here the live part, drawn over the ground and the planes (bullets, the ship's effects and the HUD come after it and keep their colours): a rose haze that is thicker towards the top of the screen (the far end), a low pale sun glow at the upper left, a light vignette, and a warm glow over every burning building (not the chimneys' smoke), flickering with the frame counter. Visual only: nothing is drawn from the seeded stream and nothing is saved. */
+let hazeGlowSpr = null;
+function drawHazeLight() {
+  const S = run.sortie, sc = Math.floor(world.scroll), t = run.frames;
+  let g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(244,168,150,0.30)'); g.addColorStop(0.55, 'rgba(238,160,150,0.10)'); g.addColorStop(1, 'rgba(230,150,150,0.04)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  g = ctx.createRadialGradient(W * 0.15, -H * 0.05, 0, W * 0.15, -H * 0.05, H * 0.8); g.addColorStop(0, 'rgba(255,190,120,0.30)'); g.addColorStop(0.5, 'rgba(255,160,100,0.10)'); g.addColorStop(1, 'rgba(255,150,90,0)');
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const P = S.plan;
+  if (P && P.fires && S.planFor === world.stageBaseP) {
+    if (!hazeGlowSpr) { const [c, x] = mk(64, 64), rg = x.createRadialGradient(32, 32, 0, 32, 32, 32); rg.addColorStop(0, 'rgba(255,150,60,0.55)'); rg.addColorStop(0.4, 'rgba(255,110,40,0.22)'); rg.addColorStop(1, 'rgba(255,90,30,0)'); x.fillStyle = rg; x.fillRect(0, 0, 64, 64); hazeGlowSpr = c; }
+    for (const f of P.fires) { if (f.smoke) continue; const sy = S.planY0 - f.y + sc; if (sy < -40 || sy > H + 40) continue;
+      const rr = Math.min(40, 18 + Math.max(f.w, f.h) * 0.9), fl = 0.8 + 0.2 * Math.sin(t * 0.21 + (f.seed % 13)) + 0.08 * Math.sin(t * 0.53 + f.seed);
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl)); ctx.drawImage(hazeGlowSpr, f.x - rr, sy - rr, rr * 2, rr * 2); }
+    ctx.globalAlpha = 1; }
+  ctx.globalCompositeOperation = 'source-over';
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, H * 0.78); v.addColorStop(0, 'rgba(40,16,24,0)'); v.addColorStop(1, 'rgba(40,16,24,0.20)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }
 function drawDawn() { // a loop's level 2 (the morning): the low sun's glow from the upper left, over the ground and the planes (bullets, the ship's effects and the HUD are drawn after it)
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, H * 0.82); g.addColorStop(0, 'rgba(255,170,90,0.34)'); g.addColorStop(0.5, 'rgba(255,150,70,0.12)'); g.addColorStop(1, 'rgba(255,140,60,0)');
@@ -16861,6 +16914,7 @@ function renderMain() {
   if (world.nightF > 0.02) drawNight();
   if (run.sortie && run.sortie.timeOfDay === 'morning') drawDawn();
   if (run.sortie && run.sortie.moon) drawMoonGlow();
+  if (run.sortie && run.sortie.haze) drawHazeLight();
   if (run.sortie && run.sortie.autumn) drawAutumnLight();
   if (run.sortie && run.sortie.winter) { drawWinterLight(); drawSquall(); }
   { const sc3 = Math.floor(world.scroll), kT = Math.floor(-sc3 / CH) - 1, kB = Math.floor((H - sc3) / CH) + 1;

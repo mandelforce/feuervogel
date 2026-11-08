@@ -2196,6 +2196,14 @@ function morningGrade(d, w) {
     const t = 1 - x / w, gl = 0.34 * t * Math.sqrt(t); r = 1 - (1 - r) * (1 - gl); g = 1 - (1 - g) * (1 - gl * 0.78); b = 1 - (1 - b) * (1 - gl * 0.47);
     d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
 }
+function hazeGrade(d, w) { /* the first loop's level 6 (dawn haze over the burning harbour city): colour taken out a fifth, a warm rose tint, the shadows lifted towards a soft violet so the ground stays readable, the highlights a touch peach. Only a pixel's own colour is read (gradeTree relies on it) */
+  const n = d.length >> 2;
+  for (let i = 0; i < n; i++) { const o = i * 4; let r = d[o] / 255, g = d[o + 1] / 255, b = d[o + 2] / 255;
+    const l = 0.299 * r + 0.587 * g + 0.114 * b; r = l + (r - l) * 0.8; g = l + (g - l) * 0.8; b = l + (b - l) * 0.8;
+    r *= 1.02; g *= 0.94; b *= 0.92; const sh = 0.16 * (1 - l); r = r * (1 - sh) + 0.42 * sh; g = g * (1 - sh) + 0.34 * sh; b = b * (1 - sh) + 0.46 * sh;
+    const hi = 0.12 * l; r = r * (1 - hi) + hi; g = g * (1 - hi) + 0.8 * hi; b = b * (1 - hi) + 0.66 * hi;
+    d[o] = Math.max(0, Math.min(255, r * 255)); d[o + 1] = Math.max(0, Math.min(255, g * 255)); d[o + 2] = Math.max(0, Math.min(255, b * 255)); }
+}
 function moonGrade(d, w, pAt) { // a loop's level 3 (the moonrise): the night's ground, already graded dark, lifted into moonlight; a little brighter toward the moon's side (right). pAt: the level's progress (0 to 1) at a row (or one number): the moon starts low and warm (amber haze over the beach) and climbs to a high, white-blue light, so the tone changes smoothly along the level. Only a pixel's own colour, its column and its row are read (gradeTree relies on it)
   const n = d.length >> 2; let p = 1, wm = 0, kb = 1;
   for (let i = 0; i < n; i++) { const o = i * 4, x = i % w; if (x === 0) { p = typeof pAt === 'function' ? pAt((i / w) | 0) : pAt === undefined ? 1 : pAt; const q = clamp(1 - p / 0.5, 0, 1); wm = q * q * 0.6; kb = 1.25 + 0.4 * clamp(p / 0.5, 0, 1); }
@@ -3943,7 +3951,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
