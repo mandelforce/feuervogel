@@ -17202,7 +17202,7 @@ function openAch(fromMenu) {
     const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
     if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
     row.appendChild(am);
-    const as = document.createElement('div'); as.className = 'as'; if (on) as.textContent = '\u2713'; else as.appendChild(achIcon('lock', '#5a4e80')); row.appendChild(as);
+    const as = document.createElement('div'); as.className = 'as'; if (on) { as.textContent = '\u2713'; row.appendChild(as); }
     if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
     list.appendChild(row);
   }
