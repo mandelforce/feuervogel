@@ -4476,7 +4476,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.102'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.103'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4537,7 +4537,7 @@ let eshotN = 0;
 
 /* ================= noise ================= */
 // The world: the stage being flown. Scrolling, the terrain (its seed, chunks and theme), everything in it (enemies, bullets, shots, items, particles, decals, delayed effects), the director's timers and flags, and the weather.
-const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, gustX: 0, gustK: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
+const world = { SEED: 1944, scroll: 0, scrollV: null, scrollTarget: null, chunks: null, chunkInfo: null, chunkJobs: [], genP: -7, stageBaseP: 0, curTheme: 0, prevTheme: 0, prevLand: false, featTheme: 0, blendFrom: 0, blendTo: 0, blendY: 0, shots: [], ebul: [], dust: [], enemies: [], items: [], parts: [], decals: [], later: [], waveCd: 60, groundCd: 30, podCd: 300, midDone: false, bossSpawned: false, trainDone: false, quiet: false, secret: null, trainLeft: {}, trainId: 0, ARC_U: 0, rainT: 0, rainF: 0, rainCd: 1200, nightF: 0, snowF: 0, dustF: 0, flashL: 0, lightCd: 600, windX: 0, gustX: 0, gustK: 0, stormK: 0, stormStreaks: [], birdCd: 300, spotted: 0, protoWatch: null, duelWatch: null, ravenGate: null };
 
 function hash(x, y) {
   let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ world.SEED;
@@ -4893,7 +4893,7 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
+// Phönix: the skin for finishing the Campaign on Veteran. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
 // The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
 function buildPhoenix(bank) {
   const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
@@ -4939,12 +4939,12 @@ function buildPhoenix(bank) {
 }
 let phoenixCache = null;
 function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Veteran or Ace (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the ranked Campaign on Veteran (see campaignWon).
 const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
 const phoenixOwned = () => phoenixState() > 0;
 function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
 function unlockPhoenix() { if (!phoenixOwned()) store.set(KEY.phoenix, 1); }
-// Rotkehlchen (robin): the Ace skin, for finishing the Campaign plus a loop on Ace. Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
+// Rotkehlchen (robin): the skin for finding all six secrets in one loop (the Eagle Eye achievement). Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
 // Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
 function buildRotkehlchen(bank) {
   const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'], CRIM = ['#3a0808', '#7a1410', '#c82a1a', '#ff4a2a', '#ff8a5a'];
@@ -4979,12 +4979,12 @@ function buildRotkehlchen(bank) {
 }
 let robinCache = null;
 function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Ace (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finding all six secrets in one loop (see campaignWon).
 const robinState = () => +store.get(KEY.robin, 0) || 0;
 const robinOwned = () => robinState() > 0;
 function unlockRobin() { if (!robinOwned()) store.set(KEY.robin, 1); }
 function useRobin() { return robinOwned() && !!settings.robin; }
-// Raptor: the skin for finishing the Campaign twice. A bronze bird of prey seen from above: feathered wing tips, teal rim and tail, a teal beak tip, no face. Symmetric like the Rotkehlchen; 36x38 with an empty border instead of the outline.
+// Raptor: the skin for finishing the Campaign on Ace. A bronze bird of prey seen from above: feathered wing tips, teal rim and tail, a teal beak tip, no face. Symmetric like the Rotkehlchen; 36x38 with an empty border instead of the outline.
 function buildRaptor(bank) {
   const BRONZE = ['#241408', '#4a2c10', '#86541c', '#c08a2c', '#e8c060', '#fff0b0'], TEAL = ['#06302c', '#0e5c54', '#1e9a88', '#58d0b8', '#b8f4e4'];
   const WING = [[15, 8], [9, 9], [4, 12], [0, 16], [1, 22], [3, 20], [3, 27], [6, 23], [7, 30], [10, 25], [12, 31], [14, 24], [15, 20]], TAIL = [[16, 22], [13, 35], [17, 30], [21, 35], [18, 22]], HEAD = [[17, 0], [19, 3], [20, 7], [18, 10], [16, 10], [14, 7], [15, 3]];
@@ -5014,7 +5014,7 @@ function buildRaptor(bank) {
 }
 let raptorCache = null;
 function raptorSet() { return raptorCache || (raptorCache = [-1, 0, 1].map(buildRaptor)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on any difficulty (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the ranked Campaign on Ace (see campaignWon).
 const raptorState = () => +store.get(KEY.raptor, 0) || 0;
 const raptorOwned = () => raptorState() > 0;
 function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
@@ -6294,6 +6294,57 @@ lazySpr('proto', () => {
   x.fillStyle = '#0e0d10'; x.fillRect(w / 2 - 1, 22, 3, 7); x.fillRect(w / 2 - 6, 24, 13, 2); x.fillRect(w / 2 - 3, 29, 2, 3); x.fillRect(w / 2 + 2, 29, 2, 3);
   const [oc, ox] = mk(w + 2, h + 2); ox.drawImage(c, 1, 1); outline(oc, '#0a080c'); // the enigma black outline, like every other sprite (the grey wash alone melted into the ground)
   return { c: oc, w: w + 2, h: h + 2 };
+});
+// The Raven Prototype in the looped version, "The Moth" (loops 1 and up; the first pass keeps the old hull, SPR.proto above): a dusty-brown bomber with a moth's wings (a zig-zag pattern, a gold-ringed eyespot on each forewing and a small one on each hindwing, feathered antennae, a furry thorax and
+// a segmented abdomen), four engine pods hung under the wings so that only their rear ends show from above (the dark nozzles glow). 57 x 41 with the outline, 60% of the old hull (95 x 68). It is drawn nose up
+// and stored turned half a circle (nose down), because the game draws the prototype rotated by PI. The engines are at protoEngines(); the hit boxes and offsets of the prototype follow its size while it is drawn (protoSpr, protoK, protoBox).
+function buildMothArt(o) {
+  const R=o.ramp, W=55, H=39, M=pts=>pts.map(([a,b])=>[W-a,b]).reverse();
+  return sprite(W,H,x=>{
+    const FW=o.fw, HW=o.hw;
+    const podsDraw=()=>{
+    for(const [cx,cy,ry] of (o.pods||[[7,27,6],[16,31,7]])) for(const px of [cx,W-1-cx]){
+      for(let j=cy-ry-1;j<=cy+ry+1;j++)for(let i=px-4;i<=px+4;i++){ const dx=(i+0.5-px-0.5)/((o.podW||2.5)+1.4),dy=(j+0.5-cy)/(ry+1); if(dx*dx+dy*dy<=1)rect(x,'#0c0d10',i,j,1,1); }
+      ellS(x,R,px+0.5,cy,o.podW||2.5,ry,0.42); rect(x,R[5],px-1,cy-ry,3,1); rect(x,'#0c0d10',px,cy-ry+2,1,ry*2-4); rect(x,'#0c0d10',px-2,cy+2,5,1);
+      rect(x,'#0c0d10',px-(o.flare?3:2),cy+ry-1,o.flare?7:5,2); rect(x,o.glow[0],px-1,cy+ry,3,1); rect(x,o.glow[1],px,cy+ry,1,1); }
+    };
+    if(o.under)podsDraw();
+    for(const P of [FW,HW]){ polyS(x,R,P,0.14,0.55); polyS(x,R,M(P),0.14,0.55); }
+    if(o.tailL){ for(const t of o.tailL){ polyS(x,R,t,0.1,0.4); polyS(x,R,M(t),0.1,0.4);} }
+    const inW=(i0,j)=>{const i=i0>27?W-1-i0:i0;return pip(FW,i+0.5,j+0.5)||pip(HW,i+0.5,j+0.5)||(o.tailL||[]).some(t=>pip(t,i+0.5,j+0.5))};
+    // wing edge: a lit leading edge, a shadowed trailing edge, a dusty fringe
+    for(let j=0;j<H;j++)for(let i=0;i<28;i++){ if(!inW(i,j))continue;
+      const lead=!inW(i,j-1), trail=!inW(i,j+1); let c=null;
+      if(lead)c=R[5]; else if(trail)c=(o.teeth&&(i&1))?R[3]:(o.fringe||R[1]); else if(o.bands&&(j+Math.floor(i/3))%o.bands===0)c=R[2]; else if(o.zig&&[15,19,24].some((b,k)=>(j===b+Math.round(1.6*Math.sin(i*0.9+k))))&&i>3&&i<23)c=R[2]; else if(o.zig&&(j===12||j===13)&&i<22&&i>4&&((i+j)&1))c=R[4];
+      if(c){rect(x,c,i,j,1,1);rect(x,c,W-1-i,j,1,1)} }
+    // eyespots
+    if(o.eyes) for(const [ex,ey] of o.eyes) for(const px of [ex,W-1-ex]) for(let dj=-5;dj<=5;dj++)for(let di=-5;di<=5;di++){
+      const d=Math.hypot(di,dj), ii=px+di, jj=ey+dj; if(!inW(ii,jj))continue;
+      const c=d<=1.3?o.eye[0]:d<=2.4?o.eye[1]:d<=3.5?o.eye[2]:d<=4.5?o.eye[3]:null; if(c)rect(x,c,ii,jj,1,1); }
+    if(o.eyes2) for(const [ex,ey] of o.eyes2) for(const px of [ex,W-1-ex]) for(let dj=-3;dj<=3;dj++)for(let di=-3;di<=3;di++){
+      const d=Math.hypot(di,dj), ii=px+di, jj=ey+dj; if(!inW(ii,jj))continue;
+      const c=d<=0.8?o.eye[0]:d<=1.7?o.eye[1]:d<=2.6?o.eye[2]:null; if(c)rect(x,c,ii,jj,1,1); }
+    if(!o.under)podsDraw();
+    // body: a furry thorax and a tapering abdomen
+    polyS(x,R,[[27.5,6],[24,9],[22.5,16],[24,22],[25,34],[27.5,38]],0.15,0.6); polyS(x,R,M([[27.5,6],[24,9],[22.5,16],[24,22],[25,34],[27.5,38]]),0.15,0.6);
+    ellS(x,R,27.5,15,4.6,6.5,0.3);
+    for(let j=11;j<20;j++)for(let i=23;i<=32;i++){ if(((i*7+j*5)%4)===0)rect(x,R[5],i,j,1,1); }  // fur
+    for(let j=24;j<37;j+=3){ rect(x,'#0c0d10',25,j,5,1); }                                           // abdomen segments
+    rect(x,'#0c0d10',27,18,1,1);
+    // head: lamp-eyes and feathered antennae
+    rect(x,R[4],25,4,5,3); rect(x,R[5],26,4,3,1); rect(x,o.lamp[0],25,5,1,1); rect(x,o.lamp[0],29,5,1,1); rect(x,o.lamp[1],26,5,3,1);
+    for(const sg of [-1,1]){ const A=[[2,3],[3,2],[4,1],[5,0],[6,0]]; for(const [a,b] of A) rect(x,R[5],sg<0?27-a:27+a,b+0,1,1);
+      for(const [a,b] of [[3,3],[4,2],[5,1]]) rect(x,R[3],sg<0?27-a:27+a,b,1,1);
+      if(o.comb) for(const [a,b] of [[2,2],[3,1],[4,0],[3,4],[4,3],[5,2],[6,1]]) rect(x,R[4],sg<0?27-a:27+a,b,1,1); }
+    if(o.cross){ for(const cxp of o.cross){ for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++) if(di*di+dj*dj<=5)rect(x,'#d8d6cc',cxp+di,25+dj,1,1); rect(x,'#0a0a0e',cxp,23,1,5); rect(x,'#0a0a0e',cxp-2,25,5,1); } }
+  },{oc:'#0a080c'});
+}
+lazySpr('protoMoth', () => {
+  const DUST = ['#1c1814', '#34291f', '#54443a', '#7a6654', '#a08a70', '#c8b894'];
+  const FORE = [[24, 11], [15, 10], [7, 12], [1, 17], [0, 22], [3, 24], [10, 23], [17, 22], [24, 22]], HIND = [[24, 20], [16, 23], [9, 26], [7, 31], [11, 34], [17, 33], [24, 30]];
+  const s = buildMothArt({ ramp: DUST, glow: ['#ffb040', '#fff0a0'], fw: FORE, hw: HIND, fringe: '#2a1e16', lamp: ['#ff3a2a', '#ffb0a0'], eyes: [[11, 17]], eye: ['#fff0b0', '#34291f', '#c8a060', '#34291f'], zig: true, under: true, eyes2: [[14, 29]], comb: true, teeth: true, podW: 3.3, flare: true });
+  const [c, x] = mk(s.w, s.h); x.translate(s.w, s.h); x.rotate(PI); x.drawImage(s.c, 0, 0);
+  return { c, w: s.w, h: s.h };
 });
 lazySpr('keep', () => [0, 1].map(open => sprite(84, 84, x => {
   boxS(x, ['#2a2730', '#3a3640', '#4a4650', '#5a5660', '#6e6a74'], 4, 4, 76, 76, 0.1);
@@ -8846,7 +8897,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
-  world.shots = []; world.ebul = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
+  world.shots = []; world.ebul = []; world.dust = []; world.veil = null; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
@@ -11588,9 +11639,9 @@ function ravenInit(e) {
   // guns on both wall walks: a crossfire over the courtyards
   if (!loop) for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 });
   // the inner gate: the advance stops in front of it until it is blasted open
-  // the Ravens' secret project: a half-size Black Fortress prototype on the apron behind the keep, with mechanics
-  const proto = add('proto', 112, 1214, { untarget: true });
-  for (const [dx, du] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + dx, 1248 + du, { hd: Math.random() * TAU, scared: 0, post: proto });
+  // the Ravens' secret project: a half-size Black Fortress prototype (The Moth in the looped versions) on the apron behind the keep, with mechanics
+  const hull = mothOn() ? 'moth' : undefined, proto = add('proto', 112, 1214, Object.assign({ untarget: true, hull }, protoBox('proto', hull)));
+  for (const [dx0, du0] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + Math.round(dx0 * protoK(proto)), 1248 + Math.round(du0 * protoK(proto)), { hd: Math.random() * TAU, scared: 0, post: proto });
   // drill squads appear as they scroll into view: [u, kind, from]
   e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
   e.gate2 = add('cgate', 112, 432, { hp: 80 * m, score: 5000, cd: 50, inner: true, quiet: loop });
@@ -12743,27 +12794,46 @@ function protoEscape() {
 }
 function checkProto() {
   if (world.protoWatch && (world.protoWatch.dead || world.protoWatch.dying)) { run.proto.dmg = world.protoWatch.dmg || 0; world.protoWatch = null; stageClear(); }
-  if (world.duelWatch && (world.duelWatch.e.dead || world.duelWatch.e.dying)) { const fn = world.duelWatch.done; world.duelWatch = null; world.later.push({ at: gf + 90, fn }); }
+  if (world.duelWatch && (world.duelWatch.es || [world.duelWatch.e]).every(o => o.dead || o.dying)) { const fn = world.duelWatch.done; world.duelWatch = null; world.later.push({ at: gf + 90, fn }); }
 }
 // ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
 
 const protoLvl = () => Math.min(3, Math.floor(run.proto.dmg / (18 * hpm())));
 // The prototype's four engine nacelles sit on its wings; this gives each exhaust (offset from the sprite centre) so smoke and flames start exactly there.
 const PROTO_DUEL_T = 7200; // frames of the duel (2 minutes) before it escapes if still alive
-function protoEngines(P, sc) { return [[62, 65], [142, 65], [26, 69], [178, 69]].map(([a, b]) => [(a / 204 - 0.5) * P.w * sc, (b / 144 - 0.5) * P.h * sc]); }
-function spawnProtoFly() { world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true })); world.later.push({ at: gf + 20, fn: boostOutSfx }); }
+const mothOn = () => (run.loops | 0) > 0, isMoth = e => !!e && e.hull === 'moth', protoSpr = e => isMoth(e) ? SPR.protoMoth : SPR.proto, protoK = e => isMoth(e) ? 0.6 : 1; // the looped versions fly The Moth (60% of the old hull) beside the old one; the first pass the old prototype alone. Each prototype entity carries its hull (e.hull)
+const protoBox = (type, hull) => hull === 'moth' ? ({ protoFly: { hw: 24, hh: 18 }, protoDuel: { hw: 23, hh: 14, rad: 24 }, proto: { hw: 24, hh: 16, rad: 23 } })[type] : null; // its hit boxes (the table's are the old hull's)
+function protoEngines(P, sc) {
+  if (P === SPR.protoMoth) return [[20, -13.5], [-20, -13.5], [11, -18.5], [-11, -18.5]].map(([a, b]) => [a * sc, b * sc]); // the four nozzles of The Moth, in the sprite's own (nose down) frame
+  return [[62, 65], [142, 65], [26, 69], [178, 69]].map(([a, b]) => [(a / 204 - 0.5) * P.w * sc, (b / 144 - 0.5) * P.h * sc]);
+}
+function darkSmoke(x, y, vy = -0.3, layer = 'a') { if (lowFX && Math.random() < 0.4) return; const life = (rnd(36, 56)) | 0; world.parts.push({ kind: 'smoke', layer, dark: true, x, y, vx: rnd(-0.15, 0.15), vy, r: rnd(2.5, 4.5), life, max: life }); } // a weakened prototype's black smoke
+function engineSparks(e, sc, rot) { // the weakened hull's third thruster: sparks where its flame would be, thrown backwards (rot: drawn turned by PI, as in the fly-off)
+  const [ex, ey] = protoEngines(protoSpr(e), sc)[2], sx = rot ? e.x - ex : e.x + ex, sy = rot ? e.y - ey : e.y + ey, dir = rot ? 1 : -1;
+  if (gf % 2 === 0 || Math.random() < 0.3) for (let n = 0; n < 3; n++) world.parts.push({ kind: 'spark', layer: 'a', x: sx + rnd(-1, 1), y: sy + dir * rnd(0, 3), vx: rnd(-1.3, 1.3), vy: dir * rnd(0.7, 2.8), life: 14, max: 14, col: n === 0 ? '#fff2a8' : n === 1 ? '#ffb040' : '#ff7a3a' });
+}
+function spawnProtoFly() {
+  if (mothOn()) { // the looped levels: the weakened old hull trails dark smoke, and The Moth follows a little behind it
+    world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, hull: 'old', weak: true, under: true }));
+    world.enemies.push(E('protoFly', Object.assign({ x: 154, y: H + 110, keep: true, up: true, ghost: true, untarget: true, hull: 'moth' }, protoBox('protoFly', 'moth'))));
+  } else world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, weak: protoLvl() >= 1 })); // (the first pass: the old hull alone, with a smoke trail if it carries damage from level 4)
+  world.later.push({ at: gf + 20, fn: boostOutSfx });
+}
 function spawnProtoDuel(done) {
   const base = 260 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
-  const e = E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true });
-  world.enemies.push(e); world.duelWatch = { e, done }; sfx('flyin');
+  const wk = 120 * hpm() * DIFF.boss[settings.diff], mk = o => E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true }, o)); // (the weakened old hull has 120 health, scaled like the others by the loop and the difficulty)
+  // the looped levels: the weakened old hull (120 health, always smoking, a thruster throwing sparks, no lunge or missile, few bullets, no health bar of its own) and The Moth fight together, on opposite sides of the sky
+  const es = mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, under: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
+  for (const e of es) world.enemies.push(e);
+  world.duelWatch = { e: es[0], es, done }; sfx('flyin');
 }
 function drawProtoPlane(e, rot, sc, flames) {
-  const P = SPR.proto, lvl = protoLvl(), w = P.w * sc, h = P.h * sc;
+  const P = protoSpr(e), lvl = e.weak ? 3 : protoLvl(), w = P.w * sc, h = P.h * sc;
   ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y));
-  ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(16, 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
+  ctx.globalAlpha = 0.22; ctx.save(); ctx.translate(isMoth(e) ? 10 : 16, isMoth(e) ? 17 : 28); ctx.rotate(rot); ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -w / 2, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
   ctx.rotate(rot);
-  if (flames && !(e.blink && (gf & 4))) for (const [ex, ey] of protoEngines(P, sc)) { // thrusters; before a lunge they blink, during it they flare out longer and wider toward the tip
-    const fa = e.flare || 0, fl = Math.round(20 + ((gf >> 1) & 1) * 4 + fa * 26), x0 = Math.round(ex), y0 = Math.round(ey);
+  if (flames && !(e.blink && (gf & 4))) for (const [ei, [ex, ey]] of protoEngines(P, sc).entries()) { if (e.weak && ei === 2) continue; /* (the weakened hull's third thruster is dead and throws sparks instead, engineSparks) */ // thrusters; before a lunge they blink, during it they flare out longer and wider toward the tip
+    const fa = e.flare || 0, fl = Math.round((20 + ((gf >> 1) & 1) * 4 + fa * 26) * (isMoth(e) ? 0.65 : 1)), x0 = Math.round(ex), y0 = Math.round(ey); // (the Moth's thrusters are 65% as long, like its hull)
     for (let j = 0; j < fl; j++) { const w = 3 + Math.round(fa * 4 * j / fl); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(x0 - (w >> 1), y0 - 1 - j, w, 1); }
     const cl = Math.round(fl * (0.5 + fa * 0.2)); ctx.fillStyle = '#fff0a0'; ctx.fillRect(x0, y0 - cl, 1 + (fa > 0.5 ? 1 : 0), cl - 2);
   }
@@ -12771,7 +12841,7 @@ function drawProtoPlane(e, rot, sc, flames) {
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
 }
-/* Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
+/* (No longer used: in the looped levels The Moth is only parked behind the keep and the fight is in level 6.) Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
    (a cut-down duel: protoDuel with e.castle: two phases, no lunge, no missile). The keep tower waits meanwhile (its parts are shielded and silent). At a tenth of its health
    the prototype breaks off for good (it cannot be killed; what it lost carries into level 6), and then the tower has to be destroyed: its windmills (castleWindmill) turn
    faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
@@ -12779,7 +12849,7 @@ function drawProtoPlane(e, rot, sc, flames) {
 function castleAerial(e) {
   e.aerialT0 = gf; const pr = world.enemies.find(o => o.type === 'proto' && !o.dead), base = 200 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   if (pr) { pr.dead = true; pr.gone = true; for (const t of world.enemies) if (t.type === 'troop' && t.post === pr) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; } } /* (it lifted off behind the keep, out of sight) */
-  world.enemies.push(E('protoDuel', { x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true })); e.aerial = true; e.barHide = true; sfx('flyin');
+  world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true }, protoBox('protoDuel')))); e.aerial = true; e.barHide = true; sfx('flyin');
 }
 function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
   const open = others === 0, arms = open ? 4 : 3; if (!e.spin) e.spin = 0; e.wmT = (e.wmT || 0) + 1; if (e.wmT % 24 === 1 && ((e.wmT / 24) | 0) % 14 === 0) e.wmDir = -(e.wmDir || 1); const dir = e.wmDir || 1;
@@ -12801,7 +12871,7 @@ const BOSSMOVE = {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
-    if (run.sortie && run.sortie.autumn) { if (e.breach && !e.aerialT0) castleAerial(e); if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
+    if (run.sortie && run.sortie.autumn) { /* (the prototype no longer takes off over the keep: in the looped levels The Moth is only parked, castleAerial stays unused) */ if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
       q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
@@ -13900,38 +13970,43 @@ const ENT = {
   } },
   protoFly: { stats: { hw: 40, hh: 30, score: 0 }, update(e) {
     e.v = Math.min(4.2, (e.v || 1.6) + 0.03); e.y -= e.v; e.x += 0.35;
-    if (gf % 3 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
+    if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), isMoth(e) ? 1.15 : 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: isMoth(e) ? e.x - ex : e.x + ex, y: isMoth(e) ? e.y - ey + 3 : e.y + 40, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 });
+    if (e.weak) for (const [ex, ey] of protoEngines(protoSpr(e), isMoth(e) ? 1.15 : 1).slice(0, 2)) darkSmoke(isMoth(e) ? e.x - ex : e.x + ex, isMoth(e) ? e.y - ey + 3 : e.y + 40, 0.5); // the weakened one leaves a trail of black smoke
+    if (e.weak) engineSparks(e, 1.15, 1);
     if (e.y < -110) e.dead = true;
   } },
   protoDuel: { stats: { hw: 38, hh: 24, score: 20000, rad: 40 }, update(e) {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
-    if (e.t2 < 110) { e.y += (95 + BY - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
-    if ((e.t2 > 110 + PROTO_DUEL_T && !e.castle) || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.castle) { e.flare = 1; e.blink = false; if (gf % 3 === 0) for (const [ex, ey] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey + 6, vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 }); } if (e.y < -90) e.dead = true; return; } /* (the castle's prototype breaks off for good once it is down to a tenth) */ // not mandatory: after 2 minutes it breaks off and escapes
-    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.castle ? (f > 0.55 ? 0 : 1) : f > 0.66 ? 0 : f > 0.33 ? 1 : 2; /* (the castle's: two phases, no lunge, no missile) */
-    if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20, 20), e.y + rnd(-10, 10), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
+    if (e.t2 < 110) { e.y += (95 + BY + (e.yo || 0) - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
+    if ((e.t2 > 110 + PROTO_DUEL_T && !e.castle) || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.castle) { e.flare = 1; e.blink = false; if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey + (isMoth(e) ? 2 : 6), vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 }); } if (e.y < -90) e.dead = true; return; } /* (the castle's prototype breaks off for good once it is down to a tenth) */ // not mandatory: after 2 minutes it breaks off and escapes
+    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.weak ? 1 : e.castle ? (f > 0.55 ? 0 : 1) : f > 0.66 ? 0 : f > 0.33 ? 1 : 2; /* (the castle's: two phases, no lunge, no missile) */
+    if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20 * protoK(e), 20 * protoK(e)), e.y + rnd(-10 * protoK(e), 10 * protoK(e)), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
     // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
     e.blink = ph === 2 && lt >= 235 && lt < 270; e.flare = lunge / 75; // thrusters: blink in the 35 frames before the lunge, flare through it
-    e.x = 112 + Math.sin(k * (0.013 + ph * 0.004)) * 66; e.y = 95 + BY + Math.sin(k * 0.027) * 16 + lunge;
-    if (ph === 2 && lt === 270 + 45 && hasT()) { const gx = e.x, gy = e.y + 20; for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
+    e.x = 112 + Math.sin(k * (0.013 + ph * 0.004) + (e.px || 0)) * 66; e.y = 95 + BY + (e.yo || 0) + Math.sin(k * 0.027) * 16 + lunge;
+    if (ph === 2 && lt === 270 + 45 && hasT()) { const gx = e.x, gy = e.y + 20 * protoK(e); for (let i = -4; i <= 4; i++) eshot(gx, gy, PI / 2 + i * 0.2, bspeed() * 0.9); flash(gx, gy, 8); sfx('cannon'); }
     if (!hasT()) return;
-    const burst = Math.round((46 - ph * 6) * fireSlow());
-    if (k % burst === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30, gy = e.y + 10, a = aim(gx, gy); for (let i = 0; i < 3; i++) world.later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
+    const burst = Math.round((46 - ph * 6) * fireSlow() * (e.weak ? 2.2 : 1));
+    if (k % burst === 0) for (const sd of [-1, 1]) { const gx = e.x + sd * 30 * protoK(e), gy = e.y + 10 * protoK(e), a = aim(gx, gy); for (let i = 0; i < (e.weak ? 2 : 3); i++) world.later.push({ at: gf + i * 5, fn: () => { if (!e.dead && !e.dying) eshot(gx, gy, a, bspeed() * 1.1); } }); }
     // a slow fan of shells from the nose, wider with every phase
-    if (k % Math.round(210 * fireSlow()) === 120) { const n = 5 + ph * 2, gx = e.x, gy = e.y + 24; for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
+    if (k % Math.round(210 * fireSlow() * (e.weak ? 1.5 : 1)) === 120) { const n = e.weak ? 4 : 5 + ph * 2, gx = e.x, gy = e.y + 24 * protoK(e); for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
     // from phase 2 the bomb bay also launches a homing missile
-    if (ph >= 1 && !e.castle && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24, h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24, 5); sfx('rocket'); }
-    if (gf % 3 === 0) for (const [ex, ey] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
-    if (ph >= 1 && gf % (ph === 2 ? 4 : 9) === 0) smokePuff(e.x + rnd(-20, 20), e.y + rnd(-6, 10), 'a');
+    if (ph >= 1 && !e.castle && !e.weak && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24 * protoK(e), h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24 * protoK(e), 5); sfx('rocket'); }
+    if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
+    if (e.weak || e.hp <= e.maxhp * 0.2) { if (gf % 2 === 0) darkSmoke(e.x + rnd(-10, 10) * protoK(e), e.y + rnd(-4, 6) * protoK(e), -0.3); if (gf % 4 === 0) { const [ex, ey] = protoEngines(protoSpr(e), 1)[(gf >> 2) & 3]; darkSmoke(e.x + ex, e.y + ey - 4, -0.5); } } // at a fifth of its health it smokes black
+    if (e.weak) engineSparks(e, 1, 0);
+    if (isMoth(e) && !e.weak) mothDust(e, ph);
+    if (ph >= 1 && gf % (ph === 2 ? 4 : 9) === 0) smokePuff(e.x + rnd(-20 * protoK(e), 20 * protoK(e)), e.y + rnd(-6 * protoK(e), 10 * protoK(e)), 'a');
   } },
   proto: { stats: { fixedHp: 1000000000, hw: 40, hh: 26, score: 0, rad: 38 }, update(e) {
     if (!e.escape) { groundPos(e); return; }
     e.escape++;
     if (e.escape === 90) boostOutSfx();
-    if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) smokePuff(e.x - ex, e.y + 30); return; }
+    if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) smokePuff(e.x - ex, isMoth(e) ? e.y - ey + 2 : e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
-    if (gf % 3 === 0) for (const [ex] of protoEngines(SPR.proto, 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
+    if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: isMoth(e) ? e.y - ey + 4 : e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
   bldg: { arcLow: true, medals: 1, treesInFront: true, stats: { hp: 12, hw: 6, hh: 13, score: 1200, rad: 14 }, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
@@ -14289,6 +14364,90 @@ function heatTick() {
   if (laserHeat > 85) { if (gf % 4 === 0) steamPuff(p.x + rnd(-4, 4), p.y - 22, 1, false); if (gf % 30 === 0 && actx && !muted) noise(0.25, 0.05 * mixF, 6000); }
   else if (laserHeat > 60 && gf % 10 === 0) steamPuff(p.x + rnd(-4, 4), p.y - 22, 1, false);
 }
+// ---- The Moth's dust (the looped levels' duel): the two plus-ringed eyespots on its wings spray cones of dust, now to the sides, now to the middle, picked at random (mothDust, called from protoDuel's update).
+// A puff that touches a ship sets that ship's laser overheating at once (heat 100, five seconds without a laser, the same as a laser fired too long); it does no other harm and the Moth's dust does not burn.
+const DUST = {
+  life: 150, g: 0.0078, hit: 6, tel: 38, emit: 30, // life: frames a puff lasts; g: its downward pull; hit: its reach to a ship; tel: the warning; emit: the frames a spray lasts
+  side: { axis: 26, half: 9, reach: 96, n: 80 }, // narrow cones fanning out and down, one from each ring (axis: degrees from straight down; half: the cone's half angle; reach: px a second; n: puffs a cone)
+  mid: { axis: 8, half: 5, reach: 126, n: 36 }, // the cones close in on the middle: thinner, longer and with fewer puffs, crossing far below the Moth
+  ring: 16 // how far the rings sit from the Moth's centre
+};
+function dustOverheat(s) { // a ship touched the dust
+  const v = world.veil || (world.veil = { t: 0, age: 0 }); if (v.t <= 0) v.age = 0; v.t = VEIL.T; // the view clouds over for as long as the laser is out (a new hit starts the time again)
+  if (s === player) { if (overheatT > 0) return; laserHeat = 100; overheatT = 300; steamPuff(s.x, s.y - 18, 8, true); world.later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 12, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
+  else { if (s.over > 0) return; s.over = 300; s.heat = 100; s.charge = 0; steamPuff(s.x, s.y - 18, 8, true); }
+}
+function mothDust(e, ph) { // the Moth's attack cycle: wait, warn at the rings, spray
+  const d = e.dd || (e.dd = { s: 'wait', t: 150, kind: 'side', last: '', run: 0 });
+  if (!hasT()) return;
+  if (d.s === 'wait') {
+    if (--d.t > 0) return;
+    d.kind = d.run >= 2 ? (d.last === 'side' ? 'mid' : 'side') : Math.random() < 0.5 ? 'side' : 'mid'; // random, never three of a kind in a row
+    d.run = d.kind === d.last ? d.run + 1 : 1; d.last = d.kind; d.s = 'tel'; d.t = DUST.tel; sfx('tick'); veilSprites();
+  } else if (d.s === 'tel') { if (--d.t <= 0) { d.s = 'spray'; d.t = DUST.emit; sfx('gun'); } }
+  else {
+    const C = d.kind === 'side' ? DUST.side : DUST.mid, per = C.n / DUST.emit;
+    for (let sd = 0; sd < 2; sd++) {
+      const ox = e.x + (sd ? DUST.ring : -DUST.ring), oy = e.y + 2, axis = d.kind === 'side' ? (sd ? C.axis : -C.axis) : (sd ? -C.axis : C.axis);
+      for (let n = Math.floor(per) + (Math.random() < per % 1 ? 1 : 0); n > 0; n--) { const th = (axis + (Math.random() - 0.5) * 2 * C.half) * PI / 180, sp = C.reach * (0.55 + 0.45 * Math.random()) / 60; world.dust.push({ x: ox, y: oy, vx: Math.sin(th) * sp, vy: Math.cos(th) * sp, age: 0 }); }
+    }
+    if (--d.t <= 0) { d.s = 'wait'; d.t = Math.round(([300, 250, 200][ph] + Math.random() * 60) * fireSlow()); }
+  }
+}
+function updDust() {
+  const v = world.veil; if (v && v.t > 0) { v.t--; v.age++; }
+  const D = world.dust; if (!D || !D.length) return;
+  const ships = [player, p2].filter(q => q && !q.dead);
+  for (let i = D.length - 1; i >= 0; i--) {
+    const d = D[i]; d.age++; d.x += d.vx; d.y += d.vy; d.vy += DUST.g;
+    if (d.age > DUST.life || d.y > H + 10 || d.x < -10 || d.x > W + 10) { D.splice(i, 1); continue; }
+    if (d.age < 8) continue; // (a puff only counts a moment after it has left the ring)
+    for (const q of ships) if ((q.x - d.x) ** 2 + (q.y - d.y) ** 2 < DUST.hit * DUST.hit) { dustOverheat(q); D.splice(i, 1); break; }
+  }
+}
+// The dust veil: a dust hit also dirties the view while the laser is out. Dust blots and streaks on the lens, plus a light, patchy sandy haze, drawn over the ground, the enemies and the medals but under the ship, its shots,
+// the smoke, the dust, the bullets and the HUD: the bullets stay as clear as ever. It builds up in VEIL.rise frames, holds, and fades in the last VEIL.fall frames. Two prebuilt images, so it costs two draws.
+const VEIL = { T: 300, rise: 10, fall: 60 };
+let veilCache = null;
+function veilSprites() {
+  if (veilCache && veilCache.h === H) return veilCache;
+  const r = (() => { let q = 4141; return () => { q = (q * 16807) % 2147483647; return q / 2147483647; }; })();
+  const [lens, lx] = mk(W, H);
+  for (let i = 0; i < 70; i++) { // blots: mostly small, a few big, each soft
+    const u = r(), rad = u < 0.3 ? 2 : u < 0.58 ? 3 : u < 0.78 ? 4.4 : u < 0.93 ? 6.9 : 10.8, a = 0.35 + r() * 0.45, x0 = r() * W, y0 = r() * H;
+    const g = lx.createRadialGradient(x0, y0, rad * 0.4, x0, y0, rad * 1.15); g.addColorStop(0, 'rgba(188,168,126,' + a + ')'); g.addColorStop(1, 'rgba(188,168,126,0)');
+    lx.fillStyle = g; lx.beginPath(); lx.arc(x0, y0, rad * 1.15, 0, TAU); lx.fill();
+  }
+  lx.lineCap = 'round';
+  for (let i = 0; i < 26; i++) { // streaks
+    const x0 = r() * W, y0 = r() * H, len = 10 + r() * 29, an = r() * TAU; lx.strokeStyle = 'rgba(188,168,126,' + (0.27 + r() * 0.32) + ')'; lx.lineWidth = 0.7 + r() * 1.5;
+    lx.beginPath(); lx.moveTo(x0, y0); lx.lineTo(x0 + Math.cos(an) * len, y0 + Math.sin(an) * len); lx.stroke();
+  }
+  const cw = Math.ceil(W / 40) + 2, chh = Math.ceil(H / 40) + 2, [sm, sx] = mk(cw, chh); // the haze: a coarse patchwork of sandy alphas, smoothed when it is stretched
+  for (let j = 0; j < chh; j++) for (let i = 0; i < cw; i++) { sx.fillStyle = 'rgba(216,200,162,' + (0.07 + 0.10 * r()) + ')'; sx.fillRect(i, j, 1, 1); }
+  const [haze, hx] = mk(W, H); hx.imageSmoothingEnabled = true; hx.drawImage(sm, 0, 0, W, H);
+  return (veilCache = { h: H, lens, haze });
+}
+function drawVeil() {
+  const v = world.veil; if (!v || v.t <= 0) return;
+  const k = Math.min(1, v.age / VEIL.rise) * Math.min(1, v.t / VEIL.fall); if (k <= 0) return;
+  const q = veilSprites(); ctx.globalAlpha = k; ctx.drawImage(q.haze, 0, 0); ctx.drawImage(q.lens, 0, 0); ctx.globalAlpha = 1;
+}
+function drawDust() {
+  const D = world.dust; if (!D || !D.length) return;
+  for (const d of D) { ctx.globalAlpha = Math.min(1, d.age / 8) * (0.55 + 0.4 * (1 - d.age / DUST.life)); ctx.fillStyle = ((d.x * 3 + d.y * 5) | 0) % 4 === 0 ? '#f6ecd0' : '#d8caa4'; ctx.fillRect(Math.round(d.x) - 1, Math.round(d.y) - 1, 2, 2); }
+  ctx.globalAlpha = 1;
+}
+function drawDustTell(e) { // the warning: the rings glow and dotted lines show the two cones
+  const d = e.dd; if (!d || d.s === 'wait') return;
+  const C = d.kind === 'side' ? DUST.side : DUST.mid, pulse = d.s === 'tel' ? 0.5 + 0.5 * Math.sin(gf * 0.5) : 0.35;
+  for (let sd = 0; sd < 2; sd++) {
+    const ox = Math.round(e.x + (sd ? DUST.ring : -DUST.ring)), oy = Math.round(e.y + 2), axis = d.kind === 'side' ? (sd ? C.axis : -C.axis) : (sd ? -C.axis : C.axis);
+    for (let k = 0; k < 2; k++) { ctx.globalAlpha = (0.7 - k * 0.25) * pulse; ctx.fillStyle = '#fff6d0'; const r = 5 + k * 2.5 + pulse * 1.5; for (let a = 0; a < 16; a++) ctx.fillRect(Math.round(ox + Math.cos(a * 0.3927) * r), Math.round(oy + Math.sin(a * 0.3927) * r), 1, 1); }
+    if (d.s === 'tel') { ctx.globalAlpha = 0.4; ctx.fillStyle = '#fff6d0'; for (const sg of [-1, 1]) { const th = (axis + sg * C.half) * PI / 180; for (let L = 10; L < C.reach * 0.9; L += 5) ctx.fillRect(Math.round(ox + Math.sin(th) * L), Math.round(oy + Math.cos(th) * L), 1, 1); } }
+  }
+  ctx.globalAlpha = 1;
+}
 // Player 2's laser works like player 1's: its own charge, heat and overheat live on the ship (q.charge, q.heat, q.over, q.beam)
 function heatTick2(q) {
   if (!q || q.dead) return;
@@ -14644,7 +14803,7 @@ function damage(e, d) {
     if (e.hp <= e.maxhp * 0.1) { e.hp = e.maxhp * 0.1; e.flee = true; e.untarget = true; addScore(10000); label(e.x, e.y - 24, 'ESCAPED 10000'); boom(e.x, e.y, 22, 'a'); sfx('bigboom'); feel.shake = Math.max(feel.shake, 6); } else sfx('hitm');
     return; }
   if (e.ground && !fullBeamHit && smokeCover(e)) { smokePing(e); return; } // (a Nebelwerfer's smoke: only a full laser gets through)
-  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30 * protoK(e), 30 * protoK(e)), y: e.y + rnd(-20 * protoK(e), 20 * protoK(e)), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { fate(e, 'fs', () => startCrash(e)); return; }
@@ -14712,7 +14871,7 @@ function revenge(x, y, n, pr = DIFF.revengeP[run.diff]) { const f = DIFF.revenge
 const DEATHS = {
   protoDuel: {
     onKill(e) {
-      for (let i = 0; i < 6; i++) world.later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36, 36), e.y + rnd(-20, 20), 26, 'a') }); feel.shake = Math.max(feel.shake, 12); sfx('bigboom'); haptic('big');
+      for (let i = 0; i < 6; i++) world.later.push({ at: gf + i * 6, fn: () => boom(e.x + rnd(-36 * protoK(e), 36 * protoK(e)), e.y + rnd(-20 * protoK(e), 20 * protoK(e)), 26, 'a') }); feel.shake = Math.max(feel.shake, 12); sfx('bigboom'); haptic('big');
     },
   },
   missile: { onKill(e) { boom(e.x, e.y, 14, 'a'); sfx('gboom'); } },
@@ -15025,7 +15184,7 @@ function update() {
   rsObj = null; // (a step that threw must not leave an enemy's stream in use)
   if (app.booting) { if (++app.bootT >= 110 && warmIdx >= warmList.length || app.bootT > 300) finishBoot(); return; }
   SPOS = null;
-  if (app.state === 'play' && !app.paused && app.resumeT <= 0) { heatTick(); heatTick2(p2); }
+  if (app.state === 'play' && !app.paused && app.resumeT <= 0) { heatTick(); heatTick2(p2); updDust(); }
   if (app.state === 'play' && !app.paused && app.resumeT > 0) { app.resumeT--; return; }
   gf++;
   pollPad();
@@ -15716,7 +15875,7 @@ function drawPart(q) {
       if (f > 0.5) dk(q.x - 1, q.y - 1, q.r * 0.4, RP.fire[4]); ctx.globalAlpha = 1;
       break;
     }
-    case 'smoke': ctx.globalAlpha = 0.55 * f; dk(q.x, q.y, q.r, q.white ? (f > 0.5 ? '#f4f6fa' : '#c8ccd4') : RP.smoke[f > 0.5 ? 2 : 1]); ctx.globalAlpha = 1; break;
+    case 'smoke': ctx.globalAlpha = (q.dark ? 0.8 : 0.55) * f; dk(q.x, q.y, q.r, q.dark ? (f > 0.5 ? '#181512' : '#2e2a26') : q.white ? (f > 0.5 ? '#f4f6fa' : '#c8ccd4') : RP.smoke[f > 0.5 ? 2 : 1]); ctx.globalAlpha = 1; break;
     case 'spark': ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); break;
     case 'ring': {
       const rr = (1 - f) * q.r + 3;
@@ -15736,19 +15895,19 @@ function prop(x, y, h, len = 4) {
   for (let i = -len; i <= len; i++) if ((i + gf) & 1) ctx.fillRect(Math.round(nx + px * i), Math.round(ny + py * i), 1, 1);
 }
 function drawProto(e) {
-  const P = SPR.proto, x0 = Math.round(e.x - P.w / 2), y0 = Math.round(e.y - P.h / 2);
+  const P = protoSpr(e), x0 = Math.round(e.x - P.w / 2), y0 = Math.round(e.y - P.h / 2);
   const lvl = Math.min(3, Math.floor((e.dmg || 0) / (18 * hpm())));
   ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.rotate(PI);
-  ctx.globalAlpha = 0.3; ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -Math.round(P.w / 2) - 4, -Math.round(P.h / 2) - 6); ctx.globalAlpha = 1;
-  if (e.escape > 50) for (const [ex, ey] of protoEngines(P, 1)) { const fl = 14 + ((gf >> 1) & 1) * 3 + Math.min(10, (e.escape - 50) / 12); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - fl, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(ex), Math.round(ey) - fl + 2, 1, fl - 2); }
+  ctx.globalAlpha = 0.3; ctx.drawImage(P.k || (P.k = sil(P.c, '#0a0812')), -Math.round(P.w / 2) - (isMoth(e) ? 2 : 4), -Math.round(P.h / 2) - (isMoth(e) ? 4 : 6)); ctx.globalAlpha = 1;
+  if (e.escape > 50) for (const [ex, ey] of protoEngines(P, 1)) { const fl = Math.round((14 + ((gf >> 1) & 1) * 3 + Math.min(10, (e.escape - 50) / 12)) * (isMoth(e) ? 0.65 : 1)); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - fl, 3, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(ex), Math.round(ey) - fl + 2, 1, fl - 2); }
   ctx.drawImage(e.hit > 0 && (gf & 1) ? (P.f || (P.f = sil(P.c, '#ffffff'))) : P.c, -Math.round(P.w / 2), -Math.round(P.h / 2));
   // scorch marks, more with every damage level
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * P.w * 0.7), Math.round((hash(k, 9) - 0.5) * P.h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
-  if (lvl >= 1 && gf % (lvl >= 2 ? 3 : 6) === 0) smokePuff(e.x + (lvl >= 3 ? -14 : 14), e.y + 4, 'a');
-  if (lvl >= 2 && (gf >> 2) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x) + 12, Math.round(e.y) + 2, 4, 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) + 2, 2, 2); }
-  if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); ctx.stroke(); }
-  if (!e.escape) for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
+  if (lvl >= 1 && gf % (lvl >= 2 ? 3 : 6) === 0) smokePuff(e.x + (lvl >= 3 ? -1 : 1) * (isMoth(e) ? 8 : 14), e.y + (isMoth(e) ? 2 : 4), 'a');
+  if (lvl >= 2 && (gf >> 2) & 1) { ctx.fillStyle = '#ff7a3a'; if (isMoth(e)) { ctx.fillRect(Math.round(e.x) + 7, Math.round(e.y) + 1, 3, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 8, Math.round(e.y) + 1, 1, 1); } else { ctx.fillRect(Math.round(e.x) + 12, Math.round(e.y) + 2, 4, 3); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x) + 13, Math.round(e.y) + 2, 2, 2); } }
+  if (!e.escape) { ctx.strokeStyle = '#1a1712'; ctx.lineWidth = 1; ctx.beginPath(); if (isMoth(e)) { ctx.moveTo(x0 - 4, y0 + P.h - 2); ctx.bezierCurveTo(x0 + 6, y0 + P.h + 4, x0 + 18, y0 + P.h - 6, x0 + 23, y0 + P.h - 11); } else { ctx.moveTo(x0 - 6, y0 + P.h - 4); ctx.bezierCurveTo(x0 + 10, y0 + P.h + 6, x0 + 30, y0 + P.h - 10, x0 + 38, y0 + P.h - 18); } ctx.stroke(); }
+  if (!e.escape) if (isMoth(e)) { for (const gx of [x0 + 11, x0 + P.w - 16]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 3, 1, P.h + 4); ctx.fillRect(gx + 5, y0 - 3, 1, P.h + 4); for (let k = 0; k < P.h + 4; k += 5) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 3 + k, 6, 1); } } } else for (const gx of [x0 + 18, x0 + P.w - 26]) { ctx.fillStyle = '#2a2620'; ctx.fillRect(gx, y0 - 4, 2, P.h + 6); ctx.fillRect(gx + 8, y0 - 4, 2, P.h + 6); for (let k = 0; k < P.h + 6; k += 8) { ctx.fillStyle = '#3a342a'; ctx.fillRect(gx, y0 - 4 + k, 10, 1); } }
 }
 // a glow centred exactly on a point (the pixels whose centres lie within r of it), so it sits on a 2 px bore at every heading
 function glowAt(cx, cy, r, col, al) { ctx.globalAlpha = al; ctx.fillStyle = col; for (let j = Math.floor(cy - r); j <= Math.ceil(cy + r); j++) for (let i = Math.floor(cx - r); i <= Math.ceil(cx + r); i++) if ((i + 0.5 - cx) ** 2 + (j + 0.5 - cy) ** 2 <= r * r) ctx.fillRect(i, j, 1, 1); ctx.globalAlpha = 1; }
@@ -15957,7 +16116,7 @@ const LOOKS = {
   },
   wing(e, fl) { spr(e.v === undefined ? SPR.wing : SPR.wingV[e.v], e.x, e.y, fl || (e.dying && (gf >> 2) & 1)); if (e.ph === 1 && !e.dying) wingGlow(e); },
   protoFly(e, fl) { return drawProtoPlane(e, PI, 1.15, true); },
-  protoDuel(e, fl) { return drawProtoPlane(e, 0, 1, true); },
+  protoDuel(e, fl) { drawProtoPlane(e, 0, 1, true); if (isMoth(e)) drawDustTell(e); },
   flare(e, fl) {
     if (e.ft <= 40) { dk(e.x, e.y, 2, '#fff2a8'); world.parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: 0, vy: 0, life: 10, max: 10, col: '#ffd060' }); return; }
     ctx.strokeStyle = '#c4c9ce'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - 7); ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + 4, e.y - 7); ctx.stroke();
@@ -16872,7 +17031,7 @@ function drawBossBar(big, by) {
   ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, bw + 2, h + 2);
   barSeg(bx, by, hw, h, Math.min(fh, r), Math.min(b.hg, r), BAR_HP, blink);
   if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
-  const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? 'RAVEN PROTOTYPE' : big.type === 'sower' ? 'SOWER' : '';
+  const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? (isMoth(big) ? 'THE MOTH' : 'RAVEN PROTOTYPE') : big.type === 'sower' ? 'SOWER' : '';
   if (nm) { const y0 = by + h + 3; softShadow(nm, bx, y0, 'left'); text(nm, bx, y0, '#f48a60', 1, 'left', '#d84a34'); } // the name at the small size, on the same soft shadow as the weapon names
 }
 function render() {
@@ -16989,9 +17148,11 @@ function renderMain() {
   for (const e of world.enemies) if (!e.ground && !e.surface) airShadow(e);
   if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * AIRSH.d * ak, 2 + 18 * AIRSH.d * ak, AIRSH.a, 1 - (1 - AIRSH.s) * ak); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
-  for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
+  for (const e of world.enemies) if (!e.ground && !e.surface && e.under) drawEnemy(e); // (what flies under another ship: the weakened old prototype under The Moth)
+  for (const e of world.enemies) if (!e.ground && !e.surface && !e.under) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
 
+  drawVeil();
   for (const s of world.shots) {
     if (s.k === 's') { if (s.hl && !s.drone) drawSeekLaser(s); else if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
     else if (s.k === 'l') {
@@ -17014,6 +17175,7 @@ function renderMain() {
   drawHiClouds();
 
   const fr = (gf >> 2) & 1;
+  drawDust();
   { const crowd = Math.min(1, world.ebul.length / 50), halo = world.nightF > 0.5 ? '#f0e8ff' : '#0a0812';
     ctx.globalAlpha = (world.nightF > 0.5 ? 0.3 : 0.5) + 0.15 * crowd;
     for (const b of world.ebul) if (b.kind !== 'mortar' && b.kind !== 'zone') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
