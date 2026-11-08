@@ -12814,7 +12814,7 @@ function engineSparks(e, sc, rot) { // the weakened hull's third thruster: spark
 }
 function spawnProtoFly() {
   if (mothOn()) { // the looped levels: the weakened old hull trails dark smoke, and The Moth follows a little behind it
-    world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, hull: 'old', weak: true }));
+    world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, hull: 'old', weak: true, under: true }));
     world.enemies.push(E('protoFly', Object.assign({ x: 154, y: H + 110, keep: true, up: true, ghost: true, untarget: true, hull: 'moth' }, protoBox('protoFly', 'moth'))));
   } else world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, weak: protoLvl() >= 1 })); // (the first pass: the old hull alone, with a smoke trail if it carries damage from level 4)
   world.later.push({ at: gf + 20, fn: boostOutSfx });
@@ -12823,7 +12823,7 @@ function spawnProtoDuel(done) {
   const base = 260 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   const wk = 120 * hpm() * DIFF.boss[settings.diff], mk = o => E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true }, o)); // (the weakened old hull has 120 health, scaled like the others by the loop and the difficulty)
   // the looped levels: the weakened old hull (120 health, always smoking, a thruster throwing sparks, no lunge or missile, few bullets, no health bar of its own) and The Moth fight together, on opposite sides of the sky
-  const es = mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
+  const es = mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, under: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
   for (const e of es) world.enemies.push(e);
   world.duelWatch = { e: es[0], es, done }; sfx('flyin');
 }
@@ -17117,7 +17117,8 @@ function renderMain() {
   for (const e of world.enemies) if (!e.ground && !e.surface) airShadow(e);
   if (player && !player.dead) { const C = world.carrier, ak = player.deck ? player.alt : C && C.fly && !C.over ? C.alt : 1; shadow(SPR.player, player.x, player.y, 1 + 11 * AIRSH.d * ak, 2 + 18 * AIRSH.d * ak, AIRSH.a, 1 - (1 - AIRSH.s) * ak); } // on the carrier's deck the shadow lies under the ship
   for (const e of world.enemies) if (e.type === 'boss' && e.air && e.phase !== 'parked' && e.phase !== 'spool') drawBoss(e);
-  for (const e of world.enemies) if (!e.ground && !e.surface) drawEnemy(e);
+  for (const e of world.enemies) if (!e.ground && !e.surface && e.under) drawEnemy(e); // (what flies under another ship: the weakened old prototype under The Moth)
+  for (const e of world.enemies) if (!e.ground && !e.surface && !e.under) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
 
   for (const s of world.shots) {
