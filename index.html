@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.109'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.110'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12302,10 +12302,10 @@ function wolfPack(e) {
     }
   });
 }
-/* Winter Wolf, "Avalanche" (the first loop's level 5, run.sortie.winter): the rear flak position of each train is a mortar. At 85, 55 and 25 percent of a train's core it winds up (a glow on the turret, the
-   train's guns hold fire) and lobs four shells, one every AVAL.gap frames, each at where the ship is as it fires. A shell flies an arc (AVAL.life frames) over a red ring on the ground that shows where it
+/* Winter Wolf, "Avalanche" (the first loop's level 5, run.sortie.winter): the rear flak position of each train is a mortar. At 70 and 35 percent of a train's core it winds up (a glow on the turret, the
+   train's guns hold fire) and lobs two shells, one every AVAL.gap frames, each at where the ship is as it fires. A shell flies an arc (AVAL.life frames) over a red ring on the ground that shows where it
    lands; it bursts into a ring of slow shards. Destroying the mortar stops the salvos; one train acts at a time (Wolf Pack waits for it, and it for Wolf Pack). Plain data, nothing seeded outside the loop. */
-const AVAL = { at: [0.85, 0.55, 0.25], wind: 50, gap: 16, n: 4, life: 72, rad: 18, shards: 14, sp: 0.7 };
+const AVAL = { at: [0.7, 0.35], wind: 50, gap: 20, n: 2, life: 72, rad: 18, shards: 7, sp: 0.7 };
 function avalanche(e) {
   e.trains.forEach((t, ti) => {
     if (!t.on || t.dead || !t.ready) { t.av = null; return; }

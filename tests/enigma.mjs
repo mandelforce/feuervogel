@@ -627,8 +627,8 @@ for (const lv of [2, 6]) {
   ok((seen.flak || 0) + (seen.aaflak || 0) > 0 && (seen.parked || 0) > 0 && (seen.bunker || 0) > 0, `the base's guns, bunkers and parked aircraft came up (${JSON.stringify(seen)})`);
   await page.close();
 }
-// 3n. Level 5's first loop (seed 1945): the Winter Wolf's avalanche mortars. Each train's rear flak position is a mortar (the first pass has none); at 85, 55 and 25 percent of a train's core it lobs a salvo
-// of four shells (kind 'mortar', av) that land on red rings and burst into rings of shards, the train's guns holding fire meanwhile; the mortar's own flak is silent; one train acts at a time and Wolf Pack waits;
+// 3n. Level 5's first loop (seed 1945): the Winter Wolf's avalanche mortars. Each train's rear flak position is a mortar (the first pass has none); at 70 and 35 percent of a train's core it lobs a salvo
+// of two shells (kind 'mortar', av) that land on red rings and burst into rings of shards, the train's guns holding fire meanwhile; the mortar's own flak is silent; one train acts at a time and Wolf Pack waits;
 // destroying the mortar stops the salvos; the first pass (seed 1944) has none of it. No errors.
 {
   const run3 = async lp => { const page = await freshPage('?boss'); await page.evaluate(() => window.SF.setMode('immortal')); await peek(page, `settings.diff = 1; startEnigma(5, false, ${lp}); 0`);
@@ -644,9 +644,9 @@ for (const lv of [2, 6]) {
     for (let k = 0; k < 24; k++) { await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'); c.hp = c.maxhp * ${frac}; for (const q of b.parts) if (q.mortar) q.hp = q.maxhp = 1e6; return 1; })()`); await page.evaluate(() => window.SF.run(20)); const r = JSON.parse(await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), av = world.ebul.filter(x => x.av); return JSON.stringify({ n: av.length, tg: av.map(x => Math.round(x.tx) + ',' + Math.round(x.ty)), avN: b.trains[0].avN || 0, act: b.trains.filter(t => t.av).length, hold: BOSS.train.holdFire(b, 200) }); })()`));
       for (const t of r.tg) ids.add(t); seen = Math.max(seen, r.n); maxActive = Math.max(maxActive, r.act); hold = hold || r.hold > 0; }
     const e2 = JSON.parse(await peek(page, `JSON.stringify({ avN: world.enemies.find(e => e.type === 'boss').trains[0].avN, errs: SF.R.errs.length })`)); return { shells: ids.size, avN: e2.avN, maxActive, hold, errs: e2.errs }; };
-  const a1 = await salvo(0.8), a2 = await salvo(0.5), a3 = await salvo(0.2);
-  ok(a1.avN === 1 && a2.avN === 2 && a3.avN === 3 && a1.shells >= 3 && a2.shells >= 3 && a3.shells >= 3 && a1.maxActive === 1 && a1.hold, `three salvos at 85, 55 and 25 percent, about four shells each (${a1.shells}, ${a2.shells}, ${a3.shells}), one train at a time, the guns hold fire`);
-  const a4 = await salvo(0.1); ok(a4.avN === 3 && a4.shells === 0, `no fourth salvo (${a4.shells} shells)`);
+  const a1 = await salvo(0.65), a2 = await salvo(0.3);
+  ok(a1.avN === 1 && a2.avN === 2 && a1.shells === 2 && a2.shells === 2 && a1.maxActive === 1 && a1.hold, `two salvos at 70 and 35 percent, two shells each (${a1.shells}, ${a2.shells}), one train at a time, the guns hold fire`);
+  const a4 = await salvo(0.1); ok(a4.avN === 2 && a4.shells === 0, `no fourth salvo (${a4.shells} shells)`);
   await peek(page, `(() => { const b = world.enemies.find(e => e.type === 'boss'), c = b.parts.find(q => q.tr === 0 && q.k === 'core'), m = b.parts.find(q => q.tr === 0 && q.mortar); b.trains[0].avN = 0; c.hp = c.maxhp * 0.3; m.dead = true; return 1; })()`);
   let after = 0; for (let k = 0; k < 20; k++) { await page.evaluate(() => window.SF.run(20)); after += await peek(page, `world.ebul.filter(x => x.av).length`); }
   ok(after === 0, 'a destroyed mortar fires no more salvos');
