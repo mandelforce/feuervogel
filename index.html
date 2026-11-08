@@ -4476,7 +4476,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.101'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.102'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16376,11 +16376,12 @@ function drawOvercast() {
   ovcPass({ r: 14, g: 12, b: 20 }, Math.min(0.55, P[4] * G.shade), lx => { lx.fillStyle = 'rgb(14,12,20)'; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.shade, t * 0.07, sc * 0.5 + t * 0.1); }); /* cloud shadows */
   ovcPass({ r: rgb(1), g: rgb(2), b: rgb(3) }, Math.min(0.8, P[0] * G.veil), lx => { lx.fillStyle = `rgb(${rgb(1)},${rgb(2)},${rgb(3)})`; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.veil, -t * 0.06, sc * 0.35 + t * 0.12); }); /* the veil */
   if (lowFX || typeof CityGen === 'undefined') return;
-  const spot = (lx, kind, i, sz, a, vx, vy, n) => { const h = k => sortieHash(i * 31 + 7, k), s = genCloud(kind, (i + ((h(1) * 4) | 0)) % 4), w = s.w * sz, hh = s.h * sz, span = W + w + 40, x = (((h(2) * span - t * (vx + 0.04 * h(3))) % span) + span) % span - w / 2, y = ((((i % n) + 0.15 + 0.7 * h(4)) / n * (H + 80) + t * vy) % (H + 80)) - 40; /* (spread evenly down the screen) */ lx.globalAlpha = a; lx.drawImage(s.c, Math.round(x), Math.round(y), Math.round(w), Math.round(hh)); };
+  /* A cloud's place depends only on its own number i and its size, never on how many clouds there are, so a count that steps (decks 7 to 6) fades the last one and moves none of the others. It wraps only while wholly off the screen: x runs from -w to W, y from -hh to H. Its vertical phase follows the golden ratio, so any first few clouds are spread down the screen. */
+  const spot = (lx, kind, i, sz, a, vx, vy) => { const h = k => sortieHash(i * 31 + 7, k), s = genCloud(kind, (i + ((h(1) * 4) | 0)) % 4), w = s.w * sz, hh = s.h * sz, sx = W + w, sy = H + hh, x = (((h(2) * sx - t * (vx + 0.04 * h(3))) % sx) + sx) % sx - w, y = ((((i * 0.6180339 + 0.1 + 0.25 * h(4)) % 1) * sy + t * vy) % sy) - hh; lx.globalAlpha = a; lx.drawImage(s.c, Math.round(x), Math.round(y), Math.round(w), Math.round(hh)); };
   ovcPass({ r: rgb(8), g: rgb(9), b: rgb(10), atop: 0.72 }, Math.min(1, P[5] * G.deck), lx => { /* decks and banks of fog */
-    const dn = P[6] * G.n, nd = Math.ceil(dn); for (let i = 0; i < nd; i++) spot(lx, 'stratus', i, P[7], Math.min(1, dn - i), 0.05, 0.16, nd);
-    const nf = P[11] * 5 * G.fog, nn = Math.max(1, Math.ceil(nf)); for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12, nn); });
-  if (P[12] > 0.05) { const sm = ovcCfg(S).smoke; ovcPass({ r: sm[0], g: sm[1], b: sm[2], atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14, 3); }); } /* smoke (the fortified forest's guns; level 5's station), drifting */
+    const dn = P[6] * G.n, nd = Math.ceil(dn); for (let i = 0; i < nd; i++) spot(lx, 'stratus', i, P[7], Math.min(1, dn - i), 0.05, 0.16);
+    const nf = P[11] * 5 * G.fog; for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12); });
+  if (P[12] > 0.05) { const sm = ovcCfg(S).smoke; ovcPass({ r: sm[0], g: sm[1], b: sm[2], atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14); }); } /* smoke (the fortified forest's guns; level 5's station), drifting */
 }
 function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
   const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
