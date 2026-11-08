@@ -224,10 +224,15 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings.open{display:grid}
 #ach{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
 #ach.open{display:grid}
-#ach .panel{width:min(94%,360px);max-height:94%;overflow-y:auto}
+#ach .panel{width:min(94%,360px);max-height:94%;overflow:hidden;display:flex;flex-direction:column}
+#achList{flex:1;min-height:0;overflow-y:auto;padding:8px 2px 2px;margin:0 -2px 10px;overscroll-behavior:contain}
+.achsec{font-size:11px;letter-spacing:.14em;color:#a99cc8;margin:4px 0 8px}.achsec:first-child{margin-top:0}
+.ach .ap{display:flex;align-items:center;gap:6px;font-size:10px;color:#a99cc8;margin-top:4px}.ach .ap b{flex:none;width:70px;height:6px;background:#120e1a;border:1px solid #4a3f6e}.ach .ap b i{display:block;height:100%;background:#f4d050}
+.ach .au{font-size:10px;color:#7fe6c8;margin-top:3px}
+.ach .ar canvas{display:inline-block;width:12px;height:12px;vertical-align:-2px;margin:-4px 0 -4px 6px;box-shadow:none;cursor:default}
 .achsum{display:flex;justify-content:space-between;font-size:15px;margin:2px 0 5px;color:#f4d050}.achsum span+span{color:#a99cc8}
 .achbar{height:10px;background:#120e1a;border:2px solid #4a3f6e;margin-bottom:10px}.achbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff7a3a,#f4d050)}
-.ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#1c1630;border:2px solid #352b55;opacity:.7}
+.ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#18122a;border:2px solid #2a2145;opacity:.55}
 .ach.on{background:#2e2358;border-color:#8466dc;opacity:1}
 .ach .ib{width:38px;height:38px;flex:none;display:grid;place-items:center;background:#120e1a;border:2px solid #4a3f6e;box-shadow:inset 0 0 0 2px #1c1630}
 .ach.on .ib{border-color:#f4d050}
@@ -17189,18 +17194,31 @@ function achIcon(name, color) {
   ACH_BM[name].forEach((r, y) => { for (let i = 0; i < 8; i++) if (r[i] === '1') x.fillRect(i, y, 1, 1); });
   return c;
 }
+// a small picture of the reward ship, and progress for goals that count something across runs
+const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Schneevogel: () => SPR.schnee, Rotkehlchen: () => robinSet(), Nachtvogel: () => nachtSet() };
+const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6] };
+function achShip(name) {
+  try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
+    const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+    const k = Math.min(16 / src.width, 16 / src.height); x.drawImage(src, 0, 0, src.width * k, src.height * k); return c; } catch (err) { return null; }
+}
 let achFromMenu = false;
 function achLabel() { document.getElementById('pmAchN').textContent = achCount() + '/' + ACH.length; }
 function openAch(fromMenu) {
   achFromMenu = !!fromMenu; const list = document.getElementById('achList'); list.textContent = '';
-  for (const a of ACH) {
+  const got0 = achCount(), order = ACH.filter(a => achv[a.id]).concat(ACH.filter(a => !achv[a.id])); let lastOn = null;
+  for (const a of order) {
+    if (got0 > 0 && got0 < ACH.length && lastOn !== !!achv[a.id]) { const sec = document.createElement('div'); sec.className = 'achsec'; sec.textContent = achv[a.id] ? 'UNLOCKED' : 'LOCKED'; list.appendChild(sec); }
+    lastOn = !!achv[a.id];
     const e = achv[a.id], on = !!e, hide = !!a.hidden && !on;
     const row = document.createElement('div'); row.className = 'ach' + (on ? ' on' : '');
     const ib = document.createElement('div'); ib.className = 'ib'; ib.appendChild(achIcon(hide ? 'lock' : a.icon, on ? '#f4d050' : '#5a4e80')); row.appendChild(ib);
     const am = document.createElement('div'); am.className = 'am';
     const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
     const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
-    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
+    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; const sp = achShip(a.skin); if (sp) ar.appendChild(sp); am.appendChild(ar); }
+    const pr = ACH_PROG[a.id]; if (pr && !on) { const [n, m] = pr(), ap = document.createElement('div'); ap.className = 'ap'; ap.appendChild(document.createTextNode(n + '/' + m)); const bar = document.createElement('b'), fi = document.createElement('i'); fi.style.width = (n / m * 100) + '%'; bar.appendChild(fi); ap.appendChild(bar); am.appendChild(ap); }
+    if (on && e.t) { const au = document.createElement('div'); au.className = 'au'; au.textContent = 'Unlocked ' + new Date(e.t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); am.appendChild(au); }
     row.appendChild(am);
     const as = document.createElement('div'); as.className = 'as'; if (on) { as.textContent = '\u2713'; row.appendChild(as); }
     if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
