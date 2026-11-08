@@ -222,6 +222,20 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel .menu button{width:100%;padding:9px;font-size:16px}
 #settings{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
 #settings.open{display:grid}
+#ach{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
+#ach.open{display:grid}
+#ach .panel{width:min(94%,360px);max-height:94%;overflow-y:auto}
+.achsum{display:flex;justify-content:space-between;font-size:15px;margin:2px 0 5px;color:#f4d050}.achsum span+span{color:#a99cc8}
+.achbar{height:10px;background:#120e1a;border:2px solid #4a3f6e;margin-bottom:10px}.achbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff7a3a,#f4d050)}
+.ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#1c1630;border:2px solid #352b55;opacity:.7}
+.ach.on{background:#2e2358;border-color:#8466dc;opacity:1}
+.ach .ib{width:38px;height:38px;flex:none;display:grid;place-items:center;background:#120e1a;border:2px solid #4a3f6e;box-shadow:inset 0 0 0 2px #1c1630}
+.ach.on .ib{border-color:#f4d050}
+.ach canvas{width:20px;height:20px;image-rendering:pixelated;display:block}
+.ach .am{flex:1;min-width:0}.ach .at{font-size:14px;color:#a99cc8}.ach.on .at{color:#f2ecd8}
+.ach .ad{font-size:11px;color:#a99cc8;margin-top:1px}.ach .ar{font-size:10px;color:#f4d050;margin-top:3px}
+.ach .as{font-size:12px;color:#7fe6c8;flex:none}
+.ach .new{position:absolute;top:-8px;right:6px;background:#ff7a3a;color:#1b1530;font:600 10px 'StarFall Text',ui-monospace,monospace;padding:1px 5px;letter-spacing:.1em}
 .panel{width:min(88%,300px);background:#1c1630;border:3px solid #f2ecd8;box-shadow:0 0 0 3px #120e1a,0 8px 0 #120e1a;padding:16px 16px 14px;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace}
 .panel h2{margin:0 0 10px;font-size:22px;font-weight:600;color:#fff0a0;text-shadow:2px 2px 0 #120e1a}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}
@@ -368,6 +382,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmMusic" aria-label="Music: On">Music<i>ON</i></button>
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
+          <button type="button" id="pmAch">Achievements<i id="pmAchN"></i></button>
           <button type="button" id="pmSettings">Settings</button>
           <button type="button" id="pmHow">How to play</button>
           <button type="button" id="pmCredits">Credits</button>
@@ -428,6 +443,15 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div style="height:60px"></div>
         <button type="button" id="crRetro">Retro Run</button>
         <div style="height:90px"></div>
+      </div>
+    </div>
+    <div id="ach" role="dialog" aria-modal="true" aria-labelledby="achT">
+      <div class="panel">
+        <h2 id="achT">Achievements</h2>
+        <div class="achsum"><span id="achCount"></span><span id="achPct"></span></div>
+        <div class="achbar"><i id="achFill"></i></div>
+        <div id="achList"></div>
+        <button type="button" class="primary" id="achClose">Close</button>
       </div>
     </div>
     <div id="howto" role="dialog" aria-modal="true" aria-labelledby="howTitle">
@@ -4440,7 +4464,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.94'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.95'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4475,7 +4499,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4982,8 +5006,6 @@ function raptorSet() { return raptorCache || (raptorCache = [-1, 0, 1].map(build
 const raptorState = () => +store.get(KEY.raptor, 0) || 0;
 const raptorOwned = () => raptorState() > 0;
 function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
-// The reward for a whole Campaign run (level 1 to the end of the first loop, level 12): the Raptor on any difficulty, the Phoenix from Veteran, the Rotkehlchen on Ace. The harder difficulties also give the ones below.
-function unlockSkinsForRun() { if (run.endless || (run.start | 0) !== 1 || run.stage < 12) return; const d = run.diff | 0; unlockRaptor(); if (d >= 1) unlockPhoenix(); if (d >= 2) unlockRobin(); }
 function useRaptor() { return raptorOwned() && !!settings.raptor; }
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
@@ -4994,23 +5016,64 @@ function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => bui
 // The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
 const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
-function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
+function unlockNacht() { if (!nachtOwned()) { store.set(KEY.nacht, 1); award('raven'); } }
+
+/* ================= achievements ================= */
+// achv maps an achievement id to { t: when, n: 1 until the list was opened, s: 1 until the ship picker was opened (the Rooster has no state of its own) }.
+// Only the ranked Campaign (START) counts: never the Tutorial, Practice or Endless. Retro Run earns Old School and nothing else.
+// Ships: Rookie gives the Rooster, Veteran the Phoenix, Ace the Raptor (the ships' own unlock flags above), all six secrets in one loop the Rotkehlchen.
+const ACH = [
+  { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'Rooster' },
+  { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'Phoenix' },
+  { id: 'ace', name: 'Ace Pilot', desc: 'Finish the Campaign on Ace', icon: 'wings', skin: 'Raptor' },
+  { id: 'robin', name: 'Eagle Eye', desc: 'Find all six secrets in one loop', icon: 'eye', skin: 'Rotkehlchen' },
+  { id: 'nonet', name: 'No Net', desc: 'Finish the Campaign without continues', icon: 'star' },
+  { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
+  { id: 'chain', name: 'Chain Master', desc: 'Reach a x10 medal multiplier', icon: 'medal' },
+  { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
+  { id: 'snow', name: 'Snow Bird', desc: 'Find all six secrets', icon: 'snow', skin: 'Schneevogel' },
+  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Nachtvogel', icon: 'wings', skin: 'Nachtvogel', hidden: true }
+];
+let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
+const achHas = id => !!achv[id];
+const saveAchv = () => store.setJSON(KEY.achv, achv);
+const CHAIN_GOAL = 10; // the medal chain has no cap now; a x10 chain is the goal
+let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
+function award(id, quiet) {
+  const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
+  achv[id] = { t: Date.now(), n: 1, s: id === 'rookie' && !quiet ? 1 : 0 }; saveAchv();
+  if (!quiet) { app.toasts.push({ id, t: 0 }); sfx('extend'); }
+  return true;
+}
+const rankedCamp = () => run.ranked && !!run.sortie && !run.endless && !app.tut;
+function campaignWon() { // a Campaign loop is cleared (the congratulations): the difficulty's pilot, its ship, and the loop's own goals
+  if (!rankedCamp()) return;
+  const d = run.diff | 0; award(['rookie', 'veteran', 'ace'][d]);
+  if (d === 1) unlockPhoenix(); else if (d === 2) unlockRaptor();
+  if (run.conts === 0) award('nonet');
+  if (run.camp && run.camp.secrets >= 6) { award('robin'); unlockRobin(); }
+}
+function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); } // players who already earned these keep them
+const achCount = () => ACH.filter(x => achv[x.id]).length;
+const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
+const roosterOwned = () => achHas('rookie');
+function useRooster() { return roosterOwned() && !!settings.rooster; }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const skinSet = () => useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
 const FLAME = () => useRaptor() ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); saveSettings(); }
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
-const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
+const app = { toasts: [], snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : [], roosterOwned() ? [[6, goldSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
+function openShipPick() { app.shipPick = true; if (achv.rookie && achv.rookie.s) { achv.rookie.s = 0; saveAchv(); } app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
 // The picker shows three ships a page. With more than three, arrow buttons at the left and right edges turn the page (taps, or the left and right keys), and dots between the title and the cards show which page it is.
-const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SCHNEEVOGEL', 'NACHTVOGEL', 'PHOENIX', 'ROTKEHLCHEN', 'RAPTOR'];
+const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SCHNEEVOGEL', 'NACHTVOGEL', 'PHOENIX', 'ROTKEHLCHEN', 'RAPTOR', 'ROOSTER'];
 const pickPages = n => Math.max(1, Math.ceil(n / PICK_PER));
-const curSkinId = () => useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+const curSkinId = () => useRooster() ? 6 : useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
 const pickPage = n => clamp(app.pickPage | 0, 0, pickPages(n) - 1);
 function cardRect(i, n) { // the card for ship i of n: the cards of the last page are centred
   const page = Math.floor(i / PICK_PER), inPage = Math.min(PICK_PER, n - page * PICK_PER), c = i % PICK_PER;
@@ -5045,7 +5108,7 @@ function drawShipPick() {
     ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, cy - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
     ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, cy + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
     const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = cy + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
-    ctx.fillStyle = id === 2 ? '#8466dc' : id === 3 ? '#ffb838' : id === 5 ? '#18c4b0' : '#ff7a3a'; const nt = id >= 3, fy = Math.round(by + sh / 2) - (id === 5 ? 5 : nt ? 9 : 6), fh = id === 5 ? 5 : 6; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - (nt ? 6 : 7), fy, 3, fh); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + (nt ? 3 : 4), fy, 3, fh); // the newer ships' flames sit under their tail tips
+    ctx.fillStyle = id === 2 ? '#8466dc' : id === 3 ? '#ffb838' : id === 5 ? '#18c4b0' : '#ff7a3a'; const nt = id >= 3 && id <= 5, fy = Math.round(by + sh / 2) - (id === 5 ? 5 : nt ? 9 : 6), fh = id === 5 ? 5 : 6; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - (nt ? 6 : 7), fy, 3, fh); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + (nt ? 3 : 4), fy, 3, fh); // the newer ships' flames sit under their tail tips
     ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
     if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, cy + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
   }
@@ -8688,6 +8751,7 @@ const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, death
 let guardCount = 0;
 run.stats = newStats();
 let arts = new Set(store.getJSON(KEY.arts, []));
+migrateAch();
 let beam = null, gpad = null, padPrev = {};
 // 2nd player (PC only): flies with the mouse or a controller. Has its own weapon, score, lives and Nova bombs; respawns on its own while it has lives
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
@@ -9314,6 +9378,9 @@ const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
+// the trophy button under SCORES opens the achievements; it moves up on short screens so it clears the credit line
+function trophyBtn() { const y = Math.min((SHOW_ENDLESS ? ENDLESS_Y + ENDLESS_BTN.h : SCORES_Y + SCORES_BTN.h) + 8, H - TY - 38); return { x: Math.round(W / 2 - 13), y, w: 26, h: 22 }; }
+function trophyHit(gx, gy) { const b = trophyBtn(); return gx >= b.x - 5 && gx <= b.x + b.w + 5 && gy >= b.y - 4 && gy <= b.y + b.h + 6; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 function lbEligible() { return run.score > 0 && run.ranked && run.start === 1; } // only the Campaign (START) is ranked, alone or with two players (the board takes the combined score); Retro Run and practice stay off
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
@@ -11643,9 +11710,10 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
-function bossDead(e) { world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
+function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
+  bossHit = false;
   const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
@@ -11804,11 +11872,11 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); campaignWon(); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
-    loopsWon++; store.set(KEY.loops, loopsWon); unlockSkinsForRun();
+    loopsWon++; store.set(KEY.loops, loopsWon); if (run.retro && !app.tut) award('retro');
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -14314,7 +14382,7 @@ function drawRebirth(p) {
 }
 function die(cause) {
   const p = player; rrDeath(cause || '?'); if (app.glows) app.glows = app.glows.filter(g => g.who !== 1);
-  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
+  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; bossHit = true; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; if (run.medalT > 0) endChain(); run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
@@ -14375,7 +14443,7 @@ function updP2() {
 }
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
-  app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  bossHit = true; app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
   for (let i = 0; i < q.drones; i++) boom(q.dr[i].x, q.dr[i].y, 10);
   q.drones = 0;
   if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
@@ -14387,10 +14455,10 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
       run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
@@ -14824,9 +14892,9 @@ function padMenus(nav) {
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
-function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 function padTitle(nav) {
-  const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus));
+  const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
   if (nav.a || nav.start) titleActivate();
@@ -15131,11 +15199,11 @@ function update() {
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
           addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
           run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
@@ -16518,7 +16586,7 @@ function drawPlayer() {
   if (p.dead) { if (p.dx !== undefined) drawRebirth(p); return; }
   const fk = p.fly > 0 ? (p.flyK || 1) : 1;
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
-  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() >= 3; // the Phoenix, Rotkehlchen and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
+  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() >= 3 && curSkinId() <= 5; // the Phoenix, Rotkehlchen and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
   for (const [ox, top] of tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]]) { // (the Raptor's wings have gaps along the trailing edge: its flames start at the tail end, so none shows above the tail)
     const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : 0;
     ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top - up);
@@ -16692,7 +16760,7 @@ function renderMain() {
     drawTitleLogo();
     const ps = skinSet()[1], sw = ps.w * 2, sh = ps.h * 2, by = TITLE_SHIP_Y + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
-    if (curSkinId() >= 3) for (const sg of [-1, 1]) { const fx = sg < 0 ? W / 2 - 9 : W / 2 + 5; const fy = useRaptor() ? by + 29 : by + 26; ctx.fillStyle = FLAME()[0]; ctx.fillRect(fx, fy, 4, 6 + ((gf >> 1) & 1) * 3 - (fy - by - 26)); ctx.fillStyle = FLAME()[2]; ctx.fillRect(fx + 1, fy, 2, 4 - (fy - by - 26)); } // the newer ships' tails end higher and sit closer to the centre line
+    if (curSkinId() >= 3 && curSkinId() <= 5) for (const sg of [-1, 1]) { const fx = sg < 0 ? W / 2 - 9 : W / 2 + 5; const fy = useRaptor() ? by + 29 : by + 26; ctx.fillStyle = FLAME()[0]; ctx.fillRect(fx, fy, 4, 6 + ((gf >> 1) & 1) * 3 - (fy - by - 26)); ctx.fillStyle = FLAME()[2]; ctx.fillRect(fx + 1, fy, 2, 4 - (fy - by - 26)); } // the newer ships' tails end higher and sit closer to the centre line
     else for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
     ctx.drawImage(ps.c, W / 2 - sw / 2, by - sh / 2, sw, sh);
     const btn = (x0, y0, w, h, fill) => { ctx.fillStyle = OUT; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2); ctx.fillStyle = fill; ctx.fillRect(x0, y0, w, h); };
@@ -16712,7 +16780,7 @@ function renderMain() {
       const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#3a2a70', faceLo: '#241a48' }, 3, dn);
       ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
       textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
     { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
       if (SHOW_ENDLESS) {
@@ -16724,11 +16792,15 @@ function renderMain() {
       const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('scores'));
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('ach'));
+        ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) - 1);
+        if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
     }
-    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1 || (achv.rookie && achv.rookie.s)) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
+    drawToasts();
     syncBody(); return;
   }
 
@@ -16921,6 +16993,7 @@ function renderMain() {
     drawFlybyOverlay();
   }
   if (app.paused && app.state === 'play') { ctx.fillStyle = 'rgba(18,14,26,0.45)'; ctx.fillRect(0, 0, W, H); }
+  drawToasts();
   if (app.fade) { const a = app.fade.phase === 'out' ? app.fade.t / 24 : 1 - app.fade.t / 32, lv = Math.round(clamp(a, 0, 1) * 16); if (lv > 0) { ctx.fillStyle = FADE_PATS()[lv]; ctx.fillRect(0, 0, W, H); } }
   syncBody();
 }
@@ -16949,7 +17022,7 @@ function showPauseMenu(v) {
   const inGame = app.state === 'play';
   for (const id of ['pmSep2', 'pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
-  setSoundLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
+  setSoundLabel(); achLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
 function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else { if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } } setPauseIcon(); showPauseMenu(app.paused); }
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
@@ -16970,6 +17043,75 @@ document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('
 document.getElementById('pmResume').addEventListener('click', closeMenu);
 document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); restartStage(); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
+document.getElementById('pmAch').addEventListener('click', () => { showPauseMenu(false); openAch(true); });
+// The achievements page: opened from the title screen's trophy or from the menu; opening it clears the NEW marks
+const ACH_BM = {
+  wings: ['10000001', '11000011', '11100111', '11111111', '01111110', '00111100', '00011000', '00011000'],
+  shield: ['11111111', '10000001', '10011001', '10011001', '01011010', '01000010', '00100100', '00011000'],
+  star: ['00011000', '00011000', '11111111', '01111110', '00111100', '01111110', '01100110', '01000010'],
+  medal: ['01100110', '00100100', '00111100', '01111110', '01111110', '01111110', '00111100', '00000000'],
+  snow: ['10010010', '01010100', '00111000', '11111111', '00111000', '01010100', '10010010', '00000000'],
+  pad: ['00000000', '01111110', '11111111', '11011011', '11111111', '11111111', '01100110', '00000000'],
+  eye: ['00000000', '00111100', '01111110', '11100111', '11100111', '01111110', '00111100', '00000000'],
+  lock: ['00111100', '01000010', '01000010', '11111111', '11111111', '11100111', '11100111', '11111111']
+};
+function achIcon(name, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.fillStyle = color;
+  ACH_BM[name].forEach((r, y) => { for (let i = 0; i < 8; i++) if (r[i] === '1') x.fillRect(i, y, 1, 1); });
+  return c;
+}
+let achFromMenu = false;
+function achLabel() { document.getElementById('pmAchN').textContent = achCount() + '/' + ACH.length; }
+function openAch(fromMenu) {
+  achFromMenu = !!fromMenu; const list = document.getElementById('achList'); list.textContent = '';
+  for (const a of ACH) {
+    const e = achv[a.id], on = !!e, hide = !!a.hidden && !on;
+    const row = document.createElement('div'); row.className = 'ach' + (on ? ' on' : '');
+    const ib = document.createElement('div'); ib.className = 'ib'; ib.appendChild(achIcon(hide ? 'lock' : a.icon, on ? '#f4d050' : '#5a4e80')); row.appendChild(ib);
+    const am = document.createElement('div'); am.className = 'am';
+    const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
+    const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
+    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
+    row.appendChild(am);
+    const as = document.createElement('div'); as.className = 'as'; if (on) as.textContent = '\u2713'; else as.appendChild(achIcon('lock', '#5a4e80')); row.appendChild(as);
+    if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
+    list.appendChild(row);
+  }
+  const got = achCount(); document.getElementById('achCount').textContent = got + ' / ' + ACH.length; document.getElementById('achPct').textContent = Math.round(got / ACH.length * 100) + '%';
+  document.getElementById('achFill').style.width = (got / ACH.length * 100) + '%';
+  let ch = false; for (const k in achv) if (achv[k].n) { achv[k].n = 0; ch = true; } if (ch) saveAchv();
+  audio(); sfx('tick'); document.getElementById('ach').classList.add('open'); document.getElementById('achClose').focus();
+}
+document.getElementById('achClose').addEventListener('click', () => { document.getElementById('ach').classList.remove('open'); if (achFromMenu) { showPauseMenu(true); document.getElementById('pmAch').focus(); } });
+document.getElementById('ach').addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === document.getElementById('ach')) document.getElementById('achClose').click(); });
+// the gold trophy on the title's button and in the toast: 16 x 16 pixel art with a dark outline
+let trophyC = null;
+function trophySpr() {
+  if (trophyC) return trophyC;
+  const N = 16, G = '#f4d050', L = '#fff4b0', D = '#c98a1c', DD = '#8a5a12', m = Array.from({ length: N }, () => Array(N).fill(null));
+  const R = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m[y][x] = c; };
+  R(4, 1, 11, 6, G); R(4, 1, 11, 1, L); R(4, 2, 4, 6, L); R(10, 2, 11, 6, D); R(5, 7, 10, 7, G); R(6, 8, 9, 8, D);
+  for (const [x, y] of [[3, 2], [2, 2], [1, 3], [1, 4], [1, 5], [2, 6], [3, 6]]) { m[y][x] = D; m[y][15 - x] = D; }
+  R(7, 9, 8, 11, D); R(7, 9, 7, 11, G); R(4, 12, 11, 13, D); R(4, 12, 11, 12, G); R(4, 13, 11, 13, DD);
+  for (const [x, y, c] of [[7, 3, '#ffffff'], [7, 4, L], [6, 4, L], [8, 4, L], [7, 5, L]]) m[y][x] = c;
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), f = (a, b) => a >= 0 && b >= 0 && a < N && b < N && m[b][a];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!m[y][x] && (f(x + 1, y) || f(x - 1, y) || f(x, y + 1) || f(x, y - 1))) { g.fillStyle = '#1a0f33'; g.fillRect(x, y, 1, 1); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) { g.fillStyle = m[y][x]; g.fillRect(x, y, 1, 1); }
+  return (trophyC = c);
+}
+// a new achievement slides in near the top for about three seconds; several wait their turn
+function drawToasts() {
+  const q = app.toasts; if (!q.length) return;
+  const T = q[0], a = ACH.find(x => x.id === T.id), IN = 12, HOLD = 170, FADE = 14; T.t++;
+  if (!a || T.t > IN + HOLD + FADE) { q.shift(); return; }
+  const k = T.t < IN ? T.t / IN : T.t > IN + HOLD ? 1 - (T.t - IN - HOLD) / FADE : 1;
+  const w = 176, h = 26, x = Math.round((W - w) / 2), y = Math.round(34 - (1 - k) * 40);
+  ctx.save(); ctx.globalAlpha = Math.min(1, k * 1.6);
+  ctx.fillStyle = OUT; ctx.fillRect(x - 2, y - 2, w + 4, h + 4); ctx.fillStyle = '#f4d050'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = '#1c1630'; ctx.fillRect(x, y, w, h);
+  ctx.drawImage(trophySpr(), x + 4, y + 5);
+  textS('ACHIEVEMENT', x + 26, y + 5, '#f4d050', 1, 'left'); textS(a.name.toUpperCase(), x + 26, y + 15, '#ffffff', 1, 'left');
+  ctx.restore();
+}
 document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); stopMusic(); if (app.state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); app.state = 'over'; app.overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
 
@@ -17186,13 +17328,13 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
-  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open, #ach.open')) { if (k === 'escape') { if (document.getElementById('ach').classList.contains('open')) document.getElementById('achClose').click(); else if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); app.rrIn = 'key';
   if (app.booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
     if (app.state === 'title' && app.shipPick && (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd' || k === 'escape')) pickKey(k);
-    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
     else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
@@ -17210,7 +17352,7 @@ let drag = null, scale = 2;
 onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }
