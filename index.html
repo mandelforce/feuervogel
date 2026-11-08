@@ -4893,7 +4893,7 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
+// Phönix: the skin for finishing the Campaign on Veteran. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
 // The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
 function buildPhoenix(bank) {
   const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
@@ -4939,12 +4939,12 @@ function buildPhoenix(bank) {
 }
 let phoenixCache = null;
 function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Veteran or Ace (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the ranked Campaign on Veteran (see campaignWon).
 const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
 const phoenixOwned = () => phoenixState() > 0;
 function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
 function unlockPhoenix() { if (!phoenixOwned()) store.set(KEY.phoenix, 1); }
-// Rotkehlchen (robin): the Ace skin, for finishing the Campaign plus a loop on Ace. Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
+// Rotkehlchen (robin): the skin for finding all six secrets in one loop (the Eagle Eye achievement). Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
 // Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
 function buildRotkehlchen(bank) {
   const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'], CRIM = ['#3a0808', '#7a1410', '#c82a1a', '#ff4a2a', '#ff8a5a'];
@@ -4979,12 +4979,12 @@ function buildRotkehlchen(bank) {
 }
 let robinCache = null;
 function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Ace (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finding all six secrets in one loop (see campaignWon).
 const robinState = () => +store.get(KEY.robin, 0) || 0;
 const robinOwned = () => robinState() > 0;
 function unlockRobin() { if (!robinOwned()) store.set(KEY.robin, 1); }
 function useRobin() { return robinOwned() && !!settings.robin; }
-// Raptor: the skin for finishing the Campaign twice. A bronze bird of prey seen from above: feathered wing tips, teal rim and tail, a teal beak tip, no face. Symmetric like the Rotkehlchen; 36x38 with an empty border instead of the outline.
+// Raptor: the skin for finishing the Campaign on Ace. A bronze bird of prey seen from above: feathered wing tips, teal rim and tail, a teal beak tip, no face. Symmetric like the Rotkehlchen; 36x38 with an empty border instead of the outline.
 function buildRaptor(bank) {
   const BRONZE = ['#241408', '#4a2c10', '#86541c', '#c08a2c', '#e8c060', '#fff0b0'], TEAL = ['#06302c', '#0e5c54', '#1e9a88', '#58d0b8', '#b8f4e4'];
   const WING = [[15, 8], [9, 9], [4, 12], [0, 16], [1, 22], [3, 20], [3, 27], [6, 23], [7, 30], [10, 25], [12, 31], [14, 24], [15, 20]], TAIL = [[16, 22], [13, 35], [17, 30], [21, 35], [18, 22]], HEAD = [[17, 0], [19, 3], [20, 7], [18, 10], [16, 10], [14, 7], [15, 3]];
@@ -5014,7 +5014,7 @@ function buildRaptor(bank) {
 }
 let raptorCache = null;
 function raptorSet() { return raptorCache || (raptorCache = [-1, 0, 1].map(buildRaptor)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on any difficulty (see unlockSkinsForRun).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the ranked Campaign on Ace (see campaignWon).
 const raptorState = () => +store.get(KEY.raptor, 0) || 0;
 const raptorOwned = () => raptorState() > 0;
 function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
