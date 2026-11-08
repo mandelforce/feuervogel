@@ -518,7 +518,7 @@ function generate(opts) {
     const out = { sr, signals: [], lamps: [], wagons: [], x0: Math.min(X(27), X(199)), x1: Math.max(X(27), X(199)) };
     const yC0 = RC ? Math.round(L * RC.at[0]) : null, yA = YP ? Math.round(L * YP.at[0]) : null, yB = YP ? Math.min(L - 1, Math.round(L * YP.at[1])) : null;
     // the pair: from the main line on curves of about 1 in 3.5 (the far line first), then straight to the plan's end
-    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, pA = bend(18, y0, 131, y0 + 520), pB = bend(18, y0 + 150, 93, y0 + 520);
+    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, oM = sr < 0 ? RL.xA : W - 1 - RL.xA /* the main line's offset: 18, or further in with railShift */, pA = bend(oM, y0, 131, y0 + 520), pB = bend(oM, y0 + 150, 93, y0 + 520);
     for (let y = y0 + 521; y < L; y++) { put(pA, y, 131); put(pB, y, 93); }
     out.pair = [X(93), X(131)]; out.y0 = y0;
     if (yC0 !== null) { // a signal gantry over the pair after the junction, and the corridor's lamps

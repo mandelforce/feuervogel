@@ -1017,7 +1017,7 @@ function generate(opts) {
     const out = { sr, signals: [], lamps: [], wagons: [], x0: Math.min(X(27), X(199)), x1: Math.max(X(27), X(199)) };
     const yC0 = RC ? Math.round(L * RC.at[0]) : null, yA = YP ? Math.round(L * YP.at[0]) : null, yB = YP ? Math.min(L - 1, Math.round(L * YP.at[1])) : null;
     // the pair: from the main line on curves of about 1 in 3.5 (the far line first), then straight to the plan's end
-    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, pA = bend(18, y0, 131, y0 + 520), pB = bend(18, y0 + 150, 93, y0 + 520);
+    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, oM = sr < 0 ? RL.xA : W - 1 - RL.xA /* the main line's offset: 18, or further in with railShift */, pA = bend(oM, y0, 131, y0 + 520), pB = bend(oM, y0 + 150, 93, y0 + 520);
     for (let y = y0 + 521; y < L; y++) { put(pA, y, 131); put(pB, y, 93); }
     out.pair = [X(93), X(131)]; out.y0 = y0;
     if (yC0 !== null) { // a signal gantry over the pair after the junction, and the corridor's lamps
@@ -4476,7 +4476,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.104'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.105'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
