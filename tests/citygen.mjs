@@ -270,12 +270,12 @@ if (part()) { let fails = 0, have = 0, posts = 0, posts0 = 0;
     if (p.yard && p.yard.wagons.length >= 20 && p.airbase && p.forest && p.pylons && p.searchPosts.length >= 4) have++; posts += p.searchPosts.length; posts0 += p0.searchPosts.length; }
   const ok = !fails && have === 30 && posts >= posts0; if (!ok) fail(`level 3 variant 1: ${fails} fail the rules, ${have}/30 have all their parts, ${posts} posts against ${posts0}`);
   console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 in the first loop: ${30 - fails}/30 pass, all parts in ${have}, ${(posts / 30).toFixed(1)} posts per level (${(posts0 / 30).toFixed(1)} in the first pass)`); }
-// the first loop's yard: the cinder runs to the plan's last row (the game dithers it into the arena's grass), and the corridor's branches start on the main line itself; the first pass keeps its ragged end
+// the first loop's yard: the cinder runs to the plan's last row (the game dithers it into the arena's grass), and the corridor's branches start on the main line itself; so does the first pass
 if (part()) { let bad = 0, rag0 = 0;
   for (let seed = 1; seed <= 12; seed++) { const p = CG.generate({ seed, preset: 'longNight', params: { variant: 1, railShift: 3, shadows: 1 } }), p0 = CG.generate({ seed, preset: 'longNight' }), W = p.W, L = p.L, Kc = CG.K, row = (q, y) => { let n = 0; for (let x = 30; x < 200; x++) if (q.K[y * W + x] === Kc.WORKS) n++; return n; };
     if (!p.yard || row(p, L - 1) < 40 || row(p, L - 20) < 40) bad++; if (row(p0, L - 1) < 40) rag0++; }
-  const ok = !bad && rag0 > 0; if (!ok) fail(`level 3 variant 1: the cinder does not reach the plan's end in ${bad} of 12 (the first pass: ${rag0} ragged)`);
-  console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 in the first loop: the yard's cinder reaches the plan's end (${12 - bad}/12; ${rag0} first-pass levels keep the ragged end)`); }
+  const ok = !bad && !rag0; if (!ok) fail(`level 3: the cinder does not reach the plan's end in ${bad} of 12 loop levels and ${rag0} first-pass ones`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} level 3 in the first loop: the yard's cinder reaches the plan's end (${12 - bad}/12; first pass ${12 - rag0}/12)`); }
 // The moon's shadow angle (level 3, first loop): the light is on the right (the moon at the upper right), so ground beside a building is darker on its left than on its right, and the first pass's
 // soft shadows (which fall to the right) are left out; the first pass itself keeps them (darker on the right). Painted at night as the game does, over a band of the level.
 if (part()) { const side = (params) => { let dl = 0, n = 0;

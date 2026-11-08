@@ -533,9 +533,8 @@ function generate(opts) {
       diag(74, a(149), 93, a(212)); diag(93, a(149), 74, a(212)); diag(131, a(109), 150, a(172)); diag(150, a(109), 131, a(172)); // crossovers
       // the yard's ground (cinder), from the main line's corridor to the strip's far side road
       out.top = new Int32Array(W); for (let x = 0; x < W; x++) out.top[x] = yB - 24 - Math.round(noise1(T.RAIL + 9, x * 0.09) * 20); // the cinder ends raggedly before the plan's end, grass beyond (as the arena's ground)
-      if (P.variant) { /* the first loop: the cinder runs to the plan's end, where the game dithers the plan into the arena's grass (no ragged edge with light wedges) */
+      { /* the cinder runs to the plan's end (the first pass and the loop), where the game dithers the plan into the arena's grass (no ragged edge with light wedges) */
         for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y < L; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } } }
-      else for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y <= out.top[x]; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } }
       // rolling stock on the sidings, never on the through lines or the tracks that run on into the arena
       for (const [o, lo, hi] of [[36, a(146), b(190)], [74, a(20), a(144)], [74, a(218), b(72)], [112, a(34), b(60)], [150, a(80), a(104)], [150, a(178), b(74)], [55, a(84), b(134)]]) {
         for (let y = lo, k = 0; y + 26 <= hi; y += 28, k++) if (rnd(T.RAIL, o * 31 + k, 80) < 0.86) out.wagons.push({ x: X(o), y0: y, h: 26, kind: (rnd(T.RAIL, o * 31 + k, 81) * 3) | 0, dmg: rnd(T.RAIL, o * 31 + k, 82) < Dy(y) * 0.5 }); }
