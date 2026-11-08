@@ -489,19 +489,38 @@ for (const lv of [2, 6]) {
   const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
     return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
   ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
-  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley - 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley + 4}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
     for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
-      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead);
-        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, wys: B.map(e => e.wy), ebul: world.ebul.length }; })()`);
-      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.wys.slice(); o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.shots = Math.max(o.shots, q.ebul);
-        if (q.t > 500 && !o.wy1) o.wy1 = q.wys.slice(); }
+      const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead), pt = world.enemies.filter(e => e.type === 'pt' && e.rv && !e.dead).length;
+        return { enc: world.enc && world.enc.id, t: world.enc ? world.enc.t : 0, pt, kinds: B.map(e => e.type).sort().join(), road: Rd.length, wet: B.filter(e => e.wx >= W - 1 || CityGen.typeAt(S.plan, Math.round(e.wx), Math.round(S.planY0 - e.wy)) === 'river').length, /* (past the strip's edge the river runs on, off the plan) */ nB: B.length, first: Object.fromEntries(B.map(e => [e.type, e.wy]).reverse()), ebul: world.ebul.length, hd: (() => { const R = run.sortie.plan.rivers2[0]; let err = 0, turn = 0; for (const e of world.enemies) { if (e.dead || e.hd === undefined || !(['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) || (e.type === 'pt' && e.rv))) continue; const i = Math.round(run.sortie.planY0 - e.wy) - R.a, want = riverHd(R, i, e.type !== 'pt'); err = Math.max(err, Math.abs(angDiff(e.hd, want))); turn = Math.max(turn, Math.abs(angDiff(e.hd, e.type === 'pt' ? PI / 2 : -PI / 2))); } return [err, turn]; })() }; })()`);
+      if (q.enc === 'valleyconvoy') { if (!o.started) { o.started = 1; o.starts++; o.kinds = q.kinds; o.wy0 = q.first; o.road0 = q.road; } o.wet += q.wet; o.dry += q.nB - q.wet; o.road = Math.max(o.road, q.road); o.boats = Math.max(o.boats, q.nB); o.pt = Math.max(o.pt || 0, q.pt); o.hdErr = Math.max(o.hdErr || 0, q.hd[0]); o.hdTurn = Math.max(o.hdTurn || 0, q.hd[1]); o.shots = Math.max(o.shots, q.ebul);
+        if (q.t > 500 && !o.wy1) o.wy1 = q.first; }
       else if (o.started) o.ended = q.enc || 'none'; }
     o.errs = SF.R.errs.slice(0, 2); return o; });
-  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5, `the convoy comes: ${f.kinds}; ${f.road} road vehicles`);
+  ok(f.started === 1 && f.kinds === 'bargeC,bargeF,bargeG,bargeG,tug' && f.road >= 5 && f.pt >= 2, `the convoy comes: ${f.kinds}; ${f.road} road vehicles; ${f.pt} PT boats come down the river with it`);
+  ok(f.hdErr < 0.2 && f.hdTurn > 0.08, `the boats turn with the river: their headings stay within ${f.hdErr.toFixed(2)} rad of its course, and they turn up to ${f.hdTurn.toFixed(2)} rad off straight`);
   ok(f.dry === 0 && f.wet > 10, `every river craft sails on water (${f.wet} samples on the river, ${f.dry} off it)`);
-  ok(f.wy1 && f.wy0.length === f.boats && f.wy1.every((w, k) => w <= f.wy0[k] + 1) && f.wy1.some((w, k) => w < f.wy0[k] - 20), 'the river craft sail north (their world y falls)');
+  const com = f.wy1 ? Object.keys(f.wy1).filter(k => k in f.wy0) : []; ok(com.length >= 2 && com.every(k => f.wy1[k] <= f.wy0[k] + 1) && com.some(k => f.wy1[k] < f.wy0[k] - 20), `the river craft sail north (their world y falls: ${com.join(', ')})`);
   ok(f.shots > 0 && f.ended !== null && f.errs.length === 0, `the armed ones fire back, the encounter ends and rests, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3h2. The convoy's boats: tougher than a PT boat, two PT boats come down the river with it, and a destroyed one goes down like the game's ships (an oil slick, a sinking hull,
+// swimmers; the fuel barge burns). The valley's river is long and wide (at least 40 px, no kink: the centre line never moves more than 1.5 px a row).
+{
+  const page = await freshPage();
+  const r = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { pts: 0, hp: {}, sunk: {}, minHw: 999, kink: 0, len: 0 };
+    const R = SF.peek("(() => { const r = run.sortie.plan.rivers2[0]; return { n: r.cx.length, hw: Math.min(...r.hw.slice(Math.round(r.hw.length * 0.3), Math.round(r.hw.length * 0.7))), kink: Math.max(...r.cx.slice(1).map((c, i) => Math.abs(c - r.cx[i]))) }; })()"); o.len = R.n; o.minHw = R.hw; o.kink = R.kink;
+    for (let i = 0; i < 600 && !SF.peek("world.enc && world.enc.id === 'valleyconvoy' && world.enc.t > 460"); i++) SF.run(30);
+    o.pts = SF.peek("world.enemies.filter(e => e.type === 'pt' && e.rv).length"); o.ptSeen = o.pts; o.hp = SF.peek("JSON.stringify(Object.fromEntries(world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type)).map(e => [e.type, e.hp / hpm()])))");
+    for (const ty of ['tug', 'bargeF', 'bargeC', 'bargeG']) { const q = SF.peek(`(() => { const e = world.enemies.find(o => o.type === '${ty}' && !o.dead); if (!e) return null; const d0 = world.decals.length, c0 = critters.length; kill(e); return { d0, c0 }; })()`); if (!q) continue; SF.run(120);
+      o.sunk[ty] = SF.peek(`({ oil: world.decals.some(d => d.kind === 'oil'), sink: world.decals.some(d => d.kind === 'sink' && d.s && d.s.w >= SPR.${ty}.w), swim: critters.length > ${q.c0} })`); }
+    o.errs = SF.R.errs.slice(0, 2); return o; });
+  const hp = JSON.parse(r.hp), sunkAll = Object.values(r.sunk).length === 4 && Object.values(r.sunk).every(s => s.oil && s.sink && s.swim);
+  ok(r.pts >= 0 && hp.tug >= 12 && hp.bargeF >= 16 && hp.bargeC >= 28 && hp.bargeG >= 34, `the convoy's boats are tough (hit points: tug ${hp.tug}, fuel ${hp.bargeF}, parts ${hp.bargeC}, tank lighter ${hp.bargeG}; a PT boat has 8)`);
+  ok(sunkAll, `a destroyed boat goes down like the game's ships: ${JSON.stringify(r.sunk)}`);
+  ok(r.minHw >= 24 && r.kink <= 1.5 && r.len >= 600, `the river is long (${r.len} rows), wide (at least ${r.minHw.toFixed(0)} px each side of the centre at its narrowest middle) and smooth (largest step of its centre line ${r.kink.toFixed(2)} px a row)`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
 // 3i. Level 4's first loop (seed 1945): the Cliff Battery at the start. It is placed at the cliff coast (encPlan, c 1); gentle at first (nothing for 300 frames, the radar then stands
@@ -649,6 +668,44 @@ for (const lv of [2, 6]) {
   ok(!a.trees && f.trees, 'the castle ground has autumn trees in the first loop and the old dark ones in the first pass');
   ok(a.jump < 14, `no line at the seam: the rows either side differ by ${a.jump.toFixed(1)} in the first loop`);
   ok(a.hw[0] === 5 && a.hw[1] > 5 && a.hw[1] < 13 && a.hw[2] === 13, `the cobbled road widens from 5 to 13 px (${a.hw})`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3p. Level 4's first loop (seed 1945): the overcast sky of its own (drawOvercast, OVC). It is drawn in the loop and never in the first pass; the white fair-weather puffs are off in the loop; it changes along the level
+// (a pale veil at the clearing, heavy and smoke-brown over the fortified forest, fog at the hidden airbase, warm in the valley and on the farmland, low and dark at the castle), blends without steps between
+// stretches, and changes the frame. No errors, also with the low-effects setting.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const px = () => { const d = cv.getContext('2d').getImageData(0, 30, cv.width, 300).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return Math.round(s / (d.length / 4) / 3); };
+    const frame = (c, noOvc) => { world.enemies = []; world.ebul = []; const sc = Math.round((c + world.stageBaseP) * CH); world.scroll = sc; world.scrollV = world.scrollTarget = 0; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } app.state = 'play'; if (player) player.x = -60; app.fade = null; app.msg = null; let n = 0; const orig = drawOvercast; drawOvercast = () => { n++; if (!noOvc) orig(); }; resetCtx(); render(); drawOvercast = orig; return { n, mean: px() }; };
+    for (const lp of [0, 1]) { startEnigma(4, false, lp); const S = run.sortie, a = frame(30, false), b = frame(30, true); o['l' + lp] = { called: a.n, same: a.mean === b.mean, diff: a.mean - b.mean }; if (lp === 1) { const at = t => { const g = S.segs.find(q => q.t === t); return ovcAt(S, -(g.start + g.n / 2) * CH - world.stageBaseP * CH); };
+      o.clearing = at('clearing_village'); o.fort = at('forest_fortified'); o.air = at('airbase_forest_hidden'); o.valley = at('valley'); o.farm = at('farmland_approach'); o.castle = ovcAt(S, -(S.len + 5) * CH);
+      const tab = Object.values(OVC), rng = k => Math.max(...tab.map(v => v[k])) - Math.min(...tab.map(v => v[k])) || 1; let step = 0, prev = null; for (let wy = -3 * CH; wy > -(S.len + 4) * CH; wy -= 8) { const P = ovcAt(S, wy); if (prev) for (let k = 0; k < P.length; k++) step = Math.max(step, Math.abs(P[k] - prev[k]) / rng(k)); prev = P; } o.step = step;
+      lowFX = true; startEnigma(4, false, 1); frame(40, false); lowFX = false; o.lowOk = true; } }
+    o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.l1.called === 1 && r.l0.called === 0, `the overcast is drawn in the first loop (${r.l1.called}) and not in the first pass (${r.l0.called})`);
+  ok(r.l1.diff !== 0, `it changes the frame (mean brightness ${r.l1.diff >= 0 ? '+' : ''}${r.l1.diff})`);
+  ok(r.clearing[0] < r.fort[0] && r.clearing[0] < r.castle[0] && r.fort[12] === 1 && r.clearing[12] === 0 && r.air[11] > r.fort[11] && r.air[11] > r.valley[11], 'a pale veil at the clearing, the heaviest at the castle, smoke only in the fortified forest, the most fog at the hidden airbase');
+  ok(r.valley[8] > r.valley[10] && r.farm[8] > r.farm[10] && r.castle[1] < 0.4, `warm in the valley and on the farmland (tint R ${r.valley[8].toFixed(2)} B ${r.valley[10].toFixed(2)}), dark at the castle (veil R ${r.castle[1]})`);
+  ok(r.step < 0.05, `no steps between stretches (the largest change over 8 rows is ${(r.step * 100).toFixed(1)} percent of a value's range)`);
+  ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
+  await page.close();
+}
+// 3q. Level 5's first loop (seed 1945): the snow-laden sky (the same drawOvercast, OVC5): drawn in the loop and not in the first pass, softer than level 4's (smaller gains), thin and calm at the village and the
+// airbase, heavy at the harbour, the station, the forest and the pass and the gorge, smoke only at the station, blending without steps, changing the frame. No errors.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const o = {}; const px = () => { const d = cv.getContext('2d').getImageData(0, 30, cv.width, 300).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return Math.round(s / (d.length / 4) / 3); };
+    const frame = (c, noOvc) => { world.enemies = []; world.ebul = []; const sc = Math.round((c + world.stageBaseP) * CH); world.scroll = sc; world.scrollV = world.scrollTarget = 0; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2; for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; } app.state = 'play'; if (player) player.x = -60; app.fade = null; app.msg = null; let n = 0; const orig = drawOvercast; drawOvercast = () => { n++; if (!noOvc) orig(); }; resetCtx(); render(); drawOvercast = orig; return { n, mean: px() }; };
+    for (const lp of [0, 1]) { startEnigma(5, false, lp); const S = run.sortie, a = frame(40, false), b = frame(40, true); o['l' + lp] = { called: a.n, diff: a.mean - b.mean }; if (lp === 1) { const at = t => { const g = S.segs.find(q => q.t === t); return ovcAt(S, -(g.start + g.n / 2) * CH - world.stageBaseP * CH); };
+      o.village = at('village'); o.air = at('airbase_snow'); o.harbour = at('harbour_winter'); o.station = at('station_winter'); o.forest = at('forest_conifer'); o.pass = at('pass'); o.lake = at('lake_valley'); o.gorge = ovcAt(S, -(S.len + 5) * CH); o.soft = OVC5_G.veil < OVC_G.veil && OVC5_G.deck < OVC_G.deck;
+      const tab = Object.values(OVC5), rng = k => Math.max(...tab.map(v => v[k])) - Math.min(...tab.map(v => v[k])) || 1; let step = 0, prev = null; for (let wy = -3 * CH; wy > -(S.len + 4) * CH; wy -= 8) { const P = ovcAt(S, wy); if (prev) for (let k = 0; k < P.length; k++) step = Math.max(step, Math.abs(P[k] - prev[k]) / rng(k)); prev = P; } o.step = step; } }
+    o.errs = SF.R.errs.slice(0, 2); return o; })()`);
+  ok(r.l1.called === 1 && r.l0.called === 0, `the sky is drawn in the first loop (${r.l1.called}) and not in the first pass (${r.l0.called})`);
+  ok(r.l1.diff !== 0 && r.soft, `it changes the frame (${r.l1.diff >= 0 ? '+' : ''}${r.l1.diff}) and is softer than level 4's (gains ${r.soft})`);
+  ok(r.village[0] < r.harbour[0] && r.air[0] < r.forest[0] && r.village[0] < r.pass[0] && r.pass[0] >= r.harbour[0] && r.gorge[0] >= r.pass[0] - 0.01, 'calm at the village and the airbase, heavy at the harbour, the forest, the pass and the gorge');
+  ok(r.station[12] === 1 && r.village[12] === 0 && r.pass[12] === 0 && r.lake[11] > r.pass[11], 'smoke only at the station; the most fog on the lake');
+  ok(r.step < 0.05, `no steps between stretches (the largest change over 8 rows is ${(r.step * 100).toFixed(1)} percent of a value's range)`);
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }

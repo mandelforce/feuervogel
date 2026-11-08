@@ -222,6 +222,20 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .panel .menu button{width:100%;padding:9px;font-size:16px}
 #settings{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
 #settings.open{display:grid}
+#ach{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:5}
+#ach.open{display:grid}
+#ach .panel{width:min(94%,360px);max-height:94%;overflow-y:auto}
+.achsum{display:flex;justify-content:space-between;font-size:15px;margin:2px 0 5px;color:#f4d050}.achsum span+span{color:#a99cc8}
+.achbar{height:10px;background:#120e1a;border:2px solid #4a3f6e;margin-bottom:10px}.achbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff7a3a,#f4d050)}
+.ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#1c1630;border:2px solid #352b55;opacity:.7}
+.ach.on{background:#2e2358;border-color:#8466dc;opacity:1}
+.ach .ib{width:38px;height:38px;flex:none;display:grid;place-items:center;background:#120e1a;border:2px solid #4a3f6e;box-shadow:inset 0 0 0 2px #1c1630}
+.ach.on .ib{border-color:#f4d050}
+.ach canvas{width:20px;height:20px;image-rendering:pixelated;display:block}
+.ach .am{flex:1;min-width:0}.ach .at{font-size:14px;color:#a99cc8}.ach.on .at{color:#f2ecd8}
+.ach .ad{font-size:11px;color:#a99cc8;margin-top:1px}.ach .ar{font-size:10px;color:#f4d050;margin-top:3px}
+.ach .as{font-size:12px;color:#7fe6c8;flex:none}
+.ach .new{position:absolute;top:-8px;right:6px;background:#ff7a3a;color:#1b1530;font:600 10px 'StarFall Text',ui-monospace,monospace;padding:1px 5px;letter-spacing:.1em}
 .panel{width:min(88%,300px);background:#1c1630;border:3px solid #f2ecd8;box-shadow:0 0 0 3px #120e1a,0 8px 0 #120e1a;padding:16px 16px 14px;color:#f2ecd8;font:15px 'StarFall Text',ui-monospace,monospace}
 .panel h2{margin:0 0 10px;font-size:22px;font-weight:600;color:#fff0a0;text-shadow:2px 2px 0 #120e1a}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}
@@ -368,6 +382,7 @@ body[data-results="1"] #bombBtn{display:none !important}
           <button type="button" id="pmMusic" aria-label="Music: On">Music<i>ON</i></button>
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
+          <button type="button" id="pmAch">Achievements<i id="pmAchN"></i></button>
           <button type="button" id="pmSettings">Settings</button>
           <button type="button" id="pmHow">How to play</button>
           <button type="button" id="pmCredits">Credits</button>
@@ -428,6 +443,15 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div style="height:60px"></div>
         <button type="button" id="crRetro">Retro Run</button>
         <div style="height:90px"></div>
+      </div>
+    </div>
+    <div id="ach" role="dialog" aria-modal="true" aria-labelledby="achT">
+      <div class="panel">
+        <h2 id="achT">Achievements</h2>
+        <div class="achsum"><span id="achCount"></span><span id="achPct"></span></div>
+        <div class="achbar"><i id="achFill"></i></div>
+        <div id="achList"></div>
+        <button type="button" class="primary" id="achClose">Close</button>
       </div>
     </div>
     <div id="howto" role="dialog" aria-modal="true" aria-labelledby="howTitle">
@@ -3674,8 +3698,8 @@ function forestLand(o) {
   if (P.autumn) { const rivers = plan.rivers2 = [], GAP = 10, free2 = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), sm = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
     feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
       const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
-      const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
-        R.c = y => base + 5 * Math.sin(y * 0.022 + ph) + (1 - R.f(y)) * 80; R.hw = y => (31 + 2 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+      const mk = (side, base) => { const R = { side, base, a, b, ph }; const se = u => { u = u <= 0 ? 0 : u >= 1 ? 1 : u; return u * u * u * (u * (u * 6 - 15) + 10); }; /* smootherstep: no kink where the river leaves the edge */ R.f = y => Math.min(se((y - a) / (0.3 * (b - a))), se((b - y) / (0.3 * (b - a))));
+        R.c = y => base + 4 * Math.sin(y * 0.011 + ph) + (1 - R.f(y)) * 84; R.hw = y => (31 + 1.5 * Math.sin(y * 0.03 + ph * 2)) * (0.72 + 0.28 * R.f(y));
         R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
       const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
       const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
@@ -4448,7 +4472,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.95'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.98'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4483,7 +4507,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', install: 'feuervogel-install'
+  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -4493,7 +4517,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -4865,6 +4889,132 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
+// Phönix: the skin for finding all six secrets in one pass of the first loop. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
+// The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
+function buildPhoenix(bank) {
+  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
+  return sprite(36, 38, x => { // the standard 36x38 of the other ships (their 34x36 drawing plus the 1-pixel outline), here with an empty border instead of the outline
+    x.translate(1, 1);
+    const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = base.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = base.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
+      if (!inL && !inR) continue;
+      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
+      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
+      let col;
+      if (rim) col = pick(RIM, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j); // the glowing rim runs all the way round the wing, down the side tips too
+      else if (j >= 20) col = pick(TAILP, (j - 20) / 10 + 0.3, i, j); // the trailing tips fade into flame
+      else { // feather streaks fan out from the shoulder, lighter streaks alternating with dark ones, brighter toward the tip
+        const dx = Math.abs(i + 0.5 - 17) / f, st = Math.floor(Math.atan2(j - 10, Math.max(0.5, dx - 3)) * 9), dist = Math.hypot(dx - 3, j - 10);
+        col = pick(FILL, 0.1 + (st & 1 ? 0.28 : 0) + dist / 34, i, j);
+      }
+      rect(x, col, i, j, 1, 1);
+    }
+    for (const poly of [[[17, 22], [16, 26], [14, 31], [13, 35], [16, 31], [17, 30]], [[17, 22], [18, 26], [20, 31], [21, 35], [18, 31], [17, 30]], [[17, 22], [17, 28], [17, 35], [17, 35]]])
+      for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(poly, i + 0.5, j + 0.5)) rect(x, pick(TAILP, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
+    for (let j = 24; j < 34; j++) { rect(x, pick(TAILP, (j - 24) / 10, 11, j), j > 29 ? 9 : 10, j, 1, 1); rect(x, pick(TAILP, (j - 24) / 10, 23, j), j > 29 ? 25 : 24, j, 1, 1); }
+    for (let j = 6; j < 26; j++) { // the Feuervogel's fuselage: an ellipse (3.6 x 10), so the head flows into the body without a pinched neck; dark at the neck, brightening toward the tail
+      const dy = (j + 0.5 - 16) / 10, hw = 3.6 * Math.sqrt(Math.max(0, 1 - dy * dy));
+      for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d + 0.0) <= hw) rect(x, pick(BODY, 0.1 + (j - 6) / 20 * 0.8 + (1 - Math.abs(d) / (hw + 0.5)) * 0.15, 17 + d, j), 17 + d + Math.round(bank * 0.6), j, 1, 1);
+    }
+    for (let j = 10; j < 25; j++) rect(x, pick(['#ffa030', '#ffe080', '#fff6c0'], 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
+    const px = (col, d, j) => rect(x, col, 17 + d + Math.round(bank * 0.5), j, 1, 1);
+    px('#ffe9a0', 0, 0); px('#ffd060', 0, 1); px('#e8a020', -1, 2); px('#ffd060', 0, 2); px('#e8a020', 1, 2); // beak
+    const rows = { 3: [-1, 1], 4: [-2, 2], 5: [-2, 2], 6: [-2, 2], 7: [-2, 2], 8: [-2, 2], 9: [-1, 1] }; // a narrow face
+    for (const j in rows) { const [lo, hi] = rows[j]; for (let d = lo; d <= hi; d++) px(d === 0 ? '#ffa030' : d === lo || d === hi ? '#c8300c' : '#e0561a', d, +j); }
+    px('#ffd060', 0, 3); px('#ffe9a0', 0, 7);
+    px('#2a0806', -1, 4); px('#2a0806', 1, 4); px('#2a0806', -2, 5); px('#2a0806', 2, 5); px('#fff6c0', -1, 5); px('#fff6c0', 1, 5); px('#ffffff', -1, 6); px('#ffffff', 1, 6); // brow, white-hot eyes
+    const GR = ['#ffe9a0', '#ffd060', '#ffa030', '#f2701c', '#c8300c'], ant = [[3, 3], [4, 4], [5, 5], [6, 6]]; // the antennae: swept back, fading from gold to red, each ending in a bright bead
+    for (const sg of [-1, 1]) {
+      ant.forEach(([dd, y], k) => px(GR[Math.min(4, Math.floor(k / 3 * 5))], sg * dd, y));
+      px('#fff6c0', sg * 7, 6); px('#ffe9a0', sg * 8, 6); px('#ffe9a0', sg * 7, 7); px('#ffd060', sg * 8, 7);
+    }
+  }, { outline: false });
+}
+let phoenixCache = null;
+function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Veteran or Ace (see unlockSkinsForRun).
+const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
+const phoenixOwned = () => phoenixState() > 0;
+function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
+function unlockPhoenix() { if (!phoenixOwned()) store.set(KEY.phoenix, 1); }
+// Rotkehlchen (robin): the Ace skin, for finishing the Campaign plus a loop on Ace. Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
+// Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
+function buildRotkehlchen(bank) {
+  const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'], CRIM = ['#3a0808', '#7a1410', '#c82a1a', '#ff4a2a', '#ff8a5a'];
+  const WING = [[15, 7], [12, 12], [4, 20], [0, 29], [5, 27], [9, 31], [12, 26], [15, 28]], TAIL = [[15, 24], [13, 35], [17, 31], [21, 35], [19, 24]], HEAD = [[17, 0], [19.5, 3], [21, 7], [19, 10], [15, 10], [13, 7], [14.5, 3]];
+  return sprite(36, 38, x => {
+    x.translate(1, 1);
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = WING.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = WING.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
+      if (!inL && !inR) continue;
+      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
+      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
+      let col = rim ? pick(FIRE, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j) : j >= 20 ? pick(BROWN, (j - 20) / 10 + 0.3, i, j) : pick(BROWN, (17 - u) / 14 + (j - 8) / 50, i, j); // a flame-coloured rim, gold at the front
+      if (rim && j >= 24) col = pick(CRIM, 0.7 + (j - 24) / 20, i, j); // the trailing wing tips glow red
+      rect(x, col, i, j, 1, 1);
+    }
+    for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(TAIL, i + 0.5, j + 0.5)) rect(x, pick(BROWN, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
+    const sb = Math.round(bank * 0.6), sh = Math.round(bank * 0.4);
+    for (let j = 6; j < 26; j++) { const dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)); for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d) <= hw) rect(x, pick(BROWN, 0.3 + (1 - Math.abs(d) / (hw + 0.5)) * 0.3 + (j - 6) / 40, 17 + d, j), 17 + d + sb, j, 1, 1); }
+    for (let j = 10; j < 25; j++) rect(x, pick(BROWN, 0.9 - (j - 10) * 0.035, 17, j), 17 + sb, j, 1, 1);
+    for (let j = 0; j < 11; j++) for (let i = 0; i < 34; i++) if (pip(HEAD, i + 0.5, j + 0.5)) rect(x, pick(ORANGE, 0.55 + (j < 6 ? 0.2 : 0), i, j), i + sh, j, 1, 1);
+    for (let j = 0; j < 30; j++) for (let i = 8; i < 26; i++) { // colour the head and the body: a deep orange head, a brown back
+      const inH = pip(HEAD, i + 0.5, j + 0.5), dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)), inB = j >= 6 && j < 26 && Math.abs(i + 0.5 - 17) <= hw;
+      if (inH || inB) rect(x, inH && j < 9 ? pick(ORANGE, 0.45 + (j - 6) / 40, i, j) : pick(BROWN, 0.5 - Math.abs(i + 0.5 - 17) * 0.015 + (j - 8) / 40, i, j), i + Math.round(bank * (inH && j < 10 ? 0.4 : 0.6)), j, 1, 1);
+    }
+    rect(x, '#2a1a10', 16 + sh, 0, 1, 2); rect(x, '#2a1a10', 17 + sh, 0, 1, 2); // the beak tip
+    rect(x, '#ffe080', 14 + sh, 5, 1, 1); rect(x, '#ffe080', 19 + sh, 5, 1, 1); // an eye on each side of the head, one pixel each
+    for (const [i, j, c] of [[13, 34, 3], [13, 33, 3], [14, 33, 2]]) { rect(x, CRIM[c], i + sh, j, 1, 1); rect(x, CRIM[c], 33 - i + sh, j, 1, 1); } // red-hot tail tips
+    if (bank === 0) { const id = x.getImageData(1, 1, 34, 36), d = id.data; for (let j = 0; j < 36; j++) for (let i = 0; i < 17; i++) { const a = (j * 34 + i) * 4, b = (j * 34 + 33 - i) * 4; d[b] = d[a]; d[b + 1] = d[a + 1]; d[b + 2] = d[a + 2]; d[b + 3] = d[a + 3]; } x.putImageData(id, 1, 1); }
+  }, { outline: false });
+}
+let robinCache = null;
+function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Ace (see unlockSkinsForRun).
+const robinState = () => +store.get(KEY.robin, 0) || 0;
+const robinOwned = () => robinState() > 0;
+function unlockRobin() { if (!robinOwned()) store.set(KEY.robin, 1); }
+function useRobin() { return robinOwned() && !!settings.robin; }
+// Raptor: the skin for finishing the Campaign twice. A bronze bird of prey seen from above: feathered wing tips, teal rim and tail, a teal beak tip, no face. Symmetric like the Rotkehlchen; 36x38 with an empty border instead of the outline.
+function buildRaptor(bank) {
+  const BRONZE = ['#241408', '#4a2c10', '#86541c', '#c08a2c', '#e8c060', '#fff0b0'], TEAL = ['#06302c', '#0e5c54', '#1e9a88', '#58d0b8', '#b8f4e4'];
+  const WING = [[15, 8], [9, 9], [4, 12], [0, 16], [1, 22], [3, 20], [3, 27], [6, 23], [7, 30], [10, 25], [12, 31], [14, 24], [15, 20]], TAIL = [[16, 22], [13, 35], [17, 30], [21, 35], [18, 22]], HEAD = [[17, 0], [19, 3], [20, 7], [18, 10], [16, 10], [14, 7], [15, 3]];
+  return sprite(36, 38, x => {
+    x.translate(1, 1);
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = WING.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = WING.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
+      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
+      if (!inL && !inR) continue;
+      const f = inL ? fL : fR, w = inL ? wl : wr, rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
+      let col;
+      if (rim) col = pick(TEAL, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j);
+      else if (j >= 20) col = pick(BRONZE, (j - 20) / 10 + 0.3, i, j);
+      else { const dx = Math.abs(i + 0.5 - 17) / f, st = Math.floor(Math.atan2(j - 10, Math.max(0.5, dx - 3)) * 9), dist = Math.hypot(dx - 3, j - 10); col = pick(BRONZE, 0.1 + (st & 1 ? 0.28 : 0) + dist / 34, i, j); } // feather streaks fan out from the shoulder
+      rect(x, col, i, j, 1, 1);
+    }
+    for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(TAIL, i + 0.5, j + 0.5)) rect(x, pick(TEAL, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
+    const sb = Math.round(bank * 0.6), sh = Math.round(bank * 0.4);
+    for (let j = 6; j < 26; j++) { const dy = (j + 0.5 - 16) / 10, hw = 3.4 * Math.sqrt(Math.max(0, 1 - dy * dy)); for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d) <= hw) rect(x, pick(BRONZE, 0.3 + (1 - Math.abs(d) / (hw + 0.5)) * 0.3 + (j - 6) / 40, 17 + d, j), 17 + d + sb, j, 1, 1); }
+    for (let j = 10; j < 25; j++) rect(x, pick(TEAL, 0.9 - (j - 10) * 0.035, 17, j), 17 + sb, j, 1, 1);
+    for (let j = 0; j < 11; j++) for (let i = 0; i < 34; i++) if (pip(HEAD, i + 0.5, j + 0.5)) rect(x, pick(BRONZE, 0.6 + (j < 6 ? 0.2 : 0), i, j), i + sh, j, 1, 1);
+    rect(x, TEAL[3], 16 + sh, 0, 1, 2); rect(x, TEAL[3], 17 + sh, 0, 1, 2); // the beak tip
+    rect(x, '#140c08', 15 + sh, 5, 1, 1); rect(x, '#140c08', 18 + sh, 5, 1, 1); // an eye on each side of the head, one pixel each
+    if (bank === 0) { const id = x.getImageData(1, 1, 34, 36), d = id.data; for (let j = 0; j < 36; j++) for (let i = 0; i < 17; i++) { const a = (j * 34 + i) * 4, b = (j * 34 + 33 - i) * 4; d[b] = d[a]; d[b + 1] = d[a + 1]; d[b + 2] = d[a + 2]; d[b + 3] = d[a + 3]; } x.putImageData(id, 1, 1); }
+  }, { outline: false });
+}
+let raptorCache = null;
+function raptorSet() { return raptorCache || (raptorCache = [-1, 0, 1].map(buildRaptor)); }
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on any difficulty (see unlockSkinsForRun).
+const raptorState = () => +store.get(KEY.raptor, 0) || 0;
+const raptorOwned = () => raptorState() > 0;
+function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
+function useRaptor() { return raptorOwned() && !!settings.raptor; }
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
@@ -4874,37 +5024,107 @@ function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => bui
 // The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
 const nachtState = () => +store.get(KEY.nacht, 0) || 0;
 const nachtOwned = () => nachtState() > 0;
-function unlockNacht() { if (!nachtOwned()) store.set(KEY.nacht, 1); }
+function unlockNacht() { if (!nachtOwned()) { store.set(KEY.nacht, 1); award('raven'); } }
+
+/* ================= achievements ================= */
+// achv maps an achievement id to { t: when, n: 1 until the list was opened, s: 1 until the ship picker was opened (the Rooster has no state of its own) }.
+// Only the ranked Campaign (START) counts: never the Tutorial, Practice or Endless. Retro Run earns Old School and nothing else.
+// Ships: Rookie gives the Rooster, Veteran the Phoenix, Ace the Raptor (the ships' own unlock flags above), all six secrets in one loop the Rotkehlchen.
+const ACH = [
+  { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'Rooster' },
+  { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'Phoenix' },
+  { id: 'ace', name: 'Ace Pilot', desc: 'Finish the Campaign on Ace', icon: 'wings', skin: 'Raptor' },
+  { id: 'snow', name: 'Snow Bird', desc: 'Find all six secrets', icon: 'snow', skin: 'Schneevogel' },
+  { id: 'robin', name: 'Eagle Eye', desc: 'Find all six secrets in one loop', icon: 'eye', skin: 'Rotkehlchen' },
+  { id: 'nonet', name: 'No Net', desc: 'Finish the Campaign without continues', icon: 'star' },
+  { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
+  { id: 'chain', name: 'Chain Master', desc: 'Reach a x20 medal multiplier', icon: 'medal' },
+  { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
+  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Nachtvogel', icon: 'wings', skin: 'Nachtvogel', hidden: true }
+];
+let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
+const achHas = id => !!achv[id];
+const saveAchv = () => store.setJSON(KEY.achv, achv);
+const CHAIN_GOAL = 20; // the medal chain has no cap now; a x20 chain is the goal
+let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
+function award(id, quiet) {
+  const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
+  achv[id] = { t: Date.now(), n: 1, s: id === 'rookie' && !quiet ? 1 : 0 }; saveAchv();
+  if (!quiet) { app.toasts.push({ id, t: 0 }); sfx('extend'); }
+  return true;
+}
+const rankedCamp = () => run.ranked && !!run.sortie && !run.endless && !app.tut;
+function campaignWon() { // a Campaign loop is cleared (the congratulations): the difficulty's pilot, its ship, and the loop's own goals
+  if (!rankedCamp()) return;
+  const d = run.diff | 0; award(['rookie', 'veteran', 'ace'][d]);
+  if (d === 1) unlockPhoenix(); else if (d === 2) unlockRaptor();
+  if (run.conts === 0) award('nonet');
+  if (run.camp && run.camp.secrets >= 6) { award('robin'); unlockRobin(); }
+}
+function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); } // players who already earned these keep them
+const achCount = () => ACH.filter(x => achv[x.id]).length;
+const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
+const roosterOwned = () => achHas('rookie');
+function useRooster() { return roosterOwned() && !!settings.rooster; }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
-const FLAME = () => useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); saveSettings(); }
+const skinSet = () => useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const FLAME = () => useRaptor() ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
-const app = { snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
+const app = { toasts: [], snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : [], roosterOwned() ? [[6, goldSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (nachtState() === 1) store.set(KEY.nacht, 2); sfx('tick'); }
+function openShipPick() { app.shipPick = true; if (achv.rookie && achv.rookie.s) { achv.rookie.s = 0; saveAchv(); } app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
+// The picker shows three ships a page. With more than three, arrow buttons at the left and right edges turn the page (taps, or the left and right keys), and dots between the title and the cards show which page it is.
+const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SCHNEEVOGEL', 'NACHTVOGEL', 'PHOENIX', 'ROTKEHLCHEN', 'RAPTOR', 'ROOSTER'];
+const pickPages = n => Math.max(1, Math.ceil(n / PICK_PER));
+const curSkinId = () => useRooster() ? 6 : useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+const pickPage = n => clamp(app.pickPage | 0, 0, pickPages(n) - 1);
+function cardRect(i, n) { // the card for ship i of n: the cards of the last page are centred
+  const page = Math.floor(i / PICK_PER), inPage = Math.min(PICK_PER, n - page * PICK_PER), c = i % PICK_PER;
+  return { x: Math.round(W / 2 - (inPage * PICK_CARD.w + (inPage - 1) * PICK_CARD.gap) / 2) + c * (PICK_CARD.w + PICK_CARD.gap), y: PICK_CARD.y };
+}
+const pickArrow = dir => ({ x: dir < 0 ? 4 : W - 4 - PICK_ARW, y: PICK_CARD.y + Math.round(PICK_CARD.h / 2) - 15, w: PICK_ARW, h: 30 });
+function pickTurn(d) { const n = shipList().length, np = clamp(pickPage(n) + d, 0, pickPages(n) - 1); if (np !== pickPage(n)) { app.pickPage = np; sfx('tick'); } }
+function pickKey(k) { if (k === 'escape') app.shipPick = false; else pickTurn(k === 'arrowleft' || k === 'a' ? -1 : 1); }
 function tapShipPick(gx, gy) {
-  const list = shipList(), x0 = pickX0(list.length);
-  for (let i = 0; i < list.length; i++) { const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= PICK_CARD.y && gy <= PICK_CARD.y + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
+  const list = shipList(), n = list.length, page = pickPage(n);
+  if (pickPages(n) > 1) for (const dir of [-1, 1]) { const r = pickArrow(dir); if (gx >= r.x - 4 && gx <= r.x + r.w + 4 && gy >= r.y - 4 && gy <= r.y + r.h + 4) { pickTurn(dir); return; } }
+  for (let i = page * PICK_PER; i < Math.min(n, (page + 1) * PICK_PER); i++) { const { x: cx, y: cy } = cardRect(i, n); if (gx >= cx && gx <= cx + PICK_CARD.w && gy >= cy && gy <= cy + PICK_CARD.h) { setSkin(list[i][0]); sfx('tick'); return; } }
   app.shipPick = false;
 }
+function drawPickArrow(dir, on) { // a small framed button with a pixel chevron; dimmed at the first and last page, nudging outwards while it can be pressed
+  const r = pickArrow(dir), nudge = on && gf % 60 < 30 ? dir : 0, cx = r.x + (dir < 0 ? 5 : 6) + nudge, cy = r.y + 10;
+  ctx.globalAlpha = on ? 1 : 0.3;
+  ctx.fillStyle = OUT; ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+  ctx.fillStyle = on ? '#6a4ad0' : '#34226a'; ctx.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  ctx.fillStyle = '#1c1630'; ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+  ctx.fillStyle = '#fff0a0';
+  for (let k = 0; k < 9; k++) { const o = Math.abs(k - 4); ctx.fillRect(cx + (dir < 0 ? o : 4 - o), cy + k, 2, 1); }
+  ctx.globalAlpha = 1;
+}
 function drawShipPick() {
-  const list = shipList(), x0 = pickX0(list.length), cur = useNacht() ? 2 : useGold() ? 1 : 0;
+  const list = shipList(), n = list.length, pages = pickPages(n), page = pickPage(n), cur = curSkinId();
   ctx.fillStyle = 'rgba(18,14,26,0.86)'; ctx.fillRect(0, -TY, W, H);
-  list.forEach(([id, set], i) => {
-    const cx = x0 + i * (PICK_CARD.w + PICK_CARD.gap), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
-    ctx.fillStyle = OUT; ctx.fillRect(cx - 2, PICK_CARD.y - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
-    ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, PICK_CARD.y - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
-    ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, PICK_CARD.y + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
-    const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = PICK_CARD.y + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
-    ctx.fillStyle = id === 2 ? '#8466dc' : '#ff7a3a'; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - 7, Math.round(by + sh / 2) - 6, 3, 6); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + 4, Math.round(by + sh / 2) - 6, 3, 6);
+  textS('CHOOSE YOUR SHIP', W / 2, PICK_CARD.y - 22, '#fff0a0', 1, 'center', '#ff9a40');
+  for (let i = page * PICK_PER; i < Math.min(n, (page + 1) * PICK_PER); i++) {
+    const [id, set] = list[i], { x: cx, y: cy } = cardRect(i, n), sel = id === cur, pulse = 0.5 + 0.5 * Math.sin(gf * 0.1);
+    ctx.fillStyle = OUT; ctx.fillRect(cx - 2, cy - 2, PICK_CARD.w + 4, PICK_CARD.h + 4);
+    ctx.fillStyle = sel ? '#d0a020' : '#34226a'; ctx.fillRect(cx - 1, cy - 1, PICK_CARD.w + 2, PICK_CARD.h + 2);
+    ctx.fillStyle = sel ? '#2a2046' : '#1c1630'; ctx.fillRect(cx + 1, cy + 1, PICK_CARD.w - 2, PICK_CARD.h - 2);
+    const ps = set[1], sw = Math.round(ps.w * 1.3), sh = Math.round(ps.h * 1.3), by = cy + PICK_CARD.h / 2 + (sel ? Math.sin(gf * 0.06) * 2 : 0);
+    ctx.fillStyle = id === 2 ? '#8466dc' : id === 3 ? '#ffb838' : id === 5 ? '#18c4b0' : '#ff7a3a'; const nt = id >= 3 && id <= 5, fy = Math.round(by + sh / 2) - (id === 5 ? 5 : nt ? 9 : 6), fh = id === 5 ? 5 : 6; ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) - (nt ? 6 : 7), fy, 3, fh); ctx.fillRect(Math.round(cx + PICK_CARD.w / 2) + (nt ? 3 : 4), fy, 3, fh); // the newer ships' flames sit under their tail tips
     ctx.drawImage(ps.c, Math.round(cx + PICK_CARD.w / 2 - sw / 2), Math.round(by - sh / 2), sw, sh);
-    if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, PICK_CARD.y + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
-  });
+    if (sel) { ctx.globalAlpha = 0.5 + 0.4 * pulse; ctx.fillStyle = '#fff0a0'; ctx.fillRect(cx + PICK_CARD.w / 2 - 3, cy + PICK_CARD.h + 5, 6, 2); ctx.globalAlpha = 1; }
+  }
+  textS(PICK_NAMES[cur], W / 2, PICK_CARD.y + PICK_CARD.h + 14, '#e8e0ff', 1, 'center');
+  if (pages > 1) {
+    drawPickArrow(-1, page > 0); drawPickArrow(1, page < pages - 1);
+    for (let q = 0; q < pages; q++) { const dx = Math.round(W / 2 - (pages * 8 - 4) / 2) + q * 8, dy = PICK_CARD.y - 11; ctx.fillStyle = OUT; ctx.fillRect(dx - 1, dy - 1, 6, 6); ctx.fillStyle = q === page ? '#ffd84a' : '#4a3a8a'; ctx.fillRect(dx, dy, 4, 4); }
+  }
 }
 // 2nd player: a captured Raven prototype, the Ravens' bat-wing bomber shrunk to fighter size and flown nose-up
 const RAVEN = ['#1c1d22', '#30323a', '#4a4d56', '#686c76', '#8c919b', '#b4b9c2', '#dde1e7'];
@@ -5201,12 +5421,11 @@ SPR.pt = sprite(12, 34, x => {
   rect(x, '#8cc0e0', 4, 17, 4, 1);
 });
 SPR.ptGun = rotSet(sprite(8, 20, x => { rect(x, '#18181a', 3, 11, 1, 8); rect(x, '#18181a', 5, 11, 1, 8); ellS(x, RP.hull, 4, 10, 3, 3, 0.1); }));
-/* The valley convoy's river craft (level 4's first loop), bow up: they sail north. A tug, and barges with fuel tanks, crates (the Ravens' prototype parts under a tarpaulin) and a gun. */
-const bargeHull = (x, w, h) => { polyS(x, RP.hull, [[w / 2, 0], [w - 3, 5], [w - 2, 10], [w - 2, h], [2, h], [2, 10], [3, 5]], 0.05); polyS(x, RP.teak, [[w / 2, 4], [w - 5, 9], [w - 5, h - 2], [5, h - 2], [5, 9]], 0); rect(x, '#d8e8f0', 3, h - 1, w - 6, 1); };
-SPR.tug = sprite(16, 30, x => { bargeHull(x, 16, 30); boxS(x, RP.hull, 4, 11, 8, 11, 0.15); rect(x, '#8cc0e0', 5, 13, 6, 1); disk(x, '#202428', 8, 25, 2); rect(x, '#18181a', 7, 5, 2, 5); });
-SPR.bargeF = sprite(16, 44, x => { bargeHull(x, 16, 44); for (let k = 0; k < 3; k++) { disk(x, '#5a2418', 8, 14 + k * 10, 4); disk(x, '#a8402c', 8, 13 + k * 10, 3); rect(x, '#e07858', 7, 11 + k * 10, 2, 1); } });
-SPR.bargeC = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.teak, 4, 10, 8, 28, 0.1); rect(x, '#6e5a34', 4, 10, 8, 28); rect(x, '#8a7448', 5, 11, 6, 26); for (let k = 0; k < 4; k++) rect(x, '#4a3c20', 4, 14 + k * 7, 8, 1); rect(x, '#3a2c18', 4, 10, 8, 1); rect(x, '#3a2c18', 4, 37, 8, 1); });
-SPR.bargeG = sprite(16, 44, x => { bargeHull(x, 16, 44); boxS(x, RP.hull, 4, 12, 8, 20, 0.1); rect(x, '#8cc0e0', 5, 14, 6, 1); rect(x, '#202428', 5, 24, 6, 5); });
+/* The valley convoy's river craft as pixel pictures (level 4's first loop): symmetric hulls, bow up; '.' is clear, the other characters index pal. The AA turret and the tanks are drawn over them at run time from the game's own rotating sprites. */
+const BARGE_PIX = {"tug":{"w":27,"h":40,"pal":["#0d1118","#98a8b8","#6c7e90","#6a5636","#a8925e","#8a7448","#4a5a6c","#c2ac74","#323e4e","#8cc0e0","#5a7a92","#6a6c70","#a8402c","#4a4c50","#2a2c30"],"rows":["..........0000000..........",".........012...210.........",".......012.......210.......",".....01233333333333210.....","....0224455454545544220....","...012444540000045444210...","..01233333006660033333210..",".0124477400661660047744210.","012774740061666160047477210","012333330666666666033333210","012544540616666616045445210","012455540888888888045554210","022333330081888180033333220","012777477008818800774777210","012777444700888007444777210","012333333330000033333333210","012454454545444545454454210","012454445545444545544454210","012333300000000000003333210","012777701111111111107777210","012744701111111111107447210","012333306666666666603333210","012554406999999999604455210","012555506aaaaaaaaa605555210","022333306666666666603333220","012774706666666666607477210","012747706666666666607747210","016333308888888888803333610","022454400000000000004454220","012455444544454445444554210","016333333333000333333333610","012447447440bbb044744744210","01277777740ccccc04777777210","01233333330ddddd03333333210","01254545450ddddd05454545210","012445444450eee054444544210","012333333333000333333333210","012888888888888888888888210",".0122226222226222226222210.",".0000000000000000000000000."]},"bargeF":{"w":27,"h":62,"pal":["#0d1118","#98a8b8","#6c7e90","#6a5636","#8a7448","#a8925e","#c2ac74","#1e2632","#4a5a6c","#323e4e","#ec9a78","#18181a","#e8c040","#f08a6a","#7a2c1e","#a8402c","#d06a4c","#d84a34","#4a1c12"],"rows":["...........00000...........",".........012...210.........","........012.....210........",".......0123333333210.......","......012445454544210......",".....01254554545545210.....","....0123333333333333210....","...012665665656566566210...","..01216566650005666561210..",".0123733333008003333373210.",".0185545544081804455455810.","012544455540080045554445210","022333333333000333333333220","012666566665666566665666210","012666555656555656555666210","012333333333999333333333210","012545545454888454545545210","012545504454999454405545210","0123300a00318881300a0033210","012bcbbcbbcb999bcbbcbbcb210","010cbbcbbcbb888bbcbbcbbc010","010bbcbbcbbc9d9cbbcbbcbb010","010efggaggf2hhh2fggaggfe010","010efggaggfe999efggaggfe010","020iaiiiiia18881aiiiiiai020","010efggaggfe999efggaggfe010","010efggaggfe888efggaggfe010","010efg000gfe999efg000gfe010","020ef0eee0fe888ef0eee0fe020","010ef0ece0fe999ef0ece0fe010","010ef0eee0f18881f0eee0fe010","010efg000gfe999efg000gfe010","010efggaggfe888efggaggfe010","010efggaggfe9d9efggaggfe010","010iaiiiiia2hhh2aiiiiiai010","010efggaggfe999efggaggfe010","010efggaggf18881fggaggfe010","010efggaggfe999efggaggfe010","010efg000gfe888efg000gfe010","010ef0eee0fe999ef0eee0fe010","010ef0ece0fe888ef0ece0fe010","010ef0eee0fe999ef0eee0fe010","010efg000gf18881fg000gfe010","010efggaggfe999efggaggfe010","010iaiiiiiai888iaiiiiiai010","010efggaggfe9d9efggaggfe010","010efggaggf2hhh2fggaggfe010","010efggaggfe999efggaggfe010","010bcbbcbbc18881cbbcbbcb010","010cbbcbbcbb999bbcbbcbbc010","012bbcbbcbbc888cbbcbbcbb210","0123300a00339993300a0033210","012454404554888455404454210","0125555545459b9545455555210","012333333000000000333333210","012555566011111110665555210","018656656088888880656656810","022333333000000000333333220","012545544445545544445545210","018999999799979997999999810",".0122222222282822222222210.",".0000000000000000000000000."]},"bargeG":{"w":33,"h":90,"pal":["#0d1118","#98a8b8","#6c7e90","#6a5636","#8a7448","#a8925e","#c2ac74","#4a5a6c","#1e2632","#323e4e"],"rows":["..............00000..............","............012...210............","...........012.....210...........","..........0123333333210..........",".........012445454544210.........",".......0125545545455455210.......","......012333333333333333210......",".....01256656656565665665210.....","....0126565666566656665656210....","...012333333333333333333333210...","..01254554554455555445545545210..","..02255444555455555455544455220..",".0123333333333333333333333333210.","012666666566665666566665666666210","012556666555656555656555666655210","012333333333333333333333333333210","012554545545454555454545545455210","012554545554454555454455545455210","012333333333333333333333333333210","022566666656656666656656666665220","017688655656666666666656556886710","012333333333333333333333333333210","022555445555554454455555544555220","012555444455545444545554444555210","012333333333333333333333333333210","012565665665665565566566566565210","012656656665666555666566656656210","012333333333333333333333333333210","012545545554554545455455545545210","022555544555455545554555445555220","012333333333333333333333333333210","012566556556556666655655655665210","012556666666566656665666666655210","012333333333333333333333333333210","022555454545455555554545454555220","012555554555545545545555455555210","012333333333333333333333333333210","012655666665656666656566666556210","012656666656656656656656666656210","017333333333333333333333333333710","012445555455555444555554555544210","012544444455445555544554444445210","017333333333333333333333333333710","022655566555665656566555665556220","012601666666655656556666666106210","012333333333333333333333333333210","012554555445554555455544555455210","012455545545555555555545545554210","017333333333333333333333333333710","012688555666566565665666555886210","012666566656555555555656665666210","012333333333333333333333333333210","012545454454554444455454454545210","012455555554545545545455555554210","012301333333333333333333333103210","012566555566666656666665555665210","012565656656666656666656656565210","017333333333333333333333333333710","017455545544445545544445545554710","012454555554455545554455555454210","012333333333333333333333333333210","012565665566556555655665566565210","022665665666656666656666566566220","012333333333333333333333333333210","012445545545545545545545545544210","017445554455545555545554455544710","012333333333333333333333333333210","012665666566666666666665666566210","012666566566666666666665665666210","012333333333333333333333333333210","012454544454454555454454445454210","012454555545554454455545555454210","022333333333333333333333333333220","012666656656566666665656656666210","012566666656666565666656666665210","012333333333333333333333333333210","012455455555455444554555554554210","012555454545455444554545454555210","017388333333333333333333333883710","022566666565665656566565666665220","012666665665666565666566566666210","022333333333333333333333333333220","012455445545444545444545544554210","027545544555555444555555445545720","022333333333333333333333333333220","022556566656556565655656665655220","012566556656566666665656655665210","012989989899999999999998989989210",".0122222727227222227227272222210.",".0000000000000000000000000000000."]},"bargeC":{"w":27,"h":66,"pal":["#0d1118","#98a8b8","#6c7e90","#6a5636","#8a7448","#a8925e","#120e1a","#c2ac74","#b88a5c","#3a2414","#9a6c44","#7a5030","#4a5a6c","#5a3820","#161c12","#3e4c32","#252e1e","#566244","#323e4e"],"rows":["...........00000...........",".........012...210.........","........012.....210........",".......0123333333210.......","......012445454544210......",".....01254554545545210.....","....0123333333333333210....","...016666665757566666610...","..0168898aa67776aa8988610..",".01268a9aab63336baa9a86210.",".01c6999999655569999996c10.","012568a9bab65556bab9a865210","02236aa9abb63336bba9aa63220","01276ad9db6666666bd9da67210","012776666688989886666677210","01233333368a9a9a86333333210","012545545699999996545545210","01254555468a9b9a86455545210","0123333336aa9a9aa6333333210","0127777576ad9d9da6757777210","012755757766666667757557210","0123333333eeeeeee3333333210","01244555eefgggggfee55544210","0124444egfhfhfhfhfge4444210","022333egfgggfgfgggfge333220","01277egfgfghhfhhgfgfge77210","01275efgggfghghgfgggfe57210","01c353535353535353535353c10","0225eggghgggfgfggghggge5220","012egfgfgfgfghgfgfgfgfge210","01ceggfhggfgggggfgghfggec10","012egfhfgfhfgfgfhfgfhfge210","012efgggfgggfhfgggfgggfe210","012egfgfgfgfgfgfgfgfgfge210","012353535353535353535353210","012egfgfgfhfgfgfhfgfgfge210","012efgggfhhgfgfghhfgggfe210","012egfgfgfgfgfgfgfgfgfge210","012eggfhggfgghggfgghfgge210","01cegfgfhfgfgfgfgfhfgfgec10","0125egggfgggfgfgggfggge5210","01c453535353535353535354c10","01233efgghfhggghfhggfe33210","01257ehfgfgfgfgfgfgfhe75210","01c777egfghgfhfghgfge777c10","0123333egfgfghgfgfge3333210","01c55544eefgggggfee44555c10","0125455455eeeeeee5545545210","012333333333333333333333210","012555777577575775777555210","012577757555555555757775210","012336666663333366666633210","012468898aa64446aa898864210","012568a9aab65456baa9a865210","012369999996333699999963210","012568a9bab67576bab9a865210","01c76aa9abb67576bba9aa67c10","02236ad9dbd63336dbd9da63220","012546666665545566666645210","01c555554455545554455555c10","012333333333333333333333210","01c775577557555755775577c10","012775777757777757777577210","012iiiiiiiiiiiiiiiiiiiii210",".012222c22222c22222c222210.",".0000000000000000000000000."]}};
+const PIXA = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&*+=?@';
+const pixSpr = d => sprite(d.w, d.h, x => { for (let y = 0; y < d.h; y++) for (let i = 0; i < d.w; i++) { const c = d.rows[y][i]; if (c !== '.') { x.fillStyle = d.pal[PIXA.indexOf(c)]; x.fillRect(i, y, 1, 1); } } }, { outline: false });
+for (const k of ['tug', 'bargeF', 'bargeC', 'bargeG']) lazySpr(k, () => pixSpr(BARGE_PIX[k]));
 SPR.destroyer = sprite(28, 80, x => {
   polyS(x, RP.hull, [[14, 80], [2, 56], [1, 9], [5, 1], [23, 1], [27, 9], [26, 56]], 0.05);
   polyS(x, RP.teak, [[14, 72], [4, 55], [3, 10], [6, 3], [22, 3], [25, 10], [24, 55]], 0);
@@ -8540,6 +8759,7 @@ const newStats = () => ({ medals: 0, ground: 0, air: 0, shots: 0, hits: 0, death
 let guardCount = 0;
 run.stats = newStats();
 let arts = new Set(store.getJSON(KEY.arts, []));
+migrateAch();
 let beam = null, gpad = null, padPrev = {};
 // 2nd player (PC only): flies with the mouse or a controller. Has its own weapon, score, lives and Nova bombs; respawns on its own while it has lives
 let p2 = null, p2In = null, p2Prev = {}, p2Lent = false, p2Mouse = null;
@@ -8774,12 +8994,13 @@ function buildSortie(level, seed) {
   const winter5 = level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const haze6 = level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
+  const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
-  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
+  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1, encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, when the screen comes up to the valley's river (its first chunk is the one before the valley) */
-    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start - 1, until: v4.start + 1, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
+  const encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, once the screen is well into the valley (4 chunks in: the Shadow Wing is over by then) */
+    const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start + 4, until: v4.start + 7, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
     const sg5 = tt => segs.find(g => g.t === tt), a5 = sg5('open_sea_ice'), b5 = sg5('lake_valley'), c5 = sg5('pass');
     return [{ id: 'iceraid', c: 4, until: a5.start + a5.n - 6, live: true }, { id: 'iceroad', c: b5.start + 1, until: b5.start + b5.n - 2, live: true }, { id: 'basebreak', c: c5.start + 2, until: c5.start + c5.n - 3, live: true }];
   })() : haze6 ? (() => { /* level 6's first loop: the harbour raid over the south harbour, the flak lane over the city centre, the station breakout at the main station (found by name: the stretches may have traded places) */
@@ -9176,6 +9397,9 @@ const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20
 function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
+// the trophy button under SCORES opens the achievements; it moves up on short screens so it clears the credit line
+function trophyBtn() { const y = Math.min((SHOW_ENDLESS ? ENDLESS_Y + ENDLESS_BTN.h : SCORES_Y + SCORES_BTN.h) + 8, H - TY - 38); return { x: Math.round(W / 2 - 13), y, w: 26, h: 22 }; }
+function trophyHit(gx, gy) { const b = trophyBtn(); return gx >= b.x - 5 && gx <= b.x + b.w + 5 && gy >= b.y - 4 && gy <= b.y + b.h + 6; }
 function startHit(gx, gy) { return gy >= START_BTN.y - 4 && gy <= START_BTN.y + START_BTN.h + 4 && Math.abs(gx - W / 2) <= START_BTN.w / 2 + 4; }
 function lbEligible() { return run.score > 0 && run.ranked && run.start === 1; } // only the Campaign (START) is ranked, alone or with two players (the board takes the combined score); Retro Run and practice stay off
 /* game over: the burning wreck, then a squadron flies over in missing man formation. Once the squadron has gone, the purple heart of the Feuervogel
@@ -9196,7 +9420,7 @@ const ORBD = (() => { // the orb after it has taken the crows: a black core with
   for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) { const d = Math.hypot(i, j); if (d > 6.4) continue; x.fillStyle = ramp[d > 5.1 ? 4 : d > 4.1 ? 3 : d > 3 ? 2 : d > 1.8 ? 1 : 0]; x.fillRect(i + 7, j + 7, 1, 1); }
   return c;
 })();
-// The Nachtvogel unlock (Ravenhold, escalation level 8 and up): when the orb rises, the crows gather round it, it pulls them in one by one and the screen
+// The Nachtvogel unlock (a game over at Ravenhold's boss, by death or by the countdown running out): when the orb rises, the crows gather round it, it pulls them in one by one and the screen
 // implodes into black. The first time, a window shows the Nachtvogel rising out of the black orb; the next tap goes on to the title screen.
 const NV_SUCK = 110, NV_GAP = 8, NV_FLASH_AT = 204, NV_WIN_AT = 284;
 const nvS0 = f => f.rt + ORB_RISE + 10; // when the first crow starts to spiral in
@@ -9214,7 +9438,7 @@ app.gameOvers = +store.get(KEY.overs) || 0;
 function pickBeat(boss) {
   app.gameOvers++; store.set(KEY.overs, app.gameOvers);
   const n = app.escLevel = app.gameOvers + 3 * loopsWon; // escalation level
-  if (boss && n >= 3) return 'boss';
+  if (boss && (n >= 3 || boss.kind === 'castle')) return 'boss'; // Ravenhold's keeper always gets its beat: the Nachtvogel unlock does not wait for an escalation level
   if (n <= 2 || Math.random() > Math.min(0.85, 0.25 + 0.08 * (n - 3))) return 'none';
   const last = store.get(KEY.lastBeat, ''), pool = Object.keys(GO_BEATS).filter(b => GO_BEATS[b].min <= n && b !== last);
   if (!pool.length) return 'none';
@@ -9223,7 +9447,7 @@ function pickBeat(boss) {
 function startFlyby() {
   const boss = world.enemies.find(e => e.type === 'boss' && !e.dying && !e.dead), beat = pickBeat(boss), p = player; if (!p) return;
   const fx = clamp(p.x, 50, W - 50), fy = clamp(p.y, 90, H * 0.64), deck = bossAnchor(boss, fx, fy), tt = terrainType(Math.floor(fx), Math.floor(fy - Math.floor(world.scroll)));
-  app.flyby = { t: 0, pt: 0, rt: -1, nachtBeat: beat === 'boss' && !!boss && boss.kind === 'castle' && app.escLevel >= 8, absorbed: 0, w0: 0, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && !deck.slip && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: app.escLevel < 5 ? 1 : app.escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: world.scroll };
+  app.flyby = { t: 0, pt: 0, rt: -1, nachtBeat: beat === 'boss' && !!boss && boss.kind === 'castle', absorbed: 0, w0: 0, cover: boss || null, rare: Math.random() < 0.25, deck, blow: !!deck && !deck.slip && boss.kind === 'fortress', water: !deck && (tt === 'sea' || tt === 'surf' || tt === 'river'), beat, boss: beat === 'boss' ? boss : null, tier: app.escLevel < 5 ? 1 : app.escLevel < 8 ? 2 : 3, skip: beat !== 'flypast', hold: beat === 'flypast' && lbEligible(), x: fx, y: fy, s0: world.scroll };
   if (app.flyby.water) splash(fx, fy, 14); // it went down in the water: the wreck will sink
   world.scrollTarget = 0; world.quiet = true; // the world slows to a stop and no new enemies appear
   if (!world.enemies.some(e => e.type === 'boss')) { for (const e of world.enemies) if (!e.ground && !e.dying) e.dead = true; world.ebul.length = 0; } // aircraft and their bullets vanish so the squadron is the only thing in the sky
@@ -11547,9 +11771,10 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
-function bossDead(e) { world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
+function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
+  bossHit = false;
   const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
@@ -11708,11 +11933,11 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); campaignWon(); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
-    loopsWon++; store.set(KEY.loops, loopsWon);
+    loopsWon++; store.set(KEY.loops, loopsWon); if (run.retro && !app.tut) award('retro');
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -13452,10 +13677,11 @@ const ENT = {
     }
   } },
   pt: { turret: true, turretAt: [0, 7], medals: 0.5, stats: { hp: 8, hw: 5, hh: 14, score: 400, rad: 16 }, update(e) {
-    if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v) && !underFlagship(e.x + e.dx, e.y + e.v, e.hw)) { e.wy += e.v; e.wx += e.dx; }
+    if (e.rv) { const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; } e.wy += e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i < 4) { e.dead = true; return; } e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + e.off; const want = riverHd(R, i, false); e.hd = e.hd === undefined ? want : e.hd + clamp(angDiff(e.hd, want), -0.012, 0.012); } /* (the valley convoy's escorts come down the river at the player) */
+    else if (terrainType(e.wx + e.dx * 30, e.wy + 20) === 'sea' && !blockedMove(e, e.dx, e.v) && !underFlagship(e.x + e.dx, e.y + e.v, e.hw)) { e.wy += e.v; e.wx += e.dx; }
     groundPos(e);
-    if (gf % 3 === 0) { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); }
-    const gx = e.x, gy = e.y + 7;
+    if (gf % 3 === 0) { if (e.rv) { foam(e.x - Math.cos(e.hd) * 16 + rnd(-4, 4), e.y - Math.sin(e.hd) * 16); foam(e.x + Math.cos(e.hd) * 12 + rnd(-6, 6), e.y + Math.sin(e.hd) * 12); } else { foam(e.x + rnd(-4, 4), e.y - 16); foam(e.x + rnd(-6, 6), e.y + 12); } }
+    const po = e.rv && e.hd !== undefined ? rotOff(e.hd - PI, 0, 7) : [0, 7], gx = e.x + po[0], gy = e.y + po[1];
     if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.06, 0.06);
     if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round((Math.max(55, 85 - run.loop * 12)) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); sfx('gun'); }
   } },
@@ -14222,7 +14448,7 @@ function drawRebirth(p) {
 }
 function die(cause) {
   const p = player; rrDeath(cause || '?'); if (app.glows) app.glows = app.glows.filter(g => g.who !== 1);
-  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
+  p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; bossHit = true; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; if (run.medalT > 0) endChain(); run.medalMul = 1; run.medalT = 0;
   p.lvl = Math.max(1, p.lvl - 1);
@@ -14283,7 +14509,7 @@ function updP2() {
 }
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
-  app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  bossHit = true; app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
   for (let i = 0; i < q.drones; i++) boom(q.dr[i].x, q.dr[i].y, 10);
   q.drones = 0;
   if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
@@ -14295,10 +14521,10 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+      run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
       if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
       run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); checkExtend(); world.items.splice(i, 1); continue;
     }
@@ -14733,9 +14959,9 @@ function padMenus(nav) {
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
-function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 function padTitle(nav) {
-  const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus));
+  const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
   if (nav.a || nav.start) titleActivate();
@@ -15040,11 +15266,11 @@ function update() {
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
           addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
-          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
+          run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); if (run.medalMul >= CHAIN_GOAL && rankedCamp()) award('chain'); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
           if (run.medalMul > 1) world.parts.push({ kind: 'mul', layer: 'a', x: it.x, y: it.y - 16, vx: 0, vy: -0.45, life: 40, max: 40, text: 'x' + run.medalMul });
           run.stats.medals++; app.medalPop = 8; medalSfx(run.medalMul - 1); haptic(run.medalMul >= 6 ? 'medalBig' : 'medal');
           checkExtend(); world.items.splice(i, 1); continue;
@@ -15578,7 +15804,7 @@ const LOOKS = {
   },
   acar(e, fl) { spr(SPR.acar[dirIdx(e.hd)], e.x, e.y, fl); },
   bunker(e, fl) { spr(SPR.bunker, e.x, e.y, fl); if (!e.turDead) spr(SPR.bunkerGun[dirIdx(e.ga)], e.x, e.y, fl); else turStub(e.x, e.y, 5); },
-  pt(e, fl) { spr(SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + 7, fl); else turStub(e.x, e.y + 7, 3); },
+  pt(e, fl) { const po = e.rv && e.hd !== undefined ? rotOff(e.hd - PI, 0, 7) : [0, 7], gx = e.x + po[0], gy = e.y + po[1]; spr(e.rv && e.hd !== undefined ? ptRot(dirIdx(e.hd, 32)) : SPR.pt, e.x, e.y, fl); if (!e.turDead) spr(SPR.ptGun[dirIdx(e.ta)], gx, gy, fl); else turStub(gx, gy, 3); }, /* (the valley convoy's PT boats turn with the river) */
   destroyer(e, fl) { spr(SPR.destroyer, e.x, e.y, fl); if (!e.turDead) { spr(SPR.dGun[dirIdx(e.ta)], e.x, e.y + 22, fl); spr(SPR.dGun[dirIdx(e.tb)], e.x, e.y - 24, fl); } else { turStub(e.x, e.y + 22, 4); turStub(e.x, e.y - 24, 4); } },
   hangar(e, fl) { spr(SPR.hangarV[e.hv || 0], e.x, e.y, fl); },
   fuel(e, fl) { spr(SPR.fuel, e.x, e.y, fl); },
@@ -15830,26 +16056,38 @@ function drawSkyBody(e, fl, core) {
    armoured cars and tankers drives north along the road beside it. The player hunts it from below: both columns are slow (VC.v, the ground scrolls past at 0.4), so they come
    down the screen from the top and linger, and the armed ones fire back at the player while they go. The parts are a prize only: shot down or not, the Ravens' prototype
    is built already and the castle fight is the same. All the numbers are in VC. */
-const VC = { v: 0.12, boatGap: 46, roadGap: 30, hp: { tug: 9, bargeF: 10, bargeC: 14, bargeG: 14 }, fire: [75, 115] };
+const VC = { v: 0.12, boatGap: 14, roadGap: 30, hp: { tug: 14, bargeF: 18, bargeC: 30, bargeG: 36 }, len: { tug: 40, bargeG: 90, bargeF: 62, bargeC: 66 }, fire: [75, 115], pt: 0.45 };
 const valleyRiver = S => S && S.plan && S.plan.rivers2 && S.plan.rivers2[0] || null;
+function riverHd(R, i, north) { /* the river's course at row i as a heading: the way a boat goes, north (up the strip) or south */
+  const a = R.cx[clamp(i - 8, 0, R.cx.length - 1)], b = R.cx[clamp(i + 8, 0, R.cx.length - 1)], n = Math.atan2(-1, (b - a) / 16); return north ? n : n + PI; }
+const barRotC = {}; const barRot = (t, i) => barRotC[t + i] || (barRotC[t + i] = rotated(SPR[t], i * TAU / 32 + PI / 2)); /* a barge picture (bow up) turned to one of 32 headings, made when first needed */
+const ptRotC = {}; const ptRot = i => ptRotC[i] || (ptRotC[i] = rotated(SPR.pt, i * TAU / 32 - PI / 2)); /* the PT boat (bow down) likewise */
+const rotOff = (hd, ox, oy) => { const th = hd + PI / 2, c = Math.cos(th), sn = Math.sin(th); return [ox * c - oy * sn, ox * sn + oy * c]; }; /* an offset in a bow-up picture, turned to heading hd */
 function cvRoad(e) { /* a road vehicle of the convoy: north along the plan's main road, its heading eased by steer */
   const S = run.sortie, P = S.plan; e.wy -= e.v; const nx = P.mx[clamp(Math.round(S.planY0 - e.wy), 0, P.L - 1)] + (e.off || 0); steer(e, nx - e.wx, -e.v); e.wx = nx; groundPos(e); }
 function bargeUpdate(e) { /* a river craft: north along the river's centre line; the armed ones turn their gun on the player and fire */
   const S = run.sortie, R = valleyRiver(S); if (!R) { e.dead = true; return; }
   e.wy -= e.v; const i = Math.round(S.planY0 - e.wy) - R.a; if (i >= R.cx.length - 6) { e.dead = true; e.gone = true; return; } /* it has sailed out of the valley */
   e.wx = R.cx[clamp(i, 0, R.cx.length - 1)] + (e.off || 0); groundPos(e);
-  if (gf % 4 === 0) foam(e.x + rnd(-5, 5), e.y + e.hh);
-  if (e.armed) { const gx = e.x, gy = e.y + (e.type === 'tug' ? 2 : 4); if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
-    if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round(rnd(VC.fire[0], VC.fire[1]) * fireSlow()); eshot(gx, gy, e.ta, bspeed()); if (e.type === 'bargeG') eshot(gx, gy, e.ta + 0.12, bspeed()); sfx('gun'); } }
+  const want = riverHd(R, i, true); e.hd = e.hd === undefined ? want : e.hd + clamp(angDiff(e.hd, want), -0.012, 0.012); /* it turns with the river */
+  if (gf % 4 === 0) foam(e.x - Math.cos(e.hd) * e.hh + rnd(-5, 5), e.y - Math.sin(e.hd) * e.hh);
+  if (e.armed) { const go = rotOff(e.hd, 0, e.type === 'tug' ? -10 : e.alt ? 21 : -13), gx = e.x + go[0], gy = e.y + go[1]; /* the tug's AA gun forward; the tank lighter's two heavy tanks fire in turn */ if (hasT()) e.ta += clamp(angDiff(e.ta, aim(gx, gy)), -0.05, 0.05);
+    if (--e.cd <= 0 && canFire(e, 90)) { e.cd = Math.round(rnd(VC.fire[0], VC.fire[1]) * fireSlow()); e.alt = e.type === 'bargeG' ? 1 - (e.alt | 0) : 0; const mx = gx + Math.cos(e.ta) * 14, my = gy + Math.sin(e.ta) * 14; eshot(mx, my, e.ta, bspeed()); if (e.type === 'bargeG') eshot(mx, my, e.ta + 0.1, bspeed()); flash(mx, my, 3); sfx(e.type === 'bargeG' ? 'cannon' : 'gun'); } }
 }
-const bargeWreck = e => { world.decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: 13, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
-  world.decals.push({ kind: 'sink', s: SPR[e.type], wx: e.wx, wy: e.wy, t: 0, max: 220, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 }); };
-ENT.tug = { medals: 0.6, stats: { hp: VC.hp.tug, hw: 8, hh: 15, score: 900, rad: 15 }, update: bargeUpdate };
-ENT.bargeF = { harmless: true, explosive: true, medals: 0.6, stats: { hp: VC.hp.bargeF, hw: 8, hh: 22, score: 800, rad: 22 }, update: bargeUpdate };
-ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 8, hh: 22, score: 2500, rad: 22 }, update: bargeUpdate };
-ENT.bargeG = { medals: 1, stats: { hp: VC.hp.bargeG, hw: 8, hh: 22, score: 1200, rad: 22 }, update: bargeUpdate };
+const bargeWreck = e => { /* as the game's ships go down: an oil slick, swimmers, the hull sinking slowly with a tilt; the fuel barge burns first */
+  world.decals.push({ kind: 'oil', wx: e.wx, wy: e.wy, r: e.type === 'tug' ? 16 : 24, smokeT: 0, v: (Math.random() * 3) | 0, grow: true, age: 0 });
+  { const n = e.type === 'bargeG' ? 3 : e.type === 'tug' ? 2 : (Math.random() < 0.6 ? 2 : 1); spawnSwimmers(e.wx, e.wy, n, 8, e.hh); }
+  world.decals.push({ kind: 'sink', s: barRot(e.type, dirIdx(e.hd === undefined ? -PI / 2 : e.hd, 32)), wx: e.wx, wy: e.wy, t: 0, max: e.type === 'tug' ? 220 : 320, dir: Math.random() < 0.5 ? -1 : 1, len: e.hh, smokeT: 0 });
+  if (e.type === 'bargeF') for (let k = 0; k < 4; k++) fireAt(e.x + rnd(-8, 8), e.y + rnd(-e.hh * 0.6, e.hh * 0.6), 'g', true); };
+ENT.tug = { medals: 0.6, stats: { hp: VC.hp.tug, hw: 13, hh: 20, score: 900, rad: 20 }, update: bargeUpdate };
+ENT.bargeF = { harmless: true, explosive: true, medals: 0.6, stats: { hp: VC.hp.bargeF, hw: 13, hh: 31, score: 800, rad: 30 }, update: bargeUpdate };
+ENT.bargeC = { harmless: true, medals: 2, stats: { hp: VC.hp.bargeC, hw: 13, hh: 33, score: 2500, rad: 32 }, update: bargeUpdate };
+ENT.bargeG = { medals: 1.5, stats: { hp: VC.hp.bargeG, hw: 16, hh: 45, score: 2000, rad: 44 }, update: bargeUpdate };
 DEATHS.tug = { wreck: bargeWreck }; DEATHS.bargeC = { wreck: bargeWreck }; DEATHS.bargeG = { wreck: bargeWreck }; DEATHS.bargeF = { blast: 34, wreck: bargeWreck };
-for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { spr(SPR[t], e.x, e.y, fl); if (e.armed) spr(SPR.ptGun[dirIdx(e.ta)], e.x, e.y + (t === 'tug' ? 2 : 4), fl); };
+for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) Object.assign(ENT[t], DEATHS[t]); /* (the table merge above ran before these entries existed) */
+for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => { const hd = e.hd === undefined ? -PI / 2 : e.hd; spr(barRot(t, dirIdx(hd, 32)), e.x, e.y, fl); /* turned to the river's course; the turrets and tanks sit at the turned places */
+  if (t === 'tug' && !e.turDead) { const o = rotOff(hd, 0, -10); spr(SPR.aaZw[dirIdx(e.ta)], e.x + o[0], e.y + o[1], fl); }
+  if (t === 'bargeG') for (const oy of [-13, 21]) { const o = rotOff(hd, 0, oy); spr(SPR.htank[0][dirIdx(hd)], e.x + o[0], e.y + o[1], fl); spr(SPR.htankTur[dirIdx(e.ta)], e.x + o[0], e.y + o[1], fl); } };
 /* Cliff Battery (level 4's first loop, the cliff coast: run.sortie.encPlan, at the start of the level). The rim battery's three artillery pads fire only in broadsides, on a beat:
    each gun lays a stream of shells straight down its own lane, the streams a little closer together every salvo and longer (3, 4, 5, 5 shells), so the gaps between them are the
    way through. The radar on the plateau behind them is the weak point: while it stands, the middle gun also fans a few shells at the player (from the second salvo on); shoot it
@@ -15867,9 +16105,9 @@ ENC_VERB.broadside = v => { const guns = world.enemies.filter(e => e.type === 'a
     for (let k = 0; k < n; k++) world.later.push({ at: gf + k * CB.gap, fn: () => { if (g.dead || g.dying || !hasT()) return; const side = g.x < W / 2 ? 1 : -1; eshot(g.x, g.y + 12, PI / 2 + side * lean, bspeed() * CB.speed); } });
     if (lock && v.i >= 1 && mid) for (const da of [-0.16, 0, 0.16]) world.later.push({ at: gf + 10, fn: () => { if (g.dead || g.dying || !hasT()) return; eshot(g.x, g.y + 12, aim(g.x, g.y + 12) + da, bspeed() * CB.speed); } }); });
   return true; };
-ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 1500, max: 2600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
-  { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 520, do: 'dive', n: 5, x: 0.5 }, { t: 800, do: 'chase' }, { t: 1250, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 1500, do: 'pod', x: 0.5, own: false }] };
-TT_ENC.valleyconvoy = 1500;
+ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 2100, max: 3400, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 420, do: 'ptriver' }, { t: 700, do: 'dive', n: 5, x: 0.5 }, { t: 1000, do: 'ptriver', diff: [1, 2] }, { t: 1300, do: 'chase' }, { t: 1700, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 2100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.valleyconvoy = 2100;
 /* Level 5's first loop (run.sortie.winter, run.sortie.encPlan), from the existing verbs only. ICE BREAKERS: two five-plane dives over the frozen sea, a bomber, a strafing run of four from the side the ship is not on, a chase pair (the ice has no open water for patrol boats). ICE ROAD CONVOY: tankers chain along the road beside the frozen lake, tanks behind them, cover from the air. THE BASE: flak both sides of the lane, a formation down it, the depot's tankers, a bomber, a dive, a chase pair. */
 /* Level 6's first loop (run.sortie.haze, run.sortie.encPlan), from the existing verbs only. HARBOUR RAID over the south harbour: a destroyer and two patrol boats on the harbour water (portship: the verb 'ship' needs the open-sea biome, the harbour is a city's), two dives, a bomber, a chase pair, a pod. CITY FLAK over the city centre: a flak gun each side of the lane, a formation down it, a second, tankers chaining along the streets, a bomber, a dive, a chase pair. STATION BREAKOUT at the main station: tankers chain beside the tracks, tanks behind them, two dives, a chase pair, a bomber, a pod. */
 ENC_VERB.portship = v => { const wy = -34 - Math.floor(world.scroll), m = hpm(), dd = v.kind === 'destroyer', hw = dd ? 16 : 6, hh = dd ? 46 : 16, yy = dd ? wy - 30 : wy, xs = []; /* a destroyer or a patrol boat on the harbour's own water: the nearest free water to x (retried while there is none) */
@@ -15898,10 +16136,13 @@ ENC.basebreak = { name: 'THE BASE', len: 1100, max: 2200, rest: 180, budget: [22
   { t: 500, do: 'tankers', n: 2, wait: 300 }, { after: 150, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.basebreak = 1100;
 ENC_VERB.rivercon = () => { const S = run.sortie, R = valleyRiver(S); if (!R) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['tug', 'bargeG', 'bargeF', 'bargeC', 'bargeG']; /* lead (northmost) first */
-  const ys = Math.max(R.a + 14, yT + 30); let n = 0;
-  kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.boatGap; if (y > R.b - 70) return; const armed = t === 'tug' || t === 'bargeG', off = k % 2 ? 8 : -8;
-    world.enemies.push(G(t, R.cx[y - R.a] + off, S.planY0 - y, Object.assign({ v: VC.v, off, keep: true, hh: t === 'tug' ? 15 : 22 }, armed ? { armed: true, ta: PI / 2, cd: 60 + k * 17 } : {}))); n++; });
+  let ys = Math.max(R.a + 70, yT + 30), n = 0; const at = [];
+  for (let k = kinds.length - 1; k >= 0; k--) { const len = VC.len[kinds[k]]; at[k] = ys + len / 2; ys += len + VC.boatGap; } /* each boat its own length astern of the next */
+  kinds.forEach((t, k) => { const y = at[k]; if (y > R.b - 40) return; const armed = t === 'tug' || t === 'bargeG', off = 0;
+    world.enemies.push(G(t, R.cx[y - R.a] + off, S.planY0 - y, Object.assign({ v: VC.v, off, keep: true, hh: VC.len[t] / 2 }, armed ? { armed: true, ta: PI / 2, cd: 60 + k * 17 } : {}))); n++; });
   return n > 0; };
+ENC_VERB.ptriver = v => { const S = run.sortie, R = valleyRiver(S); if (!R) return false; const wy = -34 - Math.floor(world.scroll), i = Math.round(S.planY0 - wy) - R.a; if (i < 12 || i > R.cx.length - 12) return false; /* two PT boats come down the river at the player, one each side of the convoy */
+  for (const off of [-19, 19]) world.enemies.push(G('pt', R.cx[i] + off, wy, { rv: true, off, ta: PI / 2, cd: rnd(50, 90) | 0, v: VC.pt, dx: 0, hh: 17 })); return true; };
 ENC_VERB.roadcon = () => { const S = run.sortie, P = S && S.plan; if (!P) return false; const yT = S.planY0 + 34 + Math.floor(world.scroll), kinds = ['acar', 'ftruck', 'ftruck', 'acar', 'ftruck', 'acar']; /* lead first */
   const ys = yT + 40; kinds.forEach((t, k) => { const y = ys + (kinds.length - 1 - k) * VC.roadGap, yy = clamp(y, 0, P.L - 1), wx = P.mx[yy], wy = S.planY0 - y;
     world.enemies.push(G(t, wx, wy, Object.assign({ v: VC.v, cv: true, keep: true, hd: -PI / 2, off: 0 }, t === 'acar' ? { cd: 50 + k * 23 } : { patrol: [[wx, wy]], pi: 0 }))); });
@@ -16062,6 +16303,68 @@ function drawMoonGlow() { /* the first loop's level 3: the moon climbs along the
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${R},${G},${B},${a})`); g.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
 }
+/* Level 4's first loop (run.sortie.autumn): an overcast late-autumn sky that changes along the level instead of the white fair-weather puffs (they stay off in the loop). Per stretch (OVC, blended between stretch middles
+   like the snow of level 5; the castle beyond the last stretch has its own): a veil of drifting patches over the ground, soft cloud shadows drifting across it, decks of generated stratus and banks of mist
+   (CityGen.cloud), tinted cool and grey at the sea, grey-green over the forest, smoke-brown over the fortified forest, almost clear at the clearing, dense fog at the hidden airbase, warm over the valley and the
+   farmland and low and dark over Ravenhold. Visual only: everything is a function of the frame counter and the scroll, drawn under the bullets, the ship's effects and the HUD, nothing seeded, nothing saved.
+   Entry: [veil alpha, veil r g b, shadow alpha, deck alpha, decks, deck scale, tint r g b, fog alpha, smoke]. */
+const OVC = {
+  beach_cliff: [0.30, 0.82, 0.88, 0.96, 0.22, 0.80, 5, 1.7, 0.82, 0.88, 0.96, 0.50, 0],
+  forest_conifer: [0.28, 0.82, 0.87, 0.84, 0.22, 0.70, 4, 1.6, 0.82, 0.88, 0.86, 0.35, 0],
+  forest_fortified: [0.42, 0.66, 0.65, 0.67, 0.30, 0.88, 4, 1.7, 0.62, 0.61, 0.64, 0.15, 1],
+  clearing_village: [0.16, 0.93, 0.93, 0.95, 0.08, 0.45, 2, 1.6, 0.94, 0.94, 0.96, 0.10, 0],
+  airbase_forest_hidden: [0.34, 0.84, 0.86, 0.89, 0.10, 0.50, 3, 1.6, 0.88, 0.90, 0.92, 0.80, 0],
+  valley: [0.24, 0.90, 0.89, 0.87, 0.18, 0.68, 3, 1.6, 0.92, 0.89, 0.85, 0.50, 0],
+  farmland_approach: [0.16, 0.96, 0.90, 0.82, 0.10, 0.55, 2, 1.6, 1.00, 0.90, 0.78, 0.10, 0],
+  castle: [0.46, 0.30, 0.29, 0.33, 0.40, 0.90, 5, 1.9, 0.40, 0.39, 0.43, 0, 0]
+}, OVC_G = { veil: 2.2, shade: 1.8, deck: 1.4, fog: 1.6, n: 1.4 }; /* (gains on the table's values: the table is the mockups' look; what a frame of the game shows needs more) */
+/* Level 5's first loop (run.sortie.winter) has the same sky machinery in snow-laden greys: broad sheets, no puffs (the generator's storm sprites came out lumpy), heavy where the level's snow squalls are and thin where it is calm
+   (the village and the airbase), softer than level 4's (smaller gains: the snow is bright, so a little goes a long way). The last farmland stretch (the depot, the massif, the glacier and the gorge) is 'gorge'. */
+const OVC5 = {
+  open_sea_ice: [0.22, 0.82, 0.88, 0.96, 0.16, 0.65, 4, 1.9, 0.82, 0.88, 0.96, 0.35, 0],
+  harbour_winter: [0.32, 0.62, 0.68, 0.78, 0.24, 0.70, 5, 2.0, 0.62, 0.68, 0.80, 0.15, 0],
+  farmland_winter: [0.14, 0.92, 0.94, 1.00, 0.08, 0.42, 3, 1.9, 0.92, 0.94, 1.00, 0.10, 0],
+  lake_valley: [0.18, 0.85, 0.90, 0.98, 0.12, 0.55, 3, 1.9, 0.86, 0.90, 0.98, 0.55, 0],
+  village: [0.10, 0.95, 0.95, 1.00, 0.05, 0.32, 1, 1.9, 0.95, 0.95, 1.00, 0.08, 0],
+  station_winter: [0.36, 0.55, 0.60, 0.70, 0.26, 0.72, 5, 2.0, 0.54, 0.58, 0.68, 0.12, 1],
+  airbase_snow: [0.12, 0.93, 0.94, 1.00, 0.06, 0.34, 2, 1.9, 0.93, 0.94, 1.00, 0.08, 0],
+  forest_conifer: [0.30, 0.64, 0.70, 0.80, 0.24, 0.68, 5, 2.0, 0.64, 0.70, 0.80, 0.35, 0],
+  pass: [0.38, 0.46, 0.52, 0.64, 0.30, 0.72, 6, 2.2, 0.46, 0.52, 0.66, 0.12, 0],
+  gorge: [0.38, 0.48, 0.55, 0.70, 0.30, 0.72, 5, 2.2, 0.48, 0.54, 0.70, 0.10, 0]
+}, OVC5_G = { veil: 1.6, shade: 1.3, deck: 1.1, fog: 1.2, n: 1.2 };
+const ovcCfg = S => S.winter ? { tab: OVC5, g: OVC5_G, end: 'gorge', smoke: [66, 68, 78], dflt: 'farmland_winter' } : { tab: OVC, g: OVC_G, end: 'castle', smoke: [120, 108, 100], dflt: 'forest_conifer' };
+function ovcAt(S, wy) {
+  const c = -wy / CH - world.stageBaseP, cf = ovcCfg(S), last = S.segs.length - 1, pts = S.segs.map((g, k) => [g.start + g.n / 2, cf.tab[S.winter && k === last && g.t === 'farmland_winter' ? 'gorge' : g.t] || cf.tab[cf.dflt]]); pts.push([S.len + 2, cf.tab[cf.end]]);
+  let a = pts[0], b = null; for (let k = 0; k < pts.length; k++) { if (pts[k][0] <= c) a = pts[k]; else { b = pts[k]; break; } }
+  if (!b) return a[1]; if (c <= a[0]) return a[1]; const f = clamp((c - a[0]) / (b[0] - a[0]), 0, 1), u = f * f * (3 - 2 * f); return a[1].map((v, i) => v + (b[1][i] - v) * u);
+}
+let ovcTile = null, ovcLayer = null, ovcMaskC = null;
+function ovcMasks() { /* two tileable 256 x 256 noise masks (white, alpha = coverage): the veil's patches and the cloud shadows' big blobs */
+  if (ovcTile) return;
+  const vn2 = (u, v, P) => { const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv), w2 = (a, b) => sortieHash((((a % P) + P) % P) * 7 + 3, (((b % P) + P) % P) * 13 + 1);
+    return w2(i, j) * (1 - su) * (1 - sv) + w2(i + 1, j) * su * (1 - sv) + w2(i, j + 1) * (1 - su) * sv + w2(i + 1, j + 1) * su * sv; };
+  const mk2 = f => { const [c, x] = mk(256, 256), im = x.createImageData(256, 256), d = im.data; for (let y = 0; y < 256; y++) for (let xx = 0; xx < 256; xx++) { const o = (y * 256 + xx) * 4; d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = Math.round(clamp(f(xx, y), 0, 1) * 255); } x.putImageData(im, 0, 0); return c; };
+  ovcTile = { veil: mk2((x, y) => (0.55 * vn2(x / 64, y / 64, 4) + 0.3 * vn2(x / 32, y / 32, 8) + 0.15 * vn2(x / 16, y / 16, 16) - 0.3) * 1.9), shade: mk2((x, y) => (0.7 * vn2(x / 64, y / 64, 4) + 0.3 * vn2(x / 32, y / 32, 8) - 0.5) * 2.4) };
+}
+function ovcPass(color, a, fn) { /* one layer: draw into the scratch canvas, tint what was drawn, put it on the screen at alpha a */
+  if (a < 0.01) return; if (!ovcLayer) ovcLayer = mk(W, H); const [lc, lx] = ovcLayer;
+  lx.globalCompositeOperation = 'source-over'; lx.globalAlpha = 1; lx.imageSmoothingEnabled = true; lx.clearRect(0, 0, W, H); fn(lx); /* (smoothed: the clouds are soft) */
+  lx.globalCompositeOperation = color.atop ? 'source-atop' : 'source-over'; lx.globalAlpha = color.atop || 1; lx.fillStyle = `rgb(${color.r},${color.g},${color.b})`; if (color.atop) lx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = a; ctx.drawImage(lc, 0, 0); ctx.globalAlpha = 1;
+}
+function drawOvercast() {
+  const S = run.sortie, P = ovcAt(S, H / 2 - world.scroll), G = ovcCfg(S).g, t = gf, sc = Math.floor(world.scroll), rgb = (i, k = 1) => Math.round(clamp(P[i] * k, 0, 1) * 255); ovcMasks();
+  const masked = (lx, m, ox, oy) => { /* the mask tiled over the screen on a canvas of its own, then one destination-in (drawing tile by tile would clear all but the last tile) */
+    if (!ovcMaskC) ovcMaskC = mk(W, H); const [mc, mx] = ovcMaskC; mx.globalCompositeOperation = 'source-over'; mx.clearRect(0, 0, W, H); for (let ty = -256 + (((oy % 256) + 256) % 256); ty < H; ty += 256) for (let tx = -256 + (((ox % 256) + 256) % 256); tx < W; tx += 256) mx.drawImage(m, Math.round(tx), Math.round(ty)); lx.globalCompositeOperation = 'destination-in'; lx.drawImage(mc, 0, 0); };
+  ovcPass({ r: 14, g: 12, b: 20 }, Math.min(0.55, P[4] * G.shade), lx => { lx.fillStyle = 'rgb(14,12,20)'; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.shade, t * 0.07, sc * 0.5 + t * 0.1); }); /* cloud shadows */
+  ovcPass({ r: rgb(1), g: rgb(2), b: rgb(3) }, Math.min(0.8, P[0] * G.veil), lx => { lx.fillStyle = `rgb(${rgb(1)},${rgb(2)},${rgb(3)})`; lx.fillRect(0, 0, W, H); masked(lx, ovcTile.veil, -t * 0.06, sc * 0.35 + t * 0.12); }); /* the veil */
+  if (lowFX || typeof CityGen === 'undefined') return;
+  const spot = (lx, kind, i, sz, a, vx, vy, n) => { const h = k => sortieHash(i * 31 + 7, k), s = genCloud(kind, (i + ((h(1) * 4) | 0)) % 4), w = s.w * sz, hh = s.h * sz, span = W + w + 40, x = (((h(2) * span - t * (vx + 0.04 * h(3))) % span) + span) % span - w / 2, y = ((((i % n) + 0.15 + 0.7 * h(4)) / n * (H + 80) + t * vy) % (H + 80)) - 40; /* (spread evenly down the screen) */ lx.globalAlpha = a; lx.drawImage(s.c, Math.round(x), Math.round(y), Math.round(w), Math.round(hh)); };
+  ovcPass({ r: rgb(8), g: rgb(9), b: rgb(10), atop: 0.72 }, Math.min(1, P[5] * G.deck), lx => { /* decks and banks of fog */
+    const dn = P[6] * G.n, nd = Math.ceil(dn); for (let i = 0; i < nd; i++) spot(lx, 'stratus', i, P[7], Math.min(1, dn - i), 0.05, 0.16, nd);
+    const nf = P[11] * 5 * G.fog, nn = Math.max(1, Math.ceil(nf)); for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12, nn); });
+  if (P[12] > 0.05) { const sm = ovcCfg(S).smoke; ovcPass({ r: sm[0], g: sm[1], b: sm[2], atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14, 3); }); } /* smoke (the fortified forest's guns; level 5's station), drifting */
+}
 function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
   const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
   ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgb(${L(232, 255)},${L(244, 228)},${L(255, 188)})`; ctx.fillRect(0, 0, W, H); /* overcast: 0.91 0.96 1.0; golden: 1.0 0.89 0.74 */
@@ -16202,7 +16505,7 @@ function drawEnigmaClouds() {
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
-  if (lowFX || drawMistClouds(true)) return;
+  if (lowFX || (run.sortie && (run.sortie.autumn || run.sortie.winter)) || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
   for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
@@ -16400,12 +16703,12 @@ function drawPlayer() {
   if (p.dead) { if (p.dx !== undefined) drawRebirth(p); return; }
   const fk = p.fly > 0 ? (p.flyK || 1) : 1;
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
-  const fl = 4 + ((gf >> 1) & 1) * 2;
-  for (const [ox, top] of [[-3, 12], [3, 13]]) {
-    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME();
-    ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top);
+  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() >= 3 && curSkinId() <= 5; // the Phoenix, Rotkehlchen and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
+  for (const [ox, top] of tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]]) { // (the Raptor's wings have gaps along the trailing edge: its flames start at the tail end, so none shows above the tail)
+    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : 0;
+    ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top - up);
     ctx.fillStyle = FC[1]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
-    ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top);
+    ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top - up);
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
   if (!p2 && useNacht()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
@@ -16574,7 +16877,8 @@ function renderMain() {
     drawTitleLogo();
     const ps = skinSet()[1], sw = ps.w * 2, sh = ps.h * 2, by = TITLE_SHIP_Y + Math.sin(gf * 0.05) * 3;
     ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, W / 2 - sw / 2 + 18, by - sh / 2 + 26, sw, sh); ctx.globalAlpha = 1;
-    for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
+    if (curSkinId() >= 3 && curSkinId() <= 5) for (const sg of [-1, 1]) { const fx = sg < 0 ? W / 2 - 9 : W / 2 + 5; const fy = useRaptor() ? by + 29 : by + 26; ctx.fillStyle = FLAME()[0]; ctx.fillRect(fx, fy, 4, 6 + ((gf >> 1) & 1) * 3 - (fy - by - 26)); ctx.fillStyle = FLAME()[2]; ctx.fillRect(fx + 1, fy, 2, 4 - (fy - by - 26)); } // the newer ships' tails end higher and sit closer to the centre line
+    else for (const ox of [-6, 6]) { ctx.fillStyle = FLAME()[0]; ctx.fillRect(W / 2 + ox - 2, by + 30, 5, 6 + ((gf >> 1) & 1) * 3); ctx.fillStyle = FLAME()[2]; ctx.fillRect(W / 2 + ox - 1, by + 30, 3, 4); }
     ctx.drawImage(ps.c, W / 2 - sw / 2, by - sh / 2, sw, sh);
     const btn = (x0, y0, w, h, fill) => { ctx.fillStyle = OUT; ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2); ctx.fillStyle = fill; ctx.fillRect(x0, y0, w, h); };
     // arcade button: cap with a bevelled rim and notched corners on a dark plinth; pressed, the cap sinks onto it and the bevel flips
@@ -16593,7 +16897,7 @@ function renderMain() {
       const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#3a2a70', faceLo: '#241a48' }, 3, dn);
       ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#bba4ff'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
       textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
     { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
       if (SHOW_ENDLESS) {
@@ -16605,11 +16909,15 @@ function renderMain() {
       const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('scores'));
       textO('SCORES', W / 2, sy + 5, '#c8bce8', 2, 'center', '#8a7eb0');
       if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#3a2e60', hi: '#6a5aa8', lo: '#1a1430', face: '#251c46', faceLo: '#1a1434' }, 2, pressed('ach'));
+        ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) - 1);
+        if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
     }
-    if (nachtState() === 1 && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1 || (achv.rookie && achv.rookie.s)) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
+    drawToasts();
     syncBody(); return;
   }
 
@@ -16642,7 +16950,8 @@ function renderMain() {
   drawParts('g');
   drawWx2Low();
   drawBirds();
-  if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
+  if (run.sortie && (run.sortie.autumn || run.sortie.winter)) drawOvercast(); /* the first loops of levels 4 and 5: the overcast sky of its own (no white puffs) */
+  else if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
   else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
   else {
@@ -16802,6 +17111,7 @@ function renderMain() {
     drawFlybyOverlay();
   }
   if (app.paused && app.state === 'play') { ctx.fillStyle = 'rgba(18,14,26,0.45)'; ctx.fillRect(0, 0, W, H); }
+  drawToasts();
   if (app.fade) { const a = app.fade.phase === 'out' ? app.fade.t / 24 : 1 - app.fade.t / 32, lv = Math.round(clamp(a, 0, 1) * 16); if (lv > 0) { ctx.fillStyle = FADE_PATS()[lv]; ctx.fillRect(0, 0, W, H); } }
   syncBody();
 }
@@ -16830,7 +17140,7 @@ function showPauseMenu(v) {
   const inGame = app.state === 'play';
   for (const id of ['pmSep2', 'pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
-  setSoundLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
+  setSoundLabel(); achLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
 function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else { if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } } setPauseIcon(); showPauseMenu(app.paused); }
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
@@ -16851,6 +17161,75 @@ document.getElementById('pmMusic').addEventListener('click', () => toggleAudio('
 document.getElementById('pmResume').addEventListener('click', closeMenu);
 document.getElementById('pmRestart').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); restartStage(); });
 document.getElementById('pmSettings').addEventListener('click', () => { showPauseMenu(false); openSettings(); });
+document.getElementById('pmAch').addEventListener('click', () => { showPauseMenu(false); openAch(true); });
+// The achievements page: opened from the title screen's trophy or from the menu; opening it clears the NEW marks
+const ACH_BM = {
+  wings: ['10000001', '11000011', '11100111', '11111111', '01111110', '00111100', '00011000', '00011000'],
+  shield: ['11111111', '10000001', '10011001', '10011001', '01011010', '01000010', '00100100', '00011000'],
+  star: ['00011000', '00011000', '11111111', '01111110', '00111100', '01111110', '01100110', '01000010'],
+  medal: ['01100110', '00100100', '00111100', '01111110', '01111110', '01111110', '00111100', '00000000'],
+  snow: ['10010010', '01010100', '00111000', '11111111', '00111000', '01010100', '10010010', '00000000'],
+  pad: ['00000000', '01111110', '11111111', '11011011', '11111111', '11111111', '01100110', '00000000'],
+  eye: ['00000000', '00111100', '01111110', '11100111', '11100111', '01111110', '00111100', '00000000'],
+  lock: ['00111100', '01000010', '01000010', '11111111', '11111111', '11100111', '11100111', '11111111']
+};
+function achIcon(name, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.fillStyle = color;
+  ACH_BM[name].forEach((r, y) => { for (let i = 0; i < 8; i++) if (r[i] === '1') x.fillRect(i, y, 1, 1); });
+  return c;
+}
+let achFromMenu = false;
+function achLabel() { document.getElementById('pmAchN').textContent = achCount() + '/' + ACH.length; }
+function openAch(fromMenu) {
+  achFromMenu = !!fromMenu; const list = document.getElementById('achList'); list.textContent = '';
+  for (const a of ACH) {
+    const e = achv[a.id], on = !!e, hide = !!a.hidden && !on;
+    const row = document.createElement('div'); row.className = 'ach' + (on ? ' on' : '');
+    const ib = document.createElement('div'); ib.className = 'ib'; ib.appendChild(achIcon(hide ? 'lock' : a.icon, on ? '#f4d050' : '#5a4e80')); row.appendChild(ib);
+    const am = document.createElement('div'); am.className = 'am';
+    const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
+    const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
+    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
+    row.appendChild(am);
+    const as = document.createElement('div'); as.className = 'as'; if (on) as.textContent = '\u2713'; else as.appendChild(achIcon('lock', '#5a4e80')); row.appendChild(as);
+    if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
+    list.appendChild(row);
+  }
+  const got = achCount(); document.getElementById('achCount').textContent = got + ' / ' + ACH.length; document.getElementById('achPct').textContent = Math.round(got / ACH.length * 100) + '%';
+  document.getElementById('achFill').style.width = (got / ACH.length * 100) + '%';
+  let ch = false; for (const k in achv) if (achv[k].n) { achv[k].n = 0; ch = true; } if (ch) saveAchv();
+  audio(); sfx('tick'); document.getElementById('ach').classList.add('open'); document.getElementById('achClose').focus();
+}
+document.getElementById('achClose').addEventListener('click', () => { document.getElementById('ach').classList.remove('open'); if (achFromMenu) { showPauseMenu(true); document.getElementById('pmAch').focus(); } });
+document.getElementById('ach').addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === document.getElementById('ach')) document.getElementById('achClose').click(); });
+// the gold trophy on the title's button and in the toast: 16 x 16 pixel art with a dark outline
+let trophyC = null;
+function trophySpr() {
+  if (trophyC) return trophyC;
+  const N = 16, G = '#f4d050', L = '#fff4b0', D = '#c98a1c', DD = '#8a5a12', m = Array.from({ length: N }, () => Array(N).fill(null));
+  const R = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m[y][x] = c; };
+  R(4, 1, 11, 6, G); R(4, 1, 11, 1, L); R(4, 2, 4, 6, L); R(10, 2, 11, 6, D); R(5, 7, 10, 7, G); R(6, 8, 9, 8, D);
+  for (const [x, y] of [[3, 2], [2, 2], [1, 3], [1, 4], [1, 5], [2, 6], [3, 6]]) { m[y][x] = D; m[y][15 - x] = D; }
+  R(7, 9, 8, 11, D); R(7, 9, 7, 11, G); R(4, 12, 11, 13, D); R(4, 12, 11, 12, G); R(4, 13, 11, 13, DD);
+  for (const [x, y, c] of [[7, 3, '#ffffff'], [7, 4, L], [6, 4, L], [8, 4, L], [7, 5, L]]) m[y][x] = c;
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), f = (a, b) => a >= 0 && b >= 0 && a < N && b < N && m[b][a];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!m[y][x] && (f(x + 1, y) || f(x - 1, y) || f(x, y + 1) || f(x, y - 1))) { g.fillStyle = '#1a0f33'; g.fillRect(x, y, 1, 1); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) { g.fillStyle = m[y][x]; g.fillRect(x, y, 1, 1); }
+  return (trophyC = c);
+}
+// a new achievement slides in near the top for about three seconds; several wait their turn
+function drawToasts() {
+  const q = app.toasts; if (!q.length) return;
+  const T = q[0], a = ACH.find(x => x.id === T.id), IN = 12, HOLD = 170, FADE = 14; T.t++;
+  if (!a || T.t > IN + HOLD + FADE) { q.shift(); return; }
+  const k = T.t < IN ? T.t / IN : T.t > IN + HOLD ? 1 - (T.t - IN - HOLD) / FADE : 1;
+  const w = 176, h = 26, x = Math.round((W - w) / 2), y = Math.round(34 - (1 - k) * 40);
+  ctx.save(); ctx.globalAlpha = Math.min(1, k * 1.6);
+  ctx.fillStyle = OUT; ctx.fillRect(x - 2, y - 2, w + 4, h + 4); ctx.fillStyle = '#f4d050'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = '#1c1630'; ctx.fillRect(x, y, w, h);
+  ctx.drawImage(trophySpr(), x + 4, y + 5);
+  textS('ACHIEVEMENT', x + 26, y + 5, '#f4d050', 1, 'left'); textS(a.name.toUpperCase(), x + 26, y + 15, '#ffffff', 1, 'left');
+  ctx.restore();
+}
 document.getElementById('pmQuit').addEventListener('click', () => { showPauseMenu(false); app.paused = false; setPauseIcon(); stopMusic(); if (app.state === 'play' && lbEligible()) { rrSend('quit'); saveEndless(); saveHi(); app.state = 'over'; app.overT = 0; openLB('submit'); } else toTitle(); });
 setPauseIcon();
 
@@ -17067,12 +17446,13 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
-  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open')) { if (k === 'escape') { if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
+  if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open, #ach.open')) { if (k === 'escape') { if (document.getElementById('ach').classList.contains('open')) document.getElementById('achClose').click(); else if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); app.rrIn = 'key';
   if (app.booting) { endBoot(); return; }
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
-    if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7] : [0, 8], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    if (app.state === 'title' && app.shipPick && (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd' || k === 'escape')) pickKey(k);
+    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
     else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
@@ -17090,7 +17470,7 @@ let drag = null, scale = 2;
 onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if ((arts.size >= 6 || nachtOwned()) && shipHit(gx0, gy0)) openShipPick(); else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }

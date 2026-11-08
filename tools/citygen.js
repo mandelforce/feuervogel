@@ -3203,8 +3203,8 @@ function forestLand(o) {
   if (P.autumn) { const rivers = plan.rivers2 = [], GAP = 10, free2 = (k, b) => (k === K.WOOD && b === -1) || (k === K.MEADOW && b >= -35 && b <= -32), sm = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
     feats.forEach((F, fi) => { if (!F.river) return; const [a, b] = span(F), ph = rnd(90 + fi, 1) * 6.283; let pick = null;
       const nf = []; for (let y = Math.max(0, a - 16); y < Math.min(L, b + 16); y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (!free2(Kr[i], Br[i])) nf.push(x, y); }
-      const mk = (side, base) => { const R = { side, base, a, b, ph }; R.f = y => Math.min(1, sm((y - a) / (0.16 * (b - a))), sm((b - y) / (0.16 * (b - a))));
-        R.c = y => base + 5 * Math.sin(y * 0.022 + ph) + (1 - R.f(y)) * 80; R.hw = y => (31 + 2 * Math.sin(y * 0.05 + ph * 2)) * (0.4 + 0.6 * R.f(y));
+      const mk = (side, base) => { const R = { side, base, a, b, ph }; const se = u => { u = u <= 0 ? 0 : u >= 1 ? 1 : u; return u * u * u * (u * (u * 6 - 15) + 10); }; /* smootherstep: no kink where the river leaves the edge */ R.f = y => Math.min(se((y - a) / (0.3 * (b - a))), se((b - y) / (0.3 * (b - a))));
+        R.c = y => base + 4 * Math.sin(y * 0.011 + ph) + (1 - R.f(y)) * 84; R.hw = y => (31 + 1.5 * Math.sin(y * 0.03 + ph * 2)) * (0.72 + 0.28 * R.f(y));
         R.d = (x, y) => R.hw(y) - Math.abs((side > 0 ? x : W - 1 - x) + 0.5 - R.c(y)) + (vn(x * 0.11 + 70, y * 0.11) - 0.5) * 4; return R; }; /* above 0: water */
       const clear = R => { for (let q = 0; q < nf.length; q += 2) { const x = nf[q], y = nf[q + 1]; if (y < a - 8 || y > b + 8) continue; if (R.d(x, y) > -(GAP + 4)) return false; } return true; };
       const sides = rnd(95 + fi, 1) < 0.5 ? [1, -1] : [-1, 1];
