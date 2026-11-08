@@ -710,8 +710,9 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
-// gate's guns); tanks instead. The prototype is only parked behind the keep (as The Moth, 24 x 16): no fight over the keep yard, the tower is not held back; the tower falls
-// (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its guns, has no aerial fight and no ruin. No errors.
+// gate's guns); tanks instead. The prototype is parked behind the keep as The Moth (24 x 16); crossing the inner gate it takes off and fights over the keep yard while the keep waits
+// (its parts untouched); it cannot be killed: at a tenth of its health it flees, carrying what it lost into level 6; then the tower falls (its core opens) and the stage clears into level 5.
+// The first pass (seed 1944) keeps its guns, has no aerial fight and no ruin. No errors.
 {
   const a = await freshPage('?boss=1'), b = await freshPage('?boss=1');
   const first = await b.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, false, 0)'); const o = { guns: 0, ruin: null };
@@ -723,12 +724,13 @@ for (const lv of [2, 6]) {
     for (let i = 0; i < 260 && !o.lvl5; i++) { SF.run(60);
       const q = SF.peek(`(() => { const c = world.enemies.find(e => e.type === 'boss' && e.kind === 'castle'), p = world.enemies.find(e => e.type === 'protoDuel' && e.castle && !e.dead);
         return { c: !!c, tur: world.enemies.filter(e => ['bunker', 'aatower', 'popup', 'arty'].includes(e.type) && !e.dead).length, tanks: world.enemies.filter(e => (e.type === 'tank' || e.type === 'htank') && !e.dead).length,
-          ae: !!(c && c.aerial), tw: c ? c.parts.filter(q => q.tw && q.hp < q.maxhp).length : 0, op: !!(c && c.open), ph: p ? p.hp / p.maxhp : null, pf: !!(p && p.flee), fl: !!(c && c.proFled), dmg: run.proto.dmg, pk: (() => { const x = world.enemies.find(e => e.type === 'proto' && !e.dead); return x ? (x.hull || 'old') + ' ' + x.hw + 'x' + x.hh : null; })(), pd: world.enemies.some(e => e.type === 'protoDuel'), lv: run.sortie && run.sortie.level, oth: c ? c.parts.filter(q => q.k !== 'core' && q.k !== 'light' && !q.dead).length : -1, spin: c ? c.wmT || 0 : 0 }; })()`);
+          ae: !!(c && c.aerial), tw: c ? c.parts.filter(q => q.tw && q.hp < q.maxhp).length : 0, op: !!(c && c.open), ph: p ? p.hp / p.maxhp : null, pf: !!(p && p.flee), fl: !!(c && c.proFled), dmg: run.proto.dmg, pk: (() => { const x = world.enemies.find(e => e.type === 'proto' && !e.dead); return x ? (x.hull || 'old') + ' ' + x.hw + 'x' + x.hh : null; })(), pd: world.enemies.some(e => e.type === 'protoDuel'), dh: (p && (p.hull || 'old')) || null, lv: run.sortie && run.sortie.level, oth: c ? c.parts.filter(q => q.k !== 'core' && q.k !== 'light' && !q.dead).length : -1, spin: c ? c.wmT || 0 : 0 }; })()`);
       if (q.c) { o.castle = true; o.turMax = Math.max(o.turMax, q.tur); o.tanksMax = Math.max(o.tanksMax, q.tanks); if (q.ae) { o.aerial++; o.keepHit += q.tw; } if (q.ph !== null) o.protoMin = Math.min(o.protoMin, q.ph); if (q.pf) o.flee = true; if (q.fl) o.fled = true; o.dmg = q.dmg; if (q.op) o.open = true; o.windmill = Math.max(o.windmill, q.spin); }
-      if (q.pk) o.pk = q.pk; if (q.pd) o.pd = true; if (q.lv === 5) o.lvl5 = true; }
+      if (q.pk) o.pk = q.pk; if (q.pd) o.pd = true; if (q.dh) o.dh = q.dh; if (q.lv === 5) o.lvl5 = true; }
     o.ruinPx = SF.peek('(() => { const c = SPR.ravenFloorRuin, d = SPR.ravenFloor; return !!c && c !== d && c.width === d.width; })()'); o.errs = SF.R.errs.slice(0, 2); return o; });
   ok(f.castle && f.turMax === 0 && f.tanksMax >= 8, `level 4 first loop: Ravenhold has no ground turrets (${f.turMax}) and ${f.tanksMax} tanks`);
-  ok(f.pk === 'moth 24x16' && f.aerial === 0 && !f.pd && !f.flee, `the prototype stays parked behind the keep as The Moth (${f.pk}); it never takes off to fight over the keep yard (${f.aerial} steps, a fight: ${f.pd}) and the keep is never held back`);
+  ok(f.pk === 'moth 24x16', `before the gate the prototype is parked behind the keep as The Moth (${f.pk})`);
+  ok(f.aerial > 3 && f.pd && f.dh === 'moth' && f.keepHit === 0 && f.protoMin >= 0.1 - 1e-6 && f.protoMin < 0.12 && f.flee && f.fled && f.dmg > 0, `crossing the inner gate, The Moth takes off and fights in the air while the keep waits (${f.aerial} steps, keep parts hit ${f.keepHit} times), cannot be killed (lowest ${f.protoMin.toFixed(2)} of its health), flees, and what it lost carries over (${Math.round(f.dmg)})`);
   ok(f.open && f.windmill > 20 && f.lvl5 && f.ruinPx && f.errs.length === 0, `then the tower falls under its windmills (${f.windmill} steps), the stage clears into level 5, the ruin floor is its own picture, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
   await a.close(); await b.close();
 }

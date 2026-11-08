@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.112'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.113'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12847,7 +12847,7 @@ function drawProtoPlane(e, rot, sc, flames) {
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
 }
-/* (No longer used: in the looped levels The Moth is only parked behind the keep and the fight is in level 6.) Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
+/* Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
    (a cut-down duel: protoDuel with e.castle: two phases, no lunge, no missile). The keep tower waits meanwhile (its parts are shielded and silent). At a tenth of its health
    the prototype breaks off for good (it cannot be killed; what it lost carries into level 6), and then the tower has to be destroyed: its windmills (castleWindmill) turn
    faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
@@ -12855,7 +12855,7 @@ function drawProtoPlane(e, rot, sc, flames) {
 function castleAerial(e) {
   e.aerialT0 = gf; const pr = world.enemies.find(o => o.type === 'proto' && !o.dead), base = 200 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   if (pr) { pr.dead = true; pr.gone = true; for (const t of world.enemies) if (t.type === 'troop' && t.post === pr) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; } } /* (it lifted off behind the keep, out of sight) */
-  world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true }, protoBox('protoDuel')))); e.aerial = true; e.barHide = true; sfx('flyin');
+  world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true, hull: pr && pr.hull }, protoBox('protoDuel', pr && pr.hull)))); e.aerial = true; e.barHide = true; sfx('flyin');
 }
 function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
   const open = others === 0, arms = open ? 4 : 3; if (!e.spin) e.spin = 0; e.wmT = (e.wmT || 0) + 1; if (e.wmT % 24 === 1 && ((e.wmT / 24) | 0) % 14 === 0) e.wmDir = -(e.wmDir || 1); const dir = e.wmDir || 1;
@@ -12877,7 +12877,7 @@ const BOSSMOVE = {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
-    if (run.sortie && run.sortie.autumn) { /* (the prototype no longer takes off over the keep: in the looped levels The Moth is only parked, castleAerial stays unused) */ if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
+    if (run.sortie && run.sortie.autumn) { if (e.breach && !e.aerialT0) castleAerial(e); /* (level 4's first loop: the parked plane, The Moth, takes off when the inner gate is crossed and fights over the keep yard) */ if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
       q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
