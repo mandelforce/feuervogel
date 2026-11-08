@@ -5030,14 +5030,14 @@ const ACH = [
   { id: 'robin', name: 'Eagle Eye', desc: 'Find all six secrets in one loop', icon: 'eye', skin: 'Rotkehlchen' },
   { id: 'nonet', name: 'No Net', desc: 'Finish the Campaign without continues', icon: 'star' },
   { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
-  { id: 'chain', name: 'Chain Master', desc: 'Reach a x10 medal multiplier', icon: 'medal' },
+  { id: 'chain', name: 'Chain Master', desc: 'Reach a x20 medal multiplier', icon: 'medal' },
   { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
   { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Nachtvogel', icon: 'wings', skin: 'Nachtvogel', hidden: true }
 ];
 let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
 const achHas = id => !!achv[id];
 const saveAchv = () => store.setJSON(KEY.achv, achv);
-const CHAIN_GOAL = 10; // the medal chain has no cap now; a x10 chain is the goal
+const CHAIN_GOAL = 20; // the medal chain has no cap now; a x20 chain is the goal
 let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
 function award(id, quiet) {
   const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
