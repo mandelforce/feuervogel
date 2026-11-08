@@ -229,7 +229,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 .achsec{font-size:11px;letter-spacing:.14em;color:#a99cc8;margin:4px 0 8px}.achsec:first-child{margin-top:0}
 .ach .ap{display:flex;align-items:center;gap:6px;font-size:10px;color:#a99cc8;margin-top:4px}.ach .ap b{flex:none;width:70px;height:6px;background:#120e1a;border:1px solid #4a3f6e}.ach .ap b i{display:block;height:100%;background:#f4d050}
 .ach .au{font-size:10px;color:#7fe6c8;margin-top:3px}
-.ach .ar canvas{display:inline-block;width:12px;height:12px;vertical-align:-2px;margin:-4px 0 -4px 6px;box-shadow:none;cursor:default}
+.ach .as{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:30px}.ach .as canvas{width:30px;height:30px;box-shadow:none;cursor:default;background:none;border:0}
 .achsum{display:flex;justify-content:space-between;font-size:15px;margin:2px 0 5px;color:#f4d050}.achsum span+span{color:#a99cc8}
 .achbar{height:10px;background:#120e1a;border:2px solid #4a3f6e;margin-bottom:10px}.achbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff7a3a,#f4d050)}
 .ach{position:relative;display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:4px 8px;background:#18122a;border:2px solid #2a2145;opacity:.55}
@@ -17199,8 +17199,8 @@ const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor
 const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6] };
 function achShip(name) {
   try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
-    const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-    const k = Math.min(16 / src.width, 16 / src.height); x.drawImage(src, 0, 0, src.width * k, src.height * k); return c; } catch (err) { return null; }
+    const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+    const k = Math.min(32 / src.width, 32 / src.height), ox = (32 - src.width * k) / 2, oy = (32 - src.height * k) / 2; x.drawImage(src, ox, oy, src.width * k, src.height * k); return c; } catch (err) { return null; }
 }
 let achFromMenu = false;
 function achLabel() { document.getElementById('pmAchN').textContent = achCount() + '/' + ACH.length; }
@@ -17216,11 +17216,11 @@ function openAch(fromMenu) {
     const am = document.createElement('div'); am.className = 'am';
     const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
     const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
-    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; const sp = achShip(a.skin); if (sp) ar.appendChild(sp); am.appendChild(ar); }
+    if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
     const pr = ACH_PROG[a.id]; if (pr && !on) { const [n, m] = pr(), ap = document.createElement('div'); ap.className = 'ap'; ap.appendChild(document.createTextNode(n + '/' + m)); const bar = document.createElement('b'), fi = document.createElement('i'); fi.style.width = (n / m * 100) + '%'; bar.appendChild(fi); ap.appendChild(bar); am.appendChild(ap); }
     if (on && e.t) { const au = document.createElement('div'); au.className = 'au'; au.textContent = 'Unlocked ' + new Date(e.t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); am.appendChild(au); }
     row.appendChild(am);
-    const as = document.createElement('div'); as.className = 'as'; if (on) { as.textContent = '\u2713'; row.appendChild(as); }
+    const as = document.createElement('div'); as.className = 'as'; const sp = a.skin && !hide ? achShip(a.skin) : null; if (on) { const ck = document.createElement('span'); ck.textContent = '\u2713'; as.appendChild(ck); } if (sp) as.appendChild(sp); if (on || sp) row.appendChild(as);
     if (e && e.n) { const nw = document.createElement('i'); nw.className = 'new'; nw.textContent = 'NEW'; row.appendChild(nw); }
     list.appendChild(row);
   }
