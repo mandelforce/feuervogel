@@ -8897,7 +8897,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
   resetWorld();
-  world.shots = []; world.ebul = []; world.dust = []; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
+  world.shots = []; world.ebul = []; world.dust = []; world.veil = null; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; setP2();
   world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
@@ -14373,6 +14373,7 @@ const DUST = {
   ring: 16 // how far the rings sit from the Moth's centre
 };
 function dustOverheat(s) { // a ship touched the dust
+  const v = world.veil || (world.veil = { t: 0, age: 0 }); if (v.t <= 0) v.age = 0; v.t = VEIL.T; // the view clouds over for as long as the laser is out (a new hit starts the time again)
   if (s === player) { if (overheatT > 0) return; laserHeat = 100; overheatT = 300; steamPuff(s.x, s.y - 18, 8, true); world.later.push({ at: gf + 18, fn: () => { if (player) steamPuff(player.x, player.y - 20, 12, true); if (actx && !muted) { noise(0.7, 0.18 * mixF, 5000); tone(180, 0.12, 'square', 0.1 * mixF, 90); } } }); }
   else { if (s.over > 0) return; s.over = 300; s.heat = 100; s.charge = 0; steamPuff(s.x, s.y - 18, 8, true); }
 }
@@ -14382,7 +14383,7 @@ function mothDust(e, ph) { // the Moth's attack cycle: wait, warn at the rings, 
   if (d.s === 'wait') {
     if (--d.t > 0) return;
     d.kind = d.run >= 2 ? (d.last === 'side' ? 'mid' : 'side') : Math.random() < 0.5 ? 'side' : 'mid'; // random, never three of a kind in a row
-    d.run = d.kind === d.last ? d.run + 1 : 1; d.last = d.kind; d.s = 'tel'; d.t = DUST.tel; sfx('tick');
+    d.run = d.kind === d.last ? d.run + 1 : 1; d.last = d.kind; d.s = 'tel'; d.t = DUST.tel; sfx('tick'); veilSprites();
   } else if (d.s === 'tel') { if (--d.t <= 0) { d.s = 'spray'; d.t = DUST.emit; sfx('gun'); } }
   else {
     const C = d.kind === 'side' ? DUST.side : DUST.mid, per = C.n / DUST.emit;
@@ -14394,6 +14395,7 @@ function mothDust(e, ph) { // the Moth's attack cycle: wait, warn at the rings, 
   }
 }
 function updDust() {
+  const v = world.veil; if (v && v.t > 0) { v.t--; v.age++; }
   const D = world.dust; if (!D || !D.length) return;
   const ships = [player, p2].filter(q => q && !q.dead);
   for (let i = D.length - 1; i >= 0; i--) {
@@ -14402,6 +14404,34 @@ function updDust() {
     if (d.age < 8) continue; // (a puff only counts a moment after it has left the ring)
     for (const q of ships) if ((q.x - d.x) ** 2 + (q.y - d.y) ** 2 < DUST.hit * DUST.hit) { dustOverheat(q); D.splice(i, 1); break; }
   }
+}
+// The dust veil: a dust hit also dirties the view while the laser is out. Dust blots and streaks on the lens, plus a light, patchy sandy haze, drawn over the ground, the enemies and the medals but under the ship, its shots,
+// the smoke, the dust, the bullets and the HUD: the bullets stay as clear as ever. It builds up in VEIL.rise frames, holds, and fades in the last VEIL.fall frames. Two prebuilt images, so it costs two draws.
+const VEIL = { T: 300, rise: 10, fall: 60 };
+let veilCache = null;
+function veilSprites() {
+  if (veilCache && veilCache.h === H) return veilCache;
+  const r = (() => { let q = 4141; return () => { q = (q * 16807) % 2147483647; return q / 2147483647; }; })();
+  const [lens, lx] = mk(W, H);
+  for (let i = 0; i < 70; i++) { // blots: mostly small, a few big, each soft
+    const u = r(), rad = u < 0.3 ? 2 : u < 0.58 ? 3 : u < 0.78 ? 4.4 : u < 0.93 ? 6.9 : 10.8, a = 0.35 + r() * 0.45, x0 = r() * W, y0 = r() * H;
+    const g = lx.createRadialGradient(x0, y0, rad * 0.4, x0, y0, rad * 1.15); g.addColorStop(0, 'rgba(188,168,126,' + a + ')'); g.addColorStop(1, 'rgba(188,168,126,0)');
+    lx.fillStyle = g; lx.beginPath(); lx.arc(x0, y0, rad * 1.15, 0, TAU); lx.fill();
+  }
+  lx.lineCap = 'round';
+  for (let i = 0; i < 26; i++) { // streaks
+    const x0 = r() * W, y0 = r() * H, len = 10 + r() * 29, an = r() * TAU; lx.strokeStyle = 'rgba(188,168,126,' + (0.27 + r() * 0.32) + ')'; lx.lineWidth = 0.7 + r() * 1.5;
+    lx.beginPath(); lx.moveTo(x0, y0); lx.lineTo(x0 + Math.cos(an) * len, y0 + Math.sin(an) * len); lx.stroke();
+  }
+  const cw = Math.ceil(W / 40) + 2, chh = Math.ceil(H / 40) + 2, [sm, sx] = mk(cw, chh); // the haze: a coarse patchwork of sandy alphas, smoothed when it is stretched
+  for (let j = 0; j < chh; j++) for (let i = 0; i < cw; i++) { sx.fillStyle = 'rgba(216,200,162,' + (0.07 + 0.10 * r()) + ')'; sx.fillRect(i, j, 1, 1); }
+  const [haze, hx] = mk(W, H); hx.imageSmoothingEnabled = true; hx.drawImage(sm, 0, 0, W, H);
+  return (veilCache = { h: H, lens, haze });
+}
+function drawVeil() {
+  const v = world.veil; if (!v || v.t <= 0) return;
+  const k = Math.min(1, v.age / VEIL.rise) * Math.min(1, v.t / VEIL.fall); if (k <= 0) return;
+  const q = veilSprites(); ctx.globalAlpha = k; ctx.drawImage(q.haze, 0, 0); ctx.drawImage(q.lens, 0, 0); ctx.globalAlpha = 1;
 }
 function drawDust() {
   const D = world.dust; if (!D || !D.length) return;
@@ -17121,6 +17151,7 @@ function renderMain() {
   for (const e of world.enemies) if (!e.ground && !e.surface && !e.under) drawEnemy(e);
   for (const it of world.items) if (it.kind === 'M' || it.kind === 'A') drawMedal(it); // medals under every shot, the player's and the enemies' (other pickups are drawn over the bullets)
 
+  drawVeil();
   for (const s of world.shots) {
     if (s.k === 's') { if (s.hl && !s.drone) drawSeekLaser(s); else if (s.sl && !s.drone) drawScatter(s); else spr(SPR.ps[dirIdx(s.a)], s.x, s.y); }
     else if (s.k === 'l') {
