@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.111'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.112'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12305,7 +12305,8 @@ function wolfPack(e) {
 /* Winter Wolf, "Avalanche" (the first loop's level 5, run.sortie.winter): the rear flak position of each train is a mortar. At 70 and 35 percent of a train's core it winds up (a glow on the turret, the
    train's guns hold fire) and lobs two shells, one every AVAL.gap frames, each at where the ship is as it fires. A shell flies an arc (AVAL.life frames) over a red ring on the ground that shows where it
    lands; it bursts into a ring of slow shards. Destroying the mortar stops the salvos; one train acts at a time (Wolf Pack waits for it, and it for Wolf Pack). Plain data, nothing seeded outside the loop. */
-/* Winter Wolf, the trains' ordinary guns in level 5's first loop (run.sortie.winter): a lighter barrage. Core: a 3-shot fan (was 5) and an 8-shard ring when angry (was 14 + 2 a loop), 1.3 times slower; main guns: 2 shots (was 3), 1.3 times slower; flak guns 1.4 times slower; the rocket car 1 rocket (was 2), 1.3 times slower. */
+/* Winter Wolf, the trains' ordinary guns: a lighter barrage in level 5's first loop (run.sortie.winter, every difficulty) and in the rest of the Campaign's level 5 on Veteran and Ace (wolfLite; Rookie keeps its slow fire). Core: a 3-shot fan (was 5) and an 8-shard ring when angry (was 14 + 2 a loop), 1.3 times slower; main guns: 2 shots (was 3), 1.3 times slower; flak guns 1.4 times slower; the rocket car 1 rocket (was 2), 1.3 times slower. */
+const wolfLite = () => !!(run.sortie && (run.sortie.winter || (run.sortie.level === 5 && settings.diff >= 1)));
 const TRW = { core: 1.3, ring: 8, main: 1.3, aa: 1.4, rocket: 1.3 };
 const AVAL = { at: [0.7, 0.35], wind: 50, gap: 20, n: 2, life: 72, rad: 18, shards: 7, sp: 0.7 };
 function avalanche(e) {
@@ -13152,7 +13153,7 @@ const BOSS_FIGHT = {
     holdFire(e, py) { return py < 6 || py > H - 30 || e.trains.some(t => t.pack || t.av) ? 20 : 0; },
     shielded(e, p) { return gorgeArena() && roofAt(e.x + p.ox, e.y + p.oy - Math.floor(world.scroll)); }, // (level 5's gorge: under a gallery or in a tunnel)
     coreFire(e, p, px, py, core, others, sp, mz) {
-      const angry = others <= 2 || p.hp < p.maxhp * 0.5, wl = !!(run.sortie && run.sortie.winter); /* (level 5's first loop: a lighter barrage, see TRW) */
+      const angry = others <= 2 || p.hp < p.maxhp * 0.5, wl = wolfLite(); /* (a lighter barrage, see TRW) */
       p.cd = Math.round((angry ? 70 : 100) * (wl ? TRW.core : 1) * fireSlow());
       const sx = px, sy = py + 11;
       if (angry) ring(sx, sy, wl ? TRW.ring : 14 + run.loop * 2, sp * 0.8, e.mt * 0.07, 'B');
@@ -14125,7 +14126,7 @@ const ENT = {
       if (--p.cd > 0) continue;
       const mz = (L) => [px + Math.cos(p.ang) * L, py + Math.sin(p.ang) * L];
       if (p.k === 'main') {
-        const wl = e.kind === 'train' && run.sortie && run.sortie.winter; /* (level 5's first loop: slower, two-shot main guns, see TRW) */
+        const wl = e.kind === 'train' && wolfLite(); /* (slower, two-shot main guns, see TRW) */
         p.cd = Math.round((Math.max(80, 120 - run.loop * 15)) * (wl ? TRW.main : 1) * fireSlow());
         if (BOSS[e.kind].mainFire) BOSS[e.kind].mainFire(e, p, mz, sp);
         else {
@@ -14135,12 +14136,12 @@ const ENT = {
           flash(bx, by, 5); smokePuff(bx, by); feel.shake = Math.max(feel.shake, 2); sfx('cannon');
         }
       } else if (p.k === 'aa') {
-        p.cd = Math.round((Math.max(36, 52 - run.loop * 6)) * (e.kind === 'train' && run.sortie && run.sortie.winter ? TRW.aa : 1) * fireSlow());
+        p.cd = Math.round((Math.max(36, 52 - run.loop * 6)) * (e.kind === 'train' && wolfLite() ? TRW.aa : 1) * fireSlow());
         if (p.mortar) { /* (the avalanche mortar fires only in its salvos) */ }
         else if (Math.random() < 0.35) flakShot(px, py); else eshot(px, py, p.ang, sp * 1.15);
         sfx('gun');
       } else if (p.k === 'rocket') {
-        const wl = e.kind === 'train' && run.sortie && run.sortie.winter; /* (level 5's first loop: one rocket a time, alternating sides) */
+        const wl = e.kind === 'train' && wolfLite(); /* (one rocket a time, alternating sides) */
         p.cd = Math.round((150) * (wl ? TRW.rocket : 1) * fireSlow());
         for (const o of wl ? [(p.rn = (p.rn || 0) + 1) % 2 ? -0.35 : 0.35] : [-0.35, 0.35]) { const [bx, by] = mz(10); eshot(bx, by, p.ang + o, 1.3, 'rocket'); }
         smokePuff(px, py); sfx('rocket');
