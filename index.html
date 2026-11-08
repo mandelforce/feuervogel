@@ -4903,17 +4903,11 @@ function buildPhoenix(bank) {
 }
 let phoenixCache = null;
 function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by all six secrets in one run of the first loop (see notePhoenix).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Veteran or Ace (see unlockSkinsForRun).
 const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
 const phoenixOwned = () => phoenixState() > 0;
 function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
-let phoenixJust = false;
-function notePhoenix() { // called when a secret's gem is caught: all six themes within one first-loop Campaign run unlock the Phönix
-  phoenixJust = false;
-  if (!run.artsRun) run.artsRun = [];
-  if (!run.artsRun.includes(world.curTheme)) run.artsRun.push(world.curTheme);
-  if (run.artsRun.length >= 6 && settings.mode === 'camp' && !run.endless && !(run.loops | 0) && !phoenixOwned()) { store.set(KEY.phoenix, 1); phoenixJust = true; }
-}
+function unlockPhoenix() { if (!phoenixOwned()) store.set(KEY.phoenix, 1); }
 // Rotkehlchen (robin): the skin for finishing the Campaign's first loop. Seen from above, so there is no face: a rounded orange head with a dark beak tip, a brown back, brown wings with a cream edge.
 // Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
 function buildRotkehlchen(bank) {
@@ -4946,7 +4940,7 @@ function buildRotkehlchen(bank) {
 }
 let robinCache = null;
 function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign's first loop (see unlockRobin).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on Ace (see unlockSkinsForRun).
 const robinState = () => +store.get(KEY.robin, 0) || 0;
 const robinOwned = () => robinState() > 0;
 function unlockRobin() { if (!robinOwned()) store.set(KEY.robin, 1); }
@@ -4981,10 +4975,12 @@ function buildRaptor(bank) {
 }
 let raptorCache = null;
 function raptorSet() { return raptorCache || (raptorCache = [-1, 0, 1].map(buildRaptor)); }
-// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign twice (see unlockRaptor, called when a loop is won).
+// 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the Campaign plus a loop on any difficulty (see unlockSkinsForRun).
 const raptorState = () => +store.get(KEY.raptor, 0) || 0;
 const raptorOwned = () => raptorState() > 0;
-function unlockRaptor() { if (loopsWon >= 2 && !raptorOwned()) store.set(KEY.raptor, 1); }
+function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
+// The reward for a whole Campaign run (level 1 to the end of the first loop, level 12): the Raptor on any difficulty, the Phoenix from Veteran, the Rotkehlchen on Ace. The harder difficulties also give the ones below.
+function unlockSkinsForRun() { if (run.endless || (run.start | 0) !== 1 || run.stage < 12) return; const d = run.diff | 0; unlockRaptor(); if (d >= 1) unlockPhoenix(); if (d >= 2) unlockRobin(); }
 function useRaptor() { return raptorOwned() && !!settings.raptor; }
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
@@ -8756,7 +8752,7 @@ function seedStage() { drandS = (world.SEED * 31 + run.stage * 977) | 0; }
 // and run.medalLost carry over; the caller sets start and diff again when a run starts at a later stage.
 function createRun(diff, seed) {
   return { seed, loops: 0, proto: { dmg: 0 }, enigma: 0, sortie: null, ranked: false, retro: false, frames: 0, conts: 0, start: 1, diff, score: 0, lives: DIFF.lives[diff], bombs: DIFF.bombs[diff], loop: 0, stage: 1,
-    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats(), artsRun: [] };
+    gameOverPending: false, twoP: false, score2: 0, lives2: 0, bombs2: 0, medalLv: 0, medalMul: 1, medalT: 0, bestChain: 0, nextExtend: DIFF.ext[diff][0], extendsGot: 0, camp: newCamp(), stats: newStats() };
 }
 function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944; 1: seed 1945 ...)
   const seed = (LB_TEST && window.__forceSeed !== undefined) ? window.__forceSeed >>> 0 : (realRandom() * 4294967296) >>> 0; // test builds can force a seed (tests/replay.js)
@@ -11805,11 +11801,11 @@ function skipResults() {
 function finishResults() {
   if (app.fade) return;
   if (run.sortie) { // Enigma Run: results, then the next level; after the last one the congratulations first (no loop counted)
-    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); unlockRobin(); unlockRaptor(); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
+    if (!ENIGMA_NEXT[run.sortie.level - 1] && !app.congrats) { app.results = null; app.congrats = { t: 0 }; if (run.ranked) { loopsWon++; store.set(KEY.loops, loopsWon); } jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1); sfx('reward'); haptic('boss'); return; }
     app.congrats = null; app.fade = { t: 0, phase: 'out', fn: endEnigmaLevel }; return; }
   if (!run.endless && run.stage % 6 === 0 && app.congratsShown !== run.stage) {
     app.congratsShown = run.stage; app.results = null; app.congrats = { t: 0 };
-    loopsWon++; store.set(KEY.loops, loopsWon); unlockRobin(); unlockRaptor();
+    loopsWon++; store.set(KEY.loops, loopsWon); unlockSkinsForRun();
     jingle([[72, 2], [76, 2], [79, 2], [84, 4], [79, 2], [84, 2], [88, 2], [91, 8], [88, 2], [91, 2], [96, 10]], 0.1);
     sfx('reward'); haptic('boss'); return;
   }
@@ -14388,7 +14384,7 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) { arts.add(world.curTheme); notePhoenix(); } else phoenixJust = false; store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, phoenixJust ? 'PHOENIX UNLOCKED' : arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
       run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
@@ -15131,8 +15127,8 @@ function update() {
       if (it.kind === 'S') { if ((it.x - p.x) ** 2 + (it.y - p.y) ** 2 < 150) { addScore(10); checkExtend(); if (gf % 3 === 0) tone(1400 + (gf % 9) * 90, 0.04, 'triangle', 0.03); world.items.splice(i, 1); } continue; }
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
-          addScore(20000); run.stats.artifact = true; if (!app.tut) { arts.add(world.curTheme); notePhoenix(); } else phoenixJust = false; store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, phoenixJust ? 'PHOENIX UNLOCKED' : arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
+          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
