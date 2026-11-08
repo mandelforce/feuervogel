@@ -518,26 +518,27 @@ function generate(opts) {
     const out = { sr, signals: [], lamps: [], wagons: [], x0: Math.min(X(27), X(199)), x1: Math.max(X(27), X(199)) };
     const yC0 = RC ? Math.round(L * RC.at[0]) : null, yA = YP ? Math.round(L * YP.at[0]) : null, yB = YP ? Math.min(L - 1, Math.round(L * YP.at[1])) : null;
     // the pair: from the main line on curves of about 1 in 3.5 (the far line first), then straight to the plan's end
-    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, pA = bend(18, y0, 131, y0 + 520), pB = bend(18, y0 + 150, 93, y0 + 520);
+    const y0 = yC0 !== null ? yC0 - 200 : yA - 640, oM = sr < 0 ? RL.xA : W - 1 - RL.xA /* the main line's offset: 18, or further in with railShift */, pA = bend(oM, y0, 131, y0 + 520), pB = bend(oM, y0 + 150, 93, y0 + 520);
     for (let y = y0 + 521; y < L; y++) { put(pA, y, 131); put(pB, y, 93); }
     out.pair = [X(93), X(131)]; out.y0 = y0;
     if (yC0 !== null) { // a signal gantry over the pair after the junction, and the corridor's lamps
       const yg = y0 + 560; out.gantry = { x0: Math.min(X(82), X(142)), x1: Math.max(X(82), X(142)), y: yg }; out.signals.push({ x: X(87), y: yg, red: true }, { x: X(125), y: yg, red: false }); }
     if (YP) { const a = o => yA + o, b = o => yB - o; // offsets from the yard's near (a) and far (b) end
       out.y0y = yA; out.y1y = yB; out.yLo = a(-48);
-      diag(93, a(-48), 36, a(142)); run(74, a(15), b(66)); run(55, a(79), L - 1); run(36, a(142), b(186)); // the near-left ladder, its sidings; 55 runs on into the arena
-      diag(36, b(186), 93, b(6)); // the far-left ladder gathers 36 and 74 back into the pair
-      diag(131, a(12), 169, a(139)); run(150, a(75), b(69)); run(169, a(139), L - 1); // the near-right ladder, a little further on than the left one; 169 runs on into the arena
-      diag(150, b(69), 131, b(6)); // the far-right ladder
+      diag(93, a(-48), 36, a(142)); run(74, a(15), b(95)); run(55, a(79), L - 1); run(36, a(142), b(186)); // the near-left ladder, its sidings; 55 runs on into the arena
+      diag(36, b(186), 93, b(50)); // the far-left ladder gathers 36 and 74 back into the pair (done 50 rows before the plan's end: the game blends the last rows into the arena, and only straight tracks may be in them)
+      diag(131, a(12), 169, a(139)); run(150, a(75), b(100)); run(169, a(139), L - 1); // the near-right ladder, a little further on than the left one; 169 runs on into the arena
+      diag(150, b(100), 131, b(50)); // the far-right ladder
       bend(93, a(-36), 112, a(28)); run(112, a(28), b(56)); out.buffer = { x: X(112), y: b(56) }; // a siding between the pair, to a buffer stop short of the boss's pad
       diag(74, a(149), 93, a(212)); diag(93, a(149), 74, a(212)); diag(131, a(109), 150, a(172)); diag(150, a(109), 131, a(172)); // crossovers
       // the yard's ground (cinder), from the main line's corridor to the strip's far side road
       out.top = new Int32Array(W); for (let x = 0; x < W; x++) out.top[x] = yB - 24 - Math.round(noise1(T.RAIL + 9, x * 0.09) * 20); // the cinder ends raggedly before the plan's end, grass beyond (as the arena's ground)
-      for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y <= out.top[x]; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } }
+      { /* the cinder runs to the plan's end (the first pass and the loop), where the game dithers the plan into the arena's grass (no ragged edge with light wedges) */
+        for (let x = out.x0; x <= out.x1; x++) for (let y = Math.max(0, a(-8)); y < L; y++) { const i = idx(x, y); if (Kr[i] === K.NONE) { Kr[i] = K.WORKS; Br[i] = -1; } } }
       // rolling stock on the sidings, never on the through lines or the tracks that run on into the arena
-      for (const [o, lo, hi] of [[36, a(146), b(190)], [74, a(20), a(144)], [74, a(218), b(72)], [112, a(34), b(60)], [150, a(80), a(104)], [150, a(178), b(74)], [55, a(84), b(134)]]) {
+      for (const [o, lo, hi] of [[36, a(146), b(190)], [74, a(20), a(144)], [74, a(218), b(100)], [112, a(34), b(60)], [150, a(80), a(104)], [150, a(178), b(104)], [55, a(84), b(134)]]) {
         for (let y = lo, k = 0; y + 26 <= hi; y += 28, k++) if (rnd(T.RAIL, o * 31 + k, 80) < 0.86) out.wagons.push({ x: X(o), y0: y, h: 26, kind: (rnd(T.RAIL, o * 31 + k, 81) * 3) | 0, dmg: rnd(T.RAIL, o * 31 + k, 82) < Dy(y) * 0.5 }); }
-      for (const [o, y, red] of [[74, a(15), true], [55, a(79), false], [36, a(142), true], [150, a(75), false], [169, a(139), true], [112, a(28), true], [36, b(186), true], [74, b(66), true], [150, b(69), false]]) out.signals.push({ x: X(o + 7), y: y - 2, red });
+      for (const [o, y, red] of [[74, a(15), true], [55, a(79), false], [36, a(142), true], [150, a(75), false], [169, a(139), true], [112, a(28), true], [36, b(186), true], [74, b(95), true], [150, b(100), false]]) out.signals.push({ x: X(o + 7), y: y - 2, red });
       for (const o of [93, 131, 55, 169]) out.signals.push({ x: X(o + 7), y: b(2), red: o === 93 || o === 169 }); // the exit signals into the arena
       for (const [o, y] of [[46, a(300)], [84, a(240)], [122, a(60)], [122, a(330)], [160, a(260)], [64, a(90)]]) out.lamps.push({ x: X(o), y }); // hooded yard lamps between the tracks
       plan.trainRuns.push({ x: X(93), y0: y0 + 521, y1: L - 1, line: 'pair' }, { x: X(131), y0: y0 + 521, y1: L - 1, line: 'pair' }, { x: X(55), y0: b(120), y1: L - 1, line: 'yard' }, { x: X(169), y0: a(139), y1: L - 1, line: 'yard' });
