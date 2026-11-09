@@ -12127,10 +12127,11 @@ function drawCongratsBody() {
 const EN = { IN: 60, TD: 240, FLY: 130, ROLL: 80, FW0: 330, BURST: 78, WAVE: 250, BANNER: [400, 1650], GAP: 150, PA: 520, PB: 760, PC: 1020, CREDITS: 1500, SPEED: 2.1 };
 const eh = (a, b = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function endingLast() { return !!run.sortie && run.sortie.level === 6 && (run.loops || 0) >= 1; } // level 6 of the second loop: the last stage of the Campaign
-function startEnding() {
+function startEnding(demo) { // demo: the scene alone, started from the pause menu's Credits button (for testing): the run, its record and the best are not touched
   app.fade = null; app.results = null; app.congrats = null; app.paused = false; app.cont = 0;
-  app.ending = { t: 0, cr: false, score: run.score };
-  rrSend('over'); clearResume(); saveHi(); // the run is over and its score is final: a reload from here lands on the title, the best is kept
+  app.ending = { t: 0, cr: false, score: run.score, demo: !!demo };
+  if (demo) { app.resumeT = 0; setPauseIcon(); showPauseMenu(false); }
+  else { rrSend('over'); clearResume(); saveHi(); } // the run is over and its score is final: a reload from here lands on the title, the best is kept
   cutSfx(); stopMusic(); enGeo(); // (the carrier's picture is painted now, not in the first frame of the scene)
   playSong('victory');
 }
@@ -12233,7 +12234,13 @@ function drawEnding() {
 // The scene is over: the score dialog (the run is a finished Campaign), then the title; the Retro Run button asks for the Retro Run's difficulty picker there.
 function finishEnding(retro) {
   if (!app.ending) return;
-  app.ending = null; Credits.close(); stopMusic(); cutSfx(); app.retroNext = !!retro;
+  const demo = app.ending.demo;
+  app.ending = null; Credits.close(); stopMusic(); cutSfx();
+  if (demo) { /* back to where the pause menu was opened */
+    if (retro && app.state === 'title') { openDiff('retro', 1); return; }
+    if (app.state === 'play') { app.paused = true; setPauseIcon(); try { playSong(STAGE_SONGS[world.curTheme]); } catch (e) {} }
+    showPauseMenu(true); return; }
+  app.retroNext = !!retro;
   if (lbEligible()) { app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); }
   else toTitle();
 }
@@ -15371,6 +15378,7 @@ function pollPad() {
   padPrev.ay = Math.abs(ay) > 0.6; padPrev.ax = Math.abs(ax) > 0.6;
   if (gpad.any || nav.up || nav.down || nav.left || nav.right) { audio(); app.padSeen = gf; if (!document.body.dataset.pad) document.body.dataset.pad = '1'; }
   if (padMenus(nav)) return;
+  if (app.ending && app.state !== 'play') return;
   if (app.state === 'title') { padTitle(nav); return; }
   else if (app.state === 'over' && gpad.any && app.overT > 60) leaveOver();
   else if (app.state === 'play') {
@@ -17838,8 +17846,8 @@ const Credits = (() => {
   };
 })();
 function openCredits() { showPauseMenu(false); Credits.open(); }
-function closeCredits() { Credits.close(); showPauseMenu(true); }
-document.getElementById('pmCredits').addEventListener('click', openCredits);
+function closeCredits() { if (app.ending) return; Credits.close(); showPauseMenu(true); }
+document.getElementById('pmCredits').addEventListener('click', () => { audio(); if (!app.ending) startEnding(true); }); /* (for testing: the Credits button plays the ending scene, which ends in the credits; openCredits shows the credits alone) */
 document.getElementById('crClose').addEventListener('click', () => { if (app.ending) { audio(); finishEnding(false); return; } closeCredits(); });
 document.getElementById('crRetro').addEventListener('click', () => { if (app.ending) { audio(); finishEnding(true); return; } if (app.state !== 'title') return; Credits.close(); audio(); openDiff('retro', 1); });
 document.getElementById('credits').addEventListener('pointerdown', e => e.stopPropagation());
@@ -17882,6 +17890,7 @@ addEventListener('keydown', e => {
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) || (k === 'enter' && !(e.target && e.target.tagName === 'BUTTON'))) e.preventDefault(); // (an Enter that opens a menu must not go on to press the button that gets the highlight)
   { const dlg = openDialog(); if (dlg && dlg.id !== 'lbPanel' && !e.ctrlKey && !e.metaKey && !e.altKey && menuKey(dlg, k)) { e.preventDefault(); return; } } // menus: the arrows move the highlight
   if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
+  if (app.ending && app.state !== 'play') return;
   if (document.getElementById('credits').classList.contains('open')) { if (k === 'escape') closeCredits(); return; }
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
@@ -17910,6 +17919,7 @@ let drag = null, scale = 2;
 onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
+  if (app.ending) return;
   if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }

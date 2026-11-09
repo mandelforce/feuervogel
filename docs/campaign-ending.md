@@ -82,6 +82,10 @@ The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fi
 
 `tests/enigma.mjs` 2c: the second loop's level 6 starts the ending, with the score, no resume record and the victory song; the song runs about as long as the scene; the ship cannot be steered and no snapshot is taken; the score and the world stand still for 2,280 steps with the scene drawing without errors and the credits open; pausing freezes the scene; the credits have the Retro Run button and no Back at first; Retro Run goes to the score dialog and then the picker; Continue goes to the score dialog and then the title; quitting leaves nothing behind; two players land one after the other (player 2 stops at least 20 px behind player 1) with the combined score unchanged; practice in the second loop ends at the title; the first loop still flies on.
 
+## Testing the scene
+
+For now the pause menu's Credits button plays the whole scene (`startEnding(true)`, the demo form: it leaves the run, its record, the score and the best alone, and Continue returns to the pause menu). To get the plain credits back, point the `#pmCredits` click handler at `openCredits` again.
+
 ## Left out, for later
 
 - A skip button.

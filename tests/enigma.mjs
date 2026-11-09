@@ -173,6 +173,23 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 2d. For testing, the pause menu's Credits button plays the ending scene alone (it never touches the run, its record or the best) and comes back to the menu.
+{
+  const page = await freshPage();
+  const r = await peek(page, `(() => { const q = id => document.getElementById(id); const o = {}; settings.diff = 1; toTitle(); openMenu(); q('pmCredits').click();
+    o.title = { demo: !!(app.ending && app.ending.demo), menu: q('pauseMenu').classList.contains('open'), state: app.state };
+    for (let i = 0; i < EN.CREDITS + 5; i++) update(); o.cr = q('credits').classList.contains('open') && q('credits').classList.contains('ending'); q('crClose').hidden = false; q('crClose').click();
+    o.back = { ending: !!app.ending, menu: q('pauseMenu').classList.contains('open'), credits: q('credits').classList.contains('open'), state: app.state }; closeMenu();
+    startEnigma(2, true); addScore(700); const sc = run.score, st = run.stage; togglePause(); o.paused0 = app.paused; q('pmCredits').click();
+    o.play = { demo: !!(app.ending && app.ending.demo), paused: app.paused, menu: q('pauseMenu').classList.contains('open') };
+    const hi0 = hi; for (let i = 0; i < EN.CREDITS + 5; i++) update(); q('crRetro').click();
+    o.after = { ending: !!app.ending, paused: app.paused, menu: q('pauseMenu').classList.contains('open'), score: run.score === sc, stage: run.stage === st, hi: hi === hi0, sortie: !!run.sortie, state: app.state, lb: app.lbOpen, picker: q('diffAsk').classList.contains('open') };
+    return o; })()`);
+  ok(r.title.demo && !r.title.menu && r.title.state === 'title' && r.cr && !r.back.ending && r.back.menu && !r.back.credits, `Credits in the pause menu, from the title, plays the scene, then the credits, then back to the menu (${JSON.stringify([r.title, r.cr, r.back])})`);
+  ok(r.paused0 && r.play.demo && !r.play.paused && !r.play.menu && !r.after.ending && r.after.paused && r.after.menu && r.after.score && r.after.stage && r.after.hi && r.after.sortie && r.after.state === 'play' && !r.after.lb && !r.after.picker, `during a run it leaves the run as it was and returns to the paused menu (${JSON.stringify(r.after)})`);
+  await page.close();
+}
+
 // 3. (State hygiene against tests/golden.json is switched off until the golden values are refreshed; 3b below still checks for leftover state.)
 
 // 3b. Starting any run clears every terrain cache and shared value (resetTerrainState). Pollute them all, start a run, look for what is left.
