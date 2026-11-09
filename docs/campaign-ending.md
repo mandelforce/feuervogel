@@ -49,7 +49,7 @@ Reuse: `carrierStart()` and its deck art (parked planes, crew, lights; the plane
 
 ## Music
 
-One new song, `victory`, played for the whole scene: about 60 s, landing through credits, ending on a held chord that fits the button appearing. It is a play on level 1's tune, the `stage` song (the level is "CROSS THE CHANNEL"; the name "Crossing the Canal" does not appear in the code, so this is an identification to confirm).
+One new song, `victory`, played for the whole scene: about 60 s, landing through credits, ending on a held chord that fits the button appearing. It is a play on level 1's tune, the `stage` song (the level is "CROSS THE CHANNEL"; the name "Crossing the Canal" does not appear in the code, so this is the tune you meant: confirmed).
 
 The source: `SONGS.stage`, 16 bars at 150 bpm (about 26 s a pass), D minor, bass D / B-flat / C / A, lead opening on a rising D-minor arpeggio (A, D, F, A, then G, F, E), rock kit, pulse lead. Its melody is a 16-bar note list, so the variation can be written directly from it with `buildSong`.
 
@@ -93,7 +93,7 @@ Decision for the first version: build the scene as a pure function of `t` and a 
 
 ## Open questions
 
-1. Confirm the tune is level 1's `stage` song ("CROSS THE CHANNEL"). If you meant a different one, name it or give me the notes.
+1. ~~Which tune~~ Confirmed: level 1's `stage` song ("CROSS THE CHANNEL").
 2. Two players: the scene lands both ships side by side; the frozen score is the combined score as the board takes it. Confirmed.
 3. Should a finished loop 0 (1944) still show the congratulations and fly on to 1945? Confirmed: yes, unchanged.
 4. Skip button: later, as agreed.
