@@ -4498,7 +4498,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.122'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.123'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12133,10 +12133,19 @@ function startEnding(demo) { // demo: the scene alone, started from the pause me
   setEnigmaArt(true); // the planes are the Enigma art's (the Wuerger, its leader), also when the scene is started from the menu
   if (demo) { app.resumeT = 0; setPauseIcon(); showPauseMenu(false); }
   else { rrSend('over'); clearResume(); saveHi(); } // the run is over and its score is final: a reload from here lands on the title, the best is kept
-  cutSfx(); stopMusic(); enGeo(); // (the carrier's picture is painted now, not in the first frame of the scene)
+  cutSfx(); stopMusic(); enGeo(); enSea(); // (the carrier's picture and the sea are painted now, not in the first frame of the scene)
   playSong('victory');
 }
 // The carrier's place on the screen: its scale q, the screen point of a deck point (u, v), and the scale of what stands on the deck (pk).
+// A strip of the game's sea in the sunset grade of a loop's level 1: the sea theme's pixels as planSeaColor picks them (the same noise, waves and dither), through the same
+// grade the level's chunks get. Painted once (about 80 ms) when the scene starts, 1700 rows longer than the screen: the scene drifts over it (a frozen sea once it runs out).
+function enSea() {
+  const Ht = H + 1700, key = Ht + ':' + world.SEED; if (EN.sea && EN.sea.key === key) return EN.sea;
+  const [c, x] = mk(W, Ht), img = x.createImageData(W, Ht), d = img.data, SEA = THEME_RGB[0].sea;
+  for (let y = 0; y < Ht; y++) for (let px = 0; px < W; px++) { const n = vnoise(px * 0.035, y * 0.05), wv = Math.sin(px * 0.19 + y * 0.11 + n * 8) * 0.5 + 0.5, col = SEA[pickI(7, 0.12 + n * 0.42 + wv * 0.18, px, y)], o = (y * W + px) * 4; d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
+  if (typeof CityGen !== 'undefined') CityGen.sunsetGrade(d, W, r => r);
+  x.putImageData(img, 0, 0); return (EN.sea = { c, Ht, key });
+}
 function enGeo() {
   const top = 68, q = Math.round(clamp((H - top - 32) / 392, 0.5, 1) * 128) / 128, P = carrierPic(q), x0 = Math.round(W / 2 + 4 * q), y0 = top + P.oy; /* (the bow is low enough to leave the top for the banner) */
   return { q, P, x0, y0, pk: q / CV.K, at: (u, v) => [x0 + Math.round(u * q), y0 + Math.round(v * q)] };
@@ -12172,13 +12181,12 @@ function enPlane(id, t) {
 }
 function drawEnding() {
   const E = app.ending, t = E.t, G = enGeo(), q = G.q, pk = G.pk, at = G.at;
-  /* the sea: a deep blue, moving streaks and the carrier's wake */
-  ctx.fillStyle = '#16407a'; ctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < 90; i++) { const w = 5 + ((eh(i, 2) * 12) | 0), y = (eh(i, 1) * (H + 20) + t * (0.5 + eh(i, 3) * 0.3)) % (H + 20) - 10; ctx.fillStyle = eh(i, 4) < 0.35 ? '#3f78b8' : '#245c9c'; ctx.fillRect(Math.round(eh(i, 0) * W), Math.round(y), w, 1); }
+  /* the sea: the game's own sea at sunset (a loop's level 1: the day sea through CityGen.sunsetGrade, the sun's glitter lane on the left), drifting down the screen, and the carrier's wake */
+  const SE = enSea(); ctx.drawImage(SE.c, 0, SE.Ht - H - Math.min(Math.floor(t * 0.45), SE.Ht - H - 1), W, H, 0, 0, W, H);
   const sx = at(-4, 190)[1];
-  for (let k = 0; k < 26; k++) for (const sd of [-1, 1]) { const y = sx + k * 6 + ((t >> 1) % 6), x = G.x0 - 4 * q + sd * (34 * q + k * 2.2 + eh(k, sd) * 4); if (y < H) { ctx.globalAlpha = 0.5 * (1 - k / 26); ctx.fillStyle = '#d8ecff'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1); } }
+  for (let k = 0; k < 26; k++) for (const sd of [-1, 1]) { const y = sx + k * 6 + ((t >> 1) % 6), x = G.x0 - 4 * q + sd * (34 * q + k * 2.2 + eh(k, sd) * 4); if (y < H) { ctx.globalAlpha = 0.5 * (1 - k / 26); ctx.fillStyle = '#ecdcb4'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1); } }
   ctx.globalAlpha = 1;
-  const hullFoam = (y0, y1) => { for (let y = y0, i = 0; y < y1; y += 4, i++) for (const sd of [-1, 1]) { const w = 2 + ((eh(i, sd + 5) * 4) | 0), o = (eh(i, sd + 9) * 4) | 0, ph = (i + (t >> 3)) % 4; ctx.fillStyle = ph < 2 ? '#e8f4ff' : '#9cc8ec'; ctx.fillRect(Math.round(G.x0 - 4 * q + sd * (46 * q + o + ph) - (sd < 0 ? w : 0)), y, w, 2); } };
+  const hullFoam = (y0, y1) => { for (let y = y0, i = 0; y < y1; y += 4, i++) for (const sd of [-1, 1]) { const w = 2 + ((eh(i, sd + 5) * 4) | 0), o = (eh(i, sd + 9) * 4) | 0, ph = (i + (t >> 3)) % 4; ctx.fillStyle = ph < 2 ? '#f6ecd0' : '#b8c4a8'; ctx.fillRect(Math.round(G.x0 - 4 * q + sd * (46 * q + o + ph) - (sd < 0 ? w : 0)), y, w, 2); } };
   hullFoam(at(0, -170)[1], at(0, 180)[1]);
   /* the carrier, its parked planes (the middle lane stays clear for the landing) and the blinking lights */
   ctx.drawImage(G.P.c, G.x0 - G.P.ox, G.y0 - G.P.oy);
