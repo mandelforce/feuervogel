@@ -1,6 +1,6 @@
 # Campaign ending: two loops, then the landing
 
-Status: built (build 1.2.5.125). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
+Status: built (build 1.2.5.126). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
@@ -56,7 +56,7 @@ Nothing is drawn along the hull; the wake behind the stern is the propellers' wa
 
 ## Credits over the scene
 
-`Credits.open(true)` puts the dialog in `ending` mode: a translucent veil instead of black (`#credits.ending`, `z-index: 3`, below the pause menu so the pause menu still works), a roll moved by the clock (`scrollLoop`: `EN.SPS`, 30 px a second, after the 7-second logo intro, on every display frame with a transform, so a busy phone does not slow it; about 40 seconds in all), the Retro Run button shown, and no Back button. The Continue button (`#crClose`, at the bottom centre in this mode) appears once the roll has reached the Retro Run button. The roll holds there. Pausing stops the roll (`tick` returns while the game is paused).
+`Credits.open(true)` puts the dialog in `ending` mode: a translucent veil instead of black (`#credits.ending`, `z-index: 3`, below the pause menu so the pause menu still works), no roll: the credits come in as blocks, one at a time and each all at once, centred over the scene (the logo for its 7-second intro, then the staff, the graphics and sound, the skies, the chip, the additional code at 4.5 seconds each, and last the thanks with the Retro Run button, where they stay; `pageLoop`, `buildPages`, `showPage`). The Retro Run button is shown on the last page, and no Back button. The Continue button (`#crClose`, at the bottom centre in this mode, clear of the home bar) appears with the last page. Pausing stops the page clock (and the logo's timer, which returns while the game is paused).
 
 ## Music
 
