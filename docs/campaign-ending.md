@@ -89,6 +89,6 @@ Decision for the first version: build the scene as a pure function of `t` and a 
 ## Open questions
 
 1. The "Across the Canal" melody: a notes list, a recording description, or the song name in the game.
-2. Two players: the scene lands both ships side by side; the frozen score is the combined score as the board takes it. Confirm.
-3. Should a finished loop 0 (1944) still show the congratulations and fly on to 1945? Assumed yes, unchanged.
+2. Two players: the scene lands both ships side by side; the frozen score is the combined score as the board takes it. Confirmed.
+3. Should a finished loop 0 (1944) still show the congratulations and fly on to 1945? Confirmed: yes, unchanged.
 4. Skip button: later, as agreed.
