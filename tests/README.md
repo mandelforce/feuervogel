@@ -138,7 +138,7 @@ node tests/fixed-seed.mjs
 
 ## Super weapon test (run by hand)
 
-`superweapon.mjs` checks the super weapon ("level 8"): four pickups at level 4 fill the super steps (250 points each, then 1000 as before), another weapon or a hit clears them (a hit at level 4 or above leaves level 3), each gun fires its super form (Scatter 9 darts, Lance with two flank bolts, Seekers 6 missiles and a super laser, a stronger Arc table), the HUD, aura and glow draw without errors, and the steps carry into the next level and a snapshot.
+`superweapon.mjs` checks the super weapon ("level 8"): four pickups at level 4 fill the super steps (250 points each, then 1000 as before), another weapon or a hit clears them (a hit at level 4 or above leaves level 3), the super form lasts 600 frames, a pickup refills it and it then cools down to level 4, each gun fires its super form (Scatter 13 darts, Lance with four flank bolts, Seekers 10 missiles and a super laser, a stronger Arc table) and shoots down a basic fighter, and big enemies and boss parts take the weaker `bd` damage, the HUD, aura and glow draw without errors, and the steps carry into the next level and a snapshot.
 
 ```
 python3 -m http.server 8000

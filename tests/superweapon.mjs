@@ -1,4 +1,4 @@
-// Super weapon test: four pickups at level 4 fill the super steps, the fourth makes "level 8", a hit or another weapon drops it, each gun gets its super form.
+// Super weapon test: four pickups at level 4 fill the super steps, the fourth makes "level 8" for SUP_TIME frames, a hit or another weapon drops it, each gun gets its super form that one-shots small enemies.
 // Serve the folder first (python3 -m http.server 8000). Prints only failures and a count.  node tests/superweapon.mjs [--shot=dir]
 import { chromium } from 'playwright';
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
@@ -17,8 +17,8 @@ await sf(`settings.diff = 1; startEnigma(2, false); 0`);
 await sf(`(() => { for (let i = 0; i < 260; i++) update(); })()`);
 
 /* a snapshot keeps the super steps */
-let r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'A'; player.lvl = 4; player.sup = 3; let t = null; for (let k = 0; k < 600 && !t; k++) { t = takeSnapshot(); if (!t) update(); } return t ? snapDecode(t).player.sup : -1; })()`);
-ok(r === 3, `a snapshot keeps the super steps (${r})`);
+let r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'A'; player.lvl = 4; player.sup = 4; player.supT = 321; let t = null; for (let k = 0; k < 600 && !t; k++) { t = takeSnapshot(); if (!t) update(); } return t ? snapDecode(t).player.supT : -1; })()`);
+ok(r > 0 && r <= 321, `a snapshot keeps the super time (${r})`);
 
 /* pickups: levels 1 to 4 as before, then four super steps worth 250 each, then 1000 as before */
 r = await sf(`(() => { player.inv = 99999; player.wpn = 'S'; player.lvl = 3; player.sup = 0; const o = { gain: [] };
@@ -36,18 +36,41 @@ for (const sup of [0, 2, 4]) {
   await sf(`(() => { player.dead = 0; for (let i = 0; i < 400; i++) update(); })()`);
 }
 
+/* a fresh run (the deaths above used up the lives) */
+await sf(`settings.diff = 1; startEnigma(2, false); 0`);
+await sf(`(() => { for (let i = 0; i < 260; i++) update(); })()`);
+
 /* the guns: the super form fires more / differently than level 4 */
-const fire = (w, sup) => sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = '${w}'; player.lvl = 4; player.sup = ${sup}; player.cd = 0; player.mcd = 0; world.shots.length = 0; arcs.length = 0;
+const fire = (w, sup) => sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = '${w}'; player.lvl = 4; player.sup = ${sup}; player.supT = SUP_TIME; player.cd = 0; player.mcd = 0; world.shots.length = 0; arcs.length = 0;
   const en = { type: 'drone', x: player.x, y: player.y - 90, hp: 9999, mhp: 9999, hw: 8, hh: 8, vx: 0, vy: 0 }; 
   firing(player, false); const sh = world.shots.map(s => ({ k: s.k, lv: s.lv, hl: s.hl, sl: s.sl, flank: s.flank, w: s.w, dmg: s.dmg })); return { n: sh.length, sh, lvl: wl(player) }; })()`);
 let a = await fire('S', 4), b = await fire('S', 4);
 a = await fire('S', 0); b = await fire('S', 4);
-ok(a.lvl === 4 && b.lvl === 5 && a.n === 7 && b.n === 9, `Scatter: 7 darts at level 4, 9 at super (${a.n} -> ${b.n})`);
+ok(a.lvl === 4 && b.lvl === 5 && a.n === 7 && b.n === 13, `Scatter: 7 darts at level 4, 13 at super (${a.n} -> ${b.n})`);
 a = await fire('L', 0); b = await fire('L', 4);
-ok(a.n === 1 && b.n === 3 && b.sh.filter(s => s.flank).length === 2 && b.sh[0].dmg > a.sh[0].dmg && b.sh[0].w > a.sh[0].w, `Lance: one bolt at level 4; super has a stronger, wider main bolt and two flank bolts (${a.n} -> ${b.n})`);
+ok(a.n === 1 && b.n === 5 && b.sh.filter(s => s.flank).length === 4 && b.sh[0].dmg > a.sh[0].dmg && b.sh[0].w > a.sh[0].w, `Lance: one bolt at level 4; super has a stronger, wider main bolt and four flank bolts (${a.n} -> ${b.n})`);
 a = await fire('H', 0); b = await fire('H', 4);
-ok(a.sh.filter(s => s.k === 'h').length === 4 && b.sh.filter(s => s.k === 'h').length === 6 && b.sh.some(s => s.hl === 5), `Seekers: 4 missiles at level 4, 6 and a super laser at super (${a.sh.filter(s => s.k === 'h').length} -> ${b.sh.filter(s => s.k === 'h').length})`);
-ok(await sf(`ARC_LV[5].reach > ARC_LV[4].reach && ARC_LV[5].dmg > ARC_LV[4].dmg && ARC_LV[5].jumps > ARC_LV[4].jumps`), 'Arc: the super table is stronger than level 4');
+ok(a.sh.filter(s => s.k === 'h').length === 4 && b.sh.filter(s => s.k === 'h').length === 10 && b.sh.some(s => s.hl === 5), `Seekers: 4 missiles at level 4, 10 and a super laser at super (${a.sh.filter(s => s.k === 'h').length} -> ${b.sh.filter(s => s.k === 'h').length})`);
+ok(await sf(`ARC_LV[5].reach > ARC_LV[4].reach && ARC_LV[5].dmg > ARC_LV[4].dmg && ARC_LV[5].jumps > ARC_LV[4].jumps && ARC_LV[5].bd < ARC_LV[5].dmg`), 'Arc: the super table reaches further and jumps more, and hits big targets for less');
+
+/* the damage rule: small enemies fall to one hit, big ones, boss parts and tough ones take the weaker bd */
+r = await sf(`(() => { const sh = { dmg: 8, bd: 0.6 }; return { small: supHit(sh, { hp: 3, big: false }, false), pod: supHit(sh, { hp: 5, big: false }, false), tough: supHit(sh, { hp: 40, big: false }, false), big: supHit(sh, { hp: 3, big: true }, false), boss: supHit(sh, { hp: 3 }, true), plain: supHit({ dmg: 1 }, { hp: 99, big: true }, true) }; })()`);
+ok(r.small >= 3 && r.pod >= 5 && r.tough < 1 && r.big < 1 && r.boss < 1 && r.plain === 1, `super hits: ${JSON.stringify(r)}`);
+for (const w of ['S', 'A', 'L', 'H']) {
+  r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = '${w}'; player.lvl = 4; player.sup = 4; player.supT = SUP_TIME; player.cd = 0; player.mcd = 0; player.x = W / 2; world.shots.length = 0; world.enemies.length = 0; arcs.length = 0;
+    const e = mkFighter(player.x, player.y - 70, PI / 2, 0, { fireAt: -1 }); e.hp = e.maxhp = 3; world.enemies.push(e); let n = 0;
+    for (let i = 0; i < 40 && !(e.dead || e.dying || e.crash); i++) { world.ebul.length = 0; update(); n++; } return { gone: !!(e.dead || e.dying || e.crash), n }; })()`);
+  ok(r.gone && r.n < 40, `${w}: a super volley shoots down a basic fighter (it crashes, as any hit makes it) (${JSON.stringify(r)})`);
+}
+
+/* the time: SUP_TIME frames, a pickup refills it, then the gun cools down to level 4 */
+r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'S'; player.lvl = 4; player.sup = 3; player.supT = 0; world.enemies.length = 0; const o = {};
+  world.items.push(Object.assign(mkItem('W', player.x, player.y), { w: 'S' })); update(); o.start = player.supT;
+  for (let i = 0; i < 300; i++) { world.ebul.length = 0; update(); } o.half = player.supT;
+  const s0 = run.score; world.items.push(Object.assign(mkItem('W', player.x, player.y), { w: 'S' })); update(); o.refill = player.supT; o.pay = run.score - s0;
+  for (let i = 0; i < SUP_TIME + 5; i++) { world.ebul.length = 0; update(); } o.end = [player.lvl, player.sup, isSup(player)]; return o; })()`);
+ok(r.start >= 590 && r.start <= 600 && r.half < r.start - 250 && r.refill >= 590 && r.pay >= 1000 && r.end.join() === '4,0,false', `super lasts 600 frames, a pickup refills it, then it cools down to level 4 (${JSON.stringify(r)})`);
+
 
 /* the HUD, the aura and the glow draw without errors, and carry into the next level */
 r = await sf(`(() => { const o = {}; for (const w of ['S', 'L', 'H', 'A']) for (const sup of [0, 2, 4]) { player.wpn = w; player.lvl = 4; player.sup = sup; player.dead = 0; update(); render(); }
