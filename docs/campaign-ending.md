@@ -1,6 +1,6 @@
 # Campaign ending: two loops, then the landing
 
-Status: built (build 1.2.5.123). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
+Status: built (build 1.2.5.124). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
@@ -13,7 +13,7 @@ Why: about 53 minutes for both loops; few players would reach a third pass; a th
 Level 6 of loop 1 is cleared, the results screen runs, then the congratulations screen (its footer reads "LAST STAGE CLEARED" and "THE CARRIER IS WAITING"). On the tap the screen fades to the carrier, seen from above:
 
 1. The Feuervogel comes in over the stern, drops to the deck, touches down with a puff of smoke and rolls to a stop. In a two-player run player 2 follows `EN.GAP` (150 frames) later down the same centre line and stops about 40 deck units behind player 1: side by side would clip the parked planes in the outer lanes.
-2. The deck crew raises white flags, a group runs to the ship, rockets climb and fireworks burst over the sea, and "WELCOME HOME" with the final score shows at the top.
+2. The deck crew raises white flags, a group runs to the ship, rockets climb and fireworks burst over the sea, and "GRAF ZEPPELIN SURRENDERS" with the final score shows at the top (the carrier is the Graf Zeppelin, the empire's, and the Feuervogel was stolen from it: the white flags are its surrender, not a welcome).
 3. A squadron flies past: a V of five from the stern, two groups of three crossing, a delta that breaks into a fan, all with trails.
 4. At 25 seconds the credits roll over the scene (the existing credits, faster, over a dark veil), up to the Retro Run button.
 5. Under the button a Continue button appears. Continue opens the score dialog ("Campaign complete") and then the title. The Retro Run button opens the same score dialog first and then, at the title, the Retro Run difficulty choice. Nothing starts by itself.
@@ -48,11 +48,11 @@ A frame counter `app.ending.t` (60 steps a second) drives everything. The scene 
 | 240 to 320 | Roll-out to a stop (`enShip`: the roll starts at the speed the approach ends with). |
 | 250 on | White flags go up; from 320 eight of the crew run to the ship. |
 | 330 on | A rocket every 78 frames, then the burst (a ring of 26 sparks with a short tail, falling a little). |
-| 400 to 1750 | "WELCOME HOME" and the final score, on a dark band. |
+| 400 to 1750 | "GRAF ZEPPELIN SURRENDERS" and the final score, on a dark band. |
 | 520, 760, 1020 | Squadron passes A, B and C (`enPlane`); trails are the plane's earlier positions. |
 | 1500 | `Credits.open(true)`. The scene keeps playing under them. |
 
-The sea is the game's sunset sea (`enSea`: the sea theme's pixels as `planSeaColor` picks them, through `CityGen.sunsetGrade`, painted once as a long strip that drifts down the screen). The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fits below a 68 px strip for the banner: `enGeo`), the planes are the Enigma art's (`startEnding` calls `setEnigmaArt(true)`; the formation leaders are `SPR.fighterL`), with the flyover's 28 parked planes minus the middle lane, which stays clear for the landing.
+Nothing is drawn along the hull; the wake behind the stern is the propellers' wash and two spreading V's of foam in the sunset's golds. The sea is the game's sunset sea (`enSea`: the sea theme's pixels as `planSeaColor` picks them, through `CityGen.sunsetGrade`, painted once as a long strip that drifts down the screen). The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fits below a 100 px strip for the banner: `enGeo`), the planes are the Enigma art's (`startEnding` calls `setEnigmaArt(true)`; the formation leaders are `SPR.fighterL`), with the flyover's 28 parked planes minus the middle lane, which stays clear for the landing.
 
 ## Credits over the scene
 

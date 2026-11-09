@@ -4498,7 +4498,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.123'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.124'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12147,7 +12147,7 @@ function enSea() {
   x.putImageData(img, 0, 0); return (EN.sea = { c, Ht, key });
 }
 function enGeo() {
-  const top = 68, q = Math.round(clamp((H - top - 32) / 392, 0.5, 1) * 128) / 128, P = carrierPic(q), x0 = Math.round(W / 2 + 4 * q), y0 = top + P.oy; /* (the bow is low enough to leave the top for the banner) */
+  const top = 100, q = Math.round(clamp((H - top - 32) / 392, 0.5, 1) * 128) / 128, P = carrierPic(q), x0 = Math.round(W / 2 + 4 * q), y0 = top + P.oy; /* (the bow is low enough to leave the top for the banner) */
   return { q, P, x0, y0, pk: q / CV.K, at: (u, v) => [x0 + Math.round(u * q), y0 + Math.round(v * q)] };
 }
 function updEnding() {
@@ -12183,11 +12183,13 @@ function drawEnding() {
   const E = app.ending, t = E.t, G = enGeo(), q = G.q, pk = G.pk, at = G.at;
   /* the sea: the game's own sea at sunset (a loop's level 1: the day sea through CityGen.sunsetGrade, the sun's glitter lane on the left), drifting down the screen, and the carrier's wake */
   const SE = enSea(); ctx.drawImage(SE.c, 0, SE.Ht - H - Math.min(Math.floor(t * 0.45), SE.Ht - H - 1), W, H, 0, 0, W, H);
-  const sx = at(-4, 190)[1];
-  for (let k = 0; k < 26; k++) for (const sd of [-1, 1]) { const y = sx + k * 6 + ((t >> 1) % 6), x = G.x0 - 4 * q + sd * (34 * q + k * 2.2 + eh(k, sd) * 4); if (y < H) { ctx.globalAlpha = 0.5 * (1 - k / 26); ctx.fillStyle = '#ecdcb4'; ctx.fillRect(Math.round(x), Math.round(y), 3, 1); } }
-  ctx.globalAlpha = 1;
-  const hullFoam = (y0, y1) => { for (let y = y0, i = 0; y < y1; y += 4, i++) for (const sd of [-1, 1]) { const w = 2 + ((eh(i, sd + 5) * 4) | 0), o = (eh(i, sd + 9) * 4) | 0, ph = (i + (t >> 3)) % 4; ctx.fillStyle = ph < 2 ? '#f6ecd0' : '#b8c4a8'; ctx.fillRect(Math.round(G.x0 - 4 * q + sd * (46 * q + o + ph) - (sd < 0 ? w : 0)), y, w, 2); } };
-  hullFoam(at(0, -170)[1], at(0, 180)[1]);
+  /* the wake: the propellers' wash streaming away behind the stern, a spreading V of foam on each side of it, all in the sunset's golds so it reads as the sun's glitter on churned water (nothing along the hull) */
+  { const sy = at(-4, 150)[1], cx0 = G.x0 - 4 * q, span = Math.max(60, H - sy), Q = Math.max(0.7, q * 1.1);
+    for (let y = sy; y < H; y += 2) { const d = y - sy, fade = Math.max(0, 1 - d / (span * 1.05)), half = (14 + d * 0.5) * Q, rr = Math.floor((y - t * 1.1) / 2);
+      for (let px = Math.round(cx0 - half); px < cx0 + half; px += 2) { const e = Math.abs(px - cx0) / half, pr = fade * (1 - e * e) * 1.45, n = eh(px * 5 + 11, rr);
+        if (n < pr) { ctx.fillStyle = n < pr * 0.22 ? '#fff6cc' : n < pr * 0.5 ? '#ffd870' : n < pr * 0.8 ? '#f0b050' : '#c88a40'; ctx.fillRect(px, y, 2, 2); } }
+      for (const sd of [-1, 1]) { const x = Math.round(cx0 + sd * (38 * q + d * 0.62)), n = eh(Math.floor((y - t * 0.8) / 3) * 3 + sd * 7, 3);
+        if (n < fade * 0.9) { ctx.fillStyle = n < fade * 0.3 ? '#fff6cc' : '#ffd070'; ctx.fillRect(x - (sd < 0 ? 3 : 0), y, 4, 2); ctx.globalAlpha = 0.5 * fade; ctx.fillStyle = '#f0b050'; ctx.fillRect(x - (sd < 0 ? 7 : -4), y, 3, 2); ctx.globalAlpha = 1; } } } }
   /* the carrier, its parked planes (the middle lane stays clear for the landing) and the blinking lights */
   ctx.drawImage(G.P.c, G.x0 - G.P.ox, G.y0 - G.P.oy);
   const ps = SPR.fighter[dirIdx(-PI / 2)], pw = Math.round(ps.w * pk), ph = Math.round(ps.h * pk);
@@ -12236,8 +12238,8 @@ function drawEnding() {
   } ctx.globalAlpha = 1;
   /* the banner and the final score, then the fade in from black */
   const b0 = EN.BANNER[0], b1 = EN.BANNER[1];
-  if (t > b0 && t < b1 + 100) { const al = Math.min(1, (t - b0) / 40, (b1 + 100 - t) / 100); ctx.globalAlpha = al * 0.55; ctx.fillStyle = '#080c1e'; ctx.fillRect(0, 12, W, 62); ctx.globalAlpha = al; textO('WELCOME HOME', W / 2, 20, '#fff0a0', 2, 'center', '#f8a83a');
-    textS('FINAL SCORE', W / 2, 42, '#e8dcff', 1, 'center', '#bba4ff'); textO(String(E.score), W / 2, 52, '#ffffff', 2, 'center', '#c4c9ce'); ctx.globalAlpha = 1; }
+  if (t > b0 && t < b1 + 100) { const al = Math.min(1, (t - b0) / 40, (b1 + 100 - t) / 100); ctx.globalAlpha = al * 0.55; ctx.fillStyle = '#080c1e'; ctx.fillRect(0, 8, W, 88); ctx.globalAlpha = al; textO('GRAF ZEPPELIN', W / 2, 14, '#fff0a0', 2, 'center', '#f8a83a'); textO('SURRENDERS', W / 2, 32, '#fff0a0', 2, 'center', '#f8a83a');
+    textS('FINAL SCORE', W / 2, 56, '#e8dcff', 1, 'center', '#bba4ff'); textO(String(E.score), W / 2, 66, '#ffffff', 2, 'center', '#c4c9ce'); ctx.globalAlpha = 1; }
   if (t < EN.IN) { ctx.fillStyle = 'rgba(0,0,0,' + (1 - t / EN.IN) + ')'; ctx.fillRect(0, 0, W, H); }
 }
 // The scene is over: the score dialog (the run is a finished Campaign), then the title; the Retro Run button asks for the Retro Run's difficulty picker there.
