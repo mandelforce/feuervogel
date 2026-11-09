@@ -710,7 +710,7 @@ for (const lv of [2, 6]) {
   await page.close();
 }
 // 3k. Level 4's first loop (seed 1945): Ravenhold as a ruin held by tanks (the boss test link starts just before it). No ground turrets (bunkers, AA towers, hatches, artillery, the
-// gate's guns); tanks instead. The prototype is only parked behind the keep (as The Moth, 24 x 16): no fight over the keep yard, the tower is not held back; the tower falls
+// gate's guns); tanks instead. The Moth takes off at the inner gate and fights over the keep yard (flees at 10%, no points, no damage carried on); the Raven prototype (old hull) stays parked behind the keep and flees once the tower falls (black smoke when shot); the tower falls
 // (its core opens) and the stage clears into level 5. The first pass (seed 1944) keeps its guns, has no aerial fight and no ruin. No errors.
 {
   const a = await freshPage('?boss=1'), b = await freshPage('?boss=1');
@@ -728,7 +728,8 @@ for (const lv of [2, 6]) {
       if (q.pk) o.pk = q.pk; if (q.pd) o.pd = true; if (q.lv === 5) o.lvl5 = true; }
     o.ruinPx = SF.peek('(() => { const c = SPR.ravenFloorRuin, d = SPR.ravenFloor; return !!c && c !== d && c.width === d.width; })()'); o.errs = SF.R.errs.slice(0, 2); return o; });
   ok(f.castle && f.turMax === 0 && f.tanksMax >= 8, `level 4 first loop: Ravenhold has no ground turrets (${f.turMax}) and ${f.tanksMax} tanks`);
-  ok(f.pk === 'moth 24x16' && f.aerial === 0 && !f.pd && !f.flee, `the prototype stays parked behind the keep as The Moth (${f.pk}); it never takes off to fight over the keep yard (${f.aerial} steps, a fight: ${f.pd}) and the keep is never held back`);
+  ok(f.aerial > 0 && f.pd && f.keepHit === 0 && f.flee && f.protoMin <= 0.115 && f.fled && f.dmg === 0, `The Moth fights over the keep yard (${f.aerial} steps, tower untouched: ${f.keepHit}), flees at ${Math.round(f.protoMin * 100)}% (flee ${f.flee}, proFled ${f.fled}, duel ${f.pd}; no points) and nothing it lost is carried on (${f.dmg})`);
+  ok(typeof f.pk === 'string' && f.pk.startsWith('old'), `the parked plane is the Raven prototype in its old hull (${f.pk})`);
   ok(f.open && f.windmill > 20 && f.lvl5 && f.ruinPx && f.errs.length === 0, `then the tower falls under its windmills (${f.windmill} steps), the stage clears into level 5, the ruin floor is its own picture, no errors${f.errs.length ? ': ' + f.errs.join(' | ') : ''}`);
   await a.close(); await b.close();
 }
