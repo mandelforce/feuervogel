@@ -157,7 +157,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #credits{position:absolute;inset:0;display:none;background:#000;z-index:9;overflow:hidden;color:#d8f2ff;font:13px/1.6 'StarFall Text',ui-monospace,monospace;text-align:center}
 #credits.open{display:block}
 #credits.ending{background:rgba(8,6,26,.52);z-index:3}
-#credits.ending #crClose{top:auto;bottom:14px;right:auto;left:50%;transform:translateX(-50%)}
+#credits.ending #crRoll{left:22px;right:22px;padding:14px;background:rgba(8,6,26,.7);box-shadow:0 0 0 2px #34226a,0 0 0 4px rgba(8,6,26,.7)}
+#credits.ending #crClose{top:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));right:auto;left:50%;transform:translateX(-50%)}
 #crRoll{position:absolute;left:0;right:0;padding:0 14px}
 #credits canvas{display:block;margin:0 auto;box-shadow:none;cursor:default;image-rendering:pixelated}
 #crRoll .r{color:#8a7eb0;margin-top:16px}#crRoll .g{color:#f4d050}#crRoll .b{color:#6a9ad8}#crRoll .d{color:#5a4e80}
@@ -4498,7 +4499,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.124'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.126'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12124,7 +12125,7 @@ function drawCongratsBody() {
 // carrier (the ship's own, or both ships in a two-player game), the deck crew cheers with white flags, fireworks burst and a squadron flies past; then the credits
 // roll over the scene and end on the Retro Run button. The score is final from the first frame: the world is frozen under the scene (update returns before it),
 // so nothing can score, and the scene itself is a function of app.ending.t (60 steps a second) and fixed numbers: no lists, no delayed closures.
-const EN = { IN: 60, TD: 240, FLY: 130, ROLL: 80, FW0: 330, BURST: 78, WAVE: 250, BANNER: [400, 1650], GAP: 150, PA: 520, PB: 760, PC: 1020, CREDITS: 1500, SPEED: 2.1 };
+const EN = { IN: 60, TD: 240, FLY: 130, ROLL: 80, FW0: 330, BURST: 78, WAVE: 250, BANNER: [400, 1650], GAP: 150, PA: 520, PB: 760, PC: 1020, CREDITS: 1500, INTRO: 7000, PAGE: 4500 };
 const eh = (a, b = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function endingLast() { return !!run.sortie && run.sortie.level === 6 && (run.loops || 0) >= 1; } // level 6 of the second loop: the last stage of the Campaign
 function startEnding(demo) { // demo: the scene alone, started from the pause menu's Credits button (for testing): the run, its record and the best are not touched
@@ -17824,6 +17825,7 @@ const Credits = (() => {
     // header: fractal, dissolve into the bug, head pops out, then the bug idles
     const idle = t - 92, e = t < 70 ? 0 : t < 92 ? ease((t - 70) / 22) : 1;
     if (t < 40) top.drawImage(tile, 0, 0);
+    else if (ending && t > 100 && t % 2) { /* (over the scene the idle logo is redrawn every other tick) */ }
     else {
       const bc = document.createElement('canvas'); bc.width = bc.height = 96; const bx = bc.getContext('2d'); bx.imageSmoothingEnabled = false;
       bx.fillStyle = '#0b0820'; bx.fillRect(0, 0, 96, 96);
@@ -17835,11 +17837,12 @@ const Credits = (() => {
         top.putImageData(fd, 0, 0); }
     }
     // scroll: hold on the logo, then roll
-    const rb = document.getElementById('crRetro'), hold = !rb.hidden && el.clientHeight * 0.18 + ry + rb.offsetTop + rb.offsetHeight / 2 <= el.clientHeight * 0.55; // on the title the roll stops with the Retro Run button in view
-    if (ending && hold) { const cb = document.getElementById('crClose'); if (cb.hidden) cb.hidden = false; }
-    if (t > 100 && !hold) ry -= ending ? EN.SPEED : 0.9;
-    if (!rb.hidden ? false : -ry > roll.offsetHeight + 20) { t = 0; ry = 0; }
-    roll.style.top = (el.clientHeight * 0.18 + ry) + 'px';
+    if (!ending) { // (over the ending scene the roll is moved by scrollLoop, below: by the clock and on every display frame, not by this timer)
+      const rb = document.getElementById('crRetro'), hold = !rb.hidden && el.clientHeight * 0.18 + ry + rb.offsetTop + rb.offsetHeight / 2 <= el.clientHeight * 0.55; // on the title the roll stops with the Retro Run button in view
+      if (t > 100 && !hold) ry -= 0.9;
+      if (!rb.hidden ? false : -ry > roll.offsetHeight + 20) { t = 0; ry = 0; }
+      roll.style.top = (el.clientHeight * 0.18 + ry) + 'px';
+    }
     slip.style.transform = t % 170 > 162 ? 'translateX(10px)' : 'none';
     if (t % 2 === 0) fractal(zoom, 80, 0.3 * Math.exp(-(1 - Math.cos(t * 0.011)) * 2.0), 140, zimg);
     // additional code: a name that is not quite a name
@@ -17851,9 +17854,32 @@ const Credits = (() => {
     hexEl.style.color = tear ? (Math.random() < 0.5 ? '#a8f6dc' : '#e4506a') : (c >= 43 && c < 136 ? '#8a7eb0' : '#d8f2ff');
     hexEl.style.visibility = Math.random() < 0.02 ? 'hidden' : 'visible';
   }
-  function stop() { clearInterval(timer); timer = 0; }
+  // The credits over the ending scene do not roll: they come in as blocks, one block at a time, each all at once (no motion to slow down on a busy phone): the logo while its intro plays (EN.INTRO ms),
+  // then the staff, the graphics and sound, the skies, the chip, the additional code, and last the thanks with the Retro Run button, where it stays and the Continue button appears.
+  // The clock decides the page (not counting time paused); EN.PAGE ms each. A page is a run of the roll's children from one anchor text to the next; spacers are never shown.
+  let raf = 0, lastT = 0, runMs = 0, pages = null, shown = -1, shownH = -1;
+  function buildPages() {
+    const kids = [...roll.children], starts = [0];
+    for (const key of ['STAFF', 'GRAPHICS', 'SKIES AND', 'CUSTOM CHIP', 'ADDITIONAL', 'THANK YOU']) { const i = kids.findIndex(k => k.textContent.includes(key)); if (i > 0) starts.push(i); }
+    starts.sort((x, y) => x - y);
+    pages = starts.map((st, n) => kids.slice(st, starts[n + 1] === undefined ? kids.length : starts[n + 1]).filter(k => k.textContent.trim() || k.tagName === 'CANVAS' || k.tagName === 'BUTTON'));
+  }
+  function showPage(n, h) {
+    for (const k of roll.children) k.style.display = pages[n].includes(k) ? '' : 'none';
+    roll.style.top = Math.max(8, (h - roll.offsetHeight) / 2) + 'px'; // (centred in the dialog)
+  }
+  function pageLoop(now) {
+    raf = 0; if (!ending || !el.classList.contains('open')) return;
+    raf = requestAnimationFrame(pageLoop);
+    const dt = Math.min(100, Math.max(0, now - lastT)); lastT = now; if (app.paused) return;
+    runMs += dt;
+    const n = runMs < EN.INTRO ? 0 : Math.min(pages.length - 1, 1 + Math.floor((runMs - EN.INTRO) / EN.PAGE)), h = el.clientHeight;
+    if (n !== shown || h !== shownH) { shown = n; shownH = h; showPage(n, h); }
+    if (n === pages.length - 1) { const cb = document.getElementById('crClose'); if (cb.hidden) cb.hidden = false; }
+  }
+  function stop() { clearInterval(timer); timer = 0; if (raf) { cancelAnimationFrame(raf); raf = 0; } for (const k of roll.children) k.style.display = ''; roll.style.transform = ''; }
   return {
-    open(end) { if (!mask) build(); t = 0; ry = 0; ending = !!end; const cb = document.getElementById('crClose'); cb.hidden = ending; cb.textContent = ending ? 'Continue' : 'Back'; el.classList.toggle('ending', ending); document.getElementById('crRetro').hidden = !(ending || app.state === 'title'); /* a new run can only start from the title (or from the ending) */ el.classList.add('open'); top.imageSmoothingEnabled = false; top.drawImage(tile, 0, 0); stop(); timer = setInterval(tick, 70); if (!ending) cb.focus(); },
+    open(end) { if (!mask) build(); t = 0; ry = 0; ending = !!end; const cb = document.getElementById('crClose'); cb.hidden = ending; cb.textContent = ending ? 'Continue' : 'Back'; el.classList.toggle('ending', ending); document.getElementById('crRetro').hidden = !(ending || app.state === 'title'); /* a new run can only start from the title (or from the ending) */ el.classList.add('open'); top.imageSmoothingEnabled = false; top.drawImage(tile, 0, 0); stop(); timer = setInterval(tick, 70); if (!ending) cb.focus(); else { if (!pages) buildPages(); runMs = 0; shown = shownH = -1; lastT = performance.now(); raf = requestAnimationFrame(pageLoop); } },
     close() { ending = false; const cb = document.getElementById('crClose'); cb.hidden = false; cb.textContent = 'Back'; el.classList.remove('open', 'ending'); stop(); },
   };
 })();
