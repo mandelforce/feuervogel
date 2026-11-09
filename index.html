@@ -4499,7 +4499,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.127'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.128'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6719,6 +6719,8 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
 const AIRSH = { d: 1, a: 0.28, s: 0.6 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity, s its size at full altitude (1 = as big as the plane; it grows back to 1 toward the deck) */
 function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.haze) a *= 0.8; /* level 6's first loop: haze, softer shadows */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
+const CLOUDSH = { low: 0.6, high: 0.3 }; /* cloud shadows on the ground, as a share of the cloud's size: the nearest (low) clouds cast 60%, the higher layer proportionally less */
+function cshK(img, x, cx, cy, k, w0, h0) { /* a cloud shadow's sprite drawn k times its size, centred on (cx, cy) */ const w = Math.round(w0 * k), h = Math.round(h0 * k); ctx.drawImage(img, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h); }
 const diskCache = new Map();
 function dk(cx, cy, r, col) {
   r = Math.max(0, Math.round(r));
@@ -8990,7 +8992,7 @@ function drawMistClouds(high) {
   const S = run.sortie, W8 = S && ENIGMA_WEATHER[S.level], CP = W8 && W8.clouds; if (!CP || typeof CityGen === 'undefined') return false;
   if (high) { if (!lowFX && CP.high) for (const c of hiClouds) { const s = genCloud(CP.high, c.s % 4); ctx.globalAlpha = 0.5; ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); } }
   else { const ks = Object.keys(CP.low), tot = ks.reduce((t, k) => t + CP.low[k], 0), pick = (i, c) => { let v = sortieHash(i * 7 + 1, Math.round(c.x * 3) + c.s * 1009) * tot; for (const k of ks) { v -= CP.low[k]; if (v < 0) return k; } return ks[0]; };
-    clouds.forEach((c, i) => { if (c.hide) return; const s = genCloud(pick(i, c), (i + c.s) % 4); if (s.k) { ctx.globalAlpha = 0.14; ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20), Math.round(c.y - s.h / 2 + 30)); } ctx.globalAlpha = 1; ctx.drawImage(s.c, Math.round(c.x - s.w / 2), Math.round(c.y - s.h / 2)); }); }
+    clouds.forEach((c, i) => { if (c.hide) return; const s = genCloud(pick(i, c), (i + c.s) % 4); if (s.k) { ctx.globalAlpha = 0.14; cshK(s.k, 0, c.x + 20, c.y + 30, CLOUDSH.low, s.w, s.h); } ctx.globalAlpha = 1; ctx.drawImage(s.c, Math.round(c.x - s.w / 2), Math.round(c.y - s.h / 2)); }); }
   ctx.globalAlpha = 1; return true;
 }
 // Low mist (weather plan): a soft, patchy layer of pale blue-grey over the ground, drifting slowly, drawn over the ground and under every
@@ -16899,9 +16901,9 @@ function drawProps() {
 // Enigma: soft low clouds with soft shadows, and the soft ground shadows of the two big clouds above the screen (drawn under everything that moves)
 function drawEnigmaClouds() {
   const T = ENIGMA_T, S = ENG_S;
-  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; ctx.drawImage(k.k, Math.round(c.x - s.w + 50) - 8, Math.round(c.y - s.h + 80) - 8, (s.w + 8) * 2, (s.h + 8) * 2); }
+  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; cshK(k.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, (s.w + 8) * 2, (s.h + 8) * 2); }
   ctx.globalAlpha = 0.1;
-  for (const c of clouds) if (!c.hide) { const s = sunSpr(S.low[c.s % S.low.length]); ctx.drawImage(s.k, Math.round(c.x - s.w / 2 + 20) - 4, Math.round(c.y - s.h / 2 + 30) - 4); }
+  for (const c of clouds) if (!c.hide) { const s = sunSpr(S.low[c.s % S.low.length]); cshK(s.k, 0, c.x + 20, c.y + 30, CLOUDSH.low, s.w + 8, s.h + 8); }
   ctx.globalAlpha = 1 - 0.45 * world.nightF;
   for (const c of clouds) if (!c.hide) spr(sunSpr(S.low[c.s % S.low.length]), c.x, c.y);
   ctx.globalAlpha = 1;
@@ -17312,7 +17314,7 @@ function renderMain() {
   drawGround();
 
   if (app.state === 'title') {
-    for (const c of clouds) { const s = SPR.clouds[c.s]; shadow(s, c.x, c.y, 20, 30, 0.14); ctx.globalAlpha = 0.8; spr(s, c.x, c.y); ctx.globalAlpha = 1; }
+    for (const c of clouds) { const s = SPR.clouds[c.s]; shadow(s, c.x, c.y, 20, 30, 0.14, CLOUDSH.low); ctx.globalAlpha = 0.8; spr(s, c.x, c.y); ctx.globalAlpha = 1; }
     ctx.restore();
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, 'rgba(18,14,26,0.75)'); g.addColorStop(0.55, 'rgba(18,14,26,0.35)'); g.addColorStop(1, 'rgba(18,14,26,0.7)');
@@ -17396,10 +17398,10 @@ function renderMain() {
   drawBirds();
   if (run.sortie && (run.sortie.autumn || run.sortie.winter)) drawOvercast(); /* the first loops of levels 4 and 5: the overcast sky of its own (no white puffs) */
   else if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
-  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; ctx.drawImage(s.k, Math.round(c.x - s.w + 50), Math.round(c.y - s.h + 80), s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
+  else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; cshK(s.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
   else {
-    for (const c of clouds) if (!c.hide) shadow(sunSpr(SPR.clouds[c.s]), c.x, c.y, 20, 30, 0.14);
+    for (const c of clouds) if (!c.hide) shadow(sunSpr(SPR.clouds[c.s]), c.x, c.y, 20, 30, 0.14, CLOUDSH.low);
     for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(sunSpr(SPR.clouds[c.s]), c.x, c.y); ctx.globalAlpha = 1; }
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
