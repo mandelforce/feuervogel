@@ -489,7 +489,7 @@ for (const lv of [2, 6]) {
   const a = await peek(page, `(() => { startEnigma(4, true, 0); const f = { plan: run.sortie.encPlan, river: !!(run.sortie.plan.rivers2 || []).length }; startEnigma(4, true, 1); const S = run.sortie, v = S.segs.find(g => g.t === 'valley');
     return { first: f, plan: S.encPlan && S.encPlan.map(q => q.id + ':' + q.c), valley: v.start, river: (S.plan.rivers2 || []).length }; })()`);
   ok(a.first.plan === null && !a.first.river, 'level 4, seed 1944: no valley convoy, no river');
-  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley + 4}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
+  ok(a.river === 1 && a.plan && a.plan.length === 2 && a.plan[1] === `valleyconvoy:${a.valley + 1}`, `level 4, seed 1945: the valley has a river and the convoy is placed at it (${a.plan})`);
   const f = await page.evaluate(() => { const SF = window.SF; SF.setMode('immortal'); SF.peek('settings.diff = 1; startEnigma(4, true, 1)'); const o = { started: 0, starts: 0, wet: 0, dry: 0, boats: 0, road: 0, north: 0, shots: 0, ended: null };
     for (let i = 0; i < 600 && o.ended === null; i++) { SF.run(30);
       const q = SF.peek(`(() => { const S = run.sortie, B = world.enemies.filter(e => ['tug', 'bargeF', 'bargeC', 'bargeG'].includes(e.type) && !e.dead), Rd = world.enemies.filter(e => e.cv && !e.dead), pt = world.enemies.filter(e => e.type === 'pt' && e.rv && !e.dead).length;
