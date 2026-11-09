@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.112'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.113'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12799,7 +12799,7 @@ function protoEscape() {
   return true;
 }
 function checkProto() {
-  if (world.protoWatch && (world.protoWatch.dead || world.protoWatch.dying)) { run.proto.dmg = world.protoWatch.dmg || 0; world.protoWatch = null; stageClear(); }
+  if (world.protoWatch && (world.protoWatch.dead || world.protoWatch.dying)) { run.proto.dmg = isMoth(world.protoWatch) ? 0 : world.protoWatch.dmg || 0; /* (The Moth heals: it comes back whole) */ world.protoWatch = null; stageClear(); }
   if (world.duelWatch && (world.duelWatch.es || [world.duelWatch.e]).every(o => o.dead || o.dying)) { const fn = world.duelWatch.done; world.duelWatch = null; world.later.push({ at: gf + 90, fn }); }
 }
 // ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
@@ -12847,16 +12847,8 @@ function drawProtoPlane(e, rot, sc, flames) {
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
 }
-/* (No longer used: in the looped levels The Moth is only parked behind the keep and the fight is in level 6.) Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
-   (a cut-down duel: protoDuel with e.castle: two phases, no lunge, no missile). The keep tower waits meanwhile (its parts are shielded and silent). At a tenth of its health
-   the prototype breaks off for good (it cannot be killed; what it lost carries into level 6), and then the tower has to be destroyed: its windmills (castleWindmill) turn
-   faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
-   tower's parts harder. The first pass keeps the old castle. */
-function castleAerial(e) {
-  e.aerialT0 = gf; const pr = world.enemies.find(o => o.type === 'proto' && !o.dead), base = 200 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
-  if (pr) { pr.dead = true; pr.gone = true; for (const t of world.enemies) if (t.type === 'troop' && t.post === pr) { t.post = null; t.scared = 120; t.hd = Math.random() * TAU; } } /* (it lifted off behind the keep, out of sight) */
-  world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true }, protoBox('protoDuel')))); e.aerial = true; e.barHide = true; sfx('flyin');
-}
+/* Level 4's first loop, Ravenhold (run.sortie.autumn): the plane parked behind the keep (The Moth) stays parked through the fight and flees once the tower is destroyed (the first pass's takeoff, delayClear); shot, it trails black smoke (the damage does not carry: it comes back whole). The tower's windmills (castleWindmill) turn faster
+   and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the tower's parts harder. The first pass keeps the old castle. */
 function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
   const open = others === 0, arms = open ? 4 : 3; if (!e.spin) e.spin = 0; e.wmT = (e.wmT || 0) + 1; if (e.wmT % 24 === 1 && ((e.wmT / 24) | 0) % 14 === 0) e.wmDir = -(e.wmDir || 1); const dir = e.wmDir || 1;
   p.cd = Math.round((open ? 10 : 13) * fireSlow()); e.spin += 0.17 * dir;
@@ -12877,7 +12869,6 @@ const BOSSMOVE = {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
-    if (run.sortie && run.sortie.autumn) { /* (the prototype no longer takes off over the keep: in the looped levels The Moth is only parked, castleAerial stays unused) */ if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
       q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
@@ -13208,16 +13199,16 @@ const BOSS_FIGHT = {
   castle: {
     dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } feel.shake = Math.max(feel.shake, 3); if (gf % 4 === 0) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
     introEarly(e) { return e.stage1; },
-    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt || e.aerial ? 30 : 0; },
+    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if (run.sortie && run.sortie.autumn && others <= 4) return castleWindmill(e, p, px, py, others, sp);
       if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + run.loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
       // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
       else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
     },
-    deflect(e, p) { if (e.aerial && p.tw) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } /* (the keep waits while the prototype is up) */ if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
+    deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
     partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); feel.shake = Math.max(feel.shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
-    shielded(e, p) { return (e.aerial && !!p.tw) || (p.k === 'core' && !e.open); },
+    shielded(e, p) { return p.k === 'core' && !e.open; },
     delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
   },
   skyfort: {
@@ -13985,8 +13976,8 @@ const ENT = {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
     if (e.t2 < 110) { e.y += (95 + BY + (e.yo || 0) - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
-    if ((e.t2 > 110 + PROTO_DUEL_T && !e.castle) || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.castle) { e.flare = 1; e.blink = false; if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey + (isMoth(e) ? 2 : 6), vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 }); } if (e.y < -90) e.dead = true; return; } /* (the castle's prototype breaks off for good once it is down to a tenth) */ // not mandatory: after 2 minutes it breaks off and escapes
-    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.weak ? 1 : e.castle ? (f > 0.55 ? 0 : 1) : f > 0.66 ? 0 : f > 0.33 ? 1 : 2; /* (the castle's: two phases, no lunge, no missile) */
+    if (e.t2 > 110 + PROTO_DUEL_T || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // not mandatory: after 2 minutes it breaks off and escapes
+    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.weak ? 1 : f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
     if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20 * protoK(e), 20 * protoK(e)), e.y + rnd(-10 * protoK(e), 10 * protoK(e)), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
     // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
@@ -13999,7 +13990,7 @@ const ENT = {
     // a slow fan of shells from the nose, wider with every phase
     if (k % Math.round(210 * fireSlow() * (e.weak ? 1.5 : 1)) === 120) { const n = e.weak ? 4 : 5 + ph * 2, gx = e.x, gy = e.y + 24 * protoK(e); for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
     // from phase 2 the bomb bay also launches a homing missile
-    if (ph >= 1 && !e.castle && !e.weak && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24 * protoK(e), h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24 * protoK(e), 5); sfx('rocket'); }
+    if (ph >= 1 && !e.weak && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24 * protoK(e), h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24 * protoK(e), 5); sfx('rocket'); }
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
     if (e.weak || e.hp <= e.maxhp * 0.2) { if (gf % 2 === 0) darkSmoke(e.x + rnd(-10, 10) * protoK(e), e.y + rnd(-4, 6) * protoK(e), -0.3); if (gf % 4 === 0) { const [ex, ey] = protoEngines(protoSpr(e), 1)[(gf >> 2) & 3]; darkSmoke(e.x + ex, e.y + ey - 4, -0.5); } } // at a fifth of its health it smokes black
     if (e.weak) engineSparks(e, 1, 0);
@@ -14013,6 +14004,7 @@ const ENT = {
     if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) smokePuff(e.x - ex, isMoth(e) ? e.y - ey + 2 : e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: isMoth(e) ? e.y - ey + 4 : e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
+    if (isMoth(e) && e.dmg > 0 && gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1.15).slice(0, 2)) darkSmoke(e.x - ex, e.y - ey + 3, 0.5); /* (shot, it flees trailing black smoke) */
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
   bldg: { arcLow: true, medals: 1, treesInFront: true, stats: { hp: 12, hw: 6, hh: 13, score: 1200, rad: 14 }, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
@@ -14806,13 +14798,8 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
-  if (e.type === 'protoDuel' && e.castle) { /* the castle's prototype: it cannot be killed; down to a tenth it flees, and what it lost carries into level 6 */
-    if (e.flee) return; run.proto.dmg = (run.proto.dmg || 0) + d; e.hit = 3; e.hp -= d; run.stats.hits++;
-    if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' });
-    if (e.hp <= e.maxhp * 0.1) { e.hp = e.maxhp * 0.1; e.flee = true; e.untarget = true; addScore(10000); label(e.x, e.y - 24, 'ESCAPED 10000'); boom(e.x, e.y, 22, 'a'); sfx('bigboom'); feel.shake = Math.max(feel.shake, 6); } else sfx('hitm');
-    return; }
   if (e.ground && !fullBeamHit && smokeCover(e)) { smokePing(e); return; } // (a Nebelwerfer's smoke: only a full laser gets through)
-  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30 * protoK(e), 30 * protoK(e)), y: e.y + rnd(-20 * protoK(e), 20 * protoK(e)), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (isMoth(e)) for (let k = 0; k < 2; k++) darkSmoke(e.x + rnd(-14, 14), e.y + rnd(-8, 8), 0.3); /* shot, The Moth trails black smoke */ if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30 * protoK(e), 30 * protoK(e)), y: e.y + rnd(-20 * protoK(e), 20 * protoK(e)), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { fate(e, 'fs', () => startCrash(e)); return; }
