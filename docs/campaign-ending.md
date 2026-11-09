@@ -49,9 +49,14 @@ Reuse: `carrierStart()` and its deck art (parked planes, crew, lights; the plane
 
 ## Music
 
-One new song, `victory`, played for the whole scene: about 60 s, landing through credits, ending on a held chord that fits the button appearing. It is a play on the "Across the Canal" melody.
+One new song, `victory`, played for the whole scene: about 60 s, landing through credits, ending on a held chord that fits the button appearing. It is a play on level 1's tune, the `stage` song (the level is "CROSS THE CHANNEL"; the name "Crossing the Canal" does not appear in the code, so this is an identification to confirm).
 
-**Open: that tune is not in the repository.** A search of `index.html`, the docs and the changelog finds no such name, and the eight existing songs do not go by it. To write the variation I need the melody as notes (a MIDI-style list, or a sketch of where it goes up and down), or the name of the game song you mean. Suggested treatment once I have it: major key, brass lead on the theme, a march kit, slower than the stage songs at first for the landing, then the full theme over the fireworks, a brass fanfare for the flypast, and a quieter statement for the credits.
+The source: `SONGS.stage`, 16 bars at 150 bpm (about 26 s a pass), D minor, bass D / B-flat / C / A, lead opening on a rising D-minor arpeggio (A, D, F, A, then G, F, E), rock kit, pulse lead. Its melody is a 16-bar note list, so the variation can be written directly from it with `buildSong`.
+
+Plan for the variation, two passes of the tune plus a coda:
+1. **Landing (pass 1, slower, about 120 bpm):** the same melody in the major (D major: the F becomes F-sharp, B-flat chords become B-natural or G), softer lead, march kit, so the familiar tune comes back as a homecoming.
+2. **Celebration and flypast (pass 2, 150 bpm):** the full theme with the brass lead layer (`'brass'`) and the dense kit, a rising key change into the last four bars for the fireworks and squadron pass.
+3. **Credits (coda):** a quiet restatement of the opening arpeggio on the pulse lead, then a held major chord as the Retro Run button appears.
 
 Technical: add `victory: buildSong(...)` to `SG` and a one-section entry in the section table beside `stage`/`winter`; `playSong('victory')` at scene start; stop with the scene. Check mute and the audio-unlock path the same way the stage songs do.
 
@@ -88,7 +93,7 @@ Decision for the first version: build the scene as a pure function of `t` and a 
 
 ## Open questions
 
-1. The "Across the Canal" melody: a notes list, a recording description, or the song name in the game.
+1. Confirm the tune is level 1's `stage` song ("CROSS THE CHANNEL"). If you meant a different one, name it or give me the notes.
 2. Two players: the scene lands both ships side by side; the frozen score is the combined score as the board takes it. Confirmed.
 3. Should a finished loop 0 (1944) still show the congratulations and fly on to 1945? Confirmed: yes, unchanged.
 4. Skip button: later, as agreed.
