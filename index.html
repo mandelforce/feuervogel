@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.115'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.116'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -14373,7 +14373,7 @@ function firing(p = player, two) {
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
     world.shots.push(Object.assign({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L }, L >= 5 ? { dmg: 10, bd: 2.4 } : null));
-    if (L >= 5) for (const [dx, vx] of [[-14, 0], [14, 0], [-30, -1.1], [30, 1.1]]) world.shots.push({ x: p.x + dx, y: p.y - 6, vx, vy: -7.4, dmg: 8, bd: 0.6, k: 'l', w: 5, h: 14, lv: 2, flank: true }); // the super Lance fires four flank bolts beside the main one, the outer two fanning out
+    if (L >= 5) for (const [dx, vx] of [[-13, 0], [13, 0], [-8, -1.5], [8, 1.5]]) world.shots.push({ x: p.x + dx, y: p.y - (vx ? 0 : 6), vx, vy: -7.4, dmg: 8, bd: 0.6, k: 'l', w: 5, h: 14, lv: 2, flank: true }); // the super Lance fires four flank bolts, two straight beside the main one and two leaving the ship's wings at an angle
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
     const hl = Math.min(L, 5);
