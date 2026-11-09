@@ -1,6 +1,6 @@
 # Campaign ending: two loops, then the landing
 
-Status: built (build 1.2.5.121). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
+Status: built (build 1.2.5.122). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
@@ -52,7 +52,7 @@ A frame counter `app.ending.t` (60 steps a second) drives everything. The scene 
 | 520, 760, 1020 | Squadron passes A, B and C (`enPlane`); trails are the plane's earlier positions. |
 | 1500 | `Credits.open(true)`. The scene keeps playing under them. |
 
-The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fits the screen: `enGeo`), with the flyover's 28 parked planes minus the middle lane, which stays clear for the landing.
+The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fits below a 68 px strip for the banner: `enGeo`), the planes are the Enigma art's (`startEnding` calls `setEnigmaArt(true)`; the formation leaders are `SPR.fighterL`), with the flyover's 28 parked planes minus the middle lane, which stays clear for the landing.
 
 ## Credits over the scene
 

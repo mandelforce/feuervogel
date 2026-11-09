@@ -4498,7 +4498,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.121'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.122'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12130,6 +12130,7 @@ function endingLast() { return !!run.sortie && run.sortie.level === 6 && (run.lo
 function startEnding(demo) { // demo: the scene alone, started from the pause menu's Credits button (for testing): the run, its record and the best are not touched
   app.fade = null; app.results = null; app.congrats = null; app.paused = false; app.cont = 0;
   app.ending = { t: 0, cr: false, score: run.score, demo: !!demo };
+  setEnigmaArt(true); // the planes are the Enigma art's (the Wuerger, its leader), also when the scene is started from the menu
   if (demo) { app.resumeT = 0; setPauseIcon(); showPauseMenu(false); }
   else { rrSend('over'); clearResume(); saveHi(); } // the run is over and its score is final: a reload from here lands on the title, the best is kept
   cutSfx(); stopMusic(); enGeo(); // (the carrier's picture is painted now, not in the first frame of the scene)
@@ -12137,7 +12138,7 @@ function startEnding(demo) { // demo: the scene alone, started from the pause me
 }
 // The carrier's place on the screen: its scale q, the screen point of a deck point (u, v), and the scale of what stands on the deck (pk).
 function enGeo() {
-  const q = Math.round(clamp((H - 70) / 392, 0.55, 1) * 128) / 128, P = carrierPic(q), x0 = Math.round(W / 2 + 4 * q), top = 6, y0 = top + P.oy;
+  const top = 68, q = Math.round(clamp((H - top - 32) / 392, 0.5, 1) * 128) / 128, P = carrierPic(q), x0 = Math.round(W / 2 + 4 * q), y0 = top + P.oy; /* (the bow is low enough to leave the top for the banner) */
   return { q, P, x0, y0, pk: q / CV.K, at: (u, v) => [x0 + Math.round(u * q), y0 + Math.round(v * q)] };
 }
 function updEnding() {
@@ -12211,7 +12212,7 @@ function drawEnding() {
     for (let j = 1; j <= 14; j++) { const p = enPlane(id, t - j * 3); if (!p) break; ctx.globalAlpha = 0.55 * (1 - j / 15); ctx.fillStyle = '#f2f6ff'; ctx.fillRect(Math.round(p[0]) - 1, Math.round(p[1]) + 6, 2, 2); }
   } ctx.globalAlpha = 1;
   for (const id of [0, 1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25]) {
-    const p = enPlane(id, t); if (!p) continue; const s = sp2[dirIdx(p[2])], x = Math.round(p[0] - s.w / 2), y = Math.round(p[1] - s.h / 2);
+    const p = enPlane(id, t); if (!p) continue; const s = (id === 0 || id === 10 || id === 13 || id === 20 ? SPR.fighterL || sp2 : sp2)[dirIdx(p[2])], x = Math.round(p[0] - s.w / 2), y = Math.round(p[1] - s.h / 2);
     ctx.globalAlpha = 0.28; ctx.drawImage(s.k, x + 10, y + 14); ctx.globalAlpha = 1; ctx.drawImage(s.c, x, y);
   }
   /* fireworks: a rocket climbs, then a ring of sparks falls, all from the burst's number and its age */
@@ -12238,6 +12239,7 @@ function finishEnding(retro) {
   app.ending = null; Credits.close(); stopMusic(); cutSfx();
   if (demo) { /* back to where the pause menu was opened */
     if (retro && app.state === 'title') { openDiff('retro', 1); return; }
+    setEnigmaArt(!!run.sortie);
     if (app.state === 'play') { app.paused = true; setPauseIcon(); try { playSong(STAGE_SONGS[world.curTheme]); } catch (e) {} }
     showPauseMenu(true); return; }
   app.retroNext = !!retro;
