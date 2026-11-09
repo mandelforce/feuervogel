@@ -1,6 +1,6 @@
 # Campaign ending: two loops, then the landing
 
-Status: built (build 1.2.5.120). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
+Status: built (build 1.2.5.121). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
@@ -76,7 +76,7 @@ The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fi
 
 ## Code touchpoints
 
-`index.html`: the "ending" section before `drawResults` (`EN`, `eh`, `endingLast`, `startEnding`, `enGeo`, `updEnding`, `enShip`, `enPlane`, `drawEnding`, `finishEnding`, `abortEnding`); `endEnigmaLevel` (the cap); `update` and `renderMain` (the hooks); `toTitle`, `newGame` (clean-up, `app.retroNext`); `canSteer`, `snapshotReady`, `saveResume`, `syncBody`, `pointerdown` (guards); `drawCongratsBody` (footer); `Credits` (the `ending` mode, its buttons); music (`VICT`, `VICT_CODA`, `VICTORY`, `arrangementFor`, `scheduleMusic`); CSS for `#credits.ending`. `sw.js` and `VERSION` at 1.2.5.120.
+`index.html`: the "ending" section before `drawResults` (`EN`, `eh`, `endingLast`, `startEnding`, `enGeo`, `updEnding`, `enShip`, `enPlane`, `drawEnding`, `finishEnding`, `abortEnding`); `endEnigmaLevel` (the cap); `update` and `renderMain` (the hooks); `toTitle`, `newGame` (clean-up, `app.retroNext`); `canSteer`, `snapshotReady`, `saveResume`, `syncBody`, `pointerdown` (guards); `drawCongratsBody` (footer); `Credits` (the `ending` mode, its buttons); music (`VICT`, `VICT_CODA`, `VICTORY`, `arrangementFor`, `scheduleMusic`); CSS for `#credits.ending`. `sw.js` and `VERSION` at 1.2.5.121.
 
 ## Tests
 
