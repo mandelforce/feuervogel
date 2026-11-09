@@ -4477,7 +4477,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.113'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.114'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -14168,7 +14168,8 @@ const kd = (...ks) => ks.some(k => keys[k]);
 // wl(p) is the effective level used by the guns and their drawing: 1 to 4, and 5 for the super weapon.
 const SUP_MAX = 4;
 const isSup = p => !!p && p.lvl >= 4 && (p.sup || 0) >= SUP_MAX;
-const wl = p => isSup(p) ? 5 : Math.min(p.lvl, 4);
+let SUPX = 0; // 0: the super weapon (effective level 5); 1: the exaggerated look, "Super+" (effective level 6). A switch for comparing the two; nothing sets it yet
+const wl = p => isSup(p) ? 5 + SUPX : Math.min(p.lvl, 4);
 function pshot(x, y, a, sp, dmg) { const s = { x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }; world.shots.push(s); return s; }
 // ---------- Point-blank fire (Settings, experimental): the more of your own shots are still in the air, the slower the gun cycles.
 // Shots that hit free their place at once, so closing in keeps the rate up; shots that fly the whole range hold it. Arc is hitscan: its rate follows the first target's distance.
@@ -14219,7 +14220,8 @@ const ARC_LV = [null,
   { reach: 0.55, dmg: 1.4, cone: 12, slope: 0.20, jumps: 0, hop: 0,  gain: 1.1, ramp: 55, w: 2 },
   { reach: 0.6,  dmg: 1.6, cone: 14, slope: 0.24, jumps: 1, hop: 38, gain: 1.3, ramp: 50, w: 3 },
   { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.2, ramp: 45, w: 3 },
-  { reach: 0.8,  dmg: 2.5, cone: 22, slope: 0.36, jumps: 4, hop: 58, gain: 1.4, ramp: 36, w: 4 }]; // [5]: the super Arc
+  { reach: 0.8,  dmg: 2.5, cone: 22, slope: 0.36, jumps: 4, hop: 58, gain: 1.4, ramp: 36, w: 4 },  // [5]: the super Arc
+  { reach: 0.95, dmg: 3.2, cone: 32, slope: 0.52, jumps: 7, hop: 76, gain: 1.6, ramp: 28, w: 6 }]; // [6]: Super+
 function fireArc(p, L) {
   const A = ARC_LV[L], reach = H * A.reach, ox = p.x, oy = p.y - 12;
   run.stats.shots++;
@@ -14233,6 +14235,7 @@ function fireArc(p, L) {
   arcBolt(ox, oy, t0.x, t0.y, A.w, { lv: L, r, life: 8, max: 8 });
   if (L >= 3) arcBolt(ox, oy, t0.x, t0.y, 1, { lv: L, r, sub: 1, life: 8, max: 8 });
   if (L >= 5) arcBolt(ox, oy, t0.x, t0.y, 1, { lv: L, r, sub: 1, life: 8, max: 8 }); // the super Arc braids a third strand
+  if (L >= 6) { for (let k = 0; k < 2; k++) arcBolt(ox, oy, t0.x, t0.y, 2, { lv: L, r, sub: 1, life: 8, max: 8 }); for (let k = 0; k < 3; k++) arcBolt(ox, oy, ox + rnd(-46, 46), oy + rnd(-56, -8), 1, { life: 6, max: 6 }); } // Super+: five strands and a storm of loose bolts round the ship
   arcHit(t0, A.dmg * mult); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
   if (r >= 1) for (let k = 0; k < 2; k++) world.parts.push({ kind: 'spark', layer: 'a', x: t0.x, y: t0.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.2, 1.2), life: 9, max: 9, col: k ? '#ffffff' : WPN.A.ramp[3] });
   const used = new Set([key]); let cur = t0;
@@ -14252,13 +14255,13 @@ function drawArcs() {
     const e = a.pts[a.pts.length - 1];
     ctx.globalAlpha = 0.5 * f; dk(e[0], e[1], 4 + (a.lv ? r * 3 : 0), c[3]);
     if (a.lv) { ctx.globalAlpha = 0.45 * f; dk(a.pts[0][0], a.pts[0][1], 2 + a.lv + r * 3, c[3]); ctx.globalAlpha = f; dk(a.pts[0][0], a.pts[0][1], 1 + r * 2, '#ffffff'); }
-    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); if (a.lv >= 5) { ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.arc(e[0], e[1], 9 + (gf >> 1) % 5, 0, TAU); ctx.stroke(); } } }
+    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); if (a.lv >= 5) { ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.arc(e[0], e[1], 9 + (gf >> 1) % 5, 0, TAU); ctx.stroke(); } if (a.lv >= 6) { ctx.strokeStyle = c[3]; ctx.beginPath(); ctx.arc(e[0], e[1], 15 + (gf >> 1) % 7, 0, TAU); ctx.stroke(); ctx.globalAlpha = 0.35 * f; dk(e[0], e[1], 14, c[3]); } } }
   ctx.globalAlpha = 1;
 }
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
 // at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
 function drawLance(s) {
-  const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = [7, 9, 11, 11, 13][Math.min(L, 5) - 1]; // (at least as wide as the old bolt with its outline: 6 to 10 px)
+  const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = [7, 9, 11, 11, 13, 17][Math.min(L, 6) - 1]; // (at least as wide as the old bolt with its outline: 6 to 10 px)
   const odd = v => Math.max(1, Math.round(v / 2) * 2 - 1);
   const px = (rx, ry, rw, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(Math.round(rx), Math.round(ry), Math.max(1, Math.round(rw)), 1); };
   const tl = Math.min(Math.round(age * 1.2), 4 + L * 3);
@@ -14270,7 +14273,7 @@ function drawLance(s) {
       px(x - ww / 2, top + r, ww, c[Math.min(4, ci + ((r + age) % 5 === 0 ? 1 : 0))], 1);
     }
   }
-  if (L >= 4) for (let k = 0; k < (L >= 5 ? 5 : 3); k++) {
+  if (L >= 4) for (let k = 0; k < (L >= 6 ? 8 : L >= 5 ? 5 : 3); k++) {
     const t = (age * 1.6 + k * 9) % 27, a = 1 - t / 27, hw = Math.round(w0) + 4 - Math.round(t / 9), y = top + 16 - t;
     px(x - hw / 2, y, hw, c[3], 0.35 + 0.5 * a); px(x - hw / 2 - 1, y, 1, c[4], a); px(x + hw / 2, y, 1, c[4], a);
   }
@@ -14283,8 +14286,8 @@ const scatCls = {};
 function scatClass(L, r) {
   const rc = Math.round(r * 6), key = L * 8 + rc, sup = L >= 5; if (scatCls[key]) return scatCls[key];
   r = rc / 6; const c = WPN.S.ramp, big = L >= 2 && r < 0.3, wing = r > 0.6, body = sup ? (wing ? c[3] : c[4]) : wing ? c[2] : c[3], core = sup ? '#ffffff' : wing ? c[3] : c[4];
-  const len = L === 1 ? 5 : [0, 6, 7, 8, 9][L - 1] - Math.round(r * 2) + (L === 2 ? 1 : 0) + (L >= 4 && r < 0.3 ? 1 : 0), cw = L === 1 || big ? 3 : 2;
-  const tl = L >= 3 ? Math.round([0, 0, 3, 6, 9][L - 1] * (1 - r * 0.4)) : 0;
+  const len = L === 1 ? 5 : [0, 6, 7, 8, 9, 11][L - 1] - Math.round(r * 2) + (L === 2 ? 1 : 0) + (L >= 4 && r < 0.3 ? 1 : 0), cw = L === 1 || big || L >= 6 ? 3 : 2;
+  const tl = L >= 3 ? Math.round([0, 0, 3, 6, 9, 13][L - 1] * (1 - r * 0.4)) : 0;
   const set = rotSet(sprite(cw, len, x => {
     for (let j = 0; j < len; j++) { // the head points down in the sprite (the set turns it to the heading)
       const ft = len - 1 - j, w = L === 1 ? (j === 0 || ft === 0 ? 1 : 3) : (ft === 0 ? 1 : cw), off = (cw - w) >> 1;
@@ -14307,14 +14310,16 @@ const SEEK = [null,
   { n: 2, cd: 30, dmg: 1.5, turn: 0.08, top: 3.8, sees: 140, rg: 0.58, w: 4, fl: 4 },
   { n: 3, cd: 28, dmg: 1.6, turn: 0.10, top: 4.1, sees: 170, rg: 0.66, w: 5, fl: 6 },
   { n: 4, cd: 28, dmg: 2.2, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 },
-  { n: 6, cd: 26, dmg: 2.8, turn: 0.15, top: 4.8, sees: 250, rg: 0.82, w: 7, fl: 12, splash: 30 }]; // [5]: the super Seekers
+  { n: 6, cd: 26, dmg: 2.8, turn: 0.15, top: 4.8, sees: 250, rg: 0.82, w: 7, fl: 12, splash: 30 },  // [5]: the super Seekers
+  { n: 10, cd: 22, dmg: 3.2, turn: 0.17, top: 5.2, sees: 300, rg: 0.9, w: 8, fl: 16, splash: 46 }]; // [6]: Super+
 const SEEK_ROWS = [null,
   ['.1.', '323', '343', '343', '.4.', '.4.'],
   ['..1..', '..2..', '.333.', '.343.', '.343.', '23432', '.343.', '..4..'],
   ['..1..', '.121.', '.232.', '.343.', '.343.', '23432', '.141.', '.343.', '.444.', '..4..'],
   ['...1...', '..121..', '..232..', '.13431.', '2.343.2', '2.343.2', '..141..', '..343..', '..343..', '..444..', '..444..', '...4...'],
-  ['....1....', '...121...', '...232...', '..13431..', '..13431..', '.2.343.2.', '22.343.22', '.2.141.2.', '..13431..', '..13431..', '...444...', '...444...', '....4....']];
-const SEEK_LASER = [null, { len: 9, w: 3, dx: 3 }, { len: 11, w: 5, dx: 4 }, { len: 14, w: 5, dx: 5 }, { len: 17, w: 7, dx: 6 }, { len: 22, w: 9, dx: 8 }];
+  ['....1....', '...121...', '...232...', '..13431..', '..13431..', '.2.343.2.', '22.343.22', '.2.141.2.', '..13431..', '..13431..', '...444...', '...444...', '....4....'],
+  ['.....1.....', '....121....', '....232....', '...13431...', '...13431...', '..1343431..', '.2.13431.2.', '22.13431.22', '.2..343..2.', '....141....', '...13431...', '...13431...', '....444....', '....444....', '....444....', '.....4.....']];
+const SEEK_LASER = [null, { len: 9, w: 3, dx: 3 }, { len: 11, w: 5, dx: 4 }, { len: 14, w: 5, dx: 5 }, { len: 17, w: 7, dx: 6 }, { len: 22, w: 9, dx: 8 }, { len: 28, w: 11, dx: 10 }];
 const seekCls = {};
 function seekClass(L) { // the missile body, built once per level as 32 headings with the usual outline (the head points down in the sprite)
   if (seekCls[L]) return seekCls[L];
@@ -14323,7 +14328,7 @@ function seekClass(L) { // the missile body, built once per level as 32 headings
 }
 function seekMissile(x, y, vx, vy, L, o) { world.shots.push(Object.assign({ x, y, vx, vy, k: 'h', lv: L, dmg: SEEK[L].dmg, w: SEEK[L].w, h: SEEK[L].w, sp: 1.4 }, o)); }
 function seekBurst(s, hit) { // level 4: the missile bursts, and the blast hurts what is close to the one it hit
-  const r = SEEK[s.lv || 4].splash, c = WPN.H.ramp, nb = (s.lv || 4) >= 5 ? 14 : 8;
+  const r = SEEK[s.lv || 4].splash, c = WPN.H.ramp, nb = (s.lv || 4) >= 6 ? 24 : (s.lv || 4) >= 5 ? 14 : 8;
   for (const e of world.enemies) if (e !== hit && !e.dead && !e.dying && !e.untarget && e.type !== 'boss' && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < r * r) damage(e, s.dmg * 0.5 * dmgK());
   for (let k = 0; k < nb; k++) { const a = k * TAU / nb; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: Math.cos(a) * (nb > 8 ? 2.2 : 1.6), vy: Math.sin(a) * (nb > 8 ? 2.2 : 1.6), life: nb > 8 ? 12 : 9, max: nb > 8 ? 12 : 9, col: k % 2 ? c[3] : c[4] }); }
 }
@@ -14340,8 +14345,9 @@ function drawSeekLaser(s) {
   if (L === 1) { bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); bar(-1, 3, top, 2, c[4], 1); }
   else if (L === 2) { bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); }
   else if (L === 3) { bar(-2, 5, top + 2, g.len - 2, c[2], 1); bar(-1, 3, top, g.len, c[4], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(3, 4); }
-  else if (L === 5) { bar(-4, 9, top + 4, g.len - 4, c[1], 0.7); bar(-3, 7, top + 2, g.len - 2, c[2], 1); bar(-2, 5, top + 1, g.len - 1, c[3], 1); bar(-1, 3, top, g.len, c[4], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(7, 7);
-    bar(-4, 9, top + 4 + ((age * 3) % (g.len - 5)), 1, '#ffffff', 0.9); bar(-4, 9, top + 4 + ((age * 3 + 9) % (g.len - 5)), 1, c[4], 0.8); }
+  else if (L >= 5) { const h = (g.w - 1) >> 1, cols = [c[1], c[2], c[3], c[3], c[4], '#ffffff'];
+    for (let i = 0; i <= h; i++) bar(-(h - i), g.w - 2 * i, top + Math.max(0, 4 - i), g.len - Math.max(0, 4 - i), cols[Math.round(i / h * 5)], i ? 1 : 0.7);
+    tail(g.w - 2, g.w - 2); bar(-h, g.w, top + 4 + ((age * 3) % (g.len - 5)), 1, '#ffffff', 0.9); bar(-h, g.w, top + 4 + ((age * 3 + 9) % (g.len - 5)), 1, c[4], 0.8); }
   else { bar(-3, 7, top + 3, g.len - 3, c[1], 0.7); bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(5, 5);
     bar(-3, 7, top + 3 + ((age * 3) % (g.len - 4)), 1, c[4], 0.9); }
   ctx.globalAlpha = 1;
@@ -14354,24 +14360,27 @@ function firing(p = player, two) {
   if (p.cd > 0) return;
   const L = wl(p), up = -PI / 2;
   if (p.wpn === 'S') {
-    p.cd = pbCd(p, L >= 5 ? 6 : 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7, 9][L]);
+    p.cd = pbCd(p, L >= 6 ? 5 : L >= 5 ? 6 : 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7, 9, 13][L]);
     if (L === 1) { for (const dx of [-4, 4]) Object.assign(pshot(p.x + dx, p.y - 8, up, 6, 1), { sl: 1, rk: 0.5 }); }
-    else { const n = [0, 0, 3, 5, 7, 9][L], sp = L >= 5 ? 0.13 : 0.15; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * sp, L >= 5 ? 6.6 : 6, L >= 5 ? 1.15 : 1), { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
+    else { const n = [0, 0, 3, 5, 7, 9, 13][L], sp = L >= 6 ? 0.17 : L >= 5 ? 0.13 : 0.15; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * sp, L >= 6 ? 7 : L >= 5 ? 6.6 : 6, L >= 6 ? 1.3 : L >= 5 ? 1.15 : 1), { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
   } else if (p.wpn === 'A') {
     p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
     world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
     if (L >= 5) for (const sd of [-1, 1]) world.shots.push({ x: p.x + sd * 14, y: p.y - 6, vx: sd * 0.25, vy: -7.5, dmg: 1.3, k: 'l', w: 5, h: 14, lv: 2, flank: true }); // the super Lance fires two flank bolts beside the main one
+    if (L >= 6) for (const sd of [-1, 1]) world.shots.push({ x: p.x + sd * 30, y: p.y - 2, vx: sd * 1.1, vy: -7.3, dmg: 1.3, k: 'l', w: 5, h: 14, lv: 2, flank: true }); // Super+: two more, fanning out
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
-    const hl = Math.min(L, 5);
-    for (const sd of [-1, 1]) Object.assign(pshot(p.x + sd * SEEK_LASER[hl].dx, p.y - 8, up, 6, hl >= 5 ? 1.6 : hl >= 4 ? 1.2 : 1), { hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 });
+    const hl = Math.min(L, 6);
+    for (const sd of [-1, 1]) Object.assign(pshot(p.x + sd * SEEK_LASER[hl].dx, p.y - 8, up, 6, hl >= 6 ? 2 : hl >= 5 ? 1.6 : hl >= 4 ? 1.2 : 1), { hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 });
+    if (hl >= 6) Object.assign(pshot(p.x, p.y - 10, up, 6.5, 1.6), { hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 }); // Super+: a third, central laser
     if (p.mcd <= 0) { if (!two) chipPlay('missile');
       const sk = SEEK[hl]; p.mcd = fcd(sk.cd);
       if (hl === 1) { const side = (p.seekN = (p.seekN || 0) + 1) % 2 ? 1 : -1; seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, 1); }
       else if (hl === 4) { for (const [side, k] of [[-1, 1.2], [1, 1.2], [-1, 2.2], [1, 2.2]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 4); }
       else if (hl === 5) { for (const [side, k] of [[-1, 1], [1, 1], [-1, 2], [1, 2], [-1, 3], [1, 3]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 5); }
+      else if (hl === 6) { for (const [side, k] of [[-1, 0.8], [1, 0.8], [-1, 1.6], [1, 1.6], [-1, 2.4], [1, 2.4], [-1, 3.2], [1, 3.2], [-1, 4], [1, 4]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 6); }
       else { for (const side of [-1, 1]) seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, hl); if (hl === 3) seekMissile(p.x, p.y - 4, 0, -1.4, 3); }
     }
   }
@@ -16779,7 +16788,7 @@ function drawPlayerArcs() { drawArcs(); }
 // Another weapon (from set): the hull wipes from the old colour to the new one. It is drawn over whichever skin the ship has, using only the sprite's shape.
 function superStep(p, who, it) { // one more pickup towards the super weapon: a small bonus and the level-4 glow; the fourth fires the big one
   p.sup = (p.sup || 0) + 1; addScore(250); label(it.x, it.y - 22, '250');
-  if (p.sup >= SUP_MAX) { startGlow(who, it.w, null, 4); app.glows.push({ who, kind: 'super', w: it.w, t: 0 }); }
+  if (p.sup >= SUP_MAX) { startGlow(who, it.w, null, 4); app.glows.push({ who, kind: 'super', w: it.w, t: 0 }); if (SUPX) { feel.shake = Math.max(feel.shake, 7); feel.flashFx = Math.max(feel.flashFx || 0, 4); } }
   else startGlow(who, it.w, null, 4);
 }
 function startGlow(who, w, from, lvl) { app.glows = (app.glows || []).filter(g => !(g.who === who && !g.kind)); app.glows.push({ who, w, from, lvl, t: 0 }); }
@@ -16803,6 +16812,12 @@ function superAura(p) { // the super weapon's mark on the ship: a pulsing halo i
   if (!lowFX) { ctx.globalAlpha = 0.12; dk(p.x, p.y, 22, c[1]); }
   ctx.globalAlpha = 1;
   for (let i = 0; i < 4; i++) { const an = gf * 0.09 + i * PI / 2; glowDot(p.x + Math.cos(an) * 15, p.y + Math.sin(an) * 9 + 2, i & 1 ? c[4] : '#ffffff', 0.9, 2); }
+  if (SUPX) { // Super+: a bigger, hotter halo, a pulse ring rolling outward, six more sparks and a flame streaming off each wing tip
+    ctx.globalAlpha = 0.18 + 0.12 * k; dk(p.x, p.y, 24 + Math.round(k * 3), c[3]); ctx.globalAlpha = 0.1; dk(p.x, p.y, 34, c[2]); ctx.globalAlpha = 1;
+    const q = (gf % 40) / 40; glowRing(p.x, p.y + 2, 10 + q * 26, c[4], (1 - q) * 0.8);
+    for (let i = 0; i < 6; i++) { const an = -gf * 0.13 + i * PI / 3; glowDot(p.x + Math.cos(an) * 22, p.y + Math.sin(an) * 14 + 2, i & 1 ? '#fff4c0' : c[4], 0.9, 2); }
+    for (const sd of [-1, 1]) for (let i = 0; i < 9; i++) glowDot(p.x + sd * (12 + (i & 1)), p.y + 4 + i * 2, i < 3 ? '#ffffff' : i < 6 ? c[4] : c[3], 0.85 - i * 0.08, 2);
+  }
 }
 function drawGlowBehind(p, who) { for (const g of glowsOf(who)) glowBehindOne(p, g); }
 function glowBehindOne(p, g) {
@@ -16873,6 +16888,9 @@ function glowFrontOne(p, g, sp) {
   if (g.kind === 'super') { // the fourth super pickup: the ship flashes white, a double shockwave and rays burst out, gold sparks rain
     const c = WPN[g.w].ramp;
     if (t < 8) glowStamp(sp, x, y, 1 - t / 8, f => { f.fillStyle = '#ffffff'; f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    if (SUPX) { for (let i = 0; i < 4; i++) { const q = (t - i * 4) / 34; if (q < 0 || q > 1) continue; glowRing(x, y, 4 + q * 80, i & 1 ? c[4] : '#ffffff', (1 - q) * 0.9); }
+      if (t < 10) { ctx.globalAlpha = 0.45 * (1 - t / 10); dk(x, y, 20 + t * 5, '#ffffff'); ctx.globalAlpha = 1; }
+      for (let i = 0; i < 24; i++) { const q = (t - 1) / 22; if (q < 0 || q > 1) continue; const ra = i * TAU / 24, r0 = 8 + q * 64; for (let k = 0; k < 6; k++) glowDot(x + Math.cos(ra) * (r0 + k), y + Math.sin(ra) * (r0 + k), k ? c[3] : '#ffffff', 1 - q); } }
     for (let i = 0; i < 2; i++) { const q = (t - i * 5) / 26; if (q < 0 || q > 1) continue; glowRing(x, y, 6 + q * 38, q < 0.5 ? '#ffffff' : c[4], (1 - q) * 0.9); glowRing(x, y, 8 + q * 38, c[3], (1 - q) * 0.6); }
     if (!lowFX) for (let i = 0; i < 12; i++) { const q = (t - 2) / 16; if (q < 0 || q > 1) continue; const ra = i * TAU / 12 + 0.15, r0 = 10 + q * 30; for (let k = 0; k < 4; k++) glowDot(x + Math.cos(ra) * (r0 + k), y + Math.sin(ra) * (r0 + k), k ? c[3] : '#ffffff', 1 - q); }
     if (!lowFX) for (let i = 0; i < 18; i++) { const ph = t - 4 - i, an = i * 0.9, rd = 14 + (i * 0.43 % 1) * 18; if (ph < 0 || ph > 10) continue; glowDot(x + Math.cos(an) * rd, y + Math.sin(an) * rd - ph * 0.6, '#fff4c0', 1 - ph / 10); }
