@@ -12124,7 +12124,7 @@ function drawCongratsBody() {
 // carrier (the ship's own, or both ships in a two-player game), the deck crew cheers with white flags, fireworks burst and a squadron flies past; then the credits
 // roll over the scene and end on the Retro Run button. The score is final from the first frame: the world is frozen under the scene (update returns before it),
 // so nothing can score, and the scene itself is a function of app.ending.t (60 steps a second) and fixed numbers: no lists, no delayed closures.
-const EN = { IN: 60, TD: 240, FLY: 130, ROLL: 80, FW0: 330, BURST: 78, WAVE: 250, BANNER: [400, 1650], PA: 520, PB: 760, PC: 1020, CREDITS: 1500, SPEED: 2.1 };
+const EN = { IN: 60, TD: 240, FLY: 130, ROLL: 80, FW0: 330, BURST: 78, WAVE: 250, BANNER: [400, 1650], GAP: 150, PA: 520, PB: 760, PC: 1020, CREDITS: 1500, SPEED: 2.1 };
 const eh = (a, b = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function endingLast() { return !!run.sortie && run.sortie.level === 6 && (run.loops || 0) >= 1; } // level 6 of the second loop: the last stage of the Campaign
 function startEnding() {
@@ -12142,19 +12142,19 @@ function enGeo() {
 function updEnding() {
   const E = app.ending, t = ++E.t;
   if (t === 1) sfx('horn');
-  if (t === EN.TD) { sfx('whistle'); feel.shake = Math.max(feel.shake, 2); }
+  if (t === EN.TD || (p2 && t === EN.TD + EN.GAP)) { sfx('whistle'); feel.shake = Math.max(feel.shake, 2); }
   if (t >= EN.FW0 - 24 && (t - EN.FW0 + 24) % EN.BURST === 0) tone(520, 0.3, 'sine', 0.02, 1300); // a rocket climbs
   if (t >= EN.FW0 && (t - EN.FW0) % EN.BURST === 0) { const k = (t - EN.FW0) / EN.BURST; tone(200 + eh(k, 6) * 260, 0.14, 'triangle', 0.035); if (actx && !muted) mNoise(actx.currentTime, 0.18, 0.05, 'lowpass', 1800); }
   if (t === EN.CREDITS) { E.cr = true; Credits.open(true); }
 }
 // Where the ship is at frame t, on its way down to the deck (alt 1 to 0), onto it and to a stop: [x, y, alt, bank], for the ship's lane offset dx.
-function enShip(G, t, dx) {
-  const E0 = EN.TD - EN.FLY, yS = H + 36, yT = G.at(-4, 152)[1], yE = G.at(-4, 30)[1], R = yT - yE, D = yS - yT, c0 = 2 * R / EN.ROLL * EN.FLY / D; /* (touchdown at the speed the roll starts with, so the ship does not jump) */
+function enShip(G, t, i) { /* ship i (0, or 1 for player 2) lands EN.GAP frames after the one before it and stops behind it, so they never touch each other or the parked planes */
+  const td = EN.TD + i * EN.GAP, E0 = td - EN.FLY, yS = H + 36, yT = G.at(-4, 152)[1], yE = G.at(-4, 30 + i * 40)[1], R = yT - yE, D = yS - yT, c0 = 2 * R / EN.ROLL * EN.FLY / D; /* (touchdown at the speed the roll starts with, so the ship does not jump) */
   if (t < E0) return null;
   let y, alt, wob = 0;
-  if (t < EN.TD) { const s = (EN.TD - t) / EN.FLY; alt = s; y = yT + D * s * (c0 + (1 - c0) * s); wob = 22 * s * Math.sin(s * 5.2); }
-  else { const f = clamp((t - EN.TD) / EN.ROLL, 0, 1); alt = 0; y = yT + (yE - yT) * (1 - (1 - f) * (1 - f)); }
-  return [W / 2 + dx + wob, y, alt, wob];
+  if (t < td) { const s = (td - t) / EN.FLY; alt = s; y = yT + D * s * (c0 + (1 - c0) * s); wob = 22 * s * Math.sin(s * 5.2); }
+  else { const f = clamp((t - td) / EN.ROLL, 0, 1); alt = 0; y = yT + (yE - yT) * (1 - (1 - f) * (1 - f)); }
+  return [W / 2 + wob, y, alt, wob];
 }
 // One plane of the squadron at frame t, or null while it is off the screen or not yet in the sky. id: pass A 0 to 4 (a V), pass B 10 to 15 (two threes crossing), pass C 20 to 25 (a delta that breaks).
 const EN_V = [[0, 0], [-14, 12], [14, 12], [-28, 24], [28, 24]], EN_T = [[0, 0], [-12, 10], [12, 10]], EN_D = [[0, 0], [-11, 10], [11, 10], [-22, 20], [22, 20], [0, 20]], EN_BRK = [0, -0.5, 0.5, -1, 1, 3.14];
@@ -12184,17 +12184,17 @@ function drawEnding() {
   for (const [u, v] of CVF.PARKED) { if (u === -4) continue; const [px, py] = at(u, v); ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, px - (pw >> 1) + 1, py - (ph >> 1) + 2, pw, ph); ctx.globalAlpha = 1; ctx.drawImage(ps.c, px - (pw >> 1), py - (ph >> 1), pw, ph); }
   if ((t >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   /* the ships: down the glide path, onto the deck and rolling to a stop */
-  const ships = p2 ? [[-12, SPR.playerSet], [12, goldSet()]] : [[0, skinSet()]];
-  for (const [dx, set] of ships) { const s = enShip(G, t, dx), s0 = enShip(G, t - 4, dx); if (!s) continue;
+  const ships = p2 ? [SPR.playerSet, goldSet()] : [skinSet()];
+  for (let si = 0; si < ships.length; si++) { const set = ships[si], td = EN.TD + si * EN.GAP, s = enShip(G, t, si), s0 = enShip(G, t - 4, si); if (!s) continue;
     const alt = s[2], k = pk + (1.5 - pk) * alt * alt, sp = set[s0 && s[0] - s0[0] < -0.5 ? 0 : s0 && s[0] - s0[0] > 0.5 ? 2 : 1], w = Math.round(sp.w * k), h = Math.round(sp.h * k), x = Math.round(s[0]), y = Math.round(s[1]);
     ctx.globalAlpha = 0.32; ctx.drawImage(sp.k, x - (w >> 1) + Math.round(alt * 20 + 1), y - (h >> 1) + Math.round(alt * 30 + 2), w, h); ctx.globalAlpha = 1;
-    if (t < EN.TD + EN.ROLL * 0.7) for (const ox of [-3, 3]) { ctx.fillStyle = '#ffb03a'; ctx.fillRect(x + Math.round(ox * k) - 1, y + Math.round(12 * k), 2, 2 + ((t >> 1) & 1) * 2 + Math.round(alt * 4)); }
+    if (t < td + EN.ROLL * 0.7) for (const ox of [-3, 3]) { ctx.fillStyle = '#ffb03a'; ctx.fillRect(x + Math.round(ox * k) - 1, y + Math.round(12 * k), 2, 2 + ((t >> 1) & 1) * 2 + Math.round(alt * 4)); }
     ctx.drawImage(sp.c, x - (w >> 1), y - (h >> 1), w, h);
-    if (t >= EN.TD && t < EN.TD + 22) for (let i = 0; i < 6; i++) { ctx.globalAlpha = 1 - (t - EN.TD) / 22; ctx.fillStyle = '#f2f2ee'; ctx.fillRect(x + (i % 2 ? 6 : -7) * (1 + (t - EN.TD) * 0.05) | 0, y + 8 + ((i * 3 + (t - EN.TD)) % 10), 2, 2); } ctx.globalAlpha = 1; }
+    if (t >= td && t < td + 22) for (let i = 0; i < 6; i++) { ctx.globalAlpha = 1 - (t - td) / 22; ctx.fillStyle = '#f2f2ee'; ctx.fillRect(x + (i % 2 ? 6 : -7) * (1 + (t - td) * 0.05) | 0, y + 8 + ((i * 3 + (t - td)) % 10), 2, 2); } ctx.globalAlpha = 1; }
   /* the deck crew, white flags up from touchdown; a few run to the ship once it has stopped */
-  const sh = enShip(G, EN.TD + EN.ROLL, 0), cs = Math.max(2, Math.round(2.4 * pk)), up = clamp((t - EN.TD - 10) / 30, 0, 1);
+  const tLast = EN.TD + (p2 ? EN.GAP : 0) + EN.ROLL, shs = [enShip(G, tLast, 0), p2 ? enShip(G, tLast, 1) : null], cs = Math.max(2, Math.round(2.4 * pk)), up = clamp((t - EN.TD - 10) / 30, 0, 1);
   for (let i = 0; i < 20; i++) {
-    const side = i % 2 ? 1 : -1, hu = side < 0 ? -36 + eh(i, 1) * 8 : 28 + eh(i, 1) * 8, hv = -110 + ((i >> 1) * 29) + eh(i, 2) * 10, run_ = i < 8 && t > EN.TD + EN.ROLL ? clamp((t - EN.TD - EN.ROLL - i * 6) / 120, 0, 1) : 0, e = run_ * run_ * (3 - 2 * run_);
+    const side = i % 2 ? 1 : -1, hu = side < 0 ? -36 + eh(i, 1) * 8 : 28 + eh(i, 1) * 8, hv = -110 + ((i >> 1) * 29) + eh(i, 2) * 10, sh = shs[p2 ? i % 2 : 0], run_ = i < 8 && t > tLast ? clamp((t - tLast - i * 6) / 120, 0, 1) : 0, e = run_ * run_ * (3 - 2 * run_);
     const [hx, hy] = at(hu, hv), tx = sh ? sh[0] + side * (20 + (i >> 2) * 8) : hx, ty = sh ? sh[1] - 6 + ((i >> 1) % 4) * 8 : hy, cx = Math.round(lerp(hx, tx, e)), cy = Math.round(lerp(hy, ty, e)), bob = ((t >> 3) + i) & 1, st = e > 0 && e < 1 ? ((t >> 2) + i) & 1 : 0;
     if (cy < -10 || cy > H + 10) continue;
     ctx.fillStyle = '#141418'; ctx.fillRect(cx + (st ? -1 : 0), cy + 2 * cs + bob, 1 + (cs >> 1), cs); ctx.fillRect(cx + cs - 1 + (st ? 1 : 0), cy + 2 * cs + bob, 1 + (cs >> 1), cs);

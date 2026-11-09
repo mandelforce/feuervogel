@@ -12,7 +12,7 @@ Why: about 53 minutes for both loops; few players would reach a third pass; a th
 
 Level 6 of loop 1 is cleared, the results screen runs, then the congratulations screen (its footer reads "LAST STAGE CLEARED" and "THE CARRIER IS WAITING"). On the tap the screen fades to the carrier, seen from above:
 
-1. The Feuervogel (both ships side by side in a two-player run) comes in over the stern, drops to the deck, touches down with a puff of smoke and rolls to a stop.
+1. The Feuervogel comes in over the stern, drops to the deck, touches down with a puff of smoke and rolls to a stop. In a two-player run player 2 follows `EN.GAP` (150 frames) later down the same centre line and stops about 40 deck units behind player 1: side by side would clip the parked planes in the outer lanes.
 2. The deck crew raises white flags, a group runs to the ship, rockets climb and fireworks burst over the sea, and "WELCOME HOME" with the final score shows at the top.
 3. A squadron flies past: a V of five from the stern, two groups of three crossing, a delta that breaks into a fan, all with trails.
 4. At 25 seconds the credits roll over the scene (the existing credits, faster, over a dark veil), up to the Retro Run button.
@@ -80,7 +80,7 @@ The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fi
 
 ## Tests
 
-`tests/enigma.mjs` 2c: the second loop's level 6 starts the ending, with the score, no resume record and the victory song; the song runs about as long as the scene; the ship cannot be steered and no snapshot is taken; the score and the world stand still for 2,280 steps with the scene drawing without errors and the credits open; pausing freezes the scene; the credits have the Retro Run button and no Back at first; Retro Run goes to the score dialog and then the picker; Continue goes to the score dialog and then the title; quitting leaves nothing behind; two players land side by side with the combined score unchanged; practice in the second loop ends at the title; the first loop still flies on.
+`tests/enigma.mjs` 2c: the second loop's level 6 starts the ending, with the score, no resume record and the victory song; the song runs about as long as the scene; the ship cannot be steered and no snapshot is taken; the score and the world stand still for 2,280 steps with the scene drawing without errors and the credits open; pausing freezes the scene; the credits have the Retro Run button and no Back at first; Retro Run goes to the score dialog and then the picker; Continue goes to the score dialog and then the title; quitting leaves nothing behind; two players land one after the other (player 2 stops at least 20 px behind player 1) with the combined score unchanged; practice in the second loop ends at the title; the first loop still flies on.
 
 ## Left out, for later
 
