@@ -1,99 +1,90 @@
 # Campaign ending: two loops, then the landing
 
-Status: design note, nothing built yet. Branch `claude/loop-3-design-pk8esv`.
+Status: built (build 1.2.5.120). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
-The Campaign (START) ends after two loops (1944 and 1945). There is no third loop. The end of level 6 in the 1945 loop plays an ending scene instead of flying on to level 1 of loop 2. Loops are not played beyond that point, so the Campaign score has a ceiling. Endless stays the unbounded mode, on its own board.
+The Campaign (START) ends after two loops (1944 and 1945). There is no third loop. The end of level 6 in the 1945 loop plays an ending scene instead of flying on to level 1 of a third loop, so the Campaign score has a ceiling. Endless stays the unbounded mode.
 
 Why: about 53 minutes for both loops; few players would reach a third pass; a third authored loop costs far more than its audience; and a score that cannot grow with survival time is a fairer board.
 
-## The ending in one line
+## What the player sees
 
-Level 6 of loop 1 is cleared, the score freezes, the player's plane lands on the carrier while the crew celebrates, a squadron flies a salute, the credits run, and the Retro Run button appears at the end.
+Level 6 of loop 1 is cleared, the results screen runs, then the congratulations screen (its footer reads "LAST STAGE CLEARED" and "THE CARRIER IS WAITING"). On the tap the screen fades to the carrier, seen from above:
 
-## What happens today (for reference)
+1. The Feuervogel (both ships side by side in a two-player run) comes in over the stern, drops to the deck, touches down with a puff of smoke and rolls to a stop.
+2. The deck crew raises white flags, a group runs to the ship, rockets climb and fireworks burst over the sea, and "WELCOME HOME" with the final score shows at the top.
+3. A squadron flies past: a V of five from the stern, two groups of three crossing, a delta that breaks into a fan, all with trails.
+4. At 25 seconds the credits roll over the scene (the existing credits, faster, over a dark veil), up to the Retro Run button.
+5. Under the button a Continue button appears. Continue opens the score dialog ("Campaign complete") and then the title. The Retro Run button opens the same score dialog first and then, at the title, the Retro Run difficulty choice. Nothing starts by itself.
 
-- `finishResults` shows the congratulations (`app.congrats`, a `jingle`, `campaignWon()`), then `endEnigmaLevel` runs. For a Campaign sortie after level 6 it calls `startEnigma(1, true, lp + 1)` with `carrierFlyNext = true`, so level 1 of the next loop opens on the carrier deck (`carrierStart`).
-- The old non-sortie path (the Retro Run's campaign) ends with `openLB('submit')` and then the title. The ending needs that same hand-off (score dialog, then the title), see Flow.
-- Credits exist as a dialog (`Credits.open()`, the `#credits` canvas) and already contain the `#crRetro` Retro Run button.
-- Music is `buildSong(bpm, bass, melody, kit, transpose, layer)` entries in `SG`, played by `playSong(name)`. `jingle(notes)` plays a short note list.
+There is no skip button (a skip button can be added later). The victory song plays throughout.
 
-## Flow
+## Flow (as built)
 
-Applies only when all of these hold: Campaign START (`run.ranked`, `run.start === 1`, `lbEligible()`), a sortie, `run.loops === 1`, and level 6 was just cleared. Practice, Endless, Retro Run and single Enigma sorties keep their current behaviour (practice from level 6 goes back to the title as it does now).
+The trigger is `endEnigmaLevel`: a sortie with `run.loops >= 1` that has just cleared level 6.
 
-1. Level 6 boss dies, the results screen runs as now. The existing congratulations screen for the 1945 loop is folded into the ending (no double fanfare).
-2. **Freeze the score.** Bank the results bonus, set `run.scoreFinal = run.score` (and `score2` for two players) and stop all scoring. The scene cannot change it. `campaignWon()` and `loopsWon` are counted here, once.
-3. Fade to the carrier scene (state `app.ending`, see below). The player's ship is flown by the scene, not by input.
-4. Landing, then celebration, then the credits roll over the deck.
-5. Credits end on the Retro Run button. Clicking it starts Retro Run (`startRetro()`). It is never started automatically. A second control returns to the title.
-6. Score entry follows the credits: `rrSend('over')`, `clearResume()`, `saveHi()`, `openLB('submit')`, as the Campaign-won path does. If the player starts Retro Run, the score entry is offered first (the run is already finished and frozen).
+- **Ranked Campaign** (`run.ranked`): `startEnding()`.
+- **Practice** (not ranked) in the second loop: `stopMusic(); toTitle()`. It used to loop on; every sortie is capped at two loops now.
+- **Loop 0:** unchanged. It still shows the congratulations and flies on into loop 1.
+- **Endless and Retro Run:** unchanged.
+
+`startEnding()` makes the run final at once: `rrSend('over')`, `clearResume()`, `saveHi()`, no fade, `app.ending = { t: 0, cr: false, score }`, the carrier's picture is painted, and `playSong('victory')` starts. The score dialog is opened at the end by `finishEnding(retro)`, with the same calls the Campaign-won path used (`app.state = 'over'`, `app.lbWin = true`, `openLB('submit')`); if the run is not board-eligible it goes straight to the title. `app.retroNext` makes `toTitle` open the Retro Run difficulty choice afterwards.
 
 A death at any earlier point is unchanged: game over, no ending. The ending never replaces the game over scene.
 
-## Scene timeline (draft, about 60 s)
+## Score freeze and the frozen world
 
-No skip button in the first version (add one later if wanted). A frame counter `app.ending.t` drives everything, at 60 steps per second.
+`update()` returns right after the pause check while `app.ending` is set (`updEnding` runs instead), so the director, enemies, bullets, scoring and the scroll do not run. `canSteer()` is false, so the Nova and the laser do nothing, and taps do not reach the game (`pointerdown` returns). `renderMain` draws only `drawEnding()`. `saveResume` and `snapshotReady` refuse while the ending is up.
 
-| t (s) | What |
+## Scene (as built)
+
+A frame counter `app.ending.t` (60 steps a second) drives everything. The scene is a pure function of that counter and fixed numbers (the `EN` table, a small integer hash `eh`): there are no particle lists, no delayed closures and no state to save.
+
+| Frames | What |
 |---|---|
-| 0 to 3 | Fade in. Carrier seen from above, sea scrolling, deck lights on. Crew on deck. |
-| 3 to 18 | The ship flies the approach from the top of the screen and touches down on the deck. Auto-flown, a smooth curve, arrester wire catch, short slide to a stop. |
-| 12 to 30 | Crew waves white flags, fireworks burst over the sea (palette bursts as particles). |
-| 20 to 35 | Squadron flypast: two or three V formations cross the screen, a final pass peels off in a "missing man" or a break. |
-| 30 to 60 | Credits scroll over the scene, the picture keeps moving behind them. |
-| 60 | Credits end, the Retro Run button fades in under the last line. |
+| 0 to 60 | Fade in from black. |
+| 110 to 240 | The ship comes in from below, from high (large, with a far shadow) to the deck (`pk`), a decaying S-curve; touchdown at 240. |
+| 240 to 320 | Roll-out to a stop (`enShip`: the roll starts at the speed the approach ends with). |
+| 250 on | White flags go up; from 320 eight of the crew run to the ship. |
+| 330 on | A rocket every 78 frames, then the burst (a ring of 26 sparks with a short tail, falling a little). |
+| 400 to 1750 | "WELCOME HOME" and the final score, on a dark band. |
+| 520, 760, 1020 | Squadron passes A, B and C (`enPlane`); trails are the plane's earlier positions. |
+| 1500 | `Credits.open(true)`. The scene keeps playing under them. |
 
-Reuse: `carrierStart()` and its deck art (parked planes, crew, lights; the planes along the deck as in the carrier flyover rework, build 1.2.5.55). New: the landing path, the white-flag crew sprites (a few frames of waving), fireworks, the formation flypast.
+The carrier is the game's own picture (`carrierPic(q)`, drawn at a scale that fits the screen: `enGeo`), with the flyover's 28 parked planes minus the middle lane, which stays clear for the landing.
+
+## Credits over the scene
+
+`Credits.open(true)` puts the dialog in `ending` mode: a translucent veil instead of black (`#credits.ending`, `z-index: 3`, below the pause menu so the pause menu still works), a roll speed of `EN.SPEED` (2.1 px a tick, about 40 seconds with the 7-second logo intro), the Retro Run button shown, and no Back button. The Continue button (`#crClose`, at the bottom centre in this mode) appears once the roll has reached the Retro Run button. The roll holds there. Pausing stops the roll (`tick` returns while the game is paused).
 
 ## Music
 
-One new song, `victory`, played for the whole scene: about 60 s, landing through credits, ending on a held chord that fits the button appearing. It is a play on level 1's tune, the `stage` song (the level is "CROSS THE CHANNEL"; the name "Crossing the Canal" does not appear in the code, so this is the tune you meant: confirmed).
+`victory` is level 1's `stage` tune (16 bars, 150 bpm, D minor) turned to the major: the minor home chords (D, G) become major and the F over the D chord becomes F-sharp, so the B-flat and C chords stay as borrowed chords (the old rock/march lift). `VICTORY` is three sections, about 68 seconds in all:
 
-The source: `SONGS.stage`, 16 bars at 150 bpm (about 26 s a pass), D minor, bass D / B-flat / C / A, lead opening on a rising D-minor arpeggio (A, D, F, A, then G, F, E), rock kit, pulse lead. Its melody is a 16-bar note list, so the variation can be written directly from it with `buildSong`.
+1. The tune at 116 bpm with the march kit (about 33 s): the landing and the cheering.
+2. The tune at 150 bpm, a tone up, with the brass layer, the dense kit, a crash and the pad (about 26 s): the flypast and the first of the credits.
+3. A coda (`VICT_CODA`, 4 bars at 92 bpm, bell lead, sparse kit): D, G, A, D with a rising arpeggio and a held D.
 
-Plan for the variation, two passes of the tune plus a coda:
-1. **Landing (pass 1, slower, about 120 bpm):** the same melody in the major (D major: the F becomes F-sharp, B-flat chords become B-natural or G), softer lead, march kit, so the familiar tune comes back as a homecoming.
-2. **Celebration and flypast (pass 2, 150 bpm):** the full theme with the brass lead layer (`'brass'`) and the dense kit, a rising key change into the last four bars for the fireworks and squadron pass.
-3. **Credits (coda):** a quiet restatement of the opening arpeggio on the pulse lead, then a held major chord as the Retro Run button appears.
-
-Technical: add `victory: buildSong(...)` to `SG` and a one-section entry in the section table beside `stage`/`winter`; `playSong('victory')` at scene start; stop with the scene. Check mute and the audio-unlock path the same way the stage songs do.
+`VICTORY.once` makes the scheduler stop at the end of the last section instead of looping. `arrangementFor('victory')` returns it before the loop-based arrangements. Pausing pauses the music (the scheduler already does).
 
 ## Pause and resume
 
-Pausing during the scene is trivial: the scene is driven by `app.ending.t`, so the pause freezes it and unpausing continues from the same frame. That costs nothing extra.
-
-Resuming exactly after the page is closed or reloaded is the harder case. How hard depends on how the scene is built:
-
-- **Easy (recommended build):** the scene is a pure function of `app.ending.t` and a fixed seed. Crew, fireworks, flypast and credits position are all computed from `t`, with no stored particle lists or delayed closures. Then the snapshot only needs `app.ending` added to `SNAP_APP` and the ending state handled in `snapshotReady` (which today refuses a snapshot while `app.results`, `app.congrats` or a fade is up). It is a few lines plus a case in `tests/resume-exact.mjs`.
-- **Hard:** particles in `world.later` or other closures. The snapshot code (`snapEncode`) cannot store those, so a moment with one pending is unsaveable. Avoid this.
-- **Fallback if exact resume is not worth it:** because the score is frozen and banked before the scene, a reload during the ending can simply restart the ending from the top (about a minute) or jump to the credits. Nothing is lost.
-
-Decision for the first version: build the scene as a pure function of `t` and a seed, so exact resume is cheap, and add the snapshot support only if the test shows it is easy. Otherwise use the restart fallback.
+- **Pausing** freezes the scene, the music and the credits' roll, and unpausing goes on from the same frame (`tests/enigma.mjs` 2c).
+- **Reloading** during the ending lands on the title: the resume record is cleared when the scene starts and no snapshot is taken during it. The best score is saved (`saveHi`) and the run was reported to the run record (`rrSend('over')`), but the online score dialog is not offered after a reload. This is the trade-off: because the scene is a pure function of `t`, exact resume would only need `app.ending` in `SNAP_APP`, the credits reopened at the right place and the song restarted at the right bar; the song restart is what makes it more than a few lines, and the scene is about a minute long. If it ever matters, that is the way to do it.
+- **Quitting** (pause menu) and **Restart stage** clear the scene and the credits (`abortEnding` in `toTitle` and `newGame`).
 
 ## Code touchpoints
 
-- `index.html`, `endEnigmaLevel` (the `if (run.sortie)` branch after level 6): if the ending conditions hold, start the ending instead of `startEnigma(1, true, lp + 1)`.
-- `finishResults`: fold the loop-1 congratulations into the ending; skip it at `run.loops === 1`.
-- New: `startEnding()`, `updateEnding()`, `drawEnding()`, state `app.ending`, an ending song, and a hook in `update()`/`render()`.
-- Credits: an entry to open the credits at the end of the scene and to show the Retro Run button; today the dialog is opened from the pause menu.
-- Leaderboard: `lbEligible()` and `openLB('submit')` called after the credits, with the frozen score.
-- The title screen and difficulty picker: loops beyond 1 are no longer reachable. `setDiffSeed` already offers only seeds 1 and 2, so no change needed.
-- Cleanup: the `loop >= 2` branches, the `+1.0` rank per loop in `rankFor` and the per-loop count growth ("+ 2 a loop") become unreachable for the Campaign. Keep them for Endless, remove only what Endless does not use.
-- `sw.js` and `index.html` `VERSION` must be bumped together.
+`index.html`: the "ending" section before `drawResults` (`EN`, `eh`, `endingLast`, `startEnding`, `enGeo`, `updEnding`, `enShip`, `enPlane`, `drawEnding`, `finishEnding`, `abortEnding`); `endEnigmaLevel` (the cap); `update` and `renderMain` (the hooks); `toTitle`, `newGame` (clean-up, `app.retroNext`); `canSteer`, `snapshotReady`, `saveResume`, `syncBody`, `pointerdown` (guards); `drawCongratsBody` (footer); `Credits` (the `ending` mode, its buttons); music (`VICT`, `VICT_CODA`, `VICTORY`, `arrangementFor`, `scheduleMusic`); CSS for `#credits.ending`. `sw.js` and `VERSION` at 1.2.5.120.
 
 ## Tests
 
-- `tests/enigma.mjs`: the loop 1 to loop 2 handover now goes to the ending; completing level 6 in loop 1 sets `app.ending`, not stage 13. Practice and Endless paths unchanged.
-- A new check: score is identical before and after the ending.
-- A check that the Retro Run button is present at the end and nothing starts without a click.
-- `tests/resume-exact.mjs`: only if exact resume is built.
-- Follow the repository rules: no `//` comments in in-page code, print only failures (use `--verbose` when tuning timings).
+`tests/enigma.mjs` 2c: the second loop's level 6 starts the ending, with the score, no resume record and the victory song; the song runs about as long as the scene; the ship cannot be steered and no snapshot is taken; the score and the world stand still for 2,280 steps with the scene drawing without errors and the credits open; pausing freezes the scene; the credits have the Retro Run button and no Back at first; Retro Run goes to the score dialog and then the picker; Continue goes to the score dialog and then the title; quitting leaves nothing behind; two players land side by side with the combined score unchanged; practice in the second loop ends at the title; the first loop still flies on.
 
-## Open questions
+## Left out, for later
 
-1. ~~Which tune~~ Confirmed: level 1's `stage` song ("CROSS THE CHANNEL").
-2. Two players: the scene lands both ships side by side; the frozen score is the combined score as the board takes it. Confirmed.
-3. Should a finished loop 0 (1944) still show the congratulations and fly on to 1945? Confirmed: yes, unchanged.
-4. Skip button: later, as agreed.
+- A skip button.
+- Exact resume of the ending (see above).
+- The pieces of the old loop code that only a third loop reached (the `loop >= 2` branches, rank growth past loop 1) are still there: Endless uses them, so they were not removed.
+- The scene was checked in a headless browser at one phone size (1P and 2P screenshots) and by the tests; look at it once on a real phone, especially the credits over the scene and the music.

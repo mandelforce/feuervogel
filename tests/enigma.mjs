@@ -133,6 +133,45 @@ const peek = (page, code) => page.evaluate(c => window.SF.peek(c), code);
   await page.close();
 }
 
+// 2c. The Campaign is two loops long (docs/campaign-ending.md): level 6 of the second loop ends the ranked run with the landing on the carrier, the victory song
+// and the credits (no third loop); practice ends at the title. The score is final from the first frame, the world stands still, and pausing freezes the scene.
+{
+  const page = await freshPage();
+  const start = `settings.diff = 1; startEnigma(6, true, 1); run.start = 1; addScore(250000); world.bossSpawned = true; app.results = null; app.fade = null;`;
+  const a = await peek(page, `(() => { ${start} const o = { last: endingLast() }; finishResults(); o.congrats = !!app.congrats; app.fade = null; app.congrats = null; endEnigmaLevel();
+    o.ending = !!app.ending; o.state = app.state; o.loops = run.loops; o.stage = run.stage; o.score = run.score; o.song = arrangementFor('victory') === VICTORY && !!SONGS.victory; o.resume = store.get(KEY.resume); o.fade = !!app.fade;
+    o.dur = VICTORY.reduce((d, x) => d + secDur(x) * x.reps, 0); o.snapOk = snapshotReady(); o.steer = canSteer(); return o; })()`);
+  ok(a.last && a.congrats && a.ending && a.state === 'play' && a.loops === 1 && a.stage === 12 && a.score === 250000 && a.song && !a.resume && !a.fade, `level 6 of the second loop starts the ending, not a third loop (${JSON.stringify(a)})`);
+  ok(a.dur > 55 && a.dur < 80, `the victory song runs about as long as the scene (${a.dur.toFixed(1)} s)`);
+  ok(!a.snapOk && !a.steer, 'no snapshot is taken and the ship cannot be steered during the ending');
+  const b = await peek(page, `(() => { const e0 = world.enemies.length, sc0 = world.scroll, sh0 = world.shots.length, bo = run.bombs; keys.x = true; bomb(); keys.x = false; let errs = 0;
+    for (const n of [1, 59, 100, 150, 20, 100, 200, 250, 400, 600, 400]) { for (let i = 0; i < n; i++) update(); try { render(); } catch (e) { errs++; } }
+    return { t: app.ending.t, score: run.score, scroll: world.scroll === sc0, enemies: world.enemies.length === e0, bombs: run.bombs === bo, errs, cr: document.getElementById('credits').classList.contains('open') }; })()`);
+  ok(b.t === 2280 && b.score === 250000 && b.scroll && b.enemies && b.bombs && b.errs === 0 && b.cr, `the score and the world stand still under the scene, it draws without errors, the credits are open (${JSON.stringify(b)})`);
+  const c = await peek(page, `(() => { const q = id => document.getElementById(id), t0 = app.ending.t; app.paused = true; for (let i = 0; i < 30; i++) update(); const held = app.ending.t === t0; app.paused = false; update(); return { held, moved: app.ending.t === t0 + 1, ending: q('credits').classList.contains('ending'), retro: !q('crRetro').hidden, back: q('crClose').hidden }; })()`);
+  ok(c.held && c.moved, 'pausing freezes the ending scene, unpausing goes on from the same frame');
+  ok(c.ending && c.retro && c.back, 'the credits sit over the scene with the Retro Run button, and no Back button until the roll has reached it');
+  const d = await peek(page, `(() => { const q = id => document.getElementById(id); q('crRetro').click(); const o = { ending: !!app.ending, state: app.state, lb: app.lbOpen, title: q('lbTitle').textContent, credits: q('credits').classList.contains('open'), song: Music.song === null, retroNext: app.retroNext };
+    closeLB(); o.after = app.state; o.picker = q('diffAsk').classList.contains('open'); o.kind = app.diffNext && app.diffNext.kind; o.next = app.retroNext; o.sortie = !!run.sortie; return o; })()`);
+  ok(!d.ending && d.state === 'over' && d.lb && d.title === 'Campaign complete' && !d.credits && d.song && d.retroNext, `Retro Run on the credits first offers the score dialog (${JSON.stringify(d)})`);
+  ok(d.after === 'title' && d.picker && d.kind === 'retro' && !d.next && !d.sortie, 'then the title opens with the Retro Run difficulty choice: nothing starts by itself');
+  const e = await peek(page, `(() => { const q = id => document.getElementById(id); closeDiff(); ${start} finishResults(); app.fade = null; app.congrats = null; endEnigmaLevel(); for (let i = 0; i < EN.CREDITS + 5; i++) update(); const o = { open: q('credits').classList.contains('open') };
+    for (let i = 0; i < 2; i++) update(); q('crClose').hidden = false; q('crClose').click(); o.state = app.state; o.lb = app.lbOpen; o.retro = app.retroNext; closeLB(); o.after = app.state; o.picker = q('diffAsk').classList.contains('open'); return o; })()`);
+  ok(e.open && e.state === 'over' && e.lb && !e.retro && e.after === 'title' && !e.picker, `Continue on the credits goes to the score dialog and then the title, without the Retro Run choice (${JSON.stringify(e)})`);
+  const f = await peek(page, `(() => { const q = id => document.getElementById(id); ${start} finishResults(); app.fade = null; app.congrats = null; endEnigmaLevel(); for (let i = 0; i < EN.CREDITS + 5; i++) update(); toTitle();
+    return { ending: !!app.ending, credits: q('credits').classList.contains('open'), state: app.state, song: Music.song === null }; })()`);
+  ok(!f.ending && !f.credits && f.state === 'title' && f.song, 'quitting from the pause menu during the ending leaves nothing behind');
+  const g = await peek(page, `(() => { settings.p2 = 'mouse'; startEnigma(6, true, 1); run.start = 1; addScore(5000); run.score2 = 2000; world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); app.fade = null; app.congrats = null; endEnigmaLevel(); let errs = 0;
+    for (const n of [1, 130, 110, 100, 400]) { for (let i = 0; i < n; i++) update(); try { render(); } catch (e) { errs++; } } const o = { two: !!p2, ending: !!app.ending, errs, score: run.score, score2: run.score2 }; settings.p2 = 'off'; toTitle(); return o; })()`);
+  ok(g.two && g.ending && g.errs === 0 && g.score === 5000 && g.score2 === 2000, 'two players land side by side, the combined score stays as it was');
+  const h = await peek(page, `(() => { settings.diff = 1; startEnigma(6, false, 1); run.start = 1; addScore(100); world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); app.fade = null; app.congrats = null; endEnigmaLevel();
+    return { ending: !!app.ending, state: app.state, sortie: !!run.sortie, lb: app.lbOpen }; })()`);
+  ok(!h.ending && h.state === 'title' && !h.sortie && !h.lb, 'practice from the second loop ends at the title (no ending scene, no third loop)');
+  const k = await peek(page, `(() => { settings.diff = 1; startEnigma(6, true, 0); run.start = 1; addScore(100); world.bossSpawned = true; app.results = null; app.fade = null; finishResults(); app.fade = null; app.congrats = null; endEnigmaLevel(); return { ending: !!app.ending, level: run.sortie && run.sortie.level, loops: run.loops }; })()`);
+  ok(!k.ending && k.level === 1 && k.loops === 1, 'the first loop still flies on into the second');
+  await page.close();
+}
+
 // 3. (State hygiene against tests/golden.json is switched off until the golden values are refreshed; 3b below still checks for leftover state.)
 
 // 3b. Starting any run clears every terrain cache and shared value (resetTerrainState). Pollute them all, start a run, look for what is left.
