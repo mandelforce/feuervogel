@@ -16,6 +16,15 @@ await sf('app.booting && finishBoot(), 0');
 await sf(`settings.diff = 1; startEnigma(2, false); 0`);
 await sf(`(() => { for (let i = 0; i < 260; i++) update(); })()`);
 
+/* the frenzy: extra planes while a ship has the super weapon, none otherwise */
+let fr = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'S'; player.lvl = 4; player.sup = 0; player.supT = 0; world.enemies.length = 0; world.later.length = 0; world.frenzyCd = 0; const o = {};
+  frenzyTick(); o.off = world.enemies.length + world.later.length;
+  player.sup = 4; player.supT = SUP_TIME; world.frenzyCd = 2; frenzyTick(); o.wait = world.enemies.length + world.later.length;
+  const s0 = drandS; world.frenzyCd = 0; frenzyTick(); o.on = world.enemies.length + world.later.length; o.stream = drandS === s0;
+  let n = 0; for (let i = 0; i < 300; i++) { world.enemies.length = 0; player.supT = SUP_TIME; update(); } o.cd = world.frenzyCd > 0;
+  player.sup = 0; player.supT = 0; world.enemies.length = 0; world.later.length = 0; for (let i = 0; i < 3; i++) frenzyTick(); o.after = world.enemies.length + world.later.length; return o; })()`);
+ok(fr.off === 0 && fr.wait === 0 && fr.on >= 2 && fr.stream && fr.after === 0, `the frenzy sends planes only while the super weapon is on, and leaves the random stream alone (${JSON.stringify(fr)})`);
+
 /* a snapshot keeps the super steps */
 let r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'A'; player.lvl = 4; player.sup = 4; player.supT = 321; let t = null; for (let k = 0; k < 600 && !t; k++) { t = takeSnapshot(); if (!t) update(); } return t ? snapDecode(t).player.supT : -1; })()`);
 ok(r > 0 && r <= 321, `a snapshot keeps the super time (${r})`);
@@ -69,7 +78,7 @@ r = await sf(`(() => { player.inv = 99999; player.dead = 0; player.wpn = 'S'; pl
   for (let i = 0; i < 300; i++) { world.ebul.length = 0; update(); } o.half = player.supT;
   const s0 = run.score; world.items.push(Object.assign(mkItem('W', player.x, player.y), { w: 'S' })); update(); o.refill = player.supT; o.pay = run.score - s0;
   for (let i = 0; i < SUP_TIME + 5; i++) { world.ebul.length = 0; update(); } o.end = [player.lvl, player.sup, isSup(player)]; return o; })()`);
-ok(r.start >= 590 && r.start <= 600 && r.half < r.start - 250 && r.refill >= 590 && r.pay >= 1000 && r.end.join() === '4,0,false', `super lasts 600 frames, a pickup refills it, then it cools down to level 4 (${JSON.stringify(r)})`);
+ok(r.start >= 650 && r.start <= 660 && r.half < r.start - 250 && r.refill >= 650 && r.pay >= 1000 && r.end.join() === '4,0,false', `super lasts 660 frames, a pickup refills it, then it cools down to level 4 (${JSON.stringify(r)})`);
 
 
 /* the HUD, the aura and the glow draw without errors, and carry into the next level */

@@ -4495,7 +4495,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.117'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.118'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10344,6 +10344,21 @@ function foam(x, y) { const life = (rnd(24, 40)) | 0; world.parts.push({ kind: '
 
 /* ================= director ================= */
 function biomeAtSpawn() { const sc = Math.floor(world.scroll); return biomeOf(-Math.floor((-36 - sc) / CH)); }
+// The frenzy: while a ship has the super weapon, extra planes attack (a wave every 42 to 54 frames, on top of the director's own), so the power has something to cut down.
+// It runs outside the director (no timetable ghosts, no shift of the Campaign's seeded streams: the stream, slot and order are put back afterwards) and holds off when 20 fighters are already up.
+const FRENZY_CD = 42;
+function frenzyTick() {
+  const on = [player, p2].some(q => q && !q.dead && !q.out && isSup(q));
+  if (!on || app.state !== 'play' || app.tut || app.results || app.congrats || world.quiet) { world.frenzyCd = 24; return; }
+  if (--world.frenzyCd > 0) return;
+  world.frenzyCd = FRENZY_CD + (gf * 7) % 13;
+  let air = 0; for (const e of world.enemies) if (e.type === 'fighter' && !e.dead && !e.dying) air++;
+  if (air > 20) return;
+  const s0 = drandS, sl = ttSlot, od = ttOrd; ttSeed(90);
+  const r = Math.random();
+  if (r < 0.4) waveDive(5, undefined, 2.2); else if (r < 0.65) waveSweep(); else if (r < 0.85) waveStrafe(); else waveChase();
+  drandS = s0; ttSlot = sl; ttOrd = od;
+}
 function director() {
   if (app.tut) { tutTick(); return; }
   if (app.results || app.congrats || world.quiet) return;
@@ -14186,9 +14201,9 @@ const kd = (...ks) => ks.some(k => keys[k]);
 // wl(p) is the effective level used by the guns and their drawing: 1 to 4, and 5 for the super weapon.
 const SUP_MAX = 4;
 const isSup = p => !!p && p.lvl >= 4 && (p.sup || 0) >= SUP_MAX;
-// The super weapon lasts SUP_TIME frames (10 s) and then cools down: back to level 4 with no steps. A pickup of the same weapon during it refills the time (and pays 1000).
+// The super weapon lasts SUP_TIME frames (11 s) and then cools down: back to level 4 with no steps. A pickup of the same weapon during it refills the time (and pays 1000).
 // Its shots one-shot ordinary enemies (dmg) but hit big enemies, boss parts and anything with more than SUP_ONE hit points for much less (bd), so it is a power fantasy without melting bosses.
-const SUP_TIME = 600, SUP_ONE = 8;
+const SUP_TIME = 660, SUP_ONE = 8;
 const wl = p => isSup(p) ? 5 : Math.min(p.lvl, 4);
 const supHit = (s, e, boss) => s.bd === undefined ? s.dmg : (boss || e.big || e.hp > SUP_ONE * hpm()) ? s.bd : s.dmg;
 function supEnd(p) { // the time is up: the gun cools down to level 4
@@ -15292,6 +15307,7 @@ function update() {
 
   updFlyby();
   director();
+  frenzyTick();
   for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const it = world.later[i]; world.later.splice(i, 1); if (it.rs === undefined) { it.fn(); continue; } const nL = world.later.length; rsRun(it, 'rs', it.fn); for (let k = nL; k < world.later.length; k++) { const q = world.later[k]; if (q.rs === undefined) q.rs = q.rs0 = rsHash(it.rs, 0x200 + k - nL); } } // (the Campaign: a delayed call runs on its own stream, and what it leaves for later gets one seeded by it)
   if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
   if (run.sortie && run.sortie.falls) gorgeFallTick(); // (level 5: cars falling from the bridge)
