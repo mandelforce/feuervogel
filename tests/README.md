@@ -136,6 +136,15 @@ The timetable's numbers come from the bot on today's reactive director (build 1.
 node tests/fixed-seed.mjs
 ```
 
+## Super weapon test (run by hand)
+
+`superweapon.mjs` checks the super weapon ("level 8"): four pickups at level 4 fill the super steps (250 points each, then 1000 as before), another weapon or a hit clears them (a hit at level 4 or above leaves level 3), the super form lasts 660 frames, extra planes attack while it lasts (and only then, without touching the random stream), a pickup refills it and it then cools down to level 4, each gun fires its super form (Scatter 13 darts, Lance with four flank bolts, Seekers 10 missiles and a super laser, a stronger Arc table) and shoots down a basic fighter, and big enemies and boss parts take the weaker `bd` damage, the HUD, aura and glow draw without errors, and the steps carry into the next level and a snapshot.
+
+```
+python3 -m http.server 8000
+node tests/superweapon.mjs
+```
+
 ## Shadow Wing test (run by hand)
 
 `wing.mjs` flies the Shadow Wing's fight in all six Campaign levels, each twice (as it is, and with a very tough wing so the whole sequence plays), and checks: the right ship and hit box for the level (levels 7 and 8 reuse the ships of 6 and 1), the states in the order of the ship's sequence, no state starting while its own shots are still in the upper half of the screen, every shot starting within 12 px of one of the ship's muzzles, and no page errors. It also checks that Retro Run still gets the old wing. It prints the peak of the wing's own bullets and how long the fight lasted. It does not use `golden.json` (there is no Enigma Run baseline; see ARCHITECTURE.md).

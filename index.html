@@ -2182,18 +2182,36 @@ function roundPix(b, x, y) {
   const rib = Math.abs(((an / 6.283 + 1) * 16) % 1 - 0.5) > 0.42 && e > 0.3;
   return C.roofs[5][pickI(5, 0.8 - e * 0.4 + light * 0.35 - (rib ? 0.3 : 0), x, y)];
 }
+// Hedge softening (the Enigma look's field edges): HEDGE_SOFT is the strength 0 to 1 (0 = the classic hard hedge). A normal field's hedge is
+// mixed toward a soft tone (its own crop and the grass) with weight hedgeW * T; a quarter of the fields stay prominent (promW * T). In a winter
+// plan there are no prominent fields; snow covers most of the hedge length instead (snowGain/snowCut patches), spilling 1 px onto the field.
+let HEDGE_SOFT = 0.5;
+const HEDGE = { hedgeW: 0.8, prom: 0.25, promW: 0.15, snow: 0.92, spill: 0.45, snowHalf: 0.5, snowCol: [236, 240, 248], snowScale: 0.045, snowCut: 0.28, snowGain: 9 };
+const mixRGB = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+function parcelInner(P, edge, x, y) { // the field's own colour (stripes, furrows, crop)
+  const lines = P.par ? x % 3 === 0 : y % 3 === 0, t = P.crop;
+  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (lines ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
+  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + ((P.par ? x : y) % 2 === 0 ? 0.25 : -0.05), x, y)];
+  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (lines ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
+  return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
+}
+function softHedge(plan, id, P, hedge, x, y, snowOnly) { // hedge: the classic hedge colour; returns it softened (and snowed in winter)
+  const T = HEDGE_SOFT, winter = !!(plan.P && plan.P.climate === 'winter'), E = HEDGE; if (T <= 0) return hedge;
+  let c = hedge;
+  if (!snowOnly) { const prom = !winter && h32(id * 7919 + 29, plan.parcels.length * 31 + 5) / 4294967296 < E.prom, w = (prom ? E.promW : E.hedgeW) * T;
+    c = mixRGB(hedge, mixRGB(parcelInner(P, 0, x, y), C.field.grass[pickI(5, 0.45, x, y)], 0.5), w); }
+  if (winter) { const s = Math.min(1, T / E.snowHalf), amt = Math.min(1, Math.max(0, (vn(x * E.snowScale + id * 3.1, y * E.snowScale + id * 1.7) - E.snowCut) * E.snowGain)); c = mixRGB(c, E.snowCol, (snowOnly ? E.spill : E.snow) * amt * s); }
+  return c;
+}
 // a field pixel from its parcel (5c): a hedge where the field block changes, a furrow line between strips, the crop's own pattern
 function parcelPix(plan, i, x, y) {
   const F = plan.F, W = plan.W, id = F[i]; if (id < 0) return C.field.grass[pickI(5, 0.5, x, y)];
   const P = plan.parcels[id], nb = j => j >= 0 && j < F.length && F[j] >= 0 && F[j] !== id ? plan.parcels[F[j]] : null;
   const a = nb(x > 0 ? i - 1 : -1), b2 = nb(i - W), c2 = nb(x < W - 1 ? i + 1 : -1), d2 = nb(i + W);
-  if ([a, b2, c2, d2].some(o => o && (o.block !== P.block || plan.P.bocage))) return C.field.hedge[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.7, x, y)]; // a hedge between field blocks (in bocage country between every field)
-  if (plan.P.bocage && [nb(x > 1 ? i - 2 : -1), nb(i - 2 * W), nb(x < W - 2 ? i + 2 : -1), nb(i + 2 * W)].some(o => o)) return C.field.hedge[pickI(3, 0.62 + (hh(x, y) - 0.5) * 0.6, x, y)]; // ... thick
-  const edge = (a || b2) ? -0.22 : 0, lines = P.par ? x % 3 === 0 : y % 3 === 0, t = P.crop;
-  if (t < 0.28) return C.field.wheat[pickI(5, 0.55 + edge + (lines ? -0.2 : 0) + (vn(x * 0.1, y * 0.1) - 0.5) * 0.3, x, y)];
-  if (t < 0.46) return C.field.soil[pickI(4, 0.5 + edge + ((P.par ? x : y) % 2 === 0 ? 0.25 : -0.05), x, y)];
-  if (t < 0.72) return C.field.crop[pickI(4, 0.5 + edge + (lines ? 0.15 : -0.1) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.3, x, y)];
-  return C.field.grass[pickI(5, 0.5 + edge + (vn(x * 0.08, y * 0.08) - 0.5) * 0.6, x, y)];
+  if ([a, b2, c2, d2].some(o => o && (o.block !== P.block || plan.P.bocage))) return softHedge(plan, id, P, C.field.hedge[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.7, x, y)], x, y, false); // a hedge between field blocks (in bocage country between every field)
+  if (plan.P.bocage && [nb(x > 1 ? i - 2 : -1), nb(i - 2 * W), nb(x < W - 2 ? i + 2 : -1), nb(i + 2 * W)].some(o => o)) return softHedge(plan, id, P, C.field.hedge[pickI(3, 0.62 + (hh(x, y) - 0.5) * 0.6, x, y)], x, y, false); // ... thick
+  const edge = (a || b2) ? -0.22 : 0, c = parcelInner(P, edge, x, y);
+  return plan.P && plan.P.climate === 'winter' && HEDGE_SOFT > 0 && (a || b2 || c2 || d2) ? softHedge(plan, id, P, c, x, y, true) : c;
 }
 // Paint plan rows y0 .. y0 + h - 1 into an ImageData that is W wide and h tall (screen row 0 = plan row y0 + h - 1, so north is up).
 // Oil field sprites painted into the ground (Enigma Run level 2). Offsets are screen pixels from the centre, dy down the screen; put takes the plan's y
@@ -4451,7 +4469,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4477,7 +4495,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.113'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.119'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8828,7 +8846,7 @@ const p2Mode = () => P2_OK ? (settings.p2 || 'off') : 'off';
 const dmgK = () => p2 ? 0.5 : 1; // two ships share the firepower of one
 function setP2() {
   if (p2Mode() === 'off') { p2 = null; return; }
-  if (!p2 && player) { p2 = { x: W / 2 + 34, y: Math.round(H * 0.71) + 8, inv: 150, dead: 0, out: false, wpn: player.wpn, lvl: player.lvl, cd: 0, mcd: 0, bank: 0, lx: W / 2 + 34, tagT: 180, charge: 0, heat: 0, over: 0, beam: null, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] }; run.twoP = true; run.lives2 = run.lives; run.bombs2 = run.bombs; run.score2 = 0; }
+  if (!p2 && player) { p2 = { x: W / 2 + 34, y: Math.round(H * 0.71) + 8, inv: 150, dead: 0, out: false, wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, cd: 0, mcd: 0, bank: 0, lx: W / 2 + 34, tagT: 180, charge: 0, heat: 0, over: 0, beam: null, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] }; run.twoP = true; run.lives2 = run.lives; run.bombs2 = run.bombs; run.score2 = 0; }
 }
 const props = [], towerRows = new Set(), towerCells = new Set(), critters = [];
 function propFree(x, y, w, d, h) { for (const q of props) if (Math.abs(q.wx - x) < (q.w + w) / 2 + 6 && Math.abs(q.wy - y) < (q.d + d) / 2 + 6 + Math.max(q.h, h) * 0.35) return false; for (const e of world.enemies) if (!e.dead && (e.type === 'aatower' || e.type === 'tower') && Math.abs(e.wx - x) < (e.hw || 15) + w / 2 + 6 && Math.abs(e.wy - y) < (e.hh || 15) + d / 2 + 6 + h * 0.35) return false; return true; }
@@ -9250,13 +9268,13 @@ function endEnigmaLevel() {
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
-    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = run.loops || 0;
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, sup: p2.sup || 0, supT: p2.supT || 0, drones: p2.drones } : null, lp = run.loops || 0;
     startEnigma(nx, run.ranked, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2); // both ships keep weapon, level and Talons
     return;
   }
   if (run.sortie) { // level 6 is done (the Campaign, or practice from any level; one or two players): back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
-    const pw = player ? { wpn: player.wpn, lvl: player.lvl, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
+    const pw = player ? { wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, sup: p2.sup || 0, supT: p2.supT || 0, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
     app.congrats = null; carrierFlyNext = true; startEnigma(1, true, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
     run.camp = newCamp(); run.camp.credits0 = app.credits; return; // (startEnigma made the loop: its seed, stage 7 and so on, harder)
   }
@@ -9964,7 +9982,7 @@ function saveResume() {
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, lvn: 2, ranked: run.ranked, retro: run.retro };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, lvn: 2, ranked: run.ranked, retro: run.retro };
   if (app.snap && app.snap.stage === run.stage && app.snap.seed === run.seed && st === run.stage && !run.gameOverPending && !(app.cont > 0) && !app.results && !app.congrats) { r.snap = app.snap.text; r.sv = VERSION; r.snapScore = app.snap.score; }
   store.setJSON(KEY.resume, r);
 }
@@ -10114,7 +10132,7 @@ function resumeRun(r) {
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
   { const k = rrParked(); if (k && k.rr) { app.rr = k.rr; if (app.rr.cur) app.rr.cur = app.rr.st[app.rr.st.length - 1]; } rrUnpark(); } // the resumed run keeps adding to the report it had
-  run.score = r.score; run.lives = r.lives; run.bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; if (r.twoP) run.twoP = true; if (p2) { run.lives2 = r.lives; run.bombs2 = r.bombs; run.score2 = 0; p2.out = false; p2.dead = 0; p2.wpn = r.wpn; p2.lvl = r.lvl; }
+  run.score = r.score; run.lives = r.lives; run.bombs = r.bombs; player.wpn = r.wpn; player.lvl = r.lvl; player.sup = r.lvl >= 4 ? (r.sup || 0) : 0; player.supT = player.sup >= SUP_MAX ? (r.supT || SUP_TIME) : 0; if (r.twoP) run.twoP = true; if (p2) { run.lives2 = r.lives; run.bombs2 = r.bombs; run.score2 = 0; p2.out = false; p2.dead = 0; p2.wpn = r.wpn; p2.lvl = r.lvl; p2.sup = player.sup; p2.supT = player.supT; }
   run.start = r.runStart; run.diff = r.diff; run.conts = r.conts; app.credits = r.credits; run.frames = r.frames;
   run.nextExtend = r.nextExtend; run.extendsGot = r.extendsGot; run.camp = Object.assign(newCamp(), r.camp);
   markStage();
@@ -10326,6 +10344,21 @@ function foam(x, y) { const life = (rnd(24, 40)) | 0; world.parts.push({ kind: '
 
 /* ================= director ================= */
 function biomeAtSpawn() { const sc = Math.floor(world.scroll); return biomeOf(-Math.floor((-36 - sc) / CH)); }
+// The frenzy: while a ship has the super weapon, extra planes attack (a wave every 42 to 54 frames, on top of the director's own), so the power has something to cut down.
+// It runs outside the director (no timetable ghosts, no shift of the Campaign's seeded streams: the stream, slot and order are put back afterwards) and holds off when 20 fighters are already up.
+const FRENZY_CD = 42;
+function frenzyTick() {
+  const on = [player, p2].some(q => q && !q.dead && !q.out && isSup(q));
+  if (!on || app.state !== 'play' || app.tut || app.results || app.congrats || world.quiet) { world.frenzyCd = 24; return; }
+  if (--world.frenzyCd > 0) return;
+  world.frenzyCd = FRENZY_CD + (gf * 7) % 13;
+  let air = 0; for (const e of world.enemies) if (e.type === 'fighter' && !e.dead && !e.dying) air++;
+  if (air > 20) return;
+  const s0 = drandS, sl = ttSlot, od = ttOrd; ttSeed(90);
+  const r = Math.random();
+  if (r < 0.4) waveDive(5, undefined, 2.2); else if (r < 0.65) waveSweep(); else if (r < 0.85) waveStrafe(); else waveChase();
+  drandS = s0; ttSlot = sl; ttOrd = od;
+}
 function director() {
   if (app.tut) { tutTick(); return; }
   if (app.results || app.congrats || world.quiet) return;
@@ -11641,7 +11674,7 @@ function ravenInit(e) {
   if (!loop) for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 });
   // the inner gate: the advance stops in front of it until it is blasted open
   // the Ravens' secret project: a half-size Black Fortress prototype (The Moth in the looped versions) on the apron behind the keep, with mechanics
-  const hull = mothOn() ? 'moth' : undefined, proto = add('proto', 112, 1214, Object.assign({ untarget: true, hull }, protoBox('proto', hull)));
+  const hull = mothOn() && !loop ? 'moth' : undefined, proto = add('proto', 112, 1214, Object.assign({ untarget: true, hull }, protoBox('proto', hull)));
   for (const [dx0, du0] of [[-40, -20], [36, -24], [-8, -34], [48, 14]]) add('troop', 112 + Math.round(dx0 * protoK(proto)), 1248 + Math.round(du0 * protoK(proto)), { hd: Math.random() * TAU, scared: 0, post: proto });
   // drill squads appear as they scroll into view: [u, kind, from]
   e.squads = [[70, 'x', 1], [190, 'x', -1], [310, 'x', 1], [500, 'x', -1], [560, 'down', 0], [620, 'x', 1], [720, 'x', -1], [790, 'down', 0], [850, 'x', 1]].map(([u, k, d]) => ({ u, k, d, done: false }));
@@ -12799,7 +12832,7 @@ function protoEscape() {
   return true;
 }
 function checkProto() {
-  if (world.protoWatch && (world.protoWatch.dead || world.protoWatch.dying)) { run.proto.dmg = isMoth(world.protoWatch) ? 0 : world.protoWatch.dmg || 0; /* (The Moth heals: it comes back whole) */ world.protoWatch = null; stageClear(); }
+  if (world.protoWatch && (world.protoWatch.dead || world.protoWatch.dying)) { run.proto.dmg = mothOn() ? 0 : world.protoWatch.dmg || 0; /* (the looped levels: what it lost is not carried) */ world.protoWatch = null; stageClear(); }
   if (world.duelWatch && (world.duelWatch.es || [world.duelWatch.e]).every(o => o.dead || o.dying)) { const fn = world.duelWatch.done; world.duelWatch = null; world.later.push({ at: gf + 90, fn }); }
 }
 // ---- the prototype returns: a flyby before the Stage 5 boss, a short duel before the final boss ----
@@ -12847,8 +12880,15 @@ function drawProtoPlane(e, rot, sc, flames) {
   for (let k = 0; k < lvl * 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(20,16,14,0.8)' : 'rgba(40,30,24,0.7)'; ctx.fillRect(Math.round((hash(k, 5) - 0.5) * w * 0.7), Math.round((hash(k, 9) - 0.5) * h * 0.5), 4 + (k % 3), 3); }
   ctx.restore();
 }
-/* Level 4's first loop, Ravenhold (run.sortie.autumn): the plane parked behind the keep (The Moth) stays parked through the fight and flees once the tower is destroyed (the first pass's takeoff, delayClear); shot, it trails black smoke (the damage does not carry: it comes back whole). The tower's windmills (castleWindmill) turn faster
-   and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the tower's parts harder. The first pass keeps the old castle. */
+/* Level 4's first loop, Ravenhold (run.sortie.autumn): when the inner gate is crossed the prototype takes off behind the keep and joins the fight over the keep yard
+   (a cut-down duel: protoDuel with e.castle: two phases, no lunge, no missile). The keep tower waits meanwhile (its parts are shielded and silent). At a tenth of its health
+   the prototype breaks off for good (it cannot be killed; what it lost carries into level 6), and then the tower has to be destroyed: its windmills (castleWindmill) turn
+   faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
+   tower's parts harder. The first pass keeps the old castle. */
+function castleAerial(e) {
+  e.aerialT0 = gf; const base = 200 * hpm() * DIFF.boss[settings.diff], hp = base; /* (The Moth comes whole: nothing it loses is carried on) */
+  world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true, hull: 'moth' }, protoBox('protoDuel', 'moth')))); e.aerial = true; e.barHide = true; sfx('flyin');
+}
 function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
   const open = others === 0, arms = open ? 4 : 3; if (!e.spin) e.spin = 0; e.wmT = (e.wmT || 0) + 1; if (e.wmT % 24 === 1 && ((e.wmT / 24) | 0) % 14 === 0) e.wmDir = -(e.wmDir || 1); const dir = e.wmDir || 1;
   p.cd = Math.round((open ? 10 : 13) * fireSlow()); e.spin += 0.17 * dir;
@@ -12869,6 +12909,7 @@ const BOSSMOVE = {
       if (!e.gate2.dead) { if (!e.holding && e.gate2.y > H * 0.22) { e.holding = true; world.scrollTarget = 0; sfx('chain'); world.later.push({ at: gf + 30, fn: () => sfx('toll') }); } }
       else { e.breach = true; if (e.holding) { e.holding = false; sfx('gboom'); feel.shake = Math.max(feel.shake, 8); } if (!e.keepYard) world.scrollTarget = SCROLL * 2; }
     }
+    if (run.sortie && run.sortie.autumn) { if (e.breach && !e.aerialT0) castleAerial(e); /* (level 4's first loop: The Moth takes off when the inner gate is crossed and fights over the keep yard) */ if (e.aerial && !world.enemies.some(o => o.type === 'protoDuel' && o.castle && !o.dead)) { e.aerial = false; e.barHide = false; e.proFled = true; } } /* (level 4's first loop: the prototype joins when the inner gate is crossed, and the keep wakes when it has fled) */
     if (e.stage1 && !e.dying && !e.wheel && (e.flyT = (e.flyT ?? 420) - 1) <= 0) { e.flyT = 900; waveLeader(); }
     for (const q of e.squads || []) if (!q.done && e.gateWy - q.u + sc > -6) {
       q.done = true; const wy0 = e.gateWy - q.u, n = 6 + ((Math.random() * 3) | 0), drill = q.k === 'down' ? [0, 0.22] : [q.d * 0.26, 0];
@@ -13199,16 +13240,16 @@ const BOSS_FIGHT = {
   castle: {
     dyingDrift(e) { e.x = e.wx; e.y = e.wy + Math.floor(world.scroll); if (e.towerH > 0) { e.towerH = Math.max(0, e.towerH - 0.45); placeKeepParts(e); if (gf % 20 === 0) { sfx('gboom'); haptic('gkill'); } } feel.shake = Math.max(feel.shake, 3); if (gf % 4 === 0) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-40, 40), y: e.y + rnd(-40, 40), vx: rnd(-0.8, 0.8), vy: rnd(-0.4, 0.4), life: 50, max: 50, r: rnd(4, 8) }); },
     introEarly(e) { return e.stage1; },
-    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt ? 30 : 0; },
+    holdFire(e, py) { return py < 6 || py > H - 40 || !e.halt || e.aerial ? 30 : 0; },
     coreFire(e, p, px, py, core, others, sp, mz) {
       if (run.sortie && run.sortie.autumn && others <= 4) return castleWindmill(e, p, px, py, others, sp);
       if (others > 4) { p.cd = Math.round((110) * fireSlow()); ring(px, py, 16 + run.loop * 2, sp * 0.75, e.mt * 0.05, 'B'); const a = aim(px, py); for (let k = -1; k <= 1; k++) eshot(px, py, a + k * 0.2, sp, 'B'); sfx('cannon'); }
       // final phase: kept below the Stage 6 boss's bullet rate (was a shot every 5 frames with a 20-bullet ring every 110 frames)
       else { p.cd = Math.round((9) * fireSlow()); e.spin += 0.31; eshot(px, py, e.spin, sp * 0.85); eshot(px, py, e.spin + PI, sp * 0.85); if ((e.ringN = (e.ringN || 0) + 1) % 14 === 0) ring(px, py, 16, sp * 0.7, e.mt * 0.1, 'B'); }
     },
-    deflect(e, p) { if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
+    deflect(e, p) { if (e.aerial && p.tw) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } /* (the keep waits while the prototype is up) */ if (p.k === 'core' && e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { if (gf % 6 === 0) sfx('ping'); p.hit = 2; return true; } },
     partLost(e, p) { if (p.tw && p.k !== 'core' && !e.parts.some(q => q.tw && q.k !== 'core' && !q.dead)) { e.open = true; boom(e.x, e.y, 30, 'g'); feel.shake = Math.max(feel.shake, 10); sfx('gboom'); for (let k = 0; k < 18; k++) world.parts.push({ kind: 'dust', layer: 'g', x: e.x + rnd(-24, 24), y: e.y + rnd(-24, 24), vx: rnd(-1, 1), vy: rnd(-1, 1), life: 50, max: 50, r: rnd(4, 9) }); } },
-    shielded(e, p) { return p.k === 'core' && !e.open; },
+    shielded(e, p) { return (e.aerial && !!p.tw) || (p.k === 'core' && !e.open); },
     delayClear(e) { return protoEscape(); }, // the Ravens' prototype takes off before the stage clears
   },
   skyfort: {
@@ -13337,7 +13378,7 @@ function kolibriTick(e) {
     if (e.arcM !== arc) { e.arcM = arc; e.reT = 0; }
     if (--e.reT <= 0) { e.reT = R(P.regoal) | 0; e.oy = R(arc ? P.arcBand : P.band); e.ox = R(arc ? P.arcOff : P.off); if (!arc && !g && Math.random() < 0.4) e.side = -e.side; }
     if (g) { if (e.lane < 2) { if (!arc && !kill) e.side = e.lane ? 1 : -1; e.oy = Math.min(e.oy, KWING.lowUp); } else { e.oy = Math.max(e.oy, KWING.highUp); e.ox = Math.min(e.ox, 40); } } // a formation member keeps its lane: left and right low, or high
-    if (arc) { const A = ARC_LV[q.lvl] || ARC_LV[1]; e.side = Math.sign(e.x - q.x) || e.side; e.ox = Math.max(e.ox, A.cone + (e.oy - 12) * A.slope + P.arcMargin); sp = P.arcCruise; } // stays on its side of the cone; pinned at the edge, the Arc gets it or it leaves
+    if (arc) { const A = ARC_LV[wl(q)] || ARC_LV[1]; e.side = Math.sign(e.x - q.x) || e.side; e.ox = Math.max(e.ox, A.cone + (e.oy - 12) * A.slope + P.arcMargin); sp = P.arcCruise; } // stays on its side of the cone; pinned at the edge, the Arc gets it or it leaves
     if (kill) { e.side = Math.sign(e.x - q.x) || e.side; if ((e.side < 0 ? q.x : W - q.x) < e.kx + 24) e.side = -e.side; } // its side of the ship, if there is room
     const lined = g && (g.next === e || g.turn === e); // its turn is coming: it peels off to its attack spot, for the player to see
     gx = clamp(q.x + e.side * (kill ? Math.max(e.kx, arc ? e.ox : 0) : lined ? Math.max(e.fx, arc ? e.ox : 0) : e.ox), 24, W - 24); gy = clamp(q.y - (kill ? e.ky : lined ? e.fy : e.oy), 24, q.y - P.minUp);
@@ -13976,8 +14017,8 @@ const ENT = {
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1;
     if (e.t2 < 110) { e.y += (95 + BY + (e.yo || 0) - e.y) * 0.05; if (e.t2 === 100) e.untarget = false; return; }
-    if (e.t2 > 110 + PROTO_DUEL_T || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.y < -90) e.dead = true; return; } // not mandatory: after 2 minutes it breaks off and escapes
-    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.weak ? 1 : f > 0.66 ? 0 : f > 0.33 ? 1 : 2;
+    if ((e.t2 > 110 + PROTO_DUEL_T && !e.castle) || e.flee) { e.flee = true; e.untarget = true; e.fv = Math.min(4, (e.fv || 0) + 0.06); e.y -= e.fv; if (e.castle) { e.flare = 1; e.blink = false; if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey + (isMoth(e) ? 2 : 6), vx: rnd(-0.2, 0.2), vy: 0.6, r: rnd(2, 4), life: 26, max: 26 }); } if (e.y < -90) e.dead = true; return; } /* (the castle's prototype breaks off for good once it is down to a tenth) */ // not mandatory: after 2 minutes it breaks off and escapes
+    const k = e.t2 - 110, f = e.hp / e.maxhp, ph = e.weak ? 1 : e.castle ? (f > 0.55 ? 0 : 1) : f > 0.66 ? 0 : f > 0.33 ? 1 : 2; /* (the castle's: two phases, no lunge, no missile) */
     if (ph !== e.ph) { if (e.ph !== undefined) { feel.shake = Math.max(feel.shake, 5); boom(e.x + rnd(-20 * protoK(e), 20 * protoK(e)), e.y + rnd(-10 * protoK(e), 10 * protoK(e)), 16, 'a'); sfx('bigboom'); } e.ph = ph; }
     // phase 3 adds a lunge at the player every 6 seconds: it telegraphs, dives, fires a wide fan at the low point and pulls back
     const lt = k % 360, lu = ph === 2 && lt >= 270 ? (lt - 270) / 90 : 0, lunge = Math.sin(lu * PI) * 75;
@@ -13990,7 +14031,7 @@ const ENT = {
     // a slow fan of shells from the nose, wider with every phase
     if (k % Math.round(210 * fireSlow() * (e.weak ? 1.5 : 1)) === 120) { const n = e.weak ? 4 : 5 + ph * 2, gx = e.x, gy = e.y + 24 * protoK(e); for (let i = 0; i < n; i++) eshot(gx, gy, PI / 2 + (i - (n - 1) / 2) * 0.17, bspeed() * 0.75); flash(gx, gy, 5); sfx('gun'); }
     // from phase 2 the bomb bay also launches a homing missile
-    if (ph >= 1 && !e.weak && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24 * protoK(e), h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24 * protoK(e), 5); sfx('rocket'); }
+    if (ph >= 1 && !e.castle && !e.weak && k % Math.round(300 * fireSlow()) === 200) { world.enemies.push(E('missile', { x: e.x, y: e.y + 24 * protoK(e), h: PI / 2, v: 0.9, life: 420 })); flash(e.x, e.y + 24 * protoK(e), 5); sfx('rocket'); }
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + ex, y: e.y + ey - 4, vx: rnd(-0.2, 0.2), vy: -0.5, r: rnd(2, 3), life: 20, max: 20 });
     if (e.weak || e.hp <= e.maxhp * 0.2) { if (gf % 2 === 0) darkSmoke(e.x + rnd(-10, 10) * protoK(e), e.y + rnd(-4, 6) * protoK(e), -0.3); if (gf % 4 === 0) { const [ex, ey] = protoEngines(protoSpr(e), 1)[(gf >> 2) & 3]; darkSmoke(e.x + ex, e.y + ey - 4, -0.5); } } // at a fifth of its health it smokes black
     if (e.weak) engineSparks(e, 1, 0);
@@ -14004,7 +14045,7 @@ const ENT = {
     if (e.escape < 90) { groundPos(e); if (gf % 4 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) smokePuff(e.x - ex, isMoth(e) ? e.y - ey + 2 : e.y + 30); return; }
     e.v = Math.min(2.6, (e.v || 0) + 0.014); e.wy -= e.v; groundPos(e);
     if (gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1)) world.parts.push({ kind: 'smoke', layer: 'g', x: e.x - ex + rnd(-2, 2), y: isMoth(e) ? e.y - ey + 4 : e.y + 32, vx: rnd(-0.2, 0.2), vy: 0.4 + e.v * 0.3, r: rnd(2, 4), life: 30, max: 30 });
-    if (isMoth(e) && e.dmg > 0 && gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), 1.15).slice(0, 2)) darkSmoke(e.x - ex, e.y - ey + 3, 0.5); /* (shot, it flees trailing black smoke) */
+    if (mothOn() && e.dmg > 0 && gf % 3 === 0) for (const [ex, ey] of protoEngines(protoSpr(e), isMoth(e) ? 1.15 : 1).slice(0, 2)) darkSmoke(isMoth(e) ? e.x - ex : e.x - ex, isMoth(e) ? e.y - ey + 3 : e.y + 32, 0.5); /* (shot, it flees trailing black smoke) */
     if (e.y < -70) { e.gone = true; e.dead = true; } // it got away (it returns in the final stage)
   } },
   bldg: { arcLow: true, medals: 1, treesInFront: true, stats: { hp: 12, hw: 6, hh: 13, score: 1200, rad: 14 }, update(e) { groundPos(e); if (e.bk === 'chapel' && e.hit > 0 && (e.tollCd = (e.tollCd || 0) - 1) <= 0) { e.tollCd = 50; sfx('toll'); } } },
@@ -14155,6 +14196,20 @@ const ENT = {
 /* ================= player ================= */
 const keys = {};
 const kd = (...ks) => ks.some(k => keys[k]);
+// ---------- Super level ("level 8"): at level 4, four more pickups of the same weapon fill p.sup (0 to 4); the fourth merges the four HUD blocks into one
+// super block and turns the gun into its strongest form. A hit (or any other weapon) drops the progress: a hit at level 4 or above leaves level 3.
+// wl(p) is the effective level used by the guns and their drawing: 1 to 4, and 5 for the super weapon.
+const SUP_MAX = 4;
+const isSup = p => !!p && p.lvl >= 4 && (p.sup || 0) >= SUP_MAX;
+// The super weapon lasts SUP_TIME frames (11 s) and then cools down: back to level 4 with no steps. A pickup of the same weapon during it refills the time (and pays 1000).
+// Its shots one-shot ordinary enemies (dmg) but hit big enemies, boss parts and anything with more than SUP_ONE hit points for much less (bd), so it is a power fantasy without melting bosses.
+const SUP_TIME = 660, SUP_ONE = 8;
+const wl = p => isSup(p) ? 5 : Math.min(p.lvl, 4);
+const supHit = (s, e, boss) => s.bd === undefined ? s.dmg : (boss || e.big || e.hp > SUP_ONE * hpm()) ? s.bd : s.dmg;
+function supEnd(p) { // the time is up: the gun cools down to level 4
+  p.sup = 0; p.supT = 0; steamPuff(p.x, p.y - 14, 8, true); steamPuff(p.x - 9, p.y - 4, 3, false); steamPuff(p.x + 9, p.y - 4, 3, false);
+  if (actx && !muted) { tone(900, 0.12, 'triangle', 0.05 * mixF, 300); tone(450, 0.2, 'sine', 0.04 * mixF, 160); }
+}
 function pshot(x, y, a, sp, dmg) { const s = { x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, dmg, k: 's', w: 3, h: 7 }; world.shots.push(s); return s; }
 // ---------- Point-blank fire (Settings, experimental): the more of your own shots are still in the air, the slower the gun cycles.
 // Shots that hit free their place at once, so closing in keeps the rate up; shots that fly the whole range hold it. Arc is hitscan: its rate follows the first target's distance.
@@ -14166,7 +14221,7 @@ const PB = {
 };
 function pbAir(p, k) { // the ship's own live shots of one kind, drone fire left out
   const o = p === player ? 1 : 2; let n = 0;
-  for (const s of world.shots) if (s.k === k && !s.drone && !s.dead && (s.o || 1) === o) n++;
+  for (const s of world.shots) if (s.k === k && !s.drone && !s.flank && !s.dead && (s.o || 1) === o) n++;
   return n;
 }
 const fcd = base => settings.fire === 100 ? base : Math.max(1, Math.round(base * 100 / settings.fire)); // a cooldown at the chosen gun speed
@@ -14204,7 +14259,9 @@ const ARC_LV = [null,
   { reach: 0.5,  dmg: 1.2, cone: 10, slope: 0.16, jumps: 0, hop: 0,  gain: 1.0, ramp: 60, w: 2 },
   { reach: 0.55, dmg: 1.4, cone: 12, slope: 0.20, jumps: 0, hop: 0,  gain: 1.1, ramp: 55, w: 2 },
   { reach: 0.6,  dmg: 1.6, cone: 14, slope: 0.24, jumps: 1, hop: 38, gain: 1.3, ramp: 50, w: 3 },
-  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.2, ramp: 45, w: 3 }];
+  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.2, ramp: 45, w: 3 },
+  { reach: 0.95, dmg: 8, bd: 2.8, cone: 32, slope: 0.52, jumps: 7, hop: 76, gain: 1.6, ramp: 28, w: 6 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
+const arcDmg = (A, t) => A.bd === undefined ? A.dmg : (t.part || t.e.big || t.e.hp > SUP_ONE * hpm()) ? A.bd : A.dmg;
 function fireArc(p, L) {
   const A = ARC_LV[L], reach = H * A.reach, ox = p.x, oy = p.y - 12;
   run.stats.shots++;
@@ -14217,13 +14274,14 @@ function fireArc(p, L) {
   const dist = Math.hypot(t0.x - p.x, t0.y - oy) / reach; // how far the first target is, as a share of the reach
   arcBolt(ox, oy, t0.x, t0.y, A.w, { lv: L, r, life: 8, max: 8 });
   if (L >= 3) arcBolt(ox, oy, t0.x, t0.y, 1, { lv: L, r, sub: 1, life: 8, max: 8 });
-  arcHit(t0, A.dmg * mult); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
+  if (L >= 5) { for (let k = 0; k < 3; k++) arcBolt(ox, oy, t0.x, t0.y, k ? 2 : 1, { lv: L, r, sub: 1, life: 8, max: 8 }); for (let k = 0; k < 3; k++) arcBolt(ox, oy, ox + rnd(-46, 46), oy + rnd(-56, -8), 1, { life: 6, max: 6 }); } // the super Arc: five strands and a storm of loose bolts round the ship
+  arcHit(t0, arcDmg(A, t0) * mult); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
   if (r >= 1) for (let k = 0; k < 2; k++) world.parts.push({ kind: 'spark', layer: 'a', x: t0.x, y: t0.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.2, 1.2), life: 9, max: 9, col: k ? '#ffffff' : WPN.A.ramp[3] });
   const used = new Set([key]); let cur = t0;
   for (let k = 0; k < A.jumps; k++) {
     let nb = null, bd = A.hop;
     for (const e of world.enemies) { if (e.dead || e.dying || e.untarget || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
-    if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, A.w - 1)); arcHit(nb, A.dmg * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
+    if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, A.w - 1)); arcHit(nb, arcDmg(A, nb) * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
   }
   return dist;
 }
@@ -14236,13 +14294,13 @@ function drawArcs() {
     const e = a.pts[a.pts.length - 1];
     ctx.globalAlpha = 0.5 * f; dk(e[0], e[1], 4 + (a.lv ? r * 3 : 0), c[3]);
     if (a.lv) { ctx.globalAlpha = 0.45 * f; dk(a.pts[0][0], a.pts[0][1], 2 + a.lv + r * 3, c[3]); ctx.globalAlpha = f; dk(a.pts[0][0], a.pts[0][1], 1 + r * 2, '#ffffff'); }
-    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); } }
+    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); if (a.lv >= 5) { ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.arc(e[0], e[1], 9 + (gf >> 1) % 5, 0, TAU); ctx.stroke(); ctx.strokeStyle = c[3]; ctx.beginPath(); ctx.arc(e[0], e[1], 15 + (gf >> 1) % 7, 0, TAU); ctx.stroke(); ctx.globalAlpha = 0.35 * f; dk(e[0], e[1], 14, c[3]); } } }
   ctx.globalAlpha = 1;
 }
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
 // at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
 function drawLance(s) {
-  const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = [7, 9, 11, 11][Math.min(L, 4) - 1]; // (at least as wide as the old bolt with its outline: 6 to 10 px)
+  const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = [7, 9, 11, 11, 17][Math.min(L, 5) - 1]; // (at least as wide as the old bolt with its outline: 6 to 10 px)
   const odd = v => Math.max(1, Math.round(v / 2) * 2 - 1);
   const px = (rx, ry, rw, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(Math.round(rx), Math.round(ry), Math.max(1, Math.round(rw)), 1); };
   const tl = Math.min(Math.round(age * 1.2), 4 + L * 3);
@@ -14254,7 +14312,7 @@ function drawLance(s) {
       px(x - ww / 2, top + r, ww, c[Math.min(4, ci + ((r + age) % 5 === 0 ? 1 : 0))], 1);
     }
   }
-  if (L >= 4) for (let k = 0; k < 3; k++) {
+  if (L >= 4) for (let k = 0; k < (L >= 5 ? 8 : 3); k++) {
     const t = (age * 1.6 + k * 9) % 27, a = 1 - t / 27, hw = Math.round(w0) + 4 - Math.round(t / 9), y = top + 16 - t;
     px(x - hw / 2, y, hw, c[3], 0.35 + 0.5 * a); px(x - hw / 2 - 1, y, 1, c[4], a); px(x + hw / 2, y, 1, c[4], a);
   }
@@ -14265,10 +14323,10 @@ function drawLance(s) {
 // brightest thing on screen. Drawing only; a class is one (level, place in the fan) pair, built once as 32 headings with the usual outline.
 const scatCls = {};
 function scatClass(L, r) {
-  const rc = Math.round(r * 6), key = L * 8 + rc; if (scatCls[key]) return scatCls[key];
-  r = rc / 6; const c = WPN.S.ramp, big = L >= 2 && r < 0.3, wing = r > 0.6, body = wing ? c[2] : c[3], core = wing ? c[3] : c[4];
-  const len = L === 1 ? 5 : [0, 6, 7, 8][L - 1] - Math.round(r * 2) + (L === 2 ? 1 : 0) + (L >= 4 && r < 0.3 ? 1 : 0), cw = L === 1 || big ? 3 : 2;
-  const tl = L >= 3 ? Math.round([0, 0, 3, 6][L - 1] * (1 - r * 0.4)) : 0;
+  const rc = Math.round(r * 6), key = L * 8 + rc, sup = L >= 5; if (scatCls[key]) return scatCls[key];
+  r = rc / 6; const c = WPN.S.ramp, big = L >= 2 && r < 0.3, wing = r > 0.6, body = sup ? (wing ? c[3] : c[4]) : wing ? c[2] : c[3], core = sup ? '#ffffff' : wing ? c[3] : c[4];
+  const len = L === 1 ? 5 : [0, 6, 7, 8, 11][L - 1] - Math.round(r * 2) + (L === 2 ? 1 : 0) + (L >= 4 && r < 0.3 ? 1 : 0), cw = L === 1 || big || L >= 5 ? 3 : 2;
+  const tl = L >= 3 ? Math.round([0, 0, 3, 6, 13][L - 1] * (1 - r * 0.4)) : 0;
   const set = rotSet(sprite(cw, len, x => {
     for (let j = 0; j < len; j++) { // the head points down in the sprite (the set turns it to the heading)
       const ft = len - 1 - j, w = L === 1 ? (j === 0 || ft === 0 ? 1 : 3) : (ft === 0 ? 1 : cw), off = (cw - w) >> 1;
@@ -14290,24 +14348,26 @@ const SEEK = [null,
   { n: 1, cd: 34, dmg: 1.4, turn: 0.06, top: 3.4, sees: 110, rg: 0.5,  w: 3, fl: 2 },
   { n: 2, cd: 30, dmg: 1.5, turn: 0.08, top: 3.8, sees: 140, rg: 0.58, w: 4, fl: 4 },
   { n: 3, cd: 28, dmg: 1.6, turn: 0.10, top: 4.1, sees: 170, rg: 0.66, w: 5, fl: 6 },
-  { n: 4, cd: 28, dmg: 2.2, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 }];
+  { n: 4, cd: 28, dmg: 2.2, turn: 0.12, top: 4.4, sees: 200, rg: 0.74, w: 6, fl: 9, splash: 20 },
+  { n: 10, cd: 22, dmg: 8, bd: 1.6, turn: 0.17, top: 5.2, sees: 300, rg: 0.9, w: 8, fl: 16, splash: 46 }]; // [5]: the super Seekers (dmg against small enemies, bd against big ones)
 const SEEK_ROWS = [null,
   ['.1.', '323', '343', '343', '.4.', '.4.'],
   ['..1..', '..2..', '.333.', '.343.', '.343.', '23432', '.343.', '..4..'],
   ['..1..', '.121.', '.232.', '.343.', '.343.', '23432', '.141.', '.343.', '.444.', '..4..'],
-  ['...1...', '..121..', '..232..', '.13431.', '2.343.2', '2.343.2', '..141..', '..343..', '..343..', '..444..', '..444..', '...4...']];
-const SEEK_LASER = [null, { len: 9, w: 3, dx: 3 }, { len: 11, w: 5, dx: 4 }, { len: 14, w: 5, dx: 5 }, { len: 17, w: 7, dx: 6 }];
+  ['...1...', '..121..', '..232..', '.13431.', '2.343.2', '2.343.2', '..141..', '..343..', '..343..', '..444..', '..444..', '...4...'],
+  ['.....1.....', '....121....', '....232....', '...13431...', '...13431...', '..1343431..', '.2.13431.2.', '22.13431.22', '.2..343..2.', '....141....', '...13431...', '...13431...', '....444....', '....444....', '....444....', '.....4.....']];
+const SEEK_LASER = [null, { len: 9, w: 3, dx: 3 }, { len: 11, w: 5, dx: 4 }, { len: 14, w: 5, dx: 5 }, { len: 17, w: 7, dx: 6 }, { len: 28, w: 11, dx: 10 }];
 const seekCls = {};
 function seekClass(L) { // the missile body, built once per level as 32 headings with the usual outline (the head points down in the sprite)
   if (seekCls[L]) return seekCls[L];
   const c = WPN.H.ramp, rows = SEEK_ROWS[L];
   return seekCls[L] = rotSet(sprite(rows[0].length, rows.length, x => { rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') { x.fillStyle = c[+r[i]]; x.fillRect(i, j, 1, 1); } }); }), 32);
 }
-function seekMissile(x, y, vx, vy, L, o) { world.shots.push(Object.assign({ x, y, vx, vy, k: 'h', lv: L, dmg: SEEK[L].dmg, w: SEEK[L].w, h: SEEK[L].w, sp: 1.4 }, o)); }
+function seekMissile(x, y, vx, vy, L, o) { world.shots.push(Object.assign({ x, y, vx, vy, k: 'h', lv: L, dmg: SEEK[L].dmg, bd: SEEK[L].bd, w: SEEK[L].w, h: SEEK[L].w, sp: 1.4 }, o)); }
 function seekBurst(s, hit) { // level 4: the missile bursts, and the blast hurts what is close to the one it hit
-  const r = SEEK[4].splash, c = WPN.H.ramp;
-  for (const e of world.enemies) if (e !== hit && !e.dead && !e.dying && !e.untarget && e.type !== 'boss' && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < r * r) damage(e, s.dmg * 0.5 * dmgK());
-  for (let k = 0; k < 8; k++) { const a = k * TAU / 8; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, life: 9, max: 9, col: k % 2 ? c[3] : c[4] }); }
+  const r = SEEK[s.lv || 4].splash, c = WPN.H.ramp, nb = (s.lv || 4) >= 5 ? 24 : 8;
+  for (const e of world.enemies) if (e !== hit && !e.dead && !e.dying && !e.untarget && e.type !== 'boss' && (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < r * r) damage(e, supHit(s, e, false) * 0.5 * dmgK());
+  for (let k = 0; k < nb; k++) { const a = k * TAU / nb; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: Math.cos(a) * (nb > 8 ? 2.2 : 1.6), vy: Math.sin(a) * (nb > 8 ? 2.2 : 1.6), life: nb > 8 ? 12 : 9, max: nb > 8 ? 12 : 9, col: k % 2 ? c[3] : c[4] }); }
 }
 function drawSeeker(s) {
   const L = s.lv || 1, c = WPN.H.ramp, a = Math.atan2(s.vy, s.vx), ca = Math.cos(a), sa = Math.sin(a), n = SEEK[L].fl, len = SEEK_ROWS[L].length;
@@ -14322,34 +14382,41 @@ function drawSeekLaser(s) {
   if (L === 1) { bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); bar(-1, 3, top, 2, c[4], 1); }
   else if (L === 2) { bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, c[4], 1); }
   else if (L === 3) { bar(-2, 5, top + 2, g.len - 2, c[2], 1); bar(-1, 3, top, g.len, c[4], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(3, 4); }
+  else if (L >= 5) { const h = (g.w - 1) >> 1, cols = [c[1], c[2], c[3], c[3], c[4], '#ffffff'];
+    for (let i = 0; i <= h; i++) bar(-(h - i), g.w - 2 * i, top + Math.max(0, 4 - i), g.len - Math.max(0, 4 - i), cols[Math.round(i / h * 5)], i ? 1 : 0.7);
+    tail(g.w - 2, g.w - 2); bar(-h, g.w, top + 4 + ((age * 3) % (g.len - 5)), 1, '#ffffff', 0.9); bar(-h, g.w, top + 4 + ((age * 3 + 9) % (g.len - 5)), 1, c[4], 0.8); }
   else { bar(-3, 7, top + 3, g.len - 3, c[1], 0.7); bar(-2, 5, top + 1, g.len - 1, c[2], 1); bar(-1, 3, top, g.len, c[3], 1); bar(0, 1, top, g.len, '#ffffff', 1); tail(5, 5);
     bar(-3, 7, top + 3 + ((age * 3) % (g.len - 4)), 1, c[4], 0.9); }
   ctx.globalAlpha = 1;
 }
 function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
 function firing(p = player, two) {
+  if (isSup(p) && --p.supT <= 0) supEnd(p);
   if (p.cd > 0) p.cd--;
   if (p.mcd > 0) p.mcd--;
   if (p === player) pbTick();
   if (p.cd > 0) return;
-  const L = p.lvl, up = -PI / 2;
+  const L = wl(p), up = -PI / 2;
   if (p.wpn === 'S') {
-    p.cd = pbCd(p, 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7][L]);
+    p.cd = pbCd(p, L >= 5 ? 5 : 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7, 13][L]);
     if (L === 1) { for (const dx of [-4, 4]) Object.assign(pshot(p.x + dx, p.y - 8, up, 6, 1), { sl: 1, rk: 0.5 }); }
-    else { const n = [0, 0, 3, 5, 7][L]; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * 0.15, 6, 1), { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
+    else { const n = [0, 0, 3, 5, 7, 13][L], sp = L >= 5 ? 0.17 : 0.15; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * sp, L >= 5 ? 7 : 6, L >= 5 ? 8 : 1), L >= 5 ? { sl: L, bd: 0.6, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) } : { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
   } else if (p.wpn === 'A') {
     p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
-    world.shots.push({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L });
+    world.shots.push(Object.assign({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L }, L >= 5 ? { dmg: 10, bd: 2.4 } : null));
+    if (L >= 5) for (const [dx, vx] of [[-13, 0], [13, 0], [-8, -1.5], [8, 1.5]]) world.shots.push({ x: p.x + dx, y: p.y - (vx ? 0 : 6), vx, vy: -7.4, dmg: 8, bd: 0.6, k: 'l', w: 5, h: 14, lv: 2, flank: true }); // the super Lance fires four flank bolts, two straight beside the main one and two leaving the ship's wings at an angle
   } else {
     p.cd = pbCd(p, 7, 's', 2); // only the straight pair is throttled; the missiles keep their own timer
-    const hl = Math.min(L, 4);
-    for (const sd of [-1, 1]) Object.assign(pshot(p.x + sd * SEEK_LASER[hl].dx, p.y - 8, up, 6, hl >= 4 ? 1.2 : 1), { hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 });
+    const hl = Math.min(L, 5);
+    for (const sd of [-1, 1]) Object.assign(pshot(p.x + sd * SEEK_LASER[hl].dx, p.y - 8, up, 6, hl >= 5 ? 8 : hl >= 4 ? 1.2 : 1), Object.assign({ hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 }, hl >= 5 ? { bd: 0.9 } : null));
+    if (hl >= 5) Object.assign(pshot(p.x, p.y - 10, up, 6.5, 8), { bd: 0.9, hl, w: SEEK_LASER[hl].w, h: SEEK_LASER[hl].len - 2 }); // the super Seekers: a third, central laser
     if (p.mcd <= 0) { if (!two) chipPlay('missile');
       const sk = SEEK[hl]; p.mcd = fcd(sk.cd);
       if (hl === 1) { const side = (p.seekN = (p.seekN || 0) + 1) % 2 ? 1 : -1; seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, 1); }
       else if (hl === 4) { for (const [side, k] of [[-1, 1.2], [1, 1.2], [-1, 2.2], [1, 2.2]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 4); }
+      else if (hl === 5) { for (const [side, k] of [[-1, 0.8], [1, 0.8], [-1, 1.6], [1, 1.6], [-1, 2.4], [1, 2.4], [-1, 3.2], [1, 3.2], [-1, 4], [1, 4]]) seekMissile(p.x + side * 6, p.y, side * k, -0.6, 5); }
       else { for (const side of [-1, 1]) seekMissile(p.x + side * 6, p.y, side * 1.2, -0.6, hl); if (hl === 3) seekMissile(p.x, p.y - 4, 0, -1.4, 3); }
     }
   }
@@ -14628,7 +14695,7 @@ function die(cause) {
   p.dead = RB_TOTAL; p.rbMode = 0; p.dx = p.x; p.dy = p.y; run.stats.deaths++; bossHit = true; p.charge = 0; beam = null; feel.hitStop = 6; boom(p.x, p.y, 30); feel.shake = 12; feel.flashFx = 5; sfx('die'); haptic('die');
   for (let i = 0; i < p.drones; i++) boom(p.dr[i].x, p.dr[i].y, 10);
   p.drones = 0; if (run.medalT > 0) endChain(); run.medalMul = 1; run.medalT = 0;
-  p.lvl = Math.max(1, p.lvl - 1);
+  p.lvl = Math.max(1, p.lvl - 1); p.sup = 0; p.supT = 0;
   if (run.lives > 0) run.lives--; else if (p2 && run.lives2 > 0) run.lives2--; else run.gameOverPending = true; // a ship with no lives left spends a spare one of its partner
 }
 const needDrone = () => !!player && (player.drones < 2 || !!(p2 && !p2.out && p2.drones < 2)); // a Talon is still worth dropping while either ship has a free slot
@@ -14686,7 +14753,7 @@ function updP2() {
 }
 function hurtP2() {
   const q = p2; if (!q || q.dead) return;
-  bossHit = true; app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1);
+  bossHit = true; app.glows = app.glows && app.glows.filter(g => g.who !== 2); q.dead = 150; q.charge = 0; q.beam = null; boom(q.x, q.y, 24); feel.shake = Math.max(feel.shake, 6); sfx('die'); q.lvl = Math.max(1, q.lvl - 1); q.sup = 0; q.supT = 0;
   for (let i = 0; i < q.drones; i++) boom(q.dr[i].x, q.dr[i].y, 10);
   q.drones = 0;
   if (run.lives2 > 0) run.lives2--; else if (run.lives > 0) run.lives--; else { q.out = true; q.outT = 0; q.dead = 1e9; } // out of lives: spends a spare one of player 1's
@@ -14712,8 +14779,8 @@ function p2Pickups(q) {
     }
     if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); } }
     else {
-      if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; }
-      label(it.x, it.y - 8, WPN[it.w].name + ' ' + q.lvl);
+      if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else if ((q.sup || 0) < SUP_MAX) { superStep(q, 2, it); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); if (isSup(q)) q.supT = SUP_TIME; } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; q.sup = 0; q.supT = 0; }
+      label(it.x, it.y - 8, WPN[it.w].name + ' ' + (isSup(q) ? 'SUPER' : q.lvl + (q.sup || 0)));
     }
     checkExtend(); sfx('power'); world.items.splice(i, 1);
   }
@@ -14731,7 +14798,7 @@ function drawP2() {
   const q = p2; if (!q || q.dead || app.state !== 'play' || !player) return;
   const fl = 3 + ((gf >> 1) & 1) * 2;
   for (const ox of [-6, 6]) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(q.x + ox) - 1, Math.round(q.y + 13), 2, fl); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(q.x + ox), Math.round(q.y + 13), 1, fl - 1); }
-  drawGlowBehind(q, 2);
+  drawGlowBehind(q, 2); superAura(q);
   const sp2 = goldSet()[q.bank < -0.35 ? 0 : q.bank > 0.35 ? 2 : 1]; // player 2 always flies the golden Rooster
   spr(sp2, q.x, q.y);
   drawGlowFront(q, 2, sp2);
@@ -14798,8 +14865,13 @@ function startCrash(e) {
 function damage(e, d) {
   if (e.dying || e.dead) return;
   if (e.type === 'camo' || e.untarget) return;
+  if (e.type === 'protoDuel' && e.castle) { /* the castle's prototype: it cannot be killed; down to a tenth it flees (no points), and it comes back whole later */
+    if (e.flee) return; e.hit = 3; e.hp -= d; run.stats.hits++;
+    if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30, 30), y: e.y + rnd(-20, 20), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' });
+    if (e.hp <= e.maxhp * 0.1) { e.hp = e.maxhp * 0.1; e.flee = true; e.untarget = true; boom(e.x, e.y, 22, 'a'); sfx('bigboom'); feel.shake = Math.max(feel.shake, 6); } else sfx('hitm');
+    return; }
   if (e.ground && !fullBeamHit && smokeCover(e)) { smokePing(e); return; } // (a Nebelwerfer's smoke: only a full laser gets through)
-  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (isMoth(e)) for (let k = 0; k < 2; k++) darkSmoke(e.x + rnd(-14, 14), e.y + rnd(-8, 8), 0.3); /* shot, The Moth trails black smoke */ if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30 * protoK(e), 30 * protoK(e)), y: e.y + rnd(-20 * protoK(e), 20 * protoK(e)), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
+  if (e.type === 'proto') { e.dmg = (e.dmg || 0) + d; e.hit = 3; if (mothOn()) for (let k = 0; k < 2; k++) darkSmoke(e.x + rnd(-14, 14) * protoK(e), e.y + rnd(-8, 8) * protoK(e), 0.3); /* shot, the Raven prototype trails black smoke */ if (Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'a', x: e.x + rnd(-30 * protoK(e), 30 * protoK(e)), y: e.y + rnd(-20 * protoK(e), 20 * protoK(e)), vx: rnd(-0.8, 0.8), vy: rnd(-0.8, 0.4), life: 10, max: 10, col: '#fff2a8' }); run.stats.hits++; return; }
   setPos(e.x, e.y);
   if (e.type === 'fighter') {
     if (!e.crash) { fate(e, 'fs', () => startCrash(e)); return; }
@@ -15235,6 +15307,7 @@ function update() {
 
   updFlyby();
   director();
+  frenzyTick();
   for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const it = world.later[i]; world.later.splice(i, 1); if (it.rs === undefined) { it.fn(); continue; } const nL = world.later.length; rsRun(it, 'rs', it.fn); for (let k = nL; k < world.later.length; k++) { const q = world.later[k]; if (q.rs === undefined) q.rs = q.rs0 = rsHash(it.rs, 0x200 + k - nL); } } // (the Campaign: a delayed call runs on its own stream, and what it leaves for later gets one seeded by it)
   if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
   if (run.sortie && run.sortie.falls) gorgeFallTick(); // (level 5: cars falling from the bridge)
@@ -15415,13 +15488,13 @@ function update() {
       if (e.type === 'boss') {
         let hitPart = null;
         for (const p of e.parts) { if (p.dead || e.y + p.oy < 4 || bossShielded(e, p)) continue; if (Math.abs(s.x - e.x - p.ox) < p.hw + s.w / 2 && Math.abs(s.y - e.y - p.oy) < p.hh + s.h / 2) { hitPart = p; break; } }
-        if (hitPart) { s.dead = true; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, s.dmg * dmgK()); run.stats.hits++; break; }
+        if (hitPart) { s.dead = true; world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' }); damagePart(e, hitPart, supHit(s, e, true) * dmgK()); run.stats.hits++; break; }
         continue;
       }
       if (Math.abs(s.x - e.x) < e.hw + s.w / 2 && Math.abs(s.y - e.y) < e.hh + s.h / 2) {
         s.dead = true;
         world.parts.push({ kind: 'spark', layer: 'a', x: s.x, y: s.y, vx: rnd(-0.6, 0.6), vy: rnd(-0.8, 0), life: 7, max: 7, col: '#fff2a8' });
-        damage(e, s.dmg * dmgK()); run.stats.hits++;
+        damage(e, supHit(s, e, false) * dmgK()); run.stats.hits++;
         if (s.k === 'h' && SEEK[s.lv || 1].splash) seekBurst(s, e);
         break;
       }
@@ -15457,8 +15530,8 @@ function update() {
         if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); } } // (a full stock turns the Nova into 2000 points)
         else {
           if (app.tut) app.tut.got++;
-          if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; }
-          label(it.x, it.y - 8, WPN[it.w].name + ' ' + p.lvl);
+          if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); } else if ((p.sup || 0) < SUP_MAX) { superStep(p, 1, it); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); if (isSup(p)) p.supT = SUP_TIME; } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; p.sup = 0; p.supT = 0; }
+          label(it.x, it.y - 8, WPN[it.w].name + ' ' + (isSup(p) ? 'SUPER' : p.lvl + (p.sup || 0)));
         }
         if (app.rr) app.rr.pk[it.kind === 'B' ? 'B' : it.w] = (app.rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
         checkExtend(); sfx('power'); haptic('power'); world.items.splice(i, 1);
@@ -16750,6 +16823,11 @@ function drawPlayerArcs() { drawArcs(); }
 // ---- ship glow: picking up a weapon lights the ship in the weapon's colour. No text; the HUD shows the weapon and its level. ----
 // Same weapon: a level-up, stronger with every level (lvl is the new level 2 to 4, or 5 for the 1000-point bonus at the top).
 // Another weapon (from set): the hull wipes from the old colour to the new one. It is drawn over whichever skin the ship has, using only the sprite's shape.
+function superStep(p, who, it) { // one more pickup towards the super weapon: a small bonus and the level-4 glow; the fourth fires the big one
+  p.sup = (p.sup || 0) + 1; addScore(250); label(it.x, it.y - 22, '250');
+  if (p.sup >= SUP_MAX) { p.supT = SUP_TIME; startGlow(who, it.w, null, 4); app.glows.push({ who, kind: 'super', w: it.w, t: 0 }); feel.shake = Math.max(feel.shake, 7); feel.flashFx = Math.max(feel.flashFx || 0, 4); }
+  else startGlow(who, it.w, null, 4);
+}
 function startGlow(who, w, from, lvl) { app.glows = (app.glows || []).filter(g => !(g.who === who && !g.kind)); app.glows.push({ who, w, from, lvl, t: 0 }); }
 // kind 'nova' (a bomb collected: the energy condenses into the ship) or 'drone' (a Talon docks: i is its slot, 0 left and 1 right)
 function startFx(who, kind, i) { app.glows = (app.glows || []).filter(g => !(g.who === who && g.kind === kind && g.i === i)); app.glows.push({ who, kind, i, t: 0 }); }
@@ -16764,10 +16842,23 @@ function glowStamp(sp, x, y, a, fill) { // the sprite's own shape filled with a 
   glowG.globalCompositeOperation = 'source-atop'; fill(glowG); glowG.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = a; ctx.drawImage(glowCv, Math.round(x - sp.w / 2), Math.round(y - sp.h / 2)); ctx.globalAlpha = 1;
 }
+function superAura(p) { // the super weapon's mark on the ship: a big pulsing halo in the weapon's colours, a ring rolling outward, sparks circling the wings and a flame off each wing tip; it flickers in the last two seconds
+  if (!isSup(p)) return;
+  if (p.supT < 120 && (p.supT >> 2) & 1) return;
+  const c = WPN[p.wpn].ramp, k = 0.5 + 0.5 * Math.sin(gf * 0.15);
+  ctx.globalAlpha = 0.14 + 0.1 * k; dk(p.x, p.y, 16 + Math.round(k * 2), c[2]);
+  ctx.globalAlpha = 0.18 + 0.12 * k; dk(p.x, p.y, 24 + Math.round(k * 3), c[3]);
+  if (!lowFX) { ctx.globalAlpha = 0.1; dk(p.x, p.y, 34, c[2]); }
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 4; i++) { const an = gf * 0.09 + i * PI / 2; glowDot(p.x + Math.cos(an) * 15, p.y + Math.sin(an) * 9 + 2, i & 1 ? c[4] : '#ffffff', 0.9, 2); }
+  const q = (gf % 40) / 40; glowRing(p.x, p.y + 2, 10 + q * 26, c[4], (1 - q) * 0.8);
+  for (let i = 0; i < 6; i++) { const an = -gf * 0.13 + i * PI / 3; glowDot(p.x + Math.cos(an) * 22, p.y + Math.sin(an) * 14 + 2, i & 1 ? '#fff4c0' : c[4], 0.9, 2); }
+  for (const sd of [-1, 1]) for (let i = 0; i < 9; i++) glowDot(p.x + sd * (12 + (i & 1)), p.y + 4 + i * 2, i < 3 ? '#ffffff' : i < 6 ? c[4] : c[3], 0.85 - i * 0.08, 2);
+}
 function drawGlowBehind(p, who) { for (const g of glowsOf(who)) glowBehindOne(p, g); }
 function glowBehindOne(p, g) {
   const t = g.t;
-  if (g.kind === 'drone' || g.kind === 'bonus') return;
+  if (g.kind === 'drone' || g.kind === 'bonus' || g.kind === 'super') return;
   if (g.kind === 'nova' || g.kind === 'spill') { if (t < 24) { ctx.globalAlpha = 0.26 * Math.sin(clamp(t / 24, 0, 1) * PI); dk(p.x, p.y, 11, RP.alien[2]); ctx.globalAlpha = 1; } return; }
   const c = WPN[g.w].ramp;
   if (g.from === undefined || g.from === null) {
@@ -16830,6 +16921,17 @@ function glowFrontOne(p, g, sp) {
     if (t >= 9 && t < 30) { const cl = t < 20 ? 1 : 1 - (t - 20) / 10; ctx.globalAlpha = 0.7 * cl; dk(x, y, 4 + Math.round(Math.sin(t * 0.7)), R[3]); ctx.globalAlpha = 0.95 * cl; dk(x, y, 2, R[5]); ctx.globalAlpha = 1; }
     return;
   }
+  if (g.kind === 'super') { // the fourth super pickup: the ship flashes white, a double shockwave and rays burst out, gold sparks rain
+    const c = WPN[g.w].ramp;
+    if (t < 8) glowStamp(sp, x, y, 1 - t / 8, f => { f.fillStyle = '#ffffff'; f.fillRect(0, 0, glowCv.width, glowCv.height); });
+    { for (let i = 0; i < 4; i++) { const q = (t - i * 4) / 34; if (q < 0 || q > 1) continue; glowRing(x, y, 4 + q * 80, i & 1 ? c[4] : '#ffffff', (1 - q) * 0.9); }
+      if (t < 10) { ctx.globalAlpha = 0.45 * (1 - t / 10); dk(x, y, 20 + t * 5, '#ffffff'); ctx.globalAlpha = 1; }
+      for (let i = 0; i < 24; i++) { const q = (t - 1) / 22; if (q < 0 || q > 1) continue; const ra = i * TAU / 24, r0 = 8 + q * 64; for (let k = 0; k < 6; k++) glowDot(x + Math.cos(ra) * (r0 + k), y + Math.sin(ra) * (r0 + k), k ? c[3] : '#ffffff', 1 - q); } }
+    for (let i = 0; i < 2; i++) { const q = (t - i * 5) / 26; if (q < 0 || q > 1) continue; glowRing(x, y, 6 + q * 38, q < 0.5 ? '#ffffff' : c[4], (1 - q) * 0.9); glowRing(x, y, 8 + q * 38, c[3], (1 - q) * 0.6); }
+    if (!lowFX) for (let i = 0; i < 12; i++) { const q = (t - 2) / 16; if (q < 0 || q > 1) continue; const ra = i * TAU / 12 + 0.15, r0 = 10 + q * 30; for (let k = 0; k < 4; k++) glowDot(x + Math.cos(ra) * (r0 + k), y + Math.sin(ra) * (r0 + k), k ? c[3] : '#ffffff', 1 - q); }
+    if (!lowFX) for (let i = 0; i < 18; i++) { const ph = t - 4 - i, an = i * 0.9, rd = 14 + (i * 0.43 % 1) * 18; if (ph < 0 || ph > 10) continue; glowDot(x + Math.cos(an) * rd, y + Math.sin(an) * rd - ph * 0.6, '#fff4c0', 1 - ph / 10); }
+    return;
+  }
   const c = WPN[g.w].ramp;
   if (g.from === undefined || g.from === null) {
     const mx = g.lvl >= 5, s = g.lvl - 2, hot = 4 + s * 2, fade = 16 + s * 6;
@@ -16885,7 +16987,7 @@ function drawPlayer() {
   }
   ctx.globalAlpha = 0.35; dk(p.x - 3, p.y + 17, 3, '#ff9a4a'); dk(p.x + 3, p.y + 17, 3, '#ff9a4a'); ctx.globalAlpha = 1;
   if (!p2 && useNacht()) { ctx.globalAlpha = 0.17; dk(p.x, p.y + 1, 15, '#8466dc'); ctx.globalAlpha = 1; } // a faint violet glow keeps the black ship easy to see on dark stages
-  if (fk === 1) drawGlowBehind(p, 1);
+  if (fk === 1) { drawGlowBehind(p, 1); superAura(p); }
   const sp = (p2 ? SPR.playerSet : skinSet())[p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   if (run.sortie && run.sortie.moon && fk === 1) moonRim(sp, p.x, p.y);
   spr(sp, p.x, p.y);
@@ -16908,10 +17010,22 @@ function drawHitbox() {
   dk(p.x, p.y, 1, '#ffffff');
 }
 // Weapon level as four blocks in the weapon's colour, filled up to the level (phone: bottom left; PC: above the Novas, mirrored for player 2 with `right`)
-function levelBlocks(x, by, lvl, w, right) {
+function levelBlocks(x, by, lvl, w, right, sup, supT) { // sup: 0 to 4 super steps. They refill the four blocks in a lighter, gold-framed style; at 4 the blocks merge into one super block that drains as the super time (supT of SUP_TIME frames) runs out
+  sup = lvl >= 4 ? sup || 0 : 0;
+  if (sup >= SUP_MAX) {
+    const x0 = right ? x - 46 : x, fw = clamp(Math.round(44 * (supT ?? SUP_TIME) / SUP_TIME), 1, 44), fx = right ? x0 + 1 + 44 - fw : x0 + 1, warn = supT < 120 && (supT >> 3) & 1;
+    ctx.fillStyle = OUT; ctx.fillRect(x0 - 1, by - 2, 48, 9);
+    ctx.fillStyle = warn ? '#ff8a60' : '#f4d050'; ctx.fillRect(x0, by - 1, 46, 7);
+    ctx.fillStyle = '#2b2540'; ctx.fillRect(x0 + 1, by, 44, 5);
+    ctx.fillStyle = warn ? '#ffd0b0' : w.hud[1]; ctx.fillRect(fx, by, fw, 5);
+    ctx.fillStyle = warn ? '#ffffff' : w.hud[0]; ctx.fillRect(fx, by, fw, 2);
+    if (fw > 6) { const g = ((gf >> 1) % (fw - 3)); ctx.fillStyle = '#ffffff'; ctx.fillRect(fx + g, by, 4, 2); } /* (a glint runs along the fill) */
+    return;
+  }
   for (let k = 0; k < 4; k++) {
-    const bx = right ? x - 10 - k * 12 : x + k * 12, on = k < Math.min(lvl, 4);
+    const bx = right ? x - 10 - k * 12 : x + k * 12, on = k < Math.min(lvl, 4), su = k < sup;
     ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, 12, 7);
+    if (su) { ctx.fillStyle = '#f4d050'; ctx.fillRect(bx - 1, by - 1, 12, 7); ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 5); ctx.fillStyle = w.hud[1]; ctx.fillRect(bx, by + 4, 10, 1); continue; }
     ctx.fillStyle = on ? w.hud[1] : '#2b2540'; ctx.fillRect(bx, by, 10, 5);
     if (on) { ctx.fillStyle = w.hud[0]; ctx.fillRect(bx, by, 10, 1); }
   }
@@ -16970,7 +17084,7 @@ function drawHUDBody(H) {
   if (p2) { // player 2's corner mirrors player 1's: weapon, Nova bombs and lives, right-aligned at the bottom
     const w2 = WPN[p2.wpn] || WPN.S;
     weaponName(w2.name, W - 4, H - 43, w2, true);
-    levelBlocks(W - 4, H - 35, p2.lvl, w2, true);
+    levelBlocks(W - 4, H - 35, p2.lvl, w2, true, p2.sup, p2.supT);
     for (let i = 0; i < Math.min(run.bombs2, 6); i++) ctx.drawImage(SPR.novaIcon.c, W - 14 - i * 12, H - 27, 10, 10); // Novas at double size, the lives below them in the same columns
     for (let i = 0; i < Math.min(run.lives2, 6); i++) spr(SPR.life, W - 9 - i * 12, H - 9);
     if (p2.out) textS('OUT', W - 4, H - 9, '#ff8a60', 1, 'right', '#d84a34');
@@ -16989,7 +17103,7 @@ function drawHUDBody(H) {
   if (player) {
     const w = WPN[player.wpn] || WPN.S;
     weaponName(w.name, 4, TOUCH_HUD ? H - 31 : H - 43, w, false);
-    levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false);
+    levelBlocks(4, TOUCH_HUD ? H - 23 : H - 35, player.lvl, w, false, player.sup, player.supT);
   }
   const big = app.state === 'over' ? null : world.enemies.find(e => e.big && !e.dying && !e.barHide && (e.y > -20 || e.type === 'boss')); // no boss bar once the run is over
   if (big) drawBossBar(big, TOUCH_HUD && !p2 ? 29 - SAFE_T : 22);
