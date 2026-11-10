@@ -4499,7 +4499,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.5.128'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.5.129'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12241,8 +12241,8 @@ function drawEnding() {
   } ctx.globalAlpha = 1;
   /* the banner and the final score, then the fade in from black */
   const b0 = EN.BANNER[0], b1 = EN.BANNER[1];
-  if (t > b0 && t < b1 + 100) { const al = Math.min(1, (t - b0) / 40, (b1 + 100 - t) / 100); ctx.globalAlpha = al * 0.55; ctx.fillStyle = '#080c1e'; ctx.fillRect(0, 8, W, 88); ctx.globalAlpha = al; textO('GRAF ZEPPELIN', W / 2, 14, '#fff0a0', 2, 'center', '#f8a83a'); textO('SURRENDERS', W / 2, 32, '#fff0a0', 2, 'center', '#f8a83a');
-    textS('FINAL SCORE', W / 2, 56, '#e8dcff', 1, 'center', '#bba4ff'); textO(String(E.score), W / 2, 66, '#ffffff', 2, 'center', '#c4c9ce'); ctx.globalAlpha = 1; }
+  if (t > b0 && t < b1 + 100) { const al = Math.min(1, (t - b0) / 40, (b1 + 100 - t) / 100); ctx.globalAlpha = al * 0.55; ctx.fillStyle = '#080c1e'; ctx.fillRect(0, 8, W, 88); ctx.globalAlpha = al; textO('CARRIER', W / 2, 12, '#fff0a0', 2, 'center', '#f8a83a'); textO('SURRENDERS', W / 2, 30, '#fff0a0', 2, 'center', '#f8a83a'); textS('YOUR NEW BASE', W / 2, 49, '#a8f6dc', 1, 'center', '#4ccfae');
+    textS('FINAL SCORE', W / 2, 62, '#e8dcff', 1, 'center', '#bba4ff'); textO(String(E.score), W / 2, 72, '#ffffff', 2, 'center', '#c4c9ce'); ctx.globalAlpha = 1; }
   if (t < EN.IN) { ctx.fillStyle = 'rgba(0,0,0,' + (1 - t / EN.IN) + ')'; ctx.fillRect(0, 0, W, H); }
 }
 // The scene is over: the score dialog (the run is a finished Campaign), then the title; the Retro Run button asks for the Retro Run's difficulty picker there.
