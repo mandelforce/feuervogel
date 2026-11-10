@@ -75,6 +75,7 @@ html.standalone #app{padding:calc(env(safe-area-inset-top,0px) + var(--t-sat,0px
 html.standalone #game{box-shadow:none}
 html.standalone body{background:#120c24} /* dark behind the status bar in both themes (its text is white) */
 #stage{position:relative;line-height:0}
+#crt{position:absolute;pointer-events:none;background-image:linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 62%,rgba(0,0,0,.32) 62%,rgba(0,0,0,.32) 100%);background-repeat:repeat}
 /* pixel window frame shared by every panel (9-slice border-image): black outline, cream line, purple bevel, notched corners */
 :root{--pxframe:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 9 9' shape-rendering='crispEdges'><path fill='%23120e1a' d='M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1z'/><path fill='%23f2ecd8' d='M2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM1 2h1v1h-1zM7 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM7 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1z'/><path fill='%238466dc' d='M2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM2 3h1v1h-1zM2 4h1v1h-1zM2 5h1v1h-1zM2 6h1v1h-1z'/><path fill='%232a2050' d='M6 2h1v1h-1zM6 3h1v1h-1zM6 4h1v1h-1zM6 5h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1z'/></svg>")}
 /* tutorial box: the difficulty picker's arcade window (frame, diagonal stripes), a TRAINING header with progress pips */
@@ -475,6 +476,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
+        <div class="row"><span>Retro Run scanlines</span><span class="seg"><button type="button" id="sCrt" aria-pressed="false">Off</button></span></div>
         <details id="sSensRow"><summary>Sensitivity</summary>
           <div class="row"><label for="sSensMouse">Mouse</label><input type="range" id="sSensMouse" min="25" max="175" step="5"><output id="sSensMouseV"></output></div>
           <div class="row"><label for="sSensKey">Keyboard</label><input type="range" id="sSensKey" min="25" max="175" step="5"><output id="sSensKeyV"></output></div>
@@ -4499,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.0'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4544,7 +4546,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -5045,7 +5047,7 @@ function useRaptor() { return raptorOwned() && !!settings.raptor; }
 SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
-function goldSet() { return goldCache || (goldCache = [-1, 0, 1].map(b => buildFeuervogel(b, true))); }
+function goldSet() { if (RETRO.on) return RETRO.gold; return goldCache || (goldCache = [-1, 0, 1].map(b => buildFeuervogel(b, true))); }
 let nachtCache = null;
 function nachtSet() { return nachtCache || (nachtCache = [-1, 0, 1].map(b => buildFeuervogel(b, 'nacht'))); }
 // The Nachtvogel skin is unlocked at Ravenhold (see the game over scene). 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen.
@@ -5096,7 +5098,7 @@ const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
 const roosterOwned = () => achHas('rookie');
 function useRooster() { return roosterOwned() && !!settings.rooster; }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet; // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const skinSet = () => retroSkin(useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet); // (a Retro Run: the retro copy, see retroSkin) // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
 const FLAME = () => useRaptor() ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#8466dc', '#bba4ff', '#e8dcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
 function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
@@ -5612,6 +5614,285 @@ function setEnigmaArt(on) {
   } else { for (const k of Object.keys(ENIG_ART.classic)) { if (ENIG_ART.classic[k] === undefined) delete SPR[k]; else SPR[k] = ENIG_ART.classic[k]; } ENIG_ART.on = false; }
 }
 setTimeout(loadEnigmaArt, 1500);
+/* ================= retro: the Retro Run's 1987 arcade look =================
+   Looks only, and only while a Retro Run is flown (run.retro, outside the title): chunky sprites in flat bevelled tones with a hard black
+   outline, solid black shadows, a rippled sea, speckled fireballs, amber-tipped tracers in each weapon's own colours, an arcade HUD with
+   ROUND / READY cards, optional CRT scanlines (Settings) and chip-style sound effects. Every retro picture is a copy: the Feuervogel and the
+   Rooster are redrawn by hand (retroVogel), the effects are drawn here, and every other sprite is converted once into the retro palette
+   (retroCanvas: dither smoothed away, colours snapped to RETRO_PAL). setRetroArt swaps the copies into SPR the way setEnigmaArt does and puts
+   the classic ones back when the run ends, so the Campaign, Enigma Run and Endless keep their art. Sizes and alpha masks never change and
+   nothing here draws from a random stream (rhash is a pure hash), so what a run does is the same with either look. */
+const RETRO = { on: false, S: null, classic: null, gold: null, sets: new Map(), chunks: new WeakMap(), cache: new Map(), card: null, crtEl: null, crtKey: '' };
+const rhash = (i, j) => { let h = Math.imul(i | 0, 374761393) ^ Math.imul(j | 0, 668265263) ^ 0x2f6b1d3; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+// The palette: a few ramps (dark to light) per material, like a 1987 board's colour RAM. Sprites snap to these colours.
+const RETRO_PAL = [
+  '#0a0a10', '#14161c', '#30343c', '#50565e', '#787e88', '#a4aab2', '#d0d4d8', '#f4f4f0', '#ffffff',
+  '#26261a', '#45452a', '#686640', '#8e8a5a', '#b4ae7a', '#dad4a2',
+  '#0c2010', '#18401c', '#28622a', '#40863a', '#68aa50', '#a0d078',
+  '#3a2614', '#62421e', '#8a6630', '#b08a4a', '#cfb070', '#e8d4a0',
+  '#3a0808', '#6e1210', '#a8201a', '#dc4028', '#f87850', '#ffb090',
+  '#7a2a06', '#c05010', '#f08020', '#f8b030', '#ffe070', '#fffcd0',
+  '#5a3e08', '#946a10', '#d0a020', '#f4d050', '#fff0a0',
+  '#0c1640', '#1a2c78', '#2c48b0', '#4a70d8', '#7ca0f0', '#c0d8ff',
+  '#08302e', '#0e5e56', '#189a86', '#40d0b0', '#a0f8e0',
+  '#1a0e38', '#34207a', '#5a3cb8', '#8a6cf0', '#c0a8ff', '#ece0ff',
+  '#4a0a2a', '#a01a5a', '#e0408a', '#ff8ac0', '#ffd0e8'
+].map(hexRGB);
+const RETRO_SEA = ['#1e2670', '#2c3a94', '#3c50b0', '#566cc8', '#7e94dc', '#b0c0ee'].map(hexRGB);
+// colour snapping: a little more saturation and contrast first (the arcade look is punchier), then the nearest palette colour (redmean distance)
+function retroSnap(r, g, b, sat = 1.3, con = 1.12) {
+  const key = (r >> 2) << 12 | (g >> 2) << 6 | (b >> 2), ck = key * 4 + (sat > 1.2 ? 1 : 0), hit = RETRO.cache.get(ck); if (hit) return hit;
+  const l = 0.3 * r + 0.59 * g + 0.11 * b;
+  let R = clamp(128 + ((l + (r - l) * sat) - 128) * con, 0, 255), G = clamp(128 + ((l + (g - l) * sat) - 128) * con, 0, 255), B = clamp(128 + ((l + (b - l) * sat) - 128) * con, 0, 255);
+  let best = RETRO_PAL[0], bd = 1e9;
+  for (const c of RETRO_PAL) { const rm = (R + c[0]) / 2, dr = R - c[0], dg = G - c[1], db = B - c[2], d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db; if (d < bd) { bd = d; best = c; } }
+  RETRO.cache.set(ck, best); return best;
+}
+// Flatten dither: an opaque pixel whose 3x3 neighbourhood is all opaque and close in brightness takes the neighbour with the median brightness
+// (thin details, which differ a lot from their neighbours, are kept).
+function retroFlatten(a, w, h, opaque) {
+  const L = new Float32Array(w * h), out = new Uint8ClampedArray(a);
+  for (let k = 0; k < w * h; k++) L[k] = 0.3 * a[k * 4] + 0.59 * a[k * 4 + 1] + 0.11 * a[k * 4 + 2];
+  const nb = new Array(9);
+  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) {
+    const k0 = j * w + i; if (opaque && !a[k0 * 4 + 3]) continue;
+    let n = 0, ok = true;
+    for (let dj = -1; dj <= 1 && ok; dj++) for (let di = -1; di <= 1; di++) { const k = k0 + dj * w + di; if (opaque && !a[k * 4 + 3]) { ok = false; break; } nb[n++] = k; }
+    if (!ok) continue;
+    nb.sort((p, q) => L[p] - L[q]); const m = nb[4];
+    if (Math.abs(L[m] - L[k0]) > 30 || Math.abs(L[nb[8]] - L[nb[0]]) > 70) continue;
+    out[k0 * 4] = a[m * 4]; out[k0 * 4 + 1] = a[m * 4 + 1]; out[k0 * 4 + 2] = a[m * 4 + 2];
+  }
+  return out;
+}
+function retroCanvas(src) {
+  const w = src.width, h = src.height, [c, x] = mk(w, h); x.drawImage(src, 0, 0);
+  const d = x.getImageData(0, 0, w, h), a = retroFlatten(d.data, w, h, true);
+  for (let k = 0; k < a.length; k += 4) if (a[k + 3]) { const q = retroSnap(a[k], a[k + 1], a[k + 2]); d.data[k] = q[0]; d.data[k + 1] = q[1]; d.data[k + 2] = q[2]; d.data[k + 3] = a[k + 3]; }
+  x.putImageData(d, 0, 0); return c;
+}
+// a sprite, a canvas, or an array or plain object of them: the same structure with every picture converted (the flash and shadow masks stay)
+function retroDeep(v, seen = new Map()) {
+  if (!v || typeof v !== 'object') return v;
+  if (seen.has(v)) return seen.get(v);
+  let o;
+  if (typeof HTMLCanvasElement !== 'undefined' && v instanceof HTMLCanvasElement) o = retroCanvas(v);
+  else if (v.c && v.c.getContext) o = Object.assign({}, v, { c: retroCanvas(v.c) });
+  else if (Array.isArray(v)) { o = []; seen.set(v, o); for (const e of v) o.push(retroDeep(e, seen)); return o; }
+  else if (Object.getPrototypeOf(v) === Object.prototype) { o = {}; seen.set(v, o); for (const k of Object.keys(v)) o[k] = retroDeep(v[k], seen); return o; }
+  else o = v;
+  seen.set(v, o); return o;
+}
+// ---- hand-drawn pieces ----
+// bevelled fill: light where the pixel above or left is outside the shape, dark where the one below or right is, the mid tone elsewhere
+function rBev(x, ramp, inside, mid, w = 34, h = 36) {
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const X = i + 0.5, Y = j + 0.5; if (!inside(X, Y)) continue;
+    const Lt = !inside(X - 1, Y) || !inside(X, Y - 1), Dk = !inside(X + 1, Y) || !inside(X, Y + 1);
+    x.fillStyle = ramp[clamp(mid + (Lt && !Dk ? 1 : 0) - (Dk && !Lt ? 1 : 0), 0, ramp.length - 1)]; x.fillRect(i, j, 1, 1);
+  }
+}
+// The Feuervogel and the Rooster redrawn in the retro style: the same outline as buildFeuervogel (so the same 36x38 sprite and silhouette),
+// filled in flat bevelled tones with stronger colours, a two-tone leading edge and a hard cream-and-black feather panel.
+function retroVogel(bank, gold) {
+  const A = gold ? ['#4a2800', '#9a5c00', '#dc9a10', '#ffd040', '#fff4a0', '#fffce0'] : ['#140a30', '#2e1a6c', '#5434b4', '#8a64f0', '#c8b0ff', '#f0e8ff'];
+  const E = gold ? ['#6a1a00', '#c84a08', '#ff8418', '#ffc060'] : ['#06302c', '#0c7a68', '#22c0a0', '#80f4d8'];
+  const T = gold ? ['#02261c', '#086a46', '#1aa86c', '#70e8a8', '#c8ffe0'] : A;
+  return sprite(34, 36, x => {
+    const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
+    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
+    const wl = base.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = base.map(([a, b]) => [17 + (17 - a) * fR, b]);
+    const inL = (i, j) => pip(wl, i, j), inR = (i, j) => pip(wr, i, j);
+    rBev(x, A, inL, bank < 0 ? 1 : 2); rBev(x, A, inR, bank > 0 ? 1 : 2);
+    for (let j = 0; j < 34; j++) for (let i = 0; i < 34; i++) {
+      const X = i + 0.5, Y = j + 0.5, l = inL(X, Y), r = inR(X, Y); if (!l && !r) continue;
+      const f = l ? fL : fR, u = 17 - Math.abs(X - 17) / f, s = l ? inL : inR;
+      if (j < 21 && !s(X, Y - 1)) { x.fillStyle = E[3]; x.fillRect(i, j, 1, 1); }
+      else if (j < 21 && !s(X, Y - 2)) { x.fillStyle = E[2]; x.fillRect(i, j, 1, 1); }
+      else if (u >= 6 && u < 10 && j >= 13 && j < 22) { x.fillStyle = u < 8 ? (gold ? '#fff4d0' : '#fff4d8') : '#120e1a'; x.fillRect(i, j, 1, 1); }
+      else if (!s(X, Y + 1) && j > 22) { x.fillStyle = A[0]; x.fillRect(i, j, 1, 1); }
+    }
+    rBev(x, T, poly2(gold ? [[15, 22], [8, 35], [12, 33], [14, 30], [17, 34], [20, 30], [22, 33], [26, 35], [19, 22]] : [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]]), gold ? 2 : 1);
+    rBev(x, E, poly2([[14, 20], [11, 25], [13, 25], [15, 23]]), 2); rBev(x, E, poly2([[20, 20], [23, 25], [21, 25], [19, 23]]), 2);
+    const bx = 17 + bank * 0.6; rBev(x, A, (X, Y) => ((X - bx) / 3.6) ** 2 + ((Y - 16) / 10) ** 2 <= 1, 3);
+    for (let j = 10; j < 25; j++) { x.fillStyle = j < 15 ? E[3] : j < 20 ? E[2] : E[1]; x.fillRect(17, j, 1, 1); }
+    rBev(x, A, poly2([[17, 0], [19, 3], [20, 7], [18, 10], [16, 10], [14, 7], [15, 3]]), 3);
+    if (gold) {
+      x.fillStyle = '#ff9a10'; x.fillRect(16, 0, 3, 1); x.fillStyle = '#ffe060'; x.fillRect(17, 0, 1, 1);
+      for (let j = 2; j <= 8; j++) { x.fillStyle = j % 2 ? '#d02818' : '#ff5a3a'; x.fillRect(17, j, 1, 1); }
+      for (const j of [2, 4]) { x.fillStyle = '#ff5a3a'; x.fillRect(16, j, 1, 1); x.fillRect(18, j, 1, 1); }
+    } else { x.fillStyle = '#120e1a'; x.fillRect(17, 0, 1, 3); x.fillRect(16, 2, 1, 1); }
+    const e0 = gold ? '#120e1a' : '#ff4020', e1 = gold ? '#fffce0' : '#ffe070';
+    x.fillStyle = e0; x.fillRect(15, 5, 1, 1); x.fillRect(16, 6, 1, 1); x.fillRect(19, 5, 1, 1); x.fillRect(18, 6, 1, 1);
+    x.fillStyle = e1; x.fillRect(16, 6, 1, 1); x.fillRect(18, 6, 1, 1);
+  }, { oc: '#0a0a10' });
+}
+function poly2(pts) { return (X, Y) => pip(pts, X, Y); }
+// speckled fireball frames: a white-hot middle, a speckled yellow ball, an orange rim, then black smoke breaking up
+function retroFireball(r, age, seed) {
+  const n = Math.ceil(r * 2 + 6), [c, x] = mk(n, n), m = n / 2, grow = 0.55 + 0.45 * Math.min(1, age * 3), F = ['#4a0c06', '#b02408', '#ec5c10', '#f8a820', '#fff070', '#ffffff'], SM = ['#201c1e', '#3c3638', '#5e5658'];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const dx = i + 0.5 - m, dy = j + 0.5 - m, d = Math.hypot(dx, dy) / r, ang = Math.atan2(dy, dx);
+    const jag = 0.72 + 0.32 * (0.5 + 0.5 * Math.sin(ang * 5 + seed * 2.3) * Math.cos(ang * 3 - seed));
+    if (d > jag * grow) continue;
+    let I = 1 - d / (jag * grow) - age * 0.62 + (rhash(i + seed * 31, j) - 0.5) * 0.3;
+    if (age > 0.5 && rhash(i >> 2, (j >> 2) + seed) > 0.5) I -= 0.5; // smoke breaks in through 4-pixel blobs
+    x.fillStyle = I > 0.72 ? F[5] : I > 0.52 ? F[4] : I > 0.34 ? F[3] : I > 0.18 ? F[2] : I > 0.04 ? F[1] : age > 0.4 ? SM[(rhash(i >> 1, (j >> 1) + seed) * 3) | 0] : F[0];
+    x.fillRect(i, j, 1, 1);
+  }
+  if (age < 0.5) for (let k = 0; k < 6; k++) { const a = rhash(k, seed) * TAU, d2 = r * (1 + rhash(seed, k) * 0.5); x.fillStyle = k % 2 ? F[4] : F[2]; x.fillRect(Math.round(m + Math.cos(a) * d2), Math.round(m + Math.sin(a) * d2), 2, 2); }
+  return c;
+}
+function retroBall(n, blink) { // enemy shots: an orange ball, a black ring (the outline), and a white core that blinks
+  const r = n / 2; return sprite(n, n, x => {
+    rBev(x, ['#7a1c06', '#c03810', '#f06818', '#f8a030', '#ffe070'], (X, Y) => (X - r) ** 2 + (Y - r) ** 2 <= r * r + 0.3, 2, n, n);
+    x.fillStyle = blink ? '#ffffff' : '#ffe070'; const k = Math.max(1, (n - 3) >> 1); x.fillRect(Math.floor(r - k / 2), Math.floor(r - k / 2), k, k);
+  }, { oc: '#0a0a10' });
+}
+function retroIcons(S) { // the HUD's life (a tiny Feuervogel) and Nova icons, in the retro palette
+  const PAL = { P: '#c8b0ff', p: '#5434b4', c: '#80f4d8', t: '#22c0a0', w: '#fff4d8', r: '#ff4020' };
+  const rows = ['....p....', '...rpr...', '..tpcpt..', '.tpwcwpt.', 'tppwcwppt', 'p.ppcpp.p', '...pcp...', '...p.pp..', '..p...p..', '.......p.'];
+  S.life = sprite(9, 10, x => rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== '.') { x.fillStyle = PAL[ch]; x.fillRect(i, j, 1, 1); } })), { oc: '#0a0a10' });
+  S.novaIcon = sprite(5, 5, x => rBev(x, ['#7a2a06', '#d0a020', '#f4d050', '#fff0a0'], (X, Y) => (X - 2.5) ** 2 + (Y - 2.5) ** 2 <= 6.6, 2, 5, 5), { oc: '#0a0a10' });
+}
+function buildRetroArt() {
+  const S = {};
+  for (const k of Object.keys(SPR)) S[k] = retroDeep(SPR[k]);
+  S.playerSet = [-1, 0, 1].map(b => retroVogel(b, false)); S.player = S.playerSet[1];
+  RETRO.gold = [-1, 0, 1].map(b => retroVogel(b, true));
+  S.fx = SPR.fx.map((fr, si) => fr.map((c, i) => retroFireball(Math.max(3, c.width / 2 - 3), i / Math.max(1, fr.length - 1), si * 13 + i * 7 + 1)));
+  { const s = retroBall(5, false), s2 = retroBall(5, true), b = retroBall(7, false), b2 = retroBall(7, true); S.eb = [s, s2]; S.ebB = [b, b2]; }
+  S.flak = sprite(5, 5, x => { rBev(x, ['#30343c', '#50565e', '#787e88', '#a4aab2', '#d0d4d8'], (X, Y) => (X - 2.5) ** 2 + (Y - 2.5) ** 2 <= 6.6, 2, 5, 5); x.fillStyle = '#d0d4d8'; x.fillRect(1, 1, 1, 1); }, { oc: '#0a0a10' });
+  retroIcons(S);
+  RETRO.S = S;
+}
+// On while a Retro Run is flown: the copies go into SPR (the classic sprites are kept and put back when it is off).
+function setRetroArt(on) {
+  if (on === RETRO.on) return;
+  if (on) { if (!RETRO.S) buildRetroArt(); RETRO.classic = {}; for (const k of Object.keys(RETRO.S)) { RETRO.classic[k] = SPR[k]; SPR[k] = RETRO.S[k]; } }
+  else { for (const k of Object.keys(RETRO.classic)) SPR[k] = RETRO.classic[k]; RETRO.classic = null; RETRO.card = null; }
+  RETRO.on = on; retroCrt();
+}
+function retroSync() { setRetroArt(!!run.retro && app.state !== 'title'); if (RETRO.on || RETRO.crtEl) retroCrt(); } // (the scanlines follow the canvas when the page is resized)
+// a ship set outside SPR (the other skins): converted once
+function retroSkin(set) {
+  if (!RETRO.on || set === SPR.playerSet) return set;
+  let r = RETRO.sets.get(set); if (!r) { r = retroDeep(set); RETRO.sets.set(set, r); } return r;
+}
+// ---- ground: each chunk gets a retro copy (redone when something is painted into it); water becomes the rippled sea ----
+function retroChunk(c, p) {
+  const v = c._rv | 0; let r = RETRO.chunks.get(c); if (r && r._v === v) return r;
+  if (!r) { r = mk(c.width, c.height)[0]; RETRO.chunks.set(c, r); }
+  const w = c.width, h = c.height, x = r.getContext('2d'); x.clearRect(0, 0, w, h); x.drawImage(c, 0, 0);
+  const d = x.getImageData(0, 0, w, h), a = retroFlatten(d.data, w, h, false), o = d.data, y0 = -p * h, wet = new Map();
+  const retroWet = (i, Y) => { const key = (i >> 2) * 4096 + ((Y >> 2) & 4095); let v = wet.get(key); if (v === undefined) { const t = terrainType((i & ~3) + 2, (Y & ~3) + 2); v = t === 'sea' || t === 'river' || t === 'surf'; wet.set(key, v); } return v; }; // (the terrain map, read only, in 4x4 blocks: snow is as blue-grey as the winter sea)
+  for (let j = 0; j < h; j++) { const Y = y0 + j, band = Math.floor(Y / 4), rr = ((Y % 4) + 4) % 4;
+    for (let i = 0; i < w; i++) { const k = (j * w + i) * 4, R = a[k], G = a[k + 1], B = a[k + 2], l = 0.3 * R + 0.59 * G + 0.11 * B;
+      let q;
+      if (B > R + 20 && B >= G - 6 && l < 185 && retroWet(i, Y)) { // water: the tone from its depth, the ripple from where it is
+        const t = i + band * 13 + 5 * Math.sin(band * 1.9 + i * 0.09) + 3 * Math.sin(band * 0.7), m = ((t % 20) + 20) % 20;
+        let s = l < 40 ? 1 : l < 150 ? 2 : 3; // (one tone for most of the sea, as on the arcade boards: depth shows only at the darkest and the shallowest)
+        if (rr === 0 && m < 12) s++; if (rr === 0 && m > 2 && m < 8) s++; if (rr === 1 && m > 0 && m < 11) s++; if (rr === 3 && m > 9 && m < 18) s--; if (rr === 2 && m > 13 && m < 17) s--;
+        q = RETRO_SEA[clamp(s, 0, 5)];
+      } else q = retroSnap(R, G, B, 1.12, 1.04);
+      o[k] = q[0]; o[k + 1] = q[1]; o[k + 2] = q[2]; o[k + 3] = 255; } }
+  x.putImageData(d, 0, 0); r._v = v; return r;
+}
+// ---- weapons, in their own colours: tracers with a white tip, needles for the Lance, smoke puffs behind the Seekers ----
+const rScat = {};
+function retroScatter(s) {
+  const L = s.sl, wing = s.rk > 0.6, key = L * 2 + (wing ? 1 : 0);
+  if (!rScat[key]) { const c = WPN.S.ramp, len = [5, 7, 8, 9, 12][L - 1] - (wing ? 1 : 0);
+    rScat[key] = rotSet(sprite(3, len, x => { for (let j = 0; j < len; j++) { const ft = len - 1 - j; // the head points down in the sprite
+      if (ft <= 1) { x.fillStyle = '#ffffff'; x.fillRect(1, j, 1, 1); if (ft === 1) { x.fillStyle = c[4]; x.fillRect(0, j, 1, 1); x.fillRect(2, j, 1, 1); } continue; }
+      const col = j > len * 0.6 ? c[4] : j > len * 0.3 ? c[3] : c[2]; x.fillStyle = col; x.fillRect(j < len * 0.35 ? 1 : 0, j, j < len * 0.35 ? 1 : 3, 1); x.fillStyle = c[4]; if (j >= len * 0.35) x.fillRect(1, j, 1, 1); } }, { oc: '#0a0a10' }), 32); }
+  spr(rScat[key][dirIdx(s.a, 32)], s.x, s.y);
+}
+function retroLance(s) {
+  const c = WPN.L.ramp, L = s.lv || 1, w0 = [7, 9, 11, 11, 17][Math.min(L, 5) - 1], n = L <= 2 ? 2 : L <= 4 ? 3 : 4, top = Math.round(s.y - 7), age = s.t || 0;
+  for (let k = 0; k < n; k++) {
+    const nx = Math.round(s.x - w0 / 2 + 1 + (n === 1 ? w0 / 2 : k * (w0 - 3) / (n - 1))), lead = k === 0 || k === n - 1 ? 2 : 0, y = top + lead;
+    ctx.fillStyle = '#0a0a10'; ctx.fillRect(nx - 2, y - 1, 5, 14); ctx.fillRect(nx - 1, y - 2, 3, 1);
+    for (let j = 0; j < 12; j++) { const col = j < 2 ? '#ffffff' : j < 5 ? c[4] : j < 8 ? c[3] : j < 10 ? c[2] : c[1];
+      ctx.fillStyle = col; if (j >= 2 && j < 9) ctx.fillRect(nx - 1, y + j, 3, 1); else ctx.fillRect(nx, y + j, 1, 1);
+      if (j >= 2 && j < 9) { ctx.fillStyle = j < 5 ? '#ffffff' : c[4]; ctx.fillRect(nx, y + j, 1, 1); } }
+    if (L >= 4) { ctx.fillStyle = (age >> 1) & 1 ? c[4] : c[3]; ctx.fillRect(nx, y + 12, 1, 2 + ((age + k) & 1)); }
+  }
+}
+function retroSeekerTrail(s) { // grey smoke puffs and a short flame in the weapon's pink
+  const c = WPN.H.ramp, L = s.lv || 1, a = Math.atan2(s.vy, s.vx), ca = Math.cos(a), sa = Math.sin(a), n = SEEK[L].fl + 4, len = SEEK_ROWS[L].length;
+  for (let i = 1; i <= n; i++) { const d = len / 2 + i - 1, px = Math.round(s.x - ca * d), py = Math.round(s.y - sa * d);
+    if (i <= 2) { ctx.fillStyle = i === 1 ? '#ffffff' : c[4]; ctx.fillRect(px, py, 1, 1); }
+    else if (i % 2 === (gf & 1)) { const z = i < n * 0.5 ? 2 : 1; ctx.fillStyle = i < n * 0.4 ? '#a4aab2' : '#787e88'; ctx.fillRect(px - (z >> 1), py - (z >> 1), z, z); } }
+}
+// ---- the arcade lettering: a 5x7 block font with a top-to-bottom gradient and a hard drop shadow ----
+const RFONT = {};
+(() => { const G = 'A:01110100011000111111100011000110001|B:11110100011000111110100011000111110|C:01111100001000010000100001000001111|D:11110100011000110001100011000111110|E:11111100001000011110100001000011111|F:11111100001000011110100001000010000|G:01111100001000010011100011000101111|H:10001100011000111111100011000110001|I:11111001000010000100001000010011111|J:00111000010000100001100011000101110|K:10001100101010011000101001001010001|L:10000100001000010000100001000011111|M:10001110111010110101100011000110001|N:10001110011010110011100011000110001|O:01110100011000110001100011000101110|P:11110100011000111110100001000010000|Q:01110100011000110001101011001001101|R:11110100011000111110101001001010001|S:01111100001000001110000010000111110|T:11111001000010000100001000010000100|U:10001100011000110001100011000101110|V:10001100011000110001010100101000100|W:10001100011000110101101011101110001|X:10001100010101000100010101000110001|Y:10001100010101000100001000010000100|Z:11111000010001000100010001000011111|0:01110100111010110101101011100101110|1:00100011000010000100001000010001110|2:01110100010000100110010001000011111|3:11110000010000101110000010000111110|4:00010001100101010010111110001000010|5:11111100001111000001000011000101110|6:00110010001000011110100011000101110|7:11111000010001000100010000100001000|8:01110100011000101110100011000101110|9:01110100011000101111000010001001100|!:00100001000010000100001000000000100|-:00000000000000011111000000000000000|.:00000000000000000000000000110001100|?:01110100010000100110001000000000100';
+  for (const e of G.split('|')) RFONT[e[0]] = e.slice(2); })();
+const RG_RED = ['#ffe8a0', '#ffc060', '#ff8c40', '#f45a30', '#e03828', '#b82020', '#801418'];
+const RG_WHITE = ['#ffffff', '#ffffff', '#eceaf4', '#d4d2e0', '#bcbacc', '#a4a2b8', '#8c8aa4'];
+const RG_GOLD = ['#fff4a8', '#f4d050', '#f4d050', '#d0a020', '#d0a020', '#8e6010', '#8e6010'];
+const rTextW = (s, sc = 1) => s.length * 6 * sc - sc;
+function rText(s, x, y, grad = RG_WHITE, sc = 1, al = 'left') {
+  s = String(s).toUpperCase(); x = Math.round(al === 'center' ? x - rTextW(s, sc) / 2 : al === 'right' ? x - rTextW(s, sc) : x); y = Math.round(y);
+  for (const pass of [1, 0]) { let cx = x;
+    for (const ch of s) { const g = RFONT[ch];
+      if (g) for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) if (g[j * 5 + i] === '1') { ctx.fillStyle = pass ? '#0a0a10' : grad[j]; ctx.fillRect(cx + i * sc + pass * Math.max(1, sc >> 1), y + j * sc + pass * Math.max(1, sc >> 1), sc, sc); }
+      cx += 6 * sc; } }
+}
+// the score line: 1UP and HIGH SCORE in red-to-yellow, the numbers in white below
+function retroScore(ty, s1, beat) {
+  rText('1UP', 4, ty - 2, RG_RED); rText(String(s1).padStart(8, '0'), 4, ty + 7, beat ? RG_GOLD : RG_WHITE);
+  const hx = TOUCH_HUD ? 150 : 166; rText('HIGH SCORE', hx, ty - 2, RG_RED, 1, 'center'); rText(String(Math.max(hi, s1)).padStart(8, '0'), hx, ty + 7, RG_WHITE, 1, 'center');
+}
+// the stage card: ROUND n with the stage's name, then READY blinking
+function retroCard(m) {
+  const n = (m.a.match(/\d+/) || [''])[0], y = 112 + TY;
+  rText('ROUND ' + n, W / 2, y, RG_RED, 2, 'center');
+  if (m.b) rText(m.b.replace(/[^A-Z0-9 !.?-]/gi, ''), W / 2, y + 20, RG_WHITE, 1, 'center');
+  if (m.t < 120 && (m.t >> 3) & 1) rText('READY', W / 2, y + 34, RG_GOLD, 2, 'center');
+}
+function retroItem(it) { // weapon and Nova pickups as flashing capsules with their letter
+  const x = Math.round(it.x), y = Math.round(it.y), f = (it.t >> 3) & 1, nova = it.kind === 'B', ramp = nova ? RP.alien.slice(1) : (WPN[it.w] || WPN.S).ramp;
+  ctx.fillStyle = '#0a0a10'; ctx.fillRect(x - 7, y - 8, 15, 17); ctx.fillRect(x - 8, y - 7, 17, 15);
+  ctx.fillStyle = f ? '#ffffff' : ramp[3]; ctx.fillRect(x - 7, y - 7, 15, 15);
+  ctx.fillStyle = ramp[1]; ctx.fillRect(x - 6, y - 6, 14, 14); ctx.fillStyle = ramp[2]; ctx.fillRect(x - 6, y - 6, 13, 13);
+  ctx.fillStyle = '#0a0a10'; ctx.fillRect(x - 4, y - 5, 9, 11);
+  rText(nova ? 'N' : it.w, x - 2, y - 3, f ? RG_WHITE : RG_GOLD);
+}
+// CRT scanlines (Settings): an overlay over the game canvas with one dark line per game row, only in a Retro Run
+function retroCrt() {
+  const on = RETRO.on && !!settings.crt;
+  if (!RETRO.crtEl) { if (!on) return; const d = document.createElement('div'); d.id = 'crt'; d.setAttribute('aria-hidden', 'true'); cv.parentNode.insertBefore(d, cv.nextSibling); RETRO.crtEl = d; }
+  const el = RETRO.crtEl, key = on ? [cv.offsetLeft, cv.offsetTop, cv.offsetWidth, cv.offsetHeight].join(',') : 'off';
+  if (key === RETRO.crtKey) return; RETRO.crtKey = key;
+  el.hidden = !on; if (!on) return;
+  const row = cv.offsetHeight / Math.max(1, cv.height);
+  Object.assign(el.style, { left: cv.offsetLeft + 'px', top: cv.offsetTop + 'px', width: cv.offsetWidth + 'px', height: cv.offsetHeight + 'px', backgroundSize: '100% ' + row.toFixed(3) + 'px' });
+}
+// chip-style sound: square (pulse) and triangle voices with pitch moving in steps, 1-bit noise, volume falling in 8 steps
+const chipNoise = {};
+function chipNoiseBuf(rate) {
+  if (chipNoise[rate]) return chipNoise[rate];
+  const sr = actx.sampleRate, b = actx.createBuffer(1, sr, sr), a = b.getChannelData(0); let lfsr = 1, v = 1, acc = 0;
+  for (let i = 0; i < sr; i++) { acc += rate / sr; while (acc >= 1) { acc--; const bit = (lfsr ^ (lfsr >> 1)) & 1; lfsr = (lfsr >> 1) | (bit << 14); v = lfsr & 1 ? 1 : -1; } a[i] = v; }
+  return chipNoise[rate] = b;
+}
+function chipEnv(g, t0, v, d) { const n = 8; for (let k = 0; k <= n; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (1 - k / n)), t0 + d * k / n); }
+function chipTone(f, d, type, v, f2) {
+  const t0 = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  if (type === 'sine' || type === 'triangle') o.type = 'triangle'; else if (pulseWave) o.setPeriodicWave(pulseWave); else o.type = 'square';
+  const steps = Math.max(1, Math.round(d * 50));
+  for (let k = 0; k <= steps; k++) { const q = f2 ? f * Math.pow(f2 / f, k / steps) : f, semi = Math.round(12 * Math.log2(q / 440)); o.frequency.setValueAtTime(440 * Math.pow(2, semi / 12), t0 + d * k / steps); }
+  chipEnv(g, t0, v * (o.type === 'triangle' ? 1.4 : 0.8), d);
+  o.connect(g).connect(sfxOut()); o.start(t0); o.stop(t0 + d + 0.02);
+}
+function chipNoiseHit(d, v, freq) {
+  const rates = [1000, 2000, 4000, 8000, 16000], want = clamp(freq * 2.5, 800, 16000); let rate = rates[0]; for (const r of rates) if (Math.abs(Math.log(r / want)) < Math.abs(Math.log(rate / want))) rate = r;
+  const t0 = actx.currentTime, s = actx.createBufferSource(), g = actx.createGain();
+  s.buffer = chipNoiseBuf(rate); s.loop = true; chipEnv(g, t0, v * 0.55, d);
+  s.connect(g).connect(sfxOut()); s.start(t0); s.stop(t0 + d + 0.02);
+}
 
 /* ================= enigma: the calmer Campaign look =================
    A visual-only alternative look, controlled by the Enigma slider in Settings. ENIGMA_T is the strength (0 to 1) of the run being flown:
@@ -6718,7 +6999,7 @@ SPR.deerV = [0, 1, 2].map(k => [0, 1, 2].map(f => deerSprite(k, f)));
 }
 function spr(s, x, y, flash) { ctx.drawImage(flash ? s.f : s.c, Math.round(x - s.w / 2), Math.round(y - s.h / 2)); }
 const AIRSH = { d: 1, a: 0.28, s: 0.6 }; /* planes' cast shadows (enemy, player, flyby): d scales how far the shadow falls at full altitude (1 = the old look; the deck/liftoff/flyover ramps still run from 0 to it), a is its opacity, s its size at full altitude (1 = as big as the plane; it grows back to 1 toward the deck) */
-function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.haze) a *= 0.8; /* level 6's first loop: haze, softer shadows */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
+function shadow(s, x, y, ox, oy, a = 0.32, k = 1) { if (!s || !s.k) return; if (RETRO.on && a >= 0.2) a = 0.78; /* Retro Run: solid black shadows */ if (run.sortie && run.sortie.winter) a *= 0.6; /* level 5's first loop: overcast, so every cast shadow is softer */ if (run.sortie && run.sortie.haze) a *= 0.8; /* level 6's first loop: haze, softer shadows */ if (run.sortie && run.sortie.moon) ox = -ox; /* the first loop's level 3: the moon is on the right, so every cast shadow falls to the left */ ctx.globalAlpha = a; if (k === 1) ctx.drawImage(s.k, Math.round(x - s.w / 2 + ox), Math.round(y - s.h / 2 + oy)); else ctx.drawImage(s.k, Math.round(x - s.w * k / 2 + ox), Math.round(y - s.h * k / 2 + oy), Math.round(s.w * k), Math.round(s.h * k)); ctx.globalAlpha = 1; }
 const CLOUDSH = { low: 0.6, high: 0.3 }; /* cloud shadows on the ground, as a share of the cloud's size: the nearest (low) clouds cast 60%, the higher layer proportionally less */
 function cshK(img, x, cx, cy, k, w0, h0) { /* a cloud shadow's sprite drawn k times its size, centred on (cx, cy) */ const w = Math.round(w0 * k), h = Math.round(h0 * k); ctx.drawImage(img, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h); }
 const diskCache = new Map();
@@ -7999,6 +8280,7 @@ function cutSfx(fade = 0.08) {
 function setPos(x, y) { SPOS = { pan: clamp((x - W / 2) / (W / 2), -1, 1) * 0.75, v: 0.5 + 0.5 * clamp(y / (H * 0.75), 0, 1), far: y < H * 0.28 }; }
 function tone(f, d, type = 'square', v = 0.05, f2) {
   if (muted || !actx) return;
+  if (RETRO.on) return chipTone(f, d, type, v, f2); // Retro Run: chip-style
   const t0 = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0);
   if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
@@ -8007,6 +8289,7 @@ function tone(f, d, type = 'square', v = 0.05, f2) {
 }
 function noise(d, v = 0.15, freq = 1100) {
   if (muted || !actx) return;
+  if (RETRO.on) return chipNoiseHit(d, v, freq); // Retro Run: 1-bit noise
   ensureNoise();
   const t0 = actx.currentTime, s = actx.createBufferSource(), g = actx.createGain(), fl = actx.createBiquadFilter();
   s.buffer = noiseBuf; fl.type = 'lowpass'; fl.frequency.value = freq;
@@ -9273,7 +9556,7 @@ function restartStage() { // pause menu: restart the stage in the mode being pla
   const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;
   if (lv) startEnigma(lv, ranked, run.loops || 0); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
 }
-function startRetro() { startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
+function startRetro() { setRetroArt(true); startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
 const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
@@ -10302,7 +10585,7 @@ function splash(x, y, size) {
   sfx('splash');
 }
 function paintWorld(wx, wy, rad, fn) {
-  for (const pp of new Set([-Math.floor((wy - rad) / CH), -Math.floor((wy + rad) / CH)])) { const c = world.chunks.get(pp); if (!c) continue; const x = c.getContext('2d'); fn(x, wy - (-pp * CH)); }
+  for (const pp of new Set([-Math.floor((wy - rad) / CH), -Math.floor((wy + rad) / CH)])) { const c = world.chunks.get(pp); if (!c) continue; c._rv = (c._rv | 0) + 1; /* (the retro copy is redone) */ const x = c.getContext('2d'); fn(x, wy - (-pp * CH)); }
 }
 function worldDamage(wx, wy, r) {
   for (const t of treeList(wx, wy, r + 4, true)) { // the classic trees: how many there are feeds the seeded stream below, so Enigma may not change it
@@ -12858,7 +13141,7 @@ function shimmer2(sc) {
       const e = 1 - (yy * yy) / (ry * ry), half = rx * Math.sqrt(e), wv = Math.sin(wy * 0.6 + t * 7 + h * 9);
       if (Math.abs(wv) < 0.45) continue;
       const dx = Math.round(wv * (e > 0.7 ? A : 1)); if (!dx) continue;
-      const k = Math.floor((y - sc) / CH), c = world.chunks.get(-k); if (!c) continue;
+      const k = Math.floor((y - sc) / CH), c0 = world.chunks.get(-k); if (!c0) continue; const c = RETRO.on ? retroChunk(c0, -k) : c0;
       const xa = Math.max(0, Math.round(cx - half)), xb = Math.min(W, Math.round(cx + half)); let x0 = -1; // only the open ground along the row moves (never the rails, rock or walls)
       for (let x = xa; x <= xb; x += 3) { const on = x < xb && SHIM_OK.has(terrainType(x, wy)); if (on && x0 < 0) x0 = x; else if (!on && x0 >= 0) { const x1 = Math.min(xb, x) - 2; if (x1 - x0 >= 4) ctx.drawImage(c, x0, y - sc - k * CH, x1 - x0, 1, x0 + dx, y, x1 - x0, 1); x0 = -1; } }
       if (Math.sin(t * 9 + wy * 1.3 + h * 50) > 0.93) { ctx.fillStyle = 'rgba(255,248,226,0.35)'; ctx.fillRect(Math.round(cx + Math.sin(wy + t) * half * 0.6), y, 2, 1); } // a mirage glint
@@ -14456,6 +14739,7 @@ function drawArcs() {
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
 // at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
 function drawLance(s) {
+  if (RETRO.on) return retroLance(s);
   const c = WPN.L.ramp, L = s.lv || 1, n = L + 1, x = s.x, top = Math.round(s.y - 7), age = s.t || 0, w0 = [7, 9, 11, 11, 17][Math.min(L, 5) - 1]; // (at least as wide as the old bolt with its outline: 6 to 10 px)
   const odd = v => Math.max(1, Math.round(v / 2) * 2 - 1);
   const px = (rx, ry, rw, col, al) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(Math.round(rx), Math.round(ry), Math.max(1, Math.round(rw)), 1); };
@@ -14492,6 +14776,7 @@ function scatClass(L, r) {
   return scatCls[key] = { set, len, tl, body, tail: c[2], al: wing ? 0.8 : 1 };
 }
 function drawScatter(s) {
+  if (RETRO.on) return retroScatter(s);
   const k = scatClass(s.sl, s.rk), a = s.a, ca = Math.cos(a), sa = Math.sin(a);
   spr(k.set[dirIdx(a, 32)], s.x, s.y);
   for (let i = 1; i <= k.tl; i++) { const d = k.len / 2 + i; ctx.globalAlpha = k.al * 0.7 * (1 - i / (k.tl + 1)); ctx.fillStyle = i <= k.tl / 2 ? k.body : k.tail; ctx.fillRect(Math.round(s.x - ca * d), Math.round(s.y - sa * d), 1, 1); }
@@ -14527,6 +14812,7 @@ function seekBurst(s, hit) { // level 4: the missile bursts, and the blast hurts
 }
 function drawSeeker(s) {
   const L = s.lv || 1, c = WPN.H.ramp, a = Math.atan2(s.vy, s.vx), ca = Math.cos(a), sa = Math.sin(a), n = SEEK[L].fl, len = SEEK_ROWS[L].length;
+  if (RETRO.on) { retroSeekerTrail(s); spr(seekClass(L)[dirIdx(a, 32)], s.x, s.y); return; }
   if (L >= 3) { ctx.globalAlpha = 0.3; dk(s.x - ca * len * 0.4, s.y - sa * len * 0.4, L === 3 ? 4 : 6, c[2]); }
   for (let i = 1; i <= n; i++) { const d = len / 2 + i - 1; ctx.globalAlpha = 0.9 * (1 - i / (n + 1)); ctx.fillStyle = i <= 2 ? c[4] : i <= n * 0.6 ? c[3] : c[2]; ctx.fillRect(Math.round(s.x - ca * d + ((gf + i) & 1 && L > 1 ? sa * 0.6 : 0)), Math.round(s.y - sa * d), 1, 1); }
   ctx.globalAlpha = 1; spr(seekClass(L)[dirIdx(a, 32)], s.x, s.y);
@@ -15850,7 +16136,7 @@ function drawRoofs() {
 function drawGround() {
   const sc = Math.floor(world.scroll);
   const kTop = Math.floor(-sc / CH), kBot = Math.floor((H - 1 - sc) / CH);
-  for (let k = kTop; k <= kBot; k++) { const c = world.chunks.get(-k); if (c) ctx.drawImage(c, 0, k * CH + sc); }
+  for (let k = kTop; k <= kBot; k++) { const c = world.chunks.get(-k); if (c) ctx.drawImage(RETRO.on ? retroChunk(c, -k) : c, 0, k * CH + sc); }
   shimmer2(sc);
   drawPlanFx(sc); drawMist(sc); drawLakeMist(sc);
   for (const g of glints) {
@@ -16096,13 +16382,13 @@ function drawPart(q) {
       ctx.fillStyle = (q.life >> 1) & 1 ? '#ffd860' : '#f89a2a'; ctx.fillRect(Math.round(q.x), Math.round(q.y) - 1, 1, 1);
       break;
     }
-    case 'fire': {
+    case 'fire': { if (RETRO.on) { const idx = f > 0.8 ? 4 : f > 0.6 ? 3 : f > 0.4 ? 2 : f > 0.2 ? 1 : 0; dk(q.x, q.y, q.r * (0.7 + 0.5 * (1 - f)), RP.fire[idx]); if (f > 0.5) dk(q.x - 1, q.y - 1, q.r * 0.4, '#fff2a8'); break; } /* Retro Run: solid, no glow */
       const idx = f > 0.8 ? 4 : f > 0.6 ? 3 : f > 0.4 ? 2 : f > 0.2 ? 1 : 0;
       ctx.globalAlpha = 0.7; dk(q.x, q.y, q.r * (0.7 + 0.5 * (1 - f)), RP.fire[idx]);
       if (f > 0.5) dk(q.x - 1, q.y - 1, q.r * 0.4, RP.fire[4]); ctx.globalAlpha = 1;
       break;
     }
-    case 'smoke': ctx.globalAlpha = (q.dark ? 0.8 : 0.55) * f; dk(q.x, q.y, q.r, q.dark ? (f > 0.5 ? '#181512' : '#2e2a26') : q.white ? (f > 0.5 ? '#f4f6fa' : '#c8ccd4') : RP.smoke[f > 0.5 ? 2 : 1]); ctx.globalAlpha = 1; break;
+    case 'smoke': if (RETRO.on) { if (f > 0.5 || (gf & 1)) dk(q.x, q.y, q.r, q.dark ? '#14161c' : q.white ? '#d0d4d8' : f > 0.5 ? '#50565e' : '#30343c'); break; } /* Retro Run: solid smoke, flickering out */ ctx.globalAlpha = (q.dark ? 0.8 : 0.55) * f; dk(q.x, q.y, q.r, q.dark ? (f > 0.5 ? '#181512' : '#2e2a26') : q.white ? (f > 0.5 ? '#f4f6fa' : '#c8ccd4') : RP.smoke[f > 0.5 ? 2 : 1]); ctx.globalAlpha = 1; break;
     case 'spark': ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); break;
     case 'ring': {
       const rr = (1 - f) * q.r + 3;
@@ -16909,7 +17195,7 @@ function drawEnigmaClouds() {
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
-  if (lowFX || (run.sortie && (run.sortie.autumn || run.sortie.winter)) || drawMistClouds(true)) return;
+  if (RETRO.on || lowFX || (run.sortie && (run.sortie.autumn || run.sortie.winter)) || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
   for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
@@ -16961,6 +17247,7 @@ function drawItem(it) {
     return;
   }
   if (it.kind === 'M' || it.kind === 'A') return drawMedal(it);
+  if (RETRO.on && it.kind !== 'T') return retroItem(it);
   // shape tells what it is (lettered orb: weapon, ringed ball: Nova, drone: Talon), colour tells which weapon
   const x = Math.round(it.x), y = Math.round(it.y), pulse = Math.sin(it.t * 0.2);
   ctx.globalAlpha = 0.22 + 0.14 * pulse; dk(x, y, (it.kind === 'T' ? 12 : 14) + Math.round(2 * pulse), it.kind === 'B' ? '#bba4ff' : it.kind === 'T' ? '#a8f6dc' : '#ffffff'); ctx.globalAlpha = 1;
@@ -17218,6 +17505,7 @@ function drawHUDBody(H) {
   const s1 = p2 ? run.score - run.score2 : run.score;
   const ty = TOUCH_HUD && !p2 ? 10 - SAFE_T : 4; // phone: the score row is level with the menu button (its centre is at y 14.5 on the screen); HUD y is screen y minus SAFE_T
   if (p2) scoreStrip(4, 4, s1, run.score2, 2); // player 2's score mirrors player 1's in the top right corner
+  else if (RETRO.on) retroScore(ty, s1, app.newBestDone);
   else { // double-size score, no HI line (phone and PC); it turns yellow when it passes the player's previous best (the moment NEW BEST! shows)
     const beat = app.newBestDone;
     textS('1P', 4, ty, '#bba4ff', 1, 'left', '#8466dc');
@@ -17308,6 +17596,7 @@ function render() {
 function renderMain() {
   if (app.gfxLost) return;
   if (app.booting) return; // the page's own splash (#preboot) covers the screen until the title is ready
+  retroSync();
   if (app.ending) { drawEnding(); return; }
   ctx.save();
   if (feel.shake > 0) ctx.translate(Math.round(rnd(-feel.shake, feel.shake) / 2), Math.round(rnd(-feel.shake, feel.shake) / 2));
@@ -17397,6 +17686,7 @@ function renderMain() {
   drawWx2Low();
   drawBirds();
   if (run.sortie && (run.sortie.autumn || run.sortie.winter)) drawOvercast(); /* the first loops of levels 4 and 5: the overcast sky of its own (no white puffs) */
+  else if (RETRO.on) { /* Retro Run: no soft clouds */ }
   else if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
   else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; cshK(s.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
   if (ENIGMA_T) drawEnigmaClouds();
@@ -17531,8 +17821,9 @@ function renderMain() {
         for (const [row, dir] of [[wy0 - 3, 1], [wy0 + 40, -1]]) { const off = ((gf * dir) % P + P) % P; for (let k = -1; k * P < W + P; k++) for (const [st, len] of seg) ctx.fillRect(Math.round(k * P + st * u + off - P), row, len * u, 3); } }
       if ((gf >> 3) & 1 || gf % 16 < 12) textO('WARNING', W / 2, wy0 + 11, '#ffffff', 3, 'center', '#ffd0c8');
     }
-    if (!warn) textO(app.msg.a, W / 2, 120 + TY, '#fff0a0', 2, 'center', '#f8a83a');
-    if (app.msg.b && !warn) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
+    if (!warn && RETRO.on && /^STAGE /.test(app.msg.a)) retroCard(app.msg);
+    else if (!warn) textO(app.msg.a, W / 2, 120 + TY, '#fff0a0', 2, 'center', '#f8a83a');
+    if (app.msg.b && !warn && !(RETRO.on && /^STAGE /.test(app.msg.a))) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
   }
   drawTutorial();
   if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t--; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
@@ -17548,7 +17839,7 @@ function renderMain() {
   if (app.state === 'over') {
     ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H);
     if (!(app.flyby && app.flyby.nvWin)) { // the Nachtvogel window has the screen to itself
-      textO('GAME OVER', W / 2, 118, '#f48a60', 3, 'center', '#a82a26');
+      if (RETRO.on) rText('GAME OVER', W / 2, 112, RG_RED, 3, 'center'); else textO('GAME OVER', W / 2, 118, '#f48a60', 3, 'center', '#a82a26');
       let gy = 150;
       if (p2) { // team score, then each player's share with the leader crowned
         const a = run.score - run.score2;
@@ -17704,6 +17995,7 @@ for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-p
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
+  const cb = document.getElementById('sCrt'); cb.setAttribute('aria-pressed', String(!!settings.crt)); cb.textContent = settings.crt ? 'On' : 'Off';
 }
 function buildHelp() {
   const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
@@ -17900,6 +18192,7 @@ setBtn.addEventListener('pointerdown', e => e.stopPropagation());
 setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('open') ? closeSettings() : openSettings(); setBtn.blur(); });
 document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
+document.getElementById('sCrt').addEventListener('click', () => { settings.crt = !settings.crt; syncSettingsUI(); saveSettings(); retroCrt(); });
 function rangeFill(r) { r.style.setProperty('--v', (r.min ? (r.value - r.min) / (r.max - r.min) * 100 : r.value) + '%'); } // the pixel bar fills up to the handle
 for (const [id, k] of SENS_UI) document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; rangeFill(e.target); document.getElementById(id + 'V').textContent = e.target.value + '%'; });
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
