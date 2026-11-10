@@ -1,6 +1,6 @@
 # Campaign ending: two loops, then the landing
 
-Status: built (build 1.2.5.126). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
+Status: built (build 1.2.6.0). This note started as the design and now describes what the code does; the open questions and what was left out are at the end.
 
 ## Decision
 
