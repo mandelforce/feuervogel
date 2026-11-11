@@ -728,7 +728,7 @@ for (const lv of [2, 6]) {
   ok(r.errs.length === 0, `no errors${r.errs.length ? ': ' + r.errs.join(' | ') : ''}`);
   await page.close();
 }
-// 3p. Level 4's first loop (seed 1945): the overcast sky of its own (drawOvercast, OVC). It is drawn in the loop and never in the first pass; the white fair-weather puffs are off in the loop; it changes along the level
+// 3p. Level 4 (the first pass, seed 1944, and the first loop, seed 1945): the overcast sky of its own (drawOvercast, OVC). It is drawn in both; the white fair-weather puffs are off; it changes along the level
 // (a pale veil at the clearing, heavy and smoke-brown over the fortified forest, fog at the hidden airbase, warm in the valley and on the farmland, low and dark at the castle), blends without steps between
 // stretches, and changes the frame. No errors, also with the low-effects setting.
 {
@@ -740,7 +740,7 @@ for (const lv of [2, 6]) {
       const tab = Object.values(OVC), rng = k => Math.max(...tab.map(v => v[k])) - Math.min(...tab.map(v => v[k])) || 1; let step = 0, prev = null; for (let wy = -3 * CH; wy > -(S.len + 4) * CH; wy -= 8) { const P = ovcAt(S, wy); if (prev) for (let k = 0; k < P.length; k++) step = Math.max(step, Math.abs(P[k] - prev[k]) / rng(k)); prev = P; } o.step = step;
       lowFX = true; startEnigma(4, false, 1); frame(40, false); lowFX = false; o.lowOk = true; } }
     o.errs = SF.R.errs.slice(0, 2); return o; })()`);
-  ok(r.l1.called === 1 && r.l0.called === 0, `the overcast is drawn in the first loop (${r.l1.called}) and not in the first pass (${r.l0.called})`);
+  ok(r.l1.called === 1 && r.l0.called === 1 && r.l0.diff !== 0, `the overcast is drawn in the first loop (${r.l1.called}) and in the first pass too (${r.l0.called}, mean brightness ${r.l0.diff >= 0 ? '+' : ''}${r.l0.diff})`);
   ok(r.l1.diff !== 0, `it changes the frame (mean brightness ${r.l1.diff >= 0 ? '+' : ''}${r.l1.diff})`);
   ok(r.clearing[0] < r.fort[0] && r.clearing[0] < r.castle[0] && r.fort[12] === 1 && r.clearing[12] === 0 && r.air[11] > r.fort[11] && r.air[11] > r.valley[11], 'a pale veil at the clearing, the heaviest at the castle, smoke only in the fortified forest, the most fog at the hidden airbase');
   ok(r.valley[8] > r.valley[10] && r.farm[8] > r.farm[10] && r.castle[1] < 0.4, `warm in the valley and on the farmland (tint R ${r.valley[8].toFixed(2)} B ${r.valley[10].toFixed(2)}), dark at the castle (veil R ${r.castle[1]})`);
