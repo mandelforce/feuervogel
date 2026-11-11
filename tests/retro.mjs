@@ -1,5 +1,5 @@
 // The Retro Run's 1987 look (RETRO, setRetroArt in index.html): looks and sound only, and only in a Retro Run.
-// Checks: the retro art comes on in a Retro Run and every swapped sprite keeps its size; the title, the Campaign and a resumed Retro Run get the
+// Checks: the retro art comes on in a Retro Run and every swapped sprite keeps its size; the pod is the purple airship and bursts in two; the title, the Campaign and a resumed Retro Run get the
 // right art; a seeded Retro Run plays the same frames with the retro art and without it; the phone HUD's HIGH SCORE clears the menu button;
 // the scanline setting shows only in a Retro Run; the chip sound and music run without errors.
 // Needs Node and Playwright; serve the folder first (python3 -m http.server 8000).
@@ -29,12 +29,15 @@ async function open(ctxOpts = { viewport: { width: 400, height: 700 } }) {
     const dims = v => !v || typeof v !== 'object' ? '' : v.getContext ? v.width + 'x' + v.height : v.c && v.c.getContext ? v.c.width + 'x' + v.c.height : Array.isArray(v) ? '[' + v.map(dims).join(',') + ']' : Object.getPrototypeOf(v) === Object.prototype ? '{' + Object.keys(v).map(k => k + dims(v[k])).join(',') + '}' : '';
     out.diff = Object.keys(RETRO.S).filter(k => dims(RETRO.S[k]) !== dims(RETRO.classic[k]));
     out.gold = goldSet() === RETRO.gold;
+    world.enemies.push(E('pod', { x: 112, y: 120 })); SF.run(2); render(); const pd = world.enemies.find(e => e.type === 'pod'); out.pod = !!RETRO.pod && RETRO.pod.fr.length === 4 && !!pd; if (pd) { const n0 = world.items.length; damage(pd, 99); SF.run(3); render(); out.podBurst = world.parts.filter(q => q.kind === 'rhalf').length === 2 && world.items.length > n0; }
     toTitle(); render(); out.title = !RETRO.on && SPR.player === classic;
     SF.start(1, 1); SF.run(30); render(); out.camp = !RETRO.on && !run.retro && SPR.player === classic;
     return JSON.stringify(out); })()`));
   ok(r.on && r.swapped, 'a Retro Run swaps the retro art in');
   ok(r.diff.length === 0, 'every retro sprite has the size of the classic one' + (r.diff.length ? ' (differs: ' + r.diff.join(', ') + ')' : ''));
   ok(r.gold, "player 2's Rooster is the retro one in a Retro Run");
+  ok(r.pod, 'the power-up pod is the purple airship in a Retro Run');
+  ok(r.podBurst, 'a shot pod splits into two hull halves and still drops its pickup');
   ok(r.title, 'the title gets the classic art back');
   ok(r.camp, 'a Campaign after a Retro Run has the classic art');
   await ctx.close();

@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.2'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.3'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5749,6 +5749,43 @@ function retroBall(n, blink) { // enemy shots: an orange ball, a black ring (the
     x.fillStyle = blink ? '#ffffff' : '#ffe070'; const k = Math.max(1, (n - 3) >> 1); x.fillRect(Math.floor(r - k / 2), Math.floor(r - k / 2), k, k);
   }, { oc: '#0a0a10' });
 }
+// The power-up container (pod) in a Retro Run: a 1987 rigid airship in purple and gold, nose down. Doped purple fabric with ring frames and a
+// gold girder stripe, gold cross fins and nose cap, engine pods with a propeller blur, a gondola with teal windows, and a cargo light that
+// blinks through the four weapon colours (the drop is still decided when the pod is shot). 20 x 32 drawn over the unchanged 18 x 20 hit box.
+// Four frames (propellers, light), the same four torn and burning below half health, and the burst: the hull splits at the cargo bay.
+const RPOD = { PUR: ['#200830', '#481060', '#7428a0', '#a04cd0', '#cc88f0', '#f0d0ff'], GLD: ['#5a3e08', '#946a10', '#d0a020', '#f4d050', '#fff0a0'],
+  LAMP: [['#189a86', '#40d0b0', '#a0f8e0'], ['#3e6a10', '#a8e040', '#eaffb0'], ['#a01a5a', '#ff8ac0', '#ffd0e8'], ['#14389c', '#64a8ff', '#d4ecff']], hp: new WeakMap() };
+function retroPodShip(f, hurt) {
+  const P = RPOD.PUR, G = RPOD.GLD, K = '#0a0a10', px = (x, c, i, j, w = 1, h = 1) => { x.fillStyle = c; x.fillRect(i, j, w, h); };
+  return sprite(20, 32, x => {
+    for (let j = 0; j < 32; j++) for (let i = 0; i < 20; i++) { // the hull: a cigar lit from the left, blunt nose (bottom), longer tail taper, ring frames
+      const u = (i + 0.5 - 10) / 5.5, v = (j + 0.5 - 16) / 15.5; if (u * u + Math.pow(Math.abs(v), v < 0 ? 2.6 : 2.1) > 1) continue;
+      let t = u < -0.55 ? 4 : u < -0.1 ? 3 : u < 0.5 ? 2 : 1; if (Math.abs(v) > 0.85) t--; if (j % 3 === 1 && Math.abs(v) < 0.82 && u > -0.7) t--;
+      px(x, P[clamp(t, 0, 5)], i, j);
+    }
+    for (let j = 3; j < 29; j++) if (j % 3) px(x, G[3], 7, j); // the gold girder stripe
+    for (let k = 0; k < 5; k++) { const w = Math.round(4 * (1 - k / 5)); px(x, G[2], 7 - w, 4 + k, w, 1); px(x, G[1], 13, 4 + k, w, 1); px(x, G[3], 7 - w, 4 + k, 1, 1); } // cross fins
+    px(x, G[3], 9, 2, 1, 7); px(x, G[1], 10, 2, 1, 7);
+    for (const s of [-1, 1]) { const ex = 10 + s * 7; px(x, K, ex - 2, 8, 5, 6); px(x, P[2], ex - 1, 9, 3, 4); px(x, P[4], ex - 1, 9, 1, 3); px(x, '#e1e4ec', ex - 3 + (f & 1), 14); px(x, '#e1e4ec', ex + 1 + (f & 1), 14); } // engines
+    px(x, K, 8, 18, 5, 8); px(x, P[2], 9, 19, 3, 6); px(x, P[4], 9, 19, 1, 6); for (let k = 1; k < 5; k += 2) px(x, '#a0f8e0', 10, 19 + k); // gondola
+    const L = RPOD.LAMP[(f >> 1) & 3]; px(x, K, 8, 12, 5, 5); px(x, L[1], 9, 13, 3, 3); px(x, L[2], 9, 13, 1, 2); px(x, L[0], 9, 15, 3, 1); // cargo light
+    px(x, G[3], 8, 30, 5, 1); px(x, G[4], 9, 30, 2, 1); // nose cap
+    if (hurt) { // torn fabric showing black frames, and two small fires that flicker
+      for (const [i, j, w, h] of [[5, 8, 3, 3], [12, 21, 3, 2], [13, 23, 1, 2], [8, 25, 3, 2], [12, 5, 2, 2], [11, 15, 2, 1]]) px(x, K, i, j, w, h);
+      for (const [i, j] of [[6, 9], [13, 22], [9, 26]]) { px(x, '#dc4028', i, j); px(x, f & 1 ? '#ffe070' : '#f8b030', i, j - 1 - (f & 1)); px(x, '#f8b030', i + 1, j); }
+    }
+  }, { oc: '#0a0a10' });
+}
+function retroPodArt() { RETRO.pod = { fr: [0, 1, 2, 3].map(f => retroPodShip(f, false)), hurt: [0, 1, 2, 3].map(f => retroPodShip(f, true)) }; }
+function retroPodDraw(e, fl) {
+  if (!RPOD.hp.has(e)) RPOD.hp.set(e, e.hp);
+  const set = e.hp < RPOD.hp.get(e) * 0.5 ? RETRO.pod.hurt : RETRO.pod.fr; spr(set[(gf >> 2) & 3], e.x, e.y, fl);
+}
+// the burst, from the pod's wreck: two halves of the hull tumble apart (looks only: no random numbers, nothing the game reads)
+function retroPodBurst(e) {
+  const s = RETRO.pod.fr[0];
+  for (const [top, vx, vy, spin] of [[true, -0.35, -0.5, -0.05], [false, 0.4, 0.35, 0.07]]) world.parts.push({ kind: 'rhalf', layer: 'a', x: e.x, y: e.y + (top ? -8 : 8), vx, vy, spin, top, src: s.c, life: 34, max: 34 });
+}
 function retroIcons(S) { // the HUD's life (a tiny Feuervogel) and Nova icons, in the retro palette
   const PAL = { P: '#c8b0ff', p: '#5434b4', c: '#80f4d8', t: '#22c0a0', w: '#fff4d8', r: '#ff4020' };
   const rows = ['....p....', '...rpr...', '..tpcpt..', '.tpwcwpt.', 'tppwcwppt', 'p.ppcpp.p', '...pcp...', '...p.pp..', '..p...p..', '.......p.'];
@@ -5763,7 +5800,7 @@ function buildRetroArt() {
   S.fx = SPR.fx.map((fr, si) => fr.map((c, i) => retroFireball(Math.max(3, c.width / 2 - 3), i / Math.max(1, fr.length - 1), si * 13 + i * 7 + 1)));
   { const s = retroBall(5, false), s2 = retroBall(5, true), b = retroBall(7, false), b2 = retroBall(7, true); S.eb = [s, s2]; S.ebB = [b, b2]; }
   S.flak = sprite(5, 5, x => { rBev(x, ['#30343c', '#50565e', '#787e88', '#a4aab2', '#d0d4d8'], (X, Y) => (X - 2.5) ** 2 + (Y - 2.5) ** 2 <= 6.6, 2, 5, 5); x.fillStyle = '#d0d4d8'; x.fillRect(1, 1, 1, 1); }, { oc: '#0a0a10' });
-  retroIcons(S);
+  retroIcons(S); retroPodArt();
   RETRO.S = S;
 }
 // On while a Retro Run is flown: the copies go into SPR (the classic sprites are kept and put back when it is off).
@@ -15668,6 +15705,7 @@ const DEATHS = {
   pod: {
     blast: 12,
     wreck(e) {
+      if (RETRO.on) retroPodBurst(e); // (looks only)
       const pi = mkItem(!e.bossPod && !e.tutW && needDrone() && Math.random() < 0.35 ? 'T' : 'W', e.x, e.y); if (e.tutW) { pi.w = e.tutW; pi.fixed = true; } world.items.push(pi);
     },
   },
@@ -16546,6 +16584,7 @@ function drawPart(q) {
     case 'flash': dk(q.x, q.y, q.r, f > 0.5 ? '#fff2a8' : '#f8a83a'); break;
     case 'foam': ctx.fillStyle = f > 0.5 ? '#e4f2f8' : '#8cc0dc'; ctx.fillRect(Math.round(q.x), Math.round(q.y), f > 0.6 ? 2 : 1, 1); break;
     case 'dust': ctx.globalAlpha = 0.5 * f; dk(q.x, q.y, q.r + (1 - f) * 2, '#9a8a6a'); ctx.globalAlpha = 1; break;
+    case 'rhalf': { const c = q.src, h = q.top ? 15 : c.height - 15; if (!c) break; ctx.save(); ctx.translate(Math.round(q.x), Math.round(q.y)); ctx.rotate((q.max - q.life) * q.spin); if ((q.life > 10) || (gf & 1)) ctx.drawImage(c, 0, q.top ? 0 : 15, c.width, h, -c.width / 2, -h / 2, c.width, h); ctx.restore(); break; } // a Retro Run pod's hull half
     case 'label': if (q.life > 16 || (q.life >> 2) & 1) textS(q.text, Math.round(q.x), Math.round(q.y), '#fff0a0', 1, 'center', '#f8a83a'); break;
   }
 }
@@ -16771,6 +16810,7 @@ const LOOKS = {
     (run.sortie ? BOMBER_E : [-14, -7, 7, 14]).forEach((ox, i) => { if (e.engs && !e.engs[i]) { if ((gf >> 1) & 1) { ctx.fillStyle = '#ff7a3a'; ctx.fillRect(Math.round(e.x + ox) - 1, Math.round(e.y) + 4, 3, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(e.x + ox), Math.round(e.y) + 4, 1, 1); } return; } ctx.fillStyle = (gf & 1) ? 'rgba(220,220,210,0.7)' : 'rgba(150,150,140,0.5)'; ctx.fillRect(Math.round(e.x + ox - 3), Math.round(e.y + 5), 7, 1); });
   },
   pod(e, fl) {
+    if (RETRO.on) return retroPodDraw(e, fl); // Retro Run: the purple airship
     const r = 12 + ((gf >> 3) & 1);
     ctx.globalAlpha = 0.35; dk(e.x, e.y, r, '#4ccfae'); ctx.globalAlpha = 1;
     ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1.5, 1.5); ctx.translate(-Math.round(e.x), -Math.round(e.y)); spr(SPR.pod, e.x, e.y, fl); ctx.restore();
@@ -17359,7 +17399,7 @@ function airShadow(e) {
   else if (e.type === 'bomber') s = SPR.bomber;
   else if (e.type === 'sower') s = SPR.sower;
   else if (e.type === 'wing') s = e.v === undefined ? SPR.wing : SPR.wingV[e.v];
-  else if (e.type === 'pod') s = SPR.pod;
+  else if (e.type === 'pod') s = RETRO.on ? RETRO.pod.fr[0] : SPR.pod;
   if (s) shadow(s, e.x, e.y, 12 * AIRSH.d, 20 * AIRSH.d, AIRSH.a, AIRSH.s);
 }
 function coin(x, y, rx, ry, ramp) {
