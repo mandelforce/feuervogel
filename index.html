@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.6'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -17209,7 +17209,7 @@ function drawMoonGlow() { /* the first loop's level 3: the moon climbs along the
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${R},${G},${B},${a})`); g.addColorStop(0.5, `rgba(${R},${G},${B},${a * 0.36})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
   ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
 }
-/* Level 4's first loop (run.sortie.autumn): an overcast late-autumn sky that changes along the level instead of the white fair-weather puffs (they stay off in the loop). Per stretch (OVC, blended between stretch middles
+/* Level 4 (the Campaign's first pass and its loops; ovcOn): an overcast late-autumn sky that changes along the level instead of the white fair-weather puffs (they stay off). Per stretch (OVC, blended between stretch middles
    like the snow of level 5; the castle beyond the last stretch has its own): a veil of drifting patches over the ground, soft cloud shadows drifting across it, decks of generated stratus and banks of mist
    (CityGen.cloud), tinted cool and grey at the sea, grey-green over the forest, smoke-brown over the fortified forest, almost clear at the clearing, dense fog at the hidden airbase, warm over the valley and the
    farmland and low and dark over Ravenhold. Visual only: everything is a function of the frame counter and the scroll, drawn under the bullets, the ship's effects and the HUD, nothing seeded, nothing saved.
@@ -17238,6 +17238,7 @@ const OVC5 = {
   pass: [0.38, 0.46, 0.52, 0.64, 0.30, 0.72, 6, 2.2, 0.46, 0.52, 0.66, 0.12, 0],
   gorge: [0.38, 0.48, 0.55, 0.70, 0.30, 0.72, 5, 2.2, 0.48, 0.54, 0.70, 0.10, 0]
 }, OVC5_G = { veil: 1.6, shade: 1.3, deck: 1.1, fog: 1.2, n: 1.2 };
+const ovcOn = () => { const S = run.sortie; return !!S && (S.level === 4 || S.winter); }; /* the overcast sky: level 4 in the Campaign's first pass as in its loops (the same OVC sky as the first loop's autumn), and level 5's first loop */
 const ovcCfg = S => S.winter ? { tab: OVC5, g: OVC5_G, end: 'gorge', smoke: [66, 68, 78], dflt: 'farmland_winter' } : { tab: OVC, g: OVC_G, end: 'castle', smoke: [120, 108, 100], dflt: 'forest_conifer' };
 function ovcAt(S, wy) {
   const c = -wy / CH - world.stageBaseP, cf = ovcCfg(S), last = S.segs.length - 1, pts = S.segs.map((g, k) => [g.start + g.n / 2, cf.tab[S.winter && k === last && g.t === 'farmland_winter' ? 'gorge' : g.t] || cf.tab[cf.dflt]]); pts.push([S.len + 2, cf.tab[cf.end]]);
@@ -17412,7 +17413,7 @@ function drawEnigmaClouds() {
   ctx.globalAlpha = 1;
 }
 function drawHiClouds() {
-  if (RETRO.on || lowFX || (run.sortie && (run.sortie.autumn || run.sortie.winter)) || drawMistClouds(true)) return;
+  if (RETRO.on || lowFX || ovcOn() || drawMistClouds(true)) return;
   const fade = ENIGMA_T ? 1 - ENIGMA_T : 1; if (fade <= 0) return;
   for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.24 * fade * (1 - 0.5 * world.nightF); ctx.drawImage(s.c, Math.round(c.x - s.w), Math.round(c.y - s.h), s.w * 2, s.h * 2); }
   ctx.globalAlpha = 1;
@@ -17902,7 +17903,7 @@ function renderMain() {
   drawParts('g');
   drawWx2Low();
   drawBirds();
-  if (run.sortie && (run.sortie.autumn || run.sortie.winter)) drawOvercast(); /* the first loops of levels 4 and 5: the overcast sky of its own (no white puffs) */
+  if (ovcOn()) drawOvercast(); /* level 4 (the first pass and every loop) and level 5's first loop: the overcast sky of its own (no white puffs) */
   else if (RETRO.on) { /* Retro Run: no soft clouds */ }
   else if (drawMistClouds(false)) { /* a level with generated cloud types (level 3: mist banks and stratus sheets) */ }
   else { if (!ENIGMA_T) for (const c of hiClouds) { const s = sunSpr(SPR.clouds[c.s]); ctx.globalAlpha = 0.07; cshK(s.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, s.w * 2, s.h * 2); ctx.globalAlpha = 1; }
