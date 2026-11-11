@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4802,6 +4802,25 @@ function outline(c, col) {
   x.putImageData(d, 0, 0);
 }
 function sil(c, col) { const [s, x] = mk(c.width, c.height); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); return s; }
+// A burnt-out wreck (wreck decals, the old battle scars, the carrier's burnt planes): the sprite's own paint, greyed 60% and darkened
+// to half, with soot blotches over about a third of it; the outline and other near-black pixels stay dark. Made once per sprite (s.burnt).
+// (Wrecks used the shadow silhouette s.k, which drew them as flat black shapes.)
+function burnt(s) {
+  if (s.burnt) return s.burnt;
+  const w = s.w, h = s.h, [c, x] = mk(w, h); x.drawImage(s.c, 0, 0);
+  const d = x.getImageData(0, 0, w, h), a = d.data;
+  const hs = (i, j) => { let v = (i * 374761393 + j * 668265263 + 11 * 2246822519) | 0; v = Math.imul(v ^ (v >>> 13), 1274126177); return ((v ^ (v >>> 16)) >>> 0) / 4294967296; };
+  const blot = (i, j) => { const fx = i / 3, fy = j / 3, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, p = hs(x0, y0), q = hs(x0 + 1, y0), u = p + (q - p) * tx, v = hs(x0, y0 + 1) + (hs(x0 + 1, y0 + 1) - hs(x0, y0 + 1)) * tx; return u + (v - u) * ty; };
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const k = (j * w + i) * 4; if (!a[k + 3]) continue;
+    const r = a[k], g = a[k + 1], b = a[k + 2], L = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (L < 31) { a[k] = 18; a[k + 1] = 14; a[k + 2] = 12; continue; }
+    let R = (r + (L - r) * 0.6) * 0.5, G = (g + (L - g) * 0.6) * 0.5, B = (b + (L - b) * 0.6) * 0.5;
+    if (blot(i, j) < 0.35) { R += (20 - R) * 0.75; G += (16 - G) * 0.75; B += (14 - B) * 0.75; }
+    a[k] = R; a[k + 1] = G; a[k + 2] = B;
+  }
+  x.putImageData(d, 0, 0); return (s.burnt = c);
+}
 function finalize(c) { return { c, f: sil(c, '#ffffff'), k: sil(c, '#0a0812'), w: c.width, h: c.height }; }
 function sprite(w, h, draw, o = {}) {
   const pad = o.outline === false ? 0 : 1;
@@ -8225,7 +8244,7 @@ function drawFeatures(x, p, wy0) {
     const tx = ci * 46 + 6 + hash(ci, cj + 77) * 34, ty = cj * 46 + 6 + hash(ci + 9, cj) * 34, tt = terrainType(tx, ty);
     if (!(tt === 'field' || tt === 'grass' || tt === 'mud' || tt === 'forest') || Math.abs(tx - roadX(ty)) < 12 || railDist(tx, ty) < 12 || (world.featTheme === 0 && inFarm(tx, ty, 8)) || inTent(tx, ty) || waterIn(tx - 9, ty - 9, tx + 9, ty + 9, 4)) continue;
     const c = SCORCH[h < 0.03 ? 1 : 0][(hash(ci, cj) * 3) | 0]; x.globalAlpha = 0.6; x.drawImage(c, Math.round(tx - c.width / 2), Math.round(ty - wy0 - c.height / 2)); x.globalAlpha = 1;
-    if (h < 0.03) { const set = hash(ci + 2, cj) < 0.5 ? SPR.tank[0] : SPR.truck, s2 = set[(hash(ci, cj + 5) * 16) | 0]; x.globalAlpha = 0.8; x.drawImage(s2.k, Math.round(tx - s2.w / 2), Math.round(ty - wy0 - s2.h / 2)); x.globalAlpha = 1; }
+    if (h < 0.03) { const set = hash(ci + 2, cj) < 0.5 ? SPR.tank[0] : SPR.truck, s2 = set[(hash(ci, cj + 5) * 16) | 0]; x.globalAlpha = 0.8; x.drawImage(burnt(s2), Math.round(tx - s2.w / 2), Math.round(ty - wy0 - s2.h / 2)); x.globalAlpha = 1; }
   }
   // field hospital and mess tents
   for (let cj = Math.floor((y0 - 20) / 90); cj <= Math.floor((y1 + 20) / 90); cj++) for (let ci = 0; ci < 3; ci++) {
@@ -11823,7 +11842,7 @@ function drawCarrier() {
   ctx.drawImage(P.c, x0 - P.ox, y0 - P.oy);
   const pk = carrierPK(C), ps = SPR.fighter[dirIdx(-PI / 2)], pw = Math.round(ps.w * pk), ph = Math.round(ps.h * pk);
   for (let i = CV.PARKED.length - C.parked; i < CV.PARKED.length; i++) { const [px, py] = at(CV.PARKED[i][0], CV.PARKED[i][1]); ctx.globalAlpha = 0.3; ctx.drawImage(ps.k, px - (pw >> 1) + 1, py - (ph >> 1) + 2, pw, ph); ctx.globalAlpha = 1; ctx.drawImage(ps.c, px - (pw >> 1), py - (ph >> 1), pw, ph); }
-  if (C.burnt) for (const [u, v] of C.burnt) { const [px, py] = at(u, v); ctx.globalAlpha = 0.85; ctx.drawImage(ps.k, px - (pw >> 1), py - (ph >> 1), pw, ph); ctx.globalAlpha = 1; } // the flyover: burnt-out planes
+  if (C.burnt) for (const [u, v] of C.burnt) { const [px, py] = at(u, v); ctx.globalAlpha = 0.85; ctx.drawImage(burnt(ps), px - (pw >> 1), py - (ph >> 1), pw, ph); ctx.globalAlpha = 1; } // the flyover: burnt-out planes
   for (const gi of C.gunDead.keys()) if (C.gunDead[gi]) { const [gx, gy] = at(CV.GUNS[gi][0], CV.GUNS[gi][1]); turStub(gx, gy, Math.max(2, 6 * pk)); }
   if ((gf >> 3) & 1) for (const u of [43, 55]) { const [lx, ly] = at(u, -52); ctx.fillStyle = '#ff3a2a'; ctx.fillRect(lx, ly, Math.max(1, Math.round(2 * q)), Math.max(1, Math.round(2 * q))); }
   const cs = Math.max(1, Math.round(2 * pk)), T = C.t;
@@ -16522,7 +16541,7 @@ function drawDecals() {
     }
     else if (d.kind === 'ruinBig') { ctx.globalAlpha = 0.85; ctx.drawImage(SPR.castle.k, Math.round(d.wx - SPR.castle.w / 2), Math.round(y - SPR.castle.h / 2)); ctx.globalAlpha = 1; for (const [a, b, sz] of [[-40, -30, 2], [30, -20, 2], [0, 20, 3], [-30, 40, 2], [40, 45, 2], [0, -170, 4], [-50, 200, 3], [40, 160, 2], [-20, 268, 3], [60, -240, 2]]) { const c = SCORCH[sz][(a + b + 300) % 3]; ctx.drawImage(c, Math.round(d.wx + a - c.width / 2), Math.round(y + b - c.height / 2)); } }
     else if (d.kind === 'ruin') { dk(d.wx, y, 20, '#1a1612'); spr(SPR.ruin, d.wx, y); }
-    else if (d.kind === 'wreck') { dk(d.wx, y, 8, '#221a12'); ctx.globalAlpha = 0.85; ctx.drawImage(d.s.k, Math.round(d.wx - d.s.w / 2), Math.round(y - d.s.h / 2)); ctx.globalAlpha = 1; }
+    else if (d.kind === 'wreck') { dk(d.wx, y, 8, '#221a12'); ctx.globalAlpha = 0.85; ctx.drawImage(burnt(d.s), Math.round(d.wx - d.s.w / 2), Math.round(y - d.s.h / 2)); ctx.globalAlpha = 1; }
     if (d.glimT < glimLen(d) && !lowFX) drawGlimmer(d, y);
   }
 }
