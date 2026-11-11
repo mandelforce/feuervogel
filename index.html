@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.6'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5598,11 +5598,58 @@ SPR.houseSets = [
 function cloudSprite(w, h, blobs) {
   return sprite(w, h, x => { blobs.slice().sort((a, b) => a[1] - b[1]).forEach(([cx, cy, rx, ry]) => ellS(x, RP.cloud, cx, cy, rx, ry, 0.15)); }, { outline: false });
 }
-SPR.clouds = [
+// the classic clouds: smooth ellipse stacks. Enigma Run's soft clouds and their shadows are built from these (enigmaSprites, drawEnigmaClouds).
+SPR.cloudsClassic = [
   cloudSprite(60, 30, [[14, 18, 12, 9], [30, 12, 16, 11], [46, 18, 13, 10], [30, 21, 18, 8]]),
   cloudSprite(44, 24, [[12, 14, 10, 8], [26, 10, 13, 9], [32, 16, 11, 7]]),
   cloudSprite(80, 36, [[16, 22, 14, 11], [36, 14, 18, 13], [58, 20, 16, 12], [40, 26, 22, 9]])
 ];
+// The standard clouds: a broken field of heaped cumulus. A main heap (puffs on a flat base, the middle ones tallest, a crown of smaller puffs
+// on top), two or three smaller heaps beside and below it with gaps between, and a few loose scraps. Each puff is lit from the top left like
+// ellS; a back puff darkens where a front puff (lower on the sprite) meets it, the belly is a darker band, the outline is roughened with
+// noise and its rim falls off in three dithered steps of transparency. Deterministic (its own hash, no random stream): same clouds every load.
+// The ramp keeps the classic clouds' brightness range, so the sunset and morning tints (tintCloud) still map it.
+const HEAP_RAMP = ['#76809c', '#949eb8', '#b4bcd0', '#d2d8e6', '#eceff6', '#ffffff'].map(hexRGB);
+function heapCloud(w, h, seed, i) {
+  const hh = (x, y) => { let v = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(seed, 1103515245); v = Math.imul(v ^ (v >>> 13), 1274126177); v ^= v >>> 16; return (v >>> 0) / 4294967296; };
+  const vn = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), a = hh(xi, yi), b = hh(xi + 1, yi), c = hh(xi, yi + 1), d = hh(xi + 1, yi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+  const fbm = (x, y) => vn(x, y) * 0.6 + vn(x * 2.1 + 31, y * 2.1) * 0.3 + vn(x * 4.3 + 67, y * 4.3) * 0.1, r = k => hh(k, 977);
+  const P = []; // puffs { cx, cy, rx, ry, base (the flat underside's row), scrap (a loose scrap: no own shading, half see-through) }
+  const heap = (x0, y0, hw, hhh, n, top, s) => { const base = y0 + hhh * 0.8, at = P.length;
+    for (let k = 0; k < n; k++) { const f = (k + 0.5) / n, mid = 1 - Math.abs(f - 0.5) * 1.7, rx = hw * (0.14 + r(s + 20 + k) * 0.06), ry = Math.min(rx * 1.05, hhh * (0.22 + 0.3 * mid + r(s + 30 + k) * 0.06));
+      P.push({ cx: x0 + hw * (0.13 + 0.74 * f) + (r(s + 10 + k) - 0.5) * hw * 0.07, cy: base - ry * 0.5, rx, ry, base }); }
+    for (let k = 0; k < top; k++) { const cx = x0 + hw * (0.3 + 0.4 * r(s + 40 + k)), rx = hw * (0.1 + r(s + 50 + k) * 0.05), ry = rx * (0.72 + r(s + 60 + k) * 0.15); let ty = base;
+      for (let q = at; q < P.length; q++) { const p = P[q], dx = (cx - p.cx) / p.rx; if (Math.abs(dx) < 1) ty = Math.min(ty, p.cy - p.ry * Math.sqrt(1 - dx * dx)); }
+      P.push({ cx, cy: ty + ry * 0.45, rx, ry, base }); } // the crown sits on the tops of the puffs below it
+    P.push({ cx: x0 + hw / 2, cy: base - hhh * 0.1, rx: hw * 0.44, ry: hhh * 0.17, base }); }; // and a wide flat foot
+  const L = i === 1; // the small cloud: one heap and one beside it
+  heap(w * (L ? 0.04 : 0.14), h * 0.06, w * (L ? 0.6 : 0.62), h * 0.7, L ? 4 : 5 + (i >> 1), L ? 2 : 3, 0);
+  (L ? [[0.62, 0.34, 0.36, 0.46]] : [[0, 0.44, 0.3, 0.42], [0.7, 0.36, 0.3, 0.46], [0.42, 0.66, 0.24, 0.3]]).forEach(([px, py, pw, ph], k) => { const f = 1 - r(k) * 0.2; heap(w * px, h * py, w * pw * f, h * ph * f, 3, 1, 100 * (k + 1)); });
+  for (let k = 0; k < 3; k++) { const cy = h * (0.55 + r(450 + k) * 0.4), rr = 1.5 + r(460 + k) * 1.8; P.push({ cx: w * (0.08 + r(440 + k) * 0.84), cy, rx: rr * 1.5, ry: rr, base: cy + rr, scrap: true }); }
+  const D = new Float32Array(w * h), F = new Int16Array(w * h).fill(-1), rank = new Int16Array(P.length), order = P.map((p, k) => k).sort((a, b) => P[a].cy + P[a].ry - (P[b].cy + P[b].ry));
+  order.forEach((k, n) => { rank[k] = n; }); // drawn back to front: the lower a puff's bottom, the further in front
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let d = -1, fr = -1;
+    for (const k of order) { const p = P[k], dx = (x + 0.5 - p.cx) / p.rx, dy = (y + 0.5 - p.cy) / p.ry; let e = 1 - dx * dx - dy * dy; if (y + 0.5 > p.base) e -= (y + 0.5 - p.base) * 0.35; if (p.scrap) e *= 0.9; if (e > 0) fr = k; if (e > d) d = e; }
+    D[y * w + x] = d + (fbm((x + seed % 97) / 5, (y + seed % 61) / 5) - 0.5) * 0.28; F[y * w + x] = fr; }
+  const Dat = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? -1 : D[y * w + x], Fat = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? -1 : F[y * w + x];
+  const [c, x] = mk(w, h), img = x.createImageData(w, h), a = img.data;
+  for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+    const k = y * w + xx, d = D[k]; if (d <= 0) continue;
+    const fi = F[k], p = fi >= 0 ? P[fi] : null, solid = p && !p.scrap; let l;
+    if (solid) { const dx = (xx + 0.5 - p.cx) / p.rx, dy = (y + 0.5 - p.cy) / p.ry, nz = Math.sqrt(1 - Math.min(1, dx * dx + dy * dy)); l = 0.5 + 0.36 * (-0.55 * dx - 0.75 * dy) + 0.3 * (nz - 0.5); }
+    else l = 0.86 + (Dat(xx - 1, y - 1) - Dat(xx + 1, y + 1)) * 2;
+    l += (0.5 - y / h) * 0.22;
+    if (solid && y + 0.5 > p.base - 2.5) l -= 0.18 + (y + 0.5 > p.base ? 0.12 : 0); // the darker belly
+    if (fi >= 0) for (const q of [Fat(xx + 1, y + 1), Fat(xx, y + 1), Fat(xx + 1, y)]) if (q >= 0 && q !== fi && rank[q] > rank[fi]) { l -= 0.14; break; } // a crease where a front puff meets this one
+    const col = HEAP_RAMP[pickI(HEAP_RAMP.length, clamp(l, 0, 1), xx, y)];
+    const st = Math.min(1, d / 0.2) + bay(xx, y) * 0.5; let al = st < 0.34 ? 0.3 : st < 0.67 ? 0.62 : 1; // the rim in three dithered steps
+    if (p && p.scrap) al *= 0.5;
+    const q = al >= 0.92 ? 1 : Math.round(al * 3 + bay(xx + 2, y + 1) * 0.9) / 3; if (q <= 0) continue;
+    a[k * 4] = col[0]; a[k * 4 + 1] = col[1]; a[k * 4 + 2] = col[2]; a[k * 4 + 3] = Math.round(255 * Math.min(1, q)); }
+  x.putImageData(img, 0, 0);
+  return finalize(c);
+}
+SPR.clouds = [[72, 38], [54, 32], [94, 46]].map(([w, h], i) => heapCloud(w, h, 4242 + i * 977, i));
 /* ================= enigma art: the picked designs, flown only in Enigma Run levels =================
    The picked sprites (drawn by docs/*-art-*.js, listed in docs/names-and-behaviour.md) are baked as PNG data in the page (<script id="enigmaArt">), keyed like SPR
    (arrays are the 16 headings, tanks are [two track frames][16]). They are decoded once, a moment after start-up. While an Enigma Run level is flown setEnigmaArt(true)
@@ -6160,7 +6207,7 @@ function enigmaSprites(pct) {
   }
   const wb = [[[12, 5, 12, 3.5], [30, 4, 14, 3.8], [50, 5, 16, 3.5], [68, 4, 12, 3.5]], [[10, 4, 10, 3], [26, 3.5, 12, 3.2], [42, 4.5, 12, 3], [50, 4, 6, 2.6]], [[14, 5, 14, 3.5], [36, 4, 16, 4], [58, 5, 18, 3.8], [80, 4, 16, 3.5], [94, 5, 8, 3]], [[8, 3, 8, 2.4], [20, 2.5, 10, 2.4], [32, 3.2, 8, 2.2]]];
   ENIGMA.wisps.forEach(([ww, wh, al], i) => low.push(softCloud(cloudSprite(ww, wh, wb[i]).c, ENIGMA.wispSteps, ENIGMA.wispCut, al)));
-  const big = [0, 2].map(i => softCloud(SPR.clouds[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
+  const big = [0, 2].map(i => softCloud(SPR.cloudsClassic[i].c, [1], [], 1)); // only the soft shadow (.k) of these is used
   S = { low, big }; ENIGMA_SPR.set(pct, S); return S;
 }
 // Sunset clouds (a loop's level 1): the same sprites in the evening's colours. A cloud's day ramp (blue-grey to white) becomes a sunset ramp
@@ -17405,7 +17452,7 @@ function drawProps() {
 // Enigma: soft low clouds with soft shadows, and the soft ground shadows of the two big clouds above the screen (drawn under everything that moves)
 function drawEnigmaClouds() {
   const T = ENIGMA_T, S = ENG_S;
-  if (!lowFX) for (const c of hiClouds) { const s = SPR.clouds[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; cshK(k.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, (s.w + 8) * 2, (s.h + 8) * 2); }
+  if (!lowFX) for (const c of hiClouds) { const s = SPR.cloudsClassic[c.s === 2 ? 2 : 0], k = sunSpr(S.big[c.s === 2 ? 1 : 0]); ctx.globalAlpha = ENIGMA.bigShadow + ENIGMA.bigShadowT * T; cshK(k.k, 0, c.x + 50, c.y + 80, CLOUDSH.high, (s.w + 8) * 2, (s.h + 8) * 2); }
   ctx.globalAlpha = 0.1;
   for (const c of clouds) if (!c.hide) { const s = sunSpr(S.low[c.s % S.low.length]); cshK(s.k, 0, c.x + 20, c.y + 30, CLOUDSH.low, s.w + 8, s.h + 8); }
   ctx.globalAlpha = 1 - 0.45 * world.nightF;
@@ -17821,7 +17868,7 @@ function renderMain() {
   drawGround();
 
   if (app.state === 'title') {
-    for (const c of clouds) { const s = SPR.clouds[c.s]; shadow(s, c.x, c.y, 20, 30, 0.14, CLOUDSH.low); ctx.globalAlpha = 0.8; spr(s, c.x, c.y); ctx.globalAlpha = 1; }
+    for (const c of clouds) { const s = SPR.clouds[c.s]; shadow(s, c.x, c.y, 20, 30, 0.14, CLOUDSH.low); ctx.globalAlpha = 0.62; spr(s, c.x, c.y); ctx.globalAlpha = 1; }
     ctx.restore();
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, 'rgba(18,14,26,0.75)'); g.addColorStop(0.55, 'rgba(18,14,26,0.35)'); g.addColorStop(1, 'rgba(18,14,26,0.7)');
@@ -17910,7 +17957,7 @@ function renderMain() {
   if (ENIGMA_T) drawEnigmaClouds();
   else {
     for (const c of clouds) if (!c.hide) shadow(sunSpr(SPR.clouds[c.s]), c.x, c.y, 20, 30, 0.14, CLOUDSH.low);
-    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.78 * (1 - 0.45 * world.nightF); spr(sunSpr(SPR.clouds[c.s]), c.x, c.y); ctx.globalAlpha = 1; }
+    for (const c of clouds) { if (c.hide) continue; ctx.globalAlpha = 0.6 * (1 - 0.45 * world.nightF); spr(sunSpr(SPR.clouds[c.s]), c.x, c.y); /* the low clouds: see-through */ ctx.globalAlpha = 1; }
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
