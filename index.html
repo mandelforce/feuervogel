@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.4'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.5'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16454,13 +16454,23 @@ function chunkTreesNear(wx, wy, r, out, seen) {
   }
   return out;
 }
+/* true where Ravenhold's floor image (drawRaven) covers the ground at (wx, wy): the trees the chunk baked in there are hidden under it, so they must not be drawn again over the units in the yards. Reads the
+   image's own alpha (the ruin's wall breaches show the ground) */
+let ravenAlpha = { src: null, a: null };
+function ravenCovers(wx, wy) {
+  if (world.ravenGate === null || world.ravenGate === undefined) return false;
+  const yy = Math.round(wy - (world.ravenGate - RV_GATE)), xx = Math.round(wx); if (yy < 0 || yy >= RV_H || xx < 0 || xx >= W) return false;
+  const src = run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : SPR.ravenFloor;
+  if (ravenAlpha.src !== src) ravenAlpha = { src, a: src.getContext('2d').getImageData(0, 0, W, RV_H).data };
+  return ravenAlpha.a[(yy * W + xx) * 4 + 3] > 0;
+}
 function drawCanopy() {
   const sc = Math.floor(world.scroll), seen = new Set(), out = [];
   const add = (wx, wy) => chunkTreesNear(wx, wy, 10, out, seen);
   for (const e of world.enemies) if (!e.dead && e.ground && (e.type === 'troop' || e.type === 'moto' || e.type === 'staff' || e.type === 'tank' || e.type === 'htank' || e.type === 'truck' || e.type === 'acar' || e.type === 'ftruck') && e.y > -10 && e.y < H + 10) add(e.wx | 0, e.wy | 0);
   for (const c of critters) { const k = c.kind || 'cow'; if ((k === 'sheep' || k === 'horse' || k === 'camel' || k === 'deer' || k === 'civ') && !c.hidden) { const y = c.wy + sc; if (y > -10 && y < H + 10) add(c.wx | 0, c.wy | 0); } }
   out.sort((a, b) => a.y - b.y);
-  for (const t of out) spr(t.gs, t.x, t.y + sc);
+  for (const t of out) if (!ravenCovers(t.x, t.y)) spr(t.gs, t.x, t.y + sc);
 }
 function drawTreads() {
   const sc = Math.floor(world.scroll);
@@ -17876,7 +17886,7 @@ function renderMain() {
       drawEnemy(e);
       if (ENT[e.type].treesInFront) {
         if (e.front === undefined) e.front = chunkTreesNear(e.wx, e.wy, e.hw + 10, [], new Set()).filter(t => t.y > e.wy + 3).sort((a, b) => a.y - b.y).slice(0, 3);
-        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0))) spr(t.gs, t.x, t.y + sc0);
+        for (const t of e.front) if (!burntTrees.has((t.x | 0) + ',' + (t.y | 0)) && !ravenCovers(t.x, t.y)) spr(t.gs, t.x, t.y + sc0);
       }
     } }
   for (const e of world.enemies) if (e.type === 'boss' && (!e.air || e.phase === 'parked' || e.phase === 'spool')) drawBoss(e);
