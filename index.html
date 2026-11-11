@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.1'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.2'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5771,7 +5771,7 @@ function setRetroArt(on) {
   if (on === RETRO.on) return;
   if (on) { if (!RETRO.S) buildRetroArt(); RETRO.classic = {}; for (const k of Object.keys(RETRO.S)) { RETRO.classic[k] = SPR[k]; SPR[k] = RETRO.S[k]; } }
   else { for (const k of Object.keys(RETRO.classic)) SPR[k] = RETRO.classic[k]; RETRO.classic = null; RETRO.card = null; }
-  RETRO.on = on; retroCrt();
+  RETRO.on = on; retroCrt(); if (typeof app !== 'undefined') { app.pipSrc = null; app.pipN = -1; } // (the phone's Nova count round the button is redrawn with this look's icon)
 }
 function retroSync() { setRetroArt(!!run.retro && app.state !== 'title'); if (RETRO.on || RETRO.crtEl) retroCrt(); } // (the scanlines follow the canvas when the page is resized)
 // a ship set outside SPR (the other skins): converted once
@@ -5797,6 +5797,20 @@ function retroChunk(c, p) {
       } else q = retroSnap(R, G, B, 1.12, 1.04);
       o[k] = q[0]; o[k + 1] = q[1]; o[k + 2] = q[2]; o[k + 3] = 255; } }
   x.putImageData(d, 0, 0); r._v = v; return r;
+}
+// the Nova in a Retro Run: rings of fireballs racing out from the ship (same timing as the classic rings: k frames since the bomb, radius 6 per frame)
+function retroNova(k) {
+  const F1 = SPR.fx[1], F2 = SPR.fx[2];
+  for (let ring = 0; ring < 3; ring++) {
+    const R = k * 6 - ring * 22; if (R <= 4) continue;
+    const n = Math.max(8, Math.round(R * TAU / 18)), fr = ring === 0 ? F2 : F1;
+    for (let i = 0; i < n; i++) {
+      const a = (i + ring * 0.5) * TAU / n + k * 0.01, x = feel.bombX + Math.cos(a) * R, y = feel.bombY + Math.sin(a) * R;
+      if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+      const h = fr.length >> 1, c = fr[Math.min(fr.length - 1, ring * (h >> 1) + ((k >> 1) + i) % h)]; /* (the leading ring stays fiery, the trailing ones turn to smoke) */ ctx.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height / 2));
+    }
+  }
+  if (k < 10) { const c = SPR.fx[3][Math.min(SPR.fx[3].length - 1, k >> 1)]; ctx.drawImage(c, Math.round(feel.bombX - c.width / 2), Math.round(feel.bombY - c.height / 2)); }
 }
 // ---- weapons, in their own colours: tracers with a white tip, needles for the Lance, smoke puffs behind the Seekers ----
 const rScat = {};
@@ -5890,8 +5904,137 @@ function chipTone(f, d, type, v, f2) {
 function chipNoiseHit(d, v, freq) {
   const rates = [1000, 2000, 4000, 8000, 16000], want = clamp(freq * 2.5, 800, 16000); let rate = rates[0]; for (const r of rates) if (Math.abs(Math.log(r / want)) < Math.abs(Math.log(rate / want))) rate = r;
   const t0 = actx.currentTime, s = actx.createBufferSource(), g = actx.createGain();
-  s.buffer = chipNoiseBuf(rate); s.loop = true; chipEnv(g, t0, v * 0.55, d);
+  s.buffer = chipNoiseBuf(rate); s.loop = true; chipEnv(g, t0, v * 0.5 * clamp(freq / 8000, 0.12, 1), d); // (unfiltered 1-bit noise is far louder than the classic low-passed noise: matched by RMS)
   s.connect(g).connect(sfxOut()); s.start(t0); s.stop(t0 + d + 0.02);
+}
+// a chip voice for the effects: one pulse or triangle tone sliding from f0 to f1 in 1/50 s steps; rise: the volume climbs in 8 steps instead of falling
+function chipVoice(t0, f0, f1, d, v, wave = 'pulse', rise = false, dest = sfxOut()) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  if (wave === 'tri') o.setPeriodicWave(psgWave('tri')); else o.setPeriodicWave(psgWave(wave === 'pulse' ? 0.25 : wave));
+  const steps = Math.max(1, Math.round(d * 50));
+  for (let k = 0; k <= steps; k++) o.frequency.setValueAtTime(f0 * Math.pow(f1 / f0, k / steps), t0 + d * k / steps);
+  for (let k = 0; k <= 8; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (rise ? (k + 1) / 9 : 1 - k / 8)), t0 + d * k / 8);
+  g.gain.setValueAtTime(0, t0 + d);
+  o.connect(g).connect(dest); o.start(t0); o.stop(t0 + d + 0.02);
+}
+// a burst of 1-bit noise; the rate (its pitch) can step down over the burst
+function chipNz(t0, d, v, rates, rise = false, dest = sfxOut()) {
+  const n = rates.length, g = actx.createGain();
+  for (let k = 0; k <= 8; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (rise ? (k + 1) / 9 : 1 - k / 8)), t0 + d * k / 8);
+  g.gain.setValueAtTime(0, t0 + d); g.connect(dest);
+  rates.forEach((r, i) => { const s = actx.createBufferSource(); s.buffer = chipNoiseBuf(r); s.loop = true; s.connect(g); s.start(t0 + d * i / n); s.stop(t0 + d * (i + 1) / n + 0.005); });
+}
+// the effects that build their own sounds, as the chip would play them
+function chipBoom(size) {
+  const t0 = actx.currentTime, dur = [0.42, 0.75, 1.5][size];
+  chipNz(t0, dur, [0.07, 0.085, 0.1][size], [[8000, 4000, 2000, 1000], [4000, 2000, 2000, 1000, 1000], [4000, 2000, 1000, 1000, 1000, 1000]][size]);
+  chipVoice(t0, [190, 130, 95][size], 32, dur * 0.5, [0.22, 0.28, 0.34][size], 'tri');
+  chipVoice(t0, [900, 600, 420][size], 60, 0.12, 0.05, 0.5);
+  duck(0.55, 0.12 + size * 0.15);
+}
+function chipHit(metal) {
+  const t0 = actx.currentTime;
+  chipNz(t0, 0.03, (metal ? 0.03 : 0.022) * mixF, [16000]);
+  chipVoice(t0, metal ? 1400 : 2600, metal ? 850 : 1700, 0.04, (metal ? 0.025 : 0.02) * mixF, metal ? 0.5 : 0.125);
+}
+function chipNova() {
+  const t0 = actx.currentTime + 0.01, out = sfxBus;
+  chipNz(t0, 0.12, 0.3, [16000], false, out);
+  chipNz(t0 + 0.04, 2.4, 0.33, [4000, 2000, 2000, 1000, 1000, 1000, 1000, 1000], false, out);
+  chipVoice(t0, 140, 22, 1.6, 0.9, 'tri', false, out);
+  [76, 72, 69, 64, 60, 57, 52, 48].forEach((n, i) => chipVoice(t0 + i * 0.06, mtof(n), mtof(n), 0.07, 0.06, 0.25, false, out));
+  duck(0.7, 1.2);
+}
+function chipWhine() { chipVoice(actx.currentTime, 90, 900, 1.2, 0.07, 0.25, true, sfxBus); }
+function chipRebirth() { const t0 = actx.currentTime; chipNz(t0, 0.8, 0.03, [1000, 2000, 4000, 8000], true); chipVoice(t0, 60, 520, 0.8, 0.045, 0.25, true); }
+
+// ---- the music on a 1980s sound chip ----
+// The same notes, tempo and arrangement order as the game's music, played as an early 80s sound chip would: two pulse voices (lead, and the
+// harmony or doubling), a thinner pulse for the arpeggios, a 4-bit stepped triangle for the bass and a 1-bit noise channel for the drums.
+// Each voice plays one note at a time (a new note cuts the last one), volume moves in steps, vibrato in steps, no echo, no filters; chords are
+// played as fast arpeggios. Used for every song while a Retro Run is flown (psgStep in scheduleMusic, and the jingles).
+const PSG = { ch: {}, waves: {}, vol: 0.58 }; // vol: the chip's mix level, matched to the classic music's loudness (RMS over the stage and boss songs)
+function psgWave(k) {
+  if (PSG.waves[k]) return PSG.waves[k];
+  const N = 48, re = new Float32Array(N), im = new Float32Array(N);
+  if (k === 'tri') { const M = 32; for (let h = 1; h < N; h++) { let a = 0, b = 0; for (let j = 0; j < M; j++) { const v = (j < 16 ? j : 31 - j) / 7.5 - 1, x0 = j / M * TAU, x1 = (j + 1) / M * TAU; a += v * (Math.sin(h * x1) - Math.sin(h * x0)) / h; b += v * (Math.cos(h * x0) - Math.cos(h * x1)) / h; } re[h] = a / PI; im[h] = b / PI; } } // a 32-step triangle, as the chip's 4-bit one
+  else for (let h = 1; h < N; h++) re[h] = (2 / (h * PI)) * Math.sin(h * PI * k);
+  return PSG.waves[k] = actx.createPeriodicWave(re, im, { disableNormalization: false });
+}
+// one note on a channel: cuts the channel's last note, stepped envelope (attack, a drop after 3 frames, hold, 3-step release), stepped vibrato on long notes
+function psgNote(ch, wave, f, t, d, v, o = {}) {
+  v *= PSG.vol; const prev = PSG.ch[ch]; if (prev && prev.end > t) { prev.g.gain.cancelScheduledValues(t); prev.g.gain.setValueAtTime(0, t); }
+  const osc = actx.createOscillator(), g = actx.createGain(), fr = 1 / 60;
+  osc.setPeriodicWave(psgWave(wave));
+  if (o.slide) { osc.frequency.setValueAtTime(f * Math.pow(2, -1 / 12), t); osc.frequency.setValueAtTime(f, t + 2 * fr); } else osc.frequency.setValueAtTime(f, t);
+  if (o.vib && d > 0.3) for (let k = 0, tt = t + 0.22; tt < t + d; k++, tt += 2 * fr) osc.frequency.setValueAtTime(f * (k % 4 === 1 ? 1.007 : k % 4 === 3 ? 0.993 : 1), tt);
+  if (o.arp) for (let k = 0, tt = t; tt < t + d; k++, tt += fr) osc.frequency.setValueAtTime(f * Math.pow(2, o.arp[k % o.arp.length] / 12), tt);
+  g.gain.setValueAtTime(v, t);
+  if (o.decay) { const n = 8; for (let k = 1; k <= n; k++) g.gain.setValueAtTime(v * (1 - k / n), t + o.decay * k / n); }
+  else { g.gain.setValueAtTime(v * 0.78, t + 3 * fr); for (let k = 1; k <= 3; k++) g.gain.setValueAtTime(v * 0.78 * (1 - k / 3), t + Math.max(4 * fr, d - 3 * fr) + k * fr); }
+  const end = t + (o.decay ? Math.max(d, o.decay) : Math.max(d, 7 * fr)) + 0.02;
+  osc.connect(g).connect(musicBus); osc.start(t); osc.stop(end);
+  PSG.ch[ch] = { g, end };
+}
+function psgDrum(t, kind, v = 1) {
+  const prev = PSG.ch.nz; if (prev && prev.end > t) { prev.g.gain.cancelScheduledValues(t); prev.g.gain.setValueAtTime(0, t); }
+  const P = { kick: [0.07, 0.3, [1000]], snare: [0.15, 0.2, [4000, 4000, 2000]], hat: [0.035, 0.07, [16000]], open: [0.16, 0.05, [16000, 8000]], crash: [1.1, 0.13, [8000, 8000, 4000]], tom: [0.12, 0.15, [2000, 1000]] }[kind];
+  const [d, vol, rates] = P, g = actx.createGain(), n = 8;
+  for (let k = 0; k <= n; k++) g.gain.setValueAtTime(Math.max(0, vol * v * PSG.vol * (1 - k / n)), t + d * k / n);
+  g.connect(musicBus);
+  rates.forEach((r, i) => { const s = actx.createBufferSource(); s.buffer = chipNoiseBuf(r); s.loop = true; s.connect(g); s.start(t + d * i / rates.length); s.stop(t + d * (i + 1) / rates.length + 0.005); });
+  PSG.ch.nz = { g, end: t + d };
+  if (kind === 'kick' || kind === 'tom') { // the drop in pitch on its own triangle, as chip drivers did it
+    const o = actx.createOscillator(), gg = actx.createGain(), f0 = kind === 'kick' ? 160 : 220 * v; o.setPeriodicWave(psgWave('tri'));
+    for (let k = 0; k <= 6; k++) o.frequency.setValueAtTime(f0 * Math.pow(0.3, k / 6), t + k * 0.018);
+    for (let k = 0; k <= 6; k++) gg.gain.setValueAtTime(0.32 * PSG.vol * (1 - k / 6), t + k * 0.018);
+    o.connect(gg).connect(musicBus); o.start(t); o.stop(t + 0.13);
+  }
+}
+function psgLead(ch, n, t, d, type) {
+  const f = mtof(n);
+  if (type === 'bell') psgNote(ch, 0.125, f * 2, t, d, 0.075, { decay: Math.max(0.25, d * 1.4) });
+  else if (type === 'brass') psgNote(ch, 0.5, f, t, d, 0.06, { slide: true, vib: true });
+  else psgNote(ch, 0.25, f, t, d, 0.075, { vib: true });
+}
+const psgBass = (n, t, d) => psgNote('bass', 'tri', mtof(n), t, Math.max(d, 0.05), 0.24);
+const psgArp = (n, t, d) => psgNote('arp', 0.125, mtof(n), t, d, 0.03);
+// one step of a song: the arrangement's notes (its transposition, octave and kit), the instruments the chip's
+function psgStep(s, step, t, dt, m) {
+  const tr = m.tr || 0, bar = s.bars[Math.floor(step / 16) % s.bars.length], i = step % 16, root = bar[0] + tr, ch = CHORD[bar[1]], k = m.kit || s.kit, b2 = (step >> 4) % 2;
+  const plain = !m.opl && !m.style, oct = m.oct ? 12 : 0, ev = s.lead[step];
+  if (ev && m.lead !== false) {
+    const n = ev[0] + tr + oct, d = ev[1] * dt * 0.92, lt = plain ? m.leadType || s.leadType : m.opl && m.style === 'laststand' ? 'brass' : 'pulse';
+    psgLead('lead', n, t, d, lt);
+    if (plain && m.layer) psgLead('harm', n - (m.layerDown ? 12 : 0), t, d, m.layer === 'brass' ? 'brass' : 'pulse');
+    else if (plain && m.harm) psgLead('harm', n + m.harm, t, d, 'pulse');
+    else if (!plain && m.harm) { const h = chordBelow(n, root + 24, ch); if (h !== null) psgLead('harm', h, t, d, 'brass'); }
+  }
+  if (m.bass !== false) {
+    if (m.chug) psgBass(root + (i % 8 === 6 ? 12 : 0), t, dt * 0.55);
+    else if (k === 'drive') psgBass(root + (i % 2 ? 12 : 0), t, dt * 0.9);
+    else if (k === 'tense') { if (i === 0) psgBass(root, t, dt * 14); }
+    else if (k === 'sparse') { if (i === 0) psgBass(root, t, dt * 14); if (i === 8 && b2) psgBass(root + 7, t, dt * 6); }
+    else if (k === 'march') { if (i % 4 === 0) psgBass(root + (i === 8 ? 7 : 0), t, dt * 3); }
+    else if (i % 2 === 0) psgBass(root + (i % 4 === 2 ? 12 : 0), t, dt * 1.7);
+  }
+  if (m.pad && i === 0) psgNote('arp', 0.125, mtof(root + 36), t, dt * 8, 0.028, { arp: ch }); // the chord as a fast arpeggio
+  else if (m.arp !== false) {
+    if (k === 'tense') { if (i === 10 || i === 14) psgArp(root + 37 + (i === 14 ? 6 : 0), t, dt * 1.5); }
+    else if (k === 'sparse') { if (i % 4 === 2) psgArp(root + 36 + ch[(i >> 2) % 3], t, dt * 2.5); }
+    else if (k === 'march') { if (i % 2 === 0) psgArp(root + 24 + ch[(i >> 1) % 3], t, dt * 0.8); }
+    else psgArp(root + 24 + ch[i % 3] + (i % 6 >= 3 ? 12 : 0), t, dt * 0.7);
+  }
+  if (m.drums !== false) {
+    if (k === 'rock') { if (i === 0 || i === 8 || i === 10) psgDrum(t, 'kick'); else if (i === 4 || i === 12 || (i === 14 && (step >> 4) % 4 === 3)) psgDrum(t, 'snare'); else if (i % 2 === 0) psgDrum(t, 'hat'); }
+    else if (k === 'march') { if (i === 0 || i === 8) psgDrum(t, 'kick'); else if (i === 4 || i === 12) psgDrum(t, 'snare'); else if (b2 && i >= 13) psgDrum(t, 'snare', 0.45 + (i - 13) * 0.2); else if (i % 2 === 0) psgDrum(t, 'hat', 0.6); }
+    else if (k === 'sparse') { if (i === 0 || (i === 10 && !b2)) psgDrum(t, 'kick'); else if (i === 8 && b2) psgDrum(t, 'snare', 0.6); else if (i === 4 || i === 12) psgDrum(t, 'hat', 0.7); }
+    else if (k === 'tense') { if (i === 0 || i === 3) psgDrum(t, 'kick'); else if (i === 12 && (step >> 4) % 4 === 3) psgDrum(t, 'snare', 0.5); else if (i % 4 === 2) psgDrum(t, 'hat', 0.5); }
+    else if (k === 'tribal') { if (i === 0 || i === 3 || i === 6 || i === 10) psgDrum(t, 'tom', i === 0 ? 0.6 : 0.85); else if (i === 14) psgDrum(t, 'tom', 1); else if (i === 8 || i === 12) psgDrum(t, 'snare', 0.8); else if (i % 2 === 1) psgDrum(t, 'hat', 0.6); }
+    else { if (i % 4 === 0) psgDrum(t, 'kick'); else if (i === 4 || i === 12) psgDrum(t, 'snare'); else psgDrum(t, 'hat', i % 2 ? 0.6 : 1); }
+  }
+  if (m.dense && (i === 6 || i === 14)) psgDrum(t, 'kick');
+  if (m.rolls && (step >> 4) % 4 === 3 && i >= 8) psgDrum(t, 'snare', 0.35 + (i - 8) * 0.08);
 }
 
 /* ================= enigma: the calmer Campaign look =================
@@ -8304,6 +8447,7 @@ function env(g, t, peak, d, att = 0.005) {
   g.gain.setValueAtTime(peak * 0.8, t + Math.max(att + 0.01, d * 0.6)); g.gain.linearRampToValueAtTime(0.0001, t + d);
 }
 function mLead(n, t, d, type = 'pulse') {
+  if (RETRO.on) return psgLead('jg', n, t, d, type); // (Retro Run: the chip)
   if (type === 'bell') {
     const f = mtof(n + 12), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f * 2.76;
@@ -8328,12 +8472,13 @@ function mLead(n, t, d, type = 'pulse') {
   for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + d + 0.05); }
 }
 function mBass(n, t, d) {
+  if (RETRO.on) return psgBass(n, t, d);
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = 'sawtooth'; o.frequency.value = mtof(n);
   f.type = 'lowpass'; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(320, t + d); f.Q.value = 6;
   o.connect(f).connect(g).connect(musicBus); env(g, t, 0.15, d, 0.003); o.start(t); o.stop(t + d + 0.03);
 }
-function mArp(n, t, d) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
+function mArp(n, t, d) { if (RETRO.on) return psgNote('jg2', 0.125, mtof(n), t, d, 0.03); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
 function mNoise(t, d, v, type, freq) {
   ensureNoise();
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
@@ -8341,14 +8486,15 @@ function mNoise(t, d, v, type, freq) {
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   s.connect(f).connect(g).connect(musicBus); s.start(t, Math.random() * 0.5); s.stop(t + d);
 }
-function mKick(t) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.2); }
-function mTom(t, f) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.2); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.26); }
+function mKick(t) { if (RETRO.on) return psgDrum(t, 'kick'); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.2); }
+function mTom(t, f) { if (RETRO.on) return psgDrum(t, 'tom', f / 150); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.2); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.26); }
 function mSnare(t, v = 1) {
+  if (RETRO.on) return psgDrum(t, 'snare', v);
   mNoise(t, 0.14, 0.2 * v, 'bandpass', 1900);
   const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.06);
   g.gain.setValueAtTime(0.14 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.1);
 }
-function mHat(t, v = 0.045) { mNoise(t, 0.035, v, 'highpass', 7000); }
+function mHat(t, v = 0.045) { if (RETRO.on) return psgDrum(t, 'hat', v / 0.045); mNoise(t, 0.035, v, 'highpass', 7000); }
 const CHORD = { m: [0, 3, 7], M: [0, 4, 7] };
 function buildSong(bpm, bars, mel, kit, shift, leadType = 'pulse') {
   const len = bars.length * 16, lead = new Array(len).fill(null);
@@ -8402,7 +8548,7 @@ const SONGS = {
 const STAGE_SONGS = ['stage', 'winter', 'desert', 'night', 'forest', 'city'];
 const Music = { song: null, step: 0, next: 0, timer: null, arr: null, sec: 0, rep: 0 };
 // ---- one step of music, with arrangement options (an empty options object sounds exactly like the game) ----
-function crash(t) { mNoise(t, 1.4, 0.16, 'highpass', 4500); mNoise(t, 0.5, 0.12, 'bandpass', 2200); }
+function crash(t) { if (RETRO.on) return psgDrum(t, 'crash'); mNoise(t, 1.4, 0.16, 'highpass', 4500); mNoise(t, 0.5, 0.12, 'bandpass', 2200); }
 function playStepX(s, step, t, dt, m) {
   const tr = m.tr || 0, bar = s.bars[Math.floor(step / 16) % s.bars.length], i = step % 16, root = bar[0] + tr, ch = CHORD[bar[1]], k = m.kit || s.kit, b2 = (step >> 4) % 2;
   const ev = s.lead[step];
@@ -8692,7 +8838,8 @@ function scheduleMusic() {
   while (Music.next < actx.currentTime + 0.12) {
     const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step);
     if (Music.step === 0 && Music.rep === 0 && sc2.m.crash) crash(Music.next);
-    if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
+    if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, sc2.m); // Retro Run: every arrangement on the chip
+    else if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
@@ -8703,7 +8850,7 @@ function jingle(notes, dt = 0.09) {
   for (const [n, l] of notes) { mLead(n, t, l * dt * 0.95); mArp(n + 12, t, l * dt * 0.5); t += l * dt; }
 }
 function boomSfx(size) {
-  if (muted || !actx) return;
+  if (muted || !actx) return; if (RETRO.on) return chipBoom(size); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime;
   const fq = [3600, 2600, 2000][size], dur = [0.42, 0.75, 1.5][size], vol = [0.42, 0.55, 0.7][size];
@@ -8736,7 +8883,7 @@ function duck(amount, hold) {
   musicBus.gain.cancelScheduledValues(t0); musicBus.gain.setTargetAtTime(base * amount, t0, 0.01); musicBus.gain.setTargetAtTime(base, t0 + hold, 0.25);
 }
 function hitSfx(metal) {
-  if (muted || !actx) return;
+  if (muted || !actx) return; if (RETRO.on) return chipHit(metal); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = metal ? 3200 : 5200;
@@ -8750,7 +8897,7 @@ function hitSfx(metal) {
 }
 function distCurve(k) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return c; }
 function novaSfx() {
-  if (muted || !actx) return;
+  if (muted || !actx) return; if (RETRO.on) return chipNova(); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime + 0.01, out = sfxBus;
   const pan = (node, pv) => { if (actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pv; node.connect(p); p.connect(out); } else node.connect(out); };
@@ -8911,7 +9058,7 @@ function endChain() {
   if (n >= 10) haptic('medalBig');
 }
 function whine() {
-  if (muted || !actx) return;
+  if (muted || !actx) return; if (RETRO.on) return chipWhine(); // Retro Run: chip-style
   const t0 = actx.currentTime, o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
   o.type = 'sawtooth'; o2.type = 'sine';
   o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(900, t0 + 1.2);
@@ -9033,7 +9180,7 @@ function warnSfx(th) {
 }
 const sfxLast = {}, sfxGap = { shot: 5, boom: 4, gboom: 5, bigboom: 10, tink: 6, gun: 6, cannon: 8, hit: 3, hitm: 3, rocket: 10 };
 function rebirthSfx() { // the death boom run backwards: noise swells in while a sweep climbs
-  if (muted || !actx) return;
+  if (muted || !actx) return; if (RETRO.on) return chipRebirth(); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime, d = 0.8, s = actx.createBufferSource(), g = actx.createGain(), fl = actx.createBiquadFilter(), o = actx.createOscillator(), og = actx.createGain();
   s.buffer = noiseBuf; s.loop = true; fl.type = 'lowpass'; fl.frequency.setValueAtTime(4000, t0); fl.frequency.exponentialRampToValueAtTime(600, t0 + d);
@@ -9759,6 +9906,7 @@ function setDiffStage(n) {
 }
 function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open Practice on that level (else the full Campaign from level 1)
   app.diffNext = { kind, n }; app.diffDown = false;
+  if (kind === 'retro' && !RETRO.S) setTimeout(() => { if (!RETRO.S) buildRetroArt(); }, 60); // (the retro art is built while the player picks, not when the run starts)
   setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
   document.getElementById('diffAsk').classList.add('open');
@@ -17782,7 +17930,8 @@ function renderMain() {
   drawWeather();
   if (world.rainF > 0.02) { ctx.globalAlpha = 0.45 * world.rainF; ctx.fillStyle = '#b8d0e8'; for (const d of drops) { ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, 3); ctx.fillRect(Math.round(d.x) - 1, Math.round(d.y) + 3, 1, 1); } ctx.fillStyle = '#e4f0f8'; for (let i = 0; i < 6 * world.rainF; i++) ctx.fillRect((Math.random() * W) | 0, (Math.random() * H) | 0, 1, 1); ctx.globalAlpha = 1; }
   if (world.flashL > 0) { ctx.fillStyle = `rgba(220,230,255,${0.45 * world.flashL / 12})`; ctx.fillRect(0, 0, W, H); }
-  if (feel.bombFx > 0) {
+  if (feel.bombFx > 0 && RETRO.on) retroNova(64 - feel.bombFx);
+  else if (feel.bombFx > 0) {
     const k = 64 - feel.bombFx;
     ctx.globalAlpha = Math.min(1, feel.bombFx / 30);
     for (let i = 0; i < 4; i++) {
@@ -17796,7 +17945,8 @@ function renderMain() {
   drawFlyby();
   ctx.restore();
 
-  if (feel.flashFx > 0) { ctx.fillStyle = `rgba(240,236,255,${feel.flashFx / 14})`; ctx.fillRect(0, 0, W, H); }
+  if (feel.flashFx > 0 && RETRO.on) { if (feel.flashFx > 4) { ctx.fillStyle = 'rgba(255,248,224,0.55)'; ctx.fillRect(0, 0, W, H); } } /* Retro Run: a hard two-frame flash */
+  else if (feel.flashFx > 0) { ctx.fillStyle = `rgba(240,236,255,${feel.flashFx / 14})`; ctx.fillRect(0, 0, W, H); }
   drawHUD();
   if (app.results) drawResults();
   if (app.congrats) drawCongrats();

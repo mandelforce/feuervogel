@@ -57,6 +57,9 @@ jobs:
           # Road vehicles move smoothly: every Campaign stage and Enigma Run level, no tank or truck may flick its heading, shake or jump.
           - name: Vehicle jitter test
             run: node tests/jitter.mjs
+          # The Retro Run's own look and chip sound: on only in a Retro Run, the same sprite sizes, the same game with and without it (tests/retro.mjs).
+          - name: Retro Run test
+            run: node tests/retro.mjs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
