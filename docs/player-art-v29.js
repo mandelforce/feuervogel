@@ -587,10 +587,12 @@ function makePlayersV29() {
       return Q(WR, 0.62 - a * 0.012 - (y - 9) * 0.02 + lit(e), e, 0.45);
     }, { w: 1 });
     quills(g, [[14, 23], [10, 24], [6, 23]], [7, 8], o.wing ? TL[0] : P.PA[1], 0.3);
-    // the original's tail, in its own pixel coordinates: its polygon is centred half a pixel left of the spine, which is what makes it lopsided
-    if (o.orig) g.polyS(TR, [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5); // plain violet, like the original's
-    g.poly([[3, 20], [6, 25], [4, 25], [2, 23]], (a, y, e) => Q(o.body ? P.PA : TL, 0.7 - (y - 20) * 0.08, e, 0.3), { sep: 1 });
-    g.ell(0, 16, 3.6, 10, (a, y, e) => Q(BR, 0.6 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e, 0.35), { sep: 1 });
+    const struts = sep => g.poly([[3, 20], [6, 25], [4, 25], [2, 23]], (a, y, e) => Q(o.body ? P.PA : TL, 0.7 - (y - 20) * 0.08, e, 0.3), { sep });
+    const hull = sep => g.ell(0, 16, 3.6, 10, (a, y, e) => Q(BR, 0.6 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e, 0.35), { sep });
+    struts(1); hull(1);
+    // the original's tail, in its own pixel coordinates: its polygon is centred half a pixel left of the spine, which is what makes it lopsided. Plain violet.
+    // It is laid over the dark lines that struts and body draw on the wings, and both are then drawn again without them, so no dark pixel lands on the tail.
+    if (o.orig) { g.polyS(TR, [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5); struts(0); hull(0); }
     for (let y = 10; y < 25; y++) { const c = o.body ? Q(P.PA, 1 - (y - 10) * 0.03, { i: 0, j: y }, 0) : Q(TL, 0.95 - (y - 10) * 0.04, { i: 0, j: y }, 0); g.dot(0, y, c); if (o.spine && y > 11 && y < 22) g.dot(1, y, TL[y < 16 ? 3 : 2]); }
     if (o.head) { // the original's head: its polygon and polyS shading (bias 0.25, gradient 0.5, lit top and left edges, full dither in both finishes), a one-pixel beak
       g.poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => pick(BR, clamp(0.8 + 0.5 * (0.5 - (e.u * 0.4 + e.v * 0.6)) + (e.lead || (!e.s && e.outer) ? 0.2 : 0) - (e.trail || (e.s && e.outer) ? 0.2 : 0), 0, 1), e.i, e.j));
@@ -600,7 +602,7 @@ function makePlayersV29() {
       g.px([[0, 0, P.beak], [0, 1, P.beak], [0, 2, P.beak], [1, 2, P.beak], [2, 5, P.eye[0]], [1, 6, P.eye[1]]]);
     }
     if (o.crest) g.px([[0, 4, TL[4]], [0, 8, TL[4]], [0, 9, TL[3]]]);
-    nozzle(g, 3, 28, P.glow);
+    if (!o.orig) nozzle(g, 3, 28, P.glow);
   }
   for (const [v, name, idea, o] of [
     ['T1', 'Teal edge', 'A thicker crystal leading edge, teal feather tips along the trailing edge and tail, a crest stripe. Violet stays the main colour.', { edge2: 1, tips: 1, crest: 1 }],
