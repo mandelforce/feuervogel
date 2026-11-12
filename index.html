@@ -2296,6 +2296,21 @@ function castShadows(plan) {
   for (const p of plan.pylons || []) if (p.ok) for (let d = -3; d <= 3; d++) spot(p.x - d - 2, p.y + d - 2, 1, 120);
   plan.shadowMask = mask;
 }
+// Buffer stops (once per plan, from the railway's mask): wherever a pair of rails (3 to 6 px apart) ends with nothing of the track in the next
+// four rows on, short of the plan's own ends (the line runs on into the host's ground there), a tunnel's portal (the line runs on underground) and the
+// buffer stops already drawn (the yard's siding, the airfield's fence). Each { x: the track's middle, y: its last row, dir: the way it was going }.
+function bufferStops(plan) {
+  if (plan.bufs) return plan.bufs; const out = plan.bufs = [], RM = plan.RM; if (!RM) return out; const { W, L } = plan, r2 = (x, y) => x >= 0 && x < W && y >= 0 && y < L && RM[y * W + x] === 2;
+  const known = [...(plan.tunnels || []).map(t => ({ x: t.x, y: t.y, r: 14 })), ...(plan.perimeter ? plan.perimeter.stops.map(b => ({ x: (b.x0 + b.x1) / 2, y: b.y, r: 8 })) : []), ...(plan.yard && plan.yard.buffer ? [{ x: plan.yard.buffer.x, y: plan.yard.buffer.y, r: 8 }] : [])];
+  const near = (x, y) => known.some(k => Math.abs(k.x - x) <= k.r && Math.abs(k.y - y) <= k.r) || out.some(b => Math.abs(b.x - x) <= 5 && Math.abs(b.y - y) <= 4);
+  for (let y = 8; y < L - 8; y++) for (let x = 0; x < W; x++) { if (!r2(x, y) || r2(x - 1, y)) continue; // the left edge of a rail run in this row
+    let x2 = -1; for (let d = 3; d <= 6 && x2 < 0; d++) if (r2(x + d, y) && !r2(x + d - 1, y)) x2 = x + d; if (x2 < 0) continue; let xr = x2; while (r2(xr + 1, y)) xr++; // its partner rail, 3 to 6 px on
+    if (xr - x > 9) continue;
+    for (const dir of [1, -1]) { let on = false; for (let k = 1; k <= 4 && !on; k++) for (let q = x - 2; q <= xr + 2 && !on; q++) if (r2(q, y + dir * k)) on = true; if (on) continue; // the track goes on (also past a row or two laid across it)
+      let back = 0; for (let k = 1; k <= 6; k++) { let any = false; for (let q = x - 3; q <= xr + 3 && !any; q++) if (r2(q, y - dir * k)) any = true; if (any) back++; } if (back < 6) continue; // (a real track behind it, not a stray pixel)
+      const xc = Math.round((x + xr) / 2); if (!near(xc, y)) out.push({ x: xc, y, dir }); } }
+  return out;
+}
 function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: its own track colours by the railway's mask; opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
   const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
@@ -2535,6 +2550,8 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = Math.round(pm.gate - pm.gw / 2); x <= pm.gate + pm.gw / 2 - 2; x++) put(x, pm.fence, ((x >> 1) % 2) ? C.lit : C.fire[1]);
     for (const b of pm.stops) { if (b.y < y0 - 3 || b.y > y0 + h + 3) continue; for (let x = b.x0; x <= b.x1; x++) { put(x, b.y, C.fire[1]); put(x, b.y + 1, C.dark); } } }
+  for (const bf of bufferStops(plan)) { if (bf.y < y0 - 4 || bf.y > y0 + h + 4) continue; const yb = bf.y + bf.dir, yd = bf.y + 2 * bf.dir; // a buffer stop where a track ends: a striped beam across both rails, its dark block behind
+    for (let x = bf.x - 4; x <= bf.x + 4; x++) { put(x, yb, (x >> 1) % 2 ? C.fire[2] : C.lit); put(x, yd, C.dark); } put(bf.x - 3, bf.y, C.dark); put(bf.x + 3, bf.y, C.dark); }
   for (const tn of plan.tunnels || []) { if (tn.y + 26 < y0 || tn.y - 26 >= y0 + h) continue; const { x: tx, y: ty, dir } = tn, soft = k => k === K.BEACH || k === K.MEADOW || k === K.FRONT || k === K.GARDEN || k === K.LOT || k === K.WORKS || k === K.NONE || k === K.FIELD || k === K.PARK || k === K.RUBBLE || k === K.RAIL || k === K.TRACK || k === K.BANK;
     // sized for the game's trains (16 px wide): a 22 px round-topped mouth in a 28 x 7 px sandstone face, the track's centre its axis; over it a
     // mound of sandy rock up to 36 px across and 24 rows long, symmetric about the track, as wide as the open ground allows on both sides (never over a street or a building)
@@ -4477,7 +4494,7 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4503,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.9'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.10'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
