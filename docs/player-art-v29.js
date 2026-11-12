@@ -558,5 +558,37 @@ function makePlayersV29() {
   add('Libelle', 'A', 'Darter', 'A dragonfly with four glass wings held straight out, each with a dark mark near the tip.', 41, 40, g => libelle(g, [[1.5, 9], [8, 7], [16, 6.5], [20, 8], [19.5, 11], [12, 12], [1.5, 12]], [[1.5, 13], [9, 14], [17, 15.5], [20, 18], [18, 21], [10, 19], [1.5, 16]], false), { fc: FL.teal, flames: [[-2, -3], [2, -3]], size: '41 x 40 art (+6 wide, +4 tall)', hit: 'keep the hit box: the body is only 3 px wide' });
   add('Libelle', 'B', 'Demoiselle', 'A demoiselle: wings swept back in a V with a dark blue band, the same needle body.', 33, 40, g => libelle(g, [[1.5, 9], [6, 9], [13, 15], [16, 23], [14, 25.5], [9, 19], [1.5, 13]], [[1.5, 13], [7, 18], [11, 25], [11, 30.5], [8, 29], [4, 22], [1.5, 17]], true), { fc: FL.teal, flames: [[-2, -3], [2, -3]], size: '33 x 40 art (2 narrower, +4 tall)' });
 
+  /* ================= Feuervogel, teal studies: the original's shape (37 wide, symmetric), with the crystal teal given more room ================= */
+  const TL = ['#082428', '#0c3236', '#14605c', '#21988a', '#4ccfae', '#a8f6dc'];
+  function fvTeal(g, o) {
+    const P = SK.feuer, WR = o.wing || P.PA, BR = o.body || P.PA, TR = o.tail || P.PA;
+    g.poly([[-1, 22], [2, 22], [7, 35], [3, 31], [-1, 29]], (a, y, e) => e.lead ? TR[3] : e.outer ? TR[1] : (o.tips && e.trail) ? TL[4] : Q(TR, 0.5 - (y - 22) * 0.015 + lit(e), e, 0.4));
+    g.poly(WING_FV, (a, y, e) => {
+      if (e.lead && y < 20) return Q(TL, 0.9 - (a > 12 ? 0.15 : 0), e, 0);
+      if (e.lead2 && y < 19) return o.edge2 ? TL[a > 12 ? 2 : 3] : WR[4];
+      if (e.trail) return o.tips ? TL[4] : WR[1];
+      if (o.tips && e.trail2) return TL[2];
+      if (y >= 13 && y < 22 && a > 9.2 && a <= 11.2) return o.bars ? (y === 13 ? '#e8fff6' : y === 21 ? TL[2] : TL[4]) : y === 21 ? P.bar[1] : P.bar[0];
+      if (y >= 13 && y < 22 && a > 7.2 && a <= 9.2) return o.bars ? (y === 13 ? TL[4] : TL[a > 8.2 ? 2 : 1]) : P.bar[2];
+      if (o.fade) { const t = clamp((a - 4) / 11 + (y - 14) / 30, 0, 1), k = t + dth(e.i, e.j) * (RAS ? 0.5 : 0.25); return k > 0.5 ? Q(TL, 0.62 - (y - 9) * 0.02 + lit(e), e, 0.45) : Q(P.PA, 0.62 - a * 0.012 - (y - 9) * 0.02 + lit(e), e, 0.45); }
+      return Q(WR, 0.62 - a * 0.012 - (y - 9) * 0.02 + lit(e), e, 0.45);
+    }, { w: 1 });
+    quills(g, [[14, 23], [10, 24], [6, 23]], [7, 8], o.wing ? TL[0] : P.PA[1], 0.3);
+    g.poly([[3, 20], [6, 25], [4, 25], [2, 23]], (a, y, e) => Q(o.body ? P.PA : TL, 0.7 - (y - 20) * 0.08, e, 0.3), { sep: 1 });
+    g.ell(0, 16, 3.6, 10, (a, y, e) => Q(BR, 0.6 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e, 0.35), { sep: 1 });
+    for (let y = 10; y < 25; y++) { const c = o.body ? Q(P.PA, 1 - (y - 10) * 0.03, { i: 0, j: y }, 0) : Q(TL, 0.95 - (y - 10) * 0.04, { i: 0, j: y }, 0); g.dot(0, y, c); if (o.spine && y > 11 && y < 22) g.dot(1, y, TL[y < 16 ? 3 : 2]); }
+    g.poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => Q(BR, 0.78 - a * 0.07 * (e.s ? 1 : 0.3) - y * 0.015, e, 0.3));
+    g.px([[0, 0, P.beak], [0, 1, P.beak], [0, 2, P.beak], [1, 2, P.beak], [2, 5, P.eye[0]], [1, 6, P.eye[1]]]);
+    if (o.crest) g.px([[0, 4, TL[4]], [0, 8, TL[4]], [0, 9, TL[3]]]);
+    nozzle(g, 3, 28, P.glow);
+  }
+  for (const [v, name, idea, o] of [
+    ['T1', 'Teal edge', 'A thicker crystal leading edge, teal feather tips along the trailing edge and tail, a crest stripe. Violet stays the main colour.', { edge2: 1, tips: 1, crest: 1 }],
+    ['T2', 'Crystal bars', 'The white and black wing bars become glowing teal crystal bars, with a wider teal spine.', { bars: 1, spine: 1, crest: 1 }],
+    ['T3', 'Teal fade', 'The wings run from violet at the root to teal at the tips. Bars and body as today.', { fade: 1, tips: 1 }],
+    ['T4', 'Teal wings', 'Teal wings on a violet body: the two colours swap roles. The white and black bars stay.', { wing: TL, tail: TL }],
+    ['T5', 'Teal body', 'A teal crystal body, head and tail between violet wings, with teal bars.', { body: TL, tail: TL, bars: 1 }]])
+    add('Feuervogel', v, name, idea, 35, 36, g => fvTeal(g, o), { fc: v === 'T4' || v === 'T5' ? FL.teal : FL.fire, size: '37 x 38 with the outline (today: 36 x 38)' });
+
   return out;
 }
