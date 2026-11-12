@@ -616,5 +616,33 @@ function makePlayersV29() {
     ['T5', 'Teal body', 'A teal crystal body, head and tail between violet wings, with teal bars.', { body: TL, tail: TL, bars: 1 }]])
     add('Feuervogel', v, name, idea, 35, 36, g => fvTeal(g, o), { fc: v === 'T4' || v === 'T5' ? FL.teal : FL.fire, size: '37 x 38 with the outline (today: 36 x 38)' });
 
+  /* ================= Swallow, variations: the picked Swallow A (S1) and five relatives, in shape and in colour ================= */
+  const AZURE = ['#06102a', '#0c1e50', '#143488', '#2456c8', '#5a94f0', '#b4dcff'], SOOT = ['#0e0a08', '#1e1612', '#33271f', '#4e3e32', '#77624e', '#a89478'], RUST = ['#6a2410', '#a83c18', '#d86430', '#f09a60'];
+  function swallowV(g, o) {
+    const R = o.R || NAVY, wing = o.wing, tail = o.tail;
+    g.poly(tail, (a, y, e) => e.outer ? R[4] : e.inner || (o.split && a < 0.6 && y > 29) ? R[0] : R[2]);
+    for (const [a, y] of o.spots || []) g.dot(a, y, '#f4f2e8');
+    g.poly(wing, (a, y, e) => e.lead ? R[5] : e.lead2 ? (o.sheen ? TEAL[3] : R[4]) : e.trail || e.outer ? R[0] : (o.sheen && Math.abs(y - 13 - a * 0.42) < 0.6 && a > 4) ? TEAL[2] : Q(R, 0.48 - (y - 10) * 0.012 + lit(e), e, 0.3), { w: 1 });
+    g.line(4, 13, wing[3][0] - 2, wing[3][1] + 1, R[1], { w: 1 }); g.line(4, 15, wing[4][0] - 3, wing[4][1] - 2, R[1], { w: 1 });
+    if (o.bar) g.line(5, 15.5, wing[3][0] - 4, wing[3][1] + 3, o.bar, { w: 1 });
+    g.ell(0, 15, 3.4, 8.5, (a, y, e) => {
+      if (o.rump && y >= 19 && y <= 21) return Q(o.rump, 0.7 - a * 0.1, e, 0.2);
+      return !e.s && Math.round(a) === 1 && y > 10 && y < 18 ? R[5] : Q(R, 0.5 + (e.s ? -a * 0.08 : a * 0.03), e, 0.3);
+    }, { sep: 1 }); // (1, not true: the same soft rim as the picked Swallow A, see the note in build)
+    g.poly([[-1, 2], [2, 3.5], [3.4, 7], [2, 10], [-1, 10]], (a, y, e) => o.nape && y >= 8 ? Q(o.nape, 0.7 - a * 0.1, e, 0.2) : Q(R, 0.6 - a * 0.06, e, 0.2));
+    g.px([[0, 1, '#141018'], [2, 6, '#0c0a10']]);
+    if (o.red !== false) g.px([[0, 2, '#d83a2a'], [0, 3, '#ff6a4a'], [1, 3, '#d83a2a'], [3, 8, '#c8401a'], [3, 7, '#f0e0c8']]); else g.px([[3, 8, o.chin || '#d8c8a8'], [3, 7, o.chin || '#d8c8a8']]);
+    if (o.flank !== false) g.px([[4, 19, '#f0e0c8'], [4, 20, '#d8c8a8'], [3, 21, '#f0e0c8']]);
+  }
+  const SW_WING = [[2, 10], [7, 9], [13, 11], [17, 15], [19, 21], [19, 28], [16, 22], [12, 18], [8, 17.5], [5, 18.5], [2, 19]], SW_TAIL = [[-1, 22], [2.4, 22], [4, 30], [7, 39], [5.4, 39], [2, 32], [-1, 28]];
+  for (const [v, name, idea, W, H, o, x] of [
+    ['S1', 'Barn swallow', 'The picked Swallow A, for comparison: blue-black, red forehead and chin, cream flanks, white tail spots.', 39, 40, { wing: SW_WING, tail: SW_TAIL, spots: [[2, 26], [3, 28], [3, 30]] }, { size: '39 x 40 art (+4 wide, +4 tall)' }],
+    ['S2', 'Red-rumped', 'The same shape with a rust rump and nape and a buff wing bar: warmer, and easier to pick out on dark ground.', 39, 40, { wing: SW_WING, tail: SW_TAIL, rump: RUST, nape: RUST, bar: '#c8a878', spots: [] }, { size: '39 x 40 art' }],
+    ['S3', 'Azure', 'A brighter royal blue with a teal sheen along the wings. The same shape; reads much stronger on the night level.', 39, 40, { wing: SW_WING, tail: SW_TAIL, R: AZURE, sheen: 1, spots: [[2, 26], [3, 28], [3, 30]] }, { size: '39 x 40 art' }],
+    ['S4', 'House martin', 'Stockier: broader wings, a short shallow fork and a white rump band. Fits the standard size.', 37, 36, { wing: [[2, 10], [7, 9], [13, 11], [17, 15], [18, 21], [17.6, 26], [15, 22], [11, 19], [7, 18.5], [2, 20]], tail: [[-1, 22], [2.4, 22], [4, 29], [5.2, 34], [3.6, 34], [1.6, 29.5], [-1, 27.5]], rump: ['#b8b4c8', '#d8d6e0', '#f4f2e8', '#ffffff'], red: false, chin: '#f4f2e8', spots: [] }, { size: '37 x 36 art (+2 wide)', flames: [[-2, 9], [2, 9]] }],
+    ['S5', 'Streamers', 'The barn swallow with very long, thin tail streamers and a row of white spots: the most elegant, and the tallest.', 39, 45, { wing: SW_WING, tail: [[-1, 22], [2.4, 22], [4, 30], [6, 37], [8, 44.6], [7, 44.6], [4.6, 38], [2, 32], [-1, 28]], spots: [[2, 26], [3, 28], [3, 30], [4, 33]] }, { size: '39 x 45 art (+4 wide, +9 tall, all of it tail)' }],
+    ['S6', 'Swift', 'A swift instead: sooty brown, longer and narrower scythe wings, a short fork, a pale chin. The widest.', 45, 34, { wing: [[2, 11], [7, 9.5], [13, 10.5], [18, 14], [21, 20], [22, 28], [19, 22], [14.5, 17.5], [9, 16.5], [5, 17.5], [2, 18.5]], tail: [[-1, 21], [2.2, 21], [3.4, 27], [4.8, 33], [3.2, 33], [1.4, 28], [-1, 26]], R: SOOT, red: false, flank: false, chin: '#c8b894', spots: [] }, { size: '45 x 34 art (+10 wide, 2 shorter)', hit: 'keep the hit box: the wings are thin' }]])
+    add('Swallow', v, name, idea, W, H, g => swallowV(g, o), Object.assign({ fc: FL.ice, flames: [[-2, 9], [2, 9]], hit: 'keep the hit box' }, x));
+
   return out;
 }
