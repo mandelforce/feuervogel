@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.9'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4554,10 +4554,11 @@ const SENS_BASE = { sensMouse: 1, sensKey: 1.2, sensPad: 1.2 }; // what 100% on 
 const sensPct = k => { const v = +settings[k]; return v >= 25 && v <= 175 ? v : 100; }; // the slider's value
 const sensOf = k => sensPct(k) / 100 * (SENS_BASE[k] || 1); // Settings > Sensitivity
 function saveSettings() { store.setJSON(KEY.settings, settings); }
-// Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
-const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
+// Build 1.2.6.9 rebalance: Ace is the old Veteran with the old Ace's bullet speed (1.12); Veteran sits between Rookie and that (slower bullets, every 5th dropped, slower fire, fewer revenge shots).
+// Easy thins the fire instead of just slowing it: skip drops every 3rd bullet (Veteran every 5th), ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
+const DIFF = { bs: [0.88, 0.95, 1.12], hp: [1, 1, 1], boss: [1.25, 1, 1], lives: [2, 2, 2], skip: [3, 5, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 0.6], wingFan: [3, 2, 2], revenge: [0, 0.5, 0.5], revengeP: [0, 0.25, 0.5], turRevengeP: [0, 0.05, 0.1], revengeTo: [0, 3, 3], fighterFire: [0.3, 0.35, 0.4], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1, 1.25], plane: [70000, 80000, 90000], fs: [1.7, 1.3, 1.15] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
-function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + (settings.diff === 2 ? (st - 1) / 5 : 0)) * DIFF.rank[settings.diff]; }
+function rankFor(st) { return (((st - 1) % 6) * 0.08 + Math.floor((st - 1) / 6) * 1.0 + 0) * DIFF.rank[settings.diff]; }
 let eshotN = 0;
 
 /* ================= noise ================= */
@@ -10748,7 +10749,7 @@ function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
   if (world.ebul.length > 420 || feel.bombFx > 20) return;
   const sk = DIFF.skip[settings.diff];
-  if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && (rsObj && rsObj.rs0 !== undefined ? (rsObj.sn = (rsObj.sn | 0) + 1) : ++eshotN) % sk === 0) return; // (the Campaign: counted per enemy, so shooting one doesn't change which of another's shots are left out)
+  if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && (kind !== 'shell' || settings.diff === 0) && (rsObj && rsObj.rs0 !== undefined ? (rsObj.sn = (rsObj.sn | 0) + 1) : ++eshotN) % sk === 0) return; // (the Campaign: counted per enemy, so shooting one doesn't change which of another's shots are left out; Veteran keeps every shell: its Drilling salvos and Buechse shots are aimed, telegraphed patterns)
   world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
 }
 function flakShot(x, y, spread = 1) {
@@ -10941,7 +10942,7 @@ let ttDir = false, ttFix = false, ttSlot = 0, ttOrd = 0; // ttFix: placement as 
 const ttOn = () => !!run.sortie;
 function ttSeed(k) { if (ttOn()) { drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + k * 7919, gf) * 4294967296) | 0; ttSlot = k; ttOrd = 0; } }
 const TT_LIFE = { heavy: 720, bomber: 810, sower: 1204, pfeil: 600, kolibri: 600, '@leader': 400 }; // frames an air enemy of the type stays when nobody shoots it (measured with a bot that never fires: Heavy 720, Bomber 810, Sower 1204, fighters about 250, the default); the Pfeil never leaves unshot, so its typical life against the bot (about 600)
-const TT_AIR = [16, 18, 20]; // per difficulty: at most this many timetabled planes up (ghosts) when an air wave is due, else the wave is skipped (today's highest count of planes up at a wave, measured with the bot on every level)
+const TT_AIR = [16, 17, 18]; // per difficulty: at most this many timetabled planes up (ghosts) when an air wave is due, else the wave is skipped (today's highest count of planes up at a wave, measured with the bot on every level)
 function ttGhost(e) { const G0 = world.ttGhosts || (world.ttGhosts = []); G0.push([e.type, gf, e.ground ? e.wy : null]); if (e.leader) G0.push(['@leader', gf, null]); if (e.drill) G0.push(['@drill', gf, e.wy]); }
 function ttAlive(g) { return g[2] !== null ? g[2] + Math.floor(world.scroll) < H + 24 : gf - g[1] < (TT_LIFE[g[0]] || 250); }
 function ttCount(type) { const G0 = world.ttGhosts; if (!G0) return 0; if (G0.length > 400) world.ttGhosts = G0.filter(ttAlive); let n = 0; for (const g of world.ttGhosts) if (g[0] === type && ttAlive(g)) n++; return n; }
@@ -11163,7 +11164,7 @@ const ENC = {
   // two formations come at it together from both sides, a five-plane dive follows and a chase pair closes; then a pod as the reward
   // (plan 7.1, step 2: playtesting showed the passing Heavy didn't read as an anchor; one size bigger after the owner's playtest: two
   // formations at once, an extra dive). budget: the soft bullet budget per difficulty. Rookie: one formation, the dive, the chase pair.
-  anvil: { name: 'THE ANVIL', len: 780, max: 1500, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
+  anvil: { name: 'THE ANVIL', len: 780, max: 1500, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: true, ground: false }, ev: [
     { t: 0, do: 'heavy', x: 0.5, hold: 0.28, holdT: 480 },
     { t: 180, do: 'formation', x: 0.25 },
     { t: 180, do: 'formation', x: 0.75, diff: [1, 2] }, // (both sides at once; one on Rookie)
@@ -11175,7 +11176,7 @@ const ENC = {
   // follows (not on Rookie), then a strafing run of five from the side the ship is not on (not on Rookie). Land only: the guns need ground
   // (starts only over ENC_LAND; the guns go in the plan's flak slots where a level has them in their third). Owner's playtest: one gun
   // was no lane, so each side now has its own event and its own wait.
-  flaklane: { name: 'FLAK LANE', len: 840, max: 1800, rest: 180, budget: [20, 28, 34], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
+  flaklane: { name: 'FLAK LANE', len: 840, max: 1800, rest: 180, budget: [20, 24, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'flak', x: [0.06, 0.38], wait: 240 },
     { t: 0, do: 'flak', x: [0.62, 0.94], wait: 240 },
     { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5, needAll: true }, // (a plan slot's gun can stand up to 48 px higher: about 400 frames; needAll: called off if a gun found no ground)
@@ -11188,11 +11189,10 @@ const ENC = {
   // Bomber screen: a Bomber (tough, firing steadily, on screen for about 13 s if left alone) while five-plane dives come in at 1, 3 and 5 s,
   // a second Bomber joins on Ace, then a strafing run: burn the Bomber down, or clear the dives. Its budget is the lowest, so the Bombers'
   // own shots stay readable. Rookie: two dives and no strafing run. (One size bigger after the owner's playtest: dives of five, not three.)
-  bomberscreen: { name: 'BOMBER SCREEN', len: 840, max: 1500, rest: 180, budget: [18, 24, 30], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
+  bomberscreen: { name: 'BOMBER SCREEN', len: 840, max: 1500, rest: 180, budget: [18, 21, 24], holds: { air: true, pod: true, ground: true }, ev: [ // (ground held too: an air fight; new guns' fire would fill its low budget and hold back the Bomber)
     { t: 0, do: 'bomber', x: 0.5 },
     { t: 60, do: 'dive', n: 5, x: 0.3 },
     { t: 180, do: 'dive', n: 5, x: 0.7 },
-    { t: 240, do: 'bomber', x: 0.25, diff: [2] }, // (a second Bomber on Ace)
     { t: 300, do: 'dive', n: 5, x: 0.5, diff: [1, 2] },
     { t: 420, do: 'strafer', i: 0, diff: [1, 2] },
     { after: 16, do: 'strafer', i: 1, diff: [1, 2] },
@@ -11204,7 +11204,7 @@ const ENC = {
   // It never makes a Sower: sowerTick does. Its budget is the highest (owner): the Sower's bombs burst into rings of 8 that count, and the
   // tanks need room beside them. Tank convoys, not flak: that stretch of forest rarely has ground for a gun (owner). One size bigger after
   // the owner's playtest: a fourth convoy.
-  sowerwindow: { name: 'SOWER WINDOW', start: 'sower', len: 1400, max: 2100, rest: 180, budget: [30, 38, 46], holds: { air: true, pod: true, ground: true }, ev: [
+  sowerwindow: { name: 'SOWER WINDOW', start: 'sower', len: 1400, max: 2100, rest: 180, budget: [30, 34, 38], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'convoy' },
     { t: 180, do: 'convoy', diff: [1, 2] }, // (three convoys on Rookie)
     { t: 360, do: 'convoy' },
@@ -11213,7 +11213,7 @@ const ENC = {
   // types one after another, so each reads on its own, over ships. A sweep of five from the left, then one from the right, a destroyer, two
   // PT boats, a five-plane dive up the middle, a strafing run from the side the ship is not on (not on Rookie); a pod as the reward. Sea only.
   // (The destroyer comes early: the chain's water narrows toward the airbase island.)
-  firstcontact: { name: 'FIRST CONTACT', len: 960, max: 1800, rest: 180, budget: [18, 24, 30], biomes: ['sea'], holds: { air: true, pod: true, ground: true }, ev: [
+  firstcontact: { name: 'FIRST CONTACT', len: 960, max: 1800, rest: 180, budget: [18, 21, 24], biomes: ['sea'], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'sweep', i: 0, side: -1 }, { after: 11, do: 'sweep', i: 1, side: -1 }, { after: 11, do: 'sweep', i: 2, side: -1 }, { after: 11, do: 'sweep', i: 3, side: -1 }, { after: 11, do: 'sweep', i: 4, side: -1 },
     { t: 240, do: 'sweep', i: 0, side: 1 }, { after: 11, do: 'sweep', i: 1, side: 1 }, { after: 11, do: 'sweep', i: 2, side: 1 }, { after: 11, do: 'sweep', i: 3, side: 1 }, { after: 11, do: 'sweep', i: 4, side: 1 },
     { t: 300, do: 'ship', kind: 'destroyer', x: 0.6, wait: 180 },
@@ -11227,7 +11227,7 @@ const ENC = {
   // the Wing's own volleys were never gated.
   // Formations (level 1, in the stretch before the boss the owner added for it): formations with a leader, the leader flying first and its
   // wingmen holding their slots until it falls. Two side by side (one on Rookie), then one up the middle, then a chase pair; a pod as the reward.
-  formations: { name: 'FORMATIONS', len: 720, max: 1500, rest: 180, budget: [18, 24, 30], holds: { air: true, pod: true, ground: false }, ev: [
+  formations: { name: 'FORMATIONS', len: 720, max: 1500, rest: 180, budget: [18, 21, 24], holds: { air: true, pod: true, ground: false }, ev: [
     { t: 0, do: 'formation', x: 0.3 },
     { t: 60, do: 'formation', x: 0.7, diff: [1, 2] },
     { t: 360, do: 'formation', x: 0.5 },
@@ -11235,7 +11235,7 @@ const ENC = {
     { t: 720, do: 'pod', x: 0.5, own: false }] },
   // Level 2 in a loop (seed 1945 on; run.sortie.encPlan places them by the stretches). Oasis Ambush: covers (hay, bush, net) round the village's grove hide flak,
   // tanks and an artillery piece; when the ship comes close they all drop together, the camels bolt, and two formations and a chase pair come in behind; a pod.
-  oasisambush: { name: 'OASIS AMBUSH', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  oasisambush: { name: 'OASIS AMBUSH', len: 900, max: 1800, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'ambush', wait: 900 },
     { t: 200, do: 'formation', x: 0.3 },
     { t: 260, do: 'formation', x: 0.7, diff: [1, 2] },
@@ -11243,14 +11243,14 @@ const ENC = {
     { t: 760, do: 'pod', x: 0.5, own: false }] },
   // Burning Field (the first open desert; the oil tanks of its farm are targets, planOil): the air cover scrambles in dives while the ship is over the field, a
   // bomber follows; shooting one tank sets off the next (the fuel tank's blast reaches 34 px), and the last tank of a farm drops a pod.
-  burningfield: { name: 'BURNING FIELD', len: 800, max: 1600, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: false, ground: false }, ev: [
+  burningfield: { name: 'BURNING FIELD', len: 800, max: 1600, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: false, ground: false }, ev: [
     { t: 0, do: 'dive', n: 5, x: 0.3 },
     { t: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] },
     { t: 360, do: 'bomber', x: 0.5 },
     { t: 600, do: 'chase' }] },
   // Fuel Convoy (the last open desert): tankers (the Tanker, as in level 3) roll down the track in columns, one set off sets off the next; tanks escort them, a dive
   // and a chase pair cover them, and a pod comes when it is over.
-  fuelconvoy: { name: 'FUEL CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  fuelconvoy: { name: 'FUEL CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 26, 30], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'tankers', n: 2, wait: 300 },
     { t: 70, do: 'tankers', n: 2, wait: 300 },
     { t: 120, do: 'convoy' },
@@ -11262,20 +11262,20 @@ const ENC = {
   // Level 3 in the first loop (seed 1945; run.sortie.encPlan places them by the stretches). Refinery Raid (the power works: its oil tanks are targets, planOil): a tanker column on the road, the air
   // cover scrambles in dives, a bomber and a chase pair follow. Searchlight Net (the light industry's yards): two guns on the flanks, two formations, a bomber and a dive. Night Convoy (the rail corridor): tankers
   // and tank escorts roll down the track, one set off sets off the next, a dive and a chase pair cover them, and a pod comes when it is over.
-  refineryraid: { name: 'REFINERY RAID', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: false, ground: false }, ev: [
+  refineryraid: { name: 'REFINERY RAID', len: 900, max: 1800, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: false, ground: false }, ev: [
     { t: 0, do: 'tankers', n: 2, wait: 300 },
     { t: 60, do: 'dive', n: 5, x: 0.3 },
     { t: 180, do: 'dive', n: 5, x: 0.7, diff: [1, 2] },
     { t: 420, do: 'bomber', x: 0.5 },
     { t: 660, do: 'chase' }] },
-  searchnet: { name: 'SEARCHLIGHT NET', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
+  searchnet: { name: 'SEARCHLIGHT NET', len: 900, max: 1800, rest: 180, budget: [20, 24, 28], biomes: ENC_LAND, holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'flak', x: [0.06, 0.38], wait: 240 },
     { t: 0, do: 'flak', x: [0.62, 0.94], wait: 240 },
     { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5, needAll: true },
     { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
     { after: 150, do: 'bomber', x: 0.3 },
     { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }] },
-  nightconvoy: { name: 'NIGHT CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  nightconvoy: { name: 'NIGHT CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 26, 30], holds: { air: true, pod: true, ground: true }, ev: [
     { t: 0, do: 'tankers', n: 2, wait: 300 },
     { t: 70, do: 'tankers', n: 2, wait: 300 },
     { t: 120, do: 'convoy' },
@@ -11541,7 +11541,7 @@ function subOK(wy) {
 // Level 1 (owner): its one submarine in the whole level, at a fixed place: the island chain's water, from chunk TT_SUB on (the open water
 // nearest the middle; tried each frame for 3 chunks, the same in every run). The flagship sends two more (bossTick).
 const TT_SUB = { 1: 13 };
-const TT_BOSS_SUB = [1200, 2100]; // frames after the flagship appears (its age, e.t) for its two submarines, the same on every difficulty (owner: 20 s and 35 s; the shortest fight the bot flew, on Ace, lasts about 37 s)
+const TT_BOSS_SUB = [1200, 2100]; // frames after the flagship appears (its age, e.t) for its two submarines, the same on every difficulty (owner: 20 s and 35 s; the shortest fight the bot flew, on Ace, lasts about 37 s; on the easier Veteran of build 1.2.6.9 it can end before 35 s, and the second never comes)
 function ttSub(sc) {
   const S = run.sortie, c0 = S ? TT_SUB[S.level] : undefined; if (c0 === undefined || world.subN > 0 || world.bossSpawned) return;
   const wy = -34 - sc, c = -Math.floor(wy / CH) - world.stageBaseP; if (c < c0 || c > c0 + 3) return;
@@ -11694,7 +11694,7 @@ const CV = { SCENE: [[510, 'v', 0.2], [510, 'v', 0.8], [570, 'pt', 0.35], [800, 
 // carrier and overtakes it low, at a scale where the ship fills the screen's width (SPAN native units across W), shooting the planes parked on
 // the deck (entity 'cparked'), the ones launching (LAUNCHES by difficulty, plus one a loop up to two more, GAP frames apart, while the bow is in
 // the upper part of the screen) and the deck guns. The sea scrolls at SCROLL while the ship sails on at SAIL, so it passes in about 20 s.
-const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [6, 7, 8], GAP: 24, LV0: -72, SMOKE: 10,
+const CVF = { SPAN: 120, SCROLL: 1.1, SAIL: 0.1, LAUNCHES: [6, 6, 7], GAP: 24, LV0: -72, SMOKE: 10,
   ALT0: 0.15, CLIMB0: 0.3, CLIMB: 200, END: 0.5, // the player flies low over the deck (ALT0: its altitude, 0 the deck, 1 ordinary flight: the shadow lies close under it), then climbs: once the bow is below CLIMB0 of the screen's height, the ship shrinks to END of its size about its bow over CLIMB frames (as the deck take-off's does) and the altitude rises to 1
   BOARD: 140, RUN: [32, -40], // BOARD: frames the two crew run to a plane before it rolls; RUN: the deck edge they start from (u), for a plane left and right of the centre line
   LANES: [-28, -4, 20], ROWS: [[-134, 0], [-110, 0], [-86, 0], [-62, 0], [-38, 0], [-14, 0], [26, 0], [50, 1], [72, 1], [94, 1], [140, 1], [160, 0]] }; // the deck park, from the bow aft: ROWS of [v, lanes]: 0 the two outer lanes only (the catapult rails, the elevators and the raven mark take the middle), 1 all three
@@ -12271,7 +12271,7 @@ function castleUnits(e, grp) {
 const FL_CHARGE = 90, FL_FIRE = 72, FL_GAP = 660, FL_GAP3 = 480;
 function laserAim(F, cx, cy) { const t = F.who && !F.who.dead ? F.who : nearShip(cx, cy); return Math.atan2(t.y - cy, t.x - cx); }
 /* Twin lance (the first loop's level 6, run.sortie.haze; the Black Fortress's last act, all four engines dead): two pods under the wing tips unfold (parts of kind 'lance': they can be shot, a dead pod's beam is gone). After a fire laser has been fired in the last act, and well before the next, each live pod charges (LANCE.charge frames, a dashed warning line to where its beam will end up) and then fires a thin cyan beam that sweeps in from the screen's edge to a pinch point at the bottom of the screen: the gap between the two beams at the bottom edge is LANCE.gap[difficulty] wide, centred on where the ship was when the charge reached frame 45 (then it stays), so the warning lines show the final place and the ship has the charge and the closing time (LANCE.close) to get there. The gap only widens going up. Never together with the fire laser (skyLaser waits for it). A Nova snuffs it out like the laser. All state is plain data on e.ln. */
-const LANCE = { podX: 92, podY: 6, hp: 160, hw: 8, hh: 11, charge: 70, aim: 45, close: 90, hold: 40, fade: 8, from: 120, gap: [64, 52, 48], half: 2.6, start: 36 };
+const LANCE = { podX: 92, podY: 6, hp: 160, hw: 8, hh: 11, charge: 70, aim: 45, close: 90, hold: 40, fade: 8, from: 120, gap: [64, 56, 52], half: 2.6, start: 36 };
 function lanceEnds(e, F) { /* the beams' end points on the screen's bottom edge: from outside the screen to the pinch (ease), per side (-1 left, 1 right) */
   const f = F.ph === 'charge' ? 1 : Math.min(1, F.t / LANCE.close), z = F.ph === 'charge' ? 1 : f * f * (3 - 2 * f), g = LANCE.gap[clamp(settings.diff | 0, 0, 2)] / 2;
   return { '-1': (F.cx - g) * z + (-LANCE.start) * (1 - z), '1': (F.cx + g) * z + (W + LANCE.start) * (1 - z) };
@@ -13780,7 +13780,7 @@ const drillCount = () => ttDir ? ttCount('@drill') : world.enemies.reduce((n, e)
 // -> lock (the line freezes and turns red, the tank halts, the muzzle glows) -> one shell down the frozen line (it never steers) -> rest -> track.
 // Lead (Ace only): the ship's velocity, smoothed, times the shell's flight time, times half. A popped turret or a dead tank ends the cycle at
 // once (buechseTick runs only while the turret stands). Its turret has its own health like the Drilling's: an untouched one outlives a Nova, a full laser pops it.
-const BUECHSE = { turn: 0.03, aim: 36, lock: 18, rest: 72, cd: [50, 110], speed: 2, lead: [0, 0, 0.5], vel: 0.15, turHp: 42, top: 44 }; // (aim 0.6 s, lock 0.3 s, rest 1.2 s; lead by difficulty: it aims at the ship on Rookie and Veteran)
+const BUECHSE = { turn: 0.03, aim: 36, lock: 18, rest: 72, cd: [50, 110], speed: 2, lead: [0, 0, 0], vel: 0.15, turHp: 42, top: 44 }; // (aim 0.6 s, lock 0.3 s, rest 1.2 s; lead by difficulty: it aims at the ship on every difficulty)
 // The gun is drawn at the turret's exact heading (owner: the sight line is always a perfect extension of the barrel), on the turret's pivot as
 // spr() places the turned turret sprite (its turned sprites are drawn without the gun). Muzzle and sight follow the same axis, so they line up.
 function buechsePivot(e) { const s = (e.silver ? SPR.buechseN : SPR.buechseD).b[dirIdx(e.ta)]; return [Math.round(e.x - s.w / 2) + s.w / 2, Math.round(e.y - s.h / 2) + s.h / 2]; }
@@ -14111,7 +14111,7 @@ function kolibriTick(e) {
   } else if (e.st === 'aim') {
     steer = false; e.vx *= 0.88; e.vy *= 0.88; // it hangs still for the shot: the nose locks and flares (see the render)
     if (e.sT === 1) e.kn = e.kill ? 1 : 0;
-    const n = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0) + e.kn, k = e.sT - P.tele;
+    const n = P.burst + (run.loop >= 1 ? 1 : 0) + e.kn, k = e.sT - P.tele;
     if (k >= 0 && k % P.gap === 0 && k / P.gap < n && live && onScr && e.y < H - 60) { const nx = e.x + Math.cos(e.face) * 15, ny = e.y + Math.sin(e.face) * 15; eshot(nx, ny, e.face, bspeed()); sfx('gun'); }
     if (k >= (n - 1) * P.gap + 10) { e.atk++; e.acd = P.atkCd; e.good = 0; e.reT = 0; e.lastAtk = gf; if (g) { g.turn = null; g.atk++; g.wait = rnd(KWING.gap[0], KWING.gap[1]) * (e.kill ? 0.5 : 1) | 0; } if (e.exp >= P.expMax * 0.6) goOut(); else go('hunt'); }
   } else if (e.st === 'leave') {
@@ -14293,7 +14293,7 @@ function pfeilTick(e) {
   e.face = e.h;
   // the shot: warning flare, then a burst along the nose (one member of a formation at a time)
   if (live && !e.tele && !e.bn && e.acd <= 0 && onScr && e.y < H - 60 && dq >= P.rMin && dq <= P.rMax && Math.abs(angDiff(e.h, aimA)) < P.aimTol && (!g || g.vt <= gf)) { e.tele = P.tele; if (g) g.vt = gf + P.stagger; }
-  if (e.tele > 0 && --e.tele === 0) { e.bn = P.burst + (run.diff === 2 || run.loop >= 1 ? 1 : 0); e.bc = 0; }
+  if (e.tele > 0 && --e.tele === 0) { e.bn = P.burst + (run.loop >= 1 ? 1 : 0); e.bc = 0; }
   if (e.bn > 0 && --e.bc <= 0) {
     if (live && onScr && e.y < H - 60) { eshot(e.x + Math.cos(e.h) * 15, e.y + Math.sin(e.h) * 15, e.h, bspeed() * P.shotSp); sfx('gun'); }
     e.bc = P.gap; if (--e.bn === 0) e.acd = P.atkCd;
@@ -15633,7 +15633,7 @@ function revealSecret(e) {
   for (let i = 0; i < 20; i++) { const an = i * TAU / 20; world.parts.push({ kind: 'spark', layer: 'a', x: e.x, y: e.y, vx: Math.cos(an) * 1.6, vy: Math.sin(an) * 1.6, life: 20, max: 20, col: i % 2 ? '#bba4ff' : '#ffffff' }); }
 }
 // Gun positions with a turret (flak, bunker, casemate, AA tower, destroyer) shoot back once, when the turret is shot off, and only sometimes (DIFF.turRevengeP: none on Rookie,
-// 10 % on Veteran, 15 % on Ace); their hull's later death fires nothing. Other destroyed gun positions shoot back: all of them on Ace; on Veteran in levels 1 to 3, half of them, with half as many bullets (at least one); none on Rookie (DIFF.revenge: share of the bullets, DIFF.revengeP: chance, DIFF.revengeTo: last level).
+// 5 % on Veteran, 10 % on Ace); their hull's later death fires nothing. Other destroyed gun positions shoot back in levels 1 to 3, with half as many bullets (at least one): half of them on Ace, a quarter on Veteran; none on Rookie (DIFF.revenge: share of the bullets, DIFF.revengeP: chance, DIFF.revengeTo: last level).
 function revenge(x, y, n, pr = DIFF.revengeP[run.diff]) { const f = DIFF.revenge[run.diff]; if (!f || run.stage > DIFF.revengeTo[run.diff] || !player || player.dead || y < 0 || y > H || (pr < 1 && Math.random() >= pr)) return; n = Math.max(1, Math.round(n * f)); const a0 = aim(x, y); for (let k = 0; k < n; k++) eshot(x, y, a0 + (k - (n - 1) / 2) * 0.22, bspeed() * 0.8); }
 // What each enemy type does when destroyed, merged into its entity entry. blast: the size of its explosion (ground default 14,
 // air 11). onKill(e) runs first, after the revenge burst and the kill count; returning true ends the kill there (the secret).
@@ -17062,7 +17062,7 @@ for (const t of ['tug', 'bargeF', 'bargeC', 'bargeG']) ENT[t].draw = (e, fl) => 
    and the broadsides are only the lanes. The ledge bunkers and flak pits below fire as they always do (the tiers come up one after the other as the ground scrolls). It starts
    gentle: nothing for 5 seconds, the first salvo is one short stream a gun. */
 const CB = { shells: [3, 4, 5, 5], gap: 7, speed: 0.8 };
-ENC.cliffbattery = { name: 'CLIFF BATTERY', len: 1100, max: 1500, rest: 180, budget: [16, 22, 28], holds: { air: false, pod: false, ground: false }, ev: [
+ENC.cliffbattery = { name: 'CLIFF BATTERY', len: 1100, max: 1500, rest: 180, budget: [16, 19, 22], holds: { air: false, pod: false, ground: false }, ev: [
   { t: 300, do: 'radar', wait: 400 }, { t: 430, do: 'broadside', i: 0, wait: 200 }, { t: 640, do: 'broadside', i: 1 }, { t: 850, do: 'broadside', i: 2 }, { t: 1060, do: 'broadside', i: 3 }] };
 TT_ENC.cliffbattery = 1100;
 ENC_VERB.radar = () => { const S = run.sortie, P = S && S.plan, it = P && P.items.find(q => q.part === 'radar'); if (!it) return true; if (world.enemies.some(e => e.type === 'radar' && Math.abs(e.wx - (it.x0 + it.w / 2)) < 20 && Math.abs(e.wy - (S.planY0 - it.y0)) < 20)) return true; /* the plateau's radar: where the plan paints it, once it is at the top of the screen */
@@ -17073,7 +17073,7 @@ ENC_VERB.broadside = v => { const guns = world.enemies.filter(e => e.type === 'a
     for (let k = 0; k < n; k++) world.later.push({ at: gf + k * CB.gap, fn: () => { if (g.dead || g.dying || !hasT()) return; const side = g.x < W / 2 ? 1 : -1; eshot(g.x, g.y + 12, PI / 2 + side * lean, bspeed() * CB.speed); } });
     if (lock && v.i >= 1 && mid) for (const da of [-0.16, 0, 0.16]) world.later.push({ at: gf + 10, fn: () => { if (g.dead || g.dying || !hasT()) return; eshot(g.x, g.y + 12, aim(g.x, g.y + 12) + da, bspeed() * CB.speed); } }); });
   return true; };
-ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 2100, max: 3400, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+ENC.valleyconvoy = { name: 'VALLEY CONVOY', len: 2100, max: 3400, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'rivercon' }, { t: 20, do: 'roadcon' }, { t: 420, do: 'ptriver' }, { t: 700, do: 'dive', n: 5, x: 0.5 }, { t: 1000, do: 'ptriver', diff: [1, 2] }, { t: 1300, do: 'chase' }, { t: 1700, do: 'dive', n: 5, x: 0.3, diff: [1, 2] }, { t: 2100, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.valleyconvoy = 2100;
 /* Level 5's first loop (run.sortie.winter, run.sortie.encPlan), from the existing verbs only. ICE BREAKERS: two five-plane dives over the frozen sea, a bomber, a strafing run of four from the side the ship is not on, a chase pair (the ice has no open water for patrol boats). ICE ROAD CONVOY: tankers chain along the road beside the frozen lake, tanks behind them, cover from the air. THE BASE: flak both sides of the lane, a formation down it, the depot's tankers, a bomber, a dive, a chase pair. */
@@ -17083,23 +17083,23 @@ ENC_VERB.portship = v => { const wy = -34 - Math.floor(world.scroll), m = hpm(),
   const wet = (x, y) => { for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; };
   for (const wx of xs) if (placeOK(wx, yy, dd ? 34 : 16) && wet(wx, yy)) { world.enemies.push(dd ? G('destroyer', wx, yy, { hp: 50 * m, maxhp: 50 * m, ta: PI / 2, tb: PI / 2, cdA: 80, cdB: 130, v: 0.1 }) : G('pt', wx, yy, { ta: PI / 2, cd: rnd(50, 90) | 0, v: 0.45, dx: rnd(-0.12, 0.12) })); return true; }
   return false; };
-ENC.harbourraid = { name: 'HARBOUR RAID', len: 1000, max: 2000, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+ENC.harbourraid = { name: 'HARBOUR RAID', len: 1000, max: 2000, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'portship', kind: 'destroyer', x: 0.8, wait: 240 }, { t: 120, do: 'portship', kind: 'pt', x: 0.7, wait: 180 }, { t: 150, do: 'portship', kind: 'pt', x: 0.9, wait: 180, diff: [1, 2] }, { t: 300, do: 'dive', n: 5, x: 0.4 }, { t: 480, do: 'bomber', x: 0.5 }, { t: 640, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 800, do: 'chase' }, { t: 1000, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.harbourraid = 1100;
-ENC.cityflak = { name: 'CITY FLAK', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+ENC.cityflak = { name: 'CITY FLAK', len: 1100, max: 2200, rest: 180, budget: [22, 26, 30], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'flak', x: [0.04, 0.5], wait: 300 }, { t: 0, do: 'flak', x: [0.5, 0.96], wait: 300 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5 }, /* (a street grid has little ground for guns: the formation comes even when one gun found none) */ { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
   { t: 520, do: 'tankers', n: 2, wait: 300 }, { after: 120, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.cityflak = 1100;
-ENC.stationrun = { name: 'STATION BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+ENC.stationrun = { name: 'STATION BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 26, 30], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 260, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 480, do: 'bomber', x: 0.3 }, { t: 600, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 760, do: 'chase' }, { t: 920, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.stationrun = 1100;
-ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
+ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 24, 28], holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'dive', n: 5, x: 0.3 }, { t: 60, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 260, do: 'bomber', x: 0.5 }, { t: 480, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] }, { t: 700, do: 'chase' }, { t: 900, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.iceraid = 1000;
-ENC.iceroad = { name: 'ICE ROAD CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+ENC.iceroad = { name: 'ICE ROAD CONVOY', len: 1000, max: 2000, rest: 180, budget: [22, 26, 30], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 190, do: 'tankers', n: 2, diff: [1, 2], wait: 300 }, { t: 300, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 560, do: 'chase' }, { t: 820, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.iceroad = 1100;
-ENC.basebreak = { name: 'THE BASE', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+ENC.basebreak = { name: 'THE BASE', len: 1100, max: 2200, rest: 180, budget: [22, 26, 30], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'flak', x: [0.06, 0.38], wait: 240 }, { t: 0, do: 'flak', x: [0.62, 0.94], wait: 240 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5, needAll: true }, { after: 90, do: 'formation', x: 0.5, diff: [1, 2] },
   { t: 500, do: 'tankers', n: 2, wait: 300 }, { after: 150, do: 'bomber', x: 0.3 }, { after: 120, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.basebreak = 1100;

@@ -58,7 +58,7 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(c.lockMoved === 0 && c.otherMoved > 100 && c.frozen, `it halts in its lock and its aim is frozen there (${c.otherMoved} moving ticks outside the lock)`);
   ok(c.shots.every(s => s.n === 1 && s.kind === 'shell' && Math.abs(s.sp - c.want) < 1e-6 && Math.abs(s.a - s.la) < 1e-9 && s.at >= 0 && s.at < 1e-6),
     `one shell a cycle, from the muzzle, down the locked line, at 2x bspeed (${c.shots.map(s => s.sp.toFixed(2)).join(', ')})`);
-  // 2. where it aims: at the ship on Veteran (the locked line runs through where the ship was at the lock), a little ahead of a moving ship on Ace;
+  // 2. where it aims: at the ship on every difficulty (the locked line runs through where the ship was at the lock);
   // a ship that holds still is hit, one that moves off at the lock is missed. (vx: the ship's speed until the lock, after: from the lock on)
   const fly = async (diff, vx, after) => JSON.parse(await peek(page, `(() => { ${alone(diff)} player.x = 60;
     let b = null, vx = ${vx}, off = 0, lx = 0, near = 1e9;
@@ -71,7 +71,7 @@ const alone = (diff = 1, o = '{ road: false, hd: PI / 2, v: 0 }') => `settings.d
   ok(still.shot && still.near < 3, `Veteran, a ship that holds still: the shell passes ${still.near} px from it (hit)`);
   ok(moving.shot && moving.off < 3 && moving.x > 8 && moving.x < W0 - 8, `Veteran, a moving ship: the locked line runs ${moving.off} px from where the ship was at the lock (aimed at the ship)`);
   ok(dodge.shot && dodge.near > 12, `Veteran, a ship that moves off at the lock: the shell passes ${dodge.near} px from it (missed)`);
-  ok(ace.shot && ace.off > 15 && ace.x > 8 && ace.x < W0 - 8, `Ace, a moving ship: the locked line runs ${ace.off} px ahead of it (lead)`);
+  ok(ace.shot && ace.off < 3 && ace.x > 8 && ace.x < W0 - 8, `Ace, a moving ship: the locked line runs ${ace.off} px from where the ship was at the lock (aimed at the ship, no lead since build 1.2.6.9)`);
   // 3. the turret: many hits, a Nova, the laser, and a popped turret ends the cycle (no shot after it, the tank drives on)
   const t = JSON.parse(await peek(page, `(() => { ${alone()}
     let hits = 0; while (!e.turDead && hits < 200) { damage(e, 0.55 + 0.55 * 1); hits++; } // the laser gun's level 1 shot

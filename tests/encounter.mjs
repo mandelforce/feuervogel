@@ -225,14 +225,14 @@ const playOut = `
     const types = {}; for (const e of tagged) types[e.type] = (types[e.type] || 0) + 1;
     return JSON.stringify({ started, disp, types, moved, last: world.encLast }); })()`;
   const v = JSON.parse(await peek(page, play(1, 41, false)));
-  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@240 4@300 5@420 6@436 7@452 8@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s (the Ace-only second Bomber skipped at 4 s), a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
+  ok(v.started && v.disp.join(' ') === '0@1 1@60 2@180 3@300 4@420 5@436 6@452 7@468', `Bomber screen: the Bomber, dives at 1, 3 and 5 s, a strafing run at 7 s, 16 frames apart (${v.disp.join(' ')})`);
   ok(v.types.bomber === 1 && v.types.fighter === 19 && Object.keys(v.types).length === 2, `tagged: three dives of five and a run of four (${JSON.stringify(v.types)})`);
   ok(v.moved === 0, 'air waves, pods and ground spawns all wait while it runs (an air fight)');
   ok(v.last && v.last.why === 'done', `it ends 'done' after ${v.last && v.last.t} frames (bullets peaked at ${v.last && v.last.peak}, budget ${18})`);
   const r = JSON.parse(await peek(page, play(0, 41, false)));
   ok(r.types.fighter === 10 && r.last && r.last.why === 'done', `Rookie: two dives and no strafing run (${JSON.stringify(r.types)})`);
   const a = JSON.parse(await peek(page, play(2, 41, false)));
-  ok(a.types.bomber === 2 && a.last && a.last.why === 'done', `Ace: a second Bomber joins (${JSON.stringify(a.types)})`);
+  ok(a.types.bomber === 1 && a.types.fighter === 19 && a.last && a.last.why === 'done', `Ace: the same as Veteran, one Bomber (${JSON.stringify(a.types)})`);
   const t = JSON.parse(await peek(page, play(1, 42, true)));
   ok(t.last && t.last.why === 'done' && t.last.t === 1140, `a Bomber nobody can kill: the encounter still ends 'done' at its fixed length (the timetable: ${t.last && t.last.t} frames of 1140)`);
   await page.close();
@@ -334,9 +334,10 @@ const playOut = `
   // Contact plays right after the carrier without the test link (live), The Anvil doesn't
   const page = await freshPage();
   const r = JSON.parse(await peek(page, `(() => { window.__forceSeed = 101; gf = 0; SF.setMode('immortal'); SF.start(1, 1); startEnigma(1, true); delete window.__forceSeed;
-    const seen = new Set(), out = { subs: [], boss: [], drills: 0, dugHeavy: 0, buechse: 0, tipB: null, encs: [], chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
+    const seen = new Set(), out = { subs: [], boss: [], bossT: 0, drills: 0, dugHeavy: 0, buechse: 0, tipB: null, encs: [], chain: run.sortie.segs.find(g => g.t === 'island_chain').start };
     for (let f = 0; f < 16000; f += 5) { const st = SF.run(5);
       if (world.enc && out.encs[out.encs.length - 1] !== world.enc.id) out.encs.push(world.enc.id);
+      { const bo = world.enemies.find(q => q.type === 'boss' && !q.dead); if (bo) out.bossT = Math.max(out.bossT, bo.t); }
       for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (e.drill) out.drills++; if (e.buechse) { out.buechse++; const sl = sortiePlan(run.sortie).slots.find(q => q.kind === 'tip'); if (sl && Math.hypot(e.wx - sl.x, e.wy - (run.sortie.planY0 - sl.y)) < 2) out.tipB = { dug: !!e.dug, road: terrainType(Math.floor(e.wx), Math.floor(e.wy)) }; } if (e.type === 'htank' && e.dug) out.dugHeavy++;
         if (e.type === 'sub') { const b = world.enemies.find(q => q.type === 'boss'); if (b) out.boss.push(b.t); else out.subs.push(-Math.floor((e.y - Math.floor(world.scroll)) / CH) - world.stageBaseP); } }
       if (st !== 'ok' || run.sortie.level !== 1) break; }
@@ -344,7 +345,7 @@ const playOut = `
   ok(r.drills === 0 && r.dugHeavy === 2, `level 1: no Drilling (${r.drills}); its two tank pits hold dug-in heavy tanks (${r.dugHeavy})`);
   ok(r.buechse <= 2 && r.tipB && r.tipB.dug, `level 1: two Buechse at most (${r.buechse}), one dug in at the big island's road tip (${JSON.stringify(r.tipB)})`);
   ok(r.subs.length === 1 && r.subs[0] === 13 && r.subs[0] >= r.chain, `level 1: one submarine before the boss, at its fixed place in the island chain (chunk 13, the timetable) (chunk ${r.subs.join(', ')}; the chain starts at ${r.chain})`);
-  ok(r.boss.length === 2 && r.boss[0] >= 1200 && r.boss[0] < 1206 && r.boss[1] >= 2100 && r.boss[1] < 2106, `the flagship sends two submarines, 20 s and 35 s after it appears (frames ${r.boss.join(' and ')} of its life, sampled every 5)`);
+  ok(r.boss.length === (r.bossT >= 2105 ? 2 : 1) && r.boss[0] >= 1200 && r.boss[0] < 1206 && (r.boss.length < 2 || (r.boss[1] >= 2100 && r.boss[1] < 2106)), `the flagship sends two submarines, 20 s and 35 s after it appears, the second only if it still lives then (frames ${r.boss.join(' and ')} of its life, sampled every 5; it lived ${r.bossT})`);
   ok(r.encs.join() === 'firstcontact,wing,formations', `without the test link level 1 plays First Contact, the Shadow Wing and Formations, not The Anvil (${r.encs.join()})`);
   await page.close();
 }
