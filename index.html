@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.13'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.14'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4956,15 +4956,15 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-// ---- ships drawn as half shapes (the Feuervogel since 1.2.6.12, the Swallow since 1.2.6.13; designs in docs/player-art-v29.js, raster finish, reproduced pixel for pixel) ----
+// ---- ships drawn as half shapes (the Feuervogel since 1.2.6.12, the Swallow since 1.2.6.13, the Swan and the Robin since 1.2.6.14; designs in docs/player-art-v29.js, raster finish, reproduced pixel for pixel) ----
 // halfShip(W, H, bank, draw): each part is described once, for one half (a = columns out from the centre column, y = row), and mirrored, so the level frame is
 // symmetric; W is odd. Wing parts (w) are squeezed to 0.7 on the inside of a turn, the others shift with the body. draw gets the tools:
 //   poly(pts, shade, w, sep) / shape(inside, shade, w, sep): a filled part; shade(a, y, e) gives each pixel's colour, e = { i, j, s (0 left, 1 right), u, v (place in the
 //     part's box, 0 to 1), lead / trail (no pixel of the part above / below), lead2 / trail2 (the row next to those), outer }. sep true: a dark line where the part lies on
-//     another; sep 'rim': those pixels repeat the pixel to their left instead, a soft join (how the approved Feuervogel drawing came out)
+//     another (sep a colour: a line in that colour); sep 'rim': those pixels repeat the pixel to their left instead, a soft join (how the approved drawings came out)
 //   dot(a, y, col, w), line(a0, y0, a1, y1, col, w): on both sides, only over pixels already painted;  put(i, j, col): one plain pixel
 //   Q(ramp, l, e, flat): a tone of a ramp, the full ordered dither over a gradient from the top left of the part to its bottom right (flat: no dither);  lit(e): the light from the left
-function halfShip(W, H, bank, draw) {
+function halfShip(W, H, bank, draw, oc) {
   const K = '#0c0a10', RIM = 1, c = (W - 1) / 2, fac = [bank < 0 ? 0.7 : bank > 0 ? 1.04 : 1, bank > 0 ? 0.7 : bank < 0 ? 1.04 : 1], sb = Math.round(bank * 0.6), buf = new Array(W * H).fill(null);
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], dth = (i, j) => (B4[(j & 3) * 4 + (i & 3)] + 0.5) / 16 - 0.5;
   const Q = (ramp, l, e, flat) => { if (!flat && e.u !== undefined) l += 0.34 * (0.5 - (e.u * 0.4 + e.v * 0.6)); const n = ramp.length, v = Math.round(clamp(l, 0, 1) * (n - 1) + (flat ? 0 : dth(e.i, e.j) * 0.95)); return ramp[v < 0 ? 0 : v >= n ? n - 1 : v]; };
@@ -4974,7 +4974,7 @@ function halfShip(W, H, bank, draw) {
     const m = new Uint8Array(W * H); let x0 = W, x1 = 0, y0 = H, y1 = 0;
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const [s, a] = A(i, w); if (inside(a, j + 0.5, s)) { m[j * W + i] = 1; x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); } }
     const M = (i, j) => i >= 0 && i < W && j >= 0 && j < H && m[j * W + i] === 1;
-    if (sep) for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!m[j * W + i] && buf[j * W + i] && (M(i - 1, j) || M(i + 1, j) || M(i, j - 1) || M(i, j + 1))) buf[j * W + i] = sep === 'rim' ? RIM : K;
+    if (sep) for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!m[j * W + i] && buf[j * W + i] && (M(i - 1, j) || M(i + 1, j) || M(i, j - 1) || M(i, j + 1))) buf[j * W + i] = sep === 'rim' ? RIM : sep === true ? K : sep;
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
       if (!m[j * W + i]) continue;
       const [s, a] = A(i, w), sg = s ? 1 : -1;
@@ -4984,7 +4984,7 @@ function halfShip(W, H, bank, draw) {
   const dot = (a, y, col, w) => { for (const sg of a === 0 ? [1] : [-1, 1]) put(Math.round(c + (w ? 0 : sb) + sg * a * (w ? fac[sg < 0 ? 0 : 1] : 1)), Math.round(y), col, true); };
   const line = (a0, y0, a1, y1, col, w) => { const n = Math.ceil(Math.max(Math.abs(a1 - a0), Math.abs(y1 - y0)) * 1.5) || 1; for (let k = 0; k <= n; k++) dot(a0 + (a1 - a0) * k / n, y0 + (y1 - y0) * k / n, col, w); };
   draw({ K, shape, poly: (pts, shade, w, sep) => shape((a, y) => pip(pts, a, y), shade, w, sep), dot, line, put: (i, j, col) => put(i, j, col), Q, dth, lit: e => e.s ? -0.05 : 0.05 });
-  return sprite(W, H, x => { for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = buf[j * W + i]; if (v) { if (v !== RIM) x.fillStyle = v; x.fillRect(i, j, 1, 1); } } });
+  return sprite(W, H, x => { for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = buf[j * W + i]; if (v) { if (v !== RIM) x.fillStyle = v; x.fillRect(i, j, 1, 1); } } }, oc ? { oc } : {});
 }
 // The Feuervogel as flown since build 1.2.6.12 (study T3H). The old drawing above stays for the Rooster, and its outline for the Retro Run's own ship (retroVogel).
 // What is the old ship's: the outline (made symmetric, so the art is 35 x 36 and the sprite 37 x 38, one pixel wider), the head, the lopsided plain violet tail (its
@@ -5094,41 +5094,28 @@ const phoenixState = () => +store.get(KEY.phoenix, 0) || 0;
 const phoenixOwned = () => phoenixState() > 0;
 function usePhoenix() { return phoenixOwned() && !!settings.phoenix; }
 function unlockPhoenix() { if (!phoenixOwned()) store.set(KEY.phoenix, 1); }
-// Rotkehlchen (robin): the skin for finding all six secrets in one loop (the Eagle Eye achievement). Seen from above, so there is no face: a rounded orange head with a dark beak tip and a glowing one-pixel eye each side, a brown back, brown wings edged in flame with red-hot wing and tail tips.
-// Symmetric: the level frame is drawn on the left half and mirrored, so the two halves match pixel for pixel. 36x38 like the other ships' sprites, with an empty border instead of the outline.
-function buildRotkehlchen(bank) {
-  const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'], CRIM = ['#3a0808', '#7a1410', '#c82a1a', '#ff4a2a', '#ff8a5a'];
-  const WING = [[15, 7], [12, 12], [4, 20], [0, 29], [5, 27], [9, 31], [12, 26], [15, 28]], TAIL = [[15, 24], [13, 35], [17, 31], [21, 35], [19, 24]], HEAD = [[17, 0], [19.5, 3], [21, 7], [19, 10], [15, 10], [13, 7], [14.5, 3]];
-  return sprite(36, 38, x => {
-    x.translate(1, 1);
-    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
-    const wl = WING.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = WING.map(([a, b]) => [17 + (17 - a) * fR, b]);
-    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
-      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
-      if (!inL && !inR) continue;
-      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
-      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
-      let col = rim ? pick(FIRE, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j) : j >= 20 ? pick(BROWN, (j - 20) / 10 + 0.3, i, j) : pick(BROWN, (17 - u) / 14 + (j - 8) / 50, i, j); // a flame-coloured rim, gold at the front
-      if (rim && j >= 24) col = pick(CRIM, 0.7 + (j - 24) / 20, i, j); // the trailing wing tips glow red
-      rect(x, col, i, j, 1, 1);
-    }
-    for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(TAIL, i + 0.5, j + 0.5)) rect(x, pick(BROWN, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
-    const sb = Math.round(bank * 0.6), sh = Math.round(bank * 0.4);
-    for (let j = 6; j < 26; j++) { const dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)); for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d) <= hw) rect(x, pick(BROWN, 0.3 + (1 - Math.abs(d) / (hw + 0.5)) * 0.3 + (j - 6) / 40, 17 + d, j), 17 + d + sb, j, 1, 1); }
-    for (let j = 10; j < 25; j++) rect(x, pick(BROWN, 0.9 - (j - 10) * 0.035, 17, j), 17 + sb, j, 1, 1);
-    for (let j = 0; j < 11; j++) for (let i = 0; i < 34; i++) if (pip(HEAD, i + 0.5, j + 0.5)) rect(x, pick(ORANGE, 0.55 + (j < 6 ? 0.2 : 0), i, j), i + sh, j, 1, 1);
-    for (let j = 0; j < 30; j++) for (let i = 8; i < 26; i++) { // colour the head and the body: a deep orange head, a brown back
-      const inH = pip(HEAD, i + 0.5, j + 0.5), dy = (j + 0.5 - 16) / 10, hw = 4 * Math.sqrt(Math.max(0, 1 - dy * dy)), inB = j >= 6 && j < 26 && Math.abs(i + 0.5 - 17) <= hw;
-      if (inH || inB) rect(x, inH && j < 9 ? pick(ORANGE, 0.45 + (j - 6) / 40, i, j) : pick(BROWN, 0.5 - Math.abs(i + 0.5 - 17) * 0.015 + (j - 8) / 40, i, j), i + Math.round(bank * (inH && j < 10 ? 0.4 : 0.6)), j, 1, 1);
-    }
-    rect(x, '#2a1a10', 16 + sh, 0, 1, 2); rect(x, '#2a1a10', 17 + sh, 0, 1, 2); // the beak tip
-    rect(x, '#ffe080', 14 + sh, 5, 1, 1); rect(x, '#ffe080', 19 + sh, 5, 1, 1); // an eye on each side of the head, one pixel each
-    for (const [i, j, c] of [[13, 34, 3], [13, 33, 3], [14, 33, 2]]) { rect(x, CRIM[c], i + sh, j, 1, 1); rect(x, CRIM[c], 33 - i + sh, j, 1, 1); } // red-hot tail tips
-    if (bank === 0) { const id = x.getImageData(1, 1, 34, 36), d = id.data; for (let j = 0; j < 36; j++) for (let i = 0; i < 17; i++) { const a = (j * 34 + i) * 4, b = (j * 34 + 33 - i) * 4; d[b] = d[a]; d[b + 1] = d[a + 1]; d[b + 2] = d[a + 2]; d[b + 3] = d[a + 3]; } x.putImageData(id, 1, 1); }
-  }, { outline: false });
+// The Robin (once the Rotkehlchen; study Rotkehlchen B): the skin for finding all six secrets in one loop (the Eagle Eye achievement). Round and sturdy like the bird:
+// rounded brown wings with a flame-coloured leading edge, a buff wing bar and ember tips, an orange head and bib edged in slate grey, a fanned tail. 37 x 38 with the outline.
+function buildRobin(bank) {
+  const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'];
+  return halfShip(35, 36, bank, ({ shape, poly, dot, line, Q, lit }) => {
+    poly([[-1, 24], [3.4, 25], [5.4, 33], [2.6, 35], [-1, 35.6]], (a, y, e) => e.trail ? '#ff4a2a' : e.outer ? BROWN[4] : Math.round(a) % 2 ? BROWN[2] : BROWN[3]); // the tail, with an ember rim
+    poly([[2, 10], [7, 9], [12, 11], [15, 15], [16, 21], [14, 27], [11, 24], [9, 28], [6, 24], [4, 27], [2, 23]], (a, y, e) => {
+      if (e.lead) return Q(FIRE, 0.9 - a * 0.03, e, true);
+      if (e.trail || e.outer) return BROWN[1];
+      if (Math.abs(y - 17.5 - a * 0.25) < 0.6 && a > 4.5) return BROWN[5]; // the buff wing bar
+      return Q(BROWN, (y < 15 ? 0.68 : 0.42) + lit(e), e);
+    }, true);
+    for (const [a, y] of [[11, 24], [6, 24]]) line(a, y - 1, a + (6 - a) * 0.3, y + (12 - y) * 0.3, BROWN[0], true); // quills
+    for (const [a, y] of [[14, 26], [9, 27], [4, 26]]) dot(a, y, '#ff4a2a', true); // ember tips
+    shape((a, y) => (a / 4.6) ** 2 + ((y - 17) / 9.5) ** 2 <= 1, (a, y, e) => Q(BROWN, 0.6 + (e.s ? -a * 0.07 : a * 0.02) - (y - 10) * 0.012, e), false, 'rim');
+    poly([[-1, 7], [4, 7], [6.5, 10], [5, 14], [2, 13], [-1, 15]], (a, y, e) => e.trail || (e.outer && y > 10) ? '#8494a0' : Q(ORANGE, 0.75 - a * 0.05 * (e.s ? 1 : 0.2) - (y - 7) * 0.03, e), false, 'rim'); // the bib and its grey edge
+    poly([[-1, 1], [2.5, 3], [4, 6], [3, 9], [-1, 10]], (a, y, e) => Q(ORANGE, 0.72 - a * 0.06 * (e.s ? 1 : 0.2) - (y - 1) * 0.02, e));
+    for (const [a, y, col] of [[0, 1, '#2a1a10'], [0, 2, '#2a1a10'], [3, 6, '#141010'], [3, 5, '#ffe080']]) dot(a, y, col);
+  });
 }
 let robinCache = null;
-function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRotkehlchen)); }
+function robinSet() { return robinCache || (robinCache = [-1, 0, 1].map(buildRobin)); }
 // 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finding all six secrets in one loop (see campaignWon).
 const robinState = () => +store.get(KEY.robin, 0) || 0;
 const robinOwned = () => robinState() > 0;
@@ -5188,8 +5175,8 @@ const ACH = [
   { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'Rooster' },
   { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'Phoenix' },
   { id: 'ace', name: 'Ace Pilot', desc: 'Finish the Campaign on Ace', icon: 'wings', skin: 'Raptor' },
-  { id: 'snow', name: 'Snow Bird', desc: 'Find all six secrets', icon: 'snow', skin: 'Schneevogel' },
-  { id: 'robin', name: 'Eagle Eye', desc: 'Find all six secrets in one loop', icon: 'eye', skin: 'Rotkehlchen' },
+  { id: 'snow', name: 'Snow Bird', desc: 'Find all six secrets', icon: 'snow', skin: 'Swan' },
+  { id: 'robin', name: 'Eagle Eye', desc: 'Find all six secrets in one loop', icon: 'eye', skin: 'Robin' },
   { id: 'nonet', name: 'No Net', desc: 'Finish the Campaign without continues', icon: 'star' },
   { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
   { id: 'chain', name: 'Chain Master', desc: 'Reach a x20 medal multiplier', icon: 'medal' },
@@ -5224,7 +5211,7 @@ const roosterOwned = () => achHas('rookie');
 function useRooster() { return roosterOwned() && !!settings.rooster; }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
 const skinSet = () => retroSkin(useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet); // (a Retro Run: the retro copy, see retroSkin) // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
-const FLAME = () => useRaptor() ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#3aa0e8', '#8ad8ff', '#f0fcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+const FLAME = () => useRaptor() || curSkinId() === 1 ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#3aa0e8', '#8ad8ff', '#f0fcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
 function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
@@ -5235,7 +5222,7 @@ const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
 function openShipPick() { app.shipPick = true; if (achv.rookie && achv.rookie.s) { achv.rookie.s = 0; saveAchv(); } app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
 // The picker shows three ships a page. With more than three, arrow buttons at the left and right edges turn the page (taps, or the left and right keys), and dots between the title and the cards show which page it is.
-const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SCHNEEVOGEL', 'SWALLOW', 'PHOENIX', 'ROTKEHLCHEN', 'RAPTOR', 'ROOSTER'];
+const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SWAN', 'SWALLOW', 'PHOENIX', 'ROBIN', 'RAPTOR', 'ROOSTER'];
 const pickPages = n => Math.max(1, Math.ceil(n / PICK_PER));
 const curSkinId = () => useRooster() ? 6 : useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
 const pickPage = n => clamp(app.pickPage | 0, 0, pickPages(n) - 1);
@@ -5305,49 +5292,37 @@ function buildRaven(bank) {
   }, { oc: '#0e0d10' });
 }
 lazySpr('raven', () => [-1, 0, 1].map(buildRaven));
-// Schneevogel: the skin unlocked by finding all six secrets. A white swan-bird seen from above (swept delta wings, long neck, long tail),
-// part animal, part ship: glass canopy on the back, steel nacelles in the wing roots. Smooth flat tones, no dither. The game draws the engine flames behind it.
-function buildSchneevogel(bank) {
-  const SN = ['#8f8aa0', '#c3bdb6', '#e1dccf', '#f2eee4', '#fffdf6'], ST = ['#2c2e38', '#4a4d58', '#6c707c', '#9298a4', '#c4c9d2', '#e8ecf2'];
-  const BEAK = ['#6a5a3c', '#8a7a58', '#b8a880', '#d8cdb0', '#eee6cc'], GLASS = ['#0c3236', '#14605c', '#21988a', '#4ccfae', '#a8f6dc'];
-  const sq = y => y > 20 ? 20 + (y - 20) * 0.6 : y; // everything behind the shoulders is drawn compressed so neck and tail both fit
-  const flat = (x, pts) => {
-    const ys = pts.map(p => p[1]), xs = pts.map(p => p[0]);
-    for (let j = Math.floor(Math.min(...ys)); j < Math.ceil(Math.max(...ys)); j++) for (let i = Math.floor(Math.min(...xs)); i < Math.ceil(Math.max(...xs)); i++) {
-      if (!pip(pts, i + 0.5, j + 0.5)) continue;
-      x.fillStyle = !pip(pts, i + 0.5, j - 0.5) ? SN[4] : !pip(pts, i + 0.5, j + 2.5) ? SN[1] : !pip(pts, i + 0.5, j + 4.5) ? SN[2] : SN[3]; x.fillRect(i, j, 1, 1);
-    }
-  };
-  const ball = (x, cx, cy, rx, ry) => {
-    for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
-      const dx = (i + 0.5 - cx) / rx, dy = (j + 0.5 - cy) / ry, d = dx * dx + dy * dy; if (d > 1) continue;
-      const l = -0.5 * dx - 0.7 * dy - d * 0.4; x.fillStyle = l > 0.35 ? SN[4] : l > -0.1 ? SN[3] : l > -0.55 ? SN[2] : SN[1]; x.fillRect(i, j, 1, 1);
-    }
-  };
-  const seam = (x, x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let k = 0; k <= n; k++) rect(x, SN[0], Math.round(x0 + (x1 - x0) * k / n), Math.round(y0 + (y1 - y0) * k / n), 1, 1); };
-  return sprite(36, 38, x => {
-    x.translate(0, 2);
-    const fL = bank < 0 ? 0.7 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.7 : bank < 0 ? 1.04 : 1, cx = 18 + bank * 0.6, c = Math.round(cx);
-    for (const [tx, ty] of [[cx - 5.2, 32.4], [cx + 5.2, 32.4], [cx, 35.4]]) flat(x, [[cx - 3 + (tx - cx) * 0.2, 22], [tx, ty], [cx + 3 + (tx - cx) * 0.2, 22]]);
-    const wing = [[3.2, 13.6], [6.6, 14.4], [10.4, 17], [13.8, 21.2], [16.2, 26], [17.9, 30], [17.9, 31.6], [15.8, 28.4], [14.8, 34.4], [12.6, 29.2], [11, 34], [9, 29.8], [7, 31.4], [4.2, 27.6]].map(([a, b]) => [a, sq(b)]);
-    for (const [s, f] of [[-1, fL], [1, fR]]) {
-      flat(x, wing.map(([a, b]) => [18 + s * a * f, b]));
-      for (const [na, nb] of [[15.8, 28.4], [12.6, 29.2], [9, 29.8]].map(([a, b]) => [a, sq(b)])) { const dx = 11 - na, dy = 18 - nb, k = Math.min(7, Math.hypot(dx, dy)) / Math.hypot(dx, dy); seam(x, Math.round(18 + s * na * f), Math.round(nb - 1), Math.round(18 + s * (na + dx * k) * f), Math.round(nb + dy * k - 1)); }
-    }
-    for (const s of [-1, 1]) { const nx = c + (s < 0 ? -7 : 5); boxS(x, ST, nx, 19, 2, 7, -0.05); rect(x, GLASS[3], nx + (s < 0 ? 1 : 0), 20, 1, 1); }
-    ball(x, cx, 19.5, 3.3, 8.6); for (let j = 22; j < 28; j++) rect(x, SN[2], c, j, 1, 1);
-    polyS(x, ST, [[cx - 2.2, 12.6], [cx + 2.2, 12.6], [cx + 2.6, 16.8], [cx, 20.4], [cx - 2.6, 16.8]], -0.05, 0.4);
-    polyS(x, GLASS, [[cx - 1.4, 13.4], [cx + 1.4, 13.4], [cx + 1.6, 16.6], [cx, 19], [cx - 1.6, 16.6]], 0.1, 0.9); rect(x, '#e8fff6', c - 1, 14, 1, 2);
-    flat(x, [[cx - 2.1, 7], [cx + 2.1, 7], [cx + 3, 14], [cx - 3, 14]]); // the long neck
-    x.save(); x.translate(0, -1);
-    ball(x, cx, 7.2, 2.9, 3.2);
-    polyS(x, BEAK, [[cx - 1.8, 5.2], [cx - 1.1, 2], [cx, -0.2], [cx + 1.1, 2], [cx + 1.8, 5.2]], 0.05, 0.6);
-    rect(x, '#2a2018', c, 0, 1, 1); rect(x, '#5a4a30', c, 2, 1, 2);
-    for (const s of [-1, 1]) rect(x, '#141018', c + (s < 0 ? -3 : 3), 6, 1, 2);
-    x.restore();
-  }, { oc: '#16121e' });
+// The Swan (once the Schneevogel; study Schneevogel B): the skin unlocked by finding all six secrets. A white swan seen from above, part animal, part ship: broad wings
+// in three feather tiers with ice-blue shadows, a long neck, an orange beak with a black knob, a glass canopy on the back, a steel nacelle in each wing root (the
+// flames start there: see drawPlayer), a three-feather tail. 43 x 44 with the outline. SPR.schnee keeps its name.
+function buildSwan(bank) {
+  const SN = ['#8f8aa0', '#c3bdb6', '#e1dccf', '#f2eee4', '#fffdf6'], ST = ['#2c2e38', '#4a4d58', '#6c707c', '#9298a4', '#c4c9d2', '#e8ecf2'], ICE = ['#7e90b4', '#a8b8d4', '#ccd8ea'], GL = RP.crys;
+  return halfShip(41, 42, bank, ({ K, shape, poly, dot, line, Q }) => {
+    const snow = (e, lv) => e.lead ? SN[4] : e.trail ? SN[1] : Q(SN, lv, e);
+    const ball = (cy, rx, ry, sep) => shape((a, y) => (a / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1, (a, y, e) => { const dx = (e.s ? a : -a) / rx, dy = (y + 0.5 - cy) / ry; return Q(SN, 0.66 + (-0.5 * dx - 0.7 * dy - (dx * dx + dy * dy) * 0.4) * 0.5, { i: e.i, j: e.j }); }, false, sep);
+    for (const t of [[[-1, 27], [4, 27], [7, 38], [3, 36], [-1, 31]], [[-1, 27], [3, 27], [0.6, 41], [-1, 41]]]) poly(t, (a, y, e) => snow(e, e.outer ? 0.5 : 0.75), false, ICE[0]); // the tail
+    poly([[3, 16], [7, 16], [12, 18], [16, 22], [19, 27], [20, 32], [18, 30], [17, 36], [14, 31], [13, 37], [10, 32], [8, 36], [5, 31], [3, 32]], (a, y, e) => {
+      if (e.lead) return SN[4];
+      if (e.trail) return ICE[0];
+      const d = y - 16 - Math.max(0, a - 6) * 0.72; // how far behind the leading edge: the tiers follow it
+      if (Math.abs(d - 4) < 0.5 || Math.abs(d - 8) < 0.5) return ICE[1];
+      if ((d > 4.5 && d < 5.6) || (d > 8.5 && d < 9.6)) return SN[4];
+      return Q(SN, 0.86 - d * 0.03, e);
+    }, true);
+    for (const [a, y] of [[18, 30], [14, 31], [10, 32], [5, 31]]) line(a, y - 1, a + (8 - a) * 0.25, y + (14 - y) * 0.25, ICE[0], true); // quills
+    poly([[4.4, 23], [6.6, 23], [6.6, 31], [4.4, 31]], (a, y, e) => e.lead ? ST[5] : (a < 5.5) === !e.s ? ST[4] : ST[2], false, 'rim'); dot(5, 24, GL[3]); dot(6, 24, GL[2]); // the nacelles
+    ball(23, 3.6, 9.5, ICE[0]);
+    poly([[-1, 8], [2, 8], [3, 17], [-1, 17]], (a, y, e) => e.outer ? SN[e.s ? 2 : 4] : SN[3]); // the neck
+    poly([[-1, 15], [2.4, 17], [2.4, 21], [-1, 24]], () => K); // the canopy: glass in a dark frame, one glint
+    poly([[-1, 16], [1.4, 17.5], [1.4, 20.5], [-1, 23]], (a, y, e) => Q(GL, 0.75 - (y - 16) / 7 * 0.6 + (e.s ? -0.1 : 0.1), e));
+    dot(0, 17, '#f0fff8');
+    for (let y = 25; y < 31; y++) dot(0, y, SN[2]);
+    ball(7.5, 3, 3.3);
+    poly([[-1, 0], [1.2, 2], [1.8, 5.4], [-1, 5.4]], a => a < 0.5 ? '#ffb040' : '#e8801c'); // the beak
+    for (const [a, y, col] of [[0, 0, '#2a2018'], [0, 5, '#141018'], [1, 5, '#141018'], [3, 7, '#141018'], [2, 6, '#141018']]) dot(a, y, col);
+  }, '#16121e');
 }
-lazySpr('schnee', () => [-1, 0, 1].map(buildSchneevogel));
+lazySpr('schnee', () => [-1, 0, 1].map(buildSwan));
 SPR.talon = sprite(12, 13, x => {
   polyS(x, RP.crys, [[6, 0], [12, 6], [10, 13], [6, 8], [2, 13], [0, 6]], 0.05, 0.6);
   ellS(x, RP.alien, 6, 6, 2.4, 3, 0.35);
@@ -10031,7 +10006,7 @@ const TUT_TEXT = () => {
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.' + (touch ? ' <b>Beat your best score</b> and your score turns yellow.' : ''),
     (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots in an arc above it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
     '<b>Hold still to charge the laser</b>, then ' + (touch ? 'touch the screen again' : pad ? 'press X' : 'move') + ' to fire. It breaks armoured targets. Fire it too often and it <b>overheats</b>: watch for steam at the nose.',
-    'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Schneevogel skin.</b>',
+    'Every stage hides a <b>secret</b>. Look for circling crows, hover over the spot, then catch the gem before it escapes. <b>Find all six to unlock the Swan skin.</b>',
     "<b>You're ready!</b>"
   ];
 };
@@ -15577,7 +15552,7 @@ function p2Pickups(q) {
     if (it.kind === 'S') { if (d2 < 150) { addScore(10); checkExtend(); world.items.splice(i, 1); } continue; }
     if (it.flee !== undefined && it.t < 30) continue;
     if (d2 >= (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) continue;
-    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
+    if (it.kind === 'A') { addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]); label(it.x, it.y - 8, arts.size >= 6 ? 'SWAN UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); checkExtend(); world.items.splice(i, 1); continue; }
     if (it.kind === 'M') {
       run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
       run.stats.maxMul = Math.max(run.stats.maxMul || 1, run.medalMul); noteChain(); const v = MEDAL_BASE * run.medalMul; addScore(v); label(it.x, it.y - 6, String(v));
@@ -16326,7 +16301,7 @@ function update() {
       if (!(it.flee !== undefined && it.t < 30) && (it.x - p.x) ** 2 + (it.y - p.y) ** 2 < (it.kind === 'M' || it.kind === 'A' ? 260 : 210)) {
         if (it.kind === 'A') {
           addScore(20000); run.stats.artifact = true; if (!app.tut) arts.add(world.curTheme); store.setJSON(KEY.arts, [...arts]);
-          label(it.x, it.y - 8, arts.size >= 6 ? 'SCHNEEVOGEL UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
+          label(it.x, it.y - 8, arts.size >= 6 ? 'SWAN UNLOCKED' : 'ARTIFACT 20000'); if (arts.size >= 6) award('snow'); sfx('extend'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (it.kind === 'M') {
           run.medalMul = run.medalT > 0 ? run.medalMul + 1 : 1; run.medalT = MEDAL_WIN;
@@ -17812,16 +17787,17 @@ function drawPlayer() {
   if (p.dead) { if (p.dx !== undefined) drawRebirth(p); return; }
   const fk = p.fly > 0 ? (p.flyK || 1) : 1;
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
-  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() >= 3 && curSkinId() <= 5; // the Phoenix, Rotkehlchen and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
+  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && (curSkinId() === 3 || curSkinId() === 5); // the Phoenix and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
   const bi = p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1, sw = !p2 && useNacht(); // sw: the Swallow, whose flames start at the nozzles of its wing nacelles (7 px out, 5 on the wing squeezed in a turn)
-  const FLP = sw ? [[bi === 0 ? -5 : -7, 6], [bi === 2 ? 5 : 7, 6]] : tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]];
+  const swan = !p2 && curSkinId() === 1, robin = !p2 && curSkinId() === 4, sb = bi - 1; // the Swan's flames start at the nacelles in its wing roots and run 4 px longer (its tail is longer); these and the Robin's tail move a pixel with the body in a turn
+  const FLP = sw ? [[bi === 0 ? -5 : -7, 6], [bi === 2 ? 5 : 7, 6]] : swan ? [[-5 + sb, 11], [5 + sb, 11]] : robin ? [[-3 + sb, 12], [3 + sb, 12]] : tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]];
   for (const [ox, top] of FLP) { // (the Raptor's wings have gaps along the trailing edge: its flames start at the tail end, so none shows above the tail)
-    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : 0;
+    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : swan ? -4 : 0;
     ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top - up);
     ctx.fillStyle = FC[1]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
     ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top - up);
   }
-  ctx.globalAlpha = 0.35; dk(p.x + (sw ? FLP[0][0] : -3), p.y + 17, 3, sw ? '#8ad8ff' : '#ff9a4a'); dk(p.x + (sw ? FLP[1][0] : 3), p.y + 17, 3, sw ? '#8ad8ff' : '#ff9a4a'); ctx.globalAlpha = 1;
+  { const gc = sw ? '#8ad8ff' : swan ? '#5ff0dc' : '#ff9a4a', own = sw || swan || robin, gy = p.y + (swan ? 21 : 17); ctx.globalAlpha = 0.35; dk(p.x + (own ? FLP[0][0] : -3), gy, 3, gc); dk(p.x + (own ? FLP[1][0] : 3), gy, 3, gc); ctx.globalAlpha = 1; } // the glow at the flames' ends
   if (fk === 1) { drawGlowBehind(p, 1); superAura(p); }
   const sp = (p2 ? SPR.playerSet : skinSet())[bi]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   const sx = Math.round(p.x) + (sp.w & 1) / 2; // a sprite of odd width has a centre column: it is kept on the pixel the flames are measured from (spr alone would put it a pixel left half the time)
@@ -18312,7 +18288,7 @@ function achIcon(name, color) {
   return c;
 }
 // a small picture of the reward ship, and progress for goals that count something across runs
-const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Schneevogel: () => SPR.schnee, Rotkehlchen: () => robinSet(), Swallow: () => nachtSet() };
+const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Swan: () => SPR.schnee, Robin: () => robinSet(), Swallow: () => nachtSet() };
 const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6], chain: () => [Math.min(chainBest, CHAIN_GOAL), CHAIN_GOAL], robin: () => [rankedCamp() && run.camp ? Math.min(run.camp.secrets | 0, 6) : 0, 6] }; // Eagle Eye counts the secrets of the Campaign loop in progress
 function achShip(name) {
   try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
