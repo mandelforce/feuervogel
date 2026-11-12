@@ -588,7 +588,7 @@ function makePlayersV29() {
     }, { w: 1 });
     quills(g, [[14, 23], [10, 24], [6, 23]], [7, 8], o.wing ? TL[0] : P.PA[1], 0.3);
     // the original's tail, in its own pixel coordinates: its polygon is centred half a pixel left of the spine, which is what makes it lopsided
-    if (o.orig) g.polyS(TR, [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5, (i, j, trail) => trail && o.tips ? TL[4] : null);
+    if (o.orig) g.polyS(TR, [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], -0.15, 0.5); // plain violet, like the original's
     g.poly([[3, 20], [6, 25], [4, 25], [2, 23]], (a, y, e) => Q(o.body ? P.PA : TL, 0.7 - (y - 20) * 0.08, e, 0.3), { sep: 1 });
     g.ell(0, 16, 3.6, 10, (a, y, e) => Q(BR, 0.6 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e, 0.35), { sep: 1 });
     for (let y = 10; y < 25; y++) { const c = o.body ? Q(P.PA, 1 - (y - 10) * 0.03, { i: 0, j: y }, 0) : Q(TL, 0.95 - (y - 10) * 0.04, { i: 0, j: y }, 0); g.dot(0, y, c); if (o.spine && y > 11 && y < 22) g.dot(1, y, TL[y < 16 ? 3 : 2]); }
@@ -606,7 +606,7 @@ function makePlayersV29() {
     ['T1', 'Teal edge', 'A thicker crystal leading edge, teal feather tips along the trailing edge and tail, a crest stripe. Violet stays the main colour.', { edge2: 1, tips: 1, crest: 1 }],
     ['T2', 'Crystal bars', 'The white and black wing bars become glowing teal crystal bars, with a wider teal spine.', { bars: 1, spine: 1, crest: 1 }],
     ['T3', 'Teal fade', 'The wings run from violet at the root to teal at the tips. Bars and body as today.', { fade: 1, tips: 1 }],
-    ['T3H', 'Teal fade, original head, tail and edge', 'T3 with three parts of today\'s Feuervogel: its head, its lopsided tail, and its two-pixel bright crystal edge along the top of the wings.', { fade: 1, tips: 1, head: 1, orig: 1 }],
+    ['T3H', 'Teal fade, original head, tail and edge', 'T3 with three parts of today\'s Feuervogel: its head, its lopsided plain violet tail, and its two-pixel bright crystal edge along the top of the wings.', { fade: 1, tips: 1, head: 1, orig: 1 }],
     ['T4', 'Teal wings', 'Teal wings on a violet body: the two colours swap roles. The white and black bars stay.', { wing: TL, tail: TL }],
     ['T5', 'Teal body', 'A teal crystal body, head and tail between violet wings, with teal bars.', { body: TL, tail: TL, bars: 1 }]])
     add('Feuervogel', v, name, idea, 35, 36, g => fvTeal(g, o), { fc: v === 'T4' || v === 'T5' ? FL.teal : FL.fire, size: '37 x 38 with the outline (today: 36 x 38)' });
