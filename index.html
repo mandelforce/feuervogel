@@ -4501,7 +4501,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.7'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16869,9 +16869,14 @@ const LOOKS = {
     const shape = g2 => { ctx.beginPath(); ctx.moveTo(-9 - g2, -3 - g2); ctx.lineTo(6, -3 - g2); ctx.arc(6, 0, 3 + g2, -PI / 2, PI / 2); ctx.lineTo(-9 - g2, 3 + g2); ctx.closePath(); ctx.fill(); };
     ctx.fillStyle = '#ffd23a'; ctx.globalAlpha = 0.22; shape(2); ctx.globalAlpha = 0.55; shape(1); ctx.globalAlpha = 1;
     ctx.fillStyle = '#0e0f12'; shape(0); ctx.fillRect(-10, -4, 3, 8);
-    ctx.fillStyle = fl ? '#ffffff' : '#3a3e44'; ctx.fillRect(-8, -2, 14, 4); ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#5a616c'; ctx.fillRect(-7, -2, 12, 1); ctx.fillStyle = '#24282e'; ctx.fillRect(-7, 1, 12, 1); ctx.fillStyle = '#3a3e44'; ctx.fillRect(-9, -3, 2, 6);
-    ctx.fillStyle = '#d84a34'; ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff9a7a'; ctx.fillRect(6, -1, 1, 1);
+    /* the same missile as on the launcher racks (SPR.samRack): white body, a yellow band near the tail, red nose, dark fins */
+    ctx.fillStyle = fl ? '#ffffff' : '#e8e4d8'; ctx.fillRect(-8, -2, 14, 4); ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill();
+    if (!fl) {
+      ctx.fillStyle = '#fffdf4'; ctx.fillRect(-7, -2, 12, 1); ctx.fillStyle = '#a8a498'; ctx.fillRect(-7, 1, 12, 1);
+      ctx.fillStyle = '#d8b020'; ctx.fillRect(-3, -2, 2, 4);
+      ctx.fillStyle = '#d84a34'; ctx.beginPath(); ctx.arc(6, 0, 2, 0, TAU); ctx.fill(); ctx.fillStyle = '#ff9a7a'; ctx.fillRect(6, -1, 1, 1);
+    }
+    ctx.fillStyle = '#2a2c30'; ctx.fillRect(-9, -3, 2, 6);
     const fk = (gf >> 1) & 1, fl2 = 5 + fk;
     ctx.fillStyle = '#ff8a3a'; ctx.fillRect(-10 - fl2, -1, fl2, 2); ctx.fillStyle = '#fff0a0'; ctx.fillRect(-10 - Math.ceil(fl2 / 2), -1, Math.ceil(fl2 / 2), 2);
     ctx.globalAlpha = 0.4; ctx.fillStyle = '#ffd23a'; ctx.beginPath(); ctx.arc(-13, 0, 3.5 + fk * 0.5, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
