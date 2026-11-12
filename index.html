@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.14'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.15'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4956,13 +4956,13 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
-// ---- ships drawn as half shapes (the Feuervogel since 1.2.6.12, the Swallow since 1.2.6.13, the Swan and the Robin since 1.2.6.14; designs in docs/player-art-v29.js, raster finish, reproduced pixel for pixel) ----
+// ---- ships drawn as half shapes (the Feuervogel since 1.2.6.12, the Swallow since 1.2.6.13, the Swan and the Robin since 1.2.6.14, the Phoenix since 1.2.6.15; designs in docs/player-art-v29.js, raster finish, reproduced pixel for pixel) ----
 // halfShip(W, H, bank, draw): each part is described once, for one half (a = columns out from the centre column, y = row), and mirrored, so the level frame is
 // symmetric; W is odd. Wing parts (w) are squeezed to 0.7 on the inside of a turn, the others shift with the body. draw gets the tools:
 //   poly(pts, shade, w, sep) / shape(inside, shade, w, sep): a filled part; shade(a, y, e) gives each pixel's colour, e = { i, j, s (0 left, 1 right), u, v (place in the
 //     part's box, 0 to 1), lead / trail (no pixel of the part above / below), lead2 / trail2 (the row next to those), outer }. sep true: a dark line where the part lies on
 //     another (sep a colour: a line in that colour); sep 'rim': those pixels repeat the pixel to their left instead, a soft join (how the approved drawings came out)
-//   dot(a, y, col, w), line(a0, y0, a1, y1, col, w): on both sides, only over pixels already painted;  put(i, j, col): one plain pixel
+//   dot(a, y, col, w, free), line(a0, y0, a1, y1, col, w): on both sides, only over pixels already painted (free: anywhere);  put(i, j, col): one plain pixel
 //   Q(ramp, l, e, flat): a tone of a ramp, the full ordered dither over a gradient from the top left of the part to its bottom right (flat: no dither);  lit(e): the light from the left
 function halfShip(W, H, bank, draw, oc) {
   const K = '#0c0a10', RIM = 1, c = (W - 1) / 2, fac = [bank < 0 ? 0.7 : bank > 0 ? 1.04 : 1, bank > 0 ? 0.7 : bank < 0 ? 1.04 : 1], sb = Math.round(bank * 0.6), buf = new Array(W * H).fill(null);
@@ -4981,10 +4981,11 @@ function halfShip(W, H, bank, draw, oc) {
       put(i, j, shade(a, j, { i, j, s, u: (i - x0) / (x1 - x0 || 1), v: (j - y0) / (y1 - y0 || 1), lead: !M(i, j - 1), trail: !M(i, j + 1), outer: !M(i + sg, j), lead2: M(i, j - 1) && !M(i, j - 2), trail2: M(i, j + 1) && !M(i, j + 2) }));
     }
   };
-  const dot = (a, y, col, w) => { for (const sg of a === 0 ? [1] : [-1, 1]) put(Math.round(c + (w ? 0 : sb) + sg * a * (w ? fac[sg < 0 ? 0 : 1] : 1)), Math.round(y), col, true); };
+  const dot = (a, y, col, w, free) => { for (const sg of a === 0 ? [1] : [-1, 1]) put(Math.round(c + (w ? 0 : sb) + sg * a * (w ? fac[sg < 0 ? 0 : 1] : 1)), Math.round(y), col, !free); };
   const line = (a0, y0, a1, y1, col, w) => { const n = Math.ceil(Math.max(Math.abs(a1 - a0), Math.abs(y1 - y0)) * 1.5) || 1; for (let k = 0; k <= n; k++) dot(a0 + (a1 - a0) * k / n, y0 + (y1 - y0) * k / n, col, w); };
   draw({ K, shape, poly: (pts, shade, w, sep) => shape((a, y) => pip(pts, a, y), shade, w, sep), dot, line, put: (i, j, col) => put(i, j, col), Q, dth, lit: e => e.s ? -0.05 : 0.05 });
-  return sprite(W, H, x => { for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = buf[j * W + i]; if (v) { if (v !== RIM) x.fillStyle = v; x.fillRect(i, j, 1, 1); } } }, oc ? { oc } : {});
+  const pad = oc === false ? 1 : 0; // oc false: no outline; the sprite keeps an empty one-pixel border instead, so its frame is the same
+  return sprite(W + pad * 2, H + pad * 2, x => { for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = buf[j * W + i]; if (v) { if (v !== RIM) x.fillStyle = v; x.fillRect(i + pad, j + pad, 1, 1); } } }, oc === false ? { outline: false } : oc ? { oc } : {});
 }
 // The Feuervogel as flown since build 1.2.6.12 (study T3H). The old drawing above stays for the Rooster, and its outline for the Retro Run's own ship (retroVogel).
 // What is the old ship's: the outline (made symmetric, so the art is 35 x 36 and the sprite 37 x 38, one pixel wider), the head, the lopsided plain violet tail (its
@@ -5043,49 +5044,30 @@ function buildSwallow(bank) {
     for (let y = 16; y < 28; y += 3) dot(0, y, R[1]);
   });
 }
-// Phönix: the skin for finishing the Campaign on Veteran. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
-// The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
+// Phoenix (study Phoenix B): the skin for finishing the Campaign on Veteran. Wings of flame tongues that cool from a yellow core to deep red, with a glowing rim and
+// no outline; three tail plumes that end in beads; a white-hot spine; the old ship's narrow face, brow and beaded antennae. 39 x 43 with its empty border.
 function buildPhoenix(bank) {
-  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL = ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
-  return sprite(36, 38, x => { // the standard 36x38 of the other ships (their 34x36 drawing plus the 1-pixel outline), here with an empty border instead of the outline
-    x.translate(1, 1);
-    const base = [[15, 8], [9, 10], [4, 14], [1, 19], [0, 27], [3, 23], [5, 29], [7, 24], [9, 28], [11, 23], [13, 26], [15, 21]];
-    const fL = bank < 0 ? 0.68 : bank > 0 ? 1.04 : 1, fR = bank > 0 ? 0.68 : bank < 0 ? 1.04 : 1;
-    const wl = base.map(([a, b]) => [17 + (a - 17) * fL, b]), wr = base.map(([a, b]) => [17 + (17 - a) * fR, b]);
-    for (let j = 0; j < 36; j++) for (let i = 0; i < 34; i++) {
-      const inL = pip(wl, i + 0.5, j + 0.5), inR = pip(wr, i + 0.5, j + 0.5);
-      if (!inL && !inR) continue;
-      const f = inL ? fL : fR, u = 17 - Math.abs(i + 0.5 - 17) / f, w = inL ? wl : wr;
-      const rim = !pip(w, i + 0.5, j - 1.5) || !pip(w, i + (inL ? -0.5 : 2.5), j + 0.5);
-      let col;
-      if (rim) col = pick(RIM, j < 20 ? 0.6 + (j - 8) / 30 : 0.8 - (j - 20) / 16, i, j); // the glowing rim runs all the way round the wing, down the side tips too
-      else if (j >= 20) col = pick(TAILP, (j - 20) / 10 + 0.3, i, j); // the trailing tips fade into flame
-      else { // feather streaks fan out from the shoulder, lighter streaks alternating with dark ones, brighter toward the tip
-        const dx = Math.abs(i + 0.5 - 17) / f, st = Math.floor(Math.atan2(j - 10, Math.max(0.5, dx - 3)) * 9), dist = Math.hypot(dx - 3, j - 10);
-        col = pick(FILL, 0.1 + (st & 1 ? 0.28 : 0) + dist / 34, i, j);
-      }
-      rect(x, col, i, j, 1, 1);
-    }
-    for (const poly of [[[17, 22], [16, 26], [14, 31], [13, 35], [16, 31], [17, 30]], [[17, 22], [18, 26], [20, 31], [21, 35], [18, 31], [17, 30]], [[17, 22], [17, 28], [17, 35], [17, 35]]])
-      for (let j = 20; j < 36; j++) for (let i = 0; i < 34; i++) if (pip(poly, i + 0.5, j + 0.5)) rect(x, pick(TAILP, Math.min(1, (j - 20) / 15), i, j), i, j, 1, 1);
-    for (let j = 24; j < 34; j++) { rect(x, pick(TAILP, (j - 24) / 10, 11, j), j > 29 ? 9 : 10, j, 1, 1); rect(x, pick(TAILP, (j - 24) / 10, 23, j), j > 29 ? 25 : 24, j, 1, 1); }
-    for (let j = 6; j < 26; j++) { // the Feuervogel's fuselage: an ellipse (3.6 x 10), so the head flows into the body without a pinched neck; dark at the neck, brightening toward the tail
-      const dy = (j + 0.5 - 16) / 10, hw = 3.6 * Math.sqrt(Math.max(0, 1 - dy * dy));
-      for (let d = -Math.ceil(hw); d <= Math.ceil(hw); d++) if (Math.abs(d + 0.0) <= hw) rect(x, pick(BODY, 0.1 + (j - 6) / 20 * 0.8 + (1 - Math.abs(d) / (hw + 0.5)) * 0.15, 17 + d, j), 17 + d + Math.round(bank * 0.6), j, 1, 1);
-    }
-    for (let j = 10; j < 25; j++) rect(x, pick(['#ffa030', '#ffe080', '#fff6c0'], 0.9 - (j - 10) * 0.035, 17, j), 17, j, 1, 1);
-    const px = (col, d, j) => rect(x, col, 17 + d + Math.round(bank * 0.5), j, 1, 1);
-    px('#ffe9a0', 0, 0); px('#ffd060', 0, 1); px('#e8a020', -1, 2); px('#ffd060', 0, 2); px('#e8a020', 1, 2); // beak
-    const rows = { 3: [-1, 1], 4: [-2, 2], 5: [-2, 2], 6: [-2, 2], 7: [-2, 2], 8: [-2, 2], 9: [-1, 1] }; // a narrow face
-    for (const j in rows) { const [lo, hi] = rows[j]; for (let d = lo; d <= hi; d++) px(d === 0 ? '#ffa030' : d === lo || d === hi ? '#c8300c' : '#e0561a', d, +j); }
-    px('#ffd060', 0, 3); px('#ffe9a0', 0, 7);
-    px('#2a0806', -1, 4); px('#2a0806', 1, 4); px('#2a0806', -2, 5); px('#2a0806', 2, 5); px('#fff6c0', -1, 5); px('#fff6c0', 1, 5); px('#ffffff', -1, 6); px('#ffffff', 1, 6); // brow, white-hot eyes
-    const GR = ['#ffe9a0', '#ffd060', '#ffa030', '#f2701c', '#c8300c'], ant = [[3, 3], [4, 4], [5, 5], [6, 6]]; // the antennae: swept back, fading from gold to red, each ending in a bright bead
-    for (const sg of [-1, 1]) {
-      ant.forEach(([dd, y], k) => px(GR[Math.min(4, Math.floor(k / 3 * 5))], sg * dd, y));
-      px('#fff6c0', sg * 7, 6); px('#ffe9a0', sg * 8, 6); px('#ffe9a0', sg * 7, 7); px('#ffd060', sg * 8, 7);
-    }
-  }, { outline: false });
+  const BODY = ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], RIM = ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP = ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'];
+  const HOT = ['#ffa030', '#ffe080', '#fff6c0'], HEAT = ['#5a1408', '#a02a0c', '#c8300c', '#f2701c', '#ffa030', '#ffd060'];
+  return halfShip(37, 41, bank, ({ shape, poly, dot, line, Q, lit }) => {
+    const free = (a, y, col) => dot(a, y, col, false, true);
+    const bead = (a, y) => { for (const [da, dy, col] of [[0, -1, '#ffd060'], [-1, 0, '#ffd060'], [1, 0, '#ffb838'], [0, 1, '#f2701c'], [0, 0, '#ffffff']]) free(a + da, y + dy, col); };
+    poly([[1, 24], [3, 24], [7, 35], [5, 35]], (a, y) => Q(TAILP, 0.9 - (y - 24) / 14, { i: 0, j: 0 }, true)); bead(6, 37); // the side plumes
+    poly([[-1, 24], [1.3, 24], [0.6, 37], [-1, 37]], (a, y) => Q(TAILP, 1 - (y - 24) / 16, { i: 0, j: 0 }, true)); bead(0, 38); // the middle plume
+    poly([[2, 9], [8, 8], [14, 11], [18, 16], [18, 22], [17, 28], [15, 22], [14, 30], [12, 23], [10, 31], [8, 24], [6, 29], [4, 23], [2, 24]], (a, y, e) => { // the wings
+      if (e.lead) return Q(RIM, 0.95 - a * 0.02, e, true);
+      if (e.outer && y > 14) return RIM[1];
+      if (e.trail) return '#fff0a0'; // each tongue ends in a spark
+      return Q(HEAT, 1 - Math.hypot((a - 2) * 0.8, y - 13) / 17 + lit(e), e); // hot at the shoulder, cooling outward
+    }, true);
+    for (const [a, y] of [[15, 22], [12, 23], [8, 24], [4, 23]]) line(a, y - 1, a + (3 - a) * 0.4, y + (9 - y) * 0.4, '#7a1006', true); // quills
+    shape((a, y) => (a / 3.4) ** 2 + ((y - 17) / 10.5) ** 2 <= 1, (a, y, e) => Q(BODY, 0.2 + (y - 6.5) / 21 * 0.7 + (1 - a / 3.9) * 0.15, e), false, '#5a1408'); // the body, dark red where it lies on the wings
+    for (let y = 11; y < 26.5; y++) dot(0, y, Q(HOT, 0.95 - (y - 11) * 0.04, { i: 0, j: y }, true));
+    poly([[-1, 3], [1.5, 3], [2.5, 4], [2.5, 9], [1.5, 10], [-1, 10]], (a, y, e) => a < 0.5 ? '#ffa030' : e.outer ? '#c8300c' : '#e0561a'); // a narrow face
+    for (const [a, y, col] of [[0, 0, '#ffe9a0'], [0, 1, '#ffd060'], [1, 2, '#e8a020'], [0, 2, '#ffd060'], [0, 3, '#ffd060'], [0, 7, '#ffe9a0'], [1, 4, '#2a0806'], [2, 5, '#2a0806'], [1, 5, '#fff6c0'], [1, 6, '#ffffff']]) free(a, y, col); // beak, brow, white-hot eyes
+    [[3, 3], [4, 4], [5, 5], [6, 6]].forEach(([a, y], k) => free(a, y, ['#ffe9a0', '#ffd060', '#ffa030', '#f2701c'][k])); // the antennae, each ending in a bright bead
+    for (const [a, y, col] of [[7, 6, '#fff6c0'], [8, 6, '#ffe9a0'], [7, 7, '#ffe9a0'], [8, 7, '#ffd060']]) free(a, y, col);
+  }, false);
 }
 let phoenixCache = null;
 function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
@@ -17787,22 +17769,23 @@ function drawPlayer() {
   if (p.dead) { if (p.dx !== undefined) drawRebirth(p); return; }
   const fk = p.fly > 0 ? (p.flyK || 1) : 1;
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
-  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && (curSkinId() === 3 || curSkinId() === 5); // the Phoenix and Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
+  const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() === 5, phx = !p2 && curSkinId() === 3; // (phx: the Phoenix, whose flames start between its tail plumes and run 3 px longer) // the Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
   const bi = p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1, sw = !p2 && useNacht(); // sw: the Swallow, whose flames start at the nozzles of its wing nacelles (7 px out, 5 on the wing squeezed in a turn)
   const swan = !p2 && curSkinId() === 1, robin = !p2 && curSkinId() === 4, sb = bi - 1; // the Swan's flames start at the nacelles in its wing roots and run 4 px longer (its tail is longer); these and the Robin's tail move a pixel with the body in a turn
-  const FLP = sw ? [[bi === 0 ? -5 : -7, 6], [bi === 2 ? 5 : 7, 6]] : swan ? [[-5 + sb, 11], [5 + sb, 11]] : robin ? [[-3 + sb, 12], [3 + sb, 12]] : tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]];
+  const FLP = sw ? [[bi === 0 ? -5 : -7, 6], [bi === 2 ? 5 : 7, 6]] : swan ? [[-5 + sb, 11], [5 + sb, 11]] : phx ? [[-4 + sb, 10], [4 + sb, 10]] : robin ? [[-3 + sb, 12], [3 + sb, 12]] : tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]];
   for (const [ox, top] of FLP) { // (the Raptor's wings have gaps along the trailing edge: its flames start at the tail end, so none shows above the tail)
-    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : swan ? -4 : 0;
+    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : swan ? -4 : phx ? -3 : 0;
     ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top - up);
     ctx.fillStyle = FC[1]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
     ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top - up);
   }
-  { const gc = sw ? '#8ad8ff' : swan ? '#5ff0dc' : '#ff9a4a', own = sw || swan || robin, gy = p.y + (swan ? 21 : 17); ctx.globalAlpha = 0.35; dk(p.x + (own ? FLP[0][0] : -3), gy, 3, gc); dk(p.x + (own ? FLP[1][0] : 3), gy, 3, gc); ctx.globalAlpha = 1; } // the glow at the flames' ends
+  { const gc = sw ? '#8ad8ff' : swan ? '#5ff0dc' : '#ff9a4a', own = sw || swan || robin || phx, gy = p.y + (swan ? 21 : phx ? 20 : 17); ctx.globalAlpha = 0.35; dk(p.x + (own ? FLP[0][0] : -3), gy, 3, gc); dk(p.x + (own ? FLP[1][0] : 3), gy, 3, gc); ctx.globalAlpha = 1; } // the glow at the flames' ends
   if (fk === 1) { drawGlowBehind(p, 1); superAura(p); }
   const sp = (p2 ? SPR.playerSet : skinSet())[bi]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   const sx = Math.round(p.x) + (sp.w & 1) / 2; // a sprite of odd width has a centre column: it is kept on the pixel the flames are measured from (spr alone would put it a pixel left half the time)
-  if (run.sortie && run.sortie.moon && fk === 1) moonRim(sp, sx, p.y);
-  spr(sp, sx, p.y);
+  const sy = Math.round(p.y) + (sp.h & 1) / 2; // (the same for a sprite of odd height: the Phoenix)
+  if (run.sortie && run.sortie.moon && fk === 1) moonRim(sp, sx, sy);
+  spr(sp, sx, sy);
   if (fk === 1) drawGlowFront(p, 1, sp);
   if (fk !== 1) { ctx.globalAlpha = 0.5; dk(p.x, p.y + 17, 4, '#a8f6dc'); ctx.globalAlpha = 1; ctx.restore(); }
   drawDrones(p, 1);
