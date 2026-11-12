@@ -1,0 +1,147 @@
+<title>Feuervogel Hangar Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* layout: a hangar wall. One row per ship: the sprite flown today on the left, its variations beside it, each on the same three-part card. */
+:root {
+  --bg: #ecebf2; --panel: #f8f7fb; --ink: #1c1730; --muted: #5d5874; --line: #cfcbdd; --accent: #5a3fc0; --pick: #0e7c6e; --pick-bg: #d6f3ec; --warn: #9a4a10;
+  --sand: #d8c8a0; --night: #2a2f43; --slate: #8493a0;
+  --display: 'Chakra Petch', 'Trebuchet MS', sans-serif; --body: 'Inter', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #12101c; --panel: #1b1829; --ink: #eceaf6; --muted: #a59fbd; --line: #332e4a; --accent: #a48cff; --pick: #5fe0cc; --pick-bg: #12362f; --warn: #f0a860; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12101c; --panel: #1b1829; --ink: #eceaf6; --muted: #a59fbd; --line: #332e4a; --accent: #a48cff; --pick: #5fe0cc; --pick-bg: #12362f; --warn: #f0a860; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.wrap { max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15 }
+h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: 0.01em }
+h2 { font-size: 24px; font-weight: 600 }
+h3 { font-size: 17px; font-weight: 600 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent) }
+header { display: flex; flex-direction: column; gap: 12px }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font: 13px var(--mono); color: var(--muted) }
+.facts b { color: var(--ink); font-weight: 600 }
+img.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; max-width: 100% }
+section { display: flex; flex-direction: column; gap: 14px }
+.lineup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 14px; padding: 18px 14px 12px; background: var(--slate); border-radius: 6px }
+.lineup figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px }
+.lineup figcaption { font: 11px var(--mono); color: #10141a; text-align: center; line-height: 1.25 }
+.lineup .ref figcaption { font-weight: 600 }
+.ship-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; border-top: 2px solid var(--ink); padding-top: 10px }
+.ship-head p { color: var(--muted); font-size: 14px }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; overflow: hidden }
+.card.pick { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick) }
+.card.now { border-style: dashed }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 12px 8px }
+.card-head .sz { font: 12px var(--mono); color: var(--muted); white-space: nowrap }
+.badge { font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pick); background: var(--pick-bg); padding: 2px 7px; border-radius: 3px; margin-left: 8px }
+.badge.weak { color: var(--warn); background: transparent; border: 1px solid var(--warn) }
+.stage { background: linear-gradient(90deg, var(--sand) 50%, var(--night) 50%); display: flex; justify-content: center; align-items: center; min-height: 250px; padding: 10px 0 }
+.banks { background: var(--slate); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; padding: 8px }
+.game { background: #0c0a10; padding: 4px; display: flex; justify-content: center }
+.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px }
+.card-body dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12.5px; color: var(--muted) }
+.card-body dt { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px }
+.card-body dd { margin: 0 }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px 32px }
+.notes ul { margin: 6px 0 0; padding-left: 18px }
+.notes li { margin: 4px 0 }
+code { font: 12.5px var(--mono) }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">FEUERVOGEL 89 · player ship art, round v29</span>
+    <h1>Hangar mockups</h1>
+    <p>Every ship is drawn with the game's own sprite toolkit at game size, nose up, in all three banking frames. Nothing here is in the game yet. Each card shows the level frame enlarged six times on a sand and a night tone, the three banking frames, the sprite at game size, and the ship with its engine flames over real Campaign ground (sand, night city, ice).</p>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section>
+    <h2>The roster side by side</h2>
+    <p>My pick for each ship at twice game size, with today's Feuervogel at the left and the boss Moth at the right for scale. The Moth is shown at both candidate sizes.</p>
+    <div class="lineup" id="lineup"></div>
+  </section>
+
+  <div id="ships" style="display:flex;flex-direction:column;gap:40px"></div>
+
+  <section>
+    <h2>What I would and would not take</h2>
+    <div class="notes">
+      <div><h3>Weak ones</h3><ul id="weak"></ul></div>
+      <div><h3>What a chosen design needs in the game</h3><ul>
+        <li>Flames: each mockup carries its own flame positions (<code>flames</code> in <code>docs/player-art-v29.js</code>), in the same form as the table in <code>drawPlayer</code>.</li>
+        <li>Hit box: I propose keeping the standard hit box for every ship except The Moth. The larger sprites grow in wings and tail, not in hull.</li>
+        <li>The Moth needs its own hit box, speed and a place in the ship list; that is game design, not art, and is not decided here.</li>
+        <li>The "A" variations are 37 px wide where today's sprites are 36: they are symmetric about a centre column, today's are one pixel lopsided.</li>
+        <li>The in-game views are composed from real ground and the game's flame rule. The ships were not flown in a level.</li>
+      </ul></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const PICK = { 'Feuervogel': 'B', 'Rooster': 'B', 'Phoenix': 'B', 'Raptor': 'B', 'Schneevogel': 'B', 'Rotkehlchen': 'B', 'Nachtvogel': 'C', 'The Moth': 'A M', 'Eisvogel': 'A', 'Schwalbe': 'A', 'Hornisse': 'A', 'Libelle': 'A' };
+const WHY = {
+  'Feuervogel': 'The alien firebird in violet and crystal teal. B keeps it recognisable and gives it the clearest shape; C is the one to take if the flagship should look new.',
+  'Rooster': 'Gold, hackle orange, a green sickle tail and a red comb. B reads as a rooster at a glance; C is funnier than it is good.',
+  'Phoenix': 'Ember wings with a glowing rim and no outline. B gives the flames a direction; C gives up the wings altogether.',
+  'Raptor': 'Bronze with a teal rim. B, the falcon, is the sharpest silhouette of the three.',
+  'Schneevogel': 'The white swan-ship with a glass canopy. B has the feather tiers the original only hints at.',
+  'Rotkehlchen': 'The robin. B finally looks like one: round, with the orange bib and its grey edge.',
+  'Nachtvogel': 'Black with a violet glow. C stops being a recoloured Feuervogel and becomes its own ship.',
+  'The Moth': 'New as a player ship, drawn from the boss hull (57 x 41). Size M is 75% of it, size L 87%; today\'s player ships are 36 x 38. A is the boss itself; I would start with A at size M.',
+  'Eisvogel': 'New. The kingfisher: the Feuervogel\'s cold twin in electric blue and orange.',
+  'Schwalbe': 'New. The swallow: blue-black sickle wings and a forked tail, the most elegant outline in the hangar.',
+  'Hornisse': 'New. The hornet: The Moth\'s quarrelsome cousin, and the loudest colours on the sheet.',
+  'Libelle': 'New. The dragonfly: a needle body and four glass wings; the thinnest hull of all.'
+};
+const WEAK = {
+  'Rooster C': 'The tail fan reads as leaves, and the whole bird as a pineapple.',
+  'Raptor C': 'The plank wings look stiff; the finger feathers are too small to carry the idea.',
+  'Schneevogel C': 'Reads as an aeroplane before it reads as a crane.',
+  'Nachtvogel B': 'Very dark; the ribs carry it on light ground but it sinks into the night level.',
+  'Phoenix A': 'Hard to tell from today\'s Phoenix at game size.',
+  'Libelle A': 'Pale wings on ice: only the outline holds it.'
+};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const img = (src, w, h, k) => { const i = el('img', 'px'); i.src = src; i.width = w * k; i.height = h * k; i.alt = ''; return i; };
+const dims = src => new Promise(r => { const i = new Image(); i.onload = () => r([i.naturalWidth, i.naturalHeight]); i.src = src; });
+
+async function card(c, kind) {
+  const picked = kind === 'mock' && PICK[c.ship] === c.v, d = el('article', 'card' + (picked ? ' pick' : '') + (kind === 'now' ? ' now' : ''));
+  const head = el('div', 'card-head'), t = el('h3', null, kind === 'now' ? c.name : c.ship + ' ' + c.v);
+  if (picked) t.append(el('span', 'badge', 'my pick'));
+  if (WEAK[c.id]) t.append(el('span', 'badge weak', 'weak'));
+  head.append(t, el('span', 'sz', c.w + ' × ' + c.h)); d.append(head);
+  const stage = el('div', 'stage'); stage.append(img(c.big, c.w, c.h, c.w > 52 ? 5 : 6)); d.append(stage);
+  if (c.banks) { const [bw, bh] = await dims(c.banks), b = el('div', 'banks'); b.append(img(c.banks, bw, bh, 2), img(c.big, c.w, c.h, 1)); d.append(b); }
+  if (c.game) { const [gw, gh] = await dims(c.game), g = el('div', 'game'); g.append(img(c.game, gw, gh, 2)); d.append(g); }
+  const body = el('div', 'card-body');
+  if (kind === 'mock') { body.append(el('p', null, c.name + '. ' + c.idea)); const dl = el('dl'); dl.append(el('dt', null, 'Size'), el('dd', null, c.size || 'as today'), el('dt', null, 'Hit box'), el('dd', null, c.hit)); body.append(dl); if (WEAK[c.id]) { const w = el('p', null, WEAK[c.id]); w.style.color = 'var(--warn)'; body.append(w); } }
+  else body.append(el('p', null, kind === 'boss' ? 'The boss hull as it flies in the looped levels, turned nose up for comparison.' : 'For comparison.'));
+  d.append(body); return d;
+}
+(async () => {
+  if (!DATA) return;
+  const ships = [...new Set(DATA.list.map(c => c.ship))], order = ['Feuervogel', 'Rooster', 'Phoenix', 'Raptor', 'Schneevogel', 'Rotkehlchen', 'Nachtvogel', 'The Moth', 'Eisvogel', 'Schwalbe', 'Hornisse', 'Libelle'].filter(s => ships.includes(s));
+  const facts = document.getElementById('facts');
+  for (const [k, v] of [['mockups', DATA.list.length], ['ships', order.length], ['today', '36 × 38 px'], ['largest here', '49 × 44 px'], ['boss Moth', DATA.boss.w + ' × ' + DATA.boss.h + ' px']]) { const s = el('span'); s.append(el('b', null, String(v)), ' ' + k); facts.append(s); }
+  const lu = document.getElementById('lineup'), fig = (c, label, ref) => { const f = el('figure', ref ? 'ref' : ''); f.append(img(c.big, c.w, c.h, 2), el('figcaption', null, label)); const s = el('figcaption', null, c.w + '×' + c.h); f.append(s); lu.append(f); };
+  fig(DATA.cur[0], 'today', true);
+  for (const s of order) { if (s === 'The Moth') { for (const z of ['A M', 'A L']) fig(DATA.list.find(c => c.ship === s && c.v === z), 'Moth ' + z.slice(2)); } else fig(DATA.list.find(c => c.ship === s && c.v === PICK[s]), s + ' ' + PICK[s]); }
+  fig(DATA.boss, 'boss Moth', true);
+  const host = document.getElementById('ships');
+  for (const s of order) {
+    const sec = el('section'), head = el('div', 'ship-head'); head.append(el('h2', null, s), el('p', null, WHY[s] || '')); sec.append(head);
+    const cards = el('div', 'cards'), now = DATA.cur.find(c => c.ship === s);
+    if (now) cards.append(await card(now, 'now')); else if (s === 'The Moth') cards.append(await card(DATA.boss, 'boss'));
+    for (const c of DATA.list.filter(c => c.ship === s)) cards.append(await card(c, 'mock'));
+    sec.append(cards); host.append(sec);
+  }
+  const weak = document.getElementById('weak'); for (const id in WEAK) { const li = el('li'); li.append(el('b', null, id + ': '), WEAK[id]); weak.append(li); }
+})();
+</script>
