@@ -2296,16 +2296,16 @@ function castShadows(plan) {
   for (const p of plan.pylons || []) if (p.ok) for (let d = -3; d <= 3; d++) spot(p.x - d - 2, p.y + d - 2, 1, 120);
   plan.shadowMask = mask;
 }
-function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
+function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: its own track colours by the railway's mask; opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
   const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
-  usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
+  usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
   for (let sr = 0; sr < h; sr++) {
     const y = y0 + h - 1 - sr; if (y < 0 || y >= L) continue;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
-      if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
           if (b.round) { c = roundPix(b, x, y); break; }
@@ -2418,7 +2418,7 @@ function paint(plan, img, y0, h, opts) { // opts.seaPix(x, y, harbour, calm) -> 
           c = C.pave[pickI(4, 0.62 + (hh(x >> 1, y) - 0.5) * 0.25 + ((x % 6) === 0 ? -0.15 : 0), x, y)]; break; }
         case K.WORKS: { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && (Kr[j] === K.MEADOW || Kr[j] === K.FIELD || Kr[j] === K.GARDEN || Kr[j] === K.COURT)); // a cinder yard with oil stains, fenced where it meets open ground
           c = nb ? ((x + y) % 2 ? C.fence : C.conc[1]) : hh(x >> 1, y >> 1) < 0.015 ? C.char[1] : C.gravel[pickI(3, 0.35 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.5, x, y)]; break; }
-        case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } if (Br[i] === -99) { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : hh(x, y) < 0.55 ? C.snowRoof[pickI(5, 0.7 + (hh(y, x) - 0.5) * 0.3, x, y)] : icePixK(plan, x, y, -87); break; } /* a track on the ice: sleepers and rails, snow drifted between them */ const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
+        case K.RAIL: { if (Br[i] === -98 && opts && opts.yardPix) { c = opts.yardPix(x, y); break; } if (railPix && Br[i] === -1 && RMx[i]) { c = railPix(x, y, RMx[i]); break; } /* the host's own track (opts.railPix(x, y, m), m the mask: 1 ballast, 2 rail, 3 sleeper, 4 verge) */ if (Br[i] === -99) { const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : hh(x, y) < 0.55 ? C.snowRoof[pickI(5, 0.7 + (hh(y, x) - 0.5) * 0.3, x, y)] : icePixK(plan, x, y, -87); break; } /* a track on the ice: sleepers and rails, snow drifted between them */ const m = RMx[i]; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 4 ? (hh(x, y) < 0.18 ? C.gravel[1] : C.grass[pickI(4, 0.3 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.4, x, y)]) : C.gravel[pickI(3, 0.25 + (hh(x, y) - 0.5) * 0.5, x, y)]; break; } // ballast, sleepers, rails, the grassy verge
         case K.RBRIDGE: { const m = RMx[i]; if (Br[i] <= -23 && Br[i] >= -25) { c = gorgeDeckPix(plan, x, y, Br[i], m); break; } /* the gorge finale: a hillside viaduct's deck, a gallery's roof, the truss bridge */ if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
@@ -3120,8 +3120,10 @@ function desertLand(o) {
     if (!any) continue; const bl = new Float32Array(L); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < L; y++) { let t = 0, n = 0; for (let k = -12; k <= 12; k++) { const q = y + k; if (q >= 0 && q < L) { t += d[q]; n++; } } bl[y] = t / n; } for (let y = 0; y < L; y++) d[y] = Math.max(bl[y] * 1.6, d[y]); }
     for (let y = 0; y < L; y++) if (d[y] > 0) { const live = sgn > 0 ? A[y] >= 0 : A[y] < W; if (!live) continue; const want = RXat(y) - sgn * 26, v = A[y] - sgn * d[y]; const was = A[y]; A[y] = sgn > 0 ? Math.min(v, want) : Math.max(v, want); if (sgn > 0) cutL[y] = was - A[y]; if (sgn > 0 ? A[y] < 1 : A[y] > W - 2) A[y] = sgn > 0 ? -1 : W; } }
   for (const F of feats) { if (F.kind !== 'pass') continue; const [pa, pb] = span(F); for (let y = Math.max(0, pa - 40); y < Math.min(L, pb + 40); y++) if (cutL[y] > 0 && WL[y] >= 0 && WR[y] < W) WR[y] = Math.max(WR[y] - cutL[y], WL[y] + 60); }
+  const gameRail = P.railLook === 'game'; // P.railLook 'game': the track as the game draws its own (level 2, so the plan's line matches the boss ground's)
   const layRail = (xAt, y0, y1) => { for (let y = y0; y <= y1; y++) { const c = Math.round(xAt(y)), c1 = Math.round(xAt(Math.min(y1, y + 1))), lo = Math.min(c, c1), hi = Math.max(c, c1); // (where the line bends a row's rails span the shift to the next row, so a curve stays one unbroken pair of rails)
-    for (let x = lo - 6; x <= hi + 6; x++) { if (!inB(x, y)) continue; const i = idx(x, y), rail = (x >= lo - 3 && x <= hi - 3) || (x >= lo + 3 && x <= hi + 3), m = rail ? 2 : (y % 3 === 0 && x >= c - 5 && x <= c + 5) ? 3 : 1;
+    const bw = gameRail ? 4 : 6; // (the game's look: ballast and sleepers 4 px each side, as on the Campaign's own track)
+    for (let x = lo - bw; x <= hi + bw; x++) { if (!inB(x, y)) continue; const i = idx(x, y), rail = (x >= lo - 3 && x <= hi - 3) || (x >= lo + 3 && x <= hi + 3), m = rail ? 2 : gameRail ? (y % 5 < 2 ? 3 : 1) : (y % 3 === 0 && x >= c - 5 && x <= c + 5) ? 3 : 1;
       if (Kr[i] === K.ROAD) { if (m === 2) RM[i] = 2; continue; } if (Kr[i] === K.RBRIDGE) { RM[i] = Math.max(RM[i], m); continue; } if (Kr[i] === K.RAIL && RM[i] === 2 && m !== 2) continue; Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; } } };
   if (RX !== null) { for (let y = 0; y < L; y++) { const c = Math.round(RXat(y)); for (let x = c - 8; x <= c + 8; x++) if (inB(x, y) && Kr[idx(x, y)] === K.DESERT) Br[idx(x, y)] = -50; } const r0 = RA === RX ? 0 : 160, r1 = RB === RX ? L - 1 : L - 161; plan.trainRuns.push({ x: RX, y0: r0, y1: r1, line: 'main' }); plan.rail = { x: RX }; }
   for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { if (x > WL[y] && x < WR[y]) continue; const i = idx(x, y); if (Kr[i] === K.DESERT) { Kr[i] = K.CLIFF; Br[i] = -1; } }
@@ -3393,7 +3395,7 @@ function sandSea(o) {
     let at2 = 0; for (const g of segs) { const s0 = at2, s1 = at2 + g.n * CHp; at2 = s1; if (s0 < Lp) continue; const a0 = (s0 - Lp) / Ld, a1 = (s1 - Lp) / Ld;
       if (g.t === 'desert_open') { const ln = (a1 - a0) * Ld; if (ln > 560) for (const q of [0.22, 0.62]) feats.push({ kind: 'oilfield', at: a0 + (a1 - a0) * q, half: Math.round(ln * 0.17), dry: true, guard: true }); else feats.push({ kind: 'oilfield', at: (a0 + a1) / 2, half: Math.max(60, Math.round(ln / 2) - 26), dry: true, guard: true }); } // (a long stretch gets two fields)
       if (g.t === 'village' || g.t === 'airbase_desert' || g.t === 'pass') feats.push({ kind: 'bastion', at: Math.max(0.02, a0 - 0.012) }); } }
-  const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { wear: P0.wear, L: Ld, road0: A.mx[Lp - 1], rail: { x: 74 + (variant ? Math.round((vr(2) - 0.5) * 28) : 0), x0: 18, x1: 18 }, features: feats } });
+  const B = desertLand({ seed: h32(seed, 2), preset: 'oasis', params: { wear: P0.wear, L: Ld, road0: A.mx[Lp - 1], rail: { x: 74 + (variant ? Math.round((vr(2) - 0.5) * 28) : 0), x0: 18, x1: 18 }, railLook: 'game', features: feats } });
   // join: rasters row on row, lists with B's positions moved up by Lp and its ids renumbered
   const N = W * L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
   const plan = Object.assign({}, B, { preset: 'sandSea', L, P: Object.assign({}, B.P, { climate: 'desert' }), seed });
@@ -4501,7 +4503,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.8'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.9'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8390,9 +8392,12 @@ function planSeaColor(wx, wy, harbour, calm) { const n = vnoise(wx * 0.035, wy *
 // Level 5: the throat's ballast in the colours of the train boss's yard (the 'ryard' ground of theme 1: ballast with snow patches), so the two meet without a seam
 function planYardColor(wx, wy) { const col = vnoise(wx * 0.05, wy * 0.04) > 0.64 && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)], lum = (col[0] + col[1] + col[2]) / 3; // with workChunk's winter grade of theme 1 ground
   return [lum * 0.42 + col[0] * 0.2 + 30 | 0, lum * 0.44 + col[1] * 0.2 + 36 | 0, lum * 0.46 + col[2] * 0.22 + 52 | 0]; }
-function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L) } : S.level === 5 ? { yardPix: (x, y) => planYardColor(x, S.planY0 - y) } : {})); }
+function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - y, y, S.plan.L) : planRailColor(x, S.planY0 - y, m) } : S.level === 5 ? { yardPix: (x, y) => planYardColor(x, S.planY0 - y) } : {})); }
 // Level 2's open desert in the Campaign's own colours: its desert ground (the 'field' of theme 2), dithering over the last 128 rows into the
 // boss ground's look (bossland, typed 'grass'), so the level's sand meets the Campaign's without a seam.
+// Level 2's plan track as the game draws its own (the 'rail' ground type): steel rails, sleepers two rows in five (by the world row, so they run on
+// in step onto the boss ground's line), ballast between; the plan's mask m (2 rail, else ballast or sleeper) says which pixel is a rail
+function planRailColor(wx, wy, m) { if (m === 2) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; return RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)]; }
 function planSandColor(wx, wy, y, L) { const R2 = THEME_RGB[2], f = clamp((y - (L - 128)) / 128, 0, 1);
   if (f > 0 && hash(wx * 3 + 1, wy * 5 + 2) < f * f * (3 - 2 * f)) return R2.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
   const n = vnoise(wx * 0.02, wy * 0.02), l = 0.5 + Math.sin(wx * 0.05 + n * 6 + wy * 0.09) * 0.3 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.2; return R2.wheat[pickI(5, l, wx, wy)]; }
