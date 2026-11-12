@@ -27,13 +27,14 @@ async function open(ctxOpts = { viewport: { width: 400, height: 700 } }) {
   const r = JSON.parse(await peek(`(() => { const classic = SPR.player, out = {}; SF.setMode('immortal'); startRetro(); SF.run(30); render();
     out.on = RETRO.on; out.swapped = SPR.player !== classic && SPR.player === RETRO.S.player;
     const dims = v => !v || typeof v !== 'object' ? '' : v.getContext ? v.width + 'x' + v.height : v.c && v.c.getContext ? v.c.width + 'x' + v.c.height : Array.isArray(v) ? '[' + v.map(dims).join(',') + ']' : Object.getPrototypeOf(v) === Object.prototype ? '{' + Object.keys(v).map(k => k + dims(v[k])).join(',') + '}' : '';
-    out.diff = Object.keys(RETRO.S).filter(k => dims(RETRO.S[k]) !== dims(RETRO.classic[k]));
+    out.diff = Object.keys(RETRO.S).filter(k => k !== 'playerSet' && k !== 'player' && dims(RETRO.S[k]) !== dims(RETRO.classic[k])); /* (the Retro Run's ship keeps the old 36 x 38 outline; the standard Feuervogel is 37 x 38 since 1.2.6.12) */ out.ship = RETRO.S.player.w === 36 && RETRO.S.player.h === 38 && RETRO.classic.player.w === 37;
     out.gold = goldSet() === RETRO.gold;
     world.enemies.push(E('pod', { x: 112, y: 120 })); SF.run(2); render(); const pd = world.enemies.find(e => e.type === 'pod'); out.pod = !!RETRO.pod && RETRO.pod.fr.length === 4 && !!pd; if (pd) { const n0 = world.items.length; damage(pd, 99); SF.run(3); render(); out.podBurst = world.parts.filter(q => q.kind === 'rhalf').length === 2 && world.items.length > n0; }
     toTitle(); render(); out.title = !RETRO.on && SPR.player === classic;
     SF.start(1, 1); SF.run(30); render(); out.camp = !RETRO.on && !run.retro && SPR.player === classic;
     return JSON.stringify(out); })()`));
   ok(r.on && r.swapped, 'a Retro Run swaps the retro art in');
+  ok(r.ship, 'the Retro Run flies its own ship in the old 36 x 38 outline, the standard ship is 37 wide');
   ok(r.diff.length === 0, 'every retro sprite has the size of the classic one' + (r.diff.length ? ' (differs: ' + r.diff.join(', ') + ')' : ''));
   ok(r.gold, "player 2's Rooster is the retro one in a Retro Run");
   ok(r.pod, 'the power-up pod is the purple airship in a Retro Run');

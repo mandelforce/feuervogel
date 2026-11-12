@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.11'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.12'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4956,6 +4956,67 @@ function buildFeuervogel(bank, skin) {
     rect(x, e1, 16, 6, 1, 1); rect(x, e1, 18, 6, 1, 1);
   });
 }
+// The Feuervogel as flown since build 1.2.6.12 (design: docs/player-art-v29.js, study T3H in the raster finish). The old drawing above stays for the Rooster and the
+// Nachtvogel, and its outline for the Retro Run's own ship (retroVogel). What is the old ship's: the outline (made symmetric about a centre column, so the art is
+// 35 x 36 and the sprite 37 x 38, one pixel wider), the head, the lopsided plain violet tail (its polygon, in its own pixel positions), the white and black wing bars
+// and the two rows of bright crystal along the wing's leading edge. What is new: the wings fade from violet at the root to teal at the tips, with teal feather tips
+// along the trailing edge; quills; one light from the left. Where struts and body lie on the wings, the one-pixel rim round them (sep) repeats the pixel to its
+// left, which softens the join: that is how the approved drawing came out, and it is kept pixel for pixel.
+// Each part is described for one half (a = columns out from the centre column, y = row) and mirrored; the wing on the inside of a turn is squeezed to 0.7.
+function buildFeuervogelT(bank) {
+  const PA = RP.alien, GL = RP.crys, TL = ['#082428', '#0c3236', '#14605c', '#21988a', '#4ccfae', '#a8f6dc'], RIM = 1, W = 35, H = 36, c = 17; // RIM: a pixel that repeats the one painted before it (see sep)
+  const fac = [bank < 0 ? 0.7 : bank > 0 ? 1.04 : 1, bank > 0 ? 0.7 : bank < 0 ? 1.04 : 1], sb = Math.round(bank * 0.6), buf = new Array(W * H).fill(null);
+  const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], dth = (i, j) => (B4[(j & 3) * 4 + (i & 3)] + 0.5) / 16 - 0.5;
+  // a tone of a ramp: the full ordered dither over a gradient from the top left of the part to its bottom right (flat: no dither)
+  const Q = (ramp, l, e, flat) => { if (!flat && e.u !== undefined) l += 0.34 * (0.5 - (e.u * 0.4 + e.v * 0.6)); const n = ramp.length, v = Math.round(clamp(l, 0, 1) * (n - 1) + (flat ? 0 : dth(e.i, e.j) * 0.95)); return ramp[v < 0 ? 0 : v >= n ? n - 1 : v]; };
+  const lit = e => e.s ? -0.05 : 0.05;
+  const put = (i, j, col, over) => { if (col && i >= 0 && i < W && j >= 0 && j < H && (!over || buf[j * W + i])) buf[j * W + i] = col; };
+  const A = (i, w) => { const k = i - c - (w ? 0 : sb), s = k < 0 ? 0 : 1; return [s, Math.abs(k) / (w ? fac[s] : 1)]; }; // w: a wing part (squeezed in a turn); the others shift with the body
+  const shape = (inside, shade, w, sep) => {
+    const m = new Uint8Array(W * H); let x0 = W, x1 = 0, y0 = H, y1 = 0;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const [s, a] = A(i, w); if (inside(a, j + 0.5, s)) { m[j * W + i] = 1; x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); } }
+    const M = (i, j) => i >= 0 && i < W && j >= 0 && j < H && m[j * W + i] === 1;
+    if (sep) for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!m[j * W + i] && buf[j * W + i] && (M(i - 1, j) || M(i + 1, j) || M(i, j - 1) || M(i, j + 1))) buf[j * W + i] = RIM;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      if (!m[j * W + i]) continue;
+      const [s, a] = A(i, w), sg = s ? 1 : -1;
+      put(i, j, shade(a, j, { i, j, s, u: (i - x0) / (x1 - x0 || 1), v: (j - y0) / (y1 - y0 || 1), lead: !M(i, j - 1), trail: !M(i, j + 1), outer: !M(i + sg, j), lead2: M(i, j - 1) && !M(i, j - 2), trail2: M(i, j + 1) && !M(i, j + 2) }));
+    }
+  };
+  const poly = (pts, shade, w, sep) => shape((a, y) => pip(pts, a, y), shade, w, sep);
+  const dot = (a, y, col, w) => { for (const sg of a === 0 ? [1] : [-1, 1]) put(Math.round(c + (w ? 0 : sb) + sg * a * (w ? fac[sg < 0 ? 0 : 1] : 1)), Math.round(y), col, true); }; // only over the ship
+  const line = (a0, y0, a1, y1, col, w) => { const n = Math.ceil(Math.max(Math.abs(a1 - a0), Math.abs(y1 - y0)) * 1.5) || 1; for (let k = 0; k <= n; k++) dot(a0 + (a1 - a0) * k / n, y0 + (y1 - y0) * k / n, col, w); };
+  // the wings
+  poly([[2, 8], [8, 10], [13, 14], [16, 19], [17, 27], [14, 23], [12, 29], [10, 24], [8, 28], [6, 23], [4, 26], [2, 21]], (a, y, e) => {
+    if ((e.lead || e.lead2) && y < 20) return pick(GL, 0.8, e.i, e.j);
+    if (e.trail) return TL[4];
+    if (e.trail2) return TL[2];
+    if (y >= 13 && y < 22 && a > 9.2 && a <= 11.2) return y === 21 ? '#b8b4c8' : '#f4f2e8';
+    if (y >= 13 && y < 22 && a > 7.2 && a <= 9.2) return '#16141c';
+    const t = clamp((a - 4) / 11 + (y - 14) / 30, 0, 1) + dth(e.i, e.j) * 0.5; // violet at the root, teal toward the tips
+    return t > 0.5 ? Q(TL, 0.62 - (y - 9) * 0.02 + lit(e), e) : Q(PA, 0.62 - a * 0.012 - (y - 9) * 0.02 + lit(e), e);
+  }, true);
+  for (const [a, y] of [[14, 23], [10, 24], [6, 23]]) line(a, y - 1, a + (7 - a) * 0.3, y + (8 - y) * 0.3, PA[1], true); // quills
+  const struts = sep => poly([[3, 20], [6, 25], [4, 25], [2, 23]], (a, y, e) => Q(TL, 0.7 - (y - 20) * 0.08, e), false, sep);
+  const hull = sep => shape((a, y) => (a / 3.6) ** 2 + ((y - 16) / 10) ** 2 <= 1, (a, y, e) => Q(PA, 0.6 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e), false, sep);
+  struts(true); hull(true);
+  { // the old tail, in its own pixel positions (its polygon is centred half a pixel left of the spine, which is what makes it lopsided), shaded as polyS shades;
+    // it covers the rim struts and body left below the wings, and both are then drawn again without one
+    const T = [[15, 22], [10, 35], [14, 31], [17, 29], [20, 31], [24, 35], [19, 22]], P = (i, j) => pip(T, i + 0.5, j + 0.5);
+    for (let j = 22; j < 35; j++) for (let i = 10; i < 24; i++) {
+      if (!P(i, j)) continue;
+      let l = 0.4 + 0.5 * (0.5 - ((i - 10) / 14 * 0.4 + (j - 22) / 13 * 0.6));
+      if (!P(i - 1, j) || !P(i, j - 1)) l += 0.2;
+      if (!P(i + 1, j) || !P(i, j + 1)) l -= 0.2;
+      put(i, j, Q(PA, l, { i, j }));
+    }
+  }
+  struts(false); hull(false);
+  for (let y = 10; y < 25; y++) dot(0, y, Q(TL, 0.95 - (y - 10) * 0.04, { i: 0, j: y }, true)); // the crystal spine
+  poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => pick(PA, clamp(0.8 + 0.5 * (0.5 - (e.u * 0.4 + e.v * 0.6)) + (e.lead || (!e.s && e.outer) ? 0.2 : 0) - (e.trail || (e.s && e.outer) ? 0.2 : 0), 0, 1), e.i, e.j)); // the old head
+  for (const [a, y, col] of [[0, 0, '#1a0a14'], [0, 1, '#1a0a14'], [0, 2, '#1a0a14'], [2, 5, '#ff5a3a'], [1, 6, '#ffd08a']]) dot(a, y, col);
+  return sprite(W, H, x => { for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = buf[j * W + i]; if (v) { if (v !== RIM) x.fillStyle = v; x.fillRect(i, j, 1, 1); } } });
+}
 // Phönix: the skin for finishing the Campaign on Veteran. Ember wings with fanned feather streaks and a one-pixel glowing rim (no outline), flame-feather tail, a bird's head with two beaded antennae.
 // The art is the Feuervogel's 34x36 drawing; the sprite is 36x38 like the other ships', with an empty border where theirs has the outline.
 function buildPhoenix(bank) {
@@ -5082,7 +5143,7 @@ const raptorState = () => +store.get(KEY.raptor, 0) || 0;
 const raptorOwned = () => raptorState() > 0;
 function unlockRaptor() { if (!raptorOwned()) store.set(KEY.raptor, 1); }
 function useRaptor() { return raptorOwned() && !!settings.raptor; }
-SPR.playerSet = [buildFeuervogel(-1), buildFeuervogel(0), buildFeuervogel(1)];
+SPR.playerSet = [buildFeuervogelT(-1), buildFeuervogelT(0), buildFeuervogelT(1)]; // (the Retro Run flies retroVogel, which keeps the old outline)
 SPR.player = SPR.playerSet[1];
 let goldCache = null;
 function goldSet() { if (RETRO.on) return RETRO.gold; return goldCache || (goldCache = [-1, 0, 1].map(b => buildFeuervogel(b, true))); }

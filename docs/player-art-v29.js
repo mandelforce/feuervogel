@@ -34,6 +34,9 @@ function makePlayersV29() {
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const [s, a] = A(i, w); if (inside(a, j + 0.5, s)) m[j * W + i] = 1; }
       const M = (i, j) => i >= 0 && i < W && j >= 0 && j < H && m[j * W + i] === 1;
       let x0 = W, x1 = 0, y0 = H, y1 = 0; for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (m[j * W + i]) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
+      // NOTE: sep: 1 (as most parts pass it) does not give the dark colour K: the number is not a colour, so the canvas keeps the fill of the pixel painted before,
+      // and the rim repeats its left neighbour. Only sep: true or a colour string draws a real line. The approved designs were judged as rendered, so this is
+      // left alone; index.html's buildFeuervogelT reproduces it on purpose (RIM).
       if (q.sep) for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!m[j * W + i] && buf[j * W + i] && (M(i - 1, j) || M(i + 1, j) || M(i, j - 1) || M(i, j + 1))) buf[j * W + i] = q.sep === true ? K : q.sep;
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
         if (!m[j * W + i]) continue;
