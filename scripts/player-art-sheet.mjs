@@ -1,6 +1,6 @@
 // Builds the contact sheet for the player ship mockups in docs/player-art-v29.js (a design aid, not part of the game).
 // Serve the folder first (python3 -m http.server 8000), then:
-//   node scripts/player-art-sheet.mjs [out.html]
+//   node scripts/player-art-sheet.mjs [out.html] [template in scripts/]
 // It loads the game, draws every mockup with the game's own sprite toolkit, cuts three pieces of real Campaign ground (sand, night, ice)
 // and writes one self-contained page: each ship's current sprite and its variations, enlarged and at game size, with the banking frames
 // and an in-game view with engine flames. Needs Playwright, like the tests.
@@ -9,8 +9,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const root = new URL('..', import.meta.url);
 const art = readFileSync(new URL('docs/player-art-v29.js', root), 'utf8');
-const tpl = readFileSync(new URL('scripts/player-art-sheet.html', root), 'utf8');
 const out = process.argv[2] || 'player-art-sheet.html';
+const tpl = readFileSync(new URL('scripts/' + (process.argv[3] || 'player-art-sheet.html'), root), 'utf8'); // player-art-sheet2.html: the refinement round, clean and dithered side by side
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 
 const browser = await chromium.launch();
@@ -48,7 +48,7 @@ const data = JSON.parse(await peek(art + `; (() => {
     ['Schneevogel', SPR.schnee, std, FC.fire], ['Rotkehlchen', robinSet(), tl, FC.fire], ['Nachtvogel', nachtSet(), std, FC.violet]].map(([ship, fr, fl, fc]) => card(ship + ' now', ship, 'now', 'In the game now', '', fr, fl, fc, {}));
   const m = SPR.protoMoth, [bc, bx] = mk(m.w, m.h); bx.translate(m.w, m.h); bx.rotate(PI); bx.drawImage(m.c, 0, 0);
   const boss = { id: 'The Moth boss', ship: 'The Moth', v: 'now', name: 'The boss hull', idea: '', w: m.w, h: m.h, big: url(bc) };
-  return JSON.stringify({ cur, boss, list: L.map(p => card(p.id, p.ship, p.v, p.name, p.idea, p.frames, p.flames, p.fc, { size: p.size, hit: p.hit })) });
+  return JSON.stringify({ cur, boss, list: L.map(p => card(p.id, p.ship, p.v, p.name, p.idea, p.frames, p.flames, p.fc, { size: p.size, hit: p.hit, dither: card(p.id, p.ship, p.v, p.name, p.idea, p.raster, p.flames, p.fc, {}) })) });
 })()`));
 await browser.close();
 writeFileSync(out, tpl.replace('/*DATA*/null', () => JSON.stringify(data)));

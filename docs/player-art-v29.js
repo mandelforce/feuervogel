@@ -15,7 +15,13 @@ function makePlayersV29() {
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const dth = (i, j) => (B4[(j & 3) * 4 + (i & 3)] + 0.5) / 16 - 0.5;
   // a tone of a ramp with a little ordered dither (d = 1 is the game's full raster, 0 is flat bands)
-  const Q = (ramp, l, e, d = 0.5) => { const n = ramp.length, v = Math.round(clamp(l, 0, 1) * (n - 1) + dth(e.i, e.j) * d); return ramp[v < 0 ? 0 : v >= n ? n - 1 : v]; };
+  // RAS: the raster finish. Every shaded surface gets the game's full ordered dither over a smooth top-left to bottom-right gradient (as polyS does);
+  // lines, edges, lamps and anything asked for flat (d = 0) stay solid.
+  let RAS = false;
+  const Q = (ramp, l, e, d = 0.5) => {
+    if (RAS && d > 0) { d = 0.95; if (e.u !== undefined) l += 0.34 * (0.5 - (e.u * 0.4 + e.v * 0.6)); }
+    const n = ramp.length, v = Math.round(clamp(l, 0, 1) * (n - 1) + dth(e.i, e.j) * d); return ramp[v < 0 ? 0 : v >= n ? n - 1 : v];
+  };
   const lit = e => e.s ? -0.05 : 0.05; // the light comes from the left
 
   function build(W, H, bank, draw, o = {}) {
@@ -27,11 +33,12 @@ function makePlayersV29() {
       const w = !!q.w, m = new Uint8Array(W * H);
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const [s, a] = A(i, w); if (inside(a, j + 0.5, s)) m[j * W + i] = 1; }
       const M = (i, j) => i >= 0 && i < W && j >= 0 && j < H && m[j * W + i] === 1;
+      let x0 = W, x1 = 0, y0 = H, y1 = 0; for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (m[j * W + i]) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
       if (q.sep) for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!m[j * W + i] && buf[j * W + i] && (M(i - 1, j) || M(i + 1, j) || M(i, j - 1) || M(i, j + 1))) buf[j * W + i] = q.sep === true ? K : q.sep;
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
         if (!m[j * W + i]) continue;
         const [s, a] = A(i, w), sg = s ? 1 : -1;
-        const e = { i, j, s, lead: !M(i, j - 1), trail: !M(i, j + 1), outer: !M(i + sg, j), inner: a > 0.6 && !M(i - sg, j), lead2: M(i, j - 1) && !M(i, j - 2), trail2: M(i, j + 1) && !M(i, j + 2) };
+        const e = { i, j, s, u: (i - x0) / (x1 - x0 || 1), v: (j - y0) / (y1 - y0 || 1), lead: !M(i, j - 1), trail: !M(i, j + 1), outer: !M(i + sg, j), inner: a > 0.6 && !M(i - sg, j), lead2: M(i, j - 1) && !M(i, j - 2), trail2: M(i, j + 1) && !M(i, j + 2) };
         put(i, j, shade(a, j, e));
       }
     };
@@ -53,7 +60,8 @@ function makePlayersV29() {
   const FL = { fire: ['#ff7a3a', '#ffb03a', '#fff0a0'], ember: ['#ff4a1a', '#ffb838', '#fff6c0'], teal: ['#18c4b0', '#5ff0dc', '#e0fff8'], violet: ['#8466dc', '#bba4ff', '#e8dcff'], ice: ['#3aa0e8', '#8ad8ff', '#f0fcff'], amber: ['#e89018', '#ffd050', '#fff8c8'] };
   function add(ship, v, name, idea, W, H, draw, o = {}) {
     const frames = [-1, 0, 1].map(b => build(W, H, b, draw, o));
-    out.push({ id: ship + ' ' + v, ship, v, name, idea, w: frames[1].w, h: frames[1].h, frames, flames: o.flames || [[-3, 12], [3, 12]], fc: o.fc || FL.fire, hit: o.hit || 'unchanged', size: o.size || '' });
+    RAS = true; const raster = [-1, 0, 1].map(b => build(W, H, b, draw, o)); RAS = false;
+    out.push({ id: ship + ' ' + v, ship, v, name, idea, w: frames[1].w, h: frames[1].h, frames, raster, flames: o.flames || [[-3, 12], [3, 12]], fc: o.fc || FL.fire, hit: o.hit || 'unchanged', size: o.size || '' });
   }
 
   /* ---------- shared parts ---------- */
@@ -118,8 +126,8 @@ function makePlayersV29() {
     }, { w: 1 });
     quills(g, [[15, 25], [11, 25], [7, 24]], [5, 10], P.PA[0], 0.45);
     for (const [a, y] of [[18, 29], [14, 30], [10, 29]]) g.dot(a, y, P.EDGE[3], { w: 1 });
-    g.poly([[4.4, 20], [6.6, 20], [6.6, 29], [4.4, 29]], (a, y, e) => e.lead ? P.PA[4] : y > 26 ? P.PC[2] : (a < 5.5) === !e.s ? P.PA[2] : P.PA[1], { sep: 1 });
-    g.dot(5, 28, P.glow[0]); g.dot(6, 28, P.glow[0]);
+    g.poly([[3.6, 19], [5, 18], [6.6, 19], [6.6, 28], [3.6, 28]], (a, y, e) => e.lead ? P.PC[4] : y < 21 ? P.PC[2] : y > 26 ? P.PA[1] : Q(P.PA, 0.4 + ((a < 5) === !e.s ? 0.15 : -0.12), e, 0.2), { sep: 1 });
+    g.dot(5, 28, P.glow[0]); g.dot(5, 24, P.PA[1]);
     g.ell(0, 17, 3.2, 10.5, (a, y, e) => Q(P.PA, 0.62 + (e.s ? -a * 0.1 : a * 0.02) - (y - 12) * 0.012, e, 0.3), { sep: 1 });
     canopy(g, 13, 20, 1, P.PC.length === 5 ? P.PC : GLASS);
     for (let y = 21; y < 27; y++) g.dot(0, y, P.PC[3]);
@@ -183,7 +191,7 @@ function makePlayersV29() {
       const ch = (y + Math.round(a * 0.75)) % 5 === 0 && y > 9; // feather chevrons
       return ch ? P.PA[1] : Q(P.PA, 0.52 - (y - 6) * 0.012 + lit(e), e, 0.3);
     }, { w: 1 });
-    g.poly([[-1, 6], [2.4, 8], [3, 15], [1.6, 22], [-1, 25]], (a, y, e) => Q(P.PA, 0.62 + (e.s ? -a * 0.1 : a * 0.03) - (y - 6) * 0.012, e, 0.3), { sep: '#020204' });
+    g.poly([[-1, 6], [2.4, 8], [3, 15], [1.6, 22], [-1, 25]], (a, y, e) => e.lead ? P.EDGE[4] : Q(P.PA, 0.74 + (e.s ? -a * 0.1 : a * 0.03) - (y - 6) * 0.012, e, 0.3), { sep: '#020204' });
     g.px([[2, 8, '#ff5a3a'], [3, 8, '#ffd08a'], [1, 9, '#ff5a3a'], [0, 6, P.PA[0]], [0, 7, P.PA[0]]]);
     for (let y = 12; y < 23; y += 2) g.dot(0, y, P.EDGE[y < 17 ? 3 : 2]);
     for (const a of [6, 11, 16]) g.line(a, a * 0.75 + 5, a + 1.5, a * 0.75 + 11, P.EDGE[1], { w: 1 });
@@ -199,34 +207,34 @@ function makePlayersV29() {
     g.poly([[2, 9], [8, 9], [13, 12], [17, 17], [18, 23], [16, 27], [13, 25], [11, 29], [8, 26], [6, 29], [4, 25], [2, 26]], (a, y, e) => {
       if (e.lead) return Q(P.EDGE, 0.8, e, 0.3);
       if (e.trail) return P.PA[1];
-      const r = y - a * 0.25, row = Math.floor(r / 4), ph = ((r % 4) + 4) % 4, col = Math.round(a + (row & 1) * 2);
+      const r = y + 0.5 - a * 0.25, row = Math.floor(r / 4), dy = r - row * 4, xx = a + (row & 1) * 2.5, dx = xx - (Math.floor(xx / 5) * 5 + 2.5);
       if (a < 7 && r < 13) return Q(P.EDGE, 0.75 - (r - 9) * 0.1, e, 0.6); // the hackle cape
-      if ((ph >= 3 && col % 4 !== 0) || (ph >= 2 && ph < 3 && col % 4 === 0)) return P.PA[1]; // scalloped row ends
-      return Q(P.PA, 0.78 - ph * 0.09 - row * 0.03 + lit(e), e, 0.2);
+      if (Math.abs(dy - (3.5 - 1.7 * (dx / 2.5) ** 2)) < 0.55) return P.PA[1]; // each feather's rounded end
+      return Q(P.PA, 0.86 - dy * 0.1 - row * 0.03 + lit(e), e, 0.2);
     }, { w: 1 });
     g.ell(0, 16, 3.6, 10, (a, y, e) => Q(P.PA, 0.66 + (e.s ? -a * 0.09 : a * 0.02) - (y - 12) * 0.012, e, 0.3), { sep: 1 });
     for (let y = 11; y < 25; y++) g.dot(0, y, y % 3 ? P.EDGE[2] : P.EDGE[3]);
     roosterHead(g, P); g.px([[2, 8, RED[2]], [2, 9, RED[1]], [1, 9, RED[3]]]);
     nozzle(g, 3, 27, P.glow);
   }, { size: '+2 wide, +3 tall' });
-  /* Rooster C: the fighting cock: short strong wings and a tail fan wider than the wings */
-  add('Rooster', 'C', 'Bold', 'A fighting cock: short strong wings, a big comb, and a fan of sickle plumes that spreads wider than the wings.', 41, 40, g => {
+  /* Rooster C: short strong wings and a long arch of sickle plumes trailing far behind */
+  add('Rooster', 'C', 'Bold', 'A fighting cock: short strong wings, a big comb, and a long arch of black-green sickle plumes trailing far behind.', 37, 45, g => {
     const P = SK.gold;
-    for (const t of [[[1, 20], [9, 20], [16, 23], [20, 28], [20, 34], [16, 29], [11, 26], [5, 25], [1, 25]], [[1, 24], [7, 26], [12, 30], [14, 36], [13, 39], [9, 34], [5, 31], [1, 30]], [[-1, 26], [3, 30], [5, 36], [4, 39], [1, 36], [-1, 34]]])
-      g.poly(t, (a, y, e) => e.lead ? GREEN[5] : e.lead2 ? GREEN[4] : e.trail ? GREEN[1] : Q(GREEN, 0.5 - (a + y - 24) * 0.008, e, 0.3), { w: 1, sep: 1 });
+    for (const t of [[[1, 22], [5, 22], [10, 26], [12.5, 33], [11.5, 41], [9, 35], [6, 29], [2, 27]], [[1, 25], [4, 27], [7.4, 33], [7.6, 41], [5.4, 44], [4.4, 36], [1, 31]], [[-1, 26], [2, 29], [3, 37], [1.4, 44], [-1, 45]]])
+      g.poly(t, (a, y, e) => e.lead || (e.outer && y < 38) ? GREEN[5] : e.inner ? GREEN[0] : Q(GREEN, 0.62 - (y - 22) * 0.016, e, 0.3), { w: 1, sep: 1 });
     g.poly([[2, 9], [7, 9], [12, 12], [14, 17], [13, 23], [10, 20], [8, 24], [5, 20], [2, 23]], (a, y, e) => {
-      if (e.lead) return Q(P.EDGE, 0.85, e, 0.2);
+      if (e.lead) return Q(P.EDGE, 0.85, e, 0);
       if (e.trail) return P.PA[1];
       if (a < 6 && y < 14) return Q(P.EDGE, 0.7 - (y - 9) * 0.08, e, 0.6);
-      const ph = (y + 1) % 4;
-      return ph === 3 && Math.round(a) % 3 ? P.PA[1] : Q(P.PA, 0.8 - ph * 0.08 + lit(e), e, 0.2);
+      const r = y + 0.5 - a * 0.25, row = Math.floor(r / 4), dy = r - row * 4, xx = a + (row & 1) * 2.5, dx = xx - (Math.floor(xx / 5) * 5 + 2.5);
+      return Math.abs(dy - (3.5 - 1.7 * (dx / 2.5) ** 2)) < 0.55 ? P.PA[1] : Q(P.PA, 0.86 - dy * 0.1 + lit(e), e, 0.2);
     }, { w: 1, sep: 1 });
     g.ell(0, 16, 4, 10, (a, y, e) => Q(P.PA, 0.68 + (e.s ? -a * 0.08 : a * 0.02) - (y - 12) * 0.012, e, 0.3), { sep: 1 });
     for (let y = 11; y < 25; y++) g.dot(0, y, y % 3 ? P.EDGE[2] : P.EDGE[3]);
     roosterHead(g, P);
     g.px([[1, 1, RED[3]], [1, 5, RED[3]], [1, 7, RED[2]], [2, 8, RED[2]], [2, 9, RED[1]], [1, 9, RED[3]], [0, 9, RED[2]]]);
     nozzle(g, 3, 27, P.glow);
-  }, { size: '41 x 40 art (+6 wide, +4 tall)', hit: 'keep the hit box: the tail fan is feathers, not hull' });
+  }, { size: '37 x 45 art (+2 wide, +9 tall, all of it tail)', hit: 'keep the hit box: the tail is feathers, not hull' });
 
   /* ================= Phoenix: ember wings with a glowing rim and no outline ================= */
   const PH = { BODY: ['#2a0806', '#5a1408', '#a02a0c', '#e0561a', '#ffa030', '#ffe080'], FILL: ['#3a0c06', '#6a160a', '#a02a0c', '#e0561a', '#ffa030'], RIM: ['#c8300c', '#f2701c', '#ffa030', '#ffd060'], TAILP: ['#7a1006', '#c8300c', '#f2701c', '#ffb838', '#fff0a0'], HOT: ['#ffa030', '#ffe080', '#fff6c0'] };
@@ -299,32 +307,33 @@ function makePlayersV29() {
     quills(g, [[14, 20], [11, 23], [7, 25], [3, 24]], [5, 9], BRONZE[0], 0.3);
     raptorBody(g); raptorHead(g);
   }, { fc: FL.teal, flames: [[-4, 15], [3, 16]] });
-  add('Raptor', 'B', 'Rework', 'A falcon: long pointed sickle wings with dark bars, a fanned tail with a dark band, a dark cap and moustache.', 39, 38, g => {
-    g.poly([[-1, 22], [1.6, 22], [4.4, 33], [2.4, 36.5], [-1, 37]], (a, y, e) => y >= 35 ? TEAL[3] : y === 32 || y === 33 ? BRONZE[0] : e.outer ? BRONZE[4] : Math.round(a) % 2 ? BRONZE[2] : BRONZE[3]);
+  add('Falke', 'B', 'Falcon', 'A falcon: long pointed sickle wings with dark bars, a fanned tail with a dark band, a dark cap and moustache.', 39, 38, g => {
+    g.poly([[-1, 22], [3, 24], [6, 33], [3.6, 36.6], [-1, 37.6]], (a, y, e) => e.trail ? TEAL[3] : y === 32 || y === 33 ? BRONZE[0] : e.outer ? BRONZE[4] : Math.round(a) % 2 ? BRONZE[2] : Q(BRONZE, 0.62, e, 0.2));
     g.poly([[2, 9], [8, 8], [14, 11], [18, 17], [19, 28], [16, 23], [13, 25], [11, 21], [8, 23], [6, 20], [2, 21]], (a, y, e) => {
       if (e.lead) return Q(TEAL, 0.9 - a * 0.012, e, 0);
       if (e.lead2) return BRONZE[5];
       if (e.trail || e.outer) return BRONZE[1];
       const bar = ((Math.floor((y * 0.9 - a * 0.55) / 2) % 2) + 2) % 2;
-      return bar && y > 11 ? BRONZE[a > 12 ? 1 : 2] : Q(BRONZE, 0.68 - a * 0.008 + lit(e), e, 0.2);
+      return bar && y > 11 ? (RAS ? Q(BRONZE, a > 12 ? 0.2 : 0.38, e) : BRONZE[a > 12 ? 1 : 2]) : Q(BRONZE, 0.68 - a * 0.008 + lit(e), e, 0.2);
     }, { w: 1 });
     raptorBody(g, 3.2);
     g.poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => y < 6 ? Q(BRONZE, 0.3, e, 0.2) : Q(BRONZE, 0.78 - a * 0.06, e, 0.2));
     g.px([[0, 0, TEAL[3]], [0, 1, TEAL[3]], [1, 1, TEAL[2]], [0, 2, TEAL[1]], [2, 5, '#fff0b0'], [3, 7, BRONZE[0]], [2, 8, BRONZE[0]], [2, 7, BRONZE[5]]]);
   }, { fc: FL.teal, flames: [[-3, 13], [3, 13]], size: '+4 wide, +2 tall' });
-  add('Raptor', 'C', 'Bold', 'A soaring eagle: broad plank wings with five splayed finger feathers at each tip, a pale head and a teal wedge tail.', 41, 38, g => {
-    g.poly([[-1, 22], [2, 22], [4.5, 31], [2, 34.5], [-1, 36]], (a, y, e) => y >= 32 ? TEAL[3] : y >= 30 ? TEAL[1] : e.outer ? BRONZE[4] : Math.round(a) % 2 ? BRONZE[2] : BRONZE[3]);
-    g.poly([[2, 10], [8, 8], [14, 8], [20, 6.4], [20, 8.6], [15.5, 10.5], [20, 10.9], [20, 12.6], [15.5, 13.5], [20, 14.4], [20, 16.1], [15.5, 16.5], [19.5, 18], [19, 19.7], [15, 19], [13, 21.5], [10, 23], [7, 22], [5, 24], [2, 23]], (a, y, e) => {
-      if (a > 15.5) return e.lead ? BRONZE[4] : e.trail ? BRONZE[0] : BRONZE[2];
+  add('Raptor', 'C', 'Bold', 'A soaring eagle: broad wings in three feather rows, five separate finger feathers at each tip, a pale head and a banded wedge tail.', 43, 38, g => {
+    g.poly([[-1, 22], [2, 22], [4.5, 31], [2, 34.5], [-1, 36]], (a, y, e) => y >= 32 ? TEAL[3] : y >= 30 ? TEAL[1] : e.outer ? BRONZE[4] : Q(BRONZE, 0.55 - a * 0.05, e, 0.3));
+    for (const [y0, tx, ty] of [[17.2, 17.5, 22.5], [15, 20, 19], [12.6, 21.5, 14.5], [10.2, 21.5, 10], [8, 20.5, 5.5]])
+      g.poly([[13.5, y0], [tx, ty], [tx + 0.4, ty + 2.2], [13.5, y0 + 2.8]], (a, y, e) => e.lead ? BRONZE[5] : e.trail ? BRONZE[0] : Q(BRONZE, 0.6 - (a - 14) * 0.04, e, 0.2), { w: 1, sep: 1 });
+    g.poly([[2, 10], [7, 8], [12, 7.5], [15, 8.5], [16, 12], [15.5, 18], [13, 21.5], [10, 23], [7, 22], [5, 24], [2, 23]], (a, y, e) => {
       if (e.lead) return Q(TEAL, 0.9, e, 0);
-      if (e.lead2) return BRONZE[4];
-      if (e.trail) return BRONZE[1];
-      const r = y - 9;
-      return r < 4 ? Q(BRONZE, 0.72 + lit(e), e, 0.2) : r < 8 ? Q(BRONZE, 0.55 + lit(e), e, 0.2) : Q(BRONZE, 0.38 + lit(e), e, 0.2);
-    }, { w: 1 });
-    for (const a of [5, 8, 11, 14]) g.line(a, 21, a - 1.5, 16, BRONZE[1], { w: 1 });
+      if (e.trail || e.outer) return BRONZE[1];
+      const d = y - 9 + Math.max(0, 6 - a) * 0.3;
+      if (Math.abs(d - 4) < 0.5 || Math.abs(d - 8.5) < 0.5) return BRONZE[1];
+      return Q(BRONZE, (d < 4 ? 0.8 : d < 8.5 ? 0.64 : 0.46) - (d % 4.5) * 0.03 + lit(e), e, 0.2);
+    }, { w: 1, sep: 1 });
+    for (const a of [5, 8, 11]) { g.line(a, 21.5, a - 1, 18.5, BRONZE[1], { w: 1 }); g.dot(a + 1.5, 14, BRONZE[1], { w: 1 }); g.dot(a + 1.5, 15, BRONZE[1], { w: 1 }); }
     raptorBody(g, 3.6); raptorHead(g, ['#86541c', '#c8b890', '#e8dcc0', '#f6f0dc', '#fffdf6']);
-  }, { fc: FL.teal, flames: [[-3, 13], [3, 13]], size: '41 x 38 art (+6 wide, +2 tall)', hit: 'keep the hit box' });
+  }, { fc: FL.teal, flames: [[-3, 13], [3, 13]], size: '43 x 38 art (+8 wide, +2 tall)', hit: 'keep the hit box' });
 
   /* ================= Rotkehlchen (robin) ================= */
   const BROWN = ['#1c1410', '#34261c', '#4e3a2a', '#6e5640', '#917658', '#b8a07c'], ORANGE = ['#4a1408', '#8a2410', '#c8401a', '#ee6a24', '#ff9a40', '#ffd08a'], FIRE = ['#7a1410', '#c82a1a', '#ff5a2a', '#ffa030', '#ffe080'], CRIM = ['#3a0808', '#7a1410', '#c82a1a', '#ff4a2a', '#ff8a5a'], SLATE = ['#3a4450', '#5a6876', '#8494a0', '#b4c0c8'];
@@ -345,11 +354,11 @@ function makePlayersV29() {
     robinHead(g, [[-1, 0], [2.5, 3], [4, 7], [2, 10], [-1, 10]]);
   }, { flames: [[-4, 12], [3, 13]] });
   add('Rotkehlchen', 'B', 'Rework', 'Round and sturdy like the real bird: rounded wings with a buff wing bar, an orange bib over the shoulders edged in slate grey.', 35, 36, g => {
-    g.poly([[-1, 24], [3, 24], [4, 34], [-1, 35]], (a, y, e) => e.trail ? CRIM[3] : e.outer ? BROWN[4] : Math.round(a) % 2 ? BROWN[2] : BROWN[3]);
+    g.poly([[-1, 24], [3.4, 25], [5.4, 33], [2.6, 35], [-1, 35.6]], (a, y, e) => e.trail ? CRIM[3] : e.outer ? BROWN[4] : Math.round(a) % 2 ? BROWN[2] : BROWN[3]);
     g.poly([[2, 10], [7, 9], [12, 11], [15, 15], [16, 21], [14, 27], [11, 24], [9, 28], [6, 24], [4, 27], [2, 23]], (a, y, e) => {
       if (e.lead) return Q(FIRE, 0.9 - a * 0.03, e, 0);
       if (e.trail || e.outer) return BROWN[1];
-      if (y === 18 || y === 19) return a > 4 ? (y === 18 ? BROWN[5] : BROWN[4]) : BROWN[3]; // the buff wing bar
+      if (Math.abs(y - 17.5 - a * 0.25) < 0.6 && a > 4.5) return BROWN[5]; // the buff wing bar
       return Q(BROWN, (y < 15 ? 0.68 : 0.42) + lit(e), e, 0.25);
     }, { w: 1 });
     quills(g, [[11, 24], [6, 24]], [6, 12], BROWN[0], 0.3);
@@ -373,13 +382,13 @@ function makePlayersV29() {
 
   /* ================= Schneevogel: a white swan-ship ================= */
   const SN = ['#8f8aa0', '#c3bdb6', '#e1dccf', '#f2eee4', '#fffdf6'], ST = ['#2c2e38', '#4a4d58', '#6c707c', '#9298a4', '#c4c9d2', '#e8ecf2'], ICE = ['#7e90b4', '#a8b8d4', '#ccd8ea'];
-  const snow = (e, l) => e.lead ? SN[4] : e.trail ? SN[1] : e.trail2 ? SN[2] : l;
-  const snowBall = (g, cy, rx, ry, q) => g.ell(0, cy, rx, ry, (a, y, e) => { const dx = (e.s ? a : -a) / rx, dy = (y + 0.5 - cy) / ry, l = -0.5 * dx - 0.7 * dy - (dx * dx + dy * dy) * 0.4; return l > 0.35 ? SN[4] : l > -0.1 ? SN[3] : l > -0.55 ? SN[2] : SN[1]; }, q);
+  const snow = (e, lv) => e.lead ? SN[4] : e.trail ? SN[1] : RAS ? Q(SN, lv, e) : e.trail2 ? SN[2] : SN[Math.round(lv * 4)];
+  const snowBall = (g, cy, rx, ry, q) => g.ell(0, cy, rx, ry, (a, y, e) => { const dx = (e.s ? a : -a) / rx, dy = (y + 0.5 - cy) / ry, l = -0.5 * dx - 0.7 * dy - (dx * dx + dy * dy) * 0.4; return RAS ? Q(SN, 0.66 + l * 0.5, { i: e.i, j: e.j }) : l > 0.35 ? SN[4] : l > -0.1 ? SN[3] : l > -0.55 ? SN[2] : SN[1]; }, q);
   const nacelle = (g, a, y0, y1) => { g.poly([[a - 0.6, y0], [a + 1.6, y0], [a + 1.6, y1], [a - 0.6, y1]], (aa, y, e) => e.lead ? ST[5] : (aa < a + 0.5) === !e.s ? ST[4] : ST[2], { sep: 1 }); g.dot(a, y0 + 1, GLASS[3]); g.dot(a + 1, y0 + 1, GLASS[2]); };
   const SWING = [[3.2, 15.6], [6.6, 16.4], [10.4, 19], [13.8, 22.7], [16.2, 25.6], [17.9, 28], [17.9, 29], [15.8, 27], [14.8, 30.6], [12.6, 27.5], [11, 30.4], [9, 27.9], [7, 28.8], [4.2, 26.6]];
   add('Schneevogel', 'A', 'Polish', 'The same swan-ship with ice-blue feather seams, a dark line round body and nacelles, and a clearer canopy.', 37, 38, g => {
-    for (const t of [[[-1, 24], [4, 24], [5.2, 34.4], [-1, 27]], [[-1, 24], [3, 24], [0.6, 37.4], [-1, 37.4]]]) g.poly(t, (a, y, e) => snow(e, e.outer ? SN[2] : SN[3]), { sep: ICE[0] });
-    g.poly(SWING, (a, y, e) => snow(e, SN[3]), { w: 1 });
+    for (const t of [[[-1, 24], [4, 24], [5.2, 34.4], [-1, 27]], [[-1, 24], [3, 24], [0.6, 37.4], [-1, 37.4]]]) g.poly(t, (a, y, e) => snow(e, e.outer ? 0.5 : 0.75), { sep: ICE[0] });
+    g.poly(SWING, (a, y, e) => snow(e, 0.75), { w: 1 });
     for (const [a, y] of [[15.8, 27], [12.6, 27.5], [9, 27.9]]) g.line(a, y - 1, a - (a - 11) * 0.5 - 2, y - 6, ICE[1], { w: 1 });
     g.line(5, 19, 13, 25, ICE[2], { w: 1 });
     nacelle(g, 5, 21, 28);
@@ -393,14 +402,14 @@ function makePlayersV29() {
     g.px([[0, 1, '#2a2018'], [0, 3, '#5a4a30'], [0, 4, '#5a4a30'], [3, 8, '#141018']]);
   }, { oc: '#16121e', fc: FL.teal, flames: [[-5, 9], [5, 9]], size: '37 x 38 art (the original is 36 x 38)' });
   add('Schneevogel', 'B', 'Rework', 'A fuller swan: broader wings in three feather tiers with ice-blue shadows, an orange beak with a black knob, a longer tail.', 41, 42, g => {
-    for (const t of [[[-1, 27], [4, 27], [7, 38], [3, 36], [-1, 31]], [[-1, 27], [3, 27], [0.6, 41], [-1, 41]]]) g.poly(t, (a, y, e) => snow(e, e.outer ? SN[2] : SN[3]), { sep: ICE[0] });
+    for (const t of [[[-1, 27], [4, 27], [7, 38], [3, 36], [-1, 31]], [[-1, 27], [3, 27], [0.6, 41], [-1, 41]]]) g.poly(t, (a, y, e) => snow(e, e.outer ? 0.5 : 0.75), { sep: ICE[0] });
     g.poly([[3, 16], [7, 16], [12, 18], [16, 22], [19, 27], [20, 32], [18, 30], [17, 36], [14, 31], [13, 37], [10, 32], [8, 36], [5, 31], [3, 32]], (a, y, e) => {
       if (e.lead) return SN[4];
       if (e.trail) return ICE[0];
       const d = y - 16 - Math.max(0, a - 6) * 0.72; // distance behind the leading edge
       if (Math.abs(d - 4) < 0.5 || Math.abs(d - 8) < 0.5) return ICE[1];
       if ((d > 4.5 && d < 5.6) || (d > 8.5 && d < 9.6)) return SN[4];
-      return d < 4 ? SN[3] : d < 8 ? SN[3] : SN[2];
+      return RAS ? Q(SN, 0.86 - d * 0.03, e) : d < 8 ? SN[3] : SN[2];
     }, { w: 1 });
     quills(g, [[18, 30], [14, 31], [10, 32], [5, 31]], [8, 14], ICE[0], 0.25);
     nacelle(g, 5, 23, 31);
@@ -504,9 +513,9 @@ function makePlayersV29() {
     g.line(4, 13, wing[3][0] - 2, wing[3][1] + 1, NAVY[1], { w: 1 }); g.line(4, 15, wing[4][0] - 3, wing[4][1] - 2, NAVY[1], { w: 1 });
     g.ell(0, 15, 3.4, 8.5, (a, y, e) => !e.s && Math.round(a) === 1 && y > 10 && y < 19 ? NAVY[5] : Q(NAVY, 0.5 + (e.s ? -a * 0.08 : a * 0.03), e, 0.3), { sep: 1 });
     g.poly([[-1, 2], [2, 3.5], [3.4, 7], [2, 10], [-1, 10]], (a, y, e) => Q(NAVY, 0.6 - a * 0.06, e, 0.2));
-    g.px([[0, 1, '#141018'], [0, 2, '#d83a2a'], [0, 3, '#ff6a4a'], [1, 3, '#d83a2a'], [2, 6, '#0c0a10'], [3, 8, '#c8401a'], [3, 7, '#f0e0c8']]);
+    g.px([[0, 1, '#141018'], [0, 2, '#d83a2a'], [0, 3, '#ff6a4a'], [1, 3, '#d83a2a'], [2, 6, '#0c0a10'], [3, 8, '#c8401a'], [3, 7, '#f0e0c8'], [4, 19, '#f0e0c8'], [4, 20, '#d8c8a8'], [3, 21, '#f0e0c8']]);
   }
-  add('Schwalbe', 'A', 'Glide', 'A swallow gliding: long sickle wings and two tail streamers spread wide.', 39, 40, g => schwalbe(g, [[2, 10], [7, 9], [13, 11], [17, 15], [19, 21], [19, 28], [16, 22], [12, 18], [8, 17.5], [5, 18.5], [2, 19]], [[-1, 22], [2.4, 22], [4, 30], [7, 39], [5.4, 39], [2, 32], [-1, 28]], false), { fc: FL.ice, flames: [[-2, 9], [2, 9]], size: '39 x 40 art (+4 wide, +4 tall)', hit: 'keep the hit box' });
+  add('Swallow', 'A', 'Glide', 'A swallow gliding: long sickle wings and two tail streamers spread wide.', 39, 40, g => schwalbe(g, [[2, 10], [7, 9], [13, 11], [17, 15], [19, 21], [19, 28], [16, 22], [12, 18], [8, 17.5], [5, 18.5], [2, 19]], [[-1, 22], [2.4, 22], [4, 30], [7, 39], [5.4, 39], [2, 32], [-1, 28]], false), { fc: FL.ice, flames: [[-2, 9], [2, 9]], size: '39 x 40 art (+4 wide, +4 tall)', hit: 'keep the hit box' });
   add('Schwalbe', 'B', 'Stoop', 'The swallow at speed: wings swept hard back, the tail closed to one long needle.', 33, 40, g => schwalbe(g, [[2, 10], [6, 10], [11, 14], [15, 21], [16, 31], [13, 25], [10, 21], [7, 19], [2, 19]], [[-1, 22], [2.4, 22], [2.6, 30], [1.6, 39], [-1, 39]], true), { fc: FL.ice, flames: [[-2, 9], [2, 9]], size: '33 x 40 art (2 narrower, +4 tall)' });
 
   /* Hornisse (hornet): The Moth's quarrelsome cousin. Amber wings, a black and yellow ringed abdomen with a sting, big dark eyes. */
