@@ -644,5 +644,37 @@ function makePlayersV29() {
     ['S6', 'Swift', 'A swift instead: sooty brown, longer and narrower scythe wings, a short fork, a pale chin. The widest.', 45, 34, { wing: [[2, 11], [7, 9.5], [13, 10.5], [18, 14], [21, 20], [22, 28], [19, 22], [14.5, 17.5], [9, 16.5], [5, 17.5], [2, 18.5]], tail: [[-1, 21], [2.2, 21], [3.4, 27], [4.8, 33], [3.2, 33], [1.4, 28], [-1, 26]], R: SOOT, red: false, flank: false, chin: '#c8b894', spots: [] }, { size: '45 x 34 art (+10 wide, 2 shorter)', hit: 'keep the hit box: the wings are thin' }]])
     add('Swallow', v, name, idea, W, H, g => swallowV(g, o), Object.assign({ fc: FL.ice, flames: [[-2, 9], [2, 9]], hit: 'keep the hit box' }, x));
 
+  /* ================= Swallow as an aeroplane =================
+     The bird read as a standing man: a round head on a neck, wings hung from the shoulders like arms, a long torso, and two tail streamers like legs.
+     These four take the figure apart: the head becomes a pointed nose that runs into the fuselage, the wings get a long root so there is no armpit,
+     the fork becomes a notch in one solid tail, and there are machine parts (canopy, nacelles, nozzles, panel lines). */
+  function swallowP(g, o) {
+    const R = o.R || NAVY;
+    g.poly(o.tail, (a, y, e) => e.lead ? R[4] : e.outer ? R[4] : e.trail ? R[0] : (Math.round(a) === 2 && y > 26) ? R[1] : Q(R, 0.5 - (y - 24) * 0.012 + lit(e), e, 0.3));
+    for (const [a, y] of o.spots || []) g.dot(a, y, '#f4f2e8');
+    g.poly(o.wing, (a, y, e) => e.lead ? R[5] : e.lead2 ? R[4] : e.trail || e.outer ? R[0] : Q(R, 0.5 - (y - 10) * 0.012 - a * 0.004 + lit(e), e, 0.3), { w: 1 });
+    for (const [a0, y0, a1, y1] of o.lines || []) g.line(a0, y0, a1, y1, R[1], { w: 1 });
+    for (const na of o.nac || []) { // engine nacelles on the wings, each with a glowing nozzle
+      g.poly([[na - 1.1, 14], [na, 13], [na + 1.1, 14], [na + 1.1, 24], [na - 1.1, 24]], (a, y, e) => e.lead ? R[5] : y > 22 ? '#0c0a10' : (a < na) === !e.s ? R[4] : R[2], { w: 1, sep: true });
+      g.dot(na, 23, '#8ad8ff', { w: 1 }); g.dot(na, 15, '#0c0a10', { w: 1 });
+    }
+    g.poly([[-1, 0], [1.4, 3], [3, 8], [3.6, 15], [3, 24], [1.8, 29], [-1, 30.5]], (a, y, e) => !e.s && Math.round(a) === 1 && y > 13 && y < 22 ? R[5] : Q(R, 0.56 + (e.s ? -a * 0.08 : a * 0.03) - (y - 6) * 0.004, e, 0.3), { sep: true });
+    g.px([[0, 0, '#d83a2a'], [0, 1, '#ff6a4a'], [0, 2, '#d83a2a'], [1, 2, '#a01c1c']]); // the red forehead, now a nose cone
+    if (o.canopy) canopy(g, 6, 13, 1.4, ['#0c2440', '#144a7c', '#2a86c0', '#7ad0f0', '#d8f6ff']);
+    else g.px([[2, 6, '#0c0a10'], [3, 8, '#c8401a']]);
+    g.px([[4, 19, '#f0e0c8'], [4, 20, '#d8c8a8']]);
+    for (let y = 16; y < 28; y += 3) g.dot(0, y, R[1]);
+  }
+  for (const [v, name, idea, W, H, o, x] of [
+    ['P1', 'Faired', 'The gentlest step: the same sickle wings with a long root, a pointed nose, and the fork closed into one notched tail. Still a bird.', 39, 39,
+      { wing: [[2.5, 9], [8, 9], [14, 11], [18, 15], [19.5, 21], [19.5, 27], [17, 23], [13, 21], [9, 21.5], [5, 23], [2.5, 24]], tail: [[-1, 24], [2.6, 24], [4.5, 31], [7, 38], [5, 37.4], [3.4, 35.6], [1.5, 34.6], [-1, 34]], spots: [[2, 29], [3, 31]], lines: [[4, 13, 15, 13], [4, 17, 14, 18]] }, { flames: [[-2, 10], [2, 10]], size: '39 x 39 art (+4 wide, +3 tall)' }],
+    ['P2', 'Twin jet', 'A jet with a swallow\'s outline: crescent wings, a glass canopy, an engine nacelle on each wing, a short notched tail.', 39, 36,
+      { wing: [[2.5, 9], [8, 9], [14, 11], [18, 15], [19.5, 21], [19.5, 27], [17, 23], [13, 21.5], [9, 22.5], [5, 24], [2.5, 25]], tail: [[-1, 24], [2.6, 24], [4, 30], [6, 35], [4.4, 35], [2, 32], [-1, 31]], canopy: 1, nac: [7], lines: [[10, 13, 16, 15]] }, { flames: [[-7, 6], [7, 6]], size: '39 x 36 art (+4 wide)' }],
+    ['P3', 'Arrow', 'Wings swept hard back into an arrowhead, a canopy, and a long notched tail: the fastest-looking of the four.', 37, 39,
+      { wing: [[2.5, 9], [7, 10], [12, 14], [16, 20], [18, 29.5], [15, 26], [11, 23.5], [7, 23], [2.5, 25]], tail: [[-1, 24], [2.6, 24], [3.6, 31], [5.6, 38], [4, 38], [2.4, 36], [-1, 35]], canopy: 1, spots: [[2, 30], [3, 33]], lines: [[4, 14, 13, 21], [4, 18, 10, 22]] }, { flames: [[-2, 10], [2, 10]], size: '37 x 39 art (+2 wide, +3 tall)' }],
+    ['P4', 'Glider', 'Long, thin, tapered wings like a sailplane, with the swallow\'s swept tips, a canopy and a small notched tail. The widest.', 45, 36,
+      { wing: [[2.5, 10], [9, 9], [16, 10], [20.5, 13], [22, 19], [20, 16.5], [15, 15.5], [9, 17], [2.5, 21]], tail: [[-1, 24], [2.6, 24], [4, 30], [6.4, 35], [4.6, 35], [2, 32], [-1, 31]], canopy: 1, lines: [[4, 13, 18, 12.5]] }, { flames: [[-2, 10], [2, 10]], size: '45 x 36 art (+10 wide)', hit: 'keep the hit box: the wings are thin' }]])
+    add('Swallow', v, name, idea, W, H, g => swallowP(g, o), Object.assign({ fc: FL.ice, hit: 'keep the hit box' }, x));
+
   return out;
 }
