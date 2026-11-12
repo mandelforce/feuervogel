@@ -432,8 +432,8 @@ for (const lv of [2, 6]) {
     const blue = S => { const P = sortiePlan(S), c = S.planBiome.indexOf('sea') + 1, p = world.stageBaseP + c; startChunk(p); const jb = world.chunkJobs[world.chunkJobs.length - 1]; let fin = false; while (!fin) fin = workChunk(jb, 8); world.chunkJobs.pop();
       let n = 0, b = 0; const a = jb.x.getImageData(0, 0, W, CH).data; for (let i = 0; i < a.length; i += 4) { n++; if (a[i + 2] - a[i] >= 40 && a[i + 2] >= a[i + 1]) b++; } return b / n; };
     const b0 = blue(run.sortie);
-    startEnigma(1, false, 1); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), b1 = blue(S), sc = sunCloud(SPR.clouds[0]), ramp = new Set(SUN_CLOUD.map(c => c.join())), px = sc.c.getContext('2d').getImageData(0, 0, sc.c.width, sc.c.height).data; let opaque = 0, off = 0;
-    for (let i = 0; i < px.length; i += 4) if (px[i + 3]) { opaque++; if (!ramp.has([px[i], px[i + 1], px[i + 2]].join())) off++; }
+    startEnigma(1, false, 1); const S = run.sortie, P = sortiePlan(S), v = CityGen.validate(P), b1 = blue(S), sc = sunCloud(SPR.clouds[0]), px = sc.c.getContext('2d').getImageData(0, 0, sc.c.width, sc.c.height).data; let opaque = 0, off = 0;
+    for (let i = 0; i < px.length; i += 4) if (px[i + 3]) { opaque++; if (!SUN_CLOUD.some(c => Math.abs(c[0] - px[i]) <= 2 && Math.abs(c[1] - px[i + 1]) <= 2 && Math.abs(c[2] - px[i + 2]) <= 2)) off++; } /* within 2: the clouds' see-through rim pixels come back from the canvas a step off (premultiplied alpha) */
     const fires = P.fires.length, burning = !!P.burning, d1 = S.timeOfDay, on = sunsetOn(), save = (saveResume(), resumeRun(store.getJSON(KEY.resume)), run.sortie.timeOfDay + ':' + run.sortie.seed);
     startEnigma(2, false, 1); const l2 = run.sortie.timeOfDay, mg = new Uint8ClampedArray([140, 140, 140, 255, 30, 110, 130, 255]); CityGen.morningGrade(mg, 2);
     return { d0, f0, same, b0, b1, v: v.pass, fires, burning, d1, on, opaque, off, save, l2, mWarm: mg[0] > mg[2] + 20, mGrey: [mg[0], mg[1], mg[2]].join(','), mSea: mg[6] > mg[4], mSeaPx: [mg[4], mg[5], mg[6]].join(','), mChunk: typeof CityGen.morningGrade === 'function' }; })()`);
