@@ -1,0 +1,114 @@
+<title>Falke Variations</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* layout: a hangar wall. One row per ship: the sprite flown today on the left, its variations beside it, each on the same three-part card. */
+:root {
+  --bg: #ecebf2; --panel: #f8f7fb; --ink: #1c1730; --muted: #5d5874; --line: #cfcbdd; --accent: #5a3fc0; --pick: #0e7c6e; --pick-bg: #d6f3ec; --warn: #9a4a10;
+  --sand: #d8c8a0; --night: #2a2f43; --slate: #8493a0;
+  --display: 'Chakra Petch', 'Trebuchet MS', sans-serif; --body: 'Inter', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #12101c; --panel: #1b1829; --ink: #eceaf6; --muted: #a59fbd; --line: #332e4a; --accent: #a48cff; --pick: #5fe0cc; --pick-bg: #12362f; --warn: #f0a860; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12101c; --panel: #1b1829; --ink: #eceaf6; --muted: #a59fbd; --line: #332e4a; --accent: #a48cff; --pick: #5fe0cc; --pick-bg: #12362f; --warn: #f0a860; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.wrap { max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15 }
+h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: 0.01em }
+h2 { font-size: 24px; font-weight: 600 }
+h3 { font-size: 17px; font-weight: 600 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent) }
+header { display: flex; flex-direction: column; gap: 12px }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font: 13px var(--mono); color: var(--muted) }
+.facts b { color: var(--ink); font-weight: 600 }
+img.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; max-width: 100% }
+section { display: flex; flex-direction: column; gap: 14px }
+.lineup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 14px; padding: 18px 14px 12px; background: var(--slate); border-radius: 6px }
+.lineup figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px }
+.lineup figcaption { font: 11px var(--mono); color: #10141a; text-align: center; line-height: 1.25 }
+.lineup .ref figcaption { font-weight: 600 }
+.ship-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; border-top: 2px solid var(--ink); padding-top: 10px }
+.ship-head p { color: var(--muted); font-size: 14px }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; overflow: hidden }
+.card.pick { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick) }
+.card.now { border-style: dashed }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 12px 8px }
+.card-head .sz { font: 12px var(--mono); color: var(--muted); white-space: nowrap }
+.badge { font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pick); background: var(--pick-bg); padding: 2px 7px; border-radius: 3px; margin-left: 8px }
+.badge.weak { color: var(--warn); background: transparent; border: 1px solid var(--warn) }
+.stage { background: linear-gradient(90deg, var(--sand) 50%, var(--night) 50%); display: flex; justify-content: center; align-items: center; min-height: 250px; padding: 10px 0 }
+.banks { background: var(--slate); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; padding: 8px }
+.game { background: #0c0a10; padding: 4px; display: flex; justify-content: center }
+.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px }
+.card-body dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12.5px; color: var(--muted) }
+.card-body dt { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px }
+.card-body dd { margin: 0 }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px 32px }
+.notes ul { margin: 6px 0 0; padding-left: 18px }
+.notes li { margin: 4px 0 }
+code { font: 12.5px var(--mono) }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">FEUERVOGEL 89 · player ship art, round v29, falke variations</span>
+    <h1>A more interesting Falke</h1>
+    <p>Seven variations of the Falke. B is the design you picked, for comparison. F2 to F4 keep the bird and change its colours; F5 to F8 cross it with an aeroplane the way the Swallow was, and keep the falcon's cap, bars and banded tail as paint. All are the same size. Each is shown clean and with the Enigma dither. Nothing here is in the game.</p>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section>
+    <h2>The roster side by side</h2>
+    <p>The dithered finish at twice game size, with today's Feuervogel at the left.</p>
+    <div class="lineup" id="lineup"></div>
+  </section>
+
+  <div id="ships" style="display:flex;flex-direction:column;gap:40px"></div>
+
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const ROUND = [['Falke', ['B', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8']]];
+const NOW = { Falke: null };
+const WHY = { 'Falke': 'B is the picked design. F2 to F4: colours only. F5 to F8: bird and aeroplane combined.' };
+const WEAK = {};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const img = (src, w, h, k) => { const i = el('img', 'px'); i.src = src; i.width = w * k; i.height = h * k; i.alt = ''; return i; };
+const dims = src => new Promise(r => { const i = new Image(); i.onload = () => r([i.naturalWidth, i.naturalHeight]); i.src = src; });
+
+async function card(c, kind, finish) {
+  const d = el('article', 'card' + (finish === 'dither' ? ' pick' : '') + (kind === 'now' ? ' now' : ''));
+  const head = el('div', 'card-head'), t = el('h3', null, kind === 'now' ? c.name : c.ship + ' ' + c.v);
+  if (finish) t.append(el('span', 'badge' + (finish === 'clean' ? ' weak' : ''), finish));
+  head.append(t, el('span', 'sz', c.w + ' × ' + c.h)); d.append(head);
+  const stage = el('div', 'stage'); stage.append(img(c.big, c.w, c.h, c.w > 52 ? 5 : 6)); d.append(stage);
+  if (c.banks) { const [bw, bh] = await dims(c.banks), b = el('div', 'banks'); b.append(img(c.banks, bw, bh, 2), img(c.big, c.w, c.h, 1)); d.append(b); }
+  if (c.game) { const [gw, gh] = await dims(c.game), g = el('div', 'game'); g.append(img(c.game, gw, gh, 2)); d.append(g); }
+  const body = el('div', 'card-body');
+  if (kind === 'mock' && finish === 'clean') { body.append(el('p', null, c.name + '. ' + c.idea)); const dl = el('dl'); dl.append(el('dt', null, 'Size'), el('dd', null, c.size || 'as today'), el('dt', null, 'Hit box'), el('dd', null, c.hit)); body.append(dl); }
+  else if (kind === 'mock') body.append(el('p', null, 'The same drawing with the Enigma raster.'));
+  else body.append(el('p', null, kind === 'boss' ? 'The boss hull as it flies in the looped levels, turned nose up for comparison.' : 'For comparison.'));
+  d.append(body); return d;
+}
+(async () => {
+  if (!DATA) return;
+  const find = (s, v) => DATA.list.find(c => c.ship === s && c.v === v);
+  const facts = document.getElementById('facts');
+  for (const [k, v] of [['designs', ROUND.reduce((n, r) => n + r[1].length, 0)], ['finishes each', 2], ['today', '36 × 38 px']]) { const s = el('span'); s.append(el('b', null, String(v)), ' ' + k); facts.append(s); }
+  const lu = document.getElementById('lineup'), fig = (c, label, ref) => { const f = el('figure', ref ? 'ref' : ''); f.append(img(c.big, c.w, c.h, 2), el('figcaption', null, label), el('figcaption', null, c.w + '×' + c.h)); lu.append(f); };
+  fig(DATA.cur[0], 'today', true);
+  for (const [s, vs] of ROUND) for (const v of vs) fig(find(s, v).dither, s + (vs.length > 1 ? ' ' + v : ''));
+  const host = document.getElementById('ships');
+  for (const [s, vs] of ROUND) {
+    const sec = el('section'), head = el('div', 'ship-head'); head.append(el('h2', null, s), el('p', null, WHY[s] || '')); sec.append(head);
+    const cards = el('div', 'cards'), now = DATA.cur.find(c => c.ship === (s in NOW ? NOW[s] : s));
+    if (now) cards.append(await card(now, 'now'));
+    for (const v of vs) { const c = find(s, v); cards.append(await card(c, 'mock', 'clean'), await card(Object.assign({}, c.dither, { id: c.id }), 'mock', 'dither')); }
+    sec.append(cards); host.append(sec);
+  }
+  const weak = document.getElementById('weak'); if (weak) for (const id in WEAK) { const li = el('li'); li.append(el('b', null, id.replace(/ [A-C]$/, m => ['Feuervogel', 'Rooster', 'Raptor'].some(n => id.startsWith(n)) ? m : '') + ': '), WEAK[id]); weak.append(li); }
+})();
+</script>

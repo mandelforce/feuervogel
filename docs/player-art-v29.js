@@ -678,5 +678,60 @@ function makePlayersV29() {
       { wing: [[2.5, 10], [9, 9], [16, 10], [20.5, 13], [22, 19], [20, 16.5], [15, 15.5], [9, 17], [2.5, 21]], tail: [[-1, 24], [2.6, 24], [4, 30], [6.4, 35], [4.6, 35], [2, 32], [-1, 31]], canopy: 1, lines: [[4, 13, 18, 12.5]] }, { flames: [[-2, 10], [2, 10]], size: '45 x 36 art (+10 wide)', hit: 'keep the hit box: the wings are thin' }]])
     add('Swallow', v, name, idea, W, H, g => swallowP(g, o), Object.assign({ fc: FL.ice, hit: 'keep the hit box' }, x));
 
+  /* ================= Falke, variations: three in colour on the picked bird (Falke B), four crossed with an aeroplane ================= */
+  const SLT = ['#141a24', '#26323f', '#3c4e60', '#5b7186', '#8aa0b4', '#c4d2de'], RST = ['#3a1408', '#6a2410', '#a03c18', '#c86430', '#e89858', '#f8d0a0'], COAL = ['#08080c', '#14141c', '#24242e', '#3a3a48', '#585868', '#8a8a9c'];
+  const FK_WING = [[2, 9], [8, 8], [14, 11], [18, 17], [19, 28], [16, 23], [13, 25], [11, 21], [8, 23], [6, 20], [2, 21]];
+  // o: R main ramp, rim (leading edge), bar (colour of the wing bars), tip (dark wing tips from this column out), spots, cap / cheek / beak, T tail ramp, band, tailTip
+  const falkeWing = (g, pts, o) => g.poly(pts, (a, y, e) => {
+    const R = o.R;
+    if (e.lead) return o.rim;
+    if (e.lead2) return R[5];
+    if (e.trail || e.outer) return R[0];
+    if (o.tip && a > o.tip) return Q(R, 0.16 + lit(e), e, 0.2);
+    if (o.spots) return (Math.round(a * 1.3) + Math.round(y * 1.1)) % 4 === 0 && y > 11 ? R[0] : Q(R, 0.66 - a * 0.008 + lit(e), e, 0.2);
+    const bar = ((Math.floor((y * 0.9 - a * 0.55) / 2) % 2) + 2) % 2;
+    return bar && y > 11 && a > (o.barFrom || 0) ? o.bar : Q(R, 0.68 - a * 0.008 + lit(e), e, 0.2);
+  }, { w: 1 });
+  const falkeTail = (g, pts, o) => g.poly(pts, (a, y, e) => { const T = o.T || o.R; return e.trail ? o.tailTip : y === 32 || y === 33 ? o.band || T[0] : e.outer ? T[4] : Math.round(a) % 2 ? T[2] : Q(T, 0.62, e, 0.2); });
+  function falkeV(g, o) {
+    const R = o.R;
+    falkeTail(g, [[-1, 22], [3, 24], [6, 33], [3.6, 36.6], [-1, 37.6]], o);
+    falkeWing(g, FK_WING, o);
+    g.ell(0, 16, 3.2, 10, (a, y, e) => Q(R, 0.55 + (e.s ? -a * 0.09 : a * 0.03) - (y - 12) * 0.008, e, 0.3), { sep: 1 });
+    for (let y = 10; y < 25; y++) g.dot(0, y, y % 3 ? o.spine[0] : o.spine[1]);
+    g.poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => y < 6 ? o.cap : a > 1.6 && y < 9 ? o.cheek : Q(R, 0.74 - a * 0.06, e, 0.2));
+    g.px([[0, 0, o.beak], [0, 1, o.beak], [1, 1, o.beak], [0, 2, '#141018'], [2, 5, '#fff0b0'], [3, 7, o.cap], [2, 8, o.cap]]);
+  }
+  // the falcon as an aeroplane: nose and fuselage in one piece, a canopy, wings with a long root, nozzles, and the bird's cap, bars and banded tail kept as paint
+  function falkeP(g, o) {
+    const R = o.R;
+    falkeTail(g, o.tail || [[-1, 24], [3, 25], [6, 33], [3.8, 36.4], [1.8, 34], [-1, 34.6]], o);
+    falkeWing(g, o.wing, o);
+    if (o.canard) g.poly([[2.5, 5.4], [7.4, 8], [7.4, 9.6], [2.5, 8.6]], (a, y, e) => e.lead ? o.rim : e.trail ? R[0] : R[3], { sep: true });
+    for (const [a, y] of o.stores || []) { g.line(a, y, a, y + 5, '#e8e6dc', { w: 1 }); g.dot(a, y, '#d83a2a', { w: 1 }); g.dot(a, y + 6, '#141018', { w: 1 }); } // missiles under the wings
+    if (o.tipPod) { g.poly([[o.tipPod - 1, 16], [o.tipPod, 14.6], [o.tipPod + 1.1, 16], [o.tipPod + 1.1, 25], [o.tipPod - 1, 25]], (a, y, e) => e.lead ? R[5] : (a < o.tipPod) === !e.s ? R[4] : R[2], { w: 1, sep: true }); g.dot(o.tipPod, 24, o.glow, { w: 1 }); }
+    g.poly([[-1, 0], [1.4, 3], [3, 8], [3.6, 15], [3, 24], [1.8, 29], [-1, 30.5]], (a, y, e) => y < 5 ? o.cap : Q(R, 0.56 + (e.s ? -a * 0.08 : a * 0.03) - (y - 6) * 0.004, e, 0.3), { sep: true });
+    g.px([[0, 0, o.beak], [0, 1, o.beak], [1, 2, o.beak], [0, 2, o.beak], [3, 9, o.cap], [3, 10, o.cap], [2, 5, o.cheek]]);
+    canopy(g, 6, 13, 1.4, o.glass || ['#0c2440', '#144a7c', '#2a86c0', '#7ad0f0', '#d8f6ff']);
+    for (let y = 16; y < 28; y += 3) g.dot(0, y, R[1]);
+    g.dot(1, 29, o.glow); g.dot(1, 28, '#141018');
+  }
+  const FKO = {
+    bronze: { R: BRONZE, rim: TEAL[3], bar: BRONZE[2], T: BRONZE, tailTip: TEAL[3], spine: [TEAL[3], TEAL[4]], cap: BRONZE[1], cheek: BRONZE[5], beak: TEAL[3], glow: '#5ff0dc' },
+    slate: { R: SLT, rim: '#e8ecf2', bar: SLT[1], T: SLT, tailTip: '#e8dcc0', band: '#141a24', spine: [SLT[1], SLT[1]], cap: '#10141c', cheek: '#f0ece0', beak: '#ffc830', glow: '#8ad8ff' },
+    rust: { R: RST, rim: '#f8d0a0', spots: 1, tip: 13.5, T: SLT, tailTip: '#f0ece0', band: '#10141c', spine: [RST[1], RST[1]], cap: SLT[3], cheek: '#f0ece0', beak: '#ffc830', glow: '#ffb03a' },
+    coal: { R: COAL, rim: '#ffb030', bar: COAL[1], T: COAL, tailTip: '#ffb030', band: '#000004', spine: ['#e89018', '#ffd050'], cap: '#000004', cheek: COAL[4], beak: '#ffb030', glow: '#ffb03a' }
+  };
+  const FK_SICKLE = [[2.5, 9], [8, 8.5], [14, 11], [18, 17], [19, 28], [16, 23.5], [12, 22], [8, 23], [2.5, 25]], FK_DELTA = [[2.5, 8], [7, 10], [12, 15], [16, 21], [18.5, 28.5], [14, 27], [9, 25.5], [2.5, 26]];
+  for (const [v, name, idea, W, H, draw, x] of [
+    ['F2', 'Peregrine', 'The same bird in a peregrine\'s colours: slate blue back, black cap and moustache, white cheek, yellow beak, a pale tail tip.', 39, 38, g => falkeV(g, FKO.slate), { fc: FL.ice }],
+    ['F3', 'Kestrel', 'A kestrel: rust wings with black spots and black tips, a grey head, a grey tail with a black band and a white tip.', 39, 38, g => falkeV(g, FKO.rust), { fc: FL.fire }],
+    ['F4', 'Night falcon', 'Charcoal with an amber leading edge, spine and tail tip. It would give the hangar a dark ship again now that the Nachtvogel is gone.', 39, 38, g => falkeV(g, FKO.coal), { fc: FL.amber }],
+    ['F5', 'Interceptor', 'Crossed with a jet, like the Swallow: the sickle wings on a long root, a pointed yellow nose, a canopy, a notched tail. Peregrine colours.', 39, 38, g => falkeP(g, Object.assign({ wing: FK_SICKLE }, FKO.slate)), { fc: FL.ice, flames: [[-1, 11], [1, 11]] }],
+    ['F6', 'Strike falcon', 'The bronze bird as a strike jet: delta wings with the bars only at the tips, two white missiles under each wing, a teal canopy.', 39, 38, g => falkeP(g, Object.assign({ wing: FK_DELTA, barFrom: 11, stores: [[7, 17], [11, 20]], glass: GLASS }, FKO.bronze)), { fc: FL.teal, flames: [[-1, 11], [1, 11]] }],
+    ['F7', 'Canard', 'A kestrel-coloured racer with small foreplanes beside the canopy and delta wings: the most aeroplane, the least bird.', 39, 38, g => falkeP(g, Object.assign({ wing: FK_DELTA, canard: 1 }, FKO.rust, { spots: 0, bar: RST[1], barFrom: 9 })), { fc: FL.fire, flames: [[-1, 11], [1, 11]] }],
+    ['F8', 'Twin-boom night falcon', 'The night falcon with an engine pod on each wing, amber nozzles and flames from the pods; sickle wings.', 39, 38, g => falkeP(g, Object.assign({ wing: FK_SICKLE, tipPod: 8 }, FKO.coal)), { fc: FL.amber, flames: [[-8, 7], [8, 7]] }]])
+    add('Falke', v, name, idea, W, H, draw, Object.assign({ hit: 'keep the hit box', size: '39 x 38 art, as Falke B (+4 wide, +2 tall)' }, x));
+
   return out;
 }
