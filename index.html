@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.24'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.25'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8713,6 +8713,7 @@ function env(g, t, peak, d, att = 0.005) {
   g.gain.setValueAtTime(peak * 0.8, t + Math.max(att + 0.01, d * 0.6)); g.gain.linearRampToValueAtTime(0.0001, t + d);
 }
 function mLead(n, t, d, type = 'pulse') {
+  if (Music.mute) return;
   if (RETRO.on) return psgLead('jg', n, t, d, type); // (Retro Run: the chip)
   if (type === 'bell') {
     const f = mtof(n + 12), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
@@ -8738,6 +8739,7 @@ function mLead(n, t, d, type = 'pulse') {
   for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + d + 0.05); }
 }
 function mBass(n, t, d) {
+  if (Music.mute) return;
   Music.bassHit = true; // the layers (frenzy, intensity) only add bass where the song's own bass is silent
   if (RETRO.on) return psgBass(n, t, d);
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
@@ -8745,7 +8747,7 @@ function mBass(n, t, d) {
   f.type = 'lowpass'; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(320, t + d); f.Q.value = 6;
   o.connect(f).connect(g).connect(musicBus); env(g, t, 0.15, d, 0.003); o.start(t); o.stop(t + d + 0.03);
 }
-function mArp(n, t, d) { if (RETRO.on) return psgNote('jg2', 0.125, mtof(n), t, d, 0.03); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
+function mArp(n, t, d) { if (Music.mute) return; if (RETRO.on) return psgNote('jg2', 0.125, mtof(n), t, d, 0.03); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
 function mNoise(t, d, v, type, freq) {
   ensureNoise();
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
@@ -8850,7 +8852,7 @@ function playStepX(s, step, t, dt, m) {
   if (m.hats16) { mHat(t, i % 4 === 2 ? 0.045 : 0.022); if (i % 8 === 6) mNoise(t, 0.12, 0.03, 'highpass', 6000); }
   if (m.dense) { if (i % 2 === 1) mHat(t, 0.03); if (i === 6 || i === 14) mKick(t); if (i === 15 && (step >> 4) % 2 === 1) mSnare(t, 0.7); }
   if (m.rolls && (step >> 4) % 4 === 3 && i >= 8) mSnare(t, 0.35 + (i - 8) * 0.08);
-  if (m.pad && i === 0) for (const c of ch) { const o = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = mtof(root + 24 + c); f.type = 'lowpass'; f.frequency.value = 900; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.022, t + dt * 4); g.gain.linearRampToValueAtTime(0.0001, t + dt * 16); o.connect(f).connect(g).connect(musicBus); o.start(t); o.stop(t + dt * 16 + 0.05); }
+  if (m.pad && i === 0 && !Music.mute) for (const c of ch) { const o = actx.createOscillator(), g = actx.createGain(), f = actx.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = mtof(root + 24 + c); f.type = 'lowpass'; f.frequency.value = 900; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.022, t + dt * 4); g.gain.linearRampToValueAtTime(0.0001, t + dt * 16); o.connect(f).connect(g).connect(musicBus); o.start(t); o.stop(t + dt * 16 + 0.05); }
 }
 // ---- FM studio: a small two-operator FM synth in the spirit of the YM2612 ----
 const FM = {
@@ -8865,6 +8867,7 @@ const FM = {
   pad:   { ratio: 1, idx: 0.2, idxPeak: 1.2, idxEnd: 0.8, idxT: 0.6, amp: 0.035, att: 0.5, rel: 0.6, chorus: 10 }
 };
 function fm(n, t, d, P, vol = 1, toEcho = false) {
+  if (Music.mute) return;
   if (P === FM.bass || P === FM.slap || P === FM.sub) Music.bassHit = true;
   const f = mtof(n), out = actx.createGain(), A = P.amp * vol;
   out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(A, t + P.att); out.gain.setValueAtTime(A, t + Math.max(P.att, d * 0.7)); out.gain.linearRampToValueAtTime(0.0001, t + d + P.rel);
@@ -8949,6 +8952,7 @@ const OPL = {
   piano:  { wave: 'sine', ratio: 1, idx: 1.8, idxEnd: 0.2, idxT: 0.5, amp: 0.05, att: 0.003, rel: 0.5 }
 };
 function opl(n, t, d, P, vol = 1, toEcho = false) {
+  if (Music.mute) return;
   if (P === OPL.bass) Music.bassHit = true;
   const f = mtof(n), out = actx.createGain(), A = P.amp * vol, car = actx.createOscillator(), mod = actx.createOscillator(), mg = actx.createGain();
   out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(A, t + P.att); out.gain.setValueAtTime(A * 0.85, t + Math.max(P.att + 0.01, d * 0.6)); out.gain.linearRampToValueAtTime(0.0001, t + d + P.rel);
@@ -9102,13 +9106,13 @@ function arrangementFor(name) {
 }
 function playSong(name, fadeIn) {
   if (!actx) return;
-  Music.song = SONGS[name]; Music.arr = arrangementFor(name); Music.sec = 0; Music.rep = 0; Music.step = 0; Music.next = actx.currentTime + 0.08;
+  wingReset(); Music.song = SONGS[name]; Music.arr = arrangementFor(name); Music.sec = 0; Music.rep = 0; Music.step = 0; Music.next = actx.currentTime + 0.08;
   musicDim = false;
   if (!fadeIn && musicBus && (name === 'boss' || name === 'final')) { const t0 = actx.currentTime; musicBus.gain.cancelScheduledValues(t0); musicBus.gain.setValueAtTime(musicBase() || 0.0001, t0); crash(Music.next); mKick(Music.next); }
   if (fadeIn && musicBus) { const t0 = actx.currentTime; musicBus.gain.cancelScheduledValues(t0); musicBus.gain.setValueAtTime(0.0001, t0); musicBus.gain.exponentialRampToValueAtTime(musicBase() || 0.0001, t0 + 2.2); }
   if (!Music.timer) Music.timer = setInterval(scheduleMusic, 25);
 }
-function stopMusic() { Music.song = null; }
+function stopMusic() { Music.song = null; wingReset(); }
 function playStep(s, step, t, dt) {
   const bar = s.bars[Math.floor(step / 16) % s.bars.length], i = step % 16, root = bar[0], ch = CHORD[bar[1]], k = s.kit, b2 = (step >> 4) % 2;
   const ev = s.lead[step]; if (ev) mLead(ev[0], t, ev[1] * dt * 0.92, s.leadType);
@@ -9226,16 +9230,24 @@ function intLayer(s, step, t, dt, m) {
   if (INT.lvl >= 2 && i % 2 === 1) mHat(t, 0.03);
   if (INT.lvl >= 3 && i % 2 === 1 && !Music.bassHit) mBass(root + 12, t, dt * 0.8);
 }
-/* ---- the Shadow Wing: a worthy mini boss, so the music rises to it instead of going quiet. The Wing is spawned just above the screen when its encounter starts,
-   so that moment is the heads-up: an engine hum swells for 4 beats (the engines are already running, so it is a hum, not a start-up) with a snare roll building
-   under the last 2 beats, and at the peak the song turns heroic until the Wing is gone: same tempo and bar, the key a tone up, the melody twisted (busier, derived
-   from its own notes), brass doubling it an octave up, the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements
-   use their own lifted sound). No hit when it ends: the song simply returns at the next beat. ---- */
-const WING = { hero: false, pre: 0, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
-function wingOn() {
+/* ---- the Shadow Wing: a worthy mini boss, so the music rises to it instead of going quiet.
+   Start: the director starts the Wing when the level scroll reaches a fixed line, so the music knows about 2.5 s ahead (wingEta, measured against the real spawn
+   to within 0.3 s): an engine hum swells for 4 beats (the engines are already running, so it is a hum, not a start-up) with a snare roll under the last two, and
+   the song turns heroic as the Wing flies in: same tempo and bar, the key a tone up, the melody twisted bar by bar (see WING.mel), brass doubling it an octave up,
+   the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements use their own lifted sound).
+   End: when the Wing itself is gone (shot down, dying or leaving; not the encounter's fixed timer), the heroic bar finishes, then one bar of drums only with a snare
+   roll in its last beat, and the song comes back. No hit. ---- */
+const WING = { hero: false, pre: 0, rel: 0, relN: 0, eta: null, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
+function wingHere() { // a Shadow Wing ship is alive and staying (not while a boss is up)
   if (typeof world === 'undefined' || app.state !== 'play' || app.tut) return false;
   if (world.enemies.some(e => e.type === 'boss' && !e.dead)) return false;
-  return !!(world.enc && world.enc.id === 'wing' && world.enc.st === 'run') || world.enemies.some(e => e.type === 'wing' && !e.dead && !e.dying);
+  return world.enemies.some(e => e.type === 'wing' && !e.dead && !e.dying && !e.leaving);
+}
+function wingEta() { // frames until the director starts the Wing, Infinity if it is not due (WING.eta: a test sets it)
+  if (WING.eta !== null) return WING.eta;
+  if (typeof world === 'undefined' || typeof run === 'undefined' || app.state !== 'play' || app.tut || world.midDone || world.enc || world.bossSpawned || !(world.scrollV > 0)) return Infinity;
+  const u = run.sortie && (run.sortie.wingU || WING_U[run.sortie.level]), target = (u ? u * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale();
+  return ((target + world.stageBaseP) * CH - world.scroll) / world.scrollV;
 }
 function wingHero(m) {
   const d = Object.assign({}, m);
@@ -9275,21 +9287,26 @@ function mHum(t, dur) { // the engines swell: a low saw hum that rises a little 
   n.connect(nf).connect(ng).connect(musicBus); n.start(t); n.stop(end + 1.1);
 }
 function wingMods(m, step, t, dt) {
-  if (step % 4 === 0) {
-    const on = wingOn();
-    if (on && !WING.hero && !WING.pre) { WING.pre = 16; mHum(t, dt * 16); }
-    else if (!on) { WING.pre = 0; WING.hero = false; }
+  const beat = step % 4 === 0, sn = m.opl ? oSnare : m.style ? dSnare : mSnare;
+  if (beat) {
+    const here = wingHere();
+    if (!WING.hero && !WING.pre && !WING.rel && (here || wingEta() / 60 <= dt * 16 - 0.3)) { WING.pre = 16; mHum(t, dt * 16); }
+    if (WING.hero && !here && !WING.rel) WING.rel = 1;
   }
   if (WING.pre > 0) {
-    const k = 16 - WING.pre, sn = m.opl ? oSnare : m.style ? dSnare : mSnare;
+    const k = 16 - WING.pre;
     if (k >= 8) sn(t, 0.15 + (k - 8) * 0.09);
-    if (--WING.pre === 0) { WING.hero = true; WING.bar = 0; WING.cur = 'light'; crash(t); mKick(t); }
+    if (--WING.pre === 0 && (wingHere() || wingEta() / 60 < 1.5)) { WING.hero = true; WING.bar = 0; WING.cur = 'light'; crash(t); mKick(t); }
   }
   if (WING.hero && step % 16 === 0) { WING.bar++; WING.cur = WING_ARC[(WING.bar - 1) % WING_ARC.length]; }
+  if (WING.rel === 2 && WING.relN >= 16) { WING.rel = 0; Music.mute = false; }
+  if (WING.rel === 1 && step % 16 === 0) { WING.rel = 2; WING.relN = 0; WING.hero = false; Music.mute = !RETRO.on; }
+  if (WING.rel === 2) { if (WING.relN >= 12) sn(t, 0.2 + (WING.relN - 12) * 0.12); WING.relN++; }
   if (!WING.hero) return m;
   if (!WING.cm || WING.cm.src !== m || WING.cm.mel !== WING.mel) WING.cm = { src: m, mel: WING.mel, m: wingHero(m) };
   return WING.cm.m;
 }
+function wingReset() { WING.hero = false; WING.pre = 0; WING.rel = 0; Music.mute = false; }
 function scheduleMusic() {
   if (!actx || !Music.song) return;
   if (muted || app.paused || actx.state !== 'running') { Music.next = actx.currentTime + 0.05; return; }
@@ -9303,7 +9320,7 @@ function scheduleMusic() {
     if (Music.step === 0 && Music.rep === 0 && mm.crash) crash(Music.next);
     if (RETRO.on) psgStep(sg, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
     else if (mm.opl) playStepOPL(sg, Music.step, Music.next, dt, mm); else if (mm.style) playStepFM(sg, Music.step, Music.next, dt, mm); else playStepX(sg, Music.step, Music.next, dt, mm);
-    frenzyLayer(sg, Music.step, Music.next, dt, mm); intLayer(sg, Music.step, Music.next, dt, mm);
+    if (!Music.mute) { frenzyLayer(sg, Music.step, Music.next, dt, mm); intLayer(sg, Music.step, Music.next, dt, mm); }
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
