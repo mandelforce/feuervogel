@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9150,63 +9150,40 @@ function playStep(s, step, t, dt) {
 /* ---- frenzy layer: while a ship has the super weapon, an extra layer rides on whatever song is playing.
    It reads the root and chord of the current bar (every song and arrangement has them) and is scheduled on the music clock,
    so it stays in key and in time. It enters on a beat, thins out for the last 1.5 s, ends on a beat, and steps up when the timer is refilled. ---- */
-const FZ = { on: false, lvl: 0, last: 0, pend: false, lift: 0, cm: null };
+const FZ = { on: false, lvl: 0, last: 0, pend: false };
 function frenzyLeft() { // frames of super weapon time left on the best ship, 0 when nobody has it
   if (app.state !== 'play') return 0;
   let t = 0; for (const q of [player, p2]) if (q && !q.dead && !q.out && isSup(q)) t = Math.max(t, q.supT || 1);
   return t;
 }
-/* the frenzy's voices, one set per arrangement family so the layer sounds like it belongs to the song: the original chiptune, the arcade FM chip (OPL), the FM studio.
-   r is the strength of a note (1 = main, less = octave echo or fade-out). Retro Run keeps the chiptune voices (mArp and the drums are chip-aware). */
-const FZV = {
-  orig: {
-    arp(n, t, d, r) {
-      if (RETRO.on) return mArp(n, t, d);
-      const o = actx.createOscillator(), g = actx.createGain(), o2 = actx.createOscillator(), g2 = actx.createGain();
-      o.setPeriodicWave(pulseWave); o.frequency.value = mtof(n); o2.type = 'sawtooth'; o2.frequency.value = mtof(n) * 1.005; g2.gain.value = 0.5;
-      o.connect(g); o2.connect(g2).connect(g); env(g, t, 0.065 * r, d, 0.002); g.connect(musicBus); o.start(t); o2.start(t); o.stop(t + d + 0.02); o2.stop(t + d + 0.02);
-    },
-    bass: (n, t, d) => mBass(n, t, d), hat: (t, r) => mHat(t, 0.06 * r), kick: t => mKick(t), snare: (t, v) => mSnare(t, v), tom: (t, f) => mTom(t, f)
-  },
-  opl: {
-    arp: (n, t, d, r) => { opl(n, t, d, OPL.arp, 2.2 * r); },
-    bass: (n, t, d) => opl(n, t, d, OPL.bass), hat: (t, r) => oHat(t, 3 * r), kick: t => oKick(t), snare: (t, v) => oSnare(t, v), tom: (t, f) => oTom(t, f)
-  },
-  fm: {
-    arp: (n, t, d, r) => fm(n, t, d, FM.stab, 1.7 * r),
-    bass: (n, t, d) => fm(n, t, d, FM.bass), hat: (t, r) => dHat(t, 1.2 * r), kick: t => dKick(t), snare: (t, v) => dSnare(t, v), tom: (t, f) => mTom(t, f)
-  }
-};
-function fzVoice(m) { return RETRO.on ? FZV.orig : m.opl ? FZV.opl : m.style ? FZV.fm : FZV.orig; }
-/* the key lift: from the first bar line the frenzy is on, the song moves up a tone (every part that reads the transpose follows),
-   and back down at the first bar line after it ends */
-function fzMods(m, step) {
-  if (step % 16 === 0) FZ.lift = FZ.on && frenzyLeft() > 0 ? 2 : 0;
-  if (!FZ.lift) return m;
-  if (!FZ.cm || FZ.cm.src !== m || FZ.cm.lift !== FZ.lift) FZ.cm = { src: m, lift: FZ.lift, m: Object.assign({}, m, { tr: (m.tr || 0) + FZ.lift }) };
-  return FZ.cm.m;
+function fzArp(n, t, d, v) {
+  if (RETRO.on) return mArp(n, t, d);
+  const o = actx.createOscillator(), g = actx.createGain();
+  const o2 = actx.createOscillator(), g2 = actx.createGain();
+  o.setPeriodicWave(pulseWave); o.frequency.value = mtof(n); o2.type = 'sawtooth'; o2.frequency.value = mtof(n) * 1.005; g2.gain.value = 0.5;
+  o.connect(g); o2.connect(g2).connect(g); env(g, t, v, d, 0.002); g.connect(musicBus); o.start(t); o2.start(t); o.stop(t + d + 0.02); o2.stop(t + d + 0.02);
 }
 function frenzyLayer(s, step, t, dt, m) {
-  const left = frenzyLeft(), beat = step % 4 === 0, V = fzVoice(m);
+  const left = frenzyLeft(), beat = step % 4 === 0;
   if (left && left > FZ.last + 60 && FZ.on) FZ.pend = true; // the timer was refilled by another pickup of the same weapon
   FZ.last = left;
   if (!FZ.on) {
     if (!left || !beat) return;
-    FZ.on = true; FZ.lvl = 0; FZ.pend = false; crash(t); V.kick(t); V.tom(t, 110); V.tom(t + dt * 2, 160); V.snare(t + dt * 3, 0.9);
+    FZ.on = true; FZ.lvl = 0; FZ.pend = false; crash(t); mKick(t); mTom(t, 110); mTom(t + dt * 2, 160); mSnare(t + dt * 3, 0.9);
   } else if (!left) {
     if (!beat) return;
     FZ.on = false; crash(t); return;
-  } else if (FZ.pend && beat) { FZ.pend = false; FZ.lvl = Math.min(FZ.lvl + 1, 2); crash(t); V.snare(t, 0.8); }
+  } else if (FZ.pend && beat) { FZ.pend = false; FZ.lvl = Math.min(FZ.lvl + 1, 2); crash(t); mSnare(t, 0.8); }
   const tr = m.tr || 0, i = step % 16, bar = s.bars[Math.floor(step / 16) % s.bars.length], root = bar[0] + tr, ch = CHORD[bar[1]], fade = left < 90;
   const idx = [0, 1, 2, 1][i % 4], up = i % 8 >= 4 ? 12 : 0, n = root + 36 + ch[idx] + up;
-  if (fade) { if (i % 2 === 0) V.arp(n, t, dt * 1.2, 0.75); return; }
-  V.arp(n, t, dt * 0.8, 1);
-  if (FZ.lvl >= 1 && i % 2 === 0) V.arp(n + 12, t, dt * 0.6, 0.55);
-  if (i % 2 === 1) V.bass(root + 12, t, dt * 0.8);
-  V.hat(t, i % 2 ? 1 : 0.65);
-  if (i % 4 === 0) V.kick(t);
-  if (i === 4 || i === 12) V.snare(t, 0.7);
-  if (FZ.lvl >= 2 && i % 4 === 2) V.snare(t, 0.5);
+  if (fade) { if (i % 2 === 0) fzArp(n, t, dt * 1.2, 0.05); return; }
+  fzArp(n, t, dt * 0.8, 0.065);
+  if (FZ.lvl >= 1 && i % 2 === 0) fzArp(n + 12, t, dt * 0.6, 0.035);
+  if (i % 2 === 1) mBass(root + 12, t, dt * 0.8);
+  mHat(t, i % 2 ? 0.06 : 0.04);
+  if (i % 4 === 0) mKick(t);
+  if (i === 4 || i === 12) mSnare(t, 0.7);
+  if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5);
 }
 function scheduleMusic() {
   if (!actx || !Music.song) return;
@@ -9214,11 +9191,11 @@ function scheduleMusic() {
   if (Music.next < actx.currentTime) Music.next = actx.currentTime + 0.02;
   const A = Music.arr;
   while (Music.next < actx.currentTime + 0.12) {
-    const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step), mm = fzMods(sc2.m, Music.step);
+    const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step);
     if (Music.step === 0 && Music.rep === 0 && sc2.m.crash) crash(Music.next);
-    if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
-    else if (mm.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, mm); else if (mm.style) playStepFM(sc2.song, Music.step, Music.next, dt, mm); else playStepX(sc2.song, Music.step, Music.next, dt, mm);
-    frenzyLayer(sc2.song, Music.step, Music.next, dt, mm);
+    if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, sc2.m); // Retro Run: every arrangement on the chip
+    else if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
+    frenzyLayer(sc2.song, Music.step, Music.next, dt, sc2.m);
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
