@@ -9192,7 +9192,7 @@ function frenzyLayer(s, step, t, dt, m) {
 /* ---- intensity: how much is going on in the fight, 0 (calm) to 3 (all out), read from the game and applied on bar lines.
    It works on any song and arrangement: a low-pass filter on the whole music opens with the intensity (0 is muffled, 3 is wide open),
    and the top levels add 16th hats and an off-beat bass on top. The last life adds a heartbeat. The frenzy always counts as 3. ---- */
-const INT = { lvl: 1, ema: 3, ref: 5.5, refDiff: -1, boss: 0, force: null, danger: false, cut: [2600, 6500, 13000, 20000], T: [0.35, 1.15, 1.8], PRIOR: [3.5, 5.5, 6] };
+const INT = { n: 0, lvl: 1, ema: 3, ref: 5.5, refDiff: -1, boss: 0, force: null, danger: false, cut: [2600, 6500, 13000, 20000], T: [0.35, 1.15, 1.8], PRIOR: [3.5, 5.5, 6] };
 /* The level is relative: it compares the load now with the load this player usually sees (INT.ref). Each difficulty starts from its own typical load
    (PRIOR: Easy, Normal, Hard; measured with the balance bot, boss fights left out), and the reference follows the player's recent average (about 45 s),
    within 0.6 to 1.8 times the prior, so a strong weapon, a good player or a later stage does not leave the music stuck at 3 or at 0. */
@@ -9204,11 +9204,12 @@ function intRaw() { // what is on screen: planes and their bullets. A boss fight
   if (boss) { let hp = 0, mx = 0; if (boss.parts) for (const q of boss.parts) { hp += Math.max(0, q.hp); mx += q.maxhp; } else { hp = boss.hp; mx = boss.maxhp; } INT.boss = hp / Math.max(1, mx) < 0.4 ? 3 : 2; }
   return n + world.ebul.length / 5;
 }
-function intStep() { // every scheduler call: smooth the load (rises faster than it falls) and let the reference follow the player
+function intStep() { // every 6th scheduler call (about 6 times a second; the level only changes on bar lines): smooth the load (rises faster than it falls) and let the reference follow the player
+  if (++INT.n % 6) return;
   const r = intRaw(), d = clamp(settings.diff | 0, 0, 2);
-  INT.ema += (r - INT.ema) * (r > INT.ema ? 0.04 : 0.01);
+  INT.ema += (r - INT.ema) * (r > INT.ema ? 0.22 : 0.06);
   if (INT.refDiff !== d) { INT.refDiff = d; INT.ref = INT.PRIOR[d]; }
-  if (!INT.boss && typeof world !== 'undefined' && app.state === 'play') INT.ref = clamp(INT.ref + (INT.ema - INT.ref) * 0.0006, INT.PRIOR[d] * 0.6, INT.PRIOR[d] * 1.8);
+  if (!INT.boss && typeof world !== 'undefined' && app.state === 'play') INT.ref = clamp(INT.ref + (INT.ema - INT.ref) * 0.0036, INT.PRIOR[d] * 0.6, INT.PRIOR[d] * 1.8);
 }
 function intPick() { // the load against the reference, with a margin on the way down so the level does not flicker
   const x = INT.ema / INT.ref; let l = Math.min(INT.lvl, 3);
