@@ -6198,7 +6198,7 @@ function psgLead(ch, n, t, d, type) {
   else if (type === 'brass') psgNote(ch, 0.5, f, t, d, 0.06, { slide: true, vib: true });
   else psgNote(ch, 0.25, f, t, d, 0.075, { vib: true });
 }
-const psgBass = (n, t, d) => psgNote('bass', 'tri', mtof(n), t, Math.max(d, 0.05), 0.24);
+const psgBass = (n, t, d) => { Music.bassHit = true; psgNote('bass', 'tri', mtof(n), t, Math.max(d, 0.05), 0.24); };
 const psgArp = (n, t, d) => psgNote('arp', 0.125, mtof(n), t, d, 0.03);
 // one step of a song: the arrangement's notes (its transposition, octave and kit), the instruments the chip's
 function psgStep(s, step, t, dt, m) {
@@ -8739,6 +8739,7 @@ function mLead(n, t, d, type = 'pulse') {
   for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + d + 0.05); }
 }
 function mBass(n, t, d) {
+  Music.bassHit = true; // the layers (frenzy, intensity) only add bass where the song's own bass is silent
   if (RETRO.on) return psgBass(n, t, d);
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = 'sawtooth'; o.frequency.value = mtof(n);
@@ -8865,6 +8866,7 @@ const FM = {
   pad:   { ratio: 1, idx: 0.2, idxPeak: 1.2, idxEnd: 0.8, idxT: 0.6, amp: 0.035, att: 0.5, rel: 0.6, chorus: 10 }
 };
 function fm(n, t, d, P, vol = 1, toEcho = false) {
+  if (P === FM.bass || P === FM.slap || P === FM.sub) Music.bassHit = true;
   const f = mtof(n), out = actx.createGain(), A = P.amp * vol;
   out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(A, t + P.att); out.gain.setValueAtTime(A, t + Math.max(P.att, d * 0.7)); out.gain.linearRampToValueAtTime(0.0001, t + d + P.rel);
   out.connect(musicBus); if (toEcho) out.connect(echoIn);
@@ -8948,6 +8950,7 @@ const OPL = {
   piano:  { wave: 'sine', ratio: 1, idx: 1.8, idxEnd: 0.2, idxT: 0.5, amp: 0.05, att: 0.003, rel: 0.5 }
 };
 function opl(n, t, d, P, vol = 1, toEcho = false) {
+  if (P === OPL.bass) Music.bassHit = true;
   const f = mtof(n), out = actx.createGain(), A = P.amp * vol, car = actx.createOscillator(), mod = actx.createOscillator(), mg = actx.createGain();
   out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(A, t + P.att); out.gain.setValueAtTime(A * 0.85, t + Math.max(P.att + 0.01, d * 0.6)); out.gain.linearRampToValueAtTime(0.0001, t + d + P.rel);
   if (P.wave === 'sine') car.type = 'sine'; else car.setPeriodicWave(oplWaves()[P.wave]);
@@ -9180,7 +9183,7 @@ function frenzyLayer(s, step, t, dt, m) {
   if (fade) { if (i % 2 === 0) fzArp(n, t, dt * 1.2, 0.05); return; }
   fzArp(n, t, dt * 0.8, 0.065);
   if (FZ.lvl >= 1 && i % 2 === 0) fzArp(n + 12, t, dt * 0.6, 0.035);
-  if (i % 2 === 1) mBass(root + 12, t, dt * 0.8);
+  if (i % 2 === 1 && !Music.bassHit) mBass(root + 12, t, dt * 0.8);
   mHat(t, i % 2 ? 0.06 : 0.04);
   if (i % 4 === 0) mKick(t);
   if (i === 4 || i === 12) mSnare(t, 0.7);
@@ -9212,7 +9215,7 @@ function intLayer(s, step, t, dt, m) {
   if (INT.danger) { if (i === 0 || i === 3) mHeart(t); }
   if (FZ.on) return;
   if (INT.lvl >= 2 && i % 2 === 1) mHat(t, 0.03);
-  if (INT.lvl >= 3 && i % 2 === 1) mBass(root + 12, t, dt * 0.8);
+  if (INT.lvl >= 3 && i % 2 === 1 && !Music.bassHit) mBass(root + 12, t, dt * 0.8);
 }
 function scheduleMusic() {
   if (!actx || !Music.song) return;
@@ -9222,6 +9225,7 @@ function scheduleMusic() {
   while (Music.next < actx.currentTime + 0.12) {
     const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step);
     if (Music.step % 16 === 0) intBar(Music.next);
+    Music.bassHit = false;
     if (Music.step === 0 && Music.rep === 0 && sc2.m.crash) crash(Music.next);
     if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, sc2.m); // Retro Run: every arrangement on the chip
     else if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
