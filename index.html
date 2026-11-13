@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.20'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8990,6 +8990,47 @@ function playStepOPL(s, step, t, dt, m) {
     if (i === 0 || i === 6 || i === 10) opl(root + 12, t, dt * 4, OPL.bass);
     if (i === 0) for (const c of ch) opl(root + 24 + c, t, dt * 15, OPL.string, 0.45);
     lead(OPL.brass, OPL.string, -12 + (m.oct || 0), 0.55);
+  } else if (st === 'desert') { // the desert: the tribal kit on the arcade chip, toms under a driving bass
+    if (i === 0 || i === 6 || i === 10) oKick(t); if (i === 8 || i === 12) oSnare(t, 0.8);
+    if (i === 3 || i === 14) oTom(t, i === 3 ? 150 : 190, 0.8); if (i % 2 === 1) oHat(t, 0.55);
+    if (last && i >= 12) oTom(t, [210, 170, 140, 110][i - 12]);
+    if (i % 4 === 0) opl(root + 12 + (i === 8 ? 7 : 0), t, dt * 2.5, OPL.bass);
+    if (i % 4 === 2) opl(root + 36 + ch[(i >> 2) % 3], t, dt * 1.2, OPL.arp, 1.1);
+    lead(OPL.lead, m.harm ? OPL.lead2 : null, m.oct || 0);
+  } else if (st === 'night') { // the long night: a held bass and string chord, bell-piano plinks, strings on the tune, the drums come in later
+    if (m.drums !== false) { if (i === 0 || i === 3) oKick(t, 0.8); if (i % 4 === 2) oHat(t, 0.45); if (i === 12 && last) oSnare(t, 0.5); }
+    if (m.hats16 && i % 2 === 1) oHat(t, 0.4);
+    if (i === 0) { opl(root, t, dt * 15, OPL.bass, 0.8); for (const c of ch) opl(root + 24 + c, t, dt * 15, OPL.string, 0.3); }
+    if (m.arp !== false && (i === 10 || i === 14)) opl(root + 37 + (i === 14 ? 6 : 0), t, dt * 2, OPL.piano, 1.4);
+    if (ev) { const n = ev[0] + tr + (m.oct || 0), d = ev[1] * dt * 0.95; opl(n, t, d, OPL.string, 1.15, true); if (m.harm) { const h = chordBelow(n, root + 24, ch); if (h !== null) opl(h, t, d, OPL.string, 0.45); } }
+  } else if (st === 'forest') { // the iron forest: a march with brass on the tune
+    if (i === 0 || i === 8) oKick(t); if (i === 4 || i === 12) oSnare(t, 0.9); if (bn % 2 && i >= 13) oSnare(t, 0.4 + (i - 13) * 0.2); if (i % 2 === 0) oHat(t, 0.5);
+    if (i % 4 === 0) opl(root + 12 + (i === 8 ? 7 : 0), t, dt * 3, OPL.bass);
+    if (i % 2 === 0) opl(root + 24 + ch[(i >> 1) % 3], t, dt * 1.1, OPL.arp, 1.3);
+    lead(OPL.brass, m.harm ? OPL.string : null, m.oct || 0, 0.5);
+  } else if (st === 'winter') { // the winter line: cold strings and bell-piano arpeggios; the later parts chug like a train
+    if (m.chug) { if (i % 4 === 0) oKick(t); if (i === 4 || i === 12) oSnare(t, 0.8); if (i % 2 === 0) oHat(t, 0.5); opl(root + 12 + (i % 8 === 6 ? 12 : 0), t, dt * 0.55, OPL.bass); }
+    else { if (i === 0 || i === 8) oKick(t, 0.7); if (i === 12) oSnare(t, 0.5); if (i % 4 === 2) oHat(t, 0.5); if (i % 4 === 0) opl(root + 12, t, dt * 3, OPL.bass, 0.85); }
+    if (i % 2 === 0) opl(root + 36 + ch[(i >> 1) % 3], t, dt * 2, OPL.piano, 1.3);
+    if (ev) { const n = ev[0] + tr + (m.oct || 0), d = ev[1] * dt * 0.95; opl(n, t, d, OPL.string, 1.1, true); if (m.harm) { const h = chordBelow(n, root + 24, ch); if (h !== null) opl(h, t, d, OPL.string, 0.45); } }
+  } else if (st === 'city') { // the burning city: rock drums with 16th hats, brass on the tune
+    if (i === 0 || i === 8 || i === 10) oKick(t); if (i === 4 || i === 12 || (last && i === 14)) oSnare(t); oHat(t, i % 2 ? 0.55 : 0.9);
+    if (i % 2 === 0) opl(root + 12 + (i % 4 === 2 ? 12 : 0), t, dt * 1.7, OPL.bass);
+    if (i % 4 === 2) opl(root + 36 + ch[(i >> 2) % 3], t, dt * 1.2, OPL.arp, 1.1);
+    lead(OPL.brass, m.harm ? OPL.string : OPL.lead2, m.oct || 0, 0.5);
+  } else if (st === 'wboss') { // the winter boss: a chugging bass under brass and strings
+    opl(root + 12 + (i % 8 === 6 ? 12 : 0), t, dt * 0.55, OPL.bass);
+    if (i % 4 === 0) oKick(t); if (i === 4 || i === 12) oSnare(t); if (i % 2 === 0) oHat(t, 0.8);
+    if (last && i >= 8) oTom(t, 250 - (i - 8) * 16, 0.8);
+    if (i % 4 === 2) opl(root + 36 + ch[(i >> 2) % 3], t, dt * 1.5, OPL.arp, 1.2);
+    lead(OPL.brass, OPL.string, m.oct || 0, 0.55);
+  } else if (st === 'final') { // the flying fortress: the boss battle with a held string chord, an 8th-note arpeggio and tom fills
+    if (i % 4 === 0 || i === 14) oKick(t); if (i === 4 || i === 12) oSnare(t); oHat(t, i % 2 ? 0.6 : 1);
+    if (last && i >= 8) oTom(t, 280 - (i - 8) * 20, 0.8);
+    opl(root + 12 + (i % 2 ? 12 : 0), t, dt * 0.9, OPL.bass);
+    if (i === 0) for (const c of ch) opl(root + 24 + c, t, dt * 15, OPL.string, 0.4);
+    if (i % 2 === 0) opl(root + 36 + ch[(i >> 1) % 3], t, dt * 1.2, OPL.arp, 1.2);
+    lead(OPL.brass, OPL.lead2, m.oct || 0, 0.6);
   }
 }
 // ---- arrangements ----
@@ -9027,6 +9068,16 @@ function secDur(s) { if (s.durC === undefined) { let d = 0; for (let k = 0; k < 
 // which arrangement plays: original (extended) tracks on the first loop, Arcade 1989 on the second, FM studio from the third
 const OPL_MAIN = [[sec(SG.stage, 1, { opl: true, style: 'arcade' }), sec(SG.stage, 1, { opl: true, style: 'arcade', harm: true, oct: 12, crash: true })], [sec(withBpm(SG.stage, 84), 1, { opl: true, style: 'sadness' }), sec(withBpm(SG.stage, 84), 1, { opl: true, style: 'sadness', drums: true, harm: true })]];
 const OPL_BOSS = [[sec(SG.boss, 2, { opl: true, style: 'bossArcade' }), sec(SG.boss, 2, { opl: true, style: 'bossArcade', tr: 2, crash: true })], [sec(withBpm(SG.boss, 120), 2, { opl: true, style: 'laststand' }), sec(withBpm(SG.boss, 120), 2, { opl: true, style: 'laststand', oct: 12 })]];
+// Arcade 1989 (the second loop, stages 7 to 12): each stage's own tune on the arcade chip, as in the first loop. Level 1's tune keeps OPL_MAIN above.
+const OPL_THEME = {
+  desert: [sec(SG.desert, 2, { opl: true, style: 'desert' }), sec(twist(SG.desert), 2, { opl: true, style: 'desert', harm: true, crash: true })],
+  night: [sec(SG.night, 1, { opl: true, style: 'night', drums: false, arp: false, bpmFrom: 96, bpmTo: 110 }), sec(SG.night, 1, { opl: true, style: 'night', hats16: true, bpmFrom: 110, bpmTo: 124 }), sec(SG.night, 1, { opl: true, style: 'night', tr: 1, hats16: true, harm: true, crash: true, bpmFrom: 124, bpmTo: 138 }), sec(NIGHT_THEME, 1, { opl: true, style: 'night', hats16: true, harm: true, crash: true, bpmFrom: 138, bpmTo: 150 }), sec(NIGHT_OUTRO, 1, { opl: true, style: 'night', drums: false, arp: false, bpmFrom: 150, bpmTo: 152 })],
+  forest: [sec(SG.forest, 2, { opl: true, style: 'forest' }), sec(SG.forest, 2, { opl: true, style: 'forest', harm: true, crash: true }), sec(SG.forest, 1, { opl: true, style: 'forest', oct: 12, harm: true, crash: true })],
+  winter: [sec(SG.winter, 1, { opl: true, style: 'winter' }), sec(SG.winter, 2, { opl: true, style: 'winter', chug: true, crash: true }), sec(SG.winter, 2, { opl: true, style: 'winter', tr: 3, chug: true, harm: true, crash: true })],
+  city: [sec(SG.city, 2, { opl: true, style: 'city' }), sec(SG.city, 2, { opl: true, style: 'city', harm: true, crash: true }), sec(SG.city, 2, { opl: true, style: 'city', tr: 2, oct: 12, harm: true, crash: true })]
+};
+const OPL_WBOSS = [sec(WBOSS, 2, { opl: true, style: 'wboss', tr: -7 }), sec(WBOSS, 2, { opl: true, style: 'wboss', tr: -5, crash: true })];
+const OPL_FINAL = [sec(SG.final, 2, { opl: true, style: 'final' }), sec(SG.final, 2, { opl: true, style: 'final', tr: 2, crash: true })];
 const FM_MAIN = [[sec(withBpm(SG.stage, 132), 1, { style: 'house' }), sec(withBpm(SG.stage, 132), 1, { style: 'house', sparkle: true, tr: 2, crash: true })], [sec(withBpm(SG.stage, 112), 1, { style: 'night' })], [sec(withBpm(SG.stage, 164), 1, { style: 'overdrive' }), sec(withBpm(SG.stage, 164), 1, { style: 'overdrive', tr: 2, crash: true })]];
 const FM_BOSS = [[sec(SG.boss, 2, { style: 'bossFM' }), sec(SG.boss, 2, { style: 'bossFM', tr: 2, sparkle: true, crash: true })], [sec(withBpm(SG.boss, 140), 2, { style: 'breakbeat' })], [sec(withBpm(SG.boss, 184), 2, { style: 'assault' }), sec(withBpm(SG.boss, 184), 2, { style: 'assault', tr: 2, crash: true })]];
 // The ending's song (docs/campaign-ending.md): level 1's tune turned to the major (the minor home chords become major and their third is raised), slow for the landing and the cheering, then at full speed, a tone up and with the brass for the squadron and the credits, and a short coda that ends on a held chord. VICTORY.once: it ends, it does not loop.
@@ -9040,7 +9091,7 @@ function arrangementFor(name) {
   if (name === 'victory') return VICTORY;
   const lp = musicLoop(), k = ((run.stage || 1) - 1);
   const isBoss = name === 'boss' || name === 'final';
-  if (lp === 1) return isBoss ? OPL_BOSS[k % 2] : OPL_MAIN[k % 2];
+  if (lp === 1) return isBoss ? (name === 'final' ? OPL_FINAL : world.curTheme === 1 ? OPL_WBOSS : OPL_BOSS[k % 2]) : OPL_THEME[name] || OPL_MAIN[k % 2];
   if (lp >= 2) return isBoss ? FM_BOSS[k % 3] : FM_MAIN[k % 3];
   if (name === 'final') return ARR.final;
   if (name === 'boss') return world.curTheme === 1 ? ARR.wboss : ARR.boss;
