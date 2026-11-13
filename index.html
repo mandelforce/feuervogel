@@ -9096,6 +9096,42 @@ function playStep(s, step, t, dt) {
     mHat(t, i % 2 ? 0.025 : 0.05);
   }
 }
+/* ---- frenzy layer: while a ship has the super weapon, an extra layer rides on whatever song is playing.
+   It reads the root and chord of the current bar (every song and arrangement has them) and is scheduled on the music clock,
+   so it stays in key and in time. It enters on a beat, thins out for the last 1.5 s, ends on a beat, and steps up when the timer is refilled. ---- */
+const FZ = { on: false, lvl: 0, last: 0, pend: false };
+function frenzyLeft() { // frames of super weapon time left on the best ship, 0 when nobody has it
+  if (app.state !== 'play') return 0;
+  let t = 0; for (const q of [player, p2]) if (q && !q.dead && !q.out && isSup(q)) t = Math.max(t, q.supT || 1);
+  return t;
+}
+function fzArp(n, t, d, v) {
+  if (RETRO.on) return mArp(n, t, d);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.setPeriodicWave(pulseWave); o.frequency.value = mtof(n);
+  o.connect(g); env(g, t, v, d, 0.002); g.connect(musicBus); o.start(t); o.stop(t + d + 0.02);
+}
+function frenzyLayer(s, step, t, dt, m) {
+  const left = frenzyLeft(), beat = step % 4 === 0;
+  if (left && left > FZ.last + 60 && FZ.on) FZ.pend = true; // the timer was refilled by another pickup of the same weapon
+  FZ.last = left;
+  if (!FZ.on) {
+    if (!left || !beat) return;
+    FZ.on = true; FZ.lvl = 0; FZ.pend = false; crash(t); mKick(t);
+  } else if (!left) {
+    if (!beat) return;
+    FZ.on = false; crash(t); return;
+  } else if (FZ.pend && beat) { FZ.pend = false; FZ.lvl = Math.min(FZ.lvl + 1, 2); crash(t); mSnare(t, 0.8); }
+  const tr = m.tr || 0, i = step % 16, bar = s.bars[Math.floor(step / 16) % s.bars.length], root = bar[0] + tr, ch = CHORD[bar[1]], fade = left < 90;
+  const idx = [0, 1, 2, 1][i % 4], up = i % 8 >= 4 ? 12 : 0, n = root + 36 + ch[idx] + up;
+  if (fade) { if (i % 2 === 0) fzArp(n, t, dt * 1.2, 0.022); return; }
+  fzArp(n, t, dt * 0.8, 0.03);
+  if (FZ.lvl >= 1 && i % 2 === 0) fzArp(n + 12, t, dt * 0.6, 0.016);
+  if (i % 2 === 1) mBass(root + 12, t, dt * 0.8);
+  if (i % 2 === 1) mHat(t, 0.03);
+  if (i % 8 === 6) mKick(t);
+  if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5);
+}
 function scheduleMusic() {
   if (!actx || !Music.song) return;
   if (muted || app.paused || actx.state !== 'running') { Music.next = actx.currentTime + 0.05; return; }
@@ -9106,6 +9142,7 @@ function scheduleMusic() {
     if (Music.step === 0 && Music.rep === 0 && sc2.m.crash) crash(Music.next);
     if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, sc2.m); // Retro Run: every arrangement on the chip
     else if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
+    frenzyLayer(sc2.song, Music.step, Music.next, dt, sc2.m);
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
