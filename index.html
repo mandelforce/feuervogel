@@ -9231,7 +9231,7 @@ function intLayer(s, step, t, dt, m) {
    under the last 2 beats, and at the peak the song turns heroic until the Wing is gone: same tempo and bar, the key a tone up, the melody twisted (busier, derived
    from its own notes), brass doubling it an octave up, the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements
    use their own lifted sound). No hit when it ends: the song simply returns at the next beat. ---- */
-const WING = { hero: false, pre: 0, cm: null, songs: new Map(), mel: 'busy' }; // mel: the melody under the heroic mix: 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
+const WING = { hero: false, pre: 0, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
 function wingOn() {
   if (typeof world === 'undefined' || app.state !== 'play' || app.tut) return false;
   if (world.enemies.some(e => e.type === 'boss' && !e.dead)) return false;
@@ -9250,11 +9250,13 @@ function twistLong(song, minL) { // twist(), but only for notes of minL steps or
   ev.forEach((st, j) => { const [n, l] = lead[st], nx = lead[ev[(j + 1) % ev.length]][0]; if (l >= minL && nx !== n) { lead[st] = [n, l - 2]; lead[st + l - 2] = [nx, 1]; lead[st + l - 1] = [n, 1]; } });
   return Object.assign({}, song, { lead });
 }
+const WING_ARC = ['light', 'busy', 'light', 'busy', 'busy'];
 function wingSong(s) {
-  if (WING.mel === 'calm') return s;
+  const mel = WING.mel === 'arc' ? WING.cur : WING.mel;
+  if (mel === 'calm') return s;
   let c = WING.songs.get(s); if (!c) { c = {}; WING.songs.set(s, c); }
-  if (!c[WING.mel]) { try { c[WING.mel] = WING.mel === 'light' ? twistLong(s, 6) : twist(s); } catch (e) { c[WING.mel] = s; } }
-  return c[WING.mel];
+  if (!c[mel]) { try { c[mel] = mel === 'light' ? twistLong(s, 6) : twist(s); } catch (e) { c[mel] = s; } }
+  return c[mel];
 }
 function mHum(t, dur) { // the engines swell: a low saw hum that rises a little in pitch and opens up, with a rumble under it; it fades out after its peak
   if (RETRO.on) return;
@@ -9281,8 +9283,9 @@ function wingMods(m, step, t, dt) {
   if (WING.pre > 0) {
     const k = 16 - WING.pre, sn = m.opl ? oSnare : m.style ? dSnare : mSnare;
     if (k >= 8) sn(t, 0.15 + (k - 8) * 0.09);
-    if (--WING.pre === 0) { WING.hero = true; crash(t); mKick(t); }
+    if (--WING.pre === 0) { WING.hero = true; WING.bar = 0; WING.cur = 'light'; crash(t); mKick(t); }
   }
+  if (WING.hero && step % 16 === 0) { WING.bar++; WING.cur = WING_ARC[(WING.bar - 1) % WING_ARC.length]; }
   if (!WING.hero) return m;
   if (!WING.cm || WING.cm.src !== m || WING.cm.mel !== WING.mel) WING.cm = { src: m, mel: WING.mel, m: wingHero(m) };
   return WING.cm.m;
