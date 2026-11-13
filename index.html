@@ -9222,36 +9222,58 @@ function mHeart(t) { const o = actx.createOscillator(), g = actx.createGain(); o
 function intLayer(s, step, t, dt, m) {
   const i = step % 16, root = s.bars[Math.floor(step / 16) % s.bars.length][0] + (m.tr || 0);
   if (INT.danger) { if (i === 0 || i === 3) mHeart(t); }
-  if (FZ.on || WING.dark) return;
+  if (FZ.on || WING.hero) return;
   if (INT.lvl >= 2 && i % 2 === 1) mHat(t, 0.03);
   if (INT.lvl >= 3 && i % 2 === 1 && !Music.bassHit) mBass(root + 12, t, dt * 0.8);
 }
-/* ---- the Shadow Wing: while its encounter runs (or any of its ships is alive) the song turns dark, at the next beat. Same tune, same tempo, same bar:
-   the key drops a minor third, the drums thin out to a slow heartbeat on a long bass, the melody becomes a hollow bell with a tritone bell shadow, and a held chord
-   sits under it (the 'tense' sound of the Night; the OPL and FM arrangements use their own 'night' style). A deep boom marks the entry, a crash and a kick the return. ---- */
-const WING = { dark: false, cm: null };
+/* ---- the Shadow Wing: a worthy mini boss, so the music rises to it instead of going quiet. The Wing is spawned just above the screen when its encounter starts,
+   so that moment is the heads-up: an engine hum swells for 4 beats (the engines are already running, so it is a hum, not a start-up) with a snare roll building
+   under the last 2 beats, and at the peak the song turns heroic until the Wing is gone: same tempo and bar, the key a tone up, the melody twisted (busier, derived
+   from its own notes), brass doubling it an octave up, the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements
+   use their own lifted sound). No hit when it ends: the song simply returns at the next beat. ---- */
+const WING = { hero: false, pre: 0, cm: null, songs: new Map() };
 function wingOn() {
   if (typeof world === 'undefined' || app.state !== 'play' || app.tut) return false;
   if (world.enemies.some(e => e.type === 'boss' && !e.dead)) return false;
   return !!(world.enc && world.enc.id === 'wing' && world.enc.st === 'run') || world.enemies.some(e => e.type === 'wing' && !e.dead && !e.dying);
 }
-function wingDark(m) {
+function wingHero(m) {
   const d = Object.assign({}, m);
-  for (const k of ['oct', 'chug', 'layer', 'layerDown', 'dense', 'rolls', 'hats16', 'harm', 'harmType', 'sparkle', 'crash', 'drums', 'arp', 'lead']) delete d[k];
-  d.tr = (m.tr || 0) - 3;
-  if (m.opl || m.style) d.style = 'night';
-  else { d.kit = 'tense'; d.leadType = 'bell'; d.harm = 6; d.harmType = 'bell'; d.pad = true; }
+  for (const k of ['drums', 'arp', 'lead', 'crash']) delete d[k];
+  d.tr = (m.tr || 0) + 2;
+  if (m.opl) { d.harm = true; d.oct = 12; } else if (m.style) d.sparkle = true; else { d.oct = true; d.layer = 'brass'; d.layerDown = true; d.dense = true; d.pad = true; }
   return d;
 }
-function mBoom(t) {
-  const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(58, t); o.frequency.exponentialRampToValueAtTime(27, t + 1.3);
-  g.gain.setValueAtTime(0.6, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.7); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 1.8);
-  mNoise(t, 1.5, 0.14, 'lowpass', 420);
+function wingSong(s) { let w = WING.songs.get(s); if (!w) { try { w = twist(s); } catch (e) { w = s; } WING.songs.set(s, w); } return w; }
+function mHum(t, dur) { // the engines swell: a low saw hum that rises a little in pitch and opens up, with a rumble under it; it fades out after its peak
+  if (RETRO.on) return;
+  ensureNoise();
+  const g = actx.createGain(), f = actx.createBiquadFilter(), end = t + dur;
+  f.type = 'lowpass'; f.Q.value = 2.5; f.frequency.setValueAtTime(260, t); f.frequency.exponentialRampToValueAtTime(1500, end);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, end - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, end + 1.3);
+  for (const [f0, f1, type, v] of [[55, 70, 'sawtooth', 1], [55.9, 71.2, 'sawtooth', 1], [110, 140, 'triangle', 0.5], [165, 211, 'sawtooth', 0.25]]) {
+    const o = actx.createOscillator(), og = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, end); og.gain.value = v;
+    o.connect(og).connect(f); o.start(t); o.stop(end + 1.4);
+  }
+  f.connect(g).connect(musicBus);
+  const n = actx.createBufferSource(), nf = actx.createBiquadFilter(), ng = actx.createGain();
+  n.buffer = noiseBuf; n.loop = true; nf.type = 'bandpass'; nf.frequency.value = 220; nf.Q.value = 0.8;
+  ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.16, end - 0.05); ng.gain.exponentialRampToValueAtTime(0.0001, end + 1.0);
+  n.connect(nf).connect(ng).connect(musicBus); n.start(t); n.stop(end + 1.1);
 }
-function wingMods(m, step, t) {
-  if (step % 4 === 0) { const on = wingOn(); if (on !== WING.dark) { WING.dark = on; if (on) mBoom(t); else { crash(t); mKick(t); } } }
-  if (!WING.dark) return m;
-  if (!WING.cm || WING.cm.src !== m) WING.cm = { src: m, m: wingDark(m) };
+function wingMods(m, step, t, dt) {
+  if (step % 4 === 0) {
+    const on = wingOn();
+    if (on && !WING.hero && !WING.pre) { WING.pre = 16; mHum(t, dt * 16); }
+    else if (!on) { WING.pre = 0; WING.hero = false; }
+  }
+  if (WING.pre > 0) {
+    const k = 16 - WING.pre, sn = m.opl ? oSnare : m.style ? dSnare : mSnare;
+    if (k >= 8) sn(t, 0.15 + (k - 8) * 0.09);
+    if (--WING.pre === 0) { WING.hero = true; crash(t); mKick(t); }
+  }
+  if (!WING.hero) return m;
+  if (!WING.cm || WING.cm.src !== m) WING.cm = { src: m, m: wingHero(m) };
   return WING.cm.m;
 }
 function scheduleMusic() {
@@ -9263,11 +9285,11 @@ function scheduleMusic() {
     const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step);
     if (Music.step % 16 === 0) intBar(Music.next);
     Music.bassHit = false;
-    const mm = wingMods(sc2.m, Music.step, Music.next);
+    const mm = wingMods(sc2.m, Music.step, Music.next, dt), sg = WING.hero ? wingSong(sc2.song) : sc2.song;
     if (Music.step === 0 && Music.rep === 0 && mm.crash) crash(Music.next);
-    if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
-    else if (mm.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, mm); else if (mm.style) playStepFM(sc2.song, Music.step, Music.next, dt, mm); else playStepX(sc2.song, Music.step, Music.next, dt, mm);
-    frenzyLayer(sc2.song, Music.step, Music.next, dt, mm); intLayer(sc2.song, Music.step, Music.next, dt, mm);
+    if (RETRO.on) psgStep(sg, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
+    else if (mm.opl) playStepOPL(sg, Music.step, Music.next, dt, mm); else if (mm.style) playStepFM(sg, Music.step, Music.next, dt, mm); else playStepX(sg, Music.step, Music.next, dt, mm);
+    frenzyLayer(sg, Music.step, Music.next, dt, mm); intLayer(sg, Music.step, Music.next, dt, mm);
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
