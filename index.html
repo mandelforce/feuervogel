@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.15'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.16'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5069,6 +5069,27 @@ function buildPhoenix(bank) {
     for (const [a, y, col] of [[7, 6, '#fff6c0'], [8, 6, '#ffe9a0'], [7, 7, '#ffe9a0'], [8, 7, '#ffd060']]) free(a, y, col);
   }, false);
 }
+// The Falke (study Falke F2, a falcon in a peregrine's colours): the surprise ship for earning every other achievement (see ACH, 'falke'). Long pointed sickle wings with
+// dark bars and a pale leading edge, a slate blue back, a black cap and moustache, a white cheek, a yellow beak, a fanned tail with a dark band and a pale tip.
+// 41 x 40 with the outline. Built on first use (falkeSet).
+function buildFalke(bank) {
+  const R = ['#141a24', '#26323f', '#3c4e60', '#5b7186', '#8aa0b4', '#c4d2de'], CAP = '#10141c';
+  return halfShip(39, 38, bank, ({ shape, poly, dot, Q, lit }) => {
+    poly([[-1, 22], [3, 24], [6, 33], [3.6, 36.6], [-1, 37.6]], (a, y, e) => e.trail ? '#e8dcc0' : y === 32 || y === 33 ? '#141a24' : e.outer ? R[4] : Math.round(a) % 2 ? R[2] : Q(R, 0.62, e)); // the tail
+    poly([[2, 9], [8, 8], [14, 11], [18, 17], [19, 28], [16, 23], [13, 25], [11, 21], [8, 23], [6, 20], [2, 21]], (a, y, e) => {
+      if (e.lead) return '#e8ecf2';
+      if (e.lead2) return R[5];
+      if (e.trail || e.outer) return R[0];
+      return ((Math.floor((y * 0.9 - a * 0.55) / 2) % 2) + 2) % 2 && y > 11 ? R[1] : Q(R, 0.68 - a * 0.008 + lit(e), e); // dark bars across the feathers
+    }, true);
+    shape((a, y) => (a / 3.2) ** 2 + ((y - 16) / 10) ** 2 <= 1, (a, y, e) => Q(R, 0.55 + (e.s ? -a * 0.09 : a * 0.03) - (y - 12) * 0.008, e), false, 'rim');
+    for (let y = 10; y < 25; y++) dot(0, y, R[1]);
+    poly([[-1, 0], [2, 3], [3, 7], [1, 10], [-1, 10]], (a, y, e) => y < 6 ? CAP : a > 1.6 && y < 9 ? '#f0ece0' : Q(R, 0.74 - a * 0.06, e)); // black cap, white cheek
+    for (const [a, y, col] of [[0, 0, '#ffc830'], [0, 1, '#ffc830'], [1, 1, '#ffc830'], [0, 2, '#141018'], [2, 5, '#fff0b0'], [3, 7, CAP], [2, 8, CAP]]) dot(a, y, col); // beak, eye, moustache
+  });
+}
+let falkeCache = null;
+function falkeSet() { return falkeCache || (falkeCache = [-1, 0, 1].map(buildFalke)); }
 let phoenixCache = null;
 function phoenixSet() { return phoenixCache || (phoenixCache = [-1, 0, 1].map(buildPhoenix)); }
 // 0 = locked, 1 = unlocked and not yet looked at, 2 = unlocked and seen. Unlocked by finishing the ranked Campaign on Veteran (see campaignWon).
@@ -5152,7 +5173,8 @@ function unlockNacht() { if (!nachtOwned()) { store.set(KEY.nacht, 1); award('ra
 /* ================= achievements ================= */
 // achv maps an achievement id to { t: when, n: 1 until the list was opened, s: 1 until the ship picker was opened (the Rooster has no state of its own) }.
 // Only the ranked Campaign (START) counts: never the Tutorial, Practice or Endless. Retro Run earns Old School and nothing else.
-// Ships: Rookie gives the Rooster, Veteran the Phoenix, Ace the Raptor (the ships' own unlock flags above), all six secrets in one loop the Rotkehlchen.
+// Ships: Rookie gives the Rooster, Veteran the Phoenix, Ace the Raptor (the ships' own unlock flags above), all six secrets in one loop the Robin.
+// The last one, Falconer, is a surprise: hidden in the list, it is given the moment every other achievement is held (award, migrateAch), and its ship is the Falke.
 const ACH = [
   { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'Rooster' },
   { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'Phoenix' },
@@ -5163,7 +5185,8 @@ const ACH = [
   { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
   { id: 'chain', name: 'Chain Master', desc: 'Reach a x20 medal multiplier', icon: 'medal' },
   { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
-  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Swallow', icon: 'wings', skin: 'Swallow', hidden: true }
+  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Swallow', icon: 'wings', skin: 'Swallow', hidden: true },
+  { id: 'falke', name: 'Falconer', desc: 'Earn every other achievement', icon: 'wings', skin: 'Falke', hidden: true }
 ];
 let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
 const achHas = id => !!achv[id];
@@ -5174,8 +5197,9 @@ const CHAIN_GOAL = 20; // the medal chain has no cap now; a x20 chain is the goa
 let bossHit = false; // a ship was lost since this boss appeared (kept out of run: the replay checksum must not see it)
 function award(id, quiet) {
   const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
-  achv[id] = { t: Date.now(), n: 1, s: id === 'rookie' && !quiet ? 1 : 0 }; saveAchv();
+  achv[id] = { t: Date.now(), n: 1, s: (id === 'rookie' && !quiet) || id === 'falke' ? 1 : 0 }; saveAchv();
   if (!quiet) { app.toasts.push({ id, t: 0 }); sfx('extend'); }
+  if (id !== 'falke' && ACH.every(x => x.id === 'falke' || achv[x.id])) award('falke', quiet); // the surprise: every other achievement is held
   return true;
 }
 const rankedCamp = () => run.ranked && !!run.sortie && !run.endless && !app.tut;
@@ -5186,27 +5210,28 @@ function campaignWon() { // a Campaign loop is cleared (the congratulations): th
   if (run.conts === 0) award('nonet');
   if (run.camp && run.camp.secrets >= 6) { award('robin'); unlockRobin(); }
 }
-function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); } // players who already earned these keep them
+function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); if (ACH.every(x => x.id === 'falke' || achv[x.id])) award('falke', true); } // players who already earned these keep them (and whoever held every achievement before the Falke existed finds it waiting: the title says NEW SHIP UNLOCKED)
 const achCount = () => ACH.filter(x => achv[x.id]).length;
 const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
-const roosterOwned = () => achHas('rookie');
+const roosterOwned = () => achHas('rookie'), falkeOwned = () => achHas('falke');
+function useFalke() { return falkeOwned() && !!settings.falke; }
 function useRooster() { return roosterOwned() && !!settings.rooster; }
 function useNacht() { return nachtOwned() && !!settings.nacht; }
-const skinSet = () => retroSkin(useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet); // (a Retro Run: the retro copy, see retroSkin) // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
-const FLAME = () => useRaptor() || curSkinId() === 1 ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() ? ['#3aa0e8', '#8ad8ff', '#f0fcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
-function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); saveSettings(); }
+const skinSet = () => retroSkin(useFalke() ? falkeSet() : useRooster() ? goldSet() : useRaptor() ? raptorSet() : useRobin() ? robinSet() : usePhoenix() ? phoenixSet() : useNacht() ? nachtSet() : useGold() ? SPR.schnee : SPR.playerSet); // (a Retro Run: the retro copy, see retroSkin) // the Schneevogel is the reward for all six secrets; the golden Rooster is player 2's ship
+const FLAME = () => useRaptor() || curSkinId() === 1 ? ['#18c4b0', '#5ff0dc', '#e0fff8'] : usePhoenix() ? ['#ff4a1a', '#ffb838', '#fff6c0'] : useNacht() || useFalke() ? ['#3aa0e8', '#8ad8ff', '#f0fcff'] : ['#ff7a3a', '#ffb03a', '#fff0a0'];
+function setSkin(g) { settings.gold = g === 1 && arts.size >= 6; settings.nacht = g === 2 && nachtOwned(); settings.phoenix = g === 3 && phoenixOwned(); settings.robin = g === 4 && robinOwned(); settings.raptor = g === 5 && raptorOwned(); settings.rooster = g === 6 && roosterOwned(); settings.falke = g === 7 && falkeOwned(); saveSettings(); }
 // the ship picker on the title screen: tap the ship to see the ships you own
 // The app: what screen the game is on and how it got there, outside any one run or stage. Boot, title, play, pause and game over (state), messages, the continue prompt and credits, stage results, the tutorial, the game over scene and its escalation, the leaderboard panel and run reports, resume after a reload, and the title menu focus.
 const app = { toasts: [], snap: null, snapN: 0, shipPick: false, booting: true, bootT: 0, preboot: null, state: 'title', paused: false, overT: 0, msg: null, cont: 0, credits: 0, congrats: null, congratsShown: 0, fade: null, results: null, tut: null, tutShown: '', diffNext: null, titlePress: null, flyby: null, gameOvers: null, escLevel: 0, newBestT: 0, newBestDone: false, localBest: -1, lbOpen: false, lbRun: null, lbView: null, rr: null, rrIn: 'key', rrLast: null, lastLocalT: 0, lbAlert: null, lbAlertBoard: null, stageMark: null, resumeOffer: null, titleFocus: 0, padSeen: -9999, gfxLost: false, lastBodyState: '', resumeT: 0, panelPaused: false };
 
-const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : [], roosterOwned() ? [[6, goldSet()]] : []);
+const shipList = () => [[0, SPR.playerSet]].concat(arts.size >= 6 ? [[1, SPR.schnee]] : [], nachtOwned() ? [[2, nachtSet()]] : [], phoenixOwned() ? [[3, phoenixSet()]] : [], robinOwned() ? [[4, robinSet()]] : [], raptorOwned() ? [[5, raptorSet()]] : [], roosterOwned() ? [[6, goldSet()]] : [], falkeOwned() ? [[7, falkeSet()]] : []);
 const PICK_CARD = { w: 52, h: 64, gap: 8, y: 132 };
 function pickX0(n) { return Math.round(W / 2 - (n * PICK_CARD.w + (n - 1) * PICK_CARD.gap) / 2); }
-function openShipPick() { app.shipPick = true; if (achv.rookie && achv.rookie.s) { achv.rookie.s = 0; saveAchv(); } app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
+function openShipPick() { app.shipPick = true; for (const k of ['rookie', 'falke']) if (achv[k] && achv[k].s) { achv[k].s = 0; saveAchv(); } app.pickPage = Math.floor(Math.max(0, shipList().findIndex(e => e[0] === curSkinId())) / PICK_PER); if (nachtState() === 1) store.set(KEY.nacht, 2); if (phoenixState() === 1) store.set(KEY.phoenix, 2); if (robinState() === 1) store.set(KEY.robin, 2); if (raptorState() === 1) store.set(KEY.raptor, 2); sfx('tick'); }
 // The picker shows three ships a page. With more than three, arrow buttons at the left and right edges turn the page (taps, or the left and right keys), and dots between the title and the cards show which page it is.
-const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SWAN', 'SWALLOW', 'PHOENIX', 'ROBIN', 'RAPTOR', 'ROOSTER'];
+const PICK_PER = 3, PICK_ARW = 16, PICK_NAMES = ['FEUERVOGEL', 'SWAN', 'SWALLOW', 'PHOENIX', 'ROBIN', 'RAPTOR', 'ROOSTER', 'FALKE'];
 const pickPages = n => Math.max(1, Math.ceil(n / PICK_PER));
-const curSkinId = () => useRooster() ? 6 : useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
+const curSkinId = () => useFalke() ? 7 : useRooster() ? 6 : useRaptor() ? 5 : useRobin() ? 4 : usePhoenix() ? 3 : useNacht() ? 2 : useGold() ? 1 : 0;
 const pickPage = n => clamp(app.pickPage | 0, 0, pickPages(n) - 1);
 function cardRect(i, n) { // the card for ship i of n: the cards of the last page are centred
   const page = Math.floor(i / PICK_PER), inPage = Math.min(PICK_PER, n - page * PICK_PER), c = i % PICK_PER;
@@ -17771,15 +17796,15 @@ function drawPlayer() {
   if (fk !== 1) { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(fk, fk); ctx.translate(-p.x, -p.y); ctx.globalAlpha = 0.25; dk(p.x + 30 * (fk - 1), p.y + 40 * (fk - 1), 6, '#0a0812'); ctx.globalAlpha = 1; }
   const fl = 4 + ((gf >> 1) & 1) * 2, tl = !p2 && curSkinId() === 5, phx = !p2 && curSkinId() === 3; // (phx: the Phoenix, whose flames start between its tail plumes and run 3 px longer) // the Raptor: a symmetric tail that ends two pixels higher, so the flames sit under its tips and start 2 pixels higher
   const bi = p.bank < -0.35 ? 0 : p.bank > 0.35 ? 2 : 1, sw = !p2 && useNacht(); // sw: the Swallow, whose flames start at the nozzles of its wing nacelles (7 px out, 5 on the wing squeezed in a turn)
-  const swan = !p2 && curSkinId() === 1, robin = !p2 && curSkinId() === 4, sb = bi - 1; // the Swan's flames start at the nacelles in its wing roots and run 4 px longer (its tail is longer); these and the Robin's tail move a pixel with the body in a turn
+  const swan = !p2 && curSkinId() === 1, robin = !p2 && (curSkinId() === 4 || curSkinId() === 7), falke = !p2 && curSkinId() === 7, sb = bi - 1; // (the Falke's flames sit like the Robin's, under its tail, 3 px longer) // the Swan's flames start at the nacelles in its wing roots and run 4 px longer (its tail is longer); these and the Robin's tail move a pixel with the body in a turn
   const FLP = sw ? [[bi === 0 ? -5 : -7, 6], [bi === 2 ? 5 : 7, 6]] : swan ? [[-5 + sb, 11], [5 + sb, 11]] : phx ? [[-4 + sb, 10], [4 + sb, 10]] : robin ? [[-3 + sb, 12], [3 + sb, 12]] : tl ? (useRaptor() ? [[-4, 15], [3, 16]] : [[-4, 12], [3, 13]]) : [[-3, 12], [3, 13]];
   for (const [ox, top] of FLP) { // (the Raptor's wings have gaps along the trailing edge: its flames start at the tail end, so none shows above the tail)
-    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : swan ? -4 : phx ? -3 : 0;
+    const FC = p2 ? ['#ff7a3a', '#ffb03a', '#fff0a0'] : FLAME(), up = tl ? 2 : swan ? -4 : phx || falke ? -3 : 0;
     ctx.fillStyle = FC[0]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, fl + 16 - top - up);
     ctx.fillStyle = FC[1]; ctx.fillRect(Math.round(p.x + ox) - 1, Math.round(p.y + top), 3, 2);
     ctx.fillStyle = FC[2]; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + top), 1, fl + 14 - top - up);
   }
-  { const gc = sw ? '#8ad8ff' : swan ? '#5ff0dc' : '#ff9a4a', own = sw || swan || robin || phx, gy = p.y + (swan ? 21 : phx ? 20 : 17); ctx.globalAlpha = 0.35; dk(p.x + (own ? FLP[0][0] : -3), gy, 3, gc); dk(p.x + (own ? FLP[1][0] : 3), gy, 3, gc); ctx.globalAlpha = 1; } // the glow at the flames' ends
+  { const gc = sw || falke ? '#8ad8ff' : swan ? '#5ff0dc' : '#ff9a4a', own = sw || swan || robin || phx, gy = p.y + (swan ? 21 : phx || falke ? 20 : 17); ctx.globalAlpha = 0.35; dk(p.x + (own ? FLP[0][0] : -3), gy, 3, gc); dk(p.x + (own ? FLP[1][0] : 3), gy, 3, gc); ctx.globalAlpha = 1; } // the glow at the flames' ends
   if (fk === 1) { drawGlowBehind(p, 1); superAura(p); }
   const sp = (p2 ? SPR.playerSet : skinSet())[bi]; // in two-player games player 1 keeps the original skin, player 2 has the Rooster
   const sx = Math.round(p.x) + (sp.w & 1) / 2; // a sprite of odd width has a centre column: it is kept on the pixel the flames are measured from (spr alone would put it a pixel left half the time)
@@ -17998,7 +18023,7 @@ function renderMain() {
         ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) + 1);
         if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
     }
-    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1 || (achv.rookie && achv.rookie.s)) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
+    if ((nachtState() === 1 || phoenixState() === 1 || robinState() === 1 || raptorState() === 1 || (achv.rookie && achv.rookie.s) || (achv.falke && achv.falke.s)) && !app.shipPick && gf % 100 < 78) textS('NEW SHIP UNLOCKED', W / 2, TITLE_SHIP_Y + 46, '#a8f6dc', 1, 'center', '#4ccfae'); // tap the ship to see it
     drawTitleCredit(H - TY - 11);
     if (app.shipPick) drawShipPick();
     ctx.restore();
@@ -18271,7 +18296,7 @@ function achIcon(name, color) {
   return c;
 }
 // a small picture of the reward ship, and progress for goals that count something across runs
-const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Swan: () => SPR.schnee, Robin: () => robinSet(), Swallow: () => nachtSet() };
+const ACH_SHIP = { Rooster: () => goldSet(), Phoenix: () => phoenixSet(), Raptor: () => raptorSet(), Swan: () => SPR.schnee, Robin: () => robinSet(), Swallow: () => nachtSet(), Falke: () => falkeSet() };
 const ACH_PROG = { snow: () => [Math.min(arts.size, 6), 6], chain: () => [Math.min(chainBest, CHAIN_GOAL), CHAIN_GOAL], robin: () => [rankedCamp() && run.camp ? Math.min(run.camp.secrets | 0, 6) : 0, 6] }; // Eagle Eye counts the secrets of the Campaign loop in progress
 function achShip(name) {
   try { const set = ACH_SHIP[name] && ACH_SHIP[name](), spr = set && (set[1] || set), src = spr && (spr.c || spr); if (!src || !src.width) return null;
