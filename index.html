@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.16'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.17'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5174,7 +5174,7 @@ function unlockNacht() { if (!nachtOwned()) { store.set(KEY.nacht, 1); award('ra
 // achv maps an achievement id to { t: when, n: 1 until the list was opened, s: 1 until the ship picker was opened (the Rooster has no state of its own) }.
 // Only the ranked Campaign (START) counts: never the Tutorial, Practice or Endless. Retro Run earns Old School and nothing else.
 // Ships: Rookie gives the Rooster, Veteran the Phoenix, Ace the Raptor (the ships' own unlock flags above), all six secrets in one loop the Robin.
-// The last one, Falconer, is a surprise: hidden in the list, it is given the moment every other achievement is held (award, migrateAch), and its ship is the Falke.
+// The last two are hidden in the list (a hint says how to find them): Raven's Roost (the Swallow, unlocked at Ravenhold) and Falconer, given when the carrier is reclaimed: a ranked Campaign cleared to the credits scene (campaignWon). Its ship is the Falke.
 const ACH = [
   { id: 'rookie', name: 'Rookie Pilot', desc: 'Finish the Campaign on Rookie', icon: 'wings', skin: 'Rooster' },
   { id: 'veteran', name: 'Veteran Pilot', desc: 'Finish the Campaign on Veteran', icon: 'wings', skin: 'Phoenix' },
@@ -5185,8 +5185,8 @@ const ACH = [
   { id: 'untouch', name: 'Untouchable', desc: 'Beat a boss without being hit', icon: 'shield' },
   { id: 'chain', name: 'Chain Master', desc: 'Reach a x20 medal multiplier', icon: 'medal' },
   { id: 'retro', name: 'Old School', desc: 'Finish Retro Run', icon: 'pad' },
-  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Swallow', icon: 'wings', skin: 'Swallow', hidden: true },
-  { id: 'falke', name: 'Falconer', desc: 'Earn every other achievement', icon: 'wings', skin: 'Falke', hidden: true }
+  { id: 'raven', name: 'Raven\u2019s Roost', desc: 'Unlock the Swallow', icon: 'wings', skin: 'Swallow', hidden: true, hint: 'A secret ship, found at Ravenhold' },
+  { id: 'falke', name: 'Falconer', desc: 'Reclaim the carrier', icon: 'wings', skin: 'Falke', hidden: true, hint: 'A secret ship: reclaim the carrier' }
 ];
 let achv = store.getJSON(KEY.achv, {}); if (!achv || typeof achv !== 'object' || Array.isArray(achv)) achv = {};
 const achHas = id => !!achv[id];
@@ -5199,7 +5199,6 @@ function award(id, quiet) {
   const a = ACH.find(x => x.id === id); if (!a || achv[id]) return false;
   achv[id] = { t: Date.now(), n: 1, s: (id === 'rookie' && !quiet) || id === 'falke' ? 1 : 0 }; saveAchv();
   if (!quiet) { app.toasts.push({ id, t: 0 }); sfx('extend'); }
-  if (id !== 'falke' && ACH.every(x => x.id === 'falke' || achv[x.id])) award('falke', quiet); // the surprise: every other achievement is held
   return true;
 }
 const rankedCamp = () => run.ranked && !!run.sortie && !run.endless && !app.tut;
@@ -5208,9 +5207,10 @@ function campaignWon() { // a Campaign loop is cleared (the congratulations): th
   const d = run.diff | 0; award(['rookie', 'veteran', 'ace'][d]);
   if (d === 1) unlockPhoenix(); else if (d === 2) unlockRaptor();
   if (run.conts === 0) award('nonet');
+  award('falke'); // the carrier is reclaimed: the credits scene follows
   if (run.camp && run.camp.secrets >= 6) { award('robin'); unlockRobin(); }
 }
-function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); if (ACH.every(x => x.id === 'falke' || achv[x.id])) award('falke', true); } // players who already earned these keep them (and whoever held every achievement before the Falke existed finds it waiting: the title says NEW SHIP UNLOCKED)
+function migrateAch() { if (arts.size >= 6) award('snow', true); if (nachtOwned()) award('raven', true); } // players who already earned these keep them
 const achCount = () => ACH.filter(x => achv[x.id]).length;
 const achNew = () => ACH.some(x => achv[x.id] && achv[x.id].n);
 const roosterOwned = () => achHas('rookie'), falkeOwned = () => achHas('falke');
@@ -18316,7 +18316,7 @@ function openAch(fromMenu) {
     const ib = document.createElement('div'); ib.className = 'ib'; ib.appendChild(achIcon(hide ? 'lock' : a.icon, on ? '#f4d050' : '#5a4e80')); row.appendChild(ib);
     const am = document.createElement('div'); am.className = 'am';
     const at = document.createElement('div'); at.className = 'at'; at.textContent = hide ? '???' : a.name; am.appendChild(at);
-    const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? 'A secret ship' : a.desc; am.appendChild(ad);
+    const ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = hide ? (a.hint || 'A secret ship') : a.desc; am.appendChild(ad);
     if (a.skin && !hide) { const ar = document.createElement('div'); ar.className = 'ar'; ar.textContent = 'REWARD: ' + a.skin + ' ship'; am.appendChild(ar); }
     const pr = ACH_PROG[a.id]; if (pr && !on) { const [n, m] = pr(), ap = document.createElement('div'); ap.className = 'ap'; ap.appendChild(document.createTextNode(n + '/' + m)); const bar = document.createElement('b'), fi = document.createElement('i'); fi.style.width = (n / m * 100) + '%'; bar.appendChild(fi); ap.appendChild(bar); am.appendChild(ap); }
     row.appendChild(am);
