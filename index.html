@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.21'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8611,7 +8611,7 @@ function resetWorld() { world.chunkJobs = []; world.chunks = new Map(); world.ch
 let actx = null, muted = false, noiseBuf = null, unlocked = false;
 const musicBase = () => settings.musicOn === false ? 0 : 0.55 * settings.music / 100, sfxBase = () => settings.sfxOn === false ? 0 : 1.0 * settings.sfx / 100;
 function applyVolumes() { if (!actx) return; musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(musicBase(), actx.currentTime); sfxBus.gain.setValueAtTime(sfxBase(), actx.currentTime); }
-let musicBus = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
+let musicBus = null, musicLP = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
 const IOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 muted = store.get(KEY.muted) === '1';
 function setupBuses() {
@@ -8628,7 +8628,8 @@ function setupBuses() {
     } catch (e) { mediaEl = null; }
   }
   if (!routed) master.connect(actx.destination);
-  musicBus = actx.createGain(); musicBus.gain.value = musicBase(); musicBus.connect(master);
+  musicLP = actx.createBiquadFilter(); musicLP.type = 'lowpass'; musicLP.Q.value = 0.7; musicLP.frequency.value = 20000; musicLP.connect(master); // the intensity filter (see INT)
+  musicBus = actx.createGain(); musicBus.gain.value = musicBase(); musicBus.connect(musicLP);
   sfxBus = actx.createGain(); sfxBus.gain.value = sfxBase(); sfxBus.connect(master);
   const dl = actx.createDelay(1), fb = actx.createGain(), wet = actx.createGain();
   dl.delayTime.value = 0.24; fb.gain.value = 0.28; wet.gain.value = 0.3;
@@ -9185,17 +9186,46 @@ function frenzyLayer(s, step, t, dt, m) {
   if (i === 4 || i === 12) mSnare(t, 0.7);
   if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5);
 }
+/* ---- intensity: how much is going on in the fight, 0 (calm) to 3 (all out), read from the game and applied on bar lines.
+   It works on any song and arrangement: a low-pass filter on the whole music opens with the intensity (0 is muffled, 3 is wide open),
+   and the top levels add 16th hats and an off-beat bass on top. The last life adds a heartbeat. The frenzy always counts as 3. ---- */
+const INT = { lvl: 1, ema: 3, force: null, danger: false, cut: [2600, 6500, 13000, 20000], T: [2, 7, 14] };
+function intRaw() { // a measure of what is on screen: planes, their bullets, and a boss fight (more as the boss weakens)
+  if (typeof world === 'undefined' || app.state !== 'play') return INT.ema;
+  let n = 0, boss = null;
+  for (const e of world.enemies) { if (e.dead || e.dying) continue; if (e.type === 'boss') boss = e; else if (!e.ground && e.y > -10 && e.y < H) n++; }
+  let v = n + world.ebul.length / 5;
+  if (boss) { let hp = 0, mx = 0; if (boss.parts) for (const q of boss.parts) { hp += Math.max(0, q.hp); mx += q.maxhp; } else { hp = boss.hp; mx = boss.maxhp; } v = Math.max(v, 8 + 8 * (1 - clamp(hp / Math.max(1, mx), 0, 1))); }
+  return v;
+}
+function intPick() { // thresholds with a margin on the way down, so the level does not flicker
+  let l = INT.lvl; while (l < 3 && INT.ema > INT.T[l]) l++; while (l > 0 && INT.ema < INT.T[l - 1] - 1.5) l--; return l;
+}
+function intBar(t) { // at a bar line: choose the level, move the filter, set the danger state
+  INT.lvl = FZ.on ? 3 : INT.force !== null ? INT.force : intPick();
+  INT.danger = typeof run !== 'undefined' && app.state === 'play' && run.lives === 0 && !run.twoP && !app.tut;
+  if (musicLP) musicLP.frequency.setTargetAtTime(RETRO.on ? 20000 : INT.cut[INT.lvl], t, 0.3);
+}
+function mHeart(t) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(62, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.14); g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.22); }
+function intLayer(s, step, t, dt, m) {
+  const i = step % 16, root = s.bars[Math.floor(step / 16) % s.bars.length][0] + (m.tr || 0);
+  if (INT.danger) { if (i === 0 || i === 3) mHeart(t); }
+  if (FZ.on) return;
+  if (INT.lvl >= 2 && i % 2 === 1) mHat(t, 0.03);
+  if (INT.lvl >= 3 && i % 2 === 1) mBass(root + 12, t, dt * 0.8);
+}
 function scheduleMusic() {
   if (!actx || !Music.song) return;
   if (muted || app.paused || actx.state !== 'running') { Music.next = actx.currentTime + 0.05; return; }
   if (Music.next < actx.currentTime) Music.next = actx.currentTime + 0.02;
-  const A = Music.arr;
+  const A = Music.arr; const r = intRaw(); INT.ema += (r - INT.ema) * (r > INT.ema ? 0.04 : 0.01);
   while (Music.next < actx.currentTime + 0.12) {
     const sc2 = A[Music.sec], dt = dtAt(sc2, Music.rep * sc2.song.len + Music.step);
+    if (Music.step % 16 === 0) intBar(Music.next);
     if (Music.step === 0 && Music.rep === 0 && sc2.m.crash) crash(Music.next);
     if (RETRO.on) psgStep(sc2.song, Music.step, Music.next, dt, sc2.m); // Retro Run: every arrangement on the chip
     else if (sc2.m.opl) playStepOPL(sc2.song, Music.step, Music.next, dt, sc2.m); else if (sc2.m.style) playStepFM(sc2.song, Music.step, Music.next, dt, sc2.m); else playStepX(sc2.song, Music.step, Music.next, dt, sc2.m);
-    frenzyLayer(sc2.song, Music.step, Music.next, dt, sc2.m);
+    frenzyLayer(sc2.song, Music.step, Music.next, dt, sc2.m); intLayer(sc2.song, Music.step, Music.next, dt, sc2.m);
     Music.next += dt;
     if (++Music.step >= sc2.song.len) { Music.step = 0; if (++Music.rep >= sc2.reps) { Music.rep = 0; if (A.once && Music.sec + 1 >= A.length) { Music.song = null; return; } Music.sec = (Music.sec + 1) % A.length; } }
   }
