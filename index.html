@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.22'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.23'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8611,7 +8611,7 @@ function resetWorld() { world.chunkJobs = []; world.chunks = new Map(); world.ch
 let actx = null, muted = false, noiseBuf = null, unlocked = false;
 const musicBase = () => settings.musicOn === false ? 0 : 0.55 * settings.music / 100, sfxBase = () => settings.sfxOn === false ? 0 : 1.0 * settings.sfx / 100;
 function applyVolumes() { if (!actx) return; musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(musicBase(), actx.currentTime); sfxBus.gain.setValueAtTime(sfxBase(), actx.currentTime); }
-let musicBus = null, musicLP = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
+let musicBus = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
 const IOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 muted = store.get(KEY.muted) === '1';
 function setupBuses() {
@@ -8628,8 +8628,7 @@ function setupBuses() {
     } catch (e) { mediaEl = null; }
   }
   if (!routed) master.connect(actx.destination);
-  musicLP = actx.createBiquadFilter(); musicLP.type = 'lowpass'; musicLP.Q.value = 0.7; musicLP.frequency.value = 20000; musicLP.connect(master); // the intensity filter (see INT)
-  musicBus = actx.createGain(); musicBus.gain.value = musicBase(); musicBus.connect(musicLP);
+  musicBus = actx.createGain(); musicBus.gain.value = musicBase(); musicBus.connect(master);
   sfxBus = actx.createGain(); sfxBus.gain.value = sfxBase(); sfxBus.connect(master);
   const dl = actx.createDelay(1), fb = actx.createGain(), wet = actx.createGain();
   dl.delayTime.value = 0.24; fb.gain.value = 0.28; wet.gain.value = 0.3;
@@ -9190,9 +9189,8 @@ function frenzyLayer(s, step, t, dt, m) {
   if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5);
 }
 /* ---- intensity: how much is going on in the fight, 0 (calm) to 3 (all out), read from the game and applied on bar lines.
-   It works on any song and arrangement: a low-pass filter on the whole music opens with the intensity (0 is muffled, 3 is wide open),
-   and the top levels add 16th hats and an off-beat bass on top. The last life adds a heartbeat. The frenzy always counts as 3. ---- */
-const INT = { n: 0, lvl: 1, ema: 3, ref: 5.5, refDiff: -1, boss: 0, force: null, danger: false, cut: [2600, 6500, 13000, 20000], T: [0.35, 1.15, 1.8], PRIOR: [3.5, 5.5, 6] };
+   It works on any song and arrangement: the top levels add 16th hats and an off-beat bass on top of the song (there is no filter). The last life adds a heartbeat. The frenzy always counts as 3. ---- */
+const INT = { n: 0, lvl: 1, ema: 3, ref: 5.5, refDiff: -1, boss: 0, force: null, danger: false, T: [0.35, 1.15, 1.8], PRIOR: [3.5, 5.5, 6] };
 /* The level is relative: it compares the load now with the load this player usually sees (INT.ref). Each difficulty starts from its own typical load
    (PRIOR: Easy, Normal, Hard; measured with the balance bot, boss fights left out), and the reference follows the player's recent average (about 45 s),
    within 0.6 to 1.8 times the prior, so a strong weapon, a good player or a later stage does not leave the music stuck at 3 or at 0. */
@@ -9216,10 +9214,9 @@ function intPick() { // the load against the reference, with a margin on the way
   while (l < 3 && x > INT.T[l]) l++; while (l > 0 && x < INT.T[l - 1] - 0.15) l--;
   return Math.max(l, INT.boss);
 }
-function intBar(t) { // at a bar line: choose the level, move the filter, set the danger state
+function intBar(t) { // at a bar line: choose the level, set the danger state
   INT.lvl = FZ.on ? 3 : INT.force !== null ? INT.force : intPick();
   INT.danger = typeof run !== 'undefined' && app.state === 'play' && run.lives === 0 && !run.twoP && !app.tut;
-  if (musicLP) musicLP.frequency.setTargetAtTime(RETRO.on ? 20000 : INT.cut[INT.lvl], t, 0.3);
 }
 function mHeart(t) { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(62, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.14); g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.22); }
 function intLayer(s, step, t, dt, m) {
