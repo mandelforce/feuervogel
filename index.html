@@ -4521,7 +4521,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.37'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.39'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15873,7 +15873,8 @@ function pbTick() { // every two seconds, update the readout
   PB.shown = 'PB ' + (PB.fired * 0.5).toFixed(1) + '/s AIR ' + (PB.fired ? PB.air / PB.fired : 0).toFixed(1); PB.fired = PB.air = 0;
 }
 // ---------- Arc: a rope of lightning to the front that trails where the ship was ----------
-/* The Arc is a whip. Each strand runs ahead from the nose towards the top of the screen and stops at the first thing it touches. Its far end
+/* The Arc is a whip. Each strand runs ahead from the nose as far as the other guns' shots fly (they end after 0.6 to 0.7 of the screen height; the
+   super Seekers after 0.9, and so the super Arc) and stops at the first thing it touches. Its far end
    follows the ship late (the strand's spine is the ship's x of some frames ago, the further out the later: ARC_LAG), so flying sideways sweeps
    the tail across the screen, and the end hooks back when it finds nothing. One strand at level 1, two at 2, three at 3; level 4 keeps three and
    each tip makes one short jump to a neighbour. The super Arc (5): five strands, the middle three bend to the nearest targets, the outer two lash
@@ -15884,11 +15885,11 @@ function pbTick() { // every two seconds, update the readout
 const arcs = [];
 const ARC_STEP = 4, ARC_GAP = 6, ARC_LAG = 0.085, ARC_HIST = 48, ARC_GROW = 6, ARC_BEAT = 4;
 const ARC_LV = [null,
-  { n: 1, reach: 0.92, dmg: 0.95, jumps: 0, hop: 0,  cone: 8,  slope: 0.12, w: 3 },
-  { n: 2, reach: 0.92, dmg: 0.58, jumps: 0, hop: 0,  cone: 10, slope: 0.12, w: 3 },
-  { n: 3, reach: 0.92, dmg: 0.48, jumps: 0, hop: 0,  cone: 12, slope: 0.12, w: 3 },
-  { n: 3, reach: 0.92, dmg: 0.55, jumps: 1, hop: 44, cone: 12, slope: 0.12, w: 3 },
-  { n: 5, reach: 1.3,  dmg: 4, bd: 1.5, jumps: 7, hop: 84, cone: 30, slope: 0.5, w: 4 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
+  { n: 1, reach: 0.65, dmg: 0.95, jumps: 0, hop: 0,  cone: 8,  slope: 0.12, w: 3 },
+  { n: 2, reach: 0.65, dmg: 0.58, jumps: 0, hop: 0,  cone: 10, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.65, dmg: 0.48, jumps: 0, hop: 0,  cone: 12, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.65, dmg: 0.55, jumps: 1, hop: 44, cone: 12, slope: 0.12, w: 3 },
+  { n: 5, reach: 0.9,  dmg: 4, bd: 1.5, jumps: 7, hop: 84, cone: 30, slope: 0.5, w: 4 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
 const arcDmg = (A, t) => A.bd === undefined ? A.dmg : (t.part || t.e.big || t.e.hp > SUP_ONE * hpm()) ? A.bd : A.dmg;
 const arcGrown = new WeakMap(); // a jump's target -> { f: the frame it was last held, n: for how many frames }
 const arcOpen = e => !(e.dead || e.dying || e.untarget || e.crash);
@@ -15923,9 +15924,9 @@ function arcBend(x0, y0, x1, y1, wob, ph, f = 1) { // a strand bent to a point: 
   for (let k = 0; k <= n * f; k++) { const u = k / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; pts.push([a * x0 + b * x0 + c * x1 + Math.sin(u * PI) * Math.sin(u * 9 - gf * 0.25 + ph) * wob, a * y0 + b * cy + c * y1]); }
   return pts;
 }
-function arcJump(a, b, f) { // a jump from one target to the next: a bow that sways, grown to the share f of its length
-  const pts = [], d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.max(4, d / ARC_STEP | 0), bow = 18 * Math.sin(gf * 0.11 + a.x * 0.3) / d, cx = (a.x + b.x) / 2 - (b.y - a.y) * bow, cy = (a.y + b.y) / 2 + (b.x - a.x) * bow;
-  for (let k = 0; k <= n * f; k++) { const u = k / n, p = (1 - u) * (1 - u), q = 2 * u * (1 - u), r = u * u; pts.push([p * a.x + q * cx + r * b.x + Math.sin(u * 8 - gf * 0.4) * 2 * Math.sin(u * PI), p * a.y + q * cy + r * b.y]); }
+function arcJump(a, b, f) { // a jump from one target to the next: a straight bolt with hard corners that changes every other frame, grown to the share f of its length
+  const pts = [], d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.max(3, Math.round(d / 9)), nx = -(b.y - a.y) / d, ny = (b.x - a.x) / d;
+  for (let k = 0; k <= n * f; k++) { const u = k / n, o = k === 0 || k === n ? 0 : arcNz(k + a.x, gf >> 1) * 9; pts.push([a.x + (b.x - a.x) * u + nx * o, a.y + (b.y - a.y) * u + ny * o]); }
   return pts;
 }
 function arcHit(t, d) { if (t.e.type === 'troop') { for (let k = 0; k < 8; k++) world.parts.push({ kind: 'spark', layer: 'g', x: t.x + rnd(-3, 3), y: t.y + rnd(-4, 3), vx: rnd(-0.8, 0.8), vy: rnd(-1, 0.3), life: 12, max: 12, col: k % 2 ? '#a8e0ff' : '#ffffff' }); smokePuff(t.x, t.y - 2); }
@@ -15964,7 +15965,7 @@ function fireArc(p, L, beat) {
       links.push({ pts: arcJump(cur, nb, f), hit: f >= 1 ? nb : null }); if (snd && n === ARC_GROW && (!g || g.f !== gf)) zapSfx('jump'); // (a jump lands)
       used.add(nb.e); cur = nb; if (f < 1) break;
     } }
-  for (const st of sts) arcs.push({ pts: st.pts, w: A.w, hit: !!st.hit, sup: L >= 5, f: gf });
+  sts.forEach((st, i) => arcs.push({ pts: st.pts, w: A.w, hit: !!st.hit, sup: L >= 5, f: gf, edge: i === 0 ? -1 : i === sts.length - 1 ? 1 : 0 })); // (edge: the outermost strands, which throw spurs outward)
   for (const st of links) arcs.push({ pts: st.pts, w: 2, hit: !!st.hit, link: true, f: gf });
   const t0 = (sts.find(st => st.hit) || {}).hit, key = t0 ? t0.part || t0.e : null;
   if (snd) { arcRope(L, !!t0, sweep); if (key && key !== p.arcLock) zapSfx(t0.e.type === 'troop' ? 'troop' : 'main'); } // the buzz while the rope is out, a crackle as it takes a new target
@@ -15976,23 +15977,41 @@ function fireArc(p, L, beat) {
   for (const st of links) if (st.hit && live(st.hit)) arcHit(st.hit, arcDmg(A, st.hit) * 0.5);
   return near;
 }
-// The look: a thick rope with a white core, shaking a little, bright knots that travel out along it, a glow where it holds a target and a
-// forked end where it holds none. Drawn from the frame count only (no random numbers).
+// The look: lightning. A soft glow follows the strand's smooth curve, so the swing stays readable; inside it the core runs in straight pieces with
+// hard corners that change every third frame. Kinks (a sharp sideways jag, flashing white) travel out along the strand, and on the outermost
+// strands a short forked spur jumps off at each kink. A strand flickers between three levels of brightness, and now and then its white core drops
+// out for a frame. Where it holds a target: a burst of six spikes, new every frame. Where it holds none: a forked end. At the nose: a four-point
+// spark and a small arc across. A jump is a straight bolt with hard corners and one fork. Drawn from the frame count only (no random numbers).
+const arcNz = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v) - 0.5; }; // noise that holds still for as long as its inputs do
 function drawArcs() {
-  const c = WPN.A.ramp, cap = ctx.lineCap; let f0 = -1, idx = 0; for (const a of arcs) if (a.f > f0) f0 = a.f;
-  const nz = (k, j) => { const v = Math.sin(k * 12.9898 + gf * 78.233 + j * 37.719) * 43758.5453; return v - Math.floor(v) - 0.5; };
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const c = WPN.A.ramp, cap = ctx.lineCap, join = ctx.lineJoin; let f0 = -1, idx = 0; for (const a of arcs) if (a.f > f0) f0 = a.f;
+  const line = (P, col, lw, al) => { ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (let k = 1; k < P.length; k++) ctx.lineTo(P[k][0], P[k][1]); ctx.stroke(); };
   for (const a of arcs) { const n = a.pts.length; if (a.f !== f0 || n < 2) continue; idx++;
-    const hot = !!a.sup, w = a.w, jit = a.link ? 2.4 : 1.4, P = a.pts.map((q, k) => k === 0 || k === n - 1 ? q : [q[0] + nz(k, idx) * jit, q[1] + nz(k, idx + 9) * jit * 0.5]);
-    for (const [col, lw, al] of [[hot ? c[3] : c[2], w + 3, 0.5], [c[3], w + 1, 0.95], ['#ffffff', Math.max(1, w - 2 + (hot ? 1 : 0)), 1]]) { ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (let k = 1; k < n; k++) ctx.lineTo(P[k][0], P[k][1]); ctx.stroke(); }
-    for (let k = 3; k < n - 1; k++) { const ph = (((k * ARC_STEP - gf * 2.4 + idx * 23) % 62) + 62) % 62; if (ph >= ARC_STEP) continue; ctx.globalAlpha = 0.9; dk(P[k][0], P[k][1], w * 0.5 + 2, c[3]); ctx.globalAlpha = 1; dk(P[k][0], P[k][1], w * 0.5 + 0.6, '#ffffff'); }
+    const hot = !!a.sup, w = a.w, P = a.pts.map(q => [q[0], q[1]]), marks = [];
+    if (!a.link) { for (let k = 3; k < n - 1; k++) if ((((k * ARC_STEP - gf * 2.4 + idx * 23) % 62) + 62) % 62 < ARC_STEP) marks.push(k); // the kinks: points that travel outward
+      for (const m of marks) { const s = (m + idx) % 2 ? 1 : -1; P[m][0] += 5 * s; if (m + 1 < n - 1) P[m + 1][0] -= 4 * s; } }
+    let core = P;
+    if (!a.link) { core = []; const r = Math.floor(gf / 3); for (let k = 0; k < n - 1; k += 2) core.push(k === 0 ? P[0] : [P[k][0] + arcNz(k + idx * 7, r) * 7, P[k][1] + arcNz(k + idx * 3, r + 5) * 3]); core.push(P[n - 1]); }
+    const q = arcNz(idx * 5 + 1, gf >> 1), fl = q > 0.15 ? 1 : q > -0.25 ? 0.75 : 0.5, drop = arcNz(idx * 9 + 4, gf) > 0.42;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (!a.link) line(P, hot ? c[3] : c[2], w + 3, 0.5 * fl);
+    ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+    line(core, c[3], a.link ? w + 1 : w, 0.95 * fl);
+    if (!drop) line(core, '#ffffff', Math.max(1, w - 2 + (hot ? 1 : 0)), 1);
+    for (const m of marks) line([P[m - 1], P[m], P[m + 1]], '#ffffff', 2, 1);
+    if (a.edge && !lowFX) for (const m of marks) { const s = a.edge, r = gf >> 1, S = [[P[m][0], P[m][1]]]; let x = P[m][0], y = P[m][1]; // a spur, outward from the rope
+      for (let j = 1; j <= 3; j++) { x += s * (2.5 + (arcNz(m + j, r) + 0.5) * 3.5); y -= 1 + (arcNz(m + j * 3, r + 2) + 0.5) * 4; S.push([x, y]); }
+      line(S, c[4], 1, 0.95); if (arcNz(m, r) > 0) line([S[1], [S[1][0] + s * 2, S[1][1] - 6]], c[3], 1, 0.9); }
+    if (a.link && n > 3) { const m = P[n >> 1], r = gf >> 1; line([m, [m[0] + arcNz(idx, r) * 10, m[1] - 5], [m[0] + arcNz(idx + 2, r) * 16, m[1] - 10]], c[4], 1, 0.9); } // a jump's fork
     const e = P[n - 1];
-    if (a.hit) { ctx.globalAlpha = 0.5; dk(e[0], e[1], hot ? 8 : 5, c[3]); ctx.globalAlpha = 1; dk(e[0], e[1], hot ? 3 : 2, '#ffffff');
-      if (hot) { ctx.globalAlpha = 0.8; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 7 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); } }
-    else if (!a.link) { ctx.globalAlpha = 0.9; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; for (let b = 0; b < 2; b++) { ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] + nz(b, idx + 3) * 16, e[1] - 3 - (nz(b, idx + 5) + 0.5) * 8); ctx.stroke(); } }
-    if (!a.link) { ctx.globalAlpha = 0.5; dk(P[0][0], P[0][1], hot ? 6 : 4, c[3]); ctx.globalAlpha = 1; dk(P[0][0], P[0][1], hot ? 2.5 : 1.5, '#ffffff'); }
+    if (a.hit) { for (let b = 0; b < 6; b++) { const an = b * TAU / 6 + arcNz(b + idx, gf) * 1.2, len = 5 + (arcNz(b * 3 + idx, gf + 1) + 0.5) * (hot ? 13 : 8);
+        line([e, [e[0] + Math.cos(an) * len * 0.5 + arcNz(b, gf + 3) * 3, e[1] + Math.sin(an) * len * 0.5 + arcNz(b, gf + 4) * 3], [e[0] + Math.cos(an) * len, e[1] + Math.sin(an) * len]], b % 2 ? '#ffffff' : c[4], 1, 1); }
+      ctx.globalAlpha = 1; ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(e[0]) - 1, Math.round(e[1]) - 1, 3, 3); }
+    else if (!a.link) for (let b = 0; b < 2; b++) line([e, [e[0] + arcNz(b, gf + idx * 3) * 16, e[1] - 3 - (arcNz(b, gf + idx * 5) + 0.5) * 8]], c[4], 1, 0.9);
+    if (!a.link) { const m = P[0], r = 3 + (arcNz(idx, gf) + 0.5) * (hot ? 5 : 3); line([[m[0] - r, m[1]], [m[0] + r, m[1]]], c[4], 1, 0.9); line([[m[0], m[1] - r - 1], [m[0], m[1] + r * 0.5]], '#ffffff', 1, 1);
+      line([[m[0] - 5, m[1] + 3], [m[0] - 2, m[1] + 1 + arcNz(idx + 1, gf) * 4], [m[0] + 2, m[1] + 1 + arcNz(idx + 2, gf) * 4], [m[0] + 5, m[1] + 3]], c[3], 1, 0.9); }
   }
-  ctx.globalAlpha = 1; ctx.lineCap = cap;
+  ctx.globalAlpha = 1; ctx.lineCap = cap; ctx.lineJoin = join;
 }
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
 // at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
