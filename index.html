@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.33'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9515,7 +9515,9 @@ const CHIP = {
   shot: () => [{ w: 'wn', f: 11000, v: 6 }, { w: 'wn', f: 8000, v: 3 }],
   lance: () => [{ w: 'sq', f: 700, v: 5, d: 0.5 }, { w: 'sq', f: 600, v: 2, d: 0.5 }],
   missile: () => [0, 1, 2, 3, 4, 5].map(i => ({ w: 'wn', f: 3000 + i * 800, v: [3, 5, 5, 4, 2, 1][i] })),
-  arc: () => [0, 1, 2, 3, 4, 5].map(i => i % 2 ? { w: 'sq', f: 220, v: 0 } : { w: 'mn', f: 8000 - i * 400, v: 8 - i })
+  // the Arc's rope, two loops (arcRope): the hum, a mains buzz (120 and 180 Hz pulse, whole cycles per frame) under a thin hiss, and the bite, ragged metallic bursts
+  arcHum: () => [3, 0, 2, 0, 4, 0, 0, 2, 0, 3, 0, 1].map((n, i) => [{ w: 'sq', f: i % 4 < 2 ? 120 : 180, v: 9, d: 0.25 }, { w: 'mn', f: 6000, v: n }]),
+  arcBite: () => [[9000, 11], 0, [7000, 8], [12000, 10], 0, [8000, 9], 0, 0, [11000, 11], [6000, 7], 0, [9000, 9], [12000, 10], 0, [7000, 8], 0].map(q => q ? { w: 'mn', f: q[0], v: q[1] } : { w: 'mn', f: 1000, v: 0 })
 };
 const chipCache = {}; let chipSrc = null, chipEnd = 0;
 function chipPlay(name) {
@@ -9556,6 +9558,27 @@ function zapSfx(kind) {
   s2.connect(f).connect(g).connect(sfxOut()); s2.start(t0, Math.random()); s2.stop(t0 + d + 0.02); am.start(t0); am.stop(t0 + d + 0.02);
   if (full || kind === 'troop') { const o = actx.createOscillator(), og = actx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(kind === 'troop' ? 1400 : 520, t0); o.frequency.exponentialRampToValueAtTime(kind === 'troop' ? 700 : 140, t0 + d); og.gain.setValueAtTime(0.035 * mixF, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(og).connect(sfxOut()); o.start(t0); o.stop(t0 + d + 0.02); }
 }
+/* ---- 9b. The Arc's rope: a chip buzz that runs while the rope is out ----
+   Two looped chip buffers on the effects bus (CHIP.arcHum, CHIP.arcBite). arcRope is called on every frame the rope is out and sets a level
+   that fades by itself about 0.1 s later, so the sound ends when the frames do (pause, a lost ship, another weapon), with nothing to switch off.
+   The hum grows with the weapon's level, and its pitch rises with the sweep (how far the tail trails the ship, in px), so a swing is heard. The
+   bite comes up while a strand holds a target. The super Arc runs both half an octave up and louder. One-shots: arcCrack when the ship turns
+   back under a trailing tail; zapSfx when the rope takes a new target and when a jump lands. */
+const ARC_SND = { bus: null, hum: null, bite: null };
+function arcRope(lv, hold, sweep, dur = 0.1) {
+  if (muted || !actx || !sfxBus) return;
+  const S = ARC_SND, t = actx.currentTime;
+  if (S.bus !== sfxBus) { // (first use, or the effects bus was swapped: cutSfx)
+    for (const k of ['hum', 'bite']) { if (S[k]) { try { S[k].src.stop(); } catch (e) {} }
+      const d = chipRender(CHIP[k === 'hum' ? 'arcHum' : 'arcBite']()), b = actx.createBuffer(1, d.length, CHIP_SR); b.getChannelData(0).set(d);
+      const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; src.loop = true; g.gain.value = 0; src.connect(g).connect(sfxBus); src.start(t); S[k] = { src, g }; }
+    S.bus = sfxBus; }
+  const sup = lv >= 5, sw = clamp(sweep / 60, 0, 1);
+  const set = (o, v, rate) => { const a = o.g.gain; if (a.cancelAndHoldAtTime) a.cancelAndHoldAtTime(t); else a.cancelScheduledValues(t); a.setTargetAtTime(v * mixF, t, 0.015); a.setTargetAtTime(0, t + dur, 0.03); o.src.playbackRate.setTargetAtTime(rate, t, 0.03); };
+  set(S.hum, 0.09 + 0.017 * Math.min(lv, 4) + (sup ? 0.05 : 0) + sw * 0.06, (sup ? 1.5 : 1) * (1 + sw * 0.5));
+  set(S.bite, hold ? (sup ? 0.18 : 0.12) : 0.02 + sw * 0.05, (sup ? 1.3 : 1) * (0.9 + sw * 0.4));
+}
+function arcCrack(v = 1) { if (muted || !actx) return; const t = actx.currentTime; chipNz(t, 0.06, 0.07 * v * mixF, [16000, 8000, 4000]); chipVoice(t, 2400, 500, 0.06, 0.03 * v * mixF, 0.125); } // the whip's crack: a bright click that drops
 function sweepAir(t, d, f0, f1, v, type = 'bandpass', Q = 1.2) { ensureNoise(); const s2 = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(); s2.buffer = noiseBuf; s2.loop = true; f.type = type; f.Q.value = Q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + d * 0.75); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * mixF, t + d * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s2.connect(f).connect(g).connect(sfxOut()); s2.start(t); s2.stop(t + d + 0.05); }
 function sweepEngine(t, d, f0, f1, v, type = 'sawtooth', lp = 1800) { const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.8); f.type = 'lowpass'; f.frequency.setValueAtTime(lp * 0.4, t); f.frequency.exponentialRampToValueAtTime(lp, t + d * 0.6); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * mixF, t + d * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(f).connect(g).connect(sfxOut()); o.start(t); o.stop(t + d + 0.05); }
 function sweepThump(t, v = 0.3, f0 = 90) { sweepEngine(t, 0.25, f0, f0 / 2, v, 'sine', 400); }
@@ -10028,7 +10051,7 @@ function soundCatalogue() {
       S('charge', 'Laser charging (whine)'), ['Laser fully charged ping', () => { tone(1420, 0.09, 'triangle', 0.06); tone(2840, 0.06, 'sine', 0.03); }], S('beam', 'Laser beam'),
       ['Laser overheat hiss', () => noise(0.7, 0.18 * mixF, 5000)], S('rebirth', 'Rebirth'), S('rebirthHawk', 'Rebirth (hawk)')] },
     { g: 'Guns and hits', items: [S('shot', 'Player shot'), S('tink', 'Tink'), S('gun', 'Enemy gun'), S('cannon', 'Cannon'), S('rocket', 'Rocket'), S('hit', 'Hit'), S('hitm', 'Hit on metal'),
-      ['Arc zap, main', () => { zapLast = -99; zapSfx('main'); }], ['Arc zap, troop', () => zapSfx('troop')], ['Arc zap, jump', () => zapSfx('jump')]] },
+      ['Arc zap, main', () => { zapLast = -99; zapSfx('main'); }], ['Arc zap, troop', () => zapSfx('troop')], ['Arc zap, jump', () => zapSfx('jump')], ['Arc rope, level 1', () => arcRope(1, false, 0, 1)], ['Arc rope, level 3', () => arcRope(3, false, 0, 1)], ['Arc rope, level 3 on a target', () => arcRope(3, true, 0, 1)], ['Arc rope, swinging', () => arcRope(3, false, 60, 1)], ['Arc rope, super on a target', () => arcRope(5, true, 0, 1)], ['Arc whip crack', () => arcCrack()]] },
     { g: 'Explosions and the Nova', items: [S('boom', 'Small explosion'), S('gboom', 'Ground explosion'), S('bigboom', 'Big explosion'), S('nova', 'Nova bomb'), S('die', 'Ship destroyed'),
       S('thunder', 'Thunder'), S('snap', 'Snap'), S('splash', 'Splash'), S('implode', 'Implode')] },
     { g: 'Warnings, horns and bosses', items: [S('warn', 'Warning (this stage)')].concat(BOSS_KINDS.map((k, i) => ['Boss warning: ' + k, () => warnSfx(i)]))
@@ -15907,7 +15930,9 @@ function fireArc(p, L, beat) {
   const A = ARC_LV[L], reach = H * A.reach, y0 = p.y - 12, sts = [], links = [];
   if (!p.arcH || p.arcHf !== gf - 1) p.arcH = new Array(ARC_HIST).fill(p.x); else { p.arcH.unshift(p.x); p.arcH.length = ARC_HIST; } // (not fired last frame: the rope starts straight)
   p.arcHf = gf;
-  const h = p.arcH, spine = s => { const f = Math.min(ARC_HIST - 1.001, s * ARC_LAG), a = f | 0; return h[a] + (h[a + 1] - h[a]) * (f - a); };
+  const h = p.arcH, snd = app.state === 'play' && !(app.cont > 0), vx = h[0] - h[1], sweep = Math.abs(h[ARC_HIST >> 1] - p.x); // (sounds only while the ship is in play, as chipPlay)
+  if (snd && vx * (p.arcV || 0) < 0 && sweep > 30) arcCrack(); if (vx) p.arcV = vx; // the ship turns back under a trailing tail: the whip cracks
+  const spine = s => { const f = Math.min(ARC_HIST - 1.001, s * ARC_LAG), a = f | 0; return h[a] + (h[a + 1] - h[a]) * (f - a); };
   if (L < 5) for (let i = 0; i < A.n; i++) {
     const o = i - (A.n - 1) / 2, side = i % 2 ? 1 : -1;
     sts.push(arcTrace(s => { const sp = spine(s), u = Math.max(0, (s - (reach - 56)) / 56), lag = sp - p.x, d = Math.abs(lag) > 3 ? Math.sign(lag) : side; // (u: the last 56 px, where the end hooks back, to the side it trails on)
@@ -15930,19 +15955,19 @@ function fireArc(p, L, beat) {
       for (const e of world.enemies) { if (!arcOpen(e) || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
       if (!nb) break;
       const g = arcGrown.get(nb.e), n = !g ? 1 : g.f === gf ? g.n : g.f === gf - 1 ? g.n + 1 : 1, f = Math.min(1, n / ARC_GROW); arcGrown.set(nb.e, { f: gf, n });
-      links.push({ pts: arcJump(cur, nb, f), hit: f >= 1 ? nb : null });
+      links.push({ pts: arcJump(cur, nb, f), hit: f >= 1 ? nb : null }); if (snd && n === ARC_GROW && (!g || g.f !== gf)) zapSfx('jump'); // (a jump lands)
       used.add(nb.e); cur = nb; if (f < 1) break;
     } }
   for (const st of sts) arcs.push({ pts: st.pts, w: A.w, hit: !!st.hit, sup: L >= 5, f: gf });
   for (const st of links) arcs.push({ pts: st.pts, w: 2, hit: !!st.hit, link: true, f: gf });
-  const t0 = (sts.find(st => st.hit) || {}).hit; p.arcLock = t0 ? t0.part || t0.e : null; // (arcLock: what the rope holds, for the Kolibri)
+  const t0 = (sts.find(st => st.hit) || {}).hit, key = t0 ? t0.part || t0.e : null;
+  if (snd) { arcRope(L, !!t0, sweep); if (key && key !== p.arcLock) zapSfx(t0.e.type === 'troop' ? 'troop' : 'main'); } // the buzz while the rope is out, a crackle as it takes a new target
+  p.arcLock = key; // (arcLock: what the rope holds, for the Kolibri)
   if (!beat) return -1;
   run.stats.shots += sts.length;
-  const loud = (p.arcN = ((p.arcN || 0) + 1) & 1) === 1; if (loud) chipPlay('arc'); // (the sounds on every other beat, as often as the old bolt)
-  const live = t => t.part ? !t.part.dead : arcOpen(t.e); let near = -1, jumped = false;
+  const live = t => t.part ? !t.part.dead : arcOpen(t.e); let near = -1;
   for (const st of sts) if (st.hit && live(st.hit)) { arcHit(st.hit, arcDmg(A, st.hit)); const d = st.hit.d / reach; if (near < 0 || d < near) near = d; }
-  for (const st of links) if (st.hit && live(st.hit)) { arcHit(st.hit, arcDmg(A, st.hit) * 0.5); jumped = true; }
-  if (loud && t0) zapSfx(t0.e.type === 'troop' ? 'troop' : 'main'); if (loud && jumped) zapSfx('jump');
+  for (const st of links) if (st.hit && live(st.hit)) arcHit(st.hit, arcDmg(A, st.hit) * 0.5);
   return near;
 }
 // The look: a thick rope with a white core, shaking a little, bright knots that travel out along it, a glow where it holds a target and a
@@ -16064,7 +16089,7 @@ function firing(p = player, two) {
   if (p.cd > 0) p.cd--;
   if (p.mcd > 0) p.mcd--;
   if (p === player) pbTick();
-  if (p.wpn === 'A') { const beat = p.cd <= 0, near = fireArc(p, wl(p), beat); if (beat) { p.cd = pbArcCd(ARC_BEAT, near); if (!two && p.arcN) chipPlay('shot'); } return; } // the Arc's rope is there every frame and hurts on the gun's beat
+  if (p.wpn === 'A') { const beat = p.cd <= 0, near = fireArc(p, wl(p), beat); if (beat) p.cd = pbArcCd(ARC_BEAT, near); return; } // the Arc's rope is there every frame and hurts on the gun's beat
   if (p.cd > 0) return;
   const L = wl(p), up = -PI / 2;
   if (p.wpn === 'S') {
