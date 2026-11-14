@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.32'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.33'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -19599,9 +19599,12 @@ function frameLoop(now) {
   fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
   const work0 = performance.now();
   if (app.state === 'play' && !app.paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
-  while (acc >= STEP) { acc -= STEP; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
-  if (app.state === 'play' && !app.paused && app.resumeT <= 0 && ++app.snapN >= SNAP_EVERY) { app.snapN = 0; try { snapNow(); } catch (e) { logError('snapshot', e); } }
-  try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); }
+  // Draw only when the simulation moved on (or a test has parked the loop with a negative acc and steps it by hand). On a 120 Hz screen
+  // every second frame has no step to show: drawing it again cost a second render and a second canvas upload for the same picture.
+  let stepped = acc < 0;
+  while (acc >= STEP) { acc -= STEP; stepped = true; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
+  if (stepped && app.state === 'play' && !app.paused && app.resumeT <= 0 && ++app.snapN >= SNAP_EVERY) { app.snapN = 0; try { snapNow(); } catch (e) { logError('snapshot', e); } }
+  if (stepped) { try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); } }
   perfFrame(dtf, performance.now() - work0);
 }
 performance.mark('game-ready');
