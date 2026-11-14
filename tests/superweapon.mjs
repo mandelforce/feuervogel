@@ -62,6 +62,25 @@ a = await fire('H', 0); b = await fire('H', 4);
 ok(a.sh.filter(s => s.k === 'h').length === 4 && b.sh.filter(s => s.k === 'h').length === 10 && b.sh.some(s => s.hl === 5), `Seekers: 4 missiles at level 4, 10 and a super laser at super (${a.sh.filter(s => s.k === 'h').length} -> ${b.sh.filter(s => s.k === 'h').length})`);
 ok(await sf(`ARC_LV[5].reach > ARC_LV[4].reach && ARC_LV[5].dmg > ARC_LV[4].dmg && ARC_LV[5].jumps > ARC_LV[4].jumps && ARC_LV[5].bd < ARC_LV[5].dmg`), 'Arc: the super table reaches further and jumps more, and hits big targets for less');
 
+/* the Arc below the super level: a rope to the front that aims at nothing, trails behind the ship, and forks at level 4 */
+r = await sf(`(() => { const o = { n: [] }; player.inv = 99999; player.dead = 0; player.wpn = 'A'; player.sup = 0; player.supT = 0; player.x = W / 2; player.y = H - 60;
+  const lay = lv => { gf++; player.lvl = lv; player.cd = 0; arcs.length = 0; firing(player, false); return arcs.filter(a => !a.link).length; };
+  const foe = dx => { const e = E('pod', { x: player.x + dx, y: player.y - 120 }); e.hp = e.maxhp = 50; world.enemies.push(e); return e; };
+  world.enemies.length = 0; for (const lv of [1, 2, 3, 4]) o.n.push(lay(lv));
+  o.top = Math.round(arcs[0].pts[arcs[0].pts.length - 1][1]);
+  const side = foe(50); lay(1); o.side = 50 - side.hp;
+  world.enemies.length = 0; const front = foe(0); lay(1); o.front = 50 - front.hp;
+  world.enemies.length = 0; const a3 = foe(0), b3 = foe(30); for (let k = 0; k < 10; k++) lay(3); o.l3 = [a3.hp < 50, b3.hp < 50];
+  world.enemies.length = 0; const a4 = foe(0), b4 = foe(30); for (let k = 0; k < 10; k++) lay(4); o.l4 = [a4.hp < 50, b4.hp < 50]; o.links = arcs.filter(a => a.link).length;
+  world.enemies.length = 0; for (let k = 0; k < 30; k++) { player.x += 2; lay(1); } const tip = arcs[0].pts[arcs[0].pts.length - 1]; o.trail = Math.round(player.x - tip[0]);
+  player.x = W / 2; world.enemies.length = 0; const far = foe(50); player.lvl = 4; player.sup = 4; player.supT = SUP_TIME; lay(4); o.sup = 50 - far.hp; o.supN = arcs.filter(a => !a.link).length;
+  player.sup = 0; player.supT = 0; world.enemies.length = 0; arcs.length = 0; return o; })()`);
+ok(r.n.join() === '1,2,3,3' && r.top < 60, `Arc: 1, 2, 3 and 3 strands at levels 1 to 4, reaching the top of the screen (${JSON.stringify(r.n)}, ends at y ${r.top})`);
+ok(r.side === 0 && r.front > 0, `Arc: level 1 hits what is straight ahead and leaves a target 50 px to the side alone (${r.front}, ${r.side})`);
+ok(r.l3.join() === 'true,false' && r.l4.join() === 'true,true' && r.links >= 1, `Arc: a neighbour 30 px beside the target is hit by level 4's forked tips, not at level 3 (${JSON.stringify(r.l3)} ${JSON.stringify(r.l4)})`);
+ok(r.trail > 20, `Arc: the far end trails behind a ship flying sideways (${r.trail} px)`);
+ok(r.sup > 0 && r.supN === 5, `Arc: the super form has five strands and bends to a target 50 px to the side (${r.sup}, ${r.supN})`);
+
 /* the damage rule: small enemies fall to one hit, big ones, boss parts and tough ones take the weaker bd */
 r = await sf(`(() => { const sh = { dmg: 8, bd: 0.6 }; return { small: supHit(sh, { hp: 3, big: false }, false), pod: supHit(sh, { hp: 5, big: false }, false), tough: supHit(sh, { hp: 40, big: false }, false), big: supHit(sh, { hp: 3, big: true }, false), boss: supHit(sh, { hp: 3 }, true), plain: supHit({ dmg: 1 }, { hp: 99, big: true }, true) }; })()`);
 ok(r.small >= 3 && r.pod >= 5 && r.tough < 1 && r.big < 1 && r.boss < 1 && r.plain === 1, `super hits: ${JSON.stringify(r)}`);
