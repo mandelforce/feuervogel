@@ -1,6 +1,6 @@
 # Daily Sortie: composer plan
 
-Status: plan, draft 1. Phase 0 (evidence) is done: see section 6. Nothing of the composer is built yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
+Status: plan, draft 1. Phase 0 (evidence) and phase 0b (generator fixes) are done: see sections 6 and 6.6. Nothing of the composer is built yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
 
 ## 0. Goal and ground rules
 
@@ -384,3 +384,44 @@ Per kit and difficulty, lowest to highest over the first pass (seed 1944) and th
 11. **Rule 0, "`node tests/replay.mjs` stays green".** It is red on the untouched build 1.2.6.37 in the test container: all eight scenarios differ from `golden.json` by frame 500, and so do the three of `node tests/replay.mjs --enigma` against `golden-enigma.json` (its terrain fingerprints pass). `node tests/enigma.mjs` (213 checks) and `node tests/fixed-seed.mjs` (41 checks) pass. ARCHITECTURE.md already says the replay test is no gate for the Campaign's levels, and CI runs only its terrain part. I could not tell here whether the golden files are stale or this machine's browser plays differently. For the later phases the working guard is therefore: `enigma.mjs` and `fixed-seed.mjs` green, plus `replay.mjs` giving the same output before and after a change (not "green"), until the owner refreshes the golden files on purpose.
 
 Not run in phase 0: nothing was flown with a composed sortie (there is no composer yet), no phone-sized viewport (the playfield height changes how the game plays; the baselines hold for H 320 only), and the first loops' generator variants (`variant`, `autumn`, `lakes`) were flown but not probed with mutated lists.
+
+### 6.6 Phase 0b: after the generator fixes (build 1.2.6.38)
+
+Four commits in `tools/citygen.js`. Sections 6.1 to 6.3 above describe the state before them; this section replaces what they say about rows 1, 2, 3, 8 and 9.
+
+| Row of 6.3 | Fix | Before | After |
+|---|---|---|---|
+| 1 | `desertLand`, `lateIn`: a feature right after a pass takes the track over only past the pass's end, so the track runs straight through the fort's gates. | `pass → airbase_desert` 0/40 valid | 40/40 |
+| 2 and 3 | `roadblock`: a block that would stand within 10 px of the railway's centre is left out. One cause for both rows: the held village's roadblock stands 181 px south of the village's middle, and there the track can run beside the line. | `desert_open → village` 25/40 valid; `village` at 8 to 12 chunks 57/80 | 40/40; 7 to 12 chunks 120/120 |
+| 8 | `winterLand`, `params.joinRoad` (passed on by `winterLine`): the road swings out round the lake only from the plan's first row on. **A switch, off by default** (see below). | `lake_valley` first: 0/52 valid | with the switch: every neighbour row and shuffle clean |
+| 9 | `winterLand`: the village and the lake builders run once per segment; a second one draws its own random numbers (`rndK`). `plan.alpines` and `plan.iceLakes` list all, `plan.alpine` and `plan.lake` stay the first. | second village or lake missing, 30/30 | 100/100 (checked with one marker per village and lake at its own middle) |
+
+The whole probe again, clean of made:
+
+| Mutation | desert | forest | winter (`joinRoad` on) |
+|---|---|---|---|
+| original list | 20/20 | 20/20 | 20/20 |
+| middle shuffled | 20/20 (was 12) | 20/20 | 20/20 (was 18) |
+| each ordered pair made neighbours | 150/150 (was 138) | 100/100 | 100/100 (was 80) |
+| one template twice | 120/120 (was 117) | 100/100 | 100/100 (was 70) |
+| one middle segment dropped | 120/120 | 140/140 | 100/100 (was 80) |
+| one length -50 % / +50 % | 239/240 (was 233) | 200/200 | 200/200 |
+| one length at 1 to 20 chunks | 148/180 (was 146) | 150/150 | 150/150 (was 147) |
+| total -20 % / +20 % | 80/80 (was 72) | 74/80 | 40/80 |
+| opener or approach dropped, moved, halved | 120/160 | 76/120 | 20/160 |
+| each fixed segment at other lengths | 180/180 | 98/110 | 220/300 |
+
+What is still not clean is the fixed ends (the openers, winter's approach and its last segment's length, the forest's 3-chunk cliff) and the shortest lengths in the desert.
+
+**The grammar now** (changes against 6.2):
+- desert: `follows` has no forbidden pair. `village` 4 to 20 chunks (3: 19/20, and the one failure is a house reaching into the next segment; 1 and 2: 3/10). `station_junction` from 3, `pass` from 3, `airbase_desert` from 2, as before. `max` unchanged (`plan.airbase` and `plan.fort` still hold one object: row 4, phase 2). Total 62 to 82 without the village condition.
+- forest: unchanged.
+- winter, with `joinRoad: 1`: no rule on `lake_valley`; `village` from 1 chunk (5/5), `max` 2 for `village` and `lake_valley` (two side by side or apart both build). The opener, the approach and the last segment's 10 to 12 chunks stay fixed. **The composer must pass `joinRoad: 1`.**
+
+**The Campaign did not change.** Checked after every commit:
+- 324 generator plans hash the same as before the first fix: 20 seeds each of `sandSea` (variants 0 to 3), `sandSeaClassic`, `ironForest` (plain and `autumn` + `lakes`) and the single-feature desert presets; 8 seeds each of `winterGorge` (plain and `variant` 1) and `winterLine`; 20 of `mountainVillage`. Every raster and every list, the stage timings apart.
+- The 24 plans the game itself builds (levels 1 to 6, loops 0 to 3) hash the same, in the page.
+- `node tests/citygen.mjs`, `node tests/enigma.mjs` (213) and `node tests/fixed-seed.mjs` (41) pass. `node tests/replay.mjs` prints exactly what it printed before the fixes (red against its golden file, as in 6.5 item 11).
+- One baseline flight re-flown (level 5, first loop, Veteran): every number as in `tests/daily-baseline.json`.
+
+**Found on the way, for the owner:** the Campaign's level 5 in its first loop (seed 1945) has the lake valley first (`loopSeq` swapped it with the village), so the plan the game flies there today fails the generator's own rules: the road steps 25 px sideways at the seam between the farmland and the lake valley (tank reach 0.37; plan row 1984, x 106 below and 131 above). That is why fix 8 is a switch: passing `joinRoad: 1` in `sortiePlanLevel5` mends the road and changes that level's ground from the seam to about 160 px above it. One line, **[owner]**.
