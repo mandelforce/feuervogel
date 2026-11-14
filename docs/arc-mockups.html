@@ -183,7 +183,7 @@ code { font-size: .92em; color: var(--arc-hot); }
   <h2>How the coils move</h2>
   <div class="scroll"><table>
     <tr><th>Level</th><th>Strands</th><th>Movement</th></tr>
-    <tr><td>1</td><td>One</td><td>Straight ahead to the top of the screen, always drawn. A slow wave runs up it and bright knots travel along it. With nothing to hit, the end forks and flickers.</td></tr>
+    <tr><td>1</td><td>One</td><td>Straight ahead, as far as the other weapons' shots fly, always drawn. A slow wave runs up it and bright knots travel along it. With nothing to hit, the end forks and flickers.</td></tr>
     <tr><td>2</td><td>Two</td><td>Side by side, swaying as mirror images, so the gap between them breathes.</td></tr>
     <tr><td>3</td><td>Three</td><td>The middle strand sways a quarter-wave out of step with the outer pair, which reads as a braid.</td></tr>
     <tr><td>4</td><td>Four, or three with forked tips</td><td>A fourth strand widens the rope. The alternative keeps three and lets each tip make one short jump to a neighbour, a first taste of the super.</td></tr>
@@ -191,7 +191,7 @@ code { font-size: .92em; color: var(--arc-hot); }
   </table></div>
   <div class="read">
     <p>From the screenshot I took the thick rope with a hot core, the slow waves, the knots that travel, and the left strand's hook near its end. That hook is the Whip's idle tail. The colour stays the Arc's blue, since orange belongs to enemy bullets.</p>
-    <p>Reach: the other weapons' shots fly until they leave the screen, so every variant here reaches the top. Today's Arc stops at half to two thirds.</p>
+    <p>Reach: 0.65 of the screen height, the middle of what a Scatter or Lance shot flies (0.6 to 0.7). An earlier version of this page had the strands reach the top of the screen, on the wrong belief that the other weapons' shots do.</p>
   </div>
 </section>
 
@@ -222,7 +222,7 @@ code { font-size: .92em; color: var(--arc-hot); }
 (function () {
   var W = 224, H = 336, TAU = Math.PI * 2;
   var C = ['#0a1a52', '#14389c', '#2a64e8', '#64a8ff', '#d4ecff'];
-  var REACH = 286, STEP = 4, SHIP_Y = 306;
+  var REACH = 218, STEP = 4, SHIP_Y = 306;
   var T = 0, level = '3', paused = false;
   function rng(seed) { return function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }

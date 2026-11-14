@@ -4521,7 +4521,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.38'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.39'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -15869,7 +15869,8 @@ function pbTick() { // every two seconds, update the readout
   PB.shown = 'PB ' + (PB.fired * 0.5).toFixed(1) + '/s AIR ' + (PB.fired ? PB.air / PB.fired : 0).toFixed(1); PB.fired = PB.air = 0;
 }
 // ---------- Arc: a rope of lightning to the front that trails where the ship was ----------
-/* The Arc is a whip. Each strand runs ahead from the nose towards the top of the screen and stops at the first thing it touches. Its far end
+/* The Arc is a whip. Each strand runs ahead from the nose as far as the other guns' shots fly (they end after 0.6 to 0.7 of the screen height; the
+   super Seekers after 0.9, and so the super Arc) and stops at the first thing it touches. Its far end
    follows the ship late (the strand's spine is the ship's x of some frames ago, the further out the later: ARC_LAG), so flying sideways sweeps
    the tail across the screen, and the end hooks back when it finds nothing. One strand at level 1, two at 2, three at 3; level 4 keeps three and
    each tip makes one short jump to a neighbour. The super Arc (5): five strands, the middle three bend to the nearest targets, the outer two lash
@@ -15880,11 +15881,11 @@ function pbTick() { // every two seconds, update the readout
 const arcs = [];
 const ARC_STEP = 4, ARC_GAP = 6, ARC_LAG = 0.085, ARC_HIST = 48, ARC_GROW = 6, ARC_BEAT = 4;
 const ARC_LV = [null,
-  { n: 1, reach: 0.92, dmg: 0.95, jumps: 0, hop: 0,  cone: 8,  slope: 0.12, w: 3 },
-  { n: 2, reach: 0.92, dmg: 0.58, jumps: 0, hop: 0,  cone: 10, slope: 0.12, w: 3 },
-  { n: 3, reach: 0.92, dmg: 0.48, jumps: 0, hop: 0,  cone: 12, slope: 0.12, w: 3 },
-  { n: 3, reach: 0.92, dmg: 0.55, jumps: 1, hop: 44, cone: 12, slope: 0.12, w: 3 },
-  { n: 5, reach: 1.3,  dmg: 4, bd: 1.5, jumps: 7, hop: 84, cone: 30, slope: 0.5, w: 4 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
+  { n: 1, reach: 0.65, dmg: 0.95, jumps: 0, hop: 0,  cone: 8,  slope: 0.12, w: 3 },
+  { n: 2, reach: 0.65, dmg: 0.58, jumps: 0, hop: 0,  cone: 10, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.65, dmg: 0.48, jumps: 0, hop: 0,  cone: 12, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.65, dmg: 0.55, jumps: 1, hop: 44, cone: 12, slope: 0.12, w: 3 },
+  { n: 5, reach: 0.9,  dmg: 4, bd: 1.5, jumps: 7, hop: 84, cone: 30, slope: 0.5, w: 4 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
 const arcDmg = (A, t) => A.bd === undefined ? A.dmg : (t.part || t.e.big || t.e.hp > SUP_ONE * hpm()) ? A.bd : A.dmg;
 const arcGrown = new WeakMap(); // a jump's target -> { f: the frame it was last held, n: for how many frames }
 const arcOpen = e => !(e.dead || e.dying || e.untarget || e.crash);
