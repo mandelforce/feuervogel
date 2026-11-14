@@ -1,0 +1,380 @@
+<title>Arc Coil Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a review sheet. Sticky level switch on top, four game screens side by side, then the reasoning in one reading column. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0f1c;        /* night sky behind the screens */
+  --panel: #111a2e;
+  --line: #22304f;
+  --fg: #dfe8f7;
+  --dim: #8d9bb8;
+  --arc: #64a8ff;       /* WPN.A.ramp[3] */
+  --arc-hot: #d4ecff;   /* WPN.A.ramp[4] */
+  --arc-deep: #14389c;  /* WPN.A.ramp[1] */
+  --pick: #ffd166;      /* the recommended variant */
+  --display: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+}
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; letter-spacing: .01em; }
+h2 { font-size: 20px; color: var(--arc-hot); }
+h3 { font-size: 16px; }
+p { margin: 0; }
+.lede { color: var(--dim); max-width: 68ch; }
+header { display: flex; flex-direction: column; gap: 8px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+  padding-block: 10px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.lbl { font: 500 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+button { font: 500 13px var(--display); letter-spacing: .04em; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  padding: 7px 12px; border-radius: 3px; cursor: pointer; }
+button:hover { border-color: var(--arc); }
+button:focus-visible { outline: 2px solid var(--arc-hot); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--arc-deep); border-color: var(--arc); color: #fff; }
+.hint { color: var(--dim); font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+canvas { width: 100%; aspect-ratio: 224 / 336; image-rendering: pixelated; background: #10161e; border: 1px solid var(--line); display: block; touch-action: pan-y; }
+figure.pick canvas { border-color: var(--pick); }
+figcaption { display: flex; flex-direction: column; gap: 6px; }
+.tag { font: 500 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+figure.pick .tag { color: var(--pick); }
+dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13.5px; }
+dt { color: var(--dim); }
+dd { margin: 0; }
+
+section { display: flex; flex-direction: column; gap: 12px; }
+.read { max-width: 72ch; display: flex; flex-direction: column; gap: 10px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); }
+th { font: 500 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+td:first-child { font-family: var(--display); white-space: nowrap; }
+tr.arc td { color: var(--arc-hot); }
+ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+code { font-size: .92em; color: var(--arc-hot); }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Arc Coil Mockups</h1>
+  <p class="lede">Four ways the Arc could work once it stops aiming itself. Every screen flies the same route against the same targets. Move the pointer across a screen to fly all four ships yourself.</p>
+</header>
+
+<div class="bar">
+  <span class="lbl" id="lvl-lbl">Weapon level</span>
+  <div class="seg" role="group" aria-labelledby="lvl-lbl">
+    <button id="lv-1" data-lv="1" aria-pressed="false">1</button>
+    <button id="lv-2" data-lv="2" aria-pressed="false">2</button>
+    <button id="lv-3" data-lv="3" aria-pressed="true">3</button>
+    <button id="lv-4" data-lv="4" aria-pressed="false">4</button>
+    <button id="lv-4f" data-lv="4f" aria-pressed="false">4, forked tips</button>
+    <button id="lv-S" data-lv="S" aria-pressed="false">Super</button>
+  </div>
+  <button id="pause" aria-pressed="false">Pause</button>
+  <span class="hint" id="hint">Autopilot</span>
+</div>
+
+<div class="grid">
+  <figure>
+    <canvas id="cv-rails" width="224" height="336" aria-label="Animated mockup: straight parallel strands"></canvas>
+    <figcaption><span class="tag">A · your brief</span><h3>Rails</h3>
+      <dl><dt>Shape</dt><dd>Straight strands side by side, swaying as mirror images.</dd>
+      <dt>You do</dt><dd>Line up under the target, as with the Lance.</dd>
+      <dt>Adds</dt><dd>A beam with no gaps between shots. Otherwise the closest to the Lance.</dd></dl></figcaption>
+  </figure>
+  <figure class="pick">
+    <canvas id="cv-whip" width="224" height="336" aria-label="Animated mockup: strands that trail behind the ship"></canvas>
+    <figcaption><span class="tag">B · recommended</span><h3>Whip</h3>
+      <dl><dt>Shape</dt><dd>A rope that trails where the ship was. The far end hooks back when it finds nothing.</dd>
+      <dt>You do</dt><dd>Sweep it. Fly away from a target and the tail still drags across it.</dd>
+      <dt>Adds</dt><dd>A weapon you aim by moving, and the only one that hits while you dodge.</dd></dl></figcaption>
+  </figure>
+  <figure>
+    <canvas id="cv-fan" width="224" height="336" aria-label="Animated mockup: strands that fan out when moving and braid when still"></canvas>
+    <figcaption><span class="tag">C</span><h3>Braid and fan</h3>
+      <dl><dt>Shape</dt><dd>Moving fans the strands out. Holding still twists them into one hot bolt.</dd>
+      <dt>You do</dt><dd>Choose each second between width and damage.</dd>
+      <dt>Adds</dt><dd>A reward for standing still under fire. Level 1 has one strand, so nothing to fan.</dd></dl></figcaption>
+  </figure>
+  <figure>
+    <canvas id="cv-latch" width="224" height="336" aria-label="Animated mockup: strands that hold on to what they touch"></canvas>
+    <figcaption><span class="tag">D</span><h3>Latch</h3>
+      <dl><dt>Shape</dt><dd>Straight until a strand touches a target, then it holds on and bends as you move.</dd>
+      <dt>You do</dt><dd>Tag targets, then keep them on the leash while the damage ramps.</dd>
+      <dt>Adds</dt><dd>Keeps today's ramp, but you choose the target. One held target per strand.</dd></dl></figcaption>
+  </figure>
+</div>
+<p class="hint">Super works the same on all four screens: the strands leave their lanes, three bend to the nearest targets, two lash about, and coils jump on from every hit. Damage numbers here are placeholders, not balance.</p>
+
+<section>
+  <h2>What the Arc can add</h2>
+  <div class="scroll"><table>
+    <tr><th>Weapon</th><th>How it fires now</th><th>What the player does</th></tr>
+    <tr><td>Scatter</td><td>A fan of darts: 2 straight, then 3, 5, 7; 13 at super.</td><td>Covers the width of the screen.</td></tr>
+    <tr><td>Lance</td><td>One fast straight bolt that gets wider each level; four flank bolts at super.</td><td>Lines up and holds.</td></tr>
+    <tr><td>Seekers</td><td>A straight laser pair plus homing missiles: 1, 2, 3, 4 with a burst; 10 at super.</td><td>Lets the missiles find targets.</td></tr>
+    <tr class="arc"><td>Arc today</td><td>Locks by itself onto the nearest enemy in a narrow cone, 50 to 66% of the screen high. Chain jumps from level 3.</td><td>Holds fire and stays roughly below something.</td></tr>
+  </table></div>
+  <div class="read">
+    <p>Width belongs to Scatter, straight-line damage to the Lance and automatic aim to the Seekers. The Arc today is a second automatic weapon with less reach. Three roles are still free:</p>
+    <ul>
+      <li><strong>The weapon you swing</strong> (Whip). Its shape depends on how you fly. It rewards movement, where the Lance rewards holding still.</li>
+      <li><strong>The weapon with two modes</strong> (Braid and fan). Width while you move, damage while you stop.</li>
+      <li><strong>The weapon that holds on</strong> (Latch). You pick the target once and are then free to dodge.</li>
+    </ul>
+    <p>All three share one thing no other weapon has: a continuous beam that hits the moment it touches, with no shots to lead and no gaps to slip through.</p>
+  </div>
+</section>
+
+<section>
+  <h2>How the coils move</h2>
+  <div class="scroll"><table>
+    <tr><th>Level</th><th>Strands</th><th>Movement</th></tr>
+    <tr><td>1</td><td>One</td><td>Straight ahead to the top of the screen, always drawn. A slow wave runs up it and bright knots travel along it. With nothing to hit, the end forks and flickers.</td></tr>
+    <tr><td>2</td><td>Two</td><td>Side by side, swaying as mirror images, so the gap between them breathes.</td></tr>
+    <tr><td>3</td><td>Three</td><td>The middle strand sways a quarter-wave out of step with the outer pair, which reads as a braid.</td></tr>
+    <tr><td>4</td><td>Four, or three with forked tips</td><td>A fourth strand widens the rope. The alternative keeps three and lets each tip make one short jump to a neighbour, a first taste of the super.</td></tr>
+    <tr><td>Super</td><td>Five</td><td>Three strands bend to the nearest targets and two lash about in loops. From every hit a coil jumps to the next enemy, up to five times, growing out over a few frames.</td></tr>
+  </table></div>
+  <div class="read">
+    <p>From the screenshot I took the thick rope with a hot core, the slow waves, the knots that travel, and the left strand's hook near its end. That hook is the Whip's idle tail. The colour stays the Arc's blue, since orange belongs to enemy bullets.</p>
+    <p>Reach: the other weapons' shots fly until they leave the screen, so every variant here reaches the top. Today's Arc stops at half to two thirds.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Recommendation</h2>
+  <div class="read">
+    <p><strong>Build the Whip, with forked tips as level 4.</strong> Flown straight it is exactly your brief: lightning to the front, one more strand per level. The moment you move it becomes something the other three weapons are not. It also uses the screenshot's best idea, the strand that kinks and curls.</p>
+    <p>Rails is the safest but plays like a wider Lance. Braid and fan has the clearest decision, but is dull at level 1. Latch is the most novel, but four leashes at once are hard to read, and it keeps part of the automation you wanted gone.</p>
+    <p>Forked tips over a fourth strand: four strands are only wider than three, while the fork introduces the jump the super then takes to its extreme.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What building it would touch</h2>
+  <div class="read"><ul>
+    <li><code>fireArc</code>, <code>arcTargets</code>, <code>ARC_LV</code>, <code>drawArcs</code>: replaced. The beam becomes a per-frame path with a hit test along it; today it is one bolt every 8 frames.</li>
+    <li>A short history of the ship's x per player, saved in the snapshot, so a resumed run draws the same tail.</li>
+    <li>The Kolibri AI: it stays outside the Arc's cone (<code>ARC_LV</code> cone and slope, <code>arcBand</code>, <code>arcOff</code>, <code>arcMargin</code>) and checks <code>arcLock</code>. With no cone and no lock it needs a new rule, probably "stay off the rope".</li>
+    <li><code>pbArcCd</code>: the point-blank setting shortens the Arc's cooldown by distance to the locked target. A continuous beam has no cooldown, so it would scale damage by distance to the first hit.</li>
+    <li><code>tests/superweapon.mjs</code>: one check reads <code>reach</code>, <code>dmg</code>, <code>jumps</code> and <code>bd</code> from <code>ARC_LV[5]</code>; another shoots down a basic fighter with the super Arc.</li>
+    <li>Damage tuning, so boss fights with the Arc stay about as long as with the other weapons. Boss parts take 1.25 times Arc damage today.</li>
+    <li>The Talon drone already fires its own straight shot for the Arc and needs no change. Sounds (<code>chipPlay('arc')</code>, <code>zapSfx</code>) fire per bolt and need a looped or throttled version.</li>
+  </ul></div>
+</section>
+</div>
+
+<script>
+(function () {
+  var W = 224, H = 336, TAU = Math.PI * 2;
+  var C = ['#0a1a52', '#14389c', '#2a64e8', '#64a8ff', '#d4ecff'];
+  var REACH = 286, STEP = 4, SHIP_Y = 306;
+  var T = 0, level = '3', paused = false;
+  function rng(seed) { return function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+  /* One pilot for all four screens: waypoints with pauses, or the viewer's pointer. */
+  var pilot = { x: 112, vx: 0, tx: 112, hold: 0, r: rng(5), hist: [], still: 0, ptr: null, ptrT: 0 };
+  for (var i = 0; i < 40; i++) pilot.hist.push(112);
+  function pilotStep() {
+    var p = pilot;
+    if (p.ptrT > 0) { p.ptrT--; p.tx = p.ptr; }
+    else if (p.hold > 0) p.hold--;
+    else if (Math.abs(p.tx - p.x) < 2) { if (p.r() < 0.4) p.hold = 60 + p.r() * 70 | 0; else p.tx = 26 + p.r() * (W - 52); }
+    var want = clamp((p.tx - p.x) * 0.2, -2.6, 2.6);
+    p.vx += (want - p.vx) * 0.25; p.x = clamp(p.x + p.vx, 12, W - 12);
+    p.hist.unshift(p.x); p.hist.length = 40;
+    p.still += ((Math.abs(p.vx) < 0.35 ? 1 : 0) - p.still) * (Math.abs(p.vx) < 0.35 ? 0.07 : 0.2);
+  }
+
+  var UNIT = { rails: 11, whip: 6, fan: 5, latch: 11 };
+  function offsets(n) { var o = []; for (var i = 0; i < n; i++) o.push(i - (n - 1) / 2); return o; }
+  function strandCount() { return level === 'S' ? 5 : level === '4f' ? 3 : +level; }
+
+  function makeSim(id, kind) {
+    var cv = document.getElementById(id);
+    return { kind: kind, cv: cv, ctx: cv.getContext('2d'), en: [], sparks: [], links: {}, latch: [], spawn: rng(11), nid: 1 };
+  }
+  var sims = [makeSim('cv-rails', 'rails'), makeSim('cv-whip', 'whip'), makeSim('cv-fan', 'fan'), makeSim('cv-latch', 'latch')];
+
+  function spawn(S) {
+    if (T % (level === 'S' ? 6 : 30) === 0) { var r = S.spawn; S.en.push({ id: S.nid++, x: 18 + r() * (W - 36), y: -8, vy: 0.45 + r() * 0.4, ph: r() * 400, hp: 34, max: 34, r: 6, fl: 0 }); }
+    if (T % 460 === 150) { var q = S.spawn; S.en.push({ id: S.nid++, x: 50 + q() * (W - 100), y: -16, vy: 0.22, ph: q() * 400, hp: 620, max: 620, r: 13, big: true, fl: 0 }); }
+  }
+  function spark(S, x, y, n, sp, col) { for (var k = 0; k < n; k++) { var a = Math.random() * TAU, v = sp * (0.4 + Math.random()); S.sparks.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 8 + Math.random() * 8 | 0, col: col || (k % 2 ? C[3] : '#ffffff') }); } }
+  function hurt(S, e, d) { e.hp -= d; e.fl = 2; if (Math.random() < 0.3) spark(S, e.x, e.y, 1, 1.4); }
+
+  /* Walk a path outward from the ship and stop at the first target it touches. */
+  function trace(S, fx, reach, skip) {
+    var pts = [], hit = null;
+    for (var s = 0; s <= reach; s += STEP) {
+      var q = fx(s); pts.push(q);
+      if (q[1] < 2 || s < 8) continue;
+      for (var k = 0; k < S.en.length; k++) { var e = S.en[k]; if (skip && skip[e.id]) continue; var dx = q[0] - e.x, dy = q[1] - e.y; if (dx * dx + dy * dy < (e.r + 2) * (e.r + 2)) { hit = e; break; } }
+      if (hit) { pts[pts.length - 1] = [hit.x, hit.y]; break; }
+    }
+    return { pts: pts, hit: hit };
+  }
+  /* A path bent from the ship to a point: leaves the nose straight up, then swings over. */
+  function bend(x0, y0, x1, y1, wob, ph) {
+    var pts = [], n = Math.max(6, Math.hypot(x1 - x0, y1 - y0) / STEP | 0), cx = x0, cy = y0 - (y0 - y1) * 0.6 - 8;
+    for (var k = 0; k <= n; k++) { var u = k / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u;
+      var w = Math.sin(u * Math.PI) * Math.sin(u * 9 - T * 0.25 + ph) * wob;
+      pts.push([a * x0 + b * cx + c * x1 + w, a * y0 + b * cy + c * y1]); }
+    return pts;
+  }
+
+  function strands(S) {
+    var p = pilot, n = strandCount(), offs = offsets(n), y0 = SHIP_Y - 11, out = [], sup = level === 'S';
+    if (sup) return superStrands(S, offs, y0);
+    offs.forEach(function (o, i) {
+      var mirror = o < 0 ? 0 : o > 0 ? Math.PI : Math.PI / 2, st;
+      if (S.kind === 'rails') {
+        st = trace(S, function (s) { return [p.x + o * UNIT.rails + Math.min(1, s / 40) * 3.5 * Math.sin(s * 0.05 - T * 0.2 + mirror), y0 - s]; }, REACH);
+      } else if (S.kind === 'whip') {
+        var dir = (i % 2 ? 1 : -1);
+        st = trace(S, function (s) {
+          var f = s * 0.085, a = Math.floor(f), sx = p.hist[Math.min(39, a)], sx2 = p.hist[Math.min(39, a + 1)], spine = sx + (sx2 - sx) * (f - a);
+          var u = Math.max(0, (s - (REACH - 56)) / 56), lag = spine - p.x, d = Math.abs(lag) > 3 ? (lag > 0 ? 1 : -1) : dir;
+          return [spine + o * UNIT.whip + Math.min(1, s / 50) * 4 * Math.sin(s * 0.04 - T * 0.16 + i * 0.5) + d * 15 * Math.sin(u * 3.7) * u, y0 - s + 22 * u * u];
+        }, REACH);
+      } else if (S.kind === 'fan') {
+        var f = p.still;
+        st = trace(S, function (s) {
+          var g = Math.min(1, s / 30);
+          return [p.x + o * (UNIT.fan + s * 0.13) * (1 - f) + f * g * 5 * Math.sin(s * 0.075 + i * TAU / n - T * 0.24) + (1 - f) * g * 2.5 * Math.sin(s * 0.05 - T * 0.2 + mirror), y0 - s];
+        }, REACH);
+        st.heat = f > 0.75 ? (f - 0.75) * 4 : 0; st.mult = 1 + st.heat * 0.8;
+      } else {
+        var L = S.latch[i], ox = p.x + o * UNIT.latch;
+        if (L && (L.e.hp <= 0 || L.e.gone || L.e.y > SHIP_Y - 24 || Math.abs(L.e.x - ox) > 0.75 * (SHIP_Y - L.e.y) + 8)) { spark(S, L.e.x, L.e.y, 5, 2); L = S.latch[i] = null; }
+        if (L) { L.t++; var r = Math.min(1, L.t / 50); st = { pts: bend(ox, y0, L.e.x, L.e.y, 2 + r * 2, i), hit: L.e, heat: r, mult: 1 + r * 1.4 }; }
+        else {
+          var held = {}; S.latch.forEach(function (q) { if (q) held[q.e.id] = 1; });
+          st = trace(S, function (s) { return [ox + Math.min(1, s / 40) * 3 * Math.sin(s * 0.05 - T * 0.2 + mirror), y0 - s]; }, REACH, held);
+          if (st.hit) S.latch[i] = { e: st.hit, t: 0 };
+        }
+      }
+      st.w = 3; out.push(st);
+    });
+    S.latch.length = n;
+    return out;
+  }
+
+  function superStrands(S, offs, y0) {
+    var p = pilot, out = [];
+    var near = S.en.filter(function (e) { return e.y > 4 && e.y < SHIP_Y - 20; }).sort(function (a, b) { return Math.hypot(a.x - p.x, a.y - SHIP_Y) - Math.hypot(b.x - p.x, b.y - SHIP_Y); }).slice(0, 3).sort(function (a, b) { return a.x - b.x; });
+    var first = Math.floor((offs.length - near.length) / 2);
+    offs.forEach(function (o, i) {
+      var e = near[i - first], ox = p.x + o * 5, st;
+      if (e) st = { pts: bend(ox, y0, e.x, e.y, 6, i * 1.7), hit: e };
+      else st = trace(S, function (s) { var u = s / 170; return [ox + Math.sin(T * 0.06 + i * 2.1) * 46 * u + 13 * Math.sin(u * 7 - T * 0.3 + i) * u, y0 - s + 60 * u * u * (0.5 + 0.5 * Math.sin(T * 0.045 + i * 1.3))]; }, 170);
+      st.w = 4; st.heat = 1; st.mult = 0.55; out.push(st);
+    });
+    return out;
+  }
+
+  /* Jumps: from each target a strand holds, on to the nearest untouched one. A new link grows out over a few frames. */
+  function jumps(S, sts, hops, range) {
+    var used = {}, seen = {}, out = [];
+    sts.forEach(function (st) { if (st.hit) used[st.hit.id] = 1; });
+    sts.forEach(function (st) {
+      var cur = st.hit; if (!cur) return;
+      for (var h = 0; h < hops; h++) {
+        var nb = null, bd = range;
+        for (var k = 0; k < S.en.length; k++) { var e = S.en[k]; if (used[e.id] || e.y < 2) continue; var d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = e; } }
+        if (!nb) break;
+        var key = cur.id + '>' + nb.id, age = (S.links[key] || 0) + 1; seen[key] = age;
+        var f = Math.min(1, age / 6), mx = (cur.x + nb.x) / 2, my = (cur.y + nb.y) / 2, nx = -(nb.y - cur.y), ny = nb.x - cur.x, l = Math.hypot(nx, ny) || 1, bow = 9 * Math.sin(T * 0.11 + cur.id);
+        var pts = [], n = Math.max(4, bd / STEP | 0), cx = mx + nx / l * bow * 2, cy = my + ny / l * bow * 2;
+        for (var j = 0; j <= n * f; j++) { var u = j / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; pts.push([a * cur.x + b * cx + c * nb.x + Math.sin(u * 8 - T * 0.4) * 2 * Math.sin(u * Math.PI), a * cur.y + b * cy + c * nb.y]); }
+        out.push({ pts: pts, hit: f >= 1 ? nb : null, w: 2, heat: 0.5, mult: level === 'S' ? 0.45 : 0.5, link: true });
+        used[nb.id] = 1; cur = nb; if (f < 1) break;
+      }
+    });
+    S.links = seen;
+    return out;
+  }
+
+  function step(S) {
+    spawn(S);
+    for (var k = S.en.length - 1; k >= 0; k--) { var e = S.en[k]; e.y += e.vy; e.x += Math.sin((T + e.ph) * 0.03) * 0.4; if (e.fl > 0) e.fl--;
+      if (e.hp <= 0) { spark(S, e.x, e.y, e.big ? 26 : 10, e.big ? 3 : 2); spark(S, e.x, e.y, e.big ? 10 : 4, 1.2, '#ffb347'); e.gone = true; S.en.splice(k, 1); }
+      else if (e.y > H + 20) { e.gone = true; S.en.splice(k, 1); } }
+    var sts = strands(S);
+    if (level === 'S') sts = sts.concat(jumps(S, sts, 5, 84));
+    else if (level === '4f') sts = sts.concat(jumps(S, sts, 1, 44));
+    else S.links = {};
+    sts.forEach(function (st) { if (st.hit) hurt(S, st.hit, (st.mult || 1)); });
+    for (var j = S.sparks.length - 1; j >= 0; j--) { var q = S.sparks[j]; q.x += q.vx; q.y += q.vy; q.vx *= 0.9; q.vy *= 0.9; if (--q.life <= 0) S.sparks.splice(j, 1); }
+    S.sts = sts;
+  }
+
+  function disc(ctx, x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+  function coil(ctx, st, idx) {
+    var pts = st.pts, n = pts.length; if (n < 2) return;
+    var heat = st.heat || 0, w = st.w + (heat > 0.5 ? 1 : 0), jit = st.link ? 1.2 : 0.7;
+    var path = pts.map(function (q, k) { var j = k === 0 || k === n - 1 ? 0 : jit; return [q[0] + (Math.random() - 0.5) * 2 * j, q[1] + (Math.random() - 0.5) * j]; });
+    var pass = [[heat >= 1 ? C[3] : C[2], w + 3, 0.5], [C[3], w + 1, 0.95], ['#ffffff', Math.max(1, w - 2 + (heat >= 1 ? 1 : 0)), 1]];
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    pass.forEach(function (a) { ctx.globalAlpha = a[2]; ctx.strokeStyle = a[0]; ctx.lineWidth = a[1]; ctx.beginPath(); ctx.moveTo(path[0][0], path[0][1]); for (var k = 1; k < n; k++) ctx.lineTo(path[k][0], path[k][1]); ctx.stroke(); });
+    /* knots that travel along the rope */
+    for (var k = 0; k < n; k += 1) { var ph = (k * STEP - T * 2.4 + idx * 23) % 62; if (ph < 0) ph += 62; if (ph < STEP && k > 2 && k < n - 1) { ctx.globalAlpha = 0.9; disc(ctx, path[k][0], path[k][1], w * 0.5 + 2, C[3]); ctx.globalAlpha = 1; disc(ctx, path[k][0], path[k][1], w * 0.5 + 0.6, '#ffffff'); } }
+    var e = path[n - 1];
+    if (st.hit) { ctx.globalAlpha = 0.5; disc(ctx, e[0], e[1], 5 + heat * 3, C[3]); ctx.globalAlpha = 1; disc(ctx, e[0], e[1], 2 + heat, '#ffffff');
+      if (heat >= 1) { ctx.globalAlpha = 0.8; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 7 + (T >> 1) % 4, 0, TAU); ctx.stroke(); } }
+    else if (!st.link) { ctx.globalAlpha = 0.9; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; for (var b = 0; b < 2; b++) { ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] + (Math.random() - 0.5) * 16, e[1] - 3 - Math.random() * 8); ctx.stroke(); } }
+    if (!st.link) { ctx.globalAlpha = 0.5; disc(ctx, path[0][0], path[0][1], 4 + heat * 2, C[3]); ctx.globalAlpha = 1; disc(ctx, path[0][0], path[0][1], 1.5 + heat, '#ffffff'); }
+    ctx.globalAlpha = 1;
+  }
+  function px(ctx, x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+  function drawShip(ctx, x, y) {
+    px(ctx, x - 1, y - 9, 3, 16, '#c9d2dc'); px(ctx, x, y - 10, 1, 3, '#ffffff'); px(ctx, x - 9, y - 2, 19, 4, '#9aa6b4'); px(ctx, x - 9, y - 2, 19, 1, '#dfe6ee');
+    px(ctx, x - 4, y + 5, 9, 2, '#9aa6b4'); px(ctx, x - 1, y - 4, 3, 3, '#3b6ea8'); px(ctx, x - 7, y - 1, 2, 2, '#c8452e'); px(ctx, x + 6, y - 1, 2, 2, '#c8452e');
+    px(ctx, x, y + 7, 1, 2 + (T & 1), '#ffb347');
+  }
+  function drawEnemy(ctx, e) {
+    var c = e.fl ? '#ffffff' : e.big ? '#6d7a4a' : '#8a3d32', d = e.fl ? '#ffffff' : e.big ? '#434d2c' : '#5a241d', x = e.x, y = e.y;
+    if (e.big) { px(ctx, x - 13, y - 6, 27, 12, d); px(ctx, x - 11, y - 9, 23, 18, c); px(ctx, x - 4, y - 12, 9, 24, d); px(ctx, x - 2, y - 3, 5, 6, '#c9b458');
+      px(ctx, x - 12, y - 15, 25 * Math.max(0, e.hp / e.max), 1, '#ffd166'); }
+    else { px(ctx, x - 1, y - 6, 3, 12, c); px(ctx, x - 6, y - 2, 13, 3, c); px(ctx, x - 6, y - 2, 13, 1, d); px(ctx, x - 3, y - 6, 7, 2, d); px(ctx, x, y + 4, 1, 2, '#e8d9a0'); }
+  }
+  function draw(S) {
+    var ctx = S.ctx; ctx.globalAlpha = 1; ctx.fillStyle = '#18222a'; ctx.fillRect(0, 0, W, H);
+    for (var k = 0; k < 46; k++) { var bx = (k * 73) % W, by = (k * 131 + T * 0.7) % H; px(ctx, bx, by, k % 3 ? 2 : 5, k % 5 ? 1 : 3, k % 2 ? '#1f2c35' : '#243340'); }
+    px(ctx, 150, 0, 10, H, '#1d2931'); for (var r = 0; r < 12; r++) px(ctx, 154, (r * 32 + T * 0.7) % H, 2, 12, '#2b3a45');
+    S.en.forEach(function (e) { drawEnemy(ctx, e); });
+    (S.sts || []).forEach(function (st, i) { coil(ctx, st, i); });
+    S.sparks.forEach(function (q) { ctx.globalAlpha = Math.min(1, q.life / 6); px(ctx, q.x, q.y, 1, 1, q.col); }); ctx.globalAlpha = 1;
+    drawShip(ctx, pilot.x, SHIP_Y);
+  }
+
+  function tick() { T++; pilotStep(); sims.forEach(step); }
+  function frame() { if (!paused) { tick(); sims.forEach(draw); } requestAnimationFrame(frame); }
+
+  var hint = document.getElementById('hint');
+  document.querySelectorAll('[data-lv]').forEach(function (b) { b.addEventListener('click', function () {
+    level = b.getAttribute('data-lv'); sims.forEach(function (S) { S.latch = []; S.links = {}; });
+    document.querySelectorAll('[data-lv]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+    if (paused) { tick(); sims.forEach(draw); } }); });
+  var pb = document.getElementById('pause');
+  pb.addEventListener('click', function () { paused = !paused; pb.setAttribute('aria-pressed', paused ? 'true' : 'false'); pb.textContent = paused ? 'Play' : 'Pause'; });
+  sims.forEach(function (S) { S.cv.addEventListener('pointermove', function (ev) { var r = S.cv.getBoundingClientRect(); pilot.ptr = clamp((ev.clientX - r.left) / r.width * W, 12, W - 12); pilot.ptrT = 120; hint.textContent = 'You are flying'; }); });
+  setInterval(function () { if (pilot.ptrT <= 0) hint.textContent = 'Autopilot'; }, 500);
+
+  for (var w = 0; w < 330; w++) tick(); /* open on a busy frame */
+  sims.forEach(draw);
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paused = true; pb.setAttribute('aria-pressed', 'true'); pb.textContent = 'Play'; }
+  requestAnimationFrame(frame);
+})();
+</script>
