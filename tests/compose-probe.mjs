@@ -79,8 +79,9 @@ const KITS = {
     needs: { open_sea_ice: 'ice hole', village: 'alpine village', lake_valley: 'lake', pass: 'gate' },
     markers: p => { const m = [];
       for (const s of p.slots) if (s.kind === 'sub') m.push({ t: 'open_sea_ice', y: s.y, what: 'ice hole' });
-      if (p.alpine && p.alpine.y0 !== undefined) { m.push({ t: 'village', y: p.alpine.y0 + TOL, what: 'alpine village' }); m.push({ t: 'village', y: p.alpine.y1 - TOL, what: 'alpine village' }); if (p.alpine.chapel) m.push({ t: 'village', y: p.alpine.chapel.y, what: 'alpine village' }); }
-      if (p.lake) { m.push({ t: 'lake_valley', y: p.lake.y0 + TOL, what: 'lake' }); m.push({ t: 'lake_valley', y: p.lake.y1 - TOL, what: 'lake' }); }
+      /* the middle of each village and lake: a segment needs one of its own, a neighbour's edge does not count */
+      for (const A of p.alpines || []) { m.push({ t: 'village', y: (A.y0 + A.y1) / 2, what: 'alpine village' }); if (A.chapel) m.push({ t: 'village', y: A.chapel.y, what: 'chapel' }); }
+      for (const Lk of p.iceLakes || []) m.push({ t: 'lake_valley', y: (Lk.y0 + Lk.y1) / 2, what: 'lake' });
       for (const it of p.items) if (it.label === 'Guard hut') m.push({ t: 'pass', y: it.y0, what: 'gate' });
       return m; },
     extra: (p, rg) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;

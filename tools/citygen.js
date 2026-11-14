@@ -3608,7 +3608,9 @@ function winterLand(o) {
     if (pad(-56, 440, 15, 15, 'arty', 'lot', 6)) count('arty'); if (pad(58, 452, 15, 15, 'arty', 'lot', 6)) count('arty');
     for (const dx of [-56, 56]) if (pad(dx, 590, 13, 13, 'flak', 'lot', 5)) count('flak'); /* (beyond the road's old end: the basin's last rim guns) */ }
   // 3. the mountain village. The special places first (chapel, sawmill, cable car, ski jump, lanes), the chalets along the road last.
-  if (vs) { const [ya, yb] = vs, sC = rnd(10) < 0.5 ? -1 : 1, A = plan.alpine = { y0: ya, y1: yb, chalets: 0, terraces: 0 };
+  const rndK = k => k ? (t, i, j) => rnd(t + 7000 * k, i, j) : rnd; // (a second village or lake draws its own numbers; the first keeps the plan's, so a plan with one of each is as it was)
+  plan.alpines = []; plan.iceLakes = [];
+  for (const [vk, vs] of fs('village').entries()) { const rnd = rndK(vk), [ya, yb] = vs, sC = rnd(10) < 0.5 ? -1 : 1, A = { y0: ya, y1: yb, chalets: 0, terraces: 0 }; if (!vk) plan.alpine = A; plan.alpines.push(A); /* (plan.alpine: the first, as before) */
     const house = (x0, y0, w, h, front, roof) => { const it = addItem({ t: 'house', label: 'Chalet', x0, y0, w, h, ori: front === 'W' || front === 'E' ? 'h' : 'v', front, style: 'gable', roof, run: -1 - plan.items.length }); rect(x0, y0, w, h, K.BLDG, it.id, flatten(x0, y0, w, h, 3)); return it; };
     const yard = (x, y, dx, dy, to) => { for (let k = 0; k < 9; k++) { const xx = x + dx * k, yy = y + dy * k; if (!inB(xx, yy)) return; const i = idx(xx, yy); if (Kr[i] === to) return; Kr[i] = K.FRONT; Br[i] = -1; reserved[i] = 1; } }; // the front yard, out to the street
     const side = (s, y, d) => Math.round(MX(y) + s * (4.5 + d)) - (s > 0 ? 0 : 1); // the first column d px beyond the road's edge on side s
@@ -3652,7 +3654,7 @@ function winterLand(o) {
           const px = s > 0 ? x0 + w + 3 : x0 - 8; if (rnd(16, y, s) < 0.45 && free(px, y + 1, 5, 4, 1)) { const sh = addItem({ t: 'works', label: 'Woodshed', x0: px, y0: y + 1, w: 5, h: 4, ori: 'h', style: 'flat', roof: 2 }); rect(px, y + 1, 5, 4, K.BLDG, sh.id, flatten(px, y + 1, 5, 4, 1)); } y += h + 5 + ((rnd(17, y, s) * 10) | 0); } else y += 5; } } }
   // the frozen lake on the valley floor beside the road (lake_valley), fishing huts on it, and an ice road across it (a tank route) that leaves
   // the road at the lake's south end and joins it again at the north end
-  if (lk) { const [p0, p1] = lk, cy = (p0 + p1) / 2, ry = (p1 - p0) * 0.42, LK = plan.lake = { y0: Math.round(cy - ry), y1: Math.round(cy + ry), huts: 0, xc: [] }, xcAt = y => vx(y) + sL * 14;
+  for (const [lkK, lk] of fs('lake').entries()) { const rnd = rndK(lkK), [p0, p1] = lk, cy = (p0 + p1) / 2, ry = (p1 - p0) * 0.42, LK = { y0: Math.round(cy - ry), y1: Math.round(cy + ry), huts: 0, xc: [] }, xcAt = y => vx(y) + sL * 14; if (!lkK) plan.lake = LK; plan.iceLakes.push(LK); /* (plan.lake: the first, as before) */
     for (let y = Math.floor(cy - ry - 2); y <= cy + ry + 2; y++) { const xc = xcAt(y), rx = 30 + 6 * vn(y * 0.03, 8.1); for (let x = Math.floor(xc - rx - 3); x <= xc + rx + 3; x++) { if (!inB(x, y)) continue; const i = idx(x, y), e = Math.hypot((x + 0.5 - xc) / rx, (y + 0.5 - cy) / ry) + (vn(x * 0.08, y * 0.08) - 0.5) * 0.16; if (e < 1 && !reserved[i]) { Kr[i] = K.ICE; Br[i] = -86; reserved[i] = 1; Hg[i] = 0; } } }
     const ya = Math.round(cy - ry * 0.9), yb = Math.round(cy + ry * 0.9), xl = y => { const f = smooth(ya, ya + 40, y) * (1 - smooth(yb - 40, yb, y)); return lerp(MX(y), xcAt(y), f); }, pts = [];
     for (let y = ya; y <= yb; y++) pts.push([xl(y), y, 8]); const st = { cls: 'collector', axis: 'v', tank: true, ice: true, pts, y0: ya, y1: yb }; st.id = plan.streets.length; plan.streets.push(st);
@@ -3747,7 +3749,7 @@ function winterLand(o) {
     for (let y = L - 1; y >= 0; y--) for (let x = 0; x < W; x++) { const i = idx(x, y); if (x === 0 || y === L - 1) { hz[i] = -1e9; continue; } const j = i + W - 1, v = Math.max(Hg[j], hz[j]) - drop; hz[i] = v; if (v > Hg[i]) M[i] = 1; } }
   lap('shadows');
   // avalanche fences on the steeper snow slopes above the village, along the contour
-  if (vs) for (let y = vs[0] - 20; y < vs[1] + 20; y += 9) for (let x = 4; x < W - 4; x += 11) { const xx = x + Math.round(rnd(30, x, y) * 6), yy = y + Math.round(rnd(31, x, y) * 5); if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.SLOPE || rnd(32, x, y) > 0.45) continue;
+  for (const vs of fs('village')) for (let y = vs[0] - 20; y < vs[1] + 20; y += 9) for (let x = 4; x < W - 4; x += 11) { const xx = x + Math.round(rnd(30, x, y) * 6), yy = y + Math.round(rnd(31, x, y) * 5); if (!inB(xx, yy) || Kr[idx(xx, yy)] !== K.SLOPE || rnd(32, x, y) > 0.45) continue;
     const h = H(xx, yy), gx = (H(xx + 1, yy) - H(xx - 1, yy)) / 2, gy = (H(xx, yy + 1) - H(xx, yy - 1)) / 2, s = Math.hypot(gx, gy); if (h < 26 || h > 80 || s < 0.45) continue; const tx = -gy / s, ty = gx / s, n = 4 + ((rnd(33, x, y) * 3) | 0), seg = [];
     for (let k = -n; k <= n; k++) { const px = Math.round(xx + tx * k), py = Math.round(yy + ty * k); if (!inB(px, py) || Kr[idx(px, py)] !== K.SLOPE) break; seg.push([px, py]); } if (seg.length >= 6) plan.avalanche.push(seg); }
   // 5. snowy conifers up to the tree line, in stands; clear of buildings, lanes, the jump and the cable car's line
@@ -3786,6 +3788,7 @@ function stackPlans(A, B, preset) {
   plan.ravines = (A.ravines || []).concat((B.ravines || []).map(r => Object.assign(up(r), { top: x => r.top(x) + La, bot: x => r.bot(x) + La }))); plan.viaduct2 = B.viaduct2 ? up(B.viaduct2) : null;
   plan.gorge = B.gorge ? Object.assign(up(B.gorge), { cx: B.gorge.cx, gal: B.gorge.gal.map(up), spurs: B.gorge.spurs.map(up), corn: B.gorge.corn.map(up), bridges: B.gorge.bridges.map(up), refuges: B.gorge.refuges.map(up), wrecks: B.gorge.wrecks.map(up) }) : null;
   plan.basin = B.basin ? up(B.basin) : null; plan.airbase = B.airbase ? up(B.airbase) : A.airbase || null;
+  plan.alpines = (B.alpines || []).map(q => Object.assign(up(q), q.chapel ? { chapel: up(q.chapel) } : {})); plan.iceLakes = (B.iceLakes || []).map(up); // every mountain village and frozen lake (plan.alpine and plan.lake are the first of each)
   plan.lake = B.lake ? up(B.lake) : null; plan.throat = B.throat ? Object.assign(up(B.throat), { tracks: B.throat.tracks.map(t => Object.assign({}, t, { ya: t.ya + La, yb: t.yb + La })) }) : null;
   plan.parts = [{ preset: A.preset, y0: 0, y1: La - 1 }, { preset: B.preset, y0: La, y1: L - 1 }]; plan.stage = Object.assign({}, A.stage, { land: B.stage.total });
   return plan;
