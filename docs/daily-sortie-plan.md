@@ -1,6 +1,6 @@
 # Daily Sortie: composer plan
 
-Status: plan, draft 1. Phase 0 (evidence) and phase 0b (generator fixes) are done: see sections 6 and 6.6. Nothing of the composer is built yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
+Status: plan, draft 1. Phases 0, 0b and 1 are done (sections 6, 6.6 and 7): the composer module exists and is tested. Nothing in the game uses it yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
 
 ## 0. Goal and ground rules
 
@@ -425,3 +425,70 @@ What is still not clean is the fixed ends (the openers, winter's approach and it
 - One baseline flight re-flown (level 5, first loop, Veteran): every number as in `tests/daily-baseline.json`.
 
 **Found on the way, for the owner:** the Campaign's level 5 in its first loop (seed 1945) has the lake valley first (`loopSeq` swapped it with the village), so the plan the game flies there today fails the generator's own rules: the road steps 25 px sideways at the seam between the farmland and the lake valley (tank reach 0.37; plan row 1984, x 106 below and 131 above). That is why fix 8 is a switch: passing `joinRoad: 1` in `sortiePlanLevel5` mends the road and changes that level's ground from the seam to about 160 px above it. One line, **[owner]**.
+
+## 7. Phase 1 results: the composer module (build 1.2.6.39)
+
+`tools/sortie-compose.js` (`KITS`, `composeSortie`, `check`, `encPlanFor`, `dailySeed`, `composeDaily`, `dateKeyUTC`, `DAILY_REROLL`, `composeVersion` 1), embedded in `index.html` as `sortieComposeSrc` by `node scripts/embed-citygen.mjs` and run by the loader between the generator and the game. The game does not call it yet: `window.SortieCompose` exists and gives the same output in the page as in Node, and that is all. `tests/compose.mjs` runs in CI in four shards; `tests/kit-check.mjs` holds the plan checks it shares with the probe.
+
+### 7.1 Pass rates
+
+| Check | desert | forest | winter |
+|---|---|---|---|
+| Gate 1, 10,000 seeds (the rules, checked by the test apart from the module's own check) | 10,000 | 10,000 | 10,000 |
+| First try succeeds | 60 % | 95 % | 92 % |
+| Most tries any seed needed (of 64) | 13 | 4 | 5 |
+| Gate 2, 300 composed lists (no throw, `CityGen.validate`, length, every feature in its own segment, structures share under the limit) | 300 | 300 | 300 |
+| Gate 2, 1,000 composed lists | 1,000 | 1,000 | not run (300 take 5 minutes) |
+| Plan time, median / p95 | 146 / 269 ms | 130 / 230 ms | 882 / 1524 ms |
+
+Also checked: the composer's hash equals the game's `sortieHash` (2,000 pairs); the same seed gives the same sortie; another seed or sub-seed gives another list; every day of 2027 composes, 122 days per kit; a date that is none is refused; the day changes at midnight UTC; a reroll entry changes that date and nothing else; the embedded copy is current.
+
+The desert's first try fails more often because its walk can end on an open desert (the approach is one) or cannot fill the target with what its limits leave; the next sub-seed is drawn, as the plan says.
+
+### 7.2 Variety, over 1,000 seeds
+
+| | desert | forest | winter |
+|---|---|---|---|
+| Different orders of the middle | 857 | 498 | 404 |
+| Total length, chunks (mean) | 62 to 82 (72.3) | 50 to 66 (58.0) | 78 to 90 (83.9) |
+| Middle segments | 4 to 8 | 5 to 7 | 4 to 6 |
+| Each template appears in | 82 to 97 % | 99 to 100 % | 92 to 96 % |
+| Each template comes first in | 14 to 19 % | 19 to 22 % | 18 to 23 % |
+| Encounters per sortie | 2.52 | 1.70 | 2.78 |
+| Three hot stretches in a row | 2.7 % | 0.6 % | 0 % |
+
+No middle template is ever missing from the 1,000. At 2.9 s per chunk the boss arrives after 3.0 to 4.0 minutes (desert), 2.4 to 3.2 (forest) and 3.8 to 4.4 (winter).
+
+### 7.3 Example sequences (the middles; opener and approach as in 2.1)
+
+| Date | Kit | Chunks | Middle | Encounters (chunk) |
+|---|---|---|---|---|
+| 2026-11-14 | winter | 89 | village 6, forest_conifer 6, airbase_snow 6, station_winter 9, lake_valley 7, forest_conifer 6 | iceraid 4, iceroad 59, basebreak 73 |
+| 2026-11-15 | desert | 79 | pass 8, desert_open 5, station_junction 10, airbase_desert 10, valley 10, village 7, valley 9 | burningfield 19, oasisambush 54, fuelconvoy 71 |
+| 2026-11-16 | forest | 59 | forest_conifer 7, valley 6, forest_fortified 9, clearing_village 6, airbase_forest_hidden 6, forest_conifer 6, forest_fortified 9 | cliffbattery 1, valleyconvoy 11 |
+| 2026-11-17 | winter | 87 | airbase_snow 7, station_winter 8, forest_conifer 5, lake_valley 8, forest_conifer 5, village 5 | iceraid 4, iceroad 52, basebreak 71 |
+| 2026-11-18 | desert | 76 | village 8, valley 10, airbase_desert 7, station_junction 8, desert_open 5, valley 9, pass 9 | oasisambush 11, burningfield 44, fuelconvoy 68 |
+| 2026-11-19 | forest | 63 | airbase_forest_hidden 8, forest_fortified 9, forest_conifer 8, valley 7, forest_fortified 8, clearing_village 5, forest_conifer 8 | cliffbattery 1, valleyconvoy 29 |
+
+### 7.4 What gate 2 changed in the grammar
+
+The probe changes one thing at a time; composed lists change several. The first gate 2 run failed 6 of 20 desert lists, all at the held village:
+
+- **`village` is 7 to 8 chunks** (6.6 said 4 to 20). Its defences (trench, wire, minefield, ditch, roadblock) reach 190 px south of its middle, so a village of 4 to 6 chunks spills into the segment before it. That is harmless behind a valley, a junction or an airbase and wrong behind the port (the roadblock lands in the other plan), a pass (rock) or an open desert: 42 of 216 composed lists with a village of 4 to 6 chunks failed, 0 of 63 at 7. The Campaign's own village is 6 chunks behind a valley, so this is a composer rule, not a generator fix (moving the village would change the Campaign).
+- **`desert_open → village` is forbidden again**, for a new reason: an open desert that is not the level's first gets a roadside hamlet that reaches up to 70 px past its segment's end (3 of 300 lists).
+
+After both: 1,000 of 1,000.
+
+### 7.5 Choices made in the module, for the owner to change
+
+- **Lengths per template** (in `KITS`) are narrower than what is valid, so no stretch is too short to play or long enough to drag: for example `valley` 7 to 12, `pass` 8 to 12, `forest_fortified` 6 to 9, `lake_valley` 6 to 8.
+- **`heat`** per template (0 quiet to 1 hot) drives the rhythm rule: after two stretches of 0.6 and more a quiet one is three times as likely. The values are my estimate from gun sites and features (`pass` 0.9, `village` 0.8, `forest_fortified` 0.9, `desert_open` 0.1, …). The flight gate will show whether they match what the bot meets.
+- **At least four middle segments**, and no template twice in a row.
+- **Encounters** come from the loops' hand-made plans (`buildSortie`), one per segment at most, each at most once, with 2 chunks of rest after each one's measured length. Whether each one works on the first pass's ground is phase 2's check (the plan says so): `burningfield` and `basebreak` were built for the loops' ground (`variant`), `valleyconvoy` for the autumn river.
+- **The structures limit** per template in gate 2 is twice the hand-made level's highest share plus 5 points (6.5 item 1). Nothing came near it.
+- **The generator's variants are off** (`variant: 0`, no `autumn`): the daily sortie flies the first pass's ground.
+
+### 7.6 Notes
+
+- The CI workflow confirms 6.5 item 11: its comment says the replay test "is switched off until the golden values are refreshed for v1.2.5". The golden files are stale; this machine is fine.
+- `node tests/citygen.mjs`, `tests/enigma.mjs` (213), `tests/fixed-seed.mjs` (41) and `tests/smoke.mjs` pass with the composer embedded; the 24 Campaign plans hash as before.

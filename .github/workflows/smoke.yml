@@ -36,6 +36,23 @@ jobs:
           node-version: 20
       - run: node tests/citygen.mjs --shard ${{ matrix.shard }}/4
 
+  # Daily Sortie composer (tools/sortie-compose.js): its rules on 10,000 seeds per kit and the generator's plan of 300 composed lists per
+  # kit, the plans in four shards (tests/compose.mjs --shard).
+  compose:
+    name: Sortie composer ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tests/compose.mjs --shard ${{ matrix.shard }}/4
+
   browser:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -128,10 +145,10 @@ jobs:
   smoke:
     name: smoke
     if: always()
-    needs: [unit, citygen, browser]
+    needs: [unit, citygen, compose, browser]
     runs-on: ubuntu-latest
     steps:
       - name: All checks passed
         run: |
-          echo "unit ${{ needs.unit.result }}, citygen ${{ needs.citygen.result }}, browser ${{ needs.browser.result }}"
-          test "${{ needs.unit.result }}" = success && test "${{ needs.citygen.result }}" = success && test "${{ needs.browser.result }}" = success
+          echo "unit ${{ needs.unit.result }}, citygen ${{ needs.citygen.result }}, compose ${{ needs.compose.result }}, browser ${{ needs.browser.result }}"
+          test "${{ needs.unit.result }}" = success && test "${{ needs.citygen.result }}" = success && test "${{ needs.compose.result }}" = success && test "${{ needs.browser.result }}" = success

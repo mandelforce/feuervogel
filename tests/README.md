@@ -332,6 +332,17 @@ node tests/compose-probe.mjs --kit desert --group adjacent --seeds 80   # one ki
 node tests/daily-baseline.mjs --twice --save tests/daily-baseline.json   # about 5 minutes
 ```
 
+## Sortie composer test (runs in CI, blocking)
+
+`compose.mjs` (Node only) checks `tools/sortie-compose.js`: its hash is the game's `sortieHash`; the same seed gives the same sortie; every composed list of 10,000 seeds per kit keeps the kit's rules (opener, approach, who may follow whom, how often, how long, the total, encounter spacing); every middle template appears and the orders differ over 1,000 seeds; the daily seed (UTC day, kit by rotation, reroll table); the generator's plan of 300 composed lists per kit passes `CityGen.validate`, has the right length, holds every template's feature in its own segment and stays under the structures limit; and the copy in `index.html` is current. `kit-check.mjs` holds the plan checks it shares with `compose-probe.mjs`.
+
+```
+node tests/compose.mjs                 # everything, about 8 minutes (the winter plans take most of it)
+node tests/compose.mjs --plans 30      # fewer generator plans per kit
+node tests/compose.mjs --kit desert --verbose   # one kit, with example sequences
+node tests/compose.mjs --shard 2/4     # as CI runs it
+```
+
 ## Nothing pops in, guns stay off runways (by hand)
 
 `guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. `overcast-pop.mjs [4|5] [frames]` flies the first loop of level 4 or 5 and fails if a cloud of the overcast sky (stratus decks, mist banks) changes place by more than 3 px in a frame, appears or vanishes on screen, or steps in opacity: clouds may only wrap while wholly off screen. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.
