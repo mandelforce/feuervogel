@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.30'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.31'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9598,11 +9598,265 @@ function chainEndSfx(n, rec) {
   if (T >= 4) { bell(b + 0.1, 98, 1.3, 0.05); bell(b + 0.2, 103, 1.4, 0.04); sparkle(b + 0.1, 0.5, 0.05); }
   if (rec) { const r = b + 0.85; [91, 95, 98, 103].forEach((m, z) => bell(r + z * 0.07, m, 0.6, 0.06)); sparkle(r + 0.2, 0.5, 0.05); }
 }
-// The pickup sounds come in two styles (PICK_STYLE; the sound lab plays both): 'tech', the default, has no musical notes at all (the music already carries the tune):
-// clicks, a servo whine, a lock-in clunk and electric crackle that grow with the level; 'notes' is the first version, a rising arpeggio and a chime, kept for comparison.
+/* ================= pickup sounds, 'fable' style (no notes) =================
+   Weapon = a coil gun being charged: SLAM (the cell hits home) - SURGE (energy rushing up) - SNAP (the breech locks).
+   Nova   = a dark cell being chambered: stuttering suction, a hollow implosion, a slow purple wobble.
+   Everything is unpitched or gliding; each call runs through one level control and a gentle low-pass (nothing piercing). */
+
+/* building blocks; level: the calibrated output level of this call */
+function fblKit(level) {
+  ensureNoise();
+  const out = actx.createGain(), soft = actx.createBiquadFilter();
+  out.gain.value = level; soft.type = 'lowpass'; soft.frequency.value = 8500; soft.Q.value = 0.5;
+  out.connect(soft).connect(sfxBus);
+  const K = {
+    out,
+    /* the end of a chain: optional stereo position */
+    to(node, pan) {
+      if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; node.connect(p).connect(out); } else node.connect(out);
+    },
+    /* envelope: a = attack time, then an exponential fall; rise: swells over the whole length and is cut */
+    env(t, d, v, a = 0.003, rise = false) {
+      const g = actx.createGain(); g.gain.value = 0; g.gain.setValueAtTime(0.0001, t);
+      if (rise) { g.gain.exponentialRampToValueAtTime(v, t + d * 0.92); g.gain.linearRampToValueAtTime(0, t + d); }
+      else { g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + d); g.gain.setValueAtTime(0, t + d); }
+      return g;
+    },
+    noise(t, d) { const s = actx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(t, Math.random() * 1.5); s.stop(t + d + 0.02); return s; },
+    filt(type, t, d, f0, f1, Q = 1) {
+      const f = actx.createBiquadFilter(); f.type = type; f.Q.value = Q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + d); return f;
+    },
+    /* filtered noise burst or swell */
+    nz(t, d, v, type, f0, f1, Q = 1, o = {}) {
+      const g = K.env(t, d, v, o.a, o.rise); K.noise(t, d).connect(K.filt(type, t, d, f0, f1, Q)).connect(g); K.to(g, o.pan);
+    },
+    /* a sine dropping fast through a soft clipper: the body of an impact (drive adds weight without adding level) */
+    thump(t, d, v, f0, f1, drive = 3) {
+      const o = actx.createOscillator(), w = actx.createWaveShaper(), lp = K.filt('lowpass', t, d, 1400), g = K.env(t, d, v, 0.002);
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.7); w.curve = distCurve(drive);
+      o.connect(w).connect(lp).connect(g); K.to(g); o.start(t); o.stop(t + d + 0.02);
+    },
+    /* two-operator FM with an inharmonic ratio, always gliding: metallic zaps and coil whines */
+    fm(t, d, v, f0, f1, ratio, i0, i1, lp, o = {}) {
+      const c = actx.createOscillator(), m = actx.createOscillator(), mg = actx.createGain(), f = K.filt('lowpass', t, d, lp), g = K.env(t, d, v, o.a, o.rise);
+      c.frequency.setValueAtTime(f0, t); c.frequency.exponentialRampToValueAtTime(f1, t + d);
+      m.frequency.setValueAtTime(f0 * ratio, t); m.frequency.exponentialRampToValueAtTime(f1 * ratio * (o.spread || 1), t + d);
+      mg.gain.setValueAtTime(f0 * i0, t); mg.gain.exponentialRampToValueAtTime(Math.max(1, f1 * i1), t + d);
+      m.connect(mg).connect(c.frequency); c.connect(f).connect(g); K.to(g, o.pan);
+      c.start(t); m.start(t); c.stop(t + d + 0.02); m.stop(t + d + 0.02);
+    },
+    /* band noise chopped by a tremolo whose rate glides r0 to r1: plasma flutter */
+    flutter(t, d, v, f0, f1, r0, r1, Q = 2, o = {}) {
+      const am = actx.createGain(), l = actx.createOscillator(), lg = actx.createGain(), g = K.env(t, d, v, o.a || 0.01, o.rise);
+      l.type = 'square'; l.frequency.setValueAtTime(r0, t); l.frequency.exponentialRampToValueAtTime(r1, t + d);
+      am.gain.value = 0.5; lg.gain.value = 0.5; l.connect(lg).connect(am.gain);
+      K.noise(t, d).connect(K.filt('bandpass', t, d, f0, f1, Q)).connect(am).connect(g); K.to(g, o.pan);
+      l.start(t); l.stop(t + d + 0.02);
+    },
+    /* a struck piece of metal: a noise tick ringing a few inharmonic resonances for some hundredths of a second */
+    metal(t, d, v, freqs, Q = 14) {
+      const s = K.noise(t, d), g = K.env(t, d, v, 0.001);
+      for (const f of freqs) s.connect(K.filt('bandpass', t, d, f, f * 0.94, Q)).connect(g);
+      K.to(g);
+    },
+    crackle(t, d, n, v, lo = 1800, hi = 5200) {
+      for (let i = 0; i < n; i++) K.nz(t + Math.random() * d, 0.01 + Math.random() * 0.014, v * (0.5 + Math.random() * 0.5), 'bandpass', lo + Math.random() * (hi - lo), 0, 3, { pan: Math.random() * 1.4 - 0.7, a: 0.001 });
+    },
+    /* noise through a swept comb (direct minus a moving short delay): the hollow jet sound of the Nova; gate: a prepared gain node chopping it */
+    hollow(t, d, v, f0, f1, d0, d1, gate, o = {}) {
+      const bp = K.filt('bandpass', t, d, f0, f1, 0.8), dl = actx.createDelay(0.05), inv = actx.createGain(), g = K.env(t, d, v, o.a || 0.01, o.rise);
+      dl.delayTime.setValueAtTime(d0, t); dl.delayTime.exponentialRampToValueAtTime(d1, t + d); inv.gain.value = -0.92;
+      K.noise(t, d).connect(bp); const pre = gate || g;
+      bp.connect(pre); bp.connect(dl).connect(inv).connect(pre); if (gate) gate.connect(g); K.to(g, o.pan);
+    }
+  };
+  return K;
+}
+
+/* Weapon pickup. One device, more charge with each level:
+   tier 1: a small slam (click + short thump), a short rising air surge, a snap.
+   tier 2: heavier slam with a metallic bite, the surge climbs further and a coil whine glides up with it.
+   tier 3: plus plasma flutter riding the surge (it speeds up) and a few sparks.
+   tier 4: plus a sub drop under everything, a wide double surge, and the snap becomes a metal lock with a second kick.
+   step 1..3 (tier 4, on the way to the super weapon): that many rising 'overcharge' chirps after the lock, each higher;
+     at 3 the last one keeps climbing into an open whine: almost there.
+   tier 5 (super weapon): everything is sucked in, a breath of silence, then a double slam, a falling metal screech, a distorted roar,
+     sparks all around and a turbine that keeps spinning up.
+   tier 6 (super weapon topped up): the slam-surge-snap in miniature.
+   swap (another weapon type): a bolt action first: clack-clack on metal with a low rack thud. */
+/* output level per tier, calibrated by measurement: bus peak about 0.10 / 0.15 / 0.20 / 0.25, super weapon 0.42, top-up 0.12 */
+const FBL_W_LEVEL = [0, 0.215, 0.23, 0.28, 0.29, 0.3, 0.28];
+function weaponUpFable(tier, step = 0, swap = 0) {
+  if (RSND()) return chipWeaponFable(tier, step, swap);
+  if (muted || !actx) return;
+  tier = clamp(tier | 0, 1, 6);
+  const K = fblKit(FBL_W_LEVEL[tier]); let t = actx.currentTime + 0.01;
+  if (tier === 6) {
+    K.nz(t, 0.01, 0.3, 'bandpass', 2200, 0, 1.2, { a: 0.001 }); K.thump(t, 0.06, 0.4, 170, 70, 3);
+    K.nz(t + 0.015, 0.1, 0.4, 'bandpass', 700, 3000, 5, { rise: true }); K.fm(t + 0.015, 0.1, 0.1, 300, 1300, 2.76, 1.5, 0.6, 3500, { rise: true });
+    K.nz(t + 0.115, 0.03, 0.4, 'bandpass', 2600, 1500, 2, { a: 0.001 });
+    return;
+  }
+  if (swap) {
+    const sv = [0.5, 0.45, 0.4, 0.35, 0.22][tier - 1];
+    K.metal(t, 0.04, sv, [1730, 2890, 4310]); K.nz(t, 0.03, sv * 0.5, 'lowpass', 900, 250, 1, { a: 0.001 });
+    K.metal(t + 0.052, 0.05, sv * 1.2, [1210, 2330, 3650]); K.thump(t + 0.052, 0.05, sv * 0.9, 190, 80, 2);
+    t += 0.1;
+  }
+  if (tier === 5) {
+    /* the intake */
+    K.hollow(t, 0.29, 0.35, 250, 3200, 0.006, 0.0005, null, { rise: true });
+    K.flutter(t, 0.29, 0.22, 500, 2600, 14, 70, 2, { rise: true });
+    K.fm(t, 0.29, 0.1, 70, 900, 2.76, 2, 0.8, 2600, { rise: true });
+    const b = t + 0.315;
+    /* the double slam */
+    K.nz(b, 0.014, 0.5, 'bandpass', 2600, 0, 1, { a: 0.001 });
+    K.thump(b, 0.5, 0.8, 190, 30, 10); K.thump(b + 0.13, 0.42, 0.6, 130, 28, 8);
+    K.metal(b, 0.07, 0.3, [980, 1870, 3140, 4420]);
+    /* the discharge: a metal screech falling, a roar closing down */
+    K.fm(b, 0.3, 0.2, 2600, 110, 1.41, 4, 0.3, 5200);
+    K.fm(b + 0.02, 0.36, 0.12, 1900, 70, 2.76, 3, 0.3, 4200, { pan: -0.5 });
+    K.nz(b, 0.6, 0.42, 'lowpass', 4200, 160, 1.5);
+    K.flutter(b + 0.05, 0.5, 0.2, 2400, 500, 60, 12, 1.5);
+    K.crackle(b + 0.06, 0.55, 16, 0.2);
+    /* the turbine: keeps climbing, never settles */
+    K.fm(b + 0.14, 0.78, 0.16, 110, 820, 2.76, 1.2, 0.5, 1900, { a: 0.3, spread: 1.03 });
+    K.hollow(b + 0.2, 0.72, 0.26, 400, 2800, 0.004, 0.0006, null, { a: 0.35 });
+    return;
+  }
+  const n = tier, sd = [0.13, 0.17, 0.21, 0.24][n - 1], s0 = t + 0.022, e = s0 + sd;
+  /* slam */
+  K.nz(t, 0.012, 0.3 + 0.04 * n, 'bandpass', 2400, 0, 1.2, { a: 0.001 });
+  K.thump(t, 0.06 + 0.02 * n, 0.36 + 0.06 * n, 150 + 12 * n, 62 - 5 * n, 1 + 2 * n);
+  if (n >= 2) K.fm(t, 0.035 + 0.008 * n, 0.1 + 0.03 * n, 1500 + 250 * n, 240, 1.41, 3, 0.3, 4500);
+  if (n >= 4) K.thump(t + 0.012, 0.3, 0.4, 95, 34, 5);
+  /* surge */
+  K.nz(s0, sd, 0.5 + 0.08 * n, 'bandpass', 380, 1200 + 600 * n, 3 + n, { rise: true });
+  if (n >= 2) K.fm(s0, sd, 0.05 + 0.02 * n, 190, 420 + 260 * n, 2.76, 1.6, 0.7, 2400 + 400 * n, { rise: true });
+  if (n >= 3) { K.flutter(s0, sd, 0.14 + 0.05 * (n - 3), 900, 2600, 22, 55 + 12 * n, 2, { rise: true }); K.crackle(s0 + sd * 0.4, sd * 0.7, (n - 2) * 3, 0.14); }
+  if (n >= 4) { K.hollow(s0, sd, 0.2, 300, 2600, 0.005, 0.0006, null, { rise: true, pan: -0.6 }); K.nz(s0 + 0.02, sd - 0.02, 0.16, 'bandpass', 600, 3400, 3, { rise: true, pan: 0.6 }); }
+  /* snap */
+  K.nz(e, 0.03 + 0.006 * n, 0.4 + 0.06 * n, 'bandpass', 2000 + 150 * n, 1100, 2, { a: 0.001 });
+  if (n >= 3) K.thump(e, 0.05, 0.25, 160, 80, 2);
+  if (n >= 4) { K.metal(e, 0.07, 0.4, [1130, 2210, 3470]); K.thump(e, 0.11, 0.45, 150, 45, 6); K.nz(e, 0.1, 0.2, 'lowpass', 1600, 200, 1); }
+  /* overcharge chirps */
+  for (let i = 0; i < step; i++) {
+    const c = e + 0.055 + i * 0.045, last = i === 2;
+    K.nz(c, last ? 0.07 : 0.035, 0.34 + 0.05 * i, 'bandpass', 1100 + 450 * i, (1100 + 450 * i) * (last ? 2.4 : 1.8), 7, { rise: true });
+    K.fm(c, last ? 0.07 : 0.035, 0.07 + 0.02 * i, 500 + 220 * i, (500 + 220 * i) * (last ? 2.6 : 1.8), 1.41, 1.2, 0.5, 3600, { rise: true });
+  }
+}
+
+/* Nova pickup (purple, hollow, low). n = Novas in stock after the pickup:
+   the suction stutters n times in the same quarter second (one slow gulp for 1, a fast purr for 6), a pressure glide rises higher with n,
+   then a short gap and the implosion: a clipped sub drop (deeper and harder with n), a dull whump and a hollow wobble that slows down.
+   n = 6 (full): a second thud and a short seal hiss: the chamber is closed.
+   n = 0 (already full, points instead): only a muffled deflating puff and a soft falling thud; nothing gained. */
+/* output level per stock, calibrated: bus peak 0.10 for n = 0, then 0.24 rising to 0.33 */
+const FBL_N_LEVEL = [0.37, 0.35, 0.36, 0.375, 0.37, 0.385, 0.365];
+function novaGetFable(n) {
+  if (RSND()) return chipNovaFable(n);
+  if (muted || !actx) return;
+  n = clamp(n | 0, 0, 6);
+  const K = fblKit(FBL_N_LEVEL[n]), t = actx.currentTime + 0.01;
+  if (n <= 0) {
+    K.nz(t, 0.12, 0.3, 'lowpass', 900, 220, 0.7, { a: 0.03 });
+    K.thump(t + 0.05, 0.11, 0.3, 120, 62, 1);
+    return;
+  }
+  /* the suction, chopped into n gulps */
+  const sd = 0.25, w = sd / n, gate = actx.createGain(); gate.gain.value = 0; gate.gain.setValueAtTime(0, t);
+  for (let i = 0; i < n; i++) {
+    const a = t + i * w, top = 0.45 + 0.55 * (i + 1) / n;
+    gate.gain.setValueAtTime(top * 0.12, a); gate.gain.linearRampToValueAtTime(top, a + w * 0.78); gate.gain.linearRampToValueAtTime(top * 0.12, a + w);
+  }
+  gate.gain.linearRampToValueAtTime(0, t + sd + 0.004);
+  K.hollow(t, sd, 0.5, 2400 + 300 * n, 420, 0.0012, 0.007, gate, { a: 0.004 });
+  K.fm(t, sd, 0.12 + 0.01 * n, 52, 105 + 14 * n, 0.5, 1.5, 0.6, 700, { rise: true });
+  /* the implosion */
+  const b = t + sd + 0.02;
+  K.nz(b, 0.012, 0.25, 'bandpass', 1500, 0, 1, { a: 0.001 });
+  K.thump(b, 0.2, 0.6 + 0.03 * n, 135 + 11 * n, 33, 2 + 1.3 * n);
+  K.nz(b, 0.13, 0.3, 'lowpass', 1500 + 150 * n, 160, 1);
+  K.flutter(b + 0.02, 0.24, 0.3 + 0.02 * n, 620 + 50 * n, 190, 46 + 5 * n, 13, 3);
+  K.hollow(b + 0.02, 0.24, 0.2, 900, 240, 0.002, 0.008, null, { a: 0.02 });
+  if (n >= 6) { K.thump(b + 0.085, 0.13, 0.6, 115, 36, 8); K.nz(b + 0.085, 0.11, 0.2, 'bandpass', 3200, 1300, 1.2, { a: 0.004 }); }
+}
+
+/* ---- the same two on the 1980s chip: pulse or triangle slides and 1-bit noise only ---- */
+
+/* the chip voices of one call through one level control; noise starts are put on the middle of a sample
+   (a 1-bit noise burst starting exactly on a sample boundary can let one full-scale sample through before its envelope applies) */
+function fblChip(level) {
+  const out = actx.createGain(), sr = actx.sampleRate; out.gain.value = level; out.connect(sfxOut());
+  return {
+    v(t, f0, f1, d, v, wave, rise) { chipVoice(t, f0, f1, d, v, wave, rise, out); },
+    n(t, d, v, rates, rise) { chipNz((Math.floor(t * sr) + 0.5) / sr, d, v, rates, rise, out); }
+  };
+}
+const FBL_CW_LEVEL = [0, 0.75, 0.8, 0.87, 0.54, 0.73, 1], FBL_CN_LEVEL = [0.9, 0.75, 0.79, 0.82, 0.86, 0.89, 0.84];
+
+/* Weapon: triangle slam, a rising pulse surge with noise stepping up, a noise snap. More voices and longer slides with the level. */
+function chipWeaponFable(tier, step = 0, swap = 0) {
+  if (muted || !actx) return;
+  tier = clamp(tier | 0, 1, 6);
+  const C = fblChip(FBL_CW_LEVEL[tier]); let t = actx.currentTime + 0.01;
+  if (tier === 6) {
+    C.v(t, 180, 80, 0.04, 0.12, 'tri'); C.v(t + 0.02, 400, 1700, 0.1, 0.035, 0.25, true); C.n(t + 0.02, 0.1, 0.02, [2000, 4000, 8000], true); C.n(t + 0.12, 0.03, 0.04, [8000]);
+    return;
+  }
+  if (swap) {
+    C.n(t, 0.025, 0.05, [8000]); C.v(t, 950, 600, 0.02, 0.04, 0.5);
+    C.n(t + 0.05, 0.035, 0.06, [4000]); C.v(t + 0.05, 700, 380, 0.04, 0.045, 0.5); C.v(t + 0.05, 180, 90, 0.04, 0.1, 'tri');
+    t += 0.1;
+  }
+  if (tier === 5) {
+    C.n(t, 0.3, 0.05, [1000, 1000, 2000, 2000, 4000, 8000], true); C.v(t, 70, 900, 0.3, 0.05, 0.125, true); C.v(t, 40, 240, 0.3, 0.12, 'tri', true);
+    const b = t + 0.32;
+    C.n(b, 0.04, 0.12, [16000]); C.v(b, 200, 30, 0.42, 0.3, 'tri'); C.v(b + 0.14, 140, 30, 0.36, 0.26, 'tri');
+    C.v(b, 2400, 110, 0.3, 0.06, 0.125); C.v(b + 0.02, 1700, 70, 0.36, 0.045, 0.5);
+    C.n(b + 0.03, 0.55, 0.09, [8000, 4000, 4000, 2000, 2000, 1000, 1000]);
+    for (let i = 0; i < 6; i++) C.n(b + 0.12 + i * 0.075, 0.03, 0.035, [i % 2 ? 16000 : 8000]);
+    C.v(b + 0.2, 110, 760, 0.62, 0.05, 0.25, true);
+    return;
+  }
+  const n = tier, sd = [0.12, 0.16, 0.2, 0.24][n - 1], s0 = t + 0.02, e = s0 + sd;
+  C.n(t, 0.02, 0.03 + 0.008 * n, [8000]);
+  C.v(t, 150 + 12 * n, 62 - 5 * n, 0.06 + 0.02 * n, 0.06 + 0.04 * n, 'tri');
+  if (n >= 2) C.v(t, 1500 + 250 * n, 240, 0.04, 0.03, 0.125);
+  C.v(s0, 190, 420 + 260 * n, sd, 0.028 + 0.006 * n, 0.25, true);
+  C.n(s0, sd, 0.016 + 0.005 * n, [[1000, 2000], [1000, 2000, 4000], [1000, 2000, 4000, 4000], [1000, 2000, 4000, 8000]][n - 1], true);
+  if (n >= 3) for (let i = 0; i < (n - 2) * 2; i++) C.n(s0 + sd * (0.35 + 0.16 * i), 0.018, 0.03, [16000]);
+  if (n >= 4) { C.v(t, 95, 34, 0.26, 0.2, 'tri'); C.v(s0 + 0.02, 285, 1400, sd - 0.02, 0.02, 0.5, true); }
+  C.n(e, 0.03 + 0.006 * n, 0.035 + 0.008 * n, [n >= 3 ? 4000 : 8000]);
+  if (n >= 4) { C.v(e, 150, 45, 0.1, 0.22, 'tri'); C.n(e + 0.03, 0.07, 0.04, [2000, 1000]); }
+  for (let i = 0; i < step; i++) {
+    const c = e + 0.055 + i * 0.045, last = i === 2, f = 500 + 220 * i;
+    C.v(c, f, f * (last ? 2.6 : 1.8), last ? 0.07 : 0.035, 0.04 + 0.006 * i, 0.5, true); C.n(c, 0.02, 0.025, [16000]);
+  }
+}
+
+/* Nova: n noise gulps (each stepping down in rate, swelling) over a rising triangle, a gap, then a triangle drop with low noise
+   and a slow low pulse wobble. 6: a second thud and a hiss. 0: one dull low noise puff and a soft triangle fall. */
+function chipNovaFable(n) {
+  if (muted || !actx) return;
+  n = clamp(n | 0, 0, 6);
+  const C = fblChip(FBL_CN_LEVEL[n]), t = actx.currentTime + 0.01;
+  if (n <= 0) { C.n(t, 0.1, 0.035, [2000, 1000, 1000]); C.v(t + 0.05, 120, 62, 0.1, 0.09, 'tri'); return; }
+  const sd = 0.25, w = sd / n;
+  for (let i = 0; i < n; i++) C.n(t + i * w, w * 0.9, 0.03 + 0.03 * (i + 1) / n, w > 0.08 ? [8000, 4000, 2000] : [4000, 2000], true);
+  C.v(t, 52, 105 + 14 * n, sd, 0.14, 'tri', true);
+  const b = t + sd + 0.02;
+  C.v(b, 135 + 11 * n, 33, 0.2, 0.24 + 0.01 * n, 'tri'); C.n(b, 0.14, 0.07, [2000, 1000, 1000]);
+  for (let i = 0; i < 4; i++) C.v(b + 0.03 + i * 0.045, 150 - 22 * i, 100 - 18 * i, 0.03, 0.035, 0.5);
+  if (n >= 6) { C.v(b + 0.085, 115, 36, 0.13, 0.15, 'tri'); C.n(b + 0.085, 0.1, 0.035, [8000, 4000]); }
+}
+// The pickup sounds come in three styles (PICK_STYLE; the sound lab plays all of them): 'tech', the default, has no musical notes at all (the music already carries the tune):
+// clicks, a servo whine, a lock-in clunk and electric crackle that grow with the level; 'fable' is an alternative without notes (a coil gun that slams, surges and snaps; a dark cell that is
+// sucked in and implodes); 'notes' is the first version, a rising arpeggio and a chime, kept for comparison.
 let PICK_STYLE = 'tech';
-const weaponUpSfx = (...a) => (PICK_STYLE === 'notes' ? weaponUpNotes : weaponUpTech)(...a);
-const novaGetSfx = (...a) => (PICK_STYLE === 'notes' ? novaGetNotes : novaGetTech)(...a);
+const weaponUpSfx = (...a) => (PICK_STYLE === 'notes' ? weaponUpNotes : PICK_STYLE === 'fable' ? weaponUpFable : weaponUpTech)(...a);
+const novaGetSfx = (...a) => (PICK_STYLE === 'notes' ? novaGetNotes : PICK_STYLE === 'fable' ? novaGetFable : novaGetTech)(...a);
 // building blocks for the unpitched pickup sounds (all straight into the effects bus): a noise burst (filter sweeping f0 to f1; rise: it swells instead of dying away) and an oscillator slide
 function pickKit() {
   ensureNoise(); const out = sfxBus;
@@ -9761,6 +10015,8 @@ function soundCatalogue() {
   return [
     { g: 'Weapon power-up, no notes (default)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpTech(a, b, c)]) },
     { g: 'Nova pickup, no notes (default)', items: stock.map(([l, n]) => [l, () => novaGetTech(n)]) },
+    { g: 'Weapon power-up, Fable style (alternative, no notes)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpFable(a, b, c)]) },
+    { g: 'Nova pickup, Fable style (alternative, no notes)', items: stock.map(([l, n]) => [l, () => novaGetFable(n)]) },
     { g: 'Weapon power-up, with notes (first version, kept)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpNotes(a, b, c)]) },
     { g: 'Nova pickup, with notes (first version, kept)', items: stock.map(([l, n]) => [l, () => novaGetNotes(n)]) },
     { g: 'Medals, chains and bonuses', items: [0, 2, 4, 6, 10, 20, 30].map(k => ['Medal ' + (k + 1) + (k ? ' in the chain' : ''), () => medalSfx(k)])
@@ -9804,7 +10060,7 @@ function soundLab() {
   const head = el('header', {}, [
     el('h1', { textContent: 'FEUERVOGEL 89: sound lab' }),
     el('div', { className: 'row' }, [el('span', { textContent: 'Sound:' }), seg([[false, 'Classic (Campaign, Enigma Run)'], [true, 'Retro Run (chip)']], () => sndRetro, v => { sndRetro = v; })]),
-    el('div', { className: 'row' }, [el('span', { textContent: 'Pickups in the game:' }), seg([['tech', 'No notes'], ['notes', 'With notes']], () => PICK_STYLE, v => { PICK_STYLE = v; })]),
+    el('div', { className: 'row' }, [el('span', { textContent: 'Pickups in the game:' }), seg([['tech', 'No notes'], ['fable', 'Fable'], ['notes', 'With notes']], () => PICK_STYLE, v => { PICK_STYLE = v; })]),
     el('div', { className: 'row' }, [el('label', {}, ['Effects volume ', vol]),
       el('label', {}, [el('input', { type: 'checkbox', checked: true, onchange: e => { holdMusic = e.target.checked; if (!holdMusic) applyVolumes(); else quietMusic(); } }), 'Keep the music quiet']),
       el('button', { type: 'button', textContent: 'Stop all', onclick: () => { try { cutSfx(); } catch (e) {} } }),
