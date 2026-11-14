@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.31'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.32'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6093,7 +6093,7 @@ function chipNoiseBuf(rate) {
   for (let i = 0; i < sr; i++) { acc += rate / sr; while (acc >= 1) { acc--; const bit = (lfsr ^ (lfsr >> 1)) & 1; lfsr = (lfsr >> 1) | (bit << 14); v = lfsr & 1 ? 1 : -1; } a[i] = v; }
   return chipNoise[rate] = b;
 }
-function chipEnv(g, t0, v, d) { const n = 8; for (let k = 0; k <= n; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (1 - k / n)), t0 + d * k / n); }
+function chipEnv(g, t0, v, d) { const n = 8; g.gain.value = 0; /* (a gain node starts at 1: without this one sample of the sound can slip through before the envelope's first step) */ for (let k = 0; k <= n; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (1 - k / n)), t0 + d * k / n); }
 function chipTone(f, d, type, v, f2) {
   const t0 = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
   if (type === 'sine' || type === 'triangle') o.type = 'triangle'; else if (pulseWave) o.setPeriodicWave(pulseWave); else o.type = 'square';
@@ -6110,7 +6110,7 @@ function chipNoiseHit(d, v, freq) {
 }
 // a chip voice for the effects: one pulse or triangle tone sliding from f0 to f1 in 1/50 s steps; rise: the volume climbs in 8 steps instead of falling
 function chipVoice(t0, f0, f1, d, v, wave = 'pulse', rise = false, dest = sfxOut()) {
-  const o = actx.createOscillator(), g = actx.createGain();
+  const o = actx.createOscillator(), g = actx.createGain(); g.gain.value = 0;
   if (wave === 'tri') o.setPeriodicWave(psgWave('tri')); else o.setPeriodicWave(psgWave(wave === 'pulse' ? 0.25 : wave));
   const steps = Math.max(1, Math.round(d * 50));
   for (let k = 0; k <= steps; k++) o.frequency.setValueAtTime(f0 * Math.pow(f1 / f0, k / steps), t0 + d * k / steps);
@@ -6120,7 +6120,7 @@ function chipVoice(t0, f0, f1, d, v, wave = 'pulse', rise = false, dest = sfxOut
 }
 // a burst of 1-bit noise; the rate (its pitch) can step down over the burst
 function chipNz(t0, d, v, rates, rise = false, dest = sfxOut()) {
-  const n = rates.length, g = actx.createGain();
+  const n = rates.length, g = actx.createGain(); g.gain.value = 0; /* (starts silent: a gain node's default of 1 let a full-scale noise sample through when a burst began between two samples) */
   for (let k = 0; k <= 8; k++) g.gain.setValueAtTime(Math.max(0.0001, v * (rise ? (k + 1) / 9 : 1 - k / 8)), t0 + d * k / 8);
   g.gain.setValueAtTime(0, t0 + d); g.connect(dest);
   rates.forEach((r, i) => { const s = actx.createBufferSource(); s.buffer = chipNoiseBuf(r); s.loop = true; s.connect(g); s.start(t0 + d * i / n); s.stop(t0 + d * (i + 1) / n + 0.005); });
@@ -9785,13 +9785,12 @@ function novaGetFable(n) {
 
 /* ---- the same two on the 1980s chip: pulse or triangle slides and 1-bit noise only ---- */
 
-/* the chip voices of one call through one level control; noise starts are put on the middle of a sample
-   (a 1-bit noise burst starting exactly on a sample boundary can let one full-scale sample through before its envelope applies) */
+/* the chip voices of one call through one level control, straight into the effects bus (a pickup is the player's own sound: no position) */
 function fblChip(level) {
-  const out = actx.createGain(), sr = actx.sampleRate; out.gain.value = level; out.connect(sfxOut());
+  const out = actx.createGain(); out.gain.value = level; out.connect(sfxBus);
   return {
     v(t, f0, f1, d, v, wave, rise) { chipVoice(t, f0, f1, d, v, wave, rise, out); },
-    n(t, d, v, rates, rise) { chipNz((Math.floor(t * sr) + 0.5) / sr, d, v, rates, rise, out); }
+    n(t, d, v, rates, rise) { chipNz(t, d, v, rates, rise, out); }
   };
 }
 const FBL_CW_LEVEL = [0, 0.75, 0.8, 0.87, 0.54, 0.73, 1], FBL_CN_LEVEL = [0.9, 0.75, 0.79, 0.82, 0.86, 0.89, 0.84];
@@ -9851,12 +9850,13 @@ function chipNovaFable(n) {
   for (let i = 0; i < 4; i++) C.v(b + 0.03 + i * 0.045, 150 - 22 * i, 100 - 18 * i, 0.03, 0.035, 0.5);
   if (n >= 6) { C.v(b + 0.085, 115, 36, 0.13, 0.15, 'tri'); C.n(b + 0.085, 0.1, 0.035, [8000, 4000]); }
 }
-// The pickup sounds come in three styles (PICK_STYLE; the sound lab plays all of them): 'tech', the default, has no musical notes at all (the music already carries the tune):
-// clicks, a servo whine, a lock-in clunk and electric crackle that grow with the level; 'fable' is an alternative without notes (a coil gun that slams, surges and snaps; a dark cell that is
-// sucked in and implodes); 'notes' is the first version, a rising arpeggio and a chime, kept for comparison.
-let PICK_STYLE = 'tech';
-const weaponUpSfx = (...a) => (PICK_STYLE === 'notes' ? weaponUpNotes : PICK_STYLE === 'fable' ? weaponUpFable : weaponUpTech)(...a);
-const novaGetSfx = (...a) => (PICK_STYLE === 'notes' ? novaGetNotes : PICK_STYLE === 'fable' ? novaGetFable : novaGetTech)(...a);
+// The pickup sounds come in four styles (PICK_STYLE; the sound lab plays all of them), none but the last with musical notes (the music already carries the tune):
+// 'chip', the default in every mode (Campaign, Enigma Run and Retro Run alike): Fable's design, played with the chip voices (a coil gun that slams, surges and snaps; a dark cell that is
+// sucked in and implodes); 'fable': the same design with the full-range voices; 'tech': clicks, a servo whine, a lock-in clunk and electric crackle that grow with the level;
+// 'notes': the first version, a rising arpeggio and a chime, kept for comparison.
+let PICK_STYLE = 'chip';
+const weaponUpSfx = (...a) => ({ notes: weaponUpNotes, fable: weaponUpFable, tech: weaponUpTech }[PICK_STYLE] || chipWeaponFable)(...a);
+const novaGetSfx = (...a) => ({ notes: novaGetNotes, fable: novaGetFable, tech: novaGetTech }[PICK_STYLE] || chipNovaFable)(...a);
 // building blocks for the unpitched pickup sounds (all straight into the effects bus): a noise burst (filter sweeping f0 to f1; rise: it swells instead of dying away) and an oscillator slide
 function pickKit() {
   ensureNoise(); const out = sfxBus;
@@ -10013,10 +10013,12 @@ function soundCatalogue() {
     ['Super weapon', 5, 0, 0], ['Super weapon topped up', 6, 0, 0], ['Other weapon taken (at level 2)', 2, 0, 1], ['Other weapon taken (at level 4)', 4, 0, 1]];
   const stock = [['Nova 1', 1], ['Nova 2', 2], ['Nova 3', 3], ['Nova 4', 4], ['Nova 5', 5], ['Nova 6 (full now)', 6], ['Stock already full (2000 points)', 0]];
   return [
-    { g: 'Weapon power-up, no notes (default)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpTech(a, b, c)]) },
-    { g: 'Nova pickup, no notes (default)', items: stock.map(([l, n]) => [l, () => novaGetTech(n)]) },
-    { g: 'Weapon power-up, Fable style (alternative, no notes)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpFable(a, b, c)]) },
-    { g: 'Nova pickup, Fable style (alternative, no notes)', items: stock.map(([l, n]) => [l, () => novaGetFable(n)]) },
+    { g: 'Weapon power-up, chip voice (default, Fable)', items: tiers.map(([l, a, b, c]) => [l, () => chipWeaponFable(a, b, c)]) },
+    { g: 'Nova pickup, chip voice (default, Fable)', items: stock.map(([l, n]) => [l, () => chipNovaFable(n)]) },
+    { g: 'Weapon power-up, no notes (first tech version)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpTech(a, b, c)]) },
+    { g: 'Nova pickup, no notes (first tech version)', items: stock.map(([l, n]) => [l, () => novaGetTech(n)]) },
+    { g: 'Weapon power-up, full range (Fable)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpFable(a, b, c)]) },
+    { g: 'Nova pickup, full range (Fable)', items: stock.map(([l, n]) => [l, () => novaGetFable(n)]) },
     { g: 'Weapon power-up, with notes (first version, kept)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpNotes(a, b, c)]) },
     { g: 'Nova pickup, with notes (first version, kept)', items: stock.map(([l, n]) => [l, () => novaGetNotes(n)]) },
     { g: 'Medals, chains and bonuses', items: [0, 2, 4, 6, 10, 20, 30].map(k => ['Medal ' + (k + 1) + (k ? ' in the chain' : ''), () => medalSfx(k)])
@@ -10060,7 +10062,7 @@ function soundLab() {
   const head = el('header', {}, [
     el('h1', { textContent: 'FEUERVOGEL 89: sound lab' }),
     el('div', { className: 'row' }, [el('span', { textContent: 'Sound:' }), seg([[false, 'Classic (Campaign, Enigma Run)'], [true, 'Retro Run (chip)']], () => sndRetro, v => { sndRetro = v; })]),
-    el('div', { className: 'row' }, [el('span', { textContent: 'Pickups in the game:' }), seg([['tech', 'No notes'], ['fable', 'Fable'], ['notes', 'With notes']], () => PICK_STYLE, v => { PICK_STYLE = v; })]),
+    el('div', { className: 'row' }, [el('span', { textContent: 'Pickups in the game:' }), seg([['chip', 'Chip (Fable)'], ['fable', 'Full range (Fable)'], ['tech', 'No notes'], ['notes', 'With notes']], () => PICK_STYLE, v => { PICK_STYLE = v; })]),
     el('div', { className: 'row' }, [el('label', {}, ['Effects volume ', vol]),
       el('label', {}, [el('input', { type: 'checkbox', checked: true, onchange: e => { holdMusic = e.target.checked; if (!holdMusic) applyVolumes(); else quietMusic(); } }), 'Keep the music quiet']),
       el('button', { type: 'button', textContent: 'Stop all', onclick: () => { try { cutSfx(); } catch (e) {} } }),
