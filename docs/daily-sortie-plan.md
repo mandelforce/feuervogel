@@ -134,6 +134,15 @@ Every threshold is relative to a **baseline measured on the hand-made level of t
 
 **Stop point:** report the probe table, the derived grammar and the baselines.
 
+### Phase 0b: generator fixes (decision 7)
+
+- Fix rows 1, 2, 3, 8 and 9 of section 6.3 in `tools/citygen.js`, one commit each, then `node scripts/embed-citygen.mjs`.
+- Before the first fix, store a hash of `K` and `B` for 20 seeds of each kit's original list (and the loops' variants: `variant` 1 to 3, `autumn` + `lakes`, winter `variant` 1). After each fix every hash must be unchanged.
+- Re-run the probe rows each fix targets; `node tests/citygen.mjs`, `enigma.mjs` and `fixed-seed.mjs` stay green; `replay.mjs` gives the same output as before (section 6.5, item 11).
+- Update the grammar in 6.2 with what the fixes free up.
+
+**Stop point:** the probe rows before and after, and the unchanged hashes.
+
 ### Phase 1: composer module
 
 - `tools/sortie-compose.js` with `KITS`, `composeSortie`, `dailySeed`, `DAILY_REROLL` and `composeVersion`. Embed it as in 2.2.
@@ -196,7 +205,10 @@ Only after the owner decides: a `daily` mode in `worker.js` (`MODES`) keyed by `
 4. When a new build changes a date's sortie mid-day, **the version the player started with holds** for that day (2.3).
 6. The daily sortie plays on the **Campaign's fixed timetable** (`TT_ENC`, ARCHITECTURE.md "The Campaign's timetable"), so every player meets the same challenge. It does not use the reactive director.
 
+7. (2026-11-14, after phase 0) The small generator fixes of section 6.3 go in **before phase 1**: rows 1, 2 and 3 (desert: `pass → airbase_desert`, `desert_open → village`, the village's length), 8 (winter: `lake_valley` first) and 9 (winter: more than one village or lake). Row 4 (`plan.airbase` and `plan.fort` as lists) touches the game and waits for phase 2. Each fix must leave the plans of the hand-made lists exactly as they are (same seed, same `K` and `B`), so the Campaign does not change; `tests/compose-probe.mjs` shows the before and after. The large rows (7 and 11, own ground for the forest and winter templates) stay with phase 5.
+
 **Still open:**
+8. The "too easy" and "too hard" measures of gate 3 (section 6.5, items 3 and 4). Not needed before phase 3: until then the gate records every measure and judges only errors, the boss, dead air and determinism.
 5. Should there be a daily board, and does it get its own plausibility rules? (Phase 6. Don't build it until the owner decides.)
 
 ## 6. Phase 0 findings
