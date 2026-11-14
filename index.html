@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.28'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.29'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6145,6 +6145,35 @@ function chipNova() {
   chipVoice(t0, 140, 22, 1.6, 0.9, 'tri', false, out);
   [76, 72, 69, 64, 60, 57, 52, 48].forEach((n, i) => chipVoice(t0 + i * 0.06, mtof(n), mtof(n), 0.07, 0.06, 0.25, false, out));
   duck(0.7, 1.2);
+}
+// weapon pickup on the chip (see weaponUpSfx for the tiers): pulse arpeggio, a triangle tail, 1-bit noise for the sparkle
+function chipWeaponUp(tier, step, swap) {
+  let t = actx.currentTime + 0.01;
+  const fm = m => mtof(m), dt = 0.055;
+  if (tier === 6) { chipVoice(t, fm(91), fm(91), 0.06, 0.05); chipVoice(t + 0.07, fm(96), fm(96), 0.12, 0.05); return; }
+  if (swap) { chipNz(t, 0.03, 0.05, [16000]); chipVoice(t, fm(60), fm(60), 0.07, 0.07, 'tri'); t += 0.07; }
+  if (tier >= 5) {
+    chipVoice(t, 260, 2000, 0.24, 0.05, 'pulse', true); t += 0.24;
+    chipVoice(t, 150, 40, 0.2, 0.3, 'tri'); chipNz(t, 0.4, 0.04, [4000, 2000, 2000, 1000]);
+    [72, 79, 84, 88, 91, 96].forEach((m, i) => chipVoice(t + i * 0.04, fm(m), fm(m), 0.5 - i * 0.03, 0.05, i % 2 ? 0.5 : 'pulse'));
+    return;
+  }
+  const seq = [[72, 79], [72, 76, 79], [72, 76, 79, 84], [72, 76, 79, 84, 88]][clamp(tier, 1, 4) - 1];
+  if (tier >= 4) chipVoice(t, 150, 48, 0.12, 0.25, 'tri');
+  seq.forEach((m, i) => chipVoice(t + i * dt, fm(m), fm(m), i === seq.length - 1 ? 0.14 + 0.06 * tier : 0.07, 0.07, i % 2 ? 0.5 : 'pulse'));
+  const e = t + seq.length * dt;
+  if (tier >= 3) chipVoice(t + (seq.length - 1) * dt, fm(seq[seq.length - 1] + 12), fm(seq[seq.length - 1] + 12), 0.25, 0.04, 'tri');
+  if (tier >= 4) chipNz(e, 0.12, 0.03, [16000]);
+  for (let i = 0; i < step; i++) chipVoice(e + 0.1 + i * 0.07, fm(91 + i * 2), fm(91 + i * 2), 0.08, 0.04, 0.5);
+}
+function chipNovaGet(n) {
+  const t0 = actx.currentTime + 0.01;
+  if (n <= 0) { chipVoice(t0, mtof(57), mtof(57), 0.07, 0.06, 'tri'); chipVoice(t0 + 0.08, mtof(57), mtof(57), 0.12, 0.05, 'tri'); return; }
+  chipNz(t0, 0.28, 0.045, [8000, 4000, 2000, 1000], true);
+  chipVoice(t0, 70, 150, 0.26, 0.2, 'tri');
+  const b = t0 + 0.26, r = 62 + n;
+  chipVoice(b, 160, 40, 0.3, 0.32, 'tri');
+  [[r + 12, 0], [r + 7, 0.075], [r, 0.15]].forEach(([m, dt]) => chipVoice(b + dt, mtof(m), mtof(m), 0.22, 0.06, 0.25));
 }
 function chipWhine() { chipVoice(actx.currentTime, 90, 900, 1.2, 0.07, 0.25, true, sfxBus); }
 function chipRebirth() { const t0 = actx.currentTime; chipNz(t0, 0.8, 0.03, [1000, 2000, 4000, 8000], true); chipVoice(t0, 60, 520, 0.8, 0.045, 0.25, true); }
@@ -9541,6 +9570,72 @@ function chainEndSfx(n, rec) {
   if (T >= 2) { bell(b, 95, 1.0, 0.05); sparkle(b, 0.25, 0.04); }
   if (T >= 4) { bell(b + 0.1, 98, 1.3, 0.05); bell(b + 0.2, 103, 1.4, 0.04); sparkle(b + 0.1, 0.5, 0.05); }
   if (rec) { const r = b + 0.85; [91, 95, 98, 103].forEach((m, z) => bell(r + z * 0.07, m, 0.6, 0.06)); sparkle(r + 0.2, 0.5, 0.05); }
+}
+// Weapon pickup: a rising major arpeggio (C E G C E) that grows with the weapon's level, so the player hears the upgrade.
+//   tier 1: two notes · 2: three · 3: four, the last one a bell · 4: five, a bell chord and a low thump · 5 (the super weapon): a rising sweep and a full chord with a shimmer
+//   tier 6: the super weapon topped up (a short two-note ping). step 1 to 3 (level 4 on the way to the super weapon): that many high pings after the chord.
+//   swap: a different weapon was taken (the level stays): a "click" and a low blip come first.
+function weaponUpSfx(tier, step = 0, swap = 0) {
+  if (muted || !actx) return;
+  if (RETRO.on) return chipWeaponUp(tier, step, swap);
+  ensureNoise();
+  const out = sfxBus, t0 = actx.currentTime + 0.01, v0 = 0.06 + 0.008 * Math.min(tier, 5);
+  const note = (t, m, d, v, wave) => {
+    const o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
+    o.type = wave || 'square'; o2.type = 'sine'; o.frequency.value = mtof(m); o2.frequency.value = mtof(m + 12);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g); o2.connect(g); g.connect(out); o.start(t); o2.start(t); o.stop(t + d + 0.02); o2.stop(t + d + 0.02);
+  };
+  const bell = (t, m, d, v) => [[1, 1], [2, 0.35], [3, 0.18], [4.2, 0.08]].forEach(([r, a]) => {
+    const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = mtof(m) * r;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * a, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d / (0.6 + r * 0.4));
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.1);
+  });
+  const thump = (t, v, d = 0.16) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + d); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.06); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.1); };
+  let t = t0;
+  if (tier === 6) { note(t, 91, 0.1, 0.05); note(t + 0.07, 96, 0.2, 0.05); return; }
+  if (swap) { // the click of the new weapon locking in
+    const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 3000; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    s.connect(f).connect(g).connect(out); s.start(t, Math.random()); s.stop(t + 0.04);
+    note(t, 60, 0.07, 0.06, 'triangle'); t += 0.07;
+  }
+  if (tier >= 5) { // super: a rising sweep, then the whole chord and a shimmer
+    const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(260, t); o.frequency.exponentialRampToValueAtTime(2000, t + 0.24);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.2); g.gain.linearRampToValueAtTime(0, t + 0.25); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.27);
+    t += 0.24; thump(t, 0.22, 0.2);
+    [72, 79, 84, 88, 91, 96].forEach((m, i) => { bell(t + i * 0.03, m, 1.1, 0.07); });
+    nzSrc(t, 0.5, 0.05, 'highpass', 6500);
+    const sub = actx.createOscillator(), sg = actx.createGain(); sub.type = 'sine'; sub.frequency.value = mtof(48); sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.12, t + 0.02); sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.9); sub.connect(sg); sg.connect(out); sub.start(t); sub.stop(t + 0.95);
+    return;
+  }
+  const seq = [[72, 79], [72, 76, 79], [72, 76, 79, 84], [72, 76, 79, 84, 88]][clamp(tier, 1, 4) - 1], dt = 0.055;
+  if (tier >= 4) thump(t, 0.12, 0.12);
+  seq.forEach((m, i) => note(t + i * dt, m, i === seq.length - 1 ? 0.14 + 0.06 * tier : 0.1, v0 * (1 + i * 0.06)));
+  const e = t + seq.length * dt;
+  if (tier >= 3) bell(t + (seq.length - 1) * dt, seq[seq.length - 1] + 12, 0.3 + 0.2 * tier, 0.04 + 0.01 * tier);
+  if (tier >= 4) { bell(t + (seq.length - 1) * dt, 79, 0.9, 0.05); nzSrc(e, 0.18, 0.03, 'highpass', 6500); }
+  for (let i = 0; i < step; i++) note(e + 0.1 + i * 0.07, 91 + i * 2, 0.12, 0.035, 'sine'); // pings: how far to the super weapon
+}
+// Nova pickup: energy drawn in, a low purple thump, then a falling chime (the weapons rise, the Nova falls). n: Novas in stock now (1 to 6), the chime a semitone higher for each; 0: stock full, only points (a hollow double tick).
+function novaGetSfx(n) {
+  if (muted || !actx) return;
+  if (RETRO.on) return chipNovaGet(n);
+  ensureNoise();
+  const out = sfxBus, t0 = actx.currentTime + 0.01;
+  const tone2 = (t, f, d, v, type = 'sine', f2) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.02); };
+  if (n <= 0) { tone2(t0, mtof(57), 0.09, 0.06, 'triangle'); tone2(t0 + 0.08, mtof(57), 0.16, 0.05, 'triangle'); return; }
+  { const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(); // energy condensing into the ship
+    s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(4000, t0); f.frequency.exponentialRampToValueAtTime(350, t0 + 0.26);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    s.connect(f).connect(g).connect(out); s.start(t0, Math.random()); s.stop(t0 + 0.32); }
+  tone2(t0, 70, 0.26, 0.2, 'sine', 150);
+  const b = t0 + 0.26, r = 62 + n;
+  tone2(b, 160, 0.3, 0.26, 'sine', 40); // the thump
+  [[r + 12, 0], [r + 7, 0.075], [r, 0.15]].forEach(([m, dt]) => { // the falling chime: sine and an inharmonic partial
+    tone2(b + dt, mtof(m), 0.45, 0.09); tone2(b + dt, mtof(m) * 2.76, 0.25, 0.03, 'triangle');
+  });
+  tone2(b, mtof(r - 12), 0.7, 0.07, 'triangle'); tone2(b, mtof(r - 5), 0.7, 0.05, 'triangle'); // an open fifth underneath
 }
 // A medal chain is over: its window ran out, or the ship was lost. Sound, the longest chain of the run, and what the phone HUD shows (the count rolling up, the banner).
 function endChain() {
@@ -15863,12 +15958,13 @@ function p2Pickups(q) {
       else { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'bonus'); }
       sfx('drone'); checkExtend(); world.items.splice(i, 1); continue;
     }
-    if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); } }
+    let psnd = null; // as for player 1: a Nova (stock after it, 0 when full) or a weapon [tier, step, swap]
+    if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); psnd = 0; } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); psnd = run.bombs2; } }
     else {
-      if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); } else if ((q.sup || 0) < SUP_MAX) { superStep(q, 2, it); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); if (isSup(q)) q.supT = SUP_TIME; } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; q.sup = 0; q.supT = 0; }
+      if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); psnd = [q.lvl, 0, 0]; } else if ((q.sup || 0) < SUP_MAX) { superStep(q, 2, it); psnd = isSup(q) ? [5, 0, 0] : [4, q.sup, 0]; } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); if (isSup(q)) q.supT = SUP_TIME; psnd = [6, 0, 0]; } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; q.sup = 0; q.supT = 0; psnd = [Math.min(q.lvl, 4), 0, 1]; }
       label(it.x, it.y - 8, WPN[it.w].name + ' ' + (isSup(q) ? 'SUPER' : q.lvl + (q.sup || 0)));
     }
-    checkExtend(); sfx('power'); world.items.splice(i, 1);
+    checkExtend(); if (it.kind === 'B') novaGetSfx(psnd); else weaponUpSfx(...psnd); world.items.splice(i, 1);
   }
 }
 function drawDrones(p, who) {
@@ -16616,14 +16712,15 @@ function update() {
           sfx('drone'); haptic('drone'); checkExtend(); world.items.splice(i, 1); continue;
         }
         if (app.tut && (it.kind === 'B' || it.kind === 'T')) app.tut.got++;
-        if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); } } // (a full stock turns the Nova into 2000 points)
+        let psnd = null; // the pickup's sound: a Nova (stock after it, 0 when full) or a weapon [tier, step, swap]
+        if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); psnd = 0; } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); psnd = run.bombs; } } // (a full stock turns the Nova into 2000 points)
         else {
           if (app.tut) app.tut.got++;
-          if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); } else if ((p.sup || 0) < SUP_MAX) { superStep(p, 1, it); } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); if (isSup(p)) p.supT = SUP_TIME; } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; p.sup = 0; p.supT = 0; }
+          if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); psnd = [p.lvl, 0, 0]; } else if ((p.sup || 0) < SUP_MAX) { superStep(p, 1, it); psnd = isSup(p) ? [5, 0, 0] : [4, p.sup, 0]; } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); if (isSup(p)) p.supT = SUP_TIME; psnd = [6, 0, 0]; } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; p.sup = 0; p.supT = 0; psnd = [Math.min(p.lvl, 4), 0, 1]; }
           label(it.x, it.y - 8, WPN[it.w].name + ' ' + (isSup(p) ? 'SUPER' : p.lvl + (p.sup || 0)));
         }
         if (app.rr) app.rr.pk[it.kind === 'B' ? 'B' : it.w] = (app.rr.pk[it.kind === 'B' ? 'B' : it.w] || 0) + 1;
-        checkExtend(); sfx('power'); haptic('power'); world.items.splice(i, 1);
+        checkExtend(); if (it.kind === 'B') novaGetSfx(psnd); else weaponUpSfx(...psnd); haptic('power'); world.items.splice(i, 1);
       }
     }
     if (p.inv === 0) {
