@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.29'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.30'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6146,7 +6146,7 @@ function chipNova() {
   [76, 72, 69, 64, 60, 57, 52, 48].forEach((n, i) => chipVoice(t0 + i * 0.06, mtof(n), mtof(n), 0.07, 0.06, 0.25, false, out));
   duck(0.7, 1.2);
 }
-// weapon pickup on the chip (see weaponUpSfx for the tiers): pulse arpeggio, a triangle tail, 1-bit noise for the sparkle
+// weapon pickup on the chip (see weaponUpNotes for the tiers): pulse arpeggio, a triangle tail, 1-bit noise for the sparkle
 function chipWeaponUp(tier, step, swap) {
   let t = actx.currentTime + 0.01;
   const fm = m => mtof(m), dt = 0.055;
@@ -6174,6 +6174,31 @@ function chipNovaGet(n) {
   const b = t0 + 0.26, r = 62 + n;
   chipVoice(b, 160, 40, 0.3, 0.32, 'tri');
   [[r + 12, 0], [r + 7, 0.075], [r, 0.15]].forEach(([m, dt]) => chipVoice(b + dt, mtof(m), mtof(m), 0.22, 0.06, 0.25));
+}
+// the same two on the chip (no notes): clicks, a sliding whine, noise bursts
+function chipWeaponTech(tier, step, swap) {
+  let t = actx.currentTime + 0.01;
+  if (tier === 6) { for (const dt of [0, 0.08]) { chipNz(t + dt, 0.06, 0.05, [16000]); chipVoice(t + dt, 1500, 500, 0.05, 0.03, 0.125); } return; }
+  if (swap) { chipNz(t, 0.08, 0.06, [4000, 2000, 1000]); chipVoice(t, 150, 60, 0.1, 0.25, 'tri'); t += 0.1; }
+  if (tier >= 5) {
+    chipNz(t, 0.32, 0.05, [1000, 2000, 4000, 8000], true); chipVoice(t, 60, 420, 0.32, 0.1, 'tri', true);
+    const b = t + 0.32; chipNz(b, 0.12, 0.12, [16000]); chipVoice(b, 170, 38, 0.4, 0.26, 'tri'); chipNz(b, 0.55, 0.09, [4000, 2000, 2000, 1000, 1000]); chipNz(b + 0.05, 0.4, 0.03, [16000, 8000, 16000, 8000]);
+    return;
+  }
+  const n = Math.max(1, Math.min(4, tier)), dt = 0.045;
+  chipVoice(t, 220 + 25 * n, (220 + 25 * n) * (2.2 + 0.35 * n), 0.1 + 0.035 * n, 0.045, 0.25);
+  for (let i = 0; i < n; i++) chipNz(t + i * dt, 0.02, 0.05, [i % 2 ? 16000 : 8000]);
+  const lk = t + n * dt + 0.02;
+  chipNz(lk, 0.09, 0.07, [4000, 2000, 1000]); chipVoice(lk, 130, 70, 0.09, 0.14, 'tri');
+  if (n >= 3) chipNz(lk + 0.02, 0.1, 0.04, [16000, 8000, 16000]);
+  if (n >= 4) chipVoice(lk, 150, 50, 0.16, 0.22, 'tri');
+  for (let i = 0; i < step; i++) chipNz(lk + 0.14 + i * 0.07, 0.025, 0.05, [16000]);
+}
+function chipNovaTech(n) {
+  const t = actx.currentTime + 0.01;
+  if (n <= 0) { chipNz(t, 0.05, 0.05, [2000]); chipNz(t + 0.09, 0.07, 0.04, [1000]); return; }
+  chipNz(t, 0.3, 0.05, [8000, 4000, 2000, 1000], true); chipVoice(t, 60, 150, 0.28, 0.18, 'tri', true);
+  const b = t + 0.28; chipVoice(b, 150 + 8 * n, 36, 0.36, 0.3, 'tri'); chipNz(b, 0.3, 0.09, [4000, 2000, 2000, 1000, 1000]);
 }
 function chipWhine() { chipVoice(actx.currentTime, 90, 900, 1.2, 0.07, 0.25, true, sfxBus); }
 function chipRebirth() { const t0 = actx.currentTime; chipNz(t0, 0.8, 0.03, [1000, 2000, 4000, 8000], true); chipVoice(t0, 60, 520, 0.8, 0.045, 0.25, true); }
@@ -7572,6 +7597,7 @@ function finishBoot() {
   performance.mark('title-ready'); app.booting = false; delete document.body.dataset.boot;
   if (app.preboot) { app.preboot.classList.add('gone'); const pb = app.preboot; app.preboot = null; setTimeout(() => pb.remove(), 700); } // the page's splash fades out, the title is underneath
   offerInstall();
+  if (SOUNDLAB) soundLab();
 }
 function endBoot() { if (app.booting && app.bootT > 40) finishBoot(); }
 // © 1989 MANDELFORCE at the foot of the title screen, like the credit on an arcade board
@@ -8638,6 +8664,7 @@ function resetWorld() { world.chunkJobs = []; world.chunks = new Map(); world.ch
 
 /* ================= audio ================= */
 let actx = null, muted = false, noiseBuf = null, unlocked = false;
+let sndRetro = false; const RSND = () => RETRO.on || sndRetro; // the sound effects use the chip versions in Retro Run, or when the sound lab (?soundlab) asks for them
 const musicBase = () => settings.musicOn === false ? 0 : 0.55 * settings.music / 100, sfxBase = () => settings.sfxOn === false ? 0 : 1.0 * settings.sfx / 100;
 function applyVolumes() { if (!actx) return; musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(musicBase(), actx.currentTime); sfxBus.gain.setValueAtTime(sfxBase(), actx.currentTime); }
 let musicBus = null, sfxBus = null, echoIn = null, pulseWave = null, master = null, mediaEl = null, mediaOK = false;
@@ -8718,7 +8745,7 @@ function cutSfx(fade = 0.08) {
 function setPos(x, y) { SPOS = { pan: clamp((x - W / 2) / (W / 2), -1, 1) * 0.75, v: 0.5 + 0.5 * clamp(y / (H * 0.75), 0, 1), far: y < H * 0.28 }; }
 function tone(f, d, type = 'square', v = 0.05, f2) {
   if (muted || !actx) return;
-  if (RETRO.on) return chipTone(f, d, type, v, f2); // Retro Run: chip-style
+  if (RSND()) return chipTone(f, d, type, v, f2); // Retro Run: chip-style
   const t0 = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0);
   if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
@@ -8727,7 +8754,7 @@ function tone(f, d, type = 'square', v = 0.05, f2) {
 }
 function noise(d, v = 0.15, freq = 1100) {
   if (muted || !actx) return;
-  if (RETRO.on) return chipNoiseHit(d, v, freq); // Retro Run: 1-bit noise
+  if (RSND()) return chipNoiseHit(d, v, freq); // Retro Run: 1-bit noise
   ensureNoise();
   const t0 = actx.currentTime, s = actx.createBufferSource(), g = actx.createGain(), fl = actx.createBiquadFilter();
   s.buffer = noiseBuf; fl.type = 'lowpass'; fl.frequency.value = freq;
@@ -8743,7 +8770,7 @@ function env(g, t, peak, d, att = 0.005) {
 }
 function mLead(n, t, d, type = 'pulse') {
   if (Music.mute) return;
-  if (RETRO.on) return psgLead('jg', n, t, d, type); // (Retro Run: the chip)
+  if (RSND()) return psgLead('jg', n, t, d, type); // (Retro Run: the chip)
   if (type === 'bell') {
     const f = mtof(n + 12), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f * 2.76;
@@ -8770,13 +8797,13 @@ function mLead(n, t, d, type = 'pulse') {
 function mBass(n, t, d) {
   if (Music.mute) return;
   Music.bassHit = true; // the layers (frenzy, intensity) only add bass where the song's own bass is silent
-  if (RETRO.on) return psgBass(n, t, d);
+  if (RSND()) return psgBass(n, t, d);
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = 'sawtooth'; o.frequency.value = mtof(n);
   f.type = 'lowpass'; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(320, t + d); f.Q.value = 6;
   o.connect(f).connect(g).connect(musicBus); env(g, t, 0.15, d, 0.003); o.start(t); o.stop(t + d + 0.03);
 }
-function mArp(n, t, d) { if (Music.mute) return; if (RETRO.on) return psgNote('jg2', 0.125, mtof(n), t, d, 0.03); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
+function mArp(n, t, d) { if (Music.mute) return; if (RSND()) return psgNote('jg2', 0.125, mtof(n), t, d, 0.03); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.value = mtof(n); o.connect(g).connect(musicBus); env(g, t, 0.02, d, 0.002); o.start(t); o.stop(t + d + 0.02); }
 function mNoise(t, d, v, type, freq) {
   ensureNoise();
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
@@ -8784,15 +8811,15 @@ function mNoise(t, d, v, type, freq) {
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   s.connect(f).connect(g).connect(musicBus); s.start(t, Math.random() * 0.5); s.stop(t + d);
 }
-function mKick(t) { if (RETRO.on) return psgDrum(t, 'kick'); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.2); }
-function mTom(t, f) { if (RETRO.on) return psgDrum(t, 'tom', f / 150); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.2); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.26); }
+function mKick(t) { if (RSND()) return psgDrum(t, 'kick'); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.2); }
+function mTom(t, f) { if (RSND()) return psgDrum(t, 'tom', f / 150); const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.2); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.26); }
 function mSnare(t, v = 1) {
-  if (RETRO.on) return psgDrum(t, 'snare', v);
+  if (RSND()) return psgDrum(t, 'snare', v);
   mNoise(t, 0.14, 0.2 * v, 'bandpass', 1900);
   const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.06);
   g.gain.setValueAtTime(0.14 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.1);
 }
-function mHat(t, v = 0.045) { if (RETRO.on) return psgDrum(t, 'hat', v / 0.045); mNoise(t, 0.035, v, 'highpass', 7000); }
+function mHat(t, v = 0.045) { if (RSND()) return psgDrum(t, 'hat', v / 0.045); mNoise(t, 0.035, v, 'highpass', 7000); }
 const CHORD = { m: [0, 3, 7], M: [0, 4, 7] };
 function buildSong(bpm, bars, mel, kit, shift, leadType = 'pulse') {
   const len = bars.length * 16, lead = new Array(len).fill(null);
@@ -8846,7 +8873,7 @@ const SONGS = {
 const STAGE_SONGS = ['stage', 'winter', 'desert', 'night', 'forest', 'city'];
 const Music = { song: null, step: 0, next: 0, timer: null, arr: null, sec: 0, rep: 0 };
 // ---- one step of music, with arrangement options (an empty options object sounds exactly like the game) ----
-function crash(t) { if (RETRO.on) return psgDrum(t, 'crash'); mNoise(t, 1.4, 0.16, 'highpass', 4500); mNoise(t, 0.5, 0.12, 'bandpass', 2200); }
+function crash(t) { if (RSND()) return psgDrum(t, 'crash'); mNoise(t, 1.4, 0.16, 'highpass', 4500); mNoise(t, 0.5, 0.12, 'bandpass', 2200); }
 function playStepX(s, step, t, dt, m) {
   const tr = m.tr || 0, bar = s.bars[Math.floor(step / 16) % s.bars.length], i = step % 16, root = bar[0] + tr, ch = CHORD[bar[1]], k = m.kit || s.kit, b2 = (step >> 4) % 2;
   const ev = s.lead[step];
@@ -9196,7 +9223,7 @@ function frenzyLeft() { // frames of super weapon time left on the best ship, 0 
 }
 const FZ_VOL = 1.9; // the frenzy's added notes and drums, louder so they carry over the game's effects (1.9 is about +5.5 dB)
 function fzArp(n, t, d, v) {
-  if (RETRO.on) return mArp(n, t, d);
+  if (RSND()) return mArp(n, t, d);
   const o = actx.createOscillator(), g = actx.createGain();
   const o2 = actx.createOscillator(), g2 = actx.createGain();
   o.setPeriodicWave(pulseWave); o.frequency.value = mtof(n); o2.type = 'sawtooth'; o2.frequency.value = mtof(n) * 1.005; g2.gain.value = 0.5;
@@ -9307,7 +9334,7 @@ function wingSong(s) {
   return c[mel];
 }
 function mHum(t, dur) { // the engines swell: a low saw hum that rises a little in pitch and opens up, with a rumble under it; it fades out after its peak
-  if (RETRO.on) return;
+  if (RSND()) return;
   ensureNoise();
   const g = actx.createGain(), f = actx.createBiquadFilter(), end = t + dur;
   f.type = 'lowpass'; f.Q.value = 2.5; f.frequency.setValueAtTime(260, t); f.frequency.exponentialRampToValueAtTime(1500, end);
@@ -9362,7 +9389,7 @@ function scheduleMusic() {
     Music.bassHit = false;
     const mm = wingMods(sc2.m, Music.step, Music.next, dt), sg = WING.hero ? wingSong(sc2.song) : sc2.song;
     if (Music.step === 0 && Music.rep === 0 && mm.crash) crash(Music.next);
-    if (RETRO.on) psgStep(sg, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
+    if (RSND()) psgStep(sg, Music.step, Music.next, dt, mm); // Retro Run: every arrangement on the chip
     else if (mm.opl) playStepOPL(sg, Music.step, Music.next, dt, mm); else if (mm.style) playStepFM(sg, Music.step, Music.next, dt, mm); else playStepX(sg, Music.step, Music.next, dt, mm);
     if (!Music.mute) { frenzyLayer(sg, Music.step, Music.next, dt, mm); intLayer(sg, Music.step, Music.next, dt, mm); }
     Music.next += dt;
@@ -9375,7 +9402,7 @@ function jingle(notes, dt = 0.09) {
   for (const [n, l] of notes) { mLead(n, t, l * dt * 0.95); mArp(n + 12, t, l * dt * 0.5); t += l * dt; }
 }
 function boomSfx(size) {
-  if (muted || !actx) return; if (RETRO.on) return chipBoom(size); // Retro Run: chip-style
+  if (muted || !actx) return; if (RSND()) return chipBoom(size); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime;
   const fq = [3600, 2600, 2000][size], dur = [0.42, 0.75, 1.5][size], vol = [0.42, 0.55, 0.7][size];
@@ -9408,7 +9435,7 @@ function duck(amount, hold) {
   musicBus.gain.cancelScheduledValues(t0); musicBus.gain.setTargetAtTime(base * amount, t0, 0.01); musicBus.gain.setTargetAtTime(base, t0 + hold, 0.25);
 }
 function hitSfx(metal) {
-  if (muted || !actx) return; if (RETRO.on) return chipHit(metal); // Retro Run: chip-style
+  if (muted || !actx) return; if (RSND()) return chipHit(metal); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = metal ? 3200 : 5200;
@@ -9422,7 +9449,7 @@ function hitSfx(metal) {
 }
 function distCurve(k) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return c; }
 function novaSfx() {
-  if (muted || !actx) return; if (RETRO.on) return chipNova(); // Retro Run: chip-style
+  if (muted || !actx) return; if (RSND()) return chipNova(); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime + 0.01, out = sfxBus;
   const pan = (node, pv) => { if (actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pv; node.connect(p); p.connect(out); } else node.connect(out); };
@@ -9571,13 +9598,77 @@ function chainEndSfx(n, rec) {
   if (T >= 4) { bell(b + 0.1, 98, 1.3, 0.05); bell(b + 0.2, 103, 1.4, 0.04); sparkle(b + 0.1, 0.5, 0.05); }
   if (rec) { const r = b + 0.85; [91, 95, 98, 103].forEach((m, z) => bell(r + z * 0.07, m, 0.6, 0.06)); sparkle(r + 0.2, 0.5, 0.05); }
 }
+// The pickup sounds come in two styles (PICK_STYLE; the sound lab plays both): 'tech', the default, has no musical notes at all (the music already carries the tune):
+// clicks, a servo whine, a lock-in clunk and electric crackle that grow with the level; 'notes' is the first version, a rising arpeggio and a chime, kept for comparison.
+let PICK_STYLE = 'tech';
+const weaponUpSfx = (...a) => (PICK_STYLE === 'notes' ? weaponUpNotes : weaponUpTech)(...a);
+const novaGetSfx = (...a) => (PICK_STYLE === 'notes' ? novaGetNotes : novaGetTech)(...a);
+// building blocks for the unpitched pickup sounds (all straight into the effects bus): a noise burst (filter sweeping f0 to f1; rise: it swells instead of dying away) and an oscillator slide
+function pickKit() {
+  ensureNoise(); const out = sfxBus;
+  return {
+    nz(t, d, v, type, f0, f1, Q = 1, rise = false) {
+      const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+      s.buffer = noiseBuf; s.loop = true; f.type = type; f.Q.value = Q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + d);
+      if (rise) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + d * 0.9); g.gain.linearRampToValueAtTime(0, t + d); }
+      else { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + d); }
+      s.connect(f).connect(g).connect(out); s.start(t, Math.random()); s.stop(t + d + 0.02);
+    },
+    osc(t, d, v, type, f0, f1, lp, rise = false) {
+      const o = actx.createOscillator(), g = actx.createGain(); let n = o; o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + d);
+      if (lp) { const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; o.connect(f); n = f; }
+      if (rise) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + d * 0.9); g.gain.linearRampToValueAtTime(0, t + d); }
+      else { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d); }
+      n.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.02);
+    },
+    crackle(t, d, n, v) { for (let i = 0; i < n; i++) this.nz(t + Math.random() * d, 0.012 + Math.random() * 0.012, v * (0.5 + Math.random() * 0.5), 'bandpass', 3000 + Math.random() * 5000, 0, 3); }
+  };
+}
+// Weapon pickup, no notes. tier 1 to 4 = the weapon's level: that many ratchet clicks as the cell seats, a servo whine that climbs higher and lasts longer, a lock-in clunk;
+// from 3 electric crackle, at 4 a low thump and an air sweep. step 1 to 3 (level 4 on the way to the super weapon): that many sharp clacks after it.
+// tier 5 (the super weapon): a swelling whoosh and growl, then a crack, a deep thump, a roar and a long crackle. tier 6 (the super weapon topped up): two electric zaps.
+// swap: a different weapon: a heavy clunk comes first.
+function weaponUpTech(tier, step = 0, swap = 0) {
+  if (muted || !actx) return;
+  if (RSND()) return chipWeaponTech(tier, step, swap);
+  const K = pickKit(); let t = actx.currentTime + 0.01;
+  if (tier === 6) { for (const dt of [0, 0.08]) { K.nz(t + dt, 0.06, 0.16, 'bandpass', 5200, 2600, 3); K.osc(t + dt, 0.05, 0.03, 'square', 1500, 500); } return; }
+  if (swap) { K.nz(t, 0.08, 0.22, 'lowpass', 1800, 300); K.osc(t, 0.1, 0.14, 'square', 150, 60, 800); t += 0.1; }
+  if (tier >= 5) {
+    K.nz(t, 0.32, 0.22, 'bandpass', 300, 5200, 0.9, true); K.osc(t, 0.32, 0.09, 'sawtooth', 60, 420, 900, true);
+    const b = t + 0.32;
+    K.nz(b, 0.12, 0.26, 'highpass', 1500, 0); K.osc(b, 0.4, 0.24, 'sine', 170, 38); K.nz(b, 0.55, 0.15, 'lowpass', 1100, 120);
+    K.nz(b + 0.04, 0.5, 0.07, 'highpass', 6500, 0); K.crackle(b + 0.05, 0.5, 14, 0.1);
+    return;
+  }
+  const dt = 0.045, n = clamp(tier, 1, 4);
+  K.osc(t, 0.1 + 0.035 * n, 0.03 + 0.008 * n, 'sawtooth', 220 + 25 * n, (220 + 25 * n) * (2.2 + 0.35 * n), 1500);
+  for (let i = 0; i < n; i++) K.nz(t + i * dt, 0.02, 0.14, 'bandpass', 2200 + i * 450, 0, 4);
+  const lk = t + n * dt + 0.02;
+  K.nz(lk, 0.09, 0.2, 'lowpass', 1300, 250); K.osc(lk, 0.09, 0.07, 'square', 130, 70, 700);
+  if (n >= 3) K.crackle(lk, 0.14, (n - 2) * 3, 0.08);
+  if (n >= 4) { K.osc(lk, 0.16, 0.2, 'sine', 150, 50); K.nz(t, 0.28, 0.07, 'bandpass', 500, 4000, 1, true); }
+  for (let i = 0; i < step; i++) K.nz(lk + 0.14 + i * 0.07, 0.025, 0.14, 'bandpass', 4500 + i * 700, 0, 5);
+}
+// Nova pickup, no notes: energy drawn in (a noise swell closing from high to low, a rising low pulse), a deep purple thump, a hollow tail. n: Novas in stock (1 to 6): the swell starts higher and the thump is deeper
+// with each; 0: stock full (2000 points instead): two dull ticks.
+function novaGetTech(n) {
+  if (muted || !actx) return;
+  if (RSND()) return chipNovaTech(n);
+  const K = pickKit(), t = actx.currentTime + 0.01;
+  if (n <= 0) { K.nz(t, 0.05, 0.12, 'lowpass', 800, 0, 1); K.nz(t + 0.09, 0.07, 0.1, 'lowpass', 600, 0, 1); return; }
+  K.nz(t, 0.3, 0.2, 'bandpass', 3000 + n * 350, 300, 2, true); K.osc(t, 0.28, 0.2, 'sine', 60, 150, 0, true);
+  const b = t + 0.28;
+  K.osc(b, 0.36, 0.22 + 0.02 * n, 'sine', 150 + 8 * n, 36); K.nz(b, 0.14, 0.2, 'lowpass', 2500, 200);
+  K.nz(b + 0.04, 0.45, 0.06, 'bandpass', 700 + 60 * n, 250, 6); // the hollow tail
+}
 // Weapon pickup: a rising major arpeggio (C E G C E) that grows with the weapon's level, so the player hears the upgrade.
 //   tier 1: two notes · 2: three · 3: four, the last one a bell · 4: five, a bell chord and a low thump · 5 (the super weapon): a rising sweep and a full chord with a shimmer
 //   tier 6: the super weapon topped up (a short two-note ping). step 1 to 3 (level 4 on the way to the super weapon): that many high pings after the chord.
 //   swap: a different weapon was taken (the level stays): a "click" and a low blip come first.
-function weaponUpSfx(tier, step = 0, swap = 0) {
+function weaponUpNotes(tier, step = 0, swap = 0) {
   if (muted || !actx) return;
-  if (RETRO.on) return chipWeaponUp(tier, step, swap);
+  if (RSND()) return chipWeaponUp(tier, step, swap);
   ensureNoise();
   const out = sfxBus, t0 = actx.currentTime + 0.01, v0 = 0.06 + 0.008 * Math.min(tier, 5);
   const note = (t, m, d, v, wave) => {
@@ -9618,9 +9709,9 @@ function weaponUpSfx(tier, step = 0, swap = 0) {
   for (let i = 0; i < step; i++) note(e + 0.1 + i * 0.07, 91 + i * 2, 0.12, 0.035, 'sine'); // pings: how far to the super weapon
 }
 // Nova pickup: energy drawn in, a low purple thump, then a falling chime (the weapons rise, the Nova falls). n: Novas in stock now (1 to 6), the chime a semitone higher for each; 0: stock full, only points (a hollow double tick).
-function novaGetSfx(n) {
+function novaGetNotes(n) {
   if (muted || !actx) return;
-  if (RETRO.on) return chipNovaGet(n);
+  if (RSND()) return chipNovaGet(n);
   ensureNoise();
   const out = sfxBus, t0 = actx.currentTime + 0.01;
   const tone2 = (t, f, d, v, type = 'sine', f2) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.02); };
@@ -9649,7 +9740,7 @@ function endChain() {
   if (n >= 10) haptic('medalBig');
 }
 function whine() {
-  if (muted || !actx) return; if (RETRO.on) return chipWhine(); // Retro Run: chip-style
+  if (muted || !actx) return; if (RSND()) return chipWhine(); // Retro Run: chip-style
   const t0 = actx.currentTime, o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain();
   o.type = 'sawtooth'; o2.type = 'sine';
   o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(900, t0 + 1.2);
@@ -9658,6 +9749,85 @@ function whine() {
   o.connect(g); o2.connect(g); g.connect(sfxBus); o.start(t0); o2.start(t0); o.stop(t0 + 1.3); o2.stop(t0 + 1.3);
 }
 
+/* ================= sound lab ================= */
+// index.html?soundlab opens a page over the title that plays every sound effect of the game, through the game's own code, in the classic sound or the Retro Run chip sound
+// (Enigma Run uses the classic sound; its own effects have a group of their own). Nothing here is used while playing.
+const SOUNDLAB = new URLSearchParams(location.search).has('soundlab');
+function soundCatalogue() {
+  const S = (n, label, hint) => [label || n, () => { delete sfxLast[n]; sfx(n); }, hint];
+  const tiers = [['Level 1', 1, 0, 0], ['Level 2', 2, 0, 0], ['Level 3', 3, 0, 0], ['Level 4', 4, 0, 0], ['Level 4, step 1 of 3 to super', 4, 1, 0], ['Level 4, step 2 of 3', 4, 2, 0], ['Level 4, step 3 of 3', 4, 3, 0],
+    ['Super weapon', 5, 0, 0], ['Super weapon topped up', 6, 0, 0], ['Other weapon taken (at level 2)', 2, 0, 1], ['Other weapon taken (at level 4)', 4, 0, 1]];
+  const stock = [['Nova 1', 1], ['Nova 2', 2], ['Nova 3', 3], ['Nova 4', 4], ['Nova 5', 5], ['Nova 6 (full now)', 6], ['Stock already full (2000 points)', 0]];
+  return [
+    { g: 'Weapon power-up, no notes (default)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpTech(a, b, c)]) },
+    { g: 'Nova pickup, no notes (default)', items: stock.map(([l, n]) => [l, () => novaGetTech(n)]) },
+    { g: 'Weapon power-up, with notes (first version, kept)', items: tiers.map(([l, a, b, c]) => [l, () => weaponUpNotes(a, b, c)]) },
+    { g: 'Nova pickup, with notes (first version, kept)', items: stock.map(([l, n]) => [l, () => novaGetNotes(n)]) },
+    { g: 'Medals, chains and bonuses', items: [0, 2, 4, 6, 10, 20, 30].map(k => ['Medal ' + (k + 1) + (k ? ' in the chain' : ''), () => medalSfx(k)])
+      .concat([[3, 0], [5, 0], [10, 0], [20, 0], [20, 1]].map(([n, r]) => ['Chain of ' + n + ' banked' + (r ? ' (best of the run)' : ''), () => chainEndSfx(n, !!r)]))
+      .concat([S('power', 'Bonus: formation, train (the old pickup blip)'), S('reward', 'Reward'), S('extend', 'Extra life, achievement'), S('medalLost', 'Medal chain lost'), S('cancel', 'Bullets cancelled (Nova)'), S('tick', 'Menu tick')]) },
+    { g: 'Ship: start, fly-in, Talon, laser', items: [S('start', 'Stage start jingle'), S('flyin', 'Fly in'), S('arrive', 'Arrive'), S('drone', 'Talon docks'),
+      S('charge', 'Laser charging (whine)'), ['Laser fully charged ping', () => { tone(1420, 0.09, 'triangle', 0.06); tone(2840, 0.06, 'sine', 0.03); }], S('beam', 'Laser beam'),
+      ['Laser overheat hiss', () => noise(0.7, 0.18 * mixF, 5000)], S('rebirth', 'Rebirth'), S('rebirthHawk', 'Rebirth (hawk)')] },
+    { g: 'Guns and hits', items: [S('shot', 'Player shot'), S('tink', 'Tink'), S('gun', 'Enemy gun'), S('cannon', 'Cannon'), S('rocket', 'Rocket'), S('hit', 'Hit'), S('hitm', 'Hit on metal'),
+      ['Arc zap, main', () => { zapLast = -99; zapSfx('main'); }], ['Arc zap, troop', () => zapSfx('troop')], ['Arc zap, jump', () => zapSfx('jump')]] },
+    { g: 'Explosions and the Nova', items: [S('boom', 'Small explosion'), S('gboom', 'Ground explosion'), S('bigboom', 'Big explosion'), S('nova', 'Nova bomb'), S('die', 'Ship destroyed'),
+      S('thunder', 'Thunder'), S('snap', 'Snap'), S('splash', 'Splash'), S('implode', 'Implode')] },
+    { g: 'Warnings, horns and bosses', items: [S('warn', 'Warning (this stage)')].concat(BOSS_KINDS.map((k, i) => ['Boss warning: ' + k, () => warnSfx(i)]))
+      .concat([S('horn', 'Horn'), S('howl', 'Howl'), S('whistle', 'Whistle'), S('roar', 'Roar'), S('toll', 'Bell toll'), S('orb', 'Orb'), S('nachtup', 'Night upgrade'), S('flyby', 'Fly-by'),
+        S('spool', 'Engine spool'), S('liftoff', 'Lift-off'), S('fcharge', 'Fortress charge'), S('fbeam', 'Fortress beam'), S('clash', 'Beam clash'), S('chain', 'Chain'), S('clunk', 'Clunk'), S('reveal', 'Reveal'), S('ping', 'Ping'), S('smoke', 'Smoke screen')]) },
+    { g: 'Enigma Run', items: [S('surface', 'Submarine surfaces'), ['Sonar ping', () => sonarPing()], ['Hatch launch (missile)', () => hatchLaunchSfx()], ['Boost out (level exit)', () => boostOutSfx()], S('splash', 'Splash'), S('snap', 'Ice breaks'), S('smoke', 'Smoke screen'),
+      ['Firework rocket climbs', () => tone(520, 0.3, 'sine', 0.02, 1300)], ['Firework bursts', () => { tone(350, 0.14, 'triangle', 0.035); mNoise(actx.currentTime, 0.18, 0.05, 'lowpass', 1800); }]] }
+  ];
+}
+function soundLab() {
+  if (document.getElementById('soundLab')) return;
+  const css = document.createElement('style');
+  css.textContent = '#soundLab{position:fixed;inset:0;z-index:99999;overflow:auto;background:#10121a;color:#e8ecf4;font:14px/1.35 system-ui,sans-serif;padding:0 16px 40px}' +
+    '#soundLab header{position:sticky;top:0;background:#10121a;padding:12px 0 10px;border-bottom:1px solid #2a3040;z-index:1}' +
+    '#soundLab h1{font-size:18px;margin:0 0 8px}#soundLab h2{font-size:14px;margin:22px 0 8px;color:#a8f6dc;font-weight:600}' +
+    '#soundLab .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:6px 0}' +
+    '#soundLab .seg{display:inline-flex;border:1px solid #3a4258;border-radius:8px;overflow:hidden}' +
+    '#soundLab .seg button{border:0;border-radius:0;background:#1a2030;color:#c8d0e0;padding:8px 14px}#soundLab .seg button.on{background:#4ccfae;color:#06201a;font-weight:700}' +
+    '#soundLab button{font:inherit;min-height:40px;padding:8px 12px;border-radius:8px;border:1px solid #3a4258;background:#1a2030;color:#e8ecf4;cursor:pointer;text-align:left}' +
+    '#soundLab button:active,#soundLab .grid button.hit{background:#2c3a5c;border-color:#64a8ff}' +
+    '#soundLab .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}' +
+    '#soundLab #slStat{color:#9aa4ba;min-height:1.4em}#soundLab #slStat.err{color:#ff8a8a}#soundLab label{display:inline-flex;gap:8px;align-items:center}';
+  document.head.appendChild(css);
+  const root = document.createElement('div'); root.id = 'soundLab';
+  const el = (tag, props, kids) => { const e = document.createElement(tag); Object.assign(e, props || {}); (kids || []).forEach(k => e.appendChild(typeof k === 'string' ? document.createTextNode(k) : k)); return e; };
+  const stat = el('div', { id: 'slStat', textContent: 'Tap a sound to play it.' });
+  let holdMusic = true;
+  const quietMusic = () => { if (holdMusic && musicBus && actx) { musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setValueAtTime(0, actx.currentTime); } };
+  const seg = (labels, get, set) => { const box = el('span', { className: 'seg' }); const bs = labels.map(([v, t]) => el('button', { type: 'button', textContent: t, onclick: () => { set(v); paint(); } })); const paint = () => bs.forEach((b, i) => b.classList.toggle('on', labels[i][0] === get())); bs.forEach(b => box.appendChild(b)); paint(); return box; };
+  const vol = el('input', { type: 'range', min: 0, max: 100, value: settings.sfx, oninput: () => { settings.sfx = +vol.value; applyVolumes(); quietMusic(); } });
+  const head = el('header', {}, [
+    el('h1', { textContent: 'FEUERVOGEL 89: sound lab' }),
+    el('div', { className: 'row' }, [el('span', { textContent: 'Sound:' }), seg([[false, 'Classic (Campaign, Enigma Run)'], [true, 'Retro Run (chip)']], () => sndRetro, v => { sndRetro = v; })]),
+    el('div', { className: 'row' }, [el('span', { textContent: 'Pickups in the game:' }), seg([['tech', 'No notes'], ['notes', 'With notes']], () => PICK_STYLE, v => { PICK_STYLE = v; })]),
+    el('div', { className: 'row' }, [el('label', {}, ['Effects volume ', vol]),
+      el('label', {}, [el('input', { type: 'checkbox', checked: true, onchange: e => { holdMusic = e.target.checked; if (!holdMusic) applyVolumes(); else quietMusic(); } }), 'Keep the music quiet']),
+      el('button', { type: 'button', textContent: 'Stop all', onclick: () => { try { cutSfx(); } catch (e) {} } }),
+      el('button', { type: 'button', textContent: 'Close', onclick: () => { root.remove(); css.remove(); sndRetro = false; try { applyVolumes(); } catch (e) {} } })]),
+    stat]);
+  root.appendChild(head);
+  for (const grp of soundCatalogue()) {
+    root.appendChild(el('h2', { textContent: grp.g }));
+    const grid = el('div', { className: 'grid' });
+    for (const [label, fn] of grp.items) {
+      const b = el('button', { type: 'button', textContent: label });
+      b.onclick = () => {
+        audio(); quietMusic(); SPOS = null; b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 160);
+        if (muted) { stat.className = 'err'; stat.textContent = 'The game is muted (sound button on the title screen).'; return; }
+        try { fn(); stat.className = ''; stat.textContent = 'Played: ' + label + ' (' + (sndRetro ? 'Retro Run' : 'Classic') + ')'; }
+        catch (e) { stat.className = 'err'; stat.textContent = 'Failed: ' + label + ': ' + e.message; }
+      };
+      grid.appendChild(b);
+    }
+    root.appendChild(grid);
+  }
+  document.body.appendChild(root);
+}
 /* ---- haptics ---- */
 const HAPT = {
   hit: [6], kill: [14], gkill: [24], big: [35, 30, 70], part: [28, 25, 50], boss: [60, 40, 90, 40, 140, 60, 320],
@@ -9771,7 +9941,7 @@ function warnSfx(th) {
 }
 const sfxLast = {}, sfxGap = { shot: 5, boom: 4, gboom: 5, bigboom: 10, tink: 6, gun: 6, cannon: 8, hit: 3, hitm: 3, rocket: 10 };
 function rebirthSfx() { // the death boom run backwards: noise swells in while a sweep climbs
-  if (muted || !actx) return; if (RETRO.on) return chipRebirth(); // Retro Run: chip-style
+  if (muted || !actx) return; if (RSND()) return chipRebirth(); // Retro Run: chip-style
   ensureNoise();
   const t0 = actx.currentTime, d = 0.8, s = actx.createBufferSource(), g = actx.createGain(), fl = actx.createBiquadFilter(), o = actx.createOscillator(), og = actx.createGain();
   s.buffer = noiseBuf; s.loop = true; fl.type = 'lowpass'; fl.frequency.setValueAtTime(4000, t0); fl.frequency.exponentialRampToValueAtTime(600, t0 + d);
