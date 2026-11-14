@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.25'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.26'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -8825,7 +8825,7 @@ function playStepX(s, step, t, dt, m) {
     const n = ev[0] + tr + (m.oct ? 12 : 0), d = ev[1] * dt * 0.92;
     mLead(n, t, d, m.leadType || s.leadType);
     if (m.layer) mLead(n - (m.layerDown ? 12 : 0), t, d, m.layer);
-    if (m.harm) mLead(n + m.harm, t, d, m.harmType || 'pulse');
+    if (m.harm) { const hn = m.harmChord ? chordAbove(n, root, ch) : n + m.harm; if (hn !== null) mLead(hn, t, d, m.harmType || 'pulse'); }
   }
   if (m.bass !== false) {
     if (m.chug) { mBass(root + (i % 8 === 6 ? 12 : 0), t, dt * 0.55); }
@@ -8971,6 +8971,7 @@ function oSnare(t, v = 1) { mNoise(t, 0.13, 0.2 * v, 'bandpass', 2600); const o 
 function oHat(t, v = 1) { const o = actx.createOscillator(), m = actx.createOscillator(), mg = actx.createGain(), g = actx.createGain(), f = actx.createBiquadFilter(); o.type = 'square'; o.frequency.value = 7200; m.frequency.value = 5100; mg.gain.value = 6000; m.connect(mg).connect(o.frequency); f.type = 'highpass'; f.frequency.value = 6000; g.gain.setValueAtTime(0.02 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04); o.connect(f).connect(g).connect(musicBus); o.start(t); m.start(t); o.stop(t + 0.05); m.stop(t + 0.05); }
 function oTom(t, f0, v = 1) { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.55, t + 0.18); g.gain.setValueAtTime(0.3 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.connect(g).connect(musicBus); o.start(t); o.stop(t + 0.24); }
 // harmony that never clashes: the nearest chord tone at least a minor third below the melody note
+function chordAbove(n, root, ch) { let best = null; for (let o = -2; o <= 7; o++) for (const c of ch) { const x = root + c + 12 * o; if (x >= n + 3 && (best === null || x < best)) best = x; } return best; } // the nearest chord tone at least a minor third above the melody note
 function chordBelow(n, root, ch) { let best = null; for (let o = -2; o <= 6; o++) for (const c of ch) { const x = root + c + 12 * o; if (x <= n - 3 && (best === null || x > best)) best = x; } return best; }
 function playStepOPL(s, step, t, dt, m) {
   const tr = m.tr || 0, bar = s.bars[Math.floor(step / 16) % s.bars.length], i = step % 16, root = bar[0] + tr, ch = CHORD[bar[1]], bn = Math.floor(step / 16), last = bn % 4 === 3, st = m.style;
@@ -9163,6 +9164,7 @@ function frenzyLeft() { // frames of super weapon time left on the best ship, 0 
   let t = 0; for (const q of [player, p2]) if (q && !q.dead && !q.out && isSup(q)) t = Math.max(t, q.supT || 1);
   return t;
 }
+const FZ_VOL = 1.9; // the frenzy's added notes and drums, louder so they carry over the game's effects (1.9 is about +5.5 dB)
 function fzArp(n, t, d, v) {
   if (RETRO.on) return mArp(n, t, d);
   const o = actx.createOscillator(), g = actx.createGain();
@@ -9183,14 +9185,14 @@ function frenzyLayer(s, step, t, dt, m) {
   } else if (FZ.pend && beat) { FZ.pend = false; FZ.lvl = Math.min(FZ.lvl + 1, 2); crash(t); mSnare(t, 0.8); }
   const tr = m.tr || 0, i = step % 16, bar = s.bars[Math.floor(step / 16) % s.bars.length], root = bar[0] + tr, ch = CHORD[bar[1]], fade = left < 90;
   const idx = [0, 1, 2, 1][i % 4], up = i % 8 >= 4 ? 12 : 0, n = root + 36 + ch[idx] + up;
-  if (fade) { if (i % 2 === 0) fzArp(n, t, dt * 1.2, 0.05); return; }
-  fzArp(n, t, dt * 0.8, 0.065);
-  if (FZ.lvl >= 1 && i % 2 === 0) fzArp(n + 12, t, dt * 0.6, 0.035);
+  if (fade) { if (i % 2 === 0) fzArp(n, t, dt * 1.2, 0.05 * FZ_VOL); return; }
+  fzArp(n, t, dt * 0.8, 0.065 * FZ_VOL);
+  if (FZ.lvl >= 1 && i % 2 === 0) fzArp(n + 12, t, dt * 0.6, 0.035 * FZ_VOL);
   if (i % 2 === 1 && !Music.bassHit) mBass(root + 12, t, dt * 0.8);
-  mHat(t, i % 2 ? 0.06 : 0.04);
+  mHat(t, (i % 2 ? 0.06 : 0.04) * FZ_VOL);
   if (i % 4 === 0) mKick(t);
-  if (i === 4 || i === 12) mSnare(t, 0.7);
-  if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5);
+  if (i === 4 || i === 12) mSnare(t, 0.7 * FZ_VOL);
+  if (FZ.lvl >= 2 && i % 4 === 2) mSnare(t, 0.5 * FZ_VOL);
 }
 /* ---- intensity: how much is going on in the fight, 0 (calm) to 3 (all out), read from the game and applied on bar lines.
    It works on any song and arrangement: the top levels add 16th hats and an off-beat bass on top of the song (there is no filter). The last life adds a heartbeat. The frenzy always counts as 3. ---- */
@@ -9237,7 +9239,7 @@ function intLayer(s, step, t, dt, m) {
    the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements use their own lifted sound).
    End: when the Wing itself is gone (shot down, dying or leaving; not the encounter's fixed timer), the heroic bar finishes, then one bar of drums only with a snare
    roll in its last beat, and the song comes back. No hit. ---- */
-const WING = { hero: false, pre: 0, rel: 0, relN: 0, eta: null, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
+const WING = { key: 'bar2', hero: false, pre: 0, preN: 16, rel: 0, relN: 0, eta: null, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
 function wingHere() { // a Shadow Wing ship is alive and staying (not while a boss is up)
   if (typeof world === 'undefined' || app.state !== 'play' || app.tut) return false;
   if (world.enemies.some(e => e.type === 'boss' && !e.dead)) return false;
@@ -9249,11 +9251,15 @@ function wingEta() { // frames until the director starts the Wing, Infinity if i
   const u = run.sortie && (run.sortie.wingU || WING_U[run.sortie.level]), target = (u ? u * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale();
   return ((target + world.stageBaseP) * CH - world.scroll) / world.scrollV;
 }
+/* WING.key: how the heroic mix sits in the song's key. 'beat2': a tone up, landing on the beat where the swell ends (the first version). 'bar2': a tone up, landing on a bar line
+   (the swell is stretched or shortened by up to half a bar to reach one). 'fifth': a fifth up (+7, a closer key), on a bar line. 'power': no key change; in the original arrangement the
+   brass adds a harmony note, a chord tone above the melody. 'none': no key change at all. The last two also land on a bar line. */
+const WING_LIFT = { beat2: 2, bar2: 2, fifth: 7, power: 0, none: 0 };
 function wingHero(m) {
   const d = Object.assign({}, m);
   for (const k of ['drums', 'arp', 'lead', 'crash']) delete d[k];
-  d.tr = (m.tr || 0) + 2;
-  if (m.opl) { d.harm = true; d.oct = 12; } else if (m.style) d.sparkle = true; else { d.oct = true; d.layer = 'brass'; d.layerDown = true; d.dense = WING.mel !== 'calm'; d.pad = true; }
+  d.tr = (m.tr || 0) + WING_LIFT[WING.key];
+  if (m.opl) { d.harm = true; d.oct = 12; } else if (m.style) d.sparkle = true; else { d.oct = true; d.layer = 'brass'; d.layerDown = true; d.dense = WING.mel !== 'calm'; d.pad = true; if (WING.key === 'power') { d.harm = true; d.harmChord = true; d.harmType = 'brass'; } }
   return d;
 }
 function twistLong(song, minL) { // twist(), but only for notes of minL steps or more
@@ -9290,12 +9296,20 @@ function wingMods(m, step, t, dt) {
   const beat = step % 4 === 0, sn = m.opl ? oSnare : m.style ? dSnare : mSnare;
   if (beat) {
     const here = wingHere();
-    if (!WING.hero && !WING.pre && !WING.rel && (here || wingEta() / 60 <= dt * 16 - 0.3)) { WING.pre = 16; mHum(t, dt * 16); }
+    if (!WING.hero && !WING.pre && !WING.rel) {
+      const ideal = here ? 8 : (wingEta() / 60 + 0.5) / dt; // steps until the heroic turn should land: half a second after the Wing spawns
+      if (WING.key === 'beat2') { if (here || ideal <= 18) { WING.pre = WING.preN = 16; mHum(t, dt * 16); } }
+      else if (here || ideal <= 18) { // land on a bar line: the one closest to the ideal moment, at least 8 steps away
+        const toBar = (16 - step % 16) % 16 || 16; let N = 0;
+        for (let c = toBar; c <= toBar + 32; c += 16) if (c >= 8 && (!N || Math.abs(c - ideal) < Math.abs(N - ideal))) N = c;
+        WING.pre = WING.preN = N + 1; mHum(t, dt * N); // (+1: the count runs down on this step too, so the turn lands on the bar line itself)
+      }
+    }
     if (WING.hero && !here && !WING.rel) WING.rel = 1;
   }
   if (WING.pre > 0) {
-    const k = 16 - WING.pre;
-    if (k >= 8) sn(t, 0.15 + (k - 8) * 0.09);
+    const k = WING.preN - WING.pre;
+    if (k >= WING.preN - 8) sn(t, 0.15 + (k - (WING.preN - 8)) * 0.09);
     if (--WING.pre === 0 && (wingHere() || wingEta() / 60 < 1.5)) { WING.hero = true; WING.bar = 0; WING.cur = 'light'; crash(t); mKick(t); }
   }
   if (WING.hero && step % 16 === 0) { WING.bar++; WING.cur = WING_ARC[(WING.bar - 1) % WING_ARC.length]; }
@@ -9303,7 +9317,7 @@ function wingMods(m, step, t, dt) {
   if (WING.rel === 1 && step % 16 === 0) { WING.rel = 2; WING.relN = 0; WING.hero = false; Music.mute = !RETRO.on; }
   if (WING.rel === 2) { if (WING.relN >= 12) sn(t, 0.2 + (WING.relN - 12) * 0.12); WING.relN++; }
   if (!WING.hero) return m;
-  if (!WING.cm || WING.cm.src !== m || WING.cm.mel !== WING.mel) WING.cm = { src: m, mel: WING.mel, m: wingHero(m) };
+  if (!WING.cm || WING.cm.src !== m || WING.cm.mel !== WING.mel || WING.cm.key !== WING.key) WING.cm = { src: m, mel: WING.mel, key: WING.key, m: wingHero(m) };
   return WING.cm.m;
 }
 function wingReset() { WING.hero = false; WING.pre = 0; WING.rel = 0; Music.mute = false; }
