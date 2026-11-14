@@ -4521,7 +4521,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.35'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -18131,7 +18131,7 @@ function gfxBack() { app.gfxLost = false; ctx.imageSmoothingEnabled = false; fad
 function newCanvas() {
   const n = document.createElement('canvas');
   for (const a of cv.attributes) n.setAttribute(a.name, a.value);
-  n.width = W; n.height = H; cv.replaceWith(n); cv = n; ctx = n.getContext('2d', CTX_OPT);
+  n.width = W; n.height = H; cv.replaceWith(n); cv = n; pauseDraws = 0; ctx = n.getContext('2d', CTX_OPT);
   for (const [type, fn] of cvHandlers) n.addEventListener(type, fn);
   gfxBack(); logError('canvasreplaced', 'graphics context replaced');
 }
@@ -19576,7 +19576,7 @@ bomb = onStream(true, bomb); fireBeam = onStream(true, fireBeam); doContinue = o
 sfx = onStream(false, sfx); boomSfx = onStream(false, boomSfx); novaSfx = onStream(false, novaSfx); haptic = onStream(false, haptic);
 smokePuff = onStream(false, smokePuff); groundPuff = onStream(false, groundPuff); splash = onStream(false, splash); steamPuff = onStream(false, steamPuff);
 ensureChunks();
-let last = performance.now(), acc = 0, drawDebt = 0; // drawDebt: simulation steps since the last draw
+let last = performance.now(), acc = 0, pauseDraws = 0, drawDebt = 0; // drawDebt: simulation steps since the last draw
 const STEP = 1000 / 60;
 const warmList = [];
 (function collect(o, depth) { if (!o || depth > 4) return; if (typeof o.getContext === 'function' && o.width !== undefined) { warmList.push(o); return; } if (typeof o === 'object') for (const k in o) collect(o[k], depth + 1); })(SPR, 0);
@@ -19610,9 +19610,13 @@ function frameLoop(now) {
   while (acc >= STEP) { acc -= STEP; stepped = true; drawDebt++; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
   if (stepped && app.state === 'play' && !app.paused && app.resumeT <= 0 && ++app.snapN >= SNAP_EVERY) { app.snapN = 0; try { snapNow(); } catch (e) { logError('snapshot', e); } }
   if (stepped && !parked && settings.power && drawDebt < 2) stepped = false;
+  // Paused: the world stands still, so the picture is drawn twice (the dimmed scene) and then left alone. Any input draws it afresh
+  // (a setting changed in the pause menu), and so does a replaced canvas.
+  if (!(app.state === 'play' && app.paused) || parked) pauseDraws = 0; else if (stepped && ++pauseDraws > 2) stepped = false;
   if (stepped) { fpsCount++; drawSteps = clamp(drawDebt, 1, 2); drawDebt = 0; try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); } }
   perfFrame(dtf, performance.now() - work0);
 }
+for (const ev of ['pointerdown', 'pointerup', 'keydown', 'click', 'input', 'change']) addEventListener(ev, () => { pauseDraws = 0; }, { capture: true, passive: true });
 performance.mark('game-ready');
 requestAnimationFrame(frameLoop);
 // local/test builds only: lets tests/harness.js drive the game (see tests/README.md)
