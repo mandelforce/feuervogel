@@ -476,6 +476,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sMusic">Music</label><input type="range" id="sMusic" min="0" max="100"></div>
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
+        <div class="row"><span>Power saver (30 FPS)</span><span class="seg"><button type="button" id="sPower" aria-pressed="false">Off</button></span></div>
         <div class="row"><span>Retro Run scanlines</span><span class="seg"><button type="button" id="sCrt" aria-pressed="false">Off</button></span></div>
         <details id="sSensRow"><summary>Sensitivity</summary>
           <div class="row"><label for="sSensMouse">Mouse</label><input type="range" id="sSensMouse" min="25" max="175" step="5"><output id="sSensMouseV"></output></div>
@@ -4520,7 +4521,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.33'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.34'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4565,7 +4566,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, power: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -8568,6 +8569,7 @@ function drawFeatures(x, p, wy0) {
     if (terrainType(tx, ty) === 'sand') stamp(x, SPR.hedgehog, tx, ty - wy0);
   }
 }
+let drawSteps = 1; // how many simulation steps the picture being drawn stands for: 1, or 2 with Settings > Power saver (what render counts per draw moves on by this much)
 let lowFX = false, fpsShown = 0, fpsCount = 0, fpsT = 0, slowFrames = 0, frameN = 0;
 // Frame statistics for the "Show FPS" setting and the performance tests: per second, the longest gap between two frames (what the player
 // feels) and the longest time the game itself needed for one frame (update + draw). The numbers shown cover the last 5 seconds.
@@ -17479,7 +17481,7 @@ function drawDecals() {
     if (y < -40 || y > H + 40) continue;
     if (d.v === undefined) d.v = (Math.random() * 3) | 0;
     if (d.kind === 'body') {
-      d.age++; const a = d.age < 2400 ? 1 : 1 - (d.age - 2400) / 600; if (a <= 0) { d.gone = true; continue; }
+      d.age += drawSteps; const a = d.age < 2400 ? 1 : 1 - (d.age - 2400) / 600; if (a <= 0) { d.gone = true; continue; }
       ctx.globalAlpha = a;
       const pl = SPR.pool[d.terr][d.pv]; ctx.drawImage(pl, Math.round(d.wx - 5 + (d.pose === 1 ? 1 : 0)), Math.round(y - 3));
       if (d.rifle) spr(SPR.rifle[d.rv], d.wx + d.rx, y + d.ry);
@@ -18705,7 +18707,7 @@ function drawHUDBody(H) {
   }
   if (player) { // coin + medals collected this stage (phone, and PC alone or with two players: in the middle); during a chain the count gives way to xN and a ring drains around the coin
     const cx = p2 ? 100 : 90, cy = ty + 5, open = run.medalT > 0, fr = run.medalT / MEDAL_WIN, xn = open && run.medalMul > 1, pop = app.medalPop > 0;
-    if (pop && !app.paused) app.medalPop--;
+    if (pop && !app.paused) app.medalPop -= drawSteps;
     if (open) {
       const N = 96, low = fr < 0.3 && (gf >> 2) & 1;
       for (let i = 0; i < N; i++) { const a = i * TAU / N - PI / 2; ctx.fillStyle = OUT; ctx.fillRect(Math.round(cx + Math.cos(a) * 8) - 1, Math.round(cy + Math.sin(a) * 8) - 1, 3, 3); }
@@ -18714,7 +18716,7 @@ function drawHUDBody(H) {
     coin(cx, cy, 4, 5, RP.yel);
     if (xn) textS('x' + run.medalMul, cx + 12, ty, pop ? '#ffffff' : '#ffd860', 2, 'left', '#f8a83a');
     else {
-      const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t++;
+      const rl = app.roll && app.roll.t < 30 ? app.roll : null; if (rl && !app.paused) rl.t += drawSteps;
       const v = rl ? Math.round(rl.from + (run.stats.medals - rl.from) * Math.min(1, rl.t / 24)) : run.stats.medals, hot = rl || pop;
       textS(String(v), cx + 12, ty, hot ? '#ffffff' : '#fff0a0', 2, 'left', hot ? '#fff0a0' : '#d0a020');
     }
@@ -18767,7 +18769,7 @@ function drawBossBar(big, by) {
   if (big.parts) for (const p of big.parts) { hp += Math.max(0, p.hp); mx += p.maxhp; ar += Math.max(0, p.armor || 0); am += p.armorMax || 0; } else { hp = big.hp; mx = big.maxhp; ar = Math.max(0, big.armor || 0); am = big.armorMax || 0; }
   const fh = clamp(hp / Math.max(1, mx), 0, 1), fa = am > 0 ? clamp(ar / am, 0, 1) : 0, b = bossBar;
   if (b.e !== big) { b.e = big; b.t = 0; b.hold = 0; b.hg = b.lh = fh; b.ag = b.la = fa; }
-  if (!app.paused) {
+  if (!app.paused) for (let n = drawSteps; n-- > 0;) {
     if (b.t < 36) b.t++;
     if (fh < b.lh - 1e-4 || fa < b.la - 1e-4) b.hold = 24;
     b.lh = fh; b.la = fa;
@@ -19020,7 +19022,7 @@ function renderMain() {
     if (app.msg.b && !warn && !(RETRO.on && /^STAGE /.test(app.msg.a))) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
   }
   drawTutorial();
-  if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t--; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
+  if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t -= drawSteps; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.newBestT > 0 && (app.newBestT >> 3) % 4 !== 3) textO('NEW BEST!', W / 2, SAFE_T + 30, app.newBestT % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a');
   if (app.state === 'play' && app.resumeT > 0 && !app.paused) { const n = Math.ceil(app.resumeT / 60), f = (app.resumeT % 60) / 60; ctx.fillStyle = 'rgba(18,14,26,0.35)'; ctx.fillRect(0, 0, W, H); textO('GET READY', W / 2, H * 0.36, '#a8f6dc', 1, 'center', '#4ccfae'); textO(String(n), W / 2, H * 0.36 + 14, f > 0.5 ? '#ffffff' : '#fff0a0', 6, 'center', '#f8a83a'); }
   if (app.state === 'play' && app.cont > 0) {
@@ -19189,6 +19191,7 @@ for (const b of document.querySelectorAll('#sP2 button')) b.setAttribute('aria-p
 for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.share !== false)));
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
+  const pb = document.getElementById('sPower'); pb.setAttribute('aria-pressed', String(!!settings.power)); pb.textContent = settings.power ? 'On' : 'Off';
   const cb = document.getElementById('sCrt'); cb.setAttribute('aria-pressed', String(!!settings.crt)); cb.textContent = settings.crt ? 'On' : 'Off';
 }
 function buildHelp() {
@@ -19386,6 +19389,7 @@ setBtn.addEventListener('pointerdown', e => e.stopPropagation());
 setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('open') ? closeSettings() : openSettings(); setBtn.blur(); });
 document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
+document.getElementById('sPower').addEventListener('click', () => { settings.power = !settings.power; syncSettingsUI(); saveSettings(); });
 document.getElementById('sCrt').addEventListener('click', () => { settings.crt = !settings.crt; syncSettingsUI(); saveSettings(); retroCrt(); });
 function rangeFill(r) { r.style.setProperty('--v', (r.min ? (r.value - r.min) / (r.max - r.min) * 100 : r.value) + '%'); } // the pixel bar fills up to the handle
 for (const [id, k] of SENS_UI) document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; rangeFill(e.target); document.getElementById(id + 'V').textContent = e.target.value + '%'; });
@@ -19572,7 +19576,7 @@ bomb = onStream(true, bomb); fireBeam = onStream(true, fireBeam); doContinue = o
 sfx = onStream(false, sfx); boomSfx = onStream(false, boomSfx); novaSfx = onStream(false, novaSfx); haptic = onStream(false, haptic);
 smokePuff = onStream(false, smokePuff); groundPuff = onStream(false, groundPuff); splash = onStream(false, splash); steamPuff = onStream(false, steamPuff);
 ensureChunks();
-let last = performance.now(), acc = 0;
+let last = performance.now(), acc = 0, drawDebt = 0; // drawDebt: simulation steps since the last draw
 const STEP = 1000 / 60;
 const warmList = [];
 (function collect(o, depth) { if (!o || depth > 4) return; if (typeof o.getContext === 'function' && o.width !== undefined) { warmList.push(o); return; } if (typeof o === 'object') for (const k in o) collect(o[k], depth + 1); })(SPR, 0);
@@ -19596,15 +19600,17 @@ function frameLoop(now) {
   const dtf = now - last;
   if (app.gfxLost) { if (dtf > 1000) gfxLostAt = now; else if (now - gfxLostAt > 2000) newCanvas(); }
   acc += Math.min(100, dtf); last = now;
-  fpsCount++; if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
+  if (now - fpsT >= 1000) { fpsShown = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; perfRoll(); }
   const work0 = performance.now();
   if (app.state === 'play' && !app.paused && !lowFX && ++frameN > 180) { if (dtf > 24) slowFrames++; else slowFrames = Math.max(0, slowFrames - 0.25); if (slowFrames > 90) lowFX = true; }
   // Draw only when the simulation moved on (or a test has parked the loop with a negative acc and steps it by hand). On a 120 Hz screen
   // every second frame has no step to show: drawing it again cost a second render and a second canvas upload for the same picture.
-  let stepped = acc < 0;
-  while (acc >= STEP) { acc -= STEP; stepped = true; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
+  // Settings > Power saver: the simulation keeps its 60 steps a second, but only every second step is drawn (30 pictures a second).
+  const parked = acc < 0; let stepped = parked;
+  while (acc >= STEP) { acc -= STEP; stepped = true; drawDebt++; if (feel.hitStop > 0) { feel.hitStop--; continue; } if (feel.slowT > 0) { feel.slowT--; if (feel.slowT & 1) continue; } try { update(); } catch (e) { logError('update', e); acc = 0; break; } }
   if (stepped && app.state === 'play' && !app.paused && app.resumeT <= 0 && ++app.snapN >= SNAP_EVERY) { app.snapN = 0; try { snapNow(); } catch (e) { logError('snapshot', e); } }
-  if (stepped) { try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); } }
+  if (stepped && !parked && settings.power && drawDebt < 2) stepped = false;
+  if (stepped) { fpsCount++; drawSteps = clamp(drawDebt, 1, 2); drawDebt = 0; try { resetCtx(); render(); } catch (e) { logError('render', e); resetCtx(); } }
   perfFrame(dtf, performance.now() - work0);
 }
 performance.mark('game-ready');
