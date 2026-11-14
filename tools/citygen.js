@@ -3498,7 +3498,7 @@ function winterLine(o) {
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
   const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, Lb = Lr + (fin ? (P0.arena || 16) * CHp : 0), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t, basin: kind === 'pass' && !!P0.variant }); } } // (station and airbase are plain valley until their own ground is built)
   if (fin) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
-  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin } }); markSlotRoofs(B);
+  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
   const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
 }
@@ -3531,7 +3531,7 @@ function winterLand(o) {
   const inF = (k, y, m = 80) => fs(k).reduce((a, [p, q]) => Math.max(a, smooth(p - m, p + 20, y) * (1 - smooth(q - 20, q + m, y))), 0); // how far row y is inside a feature of kind k (eased at its ends)
   const lk = fs('lake')[0] || null, sL = rnd(40) < 0.5 ? -1 : 1, th = fs('throat')[0] || null, yT = th ? th[0] + 24 : L; // the lake's side; the throat's spur, where the valley ends
   const yM = th ? yT + 384 : L; // the massif's north face, where the tunnels come out: 384 rows (6 chunks) of high mountain, with the glacier, between the depot and the boss's gorge
-  if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120), 40, W - 40); // the road skirts the lake
+  if (lk) for (let y = 0; y < L; y++) plan.mx[y] = clamp(plan.mx[y] - sL * 26 * inF('lake', y, 120) * (P.joinRoad ? smooth(0, 160, y) : 1), 40, W - 40); // the road skirts the lake (P.joinRoad: swinging out only from the plan's first row on, so it still meets the road of the plan below when the lake is the first feature)
   const basF = feats.find(F => F.kind === 'pass' && F.basin), bas = basF ? span(basF) : null; // a loop's pass (P.variant): a wide basin with a base in it, the road straight through it
   if (bas) { const m0 = 112 + (rnd(70) - 0.5) * 8; for (let y = 0; y < L; y++) plan.mx[y] = lerp(plan.mx[y], m0, inF('pass', y, 120)); }
   const thF = (P.features || []).find(F => F.kind === 'throat'), yEnd = thF ? Math.round(L * thF.at0) + 24 - 152 : L, yRoad = thF ? yEnd - 12 : L; // the road ends in a depot at the foot of the throat's mountain (owner: no tunnel for the road): paved, then gravel, then a dirt track, then the turnaround

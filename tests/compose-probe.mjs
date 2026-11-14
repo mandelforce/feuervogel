@@ -72,7 +72,7 @@ const KITS = {
       return out; },
     /* guns per chunk by template: the only thing that tells the forest templates apart */
     stats: (p, rg) => rg.map(r => ({ t: r.t, v: p.slots.filter(s => s.kind === 'flak' && s.y >= r.y0 && s.y < r.y1).length / ((r.y1 - r.y0) / CH), name: 'flak per chunk' })) },
-  winter: { preset: 'winterGorge', arena: 48, params: segs => ({ segs }),
+  winter: { preset: 'winterGorge', arena: 48, params: segs => ({ segs, joinRoad: 1 }), /* joinRoad: what the composer will pass (the Campaign's level 5 does not: its plans stay as they are) */
     opener: [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8]],
     middle: [['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7]],
     approach: [['pass', 7], ['farmland_winter', 11]],
