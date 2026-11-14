@@ -4520,7 +4520,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.26'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.27'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9239,7 +9239,7 @@ function intLayer(s, step, t, dt, m) {
    the held chord pad and denser drums (the finale sound of the late sections; the OPL and FM arrangements use their own lifted sound).
    End: when the Wing itself is gone (shot down, dying or leaving; not the encounter's fixed timer), the heroic bar finishes, then one bar of drums only with a snare
    roll in its last beat, and the song comes back. No hit. ---- */
-const WING = { key: 'bar2', hero: false, pre: 0, preN: 16, rel: 0, relN: 0, eta: null, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
+const WING = { key: 'power', hero: false, pre: 0, preN: 16, rel: 0, relN: 0, eta: null, cm: null, songs: new Map(), mel: 'arc', bar: 0, cur: 'light' }; // mel: the melody under the heroic mix: 'arc' (the default: light until the first bar line, then light, busy, light, busy, busy, bar by bar, and round again while the Wing is there), or one of 'busy' (the game's twist: long notes and pairs of short ones get passing notes, about twice the notes), 'light' (only the long notes of 6 or more steps get one, about 15% more notes), 'calm' (the song's own melody, and the drums stay as they were)
 function wingHere() { // a Shadow Wing ship is alive and staying (not while a boss is up)
   if (typeof world === 'undefined' || app.state !== 'play' || app.tut) return false;
   if (world.enemies.some(e => e.type === 'boss' && !e.dead)) return false;
