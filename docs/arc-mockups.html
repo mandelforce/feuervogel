@@ -40,6 +40,8 @@ button:focus-visible { outline: 2px solid var(--arc-hot); outline-offset: 2px; }
 button[aria-pressed="true"] { background: var(--arc-deep); border-color: var(--arc); color: #fff; }
 .hint { color: var(--dim); font-size: 13px; }
 
+.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 560px; }
+.opts { display: flex; flex-direction: column; gap: 10px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; }
 figure { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 canvas { width: 100%; aspect-ratio: 224 / 336; image-rendering: pixelated; background: #10161e; border: 1px solid var(--line); display: block; touch-action: pan-y; }
@@ -93,7 +95,7 @@ code { font-size: .92em; color: var(--arc-hot); }
   </figure>
   <figure class="pick">
     <canvas id="cv-whip" width="224" height="336" aria-label="Animated mockup: strands that trail behind the ship"></canvas>
-    <figcaption><span class="tag">B · recommended</span><h3>Whip</h3>
+    <figcaption><span class="tag">B · built</span><h3>Whip</h3>
       <dl><dt>Shape</dt><dd>A rope that trails where the ship was. The far end hooks back when it finds nothing.</dd>
       <dt>You do</dt><dd>Sweep it. Fly away from a target and the tail still drags across it.</dd>
       <dt>Adds</dt><dd>A weapon you aim by moving, and the only one that hits while you dodge.</dd></dl></figcaption>
@@ -114,6 +116,48 @@ code { font-size: .92em; color: var(--arc-hot); }
   </figure>
 </div>
 <p class="hint">Super works the same on all four screens: the strands leave their lanes, three bend to the nearest targets, two lash about, and coils jump on from every hit. Damage numbers here are placeholders, not balance.</p>
+
+<section>
+  <h2>More like electricity</h2>
+  <p class="lede">The whip as built on the left, the same whip with the round parts replaced on the right. Each switch changes one part of the right screen. The level switch above applies here too; the jumps only show at "4, forked tips" and Super.</p>
+  <div class="opts">
+    <div class="seg" role="group" aria-label="Presets">
+      <button id="look-rec">Recommended set</button>
+      <button id="look-none">All off</button>
+    </div>
+    <div class="seg" role="group" aria-label="Electric options">
+      <button id="lk-jag" data-look="jag" aria-pressed="false">Jagged core</button>
+      <button id="lk-kinks" data-look="kinks" aria-pressed="false">Kinks for knots</button>
+      <button id="lk-spurs" data-look="spurs" aria-pressed="false">Spurs</button>
+      <button id="lk-spikes" data-look="spikes" aria-pressed="false">Spike burst</button>
+      <button id="lk-crawl" data-look="crawl" aria-pressed="false">Crawling arcs</button>
+      <button id="lk-nose" data-look="nose" aria-pressed="false">Nose spark</button>
+      <button id="lk-bolt" data-look="bolt" aria-pressed="false">Bolt jumps</button>
+      <button id="lk-flicker" data-look="flicker" aria-pressed="false">Flicker</button>
+    </div>
+  </div>
+  <div class="duo">
+    <figure>
+      <canvas id="cv-now" width="224" height="336" aria-label="Animated mockup: the whip as built, with round knots and glows"></canvas>
+      <figcaption><span class="tag">As built</span></figcaption>
+    </figure>
+    <figure class="pick">
+      <canvas id="cv-el" width="224" height="336" aria-label="Animated mockup: the whip with the electric options switched on"></canvas>
+      <figcaption><span class="tag">With the switches</span></figcaption>
+    </figure>
+  </div>
+  <div class="scroll"><table>
+    <tr><th>Switch</th><th>Replaces</th><th>What it does</th></tr>
+    <tr><td>Jagged core</td><td>The smooth white core</td><td>Straight pieces with hard corners that change every third frame. The blue glow keeps the smooth whip curve, so the swing stays readable.</td></tr>
+    <tr><td>Kinks for knots</td><td>The travelling discs</td><td>A sharp sideways jag runs outward along the strand and flashes white.</td></tr>
+    <tr><td>Spurs</td><td>Nothing; an addition</td><td>A short forked branch jumps off the strand at each travelling point.</td></tr>
+    <tr><td>Spike burst</td><td>The glow disc and ring at a hit</td><td>Six short spikes from the hit, different every frame.</td></tr>
+    <tr><td>Crawling arcs</td><td>Nothing; an addition</td><td>Two small bolts run round the edge of a held target. Clearest on the big green target.</td></tr>
+    <tr><td>Nose spark</td><td>The glow disc at the nose</td><td>A four-point spark and a tiny arc across the nose.</td></tr>
+    <tr><td>Bolt jumps</td><td>The bowed curve of a jump</td><td>A straight bolt with hard corners and one fork.</td></tr>
+    <tr><td>Flicker</td><td>Steady brightness</td><td>Each strand steps between three brightness levels, and now and then its white core drops out for a frame.</td></tr>
+  </table></div>
+</section>
 
 <section>
   <h2>What the Arc can add</h2>
@@ -203,9 +247,10 @@ code { font-size: .92em; color: var(--arc-hot); }
 
   function makeSim(id, kind) {
     var cv = document.getElementById(id);
-    return { kind: kind, cv: cv, ctx: cv.getContext('2d'), en: [], sparks: [], links: {}, latch: [], spawn: rng(11), nid: 1 };
+    return { kind: kind, cv: cv, ctx: cv.getContext('2d'), en: [], sparks: [], links: {}, latch: [], spawn: rng(11), nid: 1, look: {} };
   }
-  var sims = [makeSim('cv-rails', 'rails'), makeSim('cv-whip', 'whip'), makeSim('cv-fan', 'fan'), makeSim('cv-latch', 'latch')];
+  var sims = [makeSim('cv-rails', 'rails'), makeSim('cv-whip', 'whip'), makeSim('cv-fan', 'fan'), makeSim('cv-latch', 'latch'), makeSim('cv-now', 'whip'), makeSim('cv-el', 'whip')];
+  var EL = sims[5].look;
 
   function spawn(S) {
     if (T % (level === 'S' ? 6 : 30) === 0) { var r = S.spawn; S.en.push({ id: S.nid++, x: 18 + r() * (W - 36), y: -8, vy: 0.45 + r() * 0.4, ph: r() * 400, hp: 34, max: 34, r: 6, fl: 0 }); }
@@ -298,7 +343,8 @@ code { font-size: .92em; color: var(--arc-hot); }
         var f = Math.min(1, age / 6), mx = (cur.x + nb.x) / 2, my = (cur.y + nb.y) / 2, nx = -(nb.y - cur.y), ny = nb.x - cur.x, l = Math.hypot(nx, ny) || 1, bow = 9 * Math.sin(T * 0.11 + cur.id);
         var pts = [], n = Math.max(4, bd / STEP | 0), cx = mx + nx / l * bow * 2, cy = my + ny / l * bow * 2;
         for (var j = 0; j <= n * f; j++) { var u = j / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; pts.push([a * cur.x + b * cx + c * nb.x + Math.sin(u * 8 - T * 0.4) * 2 * Math.sin(u * Math.PI), a * cur.y + b * cy + c * nb.y]); }
-        out.push({ pts: pts, hit: f >= 1 ? nb : null, w: 2, heat: 0.5, mult: level === 'S' ? 0.45 : 0.5, link: true });
+        var bolt = !!S.look.bolt; if (bolt) pts = boltPts(cur, nb, f, cur.id);
+        out.push({ pts: pts, hit: f >= 1 ? nb : null, w: 2, heat: 0.5, mult: level === 'S' ? 0.45 : 0.5, link: true, bolt: bolt });
         used[nb.id] = 1; cur = nb; if (f < 1) break;
       }
     });
@@ -321,20 +367,63 @@ code { font-size: .92em; color: var(--arc-hot); }
   }
 
   function disc(ctx, x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
-  function coil(ctx, st, idx) {
+  function nzv(a, b) { var v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v) - 0.5; } /* noise that holds still for as long as its inputs do */
+  function line(ctx, P, col, lw, al) { ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (var k = 1; k < P.length; k++) ctx.lineTo(P[k][0], P[k][1]); ctx.stroke(); }
+  /* a straight bolt with hard corners from a to b, drawn to the share f of its length; it changes shape every other frame */
+  function boltPts(a, b, f, seed) {
+    var d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.max(3, Math.round(d / 9)), nx = -(b.y - a.y) / d, ny = (b.x - a.x) / d, pts = [];
+    for (var k = 0; k <= n * f; k++) { var u = k / n, o = k === 0 || k === n ? 0 : nzv(k + seed, T >> 1) * 9; pts.push([a.x + (b.x - a.x) * u + nx * o, a.y + (b.y - a.y) * u + ny * o]); }
+    return pts;
+  }
+  function coil(ctx, st, idx, look) {
     var pts = st.pts, n = pts.length; if (n < 2) return;
-    var heat = st.heat || 0, w = st.w + (heat > 0.5 ? 1 : 0), jit = st.link ? 1.2 : 0.7;
+    look = look || {};
+    var heat = st.heat || 0, w = st.w + (heat > 0.5 ? 1 : 0), jit = st.link ? 1.2 : 0.7, k;
     var path = pts.map(function (q, k) { var j = k === 0 || k === n - 1 ? 0 : jit; return [q[0] + (Math.random() - 0.5) * 2 * j, q[1] + (Math.random() - 0.5) * j]; });
-    var pass = [[heat >= 1 ? C[3] : C[2], w + 3, 0.5], [C[3], w + 1, 0.95], ['#ffffff', Math.max(1, w - 2 + (heat >= 1 ? 1 : 0)), 1]];
+    /* where the knots (or kinks) are this frame: points that travel outward */
+    var marks = [];
+    for (k = 3; k < n - 1; k++) { var ph = (k * STEP - T * 2.4 + idx * 23) % 62; if (ph < 0) ph += 62; if (ph < STEP) marks.push(k); }
+    if (look.kinks && !st.bolt) marks.forEach(function (m) { var s = (m + idx) % 2 ? 1 : -1; path[m][0] += 5 * s; if (m + 1 < n - 1) path[m + 1][0] -= 4 * s; });
+    /* the core: the same path, or straight pieces with hard corners that change every third frame */
+    var core = path;
+    if (look.jag && !st.bolt) { core = []; for (k = 0; k < n; k += 2) core.push(k === 0 ? path[0] : [path[k][0] + nzv(k + idx * 7, Math.floor(T / 3)) * 7, path[k][1] + nzv(k + idx * 3, Math.floor(T / 3) + 5) * 3]); core.push(path[n - 1]); }
+    var fl = 1, drop = false;
+    if (look.flicker) { var q = nzv(idx * 5 + 1, T >> 1); fl = q > 0.15 ? 1 : q > -0.25 ? 0.75 : 0.5; drop = nzv(idx * 9 + 4, T) > 0.42; }
+    var hard = look.jag || st.bolt;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    pass.forEach(function (a) { ctx.globalAlpha = a[2]; ctx.strokeStyle = a[0]; ctx.lineWidth = a[1]; ctx.beginPath(); ctx.moveTo(path[0][0], path[0][1]); for (var k = 1; k < n; k++) ctx.lineTo(path[k][0], path[k][1]); ctx.stroke(); });
-    /* knots that travel along the rope */
-    for (var k = 0; k < n; k += 1) { var ph = (k * STEP - T * 2.4 + idx * 23) % 62; if (ph < 0) ph += 62; if (ph < STEP && k > 2 && k < n - 1) { ctx.globalAlpha = 0.9; disc(ctx, path[k][0], path[k][1], w * 0.5 + 2, C[3]); ctx.globalAlpha = 1; disc(ctx, path[k][0], path[k][1], w * 0.5 + 0.6, '#ffffff'); } }
+    line(ctx, path, heat >= 1 ? C[3] : C[2], w + 3, 0.5 * fl);
+    if (hard) { ctx.lineJoin = 'miter'; ctx.lineCap = 'butt'; }
+    line(ctx, core, C[3], hard ? w : w + 1, 0.95 * fl);
+    if (!drop) line(ctx, core, '#ffffff', Math.max(1, w - 2 + (heat >= 1 ? 1 : 0)), 1);
+    ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+    if (look.kinks) { marks.forEach(function (m) { if (m + 1 < n) line(ctx, [path[m - 1], path[m], path[m + 1]], '#ffffff', 2, 1); }); }
+    else if (!st.bolt) marks.forEach(function (m) { ctx.globalAlpha = 0.9; disc(ctx, path[m][0], path[m][1], w * 0.5 + 2, C[3]); ctx.globalAlpha = 1; disc(ctx, path[m][0], path[m][1], w * 0.5 + 0.6, '#ffffff'); });
+    /* spurs: a short forked branch jumps off the strand at each travelling point */
+    if (look.spurs && !st.link) marks.forEach(function (m) {
+      var s = (m + idx) % 2 ? 1 : -1, r = T >> 1, x = path[m][0], y = path[m][1], P = [[x, y]];
+      for (var j = 1; j <= 3; j++) { x += s * (2.5 + (nzv(m + j, r) + 0.5) * 3.5); y -= 1 + (nzv(m + j * 3, r + 2) + 0.5) * 4; P.push([x, y]); }
+      line(ctx, P, C[4], 1, 0.95);
+      if (nzv(m, r) > 0) line(ctx, [P[1], [P[1][0] + s * 2, P[1][1] - 6]], C[3], 1, 0.9);
+    });
+    if (st.bolt && n > 3) { var mid = path[n >> 1]; line(ctx, [mid, [mid[0] + nzv(idx, T >> 1) * 10, mid[1] - 5], [mid[0] + nzv(idx + 2, T >> 1) * 16, mid[1] - 10]], C[4], 1, 0.9); }
     var e = path[n - 1];
-    if (st.hit) { ctx.globalAlpha = 0.5; disc(ctx, e[0], e[1], 5 + heat * 3, C[3]); ctx.globalAlpha = 1; disc(ctx, e[0], e[1], 2 + heat, '#ffffff');
-      if (heat >= 1) { ctx.globalAlpha = 0.8; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 7 + (T >> 1) % 4, 0, TAU); ctx.stroke(); } }
-    else if (!st.link) { ctx.globalAlpha = 0.9; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; for (var b = 0; b < 2; b++) { ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] + (Math.random() - 0.5) * 16, e[1] - 3 - Math.random() * 8); ctx.stroke(); } }
-    if (!st.link) { ctx.globalAlpha = 0.5; disc(ctx, path[0][0], path[0][1], 4 + heat * 2, C[3]); ctx.globalAlpha = 1; disc(ctx, path[0][0], path[0][1], 1.5 + heat, '#ffffff'); }
+    if (st.hit) {
+      if (look.spikes) { for (var b = 0; b < 6; b++) { var an = b * TAU / 6 + nzv(b + idx, T) * 1.2, len = 5 + (nzv(b * 3 + idx, T + 1) + 0.5) * (8 + heat * 5), mx = e[0] + Math.cos(an) * len * 0.5 + nzv(b, T + 3) * 3, my = e[1] + Math.sin(an) * len * 0.5 + nzv(b, T + 4) * 3;
+          line(ctx, [e, [mx, my], [e[0] + Math.cos(an) * len, e[1] + Math.sin(an) * len]], b % 2 ? '#ffffff' : C[4], 1, 1); }
+        ctx.globalAlpha = 1; px(ctx, e[0] - 1, e[1] - 1, 3, 3, '#ffffff'); }
+      else { ctx.globalAlpha = 0.5; disc(ctx, e[0], e[1], 5 + heat * 3, C[3]); ctx.globalAlpha = 1; disc(ctx, e[0], e[1], 2 + heat, '#ffffff');
+        if (heat >= 1) { ctx.globalAlpha = 0.8; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 7 + (T >> 1) % 4, 0, TAU); ctx.stroke(); } }
+      /* crawling arcs: small bolts that run round the edge of a held target */
+      if (look.crawl && !st.link) { var R = st.hit.r + 2, per = function (p) { p = ((p % 1) + 1) % 1 * 4; var s = Math.floor(p), u = (p - s) * 2 - 1; return s === 0 ? [u * R, -R] : s === 1 ? [R, u * R] : s === 2 ? [-u * R, R] : [-R, -u * R]; };
+        for (var c = 0; c < 2; c++) { var P2 = [], p0 = T * 0.035 * (c ? -1 : 1) + c * 0.5 + idx * 0.21; for (var j2 = 0; j2 < 5; j2++) { var o = per(p0 + j2 * 0.045); P2.push([st.hit.x + o[0] + nzv(j2 + c, T) * 2.4, st.hit.y + o[1] + nzv(j2 + c + 7, T) * 2.4]); } line(ctx, P2, c ? '#ffffff' : C[4], 1, 1); } }
+    }
+    else if (!st.link) { ctx.globalAlpha = 0.9; ctx.strokeStyle = C[4]; ctx.lineWidth = 1; for (var b2 = 0; b2 < 2; b2++) { ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] + (Math.random() - 0.5) * 16, e[1] - 3 - Math.random() * 8); ctx.stroke(); } }
+    if (!st.link) {
+      var m0 = path[0];
+      if (look.nose) { var r2 = 3 + (nzv(idx, T) + 0.5) * 3; line(ctx, [[m0[0] - r2, m0[1]], [m0[0] + r2, m0[1]]], C[4], 1, 0.9); line(ctx, [[m0[0], m0[1] - r2 - 1], [m0[0], m0[1] + r2 * 0.5]], '#ffffff', 1, 1);
+        line(ctx, [[m0[0] - 5, m0[1] + 3], [m0[0] - 2, m0[1] + 1 + nzv(idx + 1, T) * 4], [m0[0] + 2, m0[1] + 1 + nzv(idx + 2, T) * 4], [m0[0] + 5, m0[1] + 3]], C[3], 1, 0.9); }
+      else { ctx.globalAlpha = 0.5; disc(ctx, m0[0], m0[1], 4 + heat * 2, C[3]); ctx.globalAlpha = 1; disc(ctx, m0[0], m0[1], 1.5 + heat, '#ffffff'); }
+    }
     ctx.globalAlpha = 1;
   }
   function px(ctx, x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
@@ -354,7 +443,7 @@ code { font-size: .92em; color: var(--arc-hot); }
     for (var k = 0; k < 46; k++) { var bx = (k * 73) % W, by = (k * 131 + T * 0.7) % H; px(ctx, bx, by, k % 3 ? 2 : 5, k % 5 ? 1 : 3, k % 2 ? '#1f2c35' : '#243340'); }
     px(ctx, 150, 0, 10, H, '#1d2931'); for (var r = 0; r < 12; r++) px(ctx, 154, (r * 32 + T * 0.7) % H, 2, 12, '#2b3a45');
     S.en.forEach(function (e) { drawEnemy(ctx, e); });
-    (S.sts || []).forEach(function (st, i) { coil(ctx, st, i); });
+    (S.sts || []).forEach(function (st, i) { coil(ctx, st, i, S.look); });
     S.sparks.forEach(function (q) { ctx.globalAlpha = Math.min(1, q.life / 6); px(ctx, q.x, q.y, 1, 1, q.col); }); ctx.globalAlpha = 1;
     drawShip(ctx, pilot.x, SHIP_Y);
   }
@@ -367,6 +456,12 @@ code { font-size: .92em; color: var(--arc-hot); }
     level = b.getAttribute('data-lv'); sims.forEach(function (S) { S.latch = []; S.links = {}; });
     document.querySelectorAll('[data-lv]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
     if (paused) { tick(); sims.forEach(draw); } }); });
+  var REC = ['jag', 'kinks', 'spurs', 'spikes', 'nose', 'bolt', 'flicker'];
+  function showLook() { document.querySelectorAll('[data-look]').forEach(function (o) { o.setAttribute('aria-pressed', EL[o.getAttribute('data-look')] ? 'true' : 'false'); }); if (paused) sims.forEach(draw); }
+  document.querySelectorAll('[data-look]').forEach(function (b) { b.addEventListener('click', function () { var k = b.getAttribute('data-look'); EL[k] = !EL[k]; showLook(); }); });
+  document.getElementById('look-rec').addEventListener('click', function () { Object.keys(EL).forEach(function (k) { EL[k] = false; }); REC.forEach(function (k) { EL[k] = true; }); showLook(); });
+  document.getElementById('look-none').addEventListener('click', function () { Object.keys(EL).forEach(function (k) { EL[k] = false; }); showLook(); });
+  REC.forEach(function (k) { EL[k] = true; }); showLook();
   var pb = document.getElementById('pause');
   pb.addEventListener('click', function () { paused = !paused; pb.setAttribute('aria-pressed', paused ? 'true' : 'false'); pb.textContent = paused ? 'Play' : 'Pause'; });
   sims.forEach(function (S) { S.cv.addEventListener('pointermove', function (ev) { var r = S.cv.getBoundingClientRect(); pilot.ptr = clamp((ev.clientX - r.left) / r.width * W, 12, W - 12); pilot.ptrT = 120; hint.textContent = 'You are flying'; }); });
