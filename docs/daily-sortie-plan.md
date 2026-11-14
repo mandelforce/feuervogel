@@ -1,6 +1,6 @@
 # Daily Sortie: composer plan
 
-Status: plan, draft 1. Nothing here is built yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
+Status: plan, draft 1. Phase 0 (evidence) is done: see section 6. Nothing of the composer is built yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
 
 ## 0. Goal and ground rules
 
@@ -201,4 +201,174 @@ Only after the owner decides: a `daily` mode in `worker.js` (`MODES`) keyed by `
 
 ## 6. Phase 0 findings
 
-(To be filled in by phase 0: the probe table, each kit's grammar, preset limitations and the baselines.)
+Measured on build 1.2.6.37, 2026-11-14. No game code changed. Reproduce with:
+
+```
+node tests/compose-probe.mjs                      # 6.1 to 6.3 (about 20 minutes; --kit, --group, --seeds narrow it)
+node tests/compose-probe.mjs --kit desert --group adjacent --seeds 80    # every desert neighbour pair with 20 seeds
+python3 -m http.server 8000 &
+node tests/daily-baseline.mjs --twice --save tests/daily-baseline.json   # 6.4 (about 5 minutes)
+```
+
+### 6.1 Probe table
+
+Plans that came out clean, of plans made (20 seeds per mutation; `adjacent` and `sweep` 5 seeds per row, `repeat` and `endlen` 10). Clean means: no throw, `CityGen.validate` passes, the plan is as long as its segments (plus the arena), every template's own feature lies in a segment of that template (40 px of tolerance), and no segment lacks its feature.
+
+| Mutation | desert (`sandSea`) | forest (`ironForest`) | winter (`winterGorge`) |
+|---|---|---|---|
+| original list | 20/20 | 20/20 | 20/20 |
+| middle shuffled | 12/20 | 20/20 | 18/20 |
+| each ordered pair made neighbours | 138/150 | 100/100 | 80/100 |
+| one template twice (side by side, apart) | 117/120 | 100/100 | 70/100 |
+| one middle segment dropped | 120/120 | 140/140 | 80/100 |
+| one length -50 % / +50 % | 233/240 | 200/200 | 200/200 |
+| one length at 1, 2, 3, 4, 14, 20 chunks | 146/180 | 150/150 | 147/150 |
+| total -20 % / +20 % | 72/80 | 74/80 | 40/80 |
+| opener or approach dropped, moved, halved | 120/160 | 76/120 | 20/160 |
+| each fixed segment at 1 to 4 chunks, x1.5, x2 | 180/180 | 98/110 | 220/300 |
+| plans in all | 1270 | 1040 | 1230 |
+
+What failed, by cause (each confirmed with a 20-seed run of its own unless a count says otherwise):
+
+| Kit | Mutation | Result | Cause |
+|---|---|---|---|
+| desert | `pass` directly before `airbase_desert` | 0/40 valid | The fort at the pass's upper end is overlapped (54 px and more): the track swings across to the airbase's side through it. |
+| desert | `desert_open` directly before `village` | 12/20 and 13/20 valid | A block of the held village overlaps (24 px). |
+| desert | `village` longer than 6 chunks | 7: 19/20, 8: 14/20, 9: 14/20, 10: 15/20, 12: 14/20 | A village block lands on the railway (overlap, trains blocked). 4, 5 and 6 chunks: 20/20 each. 3: 19/20. 1 and 2: 3/10. |
+| desert | `village` twice, side by side | 7/10 | The same village fault. Twice but apart: 10/10. |
+| desert | `station_junction` at 1 or 2 chunks | 0/10 clean | Valid, but its sidings and wagons lie in the neighbouring segment. |
+| desert | `airbase_desert` at 1 chunk | 0/5 clean | Valid, but no runway. 2 chunks and more: clean. |
+| desert | `pass` at 1 or 2 chunks | 0/10 valid | Overlap (62 to 195 px). 3 chunks and more: clean. |
+| desert | opener dropped (no harbour, no beach town) | 20/20 throw | `sandSea` needs the port. One of the two alone is clean. |
+| desert | opener behind the first middle segment | 0/20 clean | The port is found by name but the land starts by position: a segment before the port gets no feature. |
+| forest | `beach_cliff` under 3 chunks | 2 chunks: 22/30 valid, 1 chunk: 0/10 | Casemates overlap on the short cliff. This is also what fails "total -20 %" (3 becomes 2). |
+| forest | `beach_cliff` not first | 0/20 valid, and the level no longer opens over the sea | The road loses its connection (tank reach 0.04 to 0.05). |
+| winter | `lake_valley` first after the first `farmland_winter` | 0/52 valid | Tank reach 0.36 to 0.39: the road does not join across the seam of the two plans where it skirts the lake. This is also what fails "village dropped" and four of the neighbour rows (the lake became first). Any other template first: 10/10 each. |
+| winter | `village` or `lake_valley` twice | second one missing, 30/30 | `winterLand` builds the first village and the first lake only. Side-by-side villages read as clean but are one village and plain valley. |
+| winter | `village` at 1 chunk | 2/5 valid | Tank reach. 2 chunks and more: clean. |
+| winter | every segment -20 % / +20 % | 0/40 | Only the last `farmland_winter` matters: the spur, the massif and the gorge mouth have a fixed size, so the gorge opens 118 px before the level's end at 11 chunks (54 px at 10, 182 px at 12: 6/6 clean each) and outside the window the generator's own test allows (0 to 220 px) at 9 or 13 (0/6 each). The middle alone -20 % / +20 %: 40/40. |
+| winter | last `farmland_winter` at 1 to 4, 17 or 22 chunks | 0/60 | The same. |
+| winter | the sea or the first farmland dropped, the whole opener dropped or moved | 0/80 | The plan splits at the first `farmland_winter`: without it the plan is too short (20/20), a middle segment before it gets no feature, and without the sea the ice holes land in the next segment. |
+| winter | approach dropped, or not last | 0/40 | No gorge, no tunnel mouths; or the gorge opens 566 px before the end. |
+| winter | `pass` at 1 chunk, `open_sea_ice` at 1 chunk | 0/10 each | The gate lands in the forest; no ice hole. 2 chunks and more: clean. |
+
+Never seen in any kit: a feature placed in a segment of another template after a shuffle, a new neighbour, a repeat or a drop (0 of 1090 plans). Features follow their segments. The approach is a preset limit in winter only: in the desert and the forest, dropping or moving it leaves a valid plan (20/20 each), so there it is fixed for the boss, not for the generator.
+
+### 6.2 Grammar per kit
+
+Lengths in chunks. "Today" is the hand-made level. `len` is the range that stayed clean; where it reaches 20 that end was tried with 5 seeds only.
+
+**desert** (`sandSea`, level 2, 72 chunks today)
+
+| | Segment | `len` clean | Today | `max` | Notes |
+|---|---|---|---|---|---|
+| opener | `harbour_commercial` | 1 to 12 | 6 | 1 | fixed, first |
+| opener | `beach_town` | 1 to 10 | 5 | 1 | fixed, second |
+| middle | `valley` | 1 to 20 | 11 | 2 | each one gets its oil field |
+| middle | `village` | **4 to 6** | 6 | **1** | the held oasis village |
+| middle | `station_junction` | 3 to 20 | 9 | 1 (2 is plan-clean) | |
+| middle | `desert_open` | 1 to 20 | 6 | 2 | the first in the level gets the landmark oasis, each later one a brickworks and a hamlet |
+| middle | `airbase_desert` | 2 to 20 | 9 | 1 | two build two runways, but `plan.airbase` holds one |
+| middle | `pass` | 3 to 20 | 11 | 1 | two build two forts, but `plan.fort` holds one |
+| approach | `desert_open` | 1 to 18 | 9 | 1 | fixed, last |
+
+- `follows`: every template may follow every other, and any may come first or last in the middle (each tried with 20 seeds), **except** `pass → airbase_desert` and `desert_open → village`.
+- Total: the middle at -20 % (42 chunks, total 62): 20/20. At +20 % (62 chunks, total 82): 16/20, and the four failures are the village at 7 chunks. So 62 to 82 with `village` held at 4 to 6.
+
+**forest** (`ironForest`, level 4, 60 chunks today)
+
+| | Segment | `len` clean | Today | `max` | Notes |
+|---|---|---|---|---|---|
+| opener | `beach_cliff` | **3** to 6 | 3 | 1 | fixed, first |
+| middle | `forest_conifer` | 1 to 20 | 9, 6 | 3 | |
+| middle | `forest_fortified` | 1 to 20 | 8, 8 | 3 | |
+| middle | `clearing_village` | 1 to 20 | 5 | 2 | |
+| middle | `airbase_forest_hidden` | 1 to 20 | 7 | 2 | |
+| middle | `valley` | 1 to 20 | 7 | 2 | the first loop makes it a river valley (`autumn`), not probed |
+| approach | `farmland_approach` | 1 to 14 | 7 | 1 | fixed, last (the road ends at x 112 in every plan) |
+
+- `follows`: no restriction found (every pair 5/5, 20 shuffles 20/20, every repeat and drop clean). `max` is a variety choice, not a preset limit.
+- Total: 50 to 70 chunks clean (the middle -20 % / +20 %, 40/40) with `beach_cliff` at 3.
+- The five middle templates are all conifer forest. They differ in counts only. Flak sites per chunk: `forest_fortified` 1.13, `clearing_village` 0.81, `airbase_forest_hidden` 0.65, `forest_conifer` 0.47, `valley` 0.44.
+
+**winter** (`winterGorge`, level 5, 84 chunks today, plus 48 of arena)
+
+| | Segment | `len` clean | Today | `max` | Notes |
+|---|---|---|---|---|---|
+| opener | `open_sea_ice` | 2 to 36 | 18 | 1 | fixed, first |
+| opener | `harbour_winter` | 1 to 10 | 5 | 1 | fixed, second |
+| opener | `farmland_winter` | 1 to 16 | 8 | 1 | fixed, third: the plan splits here |
+| middle | `village` | 2 to 20 | 5 | **1** | |
+| middle | `lake_valley` | 1 to 20 | 7 | **1** | **not first in the middle** |
+| middle | `station_winter` | 1 to 20 | 9 | 2 | plain valley |
+| middle | `airbase_snow` | 1 to 20 | 7 | 2 | plain valley |
+| middle | `forest_conifer` | 1 to 20 | 7 | 2 | valley with conifers |
+| approach | `pass` | 2 to 14 | 7 | 1 | fixed (the first loop's basin, `variant`, needs 10: not probed) |
+| approach | `farmland_winter` | **10 to 12** | 11 | 1 | fixed, last; keep 11 |
+
+- `follows`: every template may follow every other; the village may be anywhere or absent. One rule: the first middle segment is not `lake_valley`.
+- Total: change the middle only (29 to 41 chunks, total 78 to 90: 40/40).
+
+### 6.3 Preset limitations and what a fix costs
+
+| # | Kit | Limitation | Fixable in the generator? | Rough size |
+|---|---|---|---|---|
+| 1 | desert | `pass → airbase_desert` always invalid (the fort) | Yes: keep the track on the pass's side until past the fort, or place the fort by the track | small, half a day with a city lab check |
+| 2 | desert | `desert_open → village` invalid in about 40 % | Yes: the village's blocks must mind what the track does below it | small |
+| 3 | desert | `village` only valid at 4 to 6 chunks | Yes: keep its blocks off the railway corridor whatever the segment's length | small |
+| 4 | desert | `plan.airbase` and `plan.fort` hold one object | Yes: lists, plus the game's readers (one read of `plan.airbase` in `index.html`) | small, but it touches the game |
+| 5 | desert | The port must be first; a segment before it is ignored | Not needed (the opener is fixed) | none |
+| 6 | forest | `beach_cliff` needs 3 chunks and must be first | Not needed (fixed opener, fixed length) | none |
+| 7 | forest | `clearing_village`, `airbase_forest_hidden` and `valley` have no ground of their own | Yes: their own features (spec 19 has them as later work) | large, one task per template |
+| 8 | winter | `lake_valley` cannot be the first mountain segment | Yes: join the road across the seam before it skirts the lake | small to medium |
+| 9 | winter | One village and one lake per plan | Yes: loop over the features instead of taking the first | medium |
+| 10 | winter | The last `farmland_winter` must be 10 to 12 chunks | Not needed (keep 11) | none |
+| 11 | winter | `station_winter`, `airbase_snow` and `forest_conifer` have no ground of their own (4 % structures each, the same as plain valley) | Yes: their own ground (the preset's comment says "until their own ground is built") | large, one task per template |
+| 12 | winter | A plan takes 1.0 to 1.3 s in Node (132 chunks with the arena), 1.3 to 1.5 s in the page | Partly: most of it is `winterLand` | not looked at |
+
+Consequence for variety: in the forest and winter kits a reorder changes little that a player can see until 7 and 11 are done. Winter has two distinct middle templates (village, lake), one of which cannot be first. Desert has six distinct ones and two forbidden pairs. **The desert kit is the only one where the composer has much to compose today.**
+
+Not probed (Node cannot see it): what the game does with a composed list. `buildSortie` finds segments by name for the loops' encounters, `sortieInfo` maps templates to biomes by level, and the weather plans follow stretches. That is phase 2, and each lookup there must cope with a missing or repeated template.
+
+### 6.4 Baselines
+
+`tests/daily-baseline.json`, written by `tests/daily-baseline.mjs`. The human bot (`SF.human(8, 15)`), immortal, viewport 1000x760 (playfield height 320), levels started on their own with `startEnigma(level, true, loops)`. 24 flights; all 24 killed the boss, flew on into the next level and had no errors. Every flight was flown a second time in a fresh page and gave identical numbers (a trace every 10 s included), so one flight per level, loop and difficulty is the whole baseline: there is nothing to average.
+
+Per kit and difficulty, lowest to highest over the first pass (seed 1944) and the first loop (seed 1945):
+
+| Kit (level, chunks) | Difficulty | Boss arrives (s) | Boss lasts (s) | Hits per min before the boss | Worst 10 s window | Bullets before the boss | Kills per min | Longest quiet stretch (s) |
+|---|---|---|---|---|---|---|---|---|
+| desert (2, 72) | Rookie | 209.5 | 57.7 to 86.0 | 0.57 | 21.6 to 26.6 | 6.7 to 6.8 | 88 to 122 | 7 |
+| | Veteran | 209.5 | 46.3 to 104.0 | 0.86 to 2.00 | 31.2 to 60.2 | 10.9 to 15.4 | 101 to 129 | 0 |
+| | Ace | 209.5 | 45.7 to 92.2 | 0.57 to 3.44 | 25.9 to 50.2 | 11.0 to 15.5 | 123 to 126 | 6 |
+| forest (4, 60) | Rookie | 172.0 | 92.0 to 127.7 | 0.35 to 1.74 | 60.3 to 108.7 | 14.0 to 14.7 | 92 to 115 | 0 |
+| | Veteran | 172.0 | 148.5 to 185.3 | 2.79 to 3.14 | 77.2 to 118.2 | 18.5 to 21.7 | 102 to 110 | 0 |
+| | Ace | 172.0 | 104.8 to 256.2 | 1.40 to 3.84 | 73.9 to 81.6 | 18.1 to 22.8 | 129 to 140 | 0 |
+| winter (5, 84) | Rookie | 242.0 | 56.3 to 58.0 | 0.25 to 1.74 | 13.6 to 16.0 | 4.8 to 5.2 | 100 to 118 | 5 |
+| | Veteran | 242.0 | 46.0 to 56.3 | 0.74 | 22.0 to 38.7 | 7.6 to 11.7 | 120 to 121 | 5 |
+| | Ace | 242.0 | 52.0 to 134.5 | 1.49 to 2.73 | 30.8 to 36.1 | 12.0 to 13.5 | 144 to 171 | 0 |
+
+- The boss arrives 2.9 s per chunk after the start, whatever is shot. A level lasts 4.2 to 7.1 minutes with its boss.
+- Hits before the boss are 1 to 12 per flight (level 2's loops 2 and 3, a rank harder each, reach 30; they are in the file but not in the table).
+- "Quiet" is a stretch of 5 s or more before the boss with no enemy on screen, no enemy bullet and no encounter. The longest anywhere is 7 s (8 s when only enemies in the air count), and nearly all of them lie in the last seconds before the boss.
+- Encounters: the first pass of levels 2, 4 and 5 has none but the Shadow Wing (3050 frames). The loops have three (level 2: `oasisambush`, `burningfield`, `fuelconvoy`), two (level 4: `cliffbattery`, `valleyconvoy`) and three (level 5: `iceraid`, `iceroad`, `basebreak`).
+- Chunk build time in the page, p95 per level: 7.8 to 18.3 ms (two pages at once on a 4-core machine; noisy, 8.6 to 26.6 ms across three runs).
+- Plan time in the page: desert 153 to 180 ms, forest 82 to 121 ms (first loop with lakes: 552 to 568 ms), winter 1278 to 1516 ms. In Node alone, original lists, median / p95: desert 145 / 246 ms, forest 102 / 163 ms, winter 1044 / 1265 ms.
+
+**How long a flight takes:** 4.5 to 8.1 s, median 6.1 s (53 times game speed, two pages at once); 9.7 s with the plan and chunk timings. All 24 flights, each twice: 4 min 52 s. One date on three difficulties is about 20 to 30 s. Gate 3 is some 20 times cheaper than section 3 assumed (1 to 3 minutes).
+
+### 6.5 What the plan had wrong, or has to decide
+
+1. **Gate 2, density from spec 3.2.** The hand-made levels are far below the spec's ranges: `valley` 5 % (spec 15 to 30), `airbase_desert` 18 % (30 to 45), `village` 8 to 25 % desert and 10 to 13 % winter (30 to 40), the forest templates 4 to 8 % (20 to 40). (My count of "structures" is an approximation: buildings, rubble, works, runways, aprons, quays, squares, yards, roads, bridges.) The gate would reject the Campaign's own levels. Use the measured share per template with a margin instead (the probe prints it), or drop the check.
+2. **Gate 2, time.** "0.2 to 0.5 s per sortie" holds for desert and forest, not for winter (1.0 to 1.3 s). 300 winter seeds in `tests/compose.mjs` are about 6 minutes.
+3. **Gate 3, "too easy" from hits.** The baseline minimum is 0.25 to 0.57 hits a minute, which is 1 or 2 hits in a flight. Half of that is no floor at all. Kills per minute (88 to 171) or bullets on screen before the boss would work as a floor. **[owner]**
+4. **Gate 3, "too hard" from hits.** With 1 to 12 hits per flight, baseline maximum x 1.25 is one extra hit on some rows (desert Rookie: 2 hits is the maximum, 3 would fail). Composed sorties will fail on chance. Either give hits an absolute margin (the balance tests use "35 % or 3") or lean on the bullet measures. **[owner]**
+5. **Dead air.** 20 s is far from what the levels do: the longest stretch is 7 s. Phase 3's rule ("just above the longest in the baselines") gives about 8 to 10 s.
+6. **"Three seeds each where a loop seed applies."** Only level 2 has more than one loop seed, and each is a rank harder, so they are not three samples of one thing. Levels 4 and 5 have their loop content on seed 1945 only. And the flights are exactly repeatable, so seeds are not needed for noise.
+7. **Kit table 2.1.** Confirmed as the openers and approaches, with these corrections: winter's `village` is optional and free, the rule is on `lake_valley`; winter's last `farmland_winter` has a fixed length; the forest and winter middles are mostly one ground (6.3). Section 1 calls the levels "about 5 minutes": level 2 is 72 chunks, level 4 60, level 5 84.
+8. **Encounters (decision 6).** The first pass, which is what a player's first Campaign flight of these levels is, has no encounters. A composed sortie with encounters from the kit table compares with the first loop's flight, not the first pass. The table in 6.4 spans both.
+9. **Two faults in the test harness, found on the way** (not changed here): `SF.run` only notices a level change that happens inside one call, so a change on a call's last frame flies on into the next level unnoticed (`daily-baseline.mjs` checks the level itself); and `tests/balance-real.mjs` starts its flights without `finishBoot()`, so the boot splash swallows a different number of frames each time and its flights do not repeat. Both are small fixes.
+10. **`node --test tests/`** (CLAUDE.md) fails on Node 22, which treats the folder as a file. `node --test tests/worker.test.mjs` passes (16 tests).
+11. **Rule 0, "`node tests/replay.mjs` stays green".** It is red on the untouched build 1.2.6.37 in the test container: all eight scenarios differ from `golden.json` by frame 500, and so do the three of `node tests/replay.mjs --enigma` against `golden-enigma.json` (its terrain fingerprints pass). `node tests/enigma.mjs` (213 checks) and `node tests/fixed-seed.mjs` (41 checks) pass. ARCHITECTURE.md already says the replay test is no gate for the Campaign's levels, and CI runs only its terrain part. I could not tell here whether the golden files are stale or this machine's browser plays differently. For the later phases the working guard is therefore: `enigma.mjs` and `fixed-seed.mjs` green, plus `replay.mjs` giving the same output before and after a change (not "green"), until the owner refreshes the golden files on purpose.
+
+Not run in phase 0: nothing was flown with a composed sortie (there is no composer yet), no phone-sized viewport (the playfield height changes how the game plays; the baselines hold for H 320 only), and the first loops' generator variants (`variant`, `autumn`, `lakes`) were flown but not probed with mutated lists.

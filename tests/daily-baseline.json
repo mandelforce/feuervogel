@@ -1,0 +1,3237 @@
+{
+ "about": "Daily Sortie gate 3 baselines (docs/daily-sortie-plan.md, phase 0): the hand-made levels 2, 4 and 5 flown by the human bot in immortal mode. Written by tests/daily-baseline.mjs --save.",
+ "version": "1.2.6.37",
+ "bot": {
+  "lag": 8,
+  "react": 15,
+  "mode": "immortal"
+ },
+ "viewport": {
+  "width": 1000,
+  "height": 760
+ },
+ "H": 320,
+ "units": {
+  "bossIn": "s from the level start",
+  "bossSec": "s the boss lasted",
+  "hitsPerMin": "bullets and rams that hit the ship per minute before the boss",
+  "window10": "worst 10 s window before the boss, average enemy bullets on screen",
+  "preAvg": "average enemy bullets on screen before the boss",
+  "quiet": "[start s, length s] of the longest stretches before the boss with no enemy on screen, no enemy bullet and no encounter (5 s and longer)",
+  "quietAir": "the same, counting only enemies in the air",
+  "chunkMs": "ms to build one 224x64 chunk, this machine",
+  "planMs": "ms for the generator to make the level plan in the page, this machine",
+  "wallMs": "ms one flight took at full speed"
+ },
+ "timing": {
+  "flights": 24,
+  "conc": 2,
+  "flightS": {
+   "min": 4.5,
+   "median": 6.1,
+   "max": 8.1
+  },
+  "withBenchS": {
+   "median": 9.7,
+   "max": 17.5
+  },
+  "allS": 292,
+  "gameSpeed": 52.8
+ },
+ "repeat": {
+  "flights": 24,
+  "different": 0,
+  "which": []
+ },
+ "kitsAbout": "[min, max] per difficulty over the first pass (loop 0) and the first loop (loop 1) of the kit's level",
+ "kits": {
+  "desert": {
+   "level": 2,
+   "byDiff": {
+    "Rookie": {
+     "flights": 2,
+     "bossIn": [
+      209.5,
+      209.5
+     ],
+     "bossSec": [
+      57.7,
+      86
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.57,
+      0.57
+     ],
+     "window10": [
+      21.6,
+      26.6
+     ],
+     "preAvg": [
+      6.7,
+      6.8
+     ],
+     "bossAvg": [
+      9.5,
+      9.8
+     ],
+     "killsPerMin": [
+      87.6,
+      122
+     ],
+     "quietMax": 7,
+     "quietAirMax": 7,
+     "flightS": [
+      5,
+      5.2
+     ],
+     "chunkP95": [
+      10.1,
+      13.7
+     ],
+     "planMs": [
+      154.6,
+      156.8
+     ]
+    },
+    "Veteran": {
+     "flights": 2,
+     "bossIn": [
+      209.5,
+      209.5
+     ],
+     "bossSec": [
+      46.3,
+      104
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.86,
+      2
+     ],
+     "window10": [
+      31.2,
+      60.2
+     ],
+     "preAvg": [
+      10.9,
+      15.4
+     ],
+     "bossAvg": [
+      15.4,
+      19.1
+     ],
+     "killsPerMin": [
+      101.1,
+      128.9
+     ],
+     "quietMax": 0,
+     "quietAirMax": 6,
+     "flightS": [
+      4.8,
+      6.4
+     ],
+     "chunkP95": [
+      9.9,
+      18.3
+     ],
+     "planMs": [
+      168.4,
+      178.8
+     ]
+    },
+    "Ace": {
+     "flights": 2,
+     "bossIn": [
+      209.5,
+      209.5
+     ],
+     "bossSec": [
+      45.7,
+      92.2
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.57,
+      3.44
+     ],
+     "window10": [
+      25.9,
+      50.2
+     ],
+     "preAvg": [
+      11,
+      15.5
+     ],
+     "bossAvg": [
+      13.3,
+      14.4
+     ],
+     "killsPerMin": [
+      122.9,
+      126
+     ],
+     "quietMax": 6,
+     "quietAirMax": 6,
+     "flightS": [
+      4.5,
+      7.3
+     ],
+     "chunkP95": [
+      10.5,
+      11.6
+     ],
+     "planMs": [
+      153,
+      180.3
+     ]
+    }
+   }
+  },
+  "forest": {
+   "level": 4,
+   "byDiff": {
+    "Rookie": {
+     "flights": 2,
+     "bossIn": [
+      172,
+      172
+     ],
+     "bossSec": [
+      92,
+      127.7
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.35,
+      1.74
+     ],
+     "window10": [
+      60.3,
+      108.7
+     ],
+     "preAvg": [
+      14,
+      14.7
+     ],
+     "bossAvg": [
+      13.7,
+      16.6
+     ],
+     "killsPerMin": [
+      91.7,
+      115.1
+     ],
+     "quietMax": 0,
+     "quietAirMax": 6,
+     "flightS": [
+      6,
+      6.1
+     ],
+     "chunkP95": [
+      7.8,
+      10.8
+     ],
+     "planMs": [
+      114.6,
+      552.3
+     ]
+    },
+    "Veteran": {
+     "flights": 2,
+     "bossIn": [
+      172,
+      172
+     ],
+     "bossSec": [
+      148.5,
+      185.3
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      2.79,
+      3.14
+     ],
+     "window10": [
+      77.2,
+      118.2
+     ],
+     "preAvg": [
+      18.5,
+      21.7
+     ],
+     "bossAvg": [
+      31.5,
+      33.3
+     ],
+     "killsPerMin": [
+      102.2,
+      109.5
+     ],
+     "quietMax": 0,
+     "quietAirMax": 0,
+     "flightS": [
+      6.8,
+      6.8
+     ],
+     "chunkP95": [
+      11.9,
+      12.4
+     ],
+     "planMs": [
+      121.1,
+      557.1
+     ]
+    },
+    "Ace": {
+     "flights": 2,
+     "bossIn": [
+      172,
+      172
+     ],
+     "bossSec": [
+      104.8,
+      256.2
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      1.4,
+      3.84
+     ],
+     "window10": [
+      73.9,
+      81.6
+     ],
+     "preAvg": [
+      18.1,
+      22.8
+     ],
+     "bossAvg": [
+      22.4,
+      23.2
+     ],
+     "killsPerMin": [
+      129.4,
+      140.2
+     ],
+     "quietMax": 0,
+     "quietAirMax": 0,
+     "flightS": [
+      6.9,
+      8.1
+     ],
+     "chunkP95": [
+      8.2,
+      11.4
+     ],
+     "planMs": [
+      81.5,
+      568.2
+     ]
+    }
+   }
+  },
+  "winter": {
+   "level": 5,
+   "byDiff": {
+    "Rookie": {
+     "flights": 2,
+     "bossIn": [
+      242,
+      242
+     ],
+     "bossSec": [
+      56.3,
+      58
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.25,
+      1.74
+     ],
+     "window10": [
+      13.6,
+      16
+     ],
+     "preAvg": [
+      4.8,
+      5.2
+     ],
+     "bossAvg": [
+      8.3,
+      11.8
+     ],
+     "killsPerMin": [
+      100.2,
+      117.8
+     ],
+     "quietMax": 5,
+     "quietAirMax": 8,
+     "flightS": [
+      4.6,
+      5.8
+     ],
+     "chunkP95": [
+      12.4,
+      14.5
+     ],
+     "planMs": [
+      1301.9,
+      1516.3
+     ]
+    },
+    "Veteran": {
+     "flights": 2,
+     "bossIn": [
+      242,
+      242
+     ],
+     "bossSec": [
+      46,
+      56.3
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.74,
+      0.74
+     ],
+     "window10": [
+      22,
+      38.7
+     ],
+     "preAvg": [
+      7.6,
+      11.7
+     ],
+     "bossAvg": [
+      10.4,
+      12.1
+     ],
+     "killsPerMin": [
+      119.5,
+      121
+     ],
+     "quietMax": 5,
+     "quietAirMax": 6,
+     "flightS": [
+      4.8,
+      5.7
+     ],
+     "chunkP95": [
+      9.5,
+      14.2
+     ],
+     "planMs": [
+      1414.6,
+      1425.1
+     ]
+    },
+    "Ace": {
+     "flights": 2,
+     "bossIn": [
+      242,
+      242
+     ],
+     "bossSec": [
+      52,
+      134.5
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      1.49,
+      2.73
+     ],
+     "window10": [
+      30.8,
+      36.1
+     ],
+     "preAvg": [
+      12,
+      13.5
+     ],
+     "bossAvg": [
+      8.3,
+      10.8
+     ],
+     "killsPerMin": [
+      144,
+      170.6
+     ],
+     "quietMax": 0,
+     "quietAirMax": 5,
+     "flightS": [
+      5.3,
+      6.5
+     ],
+     "chunkP95": [
+      10.8,
+      14
+     ],
+     "planMs": [
+      1278.3,
+      1466.7
+     ]
+    }
+   }
+  }
+ },
+ "flights": [
+  {
+   "level": 2,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 0,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     11
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     9
+    ],
+    [
+     "desert_open",
+     6
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "pass",
+     11
+    ],
+    [
+     "desert_open",
+     9
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:3",
+   "frames": 16910,
+   "wallMs": 5232,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 57.7,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.57,
+   "hitsBy": {
+    "body:fighter": 2
+   },
+   "window10": 21.6,
+   "preAvg": 6.7,
+   "bossAvg": 9.5,
+   "enemiesAvg": 6.85,
+   "enemiesMax": 27,
+   "killsPre": 426,
+   "killsPerMin": 122,
+   "kills": 458,
+   "seen": 508,
+   "score": 441240,
+   "quiet": [
+    [
+     203,
+     7
+    ]
+   ],
+   "quietAir": [
+    [
+     203,
+     7
+    ]
+   ],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 506,
+   "planMs": {
+    "median": 154.6,
+    "max": 266.6
+   },
+   "chunkMs": {
+    "mean": 5.53,
+    "p95": 10.1,
+    "max": 21.7,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 16910,
+    "score": 441240,
+    "hitsPre": 2,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 57.7,
+    "window10": 21.6,
+    "preAvg": 6.7,
+    "kills": 458,
+    "end": "next:3",
+    "hitsPerMin": 0.57,
+    "killsPerMin": 122
+   }
+  },
+  {
+   "level": 2,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 1,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     11
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     9
+    ],
+    [
+     "desert_open",
+     6
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "pass",
+     11
+    ],
+    [
+     "desert_open",
+     9
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:3",
+   "frames": 16280,
+   "wallMs": 4806,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 46.3,
+   "bossKilled": true,
+   "hitsPre": 3,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.86,
+   "hitsBy": {
+    "body:fighter": 2,
+    "bullet:s": 1
+   },
+   "window10": 31.2,
+   "preAvg": 10.9,
+   "bossAvg": 15.4,
+   "enemiesAvg": 9.1,
+   "enemiesMax": 33,
+   "killsPre": 450,
+   "killsPerMin": 128.9,
+   "kills": 470,
+   "seen": 567,
+   "score": 447640,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 370.6,
+   "planMs": {
+    "median": 168.4,
+    "max": 403.2
+   },
+   "chunkMs": {
+    "mean": 4.87,
+    "p95": 9.9,
+    "max": 11.9,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 16280,
+    "score": 447640,
+    "hitsPre": 3,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 46.3,
+    "window10": 31.2,
+    "preAvg": 10.9,
+    "kills": 470,
+    "end": "next:3",
+    "hitsPerMin": 0.86,
+    "killsPerMin": 128.9
+   }
+  },
+  {
+   "level": 2,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 2,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     11
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     9
+    ],
+    [
+     "desert_open",
+     6
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "pass",
+     11
+    ],
+    [
+     "desert_open",
+     9
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:3",
+   "frames": 16190,
+   "wallMs": 4501,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 45.7,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.57,
+   "hitsBy": {
+    "body:fighter": 2
+   },
+   "window10": 25.9,
+   "preAvg": 11,
+   "bossAvg": 13.3,
+   "enemiesAvg": 10.75,
+   "enemiesMax": 32,
+   "killsPre": 440,
+   "killsPerMin": 126,
+   "kills": 464,
+   "seen": 580,
+   "score": 377860,
+   "quiet": [
+    [
+     204,
+     6
+    ]
+   ],
+   "quietAir": [
+    [
+     204,
+     6
+    ]
+   ],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 461.4,
+   "planMs": {
+    "median": 180.3,
+    "max": 231.3
+   },
+   "chunkMs": {
+    "mean": 5.52,
+    "p95": 11.6,
+    "max": 19.3,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 16190,
+    "score": 377860,
+    "hitsPre": 2,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 45.7,
+    "window10": 25.9,
+    "preAvg": 11,
+    "kills": 464,
+    "end": "next:3",
+    "hitsPerMin": 0.57,
+    "killsPerMin": 126
+   }
+  },
+  {
+   "level": 2,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 0,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "station_junction",
+     8
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "desert_open",
+     5
+    ],
+    [
+     "airbase_desert",
+     8
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     10
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 18620,
+   "wallMs": 4952,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 86,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.57,
+   "hitsBy": {
+    "body:fighter": 2
+   },
+   "window10": 26.6,
+   "preAvg": 6.8,
+   "bossAvg": 9.8,
+   "enemiesAvg": 8.3,
+   "enemiesMax": 29,
+   "killsPre": 306,
+   "killsPerMin": 87.6,
+   "kills": 339,
+   "seen": 428,
+   "score": 394540,
+   "quiet": [],
+   "quietAir": [
+    [
+     203,
+     6
+    ]
+   ],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3050,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 481.6,
+   "planMs": {
+    "median": 156.8,
+    "max": 323.6
+   },
+   "chunkMs": {
+    "mean": 7.36,
+    "p95": 13.7,
+    "max": 18.9,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18620,
+    "score": 394540,
+    "hitsPre": 2,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 86,
+    "window10": 26.6,
+    "preAvg": 6.8,
+    "kills": 339,
+    "end": "next:3",
+    "hitsPerMin": 0.57,
+    "killsPerMin": 87.6
+   }
+  },
+  {
+   "level": 2,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 1,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "station_junction",
+     8
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "desert_open",
+     5
+    ],
+    [
+     "airbase_desert",
+     8
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     10
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 19670,
+   "wallMs": 6367,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 104,
+   "bossKilled": true,
+   "hitsPre": 7,
+   "hitsBoss": 1,
+   "hitsPerMin": 2,
+   "hitsBy": {
+    "body:fighter": 7
+   },
+   "window10": 60.2,
+   "preAvg": 15.4,
+   "bossAvg": 19.1,
+   "enemiesAvg": 14.49,
+   "enemiesMax": 42,
+   "killsPre": 353,
+   "killsPerMin": 101.1,
+   "kills": 405,
+   "seen": 572,
+   "score": 352900,
+   "quiet": [],
+   "quietAir": [
+    [
+     203,
+     6
+    ]
+   ],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3050,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 526.4,
+   "planMs": {
+    "median": 178.8,
+    "max": 296.7
+   },
+   "chunkMs": {
+    "mean": 7.19,
+    "p95": 18.3,
+    "max": 32.7,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 19670,
+    "score": 352900,
+    "hitsPre": 7,
+    "hitsBoss": 1,
+    "bossIn": 209.5,
+    "bossSec": 104,
+    "window10": 60.2,
+    "preAvg": 15.4,
+    "kills": 405,
+    "end": "next:3",
+    "hitsPerMin": 2,
+    "killsPerMin": 101.1
+   }
+  },
+  {
+   "level": 2,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 2,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "station_junction",
+     8
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "desert_open",
+     5
+    ],
+    [
+     "airbase_desert",
+     8
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     10
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 18920,
+   "wallMs": 7326,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 92.2,
+   "bossKilled": true,
+   "hitsPre": 12,
+   "hitsBoss": 0,
+   "hitsPerMin": 3.44,
+   "hitsBy": {
+    "bullet:s": 2,
+    "body:fighter": 9,
+    "body:heavy": 1
+   },
+   "window10": 50.2,
+   "preAvg": 15.5,
+   "bossAvg": 14.4,
+   "enemiesAvg": 19.61,
+   "enemiesMax": 62,
+   "killsPre": 429,
+   "killsPerMin": 122.9,
+   "kills": 471,
+   "seen": 740,
+   "score": 397990,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3050,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 545.3,
+   "planMs": {
+    "median": 153,
+    "max": 330.4
+   },
+   "chunkMs": {
+    "mean": 5.47,
+    "p95": 10.5,
+    "max": 21.6,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18920,
+    "score": 397990,
+    "hitsPre": 12,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 92.2,
+    "window10": 50.2,
+    "preAvg": 15.5,
+    "kills": 471,
+    "end": "next:3",
+    "hitsPerMin": 3.44,
+    "killsPerMin": 122.9
+   }
+  },
+  {
+   "level": 2,
+   "loops": 2,
+   "seed": 1946,
+   "diff": 0,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "station_junction",
+     10
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     11
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 16790,
+   "wallMs": 5995,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 55.7,
+   "bossKilled": true,
+   "hitsPre": 4,
+   "hitsBoss": 0,
+   "hitsPerMin": 1.15,
+   "hitsBy": {
+    "body:fighter": 3,
+    "body:bomber": 1
+   },
+   "window10": 30.8,
+   "preAvg": 10.5,
+   "bossAvg": 9.5,
+   "enemiesAvg": 12.67,
+   "enemiesMax": 56,
+   "killsPre": 373,
+   "killsPerMin": 106.8,
+   "kills": 402,
+   "seen": 525,
+   "score": 382390,
+   "quiet": [
+    [
+     204,
+     5
+    ]
+   ],
+   "quietAir": [
+    [
+     204,
+     5
+    ]
+   ],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 543,
+   "planMs": {
+    "median": 172.9,
+    "max": 276.1
+   },
+   "chunkMs": {
+    "mean": 6.14,
+    "p95": 15,
+    "max": 19,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 16790,
+    "score": 382390,
+    "hitsPre": 4,
+    "hitsBoss": 0,
+    "bossIn": 209.5,
+    "bossSec": 55.7,
+    "window10": 30.8,
+    "preAvg": 10.5,
+    "kills": 402,
+    "end": "next:3",
+    "hitsPerMin": 1.15,
+    "killsPerMin": 106.8
+   }
+  },
+  {
+   "level": 2,
+   "loops": 2,
+   "seed": 1946,
+   "diff": 1,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "station_junction",
+     10
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     11
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 17450,
+   "wallMs": 6502,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 67,
+   "bossKilled": true,
+   "hitsPre": 8,
+   "hitsBoss": 2,
+   "hitsPerMin": 2.29,
+   "hitsBy": {
+    "body:fighter": 4,
+    "bullet:shell": 2,
+    "body:bomber": 1,
+    "bullet:s": 1
+   },
+   "window10": 48.8,
+   "preAvg": 16.7,
+   "bossAvg": 14.6,
+   "enemiesAvg": 14.91,
+   "enemiesMax": 42,
+   "killsPre": 519,
+   "killsPerMin": 148.6,
+   "kills": 553,
+   "seen": 692,
+   "score": 509510,
+   "quiet": [],
+   "quietAir": [
+    [
+     204,
+     5
+    ]
+   ],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 462.7,
+   "planMs": {
+    "median": 185.7,
+    "max": 239.1
+   },
+   "chunkMs": {
+    "mean": 7.38,
+    "p95": 13.5,
+    "max": 32.6,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 17450,
+    "score": 509510,
+    "hitsPre": 8,
+    "hitsBoss": 2,
+    "bossIn": 209.5,
+    "bossSec": 67,
+    "window10": 48.8,
+    "preAvg": 16.7,
+    "kills": 553,
+    "end": "next:3",
+    "hitsPerMin": 2.29,
+    "killsPerMin": 148.6
+   }
+  },
+  {
+   "level": 2,
+   "loops": 2,
+   "seed": 1946,
+   "diff": 2,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "station_junction",
+     10
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "airbase_desert",
+     9
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     12
+    ],
+    [
+     "desert_open",
+     11
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 19670,
+   "wallMs": 7640,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 103.3,
+   "bossKilled": true,
+   "hitsPre": 22,
+   "hitsBoss": 1,
+   "hitsPerMin": 6.3,
+   "hitsBy": {
+    "body:fighter": 12,
+    "body:heavy": 3,
+    "bullet:shell": 3,
+    "bullet:s": 2,
+    "body:bomber": 2
+   },
+   "window10": 38.4,
+   "preAvg": 15.2,
+   "bossAvg": 13.8,
+   "enemiesAvg": 23.15,
+   "enemiesMax": 63,
+   "killsPre": 639,
+   "killsPerMin": 183,
+   "kills": 693,
+   "seen": 971,
+   "score": 570340,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 577.1,
+   "planMs": {
+    "median": 132.7,
+    "max": 229.5
+   },
+   "chunkMs": {
+    "mean": 7.09,
+    "p95": 16.5,
+    "max": 27.4,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 19670,
+    "score": 570340,
+    "hitsPre": 22,
+    "hitsBoss": 1,
+    "bossIn": 209.5,
+    "bossSec": 103.3,
+    "window10": 38.4,
+    "preAvg": 15.2,
+    "kills": 693,
+    "end": "next:3",
+    "hitsPerMin": 6.3,
+    "killsPerMin": 183
+   }
+  },
+  {
+   "level": 2,
+   "loops": 3,
+   "seed": 1947,
+   "diff": 0,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     7
+    ],
+    [
+     "airbase_desert",
+     10
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "desert_open",
+     13
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 17240,
+   "wallMs": 6098,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 64.3,
+   "bossKilled": true,
+   "hitsPre": 8,
+   "hitsBoss": 1,
+   "hitsPerMin": 2.29,
+   "hitsBy": {
+    "body:fighter": 4,
+    "bullet:shell": 1,
+    "body:bomber": 1,
+    "body:pod": 2
+   },
+   "window10": 32.2,
+   "preAvg": 11.6,
+   "bossAvg": 7.3,
+   "enemiesAvg": 14.71,
+   "enemiesMax": 41,
+   "killsPre": 367,
+   "killsPerMin": 105.1,
+   "kills": 399,
+   "seen": 564,
+   "score": 415940,
+   "quiet": [],
+   "quietAir": [
+    [
+     204,
+     5
+    ]
+   ],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 568.3,
+   "planMs": {
+    "median": 167.6,
+    "max": 173.6
+   },
+   "chunkMs": {
+    "mean": 6.34,
+    "p95": 13.2,
+    "max": 24.6,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 17240,
+    "score": 415940,
+    "hitsPre": 8,
+    "hitsBoss": 1,
+    "bossIn": 209.5,
+    "bossSec": 64.3,
+    "window10": 32.2,
+    "preAvg": 11.6,
+    "kills": 399,
+    "end": "next:3",
+    "hitsPerMin": 2.29,
+    "killsPerMin": 105.1
+   }
+  },
+  {
+   "level": 2,
+   "loops": 3,
+   "seed": 1947,
+   "diff": 1,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     7
+    ],
+    [
+     "airbase_desert",
+     10
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "desert_open",
+     13
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 21290,
+   "wallMs": 7195,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 131.5,
+   "bossKilled": true,
+   "hitsPre": 18,
+   "hitsBoss": 7,
+   "hitsPerMin": 5.16,
+   "hitsBy": {
+    "body:heavy": 2,
+    "body:fighter": 6,
+    "bullet:s": 3,
+    "body:bomber": 3,
+    "bullet:shell": 4
+   },
+   "window10": 38.9,
+   "preAvg": 16.9,
+   "bossAvg": 14.9,
+   "enemiesAvg": 20.66,
+   "enemiesMax": 60,
+   "killsPre": 522,
+   "killsPerMin": 149.5,
+   "kills": 576,
+   "seen": 885,
+   "score": 501060,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 476.4,
+   "planMs": {
+    "median": 136.4,
+    "max": 198.9
+   },
+   "chunkMs": {
+    "mean": 5.47,
+    "p95": 13.2,
+    "max": 17.4,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 21290,
+    "score": 501060,
+    "hitsPre": 18,
+    "hitsBoss": 7,
+    "bossIn": 209.5,
+    "bossSec": 131.5,
+    "window10": 38.9,
+    "preAvg": 16.9,
+    "kills": 576,
+    "end": "next:3",
+    "hitsPerMin": 5.16,
+    "killsPerMin": 149.5
+   }
+  },
+  {
+   "level": 2,
+   "loops": 3,
+   "seed": 1947,
+   "diff": 2,
+   "H": 320,
+   "len": 72,
+   "bossAt": 77,
+   "segs": [
+    [
+     "harbour_commercial",
+     6
+    ],
+    [
+     "beach_town",
+     4
+    ],
+    [
+     "valley",
+     9
+    ],
+    [
+     "village",
+     6
+    ],
+    [
+     "station_junction",
+     7
+    ],
+    [
+     "airbase_desert",
+     10
+    ],
+    [
+     "desert_open",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "desert_open",
+     13
+    ]
+   ],
+   "encPlan": [
+    "oasisambush",
+    "burningfield",
+    "fuelconvoy"
+   ],
+   "end": "next:3",
+   "frames": 29660,
+   "wallMs": 7848,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 209.5,
+   "bossSec": 271.5,
+   "bossKilled": true,
+   "hitsPre": 30,
+   "hitsBoss": 8,
+   "hitsPerMin": 8.59,
+   "hitsBy": {
+    "body:fighter": 18,
+    "body:heavy": 1,
+    "bullet:s": 4,
+    "body:bomber": 1,
+    "body:pod": 1,
+    "bullet:shell": 5
+   },
+   "window10": 36.3,
+   "preAvg": 13.1,
+   "bossAvg": 11.6,
+   "enemiesAvg": 25,
+   "enemiesMax": 59,
+   "killsPre": 578,
+   "killsPerMin": 165.5,
+   "kills": 704,
+   "seen": 1071,
+   "score": 609950,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "oasisambush": 1180,
+    "burningfield": 1080,
+    "wing": 3040,
+    "fuelconvoy": 1280
+   },
+   "updMaxMs": 499.9,
+   "planMs": {
+    "median": 181.2,
+    "max": 224.4
+   },
+   "chunkMs": {
+    "mean": 7.33,
+    "p95": 19.6,
+    "max": 32.3,
+    "chunks": 81
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 29660,
+    "score": 609950,
+    "hitsPre": 30,
+    "hitsBoss": 8,
+    "bossIn": 209.5,
+    "bossSec": 271.5,
+    "window10": 36.3,
+    "preAvg": 13.1,
+    "kills": 704,
+    "end": "next:3",
+    "hitsPerMin": 8.59,
+    "killsPerMin": 165.5
+   }
+  },
+  {
+   "level": 4,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 0,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     9
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "clearing_village",
+     5
+    ],
+    [
+     "airbase_forest_hidden",
+     7
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "forest_conifer",
+     6
+    ],
+    [
+     "valley",
+     7
+    ],
+    [
+     "farmland_approach",
+     7
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:5",
+   "frames": 16790,
+   "wallMs": 6147,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 92,
+   "bossKilled": true,
+   "hitsPre": 5,
+   "hitsBoss": 2,
+   "hitsPerMin": 1.74,
+   "hitsBy": {
+    "body:fighter": 5
+   },
+   "window10": 60.3,
+   "preAvg": 14,
+   "bossAvg": 13.7,
+   "enemiesAvg": 7.79,
+   "enemiesMax": 26,
+   "killsPre": 330,
+   "killsPerMin": 115.1,
+   "kills": 439,
+   "seen": 496,
+   "score": 503680,
+   "quiet": [],
+   "quietAir": [
+    [
+     166,
+     6
+    ]
+   ],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 1737.6,
+   "planMs": {
+    "median": 114.6,
+    "max": 162.7
+   },
+   "chunkMs": {
+    "mean": 3.56,
+    "p95": 7.8,
+    "max": 13.7,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 16790,
+    "score": 503680,
+    "hitsPre": 5,
+    "hitsBoss": 2,
+    "bossIn": 172,
+    "bossSec": 92,
+    "window10": 60.3,
+    "preAvg": 14,
+    "kills": 439,
+    "end": "next:5",
+    "hitsPerMin": 1.74,
+    "killsPerMin": 115.1
+   }
+  },
+  {
+   "level": 4,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 1,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     9
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "clearing_village",
+     5
+    ],
+    [
+     "airbase_forest_hidden",
+     7
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "forest_conifer",
+     6
+    ],
+    [
+     "valley",
+     7
+    ],
+    [
+     "farmland_approach",
+     7
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:5",
+   "frames": 20180,
+   "wallMs": 6809,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 148.5,
+   "bossKilled": true,
+   "hitsPre": 8,
+   "hitsBoss": 2,
+   "hitsPerMin": 2.79,
+   "hitsBy": {
+    "body:fighter": 4,
+    "body:heavy": 2,
+    "body:pod": 1,
+    "bullet:shell": 1
+   },
+   "window10": 77.2,
+   "preAvg": 18.5,
+   "bossAvg": 33.3,
+   "enemiesAvg": 13.77,
+   "enemiesMax": 32,
+   "killsPre": 314,
+   "killsPerMin": 109.5,
+   "kills": 441,
+   "seen": 599,
+   "score": 430440,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 1745.2,
+   "planMs": {
+    "median": 121.1,
+    "max": 163.4
+   },
+   "chunkMs": {
+    "mean": 4.95,
+    "p95": 11.9,
+    "max": 14.8,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 20180,
+    "score": 430440,
+    "hitsPre": 8,
+    "hitsBoss": 2,
+    "bossIn": 172,
+    "bossSec": 148.5,
+    "window10": 77.2,
+    "preAvg": 18.5,
+    "kills": 441,
+    "end": "next:5",
+    "hitsPerMin": 2.79,
+    "killsPerMin": 109.5
+   }
+  },
+  {
+   "level": 4,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 2,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     9
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "clearing_village",
+     5
+    ],
+    [
+     "airbase_forest_hidden",
+     7
+    ],
+    [
+     "forest_fortified",
+     8
+    ],
+    [
+     "forest_conifer",
+     6
+    ],
+    [
+     "valley",
+     7
+    ],
+    [
+     "farmland_approach",
+     7
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:5",
+   "frames": 17570,
+   "wallMs": 6932,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 104.8,
+   "bossKilled": true,
+   "hitsPre": 4,
+   "hitsBoss": 0,
+   "hitsPerMin": 1.4,
+   "hitsBy": {
+    "bullet:s": 2,
+    "body:fighter": 2
+   },
+   "window10": 81.6,
+   "preAvg": 22.8,
+   "bossAvg": 23.2,
+   "enemiesAvg": 14.95,
+   "enemiesMax": 39,
+   "killsPre": 371,
+   "killsPerMin": 129.4,
+   "kills": 501,
+   "seen": 625,
+   "score": 570290,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 1714.1,
+   "planMs": {
+    "median": 81.5,
+    "max": 157.9
+   },
+   "chunkMs": {
+    "mean": 4.82,
+    "p95": 11.4,
+    "max": 21.5,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 17570,
+    "score": 570290,
+    "hitsPre": 4,
+    "hitsBoss": 0,
+    "bossIn": 172,
+    "bossSec": 104.8,
+    "window10": 81.6,
+    "preAvg": 22.8,
+    "kills": 501,
+    "end": "next:5",
+    "hitsPerMin": 1.4,
+    "killsPerMin": 129.4
+   }
+  },
+  {
+   "level": 4,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 0,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     8
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "clearing_village",
+     4
+    ],
+    [
+     "airbase_forest_hidden",
+     6
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "forest_conifer",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "farmland_approach",
+     8
+    ]
+   ],
+   "encPlan": [
+    "cliffbattery",
+    "valleyconvoy"
+   ],
+   "end": "next:5",
+   "frames": 18920,
+   "wallMs": 5957,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 127.7,
+   "bossKilled": true,
+   "hitsPre": 1,
+   "hitsBoss": 1,
+   "hitsPerMin": 0.35,
+   "hitsBy": {
+    "body:fighter": 1
+   },
+   "window10": 108.7,
+   "preAvg": 14.7,
+   "bossAvg": 16.6,
+   "enemiesAvg": 8.22,
+   "enemiesMax": 22,
+   "killsPre": 263,
+   "killsPerMin": 91.7,
+   "kills": 384,
+   "seen": 444,
+   "score": 405950,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "cliffbattery": 1280,
+    "wing": 3050,
+    "valleyconvoy": 2280
+   },
+   "updMaxMs": 1718.9,
+   "planMs": {
+    "median": 552.3,
+    "max": 569.9
+   },
+   "chunkMs": {
+    "mean": 3.86,
+    "p95": 10.8,
+    "max": 12.7,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18920,
+    "score": 405950,
+    "hitsPre": 1,
+    "hitsBoss": 1,
+    "bossIn": 172,
+    "bossSec": 127.7,
+    "window10": 108.7,
+    "preAvg": 14.7,
+    "kills": 384,
+    "end": "next:5",
+    "hitsPerMin": 0.35,
+    "killsPerMin": 91.7
+   }
+  },
+  {
+   "level": 4,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 1,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     8
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "clearing_village",
+     4
+    ],
+    [
+     "airbase_forest_hidden",
+     6
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "forest_conifer",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "farmland_approach",
+     8
+    ]
+   ],
+   "encPlan": [
+    "cliffbattery",
+    "valleyconvoy"
+   ],
+   "end": "next:5",
+   "frames": 22400,
+   "wallMs": 6753,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 185.3,
+   "bossKilled": true,
+   "hitsPre": 9,
+   "hitsBoss": 9,
+   "hitsPerMin": 3.14,
+   "hitsBy": {
+    "body:fighter": 9
+   },
+   "window10": 118.2,
+   "preAvg": 21.7,
+   "bossAvg": 31.5,
+   "enemiesAvg": 14.88,
+   "enemiesMax": 38,
+   "killsPre": 293,
+   "killsPerMin": 102.2,
+   "kills": 416,
+   "seen": 615,
+   "score": 434710,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "cliffbattery": 1280,
+    "wing": 3050,
+    "valleyconvoy": 2280
+   },
+   "updMaxMs": 1627.1,
+   "planMs": {
+    "median": 557.1,
+    "max": 635.2
+   },
+   "chunkMs": {
+    "mean": 4.06,
+    "p95": 12.4,
+    "max": 14,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 22400,
+    "score": 434710,
+    "hitsPre": 9,
+    "hitsBoss": 9,
+    "bossIn": 172,
+    "bossSec": 185.3,
+    "window10": 118.2,
+    "preAvg": 21.7,
+    "kills": 416,
+    "end": "next:5",
+    "hitsPerMin": 3.14,
+    "killsPerMin": 102.2
+   }
+  },
+  {
+   "level": 4,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 2,
+   "H": 320,
+   "len": 60,
+   "bossAt": 63,
+   "segs": [
+    [
+     "beach_cliff",
+     3
+    ],
+    [
+     "forest_conifer",
+     8
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "clearing_village",
+     4
+    ],
+    [
+     "airbase_forest_hidden",
+     6
+    ],
+    [
+     "forest_fortified",
+     7
+    ],
+    [
+     "forest_conifer",
+     5
+    ],
+    [
+     "valley",
+     12
+    ],
+    [
+     "farmland_approach",
+     8
+    ]
+   ],
+   "encPlan": [
+    "cliffbattery",
+    "valleyconvoy"
+   ],
+   "end": "next:5",
+   "frames": 26600,
+   "wallMs": 8070,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 172,
+   "bossSec": 256.2,
+   "bossKilled": true,
+   "hitsPre": 11,
+   "hitsBoss": 5,
+   "hitsPerMin": 3.84,
+   "hitsBy": {
+    "body:fighter": 8,
+    "body:heavy": 1,
+    "bullet:s": 2
+   },
+   "window10": 73.9,
+   "preAvg": 18.1,
+   "bossAvg": 22.4,
+   "enemiesAvg": 21.21,
+   "enemiesMax": 53,
+   "killsPre": 402,
+   "killsPerMin": 140.2,
+   "kills": 622,
+   "seen": 856,
+   "score": 567650,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "cliffbattery": 1280,
+    "wing": 3050,
+    "valleyconvoy": 2280
+   },
+   "updMaxMs": 1788.6,
+   "planMs": {
+    "median": 568.2,
+    "max": 576.1
+   },
+   "chunkMs": {
+    "mean": 3.56,
+    "p95": 8.2,
+    "max": 12.6,
+    "chunks": 69
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 26600,
+    "score": 567650,
+    "hitsPre": 11,
+    "hitsBoss": 5,
+    "bossIn": 172,
+    "bossSec": 256.2,
+    "window10": 73.9,
+    "preAvg": 18.1,
+    "kills": 622,
+    "end": "next:5",
+    "hitsPerMin": 3.84,
+    "killsPerMin": 140.2
+   }
+  },
+  {
+   "level": 5,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 0,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "lake_valley",
+     7
+    ],
+    [
+     "station_winter",
+     9
+    ],
+    [
+     "airbase_snow",
+     7
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     7
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:6",
+   "frames": 18740,
+   "wallMs": 4580,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 56.3,
+   "bossKilled": true,
+   "hitsPre": 7,
+   "hitsBoss": 1,
+   "hitsPerMin": 1.74,
+   "hitsBy": {
+    "body:fighter": 3,
+    "bullet:s": 2,
+    "body:missile": 1,
+    "body:pod": 1
+   },
+   "window10": 13.6,
+   "preAvg": 4.8,
+   "bossAvg": 11.8,
+   "enemiesAvg": 5.74,
+   "enemiesMax": 22,
+   "killsPre": 475,
+   "killsPerMin": 117.8,
+   "kills": 521,
+   "seen": 577,
+   "score": 511290,
+   "quiet": [],
+   "quietAir": [
+    [
+     169,
+     8
+    ],
+    [
+     142,
+     5
+    ]
+   ],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 734.8,
+   "planMs": {
+    "median": 1301.9,
+    "max": 1596.6
+   },
+   "chunkMs": {
+    "mean": 4.49,
+    "p95": 14.5,
+    "max": 18.7,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18740,
+    "score": 511290,
+    "hitsPre": 7,
+    "hitsBoss": 1,
+    "bossIn": 242,
+    "bossSec": 56.3,
+    "window10": 13.6,
+    "preAvg": 4.8,
+    "kills": 521,
+    "end": "next:6",
+    "hitsPerMin": 1.74,
+    "killsPerMin": 117.8
+   }
+  },
+  {
+   "level": 5,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 1,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "lake_valley",
+     7
+    ],
+    [
+     "station_winter",
+     9
+    ],
+    [
+     "airbase_snow",
+     7
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     7
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:6",
+   "frames": 18290,
+   "wallMs": 4814,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 46,
+   "bossKilled": true,
+   "hitsPre": 3,
+   "hitsBoss": 3,
+   "hitsPerMin": 0.74,
+   "hitsBy": {
+    "body:fighter": 3
+   },
+   "window10": 22,
+   "preAvg": 7.6,
+   "bossAvg": 12.1,
+   "enemiesAvg": 8.43,
+   "enemiesMax": 38,
+   "killsPre": 488,
+   "killsPerMin": 121,
+   "kills": 516,
+   "seen": 612,
+   "score": 539910,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 686.4,
+   "planMs": {
+    "median": 1425.1,
+    "max": 1571.8
+   },
+   "chunkMs": {
+    "mean": 4.6,
+    "p95": 9.5,
+    "max": 22,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18290,
+    "score": 539910,
+    "hitsPre": 3,
+    "hitsBoss": 3,
+    "bossIn": 242,
+    "bossSec": 46,
+    "window10": 22,
+    "preAvg": 7.6,
+    "kills": 516,
+    "end": "next:6",
+    "hitsPerMin": 0.74,
+    "killsPerMin": 121
+   }
+  },
+  {
+   "level": 5,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 2,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "lake_valley",
+     7
+    ],
+    [
+     "station_winter",
+     9
+    ],
+    [
+     "airbase_snow",
+     7
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     7
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:6",
+   "frames": 18560,
+   "wallMs": 5271,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 52,
+   "bossKilled": true,
+   "hitsPre": 6,
+   "hitsBoss": 3,
+   "hitsPerMin": 1.49,
+   "hitsBy": {
+    "body:fighter": 3,
+    "bullet:s": 2,
+    "body:pod": 1
+   },
+   "window10": 30.8,
+   "preAvg": 12,
+   "bossAvg": 8.3,
+   "enemiesAvg": 11.58,
+   "enemiesMax": 42,
+   "killsPre": 581,
+   "killsPerMin": 144,
+   "kills": 621,
+   "seen": 739,
+   "score": 575090,
+   "quiet": [],
+   "quietAir": [
+    [
+     171,
+     5
+    ],
+    [
+     230,
+     5
+    ]
+   ],
+   "encFrames": {
+    "wing": 3050
+   },
+   "updMaxMs": 573.8,
+   "planMs": {
+    "median": 1466.7,
+    "max": 1581.7
+   },
+   "chunkMs": {
+    "mean": 4.35,
+    "p95": 10.8,
+    "max": 18.4,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18560,
+    "score": 575090,
+    "hitsPre": 6,
+    "hitsBoss": 3,
+    "bossIn": 242,
+    "bossSec": 52,
+    "window10": 30.8,
+    "preAvg": 12,
+    "kills": 621,
+    "end": "next:6",
+    "hitsPerMin": 1.49,
+    "killsPerMin": 144
+   }
+  },
+  {
+   "level": 5,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 0,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "lake_valley",
+     6
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "station_winter",
+     8
+    ],
+    [
+     "airbase_snow",
+     6
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [
+    "iceraid",
+    "iceroad",
+    "basebreak"
+   ],
+   "end": "next:6",
+   "frames": 18890,
+   "wallMs": 5750,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 58,
+   "bossKilled": true,
+   "hitsPre": 1,
+   "hitsBoss": 2,
+   "hitsPerMin": 0.25,
+   "hitsBy": {
+    "body:fighter": 1
+   },
+   "window10": 16,
+   "preAvg": 5.2,
+   "bossAvg": 8.3,
+   "enemiesAvg": 6.52,
+   "enemiesMax": 30,
+   "killsPre": 404,
+   "killsPerMin": 100.2,
+   "kills": 427,
+   "seen": 510,
+   "score": 426820,
+   "quiet": [
+    [
+     237,
+     5
+    ]
+   ],
+   "quietAir": [
+    [
+     237,
+     5
+    ]
+   ],
+   "encFrames": {
+    "iceraid": 1180,
+    "iceroad": 1280,
+    "wing": 3040,
+    "basebreak": 1280
+   },
+   "updMaxMs": 721.5,
+   "planMs": {
+    "median": 1516.3,
+    "max": 1538.5
+   },
+   "chunkMs": {
+    "mean": 5.12,
+    "p95": 12.4,
+    "max": 17.9,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18890,
+    "score": 426820,
+    "hitsPre": 1,
+    "hitsBoss": 2,
+    "bossIn": 242,
+    "bossSec": 58,
+    "window10": 16,
+    "preAvg": 5.2,
+    "kills": 427,
+    "end": "next:6",
+    "hitsPerMin": 0.25,
+    "killsPerMin": 100.2
+   }
+  },
+  {
+   "level": 5,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 1,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "lake_valley",
+     6
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "station_winter",
+     8
+    ],
+    [
+     "airbase_snow",
+     6
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [
+    "iceraid",
+    "iceroad",
+    "basebreak"
+   ],
+   "end": "next:6",
+   "frames": 18890,
+   "wallMs": 5699,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 56.3,
+   "bossKilled": true,
+   "hitsPre": 3,
+   "hitsBoss": 2,
+   "hitsPerMin": 0.74,
+   "hitsBy": {
+    "bullet:shell": 1,
+    "bullet:s": 2
+   },
+   "window10": 38.7,
+   "preAvg": 11.7,
+   "bossAvg": 10.4,
+   "enemiesAvg": 10.88,
+   "enemiesMax": 50,
+   "killsPre": 482,
+   "killsPerMin": 119.5,
+   "kills": 513,
+   "seen": 667,
+   "score": 477870,
+   "quiet": [
+    [
+     237,
+     5
+    ]
+   ],
+   "quietAir": [
+    [
+     73,
+     6
+    ],
+    [
+     228,
+     6
+    ],
+    [
+     237,
+     5
+    ]
+   ],
+   "encFrames": {
+    "iceraid": 1180,
+    "iceroad": 1280,
+    "wing": 3040,
+    "basebreak": 1280
+   },
+   "updMaxMs": 626.7,
+   "planMs": {
+    "median": 1414.6,
+    "max": 1654.4
+   },
+   "chunkMs": {
+    "mean": 5.78,
+    "p95": 14.2,
+    "max": 25.3,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 18890,
+    "score": 477870,
+    "hitsPre": 3,
+    "hitsBoss": 2,
+    "bossIn": 242,
+    "bossSec": 56.3,
+    "window10": 38.7,
+    "preAvg": 11.7,
+    "kills": 513,
+    "end": "next:6",
+    "hitsPerMin": 0.74,
+    "killsPerMin": 119.5
+   }
+  },
+  {
+   "level": 5,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 2,
+   "H": 320,
+   "len": 84,
+   "bossAt": 88,
+   "segs": [
+    [
+     "open_sea_ice",
+     18
+    ],
+    [
+     "harbour_winter",
+     5
+    ],
+    [
+     "farmland_winter",
+     8
+    ],
+    [
+     "lake_valley",
+     6
+    ],
+    [
+     "village",
+     5
+    ],
+    [
+     "station_winter",
+     8
+    ],
+    [
+     "airbase_snow",
+     6
+    ],
+    [
+     "forest_conifer",
+     7
+    ],
+    [
+     "pass",
+     10
+    ],
+    [
+     "farmland_winter",
+     11
+    ]
+   ],
+   "encPlan": [
+    "iceraid",
+    "iceroad",
+    "basebreak"
+   ],
+   "end": "next:6",
+   "frames": 23420,
+   "wallMs": 6485,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 242,
+   "bossSec": 134.5,
+   "bossKilled": true,
+   "hitsPre": 11,
+   "hitsBoss": 5,
+   "hitsPerMin": 2.73,
+   "hitsBy": {
+    "body:fighter": 9,
+    "body:heavy": 1,
+    "bullet:s": 1
+   },
+   "window10": 36.1,
+   "preAvg": 13.5,
+   "bossAvg": 10.8,
+   "enemiesAvg": 17.69,
+   "enemiesMax": 57,
+   "killsPre": 688,
+   "killsPerMin": 170.6,
+   "kills": 772,
+   "seen": 1034,
+   "score": 645230,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "iceraid": 1180,
+    "iceroad": 1280,
+    "wing": 3040,
+    "basebreak": 1280
+   },
+   "updMaxMs": 814.5,
+   "planMs": {
+    "median": 1278.3,
+    "max": 1499.4
+   },
+   "chunkMs": {
+    "mean": 5.3,
+    "p95": 14,
+    "max": 22.4,
+    "chunks": 93
+   },
+   "pageErrs": [],
+   "sameUntil": null,
+   "second": {
+    "frames": 23420,
+    "score": 645230,
+    "hitsPre": 11,
+    "hitsBoss": 5,
+    "bossIn": 242,
+    "bossSec": 134.5,
+    "window10": 36.1,
+    "preAvg": 13.5,
+    "kills": 772,
+    "end": "next:6",
+    "hitsPerMin": 2.73,
+    "killsPerMin": 170.6
+   }
+  }
+ ]
+}
