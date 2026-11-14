@@ -189,12 +189,15 @@ Only after the owner decides: a `daily` mode in `worker.js` (`MODES`) keyed by `
 
 ## 5. Decisions for the owner
 
-1. Is the day UTC or local time? (UTC recommended.)
-2. Is the kit picked by rotation or at random? (Rotation recommended.)
-3. Is there one difficulty per day or the player's choice? (Player's choice recommended, so all three are gated.)
-4. When a new build changes a date's sortie mid-day, which version holds? (The started version recommended, see 2.3.)
-5. Should there be a daily board, and does it get its own plausibility rules? (Phase 6.)
-6. Should the daily sortie use the Campaign's timetable (`TT_ENC`, every player the same) or the reactive director? (The timetable recommended: the challenge must be identical for everyone.)
+**Decided by the owner (2026-11-14):**
+1. The day is **UTC**.
+2. The kit is picked by **rotation**.
+3. Difficulty is the **player's choice**, so every date is gated on all three difficulties.
+4. When a new build changes a date's sortie mid-day, **the version the player started with holds** for that day (2.3).
+6. The daily sortie plays on the **Campaign's fixed timetable** (`TT_ENC`, ARCHITECTURE.md "The Campaign's timetable"), so every player meets the same challenge. It does not use the reactive director.
+
+**Still open:**
+5. Should there be a daily board, and does it get its own plausibility rules? (Phase 6. Don't build it until the owner decides.)
 
 ## 6. Phase 0 findings
 
