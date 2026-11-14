@@ -4521,7 +4521,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.35'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.37'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -9517,7 +9517,9 @@ const CHIP = {
   shot: () => [{ w: 'wn', f: 11000, v: 6 }, { w: 'wn', f: 8000, v: 3 }],
   lance: () => [{ w: 'sq', f: 700, v: 5, d: 0.5 }, { w: 'sq', f: 600, v: 2, d: 0.5 }],
   missile: () => [0, 1, 2, 3, 4, 5].map(i => ({ w: 'wn', f: 3000 + i * 800, v: [3, 5, 5, 4, 2, 1][i] })),
-  arc: () => [0, 1, 2, 3, 4, 5].map(i => i % 2 ? { w: 'sq', f: 220, v: 0 } : { w: 'mn', f: 8000 - i * 400, v: 8 - i })
+  // the Arc's rope, two loops (arcRope): the hum, a mains buzz (120 and 180 Hz pulse, whole cycles per frame) under a thin hiss, and the bite, ragged metallic bursts
+  arcHum: () => [3, 0, 2, 0, 4, 0, 0, 2, 0, 3, 0, 1].map((n, i) => [{ w: 'sq', f: i % 4 < 2 ? 120 : 180, v: 9, d: 0.25 }, { w: 'mn', f: 6000, v: n }]),
+  arcBite: () => [[9000, 11], 0, [7000, 8], [12000, 10], 0, [8000, 9], 0, 0, [11000, 11], [6000, 7], 0, [9000, 9], [12000, 10], 0, [7000, 8], 0].map(q => q ? { w: 'mn', f: q[0], v: q[1] } : { w: 'mn', f: 1000, v: 0 })
 };
 const chipCache = {}; let chipSrc = null, chipEnd = 0;
 function chipPlay(name) {
@@ -9558,6 +9560,27 @@ function zapSfx(kind) {
   s2.connect(f).connect(g).connect(sfxOut()); s2.start(t0, Math.random()); s2.stop(t0 + d + 0.02); am.start(t0); am.stop(t0 + d + 0.02);
   if (full || kind === 'troop') { const o = actx.createOscillator(), og = actx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(kind === 'troop' ? 1400 : 520, t0); o.frequency.exponentialRampToValueAtTime(kind === 'troop' ? 700 : 140, t0 + d); og.gain.setValueAtTime(0.035 * mixF, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(og).connect(sfxOut()); o.start(t0); o.stop(t0 + d + 0.02); }
 }
+/* ---- 9b. The Arc's rope: a chip buzz that runs while the rope is out ----
+   Two looped chip buffers on the effects bus (CHIP.arcHum, CHIP.arcBite). arcRope is called on every frame the rope is out and sets a level
+   that fades by itself about 0.1 s later, so the sound ends when the frames do (pause, a lost ship, another weapon), with nothing to switch off.
+   The hum grows with the weapon's level, and its pitch rises with the sweep (how far the tail trails the ship, in px), so a swing is heard. The
+   bite comes up while a strand holds a target. The super Arc runs both half an octave up and louder. One-shots: arcCrack when the ship turns
+   back under a trailing tail; zapSfx when the rope takes a new target and when a jump lands. */
+const ARC_SND = { bus: null, hum: null, bite: null };
+function arcRope(lv, hold, sweep, dur = 0.1) {
+  if (muted || !actx || !sfxBus) return;
+  const S = ARC_SND, t = actx.currentTime;
+  if (S.bus !== sfxBus) { // (first use, or the effects bus was swapped: cutSfx)
+    for (const k of ['hum', 'bite']) { if (S[k]) { try { S[k].src.stop(); } catch (e) {} }
+      const d = chipRender(CHIP[k === 'hum' ? 'arcHum' : 'arcBite']()), b = actx.createBuffer(1, d.length, CHIP_SR); b.getChannelData(0).set(d);
+      const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; src.loop = true; g.gain.value = 0; src.connect(g).connect(sfxBus); src.start(t); S[k] = { src, g }; }
+    S.bus = sfxBus; }
+  const sup = lv >= 5, sw = clamp(sweep / 60, 0, 1);
+  const set = (o, v, rate) => { const a = o.g.gain; if (a.cancelAndHoldAtTime) a.cancelAndHoldAtTime(t); else a.cancelScheduledValues(t); a.setTargetAtTime(v * mixF, t, 0.015); a.setTargetAtTime(0, t + dur, 0.03); o.src.playbackRate.setTargetAtTime(rate, t, 0.03); };
+  set(S.hum, 0.09 + 0.017 * Math.min(lv, 4) + (sup ? 0.05 : 0) + sw * 0.06, (sup ? 1.5 : 1) * (1 + sw * 0.5));
+  set(S.bite, hold ? (sup ? 0.18 : 0.12) : 0.02 + sw * 0.05, (sup ? 1.3 : 1) * (0.9 + sw * 0.4));
+}
+function arcCrack(v = 1) { if (muted || !actx) return; const t = actx.currentTime; chipNz(t, 0.06, 0.07 * v * mixF, [16000, 8000, 4000]); chipVoice(t, 2400, 500, 0.06, 0.03 * v * mixF, 0.125); } // the whip's crack: a bright click that drops
 function sweepAir(t, d, f0, f1, v, type = 'bandpass', Q = 1.2) { ensureNoise(); const s2 = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(); s2.buffer = noiseBuf; s2.loop = true; f.type = type; f.Q.value = Q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + d * 0.75); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * mixF, t + d * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s2.connect(f).connect(g).connect(sfxOut()); s2.start(t); s2.stop(t + d + 0.05); }
 function sweepEngine(t, d, f0, f1, v, type = 'sawtooth', lp = 1800) { const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.8); f.type = 'lowpass'; f.frequency.setValueAtTime(lp * 0.4, t); f.frequency.exponentialRampToValueAtTime(lp, t + d * 0.6); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * mixF, t + d * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(f).connect(g).connect(sfxOut()); o.start(t); o.stop(t + d + 0.05); }
 function sweepThump(t, v = 0.3, f0 = 90) { sweepEngine(t, 0.25, f0, f0 / 2, v, 'sine', 400); }
@@ -10030,7 +10053,7 @@ function soundCatalogue() {
       S('charge', 'Laser charging (whine)'), ['Laser fully charged ping', () => { tone(1420, 0.09, 'triangle', 0.06); tone(2840, 0.06, 'sine', 0.03); }], S('beam', 'Laser beam'),
       ['Laser overheat hiss', () => noise(0.7, 0.18 * mixF, 5000)], S('rebirth', 'Rebirth'), S('rebirthHawk', 'Rebirth (hawk)')] },
     { g: 'Guns and hits', items: [S('shot', 'Player shot'), S('tink', 'Tink'), S('gun', 'Enemy gun'), S('cannon', 'Cannon'), S('rocket', 'Rocket'), S('hit', 'Hit'), S('hitm', 'Hit on metal'),
-      ['Arc zap, main', () => { zapLast = -99; zapSfx('main'); }], ['Arc zap, troop', () => zapSfx('troop')], ['Arc zap, jump', () => zapSfx('jump')]] },
+      ['Arc zap, main', () => { zapLast = -99; zapSfx('main'); }], ['Arc zap, troop', () => zapSfx('troop')], ['Arc zap, jump', () => zapSfx('jump')], ['Arc rope, level 1', () => arcRope(1, false, 0, 1)], ['Arc rope, level 3', () => arcRope(3, false, 0, 1)], ['Arc rope, level 3 on a target', () => arcRope(3, true, 0, 1)], ['Arc rope, swinging', () => arcRope(3, false, 60, 1)], ['Arc rope, super on a target', () => arcRope(5, true, 0, 1)], ['Arc whip crack', () => arcCrack()]] },
     { g: 'Explosions and the Nova', items: [S('boom', 'Small explosion'), S('gboom', 'Ground explosion'), S('bigboom', 'Big explosion'), S('nova', 'Nova bomb'), S('die', 'Ship destroyed'),
       S('thunder', 'Thunder'), S('snap', 'Snap'), S('splash', 'Splash'), S('implode', 'Implode')] },
     { g: 'Warnings, horns and bosses', items: [S('warn', 'Warning (this stage)')].concat(BOSS_KINDS.map((k, i) => ['Boss warning: ' + k, () => warnSfx(i)]))
@@ -15845,65 +15868,127 @@ function pbTick() { // every two seconds, update the readout
   if (!settings.pb || !player || gf % 120) return;
   PB.shown = 'PB ' + (PB.fired * 0.5).toFixed(1) + '/s AIR ' + (PB.fired ? PB.air / PB.fired : 0).toFixed(1); PB.fired = PB.air = 0;
 }
-// ---------- Arc: a bolt to the nearest enemy ahead, with at most two short jumps ----------
+// ---------- Arc: a rope of lightning to the front that trails where the ship was ----------
+/* The Arc is a whip. Each strand runs ahead from the nose towards the top of the screen and stops at the first thing it touches. Its far end
+   follows the ship late (the strand's spine is the ship's x of some frames ago, the further out the later: ARC_LAG), so flying sideways sweeps
+   the tail across the screen, and the end hooks back when it finds nothing. One strand at level 1, two at 2, three at 3; level 4 keeps three and
+   each tip makes one short jump to a neighbour. The super Arc (5): five strands, the middle three bend to the nearest targets, the outer two lash
+   about, and from every hit the lightning jumps on (a new jump grows out over ARC_GROW frames). Below the super level nothing aims itself.
+   The rope is there every frame (arcs: the strands to draw this frame); it hurts on the gun's beat (firing).
+   ARC_LV: n strands, reach (share of the screen height), dmg per strand and beat (bd: against big targets), jumps of at most hop px;
+   cone, slope: the strip ahead of the ship that the Kolibri stays out of. */
 const arcs = [];
-function arcTargets(x, y, reach, cone, skip, troops, prefer, slope = 0.35) { // prefer: the target the arc is locked on, kept while it stays in reach and in the cone
-  let best = null, bd = 1e9;
+const ARC_STEP = 4, ARC_GAP = 6, ARC_LAG = 0.085, ARC_HIST = 48, ARC_GROW = 6, ARC_BEAT = 4;
+const ARC_LV = [null,
+  { n: 1, reach: 0.92, dmg: 0.95, jumps: 0, hop: 0,  cone: 8,  slope: 0.12, w: 3 },
+  { n: 2, reach: 0.92, dmg: 0.58, jumps: 0, hop: 0,  cone: 10, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.92, dmg: 0.48, jumps: 0, hop: 0,  cone: 12, slope: 0.12, w: 3 },
+  { n: 3, reach: 0.92, dmg: 0.55, jumps: 1, hop: 44, cone: 12, slope: 0.12, w: 3 },
+  { n: 5, reach: 1.3,  dmg: 4, bd: 1.5, jumps: 7, hop: 84, cone: 30, slope: 0.5, w: 4 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
+const arcDmg = (A, t) => A.bd === undefined ? A.dmg : (t.part || t.e.big || t.e.hp > SUP_ONE * hpm()) ? A.bd : A.dmg;
+const arcGrown = new WeakMap(); // a jump's target -> { f: the frame it was last held, n: for how many frames }
+const arcOpen = e => !(e.dead || e.dying || e.untarget || e.crash);
+// What a point of a strand touches: { e, part, x, y, low } or null. low: soldiers, crates and buildings (ENT arcLow); a strand passes over them
+// unless it reaches nothing else. Small targets are held at their centre, boss parts and wide ones where the strand touches them.
+function arcTouch(x, y) {
+  let low = null;
   for (const e of world.enemies) {
-    if (e.dead || e.dying || e.untarget || e.crash || skip.has(e) || e.type === 'secret' || (!troops && ENT[e.type].arcLow) || e.type === 'camo') continue;
-    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || skip.has(q) || bossShielded(e, q)) continue; const px = e.x + q.ox, py = e.y + q.oy; if (py < 4 || py > y - 4) continue; const d = Math.hypot(px - x, py - y); if (d < reach && Math.abs(px - x) < cone + (y - py) * slope && (d < bd || q === prefer)) { bd = q === prefer ? -1 : d; best = { e, part: q, x: px, y: py }; } } continue; }
-    if (e.y < 4 || e.y > y - 4) continue;
-    const d = Math.hypot(e.x - x, e.y - y); if (d < reach && Math.abs(e.x - x) < cone + (y - e.y) * slope && (d < bd || e === prefer)) { bd = e === prefer ? -1 : d; best = { e, x: e.x, y: e.y }; }
+    if (!arcOpen(e)) continue;
+    if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || e.y + q.oy < 4 || bossShielded(e, q)) continue; if (Math.abs(x - e.x - q.ox) < q.hw + 1.5 && Math.abs(y - e.y - q.oy) < q.hh + 2) return { e, part: q, x, y }; } continue; }
+    if (e.y < 4 || Math.abs(x - e.x) >= e.hw + 1.5 || Math.abs(y - e.y) >= e.hh + 2) continue;
+    const t = e.hw > 10 ? { e, x, y } : { e, x: e.x, y: e.y };
+    if (!ENT[e.type].arcLow) return t;
+    if (!low) { t.low = true; low = t; }
   }
-  return best;
+  return low;
+}
+function arcTrace(fx, reach) { // walk a strand outward from the nose (fx: the point at s px along it) to the first thing it touches
+  const pts = []; let hit = null, low = null, lowN = 0;
+  for (let s = 0; s <= reach; s += ARC_STEP) {
+    const q = fx(s); pts.push(q); if (q[1] < 0) break; if (s < 8) continue;
+    const t = arcTouch(q[0], q[1]); if (!t) continue;
+    if (t.low) { if (!low) { low = t; lowN = pts.length; } continue; }
+    hit = t; break;
+  }
+  if (!hit && low) { hit = low; pts.length = lowN; }
+  if (hit) { pts[pts.length - 1] = [hit.x, hit.y]; hit.d = (pts.length - 1) * ARC_STEP; }
+  return { pts, hit };
+}
+function arcBend(x0, y0, x1, y1, wob, ph, f = 1) { // a strand bent to a point: it leaves (x0, y0) straight up and swings over; f < 1 draws only its first part
+  const pts = [], n = Math.max(4, Math.hypot(x1 - x0, y1 - y0) / ARC_STEP | 0), cy = y0 - (y0 - y1) * 0.6 - 8;
+  for (let k = 0; k <= n * f; k++) { const u = k / n, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; pts.push([a * x0 + b * x0 + c * x1 + Math.sin(u * PI) * Math.sin(u * 9 - gf * 0.25 + ph) * wob, a * y0 + b * cy + c * y1]); }
+  return pts;
+}
+function arcJump(a, b, f) { // a jump from one target to the next: a bow that sways, grown to the share f of its length
+  const pts = [], d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.max(4, d / ARC_STEP | 0), bow = 18 * Math.sin(gf * 0.11 + a.x * 0.3) / d, cx = (a.x + b.x) / 2 - (b.y - a.y) * bow, cy = (a.y + b.y) / 2 + (b.x - a.x) * bow;
+  for (let k = 0; k <= n * f; k++) { const u = k / n, p = (1 - u) * (1 - u), q = 2 * u * (1 - u), r = u * u; pts.push([p * a.x + q * cx + r * b.x + Math.sin(u * 8 - gf * 0.4) * 2 * Math.sin(u * PI), p * a.y + q * cy + r * b.y]); }
+  return pts;
 }
 function arcHit(t, d) { if (t.e.type === 'troop') { for (let k = 0; k < 8; k++) world.parts.push({ kind: 'spark', layer: 'g', x: t.x + rnd(-3, 3), y: t.y + rnd(-4, 3), vx: rnd(-0.8, 0.8), vy: rnd(-1, 0.3), life: 12, max: 12, col: k % 2 ? '#a8e0ff' : '#ffffff' }); smokePuff(t.x, t.y - 2); }
   d *= dmgK(); if (t.part) damagePart(t.e, t.part, d * 1.25); else damage(t.e, d); run.stats.hits++; world.parts.push({ kind: 'spark', layer: 'a', x: t.x, y: t.y, vx: 0, vy: 0, life: 8, max: 8, col: '#e8f8ff' }); }
-function arcBolt(x0, y0, x1, y1, w, o) { const n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)), pts = [[x0, y0]]; for (let k = 1; k < n; k++) { const f = k / n, nx = -(y1 - y0), ny = x1 - x0, l = Math.hypot(nx, ny) || 1, off = rnd(-3.5, 3.5); pts.push([x0 + (x1 - x0) * f + nx / l * off, y0 + (y1 - y0) * f + ny / l * off]); } pts.push([x1, y1]); arcs.push(Object.assign({ pts, w, life: 5, max: 5 }, o)); }
-// The Arc is a tether: it locks onto the nearest target in a narrow cone and, while it stays locked, the damage ramps up (gain x the base after
-// `ramp` frames). Losing the target (dead, out of reach or out of the cone) starts the ramp again on the next one. Chain jumps come at level 3 and
-// hit for half the base damage with no ramp. The look: the bolt thickens and whitens as it ramps, a second strand from level 3, a ring at full power.
-const ARC_LV = [null,
-  { reach: 0.5,  dmg: 1.2, cone: 10, slope: 0.16, jumps: 0, hop: 0,  gain: 1.0, ramp: 60, w: 2 },
-  { reach: 0.55, dmg: 1.4, cone: 12, slope: 0.20, jumps: 0, hop: 0,  gain: 1.1, ramp: 55, w: 2 },
-  { reach: 0.6,  dmg: 1.6, cone: 14, slope: 0.24, jumps: 1, hop: 38, gain: 1.3, ramp: 50, w: 3 },
-  { reach: 0.66, dmg: 1.9, cone: 16, slope: 0.28, jumps: 2, hop: 46, gain: 1.2, ramp: 45, w: 3 },
-  { reach: 0.95, dmg: 8, bd: 2.8, cone: 32, slope: 0.52, jumps: 7, hop: 76, gain: 1.6, ramp: 28, w: 6 }]; // [5]: the super Arc (dmg against small enemies, bd against big ones)
-const arcDmg = (A, t) => A.bd === undefined ? A.dmg : (t.part || t.e.big || t.e.hp > SUP_ONE * hpm()) ? A.bd : A.dmg;
-function fireArc(p, L) {
-  const A = ARC_LV[L], reach = H * A.reach, ox = p.x, oy = p.y - 12;
-  run.stats.shots++;
-  chipPlay('arc');
-  const t0 = arcTargets(ox, oy, reach, A.cone, new Set(), false, p.arcLock, A.slope) || arcTargets(ox, oy, reach, A.cone, new Set(), true, p.arcLock, A.slope);
-  if (!t0) { p.arcLock = null; arcBolt(ox, oy, ox + rnd(-6, 6), oy - 28, 1); return -1; }
-  const key = t0.part || t0.e;
-  if (p.arcLock !== key) { p.arcLock = key; p.arcT0 = gf; }
-  const r = Math.min(1, (gf - p.arcT0) / A.ramp), mult = 1 + A.gain * r; // r: how far the ramp has come, 0 to 1
-  const dist = Math.hypot(t0.x - p.x, t0.y - oy) / reach; // how far the first target is, as a share of the reach
-  arcBolt(ox, oy, t0.x, t0.y, A.w, { lv: L, r, life: 8, max: 8 });
-  if (L >= 3) arcBolt(ox, oy, t0.x, t0.y, 1, { lv: L, r, sub: 1, life: 8, max: 8 });
-  if (L >= 5) { for (let k = 0; k < 3; k++) arcBolt(ox, oy, t0.x, t0.y, k ? 2 : 1, { lv: L, r, sub: 1, life: 8, max: 8 }); for (let k = 0; k < 3; k++) arcBolt(ox, oy, ox + rnd(-46, 46), oy + rnd(-56, -8), 1, { life: 6, max: 6 }); } // the super Arc: five strands and a storm of loose bolts round the ship
-  arcHit(t0, arcDmg(A, t0) * mult); zapSfx(t0.e.type === 'troop' ? 'troop' : 'main');
-  if (r >= 1) for (let k = 0; k < 2; k++) world.parts.push({ kind: 'spark', layer: 'a', x: t0.x, y: t0.y, vx: rnd(-1.2, 1.2), vy: rnd(-1.2, 1.2), life: 9, max: 9, col: k ? '#ffffff' : WPN.A.ramp[3] });
-  const used = new Set([key]); let cur = t0;
-  for (let k = 0; k < A.jumps; k++) {
-    let nb = null, bd = A.hop;
-    for (const e of world.enemies) { if (e.dead || e.dying || e.untarget || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
-    if (!nb) break; arcBolt(cur.x, cur.y, nb.x, nb.y, Math.max(1, A.w - 1)); arcHit(nb, arcDmg(A, nb) * 0.5); zapSfx(nb.e.type === 'troop' ? 'troop' : 'jump'); used.add(nb.e); cur = nb;
+// One frame of the Arc: lays the rope out for drawing and, on the gun's beat, hurts what it touches. Returns how far the nearest touched
+// target is as a share of the reach (for the point-blank setting), or -1.
+function fireArc(p, L, beat) {
+  const A = ARC_LV[L], reach = H * A.reach, y0 = p.y - 12, sts = [], links = [];
+  if (!p.arcH || p.arcHf !== gf - 1) p.arcH = new Array(ARC_HIST).fill(p.x); else { p.arcH.unshift(p.x); p.arcH.length = ARC_HIST; } // (not fired last frame: the rope starts straight)
+  p.arcHf = gf;
+  const h = p.arcH, snd = app.state === 'play' && !(app.cont > 0), vx = h[0] - h[1], sweep = Math.abs(h[ARC_HIST >> 1] - p.x); // (sounds only while the ship is in play, as chipPlay)
+  if (snd && vx * (p.arcV || 0) < 0 && sweep > 30) arcCrack(); if (vx) p.arcV = vx; // the ship turns back under a trailing tail: the whip cracks
+  const spine = s => { const f = Math.min(ARC_HIST - 1.001, s * ARC_LAG), a = f | 0; return h[a] + (h[a + 1] - h[a]) * (f - a); };
+  if (L < 5) for (let i = 0; i < A.n; i++) {
+    const o = i - (A.n - 1) / 2, side = i % 2 ? 1 : -1;
+    sts.push(arcTrace(s => { const sp = spine(s), u = Math.max(0, (s - (reach - 56)) / 56), lag = sp - p.x, d = Math.abs(lag) > 3 ? Math.sign(lag) : side; // (u: the last 56 px, where the end hooks back, to the side it trails on)
+      return [sp + o * ARC_GAP + Math.min(1, s / 50) * 4 * Math.sin(s * 0.04 - gf * 0.16 + i * 0.5) + d * 15 * Math.sin(u * 3.7) * u, y0 - s + 22 * u * u]; }, reach));
+  } else {
+    const near = [];
+    for (const e of world.enemies) { if (!arcOpen(e) || e.type === 'secret' || e.type === 'camo') continue;
+      if (e.type === 'boss') { for (const q of e.parts) { if (q.dead || q.off || bossShielded(e, q)) continue; const x = e.x + q.ox, y = e.y + q.oy; if (y >= 4 && y < p.y - 16) near.push({ e, part: q, x, y, low: 0 }); } continue; }
+      if (e.y >= 4 && e.y < p.y - 16) near.push({ e, x: e.x, y: e.y, low: ENT[e.type].arcLow ? 1 : 0 }); }
+    for (const t of near) t.d = Math.hypot(t.x - p.x, t.y - y0);
+    const pick = near.filter(t => t.d < reach).sort((a, b) => a.low - b.low || a.d - b.d).slice(0, 3).sort((a, b) => a.x - b.x);
+    for (let i = 0; i < A.n; i++) { const ox = p.x + (i - (A.n - 1) / 2) * 5, t = i > 0 && i < A.n - 1 && pick.length ? pick[(i - 1) % pick.length] : null;
+      if (t) sts.push({ pts: arcBend(ox, y0, t.x, t.y, 6, i * 1.7), hit: Object.assign({}, t) });
+      else sts.push(arcTrace(s => { const u = s / (H * 0.5); return [ox + Math.sin(gf * 0.06 + i * 2.1) * 46 * u + 13 * Math.sin(u * 7 - gf * 0.3 + i) * u, y0 - s + 60 * u * u * (0.5 + 0.5 * Math.sin(gf * 0.045 + i * 1.3))]; }, H * 0.5)); }
   }
-  return dist;
+  const used = new Set(); for (const st of sts) if (st.hit) used.add(st.hit.part || st.hit.e);
+  if (A.jumps) for (const st of sts) { let cur = st.hit; if (!cur) continue;
+    for (let k = 0; k < A.jumps; k++) {
+      let nb = null, bd = A.hop;
+      for (const e of world.enemies) { if (!arcOpen(e) || e.type === 'boss' || e.type === 'secret' || e.type === 'camo' || used.has(e) || e.y < 4) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; nb = { e, x: e.x, y: e.y }; } }
+      if (!nb) break;
+      const g = arcGrown.get(nb.e), n = !g ? 1 : g.f === gf ? g.n : g.f === gf - 1 ? g.n + 1 : 1, f = Math.min(1, n / ARC_GROW); arcGrown.set(nb.e, { f: gf, n });
+      links.push({ pts: arcJump(cur, nb, f), hit: f >= 1 ? nb : null }); if (snd && n === ARC_GROW && (!g || g.f !== gf)) zapSfx('jump'); // (a jump lands)
+      used.add(nb.e); cur = nb; if (f < 1) break;
+    } }
+  for (const st of sts) arcs.push({ pts: st.pts, w: A.w, hit: !!st.hit, sup: L >= 5, f: gf });
+  for (const st of links) arcs.push({ pts: st.pts, w: 2, hit: !!st.hit, link: true, f: gf });
+  const t0 = (sts.find(st => st.hit) || {}).hit, key = t0 ? t0.part || t0.e : null;
+  if (snd) { arcRope(L, !!t0, sweep); if (key && key !== p.arcLock) zapSfx(t0.e.type === 'troop' ? 'troop' : 'main'); } // the buzz while the rope is out, a crackle as it takes a new target
+  p.arcLock = key; // (arcLock: what the rope holds, for the Kolibri)
+  if (!beat) return -1;
+  run.stats.shots += sts.length;
+  const live = t => t.part ? !t.part.dead : arcOpen(t.e); let near = -1;
+  for (const st of sts) if (st.hit && live(st.hit)) { arcHit(st.hit, arcDmg(A, st.hit)); const d = st.hit.d / reach; if (near < 0 || d < near) near = d; }
+  for (const st of links) if (st.hit && live(st.hit)) arcHit(st.hit, arcDmg(A, st.hit) * 0.5);
+  return near;
 }
+// The look: a thick rope with a white core, shaking a little, bright knots that travel out along it, a glow where it holds a target and a
+// forked end where it holds none. Drawn from the frame count only (no random numbers).
 function drawArcs() {
-  const c = WPN.A.ramp;
-  for (const a of arcs) { const f = a.life / (a.max || 5), r = a.r || 0, hot = r >= 1, w = a.w + (r > 0.5 ? 1 : 0);
-    const layers = a.sub ? [[c[3], 2, 0.5], ['#ffffff', 1, 0.9]] : [[hot ? c[3] : c[2], w + 3, 0.5], [c[3], w + 1, 0.9], ['#ffffff', Math.max(1, w - 1), 1]];
-    for (const [col, lw, al] of layers) { ctx.globalAlpha = al * f; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]); for (const q of a.pts) ctx.lineTo(q[0], q[1]); ctx.stroke(); }
-    if (a.sub) continue;
-    const e = a.pts[a.pts.length - 1];
-    ctx.globalAlpha = 0.5 * f; dk(e[0], e[1], 4 + (a.lv ? r * 3 : 0), c[3]);
-    if (a.lv) { ctx.globalAlpha = 0.45 * f; dk(a.pts[0][0], a.pts[0][1], 2 + a.lv + r * 3, c[3]); ctx.globalAlpha = f; dk(a.pts[0][0], a.pts[0][1], 1 + r * 2, '#ffffff'); }
-    if (hot) { ctx.globalAlpha = 0.8 * f; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 5 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); if (a.lv >= 5) { ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.arc(e[0], e[1], 9 + (gf >> 1) % 5, 0, TAU); ctx.stroke(); ctx.strokeStyle = c[3]; ctx.beginPath(); ctx.arc(e[0], e[1], 15 + (gf >> 1) % 7, 0, TAU); ctx.stroke(); ctx.globalAlpha = 0.35 * f; dk(e[0], e[1], 14, c[3]); } } }
-  ctx.globalAlpha = 1;
+  const c = WPN.A.ramp, cap = ctx.lineCap; let f0 = -1, idx = 0; for (const a of arcs) if (a.f > f0) f0 = a.f;
+  const nz = (k, j) => { const v = Math.sin(k * 12.9898 + gf * 78.233 + j * 37.719) * 43758.5453; return v - Math.floor(v) - 0.5; };
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const a of arcs) { const n = a.pts.length; if (a.f !== f0 || n < 2) continue; idx++;
+    const hot = !!a.sup, w = a.w, jit = a.link ? 2.4 : 1.4, P = a.pts.map((q, k) => k === 0 || k === n - 1 ? q : [q[0] + nz(k, idx) * jit, q[1] + nz(k, idx + 9) * jit * 0.5]);
+    for (const [col, lw, al] of [[hot ? c[3] : c[2], w + 3, 0.5], [c[3], w + 1, 0.95], ['#ffffff', Math.max(1, w - 2 + (hot ? 1 : 0)), 1]]) { ctx.globalAlpha = al; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (let k = 1; k < n; k++) ctx.lineTo(P[k][0], P[k][1]); ctx.stroke(); }
+    for (let k = 3; k < n - 1; k++) { const ph = (((k * ARC_STEP - gf * 2.4 + idx * 23) % 62) + 62) % 62; if (ph >= ARC_STEP) continue; ctx.globalAlpha = 0.9; dk(P[k][0], P[k][1], w * 0.5 + 2, c[3]); ctx.globalAlpha = 1; dk(P[k][0], P[k][1], w * 0.5 + 0.6, '#ffffff'); }
+    const e = P[n - 1];
+    if (a.hit) { ctx.globalAlpha = 0.5; dk(e[0], e[1], hot ? 8 : 5, c[3]); ctx.globalAlpha = 1; dk(e[0], e[1], hot ? 3 : 2, '#ffffff');
+      if (hot) { ctx.globalAlpha = 0.8; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e[0], e[1], 7 + (gf >> 1) % 4, 0, TAU); ctx.stroke(); } }
+    else if (!a.link) { ctx.globalAlpha = 0.9; ctx.strokeStyle = c[4]; ctx.lineWidth = 1; for (let b = 0; b < 2; b++) { ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] + nz(b, idx + 3) * 16, e[1] - 3 - (nz(b, idx + 5) + 0.5) * 8); ctx.stroke(); } }
+    if (!a.link) { ctx.globalAlpha = 0.5; dk(P[0][0], P[0][1], hot ? 6 : 4, c[3]); ctx.globalAlpha = 1; dk(P[0][0], P[0][1], hot ? 2.5 : 1.5, '#ffffff'); }
+  }
+  ctx.globalAlpha = 1; ctx.lineCap = cap;
 }
 // The Lance: nested shells, the inner ones shorter and further forward, so the tip steps out like a telescope. One more shell per level;
 // at full power rings slide up the shaft. It animates by frames in flight only (no random numbers), and draws inside the 14 px hit box.
@@ -16000,20 +16085,19 @@ function drawSeekLaser(s) {
     bar(-3, 7, top + 3 + ((age * 3) % (g.len - 4)), 1, c[4], 0.9); }
   ctx.globalAlpha = 1;
 }
-function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (--arcs[i].life <= 0) arcs.splice(i, 1); }
+function ageArcs() { for (let i = arcs.length - 1; i >= 0; i--) if (arcs[i].f < gf) arcs.splice(i, 1); } // (the rope is laid out anew every frame)
 function firing(p = player, two) {
   if (isSup(p) && --p.supT <= 0) supEnd(p);
   if (p.cd > 0) p.cd--;
   if (p.mcd > 0) p.mcd--;
   if (p === player) pbTick();
+  if (p.wpn === 'A') { const beat = p.cd <= 0, near = fireArc(p, wl(p), beat); if (beat) p.cd = pbArcCd(ARC_BEAT, near); return; } // the Arc's rope is there every frame and hurts on the gun's beat
   if (p.cd > 0) return;
   const L = wl(p), up = -PI / 2;
   if (p.wpn === 'S') {
     p.cd = pbCd(p, L >= 5 ? 5 : 7, 's', L === 1 ? 2 : [0, 0, 3, 5, 7, 13][L]);
     if (L === 1) { for (const dx of [-4, 4]) Object.assign(pshot(p.x + dx, p.y - 8, up, 6, 1), { sl: 1, rk: 0.5 }); }
     else { const n = [0, 0, 3, 5, 7, 13][L], sp = L >= 5 ? 0.17 : 0.15; for (let i = 0; i < n; i++) Object.assign(pshot(p.x, p.y - 8, up + (i - (n - 1) / 2) * sp, L >= 5 ? 7 : 6, L >= 5 ? 8 : 1), L >= 5 ? { sl: L, bd: 0.6, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) } : { sl: L, rk: Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) }); } // (sl, rk: level and distance from the centre of the fan, 0 to 1, for the Scatter look)
-  } else if (p.wpn === 'A') {
-    p.cd = pbArcCd(8, fireArc(p, L));
   } else if (p.wpn === 'L') {
     p.cd = pbCd(p, 4, 'l', 1);
     world.shots.push(Object.assign({ x: p.x, y: p.y - 12, vx: 0, vy: -7.5, dmg: 0.55 + 0.55 * L, k: 'l', w: 2 + L * 1.5, h: 14, lv: L }, L >= 5 ? { dmg: 10, bd: 2.4 } : null));
@@ -19222,7 +19306,7 @@ function buildHelp() {
     [wpn('S'), 'Scatter', 'Wide fan of shots'],
     [wpn('L'), 'Lance', 'Piercing, straight ahead'],
     [wpn('H'), 'Seekers', 'Homing missiles'],
-    [wpn('A'), 'Arc', 'Chain lightning (Stage 3+)']]);
+    [wpn('A'), 'Arc', 'Lightning whip (Stage 3+)']]);
   add('p', 'Shoot a supply container to release one. Same weapon again: level up, max 4, then 1000 bonus points.').className = 'hint';
   add('h3', 'Pickups');
   list([
