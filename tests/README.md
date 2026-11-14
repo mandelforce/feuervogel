@@ -344,3 +344,7 @@ node tests/nighthammer.mjs
 ```
 node tests/bosslink.mjs
 ```
+
+## Sound lab
+
+`http://localhost:8000/index.html?soundlab` (while the folder is served; also works on the live site) opens a page over the title with a button for every sound effect: pickups, medals and chains, ship and laser, guns and hits, explosions, warnings and bosses, and the Enigma Run effects. Pick Classic (Campaign and Enigma Run) or Retro Run (the chip sound) at the top; the sounds are played by the game's own code. The lab can also switch the pickup style the game uses (`PICK_STYLE`: no notes, or the first version with notes), set the effects volume and keep the music quiet. A new sound effect belongs in `soundCatalogue()` (next to the audio section of `index.html`) so it can be heard there.
