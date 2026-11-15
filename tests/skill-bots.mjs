@@ -73,7 +73,7 @@ cells.forEach((c, ci) => { for (let s = 1; s <= SEEDS; s++) for (const mortal of
 const tAll = Date.now(), flights = await pool(jobs);
 
 const sorted = a => a.slice().sort((x, y) => x - y), med = a => { const s = sorted(a); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
-const stat = a => { a = a.filter(v => v !== null && v !== undefined); return a.length ? { med: med(a), min: Math.min(...a), max: Math.max(...a) } : null; };
+const stat = a => { a = a.filter(v => v !== null && v !== undefined); return a.length ? { med: +med(a).toFixed(2), min: Math.min(...a), max: Math.max(...a) } : null; };
 cells.forEach((c, ci) => {
   const fs = flights.filter((r, i) => jobs[i].ci === ci), M = fs.filter(r => r.mortal), I = fs.filter(r => !r.mortal);
   const causes = {}; for (const r of M) for (const d of r.deathList) { const k = d[2] && d[2] !== d[1] && !String(d[1]).includes(d[2]) ? d[2] : d[1]; causes[k] = (causes[k] || 0) + 1; }
