@@ -46,13 +46,14 @@ function watch({ start, frames }) {
       bad.moves++;
       if (step > JUMP) { note('jump', e, f, `by ${step.toFixed(2)} px`); continue; }
       const a = e.hd === undefined ? 0 : swing(t.hd, e.hd, f); if (a) note('swing', e, f, `by ${(a * 180 / Math.PI).toFixed(0)}° and back`);
-      // sideways: x for a vehicle heading mostly along y, y for one heading mostly along x; out and back by more than SHAKE within BACK frames
-      const h = e.hd === undefined ? Math.atan2(dy, dx) : e.hd, lat = Math.abs(Math.sin(h)) > Math.abs(Math.cos(h)) ? 'wx' : 'wy';
-      t.hist.push({ f, v: e[lat], lat }); t.hist = t.hist.filter(q => f - q.f <= BACK && q.lat === lat);
-      const v = t.hist.map(q => q.v); let out = 0;
+      // sideways: across the heading the vehicle had at the start of the last BACK frames; out and back by more than SHAKE within them.
+      // (Not along a screen axis: a vehicle that turns round at a patrol's end on a road at 45 degrees moves out and back along x and y alike.)
+      const h = e.hd === undefined ? Math.atan2(dy, dx) : e.hd;
+      t.hist.push({ f, x: e.wx, y: e.wy, h }); t.hist = t.hist.filter(q => f - q.f <= BACK);
+      const h0 = t.hist[0].h, v = t.hist.map(q => q.y * Math.cos(h0) - q.x * Math.sin(h0)); let out = 0;
       for (let j = 1; j < v.length - 1; j++) { const back = Math.min(...v.slice(j + 1)), fwd = Math.max(...v.slice(j + 1)), lo = Math.min(...v.slice(0, j)), hi = Math.max(...v.slice(0, j));
         if ((v[j] - lo > SHAKE && v[j] - back > SHAKE) || (hi - v[j] > SHAKE && fwd - v[j] > SHAKE)) out = 1; }
-      if (out) { note('wobble', e, f, `sideways (${lat}) out and back by over ${SHAKE} px`); t.hist = []; }
+      if (out) { note('wobble', e, f, `sideways out and back by over ${SHAKE} px`); t.hist = []; }
     }
     for (const e of track.keys()) if (!now.includes(e)) track.delete(e);
   }
