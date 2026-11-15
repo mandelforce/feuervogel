@@ -315,6 +315,69 @@ Columns: **hits** bullets and rams that hit the ship (laser hits apart), **laser
 
 Balance lessons from the 1.2.5 pass: check which code path a test flies before trusting it (the old campaign and the Campaign have different Shadow Wing code); `SF.attrib()` finds the real source of a bullet window (it was the wing, 69 % of the shots in each stage's worst window); lowering enemy bullet speed makes more bullets stand on screen (about 12 % more), so a density cut needs fewer shots, not slower ones.
 
+## Daily Sortie: kit probe and bot baselines (by hand)
+
+Phase 0 of `docs/daily-sortie-plan.md`; the results are in its section 6.
+
+`compose-probe.mjs` (Node only) asks what the three segment-native presets (`sandSea`, `ironForest`, `winterGorge`) tolerate: it generates plans from mutated segment lists (shuffled, new neighbours, a template twice, one dropped, lengths changed, the opener or approach broken) and reports throws, failed rules, wrong lengths and features outside their segment. It never fails; it measures.
+
+```
+node tests/compose-probe.mjs                     # all three kits, about 20 minutes
+node tests/compose-probe.mjs --kit desert --group adjacent --seeds 80   # one kit, one group of mutations
+```
+
+`daily-baseline.mjs` flies levels 2, 4 and 5 (first pass and loops, all three difficulties) with the human bot in immortal mode and writes the flight gate's measures to `daily-baseline.json`: when the boss comes and how long it lasts, hits per minute, the worst 10 s bullet window, kills per minute, the longest stretch with nothing on screen, chunk and plan build times, and how long a flight takes. `--twice` flies each a second time in a fresh page and reports whether it repeats exactly (it does). Serve the folder first:
+
+```
+node tests/daily-baseline.mjs --twice --save tests/daily-baseline.json   # about 5 minutes
+```
+
+## Skill bots: rookie, veteran, ace (by hand)
+
+Step 1 of `docs/skill-bots-brief.md`. `skill-bot.js` (loaded after `harness.js`, the same way) adds `SF.skill(profile)`: the harness bot with human limits as numbers: `see` (frames its view of bullets and enemies is behind), `hold` (frames a decision is held, via `SF.human`), `ahead` (lookahead frames), `track` (nearest bullets minded), `err` (aim and stick error from the bot's own seeded stream, growing with bullets in view), `nova` (`never`, `panic`, `well`), `greed` (px it leaves its place for a pickup), `seed`. Profiles: `SF.SKILL.rookie / veteran / ace`, and `neutral`, which is exactly the plain bot under `SF.human(0, 15)`.
+
+`skill-bots.mjs` flies the six Campaign levels (each on its own, first pass), mortal (real lives, stops at the continue prompt) and immortal, each bot on its own difficulty (rookie Easy, veteran Normal, ace Hard), with several bot seeds per cell, and prints a table and PASS/FAIL lines: rookie dies at least as often as veteran, veteran as ace; a flight repeats in a fresh page; the neutral profile flies the plain bot's flight. It measures and always exits 0.
+
+"As often" is deaths per minute flown (mortal) and hits per minute over the level (immortal), not the death count: with 2 lives nearly every mortal flight ends at the continue prompt, so counts tie at the cap, and an extra life earned by scoring gives the better bot one more death. `lives@boss` counts only the flights that reached the boss (`n`). With `see`, enemies that fly by heading and speed (no `vx`/`vy`: fighters, pods, wings, heavies) are carried forward along the motion measured between two snapshots; before, they were seen `see` frames stale and most deaths were rams.
+
+```
+node tests/skill-bots.mjs                         # own difficulty, 8 seeds, the checks (about 20 minutes, 2 pages at once)
+node tests/skill-bots.mjs --cross                 # and every bot on every difficulty (about 1 hour)
+node tests/skill-bots.mjs --daily 2026-11-14      # a Daily Sortie instead
+node tests/skill-bots.mjs --levels 1,6 --bots rookie,ace --seeds 4 --no-checks --save out.json
+```
+
+## Sortie composer test (runs in CI, blocking)
+
+`compose.mjs` (Node only) checks `tools/sortie-compose.js`: its hash is the game's `sortieHash`; the same seed gives the same sortie; every composed list of 10,000 seeds per kit keeps the kit's rules (opener, approach, who may follow whom, how often, how long, the total, encounter spacing); every middle template appears and the orders differ over 1,000 seeds; the daily seed (UTC day, kit by rotation, reroll table); the generator's plan of 300 composed lists per kit passes `CityGen.validate`, has the right length, holds every template's feature in its own segment and stays under the structures limit; and the copy in `index.html` is current. `kit-check.mjs` holds the plan checks it shares with `compose-probe.mjs`.
+
+```
+node tests/compose.mjs                 # everything, about 8 minutes (the winter plans take most of it)
+node tests/compose.mjs --plans 30      # fewer generator plans per kit
+node tests/compose.mjs --kit desert --verbose   # one kit, with example sequences
+node tests/compose.mjs --shard 2/4     # as CI runs it
+```
+
+## Daily Sortie test (runs in CI, blocking)
+
+`daily.mjs` checks the Daily Sortie in the game (`docs/daily-sortie-plan.md`, section 8): with the test link `?daily=YYYY-MM-DD` START flies that day's composed level (the composer's segments, the kit level's boss, not ranked), `&kit` and `&sub` force a kit and a sub-seed, and without the link START is the Campaign; the plan is the one Node makes from the composer's output and the ground types are the plan's; one sortie per kit flown to its end in two pages with different `Math.random` gives the same spawns, score and end, the boss dies, the Shadow Wing comes, every planned encounter runs to its end, and the run ends at the title; it never counts (board, best, loops, play data); a run saved mid-flight goes on exactly in a fresh page, and a record of another composer version is not resumed; and Campaign levels flown afterwards in the same page play as in a fresh page. About a minute:
+
+```
+node tests/daily.mjs
+node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day's sortie (daily:DATE:KIT:SUB forces a kit and a sub-seed)
+```
+
+## Daily Sortie flight gate (by hand)
+
+`daily-gate.mjs` is gate 3 of `docs/daily-sortie-plan.md` (phase 3; the sweep's numbers are in its section 9). For each date (or seed) and difficulty it composes the sortie, runs gate 2 in Node (`kit-check.mjs`, as `compose.mjs` does), flies it with the human bot (`SF.human(8, 15)`, immortal, viewport 1000x760) and prints one line with every measure and PASS or FAIL. A sortie FAILs on: a page or game error; gate 2 not clean; no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; a second flight in a page with another `Math.random` giving other spawns, score or end (every date; every 10th seed in a sweep); dead air, a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than `--dead` (10 s; the baselines' longest is 7 s). Hits per minute, the worst 10 s bullet window, bullets before the boss and kills per minute are only reported, marked `low` / `in` / `high` against the kit level's range in `daily-baseline.json` (the owner has not set those limits). `--bots` adds the skill bots (own difficulty, mortal, 4 bot seeds each: cleared share, deaths per minute, lives when the boss comes), also only reported. Pages are reused for many flights (checked: the same numbers with one page or two). Exits 1 if any flight FAILs.
+
+```
+node tests/daily-gate.mjs --from 2026-12-01 --days 14 --out OUTDIR   # 14 dates, all three difficulties, about 2 minutes; failing dates get their cause and contact sheet in OUTDIR
+node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the skill bots
+node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
+node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
+```
+
 ## Nothing pops in, guns stay off runways (by hand)
 
 `guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. `overcast-pop.mjs [4|5] [frames]` flies the first loop of level 4 or 5 and fails if a cloud of the overcast sky (stratus decks, mist banks) changes place by more than 3 px in a frame, appears or vanishes on screen, or steps in opacity: clouds may only wrap while wholly off screen. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.
