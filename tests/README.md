@@ -423,3 +423,7 @@ node tests/bosslink.mjs
 ## Sound lab
 
 `http://localhost:8000/index.html?soundlab` (while the folder is served; also works on the live site) opens a page over the title with a button for every sound effect: pickups, medals and chains, ship and laser, guns and hits, explosions, warnings and bosses, and the Enigma Run effects. Pick Classic (Campaign and Enigma Run) or Retro Run (the chip sound) at the top; the sounds are played by the game's own code. The lab can also switch the pickup style the game uses (`PICK_STYLE`: no notes, or the first version with notes), set the effects volume and keep the music quiet. A new sound effect belongs in `soundCatalogue()` (next to the audio section of `index.html`) so it can be heard there.
+
+## Daily Sortie flavour probe (by hand, Node only)
+
+`flavour-probe.mjs` (phase 1 of `docs/daily-sortie-plan.md`, section 11; results in 11.6): composes sorties for each kit, generates each plan plain and with the Campaign's loop ground (desert `variant`, forest `autumn` + `lakes`, winter `variant`) and runs the plan checks on both. It measures; it never fails the build. `node tests/flavour-probe.mjs --seeds 60 [--kit desert] [--verbose]`, about 2 minutes.

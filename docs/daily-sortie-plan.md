@@ -768,9 +768,41 @@ A flavour changes what a date produces, so it is part of the seed's output: `com
 
 **Stop point after each of 1 and 2**, as the other phases do: the owner reads the report before the next.
 
-### 11.5 Questions for the owner
+### 11.5 Decisions (owner, 2026-11-15)
 
-1. The first set of twists in 11.1: keep, drop or add? In particular: is **Mirror** worth its cost (every x in the sortie flips), and are **one-life** days acceptable in a mode with no board?
-2. Flavour weights: plain 60 / rank 15 / variant 15 / loop 10, or more variety?
-3. Should a twist ever combine with a loop flavour on the same day, or is one change a day the rule?
-4. `composeVersion` 2 restarts every date-keyed record; fine before phase 6 (nothing is keyed yet), but should the Daily Sortie stay hidden in Settings until 11.4 phase 2 is done?
+1. **Twists:** the first set of 11.1 as recommended: Night run, Fog / squall, Fixed weapon, Swarm day, Elite day, Fast scroll, Mirror. One twist every day. (One-life and the other candidates wait.)
+2. **Variety:** as much as possible from the start. Flavour weights: plain 10 %, rank 30 %, variant 30 %, loop 30 %. A plain-flavour day still has a twist.
+3. **Combining:** a twist and a flavour combine on the same day.
+4. **Visibility:** the Daily Sortie entry in Settings stays visible while this is built (no hiding until phase 2 is done).
+
+Consequence of 2 and 3: every kit meets every twist and every flavour, so the flight gate (and the vetting workflow, which flies the three difficulties) has a matrix to cover: 3 kits x 4 flavours x 7 twists = 84 combinations x 3 difficulties. The sweep of section 9 cannot fly all of it for every seed. Proposal for phase 2 to 3: fly every combination on a few seeds each, then the real dates in the nightly vetting as now (the date decides its combination, so the vetting flies exactly the day's one).
+
+### 11.6 Phase 1 results: the probe (build 1.2.6.42; nothing in the game changed)
+
+**Flavours on composed sorties** (`tests/flavour-probe.mjs`, Node only; 60 composed sorties per kit, `hash(s, 9090)` seeds; each plan generated plain and with the kit's loop parameters, then judged by the same plan checks as `compose.mjs` and the gate):
+
+| Kit | Loop parameters | Plain | With the loop ground |
+|---|---|---|---|
+| desert | `variant: 1` | 0 of 60 flagged, 234 ms median | 60 of 60 flagged `outside` ("derrick in desert_open"), 252 ms |
+| forest | `autumn: 1, lakes: 1` | 0 of 60, 125 ms | 0 of 60, 529 ms |
+| winter | `variant: 1` | 0 of 60, 793 ms | 0 of 60, 765 ms |
+
+- Forest and winter survive the loop ground in all 60 plans. Forest's plan takes four times as long with lakes (529 ms in Node); the page is slower still, so the plan build time should be measured in the game before this ships (the baseline in 6.4 had 552 to 568 ms in the page for the hand-made first loop).
+- Desert's flags are not breakage. The loop adds guarded oil fields to `desert_open` stretches (generator line "the loop's additions") and the check does not expect an oil field there. Phase 2 teaches the check: with `variant` on, an oil field in `desert_open` is expected. It still has to be flown: the flag says only that the plans are valid and differ.
+- Not probed: the game's own side of `variant` (density and damage curves for level 3 only; for levels 2, 4, 5 the hand-made loop sets `S.variant`, `S.autumn`, `S.winter`, which change the sky, the overcast and the weather plans, `ovcOn`, `squallAt`). A composed sortie has to set the same fields; phase 2 does that and checks the rendering by contact sheet.
+- Rank: the first loop's rank is `rankFor` with `run.loop` 1 (`LOOP_STEP`, `LOOP_SLOPE`, `bspeed`). A Daily Sortie starts at `run.loop` 0 today. The `rank` flavour sets the rank for the run without making it a loop (so nothing counts as a loop); phase 2 checks that `rankFor`, `hpm()` and `bspeed` read it from one place.
+
+**Twists: does the mechanism exist** (read from the code, nothing run):
+
+| Twist | Finding | Cost |
+|---|---|---|
+| Night run | `world.nightF` follows the stage's theme (3 = level 3) and drives the darkening, the searchlight aim and the lightning (`nightF` in the director, the render and the AI). No switch to force it on other themes. | small: a per-sortie override of the value `thS === 3` gives; check the render's grade on desert, forest and winter ground, and that the searchlights (`nightLit`) work without level 3's lights |
+| Fog / squall | `squallAt` is winter only (`S.winter`), the overcast is forest and winter (`ovcOn`). Desert has neither. | forest and winter: a switch. Desert: a new sand haze, as the plan says |
+| Fixed weapon | `mkItem` picks the pickup's weapon at random from the stage's list; the weapon is on the player (`player.weapon` / tier). | small: lock the starting weapon, make the pickups the same weapon (tier up only) |
+| Swarm day / Elite day | Enemy hit points are `hpm()` (`1 + 0.25 * run.loop`, times `DIFF.hp`) and per-type factors; counts come from the timetable (`TT_ENC` and the director). Hit points are one function; counts are not. | hit points: small (one factor in `hpm()`). Counts x1.5 or x0.6: medium, in the timetable's wave sizes; must keep `TT_ENC` order |
+| Fast scroll | `SCROLL = 0.4`, set into `world.scrollV` and `scrollTarget` at the start and after events (about six places). The encounters run on frames (`TT_ENC` are frame counts), the ground on scroll, so a faster scroll moves the ground under the same frame schedule. | medium: one factor everywhere `SCROLL` is set; the gate must fly it, since dead air and encounter spacing change |
+| Mirror | Nothing flips. Every x in the game (spawns, plans, rails, bosses, the HUD stays) would have to flip. | large; the least certain item. If it cannot be done as a render and input flip only, move it out of the first set |
+
+**Proposal for the next step (phase 2, flavours; the owner reads this report first):** the composer takes a flavour, `run.daily` records it, `composeVersion` becomes 2, the three kits set `variant` / `autumn` / `winter` as the hand-made loops do, the plan check learns the desert oil field, and `tests/daily.mjs`, `compose.mjs` and the flight gate (`--flavour`) cover it. Then phase 3, the twists, easiest first (Night run, Fixed weapon, Elite and Swarm by hit points, Fog / squall on forest and winter), with Mirror last and only if it can be a flip at the edges.
+
+**Stop point of phase 1.** Questions: (a) is hit points only acceptable for the first version of Swarm and Elite (no change in counts), which is much cheaper? (b) should Mirror stay in the first set given its cost, or be swapped for another twist from 11.1 (Nova day or Heavy bullets)?
