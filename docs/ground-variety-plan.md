@@ -1,6 +1,6 @@
 # Ground variety: lab and composer plan
 
-Draft, nothing built. Written 2026-11-15 after the owner's remark that the Daily Sortie feels too similar to the Campaign (`daily-sortie-plan.md` section 11). Section 11 varies the *rules* (twists) and the *ground set* (flavours). This plan varies the *ground itself*: how the same template looks and lays out on different days.
+Phases 1 to 3 built (build 1.2.6.47, composer v4); phases 4 and 5 not started. Written 2026-11-15 after the owner's remark that the Daily Sortie feels too similar to the Campaign (`daily-sortie-plan.md` section 11). Section 11 varies the *rules* (twists) and the *ground set* (flavours). This plan varies the *ground itself*: how the same template looks and lays out on different days.
 
 ## 0. Goal and ground rules
 
@@ -88,6 +88,32 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 - **Plan time:** winter is about 0.8 to 1.4 s a plan in Node and no tested dial changes it much; desert and forest are about 0.1 s.
 - **Consequence for phase 3.** Without generator changes the dials are: desert 3, winter 3, forest 0. To give the forest (and the desert's `damage` and `trees`, the winter's `damage`) a dial, the builders must read it, per segment, from `segs[i].p`. That is the plan's 2.2, and it moves up from phase 4 to phase 3. Every generator change needs `node scripts/embed-citygen.mjs` and keeps `tests/citygen.mjs` and the golden plans (`tests/golden.json`) unchanged when no dial is given.
 - **Not probed:** the desert port's hard-coded `damage` and `density` (set in the `sandSea` builder), plan time in the page and on a phone, and how different the plans *look* (needs the contact sheets of phase 2).
+
+### 4.2 Phases 2 and 3 results: the lab and the dials (build 1.2.6.47, composer v4)
+
+**Decision taken after the probe (owner, 2026-11-15):** change the builders, so every kit gets real dials. Per-segment dials (the plan's 2.2) moved from phase 4 into phase 3.
+
+**Generator (`tools/citygen.js`).** A segment may carry `p = { dial: value }`; `groundDials(p, table)` keeps only the dials a builder knows, clamped to the table's range, so a plan without `p` is exactly the plan it was (12 composed plans of both flavours hashed against the previous generator: identical; `tests/citygen.mjs` and its golden plans pass).
+
+| Kit | Dials (per segment unless marked) | Where read |
+|---|---|---|
+| desert | `damage`, `mix` (the held village's and the open desert's oases); whole level: `wear`, `portDensity`, `portDamage` (new), `mixVillage` | the `sandSea` builder's feature list; the port's sub-plan |
+| forest | `roads`, `rides`, `plantations`, `clearings`, `cuts`, `guns` | `ironForestFeatures`, over `FOREST_BASE` (the table that was inline, now exported) |
+| winter | `treeK` (a factor on the chance of a tree), `floorW` (px added to the valley floor, eased in and out over 80 px); whole level: `trees`, `lotChance` (the harbour town) | `winterLand` (`tk(y)`, `dial('floorW', y)`) |
+
+**Composer (`tools/sortie-compose.js`, `composeVersion` 4).** `DIALS` per kit (ranges below), `dialsFor(kit, base, segs)`, `composeSortie(kit, seed, sub, flavour, twist, dials)` with `dials` `'on'` (default) or `'off'`; the sortie carries `dials` and `dialNames`. About 80 % of days draw dials (`DIAL_NONE` 0.2; 18.5 % over 400 seeds), two or three of the kit's. Every segment that can take a drawn dial gets its own value, so two villages differ. Forest ranges are the template's own count minus 2 to plus 2 (guns: minus 1 to plus 1, at least 1); desert and winter ranges are in `DIALS`. Gate 1 checks every dial against its range and that a day with dials off has none. `DAILY_PLAIN` has a new first step: 1 no dials, 2 also flavour plain, 3 also no twist; `dailySeed` returns `dials`. In the game: `run.daily` records `dials` and `dailyCompose` passes it back, so resume rebuilds the same ground; the test link takes `&dials=off`. The segment list, the encounters and the Shadow Wing do not read the dials (3 kits x 150 seeds, dials on against off: identical).
+
+**Probe (`tests/dials-probe.mjs`, 8 sorties per kit, 40 draws per kit).** Every dial changes the plan at its extremes (desert `damage` 7 of 8: one sortie has no stretch that takes it). At the lowest and the highest value on every eligible segment: 0 plans flagged and 0 stretches over their structures limit, for all 12 dials. 40 drawn days per kit: 0 flagged, 0 over the limit. Plan time is not changed by the dials (desert 0.1 to 0.3 s, forest about 0.1 s, winter 0.8 to 1.4 s in Node).
+
+**Lab (`tools/citylab.html`).** A Daily Sortie ground panel: kit, flavour (so the loop grounds are a toggle), sub-seed, dials on or off, force one dial to its lowest or highest value, the segment list as editable JSON, "New day", a six-seed contact sheet, and a seed sweep of composed days that reports the plan rules and the structures limit per stretch. A saved-sets panel (browser storage, JSON export and import). The new "plan checks" in the lab are `CityGen.validate` and the structures limit; the other gate-2 checks (each template's own feature in its own segment, the kit's `extra`) live in `tests/kit-check.mjs` and were not ported. Driven in headless Chromium: all three kits, a forced dial, an edited list, a saved set, the contact sheet and a 20-day sweep, no page errors. Found on the way: the committed lab threw on every whole-level preset (a stage timing that is not a number), which stopped `build()` before it refreshed the metrics and the overlay; fixed.
+
+**Flown and checked.**
+- Flight gate (`tests/daily-gate.mjs --sweep 6 --all 2 --det 3 --no-bots --fresh`): 18 sorties (15 with dials), all pass; no dead air over 7.5 s.
+- Vetting (`scripts/daily-vet.mjs --no-write`): the 14 dates from 2026-11-16, all three difficulties: 14 of 14 pass, none rerolled or made plainer.
+- `tests/compose.mjs` (49 checks without gate 2; new section 6b on the dials) and gate 2 on 40 composed plans per kit (clean; desert plan time 120 ms median alone, over its limit only while the machine was loaded by other runs), `tests/citygen.mjs`, `tests/daily.mjs` (220), `tests/smoke.mjs`, `tests/worker.test.mjs` (22).
+- **Not run:** the 300-plans-per-kit gate 2 and its shards, the 200-seed sweep, the skill bots on dial days, a phone viewport, `replay.mjs`, `resume-exact.mjs`, the other test files.
+- **Not looked at:** the dials in the game itself. Only the lab's contact sheet was seen; whether a day *reads* as different (the plan's last risk) needs the game's contact sheets (`tests/contact.mjs`) on a forest and a winter day with the strongest dials.
+- **Not done:** the ratings row does not carry the dials (decision 3 below is open); time of day as ground and new templates or kits (phases 4 and 5).
 
 ## 5. Decisions for the owner
 

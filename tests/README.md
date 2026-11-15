@@ -243,7 +243,7 @@ node tests/citygen.mjs --shard 2/4                 # every 4th check, from the 2
 node tests/citylab-shot.mjs OUTDIR [seed]   # screenshot of the lab and the raw town map (serve the folder first)
 ```
 
-The lab itself is opened in a browser (`http://localhost:8000/tools/citylab.html` while the folder is served): seed, settings, overlays (streets, tank routes, gun slots, ground kinds, chunks, a game-sized screen), the rule checks, painting speed per chunk and a seed sweep.
+The lab itself is opened in a browser (`http://localhost:8000/tools/citylab.html` while the folder is served): seed, settings, overlays (streets, tank routes, gun slots, ground kinds, chunks, a game-sized screen), the rule checks, painting speed per chunk and a seed sweep. The Daily Sortie ground panel composes a day as the game does (kit, flavour, sub-seed, ground dials on or off), can force one dial to its lowest or highest value, shows and edits the segment list, paints a six-seed contact sheet and sweeps seeds with the plan rules and the structures limit per stretch. Saved sets keep every setting in the browser, with JSON export and import.
 
 ## Performance test (runs in CI, warning only)
 
@@ -428,5 +428,12 @@ node tests/bosslink.mjs
 `http://localhost:8000/index.html?soundlab` (while the folder is served; also works on the live site) opens a page over the title with a button for every sound effect: pickups, medals and chains, ship and laser, guns and hits, explosions, warnings and bosses, and the Enigma Run effects. Pick Classic (Campaign and Enigma Run) or Retro Run (the chip sound) at the top; the sounds are played by the game's own code. The lab can also switch the pickup style the game uses (`PICK_STYLE`: no notes, or the first version with notes), set the effects volume and keep the music quiet. A new sound effect belongs in `soundCatalogue()` (next to the audio section of `index.html`) so it can be heard there.
 
 ## Daily Sortie flavour probe (by hand, Node only)
+
+`dials-probe.mjs` (`docs/ground-variety-plan.md`; results in its section 4): the ground dials of `tools/sortie-compose.js`. Part 1 generates composed sorties for each kit with each dial at its lowest and highest value on every segment that takes it and reports whether the plan changes, how many plans the plan checks flag, how many stretches pass their structures limit and the plan time; part 2 does the same for `--draws` sorties drawn as a date draws them. It measures; it never fails the build. The first version of it (a different question: which top-level generator parameters the builders honour) found that the forest honours none, which is why the builders read per-segment dials now.
+
+```
+node tests/dials-probe.mjs --kit forest                      # one kit; desert and forest take about a minute, winter several
+node tests/dials-probe.mjs --seeds 20 --draws 100 --verbose  # more sorties, and every flagged one
+```
 
 `flavour-probe.mjs` (phase 1 of `docs/daily-sortie-plan.md`, section 11; results in 11.6): composes sorties for each kit, generates each plan plain and with the Campaign's loop ground (desert `variant`, forest `autumn` + `lakes`, winter `variant`) and runs the plan checks on both. It measures; it never fails the build. `node tests/flavour-probe.mjs --seeds 60 [--kit desert] [--verbose]`, about 2 minutes.

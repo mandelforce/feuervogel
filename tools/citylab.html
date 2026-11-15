@@ -158,16 +158,39 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <canvas id="clouds" width="224" height="300" style="width:100%;image-rendering:pixelated;display:block;margin-top:8px" aria-label="Cloud types over the town"></canvas>
       <p class="note">CityGen.cloud(kind, seed): cumulus, scattered, stratus, cirrus, mist and storm, over a stretch of this town at game scale (the game draws its clouds over the ground, then its night layer).</p>
     </section>
+    <section class="box" aria-labelledby="h-daily">
+      <h2 id="h-daily">Daily Sortie ground</h2>
+      <label class="row" for="dKit">Kit <select id="dKit" style="margin:0"><option value="">Off (use the preset above)</option><option value="desert">Desert (level 2)</option><option value="forest">Forest (level 4)</option><option value="winter">Winter (level 5)</option></select></label>
+      <label class="row" for="dFlav">Flavour (the Campaign's loop ground) <select id="dFlav" style="margin:0"><option value="plain">plain</option><option value="rank">rank (same ground)</option><option value="variant">variant</option><option value="loop">loop</option></select></label>
+      <label class="row" for="dSub">Sub-seed <input type="number" id="dSub" value="0" min="0" style="width:64px"></label>
+      <label class="row" for="dDials">Ground dials (drawn from the seed) <input type="checkbox" id="dDials" checked></label>
+      <label class="row" for="dForce">Force one dial <span><select id="dForce" style="margin:0;width:auto"><option value="">none</option></select> <select id="dEnd" style="margin:0;width:auto"><option value="0">lowest</option><option value="1">highest</option></select></span></label>
+      <div class="btnrow"><button id="dRand" class="primary">New day (random seed)</button><button id="dSheet">Contact sheet (6 seeds)</button></div>
+      <p class="note" id="dInfo">The seed above is the sortie's seed. "New day" is the composer's own draw: the segment list and, with dials on, the day's ground dials.</p>
+      <label for="dSegs" class="note" style="display:block">Segment list (JSON, one segment a line; <code>p</code> holds a segment's dials). Edit, then Apply.</label>
+      <textarea id="dSegs" rows="9" spellcheck="false" style="width:100%;box-sizing:border-box;font:11px var(--data);background:var(--bg);color:var(--ink);border:1px solid var(--line)"></textarea>
+      <div class="btnrow" style="margin-top:6px"><button id="dApply">Apply list</button><button id="dReset">Reset to the composed list</button></div>
+      <div id="dSheetOut" style="display:flex;gap:6px;overflow-x:auto;margin-top:8px"></div>
+    </section>
+    <section class="box" aria-labelledby="h-sets">
+      <h2 id="h-sets">Saved sets</h2>
+      <div class="btnrow"><input id="setName" type="text" placeholder="Name" aria-label="Name of the set" style="flex:1;min-width:0"><button id="setSave">Save</button></div>
+      <div class="btnrow" style="margin-top:6px"><select id="setList" aria-label="Saved sets" style="flex:1;margin:0"></select><button id="setLoad">Load</button><button id="setDel">Delete</button></div>
+      <div class="btnrow" style="margin-top:6px"><button id="setExport">Export JSON</button><button id="setImport">Import JSON</button></div>
+      <textarea id="setJson" rows="4" spellcheck="false" aria-label="A set as JSON" placeholder="Export fills this; paste a set here and press Import." style="width:100%;box-sizing:border-box;font:11px var(--data);background:var(--bg);color:var(--ink);border:1px solid var(--line);margin-top:6px"></textarea>
+      <p class="note">A set is every setting above, the Daily panel and an edited segment list. Kept in this browser; Export and Import move it between machines.</p>
+    </section>
     <section class="box sweep" aria-labelledby="h-sweep">
       <h2 id="h-sweep">Seed sweep</h2>
       <div class="btnrow"><button class="primary" id="sweep20">Run 20 seeds</button><button id="sweep100">Run 100</button><button id="copy">Copy settings</button></div>
       <p class="note" id="sweepNote">Runs the current settings over many seeds and lists the worst first. Click a row to open that seed.</p>
-      <div class="sweepwrap"><table><thead><tr><th>seed</th><th>ok</th><th>ms</th><th>dens</th><th>ch</th><th>slots</th></tr></thead><tbody id="sweepBody"></tbody></table></div>
+      <div class="sweepwrap"><table><thead><tr id="sweepHead"><th>seed</th><th>ok</th><th>ms</th><th>dens</th><th>ch</th><th>slots</th></tr></thead><tbody id="sweepBody"></tbody></table></div>
     </section>
   </div>
 </div>
 
 <script src="citygen.js"></script>
+<script src="sortie-compose.js"></script>
 <script>
 (() => {
 const CG = window.CityGen, K = CG.K;
@@ -185,7 +208,7 @@ $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="backgr
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker or turret slot', parked: 'Parked plane (blast pen)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'wear', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire', 'oNight'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'wear', 'dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire', 'oNight'];
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
@@ -199,13 +222,73 @@ function showVals() {
   $('wearV').textContent = $('wear').value === '0' ? 'clean' : $('wear').value + '%'; $('gridV').textContent = $('grid').value + '%'; $('tiltV').textContent = Math.round(Math.atan($('tilt').value / 100) * 180 / Math.PI) + '\u00b0';
 }
 
+// ---------- the Daily Sortie's ground (docs/ground-variety-plan.md) ----------
+// The composer's own day: its segment list and ground dials, generated and shown like any preset. The seed field is the sortie's seed.
+const SC = window.SortieCompose;
+let dailyList = null, dailyKey = ''; // an edited segment list (from the textarea), or null: the composed one; and the settings it was made under
+const dailyKeyNow = () => [$('dKit').value, +$('seed').value | 0, +$('dSub').value | 0, $('dFlav').value, $('dDials').checked, $('dForce').value, $('dEnd').value].join('|');
+function fillForce() { const k = $('dKit').value, cur = $('dForce').value; $('dForce').innerHTML = '<option value="">none</option>' + (k ? SC.dialNames(SC.KITS[k]).map(d => `<option>${d}</option>`).join('') : ''); if ([...$('dForce').options].some(o => o.value === cur)) $('dForce').value = cur; }
+fillForce(); try { const f = JSON.parse(localStorage.getItem('citylab') || '{}').dForce; if (f && [...$('dForce').options].some(o => o.value === f)) $('dForce').value = f; } catch (e) {}
+// { S: the composed sortie, gen: what CityGen.generate takes, kit } or null (kit off, or the composer found no list)
+function dailyGen() {
+  const kit = $('dKit').value; if (!kit) return null; const key = dailyKeyNow(); if (key !== dailyKey) { dailyList = null; dailyKey = key; }
+  let S; try { S = SC.composeSortie(kit, +$('seed').value | 0, +$('dSub').value | 0, $('dFlav').value, 'none', $('dForce').value || !$('dDials').checked ? 'off' : 'on'); } catch (e) { $('dInfo').textContent = String(e.message || e); return null; }
+  let gen = S.gen; const force = $('dForce').value;
+  if (force) { const D = SC.KITS[kit].dials, end = +$('dEnd').value, params = Object.assign({}, gen.params); if (D.global[force]) params[force] = D.global[force][end];
+    params.segs = gen.params.segs.map(g => (D.seg[g.t] || {})[force] ? Object.assign({}, g, { p: { [force]: D.seg[g.t][force][end] } }) : g); gen = Object.assign({}, gen, { params }); }
+  if (dailyList) { const params = Object.assign({}, gen.params, { segs: dailyList }); if (SC.KITS[kit].preset === 'ironForest') params.L = dailyList.reduce((a, g) => a + (g.n | 0), 0) * 64; gen = Object.assign({}, gen, { params }); }
+  return { S, gen, kit };
+}
+function showDaily(dg) {
+  if (!dg) { if (!$('dKit').value) $('dInfo').textContent = 'Off: the preset above is used.'; return; }
+  const S = dg.S, P = dg.gen.params, D = SC.KITS[dg.kit].dials, glob = Object.keys(D.global).filter(k => P[k] !== undefined).map(k => k + ' ' + P[k]);
+  const per = P.segs.filter(g => g.p).length, force = $('dForce').value;
+  $('dInfo').textContent = `Composer v${S.v}: ${P.segs.length} segments, ${P.segs.reduce((a, g) => a + g.n, 0)} chunks, flavour ${S.flavour}. ` + (force ? `Dial forced: ${force}, ${$('dEnd').value === '1' ? 'highest' : 'lowest'}. ` : S.dialNames.length ? `Dials drawn: ${S.dialNames.join(', ')}. ` : 'No dials today. ') + (glob.length ? `Whole level: ${glob.join(', ')}. ` : '') + (per ? `${per} segments carry their own values (p). ` : '') + (dailyList ? 'The list was edited.' : '');
+  if (!dailyList) $('dSegs').value = '[\n' + P.segs.map(g => '  ' + JSON.stringify(g)).join(',\n') + '\n]';
+}
+$('dApply').addEventListener('click', () => { let a; try { a = JSON.parse($('dSegs').value); } catch (e) { $('dInfo').textContent = 'The list is not JSON: ' + e.message; return; }
+  if (!Array.isArray(a) || !a.length || a.some(g => !g || typeof g.t !== 'string' || !(g.n >= 1) || g.n !== Math.floor(g.n))) { $('dInfo').textContent = 'Each segment needs a template name t and a whole length n of at least 1.'; return; }
+  dailyList = a; dailyKey = dailyKeyNow(); build(); });
+$('dReset').addEventListener('click', () => { dailyList = null; build(); });
+for (const id of ['dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd']) $(id).addEventListener('change', () => { if (id === 'dKit') fillForce(); build(); });
+$('dRand').addEventListener('click', () => { $('seed').value = (Math.random() * 99999) | 0; if (!$('dKit').value) $('dKit').value = 'desert'; fillForce(); build(); });
+// the whole plan painted into one image (as build() does, a chunk at a time)
+function paintFull(p) { const { W, L } = p, out = new ImageData(W, L), tmp = new ImageData(W, 64);
+  for (let y0 = 0; y0 < L; y0 += 64) { const h = Math.min(64, L - y0), part = h === 64 ? tmp : new ImageData(W, h); CG.paint(p, part, y0, h, { noFx: true, night: false }); out.data.set(part.data.subarray(0, W * h * 4), (L - y0 - h) * W * 4); } return out; }
+// six seeds side by side at a third of the size: the sheet to judge a dial's range by eye
+function sheet() { const kit = $('dKit').value, out = $('dSheetOut'); out.innerHTML = ''; if (!kit) { $('dInfo').textContent = 'Pick a kit first.'; return; }
+  const seed0 = +$('seed').value | 0; let i = 0;
+  const step = () => { if (i >= 6) return; const seed = seed0 + i++; try {
+      const S = SC.composeSortie(kit, seed, +$('dSub').value | 0, $('dFlav').value, 'none', $('dDials').checked ? 'on' : 'off'), p = CG.generate(S.gen), c = document.createElement('canvas'); c.width = p.W; c.height = p.L; c.getContext('2d').putImageData(paintFull(p), 0, 0);
+      const k = 3, cv = document.createElement('canvas'); cv.width = Math.round(p.W / k); cv.height = Math.round(p.L / k); cv.getContext('2d').drawImage(c, 0, 0, cv.width, cv.height);
+      const fig = document.createElement('figure'); fig.style.cssText = 'margin:0;flex:none;cursor:pointer;font:11px var(--data);color:var(--muted)'; fig.dataset.seed = seed; fig.appendChild(cv);
+      const cap = document.createElement('figcaption'); cap.textContent = seed + (S.dialNames.length ? ' ' + S.dialNames.join(' ') : ' no dials'); fig.appendChild(cap); out.appendChild(fig);
+    } catch (e) { const d = document.createElement('div'); d.textContent = seed + ': ' + (e.message || e); out.appendChild(d); }
+    setTimeout(step, 0); };
+  step(); }
+$('dSheet').addEventListener('click', sheet);
+$('dSheetOut').addEventListener('click', e => { const f = e.target.closest('figure'); if (f) { $('seed').value = f.dataset.seed; build(); } });
+
+// ---------- saved sets ----------
+const SETS = 'citylab-sets', loadSets = () => { try { return JSON.parse(localStorage.getItem(SETS) || '{}'); } catch (e) { return {}; } };
+function getState() { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; o.dailyList = dailyList; return o; }
+function applyState(o) { for (const k of ctl) if (k !== 'dForce' && o[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = o[k]; else $(k).value = o[k]; }
+  fillForce(); if (o.dForce !== undefined) $('dForce').value = o.dForce; dailyList = Array.isArray(o.dailyList) ? o.dailyList : null; dailyKey = dailyKeyNow(); build(); }
+function refreshSets() { const sets = loadSets(), names = Object.keys(sets).sort(); $('setList').innerHTML = names.length ? names.map(n => `<option>${n.replace(/[<&]/g, '')}</option>`).join('') : '<option value="">(none saved)</option>'; }
+$('setSave').addEventListener('click', () => { const n = $('setName').value.trim(); if (!n) { $('setName').focus(); return; } const sets = loadSets(); sets[n] = getState(); try { localStorage.setItem(SETS, JSON.stringify(sets)); } catch (e) { $('setJson').value = 'Could not save here (storage is off): ' + JSON.stringify(getState()); } refreshSets(); $('setList').value = n; });
+$('setLoad').addEventListener('click', () => { const o = loadSets()[$('setList').value]; if (o) applyState(o); });
+$('setDel').addEventListener('click', () => { const sets = loadSets(); delete sets[$('setList').value]; try { localStorage.setItem(SETS, JSON.stringify(sets)); } catch (e) {} refreshSets(); });
+$('setExport').addEventListener('click', () => { $('setJson').value = JSON.stringify(getState(), null, 1); });
+$('setImport').addEventListener('click', () => { let o; try { o = JSON.parse($('setJson').value); } catch (e) { $('setJson').value = 'Not JSON: ' + e.message; return; } if (o && typeof o === 'object') applyState(o); });
+refreshSets();
+
 // ---------- build and draw ----------
 let plan = null, metrics = null, img = null;
 const map = $('map'), over = $('over'), graph = $('graph');
 function build() {
   showVals(); save();
   const t0 = performance.now();
-  plan = CG.generate({ seed: +$('seed').value | 0, preset: $('preset').value, params: params() });
+  const dg = dailyGen(); plan = CG.generate(dg ? dg.gen : { seed: +$('seed').value | 0, preset: $('preset').value, params: params() }); showDaily(dg);
   const gen = performance.now() - t0;
   metrics = CG.validate(plan);
   // paint chunk by chunk, timing each (the game paints one 64-row chunk at a time)
@@ -216,7 +299,7 @@ function build() {
   ctx.putImageData(img, 0, 0); drawCows(ctx);
   times.sort((a, b) => a - b);
   $('genMs').textContent = gen.toFixed(0) + ' ms';
-  $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k]) => k !== 'setup').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join('');
+  $('timing').innerHTML = row('Plan (once per level)', gen.toFixed(1) + ' ms') + row('Paint per chunk, mean', (times.reduce((s, x) => s + x, 0) / times.length).toFixed(2) + ' ms') + row('Paint per chunk, p95', times[Math.floor(times.length * 0.95)].toFixed(2) + ' ms') + row('Chunks', times.length) + Object.entries(plan.stage || {}).filter(([k, v]) => k !== 'setup' && typeof v === 'number').map(([k, v]) => row('&nbsp;&nbsp;stage: ' + k, v.toFixed(1) + ' ms')).join(''); /* (a whole-level plan's stage also holds its parts' timings, which are not numbers) */
   showMetrics(); layout(); drawOverlay(); drawGraph(); startFire(); drawClouds();
 }
 // the cloud types over a stretch of the town: each a sprite from CityGen.cloud, stacked down the panel
@@ -342,7 +425,24 @@ map.addEventListener('mouseleave', () => { tip.hidden = true; });
 $('vp').addEventListener('scroll', drawScreen, { passive: true });
 
 // ---------- seed sweep ----------
+// a composed day over n seeds from the seed field: the plan checks that need no browser-side data (CityGen.validate, the structures share of each stretch against the kit's limit)
+function sweepDaily(n) {
+  const kit = $('dKit').value, KK = SC.KITS[kit], seed0 = +$('seed').value | 0, rows = [], ground = $('dFlav').value === 'variant' || $('dFlav').value === 'loop';
+  const BUILT = new Set(['BLDG', 'RUBBLE', 'WORKS', 'RUNWAY', 'APRON', 'QUAY', 'PLAZA', 'LOT', 'COURT', 'ROAD', 'STREET', 'BRIDGE', 'RBRIDGE'].map(k => K[k]).filter(v => v !== undefined));
+  $('sweepHead').innerHTML = '<th>seed</th><th>ok</th><th>ms</th><th>dials</th><th>over</th><th>slots</th>'; $('sweepBody').innerHTML = ''; $('sweepNote').textContent = `Running ${n} days...`; let i = 0;
+  const step = () => { const end = Math.min(n, i + 2);
+    for (; i < end; i++) { const seed = seed0 + i; try { const S = SC.composeSortie(kit, seed, +$('dSub').value | 0, $('dFlav').value, 'none', $('dDials').checked ? 'on' : 'off'), t = performance.now(), p = CG.generate(S.gen), ms = performance.now() - t, m = CG.validate(p), over = [];
+        for (const g of S.segs) { let b = 0; for (let q = g.start * 64 * p.W; q < Math.min(p.L, (g.start + g.n) * 64) * p.W; q++) if (BUILT.has(p.K[q])) b++; const v = b / (g.n * 64 * p.W), lim = ground && KK.groundBuilt && KK.groundBuilt[g.t] !== undefined ? KK.groundBuilt[g.t] : ((KK.middle[g.t] || {}).built ?? KK.fixedBuilt[g.t]); if (lim !== undefined && v > lim) over.push(g.t + ' ' + Math.round(v * 100) + '%>' + Math.round(lim * 100)); }
+        rows.push({ seed, ok: m.pass && !over.length, ms, dials: S.dialNames.join(' ') || '-', over: over.join(', ') || '-', slots: Object.values(m.slots).reduce((a, b) => a + b, 0) }); } catch (e) { rows.push({ seed, ok: false, ms: 0, dials: '-', over: String(e.message || e).slice(0, 60), slots: 0 }); } }
+    $('sweepNote').textContent = `Running ${n} days... ${rows.length}`; if (i < n) return setTimeout(step, 0);
+    rows.sort((a, b) => a.ok - b.ok); const bad = rows.filter(r => !r.ok).length, ms = rows.map(r => r.ms).sort((a, b) => a - b);
+    $('sweepNote').textContent = `${n} days of ${kit} from seed ${seed0}: ${n - bad} pass, ${bad} flagged (a failed rule or a stretch over its structures limit). Plan time median ${ms[n >> 1].toFixed(0)} ms, max ${ms[n - 1].toFixed(0)} ms.`;
+    $('sweepBody').innerHTML = rows.map(r => `<tr data-seed="${r.seed}"><td>${r.seed}</td><td>${r.ok ? '<span class="chip ok">ok</span>' : '<span class="chip bad">flag</span>'}</td><td>${r.ms.toFixed(0)}</td><td>${r.dials}</td><td>${r.over}</td><td>${r.slots}</td></tr>`).join(''); };
+  step();
+}
 function sweep(n) {
+  if ($('dKit').value) return sweepDaily(n);
+  $('sweepHead').innerHTML = '<th>seed</th><th>ok</th><th>ms</th><th>dens</th><th>ch</th><th>slots</th>';
   const base = params(), rows = []; let s0 = 1; $('sweepBody').innerHTML = ''; $('sweepNote').textContent = `Running ${n} seeds...`;
   const step = () => {
     const end = Math.min(n, s0 + 4);
@@ -358,7 +458,7 @@ function sweep(n) {
 }
 $('sweepBody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) { $('seed').value = tr.dataset.seed; build(); } });
 $('sweep20').addEventListener('click', () => sweep(20)); $('sweep100').addEventListener('click', () => sweep(100));
-$('copy').addEventListener('click', () => { const txt = JSON.stringify({ seed: +$('seed').value, preset: $('preset').value, params: params() }); navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy settings', 1200); }).catch(() => { $('sweepNote').textContent = txt; }); });
+$('copy').addEventListener('click', () => { const dg = dailyGen(), txt = JSON.stringify(dg ? dg.gen : { seed: +$('seed').value, preset: $('preset').value, params: params() }); /* (a composed day: what the game's generator is given) */ navigator.clipboard.writeText(txt).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy settings', 1200); }).catch(() => { $('sweepNote').textContent = txt; }); });
 
 // ---------- wiring ----------
 $('preset').addEventListener('change', () => { const P = CG.PRESETS[$('preset').value]; // a preset brings its own length, density and street settings

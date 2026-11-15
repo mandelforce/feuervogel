@@ -20,7 +20,7 @@
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 3; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 4; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -135,6 +135,11 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
+  /* the ground dials: only the kit's own, inside their ranges, and none on a day without (S.dials 'off') */
+  if (S.gen && S.gen.params && kit.dials) { const D = kit.dials, P = S.gen.params, ps = P.segs || [], have = [];
+    ps.forEach((g, k) => { if (!g.p) return; const T = D.seg[g.t] || {}; for (const q in g.p) { have.push(q); const r = T[q]; if (!r) bad.push('dial ' + q + ' on ' + g.t + ' is not allowed'); else if (!(g.p[q] >= r[0] - 1e-9 && g.p[q] <= r[1] + 1e-9)) bad.push('dial ' + q + ' = ' + g.p[q] + ' on ' + g.t + ' outside ' + r.join('..')); } });
+    for (const q in D.global) if (P[q] !== undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
+    if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
   if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
   enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
@@ -163,21 +168,55 @@ function walk(kit, target, r) {
   return seq;
 }
 
+/* Ground dials (docs/ground-variety-plan.md): what a day does to the ground, besides the segment list. Per kit, kit.dials = { global, seg, int }:
+     global: { dial: [lo, hi] }  a generator parameter for the whole level (the builder reads it from params);
+     seg:    { template: { dial: [lo, hi] } }  a value for the segments of that template only (the builder reads segs[i].p);
+     int:    the dials that are counts (rounded).
+   A day draws DIAL_PICK[0]..[1] of the kit's dials (or none: DIAL_NONE of the days, and every day listed in DAILY_PLAIN), and each segment that can take a drawn dial gets its own
+   value, so two villages of one sortie differ. The draw has its own hash stream (6000 and up): the segment list, the encounters and the Wing do not read it. The ranges are
+   what gate 2 and the flight gate were run on (tests/dials-probe.mjs); the generator clamps anything outside its own table (tools/citygen.js: *_DIALS). */
+const DIAL_NONE = 0.2, DIAL_PICK = [2, 3];
+const FOREST_BASE = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clearings: 1, cuts: 1, guns: 3 }, forest_fortified: { roads: 1, rides: 4, plantations: 1, clearings: 1, cuts: 2, guns: 7 }, clearing_village: { roads: 0, rides: 1, plantations: 0, clearings: 3, cuts: 2, guns: 2 },
+  airbase_forest_hidden: { roads: 2, rides: 2, plantations: 2, clearings: 1, cuts: 1, guns: 4 }, valley: { roads: 1, rides: 2, plantations: 1, clearings: 2, cuts: 1, guns: 3 } }; // (a copy of the generator's FOREST_BASE; tests/compose.mjs compares the two)
+const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 2), b[k] + 2]; o[t].guns = [Math.max(1, b.guns - 1), b.guns + 1]; } return o; };
+const DIALS = {
+  desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
+    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [] },
+  forest: { global: {}, seg: forestSeg(), int: ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'] },
+  winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
+    seg: { village: { treeK: [0.5, 1.7], floorW: [-2, 14] }, lake_valley: { treeK: [0.5, 1.7], floorW: [-4, 16] }, station_winter: { treeK: [0.5, 1.7], floorW: [-4, 16] }, airbase_snow: { treeK: [0.5, 1.7], floorW: [-4, 16] }, forest_conifer: { treeK: [0.5, 1.7], floorW: [-4, 16] } }, int: [] },
+};
+for (const id in DIALS) KITS[id].dials = DIALS[id];
+const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
+// The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
+function dialsFor(kit, base, segs) {
+  const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
+  if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
+  const want = Math.min(all.length, DIAL_PICK[0] + Math.floor(hash(base, 6001) * (DIAL_PICK[1] - DIAL_PICK[0] + 1))), pool = all.slice();
+  for (let i = 0; names.length < want; i++) names.push(pool.splice(Math.floor(hash(base, 6100 + i) * pool.length), 1)[0]);
+  names.sort();
+  const val = (rng, r, k) => { const v = r[0] + hash(base, rng) * (r[1] - r[0]); return kit.dials.int.includes(k) ? Math.round(v) : Math.round(v * 100) / 100; };
+  const global = {}; for (const k of names) if (kit.dials.global[k]) global[k] = val(6200 + all.indexOf(k), kit.dials.global[k], k);
+  const seg = segs.map((g, i) => { const T = kit.dials.seg[g.t]; if (!T) return null; const p = {}; for (const k of names) if (T[k]) p[k] = val(6300 + i * 16 + all.indexOf(k), T[k], k); return Object.keys(p).length ? p : null; });
+  return { names, global, seg };
+}
+
 /* Flavours (plan section 11.2): the Campaign's loop content on a composed list. 'plain' is the first pass; 'rank' the first loop's rank on the first pass's ground;
    'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
    (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
 const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
 const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
-function composeSortie(kitId, seed, sub, flavour, twist) {
+function composeSortie(kitId, seed, sub, flavour, twist, dials) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
-  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const dl = dials === 'on' ? dialsFor(kit, base, segs) : { names: [], global: {}, seg: segs.map(() => null) };
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
@@ -186,7 +225,7 @@ function composeSortie(kitId, seed, sub, flavour, twist) {
 
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
 const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {}, DAILY_PLAIN = {};
-/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 2, or a forced sortie). */
+/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 3, or a forced sortie). DAILY_PLAIN levels: 1 no dials, 2 also flavour plain, 3 also no twist. */
 const TWISTS = ['night', 'swarm', 'fixed', 'fog', 'elite', 'fast', 'nova'], TWIST_ORDER = TWISTS, TWIST_NAMES = { none: '', night: 'NIGHT RUN', fog: 'FOG', fixed: 'FIXED WEAPON', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM' };
 const FIXED_WEAPONS = ['S', 'L', 'H', 'A']; /* Scatter, Lance, Seeker, Arc: the day's own, from the seed */
 function twistFor(day) { return TWIST_ORDER[((day % TWIST_ORDER.length) + TWIST_ORDER.length) % TWIST_ORDER.length]; }
@@ -196,14 +235,14 @@ function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
   const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000), plain = DAILY_PLAIN[m[0]] | 0;
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain ? 'plain' : flavourFor(n), twist: plain > 1 ? 'none' : twistFor(day) };
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain > 1 ? 'plain' : flavourFor(n), twist: plain > 2 ? 'none' : twistFor(day), dials: plain ? 'off' : 'on' };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub, flavour, twist) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night; twist=none for no twist)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour, twist, dials) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night&dials=off; twist=none for no twist)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
