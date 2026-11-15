@@ -138,7 +138,8 @@ function check(kitId, S) {
   /* the ground dials: only the kit's own, inside their ranges, and none on a day without (S.dials 'off') */
   if (S.gen && S.gen.params && kit.dials) { const D = kit.dials, P = S.gen.params, ps = P.segs || [], have = [];
     ps.forEach((g, k) => { if (!g.p) return; const T = D.seg[g.t] || {}; for (const q in g.p) { have.push(q); const r = T[q]; if (!r) bad.push('dial ' + q + ' on ' + g.t + ' is not allowed'); else if (!(g.p[q] >= r[0] - 1e-9 && g.p[q] <= r[1] + 1e-9)) bad.push('dial ' + q + ' = ' + g.p[q] + ' on ' + g.t + ' outside ' + r.join('..')); } });
-    for (const q in D.global) if (P[q] !== undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
+    const loopSet = S.ground ? LOOP_PARAMS[kitId] || {} : {}; /* (what the loop ground sets itself, such as the forest's lakes, is not a dial) */
+    for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
   if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
@@ -183,19 +184,19 @@ const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b =
 const DIALS = {
   desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
     seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
-  forest: { global: {}, seg: forestSeg(), int: ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['clearings', 'plantations', 'cuts', 'guns'] },
+  forest: { global: { lakes: [1, 1] }, /* the first loop's lakes, one in each stretch of forest with room for it (a switch: drawn, it is on) */ seg: forestSeg(), int: ['lakes', 'roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['lakes', 'clearings', 'plantations', 'cuts', 'guns'] },
   winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
     seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [], strong: ['treeK', 'floorW'] },
 };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
-function dialsFor(kit, base, segs) {
+function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
   if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
-  const want = Math.min(all.length, DIAL_PICK[0] + Math.floor(hash(base, 6001) * (DIAL_PICK[1] - DIAL_PICK[0] + 1))), pool = all.slice();
+  const pool = all.filter(k => !(ground && LOOP_PARAMS[kit.id] && LOOP_PARAMS[kit.id][k] !== undefined)) /* (a loop ground already sets it) */, want = Math.min(pool.length, DIAL_PICK[0] + Math.floor(hash(base, 6001) * (DIAL_PICK[1] - DIAL_PICK[0] + 1)));
   for (let i = 0; names.length < want; i++) names.push(pool.splice(Math.floor(hash(base, 6100 + i) * pool.length), 1)[0]);
-  if (!names.some(k => kit.dials.strong.includes(k))) names[names.length - 1] = kit.dials.strong[Math.floor(hash(base, 6050) * kit.dials.strong.length)]; /* (swap the last pick for a strong dial: the count stays) */
+  const strong = kit.dials.strong.filter(k => pool.includes(k) || names.includes(k)); if (!names.some(k => strong.includes(k))) names[names.length - 1] = strong[Math.floor(hash(base, 6050) * strong.length)]; /* (swap the last pick for a strong dial: the count stays) */
   names.sort();
   const val = (rng, r, k) => { const v = r[0] + hash(base, rng) * (r[1] - r[0]); return kit.dials.int.includes(k) ? Math.round(v) : Math.round(v * 100) / 100; };
   const global = {}; for (const k of names) if (kit.dials.global[k]) global[k] = val(6200 + all.indexOf(k), kit.dials.global[k], k);
@@ -216,7 +217,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const dl = dials === 'on' ? dialsFor(kit, base, segs) : { names: [], global: {}, seg: segs.map(() => null) };
+    const dl = dials === 'on' ? dialsFor(kit, base, segs, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
     const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
