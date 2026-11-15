@@ -100,8 +100,12 @@ export default {
         const int = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v)) || 0));
         const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM daily_ratings WHERE player = ?1 AND created > ?2').bind(player, now - 86400000).first();
         if (recent && recent.n >= 40) return json({ error: 'Daily limit reached.' }, 429, origin);
-        await env.DB.prepare('INSERT INTO daily_ratings (player, date, cv, kit, sub, diff, plat, stars, score, dur, version, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON CONFLICT (player, date, cv) DO UPDATE SET stars = excluded.stars, diff = excluded.diff, score = excluded.score, dur = excluded.dur, version = excluded.version, created = excluded.created')
-          .bind(player, date, int(b.cv, 0, 99), kit, int(b.sub, 0, 99), int(b.diff, 0, 2), plat, stars, int(b.score, 0, 99999999), int(b.dur, 0, 86400), String(b.v || '').slice(0, 12), now).run();
+        const word = v => /^[a-z]{3,12}$/.test(String(v || '')) ? String(v) : null, twist = word(b.twist), flavour = word(b.flavour); // what was different that day (plan section 11); null from an older client
+        const vals = [player, date, int(b.cv, 0, 99), kit, int(b.sub, 0, 99), int(b.diff, 0, 2), plat, stars, int(b.score, 0, 99999999), int(b.dur, 0, 86400), String(b.v || '').slice(0, 12), now];
+        const upd = 'ON CONFLICT (player, date, cv) DO UPDATE SET stars = excluded.stars, diff = excluded.diff, score = excluded.score, dur = excluded.dur, version = excluded.version, created = excluded.created';
+        try { await env.DB.prepare('INSERT INTO daily_ratings (player, date, cv, kit, sub, diff, plat, stars, score, dur, version, created, twist, flavour) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) ' + upd).bind(...vals, twist, flavour).run(); }
+        catch (e) { if (!/no column|no such column/i.test(String(e && e.message))) throw e; // schema.sql not yet applied on the live database: keep the rating without the twist and flavour
+          await env.DB.prepare('INSERT INTO daily_ratings (player, date, cv, kit, sub, diff, plat, stars, score, dur, version, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ' + upd).bind(...vals).run(); }
         return json({ ok: true }, 200, origin);
       }
       return json({ error: 'not found' }, 404, origin);

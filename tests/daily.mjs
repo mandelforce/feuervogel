@@ -14,6 +14,9 @@
 //   4. nothing is left behind: a Campaign level flown afterwards in the same page plays as in a fresh page.
 //   6. the rating: after a Daily Sortie's results and the title, a 1 to 5 star question, once per date and version; a star is kept and (on a local build) held in
 //      app.rateLast instead of being sent; Skip and Escape ask nothing more and store nothing; a date already rated is not asked again.
+//   8. the twists (plan 11.1, 11.8): the draw in Node (rotation, no repeat, DAILY_PLAIN, the segment list unchanged); then in the game each of the seven on its own day and
+//      off on a day without it: the record, the banner, hit points, the ground's speed, the weapon, Novas and enemy shots, the dark, the fog, a Campaign level afterwards
+//      without it; a fast and a nova day saved and resumed exactly.
 //   5. the entry (phase 4): without any link, the Daily Sortie row in Settings (at the title only; it names the day's kit) opens the difficulty picker, and
 //      the pick starts that UTC day's sortie (also at 23:59 UTC); the title is as before (START, SCORES, trophy); the Daily Sortie's results screen shows the run's totals.
 import { chromium } from 'playwright';
@@ -184,6 +187,52 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
     ok(r.end === 'state:title' && r.bossDead !== undefined && r.bossDead !== null && !r.errs.length, `forest ${flavour}: flown to the end, boss dead, no errors (${r.end}${r.errs.length ? ', ' + r.errs[0] : ''})`); await page.close(); }
 }
 
+// ---------- 8. the twists (plan 11.1, 11.8): the draw, and each switch on its own day and off on every other ----------
+{ const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), N = 1100, D = []; for (let n = 0; n < N; n++) D.push(SC.dailySeed(dk(n)));
+  ok(SC.VERSION === 3 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
+  ok(D.every(d => SC.TWISTS.includes(d.twist)) && D.every((d, i) => !i || d.twist !== D[i - 1].twist), `${N} dates draw a twist each, never the same twist two days running`);
+  const byKit = {}; D.forEach(d => (byKit[d.kit] = byKit[d.kit] || []).push(d.twist));
+  ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (21 days), and meets all seven in them`);
+  ok(new Set(D.slice(0, 21).map(d => d.kit + ':' + d.twist)).size === 21, `any 21 days cover every kit x twist once (the flight gate's real-date window)`);
+  ok(SC.composeSortie('forest', 5, 0).twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'bogus').twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'night').twist === 'night', `a sortie without a twist says none; an unknown twist is none; a named one is kept`);
+  let same = true; for (const date of ['2026-12-01', '2026-12-02', '2026-12-03']) for (const kit of SC.KIT_ORDER) { const base = JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', 'none').segs); for (const t of SC.TWISTS) if (JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', t).segs) !== base) same = false; }
+  ok(same, `a twist never changes the segment list (3 dates x 3 kits x 7 twists)`);
+  const dd = '2026-12-03', d0 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 1; const p1 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 2; const p2 = SC.dailySeed(dd); delete SC.DAILY_PLAIN[dd];
+  ok(p1.flavour === 'plain' && p1.twist === d0.twist && p2.flavour === 'plain' && p2.twist === 'none' && SC.dailySeed(dd).twist === d0.twist, `DAILY_PLAIN: 1 makes the day plain and keeps its twist (${p1.twist}), 2 drops the twist too (${p2.twist})`);
+  ok(new Set(Array.from({ length: 200 }, (_, i) => SC.fixedWeapon(i * 7919))).size === 4, `the Fixed weapon day's gun is Scatter, Lance, Seeker or Arc, by the seed (200 seeds give all four)`);
+}
+const TWQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}', 'desert', undefined, 'plain', 'TWIST'); const S = run.sortie, o = { daily: S.daily, tw: twistOf(), scroll: SCROLL, sv: world.scrollV, wpn: player.wpn, bombs: run.bombs, hp: hpm(), banner: app.msg && app.msg.c ? app.msg.c[0] : null, msgA: app.msg && app.msg.a };
+  const ws = {}; for (let i = 0; i < 80; i++) ws[mkItem('W', 0, 0).w] = 1; o.ws = Object.keys(ws).sort().join('');
+  world.ebul.length = 0; for (let i = 0; i < 300; i++) eshot(100 + i % 50, 100 + (i * 7) % 90, 1.5, 1, 's'); o.nb = world.ebul.length; o.sp = o.nb ? Math.hypot(world.ebul[0].vx, world.ebul[0].vy) : 0; o.r = o.nb ? world.ebul[0].r : 0; o.big = world.ebul.filter(b => b.big).length; world.ebul.length = 0;
+  world.items.length = 0; world.items.push({ kind: 'B', x: player.x, y: player.y, t: 0, w: 'S' }); const b0 = run.bombs, s0 = run.score; SF.run(3); o.pick = [run.bombs - b0, run.score - s0];
+  let dMax = 0, sc = world.scroll; for (let c = 0; c < S.len * 2; c++) { world.scroll = sc + c * CH / 2; dMax = Math.max(dMax, fogDensity(S)); } o.fogMax = +dMax.toFixed(2); world.scroll = sc;
+  o.nightA = world.nightF; SF.run(400); o.night = +world.nightF.toFixed(2); let err = null; try { world.scroll = sc + Math.floor(S.len * 0.4) * CH; resetCtx(); render(); } catch (e) { err = String(e && e.message || e); } o.drawErr = err; o.errs = SF.R.errs.slice(0, 2);
+  startEnigma(2, true); o.after = { tw: twistOf(), scroll: SCROLL, hp: hpm(), ws: (() => { const w = {}; for (let i = 0; i < 80; i++) w[mkItem('W', 0, 0).w] = 1; return Object.keys(w).length; })() }; return JSON.stringify(o); })()`;
+{ const R = {}; for (const t of ['none', ...SC.TWISTS]) { const page = await freshPage(11); R[t] = JSON.parse(await peek(page, TWQ.replace('TWIST', t))); await page.close(); }
+  const B = R.none, C = SC.composeDaily(DAYS.desert, 'desert', 0, 'plain', 'fixed'), NAME = { night: 'NIGHT RUN', fog: 'FOG', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM', fixed: 'FIXED' };
+  ok(B.tw === '' && B.daily.twist === 'none' && B.banner === null && B.msgA === 'DAILY SORTIE', `a day with no twist: twistOf is empty, no twist line in the banner`);
+  for (const t of SC.TWISTS) { const r = R[t], o = x => x !== undefined;
+    ok(r.tw === t && r.daily.twist === t && r.daily.v === SC.VERSION && r.banner && r.banner.startsWith(NAME[t]) && r.msgA === 'DAILY SORTIE', `${t}: recorded in run.sortie.daily, and the banner names it (${r.banner})`);
+    ok(r.errs.length === 0 && r.drawErr === null, `${t}: ${400} frames and a drawn frame without errors${r.drawErr ? ': ' + r.drawErr : ''}`);
+    ok(Math.abs(r.hp / B.hp - ({ swarm: 0.7, elite: 1.5 }[t] || 1)) < 1e-9, `${t}: enemy hit points x${(r.hp / B.hp).toFixed(2)} (only swarm 0.7 and elite 1.5 change them)`);
+    ok(r.scroll === (t === 'fast' ? B.scroll * 1.2 : B.scroll) && r.sv === r.scroll, `${t}: the ground runs at ${r.scroll}${t === 'fast' ? ' (1.2 x ' + B.scroll + ')' : ' (the normal speed)'}`);
+    ok(t === 'fixed' ? r.wpn === SC.fixedWeapon(C.seed) && r.ws === r.wpn : r.wpn === 'S' && r.ws.length > 1, `${t}: ${t === 'fixed' ? 'the ship starts on ' + r.wpn + ' and every weapon pickup is ' + r.ws : 'starts on Scatter, pickups still vary (' + r.ws + ')'}`);
+    ok(t === 'nova' ? r.bombs === 6 && r.pick[0] === 0 && r.pick[1] >= 2000 : r.bombs === B.bombs && r.pick[0] === 1, `${t}: ${r.bombs} Novas at the start, a Nova pickup gives ${r.pick[0]} (${r.pick[1]} points)`);
+    ok(t === 'nova' ? r.nb >= 170 && r.nb <= 230 && Math.abs(r.sp / B.sp - 0.8) < 1e-9 && r.r === 3 && r.big === r.nb : r.nb === 300 && r.sp === B.sp && r.r === 2 && r.big === 0, `${t}: of 300 enemy shots ${r.nb} fly, at ${(r.sp / B.sp).toFixed(2)} of the speed, hit radius ${r.r}`);
+    ok(t === 'night' ? r.night > 0.95 : r.night < 0.05 && r.nightA === 0, `${t}: the dark ${t === 'night' ? 'comes (' + r.night + ')' : 'stays off (' + r.night + ')'}`);
+    ok(t === 'fog' ? r.fogMax > 0.8 : true, `${t}: ${t === 'fog' ? 'the fog thickens to ' + r.fogMax + ' somewhere along the level' : 'the fog check is only for fog'}`);
+    ok(r.after.tw === '' && r.after.scroll === B.scroll && r.after.ws > 1 && Math.abs(r.after.hp / R.none.after.hp - 1) < 1e-9, `${t}: a Campaign level afterwards has no twist (twist '${r.after.tw}', speed ${r.after.scroll}, hit points as ever)`); }
+}
+/* resume: fast (the speed is not in the snapshot) and nova (Novas, shots) saved mid-flight and loaded in a fresh page go on exactly, with the twist and the speed back */
+for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPage(21);
+  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}', 'forest', undefined, 'plain', '${tw}'); SF.human(8, 15); SF.run(2400); snapNow(); saveResume(); const rec = localStorage.getItem('starfall-resume');
+    const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ rec, samples }); })()`)); await A.close();
+  const B = await freshPage(77);
+  const G = JSON.parse(await peek(B, `(() => { SF.setMode('immortal'); SF.human(8, 15); store.set(KEY.resume, ${JSON.stringify(R.rec)}); resumeRun(loadResume()); for (let i = 0; i < 180; i++) update(); const o = { tw: twistOf(), scroll: SCROLL, bombs: run.bombs };
+    const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } o.samples = samples; return JSON.stringify(o); })()`)); await B.close();
+  let first = -1; for (let i = 0; i < Math.min(R.samples.length, G.samples.length); i++) if (R.samples[i] !== G.samples[i]) { first = i; break; }
+  ok(G.tw === tw && G.scroll === (tw === 'fast' ? 0.48 : 0.4) && first < 0 && R.samples.length === G.samples.length, `forest ${tw}: saved at frame 2400 and loaded in a fresh page: the twist (${G.tw}) and the speed (${G.scroll}) are back, ${G.samples.length} samples over 900 frames identical${first >= 0 ? ' (first difference at sample ' + first + ')' : ''}`); }
+
 // ---------- 6. the rating ----------
 { const page = await freshPage(11), q = code => peek(page, code).then(v => JSON.parse(v));
   const END = date => `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(60); run.score = 12345; endEnigmaLevel(); const o = document.getElementById('rateAsk').classList.contains('open'); return JSON.stringify({ state: app.state, open: o, info: document.getElementById('rateInfo').textContent, rate: app.rate && app.rate.date }); })()`;
@@ -191,7 +240,7 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
   const a = await q(END('2026-11-15'));
   ok(a.state === 'title' && a.open && a.rate === '2026-11-15' && a.info.includes('DESERT'), `the sortie ends at the title with the rating question (${a.state}, ${a.info})`);
   await page.click('#rateStars [data-n="4"]'); const b = await q(ST);
-  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
+  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
   const c = await q(END('2026-11-15')); ok(c.state === 'title' && !c.open, `the same date is not asked twice (${c.open})`);
   await peek(page, `app.rateLast = null, 0`);
   const d2 = await q(END('2026-11-16')); await page.click('#rateSkip'); const e = await q(ST);

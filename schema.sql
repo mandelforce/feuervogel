@@ -54,6 +54,12 @@ CREATE TABLE IF NOT EXISTS daily_ratings (
   dur INTEGER NOT NULL,
   version TEXT,
   created INTEGER NOT NULL,
+  twist TEXT,
+  flavour TEXT,
   UNIQUE (player, date, cv)
 );
+-- A live database made before composer v3 (twists, plan section 11) has no twist and flavour columns: run these two lines ONCE (SQLite has no IF NOT EXISTS for a column, so they are not part of the safe re-run).
+-- The Worker keeps working before that (it stores the rating without them); a rating can be read against what was different that day once they exist.
+-- ALTER TABLE daily_ratings ADD COLUMN twist TEXT;
+-- ALTER TABLE daily_ratings ADD COLUMN flavour TEXT;
 CREATE INDEX IF NOT EXISTS idx_ratings_date ON daily_ratings (date, kit);

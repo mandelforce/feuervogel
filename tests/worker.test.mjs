@@ -11,7 +11,7 @@ const PLAYER = 'p-0123456789abcdef0123';
 // A run that passes every check; each test changes one field.
 const goodRun = () => ({ player: PLAYER, name: 'ACE', mode: 'camp', plat: 'pc', diff: 1, score: 50000, stage: 3, conts: 0, dur: 600, version: '1.2.0' });
 
-function fakeDb({ recent = 0, today = 0 } = {}) {
+function fakeDb({ recent = 0, today = 0, noTwistCols = false } = {}) {
   const inserts = [];
   const prep = sql => ({
     bind: (...args) => ({
@@ -20,7 +20,7 @@ function fakeDb({ recent = 0, today = 0 } = {}) {
         return null;
       },
       all: async () => ({ results: [] }),
-      run: async () => { inserts.push(args); },
+      run: async () => { if (noTwistCols && /twist/.test(sql)) throw new Error('D1_ERROR: table daily_ratings has no column named twist'); inserts.push(args); },
     }),
   });
   return { db: { prepare: prep }, inserts };
@@ -194,6 +194,18 @@ test('rating: a good rating is stored once per player, date and version', async 
   assert.equal(r.status, 200); assert.equal(r.inserts.length, 1);
   const [player, date, cv, kit, sub, diff, plat, stars] = r.inserts[0];
   assert.deepEqual([player, date, cv, kit, sub, diff, plat, stars], [PLAYER, today(), 1, 'desert', 0, 1, 'mobile', 4]);
+});
+
+test('rating: the twist and the flavour of the day are stored with it, and only as words', async () => {
+  const r = await rate({ ...goodRating(), twist: 'night', flavour: 'loop' });
+  assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 14); assert.deepEqual(r.inserts[0].slice(12), ['night', 'loop']);
+  const old = await rate(goodRating()); assert.deepEqual(old.inserts[0].slice(12), [null, null]);
+  const bad = await rate({ ...goodRating(), twist: "x'; DROP", flavour: 'A'.repeat(40) }); assert.equal(bad.status, 200); assert.deepEqual(bad.inserts[0].slice(12), [null, null]);
+});
+
+test('rating: before schema.sql is applied the rating is kept without the twist and flavour', async () => {
+  const r = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank' }, { noTwistCols: true });
+  assert.equal(r.status, 200); assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 12); assert.equal(r.inserts[0][7], 4);
 });
 
 test('rating: stars 1 to 5 only', async () => {
