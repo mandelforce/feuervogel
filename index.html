@@ -4700,6 +4700,7 @@ function walk(kit, target, r) {
      int:    the dials that are counts (rounded).
    A day draws DIAL_PICK[0]..[1] of the kit's dials (or none: DIAL_NONE of the days, and every day listed in DAILY_PLAIN), and each segment that can take a drawn dial gets its own
    value, so two villages of one sortie differ. The draw has its own hash stream (6000 and up): the segment list, the encounters and the Wing do not read it. The ranges are
+   strong: the dials that changed the most of a frame in the game's contact sheets (plan 4.3); a day that draws dials draws at least one of them (the others, such as the forest's tracks or the desert's house mix, change little alone).
    what gate 2 and the flight gate were run on (tests/dials-probe.mjs); the generator clamps anything outside its own table (tools/citygen.js: *_DIALS). */
 const DIAL_NONE = 0.2, DIAL_PICK = [2, 3];
 const FOREST_BASE = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clearings: 1, cuts: 1, guns: 3 }, forest_fortified: { roads: 1, rides: 4, plantations: 1, clearings: 1, cuts: 2, guns: 7 }, clearing_village: { roads: 0, rides: 1, plantations: 0, clearings: 3, cuts: 2, guns: 2 },
@@ -4707,10 +4708,10 @@ const FOREST_BASE = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clea
 const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 2), b[k] + 2]; o[t].guns = [Math.max(1, b.guns - 1), b.guns + 1]; } return o; };
 const DIALS = {
   desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
-    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [] },
-  forest: { global: {}, seg: forestSeg(), int: ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'] },
+    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
+  forest: { global: {}, seg: forestSeg(), int: ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['clearings', 'plantations', 'cuts', 'guns'] },
   winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
-    seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [] },
+    seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [], strong: ['treeK', 'floorW'] },
 };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
@@ -4720,6 +4721,7 @@ function dialsFor(kit, base, segs) {
   if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
   const want = Math.min(all.length, DIAL_PICK[0] + Math.floor(hash(base, 6001) * (DIAL_PICK[1] - DIAL_PICK[0] + 1))), pool = all.slice();
   for (let i = 0; names.length < want; i++) names.push(pool.splice(Math.floor(hash(base, 6100 + i) * pool.length), 1)[0]);
+  if (!names.some(k => kit.dials.strong.includes(k))) names[names.length - 1] = kit.dials.strong[Math.floor(hash(base, 6050) * kit.dials.strong.length)]; /* (swap the last pick for a strong dial: the count stays) */
   names.sort();
   const val = (rng, r, k) => { const v = r[0] + hash(base, rng) * (r[1] - r[0]); return kit.dials.int.includes(k) ? Math.round(v) : Math.round(v * 100) / 100; };
   const global = {}; for (const k of names) if (kit.dials.global[k]) global[k] = val(6200 + all.indexOf(k), kit.dials.global[k], k);

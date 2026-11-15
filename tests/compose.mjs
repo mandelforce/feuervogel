@@ -93,6 +93,8 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
   ok(seg && enc, 'dials never change the segment list, the encounters or the Shadow Wing (3 kits x ' + N1 + ' seeds, dials on against off)');
   ok(off, 'dials off: no segment carries p and no dial is set globally');
   ok(range, 'every composed sortie, with dials and without, passes gate 1 (which checks each dial against its range)');
+  { let weak = 0, withD = 0, count = true; for (const k of kits) for (let s = 0; s < 400; s++) { const C = SC.composeSortie(k, (SC.hash(s, 6161) * 4294967296) | 0, 0); if (!C.dialNames.length) continue; withD++; if (!C.dialNames.some(d => SC.KITS[k].dials.strong.includes(d))) weak++; if (C.dialNames.length < SC.DIAL_PICK[0] || C.dialNames.length > SC.DIAL_PICK[1]) count = false; }
+    ok(withD > 0 && weak === 0 && count, 'a day that draws dials draws at least one strong dial, and still two or three in all (' + withD + ' days, ' + weak + ' without a strong one)'); }
   ok(some > N * (1 - SC.DIAL_NONE) * 0.85 && some < N * (1 - SC.DIAL_NONE) * 1.15, 'about ' + (100 - 100 * SC.DIAL_NONE) + ' % of days draw dials (' + some + ' of ' + N + ')');
   const every = kits.every(k => SC.dialNames(SC.KITS[k]).every(d => used[k + ':' + d])); ok(every, 'every dial of every kit is drawn on some day: ' + kits.map(k => k + ' ' + SC.dialNames(SC.KITS[k]).length).join(', '));
   /* gate 1 rejects what it should */
