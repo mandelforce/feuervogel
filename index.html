@@ -152,6 +152,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #diffAsk .dback{display:block;width:auto;margin:10px auto 0;padding:4px 8px;background:none;border:0;box-shadow:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8a84b4}#diffAsk .dback::before{content:'< '}#diffAsk .dback:hover{color:#fff0a0}
 @media (max-height:600px){#diffAsk .panel{padding:6px 10px 4px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu [data-d]{padding:4px 8px 4px 26px}#diffAsk .dmenu [data-d]::before{top:7px}#diffAsk .dextra{margin-top:8px}#diffAsk .dback{margin-top:4px;padding:2px 8px}}
 @media (prefers-reduced-motion: reduce){#diffAsk .dmenu [data-d]::before,#diffAsk .dsel button{animation:none!important}}
+#rateAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#rateAsk.open{display:grid}#rateAsk .panel{width:min(90%,340px)}#rateAsk .note{text-align:center;font-size:14px;color:#f2ecd8}#rateStars{display:flex;gap:6px;margin:12px 0 4px}#rateStars button{flex:1;font:28px/1 'StarFall Text',monospace;padding:6px 0 4px;background:#241f3c;color:#f4d050;border:2px solid #120e1a;box-shadow:inset 0 0 0 2px #6e62a8,0 3px 0 #120e1a;cursor:pointer}#rateStars button small{display:block;font-size:12px;color:#c8c0ec;margin-top:2px}#rateStars button:hover,#rateStars button:focus-visible{background:#352e58;outline:none;box-shadow:inset 0 0 0 2px #d0a020,0 3px 0 #120e1a}#rateAsk .lbrow{display:flex;gap:8px;margin-top:10px}#rateAsk .lbrow button{flex:1;padding:10px}
 #resumeAsk,#installAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open,#installAsk.open{display:grid}#resumeAsk .panel,#installAsk .panel{width:min(90%,340px)}#resumeAsk .note,#installAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow,#installAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button,#installAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
@@ -421,6 +422,15 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="lbrow"><button type="button" class="primary" id="resYes">Resume</button><button type="button" id="resNo">New game</button></div>
       </div>
     </div>
+    <div id="rateAsk" role="dialog" aria-modal="true" aria-labelledby="rateTitle">
+      <div class="panel">
+        <h2 id="rateTitle">Rate this sortie</h2>
+        <p class="note" id="rateInfo"></p>
+        <div id="rateStars" role="group" aria-label="Rating, 1 to 5 stars"><button type="button" data-n="1" aria-label="1 star">&#9733;<small>1</small></button><button type="button" data-n="2" aria-label="2 stars">&#9733;<small>2</small></button><button type="button" data-n="3" aria-label="3 stars">&#9733;<small>3</small></button><button type="button" data-n="4" aria-label="4 stars">&#9733;<small>4</small></button><button type="button" data-n="5" aria-label="5 stars">&#9733;<small>5</small></button></div>
+        <p class="note">1 = not for me, 5 = loved it</p>
+        <div class="lbrow"><button type="button" id="rateSkip">Skip</button></div>
+      </div>
+    </div>
     <div id="installAsk" role="dialog" aria-modal="true" aria-labelledby="insTitle">
       <div class="panel">
         <h2 id="insTitle">Play full screen</h2>
@@ -477,7 +487,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row"><span>Power saver (30 FPS)</span><span class="seg"><button type="button" id="sPower" aria-pressed="false">Off</button></span></div>
-        <div class="row"><span>Retro Run scanlines</span><span class="seg"><button type="button" id="sCrt" aria-pressed="false">Off</button></span></div>
+        <div class="row" id="sDailyRow"><span>Daily Sortie <i id="sDailyKit" style="font-style:normal;color:#fff0a0"></i></span><span class="seg"><button type="button" id="sDaily">Play</button></span></div>
         <details id="sSensRow"><summary>Sensitivity</summary>
           <div class="row"><label for="sSensMouse">Mouse</label><input type="range" id="sSensMouse" min="25" max="175" step="5"><output id="sSensMouseV"></output></div>
           <div class="row"><label for="sSensKey">Keyboard</label><input type="range" id="sSensKey" min="25" max="175" step="5"><output id="sSensKeyV"></output></div>
@@ -4517,12 +4527,17 @@ root.CityGen = CityGen;
 
    composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
-   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub }   the day is UTC, the kit by rotation, sub from DAILY_REROLL
+   composeSortie(kitId, seed, sub, flavour): flavour 'plain' (default), 'rank', 'variant' or 'loop' (section 11.2 of the plan): adds .flavour, .ground, .rank
+   composeSortie(kitId, seed, sub, flavour, twist): twist 'none' (default) or one of TWISTS (section 11.1): adds .twist. A twist never changes the segment list;
+     it is a rule or a look the game applies (index.html, twistOf()), so the same seed gives the same segments with or without it.
+   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub, flavour, twist }   the day is UTC, the kit by rotation, sub from DAILY_REROLL, the flavour by weight,
+     the twist by its own rotation (TWIST_ORDER: seven days, so one twist never comes two days running and a kit meets it once in 21 days); DAILY_PLAIN lists dates
+     the vetting made plainer (1: flavour plain; 2: flavour plain and no twist)
    composeDaily('YYYY-MM-DD') -> composeSortie of that day, with .date
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 1; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 3; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -4588,6 +4603,7 @@ const KITS = {
       airbase_snow: { len: [6, 8], max: 1, heat: 0.6, built: 0.13 },
       forest_conifer: { len: [5, 8], max: 2, heat: 0.3, built: 0.13 } },
     fixedBuilt: { open_sea_ice: 0.05, harbour_winter: 0.72, farmland_winter: 0.41, pass: 0.14 },
+    groundBuilt: { pass: 0.36 }, /* with the loop's ground (flavours variant and loop) the pass opens into a basin with a base in it: 33 % built in every plan (plan 11.6) */
     follows: {
       farmland_winter: ['village', 'lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
       village: ['lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
@@ -4664,15 +4680,21 @@ function walk(kit, target, r) {
   return seq;
 }
 
-function composeSortie(kitId, seed, sub) {
+/* Flavours (plan section 11.2): the Campaign's loop content on a composed list. 'plain' is the first pass; 'rank' the first loop's rank on the first pass's ground;
+   'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
+   (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
+const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
+const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
+function composeSortie(kitId, seed, sub, flavour, twist) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const params = Object.assign({}, kit.params, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
@@ -4680,19 +4702,25 @@ function composeSortie(kitId, seed, sub) {
 }
 
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
-const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {};
+const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {}, DAILY_PLAIN = {};
+/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 2, or a forced sortie). */
+const TWISTS = ['night', 'swarm', 'fixed', 'fog', 'elite', 'fast', 'nova'], TWIST_ORDER = TWISTS, TWIST_NAMES = { none: '', night: 'NIGHT RUN', fog: 'FOG', fixed: 'FIXED WEAPON', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM' };
+const FIXED_WEAPONS = ['S', 'L', 'H', 'A']; /* Scatter, Lance, Seeker, Arc: the day's own, from the seed */
+function twistFor(day) { return TWIST_ORDER[((day % TWIST_ORDER.length) + TWIST_ORDER.length) % TWIST_ORDER.length]; }
+function fixedWeapon(seed) { return FIXED_WEAPONS[Math.floor(hash(seed | 0, 4242) * FIXED_WEAPONS.length)]; }
+function flavourFor(n) { let x = hash(DAILY_SALT + 3, n), k = 0; for (; k < FLAVOURS.length - 1; k++) { x -= FLAVOUR_WEIGHT[FLAVOURS[k]]; if (x < 0) break; } return FLAVOURS[k]; } /* by weight, from the date alone */
 function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
-  const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000);
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0 };
+  const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000), plain = DAILY_PLAIN[m[0]] | 0;
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain ? 'plain' : flavourFor(n), twist: plain > 1 ? 'none' : twistFor(day) };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub) { // kitId, sub: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour, twist) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night; twist=none for no twist)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, KITS, KIT_ORDER, DAILY_REROLL, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4718,7 +4746,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.40'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.45'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4753,7 +4781,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv', chainBest: 'feuervogel-chainbest'
+  report: 'starfall-report', rated: 'starfall-rated', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv', chainBest: 'feuervogel-chainbest'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -6281,9 +6309,9 @@ function retroItem(it) { // weapon and Nova pickups as flashing capsules with th
   ctx.fillStyle = '#0a0a10'; ctx.fillRect(x - 4, y - 5, 9, 11);
   rText(nova ? 'N' : it.w, x - 2, y - 3, f ? RG_WHITE : RG_GOLD);
 }
-// CRT scanlines (Settings): an overlay over the game canvas with one dark line per game row, only in a Retro Run
+// CRT scanlines: an overlay over the game canvas with one dark line per game row, always on in a Retro Run (no setting; there was one until 1.2.6.40)
 function retroCrt() {
-  const on = RETRO.on && !!settings.crt;
+  const on = !!RETRO.on;
   if (!RETRO.crtEl) { if (!on) return; const d = document.createElement('div'); d.id = 'crt'; d.setAttribute('aria-hidden', 'true'); cv.parentNode.insertBefore(d, cv.nextSibling); RETRO.crtEl = d; }
   const el = RETRO.crtEl, key = on ? [cv.offsetLeft, cv.offsetTop, cv.offsetWidth, cv.offsetHeight].join(',') : 'off';
   if (key === RETRO.crtKey) return; RETRO.crtKey = key;
@@ -10509,7 +10537,8 @@ const feel = { shake: 0, flashFx: 0, bombFx: 0, bombX: 0, bombY: 0, hitStop: 0, 
 
 const maxCont = () => DIFF.conts[run.diff]; // Easy gets a third continue; scores are submitted with at most 2 (the Worker rejects more, and only 0 earns the star)
 hi = +store.get(KEY.hi) || 0;
-const SCROLL = 0.4;
+const SCROLL0 = 0.4; let SCROLL = SCROLL0; /* (the ground's speed; the Daily Sortie's twist Fast scroll runs it 20 % faster: scrollFor, set at every start and resume) */
+const scrollFor = d => d && d.twist === 'fast' ? SCROLL0 * 1.2 : SCROLL0;
 world.scrollV = SCROLL; world.scrollTarget = SCROLL;
 const STAGE_NAMES = ['CROSS THE CHANNEL', 'THE WINTER LINE', 'SEA OF SAND', 'THE LONG NIGHT', 'THE IRON FOREST', 'THE BURNING CITY'];
 
@@ -10586,7 +10615,7 @@ for (let i = 0; i < 26; i++) glints.push({ x: rnd(0, W), y: rnd(0, H), life: (Ma
 
 function saveHi() {
   if (app.tut) return; store.set(KEY.hi, Math.floor(hi)); }
-function showMsg(a, b, dur) { app.msg = { a, b, t: dur }; }
+function showMsg(a, b, dur, c) { app.msg = { a, b, t: dur, c }; } /* c: [name, hint], a Daily Sortie's twist (drawn under the second line) */
 
 let drandS = 1;
 function drand() { drandS = (drandS + 0x6D2B79F5) | 0; let t = Math.imul(drandS ^ (drandS >>> 15), 1 | drandS); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
@@ -10760,11 +10789,11 @@ function loopSeq(seq, seed, level) {
 }
 function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.composeSortie, the Daily Sortie): its segments, encounters and seed take the place of the level's own; the level lends its boss, theme, art and rules. Without C nothing here differs from before.
   if (C) seed = C.base;
-  const variant = C ? 0 : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
-  const winter5 = !C && level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const variant = C ? (C.ground && level === 2 ? 1 : 0) /* (a flavoured Daily Sortie, 'variant' or 'loop': the loop's ground: the generator's params come with C.gen, the game's side is these flags) */ : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
+  const winter5 = C ? !!C.ground && level === 5 : level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const haze6 = !C && level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
-  const autumn4 = !C && level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
+  const autumn4 = C ? !!C.ground && level === 4 : level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
   const fly = !C && one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = C ? C.segs.map(g => [g.t, g.n]) /* (whole chunks that add up to C.len, so the scaling below leaves them as they are) */ : fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = C ? C.len : ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
@@ -10783,7 +10812,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain', twist: C.twist || 'none' } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -10938,15 +10967,46 @@ function resetTerrainState() {
 // What a sortie is saved as and rebuilt from: {level, seed} for a Campaign level, as ever; a Daily Sortie adds {daily} (the composer's kit, seed, sub-seed and version).
 // sortieOf gives null when the composer's version is no longer the saved one (the sortie can't be made again, so that run can't be resumed).
 function sortieRef(S) { return S.daily ? { level: S.level, seed: S.seed, daily: Object.assign({}, S.daily) } : { level: S.level, seed: S.seed }; }
-function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub); C.date = d.date || null; return C; }
+function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub, d.flavour, d.twist); C.date = d.date || null; return C; }
 function sortieOf(ref) { if (!ref.daily) return buildSortie(ref.level, ref.seed); const C = dailyCompose(ref.daily); return C ? buildSortie(C.level, 0, C) : null; }
 /* The Daily Sortie (docs/daily-sortie-plan.md): one composed level, the same for every player on a UTC day. It borrows a Campaign level's boss, theme, art and
    timetable (run.sortie.level) and flies its own segments (run.sortie.daily, run.sortie.compose). It never counts (not ranked: no board, no best, no loop, no
    play data) and ends at the title after its results. For now it is reached only by the test link on a local build: ?daily=2026-11-15 (START then flies that
    day's sortie), with &kit=forest and &sub=3 to force a kit and a sub-seed. */
-function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub') }; }
-function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
-function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
+function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub'), flavour: q.get('flavour') || undefined, twist: q.get('twist') || undefined }; }
+function startDaily(dateKey, kitId, sub, flavour, twist) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub, flavour, twist)); }
+/* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
+function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
+/* The rating (owner, 2026-11-15): after a Daily Sortie's results and the title, one question, 1 to 5 stars, once per date and composer version on this device.
+   It is kept here (KEY.rated) and sent to the Worker (/rate) only with Share play data on, like the run reports; a local build sends nothing (app.rateLast). */
+function ratedMap() { return store.getJSON(KEY.rated, {}) || {}; }
+function askRating(info) {
+  if (!info || !info.date || ratedMap()[info.date + ':' + info.cv]) return;
+  app.rate = info; document.getElementById('rateInfo').textContent = info.date + '  ' + String(info.kit).toUpperCase() + '. How much did you like this level?';
+  document.getElementById('rateAsk').classList.add('open'); const b = document.querySelector('#rateStars [data-n="3"]'); if (b) b.focus();
+}
+function closeRating() { document.getElementById('rateAsk').classList.remove('open'); app.rate = null; }
+function sendRating(n) {
+  const info = app.rate; closeRating(); if (!info) return;
+  const m = ratedMap(); m[info.date + ':' + info.cv] = n; const keys = Object.keys(m); if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete m[k]; store.setJSON(KEY.rated, m);
+  const p = { player: lbPlayer(), v: VERSION, plat: LB_PLAT, date: info.date, kit: info.kit, sub: info.sub, cv: info.cv, twist: info.twist || 'none', flavour: info.flavour || 'plain', diff: info.diff | 0, score: info.score | 0, dur: info.dur | 0, stars: n };
+  if (LB_TEST) { app.rateLast = p; return; }
+  if (!LB_URL || settings.share === false) return;
+  const body = JSON.stringify(p);
+  try { if (navigator.sendBeacon && navigator.sendBeacon(LB_URL + '/rate', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+  fetch(LB_URL + '/rate', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+}
+for (const b of document.querySelectorAll('#rateStars [data-n]')) b.addEventListener('click', () => sendRating(+b.dataset.n));
+document.getElementById('rateSkip').addEventListener('click', closeRating);
+document.getElementById('rateAsk').addEventListener('pointerdown', e => e.stopPropagation());
+function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
+/* The Daily Sortie's twist (plan section 11): '' on every other run. It is read from the sortie's daily record, so a resumed run has it too. Each switch asks twistOf() where it acts. */
+const TWIST_HP = { '': 1, swarm: 0.7, elite: 1.5, night: 1, fog: 1, fixed: 1, fast: 1, nova: 1 };
+function twistOf() { const d = run.sortie && run.sortie.daily; return d && d.twist && d.twist !== 'none' ? d.twist : ''; }
+const TWIST_HINT = { night: 'THE LIGHTS ARE OUT', fog: 'LOW VISIBILITY', fixed: 'ONE GUN, THE WHOLE SORTIE', swarm: 'WEAKER ENEMIES', elite: 'TOUGHER ENEMIES', fast: 'THE LAND FLIES FASTER', nova: 'SIX NOVAS, BIG SLOW BULLETS' }, WPN_NAME = { S: 'SCATTER', L: 'LANCE', H: 'SEEKER', A: 'ARC' };
+function twistBanner() { const t = twistOf(); return t ? [t === 'fixed' ? 'FIXED: ' + WPN_NAME[fixedWpn()] : SortieCompose.TWIST_NAMES[t], TWIST_HINT[t]] : undefined; }
+function fixedWpn() { return SortieCompose.fixedWeapon(run.sortie.daily.seed); }
+function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; if (C.twist === 'fixed') { player.wpn = fixedWpn(); if (p2) p2.wpn = player.wpn; } if (C.twist === 'nova') run.bombs = Math.max(run.bombs, 6); world.trainId = 0; world.snowF = world.dustF = world.nightF = 0; world.birdCd = 300; /* (the weather's fade-in and the birds' timer start as in a fresh page: they draw from the sim stream, so what an earlier flight left behind changed the next sortie) */ if (C.rank) run.loop = rankFor(C.level + 6); } /* (the flavours 'rank' and 'loop': the first loop's rank, nothing else of a loop: run.loops and run.stage stay) */
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
   bossJump();
@@ -10971,7 +11031,7 @@ function startRetro() { setRetroArt(true); startAt(1); run.retro = true; run.ran
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
 const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
 function endEnigmaLevel() {
-  if (run.sortie && run.sortie.daily) { stopMusic(); toTitle(); return; } // a Daily Sortie is one level: after its results, the title
+  if (run.sortie && run.sortie.daily) { const d = run.sortie.daily, info = { date: d.date, kit: d.kit, sub: d.sub | 0, cv: d.v, twist: d.twist || 'none', flavour: d.flavour || 'plain', diff: run.diff, score: run.score, dur: rrSec(run.frames) }; stopMusic(); toTitle(); askRating(info); return; } // a Daily Sortie is one level: after its results, the title, then the rating
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
@@ -11002,7 +11062,7 @@ function startTutorial() {
   run.start = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof app.panelPaused !== 'undefined' && app.panelPaused) { app.panelPaused = false; app.paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'rateAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof app.panelPaused !== 'undefined' && app.panelPaused) { app.panelPaused = false; app.paused = false; } }
 function tutSpawn(o) { world.enemies.push(o); app.tut.ids.push(o); return o; }
 function tutAlive() { return app.tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { app.tut.step++; app.tut.t = 0; app.tut.ids = []; }
@@ -11122,6 +11182,7 @@ function campSeed(level, lp, dailySeed) { // dailySeed: a Daily Sortie's own see
 }
 function startAt(n, keepEndless, sortieLevel, loops, composed) { // composed: a Daily Sortie's composed level (startComposed) // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
+  SCROLL = scrollFor(composed); /* (before newGame: it starts the world at this speed) */
   if (!keepEndless) run.endless = false;
   const lp = sortieLevel ? Math.max(0, loops | 0) : 0; // (only the Campaign's levels loop)
   newGame(lp); run.start = run.endless ? 1 : n; run.diff = settings.diff; run.loops = lp;
@@ -11132,7 +11193,7 @@ function startAt(n, keepEndless, sortieLevel, loops, composed) { // composed: a 
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  if (run.sortie && run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase(), 170); else
+  if (run.sortie && run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase() + ({ rank: '  HARD', variant: '  LOOP GROUND', loop: '  LOOP' }[run.sortie.daily.flavour] || ''), 170, twistBanner()); else
   showMsg((run.sortie ? 'LEVEL ' + run.sortie.level : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
@@ -11151,7 +11212,7 @@ function setDiffView(prac) {
   const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign, 'retro': the old campaign
   document.getElementById('dStage').hidden = !prac; document.getElementById('dSeed').hidden = !prac;
   document.getElementById('dExtra').hidden = !camp || prac;
-  document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : 'Endless';
+  document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : app.diffNext.kind === 'daily' ? 'Daily Sortie' : 'Endless';
   document.getElementById('dStageLbl').textContent = 'Level';
   if (prac) {
     document.querySelector('#dStage .dsel').classList.add('eni');
@@ -11175,6 +11236,7 @@ function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open P
   if (kind === 'retro' && !RETRO.S) setTimeout(() => { if (!RETRO.S) buildRetroArt(); }, 60); // (the retro art is built while the player picks, not when the run starts)
   setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
+  if (kind === 'daily') { const d = dailyToday(); app.diffNext.date = d.date; const note = document.getElementById('dNote'); note.textContent = d.date + ' UTC: ' + d.kit.toUpperCase() + '. One level, the same for everyone today. It does not count for the board.'; note.classList.add('prac'); }
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
 }
@@ -11671,7 +11733,7 @@ for (const [id, key] of [['lbPlat', 'plat'], ['lbDiffSeg', 'diff'], ['lbPeriod',
 lbEl('lbPanel').addEventListener('pointerdown', e => { app.lbDown = true; e.stopPropagation(); });
 lbEl('lbPanel').addEventListener('click', e => { if (e.detail > 0 && !app.lbDown) { e.stopPropagation(); e.preventDefault(); } }, true); // same ghost-click guard as #diffAsk
 
-function toTitle() { abortEnding(); run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null; app.msg = null; app.cont = 0; player = null;
+function toTitle() { abortEnding(); run.enigma = 0; setLook(0); app.shipPick = false; clearResume(); if (app.state === 'play') rrSend('quit'); app.rr = null; if (app.tut) { app.tut = null; world.quiet = false; } SCROLL = SCROLL0; world.scrollTarget = SCROLL; app.results = null; props.length = 0; towerRows.clear(); towerCells.clear(); app.state = 'title'; world.enemies = []; world.ebul = []; world.shots = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null; app.msg = null; app.cont = 0; player = null;
   if (run.sortie) { run.sortie = null; world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-Math.floor(world.scroll) + H) / CH) - 2; } setEnigmaArt(false); if (app.retroNext) { app.retroNext = false; openDiff('retro', 1); } } // the title keeps scrolling: rebuild it without the sortie (app.retroNext: the ending's Retro Run button asked for its picker)
 function doContinue() {
   if (app.cont <= 0 || !player) return;
@@ -11824,6 +11886,7 @@ function snapApply(S) { // put a decoded snapshot into the running game (the sta
   for (const k of Object.keys(S.world)) world[k] = S.world[k];
   Object.assign(run, S.run);
   if (S.sortie) { run.sortie = sortieOf(S.sortie); Object.assign(run.sortie, S.sortie.state); } else run.sortie = null;
+  SCROLL = scrollFor(run.sortie && run.sortie.daily);
   player = S.player; p2 = S.p2 && p2Mode() !== 'off' ? S.p2 : null;
   const dh = H / S.H; if (dh !== 1) for (const q of [player, p2]) if (q) { q.y = clamp(q.y * dh, 18, H - 14); if (q.ly !== undefined) q.ly = q.y; if (q.dr) for (const d of q.dr) d.y = q.y + 7; }
   Object.assign(feel, S.feel);
@@ -11840,6 +11903,7 @@ function resumeRun(r) {
   run.endless = !!r.endless; settings.diff = r.diff;
   if (r.sortie && r.sortie.daily && r.sortie.daily.v !== SortieCompose.VERSION) return; // (a Daily Sortie of another composer version can't be made again: no resume)
   const lp = r.sortie && !r.sortie.daily && r.sortie.seed >= CAMP_SEED && r.sortie.seed < CAMP_SEED + 100 ? r.sortie.seed - CAMP_SEED : 0; // (the loop is in the level's seed)
+  SCROLL = scrollFor(r.sortie && r.sortie.daily);
   newGame(lp); run.loops = lp; run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
   if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = sortieOf(r.sortie); campSeed(r.sortie.level, lp, run.sortie.daily ? run.sortie.seed : undefined); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
   setEnigmaArt(!!run.sortie); run.ranked = !!r.ranked; run.retro = !!r.retro;
@@ -11904,7 +11968,9 @@ function eshot(x, y, a, sp, kind = 's') {
   if (world.ebul.length > 420 || feel.bombFx > 20) return;
   const sk = DIFF.skip[settings.diff];
   if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && (rsObj && rsObj.rs0 !== undefined ? (rsObj.sn = (rsObj.sn | 0) + 1) : ++eshotN) % sk === 0) return; // (the Campaign: counted per enemy, so shooting one doesn't change which of another's shots are left out)
-  world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: kind === 'B' ? 3 : 2, kind, a });
+  const nv = twistOf() === 'nova' && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket'; /* Nova storm (the heavy bullets): a third of the bullets are not fired, the rest are slower and bigger (the hit circle and the halo, not the sprite) */
+  if (nv) { if ((((gf * 7 + Math.round(x * 3) + Math.round(y)) % 3) + 3) % 3 === 0) return; sp *= 0.8; }
+  world.ebul.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: (kind === 'B' ? 3 : 2) * (nv ? 1.5 : 1), kind, a, big: nv ? 1 : undefined });
 }
 function flakShot(x, y, spread = 1) {
   if (!hasT()) return;
@@ -11953,7 +12019,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
   if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r) || flyLow()) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
-function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff]; }
+function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * TWIST_HP[twistOf()]; } /* (the Daily Sortie's twists Swarm day and Elite day: hit points only, plan 11.8) */
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
   setPos(x, y); boomInner(x, y, size, layer); SPOS = null;
@@ -13964,7 +14030,8 @@ function drawResultsBody() {
   const r = app.results;
   ctx.fillStyle = 'rgba(14,10,24,0.72)'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 58, W - 24, 1); ctx.fillRect(12, 218, W - 24, 1);
-  textO('STAGE ' + stageLabel(run.stage) + ' CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a');
+  if (run.sortie && run.sortie.daily) textO('DAILY CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a'); else textO('STAGE ' + stageLabel(run.stage) + ' CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a');
+  if (run.sortie && run.sortie.daily) textS((run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase(), W / 2, p2 ? 62 : 49, '#a8f6dc', 1, 'center', '#4ccfae');
   if (p2) scoreStrip(47, 16, run.score - run.score2, run.score2);
   r.lines.forEach((l, i) => {
     if (i >= r.shown) return;
@@ -13993,9 +14060,10 @@ function drawResultsBody() {
     }
     if (r.awarded > 0) textS('+' + r.awarded, W - 28 - (r.awarded - 1) * 30 - 18, 270, '#fff0a0', 1, 'right', '#d0a020');
   }
+  if (r.done && run.sortie && run.sortie.daily) { textS('SORTIE SCORE ' + run.score + (p2 ? '  (1P ' + (run.score - run.score2) + ', 2P ' + run.score2 + ')' : '') + '  LIVES ' + run.lives, W / 2, 284, '#ffffff', 1, 'center', '#c4c9ce'); } /* the run's totals; a Daily Sortie counts nowhere */
   if (r.done && r.awarded >= (r.reward || 0) && (gf >> 4) & 1) textS('TAP TO CONTINUE', W / 2, 298, '#ffffff', 1, 'center', '#c4c9ce');
 }
-function mkItem(kind, x, y) { const ws = run.stage >= 3 ? ['S', 'L', 'H', 'A'] : ['S', 'L', 'H']; return { kind, x, y, t: 0, w: ws[(Math.random() * ws.length) | 0] }; }
+function mkItem(kind, x, y) { const ws = run.stage >= 3 ? ['S', 'L', 'H', 'A'] : ['S', 'L', 'H'], w = ws[(Math.random() * ws.length) | 0]; return { kind, x, y, t: 0, w: twistOf() === 'fixed' ? fixedWpn() : w }; } /* (Fixed weapon: every weapon pickup is the day's weapon, so it only raises the tier; the random draw is still made, so nothing else moves) */
 
 /* ================= AI ================= */
 function blockedAhead(e, hd) {
@@ -16716,7 +16784,7 @@ function p2Pickups(q) {
       sfx('drone'); checkExtend(); world.items.splice(i, 1); continue;
     }
     let psnd = null; // as for player 1: a Nova (stock after it, 0 when full) or a weapon [tier, step, swap]
-    if (it.kind === 'B') { if (run.bombs2 >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); psnd = 0; } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); psnd = run.bombs2; } }
+    if (it.kind === 'B') { if (run.bombs2 >= 6 || twistOf() === 'nova') { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(2, 'spill'); psnd = 0; } else { run.bombs2++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(2, 'nova'); psnd = run.bombs2; } }
     else {
       if (it.w === q.wpn) { if (q.lvl < 4) { q.lvl++; startGlow(2, it.w, null, q.lvl); psnd = [q.lvl, 0, 0]; } else if ((q.sup || 0) < SUP_MAX) { superStep(q, 2, it); psnd = isSup(q) ? [5, 0, 0] : [4, q.sup, 0]; } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(2, it.w, null, 5); if (isSup(q)) q.supT = SUP_TIME; psnd = [6, 0, 0]; } } else { startGlow(2, it.w, q.wpn, q.lvl); q.wpn = it.w; q.sup = 0; q.supT = 0; psnd = [Math.min(q.lvl, 4), 0, 1]; }
       label(it.x, it.y - 8, WPN[it.w].name + ' ' + (isSup(q) ? 'SUPER' : q.lvl + (q.sup || 0)));
@@ -17086,7 +17154,7 @@ function targetPos(e) {
 }
 
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } const tb = document.getElementById('tutBtns'); return tb && tb.classList.contains('on') && app.tut ? tb : null; } // (the tutorial's own difficulty buttons count as a dialog)
+function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'rateAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } const tb = document.getElementById('tutBtns'); return tb && tb.classList.contains('on') && app.tut ? tb : null; } // (the tutorial's own difficulty buttons count as a dialog)
 // Menus by keyboard and controller: the highlight (the focus) starts on the saved difficulty / Resume, the arrows and the D-pad move it to the nearest button in that direction, Enter / Space / A press it
 const menuItems = dlg => [...dlg.querySelectorAll('button, input')].filter(el => el.offsetParent !== null && !el.disabled);
 function menuDefault(dlg) {
@@ -17208,7 +17276,7 @@ function update() {
   for (const g of glints) { g.y += world.scrollV; g.life--; if (g.life <= 0 || g.y > H) { g.x = rnd(0, W); g.y = rnd(0, H); g.life = (rnd(30, 70)) | 0; } }
   {
     const thS = info(-Math.floor((H / 2 - Math.floor(world.scroll)) / CH)).th;
-    world.nightF += ((thS === 3 ? 1 : 0) - world.nightF) * 0.01; world.snowF += ((thS === 1 ? 1 : 0) - world.snowF) * 0.01; world.dustF += ((thS === 2 ? 1 : 0) - world.dustF) * 0.01;
+    world.nightF += ((thS === 3 || twistOf() === 'night' ? 1 : 0) - world.nightF) * 0.01; /* (Night run: the dark of level 3 on any kit's ground) */ world.snowF += ((thS === 1 ? 1 : 0) - world.snowF) * 0.01; world.dustF += ((thS === 2 ? 1 : 0) - world.dustF) * 0.01;
     const S2 = wx2On(), fv = S2 ? 0.7 + wx2At(S2).d + world.gustK * 2 : 1; // level 2: the flecks speed up with the dust and the gusts
     for (const f of flakes) {
       if (world.snowF > world.dustF) { f.y += 0.4 + f.z * 0.9; f.x += Math.sin(gf * 0.02 + f.z * 9) * 0.3 - 0.1; }
@@ -17470,7 +17538,7 @@ function update() {
         }
         if (app.tut && (it.kind === 'B' || it.kind === 'T')) app.tut.got++;
         let psnd = null; // the pickup's sound: a Nova (stock after it, 0 when full) or a weapon [tier, step, swap]
-        if (it.kind === 'B') { if (run.bombs >= 6) { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); psnd = 0; } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); psnd = run.bombs; } } // (a full stock turns the Nova into 2000 points)
+        if (it.kind === 'B') { if (run.bombs >= 6 || twistOf() === 'nova') { addScore(2000); label(it.x, it.y - 8, '2000'); startFx(1, 'spill'); psnd = 0; } else { run.bombs++; addScore(500); label(it.x, it.y - 8, 'NOVA'); startFx(1, 'nova'); psnd = run.bombs; } } // (a full stock turns the Nova into 2000 points)
         else {
           if (app.tut) app.tut.got++;
           if (it.w === p.wpn) { if (p.lvl < 4) { p.lvl++; startGlow(1, it.w, null, p.lvl); psnd = [p.lvl, 0, 0]; } else if ((p.sup || 0) < SUP_MAX) { superStep(p, 1, it); psnd = isSup(p) ? [5, 0, 0] : [4, p.sup, 0]; } else { addScore(1000); label(it.x, it.y - 22, '1000'); startGlow(1, it.w, null, 5); if (isSup(p)) p.supT = SUP_TIME; psnd = [6, 0, 0]; } } else { startGlow(1, it.w, p.wpn, p.lvl); p.wpn = it.w; p.sup = 0; p.supT = 0; psnd = [Math.min(p.lvl, 4), 0, 1]; }
@@ -18572,6 +18640,26 @@ function drawOvercast() {
     const nf = P[11] * 5 * G.fog; for (let i = 0; i < Math.ceil(nf); i++) spot(lx, 'mist', i + 8, 1.9, Math.min(1, nf - i) * 0.9, 0.03, 0.12); });
   if (P[12] > 0.05) { const sm = ovcCfg(S).smoke; ovcPass({ r: sm[0], g: sm[1], b: sm[2], atop: 0.8 }, 0.5 * P[12], lx => { for (let i = 0; i < 3; i++) spot(lx, 'mist', i + 20, 1.1, 0.9, 0.05, 0.14); }); } /* smoke (the fortified forest's guns; level 5's station), drifting */
 }
+/* The Daily Sortie's twist Fog (plan 11.1): banks of fog over the ground on any kit's ground, tinted for the climate (desert: a sand haze). It is a function of the scroll and the frame counter only (nothing seeded, nothing saved, so a resume shows the same), drawn over the ground and the ground units and under everything that flies, the bullets and the HUD:
+   threats stay readable, targets on the ground go soft. The density comes and goes along the level (stretches of thin haze and of heavy fog) and is gone at the boss. */
+const FOG_TINT = { desert: [226, 204, 158], forest: [170, 186, 178], winter: [228, 234, 242] };
+let fogSprC = null;
+function fogSprite() { if (fogSprC) return fogSprC; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return (fogSprC = c); }
+function fogDensity(S) { /* 0 to 1 at the middle of the screen: the stretches */
+  const c = -(H / 2 - world.scroll) / CH - world.stageBaseP, ph = (S.daily.seed & 1023) / 1023 * TAU, d = 0.5 + 0.34 * Math.sin(c * 0.5 + ph) + 0.22 * Math.sin(c * 0.19 + ph * 2.3);
+  return clamp((d - 0.22) / 0.55, 0, 1) * clamp((S.len - 1 - c) / 2, 0, 1);
+}
+function drawFogTwist() {
+  const S = run.sortie; if (!S || !S.daily || lowFX) return; const d = fogDensity(S); if (d < 0.02) return;
+  const t = FOG_TINT[S.daily.kit] || FOG_TINT.forest, sp = fogSprite(), sc = Math.floor(world.scroll), col = 'rgb(' + t[0] + ',' + t[1] + ',' + t[2] + ')';
+  ctx.globalAlpha = 0.34 * d; ctx.fillStyle = col; ctx.fillRect(-8, -8, W + 16, H + 16);
+  ctx.globalAlpha = 0.62 * d; for (let k = 0; k < 12; k++) { /* the banks ride the ground a little slower and drift sideways */
+    const per = H + 240, y = (((k * 97 + sc * 0.8) % per) + per) % per - 120, x = (k * 53 + 40 * Math.sin(gf * 0.004 + k * 1.7) + ((k * 37) % 5) * 70) % (W + 120) - 60, r = 70 + (k % 4) * 22;
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogTint(t), 0, 0, 128, 128, Math.round(x - r), Math.round(y - r * 0.8), r * 2, r * 1.6); ctx.restore(); }
+  ctx.globalAlpha = 1;
+}
+const fogTints = {};
+function fogTint(t) { const key = t.join(','); if (fogTints[key]) return fogTints[key]; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.drawImage(fogSprite(), 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgb(' + key + ')'; g.fillRect(0, 0, 128, 128); return (fogTints[key] = c); }
 function drawAutumnLight() { /* level 4's first loop: the light changes along the level. Overcast late autumn over the cliffs and the forest (a cool, slightly dim light, a pale veil from above), warming through the middle into a low golden sun from the upper right toward the valley and the castle. A multiply tint, a soft glow and a vignette over the ground and the planes; bullets, the ship's effects and the HUD are drawn after it. Visual only. */
   const p = moonP(H / 2 - world.scroll), g = clamp((p - 0.4) / 0.4, 0, 1), k = g * g * (3 - 2 * g), L = (a, b) => Math.round(a + (b - a) * k);
   ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgb(${L(232, 255)},${L(244, 228)},${L(255, 188)})`; ctx.fillRect(0, 0, W, H); /* overcast: 0.91 0.96 1.0; golden: 1.0 0.89 0.74 */
@@ -19217,6 +19305,7 @@ function renderMain() {
   } }
   if (world.rainF > 0.02) { ctx.fillStyle = `rgba(18,24,34,${0.2 * world.rainF})`; ctx.fillRect(-8, -8, W + 16, H + 16); }
   if (world.nightF > 0.02) drawNight();
+  if (twistOf() === 'fog') drawFogTwist();
   if (run.sortie && run.sortie.timeOfDay === 'morning') drawDawn();
   if (run.sortie && run.sortie.moon) drawMoonGlow();
   if (run.sortie && run.sortie.haze) drawHazeLight();
@@ -19260,6 +19349,7 @@ function renderMain() {
     ctx.globalAlpha = (world.nightF > 0.5 ? 0.3 : 0.5) + 0.15 * crowd;
     for (const b of world.ebul) if (b.kind !== 'mortar' && b.kind !== 'zone') dk(b.x, b.y, (b.kind === 'mega' ? 6 : b.r || 2) + 2.5, halo);
     ctx.globalAlpha = 1; }
+  { let hv = false; for (const b of world.ebul) if (b.big) { if (!hv) { hv = true; ctx.globalAlpha = 0.6; } dk(b.x, b.y, b.r + 1.5, '#ffb070'); } if (hv) ctx.globalAlpha = 1; } /* (Nova storm: the heavy bullets glow orange under their sprite) */
   for (const b of world.ebul) {
     if (b.kind === 'B') spr(SPR.ebB[fr], b.x, b.y);
     else if (b.kind === 'shell') spr(SPR.shell[dirIdx(b.a)], b.x, b.y);
@@ -19347,6 +19437,7 @@ function renderMain() {
     if (!warn && RETRO.on && /^STAGE /.test(app.msg.a)) retroCard(app.msg);
     else if (!warn) textO(app.msg.a, W / 2, 120 + TY, '#fff0a0', 2, 'center', '#f8a83a');
     if (app.msg.b && !warn && !(RETRO.on && /^STAGE /.test(app.msg.a))) textS(app.msg.b, W / 2, 138 + TY, '#ffffff', 1, 'center', '#c4c9ce');
+    if (app.msg.c && !warn) { textO(app.msg.c[0], W / 2, 154 + TY, '#a8f6dc', 2, 'center', '#2a8f7a'); textS(app.msg.c[1], W / 2, 172 + TY, '#ffffff', 1, 'center', '#c4c9ce'); }
   }
   drawTutorial();
   if (TOUCH_HUD && app.state === 'play' && !app.results && app.chainBan && app.chainBan.t > 0) { const cb = app.chainBan; if (!app.paused) cb.t -= drawSteps; if ((cb.t >> 3) % 4 !== 3) textO((cb.rec ? 'BEST CHAIN x' : 'CHAIN x') + cb.n, W / 2, SAFE_T + (app.newBestT > 0 ? 52 : 30), cb.t % 16 < 8 ? '#fff0a0' : '#ffffff', 2, 'center', '#f8a83a'); }
@@ -19519,7 +19610,7 @@ for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('ari
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   const pb = document.getElementById('sPower'); pb.setAttribute('aria-pressed', String(!!settings.power)); pb.textContent = settings.power ? 'On' : 'Off';
-  const cb = document.getElementById('sCrt'); cb.setAttribute('aria-pressed', String(!!settings.crt)); cb.textContent = settings.crt ? 'On' : 'Off';
+  const dr = document.getElementById('sDailyRow'); dr.hidden = app.state !== 'title'; if (!dr.hidden) document.getElementById('sDailyKit').textContent = '(' + dailyToday().kit.toUpperCase() + ')'; // only at the title: a Daily Sortie starts from there
 }
 function buildHelp() {
   const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
@@ -19717,7 +19808,7 @@ setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('o
 document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
 document.getElementById('sPower').addEventListener('click', () => { settings.power = !settings.power; syncSettingsUI(); saveSettings(); });
-document.getElementById('sCrt').addEventListener('click', () => { settings.crt = !settings.crt; syncSettingsUI(); saveSettings(); retroCrt(); });
+document.getElementById('sDaily').addEventListener('click', () => { if (app.state !== 'title') return; setPanel.classList.remove('open'); saveSettings(); showPauseMenu(false); openDaily(); });
 function rangeFill(r) { r.style.setProperty('--v', (r.min ? (r.value - r.min) / (r.max - r.min) * 100 : r.value) + '%'); } // the pixel bar fills up to the handle
 for (const [id, k] of SENS_UI) document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; rangeFill(e.target); document.getElementById(id + 'V').textContent = e.target.value + '%'; });
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
@@ -19755,6 +19846,7 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
+  if (document.getElementById('rateAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('rateSkip').click(); else if (k >= '1' && k <= '5' && k.length === 1) document.querySelector('#rateStars [data-n="' + k + '"]').click(); if (k === 'escape' || (k >= '1' && k <= '5' && k.length === 1)) return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open, #ach.open')) { if (k === 'escape') { if (document.getElementById('ach').classList.contains('open')) document.getElementById('achClose').click(); else if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); app.rrIn = 'key';
   if (app.booting) { endBoot(); return; }
@@ -19846,7 +19938,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'daily') startDaily(nx.date || dailyToday().date); else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour, d.twist); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });

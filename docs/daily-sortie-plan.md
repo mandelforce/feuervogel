@@ -563,7 +563,7 @@ Before the Wing was planned, 2 of 7 `burningfield` and 2 of 8 `oasisambush` were
 
 ### 9.1 What fails a sortie, and the runs
 
-FAIL on any of these: a page or game error (`SF.R.errs`); gate 2 not clean (`kit-check.mjs` plus the structures limit, as `compose.mjs`); no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; the twin flight in the other page (another `Math.random`) differing in spawns (count and hash), score, end or frames; dead air longer than 10 s. Dead air is a stretch before the boss with no enemy on screen, no enemy bullet and no encounter, measured as in `daily-baseline.mjs`.
+FAIL on any of these: a page or game error (`SF.R.errs`); gate 2 not clean (`kit-check.mjs` plus the structures limit, as `compose.mjs`); no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; the twin flight in the other page (another `Math.random`) differing in spawns (count and hash), score, end or frames; dead air longer than 12 s (raised from the brief's 10 s by the owner's decision; the 9.2 to 9.7 runs used 10 s, and at 12 s the sweep has no failures). Dead air is a stretch before the boss with no enemy on screen, no enemy bullet and no encounter, measured as in `daily-baseline.mjs`.
 
 - **Sweep** (`--sweep 200`): seeds `hash(s, 9090)`, s = 0..199 per kit, sub 0. Every seed on Veteran, seeds 0..39 also on Rookie and Ace, determinism on every 10th seed (Veteran), skill bots on seeds 0..19. That is 840 human flights, 60 twins and 720 skill-bot flights in 28 min 54 s: gate 2 189 s, human flights 967 s, bots 578 s.
 - **Dates** (`--from 2026-12-01 --days 14 --out DIR`): 42 flights (all three difficulties), 14 twins, 87 s. **All PASS.** The `--out` path (cause JSON plus a 12-frame contact sheet) was checked by forcing a failure with `--dead 5` on 2026-12-03.
@@ -687,3 +687,175 @@ Build 1.2.6.40 on `main` after PR #239. Against the build of 9.1 to 9.6 (commit 
 What changed: nothing in the desert. Forest and winter numbers moved by flight-to-flight noise around the same centres. Medians of hits, window, bullets and kills moved by less than 0.25 hits/min, 1 bullet in the window and 2 kills/min. The exceptions are wider tails: forest Rookie hits p95 1.28 to 2.03, winter Rookie window p50 17.2 to 18.2, and the longest quiet stretches on forest Ace (max 3.2 to 5.2 s) and winter Ace and Rookie (5.8 to 7.2 s, 7.0 to 8.3 s), all far under 10 s. The verdicts of 9.4 hold: desert and forest Veteran are still calmer than their levels, low in 185 and 177 to 198 flights, and forest Veteran kills/min is still high in 196. The bots die a little more often in forest and winter, and winter ace cleared 1 of 80 (was 2). Lives when the boss comes, n reached: forest rookie 0 (was 3), veteran 20 (was 29), ace 62 (62); winter veteran 14 (8), ace 22 (30). What did not change: the failures, the boss arrival times, determinism, the 14 dates, and every desert number.
 
 Not run: the skill bots on the old build (their "before" column is 9.5's run); phone viewport; other dates or sub-seeds; `replay.mjs`, `resume-exact.mjs`; the unit tests.
+
+## 10. Phase 4 results: vetting and the title entry (build 1.2.6.41, composer v1)
+
+**Vetting.** `.github/workflows/daily-vet.yml` runs daily (04:17 UTC) and by hand. It checks out `main`, sets up Playwright and Chromium as `smoke.yml` does, serves the folder and runs `scripts/daily-vet.mjs`:
+
+1. `tests/daily-gate.mjs --from <tomorrow UTC> --days 14 --save` (all three difficulties, no bots; the 12 s dead-air limit).
+2. For each failing date, `--sub 1` to `--sub 8` on that date alone until a sub-seed passes on all three difficulties. A date with none is reported, never guessed.
+3. The passing sub-seeds go into `DAILY_REROLL` (`'YYYY-MM-DD': k`, sorted, existing entries kept); `embed-citygen.mjs` brings the copy in `index.html` up to date. Nothing else changes.
+4. The workflow force-pushes branch `daily-vet` from `main` and opens a pull request, or updates the open one (its body is the report: each rerolled date with its cause, every unfixable date). Nothing fixed, no pull request. Unfixable dates fail the job (red run, report in the run summary).
+
+The gate was reused: it gained `--sub K` (force a sub-seed on every date) and a `sorties` list in `--save` (date, kit, sub, pass, causes). It does not parse text.
+
+*Tested locally, nothing pushed to Actions.* `--dead 6` over 2026-12-01 to 12-14: 12 of 14 dates pass, 2 fail on dead air; 12-03 (desert) passes on sub 1, 12-12 (desert) fails sub 1 and passes sub 2; 2 min 7 s. `--dead 3` over 4 dates, `--max-sub 2`: 2 fail, neither rerolls (reported as not fixed). A write run (`--from 2026-12-03 --days 1 --dead 6`) changed one line in `tools/sortie-compose.js` (`DAILY_REROLL = {'2026-12-03': 1}`) and one in `index.html`, and `tests/compose.mjs --shard 1/4` passed on it; reverted. The workflow's own steps (branch, PR) have not run: the YAML parses, nothing more.
+
+**Version.** `composeVersion` stays 1: a table entry changes only dates 14 days ahead, which nobody has played, and the board key (phase 6) is `date + composeVersion`. A `VERSION` bump is **not needed for it to work** (`index.html` is fetched network-first by `sw.js`, and the saved run records its own `daily.v`), but the entry changes `index.html`, so I recommend the owner merge it into the next release that bumps `VERSION` anyway. A rerolled date already played on its day would change under the player: the window starts tomorrow, so this does not happen unless a PR sits unmerged past its dates.
+
+**Entry (changed in 1.2.6.42, owner).** The title has no DAILY button (it was first built beside SCORES). Settings, opened at the title, has a row "Daily Sortie (KIT)" with a Play button; it closes Settings and opens the difficulty picker headed "Daily Sortie" (note: date, kit, does not count); the pick starts `startDaily(today UTC)` (decision 3). The row is hidden in a flight. The test link `?daily` still works. The results screen is headed DAILY CLEAR with the date and kit and shows the sortie score and lives under the bonus. Also in 1.2.6.42: the Retro Run's scanlines setting is removed and the scanlines are always on in a Retro Run.
+
+**Checked.** `tests/daily.mjs` (78 checks; new: the button's date and kit at three clock times including 23:59:50 UTC, the click, the pick on Ace, START and SCORES unchanged, the controller, the results screen). `menunav.mjs`, `smoke.mjs`, `layout.mjs`, `retro.mjs`. **Not run:** `enigma.mjs`, `encounter.mjs`, `buechse.mjs`, `drilling.mjs`, `replay.mjs`, `resume-exact.mjs`, the sweep, the unit tests, the other CI jobs.
+
+**For the owner.** (1) Pull requests opened with `GITHUB_TOKEN` do not start the smoke workflow; run it by hand on `daily-vet` or use a token of your own. (2) Decision 8 and dead-air options 1 and 2 are still open. (3) The Daily Sortie entry is live for everyone once this ships, and no person has played a Daily Sortie yet.
+
+## 11. Proposal: make the days differ (twists and loop flavours). Draft, nothing built
+
+**Why.** The owner expects the Daily Sortie to feel too similar to the Campaign (2026-11-15). It is: same boss, theme, art and timetable as level 2, 4 or 5, first-pass rules, and in forest and winter most middle templates share their ground (6.3, rows 7 and 11). Reordering segments alone will not fix that. This section adds two things the composer can pick from the date, without new ground: a **twist** (a rule or look of the day) and a **loop flavour** (content the Campaign only shows in its loops). Options 3 to 5 of the discussion (own ground for forest and winter, other bosses, more kits) stay out of scope; they are phase 5 and later work.
+
+### 11.1 The twist
+
+A twist is one named modifier per day, chosen by the date (`twistFor(date, kit)`, a second seeded draw next to the kit rotation; rotation, not random, so two days in a row never repeat one). It rides on the sortie object next to `variant`, and `run.daily` records it (`{date, kit, seed, sub, twist, flavour, v}`), so resume rebuilds the same day. A twist never changes the composer's segment list, so gates 1 and 2 are untouched; gate 3 (the flight gate) flies every twist on every kit and difficulty.
+
+Rules: one twist a day; it must be readable in the first ten seconds (a banner names it, as `DAILY SORTIE` is named now); it must not make a sortie unwinnable for the bot or hide threats unfairly; and it counts nowhere, like the rest.
+
+Candidate twists. "Exists" means the game already has the mechanism in the Campaign, so the twist is mostly a switch plus gate time; "new" means game code that does not exist yet. Nothing below has been checked for the three kits' grounds; the first task is to check each.
+
+| Group | Twist | What the player feels | Basis |
+|---|---|---|---|
+| Look and sight | **Night run**: the level in the dark (`nightF`, the moon variant) | Fewer readable shapes, lights and tracers stand out | Exists: night factor and moon in the render; tied to level 3's theme, so it needs a check on other grounds |
+| | **Fog / squall**: the winter squall and forest overcast on other kits | Visibility drops in stretches | Exists for winter and forest (`squallAt`, the overcast); desert needs a sand-haze equivalent (new) |
+| | **Sandstorm** (desert) or **blizzard** (winter): drifting particles plus short blind stretches | Same, harder to read | New |
+| | **Dawn / dusk** palette grade | Mood only, no change in play | Exists in part (the grade under the night overlay) |
+| Enemy flow | **Swarm day**: more but weaker enemies (count x1.5, hit points x0.7) | Constant shooting, little tension | New: a timetable multiplier; must keep `TT_ENC` order |
+| | **Elite day**: fewer, tougher enemies (x0.6, hit points x1.5) | Every target matters | New, same switch |
+| | **Heavy bullets**: fewer, slower, bigger enemy bullets | Dodging by reading, not reflex | New (bullet speed exists per difficulty, `DIFF`; size is new) |
+| | **Rush hour**: the encounters of the kit all come early, back to back | A front-loaded sortie, then a long run-in | New: encounter placement is per segment; a timetable offset |
+| Your ship | **Fixed weapon**: the whole sortie on Scatter, Lance, Seeker or Arc, no pickups change it | You learn one gun properly | Exists: weapons and tiers; new: lock the pickups |
+| | **Glass cannon**: one life, double score | Risk and reward | Exists: lives, score; new: the multiplier on a no-count run |
+| | **Nova day**: start with 6 Novas, no pickups give more | A panic button to spend | Exists: Nova count |
+| | **Slow ship** or **fast ship** | A different feel at the same dodge | Exists: the ship's speed is a constant; new: a per-run factor |
+| World | **Fast scroll** (the level flies 20 % faster) or **slow scroll** | Shorter or longer sorties, different pacing | Exists: `world.scrollV` / `scrollTarget`; changes the timetable's meaning, so the gate must fly it |
+| | **Fog of war**: the ground details fade out except roads and targets | Only what matters is lit | New |
+| | **Mirror**: the sortie flipped left to right | The same level, new muscle memory | New: a render and spawn flip; the plans and the timetable are in game x, so every x in the sortie must flip |
+| Rules of the day | **Medal hunt**: score only from medals, enemies give no score | Chase the chain, not the kills | New |
+| | **No pickups** except the boss's | A fixed loadout, a hard run | Exists: item spawns; new: the switch |
+| | **Boss rush at the end**: the boss's fight twice (the second at half hit points) | A longer finish | New: the boss exists once per sortie |
+
+Recommended first set, cheapest and most visible: **Night run**, **Fog / squall**, **Fixed weapon**, **Swarm day**, **Elite day**, **Fast scroll**, **Mirror**. They cover sight, enemies, ship and world, and four of the seven use mechanisms that exist. The rest wait for the first results.
+
+### 11.2 The loop flavour
+
+The Campaign's loops change ground and difficulty (the Campaign's loop variants: the desert's basin, the forest's autumn with lakes, the winter's `variant` 1; a rank step per loop, `LOOP_STEP`). The composer currently fixes all of them off (`variant` 0, first-pass rules). A **flavour** turns some of that on for a day:
+
+- `plain`: today's rules (most days).
+- `variant`: the kit's loop ground (desert basin; forest autumn plus lakes; winter variant 1). Different look and different templates' behaviour on the ground. The generator accepts these for the hand-made lists; composed lists were not probed with them (plan 6.6 lists this as not probed). **First task: run `tests/compose-probe.mjs` for each kit with the variant on and report which templates survive.**
+- `rank`: the first loop's rank (the Campaign's loop-1 values) on the first-pass ground. Harder, nothing else.
+- `loop`: both.
+
+A flavour changes what a date produces, so it is part of the seed's output: `composeVersion` goes to 2 when it ships, and every board key, saved run and the vetting table is keyed by it (2.3). The flavour is drawn after the twist, and a date draws neither twist nor flavour when the table says so (`DAILY_PLAIN`, for days the owner wants to leave untouched).
+
+### 11.3 How a day is drawn
+
+`dailyDay(date)` returns `{kit, seed, sub, twist, flavour}`: the kit by rotation as now; the twist by its own rotation over the owner's enabled list (so the same twist cannot come two days in a row, and a kit does not draw the same twist twice in a week); the flavour by weight (for example plain 60 %, rank 15 %, variant 15 %, loop 10 %, set by the owner). `DAILY_REROLL` keeps working per date, and the vetting script gets a second reroll order: first a new sub-seed, then, if none of 8 passes, a plainer day (flavour `plain`, then no twist), reported in the PR text. Nothing else changes in `scripts/daily-vet.mjs`; the gate takes `--twist` and `--flavour` as it takes `--sub` now.
+
+### 11.4 Phases
+
+1. **Probe (no game change).** For each kit: which flavours the composer's lists survive (plan checks, gate 2); for each candidate twist in the first set: does the mechanism exist as the table says, and what does it need. Report in a section 11.5, as phase 0 did in 6.
+2. **Flavours.** Composer, `run.daily`, resume, `composeVersion` 2, tests (`compose.mjs`, `daily.mjs`), the flight gate with `--flavour`. Sweep as in 9.
+3. **Twists, the first set.** One at a time: the switch, the banner, a unit check that it is off on every other day, the gate on all kits and difficulties.
+4. **Draw and vetting.** `dailyDay`, the rotation rules, the vetting script's plainer-day fallback.
+
+**Stop point after each of 1 and 2**, as the other phases do: the owner reads the report before the next.
+
+### 11.5 Decisions (owner, 2026-11-15)
+
+1. **Twists:** the first set of 11.1 as recommended: Night run, Fog / squall, Fixed weapon, Swarm day, Elite day, Fast scroll, Mirror. One twist every day. (One-life and the other candidates wait.)
+2. **Variety:** as much as possible from the start. Flavour weights: plain 10 %, rank 30 %, variant 30 %, loop 30 %. A plain-flavour day still has a twist.
+3. **Combining:** a twist and a flavour combine on the same day.
+4. **Visibility:** the Daily Sortie entry in Settings stays visible while this is built (no hiding until phase 2 is done).
+
+Consequence of 2 and 3: every kit meets every twist and every flavour, so the flight gate (and the vetting workflow, which flies the three difficulties) has a matrix to cover: 3 kits x 4 flavours x 7 twists = 84 combinations x 3 difficulties. The sweep of section 9 cannot fly all of it for every seed. Proposal for phase 2 to 3: fly every combination on a few seeds each, then the real dates in the nightly vetting as now (the date decides its combination, so the vetting flies exactly the day's one).
+
+### 11.6 Phase 1 results: the probe (build 1.2.6.42; nothing in the game changed)
+
+**Flavours on composed sorties** (`tests/flavour-probe.mjs`, Node only; 60 composed sorties per kit, `hash(s, 9090)` seeds; each plan generated plain and with the kit's loop parameters, then judged by the same plan checks as `compose.mjs` and the gate):
+
+| Kit | Loop parameters | Plain | With the loop ground |
+|---|---|---|---|
+| desert | `variant: 1` | 0 of 60 flagged, 234 ms median | 60 of 60 flagged `outside` ("derrick in desert_open"), 252 ms |
+| forest | `autumn: 1, lakes: 1` | 0 of 60, 125 ms | 0 of 60, 529 ms |
+| winter | `variant: 1` | 0 of 60, 793 ms | 0 of 60, 765 ms |
+
+- Forest and winter survive the loop ground in all 60 plans. Forest's plan takes four times as long with lakes (529 ms in Node); the page is slower still, so the plan build time should be measured in the game before this ships (the baseline in 6.4 had 552 to 568 ms in the page for the hand-made first loop).
+- Desert's flags are not breakage. The loop adds guarded oil fields to `desert_open` stretches (generator line "the loop's additions") and the check does not expect an oil field there. Phase 2 teaches the check: with `variant` on, an oil field in `desert_open` is expected. It still has to be flown: the flag says only that the plans are valid and differ.
+- Not probed: the game's own side of `variant` (density and damage curves for level 3 only; for levels 2, 4, 5 the hand-made loop sets `S.variant`, `S.autumn`, `S.winter`, which change the sky, the overcast and the weather plans, `ovcOn`, `squallAt`). A composed sortie has to set the same fields; phase 2 does that and checks the rendering by contact sheet.
+- Rank: the first loop's rank is `rankFor` with `run.loop` 1 (`LOOP_STEP`, `LOOP_SLOPE`, `bspeed`). A Daily Sortie starts at `run.loop` 0 today. The `rank` flavour sets the rank for the run without making it a loop (so nothing counts as a loop); phase 2 checks that `rankFor`, `hpm()` and `bspeed` read it from one place.
+
+**Twists: does the mechanism exist** (read from the code, nothing run):
+
+| Twist | Finding | Cost |
+|---|---|---|
+| Night run | `world.nightF` follows the stage's theme (3 = level 3) and drives the darkening, the searchlight aim and the lightning (`nightF` in the director, the render and the AI). No switch to force it on other themes. | small: a per-sortie override of the value `thS === 3` gives; check the render's grade on desert, forest and winter ground, and that the searchlights (`nightLit`) work without level 3's lights |
+| Fog / squall | `squallAt` is winter only (`S.winter`), the overcast is forest and winter (`ovcOn`). Desert has neither. | forest and winter: a switch. Desert: a new sand haze, as the plan says |
+| Fixed weapon | `mkItem` picks the pickup's weapon at random from the stage's list; the weapon is on the player (`player.weapon` / tier). | small: lock the starting weapon, make the pickups the same weapon (tier up only) |
+| Swarm day / Elite day | Enemy hit points are `hpm()` (`1 + 0.25 * run.loop`, times `DIFF.hp`) and per-type factors; counts come from the timetable (`TT_ENC` and the director). Hit points are one function; counts are not. | hit points: small (one factor in `hpm()`). Counts x1.5 or x0.6: medium, in the timetable's wave sizes; must keep `TT_ENC` order |
+| Fast scroll | `SCROLL = 0.4`, set into `world.scrollV` and `scrollTarget` at the start and after events (about six places). The encounters run on frames (`TT_ENC` are frame counts), the ground on scroll, so a faster scroll moves the ground under the same frame schedule. | medium: one factor everywhere `SCROLL` is set; the gate must fly it, since dead air and encounter spacing change |
+| Mirror | Nothing flips. Every x in the game (spawns, plans, rails, bosses, the HUD stays) would have to flip. | large; the least certain item. If it cannot be done as a render and input flip only, move it out of the first set |
+
+**Proposal for the next step (phase 2, flavours; the owner reads this report first):** the composer takes a flavour, `run.daily` records it, `composeVersion` becomes 2, the three kits set `variant` / `autumn` / `winter` as the hand-made loops do, the plan check learns the desert oil field, and `tests/daily.mjs`, `compose.mjs` and the flight gate (`--flavour`) cover it. Then phase 3, the twists, easiest first (Night run, Fixed weapon, Elite and Swarm by hit points, Fog / squall on forest and winter), with Mirror last and only if it can be a flip at the edges.
+
+**Stop point of phase 1.** Questions: (a) is hit points only acceptable for the first version of Swarm and Elite (no change in counts), which is much cheaper? (b) should Mirror stay in the first set given its cost, or be swapped for another twist from 11.1 (Nova day or Heavy bullets)?
+
+### 11.7 The rating (owner request, 2026-11-15; built in 1.2.6.43)
+
+At the end of a Daily Sortie the player gets the usual level overview (the results screen, DAILY CLEAR with the bonus lines, sortie score and lives) and then, back at the title, a 1 to 5 star question about the level. It is the one thing a Daily Sortie sends: the board, best score, loops and the run report still do not see it.
+- **Once per date and version** on a device; Skip or Escape stores nothing and the date is asked again after the next sortie. A Practice or Campaign level never asks.
+- **Sent** to `POST /rate` with `{player, v, plat, date, kit, sub, cv, diff, score, dur, stars}` (the anonymous player id the run reports use) only with Share play data on; the Worker keeps one row per player, date and composer version (`daily_ratings`, a later answer replaces the earlier one), rejects dates more than two days from now, and allows 40 a day per player. Nothing is sent from a local build.
+- **When 11 is built** the twist and flavour of the day join the row (`twist`, `flavour` columns), so a rating can be read against what was different that day. Until then the kit and the sub-seed are what a rating can be read against. A rating means little per player; read it per date and kit, and per difficulty.
+- **Owner action:** apply `schema.sql` to the live database and deploy `worker.js`. The game side is safe before that (the request fails quietly).
+- **Tests:** `tests/daily.mjs` section 6 (88 checks in all) and four rating tests in `tests/worker.test.mjs`.
+
+### 11.8 Decisions on the twist list (owner, 2026-11-15, after the probe)
+
+- **Swarm day and Elite day: hit points only** in the first version (no change in enemy counts): Swarm x0.7, Elite x1.5, through `hpm()`. Counts stay with the timetable.
+- **Mirror is out.** In its place one twist, **Nova storm**: Nova day (start with 6 Novas, no pickup gives more) combined with Heavy bullets (fewer, slower, bigger enemy bullets). Read as one twist because the owner wrote "nova day combined with heavy bullets"; if two separate twists were meant, they split cleanly.
+- The first set is now: Night run, Fog / squall, Fixed weapon, Swarm day, Elite day, Fast scroll, Nova storm.
+
+### 11.9 Phase 2 results: the flavours (build 1.2.6.44, composer v2)
+
+**Built.** `composeSortie(kit, seed, sub, flavour)` takes `plain`, `rank`, `variant` or `loop`; `dailySeed` draws the flavour from the date by the owner's weights (plain 10 %, rank 30 %, variant 30 %, loop 30 %; over 4,000 dates 9.4 / 30.5 / 29.4 / 30.8 %). `composeVersion` is **2**. The segment list does not depend on the flavour (same list for the same date in all four). `variant` and `loop` add the kit's loop parameters to the generator (`LOOP_PARAMS`: desert `variant`, forest `autumn` + `lakes`, winter `variant`); `rank` and `loop` give the first loop's rank. In the game: `buildSortie` sets `variant` (desert), `autumn` (forest) and `winter` (winter) for a composed sortie with the loop ground, as the hand-made first loops do; `startComposed` sets `run.loop = rankFor(level + 6)` for the rank flavours (`run.loops` and `run.stage` stay: it is not a loop and counts as none); `run.daily` records the flavour and resume rebuilds it (a record of composer v1 is not resumed). The banner adds HARD, LOOP GROUND or LOOP. Test link: `&flavour=loop`. The gate takes `--flavour`, shows it per line and lists it in `--save`.
+
+**Two plan checks had to learn the loop ground.** The desert's loop adds guarded oil fields to `desert_open` (`kit-check.mjs`: `loopOutside`, derricks there are expected with the ground flavours). The winter loop's pass opens into a basin with a base: 33 % built in every plan against the kit's 14 % limit (`groundBuilt: { pass: 0.36 }` in the kit, used by the gate and the probe for the ground flavours). `tests/flavour-probe.mjs` now counts the structures limit too: 0 of 100 flagged in all six cases.
+
+**Flown.** Every kit x flavour (12) on 3 dates x 3 difficulties: all pass except the winter `loop`, which failed determinism on 2 of 3 dates. The 14 real dates from 2026-12-01 flew with their own flavours (the winter ground failed gate 2 on 3 dates before `groundBuilt`).
+
+**Finding: a page that flew before can fly the next sortie differently.** The winter `loop` flight differed between a fresh page and a page that had flown another sortie first (689 spawns against 684; the first difference at frame 15050, a train car's type). Two fresh pages with different `Math.random` fly it identically, so it is not randomness. The game state at frame 14,400 is identical in both except cosmetics; the shared random stream (`simS`) diverges at frame 14,455 where the used page makes extra draws in the player's shot code (a hit spark). Not found: what state carries over. Not seen in the plain, rank or variant flavours. Not fixed. Consequences: (1) a player who flies two Daily Sorties in one page session might get a second sortie that differs slightly from the first in the winter loop's boss fight; (2) the flight gate and the vetting script now fly every human flight in a fresh page (`--fresh`, about 50 % longer: 3 winter loop dates take 55 s against 36 s), which is what a player has. **Decided by the owner (2026-11-15): accepted.** The fresh-page workaround stays and the leak is not hunted down. Reopen it only if a second Daily Sortie in one session is reported to differ.
+
+**Checked.** `tests/daily.mjs` (139 checks; new: section 7, every kit x flavour: the recorded flavour, the game's ground flags, the rank, not a loop, the generator parameters, and one flight to the end per flavour), `compose.mjs` (shard 1), `smoke.mjs`, the vetting script on two dates. **Not run:** the other `compose.mjs` shards, the 200-seed sweep with flavours, the skill bots on flavoured sorties (the rank flavours are harder: the bots' numbers would show how much), phone viewport, the rendering of the loop grounds by contact sheet (the plumbing only: the three kits' loop looks are the Campaign's, but on composed lists they have not been looked at).
+
+
+### 11.10 Phase 3 results: the twists, the first set (build 1.2.6.45, composer v3)
+
+**Built.** `composeVersion` 3. `composeSortie(kit, seed, sub, flavour, twist)` records `twist` (`none` or one of `TWISTS`); a twist never changes the segment list (checked: 3 dates x 3 kits x 7 twists). `dailySeed` draws the twist by rotation over seven days (`TWIST_ORDER`: night, swarm, fixed, fog, elite, fast, nova): one twist never comes two days in a row, and since 7 mod 3 = 1 a kit meets a given twist once in 21 days (both checked over 1,100 dates); any 21 days cover every kit x twist once. `DAILY_PLAIN` (date to 1: flavour plain, 2: flavour plain and no twist) is the vetting's fallback. `run.sortie.daily` is `{date, kit, seed, sub, v, flavour, twist}` and resume rebuilds it. The banner has a third line with the twist's name and a hint; the test link takes `&twist=`.
+
+| Twist | The switch | Notes |
+|---|---|---|
+| Fixed weapon | start weapon and every weapon pickup = the day's gun (Scatter, Lance, Seeker or Arc, from the seed, `fixedWeapon`); pickups still raise the tier | the pickup's random draw is still made |
+| Swarm day / Elite day | `hpm()` x0.7 / x1.5 | hit points only (11.8) |
+| Night run | `nightF` target 1 on any ground | the dark of level 3 (0.6 overlay, bullet halos light); no searchlights, so no night bonuses for guns |
+| Fog | new `drawFogTwist`: banks of fog over the ground, a function of scroll and frame only, tinted per kit (sand haze on desert), gone at the boss | one implementation for all three kits, not the forest overcast or the winter squall: those are tables keyed by level 4 / `S.winter` stretches and would need a table for every composed segment type. Drawn under everything that flies and under the bullets; ground targets go soft |
+| Fast scroll | `SCROLL` is now a variable (0.4, or 0.48), set at every start and resume (`scrollFor`) | encounters run on frames, so the ground passes them 20 % faster |
+| Nova storm | 6 Novas at the start; a Nova pickup is 2000 points; enemy shots: a third not fired (stateless, from `gf` and the position), 0.8 x speed, 1.5 x hit radius, an orange glow | "bigger" is the hit circle and the glow, not the sprite. Rookie's own skip rule stays on top |
+
+**Rating.** `/rate` takes `twist` and `flavour` (words only, else null); `schema.sql` has the two columns for a new database, and the two `ALTER TABLE` lines for the live one are in it, commented (SQLite cannot add a column "if not exists"). The Worker falls back to the old insert when the columns are missing, so a rating is kept before the owner applies the change. Two new worker tests (22 pass).
+
+**Flight gate.** Every twist x 3 kits x 4 seeds (`--sweep 4 --all 4 --det 2 --twist T --fresh`, flavour plain), all three difficulties, human bot, determinism on every second seed: **84 of 84 sorties pass** (252 flights). Longest dead air by twist: fixed 8.7 s, swarm 9.0, elite 10.7, night 9.2, fog 9.2 (night and fog fly identically: they are looks), fast 7.5, nova 11.8 (the limit is 12: Ace on one seed). The 21 real dates from 2026-12-01 (every kit x twist once, each with its own flavour) **all pass**, all three difficulties. The skill bots were not flown on twists.
+
+**Vetting.** `scripts/daily-vet.mjs` flies each date's own flavour and twist; if sub-seeds 1 to 8 all fail it tries the plainer day (flavour plain, then no twist as well) on sub-seeds 0 to 8, writes `DAILY_PLAIN` and names the date in the PR text. Forced with `--dead 6 --max-sub 1 --no-write` on 2026-12-01..14: 4 dates failed, 3 passed on sub 1, 2026-12-06 (desert, variant) failed sub 1 and passed as a plain-flavour day. Nothing was written; the real window needed no change.
+
+**Looked at.** Contact sheets (`tests/contact.mjs`, 5 frames of 14 per case) of Night run and Fog on all three kits. Night: readable on all three; the desert is lighter than the forest and winter (dusk rather than night). Fog: clear as a sand haze on the desert, visible on the forest (which already has level 4's overcast clouds) and subtle on winter's white ground. **Not looked at:** any twist in motion, the banner, Nova storm's glow, Fast scroll, a phone viewport, Night's lightning and thunder (the level 3 storm effect also fires on a night day).
+
+**Checked.** `tests/daily.mjs` 220 checks (new: section 8, the draw in Node; each twist on and off in the game; a Campaign level afterwards without the twist; fast and nova resumed exactly), `compose.mjs` (38), `worker.test.mjs` (22), `smoke.mjs`. A resume check saved too early differed because the bot's own state is not in the snapshot; the check saves from frame 4200, as section 3 does. **Not run:** `replay.mjs`, `resume-exact.mjs` (told not to), the other test files.
+
+**Questions for the owner.** (1) Is Night run too dark or too light on the desert; should the dark be per kit? (2) Fog: one shared haze (as built) or the Campaign's overcast and squall on forest and winter? (3) Lightning with Night run: keep? (4) Nova storm's dead air is close to the 12 s limit: accept? (5) Skill bots on twists (the harder ones: Elite, Nova): fly them before release? (6) A kit meets Fast scroll once in 21 days; the rotation is fixed, so the order is learnable: acceptable? (7) Apply the two `ALTER TABLE` lines when deploying the worker.

@@ -1,0 +1,68 @@
+name: Daily Sortie vetting
+
+# Every day: fly the next 14 days' Daily Sorties through the flight gate (tests/daily-gate.mjs, all three difficulties) and, for any date that
+# fails, reroll it (sub-seeds 1 to 8) with scripts/daily-vet.mjs. Rerolled dates go into DAILY_REROLL in a pull request; the owner merges it,
+# so no unvetted sortie ships (docs/daily-sortie-plan.md, section 10). Nothing fails: no pull request.
+# Pull requests opened with GITHUB_TOKEN do not start other workflows; the owner runs "Smoke test" by hand on the branch if wanted.
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: daily-vet
+  cancel-in-progress: false
+
+jobs:
+  vet:
+    name: Vet the next 14 days
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install headless browser
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Serve the game
+        run: |
+          python3 -m http.server 8000 &
+          sleep 2
+      - name: Gate, reroll, write the table
+        id: vet
+        run: node scripts/daily-vet.mjs --body "$RUNNER_TEMP/pr-body.md"
+      - name: Report
+        run: cat "$RUNNER_TEMP/pr-body.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Open or update the pull request
+        if: steps.vet.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch=daily-vet
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add tools/sortie-compose.js index.html
+          git commit -m "Daily Sortie vetting: DAILY_REROLL entries"
+          git push --force origin "$branch"
+          open=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --body-file "$RUNNER_TEMP/pr-body.md"
+          else
+            gh pr create --head "$branch" --base main --title "Daily Sortie vetting: DAILY_REROLL" --body-file "$RUNNER_TEMP/pr-body.md"
+          fi
+      - name: Fail when a date could not be fixed
+        if: steps.vet.outputs.unfixed != '0'
+        run: |
+          echo "::error::Dates with no passing sub-seed: see the run summary."
+          exit 1

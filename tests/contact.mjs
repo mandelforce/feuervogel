@@ -4,7 +4,7 @@
 //   node tests/contact.mjs OUTDIR 6               only level 6
 //   node tests/contact.mjs OUTDIR 6 12            level 6, 12 points
 //   node tests/contact.mjs OUTDIR 6 c2,66         level 6 with the screen's bottom at chunks 2 and 66 (for looking at seams)
-//   node tests/contact.mjs OUTDIR daily:2026-11-15 16        that day's Daily Sortie, 16 points (daily:DATE:KIT:SUB forces a kit and a sub-seed)
+//   node tests/contact.mjs OUTDIR daily:2026-11-15 16        that day's Daily Sortie, 16 points (daily:DATE:KIT:SUB:TWIST forces a kit, a sub-seed and a twist; empty fields keep the date's; the night's dark is drawn full)
 // Writes OUTDIR/level<N>-<k>.png (the playfield, 224 px wide, drawn 3x) and OUTDIR/sheet-level<N>.html (all of a level on one page);
 // for a Daily Sortie daily-<date>-<kit>-<k>.png, sheet-daily-<date>-<kit>.html and daily-<date>-<kit>.json (the segment under each frame).
 // The frame is built as in docs/enigma-prompt.md: no enemies, chunks built to the end, the frame drawn once. A point is a share of the level's length.
@@ -28,7 +28,7 @@ await page.evaluate(() => window.SF.peek('app.booting && finishBoot(), 0'));
 
 for (const lv of levels) {
   const files = [], caps = [], daily = typeof lv === 'string' ? lv.split(':') : null; let tag = 'level' + lv;
-  const start = daily ? `startDaily('${daily[1]}', ${daily[2] ? "'" + daily[2] + "'" : 'undefined'}, ${daily[3] !== undefined ? +daily[3] : 'undefined'})` : `startEnigma(${lv})`;
+  const start = daily ? `startDaily('${daily[1]}', ${daily[2] ? "'" + daily[2] + "'" : 'undefined'}, ${daily[3] !== undefined && daily[3] !== '' ? +daily[3] : 'undefined'}, undefined, ${daily[4] ? "'" + daily[4] + "'" : 'undefined'})` : `startEnigma(${lv})`;
   for (let k = 0; k < points; k++) {
     const frac = at ? -at[k] - 1e-9 : points === 1 ? 0.5 : k / (points - 1) * 0.97, 
     r = await page.evaluate(([start, frac]) => window.SF.peek(`(() => {
@@ -37,7 +37,7 @@ for (const lv of levels) {
       const sc = Math.round((${frac}) < 0 ? -(${frac}) * CH : (${frac}) * run.sortie.len * CH); /* a negative share is a chunk number */ world.scroll = sc; world.scrollV = world.scrollTarget = 0;
       world.chunks = new Map(); world.chunkInfo = new Map(); world.chunkJobs = []; world.genP = -Math.floor((-sc + H) / CH) - 2;
       for (let i = 0; i < 4000; i++) { ensureChunks(); if (!world.chunkJobs.length && world.genP >= Math.ceil((sc + 420) / CH)) break; }
-      app.fade = null; app.msg = null; app.state = 'play'; if (player) { player.fly = 0; player.inv = 0; player.x = -60; }
+      if (twistOf() === 'night') world.nightF = 1; app.fade = null; app.msg = null; app.state = 'play'; if (player) { player.fly = 0; player.inv = 0; player.x = -60; }
       SF.draw = SF.draw || (() => { resetCtx(); render(); }); SF.draw();
       const S = run.sortie, c = (sc + H / 2) / CH, g = S.segs.find(q => c >= q.start && c < q.start + q.n);
       return { url: cv.toDataURL('image/png'), seg: g ? g.t : c >= S.len ? 'boss ground' : '', chunk: Math.round(c), kit: S.daily ? S.daily.kit : '', len: S.len }; })()`), [start, frac]);

@@ -37,3 +37,29 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_player ON runs (player, created);
 CREATE INDEX IF NOT EXISTS idx_runs_mode ON runs (mode, diff, created);
+
+-- Daily Sortie ratings (1 to 5 stars): one row per player, date and composer version; a later rating replaces the earlier one.
+-- Run once on the live database (wrangler d1 execute <db> --file schema.sql is safe: every statement is IF NOT EXISTS).
+CREATE TABLE IF NOT EXISTS daily_ratings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player TEXT NOT NULL,
+  date TEXT NOT NULL,
+  cv INTEGER NOT NULL,
+  kit TEXT NOT NULL,
+  sub INTEGER NOT NULL DEFAULT 0,
+  diff INTEGER NOT NULL,
+  plat TEXT NOT NULL,
+  stars INTEGER NOT NULL,
+  score INTEGER NOT NULL,
+  dur INTEGER NOT NULL,
+  version TEXT,
+  created INTEGER NOT NULL,
+  twist TEXT,
+  flavour TEXT,
+  UNIQUE (player, date, cv)
+);
+-- A live database made before composer v3 (twists, plan section 11) has no twist and flavour columns: run these two lines ONCE (SQLite has no IF NOT EXISTS for a column, so they are not part of the safe re-run).
+-- The Worker keeps working before that (it stores the rating without them); a rating can be read against what was different that day once they exist.
+-- ALTER TABLE daily_ratings ADD COLUMN twist TEXT;
+-- ALTER TABLE daily_ratings ADD COLUMN flavour TEXT;
+CREATE INDEX IF NOT EXISTS idx_ratings_date ON daily_ratings (date, kit);

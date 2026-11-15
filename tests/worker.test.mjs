@@ -11,7 +11,7 @@ const PLAYER = 'p-0123456789abcdef0123';
 // A run that passes every check; each test changes one field.
 const goodRun = () => ({ player: PLAYER, name: 'ACE', mode: 'camp', plat: 'pc', diff: 1, score: 50000, stage: 3, conts: 0, dur: 600, version: '1.2.0' });
 
-function fakeDb({ recent = 0, today = 0 } = {}) {
+function fakeDb({ recent = 0, today = 0, noTwistCols = false } = {}) {
   const inserts = [];
   const prep = sql => ({
     bind: (...args) => ({
@@ -20,7 +20,7 @@ function fakeDb({ recent = 0, today = 0 } = {}) {
         return null;
       },
       all: async () => ({ results: [] }),
-      run: async () => { inserts.push(args); },
+      run: async () => { if (noTwistCols && /twist/.test(sql)) throw new Error('D1_ERROR: table daily_ratings has no column named twist'); inserts.push(args); },
     }),
   });
   return { db: { prepare: prep }, inserts };
@@ -178,4 +178,51 @@ test('/status: answers the game page, never echoes a foreign origin, reads only'
   assert.equal((await status([row(ME, 500)], `player=${ME}`, 'https://evil.example')).allow, ORIGIN);
   const res = await worker.fetch(new Request('https://worker.test/status?player=' + ME, { method: 'POST', headers: { Origin: ORIGIN } }), { DB: memoryDb([]) });
   assert.equal(res.status, 404);
+});
+
+// ---- Daily Sortie ratings (/rate) ----
+async function rate(body, { origin = ORIGIN, ...dbOpts } = {}) {
+  const { db, inserts } = fakeDb(dbOpts);
+  const res = await worker.fetch(new Request('https://w.test/rate', { method: 'POST', headers: { Origin: origin }, body: JSON.stringify(body) }), { DB: db });
+  return { status: res.status, inserts };
+}
+const today = () => new Date().toISOString().slice(0, 10);
+const goodRating = () => ({ player: PLAYER, v: '1.2.6.43', plat: 'mobile', date: today(), kit: 'desert', sub: 0, cv: 1, diff: 1, score: 400000, dur: 300, stars: 4 });
+
+test('rating: a good rating is stored once per player, date and version', async () => {
+  const r = await rate(goodRating());
+  assert.equal(r.status, 200); assert.equal(r.inserts.length, 1);
+  const [player, date, cv, kit, sub, diff, plat, stars] = r.inserts[0];
+  assert.deepEqual([player, date, cv, kit, sub, diff, plat, stars], [PLAYER, today(), 1, 'desert', 0, 1, 'mobile', 4]);
+});
+
+test('rating: the twist and the flavour of the day are stored with it, and only as words', async () => {
+  const r = await rate({ ...goodRating(), twist: 'night', flavour: 'loop' });
+  assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 14); assert.deepEqual(r.inserts[0].slice(12), ['night', 'loop']);
+  const old = await rate(goodRating()); assert.deepEqual(old.inserts[0].slice(12), [null, null]);
+  const bad = await rate({ ...goodRating(), twist: "x'; DROP", flavour: 'A'.repeat(40) }); assert.equal(bad.status, 200); assert.deepEqual(bad.inserts[0].slice(12), [null, null]);
+});
+
+test('rating: before schema.sql is applied the rating is kept without the twist and flavour', async () => {
+  const r = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank' }, { noTwistCols: true });
+  assert.equal(r.status, 200); assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 12); assert.equal(r.inserts[0][7], 4);
+});
+
+test('rating: stars 1 to 5 only', async () => {
+  for (const stars of [1, 5]) assert.equal((await rate({ ...goodRating(), stars })).status, 200);
+  for (const stars of [0, 6, -1, 'many', null]) assert.equal((await rate({ ...goodRating(), stars })).status, 400);
+});
+
+test('rating: a real recent date, a plain kit name, a known platform', async () => {
+  assert.equal((await rate({ ...goodRating(), date: '2001-01-01' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), date: 'tomorrow' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), kit: 'Desert; DROP' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), plat: 'console' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), player: 'x' })).status, 400);
+});
+
+test('rating: allowed origins and a daily limit', async () => {
+  assert.equal((await rate(goodRating(), { origin: 'https://evil.example' })).status, 403);
+  assert.equal((await rate(goodRating(), { today: 40 })).status, 429);
+  assert.equal((await rate(goodRating(), { today: 39 })).status, 200);
 });

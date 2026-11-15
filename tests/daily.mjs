@@ -12,6 +12,13 @@
 //   3. a run saved mid-flight and loaded in a fresh page goes on exactly (every 60 frames, as tests/resume-exact.mjs compares); a record of
 //      another composer version is not resumed.
 //   4. nothing is left behind: a Campaign level flown afterwards in the same page plays as in a fresh page.
+//   6. the rating: after a Daily Sortie's results and the title, a 1 to 5 star question, once per date and version; a star is kept and (on a local build) held in
+//      app.rateLast instead of being sent; Skip and Escape ask nothing more and store nothing; a date already rated is not asked again.
+//   8. the twists (plan 11.1, 11.8): the draw in Node (rotation, no repeat, DAILY_PLAIN, the segment list unchanged); then in the game each of the seven on its own day and
+//      off on a day without it: the record, the banner, hit points, the ground's speed, the weapon, Novas and enemy shots, the dark, the fog, a Campaign level afterwards
+//      without it; a fast and a nova day saved and resumed exactly.
+//   5. the entry (phase 4): without any link, the Daily Sortie row in Settings (at the title only; it names the day's kit) opens the difficulty picker, and
+//      the pick starts that UTC day's sortie (also at 23:59 UTC); the title is as before (START, SCORES, trophy); the Daily Sortie's results screen shows the run's totals.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -24,6 +31,8 @@ const verbose = process.argv.includes('--verbose');
 let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } return cond; };
 const DAYS = { desert: '2026-11-15', forest: '2026-11-16', winter: '2026-11-14' }; // one date per kit (the rotation)
+/* the game's flags for a kit's ground: variant, autumn, winter, haze, moon (the loop's ground only with the flavours variant and loop) */
+const GROUND = { desert: g => (g ? 1 : 0) + ',false,false,false,false', forest: g => '0,' + !!g + ',false,false,false', winter: g => '0,false,' + !!g + ',false,false' };
 const fnv = a => { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); };
 const FNV = `function (a) { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); }`;
 const browser = await chromium.launch();
@@ -55,7 +64,7 @@ const START = `(() => { const q = id => document.getElementById(id); startOrOffe
 for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], page = await freshPage(11, '?daily=' + date), r = await peek(page, START), C = SC.composeDaily(date), K = SC.KITS[kit];
   ok(SC.dailySeed(date).kit === kit, `${date} is a ${kit} day`);
   ok(r.state === 'play' && r.daily && r.daily.date === date && r.daily.kit === kit && r.daily.seed === C.seed && r.daily.sub === 0 && r.daily.v === SC.VERSION, `?daily=${date}: START flies that day's sortie (${r.daily && r.daily.kit}, ${r.state})`);
-  ok(r.level === K.level && r.ranked === false && !r.eligible && r.msg === 'DAILY SORTIE' && r.variant === '0,false,false,false,false', `${kit}: level ${r.level}'s boss and theme, not ranked, the first pass's rules (${r.variant})`);
+  ok(r.level === K.level && r.ranked === false && !r.eligible && r.msg === 'DAILY SORTIE' && r.variant === GROUND[kit](C.ground), `${kit}: level ${r.level}'s boss and theme, not ranked, the flavour's rules (${C.flavour}: ${r.variant})`);
   ok(r.segs === JSON.stringify(C.segs.map(g => [g.t, g.start, g.n])) && r.len === C.len && r.enc === JSON.stringify(C.encPlan), `${kit}: the composer's ${C.segs.length} segments (${C.len} chunks) and ${C.encPlan.length} encounters, as Node composes them`);
   ok(r.bossAt > r.len && r.bossAt <= r.len + 8, `${kit}: the boss trigger ${r.bossAt - r.len} chunks past the level's end`);
   ok(r.seed === (C.base >>> 0) && r.salt === (C.base | 0) && r.worldSeed === 1944, `${kit}: its own stream and timetable seed (${r.seed}), the Campaign's ground seed beyond the plan (${r.worldSeed})`);
@@ -124,6 +133,124 @@ const CAMP = lv => `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma
     ok(a.daily === null && a.compose === null && a.salt === 0 && a.seed === 1944, `level ${lv} after the daily sorties: a Campaign sortie again (seed ${a.seed}, no daily, timetable salt ${a.salt})`);
     ok(d < 0 && a.spawns.length === b.spawns.length && a.end === b.end, `level ${lv} after the daily sorties plays as in a fresh page (${a.spawns.length} spawns, end ${a.end}${a.end === b.end ? '' : ' / ' + b.end})`); }
   await fresh.close(); }
+
+
+// ---------- 5. the title entry ----------
+/* the title's buttons are drawn on the canvas: click where the game puts them (game coordinates, the same constants the game hit-tests with) */
+const AT = (name) => `(() => { const r = cv.getBoundingClientRect(), b = ${name}; return JSON.stringify({ x: r.left + b[0] / W * r.width, y: r.top + (b[1] + TY) / H * r.height, state: app.state, diff: document.getElementById('diffAsk').classList.contains('open') }); })()`;
+const BTN = { scores: '[W / 2, SCORES_Y + SCORES_BTN.h / 2]', start: '[W / 2, START_BTN.y + START_BTN.h / 2]' };
+async function clickTitle(page, which) { const c = JSON.parse(await peek(page, AT(BTN[which]))); await page.mouse.click(c.x, c.y); await page.waitForTimeout(50); }
+const STATE = `JSON.stringify({ state: app.state, diff: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, title: document.getElementById('diffTitle').textContent, note: document.getElementById('dNote').textContent, lb: !!app.lbOpen, daily: run.sortie && run.sortie.daily, ranked: run.ranked, seed: run.sortie && run.sortie.seed, today: dailyToday() })`;
+for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:50Z', 'forest'], ['2026-11-14T00:00:05Z', 'winter']]) {
+  const page = await freshPage(11); await peek(page, `Date.now = () => ${Date.parse(at)}, 0`);
+  const date = at.slice(0, 10), t0 = JSON.parse(await peek(page, STATE));
+  ok(t0.today.date === date && t0.today.kit === kit && SC.dailySeed(date).kit === kit, `${at}: the title offers ${date}, a ${kit} day (${t0.today.kit})`);
+  await peek(page, `openSettings(), 0`); const row = JSON.parse(await peek(page, `JSON.stringify({ hidden: document.getElementById('sDailyRow').hidden, kit: document.getElementById('sDailyKit').textContent })`));
+  ok(!row.hidden && row.kit === '(' + kit.toUpperCase() + ')', `${at}: Settings at the title has the Daily Sortie row with the kit (${row.kit})`);
+  await page.click('#sDaily'); const t1 = JSON.parse(await peek(page, STATE));
+  ok(t1.state === 'title' && t1.diff && t1.kind === 'daily' && t1.title === 'Daily Sortie' && t1.note.includes(date) && t1.note.includes(kit.toUpperCase()), `${at}: DAILY opens the difficulty picker (${t1.title}; ${t1.note.slice(0, 40)})`);
+  await page.evaluate(() => document.querySelector('#diffAsk [data-d="2"]').click()); const t2 = JSON.parse(await peek(page, STATE + ' + ""'));
+  const C = SC.composeDaily(date);
+  ok(t2.state === 'play' && t2.daily && t2.daily.date === date && t2.daily.kit === kit && t2.daily.seed === C.seed && t2.ranked === false && t2.daily.v === SC.VERSION, `${at}: the pick starts startDaily(${date}) on Ace (${t2.state}, ${t2.daily && t2.daily.kit}, ranked ${t2.ranked})`);
+  const d2 = await peek(page, 'settings.diff'); ok(d2 === 2, `${at}: the difficulty is the player's pick (${d2})`);
+  await page.close(); }
+{ const page = await freshPage(11); await peek(page, `Date.now = () => ${Date.parse('2026-11-15T12:00:00Z')}, 0`);
+  await clickTitle(page, 'start'); const a = JSON.parse(await peek(page, STATE));
+  ok(a.diff && a.kind === 'camp' && a.title === 'Choose difficulty', `START still asks for the Campaign's difficulty (${a.kind})`);
+  await page.evaluate(() => document.querySelector('#diffAsk [data-d="1"]').click()); const b = JSON.parse(await peek(page, STATE));
+  ok(b.state === 'play' && b.daily === null && b.ranked === true && b.seed === 1944, `the Campaign starts as before (seed ${b.seed}, ranked ${b.ranked}, no daily)`); await page.close(); }
+{ const page = await freshPage(11); await clickTitle(page, 'scores'); const a = JSON.parse(await peek(page, STATE));
+  ok(a.state === 'title' && !a.diff && a.lb, `SCORES still opens the board (board open ${a.lb}, picker ${a.diff})`); await page.close(); }
+{ const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { startComposed(SortieCompose.composeDaily('2026-11-15')); openSettings(); return JSON.stringify({ hidden: document.getElementById('sDailyRow').hidden, crt: !!document.getElementById('sCrt') }); })()`));
+  ok(r.hidden && !r.crt, `in a flight the Daily Sortie row is hidden, and Settings has no scanlines option (hidden ${r.hidden}, sCrt ${r.crt})`); await page.close(); }
+/* the results screen of a Daily Sortie shows the run's totals; it still counts nowhere (section 2 checks that over a whole flight) */
+{ const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}'); SF.human(8, 15); let f = 0, res = null;
+    for (let i = 0; i < 20000 && !res; i++) { SF.run(10); if (app.results && app.results.done) res = { title: 'daily', score: run.score, lives: run.lives, daily: !!(run.sortie && run.sortie.daily) }; }
+    if (res) { for (let i = 0; i < 6; i++) SF.run(10); res.still = !!app.results; } return JSON.stringify({ res, errs: SF.R.errs.slice(0, 2) }); })()`));
+  ok(r.res && r.res.daily && r.res.score > 0 && r.res.still && !r.errs.length, `the Daily Sortie's results screen draws with the run's totals (score ${r.res && r.res.score}, lives ${r.res && r.res.lives}${r.errs.length ? ', ' + r.errs[0] : ''})`);
+  await page.close(); }
+
+
+
+// ---------- 7. the flavours (plan 11.2) ----------
+{ const FL = `(() => { const q = id => document.getElementById(id); SF.start(1, 1); startDaily(DATE, KIT, undefined, FLAV); const S = run.sortie; const o = { daily: S.daily, variant: [S.variant, S.autumn, S.winter].join(), loop: run.loop, loops: run.loops, stage: run.stage, ranked: run.ranked, plan: sortiePlan(S) && JSON.stringify(sortiePlan(S).P ? { v: sortiePlan(S).P.variant | 0, a: !!sortiePlan(S).P.autumn, l: !!sortiePlan(S).P.lakes } : null), msg: document.getElementById('app') && 0, rank: rankFor(S.level + 6), first: rankFor(S.level) }; return JSON.stringify(o); })()`;
+  for (const kit of SC.KIT_ORDER) for (const flavour of SC.FLAVOURS) {
+    const date = DAYS[kit], page = await freshPage(11), r = JSON.parse(await peek(page, FL.replace('DATE', `'${date}'`).replace('KIT', `'${kit}'`).replace('FLAV', `'${flavour}'`))), C = SC.composeDaily(date, kit, 0, flavour), P = SC.LOOP_PARAMS[kit];
+    const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
+    ok(r.daily.flavour === flavour && r.daily.v === SC.VERSION && r.variant === GROUND[kit](ground).split(',').slice(0, 3).join(','), `${kit} ${flavour}: recorded, and the game's ground flags are ${r.variant}`);
+    ok(r.loops === 0 && r.stage === SC.KITS[kit].level && r.ranked === false, `${kit} ${flavour}: not a loop (loops ${r.loops}, ranked ${r.ranked})`);
+    ok(rank ? r.loop === r.rank && r.loop > r.first : r.loop === r.first, `${kit} ${flavour}: the rank is ${r.loop} (${rank ? 'the first loop\'s, ' + r.rank + ', above the first pass\'s ' + r.first : 'the first pass\'s ' + r.first})`);
+    ok(ground === !!(C.gen.params.variant || C.gen.params.autumn) && JSON.stringify(C.segs) === JSON.stringify(SC.composeDaily(date, kit, 0, 'plain').segs), `${kit} ${flavour}: the loop ground is in the generator's parameters only when asked, the segment list is the plain one`);
+    await page.close(); }
+  /* one flight of each flavoured kind to the end, the bot, no errors, boss killed (the flight gate flies the real dates; this is the plumbing) */
+  for (const flavour of ['rank', 'variant', 'loop']) { const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.forest}', 'forest', undefined, '${flavour}'); SF.human(8, 15); let end = 'cap'; for (let i = 0; i < 14000; i++) { const st = SF.run(10); if (st !== 'ok') { end = st; break; } } const st = Object.values(SF.R.stages)[0] || {}; return JSON.stringify({ end, bossDead: st.bossDead, errs: SF.R.errs.slice(0, 2) }); })()`));
+    ok(r.end === 'state:title' && r.bossDead !== undefined && r.bossDead !== null && !r.errs.length, `forest ${flavour}: flown to the end, boss dead, no errors (${r.end}${r.errs.length ? ', ' + r.errs[0] : ''})`); await page.close(); }
+}
+
+// ---------- 8. the twists (plan 11.1, 11.8): the draw, and each switch on its own day and off on every other ----------
+{ const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), N = 1100, D = []; for (let n = 0; n < N; n++) D.push(SC.dailySeed(dk(n)));
+  ok(SC.VERSION === 3 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
+  ok(D.every(d => SC.TWISTS.includes(d.twist)) && D.every((d, i) => !i || d.twist !== D[i - 1].twist), `${N} dates draw a twist each, never the same twist two days running`);
+  const byKit = {}; D.forEach(d => (byKit[d.kit] = byKit[d.kit] || []).push(d.twist));
+  ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (21 days), and meets all seven in them`);
+  ok(new Set(D.slice(0, 21).map(d => d.kit + ':' + d.twist)).size === 21, `any 21 days cover every kit x twist once (the flight gate's real-date window)`);
+  ok(SC.composeSortie('forest', 5, 0).twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'bogus').twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'night').twist === 'night', `a sortie without a twist says none; an unknown twist is none; a named one is kept`);
+  let same = true; for (const date of ['2026-12-01', '2026-12-02', '2026-12-03']) for (const kit of SC.KIT_ORDER) { const base = JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', 'none').segs); for (const t of SC.TWISTS) if (JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', t).segs) !== base) same = false; }
+  ok(same, `a twist never changes the segment list (3 dates x 3 kits x 7 twists)`);
+  const dd = '2026-12-03', d0 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 1; const p1 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 2; const p2 = SC.dailySeed(dd); delete SC.DAILY_PLAIN[dd];
+  ok(p1.flavour === 'plain' && p1.twist === d0.twist && p2.flavour === 'plain' && p2.twist === 'none' && SC.dailySeed(dd).twist === d0.twist, `DAILY_PLAIN: 1 makes the day plain and keeps its twist (${p1.twist}), 2 drops the twist too (${p2.twist})`);
+  ok(new Set(Array.from({ length: 200 }, (_, i) => SC.fixedWeapon(i * 7919))).size === 4, `the Fixed weapon day's gun is Scatter, Lance, Seeker or Arc, by the seed (200 seeds give all four)`);
+}
+const TWQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}', 'desert', undefined, 'plain', 'TWIST'); const S = run.sortie, o = { daily: S.daily, tw: twistOf(), scroll: SCROLL, sv: world.scrollV, wpn: player.wpn, bombs: run.bombs, hp: hpm(), banner: app.msg && app.msg.c ? app.msg.c[0] : null, msgA: app.msg && app.msg.a };
+  const ws = {}; for (let i = 0; i < 80; i++) ws[mkItem('W', 0, 0).w] = 1; o.ws = Object.keys(ws).sort().join('');
+  world.ebul.length = 0; for (let i = 0; i < 300; i++) eshot(100 + i % 50, 100 + (i * 7) % 90, 1.5, 1, 's'); o.nb = world.ebul.length; o.sp = o.nb ? Math.hypot(world.ebul[0].vx, world.ebul[0].vy) : 0; o.r = o.nb ? world.ebul[0].r : 0; o.big = world.ebul.filter(b => b.big).length; world.ebul.length = 0;
+  SF.run(240); world.items.length = 0; world.items.push({ kind: 'B', x: player.x, y: player.y, t: 0, w: 'S' }); const b0 = run.bombs, s0 = run.score; SF.run(3); o.pick = [run.bombs - b0, run.score - s0];
+  let dMax = 0, sc = world.scroll; for (let c = 0; c < S.len * 2; c++) { world.scroll = sc + c * CH / 2; dMax = Math.max(dMax, fogDensity(S)); } o.fogMax = +dMax.toFixed(2); world.scroll = sc;
+  o.nightA = world.nightF; SF.run(400); o.night = +world.nightF.toFixed(2); let err = null; try { world.scroll = sc + Math.floor(S.len * 0.4) * CH; resetCtx(); render(); } catch (e) { err = String(e && e.message || e); } o.drawErr = err; o.errs = SF.R.errs.slice(0, 2);
+  startEnigma(2, true); o.after = { tw: twistOf(), scroll: SCROLL, hp: hpm(), ws: (() => { const w = {}; for (let i = 0; i < 80; i++) w[mkItem('W', 0, 0).w] = 1; return Object.keys(w).length; })() }; return JSON.stringify(o); })()`;
+{ const R = {}; for (const t of ['none', ...SC.TWISTS]) { const page = await freshPage(11); R[t] = JSON.parse(await peek(page, TWQ.replace('TWIST', t))); await page.close(); }
+  const B = R.none, C = SC.composeDaily(DAYS.desert, 'desert', 0, 'plain', 'fixed'), NAME = { night: 'NIGHT RUN', fog: 'FOG', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM', fixed: 'FIXED' };
+  ok(B.tw === '' && B.daily.twist === 'none' && B.banner === null && B.msgA === 'DAILY SORTIE', `a day with no twist: twistOf is empty, no twist line in the banner`);
+  for (const t of SC.TWISTS) { const r = R[t], o = x => x !== undefined;
+    ok(r.tw === t && r.daily.twist === t && r.daily.v === SC.VERSION && r.banner && r.banner.startsWith(NAME[t]) && r.msgA === 'DAILY SORTIE', `${t}: recorded in run.sortie.daily, and the banner names it (${r.banner})`);
+    ok(r.errs.length === 0 && r.drawErr === null, `${t}: ${400} frames and a drawn frame without errors${r.drawErr ? ': ' + r.drawErr : ''}`);
+    ok(Math.abs(r.hp / B.hp - ({ swarm: 0.7, elite: 1.5 }[t] || 1)) < 1e-9, `${t}: enemy hit points x${(r.hp / B.hp).toFixed(2)} (only swarm 0.7 and elite 1.5 change them)`);
+    ok(r.scroll === (t === 'fast' ? B.scroll * 1.2 : B.scroll) && r.sv === r.scroll, `${t}: the ground runs at ${r.scroll}${t === 'fast' ? ' (1.2 x ' + B.scroll + ')' : ' (the normal speed)'}`);
+    ok(t === 'fixed' ? r.wpn === SC.fixedWeapon(C.seed) && r.ws === r.wpn : r.wpn === 'S' && r.ws.length > 1, `${t}: ${t === 'fixed' ? 'the ship starts on ' + r.wpn + ' and every weapon pickup is ' + r.ws : 'starts on Scatter, pickups still vary (' + r.ws + ')'}`);
+    ok(t === 'nova' ? r.bombs === 6 && r.pick[0] === 0 && r.pick[1] >= 2000 : r.bombs === B.bombs && r.pick[0] === 1, `${t}: ${r.bombs} Novas at the start, a Nova pickup gives ${r.pick[0]} (${r.pick[1]} points)`);
+    ok(t === 'nova' ? r.nb >= 170 && r.nb <= 230 && Math.abs(r.sp / B.sp - 0.8) < 1e-9 && r.r === 3 && r.big === r.nb : r.nb === 300 && r.sp === B.sp && r.r === 2 && r.big === 0, `${t}: of 300 enemy shots ${r.nb} fly, at ${(r.sp / B.sp).toFixed(2)} of the speed, hit radius ${r.r}`);
+    ok(t === 'night' ? r.night > 0.95 : r.night < 0.05 && r.nightA === 0, `${t}: the dark ${t === 'night' ? 'comes (' + r.night + ')' : 'stays off (' + r.night + ')'}`);
+    ok(t === 'fog' ? r.fogMax > 0.8 : true, `${t}: ${t === 'fog' ? 'the fog thickens to ' + r.fogMax + ' somewhere along the level' : 'the fog check is only for fog'}`);
+    ok(r.after.tw === '' && r.after.scroll === B.scroll && r.after.ws > 1 && Math.abs(r.after.hp / R.none.after.hp - 1) < 1e-9, `${t}: a Campaign level afterwards has no twist (twist '${r.after.tw}', speed ${r.after.scroll}, hit points as ever)`); }
+}
+/* resume: fast (the speed is not in the snapshot) and nova (Novas, shots) saved mid-flight and loaded in a fresh page go on exactly, with the twist and the speed back */
+for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPage(21);
+  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}', 'forest', undefined, 'plain', '${tw}'); SF.human(8, 15); SF.run(3900); let rec = null; for (let k = 0; k < 12 && !(rec && JSON.parse(rec).snap); k++) { SF.run(300); snapNow(); saveResume(); rec = localStorage.getItem('starfall-resume'); }
+    const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ rec, samples }); })()`)); await A.close();
+  const B = await freshPage(77);
+  const G = JSON.parse(await peek(B, `(() => { SF.setMode('immortal'); SF.human(8, 15); store.set(KEY.resume, ${JSON.stringify(R.rec)}); resumeRun(loadResume()); for (let i = 0; i < 180; i++) update(); const o = { tw: twistOf(), scroll: SCROLL, bombs: run.bombs };
+    const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } o.samples = samples; return JSON.stringify(o); })()`)); await B.close();
+  let first = -1; for (let i = 0; i < Math.min(R.samples.length, G.samples.length); i++) if (R.samples[i] !== G.samples[i]) { first = i; break; }
+  ok(G.tw === tw && G.scroll === (tw === 'fast' ? 0.48 : 0.4) && first < 0 && R.samples.length === G.samples.length, `forest ${tw}: saved from frame 4200 on at the first frame the game can snapshot, and loaded in a fresh page: the twist (${G.tw}) and the speed (${G.scroll}) are back, ${G.samples.length} samples over 900 frames identical${first >= 0 ? ' (first difference at sample ' + first + ': ' + (() => { const x = JSON.parse(R.samples[first]), y = JSON.parse(G.samples[first]); return Object.keys(x).filter(k => JSON.stringify(x[k]) !== JSON.stringify(y[k])).join(', ') + ' gf ' + x.gf + '/' + y.gf + ' snap ' + !!JSON.parse(R.rec).snap; })() + ')' : ''}`); }
+
+// ---------- 6. the rating ----------
+{ const page = await freshPage(11), q = code => peek(page, code).then(v => JSON.parse(v));
+  const END = date => `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(60); run.score = 12345; endEnigmaLevel(); const o = document.getElementById('rateAsk').classList.contains('open'); return JSON.stringify({ state: app.state, open: o, info: document.getElementById('rateInfo').textContent, rate: app.rate && app.rate.date }); })()`;
+  const ST = `JSON.stringify({ open: document.getElementById('rateAsk').classList.contains('open'), last: app.rateLast || null, kept: store.getJSON(KEY.rated, {}), state: app.state })`;
+  const a = await q(END('2026-11-15'));
+  ok(a.state === 'title' && a.open && a.rate === '2026-11-15' && a.info.includes('DESERT'), `the sortie ends at the title with the rating question (${a.state}, ${a.info})`);
+  await page.click('#rateStars [data-n="4"]'); const b = await q(ST);
+  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
+  const c = await q(END('2026-11-15')); ok(c.state === 'title' && !c.open, `the same date is not asked twice (${c.open})`);
+  await peek(page, `app.rateLast = null, 0`);
+  const d2 = await q(END('2026-11-16')); await page.click('#rateSkip'); const e = await q(ST);
+  ok(d2.open && !e.open && e.last === null && !('2026-11-16:' + SC.VERSION in e.kept), `Skip asks nothing more and stores nothing (${e.open}, ${JSON.stringify(e.kept)})`);
+  const f = await q(END('2026-11-16')); ok(f.open, `a skipped date is asked again next time (${f.open})`);
+  await page.keyboard.press('Escape'); const g = await q(ST); ok(!g.open && g.last === null, `Escape skips (${g.open})`);
+  const h = await q(END('2026-11-14')); await page.keyboard.press('5'); const i = await q(ST); ok(h.open && !i.open && i.last && i.last.stars === 5 && i.last.kit === 'winter', `the key 5 gives five stars (${i.last && i.last.stars})`);
+  const j = await q(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false); SF.run(30); const n = !!(run.sortie && run.sortie.daily); endEnigmaLevel(); return JSON.stringify({ daily: n, open: document.getElementById('rateAsk').classList.contains('open') }); })()`);
+  ok(!j.daily && !j.open, `a Practice level never asks (${j.open})`);
+  await page.close(); }
 
 await browser.close();
 if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }

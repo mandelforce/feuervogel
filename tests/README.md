@@ -360,23 +360,38 @@ node tests/compose.mjs --shard 2/4     # as CI runs it
 
 ## Daily Sortie test (runs in CI, blocking)
 
-`daily.mjs` checks the Daily Sortie in the game (`docs/daily-sortie-plan.md`, section 8): with the test link `?daily=YYYY-MM-DD` START flies that day's composed level (the composer's segments, the kit level's boss, not ranked), `&kit` and `&sub` force a kit and a sub-seed, and without the link START is the Campaign; the plan is the one Node makes from the composer's output and the ground types are the plan's; one sortie per kit flown to its end in two pages with different `Math.random` gives the same spawns, score and end, the boss dies, the Shadow Wing comes, every planned encounter runs to its end, and the run ends at the title; it never counts (board, best, loops, play data); a run saved mid-flight goes on exactly in a fresh page, and a record of another composer version is not resumed; and Campaign levels flown afterwards in the same page play as in a fresh page. About a minute:
+`daily.mjs` checks the Daily Sortie in the game (`docs/daily-sortie-plan.md`, section 8; since build 1.2.6.45 also the twists, section 8 of the test and plan 11.10: the draw, and each of the seven twists on its own day and off on a day without it): with the test link `?daily=YYYY-MM-DD` START flies that day's composed level (the composer's segments, the kit level's boss, not ranked), `&kit` and `&sub` force a kit and a sub-seed, and without the link START is the Campaign; the plan is the one Node makes from the composer's output and the ground types are the plan's; one sortie per kit flown to its end in two pages with different `Math.random` gives the same spawns, score and end, the boss dies, the Shadow Wing comes, every planned encounter runs to its end, and the run ends at the title; it never counts (board, best, loops, play data); a run saved mid-flight goes on exactly in a fresh page, and a record of another composer version is not resumed; and Campaign levels flown afterwards in the same page play as in a fresh page. About a minute:
 
 ```
 node tests/daily.mjs
-node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day's sortie (daily:DATE:KIT:SUB forces a kit and a sub-seed)
+node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day's sortie (daily:DATE:KIT:SUB:TWIST forces a kit, a sub-seed and a twist, empty fields keep the date's; the night's dark is drawn full)
 ```
 
 ## Daily Sortie flight gate (by hand)
 
-`daily-gate.mjs` is gate 3 of `docs/daily-sortie-plan.md` (phase 3; the sweep's numbers are in its section 9). For each date (or seed) and difficulty it composes the sortie, runs gate 2 in Node (`kit-check.mjs`, as `compose.mjs` does), flies it with the human bot (`SF.human(8, 15)`, immortal, viewport 1000x760) and prints one line with every measure and PASS or FAIL. A sortie FAILs on: a page or game error; gate 2 not clean; no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; a second flight in a page with another `Math.random` giving other spawns, score or end (every date; every 10th seed in a sweep); dead air, a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than `--dead` (10 s; the baselines' longest is 7 s). Hits per minute, the worst 10 s bullet window, bullets before the boss and kills per minute are only reported, marked `low` / `in` / `high` against the kit level's range in `daily-baseline.json` (the owner has not set those limits). `--bots` adds the skill bots (own difficulty, mortal, 4 bot seeds each: cleared share, deaths per minute, lives when the boss comes), also only reported. Pages are reused for many flights (checked: the same numbers with one page or two). Exits 1 if any flight FAILs.
+`daily-gate.mjs` is gate 3 of `docs/daily-sortie-plan.md` (phase 3; the sweep's numbers are in its section 9). For each date (or seed) and difficulty it composes the sortie, runs gate 2 in Node (`kit-check.mjs`, as `compose.mjs` does), flies it with the human bot (`SF.human(8, 15)`, immortal, viewport 1000x760) and prints one line with every measure and PASS or FAIL. A sortie FAILs on: a page or game error; gate 2 not clean; no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; a second flight in a page with another `Math.random` giving other spawns, score or end (every date; every 10th seed in a sweep); dead air, a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than `--dead` (12 s; the baselines' longest is 7 s). Hits per minute, the worst 10 s bullet window, bullets before the boss and kills per minute are only reported, marked `low` / `in` / `high` against the kit level's range in `daily-baseline.json` (the owner has not set those limits). `--bots` adds the skill bots (own difficulty, mortal, 4 bot seeds each: cleared share, deaths per minute, lives when the boss comes), also only reported. Pages are reused for many flights (checked: the same numbers with one page or two). Exits 1 if any flight FAILs.
 
 ```
 node tests/daily-gate.mjs --from 2026-12-01 --days 14 --out OUTDIR   # 14 dates, all three difficulties, about 2 minutes; failing dates get their cause and contact sheet in OUTDIR
 node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the skill bots
+node tests/daily-gate.mjs --from 2026-12-01 --days 3 --kit winter --flavour loop --fresh  # a flavour forced; --fresh: every human flight in a fresh page
+node tests/daily-gate.mjs --sweep 4 --all 4 --det 2 --twist night --no-bots --fresh  # a twist forced on 4 seeds per kit, all three difficulties (plan 11.10: the first set, 7 twists; --twist none for no twist; a date without --twist flies its own)
+node tests/daily-gate.mjs --from 2026-12-01 --days 21 --fresh   # 21 days cover every kit x twist once, each with its own flavour
+node tests/daily-gate.mjs --from 2026-12-03 --days 1 --sub 2 --save out.json  # one date on sub-seed 2; --save lists every sortie with pass and cause
 node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
 ```
+
+## Daily Sortie vetting (by hand; runs daily in CI as `.github/workflows/daily-vet.yml`)
+
+`scripts/daily-vet.mjs` (phase 4 of `docs/daily-sortie-plan.md`, section 10) vets the next 14 days with the flight gate and rerolls the dates that fail. Since composer v3 it flies each date's own twist and flavour, and when no sub-seed from 1 to 8 passes it makes the day plainer (plan 11.3): first the flavour plain, then no twist as well, each on sub-seeds 0 to 8, written to `DAILY_PLAIN` and named in the pull request text. It runs `tests/daily-gate.mjs --from <tomorrow UTC> --days 14 --save` (all three difficulties, no bots), and for each failing date `--sub 1` to `--sub 8` on that date alone until one passes on all three; it writes the passing sub-seeds into `DAILY_REROLL` in `tools/sortie-compose.js` (nothing else), runs `scripts/embed-citygen.mjs` and writes the pull request text (`--body FILE`: each rerolled date with its cause, and every date with no passing sub-seed in 8). Serve the folder first. `--dead S` goes to the gate (a smaller value forces failures: `--dead 6` fails 2 of the dates 2026-12-01 to 12-14), `--no-write` leaves the sources alone, `--keep DIR` keeps the gate's JSON files, `--from`, `--days`, `--max-sub` as named.
+
+```
+node scripts/daily-vet.mjs --body /tmp/pr.md                                   # the real window, about 2 minutes plus 20 seconds per sub-seed tried
+node scripts/daily-vet.mjs --from 2026-12-01 --dead 6 --no-write --body /tmp/pr.md   # forced failures, nothing written
+```
+
+The Daily Sortie test (`daily.mjs`) also covers the entry in Settings (section 5 of its head comment) and the star rating after a sortie (section 6); `worker.test.mjs` the `/rate` rules.
 
 ## Nothing pops in, guns stay off runways (by hand)
 
@@ -411,3 +426,7 @@ node tests/bosslink.mjs
 ## Sound lab
 
 `http://localhost:8000/index.html?soundlab` (while the folder is served; also works on the live site) opens a page over the title with a button for every sound effect: pickups, medals and chains, ship and laser, guns and hits, explosions, warnings and bosses, and the Enigma Run effects. Pick Classic (Campaign and Enigma Run) or Retro Run (the chip sound) at the top; the sounds are played by the game's own code. The lab can also switch the pickup style the game uses (`PICK_STYLE`: no notes, or the first version with notes), set the effects volume and keep the music quiet. A new sound effect belongs in `soundCatalogue()` (next to the audio section of `index.html`) so it can be heard there.
+
+## Daily Sortie flavour probe (by hand, Node only)
+
+`flavour-probe.mjs` (phase 1 of `docs/daily-sortie-plan.md`, section 11; results in 11.6): composes sorties for each kit, generates each plan plain and with the Campaign's loop ground (desert `variant`, forest `autumn` + `lakes`, winter `variant`) and runs the plan checks on both. It measures; it never fails the build. `node tests/flavour-probe.mjs --seeds 60 [--kit desert] [--verbose]`, about 2 minutes.

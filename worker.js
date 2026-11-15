@@ -89,6 +89,25 @@ export default {
           .bind(player, String(b.v || '').slice(0, 12), mode, plat, int(b.diff, 0, 2), int(b.start, 1, 300), b.twoP ? 1 : 0, int(b.stage, 1, 300), int(b.score, 0, 99999999), int(b.conts, 0, 9), int(b.dur, 0, 86400), end, now, data).run();
         return json({ ok: true }, 200, origin);
       }
+      if (req.method === 'POST' && url.pathname === '/rate') { // a Daily Sortie's star rating (1 to 5), one per player, date and composer version
+        if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: 'origin not allowed' }, 403, origin);
+        const txt = await req.text();
+        if (txt.length > 2000) return json({ error: 'too big' }, 413, origin);
+        const b = JSON.parse(txt);
+        const player = String(b.player || ''), plat = String(b.plat || ''), date = String(b.date || ''), kit = String(b.kit || ''), stars = Math.floor(Number(b.stars)), now = Date.now();
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(date) ? Date.parse(date + 'T00:00:00Z') : NaN;
+        if (!/^[A-Za-z0-9-]{16,40}$/.test(player) || !PLATS.includes(plat) || !/^[a-z]{3,12}$/.test(kit) || !(stars >= 1 && stars <= 5) || !(Math.abs(day - now) <= 2 * 86400000)) return json({ error: 'bad rating' }, 400, origin);
+        const int = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v)) || 0));
+        const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM daily_ratings WHERE player = ?1 AND created > ?2').bind(player, now - 86400000).first();
+        if (recent && recent.n >= 40) return json({ error: 'Daily limit reached.' }, 429, origin);
+        const word = v => /^[a-z]{3,12}$/.test(String(v || '')) ? String(v) : null, twist = word(b.twist), flavour = word(b.flavour); // what was different that day (plan section 11); null from an older client
+        const vals = [player, date, int(b.cv, 0, 99), kit, int(b.sub, 0, 99), int(b.diff, 0, 2), plat, stars, int(b.score, 0, 99999999), int(b.dur, 0, 86400), String(b.v || '').slice(0, 12), now];
+        const upd = 'ON CONFLICT (player, date, cv) DO UPDATE SET stars = excluded.stars, diff = excluded.diff, score = excluded.score, dur = excluded.dur, version = excluded.version, created = excluded.created';
+        try { await env.DB.prepare('INSERT INTO daily_ratings (player, date, cv, kit, sub, diff, plat, stars, score, dur, version, created, twist, flavour) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) ' + upd).bind(...vals, twist, flavour).run(); }
+        catch (e) { if (!/no column|no such column/i.test(String(e && e.message))) throw e; // schema.sql not yet applied on the live database: keep the rating without the twist and flavour
+          await env.DB.prepare('INSERT INTO daily_ratings (player, date, cv, kit, sub, diff, plat, stars, score, dur, version, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ' + upd).bind(...vals).run(); }
+        return json({ ok: true }, 200, origin);
+      }
       return json({ error: 'not found' }, 404, origin);
     } catch (e) {
       return json({ error: 'server error' }, 500, origin);

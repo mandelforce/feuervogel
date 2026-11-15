@@ -10,12 +10,17 @@
 
    composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
-   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub }   the day is UTC, the kit by rotation, sub from DAILY_REROLL
+   composeSortie(kitId, seed, sub, flavour): flavour 'plain' (default), 'rank', 'variant' or 'loop' (section 11.2 of the plan): adds .flavour, .ground, .rank
+   composeSortie(kitId, seed, sub, flavour, twist): twist 'none' (default) or one of TWISTS (section 11.1): adds .twist. A twist never changes the segment list;
+     it is a rule or a look the game applies (index.html, twistOf()), so the same seed gives the same segments with or without it.
+   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub, flavour, twist }   the day is UTC, the kit by rotation, sub from DAILY_REROLL, the flavour by weight,
+     the twist by its own rotation (TWIST_ORDER: seven days, so one twist never comes two days running and a kit meets it once in 21 days); DAILY_PLAIN lists dates
+     the vetting made plainer (1: flavour plain; 2: flavour plain and no twist)
    composeDaily('YYYY-MM-DD') -> composeSortie of that day, with .date
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 1; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 3; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -81,6 +86,7 @@ const KITS = {
       airbase_snow: { len: [6, 8], max: 1, heat: 0.6, built: 0.13 },
       forest_conifer: { len: [5, 8], max: 2, heat: 0.3, built: 0.13 } },
     fixedBuilt: { open_sea_ice: 0.05, harbour_winter: 0.72, farmland_winter: 0.41, pass: 0.14 },
+    groundBuilt: { pass: 0.36 }, /* with the loop's ground (flavours variant and loop) the pass opens into a basin with a base in it: 33 % built in every plan (plan 11.6) */
     follows: {
       farmland_winter: ['village', 'lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
       village: ['lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
@@ -157,15 +163,21 @@ function walk(kit, target, r) {
   return seq;
 }
 
-function composeSortie(kitId, seed, sub) {
+/* Flavours (plan section 11.2): the Campaign's loop content on a composed list. 'plain' is the first pass; 'rank' the first loop's rank on the first pass's ground;
+   'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
+   (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
+const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
+const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
+function composeSortie(kitId, seed, sub, flavour, twist) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const params = Object.assign({}, kit.params, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
@@ -173,19 +185,25 @@ function composeSortie(kitId, seed, sub) {
 }
 
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
-const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {};
+const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {}, DAILY_PLAIN = {};
+/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 2, or a forced sortie). */
+const TWISTS = ['night', 'swarm', 'fixed', 'fog', 'elite', 'fast', 'nova'], TWIST_ORDER = TWISTS, TWIST_NAMES = { none: '', night: 'NIGHT RUN', fog: 'FOG', fixed: 'FIXED WEAPON', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM' };
+const FIXED_WEAPONS = ['S', 'L', 'H', 'A']; /* Scatter, Lance, Seeker, Arc: the day's own, from the seed */
+function twistFor(day) { return TWIST_ORDER[((day % TWIST_ORDER.length) + TWIST_ORDER.length) % TWIST_ORDER.length]; }
+function fixedWeapon(seed) { return FIXED_WEAPONS[Math.floor(hash(seed | 0, 4242) * FIXED_WEAPONS.length)]; }
+function flavourFor(n) { let x = hash(DAILY_SALT + 3, n), k = 0; for (; k < FLAVOURS.length - 1; k++) { x -= FLAVOUR_WEIGHT[FLAVOURS[k]]; if (x < 0) break; } return FLAVOURS[k]; } /* by weight, from the date alone */
 function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
-  const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000);
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0 };
+  const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000), plain = DAILY_PLAIN[m[0]] | 0;
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain ? 'plain' : flavourFor(n), twist: plain > 1 ? 'none' : twistFor(day) };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub) { // kitId, sub: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour, twist) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night; twist=none for no twist)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, KITS, KIT_ORDER, DAILY_REROLL, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
