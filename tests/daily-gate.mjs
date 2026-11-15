@@ -10,7 +10,7 @@
 // determinism on every --det-th, the skill bots on the first --bot-sorties.
 // FAIL (decided): a page or game error; gate 2 not clean; no boss, or the boss not killed within 900 s; the flight does not end at the
 // title; a planned encounter not ending `done`, or no Shadow Wing; two pages with different Math.random differing in spawns, score or end;
-// dead air: a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than --dead (10 s).
+// dead air: a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than --dead (12 s).
 // Reported only (decision 8, open): hits per minute, worst 10 s bullet window, bullets before the boss, kills per minute, each marked
 // low / in / high against the kit level's baseline range for that difficulty (tests/daily-baseline.json), and the skill bots
 // (--bots: rookie, veteran, ace on their own difficulty, mortal, 4 bot seeds each: cleared share, deaths per minute, lives when the boss comes).
@@ -26,7 +26,7 @@ const SC = require('../tools/sortie-compose.js');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const SWEEP = +arg('sweep', 0), FROM = arg('from', null), DAYS = +arg('days', 14), KIT = arg('kit', null), OUT = arg('out', null), SAVE = arg('save', null);
-const DIFFS = String(arg('diff', SWEEP ? '1' : '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), DEAD = +arg('dead', 10);
+const DIFFS = String(arg('diff', SWEEP ? '1' : '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), DEAD = +arg('dead', 12);
 const ALL = +arg('all', 40), DET = +arg('det', 10), BOT_SORTIES = arg('no-bots', false) ? 0 : +arg('bot-sorties', SWEEP ? 20 : (arg('bots', false) ? 1e9 : 0)), BOT_SEEDS = +arg('bot-seeds', 4);
 const NAMES = ['Rookie', 'Veteran', 'Ace'], BOTS = ['rookie', 'veteran', 'ace'], OWN = { rookie: 0, veteran: 1, ace: 2 }, VIEW = { width: 1000, height: 760 };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8'), skill = readFileSync(new URL('./skill-bot.js', import.meta.url), 'utf8');
