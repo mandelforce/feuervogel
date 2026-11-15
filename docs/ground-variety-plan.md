@@ -112,8 +112,24 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 - Vetting (`scripts/daily-vet.mjs --no-write`): the 14 dates from 2026-11-16, all three difficulties: 14 of 14 pass, none rerolled or made plainer.
 - `tests/compose.mjs` (49 checks without gate 2; new section 6b on the dials) and gate 2 on 40 composed plans per kit (clean; desert plan time 120 ms median alone, over its limit only while the machine was loaded by other runs), `tests/citygen.mjs`, `tests/daily.mjs` (220), `tests/smoke.mjs`, `tests/worker.test.mjs` (22).
 - **Not run:** the 300-plans-per-kit gate 2 and its shards, the 200-seed sweep, the skill bots on dial days, a phone viewport, `replay.mjs`, `resume-exact.mjs`, the other test files.
-- **Not looked at:** the dials in the game itself. Only the lab's contact sheet was seen; whether a day *reads* as different (the plan's last risk) needs the game's contact sheets (`tests/contact.mjs`) on a forest and a winter day with the strongest dials.
+- **Not looked at (then):** the dials in the game itself; see 4.3.
 - **Not done:** the ratings row does not carry the dials (decision 3 below is open); time of day as ground and new templates or kits (phases 4 and 5).
+
+### 4.3 Looking at the dials in the game (contact sheets, same build)
+
+`tests/contact.mjs` takes a sixth field, `daily:DATE:KIT:SUB:TWIST:DIALS` (`on` or `off`). The same date, kit and seed rendered with and without dials, 6 points along the level (2026-12-01, which draws three dials on every kit), and the share of pixels that differ per frame (a threshold of 24 on the grey difference; the HUD alone gives about 0.1 %):
+
+| Kit (dials drawn) | Share of pixels that differ, per frame |
+|---|---|
+| desert (`mixVillage`, `portDamage`, `portDensity`) | 4.9, 11.1, 2.0, 2.8, 2.6, 2.9 |
+| forest (`clearings`, `plantations`, `rides`) | 0.1, 1.6, 0.0, 7.1, 7.9, 0.0 |
+| winter, first ranges (`lotChance`, `treeK`, `trees`) | 0.1, 0.0, 0.0, 0.4, 4.7, 0.0 |
+
+- **The plan's last risk was real for winter.** Two of its four dials (`trees`, `lotChance`) only touch the harbour town, and the per-segment ranges were mild (`treeK` 0.5 to 1.7, `floorW` -4 to 16): on the first date the winter level was hard to tell from its plain version by eye.
+- **Change:** winter's per-segment ranges widened to `treeK` 0.3 to 2.2 and `floorW` -6 to 22 (-4 to 18 on the village, which needs room for its chalets); the generator's own table already allowed them. Composer version stays 4: build 1.2.6.47 has not been released, so no date has been played under the narrower ranges. On 2026-12-10 (`floorW`, `lotChance`, `treeK`) the frames differ by 0.1, 0.0, 0.0, 9.3, 29.1, 13.3, 0.8, 0.0 %, and the three most different pairs show a visibly wider or narrower valley floor and thicker or thinner woods in the same stretch.
+- **Re-checked after the change:** `tests/dials-probe.mjs --kit winter` (8 sorties at every extreme and 40 draws: 0 flagged, 0 stretches over the limit, plan 0.7 to 1.2 s), `tests/compose.mjs` (49), the flight gate on 8 winter sorties on all three difficulties (7 with dials, all pass), the vetting of the 14 dates from 2026-11-16 (14 of 14 pass, none rerolled).
+- **Still true:** the forest's change is concentrated in a few frames (the stretches that carry the drawn dials); a day with only `roads` or `cuts` drawn will look closer to plain than one with `clearings` and `plantations`. Desert's whole-level dials (`wear`, `mixVillage`) show best in the port and the villages. Not seen in motion, in a phone viewport, or with a twist or loop flavour on top.
+- **Choice open for the owner:** weigh the dials so every day draws at least one that changes a lot (for the forest, `clearings`, `plantations`, `guns`; for winter, `treeK`, `floorW`), instead of a plain draw of two or three.
 
 ## 5. Decisions for the owner
 

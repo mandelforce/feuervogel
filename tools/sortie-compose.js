@@ -184,7 +184,7 @@ const DIALS = {
     seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [] },
   forest: { global: {}, seg: forestSeg(), int: ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'] },
   winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
-    seg: { village: { treeK: [0.5, 1.7], floorW: [-2, 14] }, lake_valley: { treeK: [0.5, 1.7], floorW: [-4, 16] }, station_winter: { treeK: [0.5, 1.7], floorW: [-4, 16] }, airbase_snow: { treeK: [0.5, 1.7], floorW: [-4, 16] }, forest_conifer: { treeK: [0.5, 1.7], floorW: [-4, 16] } }, int: [] },
+    seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [] },
 };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
