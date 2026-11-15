@@ -377,6 +377,7 @@ node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the
 node tests/daily-gate.mjs --from 2026-12-01 --days 3 --kit winter --flavour loop --fresh  # a flavour forced; --fresh: every human flight in a fresh page
 node tests/daily-gate.mjs --sweep 4 --all 4 --det 2 --twist night --no-bots --fresh  # a twist forced on 4 seeds per kit, all three difficulties (plan 11.10: the first set, 7 twists; --twist none for no twist; a date without --twist flies its own)
 node tests/daily-gate.mjs --from 2026-12-01 --days 21 --fresh   # 21 days cover every kit x twist once, each with its own flavour
+node tests/daily-gate.mjs --sweep 4 --all 2 --det 2 --tod sunset --no-bots --fresh   # a light forced (--tod day|morning|sunset); --dials on|off forces the ground dials
 node tests/daily-gate.mjs --from 2026-12-03 --days 1 --sub 2 --save out.json  # one date on sub-seed 2; --save lists every sortie with pass and cause
 node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15

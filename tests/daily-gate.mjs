@@ -3,7 +3,7 @@
 // For each date (or seed) and difficulty: compose the sortie, run gate 2 (tests/kit-check.mjs, as tests/compose.mjs does), fly it with the
 // human bot (SF.human(8, 15), immortal) and print one line with every measure and PASS or FAIL.
 // Needs Node and Playwright. Serve the folder (python3 -m http.server 8000), then:
-//   node tests/daily-gate.mjs --from 2026-12-01 --days 14 [--diff 0,1,2] [--kit desert] [--sub K] [--flavour plain|rank|variant|loop] [--twist night|fog|fixed|swarm|elite|fast|nova|none] [--dials on|off] [--fresh] [--out DIR] [--save FILE] [--bots]
+//   node tests/daily-gate.mjs --from 2026-12-01 --days 14 [--diff 0,1,2] [--kit desert] [--sub K] [--flavour plain|rank|variant|loop] [--twist night|fog|fixed|swarm|elite|fast|nova|none] [--dials on|off] [--tod day|morning|sunset] [--fresh] [--out DIR] [--save FILE] [--bots]
 //   node tests/daily-gate.mjs --sweep 200 [--kit desert] [--all 40] [--det 10] [--bot-sorties 20] [--no-bots] [--save FILE]
 // Dates: the date's own kit (rotation), or --kit to force one. Determinism is checked on every date (on the first difficulty flown).
 // Sweep: seeds instead of dates (SortieCompose.composeSortie(kit, seed, 0)); every seed on Veteran, the first --all also on Rookie and Ace,
@@ -28,7 +28,7 @@ const SC = require('../tools/sortie-compose.js');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const SWEEP = +arg('sweep', 0), FROM = arg('from', null), DAYS = +arg('days', 14), KIT = arg('kit', null), OUT = arg('out', null), SAVE = arg('save', null);
-const DIFFS = String(arg('diff', SWEEP ? '1' : '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), DEAD = +arg('dead', 12), SUB = arg('sub', null) === null ? undefined : +arg('sub', 0), FRESH = !!arg('fresh', false), TWIST = arg('twist', null) === null ? undefined : String(arg('twist', 'none')), FLAV = arg('flavour', null) === null ? undefined : String(arg('flavour', 'plain')), DIALS = arg('dials', null) === null ? undefined : String(arg('dials', 'on')); /* --dials off: no ground dials (the vetting's plainer day); without it a date flies its own */
+const DIFFS = String(arg('diff', SWEEP ? '1' : '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), DEAD = +arg('dead', 12), SUB = arg('sub', null) === null ? undefined : +arg('sub', 0), FRESH = !!arg('fresh', false), TWIST = arg('twist', null) === null ? undefined : String(arg('twist', 'none')), FLAV = arg('flavour', null) === null ? undefined : String(arg('flavour', 'plain')), DIALS = arg('dials', null) === null ? undefined : String(arg('dials', 'on')), TOD = arg('tod', null) === null ? undefined : String(arg('tod', 'day')); /* --dials off: no ground dials (the vetting's plainer day); without it a date flies its own */
 const ALL = +arg('all', 40), DET = +arg('det', 10), BOT_SORTIES = arg('no-bots', false) ? 0 : +arg('bot-sorties', SWEEP ? 20 : (arg('bots', false) ? 1e9 : 0)), BOT_SEEDS = +arg('bot-seeds', 4);
 const NAMES = ['Rookie', 'Veteran', 'Ace'], BOTS = ['rookie', 'veteran', 'ace'], OWN = { rookie: 0, veteran: 1, ace: 2 }, VIEW = { width: 1000, height: 760 };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8'), skill = readFileSync(new URL('./skill-bot.js', import.meta.url), 'utf8');
@@ -41,11 +41,11 @@ if (KIT && !SC.KITS[KIT]) { console.error('no kit ' + KIT); process.exit(2); }
 const sorties = []; /* { id, kit, date?, seed, sub, C, diffs, det, bots } */
 if (SWEEP) {
   for (const kit of SC.KIT_ORDER.filter(k => !KIT || k === KIT)) for (let s = 0; s < SWEEP; s++) {
-    const seed = (SC.hash(s, 9090) * 4294967296) | 0, C = SC.composeSortie(kit, seed, 0, FLAV, TWIST, DIALS);
+    const seed = (SC.hash(s, 9090) * 4294967296) | 0, C = SC.composeSortie(kit, seed, 0, FLAV, TWIST, DIALS, TOD);
     sorties.push({ id: kit + '#' + s, kit, n: s, seed, sub: 0, flavour: C.flavour, twist: C.twist, C, diffs: s < ALL ? [0, 1, 2] : [1], det: s % DET === 0 ? 1 : -1, bots: s < BOT_SORTIES });
   }
 } else {
-  for (let i = 0; i < DAYS; i++) { const date = SC.dateKeyUTC(Date.parse(FROM + 'T00:00:00Z') + i * 86400000), C = SC.composeDaily(date, KIT || undefined, SUB, FLAV, TWIST, DIALS);
+  for (let i = 0; i < DAYS; i++) { const date = SC.dateKeyUTC(Date.parse(FROM + 'T00:00:00Z') + i * 86400000), C = SC.composeDaily(date, KIT || undefined, SUB, FLAV, TWIST, DIALS, TOD);
     sorties.push({ id: date, kit: C.kit, date, seed: C.seed, sub: C.sub, flavour: C.flavour, twist: C.twist, C, diffs: DIFFS, det: DIFFS[0], bots: BOT_SORTIES > 0 }); }
 }
 
@@ -62,7 +62,7 @@ const FLY = `(function (spec, diff, bot, bseed, mortal, deadMin) {
   if (app.booting) finishBoot();
   if (app.cont > 0) app.cont = 0;
   SF.setMode(mortal ? 'real' : 'immortal'); SF.start(diff, 1);
-  if (spec.date) startDaily(spec.date, spec.kit || undefined, spec.sub, spec.flavour, spec.twist, spec.dials); else startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, spec.sub | 0, spec.flavour, spec.twist, spec.dials));
+  if (spec.date) startDaily(spec.date, spec.kit || undefined, spec.sub, spec.flavour, spec.twist, spec.dials, spec.tod); else startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, spec.sub | 0, spec.flavour, spec.twist, spec.dials, spec.tod));
   if (bot) SF.skill(Object.assign({}, SF.SKILL[bot], { seed: bseed })); else SF.human(8, 15);
   const S = run.sortie, L0 = S.level, f0 = gf, sc0 = world.scroll, t0 = performance.now(), seen = new WeakSet(), sec = [], quiet = [], encs = [];
   let end = 'cap', bossF = -1, deadF = -1, kills = 0, q0 = -1, qc = 0, longest = [0, 0, 0], sh = 2166136261 | 0, spawns = 0, last = null, wing = false, livesAtBoss = null, f = 0;
@@ -110,7 +110,7 @@ async function newPage(rseed, withSkill) {
   return page;
 }
 async function fly(page, job) {
-  const S = job.S, spec = S.date ? { date: S.date, kit: KIT || null, sub: SUB === undefined ? undefined : SUB, flavour: FLAV, twist: TWIST, dials: DIALS } : { kit: S.kit, seed: S.seed, sub: S.sub, flavour: FLAV, twist: TWIST, dials: DIALS }, n0 = page.errs.length;
+  const S = job.S, spec = S.date ? { date: S.date, kit: KIT || null, sub: SUB === undefined ? undefined : SUB, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD } : { kit: S.kit, seed: S.seed, sub: S.sub, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD }, n0 = page.errs.length;
   const a = [JSON.stringify(spec), job.diff, JSON.stringify(job.bot || null), job.bseed || 0, !!job.bot, DEAD];
   let r; try { r = await page.evaluate(([code, a]) => window.SF.peek(code + '(' + a.join(',') + ')'), [FLY, a]); } catch (e) { r = { end: 'evaluate-threw', errs: [String(e.message).slice(0, 200)], errCount: 1, encs: [], planned: [], quiet: [], longest: [0, 0, 0] }; }
   r.pageErrs = page.errs.slice(n0); return r;
@@ -215,7 +215,7 @@ if (OUT && OUT !== true && fails.length) { mkdirSync(OUT, { recursive: true });
   console.log(`causes${sorties.some(S => S.date) ? ' and contact sheets' : ''} written to ${OUT}`); }
 if (SAVE && SAVE !== true) {
   writeFileSync(SAVE, JSON.stringify({ about: 'Daily Sortie flight gate (tests/daily-gate.mjs --save)', version: VERSION, composer: SC.VERSION, dead: DEAD, sweep: SWEEP, timing: { gate2S, humanS: tHuman / 1000, botsS: tBots / 1000 }, summary,
-    sorties: sorties.map(S => ({ sortie: S.date || S.id, kit: S.kit, sub: S.sub, flavour: S.flavour, twist: S.twist, dials: S.C.dials, dialNames: S.C.dialNames, pass: human.filter(j => j.S === S).every(j => j.pass), why: [...new Set(human.filter(j => j.S === S).flatMap(j => j.why))] })),
+    sorties: sorties.map(S => ({ sortie: S.date || S.id, kit: S.kit, sub: S.sub, flavour: S.flavour, twist: S.twist, dials: S.C.dials, dialNames: S.C.dialNames, tod: S.C.tod, pass: human.filter(j => j.S === S).every(j => j.pass), why: [...new Set(human.filter(j => j.S === S).flatMap(j => j.why))] })),
     flights: human.map(j => ({ sortie: j.S.date || j.S.id, kit: j.S.kit, seed: j.S.seed, sub: j.S.sub, diff: j.diff, pass: j.pass, why: j.why, marks: j.marks, det: j.det, gate2: j.S.gate2.clean ? true : j.S.gate2.notes, r: Object.assign({}, j.r, { errs: j.r.errs }) })),
     bots: bots.map(b => ({ sortie: b.S.date || b.S.id, kit: b.S.kit, bot: b.bot, bseed: b.bseed, cleared: b.r.cleared, perMin: b.r.perMin, livesAtBoss: b.r.livesAtBoss, end: b.r.end, errs: b.r.errCount + b.r.pageErrs.length })) }, null, 1) + '\n');
   console.log('saved ' + SAVE); }

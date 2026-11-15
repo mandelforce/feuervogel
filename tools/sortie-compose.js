@@ -210,9 +210,9 @@ function dialsFor(kit, base, segs, ground) {
    (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
 const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
 const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
-function composeSortie(kitId, seed, sub, flavour, twist, dials) {
+function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
-  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
@@ -220,16 +220,22 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials) {
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, segs, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
   throw new Error('sortie-compose: kit ' + kitId + ', seed ' + seed + ', sub ' + sub + ': no valid sortie in ' + ATTEMPTS + ' tries (the grammar is wrong)');
 }
 
+/* Time of day as ground (docs/ground-variety-plan.md, phase 4): the light of the day, drawn from the date. 'day' is the first pass's noon; 'morning' and 'sunset' are the Campaign's own
+   gradings (the ground, the trees and the clouds; morning also the dawn glow), which the game applies to a plan's chunks as it does to the loops of levels 1 and 2. Night is a twist (Night run), so it is
+   not drawn here, and a night-run day is always 'day' (two darkenings would fight). The segment list, the encounters and the dials do not read it. */
+const TODS = ['day', 'morning', 'sunset'], TOD_WEIGHT = { day: 0.6, morning: 0.2, sunset: 0.2 };
+function todFor(n) { let x = hash(DAILY_SALT + 5, n), k = 0; for (; k < TODS.length - 1; k++) { x -= TOD_WEIGHT[TODS[k]]; if (x < 0) break; } return TODS[k]; }
+
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
 const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {}, DAILY_PLAIN = {};
-/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 3, or a forced sortie). DAILY_PLAIN levels: 1 no dials, 2 also flavour plain, 3 also no twist. */
+/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 3, or a forced sortie). DAILY_PLAIN levels: 1 no dials and the light of noon, 2 also flavour plain, 3 also no twist. */
 const TWISTS = ['night', 'swarm', 'fixed', 'fog', 'elite', 'fast', 'nova'], TWIST_ORDER = TWISTS, TWIST_NAMES = { none: '', night: 'NIGHT RUN', fog: 'FOG', fixed: 'FIXED WEAPON', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM' };
 const FIXED_WEAPONS = ['S', 'L', 'H', 'A']; /* Scatter, Lance, Seeker, Arc: the day's own, from the seed */
 function twistFor(day) { return TWIST_ORDER[((day % TWIST_ORDER.length) + TWIST_ORDER.length) % TWIST_ORDER.length]; }
@@ -239,14 +245,14 @@ function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
   const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000), plain = DAILY_PLAIN[m[0]] | 0;
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain > 1 ? 'plain' : flavourFor(n), twist: plain > 2 ? 'none' : twistFor(day), dials: plain ? 'off' : 'on' };
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain > 1 ? 'plain' : flavourFor(n), twist: plain > 2 ? 'none' : twistFor(day), dials: plain ? 'off' : 'on', tod: plain || (plain > 2 ? 'none' : twistFor(day)) === 'night' ? 'day' : todFor(n) };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub, flavour, twist, dials) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night&dials=off; twist=none for no twist)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night&dials=off&tod=sunset; twist=none for no twist)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
