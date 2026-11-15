@@ -343,6 +343,15 @@ node tests/compose.mjs --kit desert --verbose   # one kit, with example sequence
 node tests/compose.mjs --shard 2/4     # as CI runs it
 ```
 
+## Daily Sortie test (runs in CI, blocking)
+
+`daily.mjs` checks the Daily Sortie in the game (`docs/daily-sortie-plan.md`, section 8): with the test link `?daily=YYYY-MM-DD` START flies that day's composed level (the composer's segments, the kit level's boss, not ranked), `&kit` and `&sub` force a kit and a sub-seed, and without the link START is the Campaign; the plan is the one Node makes from the composer's output and the ground types are the plan's; one sortie per kit flown to its end in two pages with different `Math.random` gives the same spawns, score and end, the boss dies, the Shadow Wing comes, every planned encounter runs to its end, and the run ends at the title; it never counts (board, best, loops, play data); a run saved mid-flight goes on exactly in a fresh page, and a record of another composer version is not resumed; and Campaign levels flown afterwards in the same page play as in a fresh page. About a minute:
+
+```
+node tests/daily.mjs
+node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day's sortie (daily:DATE:KIT:SUB forces a kit and a sub-seed)
+```
+
 ## Nothing pops in, guns stay off runways (by hand)
 
 `guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. `overcast-pop.mjs [4|5] [frames]` flies the first loop of level 4 or 5 and fails if a cloud of the overcast sky (stratus decks, mist banks) changes place by more than 3 px in a frame, appears or vanishes on screen, or steps in opacity: clouds may only wrap while wholly off screen. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.

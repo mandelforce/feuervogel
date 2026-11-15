@@ -1,6 +1,6 @@
 # Daily Sortie: composer plan
 
-Status: plan, draft 1. Phases 0, 0b and 1 are done (sections 6, 6.6 and 7): the composer module exists and is tested. Nothing in the game uses it yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
+Status: plan, draft 1. Phases 0, 0b, 1 and 2 are done (sections 6, 6.6, 7 and 8): the Daily Sortie flies in the game behind the test link `?daily=`. There is no flight gate, no title entry and no board yet. Written for the agent that will build it; the owner decides the points marked **[owner]**.
 
 ## 0. Goal and ground rules
 
@@ -492,3 +492,67 @@ After both: 1,000 of 1,000.
 
 - The CI workflow confirms 6.5 item 11: its comment says the replay test "is switched off until the golden values are refreshed for v1.2.5". The golden files are stale; this machine is fine.
 - `node tests/citygen.mjs`, `tests/enigma.mjs` (213), `tests/fixed-seed.mjs` (41) and `tests/smoke.mjs` pass with the composer embedded; the 24 Campaign plans hash as before.
+
+## 8. Phase 2 results: in the game, behind the test link (build 1.2.6.40)
+
+Try it on a local build: `http://localhost:8000/?daily=2026-11-15`, then START and a difficulty. `&kit=forest&sub=3` forces a kit and a sub-seed; `?daily=` alone is today (UTC). The link does nothing on the live site (`LB_TEST`). Contact sheets of one sortie per kit: https://claude.ai/artifact/We93xGA2zAyMk9TGpf95Rd (made with `node tests/contact.mjs OUTDIR daily:2026-11-15 14`).
+
+### 8.1 What was built
+
+- `buildSortie(level, seed, C)`: with a composed sortie `C` the segments, the encounters and the seed are the composer's, and the loop flags (`variant`, `autumn`, `winter`, …) are off. Without `C` nothing differs. The sortie carries `daily` ({date, kit, seed, sub, v}) and `compose` (the composer's output).
+- `sortiePlanLevel2/4/5` hand the composer's `gen` to `CityGen.generate`, so the game makes the plan Node makes.
+- `startDaily(date, kit, sub)` and `startComposed(C)`; the title's START takes the link (`dailyTry`). `restartStage` restarts the same sortie.
+- Seeds: the sortie's own stream (`run.seed`, `campSeed`'s third argument) and its own timetable (`world.ttSalt`, added to the three timetable and per-enemy seeds; 0 in the Campaign, so its sums are as before). The ground beyond the plan stays the Campaign's (`world.SEED` 1944): the boss ground is the kit level's.
+- The end: results, then the title (`endEnigmaLevel`). It is not ranked, so the board, the best score, the loop count and the play-data report leave it alone by the rules that already keep practice runs out.
+- Save and resume: `sortieRef` / `sortieOf`. A Campaign level is still saved as `{level, seed}`; a Daily Sortie adds `{daily}` and is rebuilt from the composer's kit, seed and sub-seed, not from the date, so the version a player started with holds (decision 4). A record of another composer version is not resumed.
+- The Shadow Wing has its place in the composer's plan (`wingC`): from 37.5 % of the level on, after an encounter that is running then, 55 % at the latest. An encounter the Wing would cover is left out.
+
+### 8.2 Checks
+
+`node tests/daily.mjs` (60 checks, added to CI):
+
+| Check | Result |
+|---|---|
+| `?daily=DATE`: START flies that day's kit, the composer's segments and encounters, not ranked; `&kit`, `&sub` force; without the link START is the Campaign | pass, 3 kits |
+| The plan is Node's (same road, density and buildings; the game then digs its tank pits and gun nests in) and the ground types are the plan's | 0 of 824 to 1896 sampled points differ |
+| Flown to the end in two pages with different `Math.random`: the same spawns, score, length and hits | desert 676 spawns, forest 833, winter 756 |
+| The boss comes and dies; then the title; no errors | boss after 230 s, 171 s, 254 s |
+| The Shadow Wing comes and every planned encounter runs to its end with no event dropped | pass |
+| It never counts: board, best, loops, stored values, play-data report | pass |
+| Saved at frame 4200, loaded in a fresh page: 26 samples over 1500 frames identical; another composer version is not resumed | pass, 3 kits |
+| Levels 2, 4 and 5 flown afterwards in the same page play as in a fresh page | pass |
+
+The Campaign, against the build before (1.2.6.39):
+- `buildSortie` gives the same sortie for levels 1 to 6 on seeds 1944 to 1947, 1950, 7 and 123456 (42 sorties, every field and five draws of `rng`), and three 1500-frame flights end in the same state.
+- The 24 plans the game builds hash as before.
+- `tests/enigma.mjs` (213), `tests/fixed-seed.mjs` (41), `tests/smoke.mjs`, `tests/jitter.mjs`, `tests/citygen.mjs` and `tests/compose.mjs` pass; `tests/replay.mjs` prints what it printed before phase 0b.
+- `tests/resume-exact.mjs` reports 5 problems, **the same 5 in the build before** (four Campaign levels differ in their decal count at the save, the old stage 6 in its random stream after 180 frames). They are not from this work; the Daily Sortie's own resume is exact.
+
+### 8.3 Encounters on the first pass's ground
+
+Flown on 14 composed sorties per kit (Veteran), after the Wing's place was planned:
+
+| Encounter | Planned | Ran | Ended | Events that found no place |
+|---|---|---|---|---|
+| desert `burningfield` | 10 | 10 | done | 0 |
+| desert `fuelconvoy` | 14 | 14 | done | 0 |
+| desert `oasisambush` | 8 | 8 | done | 0 |
+| forest `cliffbattery` | 14 | 14 | done | 0.3 a run (no radar, or no gun left for a broadside) |
+| winter `iceraid` | 14 | 14 | done | 0 |
+| winter `iceroad` | 12 | 12 | done | 0 |
+
+Taken out of the kit tables, as the plan asks ("must find it or must not be scheduled"):
+- winter `basebreak`: without the first loop's basin its two flak guns find no place and it is called off after about 430 frames (5 of 5).
+- forest `valleyconvoy`: without the first loop's river three of its eight events make nothing, and it holds the air waves for 2100 frames.
+
+Both come back if the daily sortie may use the loops' ground variants (the basin, the autumn valley's river). **[owner]** That would also bring the autumn forest's look and lakes on some days.
+
+Before the Wing was planned, 2 of 7 `burningfield` and 2 of 8 `oasisambush` were planned and then given up by the game because the Wing was up. Over 1,000 seeds a desert sortie now has 2.28 encounters, a forest one 1.00, a winter one 1.62, plus the Wing.
+
+### 8.4 Not done, not checked
+
+- No person has played one; the bot is immortal and the contact sheets show the ground without enemies.
+- Two players, the continue prompt and a game over in a Daily Sortie were not tried (they run the Campaign's code).
+- No phone viewport.
+- The message at the start says DAILY SORTIE with the date and the kit; the results screen and the pause menu are the level's own.
+- Row 4 of 6.3 (`plan.airbase` and `plan.fort` as lists) was not needed: the kits allow one airbase and one pass.

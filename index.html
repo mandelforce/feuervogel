@@ -4515,7 +4515,7 @@ root.CityGen = CityGen;
    The grammar is what the presets tolerate, measured by tests/compose-probe.mjs (sections 6.2 and 6.6 of the plan). The length
    ranges below are narrower than what is merely valid: they keep every stretch long enough to play and short enough not to drag.
 
-   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, attempt, segs: [{ t, start, n }], len, encPlan, boss, arena,
+   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
    dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub }   the day is UTC, the kit by rotation, sub from DAILY_REROLL
    composeDaily('YYYY-MM-DD') -> composeSortie of that day, with .date
@@ -4540,7 +4540,8 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      game works out from the screen). arena: chunks of plan past the level's end. params: the generator's, besides segs.
    enc[t]: encounters a segment of t may hold: { id, at: chunks into the segment, end: chunks before its end the try is given up,
      frames: how long it runs (measured in the first loops, tests/daily-baseline.json), first/last: only in the level's first or
-     last segment of that template }. Taken from the loops' hand-made plans (buildSortie); phase 2 checks each against the ground. */
+     last segment of that template }. Taken from the loops' hand-made plans (buildSortie). Only those that work on the first pass's ground
+     are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -4577,7 +4578,7 @@ const KITS = {
       clearing_village: ['forest_conifer', 'forest_fortified', 'airbase_forest_hidden', 'valley'],
       airbase_forest_hidden: ['forest_conifer', 'forest_fortified', 'clearing_village', 'valley'],
       valley: ['forest_conifer', 'forest_fortified', 'clearing_village', 'airbase_forest_hidden'] },
-    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }], valley: [{ id: 'valleyconvoy', at: 1, end: 1, frames: 2280 }] } },
+    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }] } }, // (not 'valleyconvoy': without the first loop's river three of its eight events make nothing, and it holds the air waves for 2100 frames)
   winter: { id: 'winter', level: 5, preset: 'winterGorge', params: { joinRoad: 1 }, arena: 48, boss: { yard: true }, climate: 'winter', timeOfDay: 'day', len: [78, 90],
     opener: [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8]], approach: [['pass', 7], ['farmland_winter', 11]],
     middle: {
@@ -4594,20 +4595,28 @@ const KITS = {
       station_winter: ['village', 'lake_valley', 'airbase_snow', 'forest_conifer'],
       airbase_snow: ['village', 'lake_valley', 'station_winter', 'forest_conifer'],
       forest_conifer: ['village', 'lake_valley', 'station_winter', 'airbase_snow'] },
-    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }], pass: [{ id: 'basebreak', at: 2, end: 3, frames: 1280 }] } },
+    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }] } }, // (not 'basebreak': without the first loop's basin its two flak guns find no place and it is called off, 5 of 5 flights)
 };
 const KIT_ORDER = ['desert', 'forest', 'winter']; // the daily rotation (owner: rotation, so consecutive days differ)
+const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest middle segments; chunks of rest between an encounter's end and the next one's start
 
 // Encounters by segment: at most one per segment, each id once, none starting before the last one has run its length and ENC_REST chunks have passed.
+// The Shadow Wing has its place among them: the game brings it once the spawn line passes its chunk and no encounter is on, and while it is up no
+// other encounter starts. So it is laid in here as one more encounter (from WING_AT of the level on, after whatever runs then, WING_LATE at the latest), and an encounter whose
+// segment the Wing covers is left out instead of being planned and then given up by the game. Returns { enc: [{ id, c, until, live }], wingC }.
 function encPlanFor(kit, segs) {
-  const out = [], used = {}; let free = 0;
+  const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
+  const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
     const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= kit.opener.length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
-      const c = g.start + e.at, until = Math.max(c + 1, g.start + g.n - e.end); if (c < free || c >= g.start + g.n) continue;
-      out.push({ id: e.id, c, until, live: true }); used[e.id] = true; free = c + Math.ceil(e.frames / CH_S) + ENC_REST; break; } });
-  return out;
+      const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
+      if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
+      const c = Math.max(c0, free); if (c >= until || c >= g.start + g.n) continue; /* (no room left in its segment) */
+      out.push({ id: e.id, c, until, live: true }); used[e.id] = true; free = c + need + ENC_REST; break; } });
+  if (wingC < 0) layWing();
+  return { enc: out, wingC };
 }
 
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
@@ -4627,11 +4636,13 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
-  const enc = S.encPlan || [], ids = {}; let free = -1;
+  const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
+  if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
   enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
-    if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (e.c < free) bad.push('encounter ' + e.id + ' starts at ' + e.c + ', before chunk ' + free); if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
-    free = e.c + Math.ceil(def.frames / CH_S) + ENC_REST; });
+    if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
+    spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
+  spans.sort((a, b) => a[0] - b[0]); for (let k = 1; k < spans.length; k++) if (spans[k][0] < spans[k - 1][1] + ENC_REST) bad.push(spans[k][2] + ' starts at chunk ' + spans[k][0] + ', before ' + spans[k - 1][2] + ' is over and rested');
   return bad;
 }
 
@@ -4661,7 +4672,7 @@ function composeSortie(kitId, seed, sub) {
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
     const params = Object.assign({}, kit.params, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, attempt, segs, len: at, encPlan: encPlanFor(kit, segs), boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
@@ -4707,7 +4718,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.39'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.40'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10589,6 +10600,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   world.protoWatch = null; world.duelWatch = null;
   laserHeat = 0; overheatT = 0;
   world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.roll = null; app.medalPop = 0; app.glows = null;
+  world.ttSalt = 0; // (a Daily Sortie's campSeed sets it)
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : CAMP_SEED + (lp | 0);
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
@@ -10742,17 +10754,18 @@ function loopSeq(seq, seed, level) {
   out.forEach((q, k) => { if (k < 2 || q[0] === 'harbour_commercial' || q[0] === 'beach_town') return; const d = r(10 + k); q[1] = Math.max(3, q[1] + (q[0] === 'pass' ? (d < 0.5 ? 0 : 1) : d < 1 / 3 ? -1 : d < 2 / 3 ? 0 : 1)); });
   return out;
 }
-function buildSortie(level, seed) {
-  const variant = level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
-  const winter5 = level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
-  const haze6 = level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.composeSortie, the Daily Sortie): its segments, encounters and seed take the place of the level's own; the level lends its boss, theme, art and rules. Without C nothing here differs from before.
+  if (C) seed = C.base;
+  const variant = C ? 0 : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
+  const winter5 = !C && level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const haze6 = !C && level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
-  const autumn4 = level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
+  const autumn4 = !C && level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
-  const fly = one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
+  const fly = !C && one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = C ? C.segs.map(g => [g.t, g.n]) /* (whole chunks that add up to C.len, so the scaling below leaves them as they are) */ : fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = C ? C.len : ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
   seq.forEach(([t, w], k) => { const n = k === seq.length - 1 ? Math.max(1, len - at) : Math.max(1, Math.round(w * len / sum)); segs.push({ t, start: at, n }); at += n; });
-  const encPlan = autumn4 ? (() => { /* level 4's first loop: the valley convoy, once the screen is well into the valley (1 chunk in: the Shadow Wing comes earlier here, wingU, and is over by then, so the convoy meets the river with most of it ahead) */
+  const encPlan = C ? C.encPlan.map(e => Object.assign({}, e)) : autumn4 ? (() => { /* level 4's first loop: the valley convoy, once the screen is well into the valley (1 chunk in: the Shadow Wing comes earlier here, wingU, and is over by then, so the convoy meets the river with most of it ahead) */
     const v4 = segs.find(g => g.t === 'valley'); return [{ id: 'cliffbattery', c: 1, until: 2, live: true }, { id: 'valleyconvoy', c: v4.start + 1, until: v4.start + 4, live: true }]; })() : winter5 ? (() => { /* level 5's first loop: the ice breakers over the frozen sea, the ice-road convoy in the lake valley, the base's defence in the pass (the stretches are the seed's own) */
     const sg5 = tt => segs.find(g => g.t === tt), a5 = sg5('open_sea_ice'), b5 = sg5('lake_valley'), c5 = sg5('pass');
     return [{ id: 'iceraid', c: 4, until: a5.start + a5.n - 6, live: true }, { id: 'iceroad', c: b5.start + 1, until: b5.start + b5.n - 2, live: true }, { id: 'basebreak', c: c5.start + 2, until: c5.start + c5.n - 3, live: true }];
@@ -10766,7 +10779,7 @@ function buildSortie(level, seed) {
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -10869,7 +10882,7 @@ function sortiePlanIslands(S) {
 // segment's feature: the oil valley, the held oasis village, the junction, the small oasis, the airbase, the fortified pass with its viaduct,
 // and the quiet desert before the boss, whose ground is the Campaign's (bossland, theme 2). Plan row y is world row S.planY0 - y.
 function sortiePlanLevel2(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'sandSea', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })), variant: S.variant | 0 } }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'sandSea', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })), variant: S.variant | 0 } }); /* (a composed sortie brings the generator's seed and parameters, so the test in Node makes the same plan) */ S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 3, The Long Night: one plan over the whole level from its first chunk (the generator's longNight preset), at night. The beach with its
@@ -10892,7 +10905,7 @@ function sortiePlanLevel3(S) {
 // onto the high cliff coast, then the conifer forest with its gun sites, firebreaks, plantations, clearings and forest roads (the village,
 // the hidden airbase and the valley are forest for now), and the approach: meadow, a defence line, the road at x 112 where the castle road runs.
 function sortiePlanLevel4(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
@@ -10901,7 +10914,7 @@ function sortiePlanLevel4(S) {
 // on past the level's end as the train boss's arena (GORGE_ARENA chunks, preset winterGorge): two hillside viaducts with the chasm between them
 // (spec 20.6, 20.7). The boss code still sees its bossland (theme 1) there.
 function sortiePlanLevel5(S) {
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len + GORGE_ARENA; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len + GORGE_ARENA; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -10918,6 +10931,18 @@ function resetTerrainState() {
   lakeMist = null;
   critters.length = 0; props.length = 0; wx2Reset(); rxW = NaN; rhW = NaN; TRGB = THEME_RGB[0]; world.featTheme = 0; CL.tt = ''; CL.p = 0; CL.ly = 0; CL.I = null; CL.coastD = 99; CL.rail = null;
 }
+// What a sortie is saved as and rebuilt from: {level, seed} for a Campaign level, as ever; a Daily Sortie adds {daily} (the composer's kit, seed, sub-seed and version).
+// sortieOf gives null when the composer's version is no longer the saved one (the sortie can't be made again, so that run can't be resumed).
+function sortieRef(S) { return S.daily ? { level: S.level, seed: S.seed, daily: Object.assign({}, S.daily) } : { level: S.level, seed: S.seed }; }
+function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub); C.date = d.date || null; return C; }
+function sortieOf(ref) { if (!ref.daily) return buildSortie(ref.level, ref.seed); const C = dailyCompose(ref.daily); return C ? buildSortie(C.level, 0, C) : null; }
+/* The Daily Sortie (docs/daily-sortie-plan.md): one composed level, the same for every player on a UTC day. It borrows a Campaign level's boss, theme, art and
+   timetable (run.sortie.level) and flies its own segments (run.sortie.daily, run.sortie.compose). It never counts (not ranked: no board, no best, no loop, no
+   play data) and ends at the title after its results. For now it is reached only by the test link on a local build: ?daily=2026-11-15 (START then flies that
+   day's sortie), with &kit=forest and &sub=3 to force a kit and a sub-seed. */
+function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub') }; }
+function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
+function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
   bossJump();
@@ -10935,13 +10960,14 @@ function bossJump() {
 }
 function restartStage() { // pause menu: restart the stage in the mode being played (startAt alone would drop the Enigma sortie and fly the Retro Run)
   const lv = run.sortie ? run.sortie.level : 0, ranked = run.ranked, retro = run.retro, endless = run.endless, st = run.stage;
-  if (lv) startEnigma(lv, ranked, run.loops || 0); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
+  if (run.sortie && run.sortie.daily) { const C = dailyCompose(run.sortie.daily); if (C) startComposed(C); } else if (lv) startEnigma(lv, ranked, run.loops || 0); else if (endless) startAt(st, true); else { startAt(st); run.retro = retro; run.ranked = ranked; }
 }
 function startRetro() { setRetroArt(true); startAt(1); run.retro = true; run.ranked = false; } // Retro Run: the old campaign, as it was; nothing goes to the leaderboard
 // The level is over (results shown): Enigma Run flies on like the Campaign (owner). The next level starts with the run's score, lives, Novas,
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
 const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
 function endEnigmaLevel() {
+  if (run.sortie && run.sortie.daily) { stopMusic(); toTitle(); return; } // a Daily Sortie is one level: after its results, the title
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
@@ -11083,24 +11109,26 @@ function tutTap(gx, gy) {
 // Endless, generated mode and Retro Run keep a new random seed every run. Test builds may force a seed (window.__forceSeed).
 const CAMP_SEED = 1944;
 // gf, the frame count, starts at 0 too: the play reads it (cadences such as gf % 4), so a level must not depend on how long the page has run.
-function campSeed(level, lp) { // lp: the loop; each loop is its own seed (1944, 1945, ...), so the ground, the secret and the placements differ
-  const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : CAMP_SEED + (lp | 0);
+function campSeed(level, lp, dailySeed) { // dailySeed: a Daily Sortie's own seed, for its stream and its timetable (the ground beyond its plan stays the Campaign's, world.SEED)
+  world.ttSalt = dailySeed === undefined ? 0 : dailySeed | 0; // lp: the loop; each loop is its own seed (1944, 1945, ...), so the ground, the secret and the placements differ
+  const forced = LB_TEST && window.__forceSeed !== undefined; run.seed = forced ? window.__forceSeed >>> 0 : dailySeed !== undefined ? dailySeed >>> 0 : CAMP_SEED + (lp | 0);
   simS = forced ? run.seed | 0 : (Math.imul(run.seed, 31) + level * 977) | 0; onStream(true, newSecret)(); // (a test's forced seed is the stream's seed, as in newGame)
   gf = 0; zapLast = -99; for (const k in sfxLast) delete sfxLast[k]; // (the sound throttles hold frame counts)
   world.ttGhosts = []; world.rsF = null; // (the timetable's ghosts: a new level starts with none; rsF: the count behind rsSeed's seeds for what nothing else made)
 }
-function startAt(n, keepEndless, sortieLevel, loops) { // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
+function startAt(n, keepEndless, sortieLevel, loops, composed) { // composed: a Daily Sortie's composed level (startComposed) // sortieLevel (1-6): an Enigma Run level; the ground is still the Campaign stage's (phase 1)
   if (app.tut && n !== 99) { app.tut = null; world.quiet = false; }
   if (!keepEndless) run.endless = false;
   const lp = sortieLevel ? Math.max(0, loops | 0) : 0; // (only the Campaign's levels loop)
   newGame(lp); run.start = run.endless ? 1 : n; run.diff = settings.diff; run.loops = lp;
-  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = buildSortie(sortieLevel, CAMP_SEED + lp); campSeed(sortieLevel, lp); }
+  if (sortieLevel) { run.endless = false; run.start = n; run.sortie = composed ? buildSortie(sortieLevel, 0, composed) : buildSortie(sortieLevel, CAMP_SEED + lp); campSeed(sortieLevel, lp, composed ? run.sortie.seed : undefined); }
   setEnigmaArt(!!run.sortie);
   if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } if (lp) { run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); } markStage(); return; } // level 1 opens on the carrier's deck
   run.stage = n + 6 * lp; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
+  if (run.sortie && run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase(), 170); else
   showMsg((run.sortie ? 'LEVEL ' + run.sortie.level : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
@@ -11664,7 +11692,7 @@ function saveResume() {
   }
   if (run.gameOverPending || app.cont > 0) { if (run.conts >= maxCont()) return; cn = run.conts + 1; lv = DIFF.lives[run.diff]; } // at the continue prompt: resuming spends a continue
   const r = { v: VERSION, at: Date.now(), stage: st, theme, endless: run.endless, diff: run.diff, runStart: run.start, conts: cn, credits: app.credits + (cn - run.conts), frames: run.frames,
-    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? { level: run.sortie.level, seed: run.sortie.seed } : null, lvn: 2, ranked: run.ranked, retro: run.retro };
+    score: mark.score, nextExtend: mark.nextExtend, extendsGot: mark.extendsGot, camp: mark.camp, lives: lv, bombs: run.bombs, wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, twoP: run.twoP, enigma: run.enigma, sortie: run.sortie ? sortieRef(run.sortie) : null, lvn: 2, ranked: run.ranked, retro: run.retro };
   if (app.snap && app.snap.stage === run.stage && app.snap.seed === run.seed && st === run.stage && !run.gameOverPending && !(app.cont > 0) && !app.results && !app.congrats) { r.snap = app.snap.text; r.sv = VERSION; r.snapScore = app.snap.score; }
   store.setJSON(KEY.resume, r);
 }
@@ -11766,7 +11794,7 @@ function takeSnapshot() { // the text of a snapshot, or null while the game is i
     w.decals = world.decals.filter(x => snapPlain(x, fns, spr, 0)); w.parts = world.parts.filter(x => snapPlain(x, fns, spr, 0)); // (what can't be written down is only for show)
     const app2 = {}; for (const k of SNAP_APP) app2[k] = app[k];
     const sets = {}, lists = {}; for (const [k, v] of Object.entries(snapSets())) sets[k] = v; for (const [k, v] of Object.entries(snapLists())) lists[k] = v;
-    const so = run.sortie, sortie = so ? { level: so.level, seed: so.seed, state: {} } : null;
+    const so = run.sortie, sortie = so ? Object.assign(sortieRef(so), { state: {} }) : null;
     if (so) for (const k of SNAP_SORTIE) if (so[k] !== undefined) sortie.state[k] = so[k];
     return snapEncode({ fmt: SNAP_FMT, v: VERSION, H, W, gf, simS, drandS, laserHeat, overheatT, guardCount, eshotN, world: w, run: Object.assign({}, run, { sortie: null }), sortie, player, p2, beam, feel, app: app2, sets, lists });
   } catch (e) { if (!(e instanceof SnapDirty)) { try { store.set(KEY.lastError, 'snapshot: ' + (e && e.stack || e)); } catch (e2) {} } return null; }
@@ -11784,13 +11812,14 @@ function snapPlain(v, fns, spr, d) { // true when v holds only what snapEncode c
 }
 function snapApply(S) { // put a decoded snapshot into the running game (the stage's terrain is rebuilt from the seed afterwards)
   if (!S || S.fmt !== SNAP_FMT || !S.world || !S.run || !S.player || Math.abs(S.H - H) > 24) return false;
+  if (S.sortie && S.sortie.daily && S.sortie.daily.v !== SortieCompose.VERSION) return false; // (a Daily Sortie of another composer version can't be made again)
   // the terrain caches again, for this seed (cleared first: it also empties the sets and lists put back below)
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState();
   gf = S.gf; eshotN = S.eshotN | 0; simS = S.simS; drandS = S.drandS; laserHeat = S.laserHeat; overheatT = S.overheatT; guardCount = S.guardCount; beam = S.beam || null;
   for (const k of Object.keys(S.world)) world[k] = S.world[k];
   Object.assign(run, S.run);
-  if (S.sortie) { run.sortie = buildSortie(S.sortie.level, S.sortie.seed); Object.assign(run.sortie, S.sortie.state); } else run.sortie = null;
+  if (S.sortie) { run.sortie = sortieOf(S.sortie); Object.assign(run.sortie, S.sortie.state); } else run.sortie = null;
   player = S.player; p2 = S.p2 && p2Mode() !== 'off' ? S.p2 : null;
   const dh = H / S.H; if (dh !== 1) for (const q of [player, p2]) if (q) { q.y = clamp(q.y * dh, 18, H - 14); if (q.ly !== undefined) q.ly = q.y; if (q.dr) for (const d of q.dr) d.y = q.y + 7; }
   Object.assign(feel, S.feel);
@@ -11805,9 +11834,10 @@ function resumeRun(r) {
   clearResume(); closeAllPanels();
   if (app.tut) { app.tut = null; world.quiet = false; }
   run.endless = !!r.endless; settings.diff = r.diff;
-  const lp = r.sortie && r.sortie.seed >= CAMP_SEED && r.sortie.seed < CAMP_SEED + 100 ? r.sortie.seed - CAMP_SEED : 0; // (the loop is in the level's seed)
+  if (r.sortie && r.sortie.daily && r.sortie.daily.v !== SortieCompose.VERSION) return; // (a Daily Sortie of another composer version can't be made again: no resume)
+  const lp = r.sortie && !r.sortie.daily && r.sortie.seed >= CAMP_SEED && r.sortie.seed < CAMP_SEED + 100 ? r.sortie.seed - CAMP_SEED : 0; // (the loop is in the level's seed)
   newGame(lp); run.loops = lp; run.enigma = r.enigma || 0; setLook(run.enigma); // a resumed run keeps its look
-  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = buildSortie(r.sortie.level, r.sortie.seed); campSeed(r.sortie.level, lp); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
+  if (r.sortie && r.sortie.level >= 1 && r.sortie.level <= ENIGMA_N) { run.sortie = sortieOf(r.sortie); campSeed(r.sortie.level, lp, run.sortie.daily ? run.sortie.seed : undefined); } // an Enigma Run level is rebuilt from {level, seed}; its stream starts as the level's does (a snapshot below puts the saved one back)
   setEnigmaArt(!!run.sortie); run.ranked = !!r.ranked; run.retro = !!r.retro;
   run.stage = r.stage; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = r.theme; world.prevLand = false;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
@@ -11830,7 +11860,7 @@ function resumeRun(r) {
 
 function offerResume() {
   const r = app.resumeOffer = loadResume(); if (!r) return;
-  document.getElementById('resInfo').textContent = (r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + r.sortie.level : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap ?'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
+  document.getElementById('resInfo').textContent = (r.sortie && r.sortie.daily ? 'Daily Sortie ' + (r.sortie.daily.date || '') : r.sortie ? (r.ranked ? 'Campaign' : 'Practice') + ', level ' + r.sortie.level : r.retro ? 'Retro Run' : r.endless ? 'Endless' : 'Campaign') + ', ' + ['Rookie', 'Veteran', 'Ace'][r.diff] + ': stage ' + stageLabel(r.stage) + ', ' + Number(r.snap ? r.snapScore : r.score).toLocaleString('en-US') + ' points. ' + (r.snap ?'You carry on where you stopped.' : 'You restart that stage with the lives, bombs and weapon you had.');
   document.getElementById('resumeAsk').classList.add('open'); document.getElementById('resYes').focus();
 }
 
@@ -11903,7 +11933,7 @@ function E(type, o) {
 const rsHash = (a, b) => (sortieHash(a, b) * 4294967296) | 0;
 const rsType = t => { let h = 7; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 31) + t.charCodeAt(i)) | 0; return h; };
 function rsSeed(e) {
-  const L = world.SEED * 31 + run.stage * 977, P = rsObj && rsObj.rs0 !== undefined ? rsObj : null;
+  const L = world.SEED * 31 + run.stage * 977 + (world.ttSalt | 0), P = rsObj && rsObj.rs0 !== undefined ? rsObj : null; // (ttSalt: 0 in the Campaign, a Daily Sortie's seed otherwise, so each day has its own timetable)
   if (ttDir) e.rs = rsHash(rsHash(L + ttSlot * 7919, gf), ttOrd++);
   else if (P) e.rs = rsHash(P.rs0, P.kids = (P.kids | 0) + 1);
   else { const F = world.rsF && world.rsF.g === gf ? world.rsF : (world.rsF = { g: gf, m: {} }); e.rs = rsHash(rsHash(L ^ rsType(e.type), gf), F.m[e.type] = (F.m[e.type] | 0) + 1); }
@@ -12046,7 +12076,7 @@ function director() {
   if (app.results || app.congrats || world.quiet) return;
   if (settings.mode === 'gen') return directorInner();
   const rr = Math.random, nL = world.later.length; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
-  if (ttOn()) for (let k = nL; k < world.later.length; k++) { const it = world.later[k]; if (it.rs === undefined) it.rs = it.rs0 = rsHash(rsHash(world.SEED * 31 + run.stage * 977 + 0x1A7E, gf), k - nL); } // (the Campaign: what the director left for later frames, the rest of a wave or the boss, runs on its own stream seeded now: rsRun in update)
+  if (ttOn()) for (let k = nL; k < world.later.length; k++) { const it = world.later[k]; if (it.rs === undefined) it.rs = it.rs0 = rsHash(rsHash(world.SEED * 31 + run.stage * 977 + (world.ttSalt | 0) + 0x1A7E, gf), k - nL); } // (the Campaign: what the director left for later frames, the rest of a wave or the boss, runs on its own stream seeded now: rsRun in update)
 }
 /* ---------- The Campaign's timetable (owner: every player gets the same challenge) ----------
    In the Campaign (and practice of its levels: run.sortie) the director keeps its zones, densities, timers and encounters, but nothing it
@@ -12060,7 +12090,7 @@ function director() {
    Endless, generated mode and Retro Run keep the reactive director. */
 let ttDir = false, ttFix = false, ttSlot = 0, ttOrd = 0; // ttFix: placement as the timetable's (placeOK) for a fixed rule outside the director; ttSlot, ttOrd: the slot ttSeed last seeded and how many enemies it made (rsSeed)
 const ttOn = () => !!run.sortie;
-function ttSeed(k) { if (ttOn()) { drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + k * 7919, gf) * 4294967296) | 0; ttSlot = k; ttOrd = 0; } }
+function ttSeed(k) { if (ttOn()) { drandS = (sortieHash(world.SEED * 31 + run.stage * 977 + (world.ttSalt | 0) + k * 7919, gf) * 4294967296) | 0; ttSlot = k; ttOrd = 0; } }
 const TT_LIFE = { heavy: 720, bomber: 810, sower: 1204, pfeil: 600, kolibri: 600, '@leader': 400 }; // frames an air enemy of the type stays when nobody shoots it (measured with a bot that never fires: Heavy 720, Bomber 810, Sower 1204, fighters about 250, the default); the Pfeil never leaves unshot, so its typical life against the bot (about 600)
 const TT_AIR = [16, 18, 20]; // per difficulty: at most this many timetabled planes up (ghosts) when an air wave is due, else the wave is skipped (today's highest count of planes up at a wave, measured with the bot on every level)
 function ttGhost(e) { const G0 = world.ttGhosts || (world.ttGhosts = []); G0.push([e.type, gf, e.ground ? e.wy : null]); if (e.leader) G0.push(['@leader', gf, null]); if (e.drill) G0.push(['@drill', gf, e.wy]); }
@@ -19793,7 +19823,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else startEnigma(1, true); // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });

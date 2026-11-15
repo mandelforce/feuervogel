@@ -8,7 +8,7 @@
    The grammar is what the presets tolerate, measured by tests/compose-probe.mjs (sections 6.2 and 6.6 of the plan). The length
    ranges below are narrower than what is merely valid: they keep every stretch long enough to play and short enough not to drag.
 
-   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, attempt, segs: [{ t, start, n }], len, encPlan, boss, arena,
+   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
    dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub }   the day is UTC, the kit by rotation, sub from DAILY_REROLL
    composeDaily('YYYY-MM-DD') -> composeSortie of that day, with .date
@@ -33,7 +33,8 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      game works out from the screen). arena: chunks of plan past the level's end. params: the generator's, besides segs.
    enc[t]: encounters a segment of t may hold: { id, at: chunks into the segment, end: chunks before its end the try is given up,
      frames: how long it runs (measured in the first loops, tests/daily-baseline.json), first/last: only in the level's first or
-     last segment of that template }. Taken from the loops' hand-made plans (buildSortie); phase 2 checks each against the ground. */
+     last segment of that template }. Taken from the loops' hand-made plans (buildSortie). Only those that work on the first pass's ground
+     are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -70,7 +71,7 @@ const KITS = {
       clearing_village: ['forest_conifer', 'forest_fortified', 'airbase_forest_hidden', 'valley'],
       airbase_forest_hidden: ['forest_conifer', 'forest_fortified', 'clearing_village', 'valley'],
       valley: ['forest_conifer', 'forest_fortified', 'clearing_village', 'airbase_forest_hidden'] },
-    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }], valley: [{ id: 'valleyconvoy', at: 1, end: 1, frames: 2280 }] } },
+    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }] } }, // (not 'valleyconvoy': without the first loop's river three of its eight events make nothing, and it holds the air waves for 2100 frames)
   winter: { id: 'winter', level: 5, preset: 'winterGorge', params: { joinRoad: 1 }, arena: 48, boss: { yard: true }, climate: 'winter', timeOfDay: 'day', len: [78, 90],
     opener: [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8]], approach: [['pass', 7], ['farmland_winter', 11]],
     middle: {
@@ -87,20 +88,28 @@ const KITS = {
       station_winter: ['village', 'lake_valley', 'airbase_snow', 'forest_conifer'],
       airbase_snow: ['village', 'lake_valley', 'station_winter', 'forest_conifer'],
       forest_conifer: ['village', 'lake_valley', 'station_winter', 'airbase_snow'] },
-    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }], pass: [{ id: 'basebreak', at: 2, end: 3, frames: 1280 }] } },
+    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }] } }, // (not 'basebreak': without the first loop's basin its two flak guns find no place and it is called off, 5 of 5 flights)
 };
 const KIT_ORDER = ['desert', 'forest', 'winter']; // the daily rotation (owner: rotation, so consecutive days differ)
+const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest middle segments; chunks of rest between an encounter's end and the next one's start
 
 // Encounters by segment: at most one per segment, each id once, none starting before the last one has run its length and ENC_REST chunks have passed.
+// The Shadow Wing has its place among them: the game brings it once the spawn line passes its chunk and no encounter is on, and while it is up no
+// other encounter starts. So it is laid in here as one more encounter (from WING_AT of the level on, after whatever runs then, WING_LATE at the latest), and an encounter whose
+// segment the Wing covers is left out instead of being planned and then given up by the game. Returns { enc: [{ id, c, until, live }], wingC }.
 function encPlanFor(kit, segs) {
-  const out = [], used = {}; let free = 0;
+  const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
+  const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
     const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= kit.opener.length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
-      const c = g.start + e.at, until = Math.max(c + 1, g.start + g.n - e.end); if (c < free || c >= g.start + g.n) continue;
-      out.push({ id: e.id, c, until, live: true }); used[e.id] = true; free = c + Math.ceil(e.frames / CH_S) + ENC_REST; break; } });
-  return out;
+      const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
+      if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
+      const c = Math.max(c0, free); if (c >= until || c >= g.start + g.n) continue; /* (no room left in its segment) */
+      out.push({ id: e.id, c, until, live: true }); used[e.id] = true; free = c + need + ENC_REST; break; } });
+  if (wingC < 0) layWing();
+  return { enc: out, wingC };
 }
 
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
@@ -120,11 +129,13 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
-  const enc = S.encPlan || [], ids = {}; let free = -1;
+  const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
+  if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
   enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
-    if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (e.c < free) bad.push('encounter ' + e.id + ' starts at ' + e.c + ', before chunk ' + free); if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
-    free = e.c + Math.ceil(def.frames / CH_S) + ENC_REST; });
+    if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
+    spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
+  spans.sort((a, b) => a[0] - b[0]); for (let k = 1; k < spans.length; k++) if (spans[k][0] < spans[k - 1][1] + ENC_REST) bad.push(spans[k][2] + ' starts at chunk ' + spans[k][0] + ', before ' + spans[k - 1][2] + ' is over and rested');
   return bad;
 }
 
@@ -154,7 +165,7 @@ function composeSortie(kitId, seed, sub) {
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
     const params = Object.assign({}, kit.params, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, attempt, segs, len: at, encPlan: encPlanFor(kit, segs), boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
