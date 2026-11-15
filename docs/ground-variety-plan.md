@@ -160,6 +160,32 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 
 **Not measured.** The cost of 40 % more crowns when the chunks are painted in the page and on a phone (the plan itself is cheap: 190 ms at the top of the range in Node); the skill bots on the wider gun range.
 
+### 4.6 Page, phone and skill-bot measurements for the forest dials (owner: "all of it in order")
+
+**Page cost** (headless Chromium, a 390 x 844 touch viewport at scale 2, the CPU slowed with the browser's throttle; one forest date, 2026-12-22, which draws `crowns`, `cuts` and lakes; 1,400 frames of the flight bot, update and draw stepped, 100 frames of warm-up dropped):
+
+| CPU | Day | Start-up (the plan, ms) | Frame avg / p95 / max (ms) | Frames over 16.7 ms |
+|---|---|---|---|---|
+| 1x | dials off | 362 | 4.4 / 13.5 / 31 | 2.6 % |
+| 1x | dials on (crowns, cuts, lakes) | 656 | 4.6 / 14.4 / 34 | 2.2 % |
+| 1x | loop flavour (autumn and lakes, the Campaign's loop) | 657 | 6.2 / 21.8 / 63 | 9.1 % |
+| 4x slower | dials off | 1,553 | 21.7 / 68 / 199 | 45.6 % |
+| 4x slower | dials on | 3,470 | 21.5 / 68 / 133 | 40.9 % |
+| 4x slower | loop flavour | 3,124 | 25.0 / 96 / 249 | 43.7 % |
+
+- **The dials cost nothing per frame**; the crown count on that day was lower than plain (its `crowns` values were below 1). The cost is the plan at the start: lakes add about 300 ms here and about 1.9 s at 4x slower, the same as the Campaign's loop flavour already costs (3.1 s). Nothing was generated off the main thread; a lakes day makes a slow phone wait about 2 s longer on the start-up screen. Possible mitigations, not built: generate the plan during the briefing, or place lakes only on dates the owner chooses.
+- A 4x-slower CPU is a stand-in for an old phone, not a measurement of one.
+
+**Skill bots** (`tests/skill-bots.mjs --daily 2026-12-13 [--dials on|off]`, a forest date with `crowns`, `cuts` and `guns`, flavour `rank`, 4 seeds per cell; the new `--dials` flag forces the dials on or off):
+
+| Bot (own difficulty) | Deaths per minute, dials off | Deaths per minute, dials on | Immortal hits per minute, off | on |
+|---|---|---|---|---|
+| rookie, Easy | 3.51 | 3.78 | 2.75 | 2.79 |
+| veteran, Normal | 2.14 | 1.86 | 2.98 | 4.06 |
+| ace, Hard | 1.30 | 1.59 | 2.28 | 2.17 |
+
+- The order of deaths per minute holds in both (rookie > veteran > ace). The order of hits per minute fails in both runs, with or without dials (the veteran takes more hits than the rookie on this `rank` date), so it is not caused by the dials. The veteran's 4.06 against 2.98 hits per minute with dials has overlapping ranges over 4 seeds; more seeds would be needed to say whether the wider gun range makes the day harder. Nobody cleared the level on Easy or Normal on this `rank` date, with or without dials.
+
 ## 5. Decisions for the owner
 
 1. Share of days with no dials (suggestion: 20 %), and how many dials one day draws (suggestion: 2 to 3).

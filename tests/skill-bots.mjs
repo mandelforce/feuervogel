@@ -4,7 +4,7 @@
 // It measures; it never fails (exit 0). Needs Node and Playwright. Serve the folder (python3 -m http.server 8000), then:
 //   node tests/skill-bots.mjs                         own difficulty (rookie Easy, veteran Normal, ace Hard), 8 seeds, and the checks
 //   node tests/skill-bots.mjs --cross                 and each bot on the other two difficulties
-//   node tests/skill-bots.mjs --daily 2026-11-14      a Daily Sortie instead of the Campaign levels
+//   node tests/skill-bots.mjs --daily 2026-11-14      a Daily Sortie instead of the Campaign levels (--dials off: without its ground dials)
 //   node tests/skill-bots.mjs --seeds 4 --levels 1,6 --bots rookie,ace --conc 2 --no-checks --save out.json
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -13,6 +13,7 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ?
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const SEEDS = +arg('seeds', 8), CONC = +arg('conc', 2), CROSS = !!arg('cross', false), DAILY = arg('daily', null), CHECKS = !arg('no-checks', false);
 const LEVELS = DAILY ? [0] : String(arg('levels', '1,2,3,4,5,6')).split(',').map(Number), BOTS = String(arg('bots', 'rookie,veteran,ace')).split(',');
+const DIALS = arg('dials', null) === null ? 'undefined' : JSON.stringify(String(arg('dials', 'on'))); /* --dials on|off: the Daily Sortie's ground dials forced (without it the date's own) */
 const OWN = { rookie: 0, veteran: 1, ace: 2 }, NAMES = ['Easy', 'Normal', 'Hard'], VIEW = { width: 1000, height: 760 };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8'), skill = readFileSync(new URL('./skill-bot.js', import.meta.url), 'utf8');
 const VERSION = (readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
@@ -21,7 +22,7 @@ const VERSION = (readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const FLY = `(function (lv, date, diff, bot, seed, mortal) {
   if (app.booting) finishBoot();
   SF.setMode(mortal ? 'real' : 'immortal'); SF.start(diff, 1);
-  if (date) startDaily(date); else startEnigma(lv, true, 0);
+  if (date) startDaily(date, undefined, undefined, undefined, undefined, ${DIALS}); else startEnigma(lv, true, 0);
   if (bot) SF.skill(Object.assign({}, SF.SKILL[bot], { seed: seed })); else SF.human(0, 15);
   const L0 = run.sortie.level, t0 = performance.now(), f0 = gf, trace = [];
   let end = 'cap', bossF = -1, deadF = -1, livesAtBoss = null, novas = 0, f = 0;
