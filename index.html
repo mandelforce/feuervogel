@@ -4746,7 +4746,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.45'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.46'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -11065,6 +11065,9 @@ function startTutorial() {
 function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'rateAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof app.panelPaused !== 'undefined' && app.panelPaused) { app.panelPaused = false; app.paused = false; } }
 function tutSpawn(o) { world.enemies.push(o); app.tut.ids.push(o); return o; }
 function tutAlive() { return app.tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
+function tutFeed(T, p) { /* one pod of the ship's own colour at a time, until it is taken */
+  if (T.t > 20 && T.t % 30 === 0 && !tutAlive() && !world.items.some(i => i.kind === 'W')) tutSpawn(E('pod', { x: clamp(p.x + rnd(-50, 50), 24, W - 24), y: -16, hp: 3, tutW: p.wpn }));
+}
 function tutNext() { app.tut.step++; app.tut.t = 0; app.tut.ids = []; }
 function tutTick() {
   const T = app.tut, p = player; if (!p) return;
@@ -11089,7 +11092,7 @@ function tutTick() {
       }
       if (T.flash > 0) T.flash--;
       for (const o of T.pops) o.t++; T.pops = T.pops.filter(o => o.t < 30);
-      if (T.pass >= 6) { world.ebul = world.ebul.filter(b => !b.tut); tutNext(); }
+      if (T.pass >= 4) { world.ebul = world.ebul.filter(b => !b.tut); tutNext(); }
       break; }
     case 2: { // shooting
       if (T.t === 1) for (let k = 0; k < 3; k++) tutSpawn(mkFighter(56 + k * 56, -20 - k * 30, PI / 2, 0.45, { fireAt: -1, hp: 2 }));
@@ -11097,20 +11100,31 @@ function tutTick() {
     case 3: { // power-up
       if (T.t === 1) { T.got = 0; for (let k = 0; k < 3; k++) tutSpawn(E('pod', { x: W * (0.2 + 0.3 * k), y: -16 - k * 10, hp: 3, tutW: 'SLH'[k] })); }
       if (T.got > 0) tutNext(); else if (T.t > 600) { T.t = 0; T.ids = []; } break; }
-    case 4: { // medals and multiplier
+    case 4: { // levels 1 to 4: three more pods of the same colour
+      if (p.lvl >= 4) { tutNext(); break; }
+      tutFeed(T, p); break; }
+    case 5: { // the super weapon: four more of the same colour fuse the blocks
+      if (isSup(p)) { tutNext(); break; }
+      tutFeed(T, p); break; }
+    case 6: { // the super weapon runs down: a pod of the same colour in time refills it
+      if (T.t === 1) T.last = p.supT;
+      if (!isSup(p)) { T.step = 5; T.t = 0; T.ids = []; break; } /* ran out: back to the climb */
+      if (p.supT > T.last + 30) { tutNext(); break; }
+      T.last = p.supT; if (p.supT < 500) tutFeed(T, p); break; }
+    case 7: { // medals and multiplier
       if (T.t === 1) { T.m0 = run.stats.medals; T.best = 1; }
       if (T.t < 260 && T.t % 45 === 1) world.items.push({ kind: 'M', x: clamp(p.x + rnd(-30, 30), 20, W - 20), y: -8, t: 0, vy: 0.6 });
       T.best = Math.max(T.best, run.medalMul);
       if (T.t > 300 && run.medalT === 0) { if (T.best >= 3) tutNext(); else { T.t = 0; } } break; }
-    case 5: { if (T.t > 300) tutNext(); break; } // extra lives
-    case 6: { // Nova bomb
+    case 8: { if (T.t > 300) tutNext(); break; } // extra lives
+    case 9: { // Nova bomb
       if (T.t === 1) { run.bombs = Math.max(run.bombs, 1); T.bombs0 = run.stats.novas; }
       if (T.t > 40 && T.t < 200 && T.t % 12 === 0) for (let k = 0; k < 10; k++) eshot(W / 2 + rnd(-90, 90), 10, PI / 2 + rnd(-0.5, 0.5), 0.45);
       if (run.stats.novas > T.bombs0) { tutNext(); } else if (T.t > 260) { T.t = 0; } break; }
-    case 7: { // super laser
+    case 10: { // super laser
       if (T.t === 1) { world.ebul.length = 0; world.decals.push({ kind: 'spr', s: SPR.islet, wx: W / 2, wy: -40 - sc, r: 0 }); tutSpawn(G('bunker', W / 2, -40 - sc, { hp: 70, hw: 12, hh: 12, score: 1000, rad: 14, ga: PI / 2, cd: 1e9, keep: true, noGuard: true })); }
       if (T.t > 30 && !tutAlive()) { if (T.ids[0] && T.ids[0].dead && T.ids[0].y < H) tutNext(); else { T.t = 0; T.ids = []; } } break; }
-    case 8: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
+    case 11: { // secrets: the spot appears in view, and comes back if it scrolls away or the gem escapes
       const sec = T.ids.find(e => e.type === 'secret' && !e.dead);
       if (run.stats.artifact && !T.art) { tutNext(); break; }
       if (T.t === 1) T.art = run.stats.artifact;
@@ -11122,13 +11136,17 @@ function tutTick() {
     default: T.done = true;
   }
 }
+const TUT_N = 13; /* steps, the last being the difficulty choice */
 const TUT_TEXT = () => {
   const touch = tutTouch(), pad = tutPad();
   return [
     touch ? '<b>Put your finger below the ship</b> and slide it around. The ship follows your finger, so it stays visible.' : pad ? '<b>Fly with the stick or the D-pad.</b>' : '<b>Fly with the mouse, the arrow keys or WASD.</b>',
-    '<b>A small target.</b> Only the glowing dot at the centre of the ship can be hit. Wings and fuselage pass through enemy fire. <b>Let 6 shots slip past your wings</b> without touching the dot.',
+    '<b>Only the glowing dot can be hit.</b> Let 4 shots slip past your wings.',
     'Your guns fire on their own. <b>Shoot down the three drones.</b>',
-    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each one fires differently. Take the same one again to <b>level it up</b>' + (touch ? ': the blocks under its name fill up.' : ': the number next to its name rises.'),
+    '<b>Shoot the containers</b> and <b>pick a weapon</b>. Each colour fires differently.',
+    '<b>Take the same colour again to level it up.</b> ' + (touch ? 'The blocks under its name fill up' : 'The number next to its name rises') + ' to <b>level 4</b>. Another colour swaps the weapon.',
+    '<b>Level 4 is not the end.</b> Take <b>4 more of the same colour</b>: the blocks merge into the <b>SUPER</b> weapon, which one-shots ordinary enemies.',
+    '<b>Super runs out</b> after about 11 seconds: watch the bar in the block. <b>Pick up the same colour before it empties</b> to refill it. Miss it and you fall back to level 4.',
     '<b>Collect medals quickly, one after another.</b> From the second one, xN rises with every medal, with no limit. ' + (touch ? 'The ring around the coin' : 'The bar under the coin') + ' shows your time left. When it runs out, the chain ends.',
     'Points and medals earn <b>extra planes</b>. You get them on the results screen after each stage.' + (touch ? ' <b>Beat your best score</b> and your score turns yellow.' : ''),
     (touch ? '<b>Tap the Nova button in the bottom right corner</b>' : pad ? '<b>Press A for a Nova bomb</b>' : '<b>Press X or Space, or click the right mouse button</b>') + ': it wipes out all enemy bullets. ' + (touch ? 'The dots in an arc above it show how many you have; it turns grey with none.' : 'The icons at the bottom left show how many you have.'),
@@ -11142,9 +11160,9 @@ const TUT_HAND = ['.....##.........', '....#oo#........', '....#oo#........', '.
 function drawTutorial() {
   const box = document.getElementById('tutBox');
   if (!app.tut || app.state !== 'play') { if (app.tutShown) { box.classList.remove('on'); app.tutShown = ''; const bb = document.getElementById('bombBtn'); if (bb) bb.classList.remove('tutHi'); } return; }
-  const k = Math.min(app.tut.step, 9), html = TUT_TEXT()[k], key = k + '|' + html;
-  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 6) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
-  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/10</span><span class="pips" aria-hidden="true">' + Array.from({ length: 10 }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of 10'); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= 9) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
+  const k = Math.min(app.tut.step, TUT_N - 1), html = TUT_TEXT()[k], key = k + '|' + html;
+  { const bb = document.getElementById('bombBtn'); if (bb) { if (app.tut.step === 9) bb.classList.add('tutHi'); else bb.classList.remove('tutHi'); } }
+  if (key !== app.tutShown) { app.tutShown = key; box.classList.add('on'); { const st = document.getElementById('tutStep'); st.innerHTML = '<span class="tl">TRAINING ' + (k + 1) + '/' + TUT_N + '</span><span class="pips" aria-hidden="true">' + Array.from({ length: TUT_N }, (_, i) => '<i class="' + (i < k ? 'd' : i === k ? 'c' : '') + '"></i>').join('') + '</span>'; st.setAttribute('aria-label', 'Tutorial, step ' + (k + 1) + ' of ' + TUT_N); } document.getElementById('tutText').innerHTML = html; { const tb = document.getElementById('tutBtns'); if (k >= TUT_N - 1) { tb.classList.add('on'); for (const b of tb.querySelectorAll('[data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff)); } else tb.classList.remove('on'); } }
   // a ghost finger below the ship while learning to move
   if (app.tut.step === 0 && player && tutTouch()) {
     const fx = Math.round(player.x + Math.sin(gf * 0.05) * 16), fy = Math.round(player.y + 34);
@@ -11157,11 +11175,11 @@ function drawTutorial() {
     ctx.globalAlpha = 0.35; ctx.fillStyle = '#a8f6dc'; for (let x = -14; x <= 14; x += 4) if (Math.abs(x) > 6) ctx.fillRect(px + x, py, 2, 1);
     ctx.globalAlpha = 0.9; ctx.strokeStyle = T.flash > 0 ? '#ff3a6a' : '#a8f6dc'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px + 0.5, py + 0.5, T.flash > 0 ? r + (24 - T.flash) * 0.4 : r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
     textO(T.flash > 0 ? 'HIT' : 'HIT POINT', px, py + 20, T.flash > 0 ? '#ff3a6a' : '#a8f6dc', 1, 'center', '#2a2050');
-    textO((T.pass || 0) + '/6', px, py - 26, '#fff0a0', 1, 'center', '#f8a83a');
+    textO((T.pass || 0) + '/4', px, py - 26, '#fff0a0', 1, 'center', '#f8a83a');
     for (const o of T.pops || []) { ctx.globalAlpha = 1 - o.t / 30; textO('THROUGH', Math.round(o.x), py - 8 - o.t * 0.3, '#a8f6dc', 1, 'center', '#2a2050'); } ctx.globalAlpha = 1;
   }
-  if (app.tut.step === 8) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
-  if (app.tut.step === 5) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
+  if (app.tut.step === 11) { const sec = app.tut.ids.find(e => e.type === 'secret' && !e.dead); if (sec) { const r = 15 + Math.sin(gf * 0.12) * 3; ctx.strokeStyle = '#a8f6dc'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(gf * 0.12); ctx.setLineDash([3, 3]); ctx.lineDashOffset = -gf * 0.3; ctx.beginPath(); ctx.arc(Math.round(sec.x) + 0.5, Math.round(sec.y - 4) + 0.5, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
+  if (app.tut.step === 8) { const s2 = SPR.life, k2 = 3; ctx.drawImage(s2.c, W / 2 - s2.w * k2 / 2, H * 0.5, s2.w * k2, s2.h * k2); textO('+1', W / 2 + 22, H * 0.5 + 8, '#fff0a0', 2, 'left', '#f8a83a'); }
 }
 function tutTap(gx, gy) {
   if (!app.tut) return false;
