@@ -152,6 +152,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #diffAsk .dback{display:block;width:auto;margin:10px auto 0;padding:4px 8px;background:none;border:0;box-shadow:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8a84b4}#diffAsk .dback::before{content:'< '}#diffAsk .dback:hover{color:#fff0a0}
 @media (max-height:600px){#diffAsk .panel{padding:6px 10px 4px}#diffAsk h2{font-size:18px;margin-bottom:6px}#diffAsk .dmenu [data-d]{padding:4px 8px 4px 26px}#diffAsk .dmenu [data-d]::before{top:7px}#diffAsk .dextra{margin-top:8px}#diffAsk .dback{margin-top:4px;padding:2px 8px}}
 @media (prefers-reduced-motion: reduce){#diffAsk .dmenu [data-d]::before,#diffAsk .dsel button{animation:none!important}}
+#rateAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#rateAsk.open{display:grid}#rateAsk .panel{width:min(90%,340px)}#rateAsk .note{text-align:center;font-size:14px;color:#f2ecd8}#rateStars{display:flex;gap:6px;margin:12px 0 4px}#rateStars button{flex:1;font:28px/1 'StarFall Text',monospace;padding:6px 0 4px;background:#241f3c;color:#f4d050;border:2px solid #120e1a;box-shadow:inset 0 0 0 2px #6e62a8,0 3px 0 #120e1a;cursor:pointer}#rateStars button small{display:block;font-size:12px;color:#c8c0ec;margin-top:2px}#rateStars button:hover,#rateStars button:focus-visible{background:#352e58;outline:none;box-shadow:inset 0 0 0 2px #d0a020,0 3px 0 #120e1a}#rateAsk .lbrow{display:flex;gap:8px;margin-top:10px}#rateAsk .lbrow button{flex:1;padding:10px}
 #resumeAsk,#installAsk{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);z-index:8}#resumeAsk.open,#installAsk.open{display:grid}#resumeAsk .panel,#installAsk .panel{width:min(90%,340px)}#resumeAsk .note,#installAsk .note{font-size:14px;color:#f2ecd8}#resumeAsk .lbrow,#installAsk .lbrow{display:flex;gap:8px;margin-top:10px}#resumeAsk .lbrow button,#installAsk .lbrow button{flex:1;padding:10px}
 #howto{position:absolute;inset:0;display:none;place-items:center;background:rgba(18,14,26,.6);line-height:1.25;z-index:7}
 #howto.open{display:grid}
@@ -419,6 +420,15 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="resTitle">Continue your run?</h2>
         <p class="note" id="resInfo"></p>
         <div class="lbrow"><button type="button" class="primary" id="resYes">Resume</button><button type="button" id="resNo">New game</button></div>
+      </div>
+    </div>
+    <div id="rateAsk" role="dialog" aria-modal="true" aria-labelledby="rateTitle">
+      <div class="panel">
+        <h2 id="rateTitle">Rate this sortie</h2>
+        <p class="note" id="rateInfo"></p>
+        <div id="rateStars" role="group" aria-label="Rating, 1 to 5 stars"><button type="button" data-n="1" aria-label="1 star">&#9733;<small>1</small></button><button type="button" data-n="2" aria-label="2 stars">&#9733;<small>2</small></button><button type="button" data-n="3" aria-label="3 stars">&#9733;<small>3</small></button><button type="button" data-n="4" aria-label="4 stars">&#9733;<small>4</small></button><button type="button" data-n="5" aria-label="5 stars">&#9733;<small>5</small></button></div>
+        <p class="note">1 = not for me, 5 = loved it</p>
+        <div class="lbrow"><button type="button" id="rateSkip">Skip</button></div>
       </div>
     </div>
     <div id="installAsk" role="dialog" aria-modal="true" aria-labelledby="insTitle">
@@ -4718,7 +4728,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.42'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.43'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -4753,7 +4763,7 @@ const KEY = {
   settings: 'starfall-settings', muted: 'starfall44-muted', hi: 'starfall44-hi', loops: 'starfall-loops', endless: 'starfall-endless',
   arts: 'starfall-arts', tut: 'starfall-tut', player: 'starfall-player', local: 'starfall-local', seen: 'starfall-seen',
   status: 'starfall-status', name: 'starfall-name', resume: 'starfall-resume', lastError: 'starfall-lasterror',
-  report: 'starfall-report', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv', chainBest: 'feuervogel-chainbest'
+  report: 'starfall-report', rated: 'starfall-rated', lbCache: 'starfall-lbcache', lbQueue: 'starfall-lbqueue', runs: 'starfall-runs', lastRun: 'starfall-lastrun', overs: 'starfall-overs', lastBeat: 'starfall-lastbeat', nacht: 'feuervogel-nachtvogel', phoenix: 'feuervogel-phoenix', robin: 'feuervogel-rotkehlchen', raptor: 'feuervogel-raptor', install: 'feuervogel-install', achv: 'feuervogel-achv', chainBest: 'feuervogel-chainbest'
 };
 // localStorage can throw (private windows, blocked site data) or hold junk: every read falls back, every write is best effort.
 const store = {
@@ -10948,6 +10958,28 @@ function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(l
 function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
 /* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
 function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
+/* The rating (owner, 2026-11-15): after a Daily Sortie's results and the title, one question, 1 to 5 stars, once per date and composer version on this device.
+   It is kept here (KEY.rated) and sent to the Worker (/rate) only with Share play data on, like the run reports; a local build sends nothing (app.rateLast). */
+function ratedMap() { return store.getJSON(KEY.rated, {}) || {}; }
+function askRating(info) {
+  if (!info || !info.date || ratedMap()[info.date + ':' + info.cv]) return;
+  app.rate = info; document.getElementById('rateInfo').textContent = info.date + '  ' + String(info.kit).toUpperCase() + '. How much did you like this level?';
+  document.getElementById('rateAsk').classList.add('open'); const b = document.querySelector('#rateStars [data-n="3"]'); if (b) b.focus();
+}
+function closeRating() { document.getElementById('rateAsk').classList.remove('open'); app.rate = null; }
+function sendRating(n) {
+  const info = app.rate; closeRating(); if (!info) return;
+  const m = ratedMap(); m[info.date + ':' + info.cv] = n; const keys = Object.keys(m); if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete m[k]; store.setJSON(KEY.rated, m);
+  const p = { player: lbPlayer(), v: VERSION, plat: LB_PLAT, date: info.date, kit: info.kit, sub: info.sub, cv: info.cv, diff: info.diff | 0, score: info.score | 0, dur: info.dur | 0, stars: n };
+  if (LB_TEST) { app.rateLast = p; return; }
+  if (!LB_URL || settings.share === false) return;
+  const body = JSON.stringify(p);
+  try { if (navigator.sendBeacon && navigator.sendBeacon(LB_URL + '/rate', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+  fetch(LB_URL + '/rate', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+}
+for (const b of document.querySelectorAll('#rateStars [data-n]')) b.addEventListener('click', () => sendRating(+b.dataset.n));
+document.getElementById('rateSkip').addEventListener('click', closeRating);
+document.getElementById('rateAsk').addEventListener('pointerdown', e => e.stopPropagation());
 function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
 function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
@@ -10974,7 +11006,7 @@ function startRetro() { setRetroArt(true); startAt(1); run.retro = true; run.ran
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
 const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
 function endEnigmaLevel() {
-  if (run.sortie && run.sortie.daily) { stopMusic(); toTitle(); return; } // a Daily Sortie is one level: after its results, the title
+  if (run.sortie && run.sortie.daily) { const d = run.sortie.daily, info = { date: d.date, kit: d.kit, sub: d.sub | 0, cv: d.v, diff: run.diff, score: run.score, dur: rrSec(run.frames) }; stopMusic(); toTitle(); askRating(info); return; } // a Daily Sortie is one level: after its results, the title, then the rating
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
@@ -11005,7 +11037,7 @@ function startTutorial() {
   run.start = 99; store.set(KEY.tut, '1');
   showMsg('TUTORIAL', 'LEARN TO FLY THE FEUERVOGEL', 150);
 }
-function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof app.panelPaused !== 'undefined' && app.panelPaused) { app.panelPaused = false; app.paused = false; } }
+function closeAllPanels() { for (const id of ['howto', 'settings', 'lbPanel', 'diffAsk', 'resumeAsk', 'rateAsk', 'installAsk', 'credits']) { const el = document.getElementById(id); if (el) el.classList.remove('open'); } if (typeof app.panelPaused !== 'undefined' && app.panelPaused) { app.panelPaused = false; app.paused = false; } }
 function tutSpawn(o) { world.enemies.push(o); app.tut.ids.push(o); return o; }
 function tutAlive() { return app.tut.ids.filter(e => !e.dead && !e.dying && e.y < H + 20).length; }
 function tutNext() { app.tut.step++; app.tut.t = 0; app.tut.ids = []; }
@@ -17092,7 +17124,7 @@ function targetPos(e) {
 }
 
 // menus: the D-pad moves between buttons, A presses, B goes back; on the name entry, the D-pad picks letters arcade-style
-function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } const tb = document.getElementById('tutBtns'); return tb && tb.classList.contains('on') && app.tut ? tb : null; } // (the tutorial's own difficulty buttons count as a dialog)
+function openDialog() { for (const id of ['credits', 'lbPanel', 'howto', 'settings', 'pauseMenu', 'diffAsk', 'resumeAsk', 'rateAsk', 'installAsk']) { const el = document.getElementById(id); if (el && el.classList.contains('open')) return el; } const tb = document.getElementById('tutBtns'); return tb && tb.classList.contains('on') && app.tut ? tb : null; } // (the tutorial's own difficulty buttons count as a dialog)
 // Menus by keyboard and controller: the highlight (the focus) starts on the saved difficulty / Resume, the arrows and the D-pad move it to the nearest button in that direction, Enter / Space / A press it
 const menuItems = dlg => [...dlg.querySelectorAll('button, input')].filter(el => el.offsetParent !== null && !el.disabled);
 function menuDefault(dlg) {
@@ -19761,6 +19793,7 @@ addEventListener('keydown', e => {
   if (setPanel.classList.contains('open')) { if (k === 'escape') closeSettings(); return; }
   if (pauseMenu.classList.contains('open')) { if (k === 'escape' || k === 'p') closeMenu(); return; }
   if (document.getElementById('installAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('insNo').click(); return; }
+  if (document.getElementById('rateAsk').classList.contains('open')) { if (k === 'escape') document.getElementById('rateSkip').click(); else if (k >= '1' && k <= '5' && k.length === 1) document.querySelector('#rateStars [data-n="' + k + '"]').click(); if (k === 'escape' || (k >= '1' && k <= '5' && k.length === 1)) return; }
   if (document.querySelector('#diffAsk.open, #howto.open, #resumeAsk.open, #ach.open')) { if (k === 'escape') { if (document.getElementById('ach').classList.contains('open')) document.getElementById('achClose').click(); else if (document.getElementById('howto').classList.contains('open')) document.getElementById('howClose').click(); else closeDiff(); } return; }
   keys[k] = true; audio(); app.rrIn = 'key';
   if (app.booting) { endBoot(); return; }

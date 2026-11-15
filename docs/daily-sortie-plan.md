@@ -806,3 +806,12 @@ Consequence of 2 and 3: every kit meets every twist and every flavour, so the fl
 **Proposal for the next step (phase 2, flavours; the owner reads this report first):** the composer takes a flavour, `run.daily` records it, `composeVersion` becomes 2, the three kits set `variant` / `autumn` / `winter` as the hand-made loops do, the plan check learns the desert oil field, and `tests/daily.mjs`, `compose.mjs` and the flight gate (`--flavour`) cover it. Then phase 3, the twists, easiest first (Night run, Fixed weapon, Elite and Swarm by hit points, Fog / squall on forest and winter), with Mirror last and only if it can be a flip at the edges.
 
 **Stop point of phase 1.** Questions: (a) is hit points only acceptable for the first version of Swarm and Elite (no change in counts), which is much cheaper? (b) should Mirror stay in the first set given its cost, or be swapped for another twist from 11.1 (Nova day or Heavy bullets)?
+
+### 11.7 The rating (owner request, 2026-11-15; built in 1.2.6.43)
+
+At the end of a Daily Sortie the player gets the usual level overview (the results screen, DAILY CLEAR with the bonus lines, sortie score and lives) and then, back at the title, a 1 to 5 star question about the level. It is the one thing a Daily Sortie sends: the board, best score, loops and the run report still do not see it.
+- **Once per date and version** on a device; Skip or Escape stores nothing and the date is asked again after the next sortie. A Practice or Campaign level never asks.
+- **Sent** to `POST /rate` with `{player, v, plat, date, kit, sub, cv, diff, score, dur, stars}` (the anonymous player id the run reports use) only with Share play data on; the Worker keeps one row per player, date and composer version (`daily_ratings`, a later answer replaces the earlier one), rejects dates more than two days from now, and allows 40 a day per player. Nothing is sent from a local build.
+- **When 11 is built** the twist and flavour of the day join the row (`twist`, `flavour` columns), so a rating can be read against what was different that day. Until then the kit and the sub-seed are what a rating can be read against. A rating means little per player; read it per date and kit, and per difficulty.
+- **Owner action:** apply `schema.sql` to the live database and deploy `worker.js`. The game side is safe before that (the request fails quietly).
+- **Tests:** `tests/daily.mjs` section 6 (88 checks in all) and four rating tests in `tests/worker.test.mjs`.

@@ -37,3 +37,23 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_player ON runs (player, created);
 CREATE INDEX IF NOT EXISTS idx_runs_mode ON runs (mode, diff, created);
+
+-- Daily Sortie ratings (1 to 5 stars): one row per player, date and composer version; a later rating replaces the earlier one.
+-- Run once on the live database (wrangler d1 execute <db> --file schema.sql is safe: every statement is IF NOT EXISTS).
+CREATE TABLE IF NOT EXISTS daily_ratings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player TEXT NOT NULL,
+  date TEXT NOT NULL,
+  cv INTEGER NOT NULL,
+  kit TEXT NOT NULL,
+  sub INTEGER NOT NULL DEFAULT 0,
+  diff INTEGER NOT NULL,
+  plat TEXT NOT NULL,
+  stars INTEGER NOT NULL,
+  score INTEGER NOT NULL,
+  dur INTEGER NOT NULL,
+  version TEXT,
+  created INTEGER NOT NULL,
+  UNIQUE (player, date, cv)
+);
+CREATE INDEX IF NOT EXISTS idx_ratings_date ON daily_ratings (date, kit);

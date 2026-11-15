@@ -388,7 +388,7 @@ node scripts/daily-vet.mjs --body /tmp/pr.md                                   #
 node scripts/daily-vet.mjs --from 2026-12-01 --dead 6 --no-write --body /tmp/pr.md   # forced failures, nothing written
 ```
 
-The Daily Sortie test (`daily.mjs`) also covers the entry in Settings (section 5 of its head comment).
+The Daily Sortie test (`daily.mjs`) also covers the entry in Settings (section 5 of its head comment) and the star rating after a sortie (section 6); `worker.test.mjs` the `/rate` rules.
 
 ## Nothing pops in, guns stay off runways (by hand)
 

@@ -179,3 +179,38 @@ test('/status: answers the game page, never echoes a foreign origin, reads only'
   const res = await worker.fetch(new Request('https://worker.test/status?player=' + ME, { method: 'POST', headers: { Origin: ORIGIN } }), { DB: memoryDb([]) });
   assert.equal(res.status, 404);
 });
+
+// ---- Daily Sortie ratings (/rate) ----
+async function rate(body, { origin = ORIGIN, ...dbOpts } = {}) {
+  const { db, inserts } = fakeDb(dbOpts);
+  const res = await worker.fetch(new Request('https://w.test/rate', { method: 'POST', headers: { Origin: origin }, body: JSON.stringify(body) }), { DB: db });
+  return { status: res.status, inserts };
+}
+const today = () => new Date().toISOString().slice(0, 10);
+const goodRating = () => ({ player: PLAYER, v: '1.2.6.43', plat: 'mobile', date: today(), kit: 'desert', sub: 0, cv: 1, diff: 1, score: 400000, dur: 300, stars: 4 });
+
+test('rating: a good rating is stored once per player, date and version', async () => {
+  const r = await rate(goodRating());
+  assert.equal(r.status, 200); assert.equal(r.inserts.length, 1);
+  const [player, date, cv, kit, sub, diff, plat, stars] = r.inserts[0];
+  assert.deepEqual([player, date, cv, kit, sub, diff, plat, stars], [PLAYER, today(), 1, 'desert', 0, 1, 'mobile', 4]);
+});
+
+test('rating: stars 1 to 5 only', async () => {
+  for (const stars of [1, 5]) assert.equal((await rate({ ...goodRating(), stars })).status, 200);
+  for (const stars of [0, 6, -1, 'many', null]) assert.equal((await rate({ ...goodRating(), stars })).status, 400);
+});
+
+test('rating: a real recent date, a plain kit name, a known platform', async () => {
+  assert.equal((await rate({ ...goodRating(), date: '2001-01-01' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), date: 'tomorrow' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), kit: 'Desert; DROP' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), plat: 'console' })).status, 400);
+  assert.equal((await rate({ ...goodRating(), player: 'x' })).status, 400);
+});
+
+test('rating: allowed origins and a daily limit', async () => {
+  assert.equal((await rate(goodRating(), { origin: 'https://evil.example' })).status, 403);
+  assert.equal((await rate(goodRating(), { today: 40 })).status, 429);
+  assert.equal((await rate(goodRating(), { today: 39 })).status, 200);
+});

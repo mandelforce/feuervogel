@@ -12,6 +12,8 @@
 //   3. a run saved mid-flight and loaded in a fresh page goes on exactly (every 60 frames, as tests/resume-exact.mjs compares); a record of
 //      another composer version is not resumed.
 //   4. nothing is left behind: a Campaign level flown afterwards in the same page plays as in a fresh page.
+//   6. the rating: after a Daily Sortie's results and the title, a 1 to 5 star question, once per date and version; a star is kept and (on a local build) held in
+//      app.rateLast instead of being sent; Skip and Escape ask nothing more and store nothing; a date already rated is not asked again.
 //   5. the entry (phase 4): without any link, the Daily Sortie row in Settings (at the title only; it names the day's kit) opens the difficulty picker, and
 //      the pick starts that UTC day's sortie (also at 23:59 UTC); the title is as before (START, SCORES, trophy); the Daily Sortie's results screen shows the run's totals.
 import { chromium } from 'playwright';
@@ -161,6 +163,26 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
     for (let i = 0; i < 20000 && !res; i++) { SF.run(10); if (app.results && app.results.done) res = { title: 'daily', score: run.score, lives: run.lives, daily: !!(run.sortie && run.sortie.daily) }; }
     if (res) { for (let i = 0; i < 6; i++) SF.run(10); res.still = !!app.results; } return JSON.stringify({ res, errs: SF.R.errs.slice(0, 2) }); })()`));
   ok(r.res && r.res.daily && r.res.score > 0 && r.res.still && !r.errs.length, `the Daily Sortie's results screen draws with the run's totals (score ${r.res && r.res.score}, lives ${r.res && r.res.lives}${r.errs.length ? ', ' + r.errs[0] : ''})`);
+  await page.close(); }
+
+
+// ---------- 6. the rating ----------
+{ const page = await freshPage(11), q = code => peek(page, code).then(v => JSON.parse(v));
+  const END = date => `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(60); run.score = 12345; endEnigmaLevel(); const o = document.getElementById('rateAsk').classList.contains('open'); return JSON.stringify({ state: app.state, open: o, info: document.getElementById('rateInfo').textContent, rate: app.rate && app.rate.date }); })()`;
+  const ST = `JSON.stringify({ open: document.getElementById('rateAsk').classList.contains('open'), last: app.rateLast || null, kept: store.getJSON(KEY.rated, {}), state: app.state })`;
+  const a = await q(END('2026-11-15'));
+  ok(a.state === 'title' && a.open && a.rate === '2026-11-15' && a.info.includes('DESERT'), `the sortie ends at the title with the rating question (${a.state}, ${a.info})`);
+  await page.click('#rateStars [data-n="4"]'); const b = await q(ST);
+  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
+  const c = await q(END('2026-11-15')); ok(c.state === 'title' && !c.open, `the same date is not asked twice (${c.open})`);
+  await peek(page, `app.rateLast = null, 0`);
+  const d2 = await q(END('2026-11-16')); await page.click('#rateSkip'); const e = await q(ST);
+  ok(d2.open && !e.open && e.last === null && !('2026-11-16:' + SC.VERSION in e.kept), `Skip asks nothing more and stores nothing (${e.open}, ${JSON.stringify(e.kept)})`);
+  const f = await q(END('2026-11-16')); ok(f.open, `a skipped date is asked again next time (${f.open})`);
+  await page.keyboard.press('Escape'); const g = await q(ST); ok(!g.open && g.last === null, `Escape skips (${g.open})`);
+  const h = await q(END('2026-11-14')); await page.keyboard.press('5'); const i = await q(ST); ok(h.open && !i.open && i.last && i.last.stars === 5 && i.last.kit === 'winter', `the key 5 gives five stars (${i.last && i.last.stars})`);
+  const j = await q(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false); SF.run(30); const n = !!(run.sortie && run.sortie.daily); endEnigmaLevel(); return JSON.stringify({ daily: n, open: document.getElementById('rateAsk').classList.contains('open') }); })()`);
+  ok(!j.daily && !j.open, `a Practice level never asks (${j.open})`);
   await page.close(); }
 
 await browser.close();
