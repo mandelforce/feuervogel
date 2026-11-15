@@ -73,6 +73,22 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 4. **Per-segment dials** (2.2) and **time of day** (2.3), one at a time, each with its own probe and gate run.
 5. **New templates or kits** (2.4), one per release, after the owner reads the results of 3 and 4.
 
+### 4.1 Phase 1 results: the probe (`tests/dials-probe.mjs`; nothing in the game changed)
+
+**Method.** For each kit, 3 composed sorties (`hash(s, 9191)` seeds). The same segment list and seed are generated with no dial, then with each candidate dial at a low and a high value. A dial "reaches the plan" when any plan field differs (every raster sampled, every list by length and a sample of its contents; `P` and `stage` are left out, because `P` holds the dial itself and `stage` is not reproducible between two identical runs). The plan checks (gate 2) are run at both values. (An earlier version of the probe hashed too little and then too much; the numbers below are from the third, which gives 0/3 for a dial that is known to be unused.)
+
+| Kit | Top-level parameters that reach the plan | Do nothing |
+|---|---|---|
+| desert (`sandSea`) | `wear`, `portDensity`, `mixVillage` | `damage`, `trees`, `lotChance`, `farms`, `industry`, `density` |
+| forest (`ironForest`) | none | all ten candidates |
+| winter (`winterGorge`) | `trees`, `lotChance`, `slots` | `damage`, `farms`, `industry`, `density` |
+
+- **The plan's premise was wrong for most dials.** Section 1 said "anything the generator accepts in `params` can be set per day". True for the preset table of a *town*; the three whole-level builders build each segment from their own tables and read only a few top-level parameters (desert: `wear`, `mixVillage`, `portDensity`, `variant`, `river`; forest: `holes`, `coast`, `autumn`, `lakes`, `roadEnd`, `features`; winter: `rise`, `features`, `variant`, `joinRoad`). The forest's real knobs are per feature (`roads`, `rides`, `plantations`, `clearings`, `cuts`, `guns`), set in the builder's own segment table, not in `params`.
+- **Gate 2 at the extremes:** 0 of 3 plans flagged and no stretch over its `built` limit for any dial that reaches the plan, low or high. Three seeds is too few to call a range safe; phase 3 must run it at 100 seeds.
+- **Plan time:** winter is about 0.8 to 1.4 s a plan in Node and no tested dial changes it much; desert and forest are about 0.1 s.
+- **Consequence for phase 3.** Without generator changes the dials are: desert 3, winter 3, forest 0. To give the forest (and the desert's `damage` and `trees`, the winter's `damage`) a dial, the builders must read it, per segment, from `segs[i].p`. That is the plan's 2.2, and it moves up from phase 4 to phase 3. Every generator change needs `node scripts/embed-citygen.mjs` and keeps `tests/citygen.mjs` and the golden plans (`tests/golden.json`) unchanged when no dial is given.
+- **Not probed:** the desert port's hard-coded `damage` and `density` (set in the `sandSea` builder), plan time in the page and on a phone, and how different the plans *look* (needs the contact sheets of phase 2).
+
 ## 5. Decisions for the owner
 
 1. Share of days with no dials (suggestion: 20 %), and how many dials one day draws (suggestion: 2 to 3).
