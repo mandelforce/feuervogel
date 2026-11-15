@@ -221,6 +221,10 @@ ALTER TABLE daily_ratings ADD COLUMN dials TEXT;
 
 **Tests.** `tests/worker.test.mjs` 23 (three new or changed: the fields stored in their own shapes, injection-like and over-long values stored as null, the three fallback tiers); `tests/daily.mjs` 248 (the rating's end-to-end check now also compares `tod` and `dials` with what the composer gives that date).
 
+### 4.10 The test picker (owner request, 2026-11-15: "a level picker in the daily sortie menu to quickly test them all")
+
+The Daily Sortie's difficulty dialog (Settings, Daily Sortie, Play) shows a **test picker** on local builds only (`LB_TEST`: localhost, a LAN address or a file, the test the `?daily` link already used): the date with arrows and a Today button; cycling buttons for the kit, the light, the twist, the flavour and the ground dials, each the day's own (the first choice) or forced; a line saying what the resulting level holds (kit, flavour, twist, light, dials, lakes, oasis town); and a finder (lakes, oasis town, sunset, morning, no dials, loop ground, hard) with "Next day with it", which jumps to the next date, up to 400 days on, whose own level has it. START flies the pick through `startDaily` with the same arguments as the link, so a resumed run rebuilds the same level. The live game never shows it: every player flies the same level of the day, and a picker would let anyone choose. Buttons, not selects, so the dialog's keyboard and gamepad navigation keeps working (`tests/menunav.mjs`: 19 checks). `tests/daily.mjs` section 10 (9 checks, 257 in all): the picker shows on a local build and not in the Campaign's dialog, the arrows and Today, the finder's jumps against the composer, a forced forest sunset without twist or dials flown as picked, and the dialog starting from the day's own on reopening. Looked at on a 390 x 780 phone, a 360 x 600 phone and a desktop window: it fits without scrolling.
+
 ## 5. Decisions for the owner
 
 1. Share of days with no dials (suggestion: 20 %), and how many dials one day draws (suggestion: 2 to 3).
