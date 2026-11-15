@@ -67,11 +67,11 @@ async function open(ctxOpts = { viewport: { width: 400, height: 700 } }) {
 
 for (const dev of ['iPhone SE', 'iPhone 13']) { // 4. the phone HUD and the scanlines
   const { ctx, page, peek } = await open({ ...devices[dev] });
-  await peek(`(() => { SF.setMode('immortal'); settings.crt = true; startRetro(); SF.run(60); render(); return 0; })()`);
+  await peek(`(() => { SF.setMode('immortal'); startRetro(); SF.run(60); render(); return 0; })()`);
   await page.waitForTimeout(100);
   const r = JSON.parse(await peek(`(() => { const m = document.getElementById('menuBtn').getBoundingClientRect(), c = cv.getBoundingClientRect(), k = c.width / W, hx = TOUCH_HUD ? 150 : 166, e = RETRO.crtEl;
     const out = { touch: TOUCH_HUD, gap: Math.round(m.left - (c.left + (hx + rTextW('HIGH SCORE') / 2) * k)), crt: !!e && !e.hidden && Math.abs(e.getBoundingClientRect().width - c.width) < 1 };
-    toTitle(); render(); out.crtOff = !e || e.hidden; settings.crt = false; return JSON.stringify(out); })()`));
+    toTitle(); render(); out.crtOff = !e || e.hidden; return JSON.stringify(out); })()`));
   ok(r.touch && r.gap >= 4, `${dev}: HIGH SCORE clears the menu button (${r.gap} px)`);
   ok(r.crt, `${dev}: the scanlines cover the game screen in a Retro Run`);
   ok(r.crtOff, `${dev}: no scanlines at the title`);

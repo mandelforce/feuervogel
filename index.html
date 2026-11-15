@@ -477,7 +477,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><label for="sSfx">Effects</label><input type="range" id="sSfx" min="0" max="100"></div>
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row"><span>Power saver (30 FPS)</span><span class="seg"><button type="button" id="sPower" aria-pressed="false">Off</button></span></div>
-        <div class="row"><span>Retro Run scanlines</span><span class="seg"><button type="button" id="sCrt" aria-pressed="false">Off</button></span></div>
+        <div class="row" id="sDailyRow"><span>Daily Sortie <i id="sDailyKit" style="font-style:normal;color:#fff0a0"></i></span><span class="seg"><button type="button" id="sDaily">Play</button></span></div>
         <details id="sSensRow"><summary>Sensitivity</summary>
           <div class="row"><label for="sSensMouse">Mouse</label><input type="range" id="sSensMouse" min="25" max="175" step="5"><output id="sSensMouseV"></output></div>
           <div class="row"><label for="sSensKey">Keyboard</label><input type="range" id="sSensKey" min="25" max="175" step="5"><output id="sSensKeyV"></output></div>
@@ -4718,7 +4718,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.41'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.42'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -6281,9 +6281,9 @@ function retroItem(it) { // weapon and Nova pickups as flashing capsules with th
   ctx.fillStyle = '#0a0a10'; ctx.fillRect(x - 4, y - 5, 9, 11);
   rText(nova ? 'N' : it.w, x - 2, y - 3, f ? RG_WHITE : RG_GOLD);
 }
-// CRT scanlines (Settings): an overlay over the game canvas with one dark line per game row, only in a Retro Run
+// CRT scanlines: an overlay over the game canvas with one dark line per game row, always on in a Retro Run (no setting; there was one until 1.2.6.40)
 function retroCrt() {
-  const on = RETRO.on && !!settings.crt;
+  const on = !!RETRO.on;
   if (!RETRO.crtEl) { if (!on) return; const d = document.createElement('div'); d.id = 'crt'; d.setAttribute('aria-hidden', 'true'); cv.parentNode.insertBefore(d, cv.nextSibling); RETRO.crtEl = d; }
   const el = RETRO.crtEl, key = on ? [cv.offsetLeft, cv.offsetTop, cv.offsetWidth, cv.offsetHeight].join(',') : 'off';
   if (key === RETRO.crtKey) return; RETRO.crtKey = key;
@@ -10948,7 +10948,7 @@ function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(l
 function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
 /* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
 function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
-function openDaily() { app.titlePress = { k: 'daily', t: gf }; openDiff('daily', 1); }
+function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
 function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
@@ -11188,10 +11188,7 @@ function startOrOffer() { openDiff('camp', 1); }
  // { k: 'start' | 'scores', t: gf } so the pressed title button shows sunk for a few frames
 const SHOW_ENDLESS = false; // Endless is hidden from the title for now (its code and boards stay)
 const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20 }, ENDLESS_Y = 288, SCORES_Y = SCORES_BTN.y, TITLE_SHIP_Y = 156;
-/* DAILY and SCORES share one row under START (DAILY left, SCORES right, 8 apart), so the title needs no more height */
-const DAILY_X = Math.round(W / 2 - 4 - SCORES_BTN.w), SCORES_X = Math.round(W / 2 + 4);
-function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && gx >= W / 2 && gx <= SCORES_X + SCORES_BTN.w + 4; }
-function dailyHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && gx >= DAILY_X - 4 && gx < W / 2; }
+function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 // the trophy button under SCORES opens the achievements; it moves up on short screens so it clears the credit line
@@ -17152,9 +17149,9 @@ function padMenus(nav) {
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
-function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 6) openDaily(); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 function padTitle(nav) {
-  const order = SHOW_ENDLESS ? [0, 6, 8, 7, 9] : [0, 6, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
+  const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
   if (nav.a || nav.start) titleActivate();
@@ -19162,9 +19159,9 @@ function renderMain() {
       const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#352e58', faceLo: '#241f3c' }, 3, dn);
       ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#a99cdc'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
       textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [SCORES_X - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 6 ? [DAILY_X - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
-    { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = SCORES_X;
+    { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
       if (SHOW_ENDLESS) {
         btn(bx, ENDLESS_Y, ENDLESS_BTN.w, ENDLESS_BTN.h, 'rgba(28,22,48,0.85)');
         for (let i = 0; i < 6; i++) { ctx.fillStyle = acc[i]; ctx.fillRect(bx + i * (ENDLESS_BTN.w / 6), ENDLESS_Y + ENDLESS_BTN.h - 2, Math.ceil(ENDLESS_BTN.w / 6), 2); }
@@ -19172,10 +19169,8 @@ function renderMain() {
       }
       // quieter than START: no gold, muted rim, shallower, lavender label
       const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#352e58', hi: '#6e62a8', lo: '#0e0c16', face: '#241f3c', faceLo: '#171526' }, 2, pressed('scores'));
-      textO('SCORES', sx + SCORES_BTN.w / 2, sy + 5, '#c8c0ec', 2, 'center', '#6e62a8');
-      { const dd = dailyToday(), dy0 = abtn(DAILY_X, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#2c6a5c', hi: '#7adcc0', lo: '#0e2a24', face: '#1d3a40', faceLo: '#14262c' }, 2, pressed('daily')); /* teal: not the Campaign's gold, not SCORES' lavender; two lines, DAILY and the kit */
-        textS('DAILY', DAILY_X + SCORES_BTN.w / 2, dy0 + 3, '#a8f6dc', 1, 'center', '#4ccfae'); textS(dd.kit.toUpperCase(), DAILY_X + SCORES_BTN.w / 2, dy0 + 11, '#fff0a0', 1, 'center', '#d0a020'); }
-      if (app.lbAlert) { const dx = SCORES_X + SCORES_BTN.w - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      textO('SCORES', W / 2, sy + 5, '#c8c0ec', 2, 'center', '#6e62a8');
+      if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
       { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#352e58', hi: '#6e62a8', lo: '#0e0c16', face: '#241f3c', faceLo: '#171526' }, 2, pressed('ach'));
         ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) + 1);
         if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
@@ -19530,7 +19525,7 @@ for (const b of document.querySelectorAll('#sShare button')) b.setAttribute('ari
 for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('aria-pressed', String((b.dataset.v === 'on') === (settings.rumble !== false)));
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   const pb = document.getElementById('sPower'); pb.setAttribute('aria-pressed', String(!!settings.power)); pb.textContent = settings.power ? 'On' : 'Off';
-  const cb = document.getElementById('sCrt'); cb.setAttribute('aria-pressed', String(!!settings.crt)); cb.textContent = settings.crt ? 'On' : 'Off';
+  const dr = document.getElementById('sDailyRow'); dr.hidden = app.state !== 'title'; if (!dr.hidden) document.getElementById('sDailyKit').textContent = '(' + dailyToday().kit.toUpperCase() + ')'; // only at the title: a Daily Sortie starts from there
 }
 function buildHelp() {
   const box = document.getElementById('helpBox'); if (!box || box.dataset.built) return; box.dataset.built = '1';
@@ -19728,7 +19723,7 @@ setBtn.addEventListener('click', () => { audio(); setPanel.classList.contains('o
 document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
 document.getElementById('sPower').addEventListener('click', () => { settings.power = !settings.power; syncSettingsUI(); saveSettings(); });
-document.getElementById('sCrt').addEventListener('click', () => { settings.crt = !settings.crt; syncSettingsUI(); saveSettings(); retroCrt(); });
+document.getElementById('sDaily').addEventListener('click', () => { if (app.state !== 'title') return; setPanel.classList.remove('open'); saveSettings(); showPauseMenu(false); openDaily(); });
 function rangeFill(r) { r.style.setProperty('--v', (r.min ? (r.value - r.min) / (r.max - r.min) * 100 : r.value) + '%'); } // the pixel bar fills up to the handle
 for (const [id, k] of SENS_UI) document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; rangeFill(e.target); document.getElementById(id + 'V').textContent = e.target.value + '%'; });
 document.getElementById('sMusic').addEventListener('input', e => { settings.music = +e.target.value; rangeFill(e.target); applyVolumes(); });
@@ -19772,7 +19767,7 @@ addEventListener('keydown', e => {
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
     if (app.state === 'title' && app.shipPick && (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd' || k === 'escape')) pickKey(k);
-    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 6, 8, 7, 9] : [0, 6, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
     else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
@@ -19791,7 +19786,7 @@ onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
   if (app.ending) return;
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (dailyHit(gx0, gy0)) openDaily(); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }

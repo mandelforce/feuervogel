@@ -47,18 +47,10 @@ const padPress = async (page, i) => { await page.evaluate(i => { window.__pad.bu
   ok(await sf(page, '!app.diffNext && app.state === "title"'), 'Escape closes the picker');
   await page.close();
 }
-// 3. Keyboard on the title: Down moves to Daily and Enter opens its picker; two Downs move to Scores, Enter opens it
+// 3. Keyboard on the title: Down moves to Scores, Enter opens it
 {
   const page = await fresh();
   await page.keyboard.press('ArrowDown'); await steps(page);
-  const fd = await sf(page, 'app.titleFocus');
-  await page.keyboard.press('Enter'); await steps(page);
-  ok(fd === 6 && await sf(page, '!!app.diffNext && app.diffNext.kind === "daily"'), `Down moves to Daily and Enter opens its difficulty picker (focus ${fd})`);
-  await page.close();
-}
-{
-  const page = await fresh();
-  await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown'); await steps(page);
   const f = await sf(page, 'app.titleFocus');
   await page.keyboard.press('Enter'); await steps(page);
   ok(f !== 0 && await sf(page, 'app.lbOpen === true || document.getElementById("lbPanel").classList.contains("open")'), `the title's buttons work by keyboard (focus ${f})`);

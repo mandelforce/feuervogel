@@ -388,7 +388,7 @@ node scripts/daily-vet.mjs --body /tmp/pr.md                                   #
 node scripts/daily-vet.mjs --from 2026-12-01 --dead 6 --no-write --body /tmp/pr.md   # forced failures, nothing written
 ```
 
-The Daily Sortie test (`daily.mjs`) also covers the title entry (section 5 of its head comment); `menunav.mjs` the keyboard and controller order START, DAILY, SCORES, trophy.
+The Daily Sortie test (`daily.mjs`) also covers the entry in Settings (section 5 of its head comment).
 
 ## Nothing pops in, guns stay off runways (by hand)
 
