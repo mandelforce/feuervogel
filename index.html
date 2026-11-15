@@ -405,7 +405,7 @@ body[data-results="1"] #bombBtn{display:none !important}
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
         <div class="dstage dpick" id="dPick" hidden>
-          <span class="dlbl">Test picker (local builds)</span>
+          <span class="dlbl">Level picker</span>
           <div class="dpdate"><button type="button" id="dpPrev" aria-label="Previous day">&#9664;</button><b id="dpDate"></b><button type="button" id="dpNext" aria-label="Next day">&#9654;</button></div>
           <div class="dsel dpgrid"><button type="button" id="dpKit"></button><button type="button" id="dpTod"></button><button type="button" id="dpTwist"></button><button type="button" id="dpFlav"></button><button type="button" id="dpDials"></button><button type="button" id="dpToday">Today</button><button type="button" id="dpFind"></button><button type="button" id="dpGo">Next day with it &#9654;</button></div>
           <p class="dpinfo" id="dpInfo"></p>
@@ -4814,7 +4814,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.47'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.48'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10880,7 +10880,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain', twist: C.twist || 'none', dials: C.dials || 'on', tod: C.tod || 'day' } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: C && C.tod && C.tod !== 'day' ? C.tod /* (a Daily Sortie's light of the day, drawn from the date: plan 4, phase 4) */ : fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain', twist: C.twist || 'none', dials: C.dials || 'on', tod: C.tod || 'day', picked: !!C.picked } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: C && C.tod && C.tod !== 'day' ? C.tod /* (a Daily Sortie's light of the day, drawn from the date: plan 4, phase 4) */ : fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -11035,14 +11035,14 @@ function resetTerrainState() {
 // What a sortie is saved as and rebuilt from: {level, seed} for a Campaign level, as ever; a Daily Sortie adds {daily} (the composer's kit, seed, sub-seed and version).
 // sortieOf gives null when the composer's version is no longer the saved one (the sortie can't be made again, so that run can't be resumed).
 function sortieRef(S) { return S.daily ? { level: S.level, seed: S.seed, daily: Object.assign({}, S.daily) } : { level: S.level, seed: S.seed }; }
-function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub, d.flavour, d.twist, d.dials, d.tod); C.date = d.date || null; return C; }
+function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub, d.flavour, d.twist, d.dials, d.tod); C.date = d.date || null; if (d.picked) C.picked = true; return C; }
 function sortieOf(ref) { if (!ref.daily) return buildSortie(ref.level, ref.seed); const C = dailyCompose(ref.daily); return C ? buildSortie(C.level, 0, C) : null; }
 /* The Daily Sortie (docs/daily-sortie-plan.md): one composed level, the same for every player on a UTC day. It borrows a Campaign level's boss, theme, art and
    timetable (run.sortie.level) and flies its own segments (run.sortie.daily, run.sortie.compose). It never counts (not ranked: no board, no best, no loop, no
    play data) and ends at the title after its results. For now it is reached only by the test link on a local build: ?daily=2026-11-15 (START then flies that
    day's sortie), with &kit=forest and &sub=3 to force a kit and a sub-seed. */
 function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub'), flavour: q.get('flavour') || undefined, twist: q.get('twist') || undefined, dials: q.get('dials') || undefined, tod: q.get('tod') || undefined }; }
-function startDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod)); }
+function startDaily(dateKey, kitId, sub, flavour, twist, dials, tod, picked) { const C = SortieCompose.composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod); if (picked) C.picked = true; startComposed(C); } /* picked: chosen with the level picker, not the day's own: not rated */
 /* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
 function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
 /* The rating (owner, 2026-11-15): after a Daily Sortie's results and the title, one question, 1 to 5 stars, once per date and composer version on this device.
@@ -11068,12 +11068,13 @@ for (const b of document.querySelectorAll('#rateStars [data-n]')) b.addEventList
 document.getElementById('rateSkip').addEventListener('click', closeRating);
 document.getElementById('rateAsk').addEventListener('pointerdown', e => e.stopPropagation());
 function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
-/* The Daily Sortie's test picker (local builds only: LB_TEST; on the live game every player flies the same level of the day, so there is nothing to pick). The date, and the kit, light, twist, flavour
+/* The Daily Sortie's level picker (everyone: today's level stays the default and START flies it as before; a pick is for trying any other day or look, and a picked run is not rated, so it never stands in for the day's own rating). The date, and the kit, light, twist, flavour
    and ground dials of that day, each either the day's own (the first choice) or forced, with the composer's own words for what the day holds; "Next day with it" jumps to the next date whose natural
-   level has what the finder names. START then flies the pick (startDaily with the same arguments the test link ?daily=DATE&kit=&tod=&twist=&flavour=&dials= gives). */
+   level has what the finder names. START then flies the pick (startDaily with the same arguments the test link ?daily=DATE&kit=&tod=&twist=&flavour=&dials= gives); a pick that differs from today's own level is marked picked (run.sortie.daily.picked). */
 const DP = { date: '', kit: 0, tod: 0, twist: 0, flav: 0, dials: 0, find: 0 }, DP_LAB = { kit: ['dpKit', 'Kit'], tod: ['dpTod', 'Light'], twist: ['dpTwist', 'Twist'], flav: ['dpFlav', 'Flavour'], dials: ['dpDials', 'Dials'] };
 const dpOpts = () => ({ kit: ['', 'desert', 'forest', 'winter'], tod: [''].concat(SortieCompose.TODS), twist: ['', 'none'].concat(SortieCompose.TWISTS), flav: [''].concat(SortieCompose.FLAVOURS), dials: ['', 'on', 'off'] });
 const DP_FIND = [['lakes', S => !!S.gen.params.lakes], ['oasis town', S => S.segs.some(g => g.t === 'oasis_town')], ['sunset', S => S.tod === 'sunset'], ['morning', S => S.tod === 'morning'], ['no dials', S => !S.dialNames.length], ['loop ground', S => S.ground], ['hard (rank)', S => S.rank]];
+const dpPicked = () => DP.date !== SortieCompose.dateKeyUTC(Date.now()) || DP.kit + DP.tod + DP.twist + DP.flav + DP.dials > 0; /* (anything but today's own level) */
 function dpArgs() { const O = dpOpts(), o = k => O[k][DP[k]] || undefined; return [DP.date, o('kit'), undefined, o('flav'), o('twist'), o('dials'), o('tod')]; }
 function dpDay(args) { try { return SortieCompose.composeDaily(...(args || dpArgs())); } catch (e) { return null; } }
 function dpRefresh() {
@@ -11082,7 +11083,7 @@ function dpRefresh() {
   el('dpDate').textContent = DP.date + (DP.date === today ? ' (today)' : ''); el('dpFind').textContent = 'Find: ' + DP_FIND[DP.find][0];
   const S = dpDay(); el('dpInfo').textContent = S ? [S.kit, S.flavour, 'twist ' + S.twist, S.tod, 'dials ' + (S.dialNames.join('+') || 'none'), S.gen.params.lakes ? 'lakes' : '', S.segs.some(g => g.t === 'oasis_town') ? 'oasis town' : ''].filter(Boolean).join(' \u00b7 ') : 'No valid sortie for this combination.';
 }
-function dpOpen(on) { const el = document.getElementById('dPick'); el.hidden = !(on && LB_TEST); if (el.hidden) return; Object.assign(DP, { date: SortieCompose.dateKeyUTC(Date.now()), kit: 0, tod: 0, twist: 0, flav: 0, dials: 0 }); dpRefresh(); }
+function dpOpen(on) { const el = document.getElementById('dPick'); el.hidden = !on; if (el.hidden) return; Object.assign(DP, { date: SortieCompose.dateKeyUTC(Date.now()), kit: 0, tod: 0, twist: 0, flav: 0, dials: 0 }); dpRefresh(); }
 function dpStep(n) { DP.date = SortieCompose.dateKeyUTC(Date.parse(DP.date + 'T00:00:00Z') + n * 86400000); dpRefresh(); }
 for (const k in DP_LAB) document.getElementById(DP_LAB[k][0]).addEventListener('click', () => { DP[k] = (DP[k] + 1) % dpOpts()[k].length; sfx('tick'); dpRefresh(); });
 document.getElementById('dpPrev').addEventListener('click', () => { sfx('tick'); dpStep(-1); }); document.getElementById('dpNext').addEventListener('click', () => { sfx('tick'); dpStep(1); });
@@ -11122,7 +11123,7 @@ function startRetro() { setRetroArt(true); startAt(1); run.retro = true; run.ran
 // continues, weapon and drones carried over; after the last level (6) came the congratulations (finishResults), then the title.
 const ENIGMA_NEXT = [2, 3, 4, 5, 6, 0];
 function endEnigmaLevel() {
-  if (run.sortie && run.sortie.daily) { const d = run.sortie.daily, info = { date: d.date, kit: d.kit, sub: d.sub | 0, cv: d.v, twist: d.twist || 'none', flavour: d.flavour || 'plain', tod: d.tod || 'day', dials: ((run.sortie.compose && run.sortie.compose.dialNames) || []).join('+'), diff: run.diff, score: run.score, dur: rrSec(run.frames) }; stopMusic(); toTitle(); askRating(info); return; } // a Daily Sortie is one level: after its results, the title, then the rating
+  if (run.sortie && run.sortie.daily) { const d = run.sortie.daily, info = { date: d.date, kit: d.kit, sub: d.sub | 0, cv: d.v, twist: d.twist || 'none', flavour: d.flavour || 'plain', tod: d.tod || 'day', dials: ((run.sortie.compose && run.sortie.compose.dialNames) || []).join('+'), diff: run.diff, score: run.score, dur: rrSec(run.frames) }; stopMusic(); toTitle(); askRating(d.picked ? null : info); return; } /* (a picked level is not rated: the rating is the day's own, one per date) */ // a Daily Sortie is one level: after its results, the title, then the rating
   const lv = run.sortie ? run.sortie.level : app.enigmaLast || 1, nx = ENIGMA_NEXT[lv - 1];
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
@@ -11346,7 +11347,7 @@ function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open P
   setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
   dpOpen(kind === 'daily');
-  if (kind === 'daily') { const d = dailyToday(); app.diffNext.date = d.date; const note = document.getElementById('dNote'); note.textContent = d.date + ' UTC: ' + d.kit.toUpperCase() + '. One level, the same for everyone today. It does not count for the board.'; note.classList.add('prac'); }
+  if (kind === 'daily') { const d = dailyToday(); app.diffNext.date = d.date; const note = document.getElementById('dNote'); note.textContent = d.date + ' UTC: ' + d.kit.toUpperCase() + '. One level, the same for everyone today. It does not count for the board. The picker below tries any other day or look; a picked level is not rated.'; note.classList.add('prac'); }
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
 }
@@ -20048,7 +20049,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'daily') { if (!document.getElementById('dPick').hidden) startDaily(...dpArgs()); else startDaily(nx.date || dailyToday().date); } else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour, d.twist, d.dials, d.tod); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'daily') { if (!document.getElementById('dPick').hidden) startDaily(...dpArgs(), dpPicked()); else startDaily(nx.date || dailyToday().date); } else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour, d.twist, d.dials, d.tod); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });

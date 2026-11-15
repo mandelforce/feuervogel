@@ -263,12 +263,12 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
     ok(r.errs.length === 0 && r.drawErr === null, `${kit} at ${tod}: 300 frames and a drawn frame without errors${r.drawErr ? ': ' + r.drawErr : ''}`); }
   const nt = await run1('forest', 'sunset', 'night'); ok(nt.tod === 'day' && nt.daily.tod === 'day' && !nt.grades.sunset, `a Night run day asked for a sunset is flown at noon (the level's light is ${nt.tod})`); }
 
-// ---------- 10. the test picker in the Daily Sortie dialog (local builds): a date, a kit, a light, a twist, a flavour, dials; a finder; START flies the pick ----------
+// ---------- 10. the level picker in the Daily Sortie dialog (everyone): a date, a kit, a light, a twist, a flavour, dials; a finder; START flies the pick; a picked run is not rated ----------
 { const page = await freshPage(11), Q = c => peek(page, c), J = async c => JSON.parse(await Q(`JSON.stringify(${c})`)), vis = id => `!document.getElementById('${id}').hidden`;
   const today = await Q(`SortieCompose.dateKeyUTC(Date.now())`), ds = d => SC.dailySeed(d), say = (d, o = {}) => { const S = SC.composeDaily(d, o.kit, undefined, o.flav, o.twist, o.dials, o.tod); return [S.kit, S.flavour, 'twist ' + S.twist, S.tod, 'dials ' + (S.dialNames.join('+') || 'none'), S.gen.params.lakes ? 'lakes' : '', S.segs.some(g => g.t === 'oasis_town') ? 'oasis town' : ''].filter(Boolean).join(' \u00b7 '); };
   await Q(`openSettings(), 0`); await page.click('#sDaily');
   const a = await J(`({ shown: ${vis('dPick')}, date: document.getElementById('dpDate').textContent, info: document.getElementById('dpInfo').textContent, kit: document.getElementById('dpKit').textContent, find: document.getElementById('dpFind').textContent })`);
-  ok(a.shown && a.date === today + ' (today)' && a.info === say(today) && a.kit === "Kit: day's own", `the picker shows on a local build, at today (${today}), with the day's own draw: ${a.info}`);
+  ok(a.shown && a.date === today + ' (today)' && a.info === say(today) && a.kit === "Kit: day's own", `the picker shows, at today (${today}), with the day's own draw: ${a.info}`);
   await page.click('#dpNext'); await page.click('#dpNext'); await page.click('#dpPrev'); const nx = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
   const b = await J(`({ date: document.getElementById('dpDate').textContent, info: document.getElementById('dpInfo').textContent })`);
   ok(b.date === nx && b.info === say(nx), `the arrows step the date (${b.date}) and the info follows (${b.info})`);
@@ -287,6 +287,17 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   await page.evaluate(() => document.querySelector('#diffAsk [data-d="1"]').click());
   const r = await J(`({ state: app.state, daily: run.sortie && run.sortie.daily, tod: run.sortie && run.sortie.timeOfDay, dn: run.sortie && run.sortie.compose && run.sortie.compose.dialNames.length })`);
   ok(r.state === 'play' && r.daily.date === today && r.daily.kit === 'forest' && r.daily.tod === 'sunset' && r.daily.twist === 'none' && r.daily.flavour === 'plain' && r.daily.dials === 'off' && r.tod === 'sunset' && r.dn === 0, `START flies the pick: ${JSON.stringify(r.daily)}`);
+  const pk = await J(`(() => { const re = dailyCompose(run.sortie.daily); SF.human(8, 15); SF.run(60); run.score = 1; endEnigmaLevel(); return { picked: false, rebuilt: !!(re && re.picked), open: document.getElementById('rateAsk').classList.contains('open'), rate: app.rate, state: app.state }; })()`);
+  ok(r.daily.picked === true && pk.rebuilt && !pk.open && !pk.rate && pk.state === 'title', `a picked run is marked picked, resume keeps the mark, and its end asks for no rating (${JSON.stringify([r.daily.picked, pk])})`);
+  /* the picker left alone is today's own level: not picked, rated as before */
+  await Q(`openDaily(), 0`); await page.evaluate(() => document.querySelector('#diffAsk [data-d="1"]').click());
+  const nat = await J(`({ daily: run.sortie.daily, state: app.state })`); ok(nat.state === 'play' && nat.daily.picked === false && nat.daily.date === today && nat.daily.kit === SC.dailySeed(today).kit, `the picker left alone starts today's own level, not picked (${nat.daily.kit}, ${nat.daily.tod})`);
+  const nr = await J(`(() => { SF.human(8, 15); SF.run(60); run.score = 1; endEnigmaLevel(); return { open: document.getElementById('rateAsk').classList.contains('open'), rate: app.rate && app.rate.date }; })()`);
+  ok(nr.open && nr.rate === today, `today's own level asks for its rating at the end, as before (${nr.rate})`);
+  await Q(`closeRating(), 0`);
+  /* a changed date alone also counts as a pick */
+  await Q(`openDaily(), 0`); await page.click('#dpNext'); await page.evaluate(() => document.querySelector('#diffAsk [data-d="1"]').click());
+  ok((await J(`run.sortie.daily.picked`)) === true && (await J(`run.sortie.daily.date`)) === nx, `another date alone is a pick (${nx})`);
   /* the Campaign's dialog has no picker, and the Daily dialog, opened again, starts from the day's own */
   await Q(`toTitle(), openDiff('camp', 1), 0`); ok(!(await J(vis('dPick'))), `the Campaign's difficulty dialog has no picker`);
   await Q(`closeDiff(), openDaily(), 0`); const d2 = await J(`({ date: document.getElementById('dpDate').textContent, kit: document.getElementById('dpKit').textContent })`); ok(d2.date === today + ' (today)' && d2.kit === "Kit: day's own", `opened again, the picker starts from today's own level`);
