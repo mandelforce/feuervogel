@@ -332,6 +332,19 @@ node tests/compose-probe.mjs --kit desert --group adjacent --seeds 80   # one ki
 node tests/daily-baseline.mjs --twice --save tests/daily-baseline.json   # about 5 minutes
 ```
 
+## Skill bots: rookie, veteran, ace (by hand)
+
+Step 1 of `docs/skill-bots-brief.md`. `skill-bot.js` (loaded after `harness.js`, the same way) adds `SF.skill(profile)`: the harness bot with human limits as numbers: `see` (frames its view of bullets and enemies is behind), `hold` (frames a decision is held, via `SF.human`), `ahead` (lookahead frames), `track` (nearest bullets minded), `err` (aim and stick error from the bot's own seeded stream, growing with bullets in view), `nova` (`never`, `panic`, `well`), `greed` (px it leaves its place for a pickup), `seed`. Profiles: `SF.SKILL.rookie / veteran / ace`, and `neutral`, which is exactly the plain bot under `SF.human(0, 15)`.
+
+`skill-bots.mjs` flies the six Campaign levels (each on its own, first pass), mortal (real lives, stops at the continue prompt) and immortal, each bot on its own difficulty (rookie Easy, veteran Normal, ace Hard), with several bot seeds per cell, and prints a table and PASS/FAIL lines: rookie dies at least as often as veteran, veteran as ace; a flight repeats in a fresh page; the neutral profile flies the plain bot's flight. It measures and always exits 0.
+
+```
+node tests/skill-bots.mjs                         # own difficulty, 8 seeds, the checks (about 20 minutes, 2 pages at once)
+node tests/skill-bots.mjs --cross                 # and every bot on every difficulty (about 1 hour)
+node tests/skill-bots.mjs --daily 2026-11-14      # a Daily Sortie instead
+node tests/skill-bots.mjs --levels 1,6 --bots rookie,ace --seeds 4 --no-checks --save out.json
+```
+
 ## Sortie composer test (runs in CI, blocking)
 
 `compose.mjs` (Node only) checks `tools/sortie-compose.js`: its hash is the game's `sortieHash`; the same seed gives the same sortie; every composed list of 10,000 seeds per kit keeps the kit's rules (opener, approach, who may follow whom, how often, how long, the total, encounter spacing); every middle template appears and the orders differ over 1,000 seeds; the daily seed (UTC day, kit by rotation, reroll table); the generator's plan of 300 composed lists per kit passes `CityGen.validate`, has the right length, holds every template's feature in its own segment and stays under the structures limit; and the copy in `index.html` is current. `kit-check.mjs` holds the plan checks it shares with `compose-probe.mjs`.
