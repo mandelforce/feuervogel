@@ -708,3 +708,69 @@ The gate was reused: it gained `--sub K` (force a sub-seed on every date) and a 
 **Checked.** `tests/daily.mjs` (78 checks; new: the button's date and kit at three clock times including 23:59:50 UTC, the click, the pick on Ace, START and SCORES unchanged, the controller, the results screen). `menunav.mjs`, `smoke.mjs`, `layout.mjs`, `retro.mjs`. **Not run:** `enigma.mjs`, `encounter.mjs`, `buechse.mjs`, `drilling.mjs`, `replay.mjs`, `resume-exact.mjs`, the sweep, the unit tests, the other CI jobs.
 
 **For the owner.** (1) Pull requests opened with `GITHUB_TOKEN` do not start the smoke workflow; run it by hand on `daily-vet` or use a token of your own. (2) Decision 8 and dead-air options 1 and 2 are still open. (3) The Daily Sortie entry is live for everyone once this ships, and no person has played a Daily Sortie yet.
+
+## 11. Proposal: make the days differ (twists and loop flavours). Draft, nothing built
+
+**Why.** The owner expects the Daily Sortie to feel too similar to the Campaign (2026-11-15). It is: same boss, theme, art and timetable as level 2, 4 or 5, first-pass rules, and in forest and winter most middle templates share their ground (6.3, rows 7 and 11). Reordering segments alone will not fix that. This section adds two things the composer can pick from the date, without new ground: a **twist** (a rule or look of the day) and a **loop flavour** (content the Campaign only shows in its loops). Options 3 to 5 of the discussion (own ground for forest and winter, other bosses, more kits) stay out of scope; they are phase 5 and later work.
+
+### 11.1 The twist
+
+A twist is one named modifier per day, chosen by the date (`twistFor(date, kit)`, a second seeded draw next to the kit rotation; rotation, not random, so two days in a row never repeat one). It rides on the sortie object next to `variant`, and `run.daily` records it (`{date, kit, seed, sub, twist, flavour, v}`), so resume rebuilds the same day. A twist never changes the composer's segment list, so gates 1 and 2 are untouched; gate 3 (the flight gate) flies every twist on every kit and difficulty.
+
+Rules: one twist a day; it must be readable in the first ten seconds (a banner names it, as `DAILY SORTIE` is named now); it must not make a sortie unwinnable for the bot or hide threats unfairly; and it counts nowhere, like the rest.
+
+Candidate twists. "Exists" means the game already has the mechanism in the Campaign, so the twist is mostly a switch plus gate time; "new" means game code that does not exist yet. Nothing below has been checked for the three kits' grounds; the first task is to check each.
+
+| Group | Twist | What the player feels | Basis |
+|---|---|---|---|
+| Look and sight | **Night run**: the level in the dark (`nightF`, the moon variant) | Fewer readable shapes, lights and tracers stand out | Exists: night factor and moon in the render; tied to level 3's theme, so it needs a check on other grounds |
+| | **Fog / squall**: the winter squall and forest overcast on other kits | Visibility drops in stretches | Exists for winter and forest (`squallAt`, the overcast); desert needs a sand-haze equivalent (new) |
+| | **Sandstorm** (desert) or **blizzard** (winter): drifting particles plus short blind stretches | Same, harder to read | New |
+| | **Dawn / dusk** palette grade | Mood only, no change in play | Exists in part (the grade under the night overlay) |
+| Enemy flow | **Swarm day**: more but weaker enemies (count x1.5, hit points x0.7) | Constant shooting, little tension | New: a timetable multiplier; must keep `TT_ENC` order |
+| | **Elite day**: fewer, tougher enemies (x0.6, hit points x1.5) | Every target matters | New, same switch |
+| | **Heavy bullets**: fewer, slower, bigger enemy bullets | Dodging by reading, not reflex | New (bullet speed exists per difficulty, `DIFF`; size is new) |
+| | **Rush hour**: the encounters of the kit all come early, back to back | A front-loaded sortie, then a long run-in | New: encounter placement is per segment; a timetable offset |
+| Your ship | **Fixed weapon**: the whole sortie on Scatter, Lance, Seeker or Arc, no pickups change it | You learn one gun properly | Exists: weapons and tiers; new: lock the pickups |
+| | **Glass cannon**: one life, double score | Risk and reward | Exists: lives, score; new: the multiplier on a no-count run |
+| | **Nova day**: start with 6 Novas, no pickups give more | A panic button to spend | Exists: Nova count |
+| | **Slow ship** or **fast ship** | A different feel at the same dodge | Exists: the ship's speed is a constant; new: a per-run factor |
+| World | **Fast scroll** (the level flies 20 % faster) or **slow scroll** | Shorter or longer sorties, different pacing | Exists: `world.scrollV` / `scrollTarget`; changes the timetable's meaning, so the gate must fly it |
+| | **Fog of war**: the ground details fade out except roads and targets | Only what matters is lit | New |
+| | **Mirror**: the sortie flipped left to right | The same level, new muscle memory | New: a render and spawn flip; the plans and the timetable are in game x, so every x in the sortie must flip |
+| Rules of the day | **Medal hunt**: score only from medals, enemies give no score | Chase the chain, not the kills | New |
+| | **No pickups** except the boss's | A fixed loadout, a hard run | Exists: item spawns; new: the switch |
+| | **Boss rush at the end**: the boss's fight twice (the second at half hit points) | A longer finish | New: the boss exists once per sortie |
+
+Recommended first set, cheapest and most visible: **Night run**, **Fog / squall**, **Fixed weapon**, **Swarm day**, **Elite day**, **Fast scroll**, **Mirror**. They cover sight, enemies, ship and world, and four of the seven use mechanisms that exist. The rest wait for the first results.
+
+### 11.2 The loop flavour
+
+The Campaign's loops change ground and difficulty (the Campaign's loop variants: the desert's basin, the forest's autumn with lakes, the winter's `variant` 1; a rank step per loop, `LOOP_STEP`). The composer currently fixes all of them off (`variant` 0, first-pass rules). A **flavour** turns some of that on for a day:
+
+- `plain`: today's rules (most days).
+- `variant`: the kit's loop ground (desert basin; forest autumn plus lakes; winter variant 1). Different look and different templates' behaviour on the ground. The generator accepts these for the hand-made lists; composed lists were not probed with them (plan 6.6 lists this as not probed). **First task: run `tests/compose-probe.mjs` for each kit with the variant on and report which templates survive.**
+- `rank`: the first loop's rank (the Campaign's loop-1 values) on the first-pass ground. Harder, nothing else.
+- `loop`: both.
+
+A flavour changes what a date produces, so it is part of the seed's output: `composeVersion` goes to 2 when it ships, and every board key, saved run and the vetting table is keyed by it (2.3). The flavour is drawn after the twist, and a date draws neither twist nor flavour when the table says so (`DAILY_PLAIN`, for days the owner wants to leave untouched).
+
+### 11.3 How a day is drawn
+
+`dailyDay(date)` returns `{kit, seed, sub, twist, flavour}`: the kit by rotation as now; the twist by its own rotation over the owner's enabled list (so the same twist cannot come two days in a row, and a kit does not draw the same twist twice in a week); the flavour by weight (for example plain 60 %, rank 15 %, variant 15 %, loop 10 %, set by the owner). `DAILY_REROLL` keeps working per date, and the vetting script gets a second reroll order: first a new sub-seed, then, if none of 8 passes, a plainer day (flavour `plain`, then no twist), reported in the PR text. Nothing else changes in `scripts/daily-vet.mjs`; the gate takes `--twist` and `--flavour` as it takes `--sub` now.
+
+### 11.4 Phases
+
+1. **Probe (no game change).** For each kit: which flavours the composer's lists survive (plan checks, gate 2); for each candidate twist in the first set: does the mechanism exist as the table says, and what does it need. Report in a section 11.5, as phase 0 did in 6.
+2. **Flavours.** Composer, `run.daily`, resume, `composeVersion` 2, tests (`compose.mjs`, `daily.mjs`), the flight gate with `--flavour`. Sweep as in 9.
+3. **Twists, the first set.** One at a time: the switch, the banner, a unit check that it is off on every other day, the gate on all kits and difficulties.
+4. **Draw and vetting.** `dailyDay`, the rotation rules, the vetting script's plainer-day fallback.
+
+**Stop point after each of 1 and 2**, as the other phases do: the owner reads the report before the next.
+
+### 11.5 Questions for the owner
+
+1. The first set of twists in 11.1: keep, drop or add? In particular: is **Mirror** worth its cost (every x in the sortie flips), and are **one-life** days acceptable in a mode with no board?
+2. Flavour weights: plain 60 / rank 15 / variant 15 / loop 10, or more variety?
+3. Should a twist ever combine with a loop flavour on the same day, or is one change a day the rule?
+4. `composeVersion` 2 restarts every date-keyed record; fine before phase 6 (nothing is keyed yet), but should the Daily Sortie stay hidden in Settings until 11.4 phase 2 is done?
