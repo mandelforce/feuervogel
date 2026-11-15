@@ -73,7 +73,7 @@ const padPress = async (page, i) => { await page.evaluate(i => { window.__pad.bu
 // 5. The tutorial's difficulty choice (after step 10): keyboard and controller
 for (const dev of ['key', 'pad']) {
   const page = await fresh();
-  await sf(page, 'settings.diff = 1; startTutorial(); app.tut.step = 10; 0'); await steps(page, 80);
+  await sf(page, 'settings.diff = 1; startTutorial(); app.tut.step = 13; 0'); await steps(page, 80);
   await sf(page, 'drawTutorial(), 0'); await steps(page);
   ok(await sf(page, 'document.getElementById("tutBtns").classList.contains("on")'), `${dev}: the tutorial shows its difficulty buttons`);
   ok(await focusDiff(page) === 'd1', `${dev}: they start on the saved difficulty (${await focusDiff(page)})`);

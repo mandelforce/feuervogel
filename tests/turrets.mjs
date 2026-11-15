@@ -142,7 +142,7 @@ const setup = mkSetup('SF.start(1, 1); startEnigma(3, true);'), retroSetup = mkS
   ok(rt.kinds.includes('shell') && rt.kinds.includes('s'), `the Retro Run's fort still mixes flak shells with direct shots (${rt.kinds})`);
 
   /* the training level: the Enigma Run's guns, and the gun stands on a little island */
-  const tr = JSON.parse(await peek(page, `(() => { startTutorial(); for (let i = 0; i < 200; i++) { player.inv = 99; update(); } app.tut.step = 7; app.tut.t = 0; app.tut.ids = [];
+  const tr = JSON.parse(await peek(page, `(() => { startTutorial(); for (let i = 0; i < 200; i++) { player.inv = 99; update(); } app.tut.step = 10; app.tut.t = 0; app.tut.ids = [];
     for (let i = 0; i < 80; i++) { player.inv = 99; world.shots = []; update(); }
     const bk = world.enemies.find(e => e.type === 'bunker'), isl = world.decals.filter(d => d.s === SPR.islet);
     return JSON.stringify({ art: ENIG_GUN.on, bunker: !!bk, islets: isl.length, under: !!bk && isl.length > 0 && Math.abs(isl[0].wx - bk.wx) < 1 && Math.abs(isl[0].wy - bk.wy) < 1, errs: R.errs.length }); })()`));
