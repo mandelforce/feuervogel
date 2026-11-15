@@ -338,6 +338,8 @@ Step 1 of `docs/skill-bots-brief.md`. `skill-bot.js` (loaded after `harness.js`,
 
 `skill-bots.mjs` flies the six Campaign levels (each on its own, first pass), mortal (real lives, stops at the continue prompt) and immortal, each bot on its own difficulty (rookie Easy, veteran Normal, ace Hard), with several bot seeds per cell, and prints a table and PASS/FAIL lines: rookie dies at least as often as veteran, veteran as ace; a flight repeats in a fresh page; the neutral profile flies the plain bot's flight. It measures and always exits 0.
 
+"As often" is deaths per minute flown (mortal) and hits per minute over the level (immortal), not the death count: with 2 lives nearly every mortal flight ends at the continue prompt, so counts tie at the cap, and an extra life earned by scoring gives the better bot one more death. `lives@boss` counts only the flights that reached the boss (`n`). With `see`, enemies that fly by heading and speed (no `vx`/`vy`: fighters, pods, wings, heavies) are carried forward along the motion measured between two snapshots; before, they were seen `see` frames stale and most deaths were rams.
+
 ```
 node tests/skill-bots.mjs                         # own difficulty, 8 seeds, the checks (about 20 minutes, 2 pages at once)
 node tests/skill-bots.mjs --cross                 # and every bot on every difficulty (about 1 hour)

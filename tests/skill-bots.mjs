@@ -41,7 +41,8 @@ const FLY = `(function (lv, date, diff, bot, seed, mortal) {
   return { level: L0, diff: diff, bot: bot, seed: seed, mortal: mortal, H: H, end: end, frames: f, wallMs: Math.round(performance.now() - t0), errs: SF.R.errs.length,
     bossIn: bossF < 0 ? null : +(bossF / 60).toFixed(1), bossKilled: deadF >= 0, cleared: deadF >= 0 && end !== 'continue-screen' && end !== 'cap',
     deaths: hits.length, livesAtBoss: livesAtBoss, novas: novas, deathList: hits.map(function (h) { return [h.t, h.cause, h.why || '']; }),
-    hitsPre: pre, hitsBoss: inBoss, hitsPerMin: bossF > 0 ? +(pre / (bossF / 3600)).toFixed(2) : null, score: run.score, trace: trace };
+    hitsPre: pre, hitsBoss: inBoss, hitsPerMin: bossF > 0 ? +(pre / (bossF / 3600)).toFixed(2) : null, score: run.score, trace: trace,
+    flownS: +((deadF >= 0 ? deadF : f) / 60).toFixed(1), perMin: +(hits.length / (Math.max(60, deadF >= 0 ? deadF : f) / 3600)).toFixed(2) };
 })`;
 
 const browser = await chromium.launch();
@@ -77,17 +78,18 @@ cells.forEach((c, ci) => {
   const fs = flights.filter((r, i) => jobs[i].ci === ci), M = fs.filter(r => r.mortal), I = fs.filter(r => !r.mortal);
   const causes = {}; for (const r of M) for (const d of r.deathList) { const k = d[2] && d[2] !== d[1] && !String(d[1]).includes(d[2]) ? d[2] : d[1]; causes[k] = (causes[k] || 0) + 1; }
   Object.assign(c, { flights: fs.length,
-    mortal: { cleared: +(M.filter(r => r.cleared).length / Math.max(1, M.length)).toFixed(2), deaths: stat(M.map(r => r.deaths)), livesAtBoss: stat(M.map(r => r.livesAtBoss)), reachedBoss: M.filter(r => r.bossIn !== null).length, novas: stat(M.map(r => r.novas)),
+    mortal: { cleared: +(M.filter(r => r.cleared).length / Math.max(1, M.length)).toFixed(2), deaths: stat(M.map(r => r.deaths)), livesAtBoss: stat(M.map(r => r.livesAtBoss)), reachedBoss: M.filter(r => r.bossIn !== null).length, flights: M.length, perMin: stat(M.map(r => r.perMin)), flownS: stat(M.map(r => r.flownS)), novas: stat(M.map(r => r.novas)),
       deathAt: stat(M.flatMap(r => r.deathList.map(d => d[0]))), causes, deaths_each: M.map(r => ({ seed: r.seed, end: r.end, deaths: r.deathList })) },
-    immortal: { hitsPerMin: stat(I.map(r => r.hitsPerMin)), hitsBoss: stat(I.map(r => r.hitsBoss)), bossIn: stat(I.map(r => r.bossIn)), bossKilled: I.filter(r => r.bossKilled).length },
+    immortal: { hitsPerMin: stat(I.map(r => r.hitsPerMin)), perMin: stat(I.map(r => r.perMin)), hitsBoss: stat(I.map(r => r.hitsBoss)), bossIn: stat(I.map(r => r.bossIn)), bossKilled: I.filter(r => r.bossKilled).length },
     flightS: stat(fs.map(r => +(r.wallMs / 1000).toFixed(1))), errs: fs.reduce((a, r) => a + r.errs + r.pageErrs.length, 0) });
 });
 
 const f = (s, n = 0) => !s ? '-' : (n ? s.med.toFixed(n) : String(s.med)) + ' [' + (n ? s.min.toFixed(n) : s.min) + '-' + (n ? s.max.toFixed(n) : s.max) + ']';
 console.log(`\nSkill bots, build ${VERSION}, viewport ${VIEW.width}x${VIEW.height}, H ${flights[0] && flights[0].H}, ${SEEDS} seeds per cell, ${CONC} pages at once${DAILY ? ', Daily Sortie ' + DAILY : ', Campaign levels first pass'}`);
-console.log('median [min-max] over the seeds. mortal: cleared share, deaths, lives when the boss comes, Novas, top death causes; immortal: hits/min before the boss, hits in the boss fight');
-console.log('level bot      diff     clear  deaths      lives@boss  novas       hits/min           boss hits    flight s       causes');
-for (const c of cells) console.log(`${String(c.level || "daily").padStart(5)} ${c.bot.padEnd(8)} ${NAMES[c.diff].padEnd(7)}${c.own ? ' ' : '*'} ${c.mortal.cleared.toFixed(2).padStart(5)}  ${f(c.mortal.deaths).padEnd(11)} ${f(c.mortal.livesAtBoss).padEnd(11)} ${f(c.mortal.novas).padEnd(11)} ${f(c.immortal.hitsPerMin, 2).padEnd(18)} ${f(c.immortal.hitsBoss).padEnd(12)} ${f(c.flightS, 1).padEnd(14)} ${Object.entries(c.mortal.causes).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => k + ' ' + v).join(', ')}${c.errs ? '  ERRORS ' + c.errs : ''}`);
+console.log('median [min-max] over the seeds. mortal: cleared share, deaths (capped: 2 lives, then the continue prompt), deaths per minute flown, seconds flown, lives when the boss comes (n = flights that got there), Novas, top death causes;');
+console.log('immortal: hits per minute over the level, hits/min before the boss, hits in the boss fight. Seconds flown: until the boss dies or the flight ends');
+console.log('level bot      diff     clear  deaths      deaths/min         s flown            lives@boss      novas       hits/min all       hits/min pre       boss hits    flight s       causes');
+for (const c of cells) console.log(`${String(c.level || "daily").padStart(5)} ${c.bot.padEnd(8)} ${NAMES[c.diff].padEnd(7)}${c.own ? ' ' : '*'} ${c.mortal.cleared.toFixed(2).padStart(5)}  ${f(c.mortal.deaths).padEnd(11)} ${f(c.mortal.perMin, 2).padEnd(18)} ${f(c.mortal.flownS, 0).padEnd(18)} ${(f(c.mortal.livesAtBoss) + ' n' + c.mortal.reachedBoss).padEnd(15)} ${f(c.mortal.novas).padEnd(11)} ${f(c.immortal.perMin, 2).padEnd(18)} ${f(c.immortal.hitsPerMin, 2).padEnd(18)} ${f(c.immortal.hitsBoss).padEnd(12)} ${f(c.flightS, 1).padEnd(14)} ${Object.entries(c.mortal.causes).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => k + ' ' + v).join(', ')}${c.errs ? '  ERRORS ' + c.errs : ''}`);
 if (CROSS) console.log('* = not the bot\'s own difficulty');
 const walls = flights.map(r => r.wallMs / 1000);
 const timing = { flights: flights.length, conc: CONC, flightS: stat(walls.map(v => +v.toFixed(1))), gameSpeed: +(flights.reduce((a, r) => a + r.frames / 60, 0) / walls.reduce((a, b) => a + b, 0)).toFixed(1), allS: Math.round((Date.now() - tAll) / 1000) };
@@ -97,10 +99,13 @@ console.log(`\none flight: ${timing.flightS.min} to ${timing.flightS.max} s (med
 const checks = [];
 const ok = (pass, what) => { checks.push({ pass, what }); console.log((pass ? 'PASS ' : 'FAIL ') + what); };
 console.log('');
-const D = (lv, bot, diff) => { const c = cells.find(x => x.level === lv && x.bot === bot && x.diff === diff); return c && c.mortal.deaths ? c.mortal.deaths.med : null; };
+/* "dies at least as often" is measured as deaths per minute flown (mortal) and hits per minute over the level (immortal), not as the death count:
+   with 2 lives nearly every flight ends at the continue prompt, so counts tie at the cap, and an extra life earned by scoring adds a death to the better bot */
+const D = (lv, bot, diff, k) => { const c = cells.find(x => x.level === lv && x.bot === bot && x.diff === diff); const s = c && (k === 'mortal' ? c.mortal.perMin : c.immortal.perMin); return s ? s.med : null; };
+const order = (lv, ds, k, what) => { const r = D(lv, 'rookie', ds[0], k), v = D(lv, 'veteran', ds[1], k), a = D(lv, 'ace', ds[2], k); ok(r !== null && r >= v && v >= a, `level ${lv || DAILY}, ${what}: median ${k === 'mortal' ? 'deaths per minute flown' : 'immortal hits per minute'} rookie ${r} >= veteran ${v} >= ace ${a}`); };
 if (BOTS.join() === 'rookie,veteran,ace') {
-  for (const lv of LEVELS) { const r = D(lv, 'rookie', 0), v = D(lv, 'veteran', 1), a = D(lv, 'ace', 2); ok(r >= v && v >= a, `level ${lv || DAILY}, own difficulty: median deaths rookie ${r} >= veteran ${v} >= ace ${a}`); }
-  if (CROSS) for (const diff of [0, 1, 2]) for (const lv of LEVELS) { const r = D(lv, 'rookie', diff), v = D(lv, 'veteran', diff), a = D(lv, 'ace', diff); ok(r >= v && v >= a, `level ${lv || DAILY}, all on ${NAMES[diff]}: median deaths rookie ${r} >= veteran ${v} >= ace ${a}`); }
+  for (const k of ['mortal', 'immortal']) for (const lv of LEVELS) order(lv, [0, 1, 2], k, 'own difficulty');
+  if (CROSS) for (const diff of [0, 1, 2]) for (const k of ['mortal', 'immortal']) for (const lv of LEVELS) order(lv, [diff, diff, diff], k, 'all on ' + NAMES[diff]);
 }
 let repeat = null, neutral = null;
 if (CHECKS) {

@@ -20,7 +20,7 @@ SF.SKILL = {
 };
 
 const sk = { on: false, p: null, ring: [], rnd: null, aimOff: 0, novas: 0 };
-let mode = 'immortal';
+let mode = 'immortal'; /* (harness.js keeps its mode private: call SF.setMode after loading this file, or Novas follow the default) */
 const setMode0 = SF.setMode, start0 = SF.start;
 SF.setMode = function (m) { mode = m; return setMode0(m); };
 SF.start = function () { reset(); return start0.apply(this, arguments); };
@@ -34,20 +34,25 @@ function reset() { sk.ring.length = 0; sk.rnd = mulberry(((sk.p && sk.p.seed) ||
 function snap() {
   return {
     ebul: world.ebul.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, kind: b.kind, r: b.r, life: b.life, tx: b.tx, ty: b.ty })),
-    enemies: world.enemies.map(e => ({ x: e.x, y: e.y, vx: e.vx, vy: e.vy, hw: e.hw, hh: e.hh, ground: e.ground, surface: e.surface, dead: e.dead, dying: e.dying, crash: e.crash, type: e.type,
+    enemies: world.enemies.map(e => ({ ref: e, x: e.x, y: e.y, vx: e.vx, vy: e.vy, hw: e.hw, hh: e.hh, ground: e.ground, surface: e.surface, dead: e.dead, dying: e.dying, crash: e.crash, type: e.type,
       parts: e.parts ? e.parts.map(q => ({ ox: q.ox, dead: q.dead, off: q.off, k: q.k })) : e.parts })),
   };
 }
+function remember() { sk.ring.push(snap()); while (sk.ring.length > sk.p.see + 2) sk.ring.shift(); }
 function view() {
   const P = sk.p, p = player;
   let v;
   if (P.see > 0) {
-    sk.ring.push(snap()); while (sk.ring.length > P.see + 1) sk.ring.shift();
-    /* what it saw `age` frames ago, carried forward along the velocities it saw then: straight shots are where it expects them, but a shot fired
-       within the last `see` frames is not there at all, and a turn, a new aim or a burst is noticed `see` frames late */
-    const o = sk.ring[0], age = sk.ring.length - 1;
+    remember();
+    /* what it saw `age` frames ago, carried forward along the motion it saw then: straight shots are where it expects them, but a shot fired
+       within the last `see` frames is not there at all, and a turn, a new aim or a burst is noticed `see` frames late.
+       Most air enemies (fighters, pods, wings, heavies) move by heading and speed and have no vx/vy: their motion is measured between the
+       snapshot seen and the one before it. That speed only places them; the search still predicts them as the plain bot does (vx/vy or still). */
+    const n = sk.ring.length, age = Math.min(P.see, n - 1), o = sk.ring[n - 1 - age], prev = n - 2 - age >= 0 ? sk.ring[n - 2 - age] : null;
+    const was = new Map(); if (prev) for (const e of prev.enemies) was.set(e.ref, e);
+    const mv = e => { if (typeof e.vx === 'number') return [e.vx, e.vy || 0]; const w = was.get(e.ref); if (!w) return [0, 0]; const dx = e.x - w.x, dy = e.y - w.y; return dx * dx + dy * dy > 64 ? [0, 0] : [dx, dy]; }; /* (a jump of more than 8 px is a teleport, not flight) */
     v = { ebul: o.ebul.map(b => b.kind === 'mortar' ? Object.assign({}, b, { life: b.life - age }) : Object.assign({}, b, { x: b.x + (b.vx || 0) * age, y: b.y + (b.vy || 0) * age })),
-      enemies: o.enemies.map(e => Object.assign({}, e, { x: e.x + (e.vx || 0) * age, y: e.y + (e.vy || 0) * age })) };
+      enemies: o.enemies.map(e => { const m = mv(e); return Object.assign({}, e, { x: e.x + m[0] * age, y: e.y + m[1] * age }); }) };
   }
   else v = { ebul: world.ebul, enemies: world.enemies };
   if (v.ebul.length > P.track) {
@@ -61,7 +66,7 @@ function view() {
 function decide() {
   for (const k of ['arrowleft', 'arrowright', 'arrowup', 'arrowdown']) keys[k] = false;
   const P = sk.p, p = player;
-  if (!p || p.dead || p.fly > 0 || p.exitT > 0 || app.results || app.congrats) { if (P.see > 0) { sk.ring.push(snap()); while (sk.ring.length > P.see + 1) sk.ring.shift(); } return; }
+  if (!p || p.dead || p.fly > 0 || p.exitT > 0 || app.results || app.congrats) { if (P.see > 0) remember(); return; }
   const V = view(), ebul = V.ebul, enemies = V.enemies;
   let tgt = W / 2, ty = H * 0.72, bestY = -1e9;
   for (const e of enemies) if (!e.dying && !e.dead && e.y > 10 && e.y < p.y - 20 && (e.type === 'boss' || e.y > bestY)) {
