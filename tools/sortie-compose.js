@@ -20,7 +20,7 @@
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 3; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 4; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -46,19 +46,21 @@ const KITS = {
     middle: {
       valley: { len: [7, 12], max: 2, heat: 0.4, built: 0.15 },
       village: { len: [7, 8], max: 1, heat: 0.8, built: 0.55 }, // (not shorter: the held village's defences reach 190 px south of its middle and must stay inside its own segment; at 4 to 6 chunks they ran into the port, the pass's rock or the open desert's hamlet in 42 of 216 composed lists, at 7 in 0 of 63)
+      oasis_town: { len: [7, 9], max: 1, heat: 0.7, built: 0.45 }, // a large held oasis (new, ground plan phase 5); not next to the village (two heavy defences), nor before the open desert, whose roadside hamlet reaches into it
       station_junction: { len: [6, 10], max: 1, heat: 0.5, built: 0.27 },
       desert_open: { len: [4, 7], max: 2, heat: 0.1, built: 0.23 },
       airbase_desert: { len: [7, 10], max: 1, heat: 0.7, built: 0.42 },
       pass: { len: [8, 12], max: 1, heat: 0.9, built: 0.17 } },
     fixedBuilt: { harbour_commercial: 0.8, beach_town: 0.36, desert_open: 0.23 },
     follows: {
-      beach_town: ['valley', 'village', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
-      valley: ['village', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      beach_town: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      valley: ['village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
       village: ['valley', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
-      station_junction: ['valley', 'village', 'desert_open', 'airbase_desert', 'pass'],
+      oasis_town: ['valley', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      station_junction: ['valley', 'village', 'oasis_town', 'desert_open', 'airbase_desert', 'pass'],
       desert_open: ['valley', 'station_junction', 'airbase_desert', 'pass'], // (not the village: a later open desert's roadside hamlet reaches up to 70 px past its segment's end, into the village's defences: 3 of 300 composed lists)
-      airbase_desert: ['valley', 'village', 'station_junction', 'desert_open', 'pass'],
-      pass: ['valley', 'village', 'station_junction', 'desert_open', 'airbase_desert'] },
+      airbase_desert: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'pass'],
+      pass: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert'] },
     enc: { village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
   forest: { id: 'forest', level: 4, preset: 'ironForest', params: { roadEnd: 112 }, arena: 0, boss: { add: 3 }, climate: 'forest', timeOfDay: 'day', len: [50, 66],
     opener: [['beach_cliff', 3]], approach: [['farmland_approach', 7]],
@@ -135,6 +137,12 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
+  /* the ground dials: only the kit's own, inside their ranges, and none on a day without (S.dials 'off') */
+  if (S.gen && S.gen.params && kit.dials) { const D = kit.dials, P = S.gen.params, ps = P.segs || [], have = [];
+    ps.forEach((g, k) => { if (!g.p) return; const T = D.seg[g.t] || {}; for (const q in g.p) { have.push(q); const r = T[q]; if (!r) bad.push('dial ' + q + ' on ' + g.t + ' is not allowed'); else if (!(g.p[q] >= r[0] - 1e-9 && g.p[q] <= r[1] + 1e-9)) bad.push('dial ' + q + ' = ' + g.p[q] + ' on ' + g.t + ' outside ' + r.join('..')); } });
+    const loopSet = S.ground ? LOOP_PARAMS[kitId] || {} : {}; /* (what the loop ground sets itself, such as the forest's lakes, is not a dial) */
+    for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
+    if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
   if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
   enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
@@ -163,30 +171,73 @@ function walk(kit, target, r) {
   return seq;
 }
 
+/* Ground dials (docs/ground-variety-plan.md): what a day does to the ground, besides the segment list. Per kit, kit.dials = { global, seg, int }:
+     global: { dial: [lo, hi] }  a generator parameter for the whole level (the builder reads it from params);
+     seg:    { template: { dial: [lo, hi] } }  a value for the segments of that template only (the builder reads segs[i].p);
+     int:    the dials that are counts (rounded).
+   A day draws DIAL_PICK[0]..[1] of the kit's dials (or none: DIAL_NONE of the days, and every day listed in DAILY_PLAIN), and each segment that can take a drawn dial gets its own
+   value, so two villages of one sortie differ. The draw has its own hash stream (6000 and up): the segment list, the encounters and the Wing do not read it. The ranges are
+   strong: the dials that changed the most of a frame in the game's contact sheets (plan 4.3); a day that draws dials draws at least one of them (the others, such as the forest's tracks or the desert's house mix, change little alone).
+   what gate 2 and the flight gate were run on (tests/dials-probe.mjs); the generator clamps anything outside its own table (tools/citygen.js: *_DIALS). */
+const DIAL_NONE = 0.2, DIAL_PICK = [2, 3];
+const FOREST_BASE = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clearings: 1, cuts: 1, guns: 3 }, forest_fortified: { roads: 1, rides: 4, plantations: 1, clearings: 1, cuts: 2, guns: 7 }, clearing_village: { roads: 0, rides: 1, plantations: 0, clearings: 3, cuts: 2, guns: 2 },
+  airbase_forest_hidden: { roads: 2, rides: 2, plantations: 2, clearings: 1, cuts: 1, guns: 4 }, valley: { roads: 1, rides: 2, plantations: 1, clearings: 2, cuts: 1, guns: 3 } }; // (a copy of the generator's FOREST_BASE; tests/compose.mjs compares the two)
+const FOREST_CAP = { roads: 4, rides: 6, plantations: 4, clearings: 5, cuts: 4, guns: 9 }; // (the generator's own limits, FOREST_DIALS)
+const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 3), Math.min(FOREST_CAP[k], b[k] + 3)]; o[t].guns = [Math.max(1, b.guns - 2), Math.min(FOREST_CAP.guns, b.guns + 2)]; o[t].crowns = [0.4, 1.5]; } return o; }; // a count within 3 of the template's own, guns within 2; crowns: how thick the woods are (1 is as it was)
+const DIALS = {
+  desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
+    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, oasis_town: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
+  forest: { global: { lakes: [1, 1] }, /* the first loop's lakes, one in each stretch of forest with room for it (a switch: drawn, it is on) */ seg: forestSeg(), int: ['lakes', 'roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['lakes', 'crowns', 'clearings', 'plantations', 'cuts', 'guns'] },
+  winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
+    seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [], strong: ['treeK', 'floorW'] },
+};
+for (const id in DIALS) KITS[id].dials = DIALS[id];
+const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
+// The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
+function dialsFor(kit, base, segs, ground) {
+  const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
+  if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
+  const pool = all.filter(k => !(ground && LOOP_PARAMS[kit.id] && LOOP_PARAMS[kit.id][k] !== undefined)) /* (a loop ground already sets it) */, want = Math.min(pool.length, DIAL_PICK[0] + Math.floor(hash(base, 6001) * (DIAL_PICK[1] - DIAL_PICK[0] + 1)));
+  for (let i = 0; names.length < want; i++) names.push(pool.splice(Math.floor(hash(base, 6100 + i) * pool.length), 1)[0]);
+  const strong = kit.dials.strong.filter(k => pool.includes(k) || names.includes(k)); if (!names.some(k => strong.includes(k))) names[names.length - 1] = strong[Math.floor(hash(base, 6050) * strong.length)]; /* (swap the last pick for a strong dial: the count stays) */
+  names.sort();
+  const val = (rng, r, k) => { const v = r[0] + hash(base, rng) * (r[1] - r[0]); return kit.dials.int.includes(k) ? Math.round(v) : Math.round(v * 100) / 100; };
+  const global = {}; for (const k of names) if (kit.dials.global[k]) global[k] = val(6200 + all.indexOf(k), kit.dials.global[k], k);
+  const seg = segs.map((g, i) => { const T = kit.dials.seg[g.t]; if (!T) return null; const p = {}; for (const k of names) if (T[k]) p[k] = val(6300 + i * 16 + all.indexOf(k), T[k], k); return Object.keys(p).length ? p : null; });
+  return { names, global, seg };
+}
+
 /* Flavours (plan section 11.2): the Campaign's loop content on a composed list. 'plain' is the first pass; 'rank' the first loop's rank on the first pass's ground;
    'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
    (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
 const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
 const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
-function composeSortie(kitId, seed, sub, flavour, twist) {
+function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
-  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const dl = dials === 'on' ? dialsFor(kit, base, segs, ground) : { names: [], global: {}, seg: segs.map(() => null) };
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
   throw new Error('sortie-compose: kit ' + kitId + ', seed ' + seed + ', sub ' + sub + ': no valid sortie in ' + ATTEMPTS + ' tries (the grammar is wrong)');
 }
 
+/* Time of day as ground (docs/ground-variety-plan.md, phase 4): the light of the day, drawn from the date. 'day' is the first pass's noon; 'morning' and 'sunset' are the Campaign's own
+   gradings (the ground, the trees and the clouds; morning also the dawn glow), which the game applies to a plan's chunks as it does to the loops of levels 1 and 2. Night is a twist (Night run), so it is
+   not drawn here, and a night-run day is always 'day' (two darkenings would fight). The segment list, the encounters and the dials do not read it. */
+const TODS = ['day', 'morning', 'sunset'], TOD_WEIGHT = { day: 0.6, morning: 0.2, sunset: 0.2 };
+function todFor(n) { let x = hash(DAILY_SALT + 5, n), k = 0; for (; k < TODS.length - 1; k++) { x -= TOD_WEIGHT[TODS[k]]; if (x < 0) break; } return TODS[k]; }
+
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
 const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {}, DAILY_PLAIN = {};
-/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 2, or a forced sortie). */
+/* The twists (plan 11.1, 11.8): one a day, by rotation. The order puts unlike ones next to each other (sight, enemies, ship, world). 'none' is no twist (only for a date in DAILY_PLAIN at 3, or a forced sortie). DAILY_PLAIN levels: 1 no dials and the light of noon, 2 also flavour plain, 3 also no twist. */
 const TWISTS = ['night', 'swarm', 'fixed', 'fog', 'elite', 'fast', 'nova'], TWIST_ORDER = TWISTS, TWIST_NAMES = { none: '', night: 'NIGHT RUN', fog: 'FOG', fixed: 'FIXED WEAPON', swarm: 'SWARM DAY', elite: 'ELITE DAY', fast: 'FAST SCROLL', nova: 'NOVA STORM' };
 const FIXED_WEAPONS = ['S', 'L', 'H', 'A']; /* Scatter, Lance, Seeker, Arc: the day's own, from the seed */
 function twistFor(day) { return TWIST_ORDER[((day % TWIST_ORDER.length) + TWIST_ORDER.length) % TWIST_ORDER.length]; }
@@ -196,14 +247,14 @@ function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
   const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000), plain = DAILY_PLAIN[m[0]] | 0;
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain ? 'plain' : flavourFor(n), twist: plain > 1 ? 'none' : twistFor(day) };
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: plain > 1 ? 'plain' : flavourFor(n), twist: plain > 2 ? 'none' : twistFor(day), dials: plain ? 'off' : 'on', tod: plain || (plain > 2 ? 'none' : twistFor(day)) === 'night' ? 'day' : todFor(n) };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub, flavour, twist) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night; twist=none for no twist)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitId, sub, flavour, twist: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop&twist=night&dials=off&tod=sunset; twist=none for no twist)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

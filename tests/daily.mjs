@@ -189,7 +189,7 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
 
 // ---------- 8. the twists (plan 11.1, 11.8): the draw, and each switch on its own day and off on every other ----------
 { const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), N = 1100, D = []; for (let n = 0; n < N; n++) D.push(SC.dailySeed(dk(n)));
-  ok(SC.VERSION === 3 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
+  ok(SC.VERSION === 4 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
   ok(D.every(d => SC.TWISTS.includes(d.twist)) && D.every((d, i) => !i || d.twist !== D[i - 1].twist), `${N} dates draw a twist each, never the same twist two days running`);
   const byKit = {}; D.forEach(d => (byKit[d.kit] = byKit[d.kit] || []).push(d.twist));
   ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (21 days), and meets all seven in them`);
@@ -197,8 +197,8 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
   ok(SC.composeSortie('forest', 5, 0).twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'bogus').twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'night').twist === 'night', `a sortie without a twist says none; an unknown twist is none; a named one is kept`);
   let same = true; for (const date of ['2026-12-01', '2026-12-02', '2026-12-03']) for (const kit of SC.KIT_ORDER) { const base = JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', 'none').segs); for (const t of SC.TWISTS) if (JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', t).segs) !== base) same = false; }
   ok(same, `a twist never changes the segment list (3 dates x 3 kits x 7 twists)`);
-  const dd = '2026-12-03', d0 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 1; const p1 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 2; const p2 = SC.dailySeed(dd); delete SC.DAILY_PLAIN[dd];
-  ok(p1.flavour === 'plain' && p1.twist === d0.twist && p2.flavour === 'plain' && p2.twist === 'none' && SC.dailySeed(dd).twist === d0.twist, `DAILY_PLAIN: 1 makes the day plain and keeps its twist (${p1.twist}), 2 drops the twist too (${p2.twist})`);
+  const dd = '2026-12-03', d0 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 1; const p1 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 2; const p2 = SC.dailySeed(dd); SC.DAILY_PLAIN[dd] = 3; const p3 = SC.dailySeed(dd); delete SC.DAILY_PLAIN[dd];
+  ok(p1.tod === 'day' && p2.tod === 'day' && p3.tod === 'day' && d0.dials === 'on' && p1.dials === 'off' && p1.flavour === d0.flavour && p1.twist === d0.twist && p2.dials === 'off' && p2.flavour === 'plain' && p2.twist === d0.twist && p3.flavour === 'plain' && p3.twist === 'none' && p3.dials === 'off' && SC.dailySeed(dd).twist === d0.twist, `DAILY_PLAIN: 1 drops the ground dials, 2 also makes the flavour plain (keeps the twist ${p2.twist}), 3 drops the twist too (${p3.twist})`);
   ok(new Set(Array.from({ length: 200 }, (_, i) => SC.fixedWeapon(i * 7919))).size === 4, `the Fixed weapon day's gun is Scatter, Lance, Seeker or Arc, by the seed (200 seeds give all four)`);
 }
 const TWQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}', 'desert', undefined, 'plain', 'TWIST'); const S = run.sortie, o = { daily: S.daily, tw: twistOf(), scroll: SCROLL, sv: world.scrollV, wpn: player.wpn, bombs: run.bombs, hp: hpm(), banner: app.msg && app.msg.c ? app.msg.c[0] : null, msgA: app.msg && app.msg.a };
@@ -240,7 +240,7 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   const a = await q(END('2026-11-15'));
   ok(a.state === 'title' && a.open && a.rate === '2026-11-15' && a.info.includes('DESERT'), `the sortie ends at the title with the rating question (${a.state}, ${a.info})`);
   await page.click('#rateStars [data-n="4"]'); const b = await q(ST);
-  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
+  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.last.tod === SC.dailySeed('2026-11-15').tod && b.last.dials === SC.composeDaily('2026-11-15').dialNames.join('+') && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
   const c = await q(END('2026-11-15')); ok(c.state === 'title' && !c.open, `the same date is not asked twice (${c.open})`);
   await peek(page, `app.rateLast = null, 0`);
   const d2 = await q(END('2026-11-16')); await page.click('#rateSkip'); const e = await q(ST);
@@ -251,6 +251,17 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   const j = await q(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false); SF.run(30); const n = !!(run.sortie && run.sortie.daily); endEnigmaLevel(); return JSON.stringify({ daily: n, open: document.getElementById('rateAsk').classList.contains('open') }); })()`);
   ok(!j.daily && !j.open, `a Practice level never asks (${j.open})`);
   await page.close(); }
+
+// ---------- 9. the light of the day (docs/ground-variety-plan.md, phase 4): drawn from the date, graded on the plan's chunks, rebuilt on resume, never with Night run ----------
+{ const LQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('KITDATE', 'KIT', undefined, 'plain', 'TWIST', 'off', 'TOD'); const S = run.sortie, o = { tod: S.timeOfDay, daily: S.daily, sun: sunsetOn(), mor: morningOn() };
+    SF.human(8, 15); SF.run(300); const g = {}; for (const c of world.chunks.values()) { const k = c.grade || 'none'; g[k] = (g[k] || 0) + 1; } o.grades = g; const R = dailyCompose(S.daily); o.rebuilt = R && R.tod;
+    let err = null; try { world.scroll += CH; resetCtx(); render(); } catch (e) { err = String(e && e.message || e); } o.drawErr = err; o.errs = SF.R.errs.slice(0, 2); return JSON.stringify(o); })()`;
+  const run1 = async (kit, tod, tw = 'none') => { const page = await freshPage(11), r = JSON.parse(await peek(page, LQ.replace('KITDATE', DAYS[kit]).replace('KIT', kit).replace('TWIST', tw).replace('TOD', tod))); await page.close(); return r; };
+  for (const kit of ['desert', 'forest', 'winter']) for (const tod of SC.TODS) { const r = await run1(kit, tod), n = Object.values(r.grades).reduce((a, b) => a + b, 0), graded = r.grades[tod] || 0;
+    ok(r.tod === tod && r.daily.tod === tod && r.rebuilt === tod && r.sun === (tod === 'sunset') && r.mor === (tod === 'morning'), `${kit} at ${tod}: the level's light is ${r.tod}, recorded in run.sortie.daily and rebuilt by resume`);
+    ok(tod === 'day' ? !r.grades.sunset && !r.grades.morning : graded > 0 && graded >= n * 0.5, `${kit} at ${tod}: ${tod === 'day' ? 'no chunk is graded' : graded + ' of ' + n + ' chunks carry the ' + tod + ' grade'} (${JSON.stringify(r.grades)})`);
+    ok(r.errs.length === 0 && r.drawErr === null, `${kit} at ${tod}: 300 frames and a drawn frame without errors${r.drawErr ? ': ' + r.drawErr : ''}`); }
+  const nt = await run1('forest', 'sunset', 'night'); ok(nt.tod === 'day' && nt.daily.tod === 'day' && !nt.grades.sunset, `a Night run day asked for a sunset is flown at noon (the level's light is ${nt.tod})`); }
 
 await browser.close();
 if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }

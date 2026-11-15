@@ -3,9 +3,9 @@
 // run it by hand the same way. It uses the flight gate (tests/daily-gate.mjs) and does not repeat any of its checks.
 //   1. gate the next DAYS dates (default 14, from tomorrow UTC), all three difficulties, as the table has them now;
 //   2. for each failing date, try sub-seeds 1 to 8 in turn (gate --sub K on that date alone, its own flavour and twist) until one passes on all three difficulties;
-//      if none does, a plainer day (plan 11.3): first the flavour plain with the date's twist (--flavour plain), then also no twist (--flavour plain --twist none),
+//      if none does, a plainer day (plan 11.3): first no ground dials and the light of noon (--dials off --tod day), then also the flavour plain (--flavour plain), then also no twist (--twist none),
 //      each on sub-seeds 0 to 8; the first that passes is taken;
-//   3. write the passing sub-seeds into DAILY_REROLL and the plainer days into DAILY_PLAIN (1: flavour plain; 2: flavour plain and no twist) in tools/sortie-compose.js
+//   3. write the passing sub-seeds into DAILY_REROLL and the plainer days into DAILY_PLAIN (1: no dials; 2: also flavour plain; 3: also no twist) in tools/sortie-compose.js
 //      (nothing else in it), run scripts/embed-citygen.mjs so the copy in index.html is current, and write the pull request text to --body, naming every plainer day.
 // A date that passes on none of these is reported in the text and left as it is (nothing is guessed).
 // Needs Node, Playwright and the folder served (python3 -m http.server 8000; STARFALL_URL if elsewhere).
@@ -28,7 +28,8 @@ const CAUSE = { 'dead-air': 'dead air (a stretch with nothing to shoot or dodge 
   'boss-not-killed': 'the boss was not killed in 900 s', 'not-title': 'the flight did not end at the title', encounter: 'a planned encounter did not end `done`', 'no-wing': 'no Shadow Wing',
   determinism: 'two pages gave different results' };
 
-const PLAINER = [[], ['--flavour', 'plain'], ['--flavour', 'plain', '--twist', 'none']]; /* the ladder of plan 11.3: the day as drawn, flavour plain, flavour plain and no twist */
+const PLAINER = [[], ['--dials', 'off', '--tod', 'day'], ['--dials', 'off', '--tod', 'day', '--flavour', 'plain'], ['--dials', 'off', '--tod', 'day', '--flavour', 'plain', '--twist', 'none']]; /* the ladder (plan 11.3, ground plan 3): the day as drawn, no dials, also flavour plain, also no twist */
+const PLAINER_NAME = ['', 'no dials, noon light', 'no dials, flavour plain', 'no dials, flavour plain, no twist'];
 function gate(from, days, sub, tag, extra) { /* one run of the flight gate; returns the per-sortie records of its --save file */
   const out = join(tmp, tag + '.json'), a = [join(root, 'tests/daily-gate.mjs'), '--from', from, '--days', String(days), '--save', out];
   if (sub !== undefined) a.push('--sub', String(sub)); if (DEAD) a.push('--dead', String(DEAD)); if (extra) a.push(...extra);
@@ -51,11 +52,11 @@ for (const f of failing) {
     console.log(`  ${f.sortie} ${f.kit} sub ${k}: ${r.pass ? 'PASS' : 'FAIL ' + r.why.join(',')}`);
     if (r.pass) ok = r;
   }
-  for (level = Math.max(1, P0); level <= 2 && !ok; level++) for (let k = 0; k <= MAXSUB && !ok; k++) { /* a plainer day: sub-seeds 0 to 8 on it, the failing one aside */
+  for (level = Math.max(1, P0); level <= 3 && !ok; level++) for (let k = 0; k <= MAXSUB && !ok; k++) { /* a plainer day: sub-seeds 0 to 8 on it, the failing one aside */
     if (level === P0 && k === f.sub) continue;
     const r = gate(f.sortie, 1, k, f.sortie + '-p' + level + 's' + k, PLAINER[level]).sorties[0];
     tried.push({ sub: k, plain: level, pass: r.pass, why: r.why });
-    console.log(`  ${f.sortie} ${f.kit} plainer ${level} (${level === 1 ? 'flavour plain' : 'flavour plain, no twist'}) sub ${k}: ${r.pass ? 'PASS' : 'FAIL ' + r.why.join(',')}`);
+    console.log(`  ${f.sortie} ${f.kit} plainer ${level} (${PLAINER_NAME[level]}) sub ${k}: ${r.pass ? 'PASS' : 'FAIL ' + r.why.join(',')}`);
     if (r.pass) { ok = r; ok.level = level; }
   }
   if (ok && ok.level) plainer.push({ date: f.sortie, kit: f.kit, flavour: f.flavour, twist: f.twist, level: ok.level, sub: ok.sub, why: f.why, tried: tried.length });
@@ -85,7 +86,7 @@ if (fixed.length) {
 }
 if (plainer.length) {
   L.push('### Made plainer (`DAILY_PLAIN`): no sub-seed passed with the day as drawn', '', '| Date | Kit | Drawn | Now | Cause of the failure | Tried |', '|---|---|---|---|---|---|');
-  for (const f of plainer) L.push(`| ${f.date} | ${f.kit} | ${f.flavour} + ${f.twist} | **${f.level === 1 ? 'plain + ' + f.twist : 'plain, no twist'}**${f.sub ? ' (sub ' + f.sub + ')' : ''} | ${why(f.why)} | ${f.tried} |`);
+  for (const f of plainer) L.push(`| ${f.date} | ${f.kit} | ${f.flavour} + ${f.twist} | **${PLAINER_NAME[f.level]}**${f.sub ? ' (sub ' + f.sub + ')' : ''} | ${why(f.why)} | ${f.tried} |`);
   L.push('', 'A plainer day is a decision the owner may want to read: the date loses its flavour (and in the last case its twist) so that the sortie passes the gate.', '');
 }
 if (unfixable.length) {

@@ -17,10 +17,10 @@ export const KITS = {
     opener: [['harbour_commercial', 6], ['beach_town', 5]],
     middle: [['valley', 11], ['village', 6], ['station_junction', 9], ['desert_open', 6], ['airbase_desert', 9], ['pass', 11]],
     approach: [['desert_open', 9]],
-    needs: { valley: 'derrick', village: 'held oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
+    needs: { valley: 'derrick', village: 'held oasis', oasis_town: 'large oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
     markers: p => { const m = [];
       for (const d of p.derricks || []) m.push({ t: 'valley', y: d.y, what: 'derrick' });
-      for (const o of p.oasis || []) m.push(o.held ? { t: 'village', y: o.y, what: 'held oasis' } : { t: 'desert_open', y: o.y, what: o.size === 'small' ? 'small oasis' : 'hamlet' });
+      for (const o of p.oasis || []) m.push(o.size === 'large' ? { t: 'oasis_town', y: o.y, what: 'large oasis' } : o.held ? { t: 'village', y: o.y, what: 'held oasis' } : { t: 'desert_open', y: o.y, what: o.size === 'small' ? 'small oasis' : 'hamlet' });
       for (const w of p.wagons || []) m.push({ t: 'station_junction', y: w.y, what: 'junction' });
       for (const c of p.canopies || []) m.push({ t: 'station_junction', y: (c.y0 + c.y1) / 2, what: 'junction' });
       for (const [a, b] of kindRuns(p, K.RUNWAY, 4)) m.push({ t: 'airbase_desert', y: (a + b) / 2, what: 'runway' });
