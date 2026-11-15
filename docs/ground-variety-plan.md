@@ -146,6 +146,20 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 
 **Not done.** `autumn` (the loop's autumn palette and weather) is not a dial: lakes only. A lake's size and count are the generator's, not dials.
 
+### 4.5 A crown-density knob and wider forest ranges (owner, 2026-11-15: "yes, both")
+
+**Why.** After the lakes the forest was still the subtlest kit (1.7 to 3.5 % of a frame on average); its dials were counts within 2 of the template's own and the builder had no knob for how thick the woods are.
+
+**Generator.** New forest dial `crowns` (table `[0.2, 1.8]`): a factor on the chance of a natural crown in a stretch, eased in and out over about 60 px at the stretch's ends, with the spacing rule following it (the 0.86 spacing between crowns is multiplied by 1 / sqrt(crowns), kept between 0.7 and 1.15, so a thicker wood packs closer and a thinner one looser; both are exactly the old numbers at 1). The first version changed only the chance and the upper half did nothing: crowns 1.5 gave fewer crowns than 1.0, because the chance saturates and the spacing blocked the rest. Measured on one sortie, crowns in the plan: 0.4 gives 9,115, 0.7 gives 10,975, 1.0 gives 13,447, 1.25 gives 16,475, 1.5 gives 18,806 (-32 % to +40 %). A plan without the dial is identical to the previous generator's (12 composed plans of both flavours, hashed).
+
+**Composer (still v4, unreleased).** Forest per-segment ranges: a count within 3 of the template's own (was 2), capped at the generator's limits (roads 4, rides 6, plantations 4, clearings 5, cuts 4); guns within 2 (was 1), 1 to 9; `crowns` 0.4 to 1.5. `crowns` joins the forest's `strong` list. `tests/compose.mjs` checks that crowns rise across the whole range (52 checks in all).
+
+**Checked.** `tests/dials-probe.mjs --kit forest` (14 sorties at every extreme of the 8 dials, 80 drawn days): 0 flagged, 0 over the structures limit. Gate 2 on 80 composed forest plans (clean; plan 153 ms median, 632 ms at p95, which is the lakes days). Flight gate: 16 forest sorties on all three difficulties plus Rookie twice, all pass (13 with dials, 8 with the wider guns, longest dead air 7.5 s); 22 consecutive forest dates from 2026-12-01 on Veteran (7 with `crowns`, 3 with lakes, their own flavours and twists), all pass. `tests/daily.mjs` 220. Vetting of the 14 dates from 2026-11-16: 14 of 14.
+
+**Looked at.** 2026-12-03 (`crowns` and `roads`, no lakes), dials on against off, 8 frames: the mean share of pixels that differ is 4.3 % (peak 8.6 %), up from the forest's earlier 1.7 to 3.5 %; the woods are visibly thinner or thicker in the same stretch and the tracks differ. Against a dark canopy the crown density is the hardest dial to judge by eye; the counts above are the clearer measure.
+
+**Not measured.** The cost of 40 % more crowns when the chunks are painted in the page and on a phone (the plan itself is cheap: 190 ms at the top of the range in Node); the skill bots on the wider gun range.
+
 ## 5. Decisions for the owner
 
 1. Share of days with no dials (suggestion: 20 %), and how many dials one day draws (suggestion: 2 to 3).

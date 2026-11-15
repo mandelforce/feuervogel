@@ -3129,7 +3129,7 @@ function paintCliffShade(plan, put, y0, h) {
 // the hidden airbase and the valley are forest too (with more clearings, more roads, fewer guns); the approach opens into meadow before the castle.
 // Ground dials (docs/ground-variety-plan.md): a segment may carry p = { dial: value }, which a builder reads for that segment only. groundDials keeps the
 // dials a builder knows, clamped to [lo, hi] and rounded when the dial is a count; anything else is ignored, so a plan without p is exactly the plan it was.
-const FOREST_DIALS = { roads: [0, 4, 1], rides: [0, 6, 1], plantations: [0, 4, 1], clearings: [0, 5, 1], cuts: [0, 4, 1], guns: [0, 9, 1] }; // [lo, hi, 1 = a count]
+const FOREST_DIALS = { roads: [0, 4, 1], rides: [0, 6, 1], plantations: [0, 4, 1], clearings: [0, 5, 1], cuts: [0, 4, 1], guns: [0, 9, 1], crowns: [0.2, 1.8, 0] }; // crowns: a factor on the chance of a natural crown, eased over 60 px at the stretch's ends // [lo, hi, 1 = a count]
 const WINTER_DIALS = { treeK: [0, 2.5, 0], floorW: [-8, 24, 0] }; // tree density (a factor on the chance of a tree) and valley width (px added to the floor), eased in and out at the segment's ends
 const DESERT_DIALS = { damage: [0, 1, 0], mix: [0, 1, 0] }; // an oasis's or hamlet's own damage and share of aged houses (mix works with wear > 0)
 function groundDials(p, table) { const out = {}; if (p && typeof p === 'object') for (const k in table) if (typeof p[k] === 'number' && isFinite(p[k])) { const [lo, hi, cnt] = table[k], v = Math.min(hi, Math.max(lo, p[k])); out[k] = cnt ? Math.round(v) : v; } return out; }
@@ -3370,10 +3370,11 @@ function forestLand(o) {
     // plantations: rows of young trees (r 2, 5 px) or pole-stage trees (r 3, 7 px)
     for (const pl of plan.forest.plantations) { const r = pl.age === -37 ? 2 : 3, sp = r === 2 ? 5 : 7; for (let y = pl.y0 + r; y < pl.y0 + pl.h - r; y += sp) for (let x = pl.x0 + r; x < pl.x0 + pl.w - r; x += sp) { const i = idx(x, y); if (Kr[i] !== K.WOOD || Br[i] !== pl.age || hh(x, y) < 0.06) continue; add(tree(x, y, r, 0)); } }
     // the natural stands: large first, then medium and small filling the gaps
+    const crowns = y => feats.reduce((a, F) => F.kind !== 'conifer' || F.crowns === undefined || F.at0 === undefined ? a : a + (F.crowns - 1) * smooth(span(F)[0] - 60, span(F)[0] + 30, y) * (1 - smooth(span(F)[1] - 30, span(F)[1] + 60, y)), 1); /* a stretch's crown factor at row y (1 where it has none) */
     const passes = [{ step: 10, sizes: [5, 6, 7], p: (age) => 0.15 + age * 0.75 }, { step: 6, sizes: [3, 4], p: (age) => 0.75 - age * 0.2 }, { step: 4, sizes: [2], p: () => 0.85 }];
     passes.forEach((ps, pi) => { for (let gy = 0; gy < L; gy += ps.step) for (let gx = 0; gx < W; gx += ps.step) { const x = gx + Math.floor(hh(gx + pi * 977, gy) * ps.step), y = gy + Math.floor(hh(gy + pi * 331, gx * 3) * ps.step); if (!inB(x, y)) continue;
       const k = Kr[idx(x, y)], b = Br[idx(x, y)], age = vn(x * 0.014 + 7, y * 0.014); let r = ps.sizes[Math.floor(hh(x * 5, y * 11) * ps.sizes.length)];
-      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86)) continue; add(tree(x, y, r, species(x, y, r))); continue; }
+      if (k === K.WOOD && b === -1) { if (hh(x * 13, y * 7) > ps.p(age) * crowns(y)) continue; if (!okAt(x, y, r, wood) || near(x, y, r, 0.86 * Math.min(1.15, Math.max(0.7, 1 / Math.sqrt(crowns(y)))))) continue; add(tree(x, y, r, species(x, y, r))); continue; } /* (a thicker wood packs its crowns closer, a thinner one looser; 0.86 at 1) */
       if (pi === 2 && ((k === K.LEDGE && b === -1) || (k === K.MEADOW && b === -32))) { if (hh(x * 17, y * 5) > 0.07 || !okAt(x, y, 2, (kk, bb) => kk === k && bb === b) || near(x, y, 2, 1.4)) continue; add(tree(x, y, hh(x, y) < 0.7 ? 2 : 3, 1, 1)); continue; } // wind-bent pines
       if (pi === 0 && k === K.MEADOW && b === -33 && hh(x * 19, y * 3) < 0.05 && okAt(x, y, r, (kk, bb) => kk === K.MEADOW && bb === -33) && !near(x, y, r, 1.6)) add(tree(x, y, r, 0)); } });
     for (const t of all) plan.conifers[t.r <= 2 ? 0 : t.r <= 4 ? 1 : 2].push(t);

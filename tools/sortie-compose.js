@@ -180,11 +180,12 @@ function walk(kit, target, r) {
 const DIAL_NONE = 0.2, DIAL_PICK = [2, 3];
 const FOREST_BASE = { forest_conifer: { roads: 2, rides: 3, plantations: 2, clearings: 1, cuts: 1, guns: 3 }, forest_fortified: { roads: 1, rides: 4, plantations: 1, clearings: 1, cuts: 2, guns: 7 }, clearing_village: { roads: 0, rides: 1, plantations: 0, clearings: 3, cuts: 2, guns: 2 },
   airbase_forest_hidden: { roads: 2, rides: 2, plantations: 2, clearings: 1, cuts: 1, guns: 4 }, valley: { roads: 1, rides: 2, plantations: 1, clearings: 2, cuts: 1, guns: 3 } }; // (a copy of the generator's FOREST_BASE; tests/compose.mjs compares the two)
-const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 2), b[k] + 2]; o[t].guns = [Math.max(1, b.guns - 1), b.guns + 1]; } return o; };
+const FOREST_CAP = { roads: 4, rides: 6, plantations: 4, clearings: 5, cuts: 4, guns: 9 }; // (the generator's own limits, FOREST_DIALS)
+const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 3), Math.min(FOREST_CAP[k], b[k] + 3)]; o[t].guns = [Math.max(1, b.guns - 2), Math.min(FOREST_CAP.guns, b.guns + 2)]; o[t].crowns = [0.4, 1.5]; } return o; }; // a count within 3 of the template's own, guns within 2; crowns: how thick the woods are (1 is as it was)
 const DIALS = {
   desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
     seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
-  forest: { global: { lakes: [1, 1] }, /* the first loop's lakes, one in each stretch of forest with room for it (a switch: drawn, it is on) */ seg: forestSeg(), int: ['lakes', 'roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['lakes', 'clearings', 'plantations', 'cuts', 'guns'] },
+  forest: { global: { lakes: [1, 1] }, /* the first loop's lakes, one in each stretch of forest with room for it (a switch: drawn, it is on) */ seg: forestSeg(), int: ['lakes', 'roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['lakes', 'crowns', 'clearings', 'plantations', 'cuts', 'guns'] },
   winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
     seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [], strong: ['treeK', 'floorW'] },
 };
