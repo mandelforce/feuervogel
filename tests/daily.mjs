@@ -28,6 +28,8 @@ const verbose = process.argv.includes('--verbose');
 let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } return cond; };
 const DAYS = { desert: '2026-11-15', forest: '2026-11-16', winter: '2026-11-14' }; // one date per kit (the rotation)
+/* the game's flags for a kit's ground: variant, autumn, winter, haze, moon (the loop's ground only with the flavours variant and loop) */
+const GROUND = { desert: g => (g ? 1 : 0) + ',false,false,false,false', forest: g => '0,' + !!g + ',false,false,false', winter: g => '0,false,' + !!g + ',false,false' };
 const fnv = a => { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); };
 const FNV = `function (a) { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); }`;
 const browser = await chromium.launch();
@@ -59,7 +61,7 @@ const START = `(() => { const q = id => document.getElementById(id); startOrOffe
 for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], page = await freshPage(11, '?daily=' + date), r = await peek(page, START), C = SC.composeDaily(date), K = SC.KITS[kit];
   ok(SC.dailySeed(date).kit === kit, `${date} is a ${kit} day`);
   ok(r.state === 'play' && r.daily && r.daily.date === date && r.daily.kit === kit && r.daily.seed === C.seed && r.daily.sub === 0 && r.daily.v === SC.VERSION, `?daily=${date}: START flies that day's sortie (${r.daily && r.daily.kit}, ${r.state})`);
-  ok(r.level === K.level && r.ranked === false && !r.eligible && r.msg === 'DAILY SORTIE' && r.variant === '0,false,false,false,false', `${kit}: level ${r.level}'s boss and theme, not ranked, the first pass's rules (${r.variant})`);
+  ok(r.level === K.level && r.ranked === false && !r.eligible && r.msg === 'DAILY SORTIE' && r.variant === GROUND[kit](C.ground), `${kit}: level ${r.level}'s boss and theme, not ranked, the flavour's rules (${C.flavour}: ${r.variant})`);
   ok(r.segs === JSON.stringify(C.segs.map(g => [g.t, g.start, g.n])) && r.len === C.len && r.enc === JSON.stringify(C.encPlan), `${kit}: the composer's ${C.segs.length} segments (${C.len} chunks) and ${C.encPlan.length} encounters, as Node composes them`);
   ok(r.bossAt > r.len && r.bossAt <= r.len + 8, `${kit}: the boss trigger ${r.bossAt - r.len} chunks past the level's end`);
   ok(r.seed === (C.base >>> 0) && r.salt === (C.base | 0) && r.worldSeed === 1944, `${kit}: its own stream and timetable seed (${r.seed}), the Campaign's ground seed beyond the plan (${r.worldSeed})`);
@@ -165,6 +167,22 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
   ok(r.res && r.res.daily && r.res.score > 0 && r.res.still && !r.errs.length, `the Daily Sortie's results screen draws with the run's totals (score ${r.res && r.res.score}, lives ${r.res && r.res.lives}${r.errs.length ? ', ' + r.errs[0] : ''})`);
   await page.close(); }
 
+
+
+// ---------- 7. the flavours (plan 11.2) ----------
+{ const FL = `(() => { const q = id => document.getElementById(id); SF.start(1, 1); startDaily(DATE, KIT, undefined, FLAV); const S = run.sortie; const o = { daily: S.daily, variant: [S.variant, S.autumn, S.winter].join(), loop: run.loop, loops: run.loops, stage: run.stage, ranked: run.ranked, plan: sortiePlan(S) && JSON.stringify(sortiePlan(S).P ? { v: sortiePlan(S).P.variant | 0, a: !!sortiePlan(S).P.autumn, l: !!sortiePlan(S).P.lakes } : null), msg: document.getElementById('app') && 0, rank: rankFor(S.level + 6), first: rankFor(S.level) }; return JSON.stringify(o); })()`;
+  for (const kit of SC.KIT_ORDER) for (const flavour of SC.FLAVOURS) {
+    const date = DAYS[kit], page = await freshPage(11), r = JSON.parse(await peek(page, FL.replace('DATE', `'${date}'`).replace('KIT', `'${kit}'`).replace('FLAV', `'${flavour}'`))), C = SC.composeDaily(date, kit, 0, flavour), P = SC.LOOP_PARAMS[kit];
+    const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
+    ok(r.daily.flavour === flavour && r.daily.v === SC.VERSION && r.variant === GROUND[kit](ground).split(',').slice(0, 3).join(','), `${kit} ${flavour}: recorded, and the game's ground flags are ${r.variant}`);
+    ok(r.loops === 0 && r.stage === SC.KITS[kit].level && r.ranked === false, `${kit} ${flavour}: not a loop (loops ${r.loops}, ranked ${r.ranked})`);
+    ok(rank ? r.loop === r.rank && r.loop > r.first : r.loop === r.first, `${kit} ${flavour}: the rank is ${r.loop} (${rank ? 'the first loop\'s, ' + r.rank + ', above the first pass\'s ' + r.first : 'the first pass\'s ' + r.first})`);
+    ok(ground === !!(C.gen.params.variant || C.gen.params.autumn) && JSON.stringify(C.segs) === JSON.stringify(SC.composeDaily(date, kit, 0, 'plain').segs), `${kit} ${flavour}: the loop ground is in the generator's parameters only when asked, the segment list is the plain one`);
+    await page.close(); }
+  /* one flight of each flavoured kind to the end, the bot, no errors, boss killed (the flight gate flies the real dates; this is the plumbing) */
+  for (const flavour of ['rank', 'variant', 'loop']) { const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.forest}', 'forest', undefined, '${flavour}'); SF.human(8, 15); let end = 'cap'; for (let i = 0; i < 14000; i++) { const st = SF.run(10); if (st !== 'ok') { end = st; break; } } const st = Object.values(SF.R.stages)[0] || {}; return JSON.stringify({ end, bossDead: st.bossDead, errs: SF.R.errs.slice(0, 2) }); })()`));
+    ok(r.end === 'state:title' && r.bossDead !== undefined && r.bossDead !== null && !r.errs.length, `forest ${flavour}: flown to the end, boss dead, no errors (${r.end}${r.errs.length ? ', ' + r.errs[0] : ''})`); await page.close(); }
+}
 
 // ---------- 6. the rating ----------
 { const page = await freshPage(11), q = code => peek(page, code).then(v => JSON.parse(v));

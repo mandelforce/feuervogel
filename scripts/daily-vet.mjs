@@ -29,7 +29,7 @@ const CAUSE = { 'dead-air': 'dead air (a stretch with nothing to shoot or dodge 
 function gate(from, days, sub, tag) { /* one run of the flight gate; returns the per-sortie records of its --save file */
   const out = join(tmp, tag + '.json'), a = [join(root, 'tests/daily-gate.mjs'), '--from', from, '--days', String(days), '--save', out];
   if (sub !== undefined) a.push('--sub', String(sub)); if (DEAD) a.push('--dead', String(DEAD));
-  const r = spawnSync(process.execPath, a, { encoding: 'utf8', cwd: root, maxBuffer: 1 << 28 });
+  a.push('--fresh'); const r = spawnSync(process.execPath, a, { encoding: 'utf8', cwd: root, maxBuffer: 1 << 28 });
   if (!existsSync(out)) throw new Error('the gate wrote no result (' + tag + '), exit ' + r.status + ': ' + (r.stderr || '').slice(-400));
   return { sorties: JSON.parse(readFileSync(out, 'utf8')).sorties, status: r.status };
 }

@@ -374,6 +374,7 @@ node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day'
 ```
 node tests/daily-gate.mjs --from 2026-12-01 --days 14 --out OUTDIR   # 14 dates, all three difficulties, about 2 minutes; failing dates get their cause and contact sheet in OUTDIR
 node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the skill bots
+node tests/daily-gate.mjs --from 2026-12-01 --days 3 --kit winter --flavour loop --fresh  # a flavour forced; --fresh: every human flight in a fresh page
 node tests/daily-gate.mjs --from 2026-12-03 --days 1 --sub 2 --save out.json  # one date on sub-seed 2; --save lists every sortie with pass and cause
 node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15

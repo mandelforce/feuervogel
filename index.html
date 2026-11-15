@@ -4527,12 +4527,13 @@ root.CityGen = CityGen;
 
    composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
-   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub }   the day is UTC, the kit by rotation, sub from DAILY_REROLL
+   composeSortie(kitId, seed, sub, flavour): flavour 'plain' (default), 'rank', 'variant' or 'loop' (section 11.2 of the plan): adds .flavour, .ground, .rank
+   dailySeed('YYYY-MM-DD') -> { date, n, day, kit, seed, sub, flavour }   the day is UTC, the kit by rotation, sub from DAILY_REROLL, the flavour by weight
    composeDaily('YYYY-MM-DD') -> composeSortie of that day, with .date
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 1; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 2; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -4598,6 +4599,7 @@ const KITS = {
       airbase_snow: { len: [6, 8], max: 1, heat: 0.6, built: 0.13 },
       forest_conifer: { len: [5, 8], max: 2, heat: 0.3, built: 0.13 } },
     fixedBuilt: { open_sea_ice: 0.05, harbour_winter: 0.72, farmland_winter: 0.41, pass: 0.14 },
+    groundBuilt: { pass: 0.36 }, /* with the loop's ground (flavours variant and loop) the pass opens into a basin with a base in it: 33 % built in every plan (plan 11.6) */
     follows: {
       farmland_winter: ['village', 'lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
       village: ['lake_valley', 'station_winter', 'airbase_snow', 'forest_conifer'],
@@ -4674,15 +4676,21 @@ function walk(kit, target, r) {
   return seq;
 }
 
-function composeSortie(kitId, seed, sub) {
+/* Flavours (plan section 11.2): the Campaign's loop content on a composed list. 'plain' is the first pass; 'rank' the first loop's rank on the first pass's ground;
+   'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
+   (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
+const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
+const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 } };
+function composeSortie(kitId, seed, sub, flavour) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
+  flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, fixed = kit.opener.concat(kit.approach).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, kit.approach)) { segs.push({ t, start: at, n: len }); at += len; }
-    const params = Object.assign({}, kit.params, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
-    const ep = encPlanFor(kit, segs), S = { v: VERSION, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, { segs: segs.map(g => ({ t: g.t, n: g.n })) }); if (kit.preset === 'ironForest') params.L = at * 64;
+    const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (!check(kitId, S).length) return S;
   }
@@ -4691,18 +4699,19 @@ function composeSortie(kitId, seed, sub) {
 
 // The daily seed. A date listed in DAILY_REROLL uses that sub-seed instead of 0 (the flight gate adds dates whose sortie fails).
 const DAILY_SALT = 0x0F0E89, DAILY_REROLL = {};
+function flavourFor(n) { let x = hash(DAILY_SALT + 3, n), k = 0; for (; k < FLAVOURS.length - 1; k++) { x -= FLAVOUR_WEIGHT[FLAVOURS[k]]; if (x < 0) break; } return FLAVOURS[k]; } /* by weight, from the date alone */
 function dailySeed(dateKey) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey)); if (!m) throw new Error('sortie-compose: a date is YYYY-MM-DD, not ' + dateKey);
   const y = +m[1], mo = +m[2], d = +m[3], ms = Date.UTC(y, mo - 1, d), back = new Date(ms); if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) throw new Error('sortie-compose: no such day ' + dateKey);
   const n = y * 10000 + mo * 100 + d, day = Math.round(ms / 86400000);
-  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0 };
+  return { date: m[0], n, day, kit: KIT_ORDER[((day % KIT_ORDER.length) + KIT_ORDER.length) % KIT_ORDER.length], seed: hashInt(DAILY_SALT, n), sub: DAILY_REROLL[m[0]] | 0, flavour: flavourFor(n) };
 }
 function dateKeyUTC(ms) { return new Date(ms).toISOString().slice(0, 10); } // the day a moment belongs to (owner: UTC, so every player has the same day)
-function composeDaily(dateKey, kitId, sub) { // kitId, sub: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3)
-  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub); S.date = D.date; return S;
+function composeDaily(dateKey, kitId, sub, flavour) { // kitId, sub, flavour: forced, for the test link (?daily=2026-11-14&kit=forest&sub=3&flavour=loop)
+  const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, KITS, KIT_ORDER, DAILY_REROLL, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4728,7 +4737,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.43'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.44'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10770,11 +10779,11 @@ function loopSeq(seq, seed, level) {
 }
 function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.composeSortie, the Daily Sortie): its segments, encounters and seed take the place of the level's own; the level lends its boss, theme, art and rules. Without C nothing here differs from before.
   if (C) seed = C.base;
-  const variant = C ? 0 : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
-  const winter5 = !C && level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const variant = C ? (C.ground && level === 2 ? 1 : 0) /* (a flavoured Daily Sortie, 'variant' or 'loop': the loop's ground: the generator's params come with C.gen, the game's side is these flags) */ : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
+  const winter5 = C ? !!C.ground && level === 5 : level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const haze6 = !C && level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
-  const autumn4 = !C && level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
+  const autumn4 = C ? !!C.ground && level === 4 : level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
   const fly = !C && one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = C ? C.segs.map(g => [g.t, g.n]) /* (whole chunks that add up to C.len, so the scaling below leaves them as they are) */ : fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = C ? C.len : ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
@@ -10793,7 +10802,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain' } : null, compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -10948,14 +10957,14 @@ function resetTerrainState() {
 // What a sortie is saved as and rebuilt from: {level, seed} for a Campaign level, as ever; a Daily Sortie adds {daily} (the composer's kit, seed, sub-seed and version).
 // sortieOf gives null when the composer's version is no longer the saved one (the sortie can't be made again, so that run can't be resumed).
 function sortieRef(S) { return S.daily ? { level: S.level, seed: S.seed, daily: Object.assign({}, S.daily) } : { level: S.level, seed: S.seed }; }
-function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub); C.date = d.date || null; return C; }
+function dailyCompose(d) { if (!d || d.v !== SortieCompose.VERSION) return null; const C = SortieCompose.composeSortie(d.kit, d.seed, d.sub, d.flavour); C.date = d.date || null; return C; }
 function sortieOf(ref) { if (!ref.daily) return buildSortie(ref.level, ref.seed); const C = dailyCompose(ref.daily); return C ? buildSortie(C.level, 0, C) : null; }
 /* The Daily Sortie (docs/daily-sortie-plan.md): one composed level, the same for every player on a UTC day. It borrows a Campaign level's boss, theme, art and
    timetable (run.sortie.level) and flies its own segments (run.sortie.daily, run.sortie.compose). It never counts (not ranked: no board, no best, no loop, no
    play data) and ends at the title after its results. For now it is reached only by the test link on a local build: ?daily=2026-11-15 (START then flies that
    day's sortie), with &kit=forest and &sub=3 to force a kit and a sub-seed. */
-function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub') }; }
-function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
+function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub'), flavour: q.get('flavour') || undefined }; }
+function startDaily(dateKey, kitId, sub, flavour) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub, flavour)); }
 /* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
 function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
 /* The rating (owner, 2026-11-15): after a Daily Sortie's results and the title, one question, 1 to 5 stars, once per date and composer version on this device.
@@ -10981,7 +10990,7 @@ for (const b of document.querySelectorAll('#rateStars [data-n]')) b.addEventList
 document.getElementById('rateSkip').addEventListener('click', closeRating);
 document.getElementById('rateAsk').addEventListener('pointerdown', e => e.stopPropagation());
 function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
-function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
+function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; world.trainId = 0; world.snowF = world.dustF = world.nightF = 0; world.birdCd = 300; /* (the weather's fade-in and the birds' timer start as in a fresh page: they draw from the sim stream, so what an earlier flight left behind changed the next sortie) */ if (C.rank) run.loop = rankFor(C.level + 6); } /* (the flavours 'rank' and 'loop': the first loop's rank, nothing else of a loop: run.loops and run.stage stay) */
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
   bossJump();
@@ -11167,7 +11176,7 @@ function startAt(n, keepEndless, sortieLevel, loops, composed) { // composed: a 
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
   ensureChunks(); props.length = 0; towerRows.clear(); towerCells.clear();
-  if (run.sortie && run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase(), 170); else
+  if (run.sortie && run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase() + ({ rank: '  HARD', variant: '  LOOP GROUND', loop: '  LOOP' }[run.sortie.daily.flavour] || ''), 170); else
   showMsg((run.sortie ? 'LEVEL ' + run.sortie.level : 'STAGE ' + stageLabel(n)), STAGE_NAMES[world.curTheme] + (run.sortie ? '  (ENIGMA RUN)' : n > 1 && !run.endless ? '  (PRACTICE)' : ''), 170); playSong(STAGE_SONGS[world.curTheme]);
   markStage();
 }
@@ -19885,7 +19894,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'daily') startDaily(nx.date || dailyToday().date); else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'daily') startDaily(nx.date || dailyToday().date); else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });

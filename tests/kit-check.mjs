@@ -12,6 +12,8 @@ export const kindRuns = (p, kind, min = 1, b) => { const out = []; let y0 = -1; 
 // markers(plan): where each template's own feature landed, [{ t, y, what }]. needs: the feature every segment of a template must hold.
 export const KITS = {
   desert: { preset: 'sandSea', arena: 0, params: segs => ({ segs, variant: 0 }),
+    /* the loop's ground (params.variant) adds guarded oil fields to the open desert: derricks there are expected then (plan 11.6) */
+    loopOutside: (m, r) => m.what === 'derrick' && r && r.t === 'desert_open',
     opener: [['harbour_commercial', 6], ['beach_town', 5]],
     middle: [['valley', 11], ['village', 6], ['station_junction', 9], ['desert_open', 6], ['airbase_desert', 9], ['pass', 11]],
     approach: [['desert_open', 9]],
@@ -82,7 +84,8 @@ export function check(kit, segs, seed, gen) {
   if (!v.pass) { res.flags.push('invalid'); const why = []; if (v.overlapPx) why.push('overlap ' + v.overlapPx); if (v.noFrontage) why.push('no frontage ' + v.noFrontage); if (v.tankReach !== 1) why.push('tank reach ' + v.tankReach.toFixed(3)); if (v.trainBlocked) why.push('trains blocked ' + v.trainBlocked); if (v.lanesBlocked) why.push('lanes blocked ' + v.lanesBlocked); if (v.onRoad) why.push('on road ' + v.onRoad); if (!why.length) why.push('churches, bridges or island'); res.notes.push('invalid: ' + why.join(', ')); }
   let y = 0; const rg = segs.map(g => { const r = { t: g.t, y0: y, y1: y + g.n * CH }; y = r.y1; return r; }); if (kit.arena) rg.push({ t: '(arena)', y0: y, y1: y + kit.arena * CH });
   const marks = kit.markers(p), out = new Set(), miss = new Set();
-  for (const m of marks) if (!rg.some(r => r.t === m.t && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) { const r = rg.find(q => m.y >= q.y0 && m.y < q.y1); out.add(m.what + ' in ' + (r ? r.t : 'nothing')); }
+  const loopG = !!(gen && gen.params && (gen.params.variant || gen.params.autumn));
+  for (const m of marks) if (!rg.some(r => r.t === m.t && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) { const r = rg.find(q => m.y >= q.y0 && m.y < q.y1); if (loopG && kit.loopOutside && kit.loopOutside(m, r)) continue; out.add(m.what + ' in ' + (r ? r.t : 'nothing')); }
   for (const r of rg) { const need = kit.needs[r.t]; if (need && !marks.some(m => m.what === need && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) miss.add(need + ' (' + r.t + ')'); }
   if (out.size) { res.flags.push('outside'); res.notes.push('outside: ' + [...out].join('; ')); }
   if (miss.size) { res.flags.push('missing'); res.notes.push('missing: ' + [...miss].join('; ')); }

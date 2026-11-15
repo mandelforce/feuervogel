@@ -16,7 +16,9 @@ for (const kit of SC.KIT_ORDER.filter(k => !ONLY || k === ONLY)) {
     const seed = (SC.hash(s, 9090) * 4294967296) | 0, C = SC.composeSortie(kit, seed, 0);
     for (const f of ['plain', 'loop']) {
       const gen = f === 'plain' ? C.gen : Object.assign({}, C.gen, { params: Object.assign({}, C.gen.params, FLAVOUR[kit]) }), t0 = Date.now();
-      const r = check(PROBE[kit], C.segs, C.gen.seed, gen), st = stat[f]; st.n++; st.ms.push(Date.now() - t0);
+      const r = check(PROBE[kit], C.segs, C.gen.seed, gen), st = stat[f], K = SC.KITS[kit]; st.n++; st.ms.push(Date.now() - t0);
+      /* the flight gate's own extra rule: the built share of a stretch over the kit's limit (tests/daily-gate.mjs) */
+      for (const b of r.built || []) { const lim = f === 'loop' && K.groundBuilt && K.groundBuilt[b.t] !== undefined ? K.groundBuilt[b.t] : (K.middle[b.t] || {}).built || K.fixedBuilt[b.t]; if (lim !== undefined && b.v > lim) { r.flags.push('structures'); r.notes.push(b.t + ' ' + (100 * b.v).toFixed(0) + ' % over ' + (100 * lim).toFixed(0)); } }
       if (r.flags.length) { st.bad++; for (const x of r.flags) st.flags[x] = (st.flags[x] || 0) + 1; if (VERBOSE) console.log(`  ${kit} #${s} ${f}: ${r.flags.join(',')} ${r.notes.join('; ').slice(0, 160)}`); }
     }
   }
