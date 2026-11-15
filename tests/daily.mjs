@@ -204,7 +204,7 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
 const TWQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}', 'desert', undefined, 'plain', 'TWIST'); const S = run.sortie, o = { daily: S.daily, tw: twistOf(), scroll: SCROLL, sv: world.scrollV, wpn: player.wpn, bombs: run.bombs, hp: hpm(), banner: app.msg && app.msg.c ? app.msg.c[0] : null, msgA: app.msg && app.msg.a };
   const ws = {}; for (let i = 0; i < 80; i++) ws[mkItem('W', 0, 0).w] = 1; o.ws = Object.keys(ws).sort().join('');
   world.ebul.length = 0; for (let i = 0; i < 300; i++) eshot(100 + i % 50, 100 + (i * 7) % 90, 1.5, 1, 's'); o.nb = world.ebul.length; o.sp = o.nb ? Math.hypot(world.ebul[0].vx, world.ebul[0].vy) : 0; o.r = o.nb ? world.ebul[0].r : 0; o.big = world.ebul.filter(b => b.big).length; world.ebul.length = 0;
-  world.items.length = 0; world.items.push({ kind: 'B', x: player.x, y: player.y, t: 0, w: 'S' }); const b0 = run.bombs, s0 = run.score; SF.run(3); o.pick = [run.bombs - b0, run.score - s0];
+  SF.run(240); world.items.length = 0; world.items.push({ kind: 'B', x: player.x, y: player.y, t: 0, w: 'S' }); const b0 = run.bombs, s0 = run.score; SF.run(3); o.pick = [run.bombs - b0, run.score - s0];
   let dMax = 0, sc = world.scroll; for (let c = 0; c < S.len * 2; c++) { world.scroll = sc + c * CH / 2; dMax = Math.max(dMax, fogDensity(S)); } o.fogMax = +dMax.toFixed(2); world.scroll = sc;
   o.nightA = world.nightF; SF.run(400); o.night = +world.nightF.toFixed(2); let err = null; try { world.scroll = sc + Math.floor(S.len * 0.4) * CH; resetCtx(); render(); } catch (e) { err = String(e && e.message || e); } o.drawErr = err; o.errs = SF.R.errs.slice(0, 2);
   startEnigma(2, true); o.after = { tw: twistOf(), scroll: SCROLL, hp: hpm(), ws: (() => { const w = {}; for (let i = 0; i < 80; i++) w[mkItem('W', 0, 0).w] = 1; return Object.keys(w).length; })() }; return JSON.stringify(o); })()`;
@@ -225,13 +225,13 @@ const TWQ = `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS
 }
 /* resume: fast (the speed is not in the snapshot) and nova (Novas, shots) saved mid-flight and loaded in a fresh page go on exactly, with the twist and the speed back */
 for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPage(21);
-  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}', 'forest', undefined, 'plain', '${tw}'); SF.human(8, 15); SF.run(2400); snapNow(); saveResume(); const rec = localStorage.getItem('starfall-resume');
+  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}', 'forest', undefined, 'plain', '${tw}'); SF.human(8, 15); SF.run(3900); let rec = null; for (let k = 0; k < 12 && !(rec && JSON.parse(rec).snap); k++) { SF.run(300); snapNow(); saveResume(); rec = localStorage.getItem('starfall-resume'); }
     const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ rec, samples }); })()`)); await A.close();
   const B = await freshPage(77);
   const G = JSON.parse(await peek(B, `(() => { SF.setMode('immortal'); SF.human(8, 15); store.set(KEY.resume, ${JSON.stringify(R.rec)}); resumeRun(loadResume()); for (let i = 0; i < 180; i++) update(); const o = { tw: twistOf(), scroll: SCROLL, bombs: run.bombs };
     const samples = [${DUMP}]; for (let f = 0; f < 900; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } o.samples = samples; return JSON.stringify(o); })()`)); await B.close();
   let first = -1; for (let i = 0; i < Math.min(R.samples.length, G.samples.length); i++) if (R.samples[i] !== G.samples[i]) { first = i; break; }
-  ok(G.tw === tw && G.scroll === (tw === 'fast' ? 0.48 : 0.4) && first < 0 && R.samples.length === G.samples.length, `forest ${tw}: saved at frame 2400 and loaded in a fresh page: the twist (${G.tw}) and the speed (${G.scroll}) are back, ${G.samples.length} samples over 900 frames identical${first >= 0 ? ' (first difference at sample ' + first + ')' : ''}`); }
+  ok(G.tw === tw && G.scroll === (tw === 'fast' ? 0.48 : 0.4) && first < 0 && R.samples.length === G.samples.length, `forest ${tw}: saved from frame 4200 on at the first frame the game can snapshot, and loaded in a fresh page: the twist (${G.tw}) and the speed (${G.scroll}) are back, ${G.samples.length} samples over 900 frames identical${first >= 0 ? ' (first difference at sample ' + first + ': ' + (() => { const x = JSON.parse(R.samples[first]), y = JSON.parse(G.samples[first]); return Object.keys(x).filter(k => JSON.stringify(x[k]) !== JSON.stringify(y[k])).join(', ') + ' gf ' + x.gf + '/' + y.gf + ' snap ' + !!JSON.parse(R.rec).snap; })() + ')' : ''}`); }
 
 // ---------- 6. the rating ----------
 { const page = await freshPage(11), q = code => peek(page, code).then(v => JSON.parse(v));
