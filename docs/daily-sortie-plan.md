@@ -649,3 +649,41 @@ For decision 8 (not failures): the composed desert and forest sorties on Veteran
 Hits ranges from two flights per row are too narrow to judge by; kills per minute or the bullet measures would hold up better.
 
 Not run: phone viewport; dates beyond the 14 above; sub-seeds other than 0; `--bots` on dates (only on sweep seeds and in a 3-date smoke run); `tests/replay.mjs` and `tests/resume-exact.mjs` (as the brief says). No contact sheets for the two failing seeds, because `contact.mjs` takes dates, not seeds.
+
+### 9.7 Re-run on the merged build
+
+Build 1.2.6.40 on `main` after PR #239. Against the build of 9.1 to 9.6 (commit 5132630), it adds the shorter Arc (`ARC_LV` reach 0.92 to 0.65, super Arc 1.3 to 0.9) and the gentler loop ramp (`LOOP_STEP`, `LOOP_SLOPE`, `bspeed`). No game code, composer, threshold or version was changed for this run. It is the same sweep (`--sweep 200`, seeds `hash(s, 9090)`, sub 0, same machine setup, 31 min 18 s) plus the 14 dates. To compare single flights, the 840 human flights were flown again on 5132630 (`--no-bots`). That run reproduces 9.2 to 9.4 exactly.
+
+- **Failures:** the same. desert 2 of 200 (`desert#108` 10.8 s, `desert#123` 11.2 s, dead air, Veteran), forest 0, winter 0. No errors, every boss killed, every encounter `done`, Wing every time, 60 of 60 twins identical. **14 dates: 42 of 42 PASS**, 14 twins identical.
+- **Which flights changed** (frames, score or spawn hash, flight for flight): **desert 0 of 280.** In forest 189 of 200 Veteran flights changed, 39 of 40 on Rookie and 38 of 40 on Ace; in winter 197 of 200, 40 of 40 and 39 of 40. That is 390 of 600 sorties: desert 0, forest 192, winter 198. The boss arrives at the same moment in all 560 forest and winter flights. What differs is the boss fight and the score: frames p5 / p50 / p95 −1710 / 0 / +1980, score −12 % / 0 / +11 %, and forest's longest boss fight is 229 s (was 168 s; winter 122 s, was 114 s).
+- **Cause:** the Arc. The new rank function gives the first pass the same values as the old one (slope 0.08, no loop step, Ace's term the same up to stage 6), and `bspeed` adds nothing while `run.loop` is 0. So the loop ramp cannot touch a Daily Sortie. Desert being unchanged flight for flight fits this. That the human bot holds the Arc only in forest and winter flights is inferred, not checked: no flight logs its weapon.
+
+| Measure | Kit / diff | 9.2 to 9.5 | merged build |
+|---|---|---|---|
+| Dead air p50 / p95 / max (over 5 / 7 s) | desert, all diffs | as 9.3 | identical |
+| | forest Rookie | 1.4 / 5.3 / 7.0 (4 / 0) | 1.5 / 5.2 / 7.0 (3 / 0) |
+| | forest Veteran | 0.8 / 4.3 / 7.5 (7 / 1) | 0.7 / 4.3 / 7.5 (2 / 1) |
+| | forest Ace | 0 / 1.5 / 3.2 (0 / 0) | 0 / 4.0 / 5.2 (1 / 0) |
+| | winter Rookie | 4.7 / 5.8 / 7.0 (17 / 0) | 4.3 / 5.3 / 8.3 (12 / 1) |
+| | winter Veteran | 4.5 / 5.8 / 8.7 (71 / 3) | 4.5 / 5.8 / 8.8 (71 / 2) |
+| | winter Ace | 3.8 / 5.3 / 5.8 (14 / 0) | 3.3 / 5.3 / 7.2 (10 / 1) |
+| Hits/min p5 / p50 / p95 | forest Rookie / Veteran / Ace | 0/0.67/1.28 · 0/1.03/2.09 · 0.78/2.15/3.54 | 0/0.69/2.03 · 0.30/1.07/2.16 · 0.96/1.99/3.36 |
+| | winter Rookie / Veteran / Ace | 0/0.73/1.60 · 0.24/0.80/1.84 · 0.69/1.50/2.56 | 0.24/0.53/1.24 · 0.25/0.95/1.79 · 0.48/1.68/2.61 |
+| Worst 10 s window | forest R / V / A | 45.0/63.5/75.3 · 35.1/58.9/77.5 · 48.5/65.6/76.8 | 39.9/62.5/73.2 · 36.6/59.9/79.0 · 48.5/64.5/76.8 |
+| | winter R / V / A | 11.4/17.2/22.8 · 19.9/25.7/30.9 · 25.6/33.2/38.4 | 14.6/18.2/25.0 · 20.5/25.6/31.4 · 25.1/32.8/39.2 |
+| Bullets on screen | forest R / V / A | 11.3/12.9/16.6 · 11.8/15.4/20.2 · 18.1/21.2/23.8 | 10.2/13.1/16.1 · 12.2/16.0/19.5 · 19.0/21.3/23.2 |
+| | winter R / V / A | 3.7/5.1/6.7 · 5.7/8.0/9.4 · 10.4/11.7/13.5 | 4.0/5.5/6.7 · 6.0/8.2/9.6 · 10.5/11.9/13.6 |
+| Kills/min | forest R / V / A | 99/109/119 · 112/124/136 · 115/124/150 | 98/109/120 · 112/123/135 · 112/126/148 |
+| | winter R / V / A | 93/102/113 · 107/116/127 · 119/131/143 | 92/102/109 · 107/116/127 · 119/130/142 |
+| Reported measures | desert, all diffs | as 9.4 | identical |
+| Bots: cleared, deaths/min p5/p50/p95 | desert rookie / veteran / ace | as 9.5 | identical |
+| | forest rookie | 0, 1.70/3.96/6.26 | 0, 2.02/4.04/6.68 |
+| | forest veteran | 0.05, 0.97/1.61/3.89 | 0.04, 0.99/1.95/3.88 |
+| | forest ace | 0.36, 0.39/1.12/2.17 | 0.34, 0.41/1.17/2.24 |
+| | winter rookie | 0, 1.45/3.26/5.14 | 0, 1.57/3.34/5.33 |
+| | winter veteran | 0, 0.99/1.77/4.17 | 0, 0.90/1.83/4.17 |
+| | winter ace | 0.03, 0.86/1.34/4.20 | 0.01, 0.91/1.52/3.25 |
+
+What changed: nothing in the desert. Forest and winter numbers moved by flight-to-flight noise around the same centres. Medians of hits, window, bullets and kills moved by less than 0.25 hits/min, 1 bullet in the window and 2 kills/min. The exceptions are wider tails: forest Rookie hits p95 1.28 to 2.03, winter Rookie window p50 17.2 to 18.2, and the longest quiet stretches on forest Ace (max 3.2 to 5.2 s) and winter Ace and Rookie (5.8 to 7.2 s, 7.0 to 8.3 s), all far under 10 s. The verdicts of 9.4 hold: desert and forest Veteran are still calmer than their levels, low in 185 and 177 to 198 flights, and forest Veteran kills/min is still high in 196. The bots die a little more often in forest and winter, and winter ace cleared 1 of 80 (was 2). Lives when the boss comes, n reached: forest rookie 0 (was 3), veteran 20 (was 29), ace 62 (62); winter veteran 14 (8), ace 22 (30). What did not change: the failures, the boss arrival times, determinism, the 14 dates, and every desert number.
+
+Not run: the skill bots on the old build (their "before" column is 9.5's run); phone viewport; other dates or sub-seeds; `replay.mjs`, `resume-exact.mjs`; the unit tests.
