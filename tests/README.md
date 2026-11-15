@@ -367,6 +367,17 @@ node tests/daily.mjs
 node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day's sortie (daily:DATE:KIT:SUB forces a kit and a sub-seed)
 ```
 
+## Daily Sortie flight gate (by hand)
+
+`daily-gate.mjs` is gate 3 of `docs/daily-sortie-plan.md` (phase 3; the sweep's numbers are in its section 9). For each date (or seed) and difficulty it composes the sortie, runs gate 2 in Node (`kit-check.mjs`, as `compose.mjs` does), flies it with the human bot (`SF.human(8, 15)`, immortal, viewport 1000x760) and prints one line with every measure and PASS or FAIL. A sortie FAILs on: a page or game error; gate 2 not clean; no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; a second flight in a page with another `Math.random` giving other spawns, score or end (every date; every 10th seed in a sweep); dead air, a stretch before the boss with no enemy on screen, no enemy bullet and no encounter longer than `--dead` (10 s; the baselines' longest is 7 s). Hits per minute, the worst 10 s bullet window, bullets before the boss and kills per minute are only reported, marked `low` / `in` / `high` against the kit level's range in `daily-baseline.json` (the owner has not set those limits). `--bots` adds the skill bots (own difficulty, mortal, 4 bot seeds each: cleared share, deaths per minute, lives when the boss comes), also only reported. Pages are reused for many flights (checked: the same numbers with one page or two). Exits 1 if any flight FAILs.
+
+```
+node tests/daily-gate.mjs --from 2026-12-01 --days 14 --out OUTDIR   # 14 dates, all three difficulties, about 2 minutes; failing dates get their cause and contact sheet in OUTDIR
+node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the skill bots
+node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
+node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
+```
+
 ## Nothing pops in, guns stay off runways (by hand)
 
 `guns-on-lines.mjs [level]` flies an Enigma Run level and fails if a gun, radar or pop-up turret stands on rail, road or a plan's runway (`SEED=<n>` picks the random seed). `no-pop-in.mjs [level]` fails if a ground unit or a carrier fighter first exists inside the visible playfield. `overcast-pop.mjs [4|5] [frames]` flies the first loop of level 4 or 5 and fails if a cloud of the overcast sky (stratus decks, mist banks) changes place by more than 3 px in a frame, appears or vanishes on screen, or steps in opacity: clouds may only wrap while wholly off screen. Serve the folder first (`python3 -m http.server 8000`) and run them with Node and Playwright.
