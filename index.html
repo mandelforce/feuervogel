@@ -143,7 +143,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-s
 #settings .row[hidden],#settings .note[hidden]{display:none}
 #diffAsk .dstage{display:grid;gap:6px;margin:0 0 10px}#diffAsk .dstage[hidden]{display:none}#diffAsk .dlbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#8a84b4}
 #diffAsk .dsel{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-#diffAsk .dsel.eni{grid-template-columns:repeat(6,1fr)}#diffAsk .dsel.two{grid-template-columns:repeat(2,1fr)}#diffAsk .dsel.two button{padding:8px 0 6px;font-size:14px}
+#diffAsk .dpgrid{grid-template-columns:repeat(2,1fr)}#diffAsk .dpgrid button{padding:6px 2px 5px;font-size:12px;letter-spacing:.04em;text-transform:none}#diffAsk .dpdate{display:grid;grid-template-columns:44px 1fr 44px;gap:6px;align-items:center;text-align:center}#diffAsk .dpdate b{font-weight:400;font-size:15px;letter-spacing:.08em;color:#fff0a0}#diffAsk .dpdate button{padding:6px 0;font-size:14px;background:#1e1a32;border:2px solid #120e1a;border-bottom:4px solid #4b4278;color:#a99cdc}#diffAsk .dpinfo{margin:0;font-size:11px;line-height:1.35;text-align:center;color:#8a84b4;min-height:3em}#diffAsk .dsel.eni{grid-template-columns:repeat(6,1fr)}#diffAsk .dsel.two{grid-template-columns:repeat(2,1fr)}#diffAsk .dsel.two button{padding:8px 0 6px;font-size:14px}
 #diffAsk .dsel button{position:relative;padding:8px 0 6px;font-size:16px;background:#1e1a32;border:2px solid #120e1a;border-bottom:4px solid var(--acc,#4b4278);box-shadow:inset 2px 2px 0 #352e58;color:#a99cdc;text-shadow:1px 1px 0 #120e1a}
 #diffAsk .dsel button[aria-pressed="true"]{background:#352e58;color:#fff0a0;outline:2px solid #fff0a0;outline-offset:-1px;animation:dframe .5s steps(1) infinite}
 @keyframes dframe{50%{outline-color:#d0a020}}
@@ -404,6 +404,12 @@ body[data-results="1"] #bombBtn{display:none !important}
     <div id="diffAsk" role="dialog" aria-modal="true" aria-labelledby="diffTitle">
       <div class="panel">
         <h2 id="diffTitle">Choose difficulty</h2>
+        <div class="dstage dpick" id="dPick" hidden>
+          <span class="dlbl">Test picker (local builds)</span>
+          <div class="dpdate"><button type="button" id="dpPrev" aria-label="Previous day">&#9664;</button><b id="dpDate"></b><button type="button" id="dpNext" aria-label="Next day">&#9654;</button></div>
+          <div class="dsel dpgrid"><button type="button" id="dpKit"></button><button type="button" id="dpTod"></button><button type="button" id="dpTwist"></button><button type="button" id="dpFlav"></button><button type="button" id="dpDials"></button><button type="button" id="dpToday">Today</button><button type="button" id="dpFind"></button><button type="button" id="dpGo">Next day with it &#9654;</button></div>
+          <p class="dpinfo" id="dpInfo"></p>
+        </div>
         <div class="dmenu">
           <div class="dstage" id="dStage" hidden><span class="dlbl" id="dStageLbl">Start at stage</span><div class="dsel" role="group" aria-labelledby="dStageLbl"><button type="button" data-s="1">1</button><button type="button" data-s="2">2</button><button type="button" data-s="3">3</button><button type="button" data-s="4">4</button><button type="button" data-s="5">5</button><button type="button" data-s="6">6</button></div><p class="dnote" id="dNote"></p></div>
           <div class="dstage" id="dSeed" hidden><span class="dlbl" id="dSeedLbl">Seed</span><div class="dsel two" role="group" aria-labelledby="dSeedLbl"><button type="button" data-l="0">1 &middot; 1944</button><button type="button" data-l="1">2 &middot; 1945</button></div></div>
@@ -11062,6 +11068,29 @@ for (const b of document.querySelectorAll('#rateStars [data-n]')) b.addEventList
 document.getElementById('rateSkip').addEventListener('click', closeRating);
 document.getElementById('rateAsk').addEventListener('pointerdown', e => e.stopPropagation());
 function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
+/* The Daily Sortie's test picker (local builds only: LB_TEST; on the live game every player flies the same level of the day, so there is nothing to pick). The date, and the kit, light, twist, flavour
+   and ground dials of that day, each either the day's own (the first choice) or forced, with the composer's own words for what the day holds; "Next day with it" jumps to the next date whose natural
+   level has what the finder names. START then flies the pick (startDaily with the same arguments the test link ?daily=DATE&kit=&tod=&twist=&flavour=&dials= gives). */
+const DP = { date: '', kit: 0, tod: 0, twist: 0, flav: 0, dials: 0, find: 0 }, DP_LAB = { kit: ['dpKit', 'Kit'], tod: ['dpTod', 'Light'], twist: ['dpTwist', 'Twist'], flav: ['dpFlav', 'Flavour'], dials: ['dpDials', 'Dials'] };
+const dpOpts = () => ({ kit: ['', 'desert', 'forest', 'winter'], tod: [''].concat(SortieCompose.TODS), twist: ['', 'none'].concat(SortieCompose.TWISTS), flav: [''].concat(SortieCompose.FLAVOURS), dials: ['', 'on', 'off'] });
+const DP_FIND = [['lakes', S => !!S.gen.params.lakes], ['oasis town', S => S.segs.some(g => g.t === 'oasis_town')], ['sunset', S => S.tod === 'sunset'], ['morning', S => S.tod === 'morning'], ['no dials', S => !S.dialNames.length], ['loop ground', S => S.ground], ['hard (rank)', S => S.rank]];
+function dpArgs() { const O = dpOpts(), o = k => O[k][DP[k]] || undefined; return [DP.date, o('kit'), undefined, o('flav'), o('twist'), o('dials'), o('tod')]; }
+function dpDay(args) { try { return SortieCompose.composeDaily(...(args || dpArgs())); } catch (e) { return null; } }
+function dpRefresh() {
+  const O = dpOpts(), el = id => document.getElementById(id), today = SortieCompose.dateKeyUTC(Date.now());
+  for (const k in DP_LAB) el(DP_LAB[k][0]).textContent = DP_LAB[k][1] + ': ' + (O[k][DP[k]] || "day's own");
+  el('dpDate').textContent = DP.date + (DP.date === today ? ' (today)' : ''); el('dpFind').textContent = 'Find: ' + DP_FIND[DP.find][0];
+  const S = dpDay(); el('dpInfo').textContent = S ? [S.kit, S.flavour, 'twist ' + S.twist, S.tod, 'dials ' + (S.dialNames.join('+') || 'none'), S.gen.params.lakes ? 'lakes' : '', S.segs.some(g => g.t === 'oasis_town') ? 'oasis town' : ''].filter(Boolean).join(' \u00b7 ') : 'No valid sortie for this combination.';
+}
+function dpOpen(on) { const el = document.getElementById('dPick'); el.hidden = !(on && LB_TEST); if (el.hidden) return; Object.assign(DP, { date: SortieCompose.dateKeyUTC(Date.now()), kit: 0, tod: 0, twist: 0, flav: 0, dials: 0 }); dpRefresh(); }
+function dpStep(n) { DP.date = SortieCompose.dateKeyUTC(Date.parse(DP.date + 'T00:00:00Z') + n * 86400000); dpRefresh(); }
+for (const k in DP_LAB) document.getElementById(DP_LAB[k][0]).addEventListener('click', () => { DP[k] = (DP[k] + 1) % dpOpts()[k].length; sfx('tick'); dpRefresh(); });
+document.getElementById('dpPrev').addEventListener('click', () => { sfx('tick'); dpStep(-1); }); document.getElementById('dpNext').addEventListener('click', () => { sfx('tick'); dpStep(1); });
+document.getElementById('dpToday').addEventListener('click', () => { sfx('tick'); Object.assign(DP, { date: SortieCompose.dateKeyUTC(Date.now()), kit: 0, tod: 0, twist: 0, flav: 0, dials: 0 }); dpRefresh(); });
+document.getElementById('dpFind').addEventListener('click', () => { DP.find = (DP.find + 1) % DP_FIND.length; sfx('tick'); dpRefresh(); });
+document.getElementById('dpGo').addEventListener('click', () => { /* the next date (up to a year on) whose own level, without forced picks, has what the finder names */
+  for (let i = 1; i <= 400; i++) { const d = SortieCompose.dateKeyUTC(Date.parse(DP.date + 'T00:00:00Z') + i * 86400000), S = dpDay([d]); if (S && DP_FIND[DP.find][1](S)) { DP.date = d; sfx('tick'); dpRefresh(); return; } }
+  document.getElementById('dpInfo').textContent = 'No day with ' + DP_FIND[DP.find][0] + ' in the next 400.'; });
 /* The Daily Sortie's twist (plan section 11): '' on every other run. It is read from the sortie's daily record, so a resumed run has it too. Each switch asks twistOf() where it acts. */
 const TWIST_HP = { '': 1, swarm: 0.7, elite: 1.5, night: 1, fog: 1, fixed: 1, fast: 1, nova: 1 };
 function twistOf() { const d = run.sortie && run.sortie.daily; return d && d.twist && d.twist !== 'none' ? d.twist : ''; }
@@ -11316,6 +11345,7 @@ function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open P
   if (kind === 'retro' && !RETRO.S) setTimeout(() => { if (!RETRO.S) buildRetroArt(); }, 60); // (the retro art is built while the player picks, not when the run starts)
   setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
+  dpOpen(kind === 'daily');
   if (kind === 'daily') { const d = dailyToday(); app.diffNext.date = d.date; const note = document.getElementById('dNote'); note.textContent = d.date + ' UTC: ' + d.kit.toUpperCase() + '. One level, the same for everyone today. It does not count for the board.'; note.classList.add('prac'); }
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
@@ -20018,7 +20048,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'daily') startDaily(nx.date || dailyToday().date); else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour, d.twist, d.dials, d.tod); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'daily') { if (!document.getElementById('dPick').hidden) startDaily(...dpArgs()); else startDaily(nx.date || dailyToday().date); } else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub, d.flavour, d.twist, d.dials, d.tod); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });
