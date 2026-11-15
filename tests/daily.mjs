@@ -240,7 +240,7 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   const a = await q(END('2026-11-15'));
   ok(a.state === 'title' && a.open && a.rate === '2026-11-15' && a.info.includes('DESERT'), `the sortie ends at the title with the rating question (${a.state}, ${a.info})`);
   await page.click('#rateStars [data-n="4"]'); const b = await q(ST);
-  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
+  ok(!b.open && b.last && b.last.stars === 4 && b.last.date === '2026-11-15' && b.last.kit === 'desert' && b.last.cv === SC.VERSION && b.last.diff === 1 && b.last.score === 12345 && b.last.twist === SC.dailySeed('2026-11-15').twist && b.last.flavour === SC.dailySeed('2026-11-15').flavour && b.last.tod === SC.dailySeed('2026-11-15').tod && b.last.dials === SC.composeDaily('2026-11-15').dialNames.join('+') && b.kept['2026-11-15:' + SC.VERSION] === 4, `a star is kept and held back on a local build (${JSON.stringify(b.last && [b.last.stars, b.last.date, b.last.kit])})`);
   const c = await q(END('2026-11-15')); ok(c.state === 'title' && !c.open, `the same date is not asked twice (${c.open})`);
   await peek(page, `app.rateLast = null, 0`);
   const d2 = await q(END('2026-11-16')); await page.click('#rateSkip'); const e = await q(ST);

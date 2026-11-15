@@ -46,19 +46,21 @@ const KITS = {
     middle: {
       valley: { len: [7, 12], max: 2, heat: 0.4, built: 0.15 },
       village: { len: [7, 8], max: 1, heat: 0.8, built: 0.55 }, // (not shorter: the held village's defences reach 190 px south of its middle and must stay inside its own segment; at 4 to 6 chunks they ran into the port, the pass's rock or the open desert's hamlet in 42 of 216 composed lists, at 7 in 0 of 63)
+      oasis_town: { len: [7, 9], max: 1, heat: 0.7, built: 0.45 }, // a large held oasis (new, ground plan phase 5); not next to the village (two heavy defences), nor before the open desert, whose roadside hamlet reaches into it
       station_junction: { len: [6, 10], max: 1, heat: 0.5, built: 0.27 },
       desert_open: { len: [4, 7], max: 2, heat: 0.1, built: 0.23 },
       airbase_desert: { len: [7, 10], max: 1, heat: 0.7, built: 0.42 },
       pass: { len: [8, 12], max: 1, heat: 0.9, built: 0.17 } },
     fixedBuilt: { harbour_commercial: 0.8, beach_town: 0.36, desert_open: 0.23 },
     follows: {
-      beach_town: ['valley', 'village', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
-      valley: ['village', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      beach_town: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      valley: ['village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
       village: ['valley', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
-      station_junction: ['valley', 'village', 'desert_open', 'airbase_desert', 'pass'],
+      oasis_town: ['valley', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
+      station_junction: ['valley', 'village', 'oasis_town', 'desert_open', 'airbase_desert', 'pass'],
       desert_open: ['valley', 'station_junction', 'airbase_desert', 'pass'], // (not the village: a later open desert's roadside hamlet reaches up to 70 px past its segment's end, into the village's defences: 3 of 300 composed lists)
-      airbase_desert: ['valley', 'village', 'station_junction', 'desert_open', 'pass'],
-      pass: ['valley', 'village', 'station_junction', 'desert_open', 'airbase_desert'] },
+      airbase_desert: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'pass'],
+      pass: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert'] },
     enc: { village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
   forest: { id: 'forest', level: 4, preset: 'ironForest', params: { roadEnd: 112 }, arena: 0, boss: { add: 3 }, climate: 'forest', timeOfDay: 'day', len: [50, 66],
     opener: [['beach_cliff', 3]], approach: [['farmland_approach', 7]],
@@ -184,7 +186,7 @@ const FOREST_CAP = { roads: 4, rides: 6, plantations: 4, clearings: 5, cuts: 4, 
 const forestSeg = () => { const o = {}; for (const t in FOREST_BASE) { const b = FOREST_BASE[t]; o[t] = {}; for (const k of ['roads', 'rides', 'plantations', 'clearings', 'cuts']) o[t][k] = [Math.max(0, b[k] - 3), Math.min(FOREST_CAP[k], b[k] + 3)]; o[t].guns = [Math.max(1, b.guns - 2), Math.min(FOREST_CAP.guns, b.guns + 2)]; o[t].crowns = [0.4, 1.5]; } return o; }; // a count within 3 of the template's own, guns within 2; crowns: how thick the woods are (1 is as it was)
 const DIALS = {
   desert: { global: { wear: [0.25, 0.85], portDensity: [0.25, 0.8], portDamage: [0.2, 0.9], mixVillage: [0.15, 0.9] },
-    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
+    seg: { village: { damage: [0.05, 0.6], mix: [0.15, 1] }, oasis_town: { damage: [0.05, 0.6], mix: [0.15, 1] }, desert_open: { damage: [0.05, 0.5], mix: [0.15, 1] } }, int: [], strong: ['wear', 'portDamage', 'portDensity'] },
   forest: { global: { lakes: [1, 1] }, /* the first loop's lakes, one in each stretch of forest with room for it (a switch: drawn, it is on) */ seg: forestSeg(), int: ['lakes', 'roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'], strong: ['lakes', 'crowns', 'clearings', 'plantations', 'cuts', 'guns'] },
   winter: { global: { trees: [0.4, 1.8], lotChance: [0.02, 0.15] },
     seg: { village: { treeK: [0.3, 2.2], floorW: [-4, 18] }, lake_valley: { treeK: [0.3, 2.2], floorW: [-6, 22] }, station_winter: { treeK: [0.3, 2.2], floorW: [-6, 22] }, airbase_snow: { treeK: [0.3, 2.2], floorW: [-6, 22] }, forest_conifer: { treeK: [0.3, 2.2], floorW: [-6, 22] } }, int: [], strong: ['treeK', 'floorW'] },

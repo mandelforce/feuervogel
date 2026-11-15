@@ -194,6 +194,33 @@ The generator has features no kit uses: `oasis` sizes, `desertPost`, `roadside`,
 
 **Checked.** `tests/compose.mjs` 55 (new: the light changes nothing else; a Night run day is noon; the draw's shares); `tests/daily.mjs` 248 (new section 9, 28 checks: each kit at each light is recorded, rebuilt by resume, graded on at least half of its chunks, draws without errors; a Night run day asked for a sunset is flown at noon); flight gate with each light forced (`--tod`): 24 flights over 4 seeds per kit at 2 difficulties each, all pass; vetting of the 14 dates from 2026-11-16 with their drawn lights: 14 of 14. The lab is unchanged (it paints with its own Night switch only).
 
+### 4.8 Phase 5, first step: a new desert stretch, `oasis_town` (build 1.2.6.47, composer v4)
+
+**Choice.** One template, in the kit where the generator already had the content: a large held oasis (the generator's `oasis` feature with `size: 'large'`, 150 px either side of its centre, the `oasisLarge` preset's town). It needed no new ground code, only the sandSea builder's mapping from the template name to the feature (`tools/citygen.js`, plus the `WAR` set so the damage near war areas counts it), the kit's entry and the plan check's marker.
+
+**Kit entry (`tools/sortie-compose.js`).** `oasis_town`: 7 to 9 chunks, at most once, heat 0.7, structures limit 45 % (twice the highest seen, 20 %, plus 5 points, the kit's own convention). It may follow the beach town, the valley, the junction, the airbase and the pass, and be followed by the valley, the junction, the airbase, the open desert and the pass. Not next to the village (two heavy defences in a row), and not before the open desert: it is not in the open desert's `follows`, for the village's reason (the roadside hamlet of a later open desert reaches up to 70 px past its segment into a neighbour's defences). The desert's per-segment dials (`damage`, `mix`) apply to it. It has no encounter of its own (`oasisambush` stays the village's; each encounter runs once per sortie). 69 % of desert sorties contain it (195 of 300 seeds); the village now appears in 67 %.
+
+**Checked.** Gate 2 on 300 desert plans (`tests/compose.mjs --kit desert --plans 300`): clean, the large oasis lands inside its own segment every time (the plan check's new marker `large oasis`), structures share at most 20 % against the 45 % limit, plan time 88 ms median. `tests/flavour-probe.mjs --kit desert --seeds 100`: 0 of 100 flagged on the plain and on the loop ground. `tests/dials-probe.mjs --kit desert`: 0 flagged at every extreme, 80 drawn days clean. Flight gate on 12 desert sorties (7 with the town) on all three difficulties: all pass; the longest quiet stretch was 11.5 s on one flight (the limit is 12; the earlier desert sweeps had 7.5 to 9.2 s), with no stretch over 12 s by segment, so the town may leave a little more dead air than the village, which has an encounter. `tests/daily.mjs` 248, vetting of the 14 dates from 2026-11-16: 14 of 14 pass.
+
+**Looked at.** The plan painted next to the village's: the village is a grove and pool with a few houses and a round tank; the town is a dozen ruined buildings in blocks east of the railway, a pool and a few huts to the west. Not looked at in the game in motion or with its twists and lights.
+
+**Not done.** The forest and winter kits got no new template (the generator has `mountainVillage`, the winter's alpine village is already the winter `village`; the forest's unused features are the cliff coast and the approach, both already used); a new kit (the islands ground of level 6, `longNight` of level 3) is a separate, larger piece with its own boss, theme and timetable.
+
+### 4.9 The rating carries the light and the dials (build 1.2.6.47)
+
+**Built.** A star rating at the end of a Daily Sortie now sends two more fields next to `twist` and `flavour`: `tod` (day, morning or sunset) and `dials` (the day's dial names joined by `+`, for example `clearings+lakes+treeK`; empty on a day with none, and stored as null). So a rating can be read against what was different that day: the twist, the flavour, the light and the ground. Only with Share play data on, as before; a local build holds it in `app.rateLast`.
+
+**Worker (`worker.js`).** `tod` is accepted only as a word (3 to 12 lower-case letters), `dials` only as one to four names of 2 to 16 letters joined by `+` (anything else is stored as null). The insert has three tiers: the full row; if the table has no `tod` or `dials` column, the row with `twist` and `flavour` (as before); if it has not even those, the old 12 columns. A rating is never lost to a missing column. `schema.sql` has the two columns in the `CREATE TABLE` and two commented `ALTER TABLE` lines.
+
+**Owner action when deploying:** apply `schema.sql` to the live database as before, and run the two new lines once:
+```
+ALTER TABLE daily_ratings ADD COLUMN tod TEXT;
+ALTER TABLE daily_ratings ADD COLUMN dials TEXT;
+```
+(the earlier `twist` and `flavour` lines too, if they were never run). Until then ratings are kept without the new fields.
+
+**Tests.** `tests/worker.test.mjs` 23 (three new or changed: the fields stored in their own shapes, injection-like and over-long values stored as null, the three fallback tiers); `tests/daily.mjs` 248 (the rating's end-to-end check now also compares `tod` and `dials` with what the composer gives that date).
+
 ## 5. Decisions for the owner
 
 1. Share of days with no dials (suggestion: 20 %), and how many dials one day draws (suggestion: 2 to 3).

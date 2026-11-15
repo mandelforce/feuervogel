@@ -11,7 +11,7 @@ const PLAYER = 'p-0123456789abcdef0123';
 // A run that passes every check; each test changes one field.
 const goodRun = () => ({ player: PLAYER, name: 'ACE', mode: 'camp', plat: 'pc', diff: 1, score: 50000, stage: 3, conts: 0, dur: 600, version: '1.2.0' });
 
-function fakeDb({ recent = 0, today = 0, noTwistCols = false } = {}) {
+function fakeDb({ recent = 0, today = 0, noTwistCols = false, noGroundCols = false } = {}) {
   const inserts = [];
   const prep = sql => ({
     bind: (...args) => ({
@@ -20,7 +20,7 @@ function fakeDb({ recent = 0, today = 0, noTwistCols = false } = {}) {
         return null;
       },
       all: async () => ({ results: [] }),
-      run: async () => { if (noTwistCols && /twist/.test(sql)) throw new Error('D1_ERROR: table daily_ratings has no column named twist'); inserts.push(args); },
+      run: async () => { if (noTwistCols && /twist/.test(sql)) throw new Error('D1_ERROR: table daily_ratings has no column named twist'); if (noGroundCols && /\btod\b/.test(sql)) throw new Error('D1_ERROR: table daily_ratings has no column named tod'); inserts.push(args); },
     }),
   });
   return { db: { prepare: prep }, inserts };
@@ -198,13 +198,23 @@ test('rating: a good rating is stored once per player, date and version', async 
 
 test('rating: the twist and the flavour of the day are stored with it, and only as words', async () => {
   const r = await rate({ ...goodRating(), twist: 'night', flavour: 'loop' });
-  assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 14); assert.deepEqual(r.inserts[0].slice(12), ['night', 'loop']);
-  const old = await rate(goodRating()); assert.deepEqual(old.inserts[0].slice(12), [null, null]);
-  const bad = await rate({ ...goodRating(), twist: "x'; DROP", flavour: 'A'.repeat(40) }); assert.equal(bad.status, 200); assert.deepEqual(bad.inserts[0].slice(12), [null, null]);
+  assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 16); assert.deepEqual(r.inserts[0].slice(12, 14), ['night', 'loop']);
+  const old = await rate(goodRating()); assert.deepEqual(old.inserts[0].slice(12), [null, null, null, null]);
+  const bad = await rate({ ...goodRating(), twist: "x'; DROP", flavour: 'A'.repeat(40) }); assert.equal(bad.status, 200); assert.deepEqual(bad.inserts[0].slice(12), [null, null, null, null]);
 });
 
-test('rating: before schema.sql is applied the rating is kept without the twist and flavour', async () => {
-  const r = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank' }, { noTwistCols: true });
+test('rating: the light of the day and the ground dials are stored with it, only in their own shapes', async () => {
+  const r = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank', tod: 'sunset', dials: 'clearings+lakes+treeK' });
+  assert.equal(r.status, 200); assert.equal(r.inserts[0].length, 16); assert.deepEqual(r.inserts[0].slice(12), ['fog', 'rank', 'sunset', 'clearings+lakes+treeK']);
+  const none = await rate({ ...goodRating(), tod: 'day', dials: '' }); assert.deepEqual(none.inserts[0].slice(14), ['day', null]); /* a day with no dials sends nothing for them */
+  for (const dials of ["a'; DROP TABLE x", 'one+two+three+four+five', 'x'.repeat(60), 'a+', '+a', 'ab cd', 'ab,cd', 123]) { const b = await rate({ ...goodRating(), tod: 'day', dials }); assert.equal(b.status, 200); assert.equal(b.inserts[0][15], null, 'dials ' + JSON.stringify(dials)); }
+  const t = await rate({ ...goodRating(), tod: "x'; DROP", dials: 'ab+cd' }); assert.deepEqual(t.inserts[0].slice(14), [null, 'ab+cd']);
+});
+
+test('rating: before schema.sql is applied the rating is kept with the columns the table has', async () => {
+  const a = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank', tod: 'morning', dials: 'guns+cuts' }, { noGroundCols: true });
+  assert.equal(a.status, 200); assert.equal(a.inserts.length, 1); assert.equal(a.inserts[0].length, 14); assert.deepEqual(a.inserts[0].slice(12), ['fog', 'rank']); /* the twist and flavour columns exist, the light and dials do not */
+  const r = await rate({ ...goodRating(), twist: 'fog', flavour: 'rank', tod: 'morning', dials: 'guns+cuts' }, { noTwistCols: true });
   assert.equal(r.status, 200); assert.equal(r.inserts.length, 1); assert.equal(r.inserts[0].length, 12); assert.equal(r.inserts[0][7], 4);
 });
 
