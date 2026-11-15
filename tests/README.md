@@ -374,9 +374,21 @@ node tests/contact.mjs OUTDIR daily:2026-11-15 14   # contact sheet of that day'
 ```
 node tests/daily-gate.mjs --from 2026-12-01 --days 14 --out OUTDIR   # 14 dates, all three difficulties, about 2 minutes; failing dates get their cause and contact sheet in OUTDIR
 node tests/daily-gate.mjs --from 2026-12-01 --days 3 --diff 1 --bots  # with the skill bots
+node tests/daily-gate.mjs --from 2026-12-03 --days 1 --sub 2 --save out.json  # one date on sub-seed 2; --save lists every sortie with pass and cause
 node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
 ```
+
+## Daily Sortie vetting (by hand; runs daily in CI as `.github/workflows/daily-vet.yml`)
+
+`scripts/daily-vet.mjs` (phase 4 of `docs/daily-sortie-plan.md`, section 10) vets the next 14 days with the flight gate and rerolls the dates that fail. It runs `tests/daily-gate.mjs --from <tomorrow UTC> --days 14 --save` (all three difficulties, no bots), and for each failing date `--sub 1` to `--sub 8` on that date alone until one passes on all three; it writes the passing sub-seeds into `DAILY_REROLL` in `tools/sortie-compose.js` (nothing else), runs `scripts/embed-citygen.mjs` and writes the pull request text (`--body FILE`: each rerolled date with its cause, and every date with no passing sub-seed in 8). Serve the folder first. `--dead S` goes to the gate (a smaller value forces failures: `--dead 6` fails 2 of the dates 2026-12-01 to 12-14), `--no-write` leaves the sources alone, `--keep DIR` keeps the gate's JSON files, `--from`, `--days`, `--max-sub` as named.
+
+```
+node scripts/daily-vet.mjs --body /tmp/pr.md                                   # the real window, about 2 minutes plus 20 seconds per sub-seed tried
+node scripts/daily-vet.mjs --from 2026-12-01 --dead 6 --no-write --body /tmp/pr.md   # forced failures, nothing written
+```
+
+The Daily Sortie test (`daily.mjs`) also covers the title entry (section 5 of its head comment); `menunav.mjs` the keyboard and controller order START, DAILY, SCORES, trophy.
 
 ## Nothing pops in, guns stay off runways (by hand)
 

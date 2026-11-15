@@ -4718,7 +4718,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.40'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.41'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10946,6 +10946,9 @@ function sortieOf(ref) { if (!ref.daily) return buildSortie(ref.level, ref.seed)
    day's sortie), with &kit=forest and &sub=3 to force a kit and a sub-seed. */
 function dailyTry() { if (!LB_TEST) return null; const q = new URLSearchParams(location.search), d = q.get('daily'); return d === null ? null : { date: d || SortieCompose.dateKeyUTC(Date.now()), kit: q.get('kit') || undefined, sub: q.get('sub') === null ? undefined : +q.get('sub') }; }
 function startDaily(dateKey, kitId, sub) { startComposed(SortieCompose.composeDaily(dateKey, kitId, sub)); }
+/* The title's DAILY button (phase 4): today's UTC date and that day's kit. It opens the difficulty picker; the pick starts startDaily(that date). */
+function dailyToday() { const date = SortieCompose.dateKeyUTC(Date.now()); return { date, kit: SortieCompose.dailySeed(date).kit }; }
+function openDaily() { app.titlePress = { k: 'daily', t: gf }; openDiff('daily', 1); }
 function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; }
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
@@ -11151,7 +11154,7 @@ function setDiffView(prac) {
   const camp = app.diffNext.kind === 'camp', retro = app.diffNext.kind === 'retro'; // 'camp': the Campaign, 'retro': the old campaign
   document.getElementById('dStage').hidden = !prac; document.getElementById('dSeed').hidden = !prac;
   document.getElementById('dExtra').hidden = !camp || prac;
-  document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : 'Endless';
+  document.getElementById('diffTitle').textContent = prac ? 'Practice a level' : retro ? 'Retro Run' : camp ? 'Choose difficulty' : app.diffNext.kind === 'daily' ? 'Daily Sortie' : 'Endless';
   document.getElementById('dStageLbl').textContent = 'Level';
   if (prac) {
     document.querySelector('#dStage .dsel').classList.add('eni');
@@ -11175,6 +11178,7 @@ function openDiff(kind, n, prac) { // n: for the Campaign, a level; prac: open P
   if (kind === 'retro' && !RETRO.S) setTimeout(() => { if (!RETRO.S) buildRetroArt(); }, 60); // (the retro art is built while the player picks, not when the run starts)
   setDiffView(kind === 'camp' && !!prac);
   for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.setAttribute('aria-pressed', String(+b.dataset.d === settings.diff));
+  if (kind === 'daily') { const d = dailyToday(); app.diffNext.date = d.date; const note = document.getElementById('dNote'); note.textContent = d.date + ' UTC: ' + d.kit.toUpperCase() + '. One level, the same for everyone today. It does not count for the board.'; note.classList.add('prac'); }
   document.getElementById('diffAsk').classList.add('open');
   const cur = document.querySelector('#diffAsk [data-d="' + settings.diff + '"]'); if (cur) cur.focus();
 }
@@ -11184,7 +11188,10 @@ function startOrOffer() { openDiff('camp', 1); }
  // { k: 'start' | 'scores', t: gf } so the pressed title button shows sunk for a few frames
 const SHOW_ENDLESS = false; // Endless is hidden from the title for now (its code and boards stay)
 const START_BTN = { y: 224, w: 116, h: 24 }, SCORES_BTN = { y: 260, w: 96, h: 20 }, ENDLESS_Y = 288, SCORES_Y = SCORES_BTN.y, TITLE_SHIP_Y = 156;
-function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && Math.abs(gx - W / 2) <= SCORES_BTN.w / 2 + 4; }
+/* DAILY and SCORES share one row under START (DAILY left, SCORES right, 8 apart), so the title needs no more height */
+const DAILY_X = Math.round(W / 2 - 4 - SCORES_BTN.w), SCORES_X = Math.round(W / 2 + 4);
+function scoresHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && gx >= W / 2 && gx <= SCORES_X + SCORES_BTN.w + 4; }
+function dailyHit(gx, gy) { return gy >= SCORES_Y - 3 && gy <= SCORES_Y + SCORES_BTN.h + 3 && gx >= DAILY_X - 4 && gx < W / 2; }
 function endlessHit(gx, gy) { return SHOW_ENDLESS && gy >= ENDLESS_Y - 3 && gy <= ENDLESS_Y + ENDLESS_BTN.h + 2 && Math.abs(gx - W / 2) <= ENDLESS_BTN.w / 2 + 4; }
 function shipHit(gx, gy) { return Math.abs(gx - W / 2) <= 28 && Math.abs(gy - TITLE_SHIP_Y) <= 30; }
 // the trophy button under SCORES opens the achievements; it moves up on short screens so it clears the credit line
@@ -13964,7 +13971,8 @@ function drawResultsBody() {
   const r = app.results;
   ctx.fillStyle = 'rgba(14,10,24,0.72)'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#f2ecd8'; ctx.fillRect(12, 58, W - 24, 1); ctx.fillRect(12, 218, W - 24, 1);
-  textO('STAGE ' + stageLabel(run.stage) + ' CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a');
+  if (run.sortie && run.sortie.daily) textO('DAILY CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a'); else textO('STAGE ' + stageLabel(run.stage) + ' CLEAR', W / 2, 34, '#fff0a0', 2, 'center', '#f8a83a');
+  if (run.sortie && run.sortie.daily) textS((run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase(), W / 2, p2 ? 62 : 49, '#a8f6dc', 1, 'center', '#4ccfae');
   if (p2) scoreStrip(47, 16, run.score - run.score2, run.score2);
   r.lines.forEach((l, i) => {
     if (i >= r.shown) return;
@@ -13993,6 +14001,7 @@ function drawResultsBody() {
     }
     if (r.awarded > 0) textS('+' + r.awarded, W - 28 - (r.awarded - 1) * 30 - 18, 270, '#fff0a0', 1, 'right', '#d0a020');
   }
+  if (r.done && run.sortie && run.sortie.daily) { textS('SORTIE SCORE ' + run.score + (p2 ? '  (1P ' + (run.score - run.score2) + ', 2P ' + run.score2 + ')' : '') + '  LIVES ' + run.lives, W / 2, 284, '#ffffff', 1, 'center', '#c4c9ce'); } /* the run's totals; a Daily Sortie counts nowhere */
   if (r.done && r.awarded >= (r.reward || 0) && (gf >> 4) & 1) textS('TAP TO CONTINUE', W / 2, 298, '#ffffff', 1, 'center', '#c4c9ce');
 }
 function mkItem(kind, x, y) { const ws = run.stage >= 3 ? ['S', 'L', 'H', 'A'] : ['S', 'L', 'H']; return { kind, x, y, t: 0, w: ws[(Math.random() * ws.length) | 0] }; }
@@ -17143,9 +17152,9 @@ function padMenus(nav) {
   return true;
 }
 // title: START (the stage is picked in the difficulty panel), Endless and Scores
-function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
+function titleActivate() { if (app.titleFocus === 0 || app.titleFocus === undefined) { app.titlePress = { k: 'start', t: gf }; openDiff('camp', 1); } else if (app.titleFocus === 7) openDiff('endless'); else if (app.titleFocus === 6) openDaily(); else if (app.titleFocus === 9) openAch(false); else { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } }
 function padTitle(nav) {
-  const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
+  const order = SHOW_ENDLESS ? [0, 6, 8, 7, 9] : [0, 6, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus));
   if (nav.up) app.titleFocus = order[(i + order.length - 1) % order.length];
   else if (nav.down) app.titleFocus = order[(i + 1) % order.length];
   if (nav.a || nav.start) titleActivate();
@@ -19153,9 +19162,9 @@ function renderMain() {
       const y = abtn(x0, START_BTN.y, START_BTN.w, START_BTN.h, { rim: '#d0a020', hi: '#fff0a0', lo: '#7a5410', face: '#352e58', faceLo: '#241f3c' }, 3, dn);
       ctx.globalAlpha = dn ? 0.15 : 0.3 + 0.25 * pulse; ctx.fillStyle = '#a99cdc'; ctx.fillRect(x0 + 2, y + 2, START_BTN.w - 4, 2); ctx.globalAlpha = 1;
       textO('START', W / 2, y + 6, '#fff0a0', 2, 'center', '#f8a83a'); }
-    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [W / 2 - SCORES_BTN.w / 2 - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
+    if (gf - app.padSeen < 1200) { const r = app.titleFocus === 0 ? [W / 2 - START_BTN.w / 2 - 5, START_BTN.y - 5, START_BTN.w + 10, START_BTN.h + 10] : app.titleFocus === 8 ? [SCORES_X - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 6 ? [DAILY_X - 4, SCORES_Y - 4, SCORES_BTN.w + 8, SCORES_BTN.h + 8] : app.titleFocus === 9 ? [trophyBtn().x - 4, trophyBtn().y - 4, trophyBtn().w + 8, trophyBtn().h + 8] : [W / 2 - ENDLESS_BTN.w / 2 - 3, ENDLESS_Y - 3, ENDLESS_BTN.w + 6, ENDLESS_BTN.h + 6]; ctx.strokeStyle = (gf >> 3) & 1 ? '#a8f6dc' : '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(r[0]) + 0.5, Math.round(r[1]) + 0.5, Math.round(r[2]), Math.round(r[3])); }
     const acc = STAGE_ACC;
-    { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = Math.round(W / 2 - SCORES_BTN.w / 2);
+    { const bx = Math.round(W / 2 - ENDLESS_BTN.w / 2), sx = SCORES_X;
       if (SHOW_ENDLESS) {
         btn(bx, ENDLESS_Y, ENDLESS_BTN.w, ENDLESS_BTN.h, 'rgba(28,22,48,0.85)');
         for (let i = 0; i < 6; i++) { ctx.fillStyle = acc[i]; ctx.fillRect(bx + i * (ENDLESS_BTN.w / 6), ENDLESS_Y + ENDLESS_BTN.h - 2, Math.ceil(ENDLESS_BTN.w / 6), 2); }
@@ -19163,8 +19172,10 @@ function renderMain() {
       }
       // quieter than START: no gold, muted rim, shallower, lavender label
       const sy = abtn(sx, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#352e58', hi: '#6e62a8', lo: '#0e0c16', face: '#241f3c', faceLo: '#171526' }, 2, pressed('scores'));
-      textO('SCORES', W / 2, sy + 5, '#c8c0ec', 2, 'center', '#6e62a8');
-      if (app.lbAlert) { const dx = W / 2 + SCORES_BTN.w / 2 - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
+      textO('SCORES', sx + SCORES_BTN.w / 2, sy + 5, '#c8c0ec', 2, 'center', '#6e62a8');
+      { const dd = dailyToday(), dy0 = abtn(DAILY_X, SCORES_Y, SCORES_BTN.w, SCORES_BTN.h, { rim: '#2c6a5c', hi: '#7adcc0', lo: '#0e2a24', face: '#1d3a40', faceLo: '#14262c' }, 2, pressed('daily')); /* teal: not the Campaign's gold, not SCORES' lavender; two lines, DAILY and the kit */
+        textS('DAILY', DAILY_X + SCORES_BTN.w / 2, dy0 + 3, '#a8f6dc', 1, 'center', '#4ccfae'); textS(dd.kit.toUpperCase(), DAILY_X + SCORES_BTN.w / 2, dy0 + 11, '#fff0a0', 1, 'center', '#d0a020'); }
+      if (app.lbAlert) { const dx = SCORES_X + SCORES_BTN.w - 3, dy = sy + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#e86050'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#e86050'); }
       { const t = trophyBtn(), ty = abtn(t.x, t.y, t.w, t.h, { rim: '#352e58', hi: '#6e62a8', lo: '#0e0c16', face: '#241f3c', faceLo: '#171526' }, 2, pressed('ach'));
         ctx.drawImage(trophySpr(), t.x + Math.round((t.w - 16) / 2), ty + Math.round((t.h - 16) / 2) + 1);
         if (achNew()) { const dx = t.x + t.w - 1, dy = ty + 1, pr = 3 + ((gf >> 4) & 1) * 0.6; ctx.globalAlpha = 0.4; dk(dx, dy, pr + 2, '#ff7a3a'); ctx.globalAlpha = 1; dk(dx, dy, pr, '#ff7a3a'); } }
@@ -19761,7 +19772,7 @@ addEventListener('keydown', e => {
   const go = k === 'enter' || k === ' ' || k === 'z';
   if (app.state !== 'play') {
     if (app.state === 'title' && app.shipPick && (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'd' || k === 'escape')) pickKey(k);
-    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 8, 7, 9] : [0, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
+    else if (app.state === 'title' && !app.shipPick && (k === 'arrowup' || k === 'arrowdown' || k === 'w' || k === 's')) { const order = SHOW_ENDLESS ? [0, 6, 8, 7, 9] : [0, 6, 8, 9], i = Math.max(0, order.indexOf(app.titleFocus)); app.titleFocus = order[(i + (k === 'arrowup' || k === 'w' ? order.length - 1 : 1)) % order.length]; app.padSeen = gf; } // the title's buttons by keyboard, the highlight is the controller's
     else if (go && app.state === 'title') titleActivate();
     else if (app.state === 'title' && k >= '1' && k <= '6') openDiff('camp', +k, true); // the number keys open Practice on that Campaign level
     else if (go && app.state === 'over' && app.overT > 60) leaveOver();
@@ -19780,7 +19791,7 @@ onCv('pointerdown', e => {
   e.preventDefault(); audio(); app.rrIn = e.pointerType || 'mouse';
   if (app.booting) { endBoot(); return; }
   if (app.ending) return;
-  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
+  if (app.state === 'title') { const r = cv.getBoundingClientRect(), gx0 = (e.clientX - r.left) / r.width * W, gy0 = (e.clientY - r.top) / r.height * H - TY; if (app.shipPick) tapShipPick(gx0, gy0); else if (shipList().length > 1 && shipHit(gx0, gy0)) openShipPick(); else if (trophyHit(gx0, gy0)) { app.titlePress = { k: 'ach', t: gf }; openAch(false); } else if (scoresHit(gx0, gy0)) { app.titlePress = { k: 'scores', t: gf }; openLB('view'); } else if (dailyHit(gx0, gy0)) openDaily(); else if (endlessHit(gx0, gy0)) openDiff('endless'); else if (startHit(gx0, gy0)) { app.titlePress = { k: 'start', t: gf }; startOrOffer(); } }
   else if (app.state === 'over') { if (app.lbOpen) return; if (app.overT > 60) leaveOver(); return; }
   if (app.state === 'play' && app.tut) { const r = cv.getBoundingClientRect(); if (tutTap((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H)) return; }
   else if (app.paused) { togglePause(); return; }
@@ -19846,7 +19857,7 @@ document.getElementById('insNo').addEventListener('click', () => closeInstall({ 
 document.getElementById('installAsk').addEventListener('pointerdown', e => e.stopPropagation());
 for (const b of document.querySelectorAll('#diffAsk [data-d]')) b.addEventListener('click', () => {
   const nx = app.diffNext; settings.diff = +b.dataset.d; saveSettings(); closeDiff(); if (!nx) return; audio();
-  if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
+  if (nx.kind === 'daily') startDaily(nx.date || dailyToday().date); else if (nx.kind === 'endless') startEndless(); else if (nx.kind === 'retro') startRetro(); else if (nx.prac) startEnigma(nx.n, false, nx.loops | 0); else if (dailyTry()) { const d = dailyTry(); startDaily(d.date, d.kit, d.sub); } else startEnigma(1, true); // (dailyTry: the test link ?daily, local builds) // START: the Campaign from level 1; Practice: one level, not ranked
 });
 for (const b of document.querySelectorAll('#dSeed [data-l]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffSeed(+b.dataset.l); sfx('tick'); } });
 for (const b of document.querySelectorAll('#dStage [data-s]')) b.addEventListener('click', () => { if (app.diffNext) { setDiffStage(+b.dataset.s); sfx('tick'); } });

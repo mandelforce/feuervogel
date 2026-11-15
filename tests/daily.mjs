@@ -12,6 +12,8 @@
 //   3. a run saved mid-flight and loaded in a fresh page goes on exactly (every 60 frames, as tests/resume-exact.mjs compares); a record of
 //      another composer version is not resumed.
 //   4. nothing is left behind: a Campaign level flown afterwards in the same page plays as in a fresh page.
+//   5. the title entry (phase 4): without any link, a DAILY button on the title (the day's kit on it) opens the difficulty picker, and the pick starts
+//      that UTC day's sortie (also at 23:59 UTC); START and SCORES still do what they did; the Daily Sortie's results screen shows the run's totals.
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -124,6 +126,41 @@ const CAMP = lv => `(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma
     ok(a.daily === null && a.compose === null && a.salt === 0 && a.seed === 1944, `level ${lv} after the daily sorties: a Campaign sortie again (seed ${a.seed}, no daily, timetable salt ${a.salt})`);
     ok(d < 0 && a.spawns.length === b.spawns.length && a.end === b.end, `level ${lv} after the daily sorties plays as in a fresh page (${a.spawns.length} spawns, end ${a.end}${a.end === b.end ? '' : ' / ' + b.end})`); }
   await fresh.close(); }
+
+
+// ---------- 5. the title entry ----------
+/* the title's buttons are drawn on the canvas: click where the game puts them (game coordinates, the same constants the game hit-tests with) */
+const AT = (name) => `(() => { const r = cv.getBoundingClientRect(), b = ${name}; return JSON.stringify({ x: r.left + b[0] / W * r.width, y: r.top + (b[1] + TY) / H * r.height, state: app.state, diff: document.getElementById('diffAsk').classList.contains('open') }); })()`;
+const BTN = { daily: '[DAILY_X + SCORES_BTN.w / 2, SCORES_Y + SCORES_BTN.h / 2]', scores: '[SCORES_X + SCORES_BTN.w / 2, SCORES_Y + SCORES_BTN.h / 2]', start: '[W / 2, START_BTN.y + START_BTN.h / 2]' };
+async function clickTitle(page, which) { const c = JSON.parse(await peek(page, AT(BTN[which]))); await page.mouse.click(c.x, c.y); await page.waitForTimeout(50); }
+const STATE = `JSON.stringify({ state: app.state, diff: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, title: document.getElementById('diffTitle').textContent, note: document.getElementById('dNote').textContent, lb: !!app.lbOpen, daily: run.sortie && run.sortie.daily, ranked: run.ranked, seed: run.sortie && run.sortie.seed, today: dailyToday() })`;
+for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:50Z', 'forest'], ['2026-11-14T00:00:05Z', 'winter']]) {
+  const page = await freshPage(11); await peek(page, `Date.now = () => ${Date.parse(at)}, 0`);
+  const date = at.slice(0, 10), t0 = JSON.parse(await peek(page, STATE));
+  ok(t0.today.date === date && t0.today.kit === kit && SC.dailySeed(date).kit === kit, `${at}: the title offers ${date}, a ${kit} day (${t0.today.kit})`);
+  await clickTitle(page, 'daily'); const t1 = JSON.parse(await peek(page, STATE));
+  ok(t1.state === 'title' && t1.diff && t1.kind === 'daily' && t1.title === 'Daily Sortie' && t1.note.includes(date) && t1.note.includes(kit.toUpperCase()), `${at}: DAILY opens the difficulty picker (${t1.title}; ${t1.note.slice(0, 40)})`);
+  await page.evaluate(() => document.querySelector('#diffAsk [data-d="2"]').click()); const t2 = JSON.parse(await peek(page, STATE + ' + ""'));
+  const C = SC.composeDaily(date);
+  ok(t2.state === 'play' && t2.daily && t2.daily.date === date && t2.daily.kit === kit && t2.daily.seed === C.seed && t2.ranked === false && t2.daily.v === SC.VERSION, `${at}: the pick starts startDaily(${date}) on Ace (${t2.state}, ${t2.daily && t2.daily.kit}, ranked ${t2.ranked})`);
+  const d2 = await peek(page, 'settings.diff'); ok(d2 === 2, `${at}: the difficulty is the player's pick (${d2})`);
+  await page.close(); }
+{ const page = await freshPage(11); await peek(page, `Date.now = () => ${Date.parse('2026-11-15T12:00:00Z')}, 0`);
+  await clickTitle(page, 'start'); const a = JSON.parse(await peek(page, STATE));
+  ok(a.diff && a.kind === 'camp' && a.title === 'Choose difficulty', `START still asks for the Campaign's difficulty (${a.kind})`);
+  await page.evaluate(() => document.querySelector('#diffAsk [data-d="1"]').click()); const b = JSON.parse(await peek(page, STATE));
+  ok(b.state === 'play' && b.daily === null && b.ranked === true && b.seed === 1944, `the Campaign starts as before (seed ${b.seed}, ranked ${b.ranked}, no daily)`); await page.close(); }
+{ const page = await freshPage(11); await clickTitle(page, 'scores'); const a = JSON.parse(await peek(page, STATE));
+  ok(a.state === 'title' && !a.diff && a.lb, `SCORES, now right of DAILY, still opens the board (board open ${a.lb}, picker ${a.diff})`); await page.close(); }
+{ const page = await freshPage(11), keys = JSON.parse(await peek(page, `(() => { const o = []; app.titleFocus = 0; for (let i = 0; i < 5; i++) { padTitle({ down: true }); o.push(app.titleFocus); } return JSON.stringify(o); })()`));
+  ok(keys.join() === '6,8,9,0,6', `the controller walks START, DAILY, SCORES, trophy (${keys.join()})`);
+  await peek(page, `app.titleFocus = 6, padTitle({ a: true }), 0`); const a = JSON.parse(await peek(page, STATE)); ok(a.diff && a.kind === 'daily', `the controller's A on DAILY opens the picker (${a.kind})`); await page.close(); }
+/* the results screen of a Daily Sortie shows the run's totals; it still counts nowhere (section 2 checks that over a whole flight) */
+{ const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.desert}'); SF.human(8, 15); let f = 0, res = null;
+    for (let i = 0; i < 20000 && !res; i++) { SF.run(10); if (app.results && app.results.done) res = { title: 'daily', score: run.score, lives: run.lives, daily: !!(run.sortie && run.sortie.daily) }; }
+    if (res) { for (let i = 0; i < 6; i++) SF.run(10); res.still = !!app.results; } return JSON.stringify({ res, errs: SF.R.errs.slice(0, 2) }); })()`));
+  ok(r.res && r.res.daily && r.res.score > 0 && r.res.still && !r.errs.length, `the Daily Sortie's results screen draws with the run's totals (score ${r.res && r.res.score}, lives ${r.res && r.res.lives}${r.errs.length ? ', ' + r.errs[0] : ''})`);
+  await page.close(); }
 
 await browser.close();
 if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }
