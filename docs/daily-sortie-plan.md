@@ -556,3 +556,96 @@ Before the Wing was planned, 2 of 7 `burningfield` and 2 of 8 `oasisambush` were
 - No phone viewport.
 - The message at the start says DAILY SORTIE with the date and the kit; the results screen and the pause menu are the level's own.
 - Row 4 of 6.3 (`plan.airbase` and `plan.fort` as lists) was not needed: the kits allow one airbase and one pass.
+
+## 9. Phase 3 results: the flight gate (build 1.2.6.40, composer v1)
+
+`tests/daily-gate.mjs` (entry in `tests/README.md`). No game code, composer or threshold was changed. Human bot `SF.human(8, 15)`, immortal, viewport 1000x760 (H 320), two pages at once on a 4-core container. Each page flies many sorties in turn. That is checked: the same 4 human and 24 skill-bot flights give identical numbers with one page or two.
+
+### 9.1 What fails a sortie, and the runs
+
+FAIL on any of these: a page or game error (`SF.R.errs`); gate 2 not clean (`kit-check.mjs` plus the structures limit, as `compose.mjs`); no boss, or the boss not killed within 900 s; the flight not ending at the title; a planned encounter not ending `done`, or no Shadow Wing; the twin flight in the other page (another `Math.random`) differing in spawns (count and hash), score, end or frames; dead air longer than 10 s. Dead air is a stretch before the boss with no enemy on screen, no enemy bullet and no encounter, measured as in `daily-baseline.mjs`.
+
+- **Sweep** (`--sweep 200`): seeds `hash(s, 9090)`, s = 0..199 per kit, sub 0. Every seed on Veteran, seeds 0..39 also on Rookie and Ace, determinism on every 10th seed (Veteran), skill bots on seeds 0..19. That is 840 human flights, 60 twins and 720 skill-bot flights in 28 min 54 s: gate 2 189 s, human flights 967 s, bots 578 s.
+- **Dates** (`--from 2026-12-01 --days 14 --out DIR`): 42 flights (all three difficulties), 14 twins, 87 s. **All PASS.** The `--out` path (cause JSON plus a 12-frame contact sheet) was checked by forcing a failure with `--dead 5` on 2026-12-03.
+
+### 9.2 Failures per kit and cause (sweep, out of 200 sorties per kit)
+
+| Kit | Failed | Cause | Examples |
+|---|---|---|---|
+| desert | 2 (1 %) | dead air | `desert#108` (10.8 s), `desert#123` (11.2 s), both Veteran |
+| forest | 0 | | |
+| winter | 0 | | |
+
+Every other cause was 0 in all 900 flights: no errors, gate 2 clean on all 600 plans, every boss came and died (boss fight at most 168 s), every flight ended at the title, every planned encounter ended `done`, the Wing came every time, and all 60 determinism twins were identical. Encounter events that found no place (not a failure; `dropped` > 0 while still `done`): forest `cliffbattery` 96 over 280 runs (0.34 a run, as in 8.3), desert `oasisambush` 6 over 186.
+
+### 9.3 Dead air
+
+Longest quiet stretch per flight, in seconds (the hand-made levels: 7 at most):
+
+| Kit | Difficulty | p50 | p95 | max | flights over 5 / 7 / 10 / 15 s |
+|---|---|---|---|---|---|
+| desert | Rookie (40) | 4.7 | 8.3 | 9.5 | 16 / 4 / 0 / 0 |
+| | Veteran (200) | 4.8 | 8.7 | 11.2 | 90 / 31 / 2 / 0 |
+| | Ace (40) | 4.1 | 7.3 | 9.2 | 14 / 3 / 0 / 0 |
+| forest | Rookie | 1.4 | 5.3 | 7.0 | 4 / 0 / 0 / 0 |
+| | Veteran | 0.8 | 4.3 | 7.5 | 7 / 1 / 0 / 0 |
+| | Ace | 0 | 1.5 | 3.2 | 0 / 0 / 0 / 0 |
+| winter | Rookie | 4.7 | 5.8 | 7.0 | 17 / 0 / 0 / 0 |
+| | Veteran | 4.5 | 5.8 | 8.7 | 71 / 3 / 0 / 0 |
+| | Ace | 3.8 | 5.3 | 5.8 | 14 / 0 / 0 / 0 |
+
+Where they lie: of the longest stretches of 5 s or more, those ending within 1 s of the boss's arrival (the boss ground after the level's last chunk) are desert 131 of 132, forest 8 of 11 and winter 76 of 110. The rest of winter's are 14 earlier on the boss ground and 20 inside the level (chunks 63 to 92, 5.2 to 7 s). Both failures are on the boss ground and end as the boss comes. In the desert the stretch grows with the sortie's length (Veteran): under 72 chunks, median 4.5 s and max 9.0 s; 72 to 77 chunks, median 4.7 s and max 9.8 s; 78 to 82 chunks, median 5.8 s and max 11.2 s. Flights over 8 s: 4 of 92, 5 of 62 and 9 of 46. Both failing sorties are 81 and 82 chunks long, with three encounters.
+
+### 9.4 Reported measures: composed sorties (p5 / p50 / p95) against the kit level's range
+
+Before the boss. "low" or "high": how many flights lie outside the level's range.
+
+| Kit | Diff | Hits/min | level | Worst 10 s window | level | Bullets on screen | level | Kills/min | level |
+|---|---|---|---|---|---|---|---|---|---|
+| desert | Rookie | 0 / 0.52 / 1.17 | 0.57 | 13.8 / 18.0 / 24.0 | 21.6–26.6 (34 low) | 3.8 / 5.7 / 7.1 | 6.7–6.8 | 87 / 99 / 107 | 88–122 |
+| | Veteran | 0 / 0.63 / 1.62 | 0.86–2.00 (132 low) | 18.6 / 25.8 / 33.3 | 31.2–60.2 (177 low) | 5.7 / 8.8 / 11.0 | 10.9–15.4 (185 low) | 99 / 113 / 125 | 101–129 |
+| | Ace | 0 / 0.61 / 1.22 | 0.57–3.44 | 22.8 / 26.3 / 30.7 | 25.9–50.2 | 7.4 / 9.0 / 10.7 | 11.0–15.5 (38 low) | 98 / 112 / 123 | 123–126 (37 low) |
+| forest | Rookie | 0 / 0.67 / 1.28 | 0.35–1.74 | 45.0 / 63.5 / 75.3 | 60.3–108.7 | 11.3 / 12.9 / 16.6 | 14.0–14.7 (30 low) | 99 / 109 / 119 | 92–115 |
+| | Veteran | 0 / 1.03 / 2.09 | 2.79–3.14 (199 low) | 35.1 / 58.9 / 77.5 | 77.2–118.2 (189 low) | 11.8 / 15.4 / 20.2 | 18.5–21.7 (179 low) | 112 / 124 / 136 | 102–110 (195 high) |
+| | Ace | 0.78 / 2.15 / 3.54 | 1.40–3.84 | 48.5 / 65.6 / 76.8 | 73.9–81.6 (35 low) | 18.1 / 21.2 / 23.8 | 18.1–22.8 | 115 / 124 / 150 | 129–140 (24 low) |
+| winter | Rookie | 0 / 0.73 / 1.60 | 0.25–1.74 | 11.4 / 17.2 / 22.8 | 13.6–16.0 (29 high) | 3.7 / 5.1 / 6.7 | 4.8–5.2 | 93 / 102 / 113 | 100–118 |
+| | Veteran | 0.24 / 0.80 / 1.84 | 0.74 (77 low, 117 high) | 19.9 / 25.7 / 30.9 | 22.0–38.7 | 5.7 / 8.0 / 9.4 | 7.6–11.7 (76 low) | 107 / 116 / 127 | 119.5–121 (133 low, 53 high) |
+| | Ace | 0.69 / 1.50 / 2.56 | 1.49–2.73 | 25.6 / 33.2 / 38.4 | 30.8–36.1 | 10.4 / 11.7 / 13.5 | 12.0–13.5 | 119 / 131 / 143 | 144–171 (39 low) |
+
+Boss arrival: desert 182.7 to 236.2 s, forest 145.3 to 188.0 s, winter 226.0 to 258.0 s.
+
+The composed sorties are **calmer than their hand-made level on Veteran in the desert and the forest**: fewer bullets and fewer hits, in 89 to 100 % of the flights. A level range from two flights (first pass and first loop) is narrow; on some rows it is one value. So "outside" says little for Rookie and Ace, but the Veteran shift is consistent across 200 sorties.
+
+### 9.5 Skill bots (own difficulty, mortal, 4 bot seeds on 20 sorties per kit: 80 flights per bot and kit)
+
+Not fitted to players yet (see `tests/README.md`), so these are data, not verdicts.
+
+| Kit | Bot | Cleared | Cleared per sortie p5 / p50 / p95 | Deaths/min p5 / p50 / p95 | Lives when the boss comes p5 / p50 / p95 (n reached) |
+|---|---|---|---|---|---|
+| desert | rookie | 0.01 | 0 / 0 / 0.01 | 0.98 / 2.62 / 7.81 | 1 / 1 / 2 (7) |
+| | veteran | 0.15 | 0 / 0 / 0.75 | 0.63 / 1.46 / 2.92 | 0 / 1 / 3 (32) |
+| | ace | 0.88 | 0.74 / 1 / 1 | 0 / 0.24 / 1.57 | 0 / 2 / 4 (74) |
+| forest | rookie | 0 | 0 / 0 / 0 | 1.70 / 3.96 / 6.26 | 0.1 / 1 / 1 (3) |
+| | veteran | 0.05 | 0 / 0 / 0.25 | 0.97 / 1.61 / 3.89 | 0 / 1 / 2 (29) |
+| | ace | 0.36 | 0 / 0.25 / 0.75 | 0.39 / 1.12 / 2.17 | 0 / 1 / 3 (62) |
+| winter | rookie | 0 | 0 / 0 / 0 | 1.45 / 3.26 / 5.14 | 0 / 0 / 0 (1) |
+| | veteran | 0 | 0 / 0 / 0 | 0.99 / 1.77 / 4.17 | 0 / 1 / 2.65 (8) |
+| | ace | 0.03 | 0 / 0 / 0.25 | 0.86 / 1.34 / 4.20 | 0 / 1 / 3 (30) |
+
+Winter is the hardest kit for the bots (veteran 0 of 80, ace 2 of 80) although the human bot measures it near its level. The desert is the easiest.
+
+### 9.6 Proposals (for the owner; nothing changed)
+
+The failure rate is already under 10 %: 2 of 600 sorties (0.3 %), all desert dead air. Nothing *has* to change to meet the plan's bar. Options for the dead air, smallest first:
+1. **Desert length:** cap `KITS.desert.len` at 80 instead of 82, or cap the middle so the boss ground is reached sooner. The failures and most stretches over 8 s are in 78 to 82 chunk sorties.
+2. **The boss ground:** the quiet comes after the level's last chunk, before the boss trigger (`bossAt`, 1 to 8 chunks past `len`). A shorter run-in for composed sorties, or one late air wave there, would remove it for every kit. This is a game change (phase 4 or later), not a composer change.
+3. **The limit:** 10 s is from the brief; the hand-made levels' 7 s comes from 24 flights. With 12 s the sweep has no failures. **[owner]**
+
+For decision 8 (not failures): the composed desert and forest sorties on Veteran are calmer than the hand-made levels (9.4). If the owner wants them to match, raise the `heat` of the desert and forest middles, or draw `fuelconvoy` / `cliffbattery` more often in the kit tables, and fly the sweep again. Section 3's draft rules, applied to the sweep, show why decision 8 matters (6.5, items 3 and 4):
+- "Too hard", hits above the level's max × 1.25: winter Veteran 99 of 200 (its level range is the single value 0.74), desert Rookie 9 of 40, desert Veteran 3.
+- "Too hard", worst window above the level's max × 1.2: winter Rookie 6 of 40.
+- "Too easy", hits below the level's min × 0.5: forest Veteran 149 of 200, desert Veteran 58.
+- "Too easy", kills per minute below the level's min × 0.5: none.
+Hits ranges from two flights per row are too narrow to judge by; kills per minute or the bullet measures would hold up better.
+
+Not run: phone viewport; dates beyond the 14 above; sub-seeds other than 0; `--bots` on dates (only on sweep seeds and in a 3-date smoke run); `tests/replay.mjs` and `tests/resume-exact.mjs` (as the brief says). No contact sheets for the two failing seeds, because `contact.mjs` takes dates, not seeds.
