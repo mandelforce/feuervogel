@@ -4005,7 +4005,26 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+// The city (level 6, docs/daily-sortie-plan.md section 12): the south harbour city from a segment list, as sandSea, ironForest and winterGorge take theirs. preset 'portSouth' with
+// params.segs [{ t, n }] (chunks of 64 px) works out the plan's parameters from the stretches, exactly as the game's sortiePlanHarbour does for the Campaign's level 6 (the
+// density and damage curves from each template's own urbanisation and damage, the station and the works as shares of the length, the coast ending after the sea and running along
+// the harbour), so a plan from a segment list and one from those parameters are the same plan. Without params.segs nothing here is touched (every Campaign plan, and every other preset).
+const CITY_UD = { harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8] }; // [urbanisation, damage] per template; null: as the stretch before
+const HARBOUR6_COAST = { land: 0.56, pier: [30, 50], sideChannel: 62 }; // the first loop's harbour: the shore moved, longer piers, a wider side channel
+function cityFromSegs(o) {
+  const q = o && o.params; if (!q || !q.segs || o.preset !== 'portSouth') return o;
+  const CHp = q.chunk || 64, n = q.segs.reduce((a, g) => a + g.n, 0), L = n * CHp; let at = 0; const segs = q.segs.map(g => { const r = { t: g.t, start: at, n: g.n }; at += g.n; return r; });
+  const dens = [], dmg = []; let lastU = 0;
+  for (const g of segs) { const v = CITY_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
+  dens.unshift([0, dens[1] ? dens[1][1] : dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1] ? dmg[1][1] : dmg[0][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
+  const fr = t => { const g = segs.find(r => r.t === t); return g ? [g.start / n, (g.start + g.n) / n] : null; }, sea = segs.find(g => g.t === 'open_sea'), hb = segs.find(g => g.t === 'harbour_south'), st = fr('station_main'), ind = fr('industrial_power');
+  const d = { L, density: dens, damageCurve: dmg, damage: 1, power: !!ind, perimeter: CHp,
+    coast: Object.assign({}, PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: ((sea ? sea.n : 5) * CHp + 40) / L, side: [(hb ? hb.n : 14) * CHp * 0.55 / L, (hb ? hb.n : 14) * CHp * 0.7 / L] }, q.harbour6 ? HARBOUR6_COAST : null) };
+  if (st) { d.stationAt = [st[0], 1 - 170 / L]; d.stationRoom = 64; } if (ind) d.industryAt = ind;
+  const rest = Object.assign({}, q); delete rest.segs; delete rest.chunk; delete rest.harbour6;
+  return Object.assign({}, o, { params: Object.assign(d, rest) });
+}
+const CityGen = { VERSION: 1, CITY_UD, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

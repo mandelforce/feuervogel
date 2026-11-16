@@ -432,6 +432,12 @@ node tests/bosslink.mjs
 
 ## Daily Sortie flavour probe (by hand, Node only)
 
+`citysegs.mjs` (Node only, about 10 seconds; `docs/daily-sortie-plan.md` section 12, step 5.1): the city from a segment list. preset `portSouth` with `params.segs` must give exactly the plan the game's `sortiePlanHarbour` gives the Campaign's level 6 from the same stretches: the generator's urbanisation and damage table equals the game's `SORTIE_UD`, golden hashes of the Campaign's level 6 plans (made before the step) are unchanged, a segment list equals the game's own parameters for the Campaign's list, reordered and longer lists and the first loop's harbour, and a list without the works, the station or the sea still builds. Run in CI with the city generator shards.
+
+```
+node tests/citysegs.mjs
+```
+
 `dials-probe.mjs` (`docs/ground-variety-plan.md`; results in its section 4): the ground dials of `tools/sortie-compose.js`. Part 1 generates composed sorties for each kit with each dial at its lowest and highest value on every segment that takes it and reports whether the plan changes, how many plans the plan checks flag, how many stretches pass their structures limit and the plan time; part 2 does the same for `--draws` sorties drawn as a date draws them. It measures; it never fails the build. The first version of it (a different question: which top-level generator parameters the builders honour) found that the forest honours none, which is why the builders read per-segment dials now.
 
 ```
