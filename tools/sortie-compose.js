@@ -102,6 +102,7 @@ const KITS = {
      is the Campaign's, behind its first loop); the Shadow Wing and the regular timetable. */
   city: { id: 'city', level: 6, preset: 'portSouth', params: {}, arena: 0, boss: { add: 5 }, climate: 'city', timeOfDay: 'dusk', len: [44, 60],
     opener: [['open_sea', 5], ['harbour_south', 14]], approach: [['station_main', 6]],
+    openers: [[['open_sea', 5], ['harbour_south', 14]], [['open_sea', 5], ['harbour_dock', 14]]], openerShare: 0.35, // the harbour is the plain south harbour, or in 35 % of the days the dockyard (the side harbour's shipyard: slipways with hulls on them under gantries, the piers on the first half of the side)
     approaches: [[['station_main', 6]], [['rail_yard', 7]]], approachShare: 0.35, // the level ends in the main station, or in 35 % of the days in a marshalling yard (the rail city: tracks that run on into the arena, level 3's yard)
     gapBefore: { rail_yard: { city_centre: 14 } }, // (the yard narrows the strip for 640 px before it: with the city centre within about 800 px of it the market square was lost in 8 of 40 lists: at least 14 chunks between the centre and the yard)
     arenaTracks: { rail_yard: [55, 169] }, // the yard's two outer tracks (the generator's yard has them at x 55 and 169), painted on through the arena
@@ -114,9 +115,10 @@ const KITS = {
       industrial_power: { len: [7, 9], max: 1, heat: 0.8, built: 0.95 } }, // (a city is built up: the limits sit just above the highest shares measured on 300 lists, 54 % harbour, 65 % suburb, 85 % the rest; the works at least 7 chunks: a quarter of the estate is 220 to 400 px and must have its centre in the stretch)
     require: ['city_centre'], // (every city has its centre: the old town, ring and market square sit at the densest point, and without a centre they land in the harbour stretch, where on the left edge they can block the railway and so the station)
     beforeApproach: ['city_suburb', 'city_town', 'ruins', 'industrial_power'], // (not the city centre: its old town ring takes the room the station needs, 22 of 200 lists lost their station)
-    fixedBuilt: { open_sea: 0.1, harbour_south: 0.7, station_main: 0.95, rail_yard: 0.95 },
+    fixedBuilt: { open_sea: 0.1, harbour_south: 0.7, harbour_dock: 0.7, station_main: 0.95, rail_yard: 0.95 },
     follows: {
       harbour_south: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
+      harbour_dock: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_suburb: ['city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_town: ['city_suburb', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_centre: ['city_suburb', 'city_town', 'city_river', 'ruins', 'industrial_power'],
@@ -137,7 +139,7 @@ function encPlanFor(kit, segs) {
   const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
   const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
-    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= kit.opener.length && k < segs.length - kit.approach.length;
+    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= (kit.openers ? kit.openers[0] : kit.opener).length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
       const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
       if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
@@ -150,7 +152,7 @@ function encPlanFor(kit, segs) {
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
-  const segs = S.segs || [], O = kit.opener, A = (kit.approaches || [kit.approach]).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
+  const segs = S.segs || [], O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   if (S.len !== at) bad.push('len ' + S.len + ', segments ' + at);
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
@@ -184,9 +186,9 @@ function check(kitId, S) {
 }
 
 // One try at a middle: a seeded walk over the grammar, then the lengths fitted to the target. Returns [[t, n], ...] or null.
-function walk(kit, target, r, ap) {
-  ap = ap || kit.approach;
-  const T = Object.keys(kit.middle), seq = [], count = {}; let sum = 0, prev = kit.opener[kit.opener.length - 1][0];
+function walk(kit, target, r, ap, op) {
+  ap = ap || kit.approach; op = op || kit.opener;
+  const T = Object.keys(kit.middle), seq = [], count = {}; let sum = 0, prev = op[op.length - 1][0];
   for (;;) {
     const heat = seq.slice(-2).map(q => kit.middle[q[0]].heat), hot2 = heat.length === 2 && heat[0] >= 0.6 && heat[1] >= 0.6, quiet1 = heat.length > 0 && heat[heat.length - 1] < 0.4;
     const cand = T.filter(t => t !== prev && kit.follows[prev].includes(t) && (count[t] || 0) < kit.middle[t].max && sum + kit.middle[t].len[0] <= target); if (!cand.length) break;
@@ -225,7 +227,7 @@ const DIALS = {
 /* the city's dials (read by CityGen's cityFromSegs): whole level, the harbour's side channel and shore (ranges from tests: a narrower channel blocks the ship lanes; the shore's position did in every invalid draw, so it is no dial), the old town's size, parks, trees, vacant lots; per stretch, its urbanisation (an offset) and its damage (a factor), and for a river stretch its width, its wobble, an island or not and a harbour district on its bank */
 const CITY_DMG = { damage: [0.4, 1.6] }, U = r => Object.assign({ urban: r }, CITY_DMG); /* (urban: an offset of the stretch's urbanisation; per stretch such that no stretch but the city centre (1.0) can reach 0.93, so the centre stays the densest point, where the old town and the market square go) */
 DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1, 1.25], trees: [0.4, 1.8], parkSpacing: [400, 1000], lotChance: [0.02, 0.15] },
-  seg: { harbour_south: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
+  seg: { harbour_south: U([-0.2, 0.05]), harbour_dock: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
     city_river: Object.assign({}, U([-0.2, 0.1]), { riverW: [20, 36], riverAmp: [4, 10], riverIsland: [0, 1], riverPort: [0, 1] }) },
   int: ['riverIsland', 'riverPort'], strong: ['damage', 'urban', 'oldTownK', 'sideChannel', 'riverW'] };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
@@ -252,11 +254,11 @@ const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, w
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
-  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */, fixed = kit.opener.concat(ap).reduce((a, q) => a + q[1], 0);
+  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */, op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
-    const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap); if (!mid) continue;
-    const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
+    const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
+    const segs = []; let at = 0; for (const [t, len] of op.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, segs, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
     const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,

@@ -1381,7 +1381,7 @@ function generate(opts) {
       if (!corner && !open) fillR(X(-40), X(PL - 2), yOpen - 2, yOpen + 2, K.QUAY, -11, [K.SEA, K.BEACH]); // the far arm covers the pier heads only: the channel stays open
       for (let y = Math.min(yClosed, yHead) + 3; y <= Math.max(yClosed, corner ? yHead : yOpen - 3); y++) for (let x = 0; x < W; x++) { const d = cs * (x - qx); if (d >= 0 && (open || d < moleD) && Kr[idx(x, y)] === K.SEA) Br[idx(x, y)] = -10; }
       if (!corner && !open) { roundBuilding(X(moleD + mw / 2), yHead, 3.2, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(X(PL - 3), yOpen, 2.8, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false }); port.mole = [{ x: Math.round(X(moleD + 2)), y: yHead - 12 }, { x: Math.round(X(PL - 12)), y: yOpen }]; }
-      let pStart = hy0 + 30, pEnd = corner ? hy1 - 30 : yHead - 34;
+      let pStart = hy0 + 30, pEnd = corner ? (P.coast.yard ? Math.round(hy0 + 30 + (hy1 - hy0 - 60) * 0.5) : hy1 - 30) : yHead - 34; /* (a dockyard in the corner form: the piers keep to the first half of the side, the rest is for the slipways) */
       if (!corner) { const x0 = Math.round(Math.min(X(-16), X(PL - 4))), w = Math.abs(Math.round(X(PL - 4)) - Math.round(X(-16))) + 1, it = bunker(x0, hy0 + 6, w, 47);
         for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = x0; x < x0 + it.w; x++) { const d = cs * (x - qx), k = Math.floor((y - it.y0 - 4) / 11), pen = d > PL - 14 && k >= 0 && k < 4 && (y - it.y0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
         pStart = hy0 + 80; }
@@ -1396,7 +1396,7 @@ function generate(opts) {
       port.piers += piers.length;
       const lxa = Math.round(sideLaneX - 15), lxb = Math.round(sideLaneX + 15) - 1;
       if (!P.coast.openSide) plan.ships.push({ kind: 'coaster', ori: 'v', bow: corner ? hd : 1, x0: cs > 0 ? lxb + 1 : lxa - 9, y0: Math.round(lerp(hy0 + 60, hy1 - 60, rnd(T.SEA, 12))), w: 9, h: 30 }); // a coaster passing along the breakwater, leaving the fairway clear
-      if (!corner) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yHead - 4), n = Math.min(3, Math.floor((yOpen - 8 - ys0) / 16));
+      if (!corner || P.coast.yard) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yHead - 4), n = Math.min(3, Math.floor((yOpen - 8 - ys0) / 16));
         for (let q = 0; q < n; q++) { const y0 = ys0 + q * 16; fillR(X(-12), X(PL - 4), y0, y0 + 10, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'h', bow: cs, x0: Math.round(Math.min(X(-6), X(PL - 6))), y0: y0 + 1, w: PL - 2, h: 9 }); }
         if (n) for (const d of [4, PL - 10]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
       for (let y = hy0 + 60; y < hy1 - 6; y += 22) plan.cranes.push({ x: Math.round(X(-3)), y, dx: cs, dy: 0.25 });
@@ -4535,7 +4535,7 @@ function edgeNests(plan, bands, max = bands.length) {
 // params.segs [{ t, n }] (chunks of 64 px) works out the plan's parameters from the stretches, exactly as the game's sortiePlanHarbour does for the Campaign's level 6 (the
 // density and damage curves from each template's own urbanisation and damage, the station and the works as shares of the length, the coast ending after the sea and running along
 // the harbour), so a plan from a segment list and one from those parameters are the same plan. Without params.segs nothing here is touched (every Campaign plan, and every other preset).
-const CITY_UD = { harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
+const CITY_UD = { harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
 const CITY_DIALS = { urban: [-0.25, 0.25, 0], damage: [0.3, 1.7, 0], riverW: [18, 40, 0], riverAmp: [3, 12, 0], riverIsland: [0, 1, 1], riverPort: [0, 1, 1] }; // a city stretch's own dials, read by cityFromSegs (a river stretch: its width, its wobble, an island or not, a harbour district on its bank)
 const HARBOUR6_COAST = { land: 0.56, pier: [30, 50], sideChannel: 62 }; // the first loop's harbour: the shore moved, longer piers, a wider side channel
 function cityFromSegs(o) {
@@ -4544,7 +4544,7 @@ function cityFromSegs(o) {
   const dens = [], dmg = []; let lastU = 0; const dl = groundDials; /* a stretch's own dials (p): urban, an offset of its urbanisation; damage, a factor on its damage; both left out, nothing changes */
   for (const g of segs) { const v = CITY_UD[g.t] || [lastU, 0], pd = dl(g.p, CITY_DIALS), u0 = v[0] === null ? lastU : v[0], u = pd.urban ? Math.min(1, Math.max(0, u0 + pd.urban)) : u0; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6 * (pd.damage !== undefined ? pd.damage : 1)]); }
   dens.unshift([0, dens[1] ? dens[1][1] : dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1] ? dmg[1][1] : dmg[0][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
-  const fr = t => { const g = segs.find(r => r.t === t); return g ? [g.start / n, (g.start + g.n) / n] : null; }, sea = segs.find(g => g.t === 'open_sea'), hb = segs.find(g => g.t === 'harbour_south'), st = fr('station_main'), ind = fr('industrial_power');
+  const fr = t => { const g = segs.find(r => r.t === t); return g ? [g.start / n, (g.start + g.n) / n] : null; }, sea = segs.find(g => g.t === 'open_sea'), hb = segs.find(g => g.t === 'harbour_south' || g.t === 'harbour_dock'), st = fr('station_main'), ind = fr('industrial_power');
   const d = { L, density: dens, damageCurve: dmg, damage: 1, power: !!ind, perimeter: CHp,
     coast: Object.assign({}, PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: ((sea ? sea.n : 5) * CHp + 40) / L, side: [(hb ? hb.n : 14) * CHp * 0.55 / L, (hb ? hb.n : 14) * CHp * 0.7 / L] }, q.harbour6 ? HARBOUR6_COAST : null) };
   /* the river city (a city_river stretch: a river across the city at its middle, with its bridges; the first may have an island, a second river has none; riverPort: a harbour district on the bank) */
@@ -4552,12 +4552,13 @@ function cityFromSegs(o) {
   if (rv.length) { const mkR = (g, k) => { const pd = dl(g.p, CITY_DIALS); return { at: (g.start + g.n / 2) / n, width: pd.riverW || 28, amp: pd.riverAmp || 6, island: k === 0 && pd.riverIsland !== 0 && !fr('rail_yard') /* (with a rail yard an island river lost a bridge in 8 of 60 lists, and an island needs two) */, rx: k === 0 ? 42 : 0, ry: k === 0 ? 16 : 0, channel: k === 0 ? 11 : 0 }; };
     if (rv.length === 1) d.river = mkR(rv[0], 0); else d.rivers = rv.slice(0, 2).map(mkR); if (rv.some(g => dl(g.p, CITY_DIALS).riverPort)) d.harbour = true; }
   /* the harbour's and the old town's own dials (whole level): the side channel's width, the shore's waviness, the old town's size (probed: the channel is safe from 41, 30 to 36 block the ship lanes; the old town from 1; the pier length is capped by the sea's width and does nothing, and the shore's position (coast.land) blocked the ship lanes in every invalid draw even in a narrow range: no dials for those two) */
+  if (q.dockyard || segs.some(g => g.t === 'harbour_dock')) d.coast.yard = true; /* the dockyard: the side harbour's shipyard (slipways with hulls on them under gantries) in the corner form too */
   if (q.sideChannel) d.coast.sideChannel = Math.min(70, Math.max(28, q.sideChannel)); if (q.shoreAmp) d.coast.amp = Math.min(16, Math.max(3, q.shoreAmp));
   if (q.oldTownK) { const k = Math.min(1.3, Math.max(0.75, q.oldTownK)), ot = PRESETS.portSouth.oldTown; d.oldTown = Object.assign({}, ot, { rx: ot.rx.map(v => Math.round(v * k)), ry: ot.ry.map(v => Math.round(v * k)) }); }
   /* the rail city: a rail_yard stretch is a marshalling yard to the end of the plan (as level 3's), its tracks running on into the arena; it takes the place of the main station */
   const ry = fr('rail_yard'); if (ry) d.yard = { at: [ry[0], 1] };
   if (st) { d.stationAt = [st[0], 1 - 170 / L]; d.stationRoom = 64; } if (ind) d.industryAt = ind; else d.industry = 0; /* (no works stretch in the list: no scattered industrial quarters either, they would be works in a stretch that names none) */
-  const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
+  const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'dockyard', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
   return Object.assign({}, o, { params: Object.assign(d, rest) });
 }
 const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
@@ -4670,6 +4671,7 @@ const KITS = {
      is the Campaign's, behind its first loop); the Shadow Wing and the regular timetable. */
   city: { id: 'city', level: 6, preset: 'portSouth', params: {}, arena: 0, boss: { add: 5 }, climate: 'city', timeOfDay: 'dusk', len: [44, 60],
     opener: [['open_sea', 5], ['harbour_south', 14]], approach: [['station_main', 6]],
+    openers: [[['open_sea', 5], ['harbour_south', 14]], [['open_sea', 5], ['harbour_dock', 14]]], openerShare: 0.35, // the harbour is the plain south harbour, or in 35 % of the days the dockyard (the side harbour's shipyard: slipways with hulls on them under gantries, the piers on the first half of the side)
     approaches: [[['station_main', 6]], [['rail_yard', 7]]], approachShare: 0.35, // the level ends in the main station, or in 35 % of the days in a marshalling yard (the rail city: tracks that run on into the arena, level 3's yard)
     gapBefore: { rail_yard: { city_centre: 14 } }, // (the yard narrows the strip for 640 px before it: with the city centre within about 800 px of it the market square was lost in 8 of 40 lists: at least 14 chunks between the centre and the yard)
     arenaTracks: { rail_yard: [55, 169] }, // the yard's two outer tracks (the generator's yard has them at x 55 and 169), painted on through the arena
@@ -4682,9 +4684,10 @@ const KITS = {
       industrial_power: { len: [7, 9], max: 1, heat: 0.8, built: 0.95 } }, // (a city is built up: the limits sit just above the highest shares measured on 300 lists, 54 % harbour, 65 % suburb, 85 % the rest; the works at least 7 chunks: a quarter of the estate is 220 to 400 px and must have its centre in the stretch)
     require: ['city_centre'], // (every city has its centre: the old town, ring and market square sit at the densest point, and without a centre they land in the harbour stretch, where on the left edge they can block the railway and so the station)
     beforeApproach: ['city_suburb', 'city_town', 'ruins', 'industrial_power'], // (not the city centre: its old town ring takes the room the station needs, 22 of 200 lists lost their station)
-    fixedBuilt: { open_sea: 0.1, harbour_south: 0.7, station_main: 0.95, rail_yard: 0.95 },
+    fixedBuilt: { open_sea: 0.1, harbour_south: 0.7, harbour_dock: 0.7, station_main: 0.95, rail_yard: 0.95 },
     follows: {
       harbour_south: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
+      harbour_dock: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_suburb: ['city_town', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_town: ['city_suburb', 'city_centre', 'city_river', 'ruins', 'industrial_power'],
       city_centre: ['city_suburb', 'city_town', 'city_river', 'ruins', 'industrial_power'],
@@ -4705,7 +4708,7 @@ function encPlanFor(kit, segs) {
   const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
   const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
-    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= kit.opener.length && k < segs.length - kit.approach.length;
+    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= (kit.openers ? kit.openers[0] : kit.opener).length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
       const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
       if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
@@ -4718,7 +4721,7 @@ function encPlanFor(kit, segs) {
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
-  const segs = S.segs || [], O = kit.opener, A = (kit.approaches || [kit.approach]).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
+  const segs = S.segs || [], O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   if (S.len !== at) bad.push('len ' + S.len + ', segments ' + at);
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
@@ -4752,9 +4755,9 @@ function check(kitId, S) {
 }
 
 // One try at a middle: a seeded walk over the grammar, then the lengths fitted to the target. Returns [[t, n], ...] or null.
-function walk(kit, target, r, ap) {
-  ap = ap || kit.approach;
-  const T = Object.keys(kit.middle), seq = [], count = {}; let sum = 0, prev = kit.opener[kit.opener.length - 1][0];
+function walk(kit, target, r, ap, op) {
+  ap = ap || kit.approach; op = op || kit.opener;
+  const T = Object.keys(kit.middle), seq = [], count = {}; let sum = 0, prev = op[op.length - 1][0];
   for (;;) {
     const heat = seq.slice(-2).map(q => kit.middle[q[0]].heat), hot2 = heat.length === 2 && heat[0] >= 0.6 && heat[1] >= 0.6, quiet1 = heat.length > 0 && heat[heat.length - 1] < 0.4;
     const cand = T.filter(t => t !== prev && kit.follows[prev].includes(t) && (count[t] || 0) < kit.middle[t].max && sum + kit.middle[t].len[0] <= target); if (!cand.length) break;
@@ -4793,7 +4796,7 @@ const DIALS = {
 /* the city's dials (read by CityGen's cityFromSegs): whole level, the harbour's side channel and shore (ranges from tests: a narrower channel blocks the ship lanes; the shore's position did in every invalid draw, so it is no dial), the old town's size, parks, trees, vacant lots; per stretch, its urbanisation (an offset) and its damage (a factor), and for a river stretch its width, its wobble, an island or not and a harbour district on its bank */
 const CITY_DMG = { damage: [0.4, 1.6] }, U = r => Object.assign({ urban: r }, CITY_DMG); /* (urban: an offset of the stretch's urbanisation; per stretch such that no stretch but the city centre (1.0) can reach 0.93, so the centre stays the densest point, where the old town and the market square go) */
 DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1, 1.25], trees: [0.4, 1.8], parkSpacing: [400, 1000], lotChance: [0.02, 0.15] },
-  seg: { harbour_south: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
+  seg: { harbour_south: U([-0.2, 0.05]), harbour_dock: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
     city_river: Object.assign({}, U([-0.2, 0.1]), { riverW: [20, 36], riverAmp: [4, 10], riverIsland: [0, 1], riverPort: [0, 1] }) },
   int: ['riverIsland', 'riverPort'], strong: ['damage', 'urban', 'oldTownK', 'sideChannel', 'riverW'] };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
@@ -4820,11 +4823,11 @@ const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, w
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
-  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */, fixed = kit.opener.concat(ap).reduce((a, q) => a + q[1], 0);
+  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed, ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */, op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
-    const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap); if (!mid) continue;
-    const segs = []; let at = 0; for (const [t, len] of kit.opener.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
+    const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
+    const segs = []; let at = 0; for (const [t, len] of op.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, segs, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
     const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
@@ -8024,7 +8027,7 @@ function infoRails(b, th, river, rw, island, lake, q) {
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
 }
 // Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
-const SORTIE_BIOME = { open_sea_ice: 'sea', harbour_winter: 'city', farmland_winter: 'country', lake_valley: 'country', station_winter: 'country', airbase_snow: 'country', beach_cliff: 'fortline', forest_conifer: 'forest', forest_fortified: 'fortline', clearing_village: 'forest', airbase_forest_hidden: 'forest', farmland_approach: 'country', city_small: 'city', airbase_searchlight: 'base', industrial_light: 'factory', rail_corridor: 'country', station_marshalling: 'factory', harbour_commercial: 'city', beach_town: 'city', valley: 'country', village: 'country', station_junction: 'factory', desert_open: 'country', airbase_desert: 'base', pass: 'fortline', carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory', rail_yard: 'factory' };
+const SORTIE_BIOME = { open_sea_ice: 'sea', harbour_winter: 'city', farmland_winter: 'country', lake_valley: 'country', station_winter: 'country', airbase_snow: 'country', beach_cliff: 'fortline', forest_conifer: 'forest', forest_fortified: 'fortline', clearing_village: 'forest', airbase_forest_hidden: 'forest', farmland_approach: 'country', city_small: 'city', airbase_searchlight: 'base', industrial_light: 'factory', rail_corridor: 'country', station_marshalling: 'factory', harbour_commercial: 'city', beach_town: 'city', valley: 'country', village: 'country', station_junction: 'factory', desert_open: 'country', airbase_desert: 'base', pass: 'fortline', carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', harbour_dock: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory', rail_yard: 'factory' };
 function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
 // Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
 // open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
@@ -10965,7 +10968,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
-const SORTIE_UD = { harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
+const SORTIE_UD = { harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
 function sortieUD(segs, len) {
   const pts = []; let lastU = 0;
   for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }
