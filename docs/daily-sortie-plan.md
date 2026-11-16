@@ -859,3 +859,36 @@ At the end of a Daily Sortie the player gets the usual level overview (the resul
 **Checked.** `tests/daily.mjs` 220 checks (new: section 8, the draw in Node; each twist on and off in the game; a Campaign level afterwards without the twist; fast and nova resumed exactly), `compose.mjs` (38), `worker.test.mjs` (22), `smoke.mjs`. A resume check saved too early differed because the bot's own state is not in the snapshot; the check saves from frame 4200, as section 3 does. **Not run:** `replay.mjs`, `resume-exact.mjs` (told not to), the other test files.
 
 **Questions for the owner.** (1) Is Night run too dark or too light on the desert; should the dark be per kit? (2) Fog: one shared haze (as built) or the Campaign's overcast and squall on forest and winter? (3) Lightning with Night run: keep? (4) Nova storm's dead air is close to the 12 s limit: accept? (5) Skill bots on twists (the harder ones: Elite, Nova): fly them before release? (6) A kit meets Fast scroll once in 21 days; the rotation is fixed, so the order is learnable: acceptable? (7) Apply the two `ALTER TABLE` lines when deploying the worker.
+
+## 12. Phase 5: the temperate (level 1) and city (level 6) kits. Evidence and proposal (2026-11-16; nothing built, the Campaign untouched)
+
+**Owner's brief (2026-11-16).** Bring the level 1 and level 6 structures into the Daily Sortie with as much diversity as possible: two new kits **plus shared pieces** (their structures also appear in the desert, forest and winter kits); the **boss varies** (some maps the typical boss, others a variation of it or another, never always the same ending on a ground type: "the daily runs are all about surprises"); all four levers (varied sequences, ground dials, **new generator structures**, **generator-made ground for the old chunks**); encounters are reused **plus new variants**. The Campaign stays exactly as it is.
+
+### 12.1 What the code does today (read, not run)
+
+| | Level 6 (`city`) | Level 1 (`one`, `isles`, `seq`) |
+|---|---|---|
+| Segments (`ENIGMA_SEQ`) | `open_sea` 5, `harbour_south` 14, `city_centre` 8, `city_town` 7, `industrial_power` 6, `ruins` 5, `station_main` 6 (51 chunks) | `carrier_start` 4, `open_sea` 6, `island_chain` 6, `island_airbase` 9, `open_sea` 3, `beach_fortified` 3, `farmland` 8, `village` 4, `forest_deciduous` 4, `farmland` 10, `coast_down` 1, `open_sea` 4 (62) |
+| Ground | the whole level is one `portSouth` plan | one `islands` plan from chunk 0 to the start of `beach_fortified` (28 chunks); from there the **older chunk ground** (`S.seq`), with its own rivers in the farmland |
+| How segments reach the generator | not at all: the game's `sortiePlanHarbour` turns the segment *fractions* into plan parameters (density and damage curves from `SORTIE_UD[template]`, `stationAt`, `industryAt`, a `coast` that ends after the sea segment and runs along the harbour segment) | the game's `sortiePlanIslands` turns fractions into `{ L, chain, big }` for the preset |
+| Boss | the sky fortress (`BOSS_KINDS[5]`), trigger `bossAt = len + 5` | the ship (`BOSS_KINDS[0]`), trigger one chunk into the last segment (the final sea) |
+| Level-specific hooks in the game | `SORTIE_UD`, Drilling pits (`DRILL_PITS[6]`), the loop's `haze` look, harbour raid and sky lance (loop only) | the carrier start, one submarine at a fixed place, dug-in heavy tanks on the islands (`planDrills`), `seaOK`/`roadOK` for island placement, `DRILL_PITS[1]` |
+
+- **Neither builder is segment-native** the way `sandSea`, `ironForest` and `winterGorge` are: the composer cannot hand them a segment list. The generator needs the same step those three took (read `P.segs`, derive the fractions itself), with the Campaign's own lists giving byte-identical plans.
+- **The boss is picked by the theme**: `kind = BOSS_KINDS[world.curTheme]`, and the theme is the level's (palette, sky, boss, arena in one). Varying the boss means a `bossKind` override, and each boss has ground it needs: the ship needs open sea at the end, the sand fortress the desert's boss ground, the castle its castle ground, the train and the railgun a yard, the sky fortress the airfield. So "any boss anywhere" is a matrix of arenas, not a switch. The Campaign's loops already vary two bosses (level 3's rocket launcher, level 6's twin lance and sky lance, both behind `run.sortie.moon` / `.haze`); nothing varies the others.
+- **Old chunk ground in these two levels** (the farmland with rivers, the deciduous forest, the village, `coast_down`, the fortified beach, the city tail) has no generator equivalent for the farmland and the deciduous forest (the generator's forest builder is conifer, with an `autumn` broadleaf option); the fortified beach has `PRESETS.beach`; the city's districts are `town`, `industrial` and `portSouth` features; the village has `PRESETS.village` with farms.
+- Shared pieces need a climate: the desert's harbour is `portDesert`, the winter's `portWinter`, and the sea, the sky and the palette are per climate, so a shared island chain or harbour is the same structure re-tinted, not a copy.
+
+### 12.2 Proposal: build order, each ending at a stop point (owner reads the report)
+
+1. **5.1 Generator: segment-native `portSouth` (city), then `islands`.** `P.segs` on both, the fractions derived inside, per-template defaults kept, the Campaign's lists giving identical plans (hash against the previous generator, as for the dials; `tests/citygen.mjs` goldens; `replay.mjs`, `enigma.mjs`, `fixed-seed.mjs` green with no `--update`). City first: it is already one whole plan.
+2. **5.2 The `city` kit in the composer**, with the game wiring (`S.compose.gen` for level 6, the tables for the new template names, `SORTIE_BIOME`, Drilling pits), gate 1 and 2, the flight gate. Rotation becomes five kits when both are in (composer v5: every date's kit changes).
+3. **5.3 Generator-made ground for the old chunks** (farmland with rivers and field patterns, a deciduous wood, the village, the fortified beach, `coast_down`), then **5.4 the `temperate` kit**.
+4. **5.5 Shared pieces:** harbours, island chains and city districts as stretches in the other kits, re-tinted per climate; the kits' `follows` tables and the plan checks learn them.
+5. **5.6 Boss variation:** a `bossKind` override, a per-boss arena rule, variants of the existing bosses (the loops' two as the precedent), a draw per date; the flight gate flies every boss on every ground it may meet.
+6. **5.7 Encounter variants:** the loops' scripted encounters reused where they work on composed ground, new variants for the new kits.
+7. **5.8 New generator structures** where the first kits show the gaps (candidates in the questions below).
+
+### 12.3 Not checked yet (to be settled in 5.1)
+
+Which of level 1's and level 6's scripted encounters work off their own ground; how many of the 92 mentions of the carrier are the take-off scene (an opener) and how many the carrier boss scene; whether the sea, the sky and the palette code takes a climate other than the level's own for the island and harbour parts; the plan time of an `islands` plan on a longer list (the Campaign's is 28 chunks); how a sky-fortress or ship boss is told "no arena here" without crashing.
