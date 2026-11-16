@@ -892,3 +892,24 @@ At the end of a Daily Sortie the player gets the usual level overview (the resul
 ### 12.3 Not checked yet (to be settled in 5.1)
 
 Which of level 1's and level 6's scripted encounters work off their own ground; how many of the 92 mentions of the carrier are the take-off scene (an opener) and how many the carrier boss scene; whether the sea, the sky and the palette code takes a climate other than the level's own for the island and harbour parts; the plan time of an `islands` plan on a longer list (the Campaign's is 28 chunks); how a sky-fortress or ship boss is told "no arena here" without crashing.
+
+### 12.4 Decisions (owner, 2026-11-16)
+
+1. **Kits:** two new kits plus shared pieces. **Order:** city first, then temperate. **Levers:** varied sequences, ground dials, new generator structures, generator-made ground for the old chunks. **Encounters:** reuse plus new variants. **Campaign:** untouched.
+2. **Shared pieces:** both: harbours and island chains as openers or middle stretches in the other kits (re-tinted per climate), and city districts (town centre, works, station) as middles.
+3. **First new generator structures (all four):** a river city with bridges, a dockyard and shipyard, an archipelago with fortress islands, an old town with a rail city.
+4. **Boss variation: bosses follow the ground they can fight on, not the level.** In the owner's words, as a compatibility table to build the `bossKind` override and arena rule around:
+
+| Boss (today's level) | Where it may come | Variations named |
+|---|---|---|
+| Ship (level 1) | any level with water: the ocean part of any kit, with or without a harbour | at the end of any kit that has sea |
+| Sand fortress (level 2) | any level with non-city, non-water, non-mountain ground | any open ground |
+| Castle (level 4) | any kit, as a desert castle, a winter castle or a level 1 castle | per-climate castle versions |
+| Train (level 5) | any ground with train tracks (the tracks must fit) | one train instead of the two, slightly bigger, still on one track |
+| Railgun (level 3, "the moss" in the owner's words, read as the Night Hammer: confirm) | the end of other levels | more hit points and a different, stronger blinding attack |
+| Raven (the prototype) | even mid-level, in place of a Shadow Wing | |
+| Shadow Wing | one or two of them as a level-end boss | |
+| Sky fortress (level 6) | any level, since it flies | a smaller version |
+
+   The owner's estimate: "not a lot of extra work if done smart". The design consequence is a **boss table keyed by the ground the boss needs** (open water, open land, tracks, castle ground, air) rather than by theme, so a kit's end ground decides which bosses the date may draw, and the plan checks and the flight gate fly every boss on every ground it may meet.
+5. **Still to confirm with the owner:** "the moss" (read as the level 3 Night Hammer railgun, the one with the rocket launcher variant); whether Raven and a lone Shadow Wing as a mid-level or end fight are their own encounters (they exist today as the Wing's pattern and a prototype duel).
