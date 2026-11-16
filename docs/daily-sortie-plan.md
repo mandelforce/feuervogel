@@ -969,3 +969,22 @@ The composer places about 2.8 encounters per city sortie (each takes about 7 chu
 **Checked.** Flight gate on 24 city sorties on all three difficulties: all pass; every one of the seven encounters ran and ended `done` in the flights (harbour raid 18, dockyard raid 12, city flak 17, bridge strike 3, works strike 10, station breakout 16, yard breakout 14 flights); `tests/daily.mjs` 299; vetting of the 14 dates 14 of 14; Campaign guards unchanged.
 
 **Not done.** The new encounters are timelines of existing verbs, so they play like their patterns with other numbers and order; nothing is new in what a verb does. Nobody has played them. The bridge strike is rare; a longer river stretch would give it room.
+
+### 12.9 Boss variation, first step: the framework and the city's four forms (build 1.2.6.49, composer v5)
+
+**What is built.** The game's boss is no longer only the theme's. `run.sortie.bossVar = { kind, variant, lance, hpK }` (from the composer; absent for the Campaign and for kits without it) is read in two places: `spawnBoss` (the kind, and `hpK` as a factor on the hit points) and `bossLance()`, which the three boss sites that used to test the loop's `haze` flag now ask (the sky lance's AI, the folded pods under the wing tips, their drawing); `haze` itself still means the loop's look and harbour as before. In the composer a kit may have `bosses` (a list of forms with weights); `bossFor(kit, base)` draws one on its own hash stream (6600) and gate 1 checks it is one of the kit's (`S.bossVar`; `S.boss` stays the trigger rule `{ add }` or `{ yard }`). The Campaign's level 6 boss is untouched (checked: same fortress, no pods, the same hit points as the plain form).
+
+**The city's four forms** (all the sky fortress, which flies over any ground):
+
+| Form | Weight | What it is | Bot's fight (Rookie / Veteran / Ace, median seconds) |
+|---|---|---|---|
+| plain | 3 | as in the first pass | 94 / 144 / 130 |
+| lance | 3 | the first loop's twin lance pods and sky lance (existing code, behind the loop's last act) | 150 / 147 / 209 |
+| heavy | 2 | the lance form with 15 % more hit points | 156 / 155 / 173 |
+| light | 2 | 35 % fewer hit points, no pods | 57 / 62 / 87 |
+
+The first heavy was 40 % more and took up to 5.5 minutes on Ace for a bot that never dies; with the pods already adding a minute it is now 15 %. The two lance forms are close in length: heavy is, so far, a lance fight with a little more to shoot.
+
+**Checked.** `tests/daily.mjs` 306 (new section 11, 7 checks: each form is recorded and spawns a sky fortress without errors, pods 0 / 2 / 2 / 0, hit points x1 / x1.15 / x0.65 against the plain form, the Campaign's level 6 boss unchanged); flight gate on 24 city sorties on all three difficulties (72 flights; 9 plain, 6 lance, 5 light, 4 heavy): all pass; `tests/compose.mjs` 65; Campaign guards unchanged (`tests/citysegs.mjs`, `tests/enigma.mjs`, `tests/fixed-seed.mjs`, `tests/replay.mjs`, `tests/smoke.mjs`).
+
+**What this is not.** These are one boss in four tunings, two of them (lance, heavy) a fight that already existed in the Campaign's loop; none is a new behaviour, and the owner's list (12.4) goes much further: the ship boss on any water, the sand fortress on any open ground, the castle in per-climate versions, the train on any track (now possible on the yard ending, whose tracks reach the arena), the Moth with a stronger blinding attack, the Raven mid-level, the Shadow Wing as a boss. Each of those needs its own arena rule and ground check; the framework above (a `bossVar` per kit, a draw on its own stream, a spawn that reads it, the flight gate flying every form) is what they plug into. Not done for the city: the other bosses on its grounds (the ship on the harbour water, the train on the yard's tracks).

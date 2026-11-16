@@ -4694,6 +4694,8 @@ const KITS = {
       city_river: ['city_suburb', 'city_town', 'city_centre', 'ruins', 'industrial_power'],
       ruins: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'industrial_power'],
       industrial_power: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins'] },
+    /* the boss (plan 12.9): the sky fortress, in one of four forms by the date: as in the first pass; with the first loop's twin lance pods (the loop's last act); the lance form with 15 % more hit points (the pods already add a minute: heavy at 40 % took up to 5.5 minutes on Ace); a light one with 35 % fewer. The game reads run.sortie.bossVar { kind, variant, lance, hpK } (S.boss is the trigger rule, { add } or { yard }). */
+    bosses: [{ id: 'plain', w: 3, kind: 'skyfort' }, { id: 'lance', w: 3, kind: 'skyfort', lance: true }, { id: 'heavy', w: 2, kind: 'skyfort', lance: true, hpK: 1.15 }, { id: 'light', w: 2, kind: 'skyfort', hpK: 0.65 }],
     /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
     enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
       city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
@@ -4737,6 +4739,7 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   if (mid.length && kit.beforeApproach && !kit.beforeApproach.includes(mid[mid.length - 1].t)) bad.push(mid[mid.length - 1].t + ' may not come directly before the approach');
   for (const t of kit.require || []) if (!mid.some(g => g.t === t)) bad.push('the kit requires ' + t);
+  if (kit.bosses && !(S.bossVar && kit.bosses.some(b => b.id === S.bossVar.variant && b.kind === S.bossVar.kind && !!b.lance === !!S.bossVar.lance && (b.hpK || 1) === (S.bossVar.hpK || 1)))) bad.push('the boss is none of the kit\'s: ' + JSON.stringify(S.bossVar || null));
   for (const [t, need] of Object.entries((kit.gapBefore || {})[A[0][0]] || {})) { const i = mid.map(g => g.t).lastIndexOf(t); if (i >= 0) { const gap = mid.slice(i + 1).reduce((a, g) => a + g.n, 0); if (gap < need) bad.push('only ' + gap + ' chunks between ' + t + ' and ' + A[0][0] + ', at least ' + need); } }
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
@@ -4804,6 +4807,11 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
+/* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
+function bossFor(kit, base) {
+  if (!kit.bosses) return null; const tot = kit.bosses.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = kit.bosses[kit.bosses.length - 1]; for (const q of kit.bosses) { x -= q.w; if (x < 0) { b = q; break; } }
+  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; return o;
+}
 function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
   if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
@@ -4834,6 +4842,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
     const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
+    const bs = bossFor(kit, base); if (bs) S.bossVar = bs;
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
     if (!check(kitId, S).length) return S;
   }
@@ -4865,7 +4874,7 @@ function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitI
   const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -10966,7 +10975,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     // isles: level 1, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
     gen: city ? 6 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : level === 5 ? 5 : 0, seq: one, isles: one, // levels 2 and 3: their own ground too (spec 18, 16.z)
     bossAt: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, arcLen: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, // level 3: the supergun 3 chunks into its arena, as in the Campaign
-    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
+    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), ...(C && C.bossVar ? { bossVar: C.bossVar } : null), name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
@@ -13843,12 +13852,14 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
   { k: 'aa', ox: -56, oy: -4, hp: 32 }, { k: 'aa', ox: 56, oy: -4, hp: 32 }, { k: 'aa', ox: -88, oy: 0, hp: 32 }, { k: 'aa', ox: 88, oy: 0, hp: 32 },
   { k: 'bay', ox: 0, oy: 40, hp: 90, hw: 12, hh: 8 }, { k: 'core', ox: 0, oy: 54, hp: 420, hw: 9, hh: 7 }] };
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
+/* A composed sortie's boss (docs/daily-sortie-plan.md 12.9): run.sortie.bossVar = { kind, variant, lance, hpK } from the composer. Without it the boss is the theme's, as always. bossLance: the sky fortress's twin lance pods and sky lance, the first loop of level 6's last act (run.sortie.haze) or a composed sortie's lance variant; hpK: a factor on the boss's hit points. */
+const bossLance = () => { const S = run.sortie; return !!S && (!!S.haze || !!(S.bossVar && S.bossVar.lance)); };
 function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
 function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   bossHit = false;
-  const m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff], kind = BOSS_KINDS[world.curTheme], def = BOSS[kind];
+  const SB = run.sortie && run.sortie.bossVar, m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff] * (SB && SB.hpK ? SB.hpK : 1), kind = (SB && SB.kind) || BOSS_KINDS[world.curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
     p.hp *= m;
@@ -15069,7 +15080,7 @@ const BOSSMOVE = {
     { const c = Math.cos(e.tilt), s = Math.sin(e.tilt); for (const p of e.parts) { p.ox = (p.box * c - p.boy * s) * e.sag; p.oy = (p.box * s + p.boy * c) * e.sag; } }
     e.x = 112 + Math.sin(e.mt * 0.006 * sp) * (20 + (4 - ea) * 4) + e.tilt * 70; e.y = 110 + BY + Math.sin(e.mt * 0.01 * sp) * 12;
     skyLaser(e, ea);
-    if (run.sortie && run.sortie.haze) skyLance(e, ea);
+    if (bossLance()) skyLance(e, ea);
     for (const p of e.parts) if (p.k === 'engine' && p.dead && gf % 3 === 0) { smokePuff(e.x + p.ox, e.y + p.oy - 10, 'a'); if (Math.random() < 0.4) world.parts.push({ kind: 'fire', layer: 'a', x: e.x + p.ox + rnd(-2, 2), y: e.y + p.oy - 6, vx: 0, vy: -0.3, r: rnd(2, 3.5), life: 14, max: 14 }); }
     return true;
   },
@@ -15382,7 +15393,7 @@ const BOSS_FIGHT = {
     setup(e, sc) {
       const off = secOff(), wyPad = Math.floor((-30 - sc - 225 + off) / SEC_P) * SEC_P + 225 - off; // the landing pad (pattern offset: secOff)
       Object.assign(e, { phase: 'parked', wx: 112, wy: wyPad, x: 112, y: wyPad + sc, scale: 0.72, untarget: true });
-      if (run.sortie && run.sortie.haze) { /* the first loop's level 6: two lance pods under the wing tips, folded away (off: not drawn, not hit) until the last act (skyLance); their health scales like the other parts' */
+      if (bossLance()) { /* the first loop's level 6, or a composed sortie's lance variant: two lance pods under the wing tips, folded away (off: not drawn, not hit) until the last act (skyLance); their health scales like the other parts' */
         const m = e.parts[0].maxhp / BOSS.skyfort.parts[0].hp; for (const sd of [-1, 1]) e.parts.push({ k: 'lance', ox: sd * LANCE.podX, oy: LANCE.podY, hp: LANCE.hp * m, maxhp: LANCE.hp * m, ang: PI / 2, cd: 999, hit: 0, dead: false, hw: LANCE.hw, hh: LANCE.hh, off: true }); }
     },
   },
@@ -18693,7 +18704,7 @@ const BOSS_LOOKS = {
       ctx.beginPath(); ctx.rect(sd < 0 ? -200 : 0, -200, 200, 400); ctx.clip(); ctx.translate(-e.x, -e.y); drawSkyBody(e, fl, core); ctx.restore();
     }
     drawSkyLaser(e);
-    if (run.sortie && run.sortie.haze) drawSkyLance(e);
+    if (bossLance()) drawSkyLance(e);
   },
   railgun(e, fl, core) {
     const NRL = run.sortie && run.sortie.moon && SPR.rgBaseL1; /* the first loop's level 3: the carriage with the rocket launcher behind it (the same coordinates for everything else) */

@@ -125,6 +125,8 @@ const KITS = {
       city_river: ['city_suburb', 'city_town', 'city_centre', 'ruins', 'industrial_power'],
       ruins: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'industrial_power'],
       industrial_power: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins'] },
+    /* the boss (plan 12.9): the sky fortress, in one of four forms by the date: as in the first pass; with the first loop's twin lance pods (the loop's last act); the lance form with 15 % more hit points (the pods already add a minute: heavy at 40 % took up to 5.5 minutes on Ace); a light one with 35 % fewer. The game reads run.sortie.bossVar { kind, variant, lance, hpK } (S.boss is the trigger rule, { add } or { yard }). */
+    bosses: [{ id: 'plain', w: 3, kind: 'skyfort' }, { id: 'lance', w: 3, kind: 'skyfort', lance: true }, { id: 'heavy', w: 2, kind: 'skyfort', lance: true, hpK: 1.15 }, { id: 'light', w: 2, kind: 'skyfort', hpK: 0.65 }],
     /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
     enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
       city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
@@ -168,6 +170,7 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   if (mid.length && kit.beforeApproach && !kit.beforeApproach.includes(mid[mid.length - 1].t)) bad.push(mid[mid.length - 1].t + ' may not come directly before the approach');
   for (const t of kit.require || []) if (!mid.some(g => g.t === t)) bad.push('the kit requires ' + t);
+  if (kit.bosses && !(S.bossVar && kit.bosses.some(b => b.id === S.bossVar.variant && b.kind === S.bossVar.kind && !!b.lance === !!S.bossVar.lance && (b.hpK || 1) === (S.bossVar.hpK || 1)))) bad.push('the boss is none of the kit\'s: ' + JSON.stringify(S.bossVar || null));
   for (const [t, need] of Object.entries((kit.gapBefore || {})[A[0][0]] || {})) { const i = mid.map(g => g.t).lastIndexOf(t); if (i >= 0) { const gap = mid.slice(i + 1).reduce((a, g) => a + g.n, 0); if (gap < need) bad.push('only ' + gap + ' chunks between ' + t + ' and ' + A[0][0] + ', at least ' + need); } }
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
@@ -235,6 +238,11 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
+/* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
+function bossFor(kit, base) {
+  if (!kit.bosses) return null; const tot = kit.bosses.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = kit.bosses[kit.bosses.length - 1]; for (const q of kit.bosses) { x -= q.w; if (x < 0) { b = q; break; } }
+  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; return o;
+}
 function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
   if (!all.length || hash(base, 6000) < DIAL_NONE) return none;
@@ -265,6 +273,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: segs.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = at * 64;
     const ep = encPlanFor(kit, segs), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
+    const bs = bossFor(kit, base); if (bs) S.bossVar = bs;
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
     if (!check(kitId, S).length) return S;
   }
@@ -296,7 +305,7 @@ function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitI
   const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

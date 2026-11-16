@@ -303,6 +303,16 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   await Q(`closeDiff(), openDaily(), 0`); const d2 = await J(`({ date: document.getElementById('dpDate').textContent, kit: document.getElementById('dpKit').textContent })`); ok(d2.date === today + ' (today)' && d2.kit === "Kit: day's own", `opened again, the picker starts from today's own level`);
   await page.close(); }
 
+// ---------- 11. the boss of a composed city (docs/daily-sortie-plan.md 12.9): a form drawn from the date; its lance pods and hit points are the form's; the Campaign's level 6 boss is untouched ----------
+{ const find = v => { for (let s = 0; s < 400; s++) { const C = SC.composeSortie('city', (SC.hash(s, 6161) * 4294967296) | 0, 0, 'plain', 'none', 'off', 'day'); if (C.bossVar.variant === v) return C.base; } return null; };
+  const BQ = (seed, camp) => `(() => { SF.setMode('immortal'); SF.start(1, 1); ${camp ? 'startEnigma(6, true)' : `startComposed(SortieCompose.composeSortie('city', ${seed}, 0, 'plain', 'none', 'off', 'day'))`}; SF.human(8, 15); SF.run(30); const sv = run.sortie.bossVar || null; spawnBoss(); const b = world.enemies.find(e => e.type === 'boss'); return JSON.stringify({ sv, kind: b && b.kind, lance: b ? b.parts.filter(p => p.k === 'lance').length : -1, hp: b ? b.parts[0].maxhp : 0, errs: SF.R.errs.length }); })()`;
+  const R = {}; for (const v of ['plain', 'lance', 'heavy', 'light']) { const seed = find(v); const page = await freshPage(11); R[v] = JSON.parse(await peek(page, BQ(seed, false))); await page.close(); }
+  const page = await freshPage(11); R.camp = JSON.parse(await peek(page, BQ(0, true))); await page.close();
+  for (const v of ['plain', 'lance', 'heavy', 'light']) ok(R[v].sv && R[v].sv.variant === v && R[v].kind === 'skyfort' && R[v].errs === 0, `city boss ${v}: recorded in run.sortie.bossVar, a sky fortress spawns without errors`);
+  ok(R.plain.lance === 0 && R.light.lance === 0 && R.lance.lance === 2 && R.heavy.lance === 2, `the lance pods: plain ${R.plain.lance}, lance ${R.lance.lance}, heavy ${R.heavy.lance}, light ${R.light.lance}`);
+  ok(Math.abs(R.lance.hp / R.plain.hp - 1) < 1e-9 && Math.abs(R.heavy.hp / R.plain.hp - 1.15) < 1e-9 && Math.abs(R.light.hp / R.plain.hp - 0.65) < 1e-9, `hit points x ${(R.lance.hp / R.plain.hp).toFixed(2)}, ${(R.heavy.hp / R.plain.hp).toFixed(2)}, ${(R.light.hp / R.plain.hp).toFixed(2)} (lance, heavy, light: 1, 1.15, 0.65)`);
+  ok(R.camp.sv === null && R.camp.kind === 'skyfort' && R.camp.lance === 0 && R.camp.hp === R.plain.hp, `the Campaign's level 6 boss is untouched: no variant, the same fortress, ${R.camp.lance} pods, ${R.camp.hp} hit points as the plain city's`); }
+
 await browser.close();
 if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }
 console.log(`Daily Sortie checks pass (${passed}).`);
