@@ -906,13 +906,14 @@ Which of level 1's and level 6's scripted encounters work off their own ground; 
 | Sand fortress (level 2) | any level with non-city, non-water, non-mountain ground | any open ground |
 | Castle (level 4) | any kit, as a desert castle, a winter castle or a level 1 castle | per-climate castle versions |
 | Train (level 5) | any ground with train tracks (the tracks must fit) | one train instead of the two, slightly bigger, still on one track |
-| Railgun (level 3, "the moss" in the owner's words, read as the Night Hammer: confirm) | the end of other levels | more hit points and a different, stronger blinding attack |
-| Raven (the prototype) | even mid-level, in place of a Shadow Wing | |
+| Railgun, the Night Hammer (level 3) | not named by the owner: stays on its yard ground | |
+| The Moth (the looped Raven Prototype, `hull: 'moth'`, which ends the first loop of level 4 and fights in level 6) | the end of different levels | more hit points and a different, stronger blinding attack than today's |
+| Raven Prototype (the classic hull) | even mid-level, in place of a Shadow Wing | |
 | Shadow Wing | one or two of them as a level-end boss | |
 | Sky fortress (level 6) | any level, since it flies | a smaller version |
 
    The owner's estimate: "not a lot of extra work if done smart". The design consequence is a **boss table keyed by the ground the boss needs** (open water, open land, tracks, castle ground, air) rather than by theme, so a kit's end ground decides which bosses the date may draw, and the plan checks and the flight gate fly every boss on every ground it may meet.
-5. **Still to confirm with the owner:** "the moss" (read as the level 3 Night Hammer railgun, the one with the rocket launcher variant); whether Raven and a lone Shadow Wing as a mid-level or end fight are their own encounters (they exist today as the Wing's pattern and a prototype duel).
+5. **Confirmed (owner, 2026-11-16):** "the moss" is **the Moth**, the looped Raven Prototype (`mothOn()`, `isMoth`, `SPR.protoMoth`), not the Night Hammer. **Encounters for Raven and the Shadow Wing as mid-level and end fights: new encounters built on the existing patterns** (the Wing's pattern, the prototype's duel and fly-by), not the existing ones reused as they are.
 
 ### 12.5 Step 5.1, first half: the city from a segment list (build 1.2.6.48 + this step; the Campaign untouched)
 
