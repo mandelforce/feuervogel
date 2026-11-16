@@ -71,13 +71,15 @@ export const KITS = {
     opener: [['open_sea', 5], ['harbour_south', 14]],
     middle: [['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5]],
     approach: [['station_main', 6]],
-    needs: { harbour_south: 'cranes', industrial_power: 'industry', station_main: 'station' },
-    markers: p => { const m = [], cy = (p.cranes || []).map(c => c.y).filter(v => typeof v === 'number');
+    needs: { harbour_south: 'cranes', industrial_power: 'industry', station_main: 'station', city_river: 'river', rail_yard: 'yard' },
+    markers: p => { const m = [], cy = (p.cranes || []).map(c => c.y).filter(v => typeof v === 'number' && !(p.rivers && p.rivers.length ? p.rivers : p.river ? [p.river] : []).some(r => Math.abs(v - r.Y0) < 200)); /* (a river's harbour district has cranes of its own) */
       if (cy.length) { m.push({ t: 'harbour_south', y: Math.min(...cy), what: 'cranes' }); m.push({ t: 'harbour_south', y: Math.max(...cy), what: 'cranes' }); }
       /* the industrial quarters of the works stretch: a quarter is 200 to 400 px long, so one whose centre is within 250 px of the stretch (the generator's own industryAt) counts, at the nearest point of it
          (plan.works is the town's gasworks, a civic building placed by chance, not the works stretch) */
       const ia = p.P && p.P.industryAt && p.P.industryAt.map(v => v * p.L); for (const q of p.quarters || []) if (q.style === 'industry') { const c = (q.y0 + q.y1) / 2; if (ia && c >= ia[0] - 250 && c <= ia[1] + 250) m.push({ t: 'industrial_power', y: Math.min(Math.max(c, ia[0]), ia[1]), what: 'industry' }); }
-      if (p.station) m.push({ t: 'station_main', y: p.station.y, what: 'station' });
+      if (p.station && !p.yard) m.push({ t: 'station_main', y: p.station.y, what: 'station' }); /* (a plan that ends in the rail yard has a station elsewhere, placed by the generator; it is the main station's only when there is no yard) */
+      for (const r of (p.rivers && p.rivers.length ? p.rivers : p.river ? [p.river] : [])) m.push({ t: 'city_river', y: r.Y0, what: 'river' });
+      for (const tr of p.trainRuns || []) if (tr.line === 'yard') m.push({ t: 'rail_yard', y: (tr.y0 + tr.y1) / 2, what: 'yard' }); /* (the yard's two outer tracks, from its end back to where they start) */
       return m; },
     extra: (p, rg) => { const out = [], share = (y0, y1, kind) => { let n = 0; for (let i = Math.max(0, y0) * p.W; i < Math.min(p.L, y1) * p.W; i++) if (p.K[i] === kind) n++; return n / (Math.max(1, Math.min(p.L, y1) - Math.max(0, y0)) * p.W); };
       const c = rg.find(r => r.t === 'city_centre'); if (c && !(p.squares || []).some(q => q.cy >= c.y0 - TOL && q.cy < c.y1 + TOL)) out.push('no market square in the city centre');

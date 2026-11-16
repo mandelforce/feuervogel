@@ -41,14 +41,14 @@ for (const k of kits) { let same = 0, subDiff = 0, seedDiff = 0; const N = 200;
 
 // 4. gate 1 on 10,000 seeds per kit. The rules are checked here from the kit table, apart from SC.check.
 const variety = {};
-for (const k of kits) { const kit = SC.KITS[k], O = kit.opener, A = kit.approach, bad = {}, att = {}, N = 10000; let worst = 0, mod = 0;
+for (const k of kits) { const kit = SC.KITS[k], O = kit.opener, bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = kit.approaches || [kit.approach];
   const note = m => { bad[m] = (bad[m] || 0) + 1; }, V = variety[k] = { orders: new Set(), sets: new Set(), tmpl: {}, len: [], mids: [], enc: {}, encN: [], wing: [], first: {}, hot3: 0 };
   for (let s = 0; s < N; s++) { const seed = (SC.hash(s, 4242) * 4294967296) | 0; let S; try { S = SC.composeSortie(k, seed); } catch (e) { note('throws: ' + e.message.slice(0, 60)); continue; }
     att[S.attempt] = (att[S.attempt] || 0) + 1; worst = Math.max(worst, S.attempt); if (SC.check(k, S).length) mod++;
-    const segs = S.segs, mid = segs.slice(O.length, segs.length - A.length); let at = 0;
+    const segs = S.segs; let at = 0;
     for (const g of segs) { if (g.start !== at) note('a gap in the segments'); at += g.n; }
     if (S.len !== at || at < kit.len[0] || at > kit.len[1]) note('total length');
-    if (J(segs.slice(0, O.length).map(g => [g.t, g.n])) !== J(O)) note('opener'); if (J(segs.slice(-A.length).map(g => [g.t, g.n])) !== J(A)) note('approach');
+    if (J(segs.slice(0, O.length).map(g => [g.t, g.n])) !== J(O)) note('opener'); const A = APS.find(a => J(segs.slice(-a.length).map(g => [g.t, g.n])) === J(a)); if (!A) note('approach'); const mid = A ? segs.slice(O.length, segs.length - A.length) : []; if (!A) continue;
     const cnt = {}; mid.forEach((g, i) => { const m = kit.middle[g.t]; if (!m) { note('unknown template'); return; } cnt[g.t] = (cnt[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) note('segment length');
       const prev = i ? mid[i - 1].t : O[O.length - 1][0]; if (prev === g.t) note('a template twice in a row'); if (!kit.follows[prev].includes(g.t)) note('follows'); });
     for (const t in cnt) if (cnt[t] > kit.middle[t].max) note('max'); if (mid[mid.length - 1].t === A[0][0]) note('approach repeats'); if (mid.length < 4) note('too few middle segments');
@@ -113,7 +113,7 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
   ok(tamper, 'gate 1 rejects a dial out of its range, a dial the template does not take, and dials on a day that has them off');
   /* the composer's forest table is the generator's; every dial name and range is one the generator's own tables know (it clamps the rest away) */
   { const norm = T => J(Object.keys(T).sort().map(t => [t, ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'].map(q => T[t][q] || 0)])); ok(norm(CGEN.FOREST_BASE) === norm(SC.FOREST_BASE), "the composer's FOREST_BASE equals the generator's (an absent count is 0)"); }
-  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS }; let inside = true;
+  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS, city: CGEN.CITY_DIALS }; let inside = true;
   for (const k of kits) for (const t in SC.KITS[k].dials.seg) for (const d in SC.KITS[k].dials.seg[t]) { const g = known[k][d], r = SC.KITS[k].dials.seg[t][d]; if (!g || r[0] < g[0] || r[1] > g[1]) { inside = false; console.log('       ' + k + ' ' + t + ' ' + d + ' ' + r.join('..') + ' is outside the generator table ' + (g || []).join('..')); } }
   ok(inside, "every per-segment dial range lies inside the generator's own table");
   /* the forest's crowns dial: more crowns the higher it is, across the whole range (an upper half that did nothing was the first version's flaw) */
@@ -121,8 +121,9 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
     ok(v.every((x, i) => !i || x > v[i - 1] * 1.05) && Math.abs(v[2] - n(1)) === 0, 'forest crowns: ' + v.join(' < ') + ' crowns across ' + r.join(' to ')); }
   /* each dial reaches the plan: one sortie per kit, the dial at both ends of its range (the full extremes are tests/dials-probe.mjs) */
   const sig = pl => { let h = 2166136261 >>> 0; const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; }; for (const key of Object.keys(pl).sort()) { if (key === 'P' || key === 'stage') continue; const v = pl[key]; if (ArrayBuffer.isView(v)) { for (let i = 0; i < v.length; i += 7) mix(v[i] * 1000); } else if (Array.isArray(v)) { mix(v.length); if (Array.isArray(v[0])) mix(v.reduce((q, x) => q + x.length, 0)); } } return h; }; /* (a list of lists, like the conifers: count the items too) */
-  for (const k of kits.filter(q => q !== 'winter' || !process.argv.includes('--fast'))) { const K = SC.KITS[k], C = SC.composeSortie(k, 4242, 0, 'plain', 'none', 'off'), dead = []; const base = sig(CGEN.generate(C.gen));
-    for (const d of SC.dialNames(K)) { let hit = false; for (const end of [0, 1]) { const params = Object.assign({}, C.gen.params); if (K.dials.global[d]) params[d] = K.dials.global[d][end]; params.segs = C.gen.params.segs.map(g => (K.dials.seg[g.t] || {})[d] ? Object.assign({}, g, { p: { [d]: K.dials.seg[g.t][d][end] } }) : g); if (sig(CGEN.generate(Object.assign({}, C.gen, { params }))) !== base) hit = true; } if (!hit) dead.push(d); }
+  for (const k of kits.filter(q => q !== 'winter' || !process.argv.includes('--fast'))) { const K = SC.KITS[k], dead = [];
+    const findC = d => { for (let s = 4242; s < 4642; s++) { const C = SC.composeSortie(k, s, 0, 'plain', 'none', 'off'); if (K.dials.global[d] || C.gen.params.segs.some(g => (K.dials.seg[g.t] || {})[d])) return C; } return null; }; /* (a dial of a river stretch needs a list with a river) */
+    for (const d of SC.dialNames(K)) { const C = findC(d); if (!C) { dead.push(d + ' (no list takes it)'); continue; } const base = sig(CGEN.generate(C.gen)); let hit = false; for (const end of [0, 1]) { const params = Object.assign({}, C.gen.params); if (K.dials.global[d]) params[d] = K.dials.global[d][end]; params.segs = C.gen.params.segs.map(g => (K.dials.seg[g.t] || {})[d] ? Object.assign({}, g, { p: { [d]: K.dials.seg[g.t][d][end] } }) : g); if (sig(CGEN.generate(Object.assign({}, C.gen, { params }))) !== base) hit = true; } if (!hit) dead.push(d); }
     ok(dead.length === 0, k + ': every dial changes the plan' + (dead.length ? ' (not: ' + dead.join(', ') + ')' : '')); } }
 
 // 7. gate 2: the generator's plan of each composed list
