@@ -952,3 +952,20 @@ Which of level 1's and level 6's scripted encounters work off their own ground; 
 **The dockyard (built, second part of 12.7).** Found after the first part: the generator's side harbour already has a shipyard (slipways with `hull` ships, an unfinished hull drawn as keel ribs, under gantry rails) but skips it in the corner form the city uses. So the dockyard was composition, not new art. `CityGen` `cityFromSegs`: a `harbour_dock` stretch (or the `dockyard` param) sets `coast.yard`, which turns the shipyard on in the corner form and keeps the piers to the first half of the side, so there is room: all of 24 plans have three hulls on slipways and two gantries (before the pier change 4 of 6 had any). `harbour_dock` takes the harbour's place: the kit opens with the plain harbour or, in 35 % of the days, the dockyard (`openers`, `openerShare`, its own hash stream, as the two endings). Looked at: the plain harbour and the dockyard from one seed side by side: the dockyard has three hull frames on slipways in place of part of the warehouse quay; it is distinct but small, and a person should judge whether it reads as a shipyard. Not new art: if a stronger look is wanted (a dry dock with a ship in it, bigger hulls), that is the pixel-art job after all.
 
 **Checked after the dockyard.** `tests/compose.mjs` 65 (gate 2 on 150 city lists, plan 180 ms median alone, 299 ms at p95; under load 256 ms, over the 225 ms limit, which is contention); `tests/dials-probe.mjs --kit city`: 250 drawn days, 0 flagged, 0 over the limits; `tests/daily.mjs` 299; flight gate on 16 city sorties on all difficulties (7 with the dockyard, 5 with the yard): all pass; vetting 14 of 14; Campaign guards unchanged (`tests/citysegs.mjs`, `tests/citygen.mjs` 56, `tests/enigma.mjs`, `tests/fixed-seed.mjs`, `tests/replay.mjs`, `tests/smoke.mjs`; the older kits' composed plans identical to `main`'s generator).
+
+### 12.8 The city's encounters (step 5.7, the city's part; build 1.2.6.49, composer v5)
+
+**Done (owner: "create new encounters based on the existing patterns").** The city kit now schedules a set piece in each stretch that can hold one (`KITS.city.enc`): the Campaign's level 6 loop's three, reused where the ground is the same (`harbourraid` in the harbour, `cityflak` in the city centre, `stationrun` at the main station), and **four new ones on their patterns, from the existing verbs only**, one for each structure the kit added (`index.html`, after `ENC.stationrun`; nothing in the Campaign refers to them):
+
+| Encounter | In | Pattern | What differs |
+|---|---|---|---|
+| `dockraid` DOCKYARD RAID | `harbour_dock` | `harbourraid` | patrol boats first, a dive wave, a bomber, then the destroyer on the harbour water (the raid opens with the destroyer), dives from the sides |
+| `bridgestrike` BRIDGE STRIKE | `city_river` | `cityflak` | a formation each side in turn, the bomber before the tankers, a late dive |
+| `worksstrike` WORKS STRIKE | `industrial_power` | `cityflak` | guns among the sheds, one formation, tankers, then the bomber |
+| `yardbreakout` YARD BREAKOUT | `rail_yard` | `stationrun` | three tanker chains and two convoys beside the tracks, dives and a bomber |
+
+The composer places about 2.8 encounters per city sortie (each takes about 7 chunks and 2 of rest, and the Shadow Wing takes its own; an encounter with no room in its stretch is left out, which is why the bridge strike, in a 5 to 7 chunk stretch, is the rarest: 43 of 400 lists).
+
+**Checked.** Flight gate on 24 city sorties on all three difficulties: all pass; every one of the seven encounters ran and ended `done` in the flights (harbour raid 18, dockyard raid 12, city flak 17, bridge strike 3, works strike 10, station breakout 16, yard breakout 14 flights); `tests/daily.mjs` 299; vetting of the 14 dates 14 of 14; Campaign guards unchanged.
+
+**Not done.** The new encounters are timelines of existing verbs, so they play like their patterns with other numbers and order; nothing is new in what a verb does. Nobody has played them. The bridge strike is rare; a longer river stretch would give it room.

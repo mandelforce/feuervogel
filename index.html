@@ -4694,7 +4694,9 @@ const KITS = {
       city_river: ['city_suburb', 'city_town', 'city_centre', 'ruins', 'industrial_power'],
       ruins: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'industrial_power'],
       industrial_power: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins'] },
-    enc: {} },
+    /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
+    enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
+      city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
@@ -18585,6 +18587,21 @@ TT_ENC.cityflak = 1100;
 ENC.stationrun = { name: 'STATION BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
   { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 70, do: 'tankers', n: 2, wait: 300 }, { t: 120, do: 'convoy' }, { t: 260, do: 'dive', n: 5, x: 0.5 }, { t: 360, do: 'convoy', diff: [1, 2] }, { t: 480, do: 'bomber', x: 0.3 }, { t: 600, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 760, do: 'chase' }, { t: 920, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.stationrun = 1100;
+/* The Daily Sortie's city kit (docs/daily-sortie-plan.md 12.8): four new encounters on the patterns of the three above, from the existing verbs only, one for each structure the kit added. They are only run by a composed city (the composer's encPlan names them); no Campaign level refers to them. DOCKYARD RAID: patrol boats first, a bomber, then the destroyer on the harbour water, dives from the sides. BRIDGE STRIKE over the river: a flak gun each side, formations down the lane, tankers along the streets, a late dive. WORKS STRIKE over the power works: guns among the sheds, a formation, tankers, a bomber. YARD BREAKOUT in the marshalling yard: tankers and convoys chain beside the tracks, dives and a bomber. */
+ENC.dockraid = { name: 'DOCKYARD RAID', len: 1000, max: 2000, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'portship', kind: 'pt', x: 0.7, wait: 200 }, { t: 90, do: 'portship', kind: 'pt', x: 0.9, wait: 200 }, { t: 240, do: 'dive', n: 5, x: 0.3 }, { t: 420, do: 'portship', kind: 'destroyer', x: 0.8, wait: 300 }, { t: 600, do: 'bomber', x: 0.6 }, { t: 720, do: 'dive', n: 5, x: 0.6, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1000, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.dockraid = 1100;
+ENC.bridgestrike = { name: 'BRIDGE STRIKE', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'flak', x: [0.04, 0.5], wait: 300 }, { t: 0, do: 'flak', x: [0.5, 0.96], wait: 300 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.3 }, { after: 90, do: 'formation', x: 0.7, diff: [1, 2] },
+  { t: 480, do: 'bomber', x: 0.5 }, { after: 100, do: 'tankers', n: 2, wait: 300 }, { t: 760, do: 'dive', n: 5, x: 0.4, diff: [1, 2] }, { t: 900, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.bridgestrike = 1100;
+ENC.worksstrike = { name: 'WORKS STRIKE', len: 1100, max: 2200, rest: 180, budget: [22, 30, 36], biomes: ENC_LAND, holds: { air: true, pod: true, ground: false }, ev: [
+  { t: 0, do: 'flak', x: [0.04, 0.5], wait: 300 }, { t: 0, do: 'flak', x: [0.5, 0.96], wait: 300 }, { when: 'seen', of: [0, 1], at: 0.15, by: 420, do: 'formation', x: 0.5 },
+  { t: 400, do: 'tankers', n: 2, wait: 300 }, { after: 120, do: 'bomber', x: 0.6 }, { t: 700, do: 'dive', n: 5, x: 0.5, diff: [1, 2] }, { t: 860, do: 'chase' }, { t: 1100, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.worksstrike = 1100;
+ENC.yardbreakout = { name: 'YARD BREAKOUT', len: 1000, max: 2000, rest: 180, budget: [22, 30, 36], holds: { air: true, pod: true, ground: true }, ev: [
+  { t: 0, do: 'tankers', n: 2, wait: 300 }, { t: 60, do: 'convoy' }, { t: 140, do: 'tankers', n: 2, wait: 300 }, { t: 240, do: 'convoy', diff: [1, 2] }, { t: 340, do: 'dive', n: 5, x: 0.3 }, { t: 460, do: 'bomber', x: 0.6 }, { t: 620, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 780, do: 'chase' }, { t: 940, do: 'pod', x: 0.5, own: false }] };
+TT_ENC.yardbreakout = 1100;
 ENC.iceraid = { name: 'ICE BREAKERS', len: 900, max: 1800, rest: 180, budget: [20, 28, 34], holds: { air: true, pod: true, ground: false }, ev: [
   { t: 0, do: 'dive', n: 5, x: 0.3 }, { t: 60, do: 'dive', n: 5, x: 0.7, diff: [1, 2] }, { t: 260, do: 'bomber', x: 0.5 }, { t: 480, do: 'strafer', i: 0, diff: [1, 2] }, { after: 16, do: 'strafer', i: 1, diff: [1, 2] }, { after: 16, do: 'strafer', i: 2, diff: [1, 2] }, { after: 16, do: 'strafer', i: 3, diff: [1, 2] }, { t: 700, do: 'chase' }, { t: 900, do: 'pod', x: 0.5, own: false }] };
 TT_ENC.iceraid = 1000;
