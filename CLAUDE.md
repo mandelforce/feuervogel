@@ -28,6 +28,7 @@ Don't open `docs/*.mp4`, `docs/*.html`, `*.png` or `licenses/`: not code.
 - The same goes for `tools/sortie-compose.js` (the Daily Sortie's composer): same script, and `tests/compose.mjs` fails while its copy is stale.
 - `VERSION` in `sw.js` must match `VERSION` in `index.html`.
 - Run locally: `python3 -m http.server`. Unit tests: `node --test tests/`.
+- Commit messages and PR descriptions carry no AI attribution: no `Co-Authored-By: Claude …` trailer, no `Claude-Session:` link, no "Generated with Claude Code" line.
 
 ## In-page test code
 
