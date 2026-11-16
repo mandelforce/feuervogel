@@ -65,6 +65,23 @@ export const KITS = {
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
       const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea');
       return out; } },
+  /* the city (level 6): the segment-native portSouth plan. The harbour's cranes lie in the harbour, the industrial quarters where the works stretch is, the station in the last stretch; the market square is the densest
+     point, so with a city centre in the list it lies in it. (A ruins stretch is only a damage curve of 1: its rubble share, 9 to 19 %, overlaps the other districts', so it is not checked.) */
+  city: { preset: 'portSouth', arena: 0, params: segs => ({ segs }),
+    opener: [['open_sea', 5], ['harbour_south', 14]],
+    middle: [['city_centre', 8], ['city_town', 7], ['industrial_power', 6], ['ruins', 5]],
+    approach: [['station_main', 6]],
+    needs: { harbour_south: 'cranes', industrial_power: 'industry', station_main: 'station' },
+    markers: p => { const m = [], cy = (p.cranes || []).map(c => c.y).filter(v => typeof v === 'number');
+      if (cy.length) { m.push({ t: 'harbour_south', y: Math.min(...cy), what: 'cranes' }); m.push({ t: 'harbour_south', y: Math.max(...cy), what: 'cranes' }); }
+      /* the industrial quarters of the works stretch: a quarter is 200 to 400 px long, so one whose centre is within 250 px of the stretch (the generator's own industryAt) counts, at the nearest point of it
+         (plan.works is the town's gasworks, a civic building placed by chance, not the works stretch) */
+      const ia = p.P && p.P.industryAt && p.P.industryAt.map(v => v * p.L); for (const q of p.quarters || []) if (q.style === 'industry') { const c = (q.y0 + q.y1) / 2; if (ia && c >= ia[0] - 250 && c <= ia[1] + 250) m.push({ t: 'industrial_power', y: Math.min(Math.max(c, ia[0]), ia[1]), what: 'industry' }); }
+      if (p.station) m.push({ t: 'station_main', y: p.station.y, what: 'station' });
+      return m; },
+    extra: (p, rg) => { const out = [], share = (y0, y1, kind) => { let n = 0; for (let i = Math.max(0, y0) * p.W; i < Math.min(p.L, y1) * p.W; i++) if (p.K[i] === kind) n++; return n / (Math.max(1, Math.min(p.L, y1) - Math.max(0, y0)) * p.W); };
+      const c = rg.find(r => r.t === 'city_centre'); if (c && !(p.squares || []).some(q => q.cy >= c.y0 - TOL && q.cy < c.y1 + TOL)) out.push('no market square in the city centre');
+      return out; } },
 };
 
 // "structures" share of a stretch (spec 3.2, approximately): buildings, rubble, works, runways, aprons, quays, paved squares and yards, roads, streets and bridges

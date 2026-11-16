@@ -30,9 +30,9 @@ const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const verbose = process.argv.includes('--verbose');
 let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } return cond; };
-const DAYS = { desert: '2026-11-15', forest: '2026-11-16', winter: '2026-11-14' }; // one date per kit (the rotation)
+const DAYS = { desert: '2026-11-15', forest: '2026-11-16', winter: '2026-11-17', city: '2026-11-14' }; // one date per kit (the rotation, four kits since composer v5)
 /* the game's flags for a kit's ground: variant, autumn, winter, haze, moon (the loop's ground only with the flavours variant and loop) */
-const GROUND = { desert: g => (g ? 1 : 0) + ',false,false,false,false', forest: g => '0,' + !!g + ',false,false,false', winter: g => '0,false,' + !!g + ',false,false' };
+const GROUND = { desert: g => (g ? 1 : 0) + ',false,false,false,false', forest: g => '0,' + !!g + ',false,false,false', winter: g => '0,false,' + !!g + ',false,false', city: g => '0,false,false,false,false' /* (the city's loop ground is only the harbour's shape, no game flag) */ };
 const fnv = a => { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); };
 const FNV = `function (a) { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); }`;
 const browser = await chromium.launch();
@@ -141,7 +141,7 @@ const AT = (name) => `(() => { const r = cv.getBoundingClientRect(), b = ${name}
 const BTN = { scores: '[W / 2, SCORES_Y + SCORES_BTN.h / 2]', start: '[W / 2, START_BTN.y + START_BTN.h / 2]' };
 async function clickTitle(page, which) { const c = JSON.parse(await peek(page, AT(BTN[which]))); await page.mouse.click(c.x, c.y); await page.waitForTimeout(50); }
 const STATE = `JSON.stringify({ state: app.state, diff: document.getElementById('diffAsk').classList.contains('open'), kind: app.diffNext && app.diffNext.kind, title: document.getElementById('diffTitle').textContent, note: document.getElementById('dNote').textContent, lb: !!app.lbOpen, daily: run.sortie && run.sortie.daily, ranked: run.ranked, seed: run.sortie && run.sortie.seed, today: dailyToday() })`;
-for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:50Z', 'forest'], ['2026-11-14T00:00:05Z', 'winter']]) {
+for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:50Z', 'forest'], ['2026-11-14T00:00:05Z', 'city'], ['2026-11-17T08:00:00Z', 'winter']]) {
   const page = await freshPage(11); await peek(page, `Date.now = () => ${Date.parse(at)}, 0`);
   const date = at.slice(0, 10), t0 = JSON.parse(await peek(page, STATE));
   ok(t0.today.date === date && t0.today.kit === kit && SC.dailySeed(date).kit === kit, `${at}: the title offers ${date}, a ${kit} day (${t0.today.kit})`);
@@ -180,7 +180,7 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
     ok(r.daily.flavour === flavour && r.daily.v === SC.VERSION && r.variant === GROUND[kit](ground).split(',').slice(0, 3).join(','), `${kit} ${flavour}: recorded, and the game's ground flags are ${r.variant}`);
     ok(r.loops === 0 && r.stage === SC.KITS[kit].level && r.ranked === false, `${kit} ${flavour}: not a loop (loops ${r.loops}, ranked ${r.ranked})`);
     ok(rank ? r.loop === r.rank && r.loop > r.first : r.loop === r.first, `${kit} ${flavour}: the rank is ${r.loop} (${rank ? 'the first loop\'s, ' + r.rank + ', above the first pass\'s ' + r.first : 'the first pass\'s ' + r.first})`);
-    ok(ground === !!(C.gen.params.variant || C.gen.params.autumn) && JSON.stringify(C.segs) === JSON.stringify(SC.composeDaily(date, kit, 0, 'plain').segs), `${kit} ${flavour}: the loop ground is in the generator's parameters only when asked, the segment list is the plain one`);
+    ok(ground === !!(C.gen.params.variant || C.gen.params.autumn || C.gen.params.harbour6) && JSON.stringify(C.segs) === JSON.stringify(SC.composeDaily(date, kit, 0, 'plain').segs), `${kit} ${flavour}: the loop ground is in the generator's parameters only when asked, the segment list is the plain one`);
     await page.close(); }
   /* one flight of each flavoured kind to the end, the bot, no errors, boss killed (the flight gate flies the real dates; this is the plumbing) */
   for (const flavour of ['rank', 'variant', 'loop']) { const page = await freshPage(11), r = JSON.parse(await peek(page, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${DAYS.forest}', 'forest', undefined, '${flavour}'); SF.human(8, 15); let end = 'cap'; for (let i = 0; i < 14000; i++) { const st = SF.run(10); if (st !== 'ok') { end = st; break; } } const st = Object.values(SF.R.stages)[0] || {}; return JSON.stringify({ end, bossDead: st.bossDead, errs: SF.R.errs.slice(0, 2) }); })()`));
@@ -189,11 +189,11 @@ for (const [at, kit] of [['2026-11-15T12:00:00Z', 'desert'], ['2026-11-16T23:59:
 
 // ---------- 8. the twists (plan 11.1, 11.8): the draw, and each switch on its own day and off on every other ----------
 { const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), N = 1100, D = []; for (let n = 0; n < N; n++) D.push(SC.dailySeed(dk(n)));
-  ok(SC.VERSION === 4 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
+  ok(SC.VERSION === 5 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
   ok(D.every(d => SC.TWISTS.includes(d.twist)) && D.every((d, i) => !i || d.twist !== D[i - 1].twist), `${N} dates draw a twist each, never the same twist two days running`);
   const byKit = {}; D.forEach(d => (byKit[d.kit] = byKit[d.kit] || []).push(d.twist));
-  ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (21 days), and meets all seven in them`);
-  ok(new Set(D.slice(0, 21).map(d => d.kit + ':' + d.twist)).size === 21, `any 21 days cover every kit x twist once (the flight gate's real-date window)`);
+  ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (${7 * SC.KIT_ORDER.length} days), and meets all seven in them`);
+  { const W = 7 * SC.KIT_ORDER.length; ok(new Set(D.slice(0, W).map(d => d.kit + ':' + d.twist)).size === W, `any ${W} days cover every kit x twist once (the flight gate's real-date window)`); }
   ok(SC.composeSortie('forest', 5, 0).twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'bogus').twist === 'none' && SC.composeSortie('forest', 5, 0, 'plain', 'night').twist === 'night', `a sortie without a twist says none; an unknown twist is none; a named one is kept`);
   let same = true; for (const date of ['2026-12-01', '2026-12-02', '2026-12-03']) for (const kit of SC.KIT_ORDER) { const base = JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', 'none').segs); for (const t of SC.TWISTS) if (JSON.stringify(SC.composeDaily(date, kit, 0, 'plain', t).segs) !== base) same = false; }
   ok(same, `a twist never changes the segment list (3 dates x 3 kits x 7 twists)`);
@@ -247,7 +247,7 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   ok(d2.open && !e.open && e.last === null && !('2026-11-16:' + SC.VERSION in e.kept), `Skip asks nothing more and stores nothing (${e.open}, ${JSON.stringify(e.kept)})`);
   const f = await q(END('2026-11-16')); ok(f.open, `a skipped date is asked again next time (${f.open})`);
   await page.keyboard.press('Escape'); const g = await q(ST); ok(!g.open && g.last === null, `Escape skips (${g.open})`);
-  const h = await q(END('2026-11-14')); await page.keyboard.press('5'); const i = await q(ST); ok(h.open && !i.open && i.last && i.last.stars === 5 && i.last.kit === 'winter', `the key 5 gives five stars (${i.last && i.last.stars})`);
+  const h = await q(END('2026-11-14')); await page.keyboard.press('5'); const i = await q(ST); ok(h.open && !i.open && i.last && i.last.stars === 5 && i.last.kit === 'city', `the key 5 gives five stars (${i.last && i.last.stars})`);
   const j = await q(`(() => { SF.setMode('immortal'); SF.start(1, 1); startEnigma(2, false); SF.run(30); const n = !!(run.sortie && run.sortie.daily); endEnigmaLevel(); return JSON.stringify({ daily: n, open: document.getElementById('rateAsk').classList.contains('open') }); })()`);
   ok(!j.daily && !j.open, `a Practice level never asks (${j.open})`);
   await page.close(); }

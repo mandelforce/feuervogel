@@ -444,7 +444,7 @@ function generate(opts) {
       if (!ok) continue;
       RL = { sr, xA, lines: [] }; plan.trainRuns = [{ x: xA, y0: yBot, y1: yTop - 1, line: 'main' }];
       const cands = [], sA = P.stationAt || [0.25, 0.9]; for (let y = Math.round(L * sA[0]); y < L * sA[1]; y += 16) cands.push(y); /* stationAt: the share of the length the station may stand in */ cands.sort((a, b) => rnd(T.RAIL, a) - rnd(T.RAIL, b));
-      for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < 0.5 || U > 0.97 || ys < 90 || ys > L - 110 || edgeBusy(ys - 450, ys + 450)) continue;
+      for (const [uLo, uHi] of P.stationAt ? [[0.5, 0.97], [0.15, 1.01]] : [[0.5, 0.97]]) /* (a station stretch that asked for its place: a second pass with a wider urbanisation window when the first finds no room; a plan that has its station is not touched) */ for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < uLo || U > uHi || ys < 90 || ys > L - 110 || edgeBusy(ys - 450, ys + 450)) continue;
         if (OT && Math.abs(ys - OT.cy) < OT.ry + OT.rw + 80) continue; if (CO && (past(ys + 100, 0) || past(ys - 90, 0))) continue; if (RVs.some(R => ys > R.yMin - 90 && ys < R.yMax + 100)) continue; if (HB && ys > HB.yLo - 90 && ys < HB.yHi + 100) continue;
         let room = true; for (let y = ys - 70; room && y <= ys + 90; y += 4) if (Math.abs(xA - MX(y)) - AW(y) / 2 < (P.stationRoom || 90)) room = false; // the station, its square and a row of blocks
         if (room) ST = { y: ys, sr, xL: xA, x0: Math.min(xA + sr * 10, xA - sr * 62), x1: Math.max(xA + sr * 10, xA - sr * 62), y0: ys - 70, y1: ys + 90, done: false }; }
@@ -576,6 +576,11 @@ function generate(opts) {
       y += len; q++;
     }
   }
+  if (P.industryAt) { /* a works stretch that asked for its estate: if no quarter's centre fell in it (or the old town's ring took them), the nearest quarter outside the ring becomes industrial; a plan that has one is not touched */
+    for (const r of Array.isArray(P.industryAt[0]) ? P.industryAt : [P.industryAt]) { const a = r[0] * L, b = r[1] * L, mid = (a + b) / 2;
+      if (quarters.some(q => q.style === 'industry' && (q.y0 + q.y1) / 2 >= a && (q.y0 + q.y1) / 2 <= b)) continue;
+      let best = null; for (const q of quarters) { if (OT && q.y0 < OT.cy + OT.ry + 60 && q.y1 > OT.cy - OT.ry - 60) continue; if (!best || Math.abs((q.y0 + q.y1) / 2 - mid) < Math.abs((best.y0 + best.y1) / 2 - mid)) best = q; }
+      if (best) { best.style = 'industry'; best.slope = 0; best.scale = 1.5 + rnd(T.QTR, best.id, 4) * 0.4; } } }
   const qAt = y => { for (const q of quarters) if (y < q.y1) return q; return quarters[quarters.length - 1]; };
   plan.quarters = quarters; plan.tracks = []; if (FO) plan.tracks.push(FO.track);
   // the y of a cross street at an x, or null if it does not reach that x
@@ -4020,7 +4025,7 @@ function cityFromSegs(o) {
   const fr = t => { const g = segs.find(r => r.t === t); return g ? [g.start / n, (g.start + g.n) / n] : null; }, sea = segs.find(g => g.t === 'open_sea'), hb = segs.find(g => g.t === 'harbour_south'), st = fr('station_main'), ind = fr('industrial_power');
   const d = { L, density: dens, damageCurve: dmg, damage: 1, power: !!ind, perimeter: CHp,
     coast: Object.assign({}, PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: ((sea ? sea.n : 5) * CHp + 40) / L, side: [(hb ? hb.n : 14) * CHp * 0.55 / L, (hb ? hb.n : 14) * CHp * 0.7 / L] }, q.harbour6 ? HARBOUR6_COAST : null) };
-  if (st) { d.stationAt = [st[0], 1 - 170 / L]; d.stationRoom = 64; } if (ind) d.industryAt = ind;
+  if (st) { d.stationAt = [st[0], 1 - 170 / L]; d.stationRoom = 64; } if (ind) d.industryAt = ind; else d.industry = 0; /* (no works stretch in the list: no scattered industrial quarters either, they would be works in a stretch that names none) */
   const rest = Object.assign({}, q); delete rest.segs; delete rest.chunk; delete rest.harbour6;
   return Object.assign({}, o, { params: Object.assign(d, rest) });
 }
