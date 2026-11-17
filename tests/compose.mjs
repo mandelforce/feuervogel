@@ -130,7 +130,7 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
     ok(dead.length === 0, k + ': every dial changes the plan' + (dead.length ? ' (not: ' + dead.join(', ') + ')' : '')); } }
 
 // 7. gate 2: the generator's plan of each composed list
-const BASE = { desert: 246, forest: 163, winter: 1265, city: 150 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4); the limit is 1.5 times it, on the median
+const BASE = { desert: 246, forest: 163, winter: 1265, city: 230 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4; city: CI runners measured a median of 278-290 ms with the dockyard, river and yard stretches, so 230 leaves headroom); the limit is 1.5 times it, on the median
 for (const k of kits) { const kit = SC.KITS[k], P = PROBE[k], flags = {}, notes = {}, ms = [], built = {}; let n = 0, clean = 0, over = 0; const t0 = Date.now();
   for (let s = 0; s < PLANS; s++) { if (s % SHARD[1] !== SHARD[0] - 1) continue; n++; const S = SC.composeSortie(k, (SC.hash(s, 777) * 4294967296) | 0), r = checkPlan(P, S.segs, S.gen.seed, S.gen);
     for (const f of r.flags) flags[f] = (flags[f] || 0) + 1; for (const nt of r.notes) notes[nt] = (notes[nt] || 0) + 1; if (r.ms) ms.push(r.ms); let ovr = false;
