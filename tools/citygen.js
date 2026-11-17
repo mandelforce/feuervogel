@@ -444,7 +444,7 @@ function generate(opts) {
       if (!ok) continue;
       RL = { sr, xA, lines: [] }; plan.trainRuns = [{ x: xA, y0: yBot, y1: yTop - 1, line: 'main' }];
       const cands = [], sA = P.stationAt || [0.25, 0.9]; for (let y = Math.round(L * sA[0]); y < L * sA[1]; y += 16) cands.push(y); /* stationAt: the share of the length the station may stand in */ cands.sort((a, b) => rnd(T.RAIL, a) - rnd(T.RAIL, b));
-      for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < 0.5 || U > 0.97 || ys < 90 || ys > L - 110 || edgeBusy(ys - 450, ys + 450)) continue;
+      for (const [uLo, uHi] of P.stationAt ? [[0.5, 0.97], [0.15, 1.01]] : [[0.5, 0.97]]) /* (a station stretch that asked for its place: a second pass with a wider urbanisation window when the first finds no room; a plan that has its station is not touched) */ for (const ys of cands) { if (ST) break; const U = Uy(ys); if (U < uLo || U > uHi || ys < 90 || ys > L - 110 || edgeBusy(ys - 450, ys + 450)) continue;
         if (OT && Math.abs(ys - OT.cy) < OT.ry + OT.rw + 80) continue; if (CO && (past(ys + 100, 0) || past(ys - 90, 0))) continue; if (RVs.some(R => ys > R.yMin - 90 && ys < R.yMax + 100)) continue; if (HB && ys > HB.yLo - 90 && ys < HB.yHi + 100) continue;
         let room = true; for (let y = ys - 70; room && y <= ys + 90; y += 4) if (Math.abs(xA - MX(y)) - AW(y) / 2 < (P.stationRoom || 90)) room = false; // the station, its square and a row of blocks
         if (room) ST = { y: ys, sr, xL: xA, x0: Math.min(xA + sr * 10, xA - sr * 62), x1: Math.max(xA + sr * 10, xA - sr * 62), y0: ys - 70, y1: ys + 90, done: false }; }
@@ -576,6 +576,11 @@ function generate(opts) {
       y += len; q++;
     }
   }
+  if (P.industryAt) { /* a works stretch that asked for its estate: if no quarter's centre fell in it (or the old town's ring took them), the nearest quarter outside the ring becomes industrial; a plan that has one is not touched */
+    for (const r of Array.isArray(P.industryAt[0]) ? P.industryAt : [P.industryAt]) { const a = r[0] * L, b = r[1] * L, mid = (a + b) / 2;
+      if (quarters.some(q => q.style === 'industry' && (q.y0 + q.y1) / 2 >= a && (q.y0 + q.y1) / 2 <= b)) continue;
+      let best = null; for (const q of quarters) { if (OT && q.y0 < OT.cy + OT.ry + 60 && q.y1 > OT.cy - OT.ry - 60) continue; if (!best || Math.abs((q.y0 + q.y1) / 2 - mid) < Math.abs((best.y0 + best.y1) / 2 - mid)) best = q; }
+      if (best) { best.style = 'industry'; best.slope = 0; best.scale = 1.5 + rnd(T.QTR, best.id, 4) * 0.4; } } }
   const qAt = y => { for (const q of quarters) if (y < q.y1) return q; return quarters[quarters.length - 1]; };
   plan.quarters = quarters; plan.tracks = []; if (FO) plan.tracks.push(FO.track);
   // the y of a cross street at an x, or null if it does not reach that x
@@ -855,7 +860,7 @@ function generate(opts) {
       if (!corner && !open) fillR(X(-40), X(PL - 2), yOpen - 2, yOpen + 2, K.QUAY, -11, [K.SEA, K.BEACH]); // the far arm covers the pier heads only: the channel stays open
       for (let y = Math.min(yClosed, yHead) + 3; y <= Math.max(yClosed, corner ? yHead : yOpen - 3); y++) for (let x = 0; x < W; x++) { const d = cs * (x - qx); if (d >= 0 && (open || d < moleD) && Kr[idx(x, y)] === K.SEA) Br[idx(x, y)] = -10; }
       if (!corner && !open) { roundBuilding(X(moleD + mw / 2), yHead, 3.2, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: true }); roundBuilding(X(PL - 3), yOpen, 2.8, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: false }); port.mole = [{ x: Math.round(X(moleD + 2)), y: yHead - 12 }, { x: Math.round(X(PL - 12)), y: yOpen }]; }
-      let pStart = hy0 + 30, pEnd = corner ? hy1 - 30 : yHead - 34;
+      let pStart = hy0 + 30, pEnd = corner ? (P.coast.yard ? Math.round(hy0 + 30 + (hy1 - hy0 - 60) * 0.5) : hy1 - 30) : yHead - 34; /* (a dockyard in the corner form: the piers keep to the first half of the side, the rest is for the slipways) */
       if (!corner) { const x0 = Math.round(Math.min(X(-16), X(PL - 4))), w = Math.abs(Math.round(X(PL - 4)) - Math.round(X(-16))) + 1, it = bunker(x0, hy0 + 6, w, 47);
         for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = x0; x < x0 + it.w; x++) { const d = cs * (x - qx), k = Math.floor((y - it.y0 - 4) / 11), pen = d > PL - 14 && k >= 0 && k < 4 && (y - it.y0 - 4) % 11 < 7; if (pen) { Kr[idx(x, y)] = K.SEA; Br[idx(x, y)] = -10; } else { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; } }
         pStart = hy0 + 80; }
@@ -870,7 +875,7 @@ function generate(opts) {
       port.piers += piers.length;
       const lxa = Math.round(sideLaneX - 15), lxb = Math.round(sideLaneX + 15) - 1;
       if (!P.coast.openSide) plan.ships.push({ kind: 'coaster', ori: 'v', bow: corner ? hd : 1, x0: cs > 0 ? lxb + 1 : lxa - 9, y0: Math.round(lerp(hy0 + 60, hy1 - 60, rnd(T.SEA, 12))), w: 9, h: 30 }); // a coaster passing along the breakwater, leaving the fairway clear
-      if (!corner) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yHead - 4), n = Math.min(3, Math.floor((yOpen - 8 - ys0) / 16));
+      if (!corner || P.coast.yard) { const last = piers.length ? piers[piers.length - 1] + 12 : hy0 + 70, ys0 = Math.max(last + 30, yHead - 4), n = Math.min(3, Math.floor((yOpen - 8 - ys0) / 16));
         for (let q = 0; q < n; q++) { const y0 = ys0 + q * 16; fillR(X(-12), X(PL - 4), y0, y0 + 10, K.QUAY, -12, [K.SEA, K.WORKS]); plan.ships.push({ kind: 'hull', ori: 'h', bow: cs, x0: Math.round(Math.min(X(-6), X(PL - 6))), y0: y0 + 1, w: PL - 2, h: 9 }); }
         if (n) for (const d of [4, PL - 10]) plan.gantries.push({ x: Math.round(X(d)), y0: ys0 - 2, y1: ys0 + n * 16 }); }
       for (let y = hy0 + 60; y < hy1 - 6; y += 22) plan.cranes.push({ x: Math.round(X(-3)), y, dx: cs, dy: 0.25 });
@@ -4005,7 +4010,37 @@ function edgeNests(plan, bands, max = bands.length) {
   });
   return out;
 }
-const CityGen = { VERSION: 1, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+// The city (level 6, docs/daily-sortie-plan.md section 12): the south harbour city from a segment list, as sandSea, ironForest and winterGorge take theirs. preset 'portSouth' with
+// params.segs [{ t, n }] (chunks of 64 px) works out the plan's parameters from the stretches, exactly as the game's sortiePlanHarbour does for the Campaign's level 6 (the
+// density and damage curves from each template's own urbanisation and damage, the station and the works as shares of the length, the coast ending after the sea and running along
+// the harbour), so a plan from a segment list and one from those parameters are the same plan. Without params.segs nothing here is touched (every Campaign plan, and every other preset).
+const CITY_UD = { harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
+const CITY_DIALS = { urban: [-0.25, 0.25, 0], damage: [0.3, 1.7, 0], riverW: [18, 40, 0], riverAmp: [3, 12, 0], riverIsland: [0, 1, 1], riverPort: [0, 1, 1] }; // a city stretch's own dials, read by cityFromSegs (a river stretch: its width, its wobble, an island or not, a harbour district on its bank)
+const HARBOUR6_COAST = { land: 0.56, pier: [30, 50], sideChannel: 62 }; // the first loop's harbour: the shore moved, longer piers, a wider side channel
+function cityFromSegs(o) {
+  const q = o && o.params; if (!q || !q.segs || o.preset !== 'portSouth') return o;
+  const CHp = q.chunk || 64, n = q.segs.reduce((a, g) => a + g.n, 0), L = n * CHp; let at = 0; const segs = q.segs.map(g => { const r = { t: g.t, start: at, n: g.n, p: g.p }; at += g.n; return r; });
+  const dens = [], dmg = []; let lastU = 0; const dl = groundDials; /* a stretch's own dials (p): urban, an offset of its urbanisation; damage, a factor on its damage; both left out, nothing changes */
+  for (const g of segs) { const v = CITY_UD[g.t] || [lastU, 0], pd = dl(g.p, CITY_DIALS), u0 = v[0] === null ? lastU : v[0], u = pd.urban ? Math.min(1, Math.max(0, u0 + pd.urban)) : u0; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6 * (pd.damage !== undefined ? pd.damage : 1)]); }
+  dens.unshift([0, dens[1] ? dens[1][1] : dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1] ? dmg[1][1] : dmg[0][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
+  const fr = t => { const g = segs.find(r => r.t === t); return g ? [g.start / n, (g.start + g.n) / n] : null; }, sea = segs.find(g => g.t === 'open_sea'), hb = segs.find(g => g.t === 'harbour_south' || g.t === 'harbour_dock'), st = fr('station_main'), ind = fr('industrial_power');
+  const d = { L, density: dens, damageCurve: dmg, damage: 1, power: !!ind, perimeter: CHp,
+    coast: Object.assign({}, PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: ((sea ? sea.n : 5) * CHp + 40) / L, side: [(hb ? hb.n : 14) * CHp * 0.55 / L, (hb ? hb.n : 14) * CHp * 0.7 / L] }, q.harbour6 ? HARBOUR6_COAST : null) };
+  /* the river city (a city_river stretch: a river across the city at its middle, with its bridges; the first may have an island, a second river has none; riverPort: a harbour district on the bank) */
+  const rv = segs.filter(g => g.t === 'city_river');
+  if (rv.length) { const mkR = (g, k) => { const pd = dl(g.p, CITY_DIALS); return { at: (g.start + g.n / 2) / n, width: pd.riverW || 28, amp: pd.riverAmp || 6, island: k === 0 && pd.riverIsland !== 0 && !fr('rail_yard') /* (with a rail yard an island river lost a bridge in 8 of 60 lists, and an island needs two) */, rx: k === 0 ? 42 : 0, ry: k === 0 ? 16 : 0, channel: k === 0 ? 11 : 0 }; };
+    if (rv.length === 1) d.river = mkR(rv[0], 0); else d.rivers = rv.slice(0, 2).map(mkR); if (rv.some(g => dl(g.p, CITY_DIALS).riverPort)) d.harbour = true; }
+  /* the harbour's and the old town's own dials (whole level): the side channel's width, the shore's waviness, the old town's size (probed: the channel is safe from 41, 30 to 36 block the ship lanes; the old town from 1; the pier length is capped by the sea's width and does nothing, and the shore's position (coast.land) blocked the ship lanes in every invalid draw even in a narrow range: no dials for those two) */
+  if (q.dockyard || segs.some(g => g.t === 'harbour_dock')) d.coast.yard = true; /* the dockyard: the side harbour's shipyard (slipways with hulls on them under gantries) in the corner form too */
+  if (q.sideChannel) d.coast.sideChannel = Math.min(70, Math.max(28, q.sideChannel)); if (q.shoreAmp) d.coast.amp = Math.min(16, Math.max(3, q.shoreAmp));
+  if (q.oldTownK) { const k = Math.min(1.3, Math.max(0.75, q.oldTownK)), ot = PRESETS.portSouth.oldTown; d.oldTown = Object.assign({}, ot, { rx: ot.rx.map(v => Math.round(v * k)), ry: ot.ry.map(v => Math.round(v * k)) }); }
+  /* the rail city: a rail_yard stretch is a marshalling yard to the end of the plan (as level 3's), its tracks running on into the arena; it takes the place of the main station */
+  const ry = fr('rail_yard'); if (ry) d.yard = { at: [ry[0], 1] };
+  if (st) { d.stationAt = [st[0], 1 - 170 / L]; d.stationRoom = 64; } if (ind) d.industryAt = ind; else d.industry = 0; /* (no works stretch in the list: no scattered industrial quarters either, they would be works in a stretch that names none) */
+  const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'dockyard', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
+  return Object.assign({}, o, { params: Object.assign(d, rest) });
+}
+const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

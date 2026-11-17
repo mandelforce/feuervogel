@@ -41,14 +41,14 @@ for (const k of kits) { let same = 0, subDiff = 0, seedDiff = 0; const N = 200;
 
 // 4. gate 1 on 10,000 seeds per kit. The rules are checked here from the kit table, apart from SC.check.
 const variety = {};
-for (const k of kits) { const kit = SC.KITS[k], O = kit.opener, A = kit.approach, bad = {}, att = {}, N = 10000; let worst = 0, mod = 0;
+for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = kit.approaches || [kit.approach], OPS = kit.openers || [kit.opener];
   const note = m => { bad[m] = (bad[m] || 0) + 1; }, V = variety[k] = { orders: new Set(), sets: new Set(), tmpl: {}, len: [], mids: [], enc: {}, encN: [], wing: [], first: {}, hot3: 0 };
   for (let s = 0; s < N; s++) { const seed = (SC.hash(s, 4242) * 4294967296) | 0; let S; try { S = SC.composeSortie(k, seed); } catch (e) { note('throws: ' + e.message.slice(0, 60)); continue; }
     att[S.attempt] = (att[S.attempt] || 0) + 1; worst = Math.max(worst, S.attempt); if (SC.check(k, S).length) mod++;
-    const segs = S.segs, mid = segs.slice(O.length, segs.length - A.length); let at = 0;
+    const segs = S.segs.filter(g => !g.legacy), tl = S.segs.filter(g => g.legacy).reduce((a, g) => a + g.n, 0); let at = 0; /* (a sea ending's legacy stretches come after the plan's own: checked by the module's check and in section 6b) */
     for (const g of segs) { if (g.start !== at) note('a gap in the segments'); at += g.n; }
-    if (S.len !== at || at < kit.len[0] || at > kit.len[1]) note('total length');
-    if (J(segs.slice(0, O.length).map(g => [g.t, g.n])) !== J(O)) note('opener'); if (J(segs.slice(-A.length).map(g => [g.t, g.n])) !== J(A)) note('approach');
+    if (S.len !== at + tl || at < kit.len[0] || at > kit.len[1]) note('total length');
+    const O = OPS.find(o => J(segs.slice(0, o.length).map(g => [g.t, g.n])) === J(o)); if (!O) { note('opener'); continue; } const A = APS.find(a => J(segs.slice(-a.length).map(g => [g.t, g.n])) === J(a)); if (!A) note('approach'); const mid = A ? segs.slice(O.length, segs.length - A.length) : []; if (!A) continue;
     const cnt = {}; mid.forEach((g, i) => { const m = kit.middle[g.t]; if (!m) { note('unknown template'); return; } cnt[g.t] = (cnt[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) note('segment length');
       const prev = i ? mid[i - 1].t : O[O.length - 1][0]; if (prev === g.t) note('a template twice in a row'); if (!kit.follows[prev].includes(g.t)) note('follows'); });
     for (const t in cnt) if (cnt[t] > kit.middle[t].max) note('max'); if (mid[mid.length - 1].t === A[0][0]) note('approach repeats'); if (mid.length < 4) note('too few middle segments');
@@ -73,20 +73,20 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
   if (VERBOSE) for (let s = 1; s <= 5; s++) { const S = SC.composeSortie(k, s); console.log(`     seed ${s}, ${S.len} chunks: ` + S.segs.map(g => g.t + ' ' + g.n).join(', ') + ' | ' + S.encPlan.map(e => e.id + ' at ' + e.c).join(', ')); } }
 
 // 6. the daily seed
-{ const a = SC.dailySeed('2026-11-14'), b = SC.dailySeed('2026-11-15'), c = SC.dailySeed('2026-11-16'), d = SC.dailySeed('2026-11-17');
-  ok(a.kit !== b.kit && b.kit !== c.kit && a.kit !== c.kit && d.kit === a.kit, `the kit rotates day by day (${[a, b, c, d].map(x => x.kit).join(', ')})`);
+{ const D = [14, 15, 16, 17, 18].map(n => SC.dailySeed('2026-11-' + n)), K = SC.KIT_ORDER.length, a = D[0], b = D[1];
+  ok(new Set(D.slice(0, K).map(x => x.kit)).size === K && D[K].kit === D[0].kit, `the kit rotates day by day, every kit once in ${K} days (${D.map(x => x.kit).join(', ')})`);
   ok(a.seed !== b.seed && J(SC.dailySeed('2026-11-14')) === J(a) && a.n === 20261114 && a.sub === 0, 'a date gives its own seed, the same every time');
   let thrown = 0; for (const bad of ['2026-02-30', '2026-13-01', '14.11.2026', '', '2026-1-1']) try { SC.dailySeed(bad); } catch (e) { thrown++; } ok(thrown === 5, `a date that is none is refused (${thrown}/5)`);
   ok(SC.dateKeyUTC(Date.UTC(2026, 10, 14, 23, 59, 59)) === '2026-11-14' && SC.dateKeyUTC(Date.UTC(2026, 10, 15, 0, 0, 0)) === '2026-11-15', 'the day changes at midnight UTC');
   const S0 = SC.composeDaily('2026-11-14'); SC.DAILY_REROLL['2026-11-14'] = 3; const S3 = SC.composeDaily('2026-11-14'); delete SC.DAILY_REROLL['2026-11-14'];
   ok(S0.sub === 0 && S3.sub === 3 && S3.kit === S0.kit && J(S0.segs) !== J(S3.segs) && J(SC.composeDaily('2026-11-14').segs) === J(S0.segs), 'a date in the reroll table gets another sortie of the same kit, and the table is the only thing that changes it');
   ok(SC.composeDaily('2026-11-14', 'forest', 2).kit === 'forest' && S0.date === '2026-11-14' && typeof SC.composeVersion === 'number', 'the test link can force a kit and a sub-seed; the sortie carries its date and the composer its version');
-  let all = 0; const seen = { desert: 0, forest: 0, winter: 0 }; for (let i = 0; i < 366; i++) { const key = SC.dateKeyUTC(Date.UTC(2027, 0, 1) + i * 86400000); try { const S = SC.composeDaily(key); if (!SC.check(S.kit, S).length) { all++; seen[S.kit]++; } } catch (e) { /* counted as missing */ } }
-  ok(all === 366 && Object.values(seen).every(n => n === 122), `every day of a year composes, 122 days per kit (${all}; ${J(seen)})`); }
+  let all = 0; const seen = Object.fromEntries(SC.KIT_ORDER.map(k => [k, 0])); for (let i = 0; i < 366; i++) { const key = SC.dateKeyUTC(Date.UTC(2027, 0, 1) + i * 86400000); try { const S = SC.composeDaily(key); if (!SC.check(S.kit, S).length) { all++; seen[S.kit]++; } } catch (e) { /* counted as missing */ } }
+  ok(all === 366 && Object.values(seen).every(n => n === Math.floor(366 / SC.KIT_ORDER.length) || n === Math.ceil(366 / SC.KIT_ORDER.length)), `every day of a year composes, ${Math.floor(366 / SC.KIT_ORDER.length)} or ${Math.ceil(366 / SC.KIT_ORDER.length)} days per kit (${all}; ${J(seen)})`); }
 
 // 6b. the ground dials (docs/ground-variety-plan.md): a day's dials never touch the list, the encounters or the Wing; they stay in their ranges; off means off
 { const CGEN = require('../tools/citygen.js'); let seg = true, enc = true, off = true, some = 0, N = 0, range = true, tamper = true; const used = {}, N1 = 150;
-  for (const k of kits) for (let s = 0; s < N1; s++) { N++; const seed = (SC.hash(s, 5151) * 4294967296) | 0, A = SC.composeSortie(k, seed, 0), B = SC.composeSortie(k, seed, 0, 'plain', 'none', 'off'), A0 = SC.composeSortie(k, seed, 0, 'plain', 'none', 'on');
+  for (const k of kits) for (let s = 0; s < N1; s++) { if (SC.dialNames(SC.KITS[k]).length) N++; /* (the share of days that draw dials is of the kits that have dials) */ const seed = (SC.hash(s, 5151) * 4294967296) | 0, A = SC.composeSortie(k, seed, 0), B = SC.composeSortie(k, seed, 0, 'plain', 'none', 'off'), A0 = SC.composeSortie(k, seed, 0, 'plain', 'none', 'on');
     if (J(A.segs) !== J(B.segs)) seg = false; if (J(A.encPlan) !== J(B.encPlan) || A.wingC !== B.wingC) enc = false;
     if (B.dialNames.length || B.gen.params.segs.some(g => g.p) || SC.dialNames(SC.KITS[k]).some(d => B.gen.params[d] !== undefined)) off = false;
     if (A.dialNames.length) { some++; for (const d of A.dialNames) used[k + ':' + d] = true; } if (SC.check(k, A).length || SC.check(k, B).length || J(A0.gen) !== J(A.gen)) range = false; }
@@ -104,16 +104,19 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
     ok(night, 'a Night run day is always flown at noon, and an unknown light is noon');
     const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), cnt = { day: 0, morning: 0, sunset: 0 }; let nightGraded = 0; for (let n = 0; n < 1100; n++) { const D = SC.dailySeed(dk(n)); cnt[D.tod]++; if (D.twist === 'night' && D.tod !== 'day') nightGraded++; }
     ok(nightGraded === 0 && cnt.morning > 130 && cnt.sunset > 130 && cnt.day > 600 && cnt.day < 800, 'the date draws the light: ' + J(cnt) + ' over 1,100 days (60 % noon before Night run days are set to noon), none graded on a Night run day'); }
+  { let inPool = true, all = true; for (const k of kits) { const seen = new Set(); for (let s = 0; s < 3000; s++) { const C = SC.composeSortie(k, (SC.hash(s, 3) * 4294967296) | 0, 0); seen.add(C.bossVar.variant); if (!SC.KITS[k].bosses.some(b => b.id === C.bossVar.variant && b.kind === C.bossVar.kind)) inPool = false; } if (!SC.KITS[k].bosses.every(b => seen.has(b.id))) all = false; }
+    ok(inPool && all, "every kit draws only bosses of its pool, and every entry of every pool in 3,000 draws (" + kits.map(k => k + ' ' + SC.KITS[k].bosses.length).join(', ') + ' entries)');
+    const same = kits.every(k => { const A = SC.composeSortie(k, 4242, 0), B = SC.composeSortie(k, 4242, 0, 'plain', 'none', 'on', 'sunset'); return J(A.segs) === J(B.segs) && J(A.bossVar) === J(B.bossVar); }); ok(same, 'the boss does not depend on the light, and the list does not depend on the boss'); }
   ok(some > N * (1 - SC.DIAL_NONE) * 0.85 && some < N * (1 - SC.DIAL_NONE) * 1.15, 'about ' + (100 - 100 * SC.DIAL_NONE) + ' % of days draw dials (' + some + ' of ' + N + ')');
   const every = kits.every(k => SC.dialNames(SC.KITS[k]).every(d => used[k + ':' + d])); ok(every, 'every dial of every kit is drawn on some day: ' + kits.map(k => k + ' ' + SC.dialNames(SC.KITS[k]).length).join(', '));
   /* gate 1 rejects what it should */
-  for (const k of kits) { let S = null; for (let s = 0; s < 60 && !S; s++) { const C = SC.composeSortie(k, s * 97 + 5, 0); if (C.gen.params.segs.some(g => g.p)) S = C; } if (!S) { tamper = false; continue; }
+  for (const k of kits.filter(q => SC.dialNames(SC.KITS[q]).length)) { let S = null; for (let s = 0; s < 60 && !S; s++) { const C = SC.composeSortie(k, s * 97 + 5, 0); if (C.gen.params.segs.some(g => g.p)) S = C; } if (!S) { tamper = false; continue; }
     const mk = f => { const T = JSON.parse(J(S)); f(T); return SC.check(k, T).length > 0; }, pk = Object.keys(S.gen.params.segs.find(g => g.p).p)[0];
     if (!mk(T => { T.gen.params.segs.find(g => g.p).p[pk] = 99; }) || !mk(T => { T.gen.params.segs.find(g => g.p).p.bogus = 1; }) || !mk(T => { T.dials = 'off'; })) tamper = false; }
   ok(tamper, 'gate 1 rejects a dial out of its range, a dial the template does not take, and dials on a day that has them off');
   /* the composer's forest table is the generator's; every dial name and range is one the generator's own tables know (it clamps the rest away) */
   { const norm = T => J(Object.keys(T).sort().map(t => [t, ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'].map(q => T[t][q] || 0)])); ok(norm(CGEN.FOREST_BASE) === norm(SC.FOREST_BASE), "the composer's FOREST_BASE equals the generator's (an absent count is 0)"); }
-  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS }; let inside = true;
+  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS, city: CGEN.CITY_DIALS }; let inside = true;
   for (const k of kits) for (const t in SC.KITS[k].dials.seg) for (const d in SC.KITS[k].dials.seg[t]) { const g = known[k][d], r = SC.KITS[k].dials.seg[t][d]; if (!g || r[0] < g[0] || r[1] > g[1]) { inside = false; console.log('       ' + k + ' ' + t + ' ' + d + ' ' + r.join('..') + ' is outside the generator table ' + (g || []).join('..')); } }
   ok(inside, "every per-segment dial range lies inside the generator's own table");
   /* the forest's crowns dial: more crowns the higher it is, across the whole range (an upper half that did nothing was the first version's flaw) */
@@ -121,12 +124,13 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
     ok(v.every((x, i) => !i || x > v[i - 1] * 1.05) && Math.abs(v[2] - n(1)) === 0, 'forest crowns: ' + v.join(' < ') + ' crowns across ' + r.join(' to ')); }
   /* each dial reaches the plan: one sortie per kit, the dial at both ends of its range (the full extremes are tests/dials-probe.mjs) */
   const sig = pl => { let h = 2166136261 >>> 0; const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; }; for (const key of Object.keys(pl).sort()) { if (key === 'P' || key === 'stage') continue; const v = pl[key]; if (ArrayBuffer.isView(v)) { for (let i = 0; i < v.length; i += 7) mix(v[i] * 1000); } else if (Array.isArray(v)) { mix(v.length); if (Array.isArray(v[0])) mix(v.reduce((q, x) => q + x.length, 0)); } } return h; }; /* (a list of lists, like the conifers: count the items too) */
-  for (const k of kits.filter(q => q !== 'winter' || !process.argv.includes('--fast'))) { const K = SC.KITS[k], C = SC.composeSortie(k, 4242, 0, 'plain', 'none', 'off'), dead = []; const base = sig(CGEN.generate(C.gen));
-    for (const d of SC.dialNames(K)) { let hit = false; for (const end of [0, 1]) { const params = Object.assign({}, C.gen.params); if (K.dials.global[d]) params[d] = K.dials.global[d][end]; params.segs = C.gen.params.segs.map(g => (K.dials.seg[g.t] || {})[d] ? Object.assign({}, g, { p: { [d]: K.dials.seg[g.t][d][end] } }) : g); if (sig(CGEN.generate(Object.assign({}, C.gen, { params }))) !== base) hit = true; } if (!hit) dead.push(d); }
+  for (const k of kits.filter(q => q !== 'winter' || !process.argv.includes('--fast'))) { const K = SC.KITS[k], dead = [];
+    const findC = d => { for (let s = 4242; s < 4642; s++) { const C = SC.composeSortie(k, s, 0, 'plain', 'none', 'off'); if (K.dials.global[d] || C.gen.params.segs.some(g => (K.dials.seg[g.t] || {})[d])) return C; } return null; }; /* (a dial of a river stretch needs a list with a river) */
+    for (const d of SC.dialNames(K)) { const C = findC(d); if (!C) { dead.push(d + ' (no list takes it)'); continue; } const base = sig(CGEN.generate(C.gen)); let hit = false; for (const end of [0, 1]) { const params = Object.assign({}, C.gen.params); if (K.dials.global[d]) params[d] = K.dials.global[d][end]; params.segs = C.gen.params.segs.map(g => (K.dials.seg[g.t] || {})[d] ? Object.assign({}, g, { p: { [d]: K.dials.seg[g.t][d][end] } }) : g); if (sig(CGEN.generate(Object.assign({}, C.gen, { params }))) !== base) hit = true; } if (!hit) dead.push(d); }
     ok(dead.length === 0, k + ': every dial changes the plan' + (dead.length ? ' (not: ' + dead.join(', ') + ')' : '')); } }
 
 // 7. gate 2: the generator's plan of each composed list
-const BASE = { desert: 246, forest: 163, winter: 1265 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4); the limit is 1.5 times it, on the median
+const BASE = { desert: 246, forest: 163, winter: 1265, city: 230 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4; city: CI runners measured a median of 278-290 ms with the dockyard, river and yard stretches, so 230 leaves headroom); the limit is 1.5 times it, on the median
 for (const k of kits) { const kit = SC.KITS[k], P = PROBE[k], flags = {}, notes = {}, ms = [], built = {}; let n = 0, clean = 0, over = 0; const t0 = Date.now();
   for (let s = 0; s < PLANS; s++) { if (s % SHARD[1] !== SHARD[0] - 1) continue; n++; const S = SC.composeSortie(k, (SC.hash(s, 777) * 4294967296) | 0), r = checkPlan(P, S.segs, S.gen.seed, S.gen);
     for (const f of r.flags) flags[f] = (flags[f] || 0) + 1; for (const nt of r.notes) notes[nt] = (notes[nt] || 0) + 1; if (r.ms) ms.push(r.ms); let ovr = false;

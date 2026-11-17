@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Bot baselines for the Daily Sortie's flight gate (docs/daily-sortie-plan.md, section 3, gate 3; phase 0).
-// Flies the hand-made levels of the three kits (level 2 desert, 4 forest, 5 winter), first pass and loops, on all three difficulties,
+// Flies the hand-made levels of the four kits (level 2 desert, 4 forest, 5 winter, 6 city), first pass and loops, on all three difficulties,
 // with the "human" bot (SF.human(8, 15)) in immortal mode, and writes the gate's measures to tests/daily-baseline.json.
 // Needs Node and Playwright. Serve the folder (python3 -m http.server 8000), then:
 //   node tests/daily-baseline.mjs                    fly everything, print the table (about 24 flights)
 //   node tests/daily-baseline.mjs --save tests/daily-baseline.json
-//   node tests/daily-baseline.mjs --levels 2 --diffs 1 --loops 0     a part of it
+//   node tests/daily-baseline.mjs --levels 2 --diffs 1 --loops 0     a part of it (level 6, the city, was added with composer v5: --levels 6 --save out.json, merged into the file by hand)
 //   node tests/daily-baseline.mjs --conc 2           pages flown at once (wall times are only comparable at the same --conc)
 //   node tests/daily-baseline.mjs --twice            fly every flight a second time in a fresh page and report whether it repeats exactly
 // Loops: level 2 has its own stretches on every loop seed (1945, 1946, 1947: loops 1 to 3, each one rank harder); levels 4 and 5 only on
@@ -16,9 +16,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
-const LEVELS = String(arg('levels', '2,4,5')).split(',').map(Number), DIFFS = String(arg('diffs', '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), TWICE = !!arg('twice', false);
-const LOOPS_OF = { 2: [0, 1, 2, 3], 4: [0, 1], 5: [0, 1] }, ONLY_LOOPS = arg('loops', null) === null ? null : String(arg('loops')).split(',').map(Number);
-const LAG = 8, REACT = 15, VIEW = { width: 1000, height: 760 }, NAMES = ['Rookie', 'Veteran', 'Ace'], KIT = { 2: 'desert', 4: 'forest', 5: 'winter' };
+const LEVELS = String(arg('levels', '2,4,5,6')).split(',').map(Number), DIFFS = String(arg('diffs', '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), TWICE = !!arg('twice', false);
+const LOOPS_OF = { 2: [0, 1, 2, 3], 4: [0, 1], 5: [0, 1], 6: [0, 1] }, ONLY_LOOPS = arg('loops', null) === null ? null : String(arg('loops')).split(',').map(Number);
+const LAG = 8, REACT = 15, VIEW = { width: 1000, height: 760 }, NAMES = ['Rookie', 'Veteran', 'Ace'], KIT = { 2: 'desert', 4: 'forest', 5: 'winter', 6: 'city' };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const VERSION = (readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
 
