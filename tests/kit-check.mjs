@@ -94,6 +94,7 @@ export const builtShare = (p, y0, y1) => { let n = 0; for (let i = y0 * p.W; i <
 
 // One plan made and judged. gen: { preset, seed, params } to use instead of the kit's own (the composer's output carries one).
 export function check(kit, segs, seed, gen) {
+  segs = segs.filter(g => !g.legacy); /* (a sea ending's legacy stretches come after the plan: the plan covers the rest) */
   const res = { flags: [], notes: [], ms: 0, pairs: [] };
   for (let i = 1; i < segs.length; i++) res.pairs.push(segs[i - 1].t + '>' + segs[i].t);
   let p; const t0 = performance.now();

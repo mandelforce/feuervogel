@@ -45,9 +45,9 @@ for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; l
   const note = m => { bad[m] = (bad[m] || 0) + 1; }, V = variety[k] = { orders: new Set(), sets: new Set(), tmpl: {}, len: [], mids: [], enc: {}, encN: [], wing: [], first: {}, hot3: 0 };
   for (let s = 0; s < N; s++) { const seed = (SC.hash(s, 4242) * 4294967296) | 0; let S; try { S = SC.composeSortie(k, seed); } catch (e) { note('throws: ' + e.message.slice(0, 60)); continue; }
     att[S.attempt] = (att[S.attempt] || 0) + 1; worst = Math.max(worst, S.attempt); if (SC.check(k, S).length) mod++;
-    const segs = S.segs; let at = 0;
+    const segs = S.segs.filter(g => !g.legacy), tl = S.segs.filter(g => g.legacy).reduce((a, g) => a + g.n, 0); let at = 0; /* (a sea ending's legacy stretches come after the plan's own: checked by the module's check and in section 6b) */
     for (const g of segs) { if (g.start !== at) note('a gap in the segments'); at += g.n; }
-    if (S.len !== at || at < kit.len[0] || at > kit.len[1]) note('total length');
+    if (S.len !== at + tl || at < kit.len[0] || at > kit.len[1]) note('total length');
     const O = OPS.find(o => J(segs.slice(0, o.length).map(g => [g.t, g.n])) === J(o)); if (!O) { note('opener'); continue; } const A = APS.find(a => J(segs.slice(-a.length).map(g => [g.t, g.n])) === J(a)); if (!A) note('approach'); const mid = A ? segs.slice(O.length, segs.length - A.length) : []; if (!A) continue;
     const cnt = {}; mid.forEach((g, i) => { const m = kit.middle[g.t]; if (!m) { note('unknown template'); return; } cnt[g.t] = (cnt[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) note('segment length');
       const prev = i ? mid[i - 1].t : O[O.length - 1][0]; if (prev === g.t) note('a template twice in a row'); if (!kit.follows[prev].includes(g.t)) note('follows'); });
