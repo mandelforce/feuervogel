@@ -303,15 +303,17 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   await Q(`closeDiff(), openDaily(), 0`); const d2 = await J(`({ date: document.getElementById('dpDate').textContent, kit: document.getElementById('dpKit').textContent })`); ok(d2.date === today + ' (today)' && d2.kit === "Kit: day's own", `opened again, the picker starts from today's own level`);
   await page.close(); }
 
-// ---------- 11. the boss of a composed city (docs/daily-sortie-plan.md 12.9): a form drawn from the date; its lance pods and hit points are the form's; the Campaign's level 6 boss is untouched ----------
-{ const find = v => { for (let s = 0; s < 400; s++) { const C = SC.composeSortie('city', (SC.hash(s, 6161) * 4294967296) | 0, 0, 'plain', 'none', 'off', 'day'); if (C.bossVar.variant === v) return C.base; } return null; };
-  const BQ = (seed, camp) => `(() => { SF.setMode('immortal'); SF.start(1, 1); ${camp ? 'startEnigma(6, true)' : `startComposed(SortieCompose.composeSortie('city', ${seed}, 0, 'plain', 'none', 'off', 'day'))`}; SF.human(8, 15); SF.run(30); const sv = run.sortie.bossVar || null; spawnBoss(); const b = world.enemies.find(e => e.type === 'boss'); return JSON.stringify({ sv, kind: b && b.kind, lance: b ? b.parts.filter(p => p.k === 'lance').length : -1, hp: b ? b.parts[0].maxhp : 0, errs: SF.R.errs.length }); })()`;
-  const R = {}; for (const v of ['plain', 'lance', 'heavy', 'light']) { const seed = find(v); const page = await freshPage(11); R[v] = JSON.parse(await peek(page, BQ(seed, false))); await page.close(); }
-  const page = await freshPage(11); R.camp = JSON.parse(await peek(page, BQ(0, true))); await page.close();
-  for (const v of ['plain', 'lance', 'heavy', 'light']) ok(R[v].sv && R[v].sv.variant === v && R[v].kind === 'skyfort' && R[v].errs === 0, `city boss ${v}: recorded in run.sortie.bossVar, a sky fortress spawns without errors`);
-  ok(R.plain.lance === 0 && R.light.lance === 0 && R.lance.lance === 2 && R.heavy.lance === 2, `the lance pods: plain ${R.plain.lance}, lance ${R.lance.lance}, heavy ${R.heavy.lance}, light ${R.light.lance}`);
-  ok(Math.abs(R.lance.hp / R.plain.hp - 1) < 1e-9 && Math.abs(R.heavy.hp / R.plain.hp - 1.15) < 1e-9 && Math.abs(R.light.hp / R.plain.hp - 0.65) < 1e-9, `hit points x ${(R.lance.hp / R.plain.hp).toFixed(2)}, ${(R.heavy.hp / R.plain.hp).toFixed(2)}, ${(R.light.hp / R.plain.hp).toFixed(2)} (lance, heavy, light: 1, 1.15, 0.65)`);
-  ok(R.camp.sv === null && R.camp.kind === 'skyfort' && R.camp.lance === 0 && R.camp.hp === R.plain.hp, `the Campaign's level 6 boss is untouched: no variant, the same fortress, ${R.camp.lance} pods, ${R.camp.hp} hit points as the plain city's`); }
+// ---------- 11. the boss of a composed sortie (docs/daily-sortie-plan.md 12.9, 12.10): every kit's pool, on its own arena; the form's pods and hit points; the Campaign's level 6 boss is untouched ----------
+{ const BQ = (kit, seed, camp) => `(() => { SF.setMode('immortal'); SF.start(1, 1); ${camp ? 'startEnigma(6, true)' : `startComposed(SortieCompose.composeSortie('${kit}', ${seed}, 0, 'plain', 'none', 'off', 'day'))`}; SF.human(8, 15); SF.run(30); const sv = run.sortie.bossVar || null; spawnBoss(); const b = world.enemies.find(e => e.type === 'boss'); const base = b ? BOSS[b.kind].parts[0].hp * 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff] : 1; SF.run(240); return JSON.stringify({ sv, kind: b && b.kind, lance: b ? b.parts.filter(p => p.k === 'lance').length : -1, ratio: b ? b.parts[0].maxhp / base : 0, alive: !!b && !b.dead, errs: SF.R.errs.length }); })()`;
+  let combos = 0, good = 0; const bad2 = [];
+  for (const kit of SC.KIT_ORDER) for (const B of SC.KITS[kit].bosses) { let seed = null; for (let n = 0; n < 1500 && seed === null; n++) { const sd = (SC.hash(n, 6161) * 4294967296) | 0, C = SC.composeSortie(kit, sd, 0, 'plain', 'none', 'off', 'day'); if (C.bossVar.variant === B.id) seed = sd; }
+    combos++; if (seed === null) { bad2.push(kit + ' ' + B.id + ': never drawn'); continue; }
+    const page = await freshPage(11), r = JSON.parse(await peek(page, BQ(kit, seed, false))); await page.close();
+    const wantPods = B.lance ? 2 : 0, wantK = B.hpK || 1;
+    if (r.sv && r.sv.kind === B.kind && r.sv.variant === B.id && r.kind === B.kind && r.alive && r.errs === 0 && r.lance === wantPods && Math.abs(r.ratio - wantK) < 1e-9) good++; else bad2.push(`${kit} ${B.id}: ${JSON.stringify(r)}`); }
+  ok(good === combos, `every kit's boss pool, on its own arena: ${good} of ${combos} entries spawn the right boss with the form's pods and hit points, alive after 4 s, no errors` + (bad2.length ? ' (' + bad2.join('; ') + ')' : ''));
+  const page = await freshPage(11), camp = JSON.parse(await peek(page, BQ('city', 0, true))); await page.close();
+  ok(camp.sv === null && camp.kind === 'skyfort' && camp.lance === 0 && Math.abs(camp.ratio - 1) < 1e-9, `the Campaign's level 6 boss is untouched: no variant, the sky fortress, ${camp.lance} pods, hit points x ${camp.ratio}`); }
 
 await browser.close();
 if (bad) { console.error(`\n${bad} check(s) failed, ${passed} passed`); process.exit(1); }

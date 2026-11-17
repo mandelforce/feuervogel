@@ -4609,6 +4609,9 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      frames: how long it runs (measured in the first loops, tests/daily-baseline.json), first/last: only in the level's first or
      last segment of that template }. Taken from the loops' hand-made plans (buildSortie). Only those that work on the first pass's ground
      are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
+/* The bosses (plan 12.9, 12.10). Every kit's end ground is its level's own boss arena (legacy ground: the city's airfield apron, the desert's sand, the forest's grass with its central rail, the winter's snowy rail yard), and a boss fights on any arena in the game; what differs is whether it belongs there. The probe (tests/daily-gate.mjs --boss) flew every boss on every arena: all 24 fights end the level. So a kit's pool is its own boss, and the others whose ground the arena provides: the sky fortress flies, so any; the land fortress on open ground, any of the four; the train and the supergun need the arena's central rail, which the forest and the winter arenas have (x 112); the ship needs water and the castle its own castle ground, so neither is in a pool yet (no arena has water; the castle has no other climate's version). The forms: the boss as it is, heavy (20 % more hit points), light (30 % fewer), and for the sky fortress the first loop's twin lance pods (a lance form with more hit points took up to 5.8 minutes on Ace and was dropped). */
+const BOSS_FORMS = { plain: {}, heavy: { hpK: 1.2 }, light: { hpK: 0.7 } }, FORT_FORMS = { lance: { lance: true }, light: { hpK: 0.65 } };
+function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f)); } return out; }
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -4694,8 +4697,8 @@ const KITS = {
       city_river: ['city_suburb', 'city_town', 'city_centre', 'ruins', 'industrial_power'],
       ruins: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'industrial_power'],
       industrial_power: ['city_suburb', 'city_town', 'city_centre', 'city_river', 'ruins'] },
-    /* the boss (plan 12.9): the sky fortress, in one of four forms by the date: as in the first pass; with the first loop's twin lance pods (the loop's last act); the lance form with 15 % more hit points (the pods already add a minute: heavy at 40 % took up to 5.5 minutes on Ace); a light one with 35 % fewer. The game reads run.sortie.bossVar { kind, variant, lance, hpK } (S.boss is the trigger rule, { add } or { yard }). */
-    bosses: [{ id: 'plain', w: 3, kind: 'skyfort' }, { id: 'lance', w: 3, kind: 'skyfort', lance: true }, { id: 'heavy', w: 2, kind: 'skyfort', lance: true, hpK: 1.15 }, { id: 'light', w: 2, kind: 'skyfort', hpK: 0.65 }],
+    /* the boss: bossPool('skyfort') below (plan 12.9, 12.10) */
+    bosses: null,
     /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
     enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
       city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
@@ -4805,6 +4808,11 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
     city_river: Object.assign({}, U([-0.2, 0.1]), { riverW: [20, 36], riverAmp: [4, 10], riverIsland: [0, 1], riverPort: [0, 1] }) },
   int: ['riverIsland', 'riverPort'], strong: ['damage', 'urban', 'oldTownK', 'sideChannel', 'riverW'] };
 for (const id in DIALS) KITS[id].dials = DIALS[id];
+/* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
+KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]]]);
+KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]]]);
+KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]]]);
+KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]]]);
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
 /* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
@@ -6930,7 +6938,7 @@ lazySpr('ravenFloorRuin', () => {
   for (let k = 0; k < 320; k++) { const px = 24 + h(k, 121) * (W - 48), py = 24 + h(k, 122) * (RV_H - 60); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = ['#c47a2a', '#a8582a', '#d8a63c', '#8a4a24'][(h(k, 123) * 4) | 0]; x.fillRect(Math.round(px), Math.round(py), 2, 1); } /* autumn leaves */
   return c;
 });
-function prewarmBoss(th) { const k = BOSS_KINDS[th]; try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
+function prewarmBoss(th) { const k = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[th]; /* (a composed sortie's boss: its kind, not the theme's) */ try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
 function fortHull(fr) {
   return sprite(96, 112, x => {
     const TR2 = ['#0c0c0e', '#1c1c20', '#2e2e34', '#46464e', '#62626a'];
@@ -13854,7 +13862,7 @@ BOSS.skyfort = { warn: 'FLYING FORTRESS ON RADAR', noDeck: true, dyingFrames: 34
 const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort'];
 /* A composed sortie's boss (docs/daily-sortie-plan.md 12.9): run.sortie.bossVar = { kind, variant, lance, hpK } from the composer. Without it the boss is the theme's, as always. bossLance: the sky fortress's twin lance pods and sky lance, the first loop of level 6's last act (run.sortie.haze) or a composed sortie's lance variant; hpK: a factor on the boss's hit points. */
 const bossLance = () => { const S = run.sortie; return !!S && (!!S.haze || !!(S.bossVar && S.bossVar.lance)); };
-function bossWarn() { if (world.curTheme === 5) fadeMusicOut(1.0); showMsg('WARNING', BOSS[BOSS_KINDS[world.curTheme]].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
+function bossWarn() { const bk = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[world.curTheme]; if (world.curTheme === 5 || bk === 'skyfort') fadeMusicOut(1.0); showMsg('WARNING', BOSS[bk].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
 function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
