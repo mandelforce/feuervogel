@@ -17,8 +17,9 @@ export const KITS = {
     opener: [['harbour_commercial', 6], ['beach_town', 5]],
     middle: [['valley', 11], ['village', 6], ['station_junction', 9], ['desert_open', 6], ['airbase_desert', 9], ['pass', 11]],
     approach: [['desert_open', 9]],
-    needs: { valley: 'derrick', village: 'held oasis', oasis_town: 'large oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
+    needs: { harbour_dock: 'hull', valley: 'derrick', village: 'held oasis', oasis_town: 'large oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
     markers: p => { const m = [];
+      for (const h of (p.ships || []).filter(q => q.kind === 'hull')) m.push({ t: 'harbour_dock', y: h.y0 + h.h / 2, what: 'hull' }); /* (the dockyard: hulls on slipways in the side harbour) */
       for (const d of p.derricks || []) m.push({ t: 'valley', y: d.y, what: 'derrick' });
       for (const o of p.oasis || []) m.push(o.size === 'large' ? { t: 'oasis_town', y: o.y, what: 'large oasis' } : o.held ? { t: 'village', y: o.y, what: 'held oasis' } : { t: 'desert_open', y: o.y, what: o.size === 'small' ? 'small oasis' : 'hamlet' });
       for (const w of p.wagons || []) m.push({ t: 'station_junction', y: w.y, what: 'junction' });
@@ -27,7 +28,7 @@ export const KITS = {
       for (const v of p.viaducts || []) m.push({ t: 'pass', y: (v.y0 + v.y1) / 2, what: 'viaduct' });
       for (const i of p.industry || []) if (i.kind === 'brickworks') m.push({ t: 'desert_open', y: i.y + i.h / 2, what: 'brickworks' });
       return m; },
-    extra: (p, rg) => { const out = [], port = rg.filter(r => r.t === 'harbour_commercial' || r.t === 'beach_town').reduce((a, r) => a + r.y1 - r.y0, 0);
+    extra: (p, rg) => { const out = [], port = rg.filter(r => r.t === 'harbour_commercial' || r.t === 'harbour_dock' || r.t === 'beach_town').reduce((a, r) => a + r.y1 - r.y0, 0);
       if (!p.port || p.port.y1 + 1 !== port) out.push('port ends at ' + (p.port ? p.port.y1 + 1 : 'none') + ', its segments at ' + port);
       if (!p.beachTown) out.push('no beach town');
       const small = (p.oasis || []).filter(o => o.size === 'small').length; if (rg.some(r => r.t === 'desert_open') && small !== 1) out.push(small + ' small oases (the landmark)');

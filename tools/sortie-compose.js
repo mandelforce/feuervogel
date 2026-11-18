@@ -46,6 +46,7 @@ function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for 
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
+    openers: [[['harbour_commercial', 6], ['beach_town', 5]], [['harbour_dock', 6], ['beach_town', 5]]], openerShare: 0.3, /* (shared piece, plan 12.20: the city's dockyard, the side harbour's shipyard with hulls on slipways, along the desert port's end quay, in 30 % of the days) */
     middle: {
       valley: { len: [7, 12], max: 2, heat: 0.4, built: 0.15 },
       village: { len: [7, 8], max: 1, heat: 0.8, built: 0.55 }, // (not shorter: the held village's defences reach 190 px south of its middle and must stay inside its own segment; at 4 to 6 chunks they ran into the port, the pass's rock or the open desert's hamlet in 42 of 216 composed lists, at 7 in 0 of 63)
@@ -54,7 +55,7 @@ const KITS = {
       desert_open: { len: [4, 7], max: 2, heat: 0.1, built: 0.23 },
       airbase_desert: { len: [7, 10], max: 1, heat: 0.7, built: 0.42 },
       pass: { len: [8, 12], max: 1, heat: 0.9, built: 0.17 } },
-    fixedBuilt: { harbour_commercial: 0.8, beach_town: 0.36, desert_open: 0.23 },
+    fixedBuilt: { harbour_commercial: 0.8, harbour_dock: 0.8, beach_town: 0.36, desert_open: 0.23 },
     follows: {
       beach_town: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
       valley: ['village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert', 'pass'],
@@ -64,7 +65,7 @@ const KITS = {
       desert_open: ['valley', 'station_junction', 'airbase_desert', 'pass'], // (not the village: a later open desert's roadside hamlet reaches up to 70 px past its segment's end, into the village's defences: 3 of 300 composed lists)
       airbase_desert: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'pass'],
       pass: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert'] },
-    enc: { village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
+    enc: { harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
   forest: { id: 'forest', level: 4, preset: 'ironForest', params: { roadEnd: 112 }, arena: 0, boss: { add: 3 }, climate: 'forest', timeOfDay: 'day', len: [50, 66],
     opener: [['beach_cliff', 3]], approach: [['farmland_approach', 7]],
     middle: {
@@ -154,8 +155,10 @@ const KITS = {
     minMiddle: 3,
     fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
     legacy: { open: [['beach_fortified', 3]], close: [['coast_down', 1], ['open_sea', 4]], len: [20, 30], minMiddle: 2,
-      middle: { farmland: { len: [6, 10], max: 2, heat: 0.3 }, village: { len: [3, 5], max: 1, heat: 0.6 }, forest_deciduous: { len: [3, 5], max: 1, heat: 0.4 } },
-      follows: { beach_fortified: ['farmland', 'village', 'forest_deciduous'], farmland: ['village', 'forest_deciduous'], village: ['farmland', 'forest_deciduous'], forest_deciduous: ['farmland', 'village'] } },
+      middle: { farmland: { len: [6, 10], max: 2, heat: 0.3 }, village: { len: [3, 5], max: 1, heat: 0.6 }, forest_deciduous: { len: [3, 5], max: 1, heat: 0.4 },
+        city_small: { len: [3, 5], max: 1, heat: 0.6 }, industrial_light: { len: [4, 6], max: 1, heat: 0.5 } }, /* (shared pieces, plan 12.20: level 3's legacy town and works ground, a town and a light industrial estate, in level 1's old land) */
+      follows: { beach_fortified: ['farmland', 'village', 'forest_deciduous', 'city_small', 'industrial_light'], farmland: ['village', 'forest_deciduous', 'city_small', 'industrial_light'], village: ['farmland', 'forest_deciduous', 'city_small', 'industrial_light'], forest_deciduous: ['farmland', 'village', 'city_small', 'industrial_light'],
+        city_small: ['farmland', 'village', 'forest_deciduous', 'industrial_light'], industrial_light: ['farmland', 'village', 'forest_deciduous', 'city_small'] } },
     enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], farmland: [{ id: 'anvil', at: 1, end: 3, frames: 1080, first: true }, { id: 'formations', at: 1, end: 2, frames: 720, last: true }] } },
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
