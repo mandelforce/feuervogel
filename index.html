@@ -4691,7 +4691,8 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
 /* The bosses (plan 12.9, 12.10). Every kit's end ground is its level's own boss arena (legacy ground: the city's airfield apron, the desert's sand, the forest's grass with its central rail, the winter's snowy rail yard), and a boss fights on any arena in the game; what differs is whether it belongs there. The probe (tests/daily-gate.mjs --boss) flew every boss on every arena: all 24 fights end the level. So a kit's pool is its own boss, and the others whose ground the arena provides: the sky fortress flies, so any; the land fortress on open ground, any of the four; the train and the supergun need the arena's central rail, which the forest and the winter arenas have (x 112); the ship needs water and the castle its own castle ground, so neither is in a pool yet (no arena has water; the castle has no other climate's version). The forms: the boss as it is, heavy (20 % more hit points), light (30 % fewer), and for the sky fortress the first loop's twin lance pods (a lance form with more hit points took up to 5.8 minutes on Ace and was dropped). */
 const BOSS_FORMS = { plain: {}, heavy: { hpK: 1.2 }, light: { hpK: 0.7 } }, FORT_FORMS = { lance: { lance: true }, light: { hpK: 0.65 } };
-function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' || kind === 'squadron' || kind === 'ghostship' || kind === 'leviathan' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
+const CASTLE_SKINS = { sand: 1, ice: 1, fort: 1 }; /* the castle's climates (plan 12.20): the forest's Ravenhold recoloured in sandstone, ice and whitewashed stone */
+function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : kind === 'castle' && CASTLE_SKINS[id] ? { castle: id } : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' || kind === 'squadron' || kind === 'ghostship' || kind === 'leviathan' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -4865,7 +4866,7 @@ function check(kitId, S) {
   if (mid.length && mid[mid.length - 1].t === A[0][0]) bad.push('the approach repeats the last middle template');
   if (mid.length && kit.beforeApproach && !kit.beforeApproach.includes(mid[mid.length - 1].t)) bad.push(mid[mid.length - 1].t + ' may not come directly before the approach');
   for (const t of kit.require || []) if (!mid.some(g => g.t === t)) bad.push('the kit requires ' + t);
-  if (kit.bosses && !(S.bossVar && kit.bosses.some(b => b.id === S.bossVar.variant && b.kind === S.bossVar.kind && !!b.lance === !!S.bossVar.lance && (b.hpK || 1) === (S.bossVar.hpK || 1)))) bad.push('the boss is none of the kit\'s: ' + JSON.stringify(S.bossVar || null));
+  if (kit.bosses && !(S.bossVar && kit.bosses.some(b => b.id === S.bossVar.variant && b.kind === S.bossVar.kind && !!b.lance === !!S.bossVar.lance && (b.castle || '') === (S.bossVar.castle || '') && (b.hpK || 1) === (S.bossVar.hpK || 1)))) bad.push('the boss is none of the kit\'s: ' + JSON.stringify(S.bossVar || null));
   for (const [t, need] of Object.entries((kit.gapBefore || {})[A[0][0]] || {})) { const i = mid.map(g => g.t).lastIndexOf(t); if (i >= 0) { const gap = mid.slice(i + 1).reduce((a, g) => a + g.n, 0); if (gap < need) bad.push('only ' + gap + ' chunks between ' + t + ' and ' + A[0][0] + ', at least ' + need); } }
   /* spec 4.4, as far as a list can break it: a harbour needs the sea before it (it is the opener's, behind the sea or first over it); a station needs rail
      (every kit's preset lays its line the whole length); one airbase at most (max). The rest is the generator's to keep, and gate 2 checks it. */
@@ -4935,10 +4936,10 @@ DIALS.temperate = { global: { bigW: [165, 210], lane: [38, 56] }, seg: { island_
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 /* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
 KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaTail = [['coast_down', 1], ['open_sea', 6]]; KITS.winter.seaTail = [['open_sea', 7]]; /* (no legacy coast: the plan's own harbour basin meets the open sea) */ KITS.winter.seaApproach = [['pass', 7], ['farmland_winter', 14]]; /* (a sea ending: the line runs on 3 chunks further, to its freight harbour) */ KITS.winter.seaParams = { finale: 'depot' }; KITS.winter.iceShare = 0.5; /* (half the harbours are frozen) */ /* (the winter: a sea ending has no gorge in its plan) */ // a sea ending (legacy ground after the plan's end: the coast, then open sea that the arena goes on into), for the ship; not the winter's, whose arena is its own gorge
-KITS.temperate.bosses = bossPool([['ship', [['plain', 4]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['squadron', [['plain', 2]]], ['wolfpack', [['plain', 2]]], ['ghostship', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['rival', [['plain', 1]]]]);
-KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
+KITS.temperate.bosses = bossPool([['ship', [['plain', 4]]], ['castle', [['fort', 2]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['squadron', [['plain', 2]]], ['wolfpack', [['plain', 2]]], ['ghostship', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['castle', [['sand', 2]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
 KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
-KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
+KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['castle', [['ice', 2]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
 KITS.winter.bosses.find(b => b.kind === 'railgun').rail = true; /* (the winter's supergun: its own gorge with two tracks in the middle, plan 12.18) */
 KITS.winter.bosses.filter(b => b.kind === 'wolfpack' || b.kind === 'leviathan').forEach(b => { b.ice = true; }); /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
 KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
@@ -4948,7 +4949,7 @@ const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const
 function bossFor(kit, base, ap) {
   if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail && !kit.legacy)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
   const tot = pool.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = pool[pool.length - 1]; for (const q of pool) { x -= q.w; if (x < 0) { b = q; break; } }
-  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
+  const o = { kind: b.kind, variant: b.id }; if (b.castle) o.castle = b.castle; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
 }
 function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
@@ -7077,7 +7078,7 @@ lazySpr('ravenFloorRuin', () => {
   for (let k = 0; k < 320; k++) { const px = 24 + h(k, 121) * (W - 48), py = 24 + h(k, 122) * (RV_H - 60); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = ['#c47a2a', '#a8582a', '#d8a63c', '#8a4a24'][(h(k, 123) * 4) | 0]; x.fillRect(Math.round(px), Math.round(py), 2, 1); } /* autumn leaves */
   return c;
 });
-function prewarmBoss(th) { const k = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[th]; /* (a composed sortie's boss: its kind, not the theme's) */ try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
+function prewarmBoss(th) { const k = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[th]; /* (a composed sortie's boss: its kind, not the theme's) */ try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; if (castleSkin()) { castleFloorSkin(castleSkin()); castleKeepSkin(castleSkin(), 1); } } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
 function fortHull(fr) {
   return sprite(96, 112, x => {
     const TR2 = ['#0c0c0e', '#1c1c20', '#2e2e34', '#46464e', '#62626a'];
@@ -13791,14 +13792,14 @@ function drawKeepTower(e) {
   const th = e.towerH ?? 70, bx = e.x, by = e.y, r = 24; if (by < -140 || by > H + 60) return;
   const [tx, ty] = keepTop(e);
   ctx.globalAlpha = 0.28; for (let k = 0; k <= 10; k++) dk(bx + th * 0.5 * k / 10, by + th * 0.35 * k / 10, r, '#0a0812'); ctx.globalAlpha = 1;
-  const steps = Math.max(1, Math.ceil(Math.hypot(tx, ty))), L = STONE[3], M = STONE[2], D = STONE[1];
+  const steps = Math.max(1, Math.ceil(Math.hypot(tx, ty))), ST = castleSkin() ? CASTLE_SKINS[castleSkin()].stone : STONE, L = ST[3], M = ST[2], D = ST[1];
   for (let k = 0; k <= steps; k++) {
     const f = k / steps, cx = bx + tx * f, cy = by + ty * f, course = k % 7 === 0;
     for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); ctx.fillStyle = course ? D : L; ctx.fillRect(Math.round(cx - w), Math.round(cy + dy), w, 1); ctx.fillStyle = course ? STONE[0] : M; ctx.fillRect(Math.round(cx), Math.round(cy + dy), Math.round(w * 0.55), 1); ctx.fillStyle = course ? STONE[0] : D; ctx.fillRect(Math.round(cx + w * 0.55), Math.round(cy + dy), Math.ceil(w * 0.45), 1); }
     if (k % 14 === 7) for (const sx of [-14, -5, 5, 14]) { ctx.fillStyle = '#ffd860'; ctx.fillRect(Math.round(cx + sx), Math.round(cy + Math.sqrt(r * r - sx * sx)) - 4, 1, 2); }
   }
   const cx = bx + tx, cy = by + ty;
-  for (let a = 0; a < 16; a++) { const an = a * TAU / 16; ctx.fillStyle = a % 2 ? STONE[4] : STONE[1]; ctx.fillRect(Math.round(cx + Math.cos(an) * (r - 2)) - 2, Math.round(cy + Math.sin(an) * (r - 2)) - 2, 4, 4); }
+  for (let a = 0; a < 16; a++) { const an = a * TAU / 16; ctx.fillStyle = a % 2 ? ST[4] : ST[1]; ctx.fillRect(Math.round(cx + Math.cos(an) * (r - 2)) - 2, Math.round(cy + Math.sin(an) * (r - 2)) - 2, 4, 4); }
   ctx.fillStyle = '#26232a'; ctx.beginPath(); ctx.arc(Math.round(cx) + 0.5, Math.round(cy) + 0.5, r - 6, 0, TAU); ctx.fill();
   const fx = Math.round(cx + 6), fy = Math.round(cy - r - 12); ctx.fillStyle = '#1a1a1a'; ctx.fillRect(fx, fy, 1, 14);
   for (let i = 0; i < 10; i++) { const wv = Math.round(Math.sin(gf * 0.15 - i * 0.6) * 1.2); ctx.fillStyle = '#7a1a1a'; ctx.fillRect(fx + 1 + i, fy + wv, 1, 6); ctx.fillStyle = '#d0a020'; ctx.fillRect(fx + 1 + i, fy + 2 + wv, 1, 1); }
@@ -18301,12 +18302,34 @@ function drawTreads() {
   ctx.globalAlpha = 1;
 }
 
+/* The castle's climates (plan 12.20): the forest's Ravenhold in the desert's sandstone, the winter's ice and the seaside's whitewashed fort. The same floor, keep and tower, recoloured pixel by pixel (stone by its brightness along a ramp, the moat's water, the moss and the warm woods and roofs each to the climate's own colours), so the shape, the collision and the fight are Ravenhold's. skin: 'sand', 'ice' or 'fort'; none: the forest's castle as it is. */
+const CASTLE_SKINS = {
+  sand: { stone: ['#4a3a24', '#7a6240', '#a8895a', '#cdb07a', '#ecd9a6'], water: ['#9a7a48', '#b8925a', '#d2ae72'], moss: ['#8a7a3a', '#a8964c', '#c4b266'], warm: ['#6a3a1c', '#8c4e26', '#b0703a'] },
+  ice: { stone: ['#3e526e', '#6a86a8', '#a4c0dc', '#d4e6f4', '#f2f8fd'], water: ['#7fb0d0', '#a8d0e8', '#d4ecf8'], moss: ['#dce9f3', '#eaf3fa', '#f8fcff'], warm: ['#5a7088', '#7a94ac', '#9eb6cc'] },
+  fort: { stone: ['#3c4650', '#68747e', '#98a4ae', '#c6ced6', '#ecf0f4'], water: ['#1a5282', '#2a72a4', '#4a9cc6'], moss: ['#58805a', '#6f9a6c', '#88b484'], warm: ['#6a5a40', '#8c7a58', '#b09c76'] }
+};
+const SKIN_HEX = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+function skinRamp(list, t) { const n = list.length - 1, f = Math.max(0, Math.min(1, t)) * n, i = Math.min(n - 1, Math.floor(f)), a = SKIN_HEX(list[i]), b = SKIN_HEX(list[i + 1]), u = f - i; return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; }
+function skinCanvas(src, skin) { /* a recoloured copy of a canvas (or of a sprite's canvas) */
+  const c0 = src.c || src, K = CASTLE_SKINS[skin], [c, x] = mk(c0.width, c0.height); x.drawImage(c0, 0, 0); const img = x.getImageData(0, 0, c.width, c.height), a = img.data;
+  for (let i = 0; i < a.length; i += 4) { if (a[i + 3] < 8) continue; const r = a[i], g = a[i + 1], b = a[i + 2], l = (0.3 * r + 0.55 * g + 0.15 * b) / 255; let o;
+    if (b > r + 10 && b >= g - 2 && l < 0.6) o = skinRamp(K.water, l * 3.2); /* (the moat, and the keep's blue slate) */
+    else if (g > r + 5 && g > b + 5) o = skinRamp(K.moss, l * 3.2); /* (moss, hedges, garden) */
+    else if (r > b + 16 && r > g + 6) o = skinRamp(K.warm, l * 2.4); /* (roofs, planks, banners) */
+    else o = skinRamp(K.stone, Math.pow(l, 0.85) * 1.15);
+    a[i] = o[0]; a[i + 1] = o[1]; a[i + 2] = o[2]; }
+  x.putImageData(img, 0, 0); return c;
+}
+const SKIN_CACHE = {};
+function castleSkin() { const sv = run.sortie && run.sortie.bossVar; return sv && sv.kind === 'castle' && CASTLE_SKINS[sv.castle] ? sv.castle : ''; }
+function castleFloorSkin(skin) { return SKIN_CACHE['f' + skin] || (SKIN_CACHE['f' + skin] = skinCanvas(SPR.ravenFloor, skin)); }
+function castleKeepSkin(skin, open) { return SKIN_CACHE['k' + skin + open] || (SKIN_CACHE['k' + skin + open] = finalize(skinCanvas(SPR.keep[open], skin))); }
 function drawRaven() {
   const e = world.enemies.find(o => o.type === 'boss' && o.kind === 'castle' && o.gateWy !== undefined); if (e) world.ravenGate = e.gateWy; if (world.ravenGate === null) return;
   const top = world.ravenGate - RV_GATE + Math.floor(world.scroll);
   if (top > H) { world.ravenGate = null; return; }
   const y0 = Math.max(0, -top), y1 = Math.min(RV_H, H - top);
-  if (y1 > y0) { ctx.drawImage(run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
+  if (y1 > y0) { ctx.drawImage(castleSkin() ? castleFloorSkin(castleSkin()) : run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
 }
 function drawMarkers() {
   const sc = Math.floor(world.scroll);
@@ -18957,7 +18980,7 @@ const BOSS_LOOKS = {
   },
   castle(e, fl, core) {
     if (e.y > -140 && e.y < H + 60) {
-      spr(SPR.keep[1], e.x, e.y, fl);
+      spr(castleSkin() ? castleKeepSkin(castleSkin(), 1) : SPR.keep[1], e.x, e.y, fl);
       drawBossParts(e, { main: SPR.bMain }, q => !q.tw);
       drawKeepTower(e);
       if ((e.towerH ?? 70) > 8) drawBossParts(e, { aa: SPR.bAA, rocket: SPR.rocketPod }, q => q.tw && q.k !== 'core');
@@ -19768,7 +19791,7 @@ function drawBossBar(big, by) {
   ctx.fillStyle = OUT; ctx.fillRect(bx - 1, by - 1, bw + 2, h + 2);
   barSeg(bx, by, hw, h, Math.min(fh, r), Math.min(b.hg, r), BAR_HP, blink);
   if (aw) barSeg(bx + hw + 1, by, aw, h, Math.min(fa, r), Math.min(b.ag, r), BAR_ARMOR, false);
-  const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? (isMoth(big) ? 'THE MOTH' : 'RAVEN PROTOTYPE') : big.type === 'sower' ? 'SOWER' : '';
+  const nm = big.type === 'boss' ? ({ ship: 'IRON LEVIATHAN', train: 'WINTER WOLF', fortress: 'SAND COLOSSUS', railgun: 'NIGHT HAMMER', castle: ({ sand: 'SANDSTONE CITADEL', ice: 'FROST KEEP', fort: 'SEA BASTION' })[castleSkin()] || 'RAVENHOLD', skyfort: 'BLACK FORTRESS' })[big.kind] : big.type === 'wing' ? 'SHADOW WING' + (big.v !== undefined && WING_V[big.v].tag ? ': ' + WING_V[big.v].tag : '') : big.type === 'protoDuel' ? (isMoth(big) ? 'THE MOTH' : 'RAVEN PROTOTYPE') : big.type === 'sower' ? 'SOWER' : '';
   if (nm) { const y0 = by + h + 3; softShadow(nm, bx, y0, 'left'); text(nm, bx, y0, '#f48a60', 1, 'left', '#d84a34'); } // the name at the small size, on the same soft shadow as the weapon names
 }
 function render() {
