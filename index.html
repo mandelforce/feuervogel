@@ -4682,7 +4682,7 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
 /* The bosses (plan 12.9, 12.10). Every kit's end ground is its level's own boss arena (legacy ground: the city's airfield apron, the desert's sand, the forest's grass with its central rail, the winter's snowy rail yard), and a boss fights on any arena in the game; what differs is whether it belongs there. The probe (tests/daily-gate.mjs --boss) flew every boss on every arena: all 24 fights end the level. So a kit's pool is its own boss, and the others whose ground the arena provides: the sky fortress flies, so any; the land fortress on open ground, any of the four; the train and the supergun need the arena's central rail, which the forest and the winter arenas have (x 112); the ship needs water and the castle its own castle ground, so neither is in a pool yet (no arena has water; the castle has no other climate's version). The forms: the boss as it is, heavy (20 % more hit points), light (30 % fewer), and for the sky fortress the first loop's twin lance pods (a lance form with more hit points took up to 5.8 minutes on Ace and was dropped). */
 const BOSS_FORMS = { plain: {}, heavy: { hpK: 1.2 }, light: { hpK: 0.7 } }, FORT_FORMS = { lance: { lance: true }, light: { hpK: 0.65 } };
-function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' || kind === 'squadron' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
+function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' || kind === 'squadron' || kind === 'ghostship' || kind === 'leviathan' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -4886,12 +4886,12 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 /* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
 KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaTail = [['coast_down', 1], ['open_sea', 6]]; KITS.winter.seaTail = [['open_sea', 7]]; /* (no legacy coast: the plan's own harbour basin meets the open sea) */ KITS.winter.seaApproach = [['pass', 7], ['farmland_winter', 14]]; /* (a sea ending: the line runs on 3 chunks further, to its freight harbour) */ KITS.winter.seaParams = { finale: 'depot' }; KITS.winter.iceShare = 0.5; /* (half the harbours are frozen) */ /* (the winter: a sea ending has no gorge in its plan) */ // a sea ending (legacy ground after the plan's end: the coast, then open sea that the arena goes on into), for the ship; not the winter's, whose arena is its own gorge
-KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
-KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
-KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
+KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
+KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
 KITS.winter.bosses.find(b => b.kind === 'railgun').rail = true; /* (the winter's supergun: its own gorge with two tracks in the middle, plan 12.18) */
-KITS.winter.bosses.find(b => b.kind === 'wolfpack').ice = true; /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
-KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.winter.bosses.filter(b => b.kind === 'wolfpack' || b.kind === 'leviathan').forEach(b => { b.ice = true; }); /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
+KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
 /* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
@@ -16010,6 +16010,47 @@ const ENT = {
       flash(e.x, e.y + 10, 5); sfx('cannon'); }
     if (dv === 400) { for (let q = -4; q <= 4; q++) eshot(e.x, e.y + 12, PI / 2 + q * 0.2, bspeed() * 0.9); sfx('gun'); }
   } },
+  ghost: { stats: { hp: 1, hw: 30, hh: 96, score: 25000, rad: 60 }, update(e) { /* the ghost ship (a Daily Sortie ending, plan 12.19): a pale flagship out of the fog. It is solid for seven seconds (aimed salvos from four guns, a fan), fades (untargetable: no shot can hurt it) while it sweeps sideways and sends rings of slow spectral shells and two missiles, and comes back */
+    if (e.dying) return dyingTick(e);
+    e.t2 = (e.t2 || 0) + 1;
+    if (!e.fog) { e.fog = []; for (let i = 0; i < 12; i++) e.fog.push({ x: hash(i, 3) * W, y: hash(i, 8) * 240, r: 18 + hash(i, 5) * 20, v: (0.1 + hash(i, 6) * 0.25) * (i % 2 ? 1 : -1) }); }
+    for (const f of e.fog) { f.x += f.v; if (f.x < -40) f.x = W + 40; if (f.x > W + 40) f.x = -40; }
+    if (e.t2 < 120) { e.y += (112 - e.y) * 0.04; e.alpha = 0.92; return; }
+    const k = e.t2 - 120, cy = k % 700, gp = cy >= 480 && cy < 640, fade = cy >= 420 && cy < 480 ? (cy - 420) / 60 : cy >= 640 && cy < 700 ? 1 - (cy - 640) / 60 : gp ? 1 : 0;
+    e.alpha = 0.92 - 0.7 * fade + (gp ? Math.sin(k * 0.4) * 0.06 : 0); e.untarget = fade > 0.55;
+    e.x = 112 + Math.sin(k * (gp ? 0.014 : 0.008)) * (gp ? 90 : 60); e.y = 112 + Math.sin(k * 0.015) * 10;
+    if (!hasT()) return; const sp = bspeed();
+    if (!gp) {
+      if (k % Math.round(60 * fireSlow()) === 20) for (const [ox, oy] of [[-18, 60], [18, 60], [-16, -40], [16, -40]]) { const a = aim(e.x + ox, e.y + oy); for (let q = -1; q <= 1; q++) world.later.push({ at: gf + (q + 1) * 4, fn: () => { if (!e.dying && !e.dead) eshot(e.x + ox, e.y + oy, a + q * 0.05, sp); } }); }
+      if (k % Math.round(200 * fireSlow()) === 140) { const a = aim(e.x, e.y + 70); for (let q = -4; q <= 4; q++) eshot(e.x, e.y + 70, a + q * 0.17, sp * 0.85); sfx('cannon'); }
+    } else { if (cy % 64 === 0) ring(e.x, e.y + 20, 16, sp * 0.6, k * 0.07); if (cy === 484) { for (const sd of [-1, 1]) world.enemies.push(E('missile', { x: e.x + sd * 20, y: e.y + 40, h: PI / 2, v: 0.9, life: 420 })); sfx('rocket'); } }
+  } },
+  crawler: { stats: { hp: 1, hw: 40, hh: 58, score: 25000, rad: 50 }, update(e) { /* the sand crawler (plan 12.19): a land ship on four tracks that rolls slowly across the screen, its turret firing triple shells, a ring from the hull now and then, and, at the half of its life, faster; every twelve seconds its rear ramp drops two tanks */
+    if (e.dying) return dyingTick(e);
+    e.t2 = (e.t2 || 0) + 1; if (e.ta === undefined) e.ta = PI / 2;
+    if (e.t2 < 120) { e.y += (96 - e.y) * 0.05; return; }
+    const k = e.t2 - 120, f = e.hp / e.maxhp; e.x = 112 + Math.sin(k * 0.006) * 46; e.y = 96 + Math.sin(k * 0.011) * 8;
+    if (hasT()) e.ta += clamp(angDiff(e.ta, aim(e.x, e.y + 6)), -0.03, 0.03);
+    if (gf % 3 === 0) for (const sx of [-36, 36]) world.parts.push({ kind: 'dust', layer: 'w', x: e.x + sx + rnd(-4, 4), y: e.y + 62, vx: rnd(-0.2, 0.2), vy: 0.3, life: 26, max: 26, r: 3 });
+    if (!hasT()) return; const sp = bspeed();
+    if (k % Math.round((f < 0.5 ? 46 : 70) * fireSlow()) === 0) { const bx = e.x + Math.cos(e.ta) * 30, by = e.y + 6 + Math.sin(e.ta) * 30; for (let q = -1; q <= 1; q++) eshot(bx, by, e.ta + q * 0.14, sp * 1.05, 'B'); flash(bx, by, 5); sfx('cannon'); }
+    if (k % Math.round(260 * fireSlow()) === 130) { ring(e.x, e.y + 6, 14, sp * 0.7, k * 0.04); sfx('boom'); feel.shake = Math.max(feel.shake, 2); }
+    if (k % 720 === 400) { for (const sd of [-1, 1]) world.enemies.push(G('tank', e.x + sd * 14, e.y + 70 - Math.floor(world.scroll), tankStats({ road: false, hd: PI / 2, v: 0 }))); sfx('clunk'); }
+  } },
+  leviathan: { stats: { hp: 1, hw: 26, hh: 70, score: 30000, rad: 50 }, update(e) { /* the ice leviathan (plan 12.19; the winter's frozen arena): it moves under the pack (chips and a dark bulge), the ice cracks and bursts in a large hole, it rises and fights for seven seconds (a fan of ice shards, a slam that sends a ring of slow shells), dives and comes up somewhere else */
+    if (e.dying) return dyingTick(e);
+    const spots = [[112, 150], [60, 92], [164, 96], [34, 170], [190, 166], [112, 70]], sc = Math.floor(world.scroll);
+    if (e.st === undefined) { e.st = 'under'; e.stT = 100; e.si = 0; e.untarget = true; e.x = 112; e.y = 150; }
+    e.stT--;
+    if (e.st === 'under') { e.untarget = true; const [tx, ty] = spots[e.si]; e.x += (tx - e.x) * 0.03; e.y += (ty - e.y) * 0.03; if (gf % 4 === 0) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + rnd(-14, 14), y: e.y + rnd(-30, 30), vx: rnd(-0.6, 0.6), vy: rnd(-0.6, 0.6), life: 16, max: 16, col: '#cfe4f2' });
+      if (e.stT <= 0) { e.x = tx; e.y = ty; e.st = 'break'; e.stT = ICEBRK.crack; world.decals.push({ kind: 'icebreak', wx: tx, wy: ty - sc, t0: gf, seed: e.si * 5 + 1, sc: 2.3 }); sfx('snap'); } }
+    else if (e.st === 'break') { e.untarget = true; if (e.stT <= 0) { e.st = 'rise'; e.stT = 50; sfx('surface'); feel.shake = Math.max(feel.shake, 5); } }
+    else if (e.st === 'rise') { if (e.stT <= 0) { e.st = 'up'; e.stT = 420; e.untarget = false; } }
+    else if (e.st === 'up') { e.untarget = false;
+      if (hasT()) { const sp = bspeed(); if (e.stT % Math.round(70 * fireSlow()) === 0) { const a = aim(e.x, e.y + 50); for (let q = -4; q <= 4; q++) eshot(e.x, e.y + 50, a + q * 0.15, sp * 0.9, 'B'); sfx('gun'); } if (e.stT === 220) { ring(e.x, e.y + 20, 18, sp * 0.7, 0); feel.shake = Math.max(feel.shake, 6); sfx('boom'); } }
+      if (e.stT <= 0) { e.st = 'dive'; e.stT = 50; } }
+    else if (e.st === 'dive') { e.untarget = true; if (e.stT <= 0) { e.si = (e.si + 2 + (e.si % 2)) % spots.length; e.st = 'under'; e.stT = 120; } }
+  } },
   tank: { turret: true, treads: true, medals: 0.6, stats: { hp: 10, hw: 7, hh: 9, score: 500, rad: 11 }, update(e) {
     if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 2) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
@@ -18368,6 +18409,12 @@ function buechseSight(e) {
 // Each enemy type's look, attached to its entry in the entity table as ENT[type].draw(e, fl) (fl: flashing white after a hit).
 // It stays here with the other drawing code, apart from the simulation (ROADMAP.md, Phase 5).
 const LOOKS = {
+  ghost(e, fl) { const a = clamp(e.alpha === undefined ? 0.92 : e.alpha, 0.05, 1); ctx.globalAlpha = a; spr(SPR.ghostShip, e.x, e.y, fl); ctx.globalAlpha = clamp(a * 0.9, 0, 1); ctx.fillStyle = '#9fffd8'; for (const ly of [-84, -40, 4, 48, 84]) if (((gf >> 2) + ly) % 5 < 3) ctx.fillRect(Math.round(e.x - 1), Math.round(e.y + ly), 3, 3); /* (lanterns) */
+    for (const f of e.fog || []) { ctx.globalAlpha = 0.2; ctx.fillStyle = '#d8f4ee'; ctx.beginPath(); ctx.arc(Math.round(f.x), Math.round(f.y), f.r, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.11; ctx.beginPath(); ctx.arc(Math.round(f.x + 8), Math.round(f.y + 5), f.r * 1.5, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; },
+  crawler(e, fl) { spr(SPR.crawler, e.x, e.y, fl); const a = e.ta === undefined ? PI / 2 : e.ta; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y) - 4); ctx.rotate(a - PI / 2); ctx.fillStyle = '#26200f'; for (const bx of [-4, 0, 4]) ctx.fillRect(bx - 1, 4, 2, 24); ctx.fillStyle = '#a09068'; for (const bx of [-4, 0, 4]) ctx.fillRect(bx - 1, 24, 2, 4); ctx.restore(); },
+  leviathan(e, fl) { const st = e.st; if (st === 'under') { ctx.globalAlpha = 0.28; ctx.fillStyle = '#16222e'; ctx.beginPath(); ctx.ellipse(Math.round(e.x), Math.round(e.y), 18, 44, 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; return; } if (st === 'break') return;
+    const r = st === 'rise' ? 1 - e.stT / 50 : st === 'dive' ? e.stT / 50 : 1; ctx.globalAlpha = clamp(r * 1.2, 0, 1); ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(0.8 + 0.2 * r, 0.8 + 0.2 * r); spr(SPR.leviathan, 0, 0, fl); ctx.restore(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#e2f0f8'; ctx.globalAlpha = 0.5 * r; ctx.beginPath(); ctx.ellipse(Math.round(e.x), Math.round(e.y), 30 * (1 + (1 - r) * 0.4), 78 * (1 + (1 - r) * 0.3), 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; },
   rival(e, fl) { const set = rivalSet(e.skin | 0); ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1, -1); spr(set[1], 0, 0, fl); ctx.restore(); }, /* (one of the player's aircraft, another than the one flown, upside down) */
   tank(e, fl) {
     const bu = e.buechse && (e.silver ? SPR.buechseN : SPR.buechseD), dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : bu ? bu.h : e.type === 'tank' ? SPR.tank : SPR.htank, tur = dr ? dr.t : bu ? bu.t : e.type === 'tank' ? SPR.tankTur : SPR.htankTur; // (the Buechse and the Drilling: Enigma Run)
@@ -18921,6 +18968,22 @@ function arenaScene(kind) {
   }
   return c;
 }
+/* Art of the ghost ship, the sand crawler and the ice leviathan (plan 12.19): drawn in code, as the game's other sprites. */
+lazySpr('ghostShip', () => { const b = SPR.bship, [c, x] = mk(b.w, b.h); x.drawImage(b.c, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(120,230,205,0.62)'; x.fillRect(0, 0, b.w, b.h); x.fillStyle = 'rgba(230,255,248,0.22)'; for (let y = 0; y < b.h; y += 6) x.fillRect(0, y, b.w, 1);
+  x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 170; i++) x.fillRect(Math.floor(hash(i, 5) * b.w), Math.floor(hash(i, 9) * b.h), 3, 1); /* (holes: a hull not all there) */ x.globalCompositeOperation = 'source-over'; return finalize(c); });
+lazySpr('crawler', () => sprite(88, 124, x => { const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+  for (const tx of [0, 72]) { R('#1e1a14', tx, 6, 16, 112); for (let y = 8; y < 118; y += 5) R('#3a3224', tx + 1, y, 14, 2); R('#4a4030', tx + 2, 6, 2, 112); R('#4a4030', tx + 12, 6, 2, 112); } /* (four tracks, two a side) */
+  R('#5e5238', 14, 2, 60, 120); R('#7a6a48', 16, 4, 56, 116); R('#8e7c56', 16, 4, 56, 4); for (let y = 14; y < 112; y += 16) R('#5a4c30', 18, y, 52, 1); for (let X = 24; X < 70; X += 14) R('#6a5a3c', X, 10, 1, 104);
+  R('#3a3020', 30, 0, 28, 8); R('#a09068', 30, 0, 28, 2); R('#2a2418', 28, 100, 32, 18); for (let X = 30; X < 58; X += 4) R('#5a4c30', X, 102, 2, 14); /* (the ram, the rear ramp) */
+  for (const [X, Y] of [[22, 22], [60, 22], [22, 86], [60, 86]]) { R('#c8b484', X, Y, 6, 6); R('#222', X + 2, Y + 2, 2, 2); } for (const X of [20, 62]) { R('#2a2418', X, 40, 6, 12); R('#6a5a3c', X + 1, 36, 4, 4); } /* (AA mounts, exhaust stacks) */
+  x.fillStyle = '#463c28'; x.beginPath(); x.arc(44, 58, 16, 0, 6.283); x.fill(); x.fillStyle = '#6e603f'; x.beginPath(); x.arc(44, 58, 13, 0, 6.283); x.fill(); x.fillStyle = '#8e7c56'; x.beginPath(); x.arc(44, 56, 8, 0, 6.283); x.fill(); }));
+lazySpr('leviathan', () => sprite(72, 176, x => { const prof = t => t < 0.12 ? 5 + t * 90 : t < 0.55 ? 16 + (t - 0.12) * 32 : t < 0.8 ? 30 - (t - 0.55) * 24 : 24 - (t - 0.8) * 20;
+  for (let i = 0; i < 40; i++) { const t = i / 39, y = 20 + t * 140, w = prof(t); x.fillStyle = i % 2 ? '#26344a' : '#2e3f58'; x.beginPath(); x.ellipse(36, y, w, 9, 0, 0, 6.283); x.fill(); x.fillStyle = '#5a748c'; x.beginPath(); x.ellipse(36, y + 2, w * 0.35, 7, 0, 0, 6.283); x.fill(); } /* (the body: dark bands, a pale belly) */
+  x.fillStyle = '#cfe4f2'; for (let i = 3; i < 36; i += 3) { const y = 20 + i / 39 * 140; x.beginPath(); x.moveTo(33, y - 4); x.lineTo(36, y - 12); x.lineTo(39, y - 4); x.fill(); } /* (the dorsal plates) */
+  x.fillStyle = '#26344a'; for (const sd of [-1, 1]) { x.beginPath(); x.moveTo(36 + sd * 24, 92); x.lineTo(36 + sd * 34, 118); x.lineTo(36 + sd * 16, 108); x.fill(); } /* (flippers) */
+  x.beginPath(); x.moveTo(36, 4); x.lineTo(24, 0); x.lineTo(34, 18); x.lineTo(38, 18); x.lineTo(48, 0); x.fill(); /* (the tail fluke) */
+  x.fillStyle = '#2a0c14'; x.beginPath(); x.ellipse(36, 164, 14, 9, 0, 0, 6.283); x.fill(); x.fillStyle = '#e8eef2'; for (let k = -12; k <= 12; k += 6) { x.beginPath(); x.moveTo(36 + k - 2, 158); x.lineTo(36 + k, 164); x.lineTo(36 + k + 2, 158); x.fill(); } /* (the maw) */
+  x.fillStyle = '#9ff0ff'; for (const sd of [-1, 1]) { x.fillRect(36 + sd * 15 - 1, 146, 3, 3); } }));
 const FOLLOW = {
   squadron: { hpK: 8, warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
     at.forEach(([x, y, lead], k) => { const d = G('destroyer', x, y - sc, { hp: 50 * m * (lead ? 2 : 1), maxhp: 50 * m * (lead ? 2 : 1), ta: PI / 2, tb: PI / 2, cdA: 80 + k * 25, cdB: 130 + k * 20, v: 0.1 }); d.homeY = y + 30; out.push(d); });
@@ -18937,6 +19000,9 @@ const FOLLOW = {
   airbase: { hpK: 8, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
+  ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1900 * m, maxhp: 1900 * m })]; } },
+  crawler: { warn: 'THE SAND CRAWLER', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('crawler', { x: 112, y: -90, big: true, hp: 2300 * m, maxhp: 2300 * m })]; } },
+  leviathan: { warn: 'SOMETHING MOVES UNDER THE ICE', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('leviathan', { x: 112, y: 150, big: true, hp: 2600 * m, maxhp: 2600 * m })]; } },
   rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * 1.8 * m, maxhp: 220 * 1.8 * m, skin: rivalSkin() }); return [r]; } }
 };
 FOLLOW.tankcol.tick = (e, sc) => { /* the column advances on the player and falls back (the heavy tank further), the treads turning */
