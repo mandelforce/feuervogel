@@ -110,7 +110,7 @@ const DUMP = `(() => {
     enemies: world.enemies.map(ent), ebul: world.ebul.map(b => flat(b)), shots: world.shots.map(b => flat(b)), items: world.items.map(b => flat(b)), segs: JSON.stringify(run.sortie.segs), daily: JSON.stringify(run.sortie.daily) });
   })()`;
 for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], A = await freshPage(21);
-  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(4200); for (let i = 0; i < 40 && !app.snap; i++) { snapNow(); if (!app.snap) SF.run(30); } /* (some moments cannot be written down: the next one that can) */ saveResume(); const rec = localStorage.getItem('starfall-resume');
+  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); for (const F of [4200, 3600, 3000, 2400, 1800]) { SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(F); app.snap = null; snapNow(); if (app.snap) break; } /* (some moments cannot be written down, which depends on what the day has on then: an earlier one that can, never a later one, for a snapshot taken after a wait is not exact) */ saveResume(); const rec = localStorage.getItem('starfall-resume');
     const samples = [${DUMP}]; for (let f = 0; f < 1500; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ rec, samples }); })()`)); await A.close();
   const rec = JSON.parse(R.rec || 'null'); if (!ok(rec && rec.snap && rec.sortie && rec.sortie.daily, `${kit}: the resume record has a snapshot and the sortie's {daily}`)) continue;
   const B = await freshPage(77);
@@ -118,7 +118,7 @@ for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], A = await freshPage(21
     const samples = [${DUMP}]; for (let f = 0; f < 1500; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ exact, samples, ranked: run.ranked, salt: world.ttSalt }); })()`));
   let first = -1; for (let i = 0; i < Math.min(R.samples.length, G.samples.length); i++) if (R.samples[i] !== G.samples[i]) { first = i; break; }
   let why = ''; if (first >= 0) { const x = JSON.parse(R.samples[first]), y = JSON.parse(G.samples[first]); why = Object.keys(x).filter(k => JSON.stringify(x[k]) !== JSON.stringify(y[k])).join(', '); }
-  ok(G.exact && first < 0 && R.samples.length === G.samples.length && G.ranked === false, `${kit}: saved at frame 4200 and loaded in a fresh page, ${G.samples.length} samples over 1500 frames identical${first >= 0 ? ' (first difference at sample ' + first + ': ' + why + ')' : ''}`);
+  ok(G.exact && first < 0 && R.samples.length === G.samples.length && G.ranked === false, `${kit}: saved at a frame near 4200 and loaded in a fresh page, ${G.samples.length} samples over 1500 frames identical${first >= 0 ? ' (first difference at sample ' + first + ': ' + why + ')' : ''}`);
   if (kit === 'desert') { const old = JSON.parse(JSON.stringify(rec)); old.sortie.daily.v = SC.VERSION + 1;
     const r = await peek(B, `(() => { toTitle(); store.set(KEY.resume, ${JSON.stringify(JSON.stringify(old))}); const rr = loadResume(); if (rr) resumeRun(rr); return { state: app.state, sortie: !!run.sortie }; })()`);
     ok(r.state === 'title', `a record of another composer version is not resumed (${r.state})`); }
