@@ -19000,9 +19000,9 @@ const FOLLOW = {
   airbase: { hpK: 8, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
-  ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1900 * m, maxhp: 1900 * m })]; } },
+  ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1400 * m, maxhp: 1400 * m })]; } },
   crawler: { warn: 'THE SAND CRAWLER', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('crawler', { x: 112, y: -90, big: true, hp: 2300 * m, maxhp: 2300 * m })]; } },
-  leviathan: { warn: 'SOMETHING MOVES UNDER THE ICE', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('leviathan', { x: 112, y: 150, big: true, hp: 2600 * m, maxhp: 2600 * m })]; } },
+  leviathan: { warn: 'SOMETHING MOVES UNDER THE ICE', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('leviathan', { x: 112, y: 150, big: true, hp: 1500 * m, maxhp: 1500 * m })]; } },
   rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * 1.8 * m, maxhp: 220 * 1.8 * m, skin: rivalSkin() }); return [r]; } }
 };
 FOLLOW.tankcol.tick = (e, sc) => { /* the column advances on the player and falls back (the heavy tank further), the treads turning */
