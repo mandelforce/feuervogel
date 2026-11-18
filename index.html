@@ -13955,6 +13955,11 @@ const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort']
 const bossLance = () => { const S = run.sortie; return !!S && (!!S.haze || !!(S.bossVar && S.bossVar.lance)); };
 function bossWarn() { const bk = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[world.curTheme]; if (world.curTheme === 5 || bk === 'skyfort') fadeMusicOut(1.0); showMsg('WARNING', bk === 'wolfpack' && run.sortie.bossVar.ice ? 'WOLFPACK BENEATH THE ICE' : BOSS[bk].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
 function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
+/* The supergun in the winter gorge (plan 12.17, owner: it cannot stand on the middle, where there is the chasm and the river and no track): on one of the viaducts' tracks, the one with the fewest rows of gallery roof over the screen (the inner two first), so it can be shot. */
+function gorgeRailX(sc) {
+  const cand = [GORGE_T[1], GORGE_T[2], GORGE_T[0], GORGE_T[3]], roofs = x => { let n = 0; for (let y = 0; y < H; y += 6) if (roofAt(x, y - sc)) n++; return n; };
+  let best = cand[0], bn = roofs(best); for (const x of cand.slice(1)) { const n = roofs(x); if (n < bn - 2) { best = x; bn = n; } } return best;
+}
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   bossHit = false;
@@ -13966,7 +13971,7 @@ function spawnBoss() {
   });
   if (app.state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(world.scroll);
-  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: bossDead });
+  const bossE = E('boss', { kind, x: kind === 'railgun' && gorgeArena() ? gorgeRailX(Math.floor(world.scroll)) : def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: bossDead });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
   if (def.setup) def.setup(bossE, sc);
   world.enemies.push(bossE);
@@ -15463,6 +15468,7 @@ const BOSS_FIGHT = {
     },
   },
   railgun: {
+    shielded(e, p) { return gorgeArena() && roofAt(e.x + p.ox, e.y + p.oy - Math.floor(world.scroll)); }, // (a supergun on the winter gorge's viaduct under a gallery: its parts cannot be hit)
     setup(e) { if (run.sortie) e.hh = 100; }, // Enigma: the death blasts spread over the longer carriage
     dyingDrift(e) { if (e.nr) e.nr.zones = []; }, // (the first loop's rocket areas end with the boss)
     tick(e, core) { railLock(e, core); starShells(e, core); if (run.sortie && run.sortie.moon) nightRockets(e, core); },
