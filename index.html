@@ -13695,7 +13695,7 @@ const BOSS = {
 };
 /* The wolfpack (plan 12.12, a Daily Sortie ending, no Campaign level has it): six U-boats under the sea of the arena, the last a larger mother boat. The boss is a hidden core (1 px, no drawing) whose health bar is the pack's:
    its hit points follow the boats' together, and when the last boat is sunk the core dies and the level ends as with any boss. The boats surface one after another (the game's own 'sub'). */
-const PACK = { n: 6, first: 50, gap: 85, mother: 3, spots: [[44, 70], [180, 70], [112, 118], [58, 168], [166, 168], [112, 214]], iceSpots: [[46, 64], [178, 64], [30, 166], [194, 166], [112, 48], [112, 128]] };
+const PACK = { n: 6, first: 50, gap: 85, mother: 3, hpK: 3.5, spots: [[44, 70], [180, 70], [112, 118], [58, 168], [166, 168], [112, 214]], iceSpots: [[46, 64], [178, 64], [30, 166], [194, 166], [112, 48], [112, 128]] };
 BOSS.wolfpack = { warn: 'WOLFPACK BELOW THE WAVES', score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }],
   setup(e, sc) { /* on open water the boats wait under it; on the winter's frozen arena (bossVar.ice) each breaks up through the pack: cracks spread, the ice bursts, the boat rises in the hole; the sixth, in the middle, is the mother boat: twice the size */
     const ice = !!(run.sortie.bossVar && run.sortie.bossVar.ice), spots = ice ? PACK.iceSpots : PACK.spots;
@@ -13703,14 +13703,14 @@ BOSS.wolfpack = { warn: 'WOLFPACK BELOW THE WAVES', score: 30000, y: 120, x: 112
     for (let k = 0; k < PACK.n; k++) { const [x, y] = spots[k], mom = k === PACK.n - 1, delay = PACK.first + k * PACK.gap, o = { ta: PI / 2, cd: 30, untarget: true, packBoat: true };
       if (mom) Object.assign(o, { hw: 10, hh: 40, mother: true });
       if (ice) Object.assign(o, { st: 'break', stT: delay + ICEBRK.crack }); else Object.assign(o, { st: 'under', stT: delay });
-      const m = G('sub', x, y - sc, o); if (mom) { m.hp *= PACK.mother; m.big = true; m.hw = 10; m.hh = 40; /* (the table's box for a sub overrides the options) */ } m.hp0 = m.hp; m.homeY = y + 26; e.subs.push(m); world.enemies.push(m);
+      const m = G('sub', x, y - sc, o); m.hp *= PACK.hpK; if (mom) { m.hp *= PACK.mother; m.big = true; m.hw = 10; m.hh = 40; /* (the table's box for a sub overrides the options) */ } m.hp0 = m.hp; m.homeY = y + 26; e.subs.push(m); world.enemies.push(m);
       if (ice) world.later.push({ at: gf + delay, fn: () => { world.decals.push({ kind: 'icebreak', wx: x, wy: y - Math.floor(world.scroll), t0: gf, seed: k * 7 + 3, sc: mom ? 1.9 : 1 }); sfx('snap'); } }); } } };
 BOSS.shadowwing = { warn: 'THE SHADOW WING RETURNS', score: 30000, y: 70, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }],
-  setup(e, sc) { e.subs = []; const hp = 520 * 2.2 * hpm(), v = run.sortie.level - 1, V = WING_V[v], w = E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, stay: 1e9, bossWing: true }, V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)); w.hp0 = hp; e.subs.push(w); world.enemies.push(w); } };
+  setup(e, sc) { e.subs = []; const hp = 520 * 4 * hpm(), v = run.sortie.level - 1, V = WING_V[v], w = E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, stay: 1e9, bossWing: true }, V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)); w.hp0 = hp; e.subs.push(w); world.enemies.push(w); } };
 /* The Raven prototype and The Moth as the end boss (plan 12.12 items 12, 13): the level 6 duel's aircraft alone, in its three phases, that does not escape (stay); the Moth (its looped hull) with more hit points and its dust cones. Followed by a hidden core as the wing is. */
 const protoBoss = (e, hull, k) => { e.subs = []; const hp = 260 * k * hpm() * DIFF.boss[settings.diff], d = E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true, hp, maxhp: hp, stay: 1e9, hull }, protoBox('protoDuel', hull))); d.hp0 = hp; e.subs.push(d); world.enemies.push(d); };
-BOSS.raven = { warn: 'THE RAVEN PROTOTYPE', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, undefined, 1.3); } };
-BOSS.moth = { warn: 'THE MOTH TAKES WING', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, 'moth', 1.8); } };
+BOSS.raven = { warn: 'THE RAVEN PROTOTYPE', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, undefined, 7); } };
+BOSS.moth = { warn: 'THE MOTH TAKES WING', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, 'moth', 4); } };
 BOSS.castle = { warn: 'THE CASTLE GUNS AWAKEN', score: 40000, blastArea: [50, 60], world: true, parts: [
   { k: 'main', ox: -32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: -32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: -32, oy: 32, hp: 75, hw: 9, hh: 9 }, { k: 'main', ox: 32, oy: 32, hp: 75, hw: 9, hh: 9 },
   { k: 'aa', tw: [-13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'aa', tw: [13, -12], ox: 0, oy: 0, hp: 55 }, { k: 'rocket', tw: [0, 15], ox: 0, oy: 0, hp: 65, hw: 7, hh: 7 },
@@ -18875,19 +18875,19 @@ const BOSS_LOOKS = {
 const rivalSet = id => [SPR.playerSet, SPR.schnee, nachtSet(), phoenixSet(), robinSet(), raptorSet(), goldSet(), falkeSet()][id];
 function rivalSkin() { const ids = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== curSkinId() && !(p2 && i === 6)); return ids[Math.floor(hash((run.sortie && run.sortie.seed) | 0, 4711) * ids.length) % ids.length]; }
 const FOLLOW = {
-  squadron: { warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
+  squadron: { hpK: 8, warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
     at.forEach(([x, y, lead], k) => { const d = G('destroyer', x, y - sc, { hp: 50 * m * (lead ? 2 : 1), maxhp: 50 * m * (lead ? 2 : 1), ta: PI / 2, tb: PI / 2, cdA: 80 + k * 25, cdB: 130 + k * 20, v: 0.1 }); d.homeY = y + 30; out.push(d); });
     for (const [x, y] of [[24, 70], [200, 70], [80, 200], [144, 200]]) { const b = G('pt', x, y - sc, { ta: PI / 2, cd: 60 + (x % 40), v: 0.2, dx: 0 }); b.homeY = y + 20; out.push(b); } return out; } },
-  gunline: { warn: 'FORTIFIED LINE AHEAD', spawn(e, sc) { const m = hpm(), out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+  gunline: { hpK: 6, warn: 'FORTIFIED LINE AHEAD', spawn(e, sc) { const m = hpm(), out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     add('casemate', 112, 78, { ga: PI / 2, cd: 50 }, 2.5); add('casemate', 56, 92, { ga: PI / 2, cd: 80 }); add('casemate', 168, 92, { ga: PI / 2, cd: 110 });
     add('fortgun', 28, 150, { ga: PI / 2, cd: 70 }); add('fortgun', 196, 150, { ga: PI / 2, cd: 120 }); add('aatower', 84, 140, { cd: 60 }); add('aatower', 140, 140, { cd: 100 });
     add('sam', 20, 200, { ga: PI / 2, cd: 90 }); add('sam', 204, 200, { ga: PI / 2, cd: 130 }); return out; } },
-  tankcol: { warn: 'ARMOURED COLUMN', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, tankStats(Object.assign({ road: false, hd: PI / 2, v: 0 }, o))); if (k) g.hp *= k; out.push(g); };
+  tankcol: { hpK: 10, warn: 'ARMOURED COLUMN', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, tankStats(Object.assign({ road: false, hd: PI / 2, v: 0 }, o))); if (k) g.hp *= k; out.push(g); };
     add('htank', 112, 84, {}, 2.5); for (const [x, y] of [[54, 100], [170, 100], [28, 150], [196, 150], [84, 150], [140, 150]]) add('tank', x, y, {}); return out; } },
 /* (tick: what the enemies do on the arena besides fighting) */
-  tankfarm: { warn: 'FUEL DEPOT: DESTROY THE TANKS', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+  tankfarm: { hpK: 5, warn: 'FUEL DEPOT: DESTROY THE TANKS', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y] of [[70, 80], [112, 70], [154, 80], [70, 120], [112, 112], [154, 120], [91, 160], [133, 160]]) add('fuel', x, y, {}, 4); add('aatower', 36, 100, { cd: 60 }); add('aatower', 188, 100, { cd: 100 }); add('bunker', 112, 200, { ga: PI / 2, cd: 80 }); return out; } },
-  airbase: { warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+  airbase: { hpK: 5, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
   rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * m, maxhp: 220 * m, skin: rivalSkin() }); return [r]; } }
@@ -18900,7 +18900,7 @@ FOLLOW.tankfarm.tick = (e, sc) => { /* a fuel tank that goes up sets its neighbo
 FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircraft taxis and takes off, becoming a fighter that turns back on the player (shoot them while they sit) */
   if (e.ft > 200 && e.ft % 300 === 200) { const c = e.subs.filter(m => m.type === 'parked' && !m.dead && !m.takeoff); if (c.length) { const m = c[(e.ft / 300 | 0) % c.length]; m.takeoff = e.ft + 70; m.taxi = 70; m.v = 0.5; sfx('drone'); } }
   e.subs.forEach((m, i) => { if (m.type === 'parked' && m.takeoff && e.ft >= m.takeoff && !m.dead) { const f2 = mkFighter(m.x, m.y, -PI / 2, 1.6, { turn: 0.042, fireAt: 40 }); f2.hp0 = f2.hp; m.dead = true; boom(m.x, m.y, 8, 'a'); world.enemies.push(f2); e.subs[i] = f2; } }); };
-for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
+for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
   BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];
