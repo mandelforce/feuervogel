@@ -18357,7 +18357,7 @@ function buechseSight(e) {
 // Each enemy type's look, attached to its entry in the entity table as ENT[type].draw(e, fl) (fl: flashing white after a hit).
 // It stays here with the other drawing code, apart from the simulation (ROADMAP.md, Phase 5).
 const LOOKS = {
-  rival(e, fl) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1, -1); spr(SPR.player, 0, 0, fl); ctx.restore(); }, /* (the player's own aircraft, upside down) */
+  rival(e, fl) { const set = rivalSet(e.skin | 0); ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1, -1); spr(set[1], 0, 0, fl); ctx.restore(); }, /* (one of the player's aircraft, another than the one flown, upside down) */
   tank(e, fl) {
     const bu = e.buechse && (e.silver ? SPR.buechseN : SPR.buechseD), dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : bu ? bu.h : e.type === 'tank' ? SPR.tank : SPR.htank, tur = dr ? dr.t : bu ? bu.t : e.type === 'tank' ? SPR.tankTur : SPR.htankTur; // (the Buechse and the Drilling: Enigma Run)
     spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
@@ -18871,6 +18871,9 @@ const BOSS_LOOKS = {
   },
 };
 /* More end bosses on the hidden core (plan 12.12, 12.15): each builds a list of the enemies to fight on the arena (spawn(e, sc)), and the core follows them as it follows the wolfpack's boats. Their hit points make the health bar, and the level ends when the last one is down. */
+/* The rival's aircraft: one of the game's player skins (0 the Feuervogel, 1 the Schneevogel, 2 the Swallow, 3 the Phoenix, 4 the Robin, 5 the Raptor, 6 the golden Rooster, 7 the Falke), whether the player owns it or not, never the one the player flies (nor the Rooster when a second player has it). The pick is the day's own (the sortie's seed), so two players on the same skin meet the same rival. */
+const rivalSet = id => [SPR.playerSet, SPR.schnee, nachtSet(), phoenixSet(), robinSet(), raptorSet(), goldSet(), falkeSet()][id];
+function rivalSkin() { const ids = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== curSkinId() && !(p2 && i === 6)); return ids[Math.floor(hash((run.sortie && run.sortie.seed) | 0, 4711) * ids.length) % ids.length]; }
 const FOLLOW = {
   squadron: { warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
     at.forEach(([x, y, lead], k) => { const d = G('destroyer', x, y - sc, { hp: 50 * m * (lead ? 2 : 1), maxhp: 50 * m * (lead ? 2 : 1), ta: PI / 2, tb: PI / 2, cdA: 80 + k * 25, cdB: 130 + k * 20, v: 0.1 }); d.homeY = y + 30; out.push(d); });
@@ -18887,7 +18890,7 @@ const FOLLOW = {
   airbase: { warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
-  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * m, maxhp: 220 * m }); return [r]; } }
+  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * m, maxhp: 220 * m, skin: rivalSkin() }); return [r]; } }
 };
 FOLLOW.tankcol.tick = (e, sc) => { /* the column advances on the player and falls back (the heavy tank further), the treads turning */
   for (const m of e.subs) { if (m.dead || m.dying || (m.type !== 'tank' && m.type !== 'htank')) continue; if (m.baseWy === undefined) m.baseWy = m.wy; const was = m.wy; m.wy = m.baseWy + 30 * (m.type === 'htank' ? 1.5 : 1) * (1 - Math.cos(e.ft * 0.012)); m.moving = Math.abs(m.wy - was) > 0.01; m.hd = PI / 2; } };
