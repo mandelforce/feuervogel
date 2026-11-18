@@ -4039,7 +4039,7 @@ function winterLine(o) {
   if (arenaOn) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
   const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad, harbourIce: P0.harbourIce, depotRows } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
-  const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
+  const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); if (fin === 'depot' || fin === 'railgorge') plan.softRock = true; return plan;
 }
 // The winter land (Enigma Run level 5, builder 'winterLand', climate 'winter'; preset mountainVillage): a valley between mountains. Its floor is
 // snow with the road along it; on both sides the mountains rise (a height per pixel, plan.hgt, from the valley's axis outward, with ridged noise
@@ -4110,7 +4110,7 @@ function winterLand(o) {
     for (let y = gy0; y <= gy1; y++) { const t = (y - gy0) / (gy1 - gy0), hw = (58 * Math.pow(1 - t, 0.8) + 10 + (vn(y * 0.03, 3.3) - 0.5) * 10) * Math.sqrt(smooth(0, 0.14, t));
       for (let x = Math.floor(gxc(y) - hw - 8); x <= gxc(y) + hw + 8; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - gxc(y)) + (vn(x * 0.1, y * 0.1) - 0.5) * 6; if (d >= hw) continue; Kr[i] = K.ICE; Br[i] = -89; reserved[i] = 1; Hg[i] = lerp(Hg[i], gsf(y) + (vn(x * 0.07, y * 0.07) - 0.5) * 3, smooth(0, 7, hw - d)); } }
     for (let y = gy1 - 8; y < (P.finale === 'railgorge' ? gy1 - 8 : yM - 2); y++) { const u = smooth(gy1, yM - 2, y), sx = lerp(sx0, xEnd, u) + 5 * Math.sin(y * 0.045 + phG) * smooth(gy1, gy1 + 30, y) * (1 - smooth(yM - 62, yM - 2, y)), hwS = 1.6 + 5.2 * u, fl = lerp(gsf(gy1), 4, u);
-      for (let x = Math.floor(sx - hwS - 26); x <= sx + hwS + 26; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = lerp(fl, Hg[i], smooth(hwS, hwS + (P.finale === 'depot' ? 26 : 9), d)); if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
+      for (let x = Math.floor(sx - hwS - 26); x <= sx + hwS + 26; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = P.finale === 'depot' ? Math.min(Hg[i], fl + 1.45 * Math.max(0, d - hwS)) : lerp(fl, Hg[i], smooth(hwS, hwS + 9, d)); /* (the harbour finale: banks that rise at 1.45 px per px, so snow slopes and not a black rock face) */ if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
   // 2d. a loop's pass (P.variant, features[].basin): the valley opens into a wide basin (a floor about 150 px across, the road straight through its middle) holding a base, in the order the player meets it:
   // the gate (a tank trap, wire, flak and bunkers, a guard hut), then side by side the airbase on the east (a runway beside the road, an apron with five hangars, a control tower) and the depot yard on the west (nine fuel tanks,
   // warehouses, trucks), then the factory on the west (two saw-roof halls, chimneys, a cooling tower, stores) with a clear patch on the east for the Drilling's tank pit, artillery on the rim; the road's old end (the depot at the foot of the massif) follows it.
@@ -4297,7 +4297,7 @@ function winterLand(o) {
     const roundB = (cx, cy, r, o) => { if (!free(Math.floor(cx - r - 1), Math.floor(cy - r - 1), 2 * r + 3, 2 * r + 3, 0)) return null; const it = addItem(Object.assign({ t: 'works', round: true, x0: Math.floor(cx - r), y0: Math.floor(cy - r), w: 2 * r + 2, h: 2 * r + 2, acx: cx, acy: cy, r, dmg: 0 }, o)); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; reserved[idx(x, y)] = 1; } return it; };
     /* the station (the generator's own station parts, as the city's and the desert's: hall with a clock tower, platform with a canopy, goods shed, water tower, engine shed, signal box, wagons) */
     rect(104, yS + 6, 10, yQ - yS - 70, K.PLAZA, -5, 0); /* (the platform between the first two lines) */ plan.canopies = plan.canopies || []; plan.canopies.push({ x0: 104, x1: 113, y0: yS + 18, y1: yS + 128 });
-    rect(40, yS + 4, 24, 52, K.PLAZA, -1, 0); /* (the forecourt) */
+    rect(40, yS + 4, 24, 52, K.PLAZA, -5, 0); /* (the forecourt: the platform's paving, not the checkered square) */
     { const g = 9700, hall = addItem({ t: 'civic', label: 'Station', part: 'hall', x0: 70, y0: yS + 8, w: 13, h: 44, ori: 'v', front: 'W', style: 'hip', roof: 3, seed: h32(seed, 54001), dmg: 0, group: g }); rect(70, yS + 8, 13, 44, K.BLDG, hall.id, 0);
       const tw = addItem({ t: 'civic', label: 'Station', part: 'tower', x0: 64, y0: yS + 27, w: 6, h: 6, ori: 'v', style: 'hip', roof: 5, seed: h32(seed, 54002), dmg: 0, group: g }); rect(64, yS + 27, 6, 6, K.BLDG, tw.id, 0); plan.civic.push({ label: 'Station', x0: 64, y0: yS + 8, w: 19, h: 44, group: g }); }
     roundB(56, yS + 66, 4.5, { label: 'Water tower', part: 'watertower' }); shed('Signal box', 76, yS + 58, 9, 7, 'flat'); shed('Goods shed', 158, yS + 14, 34, 18, 'gable'); shed('Coaling stage', 160, yS + 60, 12, 20, 'flat');
@@ -4461,7 +4461,7 @@ function mountainPix(plan, x, y, rock) {
   const lit = clamp(0.6 + (0.62 * gx - 0.62 * gy) * 0.5 / (1 + s * 0.15) + h * 0.0012 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.1, 0, 1);
   if (!rock) return hh(x, y) < 0.004 + s * 0.006 ? C.crag[pickI(9, lit * 0.6, x, y)] : C.snowRoof[pickI(5, lit, x, y)];
   if (((y + Math.round(x * 0.35 + vn(x * 0.08, y * 0.08) * 5)) % 5) === 0 && lit > 0.3) return C.snowRoof[pickI(5, lit * 0.85, x, y)]; // snow lying along the strata
-  return C.crag[pickI(9, clamp(0.15 + lit * 0.7, 0, 1), x, y)];
+  return C.crag[pickI(9, plan.softRock ? clamp(0.34 + lit * 0.55, 0, 1) : clamp(0.15 + lit * 0.7, 0, 1), x, y)]; /* (plan.softRock, the Daily Sortie's winter finales: no black rock faces, the darkest rock a dull grey) */
 }
 // the ski jump's surfaces (K.PLAZA): -96 the landing hill and the outrun (packed snow, smooth and bright), -97 the in-run (two wooden rails with
 // the track between them)
@@ -4506,7 +4506,7 @@ function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) =
 // rim on the floe's upper left and its shaded side on the lower right where it meets open water, tumbled blocks along a ridge, dark new ice
 function icePixK(plan, x, y, b) {
   const { W, L, K: Kr } = plan, wat = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.SEA, n = vn(x * 0.07, y * 0.07), r = hh(x, y);
-  if (b === -90) { const n2 = vn(x * 0.2, y * 0.2), q = hh(x, y); return q < 0.1 ? C.gravel[0] : q > 0.93 ? C.shadow : n2 > 0.56 ? C.snowRoof[pickI(5, 0.5 + (hh(y, x) - 0.5) * 0.35, x, y)] : C.gravel[pickI(3, 0.25 + (n2 - 0.4) * 1.1, x, y)]; } /* a river's bed: gravel and boulders with snow lying in patches, the meltwater in the channel (-88) */
+  if (b === -90) { const n2 = vn(x * 0.2, y * 0.2), q = hh(x, y); return q < 0.1 ? C.gravel[0] : q > 0.985 ? C.shadow : n2 > 0.56 ? C.snowRoof[pickI(5, 0.5 + (hh(y, x) - 0.5) * 0.35, x, y)] : C.gravel[pickI(3, 0.25 + (n2 - 0.4) * 1.1, x, y)]; } /* a river's bed: gravel and boulders with snow lying in patches, the meltwater in the channel (-88) */
   if (b === -88) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return !ic(x - 1, y) || !ic(x + 1, y) ? C.snowRoof[2] : C.river[pickI(6, 0.62 + (vn(x * 0.2, y * 0.08) - 0.5) * 0.5 + (Math.abs(Math.sin(x * 0.4 + y * 0.23)) < 0.05 ? -0.4 : 0), x, y)]; } // the gorge's river frozen on the valley floor: snow on its banks
   if (b === -89) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; if (!ic(x - 1, y) || !ic(x + 1, y) || !ic(x, y - 1) || !ic(x, y + 1)) return C.snowRoof[2]; // the glacier: a snow rim, then ice with crevasses across its flow
     const cr = Math.abs(Math.sin(y * 0.11 + 5 * vn(x * 0.04, y * 0.03))) < 0.05 && vn(x * 0.06 + 9, y * 0.05) > 0.45; if (cr) return C.river[hh(x, y) < 0.5 ? 0 : 1];
@@ -18240,6 +18240,7 @@ function drawDecals() {
     else if (d.kind === 'spr') spr(d.s, d.wx, y);
     else if (d.kind === 'bags') { if (!roofOver(d.wx, d.wy)) spr(SPR.nestBags[d.side < 0 ? 0 : 1], d.wx, y); } // (a Buechse's side emplacement; on a roof: drawn after the roofs)
     else if (d.kind === 'icebreak') drawIceBreak(d, y);
+    else if (d.kind === 'scene') ctx.drawImage(d.cv, 0, Math.round(y)); /* (an arena's backdrop of a Daily Sortie ending, drawn once: arenaScene) */
     else if (d.kind === 'sink') {
       if (d.t >= d.max) continue;
       const f = d.t / d.max, a = d.dir * 0.38 * f, sc2 = 1 - 0.22 * f;
@@ -18884,6 +18885,42 @@ const BOSS_LOOKS = {
 /* The rival's aircraft: one of the game's player skins (0 the Feuervogel, 1 the Schneevogel, 2 the Swallow, 3 the Phoenix, 4 the Robin, 5 the Raptor, 6 the golden Rooster, 7 the Falke), whether the player owns it or not, never the one the player flies (nor the Rooster when a second player has it). The pick is the day's own (the sortie's seed), so two players on the same skin meet the same rival. */
 const rivalSet = id => [SPR.playerSet, SPR.schnee, nachtSet(), phoenixSet(), robinSet(), raptorSet(), goldSet(), falkeSet()][id];
 function rivalSkin() { const ids = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== curSkinId() && !(p2 && i === 6)); return ids[Math.floor(hash((run.sortie && run.sortie.seed) | 0, 4711) * ids.length) % ids.length]; }
+/* The land endings' own ground (plan 12.19, owner: they sat on the plain boss ground): a backdrop of the arena, drawn once onto a canvas in screen coordinates and laid on the ground as a decal at the boss's spawn, under the enemies and tinted to show the ground through. The gun line gets trenches, communication trenches, pits and wire; the airbase an apron with hardstands and taxi lines and a runway; the column a tank park with scraped pads, track marks and berms; the depot a concrete pad with a ring berm round each tank, pipes and a loading rack. */
+function arenaScene(kind) {
+  const c = document.createElement('canvas'); c.width = W; c.height = 260; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const R = (x, y, w, h, col, a) => { g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); g.globalAlpha = 1; };
+  const DISC = (cx, cy, r, col, a) => { for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); R(cx - w, cy + y, 2 * w, 1, col, a); } };
+  const RING = (cx, cy, r, th, col, a) => { for (let y = -r; y <= r; y++) { const wo = Math.round(Math.sqrt(r * r - y * y)), wi = Math.abs(y) < r - th ? Math.round(Math.sqrt((r - th) * (r - th) - y * y)) : 0; if (wi) { R(cx - wo, cy + y, wo - wi, 1, col, a); R(cx + wi, cy + y, wo - wi, 1, col, a); } else R(cx - wo, cy + y, 2 * wo, 1, col, a); } };
+  const EARTH = '#8a7658', DARK = '#241a10', BAG = '#b09a6e', WIRE = '#1c1a18';
+  const trench = (x0, x1, y, zig) => { for (let x = x0; x < x1; x += 12) { const yy = y + (zig && ((x - x0) / 12 | 0) % 2 ? 4 : 0), w = Math.min(12, x1 - x); R(x, yy - 2, w, 1, EARTH, 0.95); R(x, yy + 4, w, 1, EARTH, 0.95); R(x, yy - 1, w, 5, DARK, 0.92); if (((x - x0) / 12 | 0) % 2 === 0) R(x + 3, yy - 3, 5, 1, BAG, 0.9); /* (a firing step) */ if (zig && x > x0) R(x - 1, Math.min(yy, y) - 1, 3, 9, DARK, 0.92); } };
+  const comm = (x, y0, y1) => { R(x - 3, y0, 1, y1 - y0, EARTH, 0.9); R(x + 3, y0, 1, y1 - y0, EARTH, 0.9); R(x - 2, y0, 5, y1 - y0, DARK, 0.9); };
+  const pit = (cx, cy, r) => { DISC(cx, cy, r + 3, EARTH, 0.55); DISC(cx, cy, r, DARK, 0.7); RING(cx, cy, r + 3, 2, BAG, 0.85); };
+  const wire = (y, x0, x1) => { for (let x = x0; x < x1; x += 2) R(x, y + ((x >> 1) % 2), 1, 1, WIRE, 0.9); for (let x = x0 + 4; x < x1; x += 9) { R(x - 1, y - 2, 1, 1, WIRE, 0.9); R(x + 1, y + 2, 1, 1, WIRE, 0.9); R(x, y, 1, 1, WIRE); R(x - 1, y + 2, 1, 1, WIRE, 0.9); R(x + 1, y - 2, 1, 1, WIRE, 0.9); } };
+  if (kind === 'gunline') {
+    for (const [x, y, r] of [[112, 84, 28], [56, 98, 18], [168, 98, 18], [28, 150, 18], [196, 150, 18], [84, 142, 14], [140, 142, 14]]) DISC(x, y, r, EARTH, 0.18); /* (scuffed earth round the guns) */
+    trench(8, 216, 118, true); trench(24, 100, 172, true); trench(124, 200, 172, true); comm(56, 100, 118); comm(112, 92, 118); comm(168, 100, 118); comm(84, 118, 172); comm(140, 118, 172);
+    pit(28, 150, 12); pit(196, 150, 12); for (const x of [20, 204]) { R(x - 11, 189, 22, 22, EARTH, 0.4); for (const [ox, oy] of [[-12, -1], [10, -1], [-12, 20], [10, 20]]) R(x + ox, 189 + oy, 3, 3, BAG, 0.95); }
+    for (const [x, y, w] of [[112, 78, 36], [56, 92, 24], [168, 92, 24]]) for (let k = 0; k < w; k += 3) { R(x - w / 2 + k, y + 14, 2, 2, BAG, 0.95); if (k % 6 === 0) R(x - w / 2 + k, y + 16, 2, 1, DARK, 0.7); } /* (sandbags before the casemates) */
+    wire(190, 6, 12); wire(200, 40, 184); wire(212, 28, 196);
+  } else if (kind === 'airbase') {
+    R(16, 52, 192, 152, '#6e7076', 0.8); for (let x = 16; x < 208; x += 24) R(x, 52, 1, 152, '#3c3e42', 0.45); for (let y = 52; y < 204; y += 25) R(16, y, 192, 1, '#3c3e42', 0.45); /* (the apron's concrete slabs) */
+    for (const [x, y] of [[50, 80], [112, 72], [174, 80], [50, 130], [112, 122], [174, 130], [80, 178], [144, 178]]) { R(x - 15, y - 13, 30, 26, '#55575c', 0.8); R(x - 15, y - 13, 30, 1, '#8a8c90', 0.7); } /* (hardstands) */
+    for (const y of [102, 152]) for (let x = 20; x < 204; x += 8) R(x, y, 5, 1, '#d8b830', 0.9); for (let y = 54; y < 202; y += 8) R(112, y, 1, 5, '#d8b830', 0.9); /* (taxi lines) */
+    R(0, 224, W, 26, '#44484e', 0.92); R(0, 224, W, 1, '#c8c8c4', 0.9); R(0, 249, W, 1, '#c8c8c4', 0.9); for (let x = 6; x < W; x += 14) R(x, 236, 8, 2, '#e0e0dc', 0.95); for (let k = 0; k < 6; k++) { R(8, 228 + k * 4, 14, 2, '#e0e0dc', 0.9); R(W - 22, 228 + k * 4, 14, 2, '#e0e0dc', 0.9); } /* (the runway: edge lines, centre dashes, threshold bars) */
+    for (const x of [8, 186]) { R(x, 58, 30, 16, '#7a7568', 0.9); for (let k = 0; k < 30; k += 5) R(x + k, 58, 1, 16, '#4a463e', 0.8); R(x, 74, 30, 2, '#222', 0.5); } /* (two hangars' roofs) */
+  } else if (kind === 'tankcol') {
+    for (const [x, y, w] of [[112, 84, 30], [54, 100, 22], [170, 100, 22], [28, 150, 22], [196, 150, 22], [84, 150, 22], [140, 150, 22]]) { R(x - w / 2 - 3, y - 14, w + 6, 36, '#5a4a30', 0.38); R(x - w / 2 - 2, y + 20, w + 4, 2, EARTH, 0.9); R(x - w / 2 - 2, y + 22, w + 4, 1, DARK, 0.6); for (let t = 0; t < 40; t += 4) { R(x - 7, y + 22 + t, 2, 2, '#5a4a30', 0.5); R(x + 5, y + 22 + t, 2, 2, '#5a4a30', 0.5); } } /* (scraped pads, a low berm before each, track marks) */
+    for (let x = 6; x < W - 6; x += 5) R(x, 120 + ((x * 7) % 5), 3, 1, EARTH, 0.7); /* (a line of spoil) */
+  } else if (kind === 'tankfarm') {
+    R(40, 46, 144, 144, '#74787c', 0.55); R(40, 46, 144, 1, '#3a3e44', 0.7); R(40, 189, 144, 1, '#3a3e44', 0.7); R(40, 46, 1, 144, '#3a3e44', 0.7); R(183, 46, 1, 144, '#3a3e44', 0.7);
+    const T = [[70, 80], [112, 70], [154, 80], [70, 120], [112, 112], [154, 120], [91, 160], [133, 160]];
+    for (const [x, y] of T) { DISC(x, y, 17, '#5e5448', 0.5); RING(x, y, 17, 3, EARTH, 0.9); } /* (a ring berm round each tank) */
+    for (const [x, y] of T) { R(x - 1, y + 17, 2, 118 - (y + 17) + (y > 140 ? 12 : 0), '#2c3036', 0.8); } R(70, 140, 63, 2, '#2c3036', 0.85); R(60, 100, 104, 2, '#2c3036', 0.8); /* (pipes and a manifold) */
+    R(96, 192, 32, 12, '#6a6e72', 0.9); R(96, 192, 32, 1, '#2c3036', 0.9); for (const x of [100, 112, 124]) R(x, 204, 6, 10, '#a89468', 0.6); /* (a loading rack and bays) */
+    for (let x = 36; x < 190; x += 6) { R(x, 44, 1, 2, WIRE, 0.8); R(x, 192, 1, 2, WIRE, 0.8); } /* (the fence) */
+  }
+  return c;
+}
 const FOLLOW = {
   squadron: { hpK: 8, warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
     at.forEach(([x, y, lead], k) => { const d = G('destroyer', x, y - sc, { hp: 50 * m * (lead ? 2 : 1), maxhp: 50 * m * (lead ? 2 : 1), ta: PI / 2, tb: PI / 2, cdA: 80 + k * 25, cdB: 130 + k * 20, v: 0.1 }); d.homeY = y + 30; out.push(d); });
@@ -18910,7 +18947,7 @@ FOLLOW.tankfarm.tick = (e, sc) => { /* a fuel tank that goes up sets its neighbo
 FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircraft taxis and takes off, becoming a fighter that turns back on the player (shoot them while they sit) */
   if (e.ft > 200 && e.ft % 300 === 200) { const c = e.subs.filter(m => m.type === 'parked' && !m.dead && !m.takeoff); if (c.length) { const m = c[(e.ft / 300 | 0) % c.length]; m.takeoff = e.ft + 70; m.taxi = 70; m.v = 0.5; sfx('drone'); } }
   e.subs.forEach((m, i) => { if (m.type === 'parked' && m.takeoff && e.ft >= m.takeoff && !m.dead) { const f2 = mkFighter(m.x, m.y, -PI / 2, 1.6, { turn: 0.042, fireAt: 40 }); f2.hp0 = f2.hp; m.dead = true; boom(m.x, m.y, 8, 'a'); world.enemies.push(f2); e.subs[i] = f2; } }); };
-for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
+for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; if (['gunline', 'airbase', 'tankcol', 'tankfarm'].includes(k)) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
   BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];

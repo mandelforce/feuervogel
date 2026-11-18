@@ -3518,7 +3518,7 @@ function winterLine(o) {
   if (arenaOn) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
   const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad, harbourIce: P0.harbourIce, depotRows } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
-  const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
+  const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); if (fin === 'depot' || fin === 'railgorge') plan.softRock = true; return plan;
 }
 // The winter land (Enigma Run level 5, builder 'winterLand', climate 'winter'; preset mountainVillage): a valley between mountains. Its floor is
 // snow with the road along it; on both sides the mountains rise (a height per pixel, plan.hgt, from the valley's axis outward, with ridged noise
@@ -3589,7 +3589,7 @@ function winterLand(o) {
     for (let y = gy0; y <= gy1; y++) { const t = (y - gy0) / (gy1 - gy0), hw = (58 * Math.pow(1 - t, 0.8) + 10 + (vn(y * 0.03, 3.3) - 0.5) * 10) * Math.sqrt(smooth(0, 0.14, t));
       for (let x = Math.floor(gxc(y) - hw - 8); x <= gxc(y) + hw + 8; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - gxc(y)) + (vn(x * 0.1, y * 0.1) - 0.5) * 6; if (d >= hw) continue; Kr[i] = K.ICE; Br[i] = -89; reserved[i] = 1; Hg[i] = lerp(Hg[i], gsf(y) + (vn(x * 0.07, y * 0.07) - 0.5) * 3, smooth(0, 7, hw - d)); } }
     for (let y = gy1 - 8; y < (P.finale === 'railgorge' ? gy1 - 8 : yM - 2); y++) { const u = smooth(gy1, yM - 2, y), sx = lerp(sx0, xEnd, u) + 5 * Math.sin(y * 0.045 + phG) * smooth(gy1, gy1 + 30, y) * (1 - smooth(yM - 62, yM - 2, y)), hwS = 1.6 + 5.2 * u, fl = lerp(gsf(gy1), 4, u);
-      for (let x = Math.floor(sx - hwS - 26); x <= sx + hwS + 26; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = lerp(fl, Hg[i], smooth(hwS, hwS + (P.finale === 'depot' ? 26 : 9), d)); if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
+      for (let x = Math.floor(sx - hwS - 26); x <= sx + hwS + 26; x++) { if (!inB(x, y)) continue; const i = idx(x, y), d = Math.abs(x + 0.5 - sx); if (Kr[i] === K.ICE && Br[i] === -89) { if (d < hwS) Br[i] = -88; continue; } Hg[i] = P.finale === 'depot' ? Math.min(Hg[i], fl + 1.45 * Math.max(0, d - hwS)) : lerp(fl, Hg[i], smooth(hwS, hwS + 9, d)); /* (the harbour finale: banks that rise at 1.45 px per px, so snow slopes and not a black rock face) */ if (d < hwS) { Kr[i] = K.ICE; Br[i] = -88; reserved[i] = 1; Hg[i] = fl; } } } }
   // 2d. a loop's pass (P.variant, features[].basin): the valley opens into a wide basin (a floor about 150 px across, the road straight through its middle) holding a base, in the order the player meets it:
   // the gate (a tank trap, wire, flak and bunkers, a guard hut), then side by side the airbase on the east (a runway beside the road, an apron with five hangars, a control tower) and the depot yard on the west (nine fuel tanks,
   // warehouses, trucks), then the factory on the west (two saw-roof halls, chimneys, a cooling tower, stores) with a clear patch on the east for the Drilling's tank pit, artillery on the rim; the road's old end (the depot at the foot of the massif) follows it.
@@ -3776,7 +3776,7 @@ function winterLand(o) {
     const roundB = (cx, cy, r, o) => { if (!free(Math.floor(cx - r - 1), Math.floor(cy - r - 1), 2 * r + 3, 2 * r + 3, 0)) return null; const it = addItem(Object.assign({ t: 'works', round: true, x0: Math.floor(cx - r), y0: Math.floor(cy - r), w: 2 * r + 2, h: 2 * r + 2, acx: cx, acy: cy, r, dmg: 0 }, o)); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = it.id; reserved[idx(x, y)] = 1; } return it; };
     /* the station (the generator's own station parts, as the city's and the desert's: hall with a clock tower, platform with a canopy, goods shed, water tower, engine shed, signal box, wagons) */
     rect(104, yS + 6, 10, yQ - yS - 70, K.PLAZA, -5, 0); /* (the platform between the first two lines) */ plan.canopies = plan.canopies || []; plan.canopies.push({ x0: 104, x1: 113, y0: yS + 18, y1: yS + 128 });
-    rect(40, yS + 4, 24, 52, K.PLAZA, -1, 0); /* (the forecourt) */
+    rect(40, yS + 4, 24, 52, K.PLAZA, -5, 0); /* (the forecourt: the platform's paving, not the checkered square) */
     { const g = 9700, hall = addItem({ t: 'civic', label: 'Station', part: 'hall', x0: 70, y0: yS + 8, w: 13, h: 44, ori: 'v', front: 'W', style: 'hip', roof: 3, seed: h32(seed, 54001), dmg: 0, group: g }); rect(70, yS + 8, 13, 44, K.BLDG, hall.id, 0);
       const tw = addItem({ t: 'civic', label: 'Station', part: 'tower', x0: 64, y0: yS + 27, w: 6, h: 6, ori: 'v', style: 'hip', roof: 5, seed: h32(seed, 54002), dmg: 0, group: g }); rect(64, yS + 27, 6, 6, K.BLDG, tw.id, 0); plan.civic.push({ label: 'Station', x0: 64, y0: yS + 8, w: 19, h: 44, group: g }); }
     roundB(56, yS + 66, 4.5, { label: 'Water tower', part: 'watertower' }); shed('Signal box', 76, yS + 58, 9, 7, 'flat'); shed('Goods shed', 158, yS + 14, 34, 18, 'gable'); shed('Coaling stage', 160, yS + 60, 12, 20, 'flat');
@@ -3940,7 +3940,7 @@ function mountainPix(plan, x, y, rock) {
   const lit = clamp(0.6 + (0.62 * gx - 0.62 * gy) * 0.5 / (1 + s * 0.15) + h * 0.0012 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.1, 0, 1);
   if (!rock) return hh(x, y) < 0.004 + s * 0.006 ? C.crag[pickI(9, lit * 0.6, x, y)] : C.snowRoof[pickI(5, lit, x, y)];
   if (((y + Math.round(x * 0.35 + vn(x * 0.08, y * 0.08) * 5)) % 5) === 0 && lit > 0.3) return C.snowRoof[pickI(5, lit * 0.85, x, y)]; // snow lying along the strata
-  return C.crag[pickI(9, clamp(0.15 + lit * 0.7, 0, 1), x, y)];
+  return C.crag[pickI(9, plan.softRock ? clamp(0.34 + lit * 0.55, 0, 1) : clamp(0.15 + lit * 0.7, 0, 1), x, y)]; /* (plan.softRock, the Daily Sortie's winter finales: no black rock faces, the darkest rock a dull grey) */
 }
 // the ski jump's surfaces (K.PLAZA): -96 the landing hill and the outrun (packed snow, smooth and bright), -97 the in-run (two wooden rails with
 // the track between them)
@@ -3985,7 +3985,7 @@ function seaIceShade(plan, x, y) { const { W, L, K: Kr } = plan, ic = (xx, yy) =
 // rim on the floe's upper left and its shaded side on the lower right where it meets open water, tumbled blocks along a ridge, dark new ice
 function icePixK(plan, x, y, b) {
   const { W, L, K: Kr } = plan, wat = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.SEA, n = vn(x * 0.07, y * 0.07), r = hh(x, y);
-  if (b === -90) { const n2 = vn(x * 0.2, y * 0.2), q = hh(x, y); return q < 0.1 ? C.gravel[0] : q > 0.93 ? C.shadow : n2 > 0.56 ? C.snowRoof[pickI(5, 0.5 + (hh(y, x) - 0.5) * 0.35, x, y)] : C.gravel[pickI(3, 0.25 + (n2 - 0.4) * 1.1, x, y)]; } /* a river's bed: gravel and boulders with snow lying in patches, the meltwater in the channel (-88) */
+  if (b === -90) { const n2 = vn(x * 0.2, y * 0.2), q = hh(x, y); return q < 0.1 ? C.gravel[0] : q > 0.985 ? C.shadow : n2 > 0.56 ? C.snowRoof[pickI(5, 0.5 + (hh(y, x) - 0.5) * 0.35, x, y)] : C.gravel[pickI(3, 0.25 + (n2 - 0.4) * 1.1, x, y)]; } /* a river's bed: gravel and boulders with snow lying in patches, the meltwater in the channel (-88) */
   if (b === -88) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; return !ic(x - 1, y) || !ic(x + 1, y) ? C.snowRoof[2] : C.river[pickI(6, 0.62 + (vn(x * 0.2, y * 0.08) - 0.5) * 0.5 + (Math.abs(Math.sin(x * 0.4 + y * 0.23)) < 0.05 ? -0.4 : 0), x, y)]; } // the gorge's river frozen on the valley floor: snow on its banks
   if (b === -89) { const ic = (xx, yy) => xx >= 0 && xx < W && yy >= 0 && yy < L && Kr[yy * W + xx] === K.ICE; if (!ic(x - 1, y) || !ic(x + 1, y) || !ic(x, y - 1) || !ic(x, y + 1)) return C.snowRoof[2]; // the glacier: a snow rim, then ice with crevasses across its flow
     const cr = Math.abs(Math.sin(y * 0.11 + 5 * vn(x * 0.04, y * 0.03))) < 0.05 && vn(x * 0.06 + 9, y * 0.05) > 0.45; if (cr) return C.river[hh(x, y) < 0.5 ? 0 : 1];
