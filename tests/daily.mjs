@@ -30,7 +30,7 @@ const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const verbose = process.argv.includes('--verbose');
 let bad = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) { passed++; if (verbose) console.log('ok   ' + msg); } else { bad++; console.error('FAIL ' + msg); } return cond; };
-const DAYS = { desert: '2026-11-15', forest: '2026-11-16', winter: '2026-11-17', city: '2026-11-14' }; // one date per kit (the rotation, four kits since composer v5)
+const DAYS = { desert: '2026-11-23', forest: '2026-11-16', winter: '2026-11-17', city: '2026-11-14' }; // one date per kit (the rotation, four kits since composer v5)
 /* the game's flags for a kit's ground: variant, autumn, winter, haze, moon (the loop's ground only with the flavours variant and loop) */
 const GROUND = { desert: g => (g ? 1 : 0) + ',false,false,false,false', forest: g => '0,' + !!g + ',false,false,false', winter: g => '0,false,' + !!g + ',false,false', city: g => '0,false,false,false,false' /* (the city's loop ground is only the harbour's shape, no game flag) */ };
 const fnv = a => { let h = 2166136261; for (let i = 0; i < a.length; i++) { h = Math.imul(h ^ (a[i] & 0xffff), 16777619); h = Math.imul(h ^ (a[i] >>> 16), 16777619); } return (h >>> 0).toString(16); };
