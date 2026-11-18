@@ -41,7 +41,7 @@ for (const k of kits) { let same = 0, subDiff = 0, seedDiff = 0; const N = 200;
 
 // 4. gate 1 on 10,000 seeds per kit. The rules are checked here from the kit table, apart from SC.check.
 const variety = {};
-for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = kit.approaches || [kit.approach], OPS = kit.openers || [kit.opener];
+for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []), OPS = kit.openers || [kit.opener];
   const note = m => { bad[m] = (bad[m] || 0) + 1; }, V = variety[k] = { orders: new Set(), sets: new Set(), tmpl: {}, len: [], mids: [], enc: {}, encN: [], wing: [], first: {}, hot3: 0 };
   for (let s = 0; s < N; s++) { const seed = (SC.hash(s, 4242) * 4294967296) | 0; let S; try { S = SC.composeSortie(k, seed); } catch (e) { note('throws: ' + e.message.slice(0, 60)); continue; }
     att[S.attempt] = (att[S.attempt] || 0) + 1; worst = Math.max(worst, S.attempt); if (SC.check(k, S).length) mod++;
