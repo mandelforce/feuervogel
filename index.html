@@ -11531,7 +11531,7 @@ function startAt(n, keepEndless, sortieLevel, loops, composed) { // composed: a 
   newGame(lp); run.start = run.endless ? 1 : n; run.diff = settings.diff; run.loops = lp;
   if (sortieLevel) { run.endless = false; run.start = n; run.sortie = composed ? buildSortie(sortieLevel, 0, composed) : buildSortie(sortieLevel, CAMP_SEED + lp); campSeed(sortieLevel, lp, composed ? run.sortie.seed : undefined); }
   setEnigmaArt(!!run.sortie);
-  if (n <= 1) { if (run.sortie) { showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } if (lp) { run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); } markStage(); return; } // level 1 opens on the carrier's deck
+  if (n <= 1) { if (run.sortie) { if (run.sortie.daily) showMsg('DAILY SORTIE', (run.sortie.daily.date || '') + '  ' + run.sortie.daily.kit.toUpperCase() + ({ rank: '  HARD', variant: '  LOOP GROUND', loop: '  LOOP' }[run.sortie.daily.flavour] || ''), 170, twistBanner()); else showMsg('LEVEL ' + run.sortie.level, STAGE_NAMES[0] + '  (ENIGMA RUN)', 170); if (run.sortie.segs[0].t === 'carrier_start') onStream(true, carrierStart)(); } if (lp) { run.stage = 1 + 6 * lp; run.loop = rankFor(run.stage); } markStage(); return; } // level 1 opens on the carrier's deck
   run.stage = n + 6 * lp; run.loop = rankFor(run.stage); world.curTheme = world.prevTheme = world.blendFrom = world.blendTo = STAGE_ORDER[n - 1]; world.prevLand = false; run.start = run.endless ? 1 : n;
   setTimeout(() => prewarmBoss(world.curTheme), 400);
   world.chunkJobs = []; world.chunks = new Map(); world.chunkInfo = new Map(); world.genP = -7; chunkHouses.clear(); bridgeDown.clear(); bridgeSpawned.clear();
