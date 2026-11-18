@@ -136,6 +136,7 @@ const KITS = {
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
+const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
 const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest middle segments; chunks of rest between an encounter's end and the next one's start
 
@@ -248,6 +249,7 @@ KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaT
 KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.winter.bosses.find(b => b.kind === 'railgun').rail = true; /* (the winter's supergun: its own gorge with two tracks in the middle, plan 12.18) */
 KITS.winter.bosses.find(b => b.kind === 'wolfpack').ice = true; /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
 KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
@@ -256,7 +258,7 @@ const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const
 function bossFor(kit, base, ap) {
   if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
   const tot = pool.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = pool[pool.length - 1]; for (const q of pool) { x -= q.w; if (x < 0) { b = q; break; } }
-  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
+  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
 }
 function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
@@ -288,8 +290,8 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const segs = []; let at = 0; for (const [t, len] of op.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core, ground) : { names: [], global: {}, seg: segs.map(() => null) };
-    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
+    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
@@ -323,7 +325,7 @@ function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitI
   const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, ICE_ARENA, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, ICE_ARENA, RAIL_ARENA, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

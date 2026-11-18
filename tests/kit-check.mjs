@@ -60,7 +60,7 @@ export const KITS = {
       for (const it of p.items) if (it.label === 'Guard hut') m.push({ t: 'pass', y: it.y0, what: 'gate' });
       return m; },
     extra: (p, rg, noFin) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;
-      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if (p.P && p.P.depotRows > 0 && !p.iceArena) out.push('the ice arena is missing'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (!p.throat || p.throat.tracks.length !== 3) out.push('the depot has no 3 tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
+      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if (noFin === 'depot' && p.P && p.P.depotRows > 0 && !p.iceArena) out.push('the ice arena is missing'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (noFin === 'railgorge' ? !p.throat || p.throat.tracks.length !== 2 : !p.throat || p.throat.tracks.length !== 3) out.push('the finale has the wrong number of tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
       if (!G) out.push('no gorge'); else { if (!(G.yb < Lr && G.yb > Lr - 220)) out.push('the gorge opens at ' + G.yb + ', level end ' + Lr); if (G.y1 !== p.L - 1) out.push('the gorge ends at ' + G.y1 + ', plan ' + p.L);
         for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[y * p.W + tx - 3] !== 2) brk++; if (brk) { out.push('a track breaks in the gorge'); break; } } }
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
@@ -101,7 +101,7 @@ export function check(kit, segs, seed, gen) {
   let p; const t0 = performance.now();
   try { p = CG.generate(gen || { seed, preset: kit.preset, params: kit.params(segs.map(g => ({ t: g.t, n: g.n }))) }); } catch (e) { res.flags.push('throw'); res.notes.push('throw: ' + String(e && e.message || e).slice(0, 90)); return res; }
   res.ms = performance.now() - t0;
-  const noFin = !!(gen && gen.params && gen.params.finale === 'depot'), arenaN = noFin ? (gen.params.depotArena | 0) : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
+  const noFin = !!(gen && gen.params && (gen.params.finale === 'depot' || gen.params.finale === 'railgorge')), arenaN = noFin ? (gen.params.depotArena | gen.params.railArena | 0) : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
   const want = (segs.reduce((a, g) => a + g.n, 0) + arenaN) * CH;
   if (p.L !== want) { res.flags.push('length'); res.notes.push('plan ' + p.L + ' px, segments ' + want); }
   let v; try { v = CG.validate(p); } catch (e) { res.flags.push('throw'); res.notes.push('validate throws: ' + String(e && e.message || e).slice(0, 90)); return res; }
@@ -113,7 +113,7 @@ export function check(kit, segs, seed, gen) {
   for (const r of rg) { const need = kit.needs[r.t]; if (need && !marks.some(m => m.what === need && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) miss.add(need + ' (' + r.t + ')'); }
   if (out.size) { res.flags.push('outside'); res.notes.push('outside: ' + [...out].join('; ')); }
   if (miss.size) { res.flags.push('missing'); res.notes.push('missing: ' + [...miss].join('; ')); }
-  const ex = kit.extra(p, rg, noFin); if (ex.length) { res.flags.push('preset'); res.notes.push('preset: ' + ex.join('; ')); }
+  const ex = kit.extra(p, rg, noFin ? gen.params.finale : null); if (ex.length) { res.flags.push('preset'); res.notes.push('preset: ' + ex.join('; ')); }
   res.built = rg.filter(r => r.t !== '(arena)').map(r => ({ t: r.t, v: builtShare(p, r.y0, r.y1) }));
   res.stats = kit.stats ? kit.stats(p, rg.filter(r => r.t !== '(arena)')) : [];
   return res;

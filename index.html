@@ -4035,7 +4035,7 @@ function winterLine(o) {
   delete params.segs; delete params.builder;
   const A = withPerimeter({ seed, preset: 'villageWinter', params }); markSlotRoofs(A); calmWater(A); winterize(A);
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
-  const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, arenaOn = !!fin && fin !== 'depot', depotRows = fin === 'depot' && P0.depotArena ? P0.depotArena * CHp : 0, Lb = Lr + (arenaOn ? (P0.arena || 16) * CHp : depotRows), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push(Object.assign({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t, basin: kind === 'pass' && !!P0.variant }, groundDials(g.p, WINTER_DIALS))); } } // (station and airbase are plain valley until their own ground is built)
+  const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, arenaOn = !!fin && fin !== 'depot' && fin !== 'railgorge', depotRows = fin === 'depot' && P0.depotArena ? P0.depotArena * CHp : fin === 'railgorge' && P0.railArena ? P0.railArena * CHp : 0, Lb = Lr + (arenaOn ? (P0.arena || 16) * CHp : depotRows), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push(Object.assign({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t, basin: kind === 'pass' && !!P0.variant }, groundDials(g.p, WINTER_DIALS))); } } // (station and airbase are plain valley until their own ground is built)
   if (arenaOn) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
   const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad, harbourIce: P0.harbourIce, depotRows } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
@@ -4327,6 +4327,14 @@ function winterLand(o) {
     if (P.depotRows > 0) { /* the wolfpack's arena: past the breakwater the sea is one sheet of pack ice, plates with refrozen seams and a few pressure ridges (the boats break up through it) */
       for (let y = yMole + 8; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y), n = vn(x * 0.05 + 7, y * 0.045), seam = Math.abs(vn(x * 0.1, y * 0.08 + 4) - 0.5) < 0.016; Kr[i] = K.ICE; Br[i] = seam ? -83 : n > 0.82 && y < Lh + 40 ? -82 : -81; reserved[i] = 1; } plan.iceArena = { y0: yMole + 8, y1: L - 1 }; }
     plan.tunnels.push({ x: 44, y: yP, dir: -1 }, { x: 70, y: yP, dir: -1 }); plan.harbour = { yQ, yWat, yMole, ice: iceOn, piers: pxs, arena: (P.depotRows | 0) > 0 }; }
+  // the finale 'railgorge' (a Daily Sortie's winter supergun, plan 12.18; owner: the Night Hammer needs a gorge with two tracks in the middle, as its level 3 stage, in an icy environment): the two lines come out of tunnel portals at x 93 and 131, the supergun's own
+  // rails, and run straight on through the arena, a narrow gorge: a snow floor about 100 px across between rock walls that rise from the mountain's face and tower over both sides.
+  else if (th && P.finale === 'railgorge') { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [93, 131], Lh = L - (P.depotRows | 0), TR = plan.throat = { y0: yP, tracks: [] };
+    for (let k = 0; k < 2; k++) { const xc = T[k]; TR.tracks.push({ x0: xc, x1: xc, ya: yP, yb: yP });
+      for (let y = yP; y < L; y++) for (let x = xc - 9; x <= xc + 9; x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)); if (dx > 8.2) continue; const m = dx >= 2.5 && dx <= 3.5 ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4; if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; }
+      plan.trainRuns.push({ x: xc, y0: yP + 80, y1: Lh - 1, line: 'throat' }); }
+    for (let y = yM; y < L; y++) { const ent = smooth(yM, yM + 80, y); for (let x = 0; x < W; x++) { const i = idx(x, y); if (reserved[i]) continue; const d = Math.abs(x + 0.5 - 112) + (vn(x * 0.07 + 3, y * 0.035) - 0.5) * 16, wall = 78 * smooth(54, 94, d) * ent + 6 * vn(x * 0.1, y * 0.1) * smooth(40, 60, d); if (wall > Hg[i]) Hg[i] = wall; } } /* (the walls: the heights the generator turns into snow slopes and bare rock) */
+    plan.tunnels.push({ x: 93, y: yP, dir: -1 }, { x: 131, y: yP, dir: -1 }); plan.railArena = { y0: Lh, y1: L - 1 }; }
   else if (th) { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
@@ -4768,6 +4776,7 @@ const KITS = {
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
+const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
 const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest middle segments; chunks of rest between an encounter's end and the next one's start
 
@@ -4880,6 +4889,7 @@ KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaT
 KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.winter.bosses.find(b => b.kind === 'railgun').rail = true; /* (the winter's supergun: its own gorge with two tracks in the middle, plan 12.18) */
 KITS.winter.bosses.find(b => b.kind === 'wolfpack').ice = true; /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
 KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
@@ -4888,7 +4898,7 @@ const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const
 function bossFor(kit, base, ap) {
   if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
   const tot = pool.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = pool[pool.length - 1]; for (const q of pool) { x -= q.w; if (x < 0) { b = q; break; } }
-  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
+  const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
 }
 function dialsFor(kit, base, segs, ground) {
   const all = dialNames(kit), names = [], none = { names, global: {}, seg: segs.map(() => null) };
@@ -4920,8 +4930,8 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const segs = []; let at = 0; for (const [t, len] of op.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core, ground) : { names: [], global: {}, seg: segs.map(() => null) };
-    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
+    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
@@ -4955,7 +4965,7 @@ function composeDaily(dateKey, kitId, sub, flavour, twist, dials, tod) { // kitI
   const D = dailySeed(dateKey), S = composeSortie(kitId || D.kit, D.seed, sub === undefined || sub === null ? D.sub : sub, flavour || D.flavour, twist || D.twist, dials || D.dials, tod || D.tod); S.date = D.date; return S;
 }
 
-const SortieCompose = { VERSION, composeVersion: VERSION, ICE_ARENA, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
+const SortieCompose = { VERSION, composeVersion: VERSION, ICE_ARENA, RAIL_ARENA, bossFor, TODS, TOD_WEIGHT, todFor, DIALS, DIAL_NONE, DIAL_PICK, FOREST_BASE, dialsFor, dialNames, FLAVOURS, FLAVOUR_WEIGHT, LOOP_PARAMS, KITS, KIT_ORDER, DAILY_REROLL, DAILY_PLAIN, TWISTS, TWIST_ORDER, TWIST_NAMES, FIXED_WEAPONS, twistFor, fixedWeapon, hash, composeSortie, check, encPlanFor, dailySeed, dateKeyUTC, composeDaily };
 if (typeof module !== 'undefined' && module.exports) module.exports = SortieCompose;
 root.SortieCompose = SortieCompose;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -5159,7 +5169,7 @@ function yardXover(k, yard) {
 // Level 5's gorge (owner: option 1, spec 20.7): four tracks on two hillside viaducts, the boss trains on the inner two (x 68, 156), the supply
 // trains on the outer two (x 36, 188). A boss train steps out to its outer track and back on crossovers within its viaduct, never across the
 // chasm; none lies under a gallery or in a spur's tunnel, or by the supply trains' bridge.
-const GORGE_T = [36, 68, 156, 188], XO_SEQ5 = [[1, 0], [0, 1], [2, 3], [3, 2]], GORGE_ARENA = 48, ICE_ARENA = 11, TRAIN_CARS = new Set(['loco', 'boxcar', 'flatcar', 'ammocar']);
+const GORGE_T = [36, 68, 156, 188], XO_SEQ5 = [[1, 0], [0, 1], [2, 3], [3, 2]], GORGE_ARENA = 48, ICE_ARENA = 11, RAIL_ARENA = 11, TRAIN_CARS = new Set(['loco', 'boxcar', 'flatcar', 'ammocar']);
 function gorgeArena() { const S = run.sortie; return !!(S && S.level === 5 && S.plan && S.plan.gorge && S.planFor === world.stageBaseP); }
 function gorgeXover(k) {
   const [from, to] = XO_SEQ5[((k % 4) + 4) % 4], y0 = k * XO_P + XO_A, y1 = y0 + XO_L, S = run.sortie, G = S.plan.gorge, s = from < 2 ? -1 : 1, pa = S.planY0 - y1 - 24, pb = S.planY0 - y0 + 24;
@@ -11183,7 +11193,7 @@ function sortiePlanLevel4(S) {
 // on past the level's end as the train boss's arena (GORGE_ARENA chunks, preset winterGorge): two hillside viaducts with the chasm between them
 // (spec 20.6, 20.7). The boss code still sees its bossland (theme 1) there.
 function sortiePlanLevel5(S) {
-  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.compose && S.legacyTail ? S.len - S.legacyTail : S.compose && S.bossVar && S.bossVar.ice ? S.len + ICE_ARENA : S.len + GORGE_ARENA; /* (the wolfpack's frozen arena: ICE_ARENA chunks of the plan after the level's end, the composer's own number) */ /* (a sea ending: no gorge, the legacy coast and sea come after the plan) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.compose && S.legacyTail ? S.len - S.legacyTail : S.compose && S.bossVar && S.bossVar.ice ? S.len + ICE_ARENA : S.compose && S.bossVar && S.bossVar.rail ? S.len + RAIL_ARENA : S.len + GORGE_ARENA; /* (the wolfpack's frozen arena: ICE_ARENA chunks of the plan after the level's end, the composer's own number) */ /* (a sea ending: no gorge, the legacy coast and sea come after the plan) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.
@@ -13955,11 +13965,6 @@ const BOSS_KINDS = ['ship', 'train', 'fortress', 'railgun', 'castle', 'skyfort']
 const bossLance = () => { const S = run.sortie; return !!S && (!!S.haze || !!(S.bossVar && S.bossVar.lance)); };
 function bossWarn() { const bk = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[world.curTheme]; if (world.curTheme === 5 || bk === 'skyfort') fadeMusicOut(1.0); showMsg('WARNING', bk === 'wolfpack' && run.sortie.bossVar.ice ? 'WOLFPACK BENEATH THE ICE' : BOSS[bk].warn, 220); sfx('warn'); haptic('warn'); world.later.push({ at: gf + 240, fn: spawnBoss }); }
 function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scrollTarget = SCROLL; if (!(BOSS[e.kind].delayClear && BOSS[e.kind].delayClear(e))) stageClear(true); }
-/* The supergun in the winter gorge (plan 12.17, owner: it cannot stand on the middle, where there is the chasm and the river and no track): on one of the viaducts' tracks, the one with the fewest rows of gallery roof over the screen (the inner two first), so it can be shot. */
-function gorgeRailX(sc) {
-  const cand = [GORGE_T[1], GORGE_T[2], GORGE_T[0], GORGE_T[3]], roofs = x => { let n = 0; for (let y = 0; y < H; y += 6) if (roofAt(x, y - sc)) n++; return n; };
-  let best = cand[0], bn = roofs(best); for (const x of cand.slice(1)) { const n = roofs(x); if (n < bn - 2) { best = x; bn = n; } } return best;
-}
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   bossHit = false;
@@ -13971,7 +13976,7 @@ function spawnBoss() {
   });
   if (app.state === 'play') playSong(def.song || 'boss', false);
   const sc = Math.floor(world.scroll);
-  const bossE = E('boss', { kind, x: kind === 'railgun' && gorgeArena() ? gorgeRailX(Math.floor(world.scroll)) : def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: bossDead });
+  const bossE = E('boss', { kind, x: def.x || W / 2, y: def.world ? -100 : def.y, surface: true, air: !!def.air, big: true, parts: ps, spin: 0, chargeT: 0, spot: 0, score: def.score * (run.loop + 1), onDead: bossDead });
   if (def.world) { bossE.world = true; bossE.wx = 112; bossE.wy = -sc - 80 - 1120; bossE.x = 112; bossE.y = bossE.wy + sc; bossE.gateWy = bossE.wy + 1120; bossE.hw = 42; bossE.hh = 42; }
   if (def.setup) def.setup(bossE, sc);
   world.enemies.push(bossE);
@@ -15468,8 +15473,7 @@ const BOSS_FIGHT = {
     },
   },
   railgun: {
-    shielded(e, p) { return gorgeArena() && roofAt(e.x + p.ox, e.y + p.oy - Math.floor(world.scroll)); }, // (a supergun on the winter gorge's viaduct under a gallery: its parts cannot be hit)
-    setup(e) { if (run.sortie) e.hh = 100; }, // Enigma: the death blasts spread over the longer carriage
+    setup(e) { if (run.sortie) e.hh = 100; if (run.sortie && run.sortie.bossVar && run.sortie.bossVar.rail) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } }, // Enigma: the death blasts spread over the longer carriage (the winter's icy gorge: the arena is as long as the plan's 11 chunks, so the world stops as for the wolfpack)
     dyingDrift(e) { if (e.nr) e.nr.zones = []; }, // (the first loop's rocket areas end with the boss)
     tick(e, core) { railLock(e, core); starShells(e, core); if (run.sortie && run.sortie.moon) nightRockets(e, core); },
     aimCore(e, p, px, py) { if (!e.chargeT && hasT()) p.ang = clamp(p.ang + clamp(angDiff(p.ang, aim(px, py)), -0.01, 0.01), PI / 2 - 0.6, PI / 2 + 0.6); },
