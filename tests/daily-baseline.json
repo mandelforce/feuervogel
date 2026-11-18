@@ -616,6 +616,149 @@
      ]
     }
    }
+  },
+  "temperate": {
+   "level": 1,
+   "byDiff": {
+    "Rookie": {
+     "flights": 2,
+     "bossIn": [
+      155,
+      167.5
+     ],
+     "bossSec": [
+      81.2,
+      96.8
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.72,
+      0.77
+     ],
+     "window10": [
+      14.9,
+      16.7
+     ],
+     "preAvg": [
+      5.2,
+      7.1
+     ],
+     "bossAvg": [
+      8.3,
+      8.9
+     ],
+     "killsPerMin": [
+      88.6,
+      102.4
+     ],
+     "quietMax": 0,
+     "quietAirMax": 0,
+     "flightS": [
+      5.4,
+      5.6
+     ],
+     "chunkP95": [
+      11.9,
+      22.8
+     ],
+     "planMs": [
+      127.7,
+      194.7
+     ]
+    },
+    "Veteran": {
+     "flights": 2,
+     "bossIn": [
+      155,
+      167.5
+     ],
+     "bossSec": [
+      66.3,
+      75
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.77,
+      1.07
+     ],
+     "window10": [
+      19.5,
+      26.1
+     ],
+     "preAvg": [
+      8.6,
+      10.7
+     ],
+     "bossAvg": [
+      14,
+      15.1
+     ],
+     "killsPerMin": [
+      107.2,
+      126.1
+     ],
+     "quietMax": 0,
+     "quietAirMax": 7,
+     "flightS": [
+      5.3,
+      6.1
+     ],
+     "chunkP95": [
+      19,
+      27.9
+     ],
+     "planMs": [
+      84.2,
+      193.1
+     ]
+    },
+    "Ace": {
+     "flights": 2,
+     "bossIn": [
+      155,
+      167.5
+     ],
+     "bossSec": [
+      66.7,
+      89.3
+     ],
+     "bossKilled": true,
+     "hitsPerMin": [
+      0.39,
+      2.15
+     ],
+     "window10": [
+      23.5,
+      31
+     ],
+     "preAvg": [
+      8.3,
+      14.9
+     ],
+     "bossAvg": [
+      11.7,
+      13.7
+     ],
+     "killsPerMin": [
+      106.5,
+      122.9
+     ],
+     "quietMax": 0,
+     "quietAirMax": 6,
+     "flightS": [
+      4.9,
+      6.6
+     ],
+     "chunkP95": [
+      14.5,
+      21.3
+     ],
+     "planMs": [
+      83,
+      128.7
+     ]
+    }
+   }
   }
  },
  "flights": [
@@ -3622,6 +3765,639 @@
     "p95": 9.1,
     "max": 13.1,
     "chunks": 79
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 0,
+   "H": 320,
+   "len": 62,
+   "bossAt": 59,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     6
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 15020,
+   "wallMs": 5416,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 155,
+   "bossSec": 81.2,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 1,
+   "hitsPerMin": 0.77,
+   "hitsBy": {
+    "body:pod": 1,
+    "body:bomber": 1
+   },
+   "window10": 14.9,
+   "preAvg": 5.2,
+   "bossAvg": 8.3,
+   "enemiesAvg": 6.69,
+   "enemiesMax": 24,
+   "killsPre": 229,
+   "killsPerMin": 88.6,
+   "kills": 262,
+   "seen": 332,
+   "score": 276040,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "firstcontact": 2760,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 484,
+   "planMs": {
+    "median": 194.7,
+    "max": 303.3
+   },
+   "chunkMs": {
+    "mean": 13.41,
+    "p95": 22.8,
+    "max": 268.4,
+    "chunks": 71
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 1,
+   "H": 320,
+   "len": 62,
+   "bossAt": 59,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     6
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 14060,
+   "wallMs": 5326,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 155,
+   "bossSec": 66.3,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 1,
+   "hitsPerMin": 0.77,
+   "hitsBy": {
+    "bullet:shell": 1,
+    "bullet:s": 1
+   },
+   "window10": 19.5,
+   "preAvg": 8.6,
+   "bossAvg": 14,
+   "enemiesAvg": 10.03,
+   "enemiesMax": 34,
+   "killsPre": 277,
+   "killsPerMin": 107.2,
+   "kills": 301,
+   "seen": 385,
+   "score": 278710,
+   "quiet": [],
+   "quietAir": [
+    [
+     148,
+     7
+    ]
+   ],
+   "encFrames": {
+    "firstcontact": 2760,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 403.6,
+   "planMs": {
+    "median": 193.1,
+    "max": 349.5
+   },
+   "chunkMs": {
+    "mean": 11.25,
+    "p95": 19,
+    "max": 212.5,
+    "chunks": 71
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 0,
+   "seed": 1944,
+   "diff": 2,
+   "H": 320,
+   "len": 62,
+   "bossAt": 59,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     6
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 14180,
+   "wallMs": 4859,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 155,
+   "bossSec": 66.7,
+   "bossKilled": true,
+   "hitsPre": 1,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.39,
+   "hitsBy": {
+    "body:fighter": 1
+   },
+   "window10": 23.5,
+   "preAvg": 8.3,
+   "bossAvg": 11.7,
+   "enemiesAvg": 10.33,
+   "enemiesMax": 40,
+   "killsPre": 275,
+   "killsPerMin": 106.5,
+   "kills": 300,
+   "seen": 388,
+   "score": 300040,
+   "quiet": [],
+   "quietAir": [
+    [
+     149,
+     6
+    ]
+   ],
+   "encFrames": {
+    "firstcontact": 2760,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 390.4,
+   "planMs": {
+    "median": 83,
+    "max": 382.1
+   },
+   "chunkMs": {
+    "mean": 11.19,
+    "p95": 21.3,
+    "max": 214.8,
+    "chunks": 71
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 0,
+   "H": 320,
+   "len": 76,
+   "bossAt": 73,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     20
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 16730,
+   "wallMs": 5565,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 167.5,
+   "bossSec": 96.8,
+   "bossKilled": true,
+   "hitsPre": 2,
+   "hitsBoss": 0,
+   "hitsPerMin": 0.72,
+   "hitsBy": {
+    "body:pod": 1,
+    "body:fighter": 1
+   },
+   "window10": 16.7,
+   "preAvg": 7.1,
+   "bossAvg": 8.9,
+   "enemiesAvg": 11.21,
+   "enemiesMax": 31,
+   "killsPre": 286,
+   "killsPerMin": 102.4,
+   "kills": 343,
+   "seen": 427,
+   "score": 311080,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "firstcontact": 2440,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 475,
+   "planMs": {
+    "median": 127.7,
+    "max": 224.4
+   },
+   "chunkMs": {
+    "mean": 9.73,
+    "p95": 11.9,
+    "max": 232.9,
+    "chunks": 85
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 1,
+   "H": 320,
+   "len": 76,
+   "bossAt": 73,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     20
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 15380,
+   "wallMs": 6119,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 167.5,
+   "bossSec": 75,
+   "bossKilled": true,
+   "hitsPre": 3,
+   "hitsBoss": 2,
+   "hitsPerMin": 1.07,
+   "hitsBy": {
+    "bullet:s": 1,
+    "body:fighter": 2
+   },
+   "window10": 26.1,
+   "preAvg": 10.7,
+   "bossAvg": 15.1,
+   "enemiesAvg": 13.16,
+   "enemiesMax": 44,
+   "killsPre": 352,
+   "killsPerMin": 126.1,
+   "kills": 393,
+   "seen": 488,
+   "score": 348465,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "firstcontact": 2440,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 484.4,
+   "planMs": {
+    "median": 84.2,
+    "max": 366
+   },
+   "chunkMs": {
+    "mean": 12.76,
+    "p95": 27.9,
+    "max": 255.3,
+    "chunks": 85
+   },
+   "pageErrs": []
+  },
+  {
+   "level": 1,
+   "loops": 1,
+   "seed": 1945,
+   "diff": 2,
+   "H": 320,
+   "len": 76,
+   "bossAt": 73,
+   "segs": [
+    [
+     "carrier_start",
+     4
+    ],
+    [
+     "open_sea",
+     20
+    ],
+    [
+     "island_chain",
+     6
+    ],
+    [
+     "island_airbase",
+     9
+    ],
+    [
+     "open_sea",
+     3
+    ],
+    [
+     "beach_fortified",
+     3
+    ],
+    [
+     "farmland",
+     8
+    ],
+    [
+     "village",
+     4
+    ],
+    [
+     "forest_deciduous",
+     4
+    ],
+    [
+     "farmland",
+     10
+    ],
+    [
+     "coast_down",
+     1
+    ],
+    [
+     "open_sea",
+     4
+    ]
+   ],
+   "encPlan": [],
+   "end": "next:2",
+   "frames": 16190,
+   "wallMs": 6620,
+   "errs": [],
+   "errCount": 0,
+   "bossIn": 167.5,
+   "bossSec": 89.3,
+   "bossKilled": true,
+   "hitsPre": 6,
+   "hitsBoss": 1,
+   "hitsPerMin": 2.15,
+   "hitsBy": {
+    "bullet:s": 2,
+    "body:fighter": 4
+   },
+   "window10": 31,
+   "preAvg": 14.9,
+   "bossAvg": 13.7,
+   "enemiesAvg": 19.4,
+   "enemiesMax": 56,
+   "killsPre": 343,
+   "killsPerMin": 122.9,
+   "kills": 390,
+   "seen": 553,
+   "score": 360875,
+   "quiet": [],
+   "quietAir": [],
+   "encFrames": {
+    "firstcontact": 2440,
+    "wing": 3040,
+    "formations": 900
+   },
+   "updMaxMs": 625.7,
+   "planMs": {
+    "median": 128.7,
+    "max": 340.5
+   },
+   "chunkMs": {
+    "mean": 9.54,
+    "p95": 14.5,
+    "max": 182.5,
+    "chunks": 85
    },
    "pageErrs": []
   }

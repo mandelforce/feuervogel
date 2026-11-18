@@ -66,6 +66,17 @@ export const KITS = {
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
       const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea');
       return out; } },
+  /* the temperate kit (level 1): the segment-native islands plan up to the beach. Each band of islets holds islets of its own kind, the large island its runway; the legacy old land after the plan is not in the plan. */
+  temperate: { preset: 'islands', arena: 0, params: segs => ({ segs }),
+    opener: [['carrier_start', 4], ['open_sea', 6]],
+    middle: [['island_chain', 6], ['island_fortress', 6], ['island_archipelago', 7], ['island_airbase', 9], ['open_sea', 3]],
+    approach: [['open_sea', 3]],
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway' },
+    markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
+      if (p.airbase) m.push({ t: 'island_airbase', y: (p.airbase.y0 + p.airbase.y1) / 2, what: 'runway' }); return m; },
+    extra: (p, rg) => { const out = []; if (!p.airbase) out.push('no airbase on the large island'); if (!p.village || !p.village.items) out.push('no village on the large island');
+      const bands = rg.filter(r => /^island_(chain|fortress|archipelago)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
+      for (const r of rg) if (r.t === 'island_fortress' && !(p.slots || []).some(s => s.kind === 'bunker' && s.y >= r.y0 - 40 && s.y < r.y1 + 40)) out.push('no bunker in the fortress islets'); return out; } },
   /* the city (level 6): the segment-native portSouth plan. The harbour's cranes lie in the harbour, the industrial quarters where the works stretch is, the station in the last stretch; the market square is the densest
      point, so with a city centre in the list it lies in it. (A ruins stretch is only a damage curve of 1: its rubble share, 9 to 19 %, overlaps the other districts', so it is not checked.) */
   city: { preset: 'portSouth', arena: 0, params: segs => ({ segs }),

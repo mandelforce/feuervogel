@@ -17,8 +17,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ? d : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const LEVELS = String(arg('levels', '2,4,5,6')).split(',').map(Number), DIFFS = String(arg('diffs', '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), TWICE = !!arg('twice', false);
-const LOOPS_OF = { 2: [0, 1, 2, 3], 4: [0, 1], 5: [0, 1], 6: [0, 1] }, ONLY_LOOPS = arg('loops', null) === null ? null : String(arg('loops')).split(',').map(Number);
-const LAG = 8, REACT = 15, VIEW = { width: 1000, height: 760 }, NAMES = ['Rookie', 'Veteran', 'Ace'], KIT = { 2: 'desert', 4: 'forest', 5: 'winter', 6: 'city' };
+const LOOPS_OF = { 1: [0, 1], 2: [0, 1, 2, 3], 4: [0, 1], 5: [0, 1], 6: [0, 1] }, ONLY_LOOPS = arg('loops', null) === null ? null : String(arg('loops')).split(',').map(Number);
+const LAG = 8, REACT = 15, VIEW = { width: 1000, height: 760 }, NAMES = ['Rookie', 'Veteran', 'Ace'], KIT = { 1: 'temperate', 2: 'desert', 4: 'forest', 5: 'winter', 6: 'city' };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8');
 const VERSION = (readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
 

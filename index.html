@@ -2926,7 +2926,12 @@ function paintFx(plan, f, img, bx, t, night) { // night: smoke graded as in pain
 // small wood, a pond, a paddock and a farmstead, then the airbase. Ground kinds added: ROCK (rocky shore, game 'sand') and RUNWAY ('concrete').
 // plan.shore: each sea pixel's distance to land (for the surf); plan.pastures: fenced paddocks where the game puts its cows.
 function islands(o) {
-  const P = Object.assign({}, PRESETS.islands, o.params || {}), seed = o.seed | 0, W = P.W, L = P.L | 0, N = W * L;
+  const P = Object.assign({}, PRESETS.islands, o.params || {}), seed = o.seed | 0, W = P.W; /* a segment list (the Daily Sortie's temperate kit): the plan's length and where the bands and the big island lie come from the stretches; without one nothing differs from the Campaign's level 1 */
+  let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
+      if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : 'arch', p: g.p || null });
+      else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L]; }
+    if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
+  const L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296;
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now();
   const Kr = new Uint8Array(N).fill(K.SEA), Br = new Int32Array(N).fill(-1), F = new Int32Array(N).fill(-1), land = new Uint8Array(N);
@@ -2956,20 +2961,22 @@ function islands(o) {
   for (let y = Math.max(0, by0); y <= Math.min(L - 1, by1); y++) { const f = Math.abs((y - by0) / BL * 2 - 1), e = Math.pow(Math.max(0, 1 - f * f * f), 1 / 3), hw = P.bigW / 2 * e;
     const a = bc(y) - hw + 5 * Math.sin(y * 0.031 + ph2) + 3 * Math.sin(y * 0.09 + ph), b = bc(y) + hw + 5 * Math.sin(y * 0.027 + ph) + 3 * Math.sin(y * 0.11 + ph2);
     for (let x = Math.max(0, Math.ceil(a)); x <= Math.min(W - 1, Math.floor(b)); x++) land[idx(x, y)] = 1; }
-  const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane, lx = Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3)));
-  plan.shipLanes.push({ x: lx, w: lw, y0: cy0, y1: Math.min(cy1, by0 - 50), kind: 'fairway' }); // (it ends before the jetty)
-  const want = P.isles[0] + ((rnd(T.ISLE, 4) * (P.isles[1] - P.isles[0] + 1)) | 0), isl = []; let lastOk = 0;
-  for (let k = 0; k < 900 && isl.length < want; k++) { const shrink = Math.max(0.5, 1 - (k - lastOk) * 0.004); // an islet that will not fit gets smaller, try by try
-    const bigOne = isl.length < 2, R = P.isleR[bigOne ? 0 : 1], rx = Math.round(lerp(R[0], R[1], rnd(T.ISLE, bigOne ? 10 : 11, k)) * shrink), ry = Math.round(rx * lerp(0.62, 0.95, rnd(T.ISLE, 12, k)));
-    const cx = Math.round(lerp(rx * 1.25 + 6, W - rx * 1.25 - 6, rnd(T.ISLE, 13, k))), cy = Math.round(lerp(cy0 + ry * 1.25 + 6, cy1 - ry * 1.25 - 6, rnd(T.ISLE, 14, k)));
-    if (Math.abs(cx - lx) < lw / 2 + rx * 1.25 + 4) continue; // the warships' lane stays open
-    if (isl.some(q => Math.hypot((q.cx - cx) / (q.rx * 1.25 + rx * 1.25 + 18), (q.cy - cy) / (q.ry * 1.25 + ry * 1.25 + 18)) < 1)) continue; // open water between islets
-    lastOk = k; isl.push({ cx, cy, rx, ry, a: [rnd(T.ISLE, 15, k) * 6.283, rnd(T.ISLE, 16, k) * 6.283, rnd(T.ISLE, 17, k) * 6.283] }); }
-  isl.sort((a, b) => b.rx * b.ry - a.rx * a.ry); // the largest islet is the farm, the next one has houses, the rest are mostly gun islets and rocks
-  isl.forEach((q, n) => { q.id = n; q.type = n === 0 ? 'farm' : n === 1 ? 'houses' : n === 2 ? 'guns' : q.rx < 21 ? (rnd(T.ISLE, 20, n) < 0.6 ? 'rock' : 'guns') : rnd(T.ISLE, 21, n) < 0.3 ? 'houses' : 'guns';
+  const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
+  const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10] };
+  BK.forEach((bd, bi) => { const T0 = bi * 1000, lx = Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
+    plan.shipLanes.push({ x: lx, w: lw, y0: bd.y0, y1: bd.y0 >= by1 ? bd.y1 : Math.min(bd.y1, by0 - 50), kind: 'fairway' }); // (it ends before the jetty)
+    const NN = KIND_N[bd.kind], R2 = KIND_R[bd.kind], bp = bd.p || {}, sz = Math.min(1.25, Math.max(0.8, bp.size || 1)), want = Math.max(2, NN[0] + ((rnd(T.ISLE, 4 + T0) * (NN[1] - NN[0] + 1)) | 0) + Math.round(Math.min(2, Math.max(-2, bp.count || 0)))), mine = []; let lastOk = 0;
+    for (let k = 0; k < 900 && mine.length < want; k++) { const shrink = Math.max(0.5, 1 - (k - lastOk) * 0.004); // an islet that will not fit gets smaller, try by try
+      const bigOne = mine.length < 2, R = R2[bigOne ? 0 : 1], rx = Math.round(lerp(R[0], R[1], rnd(T.ISLE, (bigOne ? 10 : 11) + T0, k)) * shrink * sz), ry = Math.round(rx * lerp(0.62, 0.95, rnd(T.ISLE, 12 + T0, k)));
+      const cx = Math.round(lerp(rx * 1.25 + 6, W - rx * 1.25 - 6, rnd(T.ISLE, 13 + T0, k))), cy = Math.round(lerp(bd.y0 + ry * 1.25 + 6, bd.y1 - ry * 1.25 - 6, rnd(T.ISLE, 14 + T0, k)));
+      if (Math.abs(cx - lx) < lw / 2 + rx * 1.25 + 4) continue; // the warships' lane stays open
+      if (mine.some(q => Math.hypot((q.cx - cx) / (q.rx * 1.25 + rx * 1.25 + 18), (q.cy - cy) / (q.ry * 1.25 + ry * 1.25 + 18)) < 1)) continue; // open water between islets
+      lastOk = k; mine.push({ cx, cy, rx, ry, band: bd.kind, a: [rnd(T.ISLE, 15 + T0, k) * 6.283, rnd(T.ISLE, 16 + T0, k) * 6.283, rnd(T.ISLE, 17 + T0, k) * 6.283] }); }
+    mine.sort((a, b) => b.rx * b.ry - a.rx * a.ry); mine.forEach((q, r) => { q.rank = r; }); isl.push(...mine); }); // (the largest islet of a band is the farm, the next one has houses, the rest are mostly gun islets and rocks)
+  isl.forEach((q, n) => { q.id = n; q.type = q.band === 'fort' ? 'fort' : q.band === 'arch' ? (q.rank === 0 ? 'farm' : q.rank === 1 ? 'houses' : q.rx < 16 ? 'rock' : rnd(T.ISLE, 21, n) < 0.55 ? 'houses' : rnd(T.ISLE, 22, n) < 0.5 ? 'rock' : 'guns') : q.rank === 0 ? 'farm' : q.rank === 1 ? 'houses' : q.rank === 2 ? 'guns' : q.rx < 21 ? (rnd(T.ISLE, 20, n) < 0.6 ? 'rock' : 'guns') : rnd(T.ISLE, 21, n) < 0.3 ? 'houses' : 'guns';
     const lim = th => 1 + 0.12 * Math.sin(3 * th + q.a[0]) + 0.07 * Math.sin(5 * th + q.a[1]) + 0.04 * Math.sin(8 * th + q.a[2]);
     for (let y = Math.floor(q.cy - q.ry * 1.3); y <= q.cy + q.ry * 1.3; y++) for (let x = Math.floor(q.cx - q.rx * 1.3); x <= q.cx + q.rx * 1.3; x++) { if (!inB(x, y)) continue; const dx = (x + 0.5 - q.cx) / q.rx, dy = (y + 0.5 - q.cy) / q.ry; if (Math.hypot(dx, dy) < lim(Math.atan2(dy, dx))) land[idx(x, y)] = 2 + n; } });
-  if (isl.length > 2 && !isl.some(q => q.type === 'guns')) isl[2].type = 'guns';
+  if (isl.length > 2 && !isl.some(q => q.type === 'guns' || q.type === 'fort') && !bands) isl[2].type = 'guns';
   // distance from the shore, inland (dL) and out to sea (dS): two chamfer passes each
   const dist = src => { const D = new Float32Array(N).fill(1e9); for (let i = 0; i < N; i++) if (src(i)) D[i] = 0; const R2 = 1.4142;
     for (let y = 0; y < L; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (!D[i]) continue; let d = D[i]; if (x > 0) d = Math.min(d, D[i - 1] + 1); if (y > 0) { d = Math.min(d, D[i - W] + 1); if (x > 0) d = Math.min(d, D[i - W - 1] + R2); if (x < W - 1) d = Math.min(d, D[i - W + 1] + R2); } D[i] = d; }
@@ -2979,7 +2986,7 @@ function islands(o) {
   plan.shore = new Uint8Array(N); for (let i = 0; i < N; i++) if (!land[i]) plan.shore[i] = Math.min(255, Math.round(dS[i]));
   // 2. ground: a beach or rocks along the shore (rockier on the small islets, rocks all round a rock), grass inland
   for (let i = 0; i < N; i++) { if (!land[i]) continue; const x = i % W, y = (i / W) | 0, q = land[i] >= 2 ? isl[land[i] - 2] : null, bw = 2.5 + 3.5 * vn(x * 0.06 + 11, y * 0.06);
-    const rock = vn(x * 0.05 + 40, y * 0.05) > (q ? (q.type === 'rock' || q.type === 'guns' ? 0.36 : 0.55) : 0.64) || (q && q.type === 'rock' && dL[i] < bw + 3);
+    const rock = vn(x * 0.05 + 40, y * 0.05) > (q ? (q.type === 'rock' || q.type === 'guns' || q.type === 'fort' ? 0.36 : 0.55) : 0.64) || (q && q.type === 'rock' && dL[i] < bw + 3);
     Kr[i] = dL[i] <= bw ? (rock ? K.ROCK : K.BEACH) : K.MEADOW; }
   plan.stage.shapes = +(now() - t0).toFixed(2);
 
@@ -3073,8 +3080,9 @@ function islands(o) {
     for (let y = Math.floor(q.cy - q.ry * 1.3); y <= q.cy + q.ry * 1.3; y++) for (let x = Math.floor(q.cx - q.rx * 1.3); x <= q.cx + q.rx * 1.3; x++) if (on(x, y, 0)) pts.push([x, y, dL[idx(x, y)]]);
     const best = (m, avoid, gap) => { let b = null; for (const p of pts) if (p[2] >= m && on(p[0], p[1], m) && !(avoid || []).some(a => Math.hypot(a[0] - p[0], a[1] - p[1]) < gap) && (!b || p[2] + rnd(T.ISLE, p[0], p[1]) * 2 > b[2])) b = p; return b; };
     const got = [];
-    if (q.type === 'guns' || q.type === 'rock') { // a turret (the game's bunker) and a flak pit, as far apart as the islet allows
-      const b = best(q.type === 'rock' ? 6 : 7, null, 0); if (b) { if (q.type === 'guns') { fillR(b[0] - 6, b[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', b[0], b[1], 6); got.push(b); const c = best(6, got, 16) || best(5, got, 12); if (c) { gunPit(c[0], c[1]); got.push(c); } } else { gunPit(b[0], b[1]); got.push(b); } }
+    if (q.type === 'guns' || q.type === 'rock' || q.type === 'fort') { // a turret (the game's bunker) and a flak pit, as far apart as the islet allows
+      const b = best(q.type === 'rock' ? 6 : 7, null, 0); if (b) { if (q.type === 'guns' || q.type === 'fort') { fillR(b[0] - 6, b[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', b[0], b[1], 6); got.push(b); const c = best(6, got, 16) || best(5, got, 12); if (c) { gunPit(c[0], c[1]); got.push(c); } } else { gunPit(b[0], b[1]); got.push(b); } }
+      if (q.type === 'fort') for (let m = 0; m < 3; m++) { const c = best(5, got, 13); if (c && rectFree(c[0] - 5, c[1] - 3, 10, 6)) { building('works', c[0] - 5, c[1] - 3, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); got.push(c); if (m === 0) { const d = best(6, got, 14); if (d && rectFree(d[0] - 7, d[1] - 7, 14, 14)) { gunPit(d[0], d[1]); got.push(d); } } } } /* (a fortress islet: a second flak pit and up to three casemates) */
       if (q.type === 'guns') { const c = best(5, got, 14); if (c && rectFree(c[0] - 5, c[1] - 3, 10, 6)) { const it = building('works', c[0] - 5, c[1] - 3, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); got.push(c); } } }
     if (q.type === 'houses') { // a lane across the islet, a few houses facing it with gardens behind, sometimes a lighthouse on the shore
       const ly = q.cy - 2; let xa = null, xb = null; for (let x = q.cx - q.rx * 1.3; x <= q.cx + q.rx * 1.3; x++) if (on(Math.round(x), ly, 3) && on(Math.round(x), ly + 3, 3)) { if (xa === null) xa = Math.round(x); xb = Math.round(x); }
@@ -3089,7 +3097,7 @@ function islands(o) {
       const pw = q.rx > 30 ? 22 : 16, ph = q.rx > 30 ? 15 : 12, pd = near(pw, ph, q.cx + 10, q.cy - 6, q.rx, isle); if (pd) { fillR(pd[0], pd[1], pw, ph, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + pw - 1, y1: pd[1] + ph - 1, n: q.rx > 30 ? 4 : 3 }); }
       for (const [fx, fy] of [[q.cx, q.cy + q.ry * 0.55], [q.cx, q.cy - q.ry * 0.6]]) { const fw = Math.min(34, Math.round(q.rx * 0.7)), fh = Math.min(14, Math.round(q.ry * 0.38)), fd = near(fw, fh, fx, fy, q.rx, isle); if (fd) parcel(fd[0], fd[1], fw, fh, 900 + q.id * 3 + (fy > q.cy ? 1 : 0)); } } // fields, as large as the islet allows
     for (const p of pts) if (on(p[0], p[1], 4) && rnd(T.TREE, p[0] * 3, p[1]) < (q.type === 'houses' ? 0.012 : 0.006)) tree(p[0], p[1], 2 + ((rnd(T.TREE, p[1], p[0]) * 2) | 0)); // a few trees on the grass
-    plan.isles.push({ cx: q.cx, cy: q.cy, rx: q.rx, ry: q.ry, type: q.type }); }
+    plan.isles.push(Object.assign({ cx: q.cx, cy: q.cy, rx: q.rx, ry: q.ry, type: q.type }, bands ? { band: q.band } : null)); }
   // 8. no small fields: a field cut down by the shore, the wood, the pond or a farmstead to less than 400 px, thinner than 12 px, or mostly edge
   // (under 35 percent of it 2 px inside its own outline) joins the field it shares most border with, or becomes meadow; smallest first.
   { const st = new Map(); for (let i = 0; i < N; i++) { const id = F[i]; if (id < 0 || Kr[i] !== K.FIELD || land[i] !== 1) continue; /* the large island's fields; an islet's field is placed whole */ const x = i % W, y = (i / W) | 0; let o = st.get(id); if (!o) st.set(id, o = { id, n: 0, core: 0, x0: x, x1: x, y0: y, y1: y, px: [] });
@@ -3099,7 +3107,7 @@ function islands(o) {
       let to = -1, best = 0; for (const [id, c] of nb) if (c > best) { best = c; to = id; }
       for (const i of o.px) { if (to >= 0) F[i] = to; else { Kr[i] = K.MEADOW; Br[i] = -1; F[i] = -1; } } }
     plan.fieldsMerged = small.length; }
-  if (!plan.slots.some(c => c.kind === 'flak' && c.y < by0)) for (const q of isl) { const g = near(9, 9, q.cx, q.cy, q.rx * 1.2, (x, y) => land[idx(x, y)] === q.id + 2); if (g) { gunPit(g[0] + 5, g[1] + 5); break; } } // the chain always has a flak gun
+  if (!plan.slots.some(c => c.kind === 'flak' && c.y < by0)) for (const q of isl) { const gs = bands ? 14 : 9, g = near(gs, gs, q.cx, q.cy, q.rx * 1.2, (x, y) => land[idx(x, y)] === q.id + 2); if (g) { gunPit(g[0] + (bands ? 7 : 5), g[1] + (bands ? 7 : 5)); break; } } /* (a band's pit is 12 px, its room 14: the Campaign's own search stays as it was) */ // the chain always has a flak gun
   plan.stage.total = +(now() - t0).toFixed(2);
   return plan;
 }
@@ -4607,6 +4615,7 @@ function edgeNests(plan, bands, max = bands.length) {
 // density and damage curves from each template's own urbanisation and damage, the station and the works as shares of the length, the coast ending after the sea and running along
 // the harbour), so a plan from a segment list and one from those parameters are the same plan. Without params.segs nothing here is touched (every Campaign plan, and every other preset).
 const CITY_UD = { harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
+const ISLES_DIALS = { count: [-2, 2, 1], size: [0.8, 1.25, 0] }; // an islet band's own dials (islands with a segment list): how many islets more or fewer, and their size
 const CITY_DIALS = { urban: [-0.25, 0.25, 0], damage: [0.3, 1.7, 0], riverW: [18, 40, 0], riverAmp: [3, 12, 0], riverIsland: [0, 1, 1], riverPort: [0, 1, 1] }; // a city stretch's own dials, read by cityFromSegs (a river stretch: its width, its wobble, an island or not, a harbour district on its bank)
 const HARBOUR6_COAST = { land: 0.56, pier: [30, 50], sideChannel: 62 }; // the first loop's harbour: the shore moved, longer piers, a wider side channel
 function cityFromSegs(o) {
@@ -4632,7 +4641,7 @@ function cityFromSegs(o) {
   const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'dockyard', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
   return Object.assign({}, o, { params: Object.assign(d, rest) });
 }
-const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') return sandSea(o); if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -4773,8 +4782,32 @@ const KITS = {
     /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
     enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
       city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
+  /* the temperate kit (level 1, plan 12.20): from the carrier over the open sea, bands of islets (the Campaign's chain, a ring of fortress islets, an archipelago of homes and rocks), the large island with the village and the airbase,
+     then the old land, painted as level 1's own legacy chunks (a fortified beach, farmland, a village, a wood, a coast, the open sea the ship fights on). The plan is the generator's segment-native islands up to the beach (S.legacyTail
+     is the old land after it); every sortie of the kit ends over open sea. The old land's order is its own small walk (kit.legacy). */
+  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [30, 42], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
+    opener: [['carrier_start', 4], ['open_sea', 6]], approach: [['open_sea', 3]],
+    middle: {
+      island_chain: { len: [5, 7], max: 2, heat: 0.5, built: 0.1 },
+      island_fortress: { len: [5, 7], max: 1, heat: 0.8, built: 0.1 },
+      island_archipelago: { len: [6, 8], max: 1, heat: 0.4, built: 0.1 },
+      island_airbase: { len: [9, 9], max: 1, heat: 0.7, built: 0.3 },
+      open_sea: { len: [2, 4], max: 3, heat: 0.1, built: 0.06 } },
+    require: ['island_airbase'],
+    follows: {
+      open_sea: ['island_chain', 'island_fortress', 'island_archipelago', 'island_airbase'],
+      island_chain: ['island_fortress', 'island_archipelago', 'island_airbase', 'open_sea'],
+      island_fortress: ['island_chain', 'island_archipelago', 'island_airbase', 'open_sea'],
+      island_archipelago: ['island_chain', 'island_fortress', 'island_airbase', 'open_sea'],
+      island_airbase: ['open_sea'] },
+    minMiddle: 3,
+    fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
+    legacy: { open: [['beach_fortified', 3]], close: [['coast_down', 1], ['open_sea', 4]], len: [20, 30], minMiddle: 2,
+      middle: { farmland: { len: [6, 10], max: 2, heat: 0.3 }, village: { len: [3, 5], max: 1, heat: 0.6 }, forest_deciduous: { len: [3, 5], max: 1, heat: 0.4 } },
+      follows: { beach_fortified: ['farmland', 'village', 'forest_deciduous'], farmland: ['village', 'forest_deciduous'], village: ['farmland', 'forest_deciduous'], forest_deciduous: ['farmland', 'village'] } },
+    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 1364, first: true }], farmland: [{ id: 'anvil', at: 1, end: 3, frames: 1080, first: true }, { id: 'formations', at: 1, end: 2, frames: 720, last: true }] } },
 };
-const KIT_ORDER = ['desert', 'forest', 'winter', 'city']; // the daily rotation (owner: rotation, so consecutive days differ)
+const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
@@ -4800,17 +4833,29 @@ function encPlanFor(kit, segs) {
 
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
 const J2 = JSON.stringify;
+/* The old land of a kit with legacy ground after its plan (the temperate kit): its opening stretches, a walk over the kit's own small grammar, its closing stretches */
+function checkLegacy(L, tail) {
+  const bad = [], t = tail.map(g => [g.t, g.n]), no = L.open.length, nc = L.close.length;
+  if (t.length < no + nc) return ['the old land is too short: ' + J2(t)];
+  L.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('old land opens with ' + J2(t[k]) + ', not ' + J2(q)); }); L.close.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('old land closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
+  const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (L.minMiddle || 1)) bad.push('old land: only ' + mid.length + ' middle stretches');
+  mid.forEach((q, k) => { const m = L.middle[q[0]]; if (!m) { bad.push(q[0] + ' is not an old-land template'); return; } cnt[q[0]] = (cnt[q[0]] || 0) + 1; if (q[1] < m.len[0] || q[1] > m.len[1]) bad.push(q[0] + ' at ' + q[1] + ' chunks, outside ' + m.len.join('..'));
+    const prev = k ? mid[k - 1][0] : L.open[L.open.length - 1][0]; if (!(L.follows[prev] || []).includes(q[0])) bad.push(q[0] + ' may not follow ' + prev); });
+  for (const q in cnt) if (cnt[q] > L.middle[q].max) bad.push(q + ' ' + cnt[q] + ' times in the old land');
+  const sum = t.reduce((a, q) => a + q[1], 0); if (sum < L.len[0] || sum > L.len[1]) bad.push('old land of ' + sum + ' chunks, outside ' + L.len.join('..'));
+  return bad;
+}
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
   const all = S.segs || [], segs = all.filter(g => !g.legacy), tail = all.filter(g => g.legacy); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
-  { const wantTail = S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at; if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
+  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at; if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + tl) bad.push('len ' + S.len + ', segments ' + (at + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
   O.forEach((q, k) => { const g = segs[k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('opener ' + k + ' is not ' + q.join(' ')); });
   A.forEach((q, k) => { const g = segs[segs.length - A.length + k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('approach ' + k + ' is not ' + q.join(' ')); });
-  if (mid.length < MIN_MIDDLE) bad.push('only ' + mid.length + ' middle segments');
+  if (mid.length < (kit.minMiddle || MIN_MIDDLE)) bad.push('only ' + mid.length + ' middle segments');
   const count = {}; mid.forEach((g, k) => { const m = kit.middle[g.t]; if (!m) { bad.push(g.t + ' is not a middle template'); return; }
     count[g.t] = (count[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) bad.push(g.t + ' at ' + g.n + ' chunks, outside ' + m.len.join('..'));
     const prev = k ? mid[k - 1].t : O[O.length - 1][0]; if (!(kit.follows[prev] || []).includes(g.t)) bad.push(g.t + ' may not follow ' + prev); });
@@ -4829,8 +4874,8 @@ function check(kitId, S) {
     for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
-  if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
-  enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
+  { const tot = kit.legacy ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
+  enc.forEach(e => { const g = (kit.legacy ? all : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
     if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
     spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
@@ -4853,7 +4898,7 @@ function walk(kit, target, r, ap, op) {
   }
   /* fit: the chunks still missing go, one at a time, to the segment with the most room left (the first of equals) */
   for (let rest = target - sum; rest > 0; rest--) { let best = -1, room = 0; seq.forEach((q, k) => { const f = kit.middle[q[0]].len[1] - q[1]; if (f > room) { room = f; best = k; } }); if (best < 0) return null; seq[best][1]++; }
-  if (seq.length < MIN_MIDDLE || seq[seq.length - 1][0] === ap[0][0] || (kit.beforeApproach && !kit.beforeApproach.includes(seq[seq.length - 1][0])) || (kit.require && !kit.require.every(t => seq.some(q => q[0] === t))) || (kit.gapBefore && kit.gapBefore[ap[0][0]] && Object.entries(kit.gapBefore[ap[0][0]]).some(([t, need]) => { const i = seq.map(q => q[0]).lastIndexOf(t); return i >= 0 && seq.slice(i + 1).reduce((a, q) => a + q[1], 0) < need; }))) return null;
+  if (seq.length < (kit.minMiddle || MIN_MIDDLE) || seq[seq.length - 1][0] === ap[0][0] || (kit.beforeApproach && !kit.beforeApproach.includes(seq[seq.length - 1][0])) || (kit.require && !kit.require.every(t => seq.some(q => q[0] === t))) || (kit.gapBefore && kit.gapBefore[ap[0][0]] && Object.entries(kit.gapBefore[ap[0][0]]).some(([t, need]) => { const i = seq.map(q => q[0]).lastIndexOf(t); return i >= 0 && seq.slice(i + 1).reduce((a, q) => a + q[1], 0) < need; }))) return null;
   return seq;
 }
 
@@ -4883,9 +4928,12 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
   seg: { harbour_south: U([-0.2, 0.05]), harbour_dock: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
     city_river: Object.assign({}, U([-0.2, 0.1]), { riverW: [20, 36], riverAmp: [4, 10], riverIsland: [0, 1], riverPort: [0, 1] }) },
   int: ['riverIsland', 'riverPort'], strong: ['damage', 'urban', 'oldTownK', 'sideChannel', 'riverW'] };
+const BANDS = { count: [-2, 2], size: [0.8, 1.25] };
+DIALS.temperate = { global: { bigW: [165, 210], lane: [38, 56] }, seg: { island_chain: BANDS, island_fortress: BANDS, island_archipelago: BANDS }, int: ['count', 'bigW', 'lane'], strong: ['count', 'size', 'bigW'] }; /* (the islet bands: how many islets more or fewer and how big; the large island's width and the warships' lane) */
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 /* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
 KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaTail = [['coast_down', 1], ['open_sea', 6]]; KITS.winter.seaTail = [['open_sea', 7]]; /* (no legacy coast: the plan's own harbour basin meets the open sea) */ KITS.winter.seaApproach = [['pass', 7], ['farmland_winter', 14]]; /* (a sea ending: the line runs on 3 chunks further, to its freight harbour) */ KITS.winter.seaParams = { finale: 'depot' }; KITS.winter.iceShare = 0.5; /* (half the harbours are frozen) */ /* (the winter: a sea ending has no gorge in its plan) */ // a sea ending (legacy ground after the plan's end: the coast, then open sea that the arena goes on into), for the ship; not the winter's, whose arena is its own gorge
+KITS.temperate.bosses = bossPool([['ship', [['plain', 4]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['squadron', [['plain', 2]]], ['wolfpack', [['plain', 2]]], ['ghostship', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
 KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
 KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
@@ -4896,7 +4944,7 @@ const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
 /* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
 function bossFor(kit, base, ap) {
-  if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
+  if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail && !kit.legacy)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
   const tot = pool.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = pool[pool.length - 1]; for (const q of pool) { x -= q.w; if (x < 0) { b = q; break; } }
   const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
 }
@@ -4917,13 +4965,19 @@ function dialsFor(kit, base, segs, ground) {
    'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
    (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
 const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
-const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 }, city: { harbour6: true } }; /* (the city's loop ground: the first loop's harbour, the shore moved, longer piers, a wider side channel) */
+const LOOP_PARAMS = { temperate: { burn: true }, desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 }, city: { harbour6: true } }; /* (the city's loop ground: the first loop's harbour, the shore moved, longer piers, a wider side channel) */
+/* The old land after a plan (kit.legacy): opening stretches, a walk over its own grammar to the target length, closing stretches. Its own hash stream (6800), so the plan's list does not read it. */
+function legacyWalk(kit, base) {
+  const L = kit.legacy, ls = hashInt(base, 6800), fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
+  for (let k = 0; k < 40; k++) { const mid = walk(pk, L.len[0] + Math.floor(r() * (L.len[1] - L.len[0] + 1)) - fixed, r, L.close, L.open); if (mid) return L.open.concat(mid, L.close); }
+  throw new Error('sortie-compose: no old land for kit ' + kit.id);
+}
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
-  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } const tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null, tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
+  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
@@ -4931,7 +4985,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, kit.legacy ? segs : core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
@@ -11148,6 +11202,7 @@ function sortiePlanHarbour(S) {
 // the start of island_airbase (running about 1.5 chunks into the open sea after it), then sea up to the beach. Its water is the game's own sea.
 // A plan chunk that is mostly land plays as 'country', the others as 'sea' (S.planBiome). From the beach on, the legacy ground (S.seq).
 function sortiePlanIslands(S) {
+  if (S.compose) { S.plan = CityGen.generate(S.compose.gen); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0); S.planY0 = -world.stageBaseP * CH + CH - 1; const P0 = S.plan, bio0 = S.planBiome = []; for (let c = 0; c < S.planC1; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P0.W; x += 4) if (P0.K[y * P0.W + x] !== CityGen.K.SEA) land++; bio0.push(land / (CH * P0.W / 4) > 0.45 ? 'country' : 'sea'); } return S.plan; } /* (a composed temperate sortie: the composer's generator input, the islands with a segment list; the plan ends where the old land begins) */
   const seg = t => S.segs.find(g => g.t === t), n = seg('beach_fortified').start, L = n * CH, ch = seg('island_chain'), ab = seg('island_airbase');
   const params = { L, chain: [ch.start / n, (ch.start + ch.n) / n], big: [ab.start / n, Math.min(0.94, (ab.start * CH + 620) / L)] };
   if (S.timeOfDay === 'sunset') params.burn = true; // a loop's level 1 is flown at sunset, and the island's church is on fire
@@ -11250,7 +11305,7 @@ function openDaily() { openDiff('daily', 1); } // (from Settings, at the title)
    and ground dials of that day, each either the day's own (the first choice) or forced, with the composer's own words for what the day holds; "Next day with it" jumps to the next date whose natural
    level has what the finder names. START then flies the pick (startDaily with the same arguments the test link ?daily=DATE&kit=&tod=&twist=&flavour=&dials= gives); a pick that differs from today's own level is marked picked (run.sortie.daily.picked). */
 const DP = { date: '', kit: 0, tod: 0, twist: 0, flav: 0, dials: 0, find: 0 }, DP_LAB = { kit: ['dpKit', 'Kit'], tod: ['dpTod', 'Light'], twist: ['dpTwist', 'Twist'], flav: ['dpFlav', 'Flavour'], dials: ['dpDials', 'Dials'] };
-const dpOpts = () => ({ kit: ['', 'desert', 'forest', 'winter', 'city'], tod: [''].concat(SortieCompose.TODS), twist: ['', 'none'].concat(SortieCompose.TWISTS), flav: [''].concat(SortieCompose.FLAVOURS), dials: ['', 'on', 'off'] });
+const dpOpts = () => ({ kit: ['', 'desert', 'forest', 'winter', 'city', 'temperate'], tod: [''].concat(SortieCompose.TODS), twist: ['', 'none'].concat(SortieCompose.TWISTS), flav: [''].concat(SortieCompose.FLAVOURS), dials: ['', 'on', 'off'] });
 const DP_FIND = [['lakes', S => !!S.gen.params.lakes], ['oasis town', S => S.segs.some(g => g.t === 'oasis_town')], ['sunset', S => S.tod === 'sunset'], ['morning', S => S.tod === 'morning'], ['no dials', S => !S.dialNames.length], ['loop ground', S => S.ground], ['hard (rank)', S => S.rank]];
 const dpPicked = () => DP.date !== SortieCompose.dateKeyUTC(Date.now()) || DP.kit + DP.tod + DP.twist + DP.flav + DP.dials > 0; /* (anything but today's own level) */
 function dpArgs() { const O = dpOpts(), o = k => O[k][DP[k]] || undefined; return [DP.date, o('kit'), undefined, o('flav'), o('twist'), o('dials'), o('tod')]; }
@@ -13052,8 +13107,9 @@ function subOK(wy) {
 // nearest the middle; tried each frame for 3 chunks, the same in every run). The flagship sends two more (bossTick).
 const TT_SUB = { 1: 13 };
 const TT_BOSS_SUB = [1200, 2100]; // frames after the flagship appears (its age, e.t) for its two submarines, the same on every difficulty (owner: 20 s and 35 s; the shortest fight the bot flew, on Ace, lasts about 37 s)
+function subChunk(S) { const g = S.segs.find(q => q.t === 'island_chain' || q.t === 'island_fortress' || q.t === 'island_archipelago') || S.segs.find(q => q.t === 'island_airbase'); return g ? g.start + 1 : 13; } /* (a composed level 1: the submarine lies in the water of the first band of islets) */
 function ttSub(sc) {
-  const S = run.sortie, c0 = S ? TT_SUB[S.level] : undefined; if (c0 === undefined || world.subN > 0 || world.bossSpawned) return;
+  const S = run.sortie, c0 = S ? (S.compose ? subChunk(S) : TT_SUB[S.level]) : undefined; if (c0 === undefined || world.subN > 0 || world.bossSpawned) return;
   const wy = -34 - sc, c = -Math.floor(wy / CH) - world.stageBaseP; if (c < c0 || c > c0 + 3) return;
   const xs = []; for (let x = 26; x <= W - 26; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - W / 2) - Math.abs(b - W / 2));
   for (const wx of xs) if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) { world.enemies.push(G('sub', wx, wy, { st: 'under', stT: 100, ta: PI / 2, cd: 30, untarget: true })); world.subN = 1; return; }

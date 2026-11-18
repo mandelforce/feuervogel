@@ -133,8 +133,32 @@ const KITS = {
     /* encounters (the game's ENC tables; the first three are the Campaign's level 6 loop's, the four others are new, on their patterns, one for each structure the kit added: plan 12.8) */
     enc: { harbour_south: [{ id: 'harbourraid', at: 1, end: 2, frames: 1100 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], city_centre: [{ id: 'cityflak', at: 0, end: 1, frames: 1100 }],
       city_river: [{ id: 'bridgestrike', at: 0, end: 1, frames: 1100 }], industrial_power: [{ id: 'worksstrike', at: 0, end: 1, frames: 1100 }], station_main: [{ id: 'stationrun', at: 0, end: 2, frames: 1100 }], rail_yard: [{ id: 'yardbreakout', at: 0, end: 2, frames: 1100 }] } },
+  /* the temperate kit (level 1, plan 12.20): from the carrier over the open sea, bands of islets (the Campaign's chain, a ring of fortress islets, an archipelago of homes and rocks), the large island with the village and the airbase,
+     then the old land, painted as level 1's own legacy chunks (a fortified beach, farmland, a village, a wood, a coast, the open sea the ship fights on). The plan is the generator's segment-native islands up to the beach (S.legacyTail
+     is the old land after it); every sortie of the kit ends over open sea. The old land's order is its own small walk (kit.legacy). */
+  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [30, 42], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
+    opener: [['carrier_start', 4], ['open_sea', 6]], approach: [['open_sea', 3]],
+    middle: {
+      island_chain: { len: [5, 7], max: 2, heat: 0.5, built: 0.1 },
+      island_fortress: { len: [5, 7], max: 1, heat: 0.8, built: 0.1 },
+      island_archipelago: { len: [6, 8], max: 1, heat: 0.4, built: 0.1 },
+      island_airbase: { len: [9, 9], max: 1, heat: 0.7, built: 0.3 },
+      open_sea: { len: [2, 4], max: 3, heat: 0.1, built: 0.06 } },
+    require: ['island_airbase'],
+    follows: {
+      open_sea: ['island_chain', 'island_fortress', 'island_archipelago', 'island_airbase'],
+      island_chain: ['island_fortress', 'island_archipelago', 'island_airbase', 'open_sea'],
+      island_fortress: ['island_chain', 'island_archipelago', 'island_airbase', 'open_sea'],
+      island_archipelago: ['island_chain', 'island_fortress', 'island_airbase', 'open_sea'],
+      island_airbase: ['open_sea'] },
+    minMiddle: 3,
+    fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
+    legacy: { open: [['beach_fortified', 3]], close: [['coast_down', 1], ['open_sea', 4]], len: [20, 30], minMiddle: 2,
+      middle: { farmland: { len: [6, 10], max: 2, heat: 0.3 }, village: { len: [3, 5], max: 1, heat: 0.6 }, forest_deciduous: { len: [3, 5], max: 1, heat: 0.4 } },
+      follows: { beach_fortified: ['farmland', 'village', 'forest_deciduous'], farmland: ['village', 'forest_deciduous'], village: ['farmland', 'forest_deciduous'], forest_deciduous: ['farmland', 'village'] } },
+    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 1364, first: true }], farmland: [{ id: 'anvil', at: 1, end: 3, frames: 1080, first: true }, { id: 'formations', at: 1, end: 2, frames: 720, last: true }] } },
 };
-const KIT_ORDER = ['desert', 'forest', 'winter', 'city']; // the daily rotation (owner: rotation, so consecutive days differ)
+const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
@@ -160,17 +184,29 @@ function encPlanFor(kit, segs) {
 
 // Gate 1: every rule a composed list must keep. Returns the broken ones (an empty list: it passes).
 const J2 = JSON.stringify;
+/* The old land of a kit with legacy ground after its plan (the temperate kit): its opening stretches, a walk over the kit's own small grammar, its closing stretches */
+function checkLegacy(L, tail) {
+  const bad = [], t = tail.map(g => [g.t, g.n]), no = L.open.length, nc = L.close.length;
+  if (t.length < no + nc) return ['the old land is too short: ' + J2(t)];
+  L.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('old land opens with ' + J2(t[k]) + ', not ' + J2(q)); }); L.close.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('old land closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
+  const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (L.minMiddle || 1)) bad.push('old land: only ' + mid.length + ' middle stretches');
+  mid.forEach((q, k) => { const m = L.middle[q[0]]; if (!m) { bad.push(q[0] + ' is not an old-land template'); return; } cnt[q[0]] = (cnt[q[0]] || 0) + 1; if (q[1] < m.len[0] || q[1] > m.len[1]) bad.push(q[0] + ' at ' + q[1] + ' chunks, outside ' + m.len.join('..'));
+    const prev = k ? mid[k - 1][0] : L.open[L.open.length - 1][0]; if (!(L.follows[prev] || []).includes(q[0])) bad.push(q[0] + ' may not follow ' + prev); });
+  for (const q in cnt) if (cnt[q] > L.middle[q].max) bad.push(q + ' ' + cnt[q] + ' times in the old land');
+  const sum = t.reduce((a, q) => a + q[1], 0); if (sum < L.len[0] || sum > L.len[1]) bad.push('old land of ' + sum + ' chunks, outside ' + L.len.join('..'));
+  return bad;
+}
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
   const all = S.segs || [], segs = all.filter(g => !g.legacy), tail = all.filter(g => g.legacy); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
-  { const wantTail = S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at; if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
+  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at; if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + tl) bad.push('len ' + S.len + ', segments ' + (at + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
   O.forEach((q, k) => { const g = segs[k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('opener ' + k + ' is not ' + q.join(' ')); });
   A.forEach((q, k) => { const g = segs[segs.length - A.length + k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('approach ' + k + ' is not ' + q.join(' ')); });
-  if (mid.length < MIN_MIDDLE) bad.push('only ' + mid.length + ' middle segments');
+  if (mid.length < (kit.minMiddle || MIN_MIDDLE)) bad.push('only ' + mid.length + ' middle segments');
   const count = {}; mid.forEach((g, k) => { const m = kit.middle[g.t]; if (!m) { bad.push(g.t + ' is not a middle template'); return; }
     count[g.t] = (count[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) bad.push(g.t + ' at ' + g.n + ' chunks, outside ' + m.len.join('..'));
     const prev = k ? mid[k - 1].t : O[O.length - 1][0]; if (!(kit.follows[prev] || []).includes(g.t)) bad.push(g.t + ' may not follow ' + prev); });
@@ -189,8 +225,8 @@ function check(kitId, S) {
     for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
-  if (!(S.wingC >= Math.round(at * WING_AT) && S.wingC <= Math.round(at * WING_LATE)) || S.wingC + WING_CH > at) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + at);
-  enc.forEach(e => { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
+  { const tot = kit.legacy ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
+  enc.forEach(e => { const g = (kit.legacy ? all : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
     if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
     spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
@@ -213,7 +249,7 @@ function walk(kit, target, r, ap, op) {
   }
   /* fit: the chunks still missing go, one at a time, to the segment with the most room left (the first of equals) */
   for (let rest = target - sum; rest > 0; rest--) { let best = -1, room = 0; seq.forEach((q, k) => { const f = kit.middle[q[0]].len[1] - q[1]; if (f > room) { room = f; best = k; } }); if (best < 0) return null; seq[best][1]++; }
-  if (seq.length < MIN_MIDDLE || seq[seq.length - 1][0] === ap[0][0] || (kit.beforeApproach && !kit.beforeApproach.includes(seq[seq.length - 1][0])) || (kit.require && !kit.require.every(t => seq.some(q => q[0] === t))) || (kit.gapBefore && kit.gapBefore[ap[0][0]] && Object.entries(kit.gapBefore[ap[0][0]]).some(([t, need]) => { const i = seq.map(q => q[0]).lastIndexOf(t); return i >= 0 && seq.slice(i + 1).reduce((a, q) => a + q[1], 0) < need; }))) return null;
+  if (seq.length < (kit.minMiddle || MIN_MIDDLE) || seq[seq.length - 1][0] === ap[0][0] || (kit.beforeApproach && !kit.beforeApproach.includes(seq[seq.length - 1][0])) || (kit.require && !kit.require.every(t => seq.some(q => q[0] === t))) || (kit.gapBefore && kit.gapBefore[ap[0][0]] && Object.entries(kit.gapBefore[ap[0][0]]).some(([t, need]) => { const i = seq.map(q => q[0]).lastIndexOf(t); return i >= 0 && seq.slice(i + 1).reduce((a, q) => a + q[1], 0) < need; }))) return null;
   return seq;
 }
 
@@ -243,9 +279,12 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
   seg: { harbour_south: U([-0.2, 0.05]), harbour_dock: U([-0.2, 0.05]), city_suburb: U([-0.2, 0.2]), city_town: U([-0.2, 0.2]), city_centre: CITY_DMG, ruins: U([-0.25, 0]), industrial_power: CITY_DMG,
     city_river: Object.assign({}, U([-0.2, 0.1]), { riverW: [20, 36], riverAmp: [4, 10], riverIsland: [0, 1], riverPort: [0, 1] }) },
   int: ['riverIsland', 'riverPort'], strong: ['damage', 'urban', 'oldTownK', 'sideChannel', 'riverW'] };
+const BANDS = { count: [-2, 2], size: [0.8, 1.25] };
+DIALS.temperate = { global: { bigW: [165, 210], lane: [38, 56] }, seg: { island_chain: BANDS, island_fortress: BANDS, island_archipelago: BANDS }, int: ['count', 'bigW', 'lane'], strong: ['count', 'size', 'bigW'] }; /* (the islet bands: how many islets more or fewer and how big; the large island's width and the warships' lane) */
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 /* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
 KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaTail = [['coast_down', 1], ['open_sea', 6]]; KITS.winter.seaTail = [['open_sea', 7]]; /* (no legacy coast: the plan's own harbour basin meets the open sea) */ KITS.winter.seaApproach = [['pass', 7], ['farmland_winter', 14]]; /* (a sea ending: the line runs on 3 chunks further, to its freight harbour) */ KITS.winter.seaParams = { finale: 'depot' }; KITS.winter.iceShare = 0.5; /* (half the harbours are frozen) */ /* (the winter: a sea ending has no gorge in its plan) */ // a sea ending (legacy ground after the plan's end: the coast, then open sea that the arena goes on into), for the ship; not the winter's, whose arena is its own gorge
+KITS.temperate.bosses = bossPool([['ship', [['plain', 4]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['squadron', [['plain', 2]]], ['wolfpack', [['plain', 2]]], ['ghostship', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
 KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
 KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
@@ -256,7 +295,7 @@ const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
 /* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
 function bossFor(kit, base, ap) {
-  if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
+  if (!kit.bosses) return null; const pool = kit.bosses.filter(b => !(b.not && ap && b.not.includes(ap[0][0])) && !(b.sea && !kit.seaTail && !kit.legacy)); /* (an entry may exclude an ending: the ship, which needs a sea ending, not the rail yard's) */
   const tot = pool.reduce((a, b) => a + b.w, 0); let x = hash(base, 6600) * tot, b = pool[pool.length - 1]; for (const q of pool) { x -= q.w; if (x < 0) { b = q; break; } }
   const o = { kind: b.kind, variant: b.id }; if (b.lance) o.lance = true; if (b.hpK) o.hpK = b.hpK; if (b.ice) o.ice = true; else if (b.rail) o.rail = true; else if (b.sea) o.sea = true; return o; /* (ice: the arena is the plan's own frozen sea, so no legacy tail) */
 }
@@ -277,13 +316,19 @@ function dialsFor(kit, base, segs, ground) {
    'variant' the loop's ground (desert variant, forest autumn and lakes, winter variant 1); 'loop' both. The segment list is the same whatever the flavour
    (the walk does not read it), so a flavour changes what the ground looks like and how hard it plays, not the order. */
 const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain: 0.1, rank: 0.3, variant: 0.3, loop: 0.3 };
-const LOOP_PARAMS = { desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 }, city: { harbour6: true } }; /* (the city's loop ground: the first loop's harbour, the shore moved, longer piers, a wider side channel) */
+const LOOP_PARAMS = { temperate: { burn: true }, desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 }, city: { harbour6: true } }; /* (the city's loop ground: the first loop's harbour, the shore moved, longer piers, a wider side channel) */
+/* The old land after a plan (kit.legacy): opening stretches, a walk over its own grammar to the target length, closing stretches. Its own hash stream (6800), so the plan's list does not read it. */
+function legacyWalk(kit, base) {
+  const L = kit.legacy, ls = hashInt(base, 6800), fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
+  for (let k = 0; k < 40; k++) { const mid = walk(pk, L.len[0] + Math.floor(r() * (L.len[1] - L.len[0] + 1)) - fixed, r, L.close, L.open); if (mid) return L.open.concat(mid, L.close); }
+  throw new Error('sortie-compose: no old land for kit ' + kit.id);
+}
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
-  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } const tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null, tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
+  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
@@ -291,7 +336,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core, ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const ep = encPlanFor(kit, core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, kit.legacy ? segs : core), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
