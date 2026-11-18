@@ -60,7 +60,7 @@ export const KITS = {
       for (const it of p.items) if (it.label === 'Guard hut') m.push({ t: 'pass', y: it.y0, what: 'gate' });
       return m; },
     extra: (p, rg, noFin) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;
-      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); return out; } /* (a sea ending: no gorge, no tunnel mouths) */
+      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (!p.throat || p.throat.tracks.length !== 3) out.push('the depot has no 3 tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
       if (!G) out.push('no gorge'); else { if (!(G.yb < Lr && G.yb > Lr - 220)) out.push('the gorge opens at ' + G.yb + ', level end ' + Lr); if (G.y1 !== p.L - 1) out.push('the gorge ends at ' + G.y1 + ', plan ' + p.L);
         for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[y * p.W + tx - 3] !== 2) brk++; if (brk) { out.push('a track breaks in the gorge'); break; } } }
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
@@ -101,7 +101,7 @@ export function check(kit, segs, seed, gen) {
   let p; const t0 = performance.now();
   try { p = CG.generate(gen || { seed, preset: kit.preset, params: kit.params(segs.map(g => ({ t: g.t, n: g.n }))) }); } catch (e) { res.flags.push('throw'); res.notes.push('throw: ' + String(e && e.message || e).slice(0, 90)); return res; }
   res.ms = performance.now() - t0;
-  const noFin = !!(gen && gen.params && gen.params.finale === null), arenaN = noFin ? 0 : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
+  const noFin = !!(gen && gen.params && gen.params.finale === 'depot'), arenaN = noFin ? 0 : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
   const want = (segs.reduce((a, g) => a + g.n, 0) + arenaN) * CH;
   if (p.L !== want) { res.flags.push('length'); res.notes.push('plan ' + p.L + ' px, segments ' + want); }
   let v; try { v = CG.validate(p); } catch (e) { res.flags.push('throw'); res.notes.push('validate throws: ' + String(e && e.message || e).slice(0, 90)); return res; }
