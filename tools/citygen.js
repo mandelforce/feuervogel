@@ -3512,7 +3512,7 @@ function winterLine(o) {
   if (!high.length) { A.preset = o.preset || 'winterLine'; A.segs = segs.map(g => Object.assign({}, g)); return A; }
   const fin = P0.finale || null, Lr = high.reduce((a, g) => a + g.n, 0) * CHp, arenaOn = !!fin && fin !== 'depot', Lb = Lr + (arenaOn ? (P0.arena || 16) * CHp : 0), feats = []; { let y = 0; for (const g of high) { const a0 = y / Lb, a1 = (y + g.n * CHp) / Lb; y += g.n * CHp; const kind = { village: 'village', lake_valley: 'lake', forest_conifer: 'forest', pass: 'pass', farmland_winter: 'throat' }[g.t] || 'plain'; feats.push(Object.assign({ kind, at0: kind === 'village' ? Math.max(a0, 60 / Lb) : a0, at1: a1, seg: g.t, basin: kind === 'pass' && !!P0.variant }, groundDials(g.p, WINTER_DIALS))); } } // (station and airbase are plain valley until their own ground is built)
   if (arenaOn) feats.push({ kind: 'arena', at0: Lr / Lb, at1: 1 }); // the finale reaches on past the level's end into the boss's arena
-  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad } }); markSlotRoofs(B);
+  const B = winterLand({ seed: h32(seed, 5), preset: 'mountainVillage', params: { L: Lb, road0: A.mx[L - 1], rise: 80, features: feats, finale: fin, joinRoad: P0.joinRoad, harbourIce: P0.harbourIce } }); markSlotRoofs(B);
   for (let x = 0; x < A.W; x++) { const top = (L - 1) * A.W + x, n = 6 + Math.round(16 * vn(x * 0.045, 3.3)); if (A.K[top] !== K.FIELD) continue; for (let y = 0; y < n; y++) { const i = y * A.W + x; if (B.K[i] !== K.MEADOW || B.B[i] !== -1 || B.hgt[i] > 3) break; B.K[i] = K.FIELD; B.F[i] = A.F[top]; } } // the fields run on a little into the valley and end raggedly, not on a line
   const plan = stackPlans(A, B, o.preset || 'winterLine'); plan.segs = segs.map(g => Object.assign({}, g)); return plan;
 }
@@ -3744,22 +3744,48 @@ function winterLand(o) {
       if (kind < 0.55) { const len = 20 + ((rnd(54, y) * 30) | 0); for (let yy = y; yy < Math.min(L, y + len); yy++) for (let x = xa + 1; x <= xb - 1; x++) { const i = idx(x, yy); if (Kr[i] === K.ICE && hh(x, yy) < 0.85) Br[i] = -82; } }
       else { const cx = (xa + xb) / 2, r = 3 + rnd(55, y) * 2; for (let yy = Math.floor(y - r); yy <= y + r; yy++) for (let x = Math.floor(cx - r); x <= cx + r; x++) { const i = idx(x, yy); if (inB(x, yy) && Kr[i] === K.ICE && Math.hypot(x + 0.5 - cx, yy + 0.5 - y) < r) Br[i] = -83; } } }
     plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); }
-  // the finale 'depot' (a Daily Sortie's sea ending: the winter's line ends in a freight station by the harbour instead of the gorge): the two lines come out of the portals (x 96 and 122) and run straight on, a loading siding
-  // (x 148) leaves the second on a long point; they end at buffer stops in a goods yard (platform with a goods office, two freight sheds, a warehouse, flak lots), and a quay runs across the last rows, where the coast comes after the plan.
-  else if (th && P.finale === 'depot') { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [96, 122, 148], yE = L - 14, TR = plan.throat = { y0: yP, tracks: [] };
+  // the finale 'depot' (a Daily Sortie's sea ending: the winter's line ends at a freight harbour instead of the gorge). The two lines come out of the portals (x 96 and 122), a loading siding (x 148) leaves the second on a long point;
+  // the yard has a platform with a goods office, freight sheds and warehouses, flak lots and container stacks, and the lines run on over the quay's apron onto a rail pier (buffer stops, two ships alongside). The quay is a concrete apron with
+  // cranes along its edge, two finger piers with pier sheds, cranes and a ship each, a breakwater of rubble across the south with a gap for the fairway and a lighthouse at each end of it. P.harbourIce freezes the basin (fast ice along the
+  // quay and piers, pack and floes in the middle, a lead of open water to the gap, the ships frozen in); without it the water is open and calm. The last rows are open sea, where the legacy sea follows.
+  else if (th && P.finale === 'depot') { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [96, 122, 148], yQ = L - 170, yE = yQ + 46, yWat = yQ + 14, yMole = L - 34, gap = [92, 132], TR = plan.throat = { y0: yP, tracks: [] };
+    const fillK = (x0, y0, x1, y1, k, b) => { for (let y = Math.max(0, y0); y <= Math.min(L - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) { const i = idx(x, y); Kr[i] = k; Br[i] = b; reserved[i] = 1; Hg[i] = 0; } };
+    const iceOn = !!P.harbourIce, pierLen = 80 + Math.round(rnd(80) * 28), pxs = [30 + Math.round(rnd(81) * 6), W - 32 - Math.round(rnd(82) * 6)];
+    fillK(0, yWat, W - 1, L - 1, K.SEA, -10); for (let y = yMole + 8; y < L; y++) for (let x = 0; x < W; x++) Br[idx(x, y)] = -1; // (the open sea beyond the breakwater)
+    fillK(0, yQ, W - 1, yWat - 1, K.QUAY, -1); /* the apron */ fillK(82, yWat, 162, yWat + 34, K.QUAY, -1); /* the rail pier */ for (const px of pxs) fillK(px - 7, yWat, px + 6, yWat + pierLen, K.QUAY, -14); /* (the finger piers: planks across, a rail along each side) */
+    for (const sx of [5, W - 15]) { fillK(sx, yWat - 12, sx + 9, yWat + 30, K.QUAY, -12); plan.ships.push({ kind: 'hull', ori: 'v', bow: 1, x0: sx, y0: yWat - 6, w: 9, h: 36, dmg: false }); } /* (two slipways, a hull on each, running down into the basin) */
+    for (const [a, b] of [[0, gap[0] - 1], [gap[1] + 1, W - 1]]) fillK(a, yMole, b, yMole + 6, K.QUAY, -11); /* the breakwater (dressed stone, rubble where the sea breaks on it) */
     for (let k = 0; k < 3; k++) { const x1 = T[k], x0 = x1 <= 122 ? x1 : 122, ya = yP + 40, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
       for (let y = yP; y < yE; y++) { const xc = xs(y), xp = xs(y - 1), d = xc - xp, sf = Math.sqrt(1 + d * d), rc = Math.round(xc), rp = Math.round(xp), rails = [[Math.min(rc, rp) - 3, Math.max(rc, rp) - 3], [Math.min(rc, rp) + 3, Math.max(rc, rp) + 3]];
         for (let x = Math.floor(xc - 8.6 * sf); x <= Math.ceil(xc + 8.6 * sf); x++) { if (!inB(x, y)) continue; const i = idx(x, y), dx = Math.abs(x + 0.5 - (xc + 0.5)) / sf; if (dx > 8.2) continue; const m = rails.some(r => x >= r[0] && x <= r[1]) ? 2 : dx <= 4 ? (y % 5 < 2 ? 3 : 1) : 4;
           if (rank[m] > rank[RM[i]]) RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } }
       for (let q = -3; q <= 3; q += 6) for (let y = yE; y < yE + 3; y++) { const x = x1 + q; if (inB(x, y)) { Kr[idx(x, y)] = K.BLDG; Br[idx(x, y)] = -1; reserved[idx(x, y)] = 1; } } /* (the buffer stop) */
-      if (yE - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: yE - 1, line: 'throat' }); }
-    const yS = L - 118, shed = (label, x0, y0, w, h) => { if (!free(x0, y0, w, h, 2)) return; const it = addItem({ t: 'works', label, x0, y0, w, h, ori: 'h', style: 'flat', roof: 2 }); rect(x0, y0, w, h, K.BLDG, it.id, 0); };
-    rect(104, yS + 6, 10, yE - yS - 20, K.QUAY, -1, 0); /* (the platform between the first two lines) */
-    shed('Goods office', 105, yS + 14, 8, 14); shed('Freight shed', 36, yS + 8, 38, 15); shed('Freight shed', 36, yS + 40, 38, 15); shed('Warehouse', 166, yS + 18, 34, 18); shed('Warehouse', 172, yS + 52, 28, 14);
-    for (const [lx, ly] of [[84, yS + 66], [186, yS + 8], [62, yS - 18]]) if (free(lx - 5, ly - 5, 11, 11)) { rect(lx - 5, ly - 5, 11, 11, K.LOT, -1); slot('flak', 'lot', lx, ly, 5); }
-    for (let y = L - 7; y < L; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] === K.RAIL || Kr[i] === K.BLDG) continue; Kr[i] = K.QUAY; Br[i] = -1; reserved[i] = 1; Hg[i] = 0; } /* (the quay's apron across the last rows; the coast follows the plan) */
-    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); }
+      if (yE - (ya + len) > 20) plan.trainRuns.push({ x: x1, y0: Math.ceil(ya + len), y1: yQ - 1, line: 'throat' }); }
+    for (const [ry, m] of [[yQ + 9, 2], [yQ + 10, 3], [yQ + 11, 1], [yQ + 12, 2]]) for (let x = 2; x < W - 2; x++) { const i = idx(x, ry); if (Kr[i] === K.RAIL || Kr[i] === K.BLDG || (x >= 3 && x <= 16) || (x >= W - 17 && x <= W - 4)) continue; Kr[i] = K.RAIL; Br[i] = -1; RM[i] = m; reserved[i] = 1; } /* (the cranes' own track along the edge of the apron) */
+    plan.heaps.push({ x: 74, y: yQ - 52, r: 5, coal: true }, { x: 172, y: yQ - 58, r: 4.5, coal: true }, { x: 186, y: yQ - 46, r: 3.5, coal: true });
+    const yS = yQ - 210, shed = (label, x0, y0, w, h, st) => { if (!free(x0, y0, w, h, 2)) return null; const it = addItem({ t: 'works', label, x0, y0, w, h, ori: 'h', style: st || 'flat', roof: 2 }); rect(x0, y0, w, h, K.BLDG, it.id, 0); return it; };
+    rect(104, yS + 6, 10, yQ - yS - 70, K.QUAY, -1, 0); /* (the platform between the first two lines) */
+    shed('Goods office', 105, yS + 14, 8, 14, 'gable'); shed("Harbour master", 130, yQ - 40, 14, 12, 'gable'); shed('Freight shed', 34, yS + 8, 40, 15); shed('Freight shed', 34, yS + 40, 40, 15); shed('Warehouse', 164, yS + 18, 36, 18, 'gable');
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) shed('Container stack', 168 + c * 17, yS + 70 + r * 11, 14, 7); /* (a block of containers) */
+    for (const [x0, w] of [[6, 46], [56, 28]]) shed('Quay warehouse', x0, yQ - 38, w, 24, 'gable'); for (const [x0, w] of [[166, 30], [200, 18]]) shed('Quay warehouse', x0, yQ - 34, w, 20, 'gable');
+    for (const [lx, ly] of [[84, yS + 80], [186, yS + 8], [62, yS - 18], [20, yQ - 70], [204, yQ - 64]]) if (free(lx - 5, ly - 5, 11, 11)) { rect(lx - 5, ly - 5, 11, 11, K.LOT, -1); slot('flak', 'lot', lx, ly, 5); }
+    for (let x = 24; x < W - 12; x += 34) if (Math.abs(x - 122) > 40) plan.cranes.push({ x, y: yQ + 4, dx: 0.3, dy: 1 }); /* (cranes along the quay's edge, jibs over the basin) */
+    pxs.forEach((px, k) => { const it = shed('Pier shed', px - 3, yWat + 8, 7, pierLen - 22); if (it) { for (const q of [6, 30, 54]) { if (q > pierLen - 16) break; plan.cranes.push({ x: px - 6, y: yWat + q + 8, dx: -1, dy: 0.3 }); plan.cranes.push({ x: px + 5, y: yWat + q + 14, dx: 1, dy: 0.3 }); } }
+      const sd = k ? 1 : -1, kinds = ['freighter', 'tanker', 'coaster']; plan.ships.push({ kind: kinds[(rnd(83, k) * 3) | 0], ori: 'v', bow: 1, x0: sd < 0 ? px - 19 : px + 9, y0: yWat + 6, w: 10, h: Math.min(pierLen - 14, 34 + Math.round(rnd(84, k) * 12)), dmg: false }); });
+    plan.ships.push({ kind: 'freighter', ori: 'v', bow: 1, x0: 70, y0: yWat + 4, w: 10, h: 36, dmg: false }, { kind: 'hull', ori: 'v', bow: 1, x0: 164, y0: yWat + 4, w: 9, h: 32, dmg: false }); /* (a ship each side of the rail pier) */
+    plan.gantries.push({ x: 90, y0: yWat + 4, y1: yWat + 30 }, { x: 154, y0: yWat + 4, y1: yWat + 30 });
+    plan.boats.push({ x0: 100, y0: yWat + 50, w: 8, h: 4, cargo: 1, dmg: false }, { x0: 134, y0: yWat + 62, w: 8, h: 4, cargo: 0, dmg: false });
+    for (const [lx, up] of [[gap[0] - 5, 1], [gap[1] + 4, 0]]) { const it = addItem({ t: 'works', label: 'Lighthouse', part: 'lighthouse', red: !!up, x0: lx - 3, y0: yMole - 3, w: 7, h: 7, ori: 'h', style: 'flat', roof: 1 }); fillK(lx - 3, yMole - 3, lx + 3, yMole + 3, K.BLDG, it.id); }
+    if (iceOn) { /* the frozen basin: fast ice along the land, pack and floes inside, a lead to the gap, the open sea beyond the breakwater */
+      const land = (x, y) => !inB(x, y) || Kr[idx(x, y)] !== K.SEA, nearLand = (x, y, r) => { for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (land(xx, yy)) return true; return false; };
+      const leadX = y => 112 + 22 * Math.sin((y - yWat) * 0.035 + rnd(85) * 6.283) * smooth(yWat + 60, yMole - 10, y), phase = rnd(86) * 6.283;
+      for (let y = yWat; y < yMole; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (Kr[i] !== K.SEA) continue;
+        const lead = Math.abs(x - leadX(y)) < 9 + 4 * Math.sin(y * 0.05 + phase); if (lead && y > yWat + 50) continue;
+        const n = vn(x * 0.06 + 11, y * 0.05), seam = Math.abs(vn(x * 0.11, y * 0.09 + 4) - 0.5) < 0.018, deep = smooth(yMole - 60, yMole - 6, y); /* (the ice thins out towards the breakwater) */
+        if (nearLand(x, y, 6)) { Kr[i] = K.ICE; Br[i] = -85; continue; }
+        if (n > 0.3 + 0.5 * deep) { Kr[i] = K.ICE; Br[i] = seam ? -83 : n > 0.62 ? -81 : -80; } } }
+    plan.tunnels.push({ x: 96, y: yP, dir: -1 }, { x: 122, y: yP, dir: -1 }); plan.harbour = { yQ, yWat, yMole, ice: iceOn, piers: pxs }; }
   else if (th) { const yP = yM - 2, RM = plan.RM = new Uint8Array(N), rank = [0, 3, 5, 4, 1, 2, 3], T = [18, 44, 70, 96, 122, 148, 174, 200], TR = plan.throat = { y0: yP, tracks: [] };
     for (let k = 0; k < 8; k++) { const x1 = T[k], x0 = x1 <= 96 ? 96 : 122, n = Math.abs(x1 - x0) / 26, ya = yP + 12 + (3 - n) * 48, len = Math.abs(x1 - x0) * 3.3, xs = y => y < ya ? x0 : y > ya + len ? x1 : x0 + (x1 - x0) * smooth(ya, ya + len, y);
       TR.tracks.push({ x0, x1, ya, yb: Math.round(ya + len) });
