@@ -18888,15 +18888,15 @@ const FOLLOW = {
     add('casemate', 112, 78, { ga: PI / 2, cd: 50 }, 2.5); add('casemate', 56, 92, { ga: PI / 2, cd: 80 }); add('casemate', 168, 92, { ga: PI / 2, cd: 110 });
     add('fortgun', 28, 150, { ga: PI / 2, cd: 70 }); add('fortgun', 196, 150, { ga: PI / 2, cd: 120 }); add('aatower', 84, 140, { cd: 60 }); add('aatower', 140, 140, { cd: 100 });
     add('sam', 20, 200, { ga: PI / 2, cd: 90 }); add('sam', 204, 200, { ga: PI / 2, cd: 130 }); return out; } },
-  tankcol: { hpK: 10, warn: 'ARMOURED COLUMN', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, tankStats(Object.assign({ road: false, hd: PI / 2, v: 0 }, o))); if (k) g.hp *= k; out.push(g); };
+  tankcol: { hpK: 14, warn: 'ARMOURED COLUMN', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, tankStats(Object.assign({ road: false, hd: PI / 2, v: 0 }, o))); if (k) g.hp *= k; out.push(g); };
     add('htank', 112, 84, {}, 2.5); for (const [x, y] of [[54, 100], [170, 100], [28, 150], [196, 150], [84, 150], [140, 150]]) add('tank', x, y, {}); return out; } },
 /* (tick: what the enemies do on the arena besides fighting) */
-  tankfarm: { hpK: 5, warn: 'FUEL DEPOT: DESTROY THE TANKS', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+  tankfarm: { hpK: 8, warn: 'FUEL DEPOT: DESTROY THE TANKS', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y] of [[70, 80], [112, 70], [154, 80], [70, 120], [112, 112], [154, 120], [91, 160], [133, 160]]) add('fuel', x, y, {}, 4); add('aatower', 36, 100, { cd: 60 }); add('aatower', 188, 100, { cd: 100 }); add('bunker', 112, 200, { ga: PI / 2, cd: 80 }); return out; } },
-  airbase: { hpK: 5, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+  airbase: { hpK: 8, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
-  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * m, maxhp: 220 * m, skin: rivalSkin() }); return [r]; } }
+  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * 1.8 * m, maxhp: 220 * 1.8 * m, skin: rivalSkin() }); return [r]; } }
 };
 FOLLOW.tankcol.tick = (e, sc) => { /* the column advances on the player and falls back (the heavy tank further), the treads turning */
   for (const m of e.subs) { if (m.dead || m.dying || (m.type !== 'tank' && m.type !== 'htank')) continue; if (m.baseWy === undefined) m.baseWy = m.wy; const was = m.wy; m.wy = m.baseWy + 30 * (m.type === 'htank' ? 1.5 : 1) * (1 - Math.cos(e.ft * 0.012)); m.moving = Math.abs(m.wy - was) > 0.01; m.hd = PI / 2; } };
