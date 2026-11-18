@@ -110,7 +110,7 @@ const DUMP = `(() => {
     enemies: world.enemies.map(ent), ebul: world.ebul.map(b => flat(b)), shots: world.shots.map(b => flat(b)), items: world.items.map(b => flat(b)), segs: JSON.stringify(run.sortie.segs), daily: JSON.stringify(run.sortie.daily) });
   })()`;
 for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], A = await freshPage(21);
-  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(4200); snapNow(); saveResume(); const rec = localStorage.getItem('starfall-resume');
+  const R = JSON.parse(await peek(A, `(() => { SF.setMode('immortal'); SF.start(1, 1); startDaily('${date}'); SF.human(8, 15); SF.run(4200); for (let i = 0; i < 40 && !app.snap; i++) { snapNow(); if (!app.snap) SF.run(30); } /* (some moments cannot be written down: the next one that can) */ saveResume(); const rec = localStorage.getItem('starfall-resume');
     const samples = [${DUMP}]; for (let f = 0; f < 1500; f += 60) { const st = SF.run(60); samples.push(${DUMP}); if (st !== 'ok') break; } return JSON.stringify({ rec, samples }); })()`)); await A.close();
   const rec = JSON.parse(R.rec || 'null'); if (!ok(rec && rec.snap && rec.sortie && rec.sortie.daily, `${kit}: the resume record has a snapshot and the sortie's {daily}`)) continue;
   const B = await freshPage(77);

@@ -1071,3 +1071,22 @@ Owner: the winter can also have a harbour with open water and the ship boss inst
 32. Dusk and night versions of any of the above (the light of day already exists; the ending would reuse it).
 
 **What each needs in the composer.** The kit's end ground (an `ice_sea` for the winter), a pool entry with an arena rule (what ground it needs), the `bossVar` (kind, variant) or, for D to F, a new `ending` field the game reads in place of "the boss died". Items 1, 3 to 5, 11 to 13 and 16 are the cheapest; the winter harbour (1 and 16 together) would give the winter a sea ending like 12.11's, with the ship or the six U-boats drawn as its two new pool entries.
+
+### 12.13 Endings built from the 12.12 list (build 1.2.6.49, composer v5; flown by the test bot, **not by a person**)
+
+**Winter sea ending (items 1, 2, 16 together).** The winter's plan normally ends in the gorge (the generator's `finale`). A sea ending now replaces it: `KITS.winter.seaTail` (the coast and open sea, as the other kits'), `KITS.winter.seaParams = { finale: null }` (the generator then builds no gorge, no arena: the plan ends after the last farmland stretch, whose rails run to the shore), and the winter plan builder in the game ends its plan at `S.len - S.legacyTail` instead of `S.len + GORGE_ARENA`. `tests/kit-check.mjs` leaves the gorge and tunnel-mouth checks out for such a plan. The ship is in the winter's pool, and so are the endings below. Not done: an ice harbour at the *end* of the winter (the generator has one coast, at the start, and the frozen sea there is the opener).
+
+**New end bosses, all drawn from the pools** (`bossPool`, one draw per date on its own stream; `S.bossVar.kind`):
+
+| Kind | What it is | Ending rule |
+|---|---|---|
+| `wolfpack` | six U-boats (the game's `sub`) under the sea of a sea ending, surfacing 85 frames apart at fixed places; the sixth a mother boat with three times the hit points | the last boat sunk |
+| `shadowwing` | the Campaign's Shadow Wing in its level's own sequence, which does not flee, with 2.2 times the hit points | the wing's death |
+| `raven` | the level 6 duel's Raven prototype in its three phases, which does not escape, 1.3 times the hit points | its death |
+| `moth` | the same aircraft with the looped hull (The Moth), its dust cones, 1.8 times the hit points | its death |
+
+All four are a real `boss` entity, so the game's boss code (the warning, the music, the pods, the health bar, the stage clear) and the test tools find them as before: a **hidden core** (1 px, no drawing) that follows what is being fought. Its hit points are the followed enemies' together (the health bar), it sits on the boat that is up and lowest (so the bot's aim and the player's eye go there, and the wreck is where the last one died), and when the last one is gone the core dies and the level ends. The wolfpack and the wing are new `BOSS` entries with `setup` (`spawnBoss` calls it), `BOSSMOVE`, `BOSS_INTROS`, `BOSS_LOOKS` and `BOSS_FIGHT` hooks that do nothing but follow. The wing and the duel aircraft have a `stay` field (no flight after a time).
+
+Pools: the wolfpack is in all four kits' (the winter 2, the others 1; it needs a sea ending), the wing, the Raven and the Moth in all four (1 each). Flown: 18 sorties (winter, desert, city, forest; the ship, the wolfpack, wing, Raven and Moth) on Rookie, Veteran and Ace: all pass (`tests/daily-gate.mjs --kit K --sub N`).
+
+**Not done from the list:** two trains and the other train variants, the destroyer squadron, tank column, flak lane finale, airbase last stand (they need a target-count ending on land ground), the dam, bridge, refinery, slipway, silo and escape scenes, the odd ones (ghost ship, rival ace, crawler, leviathan). The hidden-core boss is the way to build the count-ending ones (a list of enemies, a core that follows them).
