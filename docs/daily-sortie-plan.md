@@ -1019,3 +1019,55 @@ The forms: heavy and light are a factor on the hit points; **lance** is the firs
 **Checked.** `tests/compose.mjs` 67 (gate 1 on 10,000 seeds per kit with the tail, gate 2 on the plan without it); `tests/daily.mjs` 301 (section 11: every pool entry on its kit's arena, now including the ship); flight gate on 30 sorties each for the desert, forest and city on all three difficulties (270 flights, 11 of the 30 sorties per kit-draw with a ship): **0 fail**; the ship fights took the bot, median seconds on Rookie / Veteran / Ace, 59 / 47 / 90 on the desert's sea, 64 / 60 / 59 on the forest's, 77 / 53 / 119 on the city's (worst 143); vetting of the 14 dates 14 of 14; Campaign guards unchanged (`tests/citysegs.mjs`, `tests/enigma.mjs`, `tests/fixed-seed.mjs`, `tests/replay.mjs`, `tests/smoke.mjs`; the older kits' plans identical to `main`'s generator).
 
 **Not done.** The winter has no sea ending (its arena is its own gorge, and its ice sea is an opener); a ship ending for the first loop's grounds; the ship's own arena features (the Campaign's level 1 has the carrier and the island chain before it: a composed sea ending is a coast and six chunks of open sea). Not flown by a person: the ship after a desert or a city.
+
+### 12.12 Ending scenes that can be exchanged (owner idea 2026-11-18; a list, nothing built)
+
+Owner: the winter can also have a harbour with open water and the ship boss instead of the gorge, or a scene with six submarines coming out of the ice as at the start of level 5. This is the list of everything that could be a Daily Sortie's ending. Cost: **R** = reuse, only a pool entry and an arena rule; **V** = a variant of existing code; **N** = new behaviour or art. "Ending kind" = what ends the level: a boss's death (what the game does today), or a new rule (a pack is dead, targets are down, a timer runs out, the player reaches a line).
+
+**A. Existing bosses on new ground**
+1. Ship on the winter's frozen harbour (a `harbour_winter` stretch: the city's dockyard grammar on snow, then an `ice_sea` tail from level 5's pack): R/V.
+2. Ship on a river mouth, a lake (forest) or a fjord with shore batteries on both banks: V.
+3. Train on any rail ground; the sand fortress on any open ground; the castle per climate (desert, winter, level 1 versions): R, castle N (art).
+4. Supergun on the city's central rail, or on a cliff rail in the mountains: V.
+5. Sky fortress over a cloud layer, over the sea at dusk, over the burning city: R (the ground is the look).
+
+**B. Existing bosses with a twist**
+6. Two small trains in convoy, or one train that splits in two halves: V.
+7. Flagship with a destroyer escort; flagship that launches planes (a carrier); flagship at night with searchlights: V.
+8. Icebreaker flagship (the ship, white, with a ram that cracks the ice into holes the player must not fly over: the hole decals exist): V.
+9. A fortress that rebuilds one part; a sky fortress with a shield part that has to be shot first: V.
+10. A boss that appears in two stages: the train, then the supergun behind it on the same rail: V.
+
+**C. Mid-level foes promoted to the end**
+11. The Shadow Wing as the end boss (several, in a V formation): V.
+12. The Raven prototype as a duel, a smaller sky fortress: V (the hull exists in `RAVEN`).
+13. The Moth with more hit points and a stronger blinding attack (decided, 12.4): V.
+14. The Sower as the end: a mine-laying boss over the forest whose mines make the arena a field: V.
+15. A bomber stream with fighter escort (`BOMBER_E`, the bomber screen) that has to be stopped before it reaches a line: V.
+
+**D. Pack and wave endings, no single boss (a new ending kind)**
+16. Six U-boats break through the ice, one after another (the level-5 opening, `plan.iceBreaks`), the last one a larger boss submarine: V, new ending kind "N dead".
+17. A destroyer squadron in line abreast over open sea; a minefield sea with minelayers: V.
+18. A tank column on a long road with a command tank at the end; an armoured river convoy: V.
+19. A flak lane finale: a long gauntlet of guns with a command post at its end: V (`flaklane`).
+20. Airbase last stand: the bombers on the apron take off in waves; shoot them while they roll: V.
+
+**E. Set pieces with a target, not a fight**
+21. Dam: break the dam, the flood runs over the ground ahead and the level ends at the wave's crest: N.
+22. Bridge defence: the last bridge has to stay up while the player fights a column: V.
+23. Refinery or power plant meltdown: chain explosions on a timer, fly out through the gap: V (`refineryraid`).
+24. Dockyard: a ship still on the slip launches half built and has to be sunk before it floats clear (ties to the city's dockyard): N.
+25. Rocket silo: shoot the covers and the rocket before it climbs: N.
+
+**F. Escapes and chases (the level ends at a line, not a kill)**
+26. Collapsing ice shelf: cracks run behind the player, the open sea ahead: N.
+27. Avalanche or sandstorm wall chasing from below the screen; the exit is a pass: N.
+28. Canyon or tunnel run to the finish with a boss at the mouth: N.
+
+**G. Odd ones for a "surprise" day**
+29. Ghost ship in fog (only lit by its own guns and the player's tracers): N.
+30. Rival ace in a plane like the player's, mirroring its moves: N.
+31. Giant crawler (a desert land ship on treads) or an ice leviathan under the pack that surfaces in rings: N.
+32. Dusk and night versions of any of the above (the light of day already exists; the ending would reuse it).
+
+**What each needs in the composer.** The kit's end ground (an `ice_sea` for the winter), a pool entry with an arena rule (what ground it needs), the `bossVar` (kind, variant) or, for D to F, a new `ending` field the game reads in place of "the boss died". Items 1, 3 to 5, 11 to 13 and 16 are the cheapest; the winter harbour (1 and 16 together) would give the winter a sea ending like 12.11's, with the ship or the six U-boats drawn as its two new pool entries.
