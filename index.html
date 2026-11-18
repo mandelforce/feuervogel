@@ -4674,7 +4674,7 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      are listed (flown in phase 2: every event of these finds its place; see section 8 of the plan). */
 /* The bosses (plan 12.9, 12.10). Every kit's end ground is its level's own boss arena (legacy ground: the city's airfield apron, the desert's sand, the forest's grass with its central rail, the winter's snowy rail yard), and a boss fights on any arena in the game; what differs is whether it belongs there. The probe (tests/daily-gate.mjs --boss) flew every boss on every arena: all 24 fights end the level. So a kit's pool is its own boss, and the others whose ground the arena provides: the sky fortress flies, so any; the land fortress on open ground, any of the four; the train and the supergun need the arena's central rail, which the forest and the winter arenas have (x 112); the ship needs water and the castle its own castle ground, so neither is in a pool yet (no arena has water; the castle has no other climate's version). The forms: the boss as it is, heavy (20 % more hit points), light (30 % fewer), and for the sky fortress the first loop's twin lance pods (a lance form with more hit points took up to 5.8 minutes on Ace and was dropped). */
 const BOSS_FORMS = { plain: {}, heavy: { hpK: 1.2 }, light: { hpK: 0.7 } }, FORT_FORMS = { lance: { lance: true }, light: { hpK: 0.65 } };
-function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
+function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for (const [id, w] of forms) { const f = kind === 'skyfort' && FORT_FORMS[id] ? FORT_FORMS[id] : BOSS_FORMS[id] || {}; out.push(Object.assign({ id: kind === 'skyfort' ? id : kind + ':' + id, w, kind }, f, kind === 'ship' || kind === 'wolfpack' || kind === 'squadron' ? { sea: true, not: ['rail_yard'] } : null)); } return out; }
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
@@ -4877,11 +4877,11 @@ DIALS.city = { global: { sideChannel: [41, 62], shoreAmp: [4, 14], oldTownK: [1,
 for (const id in DIALS) KITS[id].dials = DIALS[id];
 /* each kit's boss pool: its own boss and forms of it (about half the days), then the others that fit its arena */
 KITS.desert.seaTail = KITS.forest.seaTail = KITS.city.seaTail = KITS.winter.seaTail = [['coast_down', 1], ['open_sea', 6]]; KITS.winter.seaTail = [['open_sea', 7]]; /* (no legacy coast: the plan's own harbour basin meets the open sea) */ KITS.winter.seaApproach = [['pass', 7], ['farmland_winter', 14]]; /* (a sea ending: the line runs on 3 chunks further, to its freight harbour) */ KITS.winter.seaParams = { finale: 'depot' }; KITS.winter.iceShare = 0.5; /* (half the harbours are frozen) */ /* (the winter: a sea ending has no gorge in its plan) */ // a sea ending (legacy ground after the plan's end: the coast, then open sea that the arena goes on into), for the ship; not the winter's, whose arena is its own gorge
-KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]]]);
-KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]]]);
-KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]]]);
+KITS.desert.bosses = bossPool([['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.forest.bosses = bossPool([['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
+KITS.winter.bosses = bossPool([['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 KITS.winter.bosses.find(b => b.kind === 'wolfpack').ice = true; /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
-KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]]]);
+KITS.city.bosses = bossPool([['skyfort', [['plain', 3], ['lance', 3], ['light', 2]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['ship', [['plain', 2]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]]]);
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
 // The day's dials for a kit: { names, global: { dial: value }, seg: [p | null, one per segment] }. names is empty on a day with none.
 /* The date's boss for a kit that has more than one: a weighted draw on its own stream (6600); the object the game reads. */
@@ -15980,6 +15980,18 @@ const ENT = {
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11), fh = DIFF.wingFan[settings.diff]; for (let k = -fh; k <= fh; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
     if (e.mt % 300 === 210) ring(e.x, e.y, Math.round((16 + run.loop * 2) * DIFF.wingN[settings.diff]), sp * 0.75, e.mt * 0.05);
   } },
+  rival: { stats: { hp: 220, hw: 11, hh: 11, score: 20000, rad: 14 }, update(e) { /* the rival ace (a Daily Sortie ending, plan 12.12 item 30): an aircraft like the player's, upside down, that mirrors the player's side to side, fires aimed bursts and a fan, and dives at the player now and then */
+    if (e.dying) return dyingTick(e);
+    e.t2 = (e.t2 || 0) + 1;
+    if (e.t2 < 90) { e.y += (80 - e.y) * 0.05; return; }
+    const px = player && !player.dead ? player.x : W / 2, k = e.t2 - 90, dv = k % 480, dive = dv >= 360 ? Math.sin((dv - 360) / 120 * PI) * 90 : 0;
+    e.x += (clamp(W - px, 24, W - 24) - e.x) * 0.045; e.y = 78 + Math.sin(k * 0.03) * 12 + dive; e.untarget = false;
+    if (gf % 3 === 0) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + rnd(-3, 3), y: e.y - 10, vx: 0, vy: -0.4, r: rnd(1.5, 2.5), life: 14, max: 14 });
+    if (!hasT()) return;
+    if (k % Math.round(34 * fireSlow()) === 0) { const a = aim(e.x, e.y + 8); for (const sd of [-1, 1]) world.later.push({ at: gf + (sd + 1) * 3, fn: () => { if (!e.dead && !e.dying) eshot(e.x + sd * 9, e.y + 8, a, bspeed() * 1.1); } }); }
+    if (k % Math.round(150 * fireSlow()) === 90) { const a = aim(e.x, e.y + 10); for (let q = -3; q <= 3; q++) eshot(e.x, e.y + 10, a + q * 0.16, bspeed() * 0.85); flash(e.x, e.y + 10, 5); sfx('cannon'); }
+    if (dv === 400) { for (let q = -4; q <= 4; q++) eshot(e.x, e.y + 12, PI / 2 + q * 0.2, bspeed() * 0.9); sfx('gun'); }
+  } },
   tank: { turret: true, treads: true, medals: 0.6, stats: { hp: 10, hw: 7, hh: 9, score: 500, rad: 11 }, update(e) {
     if (e.toRoad && e.patrol && Math.hypot(e.patrol[0][0] - e.wx, e.patrol[0][1] - e.wy) < 2) { e.toRoad = false; e.patrol = null; e.road = true; e.dir = 1; e.lane = 0; e.v = 0.2; }
     if (e.patrol) {
@@ -18337,6 +18349,7 @@ function buechseSight(e) {
 // Each enemy type's look, attached to its entry in the entity table as ENT[type].draw(e, fl) (fl: flashing white after a hit).
 // It stays here with the other drawing code, apart from the simulation (ROADMAP.md, Phase 5).
 const LOOKS = {
+  rival(e, fl) { ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(1, -1); spr(SPR.player, 0, 0, fl); ctx.restore(); }, /* (the player's own aircraft, upside down) */
   tank(e, fl) {
     const bu = e.buechse && (e.silver ? SPR.buechseN : SPR.buechseD), dr = e.drill && (e.silver ? SPR.drillS : SPR.drillG), set = dr ? dr.h : bu ? bu.h : e.type === 'tank' ? SPR.tank : SPR.htank, tur = dr ? dr.t : bu ? bu.t : e.type === 'tank' ? SPR.tankTur : SPR.htankTur; // (the Buechse and the Drilling: Enigma Run)
     spr(set[e.moving ? (gf >> 3) & 1 : 0][dirIdx(e.hd)], e.x, e.y, fl);
@@ -18849,6 +18862,26 @@ const BOSS_LOOKS = {
     }
   },
 };
+/* More end bosses on the hidden core (plan 12.12, 12.15): each builds a list of the enemies to fight on the arena (spawn(e, sc)), and the core follows them as it follows the wolfpack's boats. Their hit points make the health bar, and the level ends when the last one is down. */
+const FOLLOW = {
+  squadron: { warn: 'DESTROYER SQUADRON ON THE HORIZON', spawn(e, sc) { const m = hpm(), out = [], at = [[112, 96, 1], [48, 150, 0], [176, 150, 0]];
+    at.forEach(([x, y, lead], k) => { const d = G('destroyer', x, y - sc, { hp: 50 * m * (lead ? 2 : 1), maxhp: 50 * m * (lead ? 2 : 1), ta: PI / 2, tb: PI / 2, cdA: 80 + k * 25, cdB: 130 + k * 20, v: 0.1 }); d.homeY = y + 30; out.push(d); });
+    for (const [x, y] of [[24, 70], [200, 70], [80, 200], [144, 200]]) { const b = G('pt', x, y - sc, { ta: PI / 2, cd: 60 + (x % 40), v: 0.2, dx: 0 }); b.homeY = y + 20; out.push(b); } return out; } },
+  gunline: { warn: 'FORTIFIED LINE AHEAD', spawn(e, sc) { const m = hpm(), out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+    add('casemate', 112, 78, { ga: PI / 2, cd: 50 }, 2.5); add('casemate', 56, 92, { ga: PI / 2, cd: 80 }); add('casemate', 168, 92, { ga: PI / 2, cd: 110 });
+    add('fortgun', 28, 150, { ga: PI / 2, cd: 70 }); add('fortgun', 196, 150, { ga: PI / 2, cd: 120 }); add('aatower', 84, 140, { cd: 60 }); add('aatower', 140, 140, { cd: 100 });
+    add('sam', 20, 200, { ga: PI / 2, cd: 90 }); add('sam', 204, 200, { ga: PI / 2, cd: 130 }); return out; } },
+  tankcol: { warn: 'ARMOURED COLUMN', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, tankStats(Object.assign({ road: false, hd: PI / 2, v: 0 }, o))); if (k) g.hp *= k; out.push(g); };
+    add('htank', 112, 84, {}, 2.5); for (const [x, y] of [[54, 100], [170, 100], [28, 150], [196, 150], [84, 150], [140, 150]]) add('tank', x, y, {}); return out; } },
+  tankfarm: { warn: 'FUEL DEPOT: DESTROY THE TANKS', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+    for (const [x, y] of [[70, 80], [112, 70], [154, 80], [70, 120], [112, 112], [154, 120], [91, 160], [133, 160]]) add('fuel', x, y, {}, 4); add('aatower', 36, 100, { cd: 60 }); add('aatower', 188, 100, { cd: 100 }); add('bunker', 112, 200, { ga: PI / 2, cd: 80 }); return out; } },
+  airbase: { warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
+    for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
+    add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
+  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * m, maxhp: 220 * m }); return [r]; } }
+};
+for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
+  BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];
 for (const k in BOSS_FIGHT) Object.assign(BOSS[k], BOSS_FIGHT[k]);
