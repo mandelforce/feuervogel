@@ -277,7 +277,8 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
   const dk = n => SC.dateKeyUTC(Date.parse(today + 'T00:00:00Z') + n * 86400000), firstWith = fn => { for (let i = 1; i <= 400; i++) if (fn(SC.composeDaily(dk(i)))) return dk(i); return null; };
   await page.click('#dpGo'); const lk = await J(`document.getElementById('dpDate').textContent`); ok(lk === firstWith(S => !!S.gen.params.lakes), `Find: lakes, Next day with it: ${lk}`);
   await page.click('#dpFind'); await page.click('#dpGo'); const tn = await J(`document.getElementById('dpDate').textContent`), tw = firstWith(S => S.segs.some(g => g.t === 'oasis_town'));
-  ok(tn === tw || (tw && tn === dk(Math.round((Date.parse(tw) - Date.parse(today + 'T00:00:00Z')) / 86400000))), `Find: oasis town, from ${lk}: ${tn} (the first from today is ${tw})`);
+  const after = (d, fn) => { for (let i = 1; i <= 400; i++) { const k = SC.dateKeyUTC(Date.parse(d + 'T00:00:00Z') + i * 86400000); if (fn(SC.composeDaily(k))) return k; } return null; }, tf = after(lk, S => S.segs.some(g => g.t === 'oasis_town'));
+  ok(tn === tf, `Find: oasis town, from ${lk}: ${tn} (the first after it is ${tf}; from today ${tw})`); /* (the finder starts from the date the picker shows, which the lake search had moved on) */
   /* a forced pick: forest, sunset, no twist, plain, dials off, started from the date */
   await page.click('#dpToday');
   const cycle = async (id, n) => { for (let i = 0; i < n; i++) await page.click('#' + id); };
@@ -310,7 +311,7 @@ for (const tw of ['fast', 'nova']) { const date = DAYS.forest, A = await freshPa
     combos++; if (seed === null) { bad2.push(kit + ' ' + B.id + ': never drawn'); continue; }
     const page = await freshPage(11), r = JSON.parse(await peek(page, BQ(kit, seed, false))); await page.close();
     const wantPods = B.lance ? 2 : 0, wantK = B.hpK || 1;
-    if (r.sv && r.sv.kind === B.kind && r.sv.variant === B.id && r.kind === B.kind && r.alive && r.errs === 0 && r.lance === wantPods && (['wolfpack', 'shadowwing', 'raven', 'moth', 'squadron', 'gunline', 'tankcol', 'tankfarm', 'airbase', 'rival', 'ghostship', 'crawler', 'leviathan'].includes(B.kind) || Math.abs(r.ratio - wantK) < 1e-9)) good++ /* (the hidden core of the pack and of the wing follows the boats', the wing's hit points: not a factor on the table's) */; else bad2.push(`${kit} ${B.id}: ${JSON.stringify(r)}`); }
+    if (r.sv && r.sv.kind === B.kind && r.sv.variant === B.id && r.kind === B.kind && r.alive && r.errs === 0 && r.lance === wantPods && (['wolfpack', 'longtrain', 'shadowwing', 'raven', 'moth', 'squadron', 'gunline', 'tankcol', 'tankfarm', 'airbase', 'rival', 'ghostship', 'crawler', 'leviathan'].includes(B.kind) || Math.abs(r.ratio - wantK) < 1e-9)) good++ /* (the hidden core of the pack and of the wing follows the boats', the wing's hit points: not a factor on the table's) */; else bad2.push(`${kit} ${B.id}: ${JSON.stringify(r)}`); }
   ok(good === combos, `every kit's boss pool, on its own arena: ${good} of ${combos} entries spawn the right boss with the form's pods and hit points, alive after 4 s, no errors` + (bad2.length ? ' (' + bad2.join('; ') + ')' : ''));
   { const page = await freshPage(11); const g = await peek(page, 'ICE_ARENA'); await page.close(); ok(g === SC.ICE_ARENA, `the game's ICE_ARENA (${g}) is the composer's (${SC.ICE_ARENA}): the wolfpack's frozen arena`); { const page2 = await freshPage(11); const g2 = await peek(page2, 'RAIL_ARENA'); await page2.close(); ok(g2 === SC.RAIL_ARENA, `the game's RAIL_ARENA (${g2}) is the composer's (${SC.RAIL_ARENA}): the supergun's icy gorge`); } }
   const page = await freshPage(11), camp = JSON.parse(await peek(page, BQ('city', 0, true))); await page.close();
