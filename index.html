@@ -4881,6 +4881,7 @@ function encPlanFor(kit, segs, base) {
       const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
       if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
       const c = Math.max(c0, free); if (c >= until || c >= g.start + g.n) continue; /* (no room left in its segment) */
+      if (kit.legacy && c + need > len - 4) continue; /* (the boss comes one chunk into the last stretch: an encounter that would still run then is left out, not cut short) */
       out.push({ id: e.id, c, until, live: true }); used[e.id] = true; free = c + need + ENC_REST; break; } });
   if (wingC < 0) layWing();
   return { enc: out, wingC };
