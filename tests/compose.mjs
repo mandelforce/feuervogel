@@ -41,7 +41,7 @@ for (const k of kits) { let same = 0, subDiff = 0, seedDiff = 0; const N = 200;
 
 // 4. gate 1 on 10,000 seeds per kit. The rules are checked here from the kit table, apart from SC.check.
 const variety = {};
-for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = kit.approaches || [kit.approach], OPS = kit.openers || [kit.opener];
+for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0; const APS = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []), OPS = kit.openers || [kit.opener];
   const note = m => { bad[m] = (bad[m] || 0) + 1; }, V = variety[k] = { orders: new Set(), sets: new Set(), tmpl: {}, len: [], mids: [], enc: {}, encN: [], wing: [], first: {}, hot3: 0 };
   for (let s = 0; s < N; s++) { const seed = (SC.hash(s, 4242) * 4294967296) | 0; let S; try { S = SC.composeSortie(k, seed); } catch (e) { note('throws: ' + e.message.slice(0, 60)); continue; }
     att[S.attempt] = (att[S.attempt] || 0) + 1; worst = Math.max(worst, S.attempt); if (SC.check(k, S).length) mod++;
@@ -51,10 +51,10 @@ for (const k of kits) { const kit = SC.KITS[k], bad = {}, att = {}, N = 10000; l
     const O = OPS.find(o => J(segs.slice(0, o.length).map(g => [g.t, g.n])) === J(o)); if (!O) { note('opener'); continue; } const A = APS.find(a => J(segs.slice(-a.length).map(g => [g.t, g.n])) === J(a)); if (!A) note('approach'); const mid = A ? segs.slice(O.length, segs.length - A.length) : []; if (!A) continue;
     const cnt = {}; mid.forEach((g, i) => { const m = kit.middle[g.t]; if (!m) { note('unknown template'); return; } cnt[g.t] = (cnt[g.t] || 0) + 1; if (g.n < m.len[0] || g.n > m.len[1]) note('segment length');
       const prev = i ? mid[i - 1].t : O[O.length - 1][0]; if (prev === g.t) note('a template twice in a row'); if (!kit.follows[prev].includes(g.t)) note('follows'); });
-    for (const t in cnt) if (cnt[t] > kit.middle[t].max) note('max'); if (mid[mid.length - 1].t === A[0][0]) note('approach repeats'); if (mid.length < 4) note('too few middle segments');
-    let free = -1; const ids = new Set(); for (const e of S.encPlan) { const g = segs.find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
+    for (const t in cnt) if (cnt[t] > kit.middle[t].max) note('max'); if (mid[mid.length - 1].t === A[0][0]) note('approach repeats'); if (mid.length < (kit.minMiddle || 4)) note('too few middle segments');
+    let free = -1; const ids = new Set(); for (const e of S.encPlan) { const g = (kit.legacy ? S.segs : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
       if (!def) { note('an encounter outside its segment'); continue; } if (ids.has(e.id)) note('an encounter twice'); ids.add(e.id); if (e.c < free) note('encounters too close'); if (!(e.until > e.c && e.live === true)) note('encounter fields'); free = e.c + Math.ceil(def.frames / 174) + 2; if (e.c < S.wingC + 18 + 2 && e.c + Math.ceil(def.frames / 174) + 2 > S.wingC) note('an encounter in the Shadow Wing\'s time'); }
-    if (!(S.wingC >= Math.round(at * 0.375) && S.wingC <= Math.round(at * 0.55) && S.wingC + 18 <= at)) note('the Shadow Wing\'s place');
+    { const tot = kit.legacy ? at + tl : at; if (!(S.wingC >= Math.round(tot * 0.375) && S.wingC <= Math.round(tot * 0.55) && S.wingC + 18 <= tot)) note('the Shadow Wing\'s place'); }
     if (S.v !== SC.VERSION || S.kit !== k || S.level !== kit.level || S.gen.preset !== kit.preset || J(S.gen.params.segs.map(g => ({ t: g.t, n: g.n }))) !== J(segs.map(g => ({ t: g.t, n: g.n })))) note('sortie fields'); /* (a segment may carry the day's ground dials, p) */
     if (s < 1000) { V.orders.add(mid.map(g => g.t).join('>')); V.sets.add(mid.map(g => g.t + g.n).join('>')); V.len.push(at); V.mids.push(mid.length); V.encN.push(S.encPlan.length); V.wing.push(S.wingC / at); for (const e of S.encPlan) V.enc[e.id] = (V.enc[e.id] || 0) + 1;
       for (const t in cnt) (V.tmpl[t] = V.tmpl[t] || { in: 0, n: 0 }).in++; mid.forEach(g => { V.tmpl[g.t].n++; }); V.first[mid[0].t] = (V.first[mid[0].t] || 0) + 1;
@@ -73,7 +73,7 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
   if (VERBOSE) for (let s = 1; s <= 5; s++) { const S = SC.composeSortie(k, s); console.log(`     seed ${s}, ${S.len} chunks: ` + S.segs.map(g => g.t + ' ' + g.n).join(', ') + ' | ' + S.encPlan.map(e => e.id + ' at ' + e.c).join(', ')); } }
 
 // 6. the daily seed
-{ const D = [14, 15, 16, 17, 18].map(n => SC.dailySeed('2026-11-' + n)), K = SC.KIT_ORDER.length, a = D[0], b = D[1];
+{ const D = [14, 15, 16, 17, 18, 19].map(n => SC.dailySeed('2026-11-' + n)), K = SC.KIT_ORDER.length, a = D[0], b = D[1];
   ok(new Set(D.slice(0, K).map(x => x.kit)).size === K && D[K].kit === D[0].kit, `the kit rotates day by day, every kit once in ${K} days (${D.map(x => x.kit).join(', ')})`);
   ok(a.seed !== b.seed && J(SC.dailySeed('2026-11-14')) === J(a) && a.n === 20261114 && a.sub === 0, 'a date gives its own seed, the same every time');
   let thrown = 0; for (const bad of ['2026-02-30', '2026-13-01', '14.11.2026', '', '2026-1-1']) try { SC.dailySeed(bad); } catch (e) { thrown++; } ok(thrown === 5, `a date that is none is refused (${thrown}/5)`);
@@ -116,7 +116,7 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
   ok(tamper, 'gate 1 rejects a dial out of its range, a dial the template does not take, and dials on a day that has them off');
   /* the composer's forest table is the generator's; every dial name and range is one the generator's own tables know (it clamps the rest away) */
   { const norm = T => J(Object.keys(T).sort().map(t => [t, ['roads', 'rides', 'plantations', 'clearings', 'cuts', 'guns'].map(q => T[t][q] || 0)])); ok(norm(CGEN.FOREST_BASE) === norm(SC.FOREST_BASE), "the composer's FOREST_BASE equals the generator's (an absent count is 0)"); }
-  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS, city: CGEN.CITY_DIALS }; let inside = true;
+  const known = { desert: CGEN.DESERT_DIALS, forest: CGEN.FOREST_DIALS, winter: CGEN.WINTER_DIALS, city: CGEN.CITY_DIALS, temperate: CGEN.ISLES_DIALS }; let inside = true;
   for (const k of kits) for (const t in SC.KITS[k].dials.seg) for (const d in SC.KITS[k].dials.seg[t]) { const g = known[k][d], r = SC.KITS[k].dials.seg[t][d]; if (!g || r[0] < g[0] || r[1] > g[1]) { inside = false; console.log('       ' + k + ' ' + t + ' ' + d + ' ' + r.join('..') + ' is outside the generator table ' + (g || []).join('..')); } }
   ok(inside, "every per-segment dial range lies inside the generator's own table");
   /* the forest's crowns dial: more crowns the higher it is, across the whole range (an upper half that did nothing was the first version's flaw) */
@@ -130,7 +130,7 @@ for (const k of kits) { const kit = SC.KITS[k], V = variety[k], T = Object.keys(
     ok(dead.length === 0, k + ': every dial changes the plan' + (dead.length ? ' (not: ' + dead.join(', ') + ')' : '')); } }
 
 // 7. gate 2: the generator's plan of each composed list
-const BASE = { desert: 246, forest: 163, winter: 1265, city: 230 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4; city: CI runners measured a median of 278-290 ms with the dockyard, river and yard stretches, so 230 leaves headroom); the limit is 1.5 times it, on the median
+const BASE = { desert: 246, forest: 163, winter: 1265, city: 230, temperate: 100 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4; city: CI runners measured a median of 278-290 ms with the dockyard, river and yard stretches, so 230 leaves headroom); the limit is 1.5 times it, on the median
 for (const k of kits) { const kit = SC.KITS[k], P = PROBE[k], flags = {}, notes = {}, ms = [], built = {}; let n = 0, clean = 0, over = 0; const t0 = Date.now();
   for (let s = 0; s < PLANS; s++) { if (s % SHARD[1] !== SHARD[0] - 1) continue; n++; const S = SC.composeSortie(k, (SC.hash(s, 777) * 4294967296) | 0), r = checkPlan(P, S.segs, S.gen.seed, S.gen);
     for (const f of r.flags) flags[f] = (flags[f] || 0) + 1; for (const nt of r.notes) notes[nt] = (notes[nt] || 0) + 1; if (r.ms) ms.push(r.ms); let ovr = false;

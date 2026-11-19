@@ -17,8 +17,9 @@ export const KITS = {
     opener: [['harbour_commercial', 6], ['beach_town', 5]],
     middle: [['valley', 11], ['village', 6], ['station_junction', 9], ['desert_open', 6], ['airbase_desert', 9], ['pass', 11]],
     approach: [['desert_open', 9]],
-    needs: { valley: 'derrick', village: 'held oasis', oasis_town: 'large oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
+    needs: { harbour_dock: 'hull', valley: 'derrick', village: 'held oasis', oasis_town: 'large oasis', station_junction: 'junction', airbase_desert: 'runway', pass: 'viaduct' },
     markers: p => { const m = [];
+      for (const h of (p.ships || []).filter(q => q.kind === 'hull')) m.push({ t: 'harbour_dock', y: h.y0 + h.h / 2, what: 'hull' }); /* (the dockyard: hulls on slipways in the side harbour) */
       for (const d of p.derricks || []) m.push({ t: 'valley', y: d.y, what: 'derrick' });
       for (const o of p.oasis || []) m.push(o.size === 'large' ? { t: 'oasis_town', y: o.y, what: 'large oasis' } : o.held ? { t: 'village', y: o.y, what: 'held oasis' } : { t: 'desert_open', y: o.y, what: o.size === 'small' ? 'small oasis' : 'hamlet' });
       for (const w of p.wagons || []) m.push({ t: 'station_junction', y: w.y, what: 'junction' });
@@ -27,7 +28,7 @@ export const KITS = {
       for (const v of p.viaducts || []) m.push({ t: 'pass', y: (v.y0 + v.y1) / 2, what: 'viaduct' });
       for (const i of p.industry || []) if (i.kind === 'brickworks') m.push({ t: 'desert_open', y: i.y + i.h / 2, what: 'brickworks' });
       return m; },
-    extra: (p, rg) => { const out = [], port = rg.filter(r => r.t === 'harbour_commercial' || r.t === 'beach_town').reduce((a, r) => a + r.y1 - r.y0, 0);
+    extra: (p, rg) => { const out = [], port = rg.filter(r => r.t === 'harbour_commercial' || r.t === 'harbour_dock' || r.t === 'beach_town').reduce((a, r) => a + r.y1 - r.y0, 0);
       if (!p.port || p.port.y1 + 1 !== port) out.push('port ends at ' + (p.port ? p.port.y1 + 1 : 'none') + ', its segments at ' + port);
       if (!p.beachTown) out.push('no beach town');
       const small = (p.oasis || []).filter(o => o.size === 'small').length; if (rg.some(r => r.t === 'desert_open') && small !== 1) out.push(small + ' small oases (the landmark)');
@@ -59,12 +60,24 @@ export const KITS = {
       for (const Lk of p.iceLakes || []) m.push({ t: 'lake_valley', y: (Lk.y0 + Lk.y1) / 2, what: 'lake' });
       for (const it of p.items) if (it.label === 'Guard hut') m.push({ t: 'pass', y: it.y0, what: 'gate' });
       return m; },
-    extra: (p, rg) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;
+    extra: (p, rg, noFin) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;
+      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if (noFin === 'depot' && p.P && p.P.depotRows > 0 && !p.iceArena) out.push('the ice arena is missing'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (noFin === 'railgorge' ? !p.throat || p.throat.tracks.length !== 2 : !p.throat || p.throat.tracks.length !== 3) out.push('the finale has the wrong number of tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
       if (!G) out.push('no gorge'); else { if (!(G.yb < Lr && G.yb > Lr - 220)) out.push('the gorge opens at ' + G.yb + ', level end ' + Lr); if (G.y1 !== p.L - 1) out.push('the gorge ends at ' + G.y1 + ', plan ' + p.L);
         for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[y * p.W + tx - 3] !== 2) brk++; if (brk) { out.push('a track breaks in the gorge'); break; } } }
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
       const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea');
       return out; } },
+  /* the temperate kit (level 1): the segment-native islands plan up to the beach. Each band of islets holds islets of its own kind, the large island its runway; the legacy old land after the plan is not in the plan. */
+  temperate: { preset: 'islands', arena: 0, params: segs => ({ segs }),
+    opener: [['carrier_start', 4], ['open_sea', 6]],
+    middle: [['island_chain', 6], ['island_fortress', 6], ['island_archipelago', 7], ['island_airbase', 9], ['open_sea', 3]],
+    approach: [['open_sea', 3]],
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway' },
+    markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
+      if (p.airbase) m.push({ t: 'island_airbase', y: (p.airbase.y0 + p.airbase.y1) / 2, what: 'runway' }); return m; },
+    extra: (p, rg) => { const out = []; if (!p.airbase) out.push('no airbase on the large island'); if (!p.village || !p.village.items) out.push('no village on the large island');
+      const bands = rg.filter(r => /^island_(chain|fortress|archipelago)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
+      for (const r of rg) if (r.t === 'island_fortress' && !(p.slots || []).some(s => s.kind === 'bunker' && s.y >= r.y0 - 40 && s.y < r.y1 + 40)) out.push('no bunker in the fortress islets'); return out; } },
   /* the city (level 6): the segment-native portSouth plan. The harbour's cranes lie in the harbour, the industrial quarters where the works stretch is, the station in the last stretch; the market square is the densest
      point, so with a city centre in the list it lies in it. (A ruins stretch is only a damage curve of 1: its rubble share, 9 to 19 %, overlaps the other districts', so it is not checked.) */
   city: { preset: 'portSouth', arena: 0, params: segs => ({ segs }),
@@ -100,18 +113,19 @@ export function check(kit, segs, seed, gen) {
   let p; const t0 = performance.now();
   try { p = CG.generate(gen || { seed, preset: kit.preset, params: kit.params(segs.map(g => ({ t: g.t, n: g.n }))) }); } catch (e) { res.flags.push('throw'); res.notes.push('throw: ' + String(e && e.message || e).slice(0, 90)); return res; }
   res.ms = performance.now() - t0;
-  const want = (segs.reduce((a, g) => a + g.n, 0) + kit.arena) * CH;
+  const noFin = !!(gen && gen.params && (gen.params.finale === 'depot' || gen.params.finale === 'railgorge')), arenaN = noFin ? (gen.params.depotArena | gen.params.railArena | 0) : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
+  const want = (segs.reduce((a, g) => a + g.n, 0) + arenaN) * CH;
   if (p.L !== want) { res.flags.push('length'); res.notes.push('plan ' + p.L + ' px, segments ' + want); }
   let v; try { v = CG.validate(p); } catch (e) { res.flags.push('throw'); res.notes.push('validate throws: ' + String(e && e.message || e).slice(0, 90)); return res; }
   if (!v.pass) { res.flags.push('invalid'); const why = []; if (v.overlapPx) why.push('overlap ' + v.overlapPx); if (v.noFrontage) why.push('no frontage ' + v.noFrontage); if (v.tankReach !== 1) why.push('tank reach ' + v.tankReach.toFixed(3)); if (v.trainBlocked) why.push('trains blocked ' + v.trainBlocked); if (v.lanesBlocked) why.push('lanes blocked ' + v.lanesBlocked); if (v.onRoad) why.push('on road ' + v.onRoad); if (!why.length) why.push('churches, bridges or island'); res.notes.push('invalid: ' + why.join(', ')); }
-  let y = 0; const rg = segs.map(g => { const r = { t: g.t, y0: y, y1: y + g.n * CH }; y = r.y1; return r; }); if (kit.arena) rg.push({ t: '(arena)', y0: y, y1: y + kit.arena * CH });
+  let y = 0; const rg = segs.map(g => { const r = { t: g.t, y0: y, y1: y + g.n * CH }; y = r.y1; return r; }); if (arenaN) rg.push({ t: '(arena)', y0: y, y1: y + arenaN * CH });
   const marks = kit.markers(p), out = new Set(), miss = new Set();
   const loopG = !!(gen && gen.params && (gen.params.variant || gen.params.autumn));
   for (const m of marks) if (!rg.some(r => r.t === m.t && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) { const r = rg.find(q => m.y >= q.y0 && m.y < q.y1); if (loopG && kit.loopOutside && kit.loopOutside(m, r)) continue; out.add(m.what + ' in ' + (r ? r.t : 'nothing')); }
   for (const r of rg) { const need = kit.needs[r.t]; if (need && !marks.some(m => m.what === need && m.y >= r.y0 - TOL && m.y < r.y1 + TOL)) miss.add(need + ' (' + r.t + ')'); }
   if (out.size) { res.flags.push('outside'); res.notes.push('outside: ' + [...out].join('; ')); }
   if (miss.size) { res.flags.push('missing'); res.notes.push('missing: ' + [...miss].join('; ')); }
-  const ex = kit.extra(p, rg); if (ex.length) { res.flags.push('preset'); res.notes.push('preset: ' + ex.join('; ')); }
+  const ex = kit.extra(p, rg, noFin ? gen.params.finale : null); if (ex.length) { res.flags.push('preset'); res.notes.push('preset: ' + ex.join('; ')); }
   res.built = rg.filter(r => r.t !== '(arena)').map(r => ({ t: r.t, v: builtShare(p, r.y0, r.y1) }));
   res.stats = kit.stats ? kit.stats(p, rg.filter(r => r.t !== '(arena)')) : [];
   return res;
