@@ -8199,6 +8199,7 @@ function sortieInfo(S, p, c) {
   let river = false, rw = 7, island = null; // level 1's farmland keeps the Campaign's rivers (from its third chunk on), with their bridges and river islands
   if (S.seq && g && g.t === 'farmland' && c - g.start >= 2 && (((p % 5) + 5) % 5) === 0 && hash(p, 991) < 0.7) { river = true; if (hash(p, 333) < 0.5) { rw = 11; const ix = roadX(-p * CH + 30), iw = Math.min(40, Math.abs(ix - RAILX) - 16, 206 - ix); if (iw > 20) island = { ix, iw }; } }
   I = infoRails(b, S.theme, river, rw, island, null, c);
+  if (S.straight && b === 'city' && !I.rails.includes(RAILX)) I.rails.push(RAILX); /* (the temperate old land: the railway runs on through the town, on its street column) */
   if (!g && (S.arenaRails || S.arenaTracks)) I.rails.push(...(S.arenaRails || S.arenaTracks)); // level 3: the yard's outer tracks run on through the arena; a composed city that ends in its rail yard: the tracks only (arenaTracks: no trains, they use Math.random)
   if (planned) { I.plan = true; I.rails = []; I.rail = null; } // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
   if (m.size > 400) m.clear(); m.set(p, I); return I;
@@ -8587,7 +8588,7 @@ function fortColor(wx, wy, rx) {
   return MUD[pickI(5, l, wx, wy)];
 }
 const TR_CONC = TR.conc.map(hexRGB);
-function railHit(I, wx) { const g = (I.b === 'factory' || I.b === 'city') && run.sortie && run.sortie.straight; for (const r of I.rails) if (g ? Math.abs(wx - (r - 0.5)) < 4 : Math.abs(wx - r) < 5) return r; return null; } /* (on the temperate old land's estate and town grounds the railway is 8 px wide, x 14 to 21: exactly the street column of the shifted block grid, so it never covers a building) */
+function railHit(I, wx) { const g = run.sortie && run.sortie.straight; for (const r of I.rails) if (g ? Math.abs(wx - (r - 0.5)) < 4 : Math.abs(wx - r) < 5) return r; return null; } /* (on the temperate old land's estate and town grounds the railway is 8 px wide, x 14 to 21: exactly the street column of the shifted block grid, so it never covers a building) */
 function wob(wx, wy) { return (vnoise(wx * 0.045, wy * 0.012 + 7) - 0.5) * 22 + (vnoise(wx * 0.19 + 50, wy * 0.19) - 0.5) * 7; }
 const CL = { tt: '', p: 0, ly: 0, I: null, coastD: 99, rail: null, fence: -1 };
 function classify(wx, wy) {
@@ -8616,7 +8617,7 @@ function classify(wx, wy) {
     else tt = 'concrete';
     if (run.sortie && run.sortie.straight) { const lt = wy - Math.floor(wy / CH) * CH; if (lt >= CH - 5) { const bs = info(p - 1).b; if (bs === 'factory' || bs === 'city') CL.fence = lt - (CH - 5); } } /* (the airfield's perimeter fence along the edge it shares with the estate or the town: the last five rows of its first chunk) */
   }
-  else if (b === 'city') tt = cityType(wx, wy);
+  else if (b === 'city') { const rc = run.sortie && run.sortie.straight ? railHit(I, wx) : null; if (rc !== null) { CL.rail = rc; tt = 'rail'; } else tt = cityType(wx, wy); }
   else if (b === 'secret') { const rr = run.sortie && run.sortie.arenaTracks && !I.plan ? railHit(I, wx) : null; if (rr !== null) { CL.rail = rr; tt = 'rail'; } else tt = secretType(wx, wy); } /* (a composed city's arena with a rail painted down it: plan 12.20) */
   else if (b === 'factory') { const r = railHit(I, wx); if (r !== null) { CL.rail = r; tt = 'rail'; } else tt = factoryType(wx, wy); }
   else if (b === 'castle') {
@@ -8753,7 +8754,7 @@ function pixelColor(wx, wy, rx) {
   if (C.fence >= 0 && tt !== 'rail') { const dx = Math.abs(wx - rx), post = ((wx % 5) + 5) % 5 === 0; /* (the fence line, its posts, and the gate where the road enters: two stripes of posts either side of the roadway) */
     if (dx < 7) { if (dx >= 5.5 && C.fence >= 0 && C.fence <= 3 && C.fence !== 1) return hexRGB(C.fence % 2 ? '#d8b830' : '#2a241c'); }
     else if (C.fence === 1) return C2.fence; else if (C.fence >= 0 && C.fence <= 2 && post) return hexRGB('#8a8680'); }
-  if (b === 'city') return cityColor(wx, wy, rx);
+  if (b === 'city' && tt !== 'rail') return cityColor(wx, wy, rx);
   if (b === 'factory' && tt !== 'rail') return factoryColor(wx, wy, rx);
   if (b === 'secret' && tt !== 'rail') return secretColor(wx, wy);
   if (b === 'fortline' && tt === 'mud') return fortColor(wx, wy, rx);
@@ -8801,10 +8802,10 @@ function pixelColor(wx, wy, rx) {
       return ball();
     }
     case 'rail': case 'railbridge': {
-      const dx = wx - C.rail, sl = ((wy % 5) + 5) % 5 < 2;
-      if (dx === -3 || dx === 3) return RAILC.steel;
+      const st8 = run.sortie && run.sortie.straight, dx = wx - C.rail + (st8 ? 0.5 : 0), sl = ((wy % 5) + 5) % 5 < 2, ex = st8 ? 2.5 : 3; /* (the temperate Daily Sortie's railway is 8 px wide, x 14 to 21, the width of a street of the old land's block grids: rails at x 15 and 20) */
+      if (dx === -ex || dx === ex) return RAILC.steel;
       if (sl) return tt === 'railbridge' ? RAILC.deck : RAILC.sleeper;
-      if (tt === 'railbridge') return Math.abs(dx) <= 3 ? RAILC.deckDark : TRGB.sea[2];
+      if (tt === 'railbridge') return Math.abs(dx) <= ex ? RAILC.deckDark : TRGB.sea[2];
       return RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
     }
     case 'sea': {
