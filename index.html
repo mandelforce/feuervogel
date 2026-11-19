@@ -3144,7 +3144,11 @@ function islands(o) {
         { const xs = [-66, -22, 22, 66].map(dx => clamp(W / 2 + dx + (rnd(T.SEA, 60) - 0.5) * 20, 12, W - 13)); let n = 0; for (const x of xs) if (!nearRoad(x, 26) && cmate(x, In(x, 38), 20, 14, true, 'Battery casemate')) n++;
           if (n) { for (let x = Math.round(xs[0]); x <= xs[3]; x++) { const y0 = In(x, 33); if (y0 < 0) continue; const y = Math.round(y0 + Math.sin(x * 0.4) * 1.5); for (const yy of [y, y + 1]) if (free(x, yy)) set(x, yy, K.TRENCH, -1); }
             const rx = xs[3] + 26; if (rx < W - 12) pbox(rx, In(rx, 42), 5, 'radar', 'Radar'); plan.mainland.battery = n; } }
-        for (let k = 0; k < 3; k++) { const c = fortSpot(a + 40, b - 20, (x, y) => dL[idx(x, y)] >= 22 && dL[idx(x, y)] < 40 && farSide(x, y)); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        /* the flak: designated emplacements, a gun pit in a sandbag ring every 40 to 52 px along the dunes (first a pad that is free at the line's depth, then deeper), two more behind the battery */
+        for (let x = 18 + ((rnd(T.SEA, 70) * 20) | 0); x < W - 14; x += 40 + ((rnd(T.SEA, x, 71) * 12) | 0)) { if (nearRoad(x, 22)) continue; let done = false; for (let d = 19; d <= 32 && !done; d += 3) for (const dx of [0, -5, 5, -10, 10]) { const y = In(x + dx, d); if (y >= 0 && rectFree(x + dx - 7, y - 7, 14, 14)) { gunPit(x + dx, y); rec.pits++; done = true; break; } } }
+        for (let k = 0; k < 2; k++) { const c = fortSpot(a + 60, b - 20, (x, y) => dL[idx(x, y)] >= 44 && dL[idx(x, y)] < 54 && farSide(x, y)); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        /* a sandy shore: the dunes, sand under marram grass, from the waterline some 40 to 50 px inland (what is still open grass; the road, the buildings and the pads stay as they are) */
+        for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (land[i] !== 1 || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; if (dL[i] <= 41 + 8 * vn(x * 0.05 + 21, y * 0.05)) { Kr[i] = K.BEACH; Br[i] = -13; } }
         if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 12); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); rec.bunkers++; } } /* (the shore always has one) */
         rec.fields += gapFill(a + 70, b, 56, 650); }
       if (m.t === 'main_farm') { let blk = 700 + mains.indexOf(m) * 100;
