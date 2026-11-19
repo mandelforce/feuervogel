@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The Daily Sortie's sky fortress has a smaller form (three quarters of its size, a fifth fewer hit points) in every kit's boss pool, and the temperate kit's shore is now a sandy Atlantic Wall coast (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): dug-in camouflaged casemates with gun barrels, pillboxes, Tobruk pits, wire, hedgehogs, a fire trench, anti-tank walls where the road comes up, wrecked landing craft, a coastal battery and flak emplacements in the dunes, with fields behind.
 - Three new Daily Sortie air encounters (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): DUNE SWEEP in the desert, RIDGE SWEEP in the forest, WHITEOUT RAID in the winter.
 - On about three Daily Sortie days in ten, the mid-level fight is the Raven prototype instead of the Shadow Wing (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot on five kits): the old hull's fly-by, then a duel with fewer hit points and a shorter stay than the end boss.
 - The Daily Sortie's end boss The Moth has a stronger form (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot on five kits): a quarter more hit points, a third dust attack that fans a wide curtain over the screen below it, a longer blackout (laser out and view clouded 40 % longer after a hit) and shorter waits between sprays.
