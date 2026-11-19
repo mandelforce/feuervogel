@@ -73,7 +73,7 @@ const FLY = `(function (spec, diff, bot, bseed, mortal, deadMin) {
     if (!run.sortie || run.sortie.level !== L0) { end = 'next:' + (run.sortie ? run.sortie.level : 0); break; }
     f = gf - f0;
     for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); spawns++; const s = e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.y); for (let i = 0; i < s.length; i++) sh = Math.imul(sh ^ s.charCodeAt(i), 16777619); }
-    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing') wing = true; else encs.push([L.id, L.why, L.dropped | 0]); }
+    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing' || L.id === 'ravenmid') wing = true; else encs.push([L.id, L.why, L.dropped | 0]); }
     const boss = world.enemies.find(function (e) { return e.type === 'boss'; });
     if (boss && bossF < 0) { bossF = f; livesAtBoss = run.lives; close(f); }
     if (bossF >= 0 && deadF < 0 && boss && boss.dying) deadF = f;

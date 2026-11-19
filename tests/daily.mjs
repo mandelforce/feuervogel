@@ -83,7 +83,7 @@ const FLY = (kit, date) => `(() => { SF.setMode('immortal'); SF.start(1, 1); let
   startDaily('${date}'); SF.human(8, 15); const S = run.sortie, seen = new WeakSet(), spawns = [], encs = []; let end = 'cap', last = null, wing = false, elig = false, rec = null, bossF = -1, f = 0, score = 0;
   for (let i = 0; i < 14000; i++) { const st = SF.run(10); f += 10; if (st !== 'ok') { end = st; break; } score = run.score;
     for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); spawns.push(e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.y)); }
-    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing') wing = true; else encs.push(L.id + ':' + L.why + ':' + L.dropped); }
+    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing' || L.id === 'ravenmid') wing = true; else encs.push(L.id + ':' + L.why + ':' + L.dropped); }
     if (lbEligible()) elig = true; if (bossF < 0 && world.bossSpawned) bossF = f; if (i === 300) { snapNow(); saveResume(); rec = JSON.parse(localStorage.getItem('starfall-resume') || 'null'); }
     if (i % 36 === 0) world.parts.length = Math.min(world.parts.length, 300); }
   rrPost = rp; const st = Object.values(SF.R.stages)[0] || {};

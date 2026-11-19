@@ -4864,6 +4864,7 @@ const KITS = {
     enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], main_farm: [{ id: 'anvil', at: 0, end: 1, frames: 1080, first: true }, { id: 'formations', at: 1, end: 1, frames: 720, last: true }] } },
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
+const RAVEN_MID_SHARE = 0.3; /* the share of days whose mid-level fight is the Raven prototype */
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
@@ -5065,6 +5066,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
+    if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); else if (bs && bs.track) S.arenaTracks = [].concat(bs.track); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
     if (!check(kitId, S).length) return S;
@@ -11218,7 +11220,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     // isles: level 1, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
     gen: city ? 6 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : level === 5 ? 5 : 0, seq: one, isles: one, // levels 2 and 3: their own ground too (spec 18, 16.z)
     bossAt: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, arcLen: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, // level 3: the supergun 3 chunks into its arena, as in the Campaign
-    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), ...(C && C.bossVar ? { bossVar: C.bossVar } : null), ...(C && C.arenaSea ? { arenaSea: true, legacyTail: C.legacyTail | 0 } : null), ...(C && C.kit === 'temperate' ? { straight: true } : null), /* (the temperate kit's old land: straight roads on the built-up grounds, plan 12.20) */ name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
+    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), ...(C && C.bossVar ? { bossVar: C.bossVar } : null), ...(C && C.ravenMid ? { ravenMid: true } : null), ...(C && C.arenaSea ? { arenaSea: true, legacyTail: C.legacyTail | 0 } : null), ...(C && C.kit === 'temperate' ? { straight: true } : null), /* (the temperate kit's old land: straight roads on the built-up grounds, plan 12.20) */ name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
@@ -12660,7 +12662,7 @@ function directorInner() {
   const b = biomeAtSpawn();
   const big = !ttOn() && world.enemies.some(e => e.big && !e.dead); // (the Campaign's timetable doesn't wait for a big enemy to die)
   if (!world.midDone && !world.enc && qTop >= (run.sortie && (run.sortie.wingU || WING_U[run.sortie.level]) ? (run.sortie.wingU || WING_U[run.sortie.level]) * Math.round(37 * STAGE_LEN) : Math.round(14 * STAGE_LEN)) * arcScale()) { // the Shadow Wing, after any encounter and its rest
-    if (!run.sortie) { world.midDone = true; spawnWing(); } else { ttSeed(16); if (encStart('wing')) world.midDone = true; } } // (the Campaign: as its own encounter; Retro Run as it always was)
+    if (!run.sortie) { world.midDone = true; spawnWing(); } else { ttSeed(16); if (encStart(run.sortie.ravenMid ? 'ravenmid' : 'wing')) world.midDone = true; } } // (the Campaign: as its own encounter; Retro Run as it always was)
   for (const pc of [-Math.floor((-36 - sc) / CH), -Math.floor((-36 - sc) / CH) + 1]) {
     const I = info(pc);
     if (!I.river || I.b !== 'country' || bridgeSpawned.has(pc)) continue;
@@ -12948,7 +12950,10 @@ const ENC = {
     { t: 560, do: 'chase' },
     { t: 820, do: 'pod', x: 0.5, own: false }] },
   wing: { name: 'SHADOW WING', start: 'wing', len: 2600, max: 3200, rest: 180, holds: {}, ev: [
-    { t: 0, do: 'wing' }] }
+    { t: 0, do: 'wing' }] },
+  /* A Daily Sortie's mid-level fight in place of the Shadow Wing (plan 12.22, owner decision 12.4 point 5): the Raven prototype on the pattern of the Wing (one big enemy, the encounter runs until it is gone) and of the prototype's own scenes: first its fly-by (the old hull passes up the screen), then the duel, with fewer hit points than the boss and a shorter stay. */
+  ravenmid: { name: 'RAVEN PROTOTYPE', start: 'wing', len: 2900, max: 3600, rest: 180, holds: {}, ev: [
+    { t: 0, do: 'ravenfly' }, { t: 260, do: 'ravenduel' }] }
 };
 // A level's encounters at set places (owner's level layouts, section 7b of the plan): each starts once the spawn line reaches chunk c of the
 // level (or as soon after as it may), and is given up past chunk until. live: in every Campaign run (owner: First Contact's formations are
@@ -12983,6 +12988,8 @@ const ENC_VERB = {
     return false; },
   convoy: () => { if (!ENC_LAND.includes(biomeAtSpawn())) return false; convoy(-34 - Math.floor(world.scroll), false); return false; }, // tanks on the road or route below (none where there is none: retried)
   wing: () => { spawnWing(); return true; },
+  ravenfly: () => { world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true })); world.later.push({ at: gf + 20, fn: boostOutSfx }); return true; }, /* (the Raven's fly-by, as the Campaign's first pass) */
+  ravenduel: () => { spawnProtoDuel(null, { hpK: 0.75, stay: 1500, mid: true }); return true; },
   sweep: v => { world.enemies.push(mkFighter(v.side < 0 ? -12 : W + 12, 30, v.side < 0 ? 0.3 : PI - 0.3, 2, { turn: v.side < 0 ? 0.0065 : -0.0065 })); return true; }, // one plane of a sweep (as waveSweep), from side v.side
   ship: v => seaShip(v),
   strafer: (v, E0) => { if (v.i === 0 || E0.side === undefined) E0.side = ttOn() ? (Math.random() < 0.5 ? -1 : 1) : player.x > W / 2 ? -1 : 1; const sd = E0.side; // one plane of a strafing run (as waveStrafe), from the side the ship is not on
@@ -13128,7 +13135,7 @@ function sowerTick(sc) {
   const z = S.sowerZ || (S.sowerZ = { cd: SOWER.first, n: 0 }), live = ttOn() ? ttCount('sower') > 0 : world.enemies.some(e => e.type === 'sower' && !e.dead); // (the Campaign: its ghost, alive or shot)
   if (live) { z.cd = SOWER.gap; return; }
   if (world.enc && (world.enc.id === 'valleyconvoy' || world.enc.id === 'cliffbattery')) { if (z.cd < 300) z.cd = 300; return; } /* (level 4's first loop: no Sower comes while the Cliff Battery or the valley convoy is on) */
-  if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead)) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
+  if (ttOn() ? !!(world.enc && world.enc.id === 'wing' && world.enc.st !== 'rest') : world.enemies.some(w => w.type === 'wing' && !w.dead) || (world.enc && world.enc.id === 'ravenmid')) { if (z.cd < 60) z.cd = 60; return; } // the Shadow Wing and the Sower never share the screen
   if (biomeAtSpawn() !== 'forest') { if (z.cd < SOWER.first) z.cd = SOWER.first; return; }
   if (--z.cd <= 0) { const hp = SOWER.hp * (1 + 0.3 * run.loop) * DIFF.hp[settings.diff] * (settings.diff === 0 ? 1.5 : 1), side = ttOn() ? (z.n % 2 ? W / 2 - SOWER.laneX : W / 2 + SOWER.laneX) : player && !player.dead && player.x < W / 2 ? W / 2 + SOWER.laneX : W / 2 - SOWER.laneX; // (the Campaign: right, then left)
     world.enemies.push(E('sower', { x: side, y: H + 50, side, hp, maxhp: hp, big: true, air: true, up: true })); /* (up: kept while it is still below the screen) */ z.n++; sfx('drone'); z.cd = SOWER.gap; }
@@ -15248,13 +15255,13 @@ function spawnProtoFly() {
   } else world.enemies.push(E('protoFly', { x: 70, y: H + 60, keep: true, up: true, ghost: true, untarget: true, weak: protoLvl() >= 1 })); // (the first pass: the old hull alone, with a smoke trail if it carries damage from level 4)
   world.later.push({ at: gf + 20, fn: boostOutSfx });
 }
-function spawnProtoDuel(done) {
-  const base = 260 * hpm() * DIFF.boss[settings.diff], hp = Math.max(base * 0.6, base - run.proto.dmg * 0.45);
+function spawnProtoDuel(done, mid) { /* mid: a mid-level duel (the Daily Sortie's Raven encounter): its own hit points and stay, never the looped pair, no health bookkeeping of the Campaign's story */
+  const base = 260 * hpm() * DIFF.boss[settings.diff] * (mid ? mid.hpK : 1), hp = mid ? base : Math.max(base * 0.6, base - run.proto.dmg * 0.45);
   const wk = 120 * hpm() * DIFF.boss[settings.diff], mk = o => E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true }, o)); // (the weakened old hull has 120 health, scaled like the others by the loop and the difficulty)
   // the looped levels: the weakened old hull (120 health, always smoking, a thruster throwing sparks, no lunge or missile, few bullets, no health bar of its own) and The Moth fight together, on opposite sides of the sky
-  const es = mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, under: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
+  const es = mid ? [mk({ hp, maxhp: hp, stay: mid.stay })] : mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, under: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
   for (const e of es) world.enemies.push(e);
-  world.duelWatch = { e: es[0], es, done }; sfx('flyin');
+  if (!mid) world.duelWatch = { e: es[0], es, done }; sfx('flyin');
 }
 function drawProtoPlane(e, rot, sc, flames) {
   const P = protoSpr(e), lvl = e.weak ? 3 : protoLvl(), w = P.w * sc, h = P.h * sc;
