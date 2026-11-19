@@ -12821,7 +12821,7 @@ function spawnWave(b, big) {
 // threatening part counted: the encounter is done when its schedule is out and those are killed or gone (or at max, a safety cap), then
 // rests. While it exists, the normal timers named in holds stay frozen and resume from the same value. Its state is plain data on world
 // (world.enc, world.encLast), so snapshots and replays keep it. In the Campaign the director opens the Shadow Wing's (ENC.wing); the others start only by encStart (tests) or the test link (?enc).
-const TT_ENC = { firstcontact: 1364, formations: 720, wing: 2864, anvil: 1080, flaklane: 1140, bomberscreen: 1140, sowerwindow: 1700, oasisambush: 1000, burningfield: 900, fuelconvoy: 1100, refineryraid: 1000, searchnet: 1000, nightconvoy: 1100 }; // the Campaign's timetable: each encounter's length in frames (the live ones: today's median against the bot; the test link's: its len plus 300)
+const TT_ENC = { firstcontact: 1364, formations: 720, wing: 2864, ravenmid: 2300, anvil: 1080, flaklane: 1140, bomberscreen: 1140, sowerwindow: 1700, oasisambush: 1000, burningfield: 900, fuelconvoy: 1100, refineryraid: 1000, searchnet: 1000, nightconvoy: 1100 }; // the Campaign's timetable: each encounter's length in frames (the live ones: today's median against the bot; the test link's: its len plus 300)
 const ENC_LAND = ['country', 'forest', 'base', 'fortline', 'castle', 'city', 'factory']; // biomes with ground for guns (not sea, coast or a boss's land)
 const ENC = {
   // The Anvil: a Heavy that stops at 28% of the screen and holds for 8 s (it reaches its place at about frame 200), firing as usual, while
