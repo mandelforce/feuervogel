@@ -2582,13 +2582,21 @@ function islands(o) {
       for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) set(x, y, K.ROAD, -1); } }
     const fortSpot = (a, b, ok) => { for (let k = 0; k < 6; k++) { const cx = lerp(24, W - 24, rnd(T.ISLE, 920 + k, a)), cy = lerp(a, b, rnd(T.ISLE, 930 + k, a)), r = near(14, 14, cx, cy, 30, (x, y) => ok(x + 7, y + 7)); if (r) return [r[0] + 7, r[1] + 7]; } return null; };
     const farSide = (x, y) => Math.abs(x - plan.mx[Math.min(L - 1, y)]) > 16;
+    const yAtD = (x, d) => { for (let y = M0; y < L; y++) { const i = idx(x, y); if (land[i] === 1 && dL[i] >= d) return y; } return -1; }; /* (the row where column x is d px inland of the waterline) */
+    const gapFill = (a, b, minD, blk0) => { let blk = blk0, n = 0; const ok = (x, y) => free(x, y) && dL[idx(x, y)] >= minD; /* (fields into every free space big enough: a rectangle grown from its first free cell, at most 70 x 40) */
+      for (let y = a; y < b - 10; y += 4) for (let x = 0; x < W; x += 4) { if (!ok(x, y)) continue; let w = 0; while (w < 70 && x + w < W && ok(x + w, y)) w++; if (w < 18) continue;
+        let h = 1; while (h < 40 && y + h < b - 2) { let all = true; for (let xx = x; xx < x + w; xx += 2) if (!ok(xx, y + h)) { all = false; break; } if (!all) break; h++; }
+        if (h >= 14 && w * h >= 300) { parcel(x, y, w, h, blk++); n++; } } return n; };
     plan.mainland = { y0: M0, stretches: mains.map(m => ({ t: m.t, y0: m.y0, y1: m.y1, bunkers: 0, pits: 0, farms: 0, wood: 0, fields: 0 })) };
     for (const m of mains) { const a = m.y0, b = m.y1, n = m.n, rec = plan.mainland.stretches[mains.indexOf(m)];
       if (m.t === 'main_shore') { const got = [];
-        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 40, b - 20, (x, y) => dL[idx(x, y)] >= 6 && dL[idx(x, y)] < 40 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 34)); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } }
-        if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 6); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } } /* (the shore always has one) */
-        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 36, b - 10, (x, y) => dL[idx(x, y)] >= 5 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 28)); if (c) { gunPit(c[0], c[1]); got.push(c); rec.pits++; } }
-        for (let k = 0; k < 6; k++) { const cx = lerp(16, W - 16, (k + rnd(T.ISLE, 940 + k)) / 6), cy = a + 34 + rnd(T.ISLE, 950 + k) * 24, r = near(12, 8, cx, cy, 16, (x, y) => dL[idx(x + 6, y + 4)] >= 4 && dL[idx(x + 6, y + 4)] <= 11 && farSide(x + 6, y + 4)); if (r) building('works', r[0] + 1, r[1] + 1, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); } }
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 40, b - 20, (x, y) => dL[idx(x, y)] >= 24 && dL[idx(x, y)] < 44 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 34)); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } }
+        if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 12); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } } /* (the shore always has one) */
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 36, b - 10, (x, y) => dL[idx(x, y)] >= 20 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 28)); if (c) { gunPit(c[0], c[1]); got.push(c); rec.pits++; } }
+        for (let k = 0; k < 6; k++) { const cx = lerp(16, W - 16, (k + rnd(T.ISLE, 940 + k)) / 6), cy = a + 34 + rnd(T.ISLE, 950 + k) * 24, r = near(12, 8, cx, cy, 16, (x, y) => dL[idx(x + 6, y + 4)] >= 13 && dL[idx(x + 6, y + 4)] <= 19 && farSide(x + 6, y + 4)); if (r) building('works', r[0] + 1, r[1] + 1, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); }
+        for (const d of [8, 11]) { let run = []; for (let x = 0; x < W; x++) { const y0 = yAtD(x, d); if (y0 < 0 || y0 >= b || Math.abs(x - plan.mx[y0]) < 12) { if (run.length > 3) plan.wires.push(run); run = []; continue; } run.push([x, y0 + Math.round(1.5 * Math.sin(x * 0.4))]); } if (run.length > 3) plan.wires.push(run); } /* (two lines of wire along the waterline, a gap where the road comes up) */
+        for (let x = 0; x < W; x++) { const y0 = yAtD(x, 23); if (y0 < 0 || y0 >= b - 2 || Math.abs(x - plan.mx[y0]) < 10) continue; const yt = y0 + Math.round(Math.abs(((x / 7) % 2) - 1) * 4 - 2); for (const y of [yt, yt + 1]) if (free(x, y)) set(x, y, K.TRENCH, -1); } /* (a fire trench behind the casemates, in zigzag bays) */
+        rec.fields += gapFill(a + 70, b, 46, 650); }
       if (m.t === 'main_farm') { let blk = 700 + mains.indexOf(m) * 100;
         for (let k = 0; k < (n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
           if (fm) { const [fx0, fy] = fm, fy0 = fy + 7; fillR(fx0, fy0, 20, 9, K.COURT); building('farmhouse', fx0, fy0 + 9, 10, 7, 'h', 'S'); building('barn', fx0 + 11, fy0 + 9, 9, 10, 'v', 'S', { roof: 2 }); building('barn', fx0, fy0 - 7, 20, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy, w: 20, h: 26 }); rec.farms++;
@@ -2598,11 +2606,13 @@ function islands(o) {
         for (const sd2 of [-1, 1]) { let y = a + 3; while (y < b - 20) { const h = 22 + ((rnd(T.ISLE, 980 + (sd2 > 0 ? 1 : 0), y) * 22) | 0); let x = Math.round(plan.mx[Math.min(L - 1, y + (h >> 1))] + sd2 * 6);
             for (let q = 0; q < 6; q++) { const room = sd2 < 0 ? x : W - x; if (room < 12) break; let w = Math.min(room, 26 + ((rnd(T.ISLE, 990 + q, y * 3 + sd2) * 40) | 0)); if (room - w < 24) w = room; const x0 = sd2 < 0 ? x - w : x; rec.fields += parcel(x0, y, w, Math.min(h, b - 2 - y), blk++) > 0 ? 1 : 0; x += sd2 * w; }
             y += h; } }
+        rec.fields += gapFill(a, b, 0, blk + 40);
         for (let y = a + 4; y < b - 4; y += 15) for (const sd2 of [-1, 1]) if (rnd(T.TREE, y * 5 + sd2, 77) < 0.55) { const x = Math.round(plan.mx[y] + sd2 * 8); if (free(x, y)) tree(x, y, 2, 3); } } /* (poplars along the road) */
       if (m.t === 'main_wood') { for (let k = 0; k < 2; k++) { const c = fortSpot(a + 14, b - 14, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 70); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
         const edge = y => smooth(a, a + 40, y) * (1 - smooth(b - 40, b, y));
         for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { if (!free(x, y) || Math.abs(x - plan.mx[y]) < 8) continue; if (vn(x * 0.05 + 3, y * 0.05 + 5) < 0.1 + 0.52 * edge(y) + (vn(x * 0.2, y * 0.2) - 0.5) * 0.12) { set(x, y, K.MEADOW, -31); rec.wood++; } }
-        for (let y = a; y < b; y += 4) for (let x = 0; x < W; x += 4) { const jx = x + Math.round((rnd(T.TREE, x, y) - 0.5) * 3), jy = y + Math.round((rnd(T.TREE, y, x) - 0.5) * 3); if (inB(jx, jy) && Br[idx(jx, jy)] === -31) tree(jx, jy, 3 + ((rnd(T.TREE, jx + 5, jy) * 2) | 0)); } } }
+        for (let y = a; y < b; y += 4) for (let x = 0; x < W; x += 4) { const jx = x + Math.round((rnd(T.TREE, x, y) - 0.5) * 3), jy = y + Math.round((rnd(T.TREE, y, x) - 0.5) * 3); if (inB(jx, jy) && Br[idx(jx, jy)] === -31) tree(jx, jy, 3 + ((rnd(T.TREE, jx + 5, jy) * 2) | 0)); }
+        rec.fields += gapFill(a, a + 44, 0, 900 + mains.indexOf(m) * 100) + gapFill(b - 44, b, 0, 950 + mains.indexOf(m) * 100); } } /* (the wood's thinning ends: any open space that is big enough is a field) */
   }
   // 7. the islets
   for (const q of isl) {
