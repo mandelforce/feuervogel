@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Three new Daily Sortie air encounters (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): DUNE SWEEP in the desert, RIDGE SWEEP in the forest, WHITEOUT RAID in the winter.
 - On about three Daily Sortie days in ten, the mid-level fight is the Raven prototype instead of the Shadow Wing (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot on five kits): the old hull's fly-by, then a duel with fewer hit points and a shorter stay than the end boss.
 - The Daily Sortie's end boss The Moth has a stronger form (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot on five kits): a quarter more hit points, a third dust attack that fans a wide curtain over the screen below it, a longer blackout (laser out and view clouded 40 % longer after a hit) and shorter waits between sprays.
 - The temperate Daily Sortie's old land now has generator-made ground (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot on all difficulties): after the open sea a fortified shore (bunkers, flak pits, casemates), then farmland with fields of every size, a village and a broadleaf wood in an order that changes from day to day, replace the legacy beach, farmland, village and wood; level 3's town, light estate and searchlight airbase stay as optional stretches before the coast. The Campaign's level 1 is unchanged. **Every temperate day's list changes.**
