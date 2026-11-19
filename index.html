@@ -2042,6 +2042,7 @@ function validate(plan) {
   { const seen = new Uint8Array(W * L), st = []; let tot = 0, got = 0; for (let i = 0; i < W * L; i++) if (Kr[i] === K.ROAD) tot++;
     let y0r = 0; while (y0r < L - 1 && !Kr.subarray(y0r * W, y0r * W + W).includes(K.ROAD)) y0r++; // from the lowest row the tank routes reach (the strip may begin over the sea)
     for (let x = 0; x < W; x++) if (Kr[y0r * W + x] === K.ROAD) { seen[y0r * W + x] = 1; st.push(y0r * W + x); }
+    if (plan.mainland) { let ym = plan.mainland.y0; while (ym < L - 1 && !Kr.subarray(ym * W, ym * W + W).includes(K.ROAD)) ym++; for (let x = 0; x < W; x++) if (Kr[ym * W + x] === K.ROAD && !seen[ym * W + x]) { seen[ym * W + x] = 1; st.push(ym * W + x); } } /* (the mainland's road starts on its own shore, across the sea from the island's) */
     while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
     m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
     for (const R of plan.rivers || []) if (R.island) { const i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
@@ -2927,9 +2928,10 @@ function paintFx(plan, f, img, bx, t, night) { // night: smoke graded as in pain
 // plan.shore: each sea pixel's distance to land (for the surf); plan.pastures: fenced paddocks where the game puts its cows.
 function islands(o) {
   const P = Object.assign({}, PRESETS.islands, o.params || {}), seed = o.seed | 0, W = P.W; /* a segment list (the Daily Sortie's temperate kit): the plan's length and where the bands and the big island lie come from the stretches; without one nothing differs from the Campaign's level 1 */
-  let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
+  const mains = []; let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
       if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : 'arch', p: g.p || null });
-      else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L]; }
+      else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L];
+      else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
     if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
   const L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296;
@@ -2961,6 +2963,8 @@ function islands(o) {
   for (let y = Math.max(0, by0); y <= Math.min(L - 1, by1); y++) { const f = Math.abs((y - by0) / BL * 2 - 1), e = Math.pow(Math.max(0, 1 - f * f * f), 1 / 3), hw = P.bigW / 2 * e;
     const a = bc(y) - hw + 5 * Math.sin(y * 0.031 + ph2) + 3 * Math.sin(y * 0.09 + ph), b = bc(y) + hw + 5 * Math.sin(y * 0.027 + ph) + 3 * Math.sin(y * 0.11 + ph2);
     for (let x = Math.max(0, Math.ceil(a)); x <= Math.min(W - 1, Math.floor(b)); x++) land[idx(x, y)] = 1; }
+  const M0 = mains.length ? mains[0].y0 : L, shY = x => M0 + 24 + 9 * Math.sin(x * 0.035 + ph) + 5 * Math.sin(x * 0.11 + ph2) + 6 * Math.sin(x * 0.013 + 1);
+  if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < L; y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end, its beach and its grass from the steps below) */
   const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
   const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10] };
   BK.forEach((bd, bi) => { const T0 = bi * 1000, lx = Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
@@ -3074,6 +3078,53 @@ function islands(o) {
         fillR(px0, py, 20, 16, K.BANK); fillR(px0 + 3, py + 3, 17, 10, K.APRON); slot('parked', 'pen', px0 + 11, py + 8, 6); }
       for (const [gx, gy] of [[rwX + 18, ra0 - 4], [rwX - 4, ra1 + 2], [apx1 + 10, apY0 - 12], [txX + 14, ra1 - 22], [rwX - 20, mid]]) if (rectFree(gx - 7, gy - 7, 14, 14)) gunPit(gx, gy);
       plan.airbase = { rx: rwX, rw: 20, y0: ra0, y1: ra1, tx: txX, ap: [txX + 4, apY0, apx1 + 22, apY1], hangars: hg.length }; } }
+  // 6b. the mainland (a segment list with main_ stretches, plan 12.21): land from the shore to the plan's end. One main road winds through all of it (mxM; the village's own road is made to
+  // match it, the rest is laid here). main_shore: the fortified beach (bunkers, flak pits, casemates behind the surf); main_farm: fields of every size either side of the road, farmsteads,
+  // paddocks, a pond, poplars along the road; main_village: the village preset generated on its own and copied in whole, offsets for its items, streets, parcels and churches as stackPlans has them;
+  // main_wood: a broadleaf wood in clumps with clearings, flak sites in the clearings.
+  if (mains.length) {
+    const phM = rnd(T.ISLE, 91) * 6.283, mxM = y => clamp(W / 2 + 22 * Math.sin(y * 0.0045 + phM) + 2.5 * Math.sin(y * 0.021 + phM), 60, W - 60), upk = ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax'];
+    const vil = mains.find(m => m.t === 'main_village'), inVil = y => !!vil && y >= vil.y0 && y < vil.y1; let vOffA = 0, vOffB = 0;
+    if (vil) { const VLm = vil.y1 - vil.y0, vy = vil.y0, fr = 0.0045, v = generate({ seed: h32(seed, 177), preset: 'village', params: { L: VLm, road: { c: W / 2, amp: 22, fr, ph: phM + fr * vy }, damage: 0, density: [[0, 0.1], [0.3, 0.4], [0.6, 0.45], [0.85, 0.3], [1, 0.1]] } });
+      const nI = plan.items.length, nS = plan.streets.length, nP = plan.parcels.length, up = q => { const r = Object.assign({}, q); for (const k of upk) if (typeof r[k] === 'number') r[k] += vy; return r; };
+      for (let y = 0; y < VLm; y++) for (let x = 0; x < W; x++) { const j = y * W + x, yy = y + vy; if (!inB(x, yy)) continue; const i = idx(x, yy); let k = v.K[j], b = v.B[j]; if (k === K.NONE) k = K.MEADOW; if (b >= 0) b += nI; else if (b <= -2 && (k === K.ROAD || k === K.STREET || k === K.WALK || k === K.BRIDGE)) b -= nS; Kr[i] = k; Br[i] = b; F[i] = k === K.FIELD && v.F[j] >= 0 ? v.F[j] + nP : -1; }
+      const chs = new Map(), nC = plan.churches.length; v.churches.forEach(c => chs.set(c, Object.assign(up(c), c.parts ? { parts: c.parts.map(p => p + nI) } : {}))); plan.churches.push(...chs.values());
+      for (const it of v.items) { const r = up(it); r.id = it.id + nI; if (typeof r.run === 'number' && r.run < 0) r.run -= 1e6; if (it.church) r.church = chs.get(it.church); plan.items.push(r); }
+      for (const st of v.streets) { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + vy, p[2]]); plan.streets.push(r); }
+      for (const pc of v.parcels) plan.parcels.push(Object.assign(up(pc), { block: pc.block + 400 })); for (const f of v.farms) plan.farms.push(up(f)); for (const q of v.parks) plan.parks.push(up(q)); for (const q of v.squares) plan.squares.push(up(q));
+      for (const t of v.trees) { const y = t.y + vy; if (inB(t.x, y) && land[idx(t.x, y)] === 1 && Kr[idx(t.x, y)] !== K.BEACH) plan.trees.push(Object.assign({}, t, { y })); }
+      for (const l of v.lots) plan.lots.push(up(l)); for (const sl of v.slots) { const r = up(sl); if (r.item !== undefined) r.item += nI; plan.slots.push(Object.assign(r, { id: plan.slots.length })); }
+      for (let y = 0; y < VLm; y++) { plan.mx[y + vy] = v.mx[y]; plan.aw[y + vy] = v.aw[y]; plan.U[y + vy] = v.U[y]; }
+      vOffA = v.mx[0] - mxM(vy); vOffB = v.mx[VLm - 1] - mxM(vy + VLm - 1); plan.mainVillage = { y0: vy, y1: vil.y1 - 1, items: v.items.length, farms: v.farms.length, nC }; }
+    const mAt = y => { let m = mxM(y); if (vil) { m += vOffA * smooth(vil.y0 - 150, vil.y0, y) * (y < vil.y0 ? 1 : 0) + vOffB * (1 - smooth(vil.y1, vil.y1 + 150, y)) * (y >= vil.y1 ? 1 : 0); } return m; };
+    for (let y = M0; y < L; y++) if (!inVil(y)) { plan.mx[y] = mAt(y); plan.aw[y] = 8; }
+    const roadSt = () => { const st = { cls: 'arterial', axis: 'v', tank: true, pts: [], island: true, id: plan.streets.length }; plan.streets.push(st); return st; };
+    for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt();
+      for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) set(x, y, K.ROAD, -1); } }
+    const fortSpot = (a, b, ok) => { for (let k = 0; k < 6; k++) { const cx = lerp(24, W - 24, rnd(T.ISLE, 920 + k, a)), cy = lerp(a, b, rnd(T.ISLE, 930 + k, a)), r = near(14, 14, cx, cy, 30, (x, y) => ok(x + 7, y + 7)); if (r) return [r[0] + 7, r[1] + 7]; } return null; };
+    const farSide = (x, y) => Math.abs(x - plan.mx[Math.min(L - 1, y)]) > 16;
+    plan.mainland = { y0: M0, stretches: mains.map(m => ({ t: m.t, y0: m.y0, y1: m.y1, bunkers: 0, pits: 0, farms: 0, wood: 0, fields: 0 })) };
+    for (const m of mains) { const a = m.y0, b = m.y1, n = m.n, rec = plan.mainland.stretches[mains.indexOf(m)];
+      if (m.t === 'main_shore') { const got = [];
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 40, b - 20, (x, y) => dL[idx(x, y)] >= 6 && dL[idx(x, y)] < 40 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 34)); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } }
+        if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 6); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } } /* (the shore always has one) */
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 36, b - 10, (x, y) => dL[idx(x, y)] >= 5 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 28)); if (c) { gunPit(c[0], c[1]); got.push(c); rec.pits++; } }
+        for (let k = 0; k < 6; k++) { const cx = lerp(16, W - 16, (k + rnd(T.ISLE, 940 + k)) / 6), cy = a + 34 + rnd(T.ISLE, 950 + k) * 24, r = near(12, 8, cx, cy, 16, (x, y) => dL[idx(x + 6, y + 4)] >= 4 && dL[idx(x + 6, y + 4)] <= 11 && farSide(x + 6, y + 4)); if (r) building('works', r[0] + 1, r[1] + 1, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); } }
+      if (m.t === 'main_farm') { let blk = 700 + mains.indexOf(m) * 100;
+        for (let k = 0; k < (n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
+          if (fm) { const [fx0, fy] = fm, fy0 = fy + 7; fillR(fx0, fy0, 20, 9, K.COURT); building('farmhouse', fx0, fy0 + 9, 10, 7, 'h', 'S'); building('barn', fx0 + 11, fy0 + 9, 9, 10, 'v', 'S', { roof: 2 }); building('barn', fx0, fy0 - 7, 20, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy, w: 20, h: 26 }); rec.farms++;
+            const pd = near(34, 22, fx0 + 10 + s * 28, fy + 10, 46, (x, y) => farSide(x + 17, y + 11)); if (pd) { fillR(pd[0], pd[1], 34, 22, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + 33, y1: pd[1] + 21, n: 4 }); } } }
+        if (rnd(T.ISLE, 970, a) < 0.6) { const s = rnd(T.ISLE, 971, a) < 0.5 ? -1 : 1, px = Math.round(plan.mx[(a + b) >> 1] + s * 60), py = Math.round(a + (b - a) * (0.3 + rnd(T.ISLE, 972, a) * 0.4)), prx = 10, pry = 6; if (rectFree(px - prx - 2, py - pry - 2, 2 * prx + 4, 2 * pry + 4)) { for (let y = py - pry; y <= py + pry; y++) for (let x = px - prx; x <= px + prx; x++) if (Math.hypot((x + 0.5 - px) / prx, (y + 0.5 - py) / pry) < 1 && free(x, y)) set(x, y, K.WATER, -7); tree(px + s * (prx + 3), py + 2, 4, 1); plan.pond = plan.pond || { x: px, y: py, rx: prx, ry: pry }; } }
+        for (let k = 0; k < Math.max(1, n >> 1); k++) { const c = fortSpot(a + 10 + k * (b - a) / Math.max(1, n >> 1), a + (k + 1) * (b - a) / Math.max(1, n >> 1) - 10, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 60); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        for (const sd2 of [-1, 1]) { let y = a + 3; while (y < b - 20) { const h = 22 + ((rnd(T.ISLE, 980 + (sd2 > 0 ? 1 : 0), y) * 22) | 0); let x = Math.round(plan.mx[Math.min(L - 1, y + (h >> 1))] + sd2 * 6);
+            for (let q = 0; q < 6; q++) { const room = sd2 < 0 ? x : W - x; if (room < 12) break; let w = Math.min(room, 26 + ((rnd(T.ISLE, 990 + q, y * 3 + sd2) * 40) | 0)); if (room - w < 24) w = room; const x0 = sd2 < 0 ? x - w : x; rec.fields += parcel(x0, y, w, Math.min(h, b - 2 - y), blk++) > 0 ? 1 : 0; x += sd2 * w; }
+            y += h; } }
+        for (let y = a + 4; y < b - 4; y += 15) for (const sd2 of [-1, 1]) if (rnd(T.TREE, y * 5 + sd2, 77) < 0.55) { const x = Math.round(plan.mx[y] + sd2 * 8); if (free(x, y)) tree(x, y, 2, 3); } } /* (poplars along the road) */
+      if (m.t === 'main_wood') { for (let k = 0; k < 2; k++) { const c = fortSpot(a + 14, b - 14, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 70); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        const edge = y => smooth(a, a + 40, y) * (1 - smooth(b - 40, b, y));
+        for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { if (!free(x, y) || Math.abs(x - plan.mx[y]) < 8) continue; if (vn(x * 0.05 + 3, y * 0.05 + 5) < 0.1 + 0.52 * edge(y) + (vn(x * 0.2, y * 0.2) - 0.5) * 0.12) { set(x, y, K.MEADOW, -31); rec.wood++; } }
+        for (let y = a; y < b; y += 4) for (let x = 0; x < W; x += 4) { const jx = x + Math.round((rnd(T.TREE, x, y) - 0.5) * 3), jy = y + Math.round((rnd(T.TREE, y, x) - 0.5) * 3); if (inB(jx, jy) && Br[idx(jx, jy)] === -31) tree(jx, jy, 3 + ((rnd(T.TREE, jx + 5, jy) * 2) | 0)); } } }
+  }
   // 7. the islets
   for (const q of isl) {
     const on = (x, y, m) => inB(x, y) && land[idx(x, y)] === q.id + 2 && Kr[idx(x, y)] === K.MEADOW && Br[idx(x, y)] === -1 && dL[idx(x, y)] >= m, pts = [];
@@ -4787,7 +4838,7 @@ const KITS = {
   /* the temperate kit (level 1, plan 12.20): from the carrier over the open sea, bands of islets (the Campaign's chain, a ring of fortress islets, an archipelago of homes and rocks), the large island with the village and the airbase,
      then the old land, painted as level 1's own legacy chunks (a fortified beach, farmland, a village, a wood, a coast, the open sea the ship fights on). The plan is the generator's segment-native islands up to the beach (S.legacyTail
      is the old land after it); every sortie of the kit ends over open sea. The old land's order is its own small walk (kit.legacy). */
-  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [30, 42], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
+  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [28, 40], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
     opener: [['carrier_start', 4], ['open_sea', 6]], approach: [['open_sea', 3]],
     middle: {
       island_chain: { len: [5, 7], max: 2, heat: 0.5, built: 0.1 },
@@ -4804,11 +4855,12 @@ const KITS = {
       island_airbase: ['open_sea'] },
     minMiddle: 3,
     fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
-    legacy: { open: [['beach_fortified', 3]], close: [['coast_down', 1], ['open_sea', 4]], len: [20, 30], minMiddle: 2,
-      middle: { farmland: { len: [6, 10], max: 2, heat: 0.3 }, village: { len: [3, 5], max: 1, heat: 0.6 }, forest_deciduous: { len: [3, 5], max: 1, heat: 0.4 },
+    main: { open: [['main_shore', 3]], middle: { main_farm: { len: [4, 7], max: 2, heat: 0.3 }, main_village: { len: [3, 5], max: 1, heat: 0.6 }, main_wood: { len: [3, 5], max: 1, heat: 0.4 } }, len: [16, 22], minMiddle: 3 }, /* (the mainland after the open sea: generator-made ground, plan 12.21: a fortified shore, farmland, a village and a wood, as stretches the walk reorders) */
+    legacy: { open: [], close: [['coast_down', 1], ['open_sea', 4]], len: [5, 17], minMiddle: 0, pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
+      middle: {
         city_small: { len: [3, 5], max: 1, heat: 0.6 }, industrial_light: { len: [4, 6], max: 1, heat: 0.5 }, airbase_searchlight: { len: [5, 6], max: 1, heat: 0.6 } }, /* (shared pieces, plan 12.20: level 3's legacy town and works ground, a town and a light industrial estate, in level 1's old land) */
-      follows: (() => { const all = ['farmland', 'village', 'forest_deciduous', 'city_small', 'industrial_light', 'airbase_searchlight'], f = { beach_fortified: all.slice() }; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'city_small' && q === 'industrial_light') && !(t === 'industrial_light' && q === 'city_small')); return f; })() }, /* (the town and the estate do not follow each other: their straight roads lie on grids of different widths, 56 and 64 px) */
-    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], farmland: [{ id: 'anvil', at: 1, end: 3, frames: 1080, first: true }, { id: 'formations', at: 1, end: 2, frames: 720, last: true }] } },
+      follows: (() => { const all = ['city_small', 'industrial_light', 'airbase_searchlight'], f = {}; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'city_small' && q === 'industrial_light') && !(t === 'industrial_light' && q === 'city_small')); return f; })() }, /* (the town and the estate do not follow each other: their straight roads lie on grids of different widths, 56 and 64 px) */
+    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], main_farm: [{ id: 'anvil', at: 1, end: 3, frames: 1080, first: true }, { id: 'formations', at: 1, end: 2, frames: 720, last: true }] } },
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
@@ -4841,20 +4893,30 @@ function checkLegacy(L, tail) {
   const bad = [], t = tail.map(g => [g.t, g.n]), no = L.open.length, nc = L.close.length;
   if (t.length < no + nc) return ['the old land is too short: ' + J2(t)];
   L.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('old land opens with ' + J2(t[k]) + ', not ' + J2(q)); }); L.close.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('old land closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
-  const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (L.minMiddle || 1)) bad.push('old land: only ' + mid.length + ' middle stretches');
+  const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (L.minMiddle === undefined ? 1 : L.minMiddle)) bad.push('old land: only ' + mid.length + ' middle stretches');
   mid.forEach((q, k) => { const m = L.middle[q[0]]; if (!m) { bad.push(q[0] + ' is not an old-land template'); return; } cnt[q[0]] = (cnt[q[0]] || 0) + 1; if (q[1] < m.len[0] || q[1] > m.len[1]) bad.push(q[0] + ' at ' + q[1] + ' chunks, outside ' + m.len.join('..'));
-    const prev = k ? mid[k - 1][0] : L.open[L.open.length - 1][0]; if (!(L.follows[prev] || []).includes(q[0])) bad.push(q[0] + ' may not follow ' + prev); });
+    const prev = k ? mid[k - 1][0] : L.open.length ? L.open[L.open.length - 1][0] : null; if (prev && !(L.follows[prev] || []).includes(q[0])) bad.push(q[0] + ' may not follow ' + prev); });
   for (const q in cnt) if (cnt[q] > L.middle[q].max) bad.push(q + ' ' + cnt[q] + ' times in the old land');
   const sum = t.reduce((a, q) => a + q[1], 0); if (sum < L.len[0] || sum > L.len[1]) bad.push('old land of ' + sum + ' chunks, outside ' + L.len.join('..'));
   return bad;
 }
+/* The mainland of a kit (kit.main): generator-made land stretches after the plan's approach, in the plan's own list (S.segs entries with main: true) */
+function checkMain(M, list) {
+  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length; if (t.length < no) return ['the mainland is too short: ' + J2(t)];
+  M.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('the mainland opens with ' + J2(t[k]) + ', not ' + J2(q)); });
+  const mid = t.slice(no), cnt = {}; if (mid.length < (M.minMiddle || 1)) bad.push('mainland: only ' + mid.length + ' middle stretches');
+  mid.forEach((q, k) => { const m = M.middle[q[0]]; if (!m) { bad.push(q[0] + ' is not a mainland template'); return; } cnt[q[0]] = (cnt[q[0]] || 0) + 1; if (q[1] < m.len[0] || q[1] > m.len[1]) bad.push(q[0] + ' at ' + q[1] + ' chunks, outside ' + m.len.join('..')); if (k && mid[k - 1][0] === q[0]) bad.push(q[0] + ' twice in a row'); });
+  for (const q in cnt) if (cnt[q] > M.middle[q].max) bad.push(q + ' ' + cnt[q] + ' times in the mainland');
+  const sum = t.reduce((a, q) => a + q[1], 0); if (sum < M.len[0] || sum > M.len[1]) bad.push('mainland of ' + sum + ' chunks, outside ' + M.len.join('..'));
+  return bad;
+}
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
-  const all = S.segs || [], segs = all.filter(g => !g.legacy), tail = all.filter(g => g.legacy); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
+  const all = S.segs || [], segs = all.filter(g => !g.legacy && !g.main), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
-  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at; if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
-    if (S.len !== at + tl) bad.push('len ' + S.len + ', segments ' + (at + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
+  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL)); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
+    if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
   O.forEach((q, k) => { const g = segs[k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('opener ' + k + ' is not ' + q.join(' ')); });
   A.forEach((q, k) => { const g = segs[segs.length - A.length + k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('approach ' + k + ' is not ' + q.join(' ')); });
@@ -4877,8 +4939,8 @@ function check(kitId, S) {
     for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
-  { const tot = kit.legacy ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
-  enc.forEach(e => { const g = (kit.legacy ? all : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
+  { const tot = kit.legacy || kit.main ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
+  enc.forEach(e => { const g = (kit.legacy || kit.main ? all : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
     if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
     spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
@@ -4972,22 +5034,32 @@ const FLAVOURS = ['plain', 'rank', 'variant', 'loop'], FLAVOUR_WEIGHT = { plain:
 const LOOP_PARAMS = { temperate: { burn: true }, desert: { variant: 1 }, forest: { autumn: 1, lakes: 1 }, winter: { variant: 1 }, city: { harbour6: true } }; /* (the city's loop ground: the first loop's harbour, the shore moved, longer piers, a wider side channel) */
 /* The old land after a plan (kit.legacy): opening stretches, a walk over its own grammar to the target length, closing stretches. Its own hash stream (6800), so the plan's list does not read it. */
 function legacyWalk(kit, base) {
-  const L = kit.legacy, ls = hashInt(base, 6800), fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
+  const L = kit.legacy, ls = hashInt(base, 6800); if (L.pick) { let n = 0; const r = () => hash(ls, n++), x = r(), k = x < L.pick[0] ? 0 : x < L.pick[1] ? 1 : 2, names = Object.keys(L.middle), mid = [];
+    while (mid.length < k) { const prev = mid.length ? mid[mid.length - 1][0] : null, cand = names.filter(t => !mid.some(q => q[0] === t) && (!prev || (L.follows[prev] || []).includes(t))); if (!cand.length) break; const t = cand[Math.floor(r() * cand.length)], m = L.middle[t]; mid.push([t, m.len[0] + Math.floor(r() * (m.len[1] - m.len[0] + 1))]); }
+    return mid.concat(L.close); } /* (a pick: none, one or two of the built-up grounds) */
+  const fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
   for (let k = 0; k < 40; k++) { const mid = walk(pk, L.len[0] + Math.floor(r() * (L.len[1] - L.len[0] + 1)) - fixed, r, L.close, L.open); if (mid) return L.open.concat(mid, L.close); }
   throw new Error('sortie-compose: no old land for kit ' + kit.id);
+}
+/* The mainland of a kit (kit.main): its opening stretch, a walk over its own grammar (own hash stream 6850) */
+function mainWalk(kit, base) {
+  const M = kit.main, ls = hashInt(base, 6850), fixed = M.open.reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
+  for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) - fixed, r, [['_end', 0]], M.open); if (mid) return M.open.concat(mid); }
+  throw new Error('sortie-compose: no mainland for kit ' + kit.id);
 }
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
-  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
+  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base) : null; const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
     const segs = []; let at = 0; for (const [t, len] of op.concat(mid, ap)) { segs.push({ t, start: at, n: len }); at += len; }
+    const planN = segs.length; if (main) for (const [t, len] of main) { segs.push({ t, start: at, n: len, main: true }); at += len; }
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
-    const dl = dials === 'on' ? dialsFor(kit, base, core, ground) : { names: [], global: {}, seg: segs.map(() => null) };
+    const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => dl.seg[i] ? { t: g.t, n: g.n, p: dl.seg[i] } : { t: g.t, n: g.n }) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };

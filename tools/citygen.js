@@ -1521,6 +1521,7 @@ function validate(plan) {
   { const seen = new Uint8Array(W * L), st = []; let tot = 0, got = 0; for (let i = 0; i < W * L; i++) if (Kr[i] === K.ROAD) tot++;
     let y0r = 0; while (y0r < L - 1 && !Kr.subarray(y0r * W, y0r * W + W).includes(K.ROAD)) y0r++; // from the lowest row the tank routes reach (the strip may begin over the sea)
     for (let x = 0; x < W; x++) if (Kr[y0r * W + x] === K.ROAD) { seen[y0r * W + x] = 1; st.push(y0r * W + x); }
+    if (plan.mainland) { let ym = plan.mainland.y0; while (ym < L - 1 && !Kr.subarray(ym * W, ym * W + W).includes(K.ROAD)) ym++; for (let x = 0; x < W; x++) if (Kr[ym * W + x] === K.ROAD && !seen[ym * W + x]) { seen[ym * W + x] = 1; st.push(ym * W + x); } } /* (the mainland's road starts on its own shore, across the sea from the island's) */
     while (st.length) { const i = st.pop(); if (Kr[i] === K.ROAD) got++; const x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
     m.tankReach = tot ? got / tot : 1; m.tankStreets = plan.streets.filter(s => s.tank).length;
     for (const R of plan.rivers || []) if (R.island) { const i = R.iy * W + Math.round(plan.mx[R.iy]); m.islandReach = !!seen[i]; } }
@@ -2406,9 +2407,10 @@ function paintFx(plan, f, img, bx, t, night) { // night: smoke graded as in pain
 // plan.shore: each sea pixel's distance to land (for the surf); plan.pastures: fenced paddocks where the game puts its cows.
 function islands(o) {
   const P = Object.assign({}, PRESETS.islands, o.params || {}), seed = o.seed | 0, W = P.W; /* a segment list (the Daily Sortie's temperate kit): the plan's length and where the bands and the big island lie come from the stretches; without one nothing differs from the Campaign's level 1 */
-  let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
+  const mains = []; let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
       if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : 'arch', p: g.p || null });
-      else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L]; }
+      else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L];
+      else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
     if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
   const L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296;
@@ -2440,6 +2442,8 @@ function islands(o) {
   for (let y = Math.max(0, by0); y <= Math.min(L - 1, by1); y++) { const f = Math.abs((y - by0) / BL * 2 - 1), e = Math.pow(Math.max(0, 1 - f * f * f), 1 / 3), hw = P.bigW / 2 * e;
     const a = bc(y) - hw + 5 * Math.sin(y * 0.031 + ph2) + 3 * Math.sin(y * 0.09 + ph), b = bc(y) + hw + 5 * Math.sin(y * 0.027 + ph) + 3 * Math.sin(y * 0.11 + ph2);
     for (let x = Math.max(0, Math.ceil(a)); x <= Math.min(W - 1, Math.floor(b)); x++) land[idx(x, y)] = 1; }
+  const M0 = mains.length ? mains[0].y0 : L, shY = x => M0 + 24 + 9 * Math.sin(x * 0.035 + ph) + 5 * Math.sin(x * 0.11 + ph2) + 6 * Math.sin(x * 0.013 + 1);
+  if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < L; y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end, its beach and its grass from the steps below) */
   const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
   const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10] };
   BK.forEach((bd, bi) => { const T0 = bi * 1000, lx = Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
@@ -2553,6 +2557,53 @@ function islands(o) {
         fillR(px0, py, 20, 16, K.BANK); fillR(px0 + 3, py + 3, 17, 10, K.APRON); slot('parked', 'pen', px0 + 11, py + 8, 6); }
       for (const [gx, gy] of [[rwX + 18, ra0 - 4], [rwX - 4, ra1 + 2], [apx1 + 10, apY0 - 12], [txX + 14, ra1 - 22], [rwX - 20, mid]]) if (rectFree(gx - 7, gy - 7, 14, 14)) gunPit(gx, gy);
       plan.airbase = { rx: rwX, rw: 20, y0: ra0, y1: ra1, tx: txX, ap: [txX + 4, apY0, apx1 + 22, apY1], hangars: hg.length }; } }
+  // 6b. the mainland (a segment list with main_ stretches, plan 12.21): land from the shore to the plan's end. One main road winds through all of it (mxM; the village's own road is made to
+  // match it, the rest is laid here). main_shore: the fortified beach (bunkers, flak pits, casemates behind the surf); main_farm: fields of every size either side of the road, farmsteads,
+  // paddocks, a pond, poplars along the road; main_village: the village preset generated on its own and copied in whole, offsets for its items, streets, parcels and churches as stackPlans has them;
+  // main_wood: a broadleaf wood in clumps with clearings, flak sites in the clearings.
+  if (mains.length) {
+    const phM = rnd(T.ISLE, 91) * 6.283, mxM = y => clamp(W / 2 + 22 * Math.sin(y * 0.0045 + phM) + 2.5 * Math.sin(y * 0.021 + phM), 60, W - 60), upk = ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax'];
+    const vil = mains.find(m => m.t === 'main_village'), inVil = y => !!vil && y >= vil.y0 && y < vil.y1; let vOffA = 0, vOffB = 0;
+    if (vil) { const VLm = vil.y1 - vil.y0, vy = vil.y0, fr = 0.0045, v = generate({ seed: h32(seed, 177), preset: 'village', params: { L: VLm, road: { c: W / 2, amp: 22, fr, ph: phM + fr * vy }, damage: 0, density: [[0, 0.1], [0.3, 0.4], [0.6, 0.45], [0.85, 0.3], [1, 0.1]] } });
+      const nI = plan.items.length, nS = plan.streets.length, nP = plan.parcels.length, up = q => { const r = Object.assign({}, q); for (const k of upk) if (typeof r[k] === 'number') r[k] += vy; return r; };
+      for (let y = 0; y < VLm; y++) for (let x = 0; x < W; x++) { const j = y * W + x, yy = y + vy; if (!inB(x, yy)) continue; const i = idx(x, yy); let k = v.K[j], b = v.B[j]; if (k === K.NONE) k = K.MEADOW; if (b >= 0) b += nI; else if (b <= -2 && (k === K.ROAD || k === K.STREET || k === K.WALK || k === K.BRIDGE)) b -= nS; Kr[i] = k; Br[i] = b; F[i] = k === K.FIELD && v.F[j] >= 0 ? v.F[j] + nP : -1; }
+      const chs = new Map(), nC = plan.churches.length; v.churches.forEach(c => chs.set(c, Object.assign(up(c), c.parts ? { parts: c.parts.map(p => p + nI) } : {}))); plan.churches.push(...chs.values());
+      for (const it of v.items) { const r = up(it); r.id = it.id + nI; if (typeof r.run === 'number' && r.run < 0) r.run -= 1e6; if (it.church) r.church = chs.get(it.church); plan.items.push(r); }
+      for (const st of v.streets) { const r = up(st); r.id = st.id + nS; r.pts = st.pts.map(p => [p[0], p[1] + vy, p[2]]); plan.streets.push(r); }
+      for (const pc of v.parcels) plan.parcels.push(Object.assign(up(pc), { block: pc.block + 400 })); for (const f of v.farms) plan.farms.push(up(f)); for (const q of v.parks) plan.parks.push(up(q)); for (const q of v.squares) plan.squares.push(up(q));
+      for (const t of v.trees) { const y = t.y + vy; if (inB(t.x, y) && land[idx(t.x, y)] === 1 && Kr[idx(t.x, y)] !== K.BEACH) plan.trees.push(Object.assign({}, t, { y })); }
+      for (const l of v.lots) plan.lots.push(up(l)); for (const sl of v.slots) { const r = up(sl); if (r.item !== undefined) r.item += nI; plan.slots.push(Object.assign(r, { id: plan.slots.length })); }
+      for (let y = 0; y < VLm; y++) { plan.mx[y + vy] = v.mx[y]; plan.aw[y + vy] = v.aw[y]; plan.U[y + vy] = v.U[y]; }
+      vOffA = v.mx[0] - mxM(vy); vOffB = v.mx[VLm - 1] - mxM(vy + VLm - 1); plan.mainVillage = { y0: vy, y1: vil.y1 - 1, items: v.items.length, farms: v.farms.length, nC }; }
+    const mAt = y => { let m = mxM(y); if (vil) { m += vOffA * smooth(vil.y0 - 150, vil.y0, y) * (y < vil.y0 ? 1 : 0) + vOffB * (1 - smooth(vil.y1, vil.y1 + 150, y)) * (y >= vil.y1 ? 1 : 0); } return m; };
+    for (let y = M0; y < L; y++) if (!inVil(y)) { plan.mx[y] = mAt(y); plan.aw[y] = 8; }
+    const roadSt = () => { const st = { cls: 'arterial', axis: 'v', tank: true, pts: [], island: true, id: plan.streets.length }; plan.streets.push(st); return st; };
+    for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt();
+      for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) set(x, y, K.ROAD, -1); } }
+    const fortSpot = (a, b, ok) => { for (let k = 0; k < 6; k++) { const cx = lerp(24, W - 24, rnd(T.ISLE, 920 + k, a)), cy = lerp(a, b, rnd(T.ISLE, 930 + k, a)), r = near(14, 14, cx, cy, 30, (x, y) => ok(x + 7, y + 7)); if (r) return [r[0] + 7, r[1] + 7]; } return null; };
+    const farSide = (x, y) => Math.abs(x - plan.mx[Math.min(L - 1, y)]) > 16;
+    plan.mainland = { y0: M0, stretches: mains.map(m => ({ t: m.t, y0: m.y0, y1: m.y1, bunkers: 0, pits: 0, farms: 0, wood: 0, fields: 0 })) };
+    for (const m of mains) { const a = m.y0, b = m.y1, n = m.n, rec = plan.mainland.stretches[mains.indexOf(m)];
+      if (m.t === 'main_shore') { const got = [];
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 40, b - 20, (x, y) => dL[idx(x, y)] >= 6 && dL[idx(x, y)] < 40 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 34)); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } }
+        if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 6); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); got.push(c); rec.bunkers++; } } /* (the shore always has one) */
+        for (let k = 0; k < 4; k++) { const c = fortSpot(a + 36, b - 10, (x, y) => dL[idx(x, y)] >= 5 && farSide(x, y) && !got.some(q => Math.hypot(q[0] - x, q[1] - y) < 28)); if (c) { gunPit(c[0], c[1]); got.push(c); rec.pits++; } }
+        for (let k = 0; k < 6; k++) { const cx = lerp(16, W - 16, (k + rnd(T.ISLE, 940 + k)) / 6), cy = a + 34 + rnd(T.ISLE, 950 + k) * 24, r = near(12, 8, cx, cy, 16, (x, y) => dL[idx(x + 6, y + 4)] >= 4 && dL[idx(x + 6, y + 4)] <= 11 && farSide(x + 6, y + 4)); if (r) building('works', r[0] + 1, r[1] + 1, 10, 6, 'h', 'S', { part: 'casemate', label: 'Casemate', sea: -1, style: 'flat', roof: 3 }); } }
+      if (m.t === 'main_farm') { let blk = 700 + mains.indexOf(m) * 100;
+        for (let k = 0; k < (n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
+          if (fm) { const [fx0, fy] = fm, fy0 = fy + 7; fillR(fx0, fy0, 20, 9, K.COURT); building('farmhouse', fx0, fy0 + 9, 10, 7, 'h', 'S'); building('barn', fx0 + 11, fy0 + 9, 9, 10, 'v', 'S', { roof: 2 }); building('barn', fx0, fy0 - 7, 20, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy, w: 20, h: 26 }); rec.farms++;
+            const pd = near(34, 22, fx0 + 10 + s * 28, fy + 10, 46, (x, y) => farSide(x + 17, y + 11)); if (pd) { fillR(pd[0], pd[1], 34, 22, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + 33, y1: pd[1] + 21, n: 4 }); } } }
+        if (rnd(T.ISLE, 970, a) < 0.6) { const s = rnd(T.ISLE, 971, a) < 0.5 ? -1 : 1, px = Math.round(plan.mx[(a + b) >> 1] + s * 60), py = Math.round(a + (b - a) * (0.3 + rnd(T.ISLE, 972, a) * 0.4)), prx = 10, pry = 6; if (rectFree(px - prx - 2, py - pry - 2, 2 * prx + 4, 2 * pry + 4)) { for (let y = py - pry; y <= py + pry; y++) for (let x = px - prx; x <= px + prx; x++) if (Math.hypot((x + 0.5 - px) / prx, (y + 0.5 - py) / pry) < 1 && free(x, y)) set(x, y, K.WATER, -7); tree(px + s * (prx + 3), py + 2, 4, 1); plan.pond = plan.pond || { x: px, y: py, rx: prx, ry: pry }; } }
+        for (let k = 0; k < Math.max(1, n >> 1); k++) { const c = fortSpot(a + 10 + k * (b - a) / Math.max(1, n >> 1), a + (k + 1) * (b - a) / Math.max(1, n >> 1) - 10, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 60); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        for (const sd2 of [-1, 1]) { let y = a + 3; while (y < b - 20) { const h = 22 + ((rnd(T.ISLE, 980 + (sd2 > 0 ? 1 : 0), y) * 22) | 0); let x = Math.round(plan.mx[Math.min(L - 1, y + (h >> 1))] + sd2 * 6);
+            for (let q = 0; q < 6; q++) { const room = sd2 < 0 ? x : W - x; if (room < 12) break; let w = Math.min(room, 26 + ((rnd(T.ISLE, 990 + q, y * 3 + sd2) * 40) | 0)); if (room - w < 24) w = room; const x0 = sd2 < 0 ? x - w : x; rec.fields += parcel(x0, y, w, Math.min(h, b - 2 - y), blk++) > 0 ? 1 : 0; x += sd2 * w; }
+            y += h; } }
+        for (let y = a + 4; y < b - 4; y += 15) for (const sd2 of [-1, 1]) if (rnd(T.TREE, y * 5 + sd2, 77) < 0.55) { const x = Math.round(plan.mx[y] + sd2 * 8); if (free(x, y)) tree(x, y, 2, 3); } } /* (poplars along the road) */
+      if (m.t === 'main_wood') { for (let k = 0; k < 2; k++) { const c = fortSpot(a + 14, b - 14, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 70); if (c) { gunPit(c[0], c[1]); rec.pits++; } }
+        const edge = y => smooth(a, a + 40, y) * (1 - smooth(b - 40, b, y));
+        for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { if (!free(x, y) || Math.abs(x - plan.mx[y]) < 8) continue; if (vn(x * 0.05 + 3, y * 0.05 + 5) < 0.1 + 0.52 * edge(y) + (vn(x * 0.2, y * 0.2) - 0.5) * 0.12) { set(x, y, K.MEADOW, -31); rec.wood++; } }
+        for (let y = a; y < b; y += 4) for (let x = 0; x < W; x += 4) { const jx = x + Math.round((rnd(T.TREE, x, y) - 0.5) * 3), jy = y + Math.round((rnd(T.TREE, y, x) - 0.5) * 3); if (inB(jx, jy) && Br[idx(jx, jy)] === -31) tree(jx, jy, 3 + ((rnd(T.TREE, jx + 5, jy) * 2) | 0)); } } }
+  }
   // 7. the islets
   for (const q of isl) {
     const on = (x, y, m) => inB(x, y) && land[idx(x, y)] === q.id + 2 && Kr[idx(x, y)] === K.MEADOW && Br[idx(x, y)] === -1 && dL[idx(x, y)] >= m, pts = [];
