@@ -8239,11 +8239,11 @@ function roadX(wy) {
   if (wy === rxW) return rxV; rxW = wy; return (rxV = roadXc(wy));
 }
 /* The temperate Daily Sortie's built-up old land (plan 12.20, owner: "make the big street straight and lay it over a small straight street"): in the light industrial estate, the town and the searchlight airbase the main road is a straight line, not the legacy ground's wandering one, eased in and out over STRAIGHT_RAMP px. In the estate and the town it lies exactly on one of the block grid's streets (8 px wide: the estate's columns are 64 px apart, the town's 56), and is only as wide as that street (so it never covers a building); on the airbase it carries on in the line of the road before it. */
-const STRAIGHT_RS = { industrial_light: 131.5, city_small: 115.5, airbase_searchlight: -1 }, STRAIGHT_RAMP = 192, STRAIGHT_B = new Set(['factory', 'city', 'base']);
+const GRID_OX = 14, gridOx = () => (run.sortie && run.sortie.straight ? GRID_OX : 0), STRAIGHT_RS = { industrial_light: 145.5, city_small: 129.5, airbase_searchlight: -1 }, STRAIGHT_RAMP = 192, STRAIGHT_B = new Set(['factory', 'city', 'base']);
 let smS = null, smW = NaN, smV = null;
 function straightMix(S, wy) { /* { x, F }: where the straight road lies at wy and how far it is the road there (0 the legacy road, 1 the straight one); null away from every built-up stretch */
   if (S === smS && wy === smW) return smV; smS = S; smW = wy; let sw = 0, sx = 0;
-  S.segs.forEach((g, i) => { let rs = STRAIGHT_RS[g.t]; if (rs === undefined) return; if (rs < 0) { const q = S.segs[i - 1], r2 = q && STRAIGHT_RS[q.t]; rs = r2 > 0 ? r2 : 131.5; }
+  S.segs.forEach((g, i) => { let rs = STRAIGHT_RS[g.t]; if (rs === undefined) return; if (rs < 0) { const q = S.segs[i - 1], r2 = q && STRAIGHT_RS[q.t]; rs = r2 > 0 ? r2 : 145.5; }
     const yTop = -(world.stageBaseP + g.start + g.n - 1) * CH, yBot = -(world.stageBaseP + g.start) * CH + CH, d = wy < yTop ? yTop - wy : wy >= yBot ? wy - yBot + 1 : 0;
     if (d >= STRAIGHT_RAMP) return; const u = 1 - d / STRAIGHT_RAMP, f = u * u * (3 - 2 * u); sw += f; sx += f * rs; });
   return (smV = sw > 0 ? { x: sx / sw, F: Math.min(1, sw) } : null);
@@ -8276,6 +8276,7 @@ const C2 = {
   rust: HX(['#3a2214', '#54321c', '#704428', '#8a5834']), gas: HX(['#2a3430', '#3a4842', '#4c5e56', '#62766c', '#7c9086'])
 };
 function cityCell(wx, wy) {
+  wx -= gridOx(); /* (the temperate old land: the town's block grid is shifted so that a street column lies on the railway, x 14 to 21) */
   const ci = Math.floor(wx / 56), ri = Math.floor(wy / 48), h = hash(ci * 3 + 1, ri * 7 + 2);
   const forceChurch = ((ri % 7) + 7) % 7 === 3 && ci === (hash(ri, 333) < 0.5 ? 0 : 3);
   { const S = run.sortie; if (S && S.gen) return { ci, ri, fx: ((wx % 56) + 56) % 56, fy: ((wy % 48) + 48) % 48, kind: cellKind(S, ci, ri) }; } // Enigma Run level 6: blocks fade in with U
@@ -8521,6 +8522,7 @@ function secretApron(wx, wy) {
   return C2.conc[pickI(4, l, wx, wy)];
 }
 function factCell(wx, wy) {
+  wx -= gridOx(); /* (the temperate old land: the estate's block grid is shifted so that a street column lies on the railway, x 14 to 21) */
   const ci = Math.floor(wx / 64), ri = Math.floor(wy / 56), h = hash(ci * 5 + 3, ri * 9 + 1);
   return { ci, ri, fx: ((wx % 64) + 64) % 64, fy: ((wy % 56) + 56) % 56, kind: h < 0.42 ? 'hall' : h < 0.6 ? 'ware' : h < 0.7 ? 'gas' : h < 0.8 ? 'oil' : 'yard' };
 }
@@ -8585,7 +8587,7 @@ function fortColor(wx, wy, rx) {
   return MUD[pickI(5, l, wx, wy)];
 }
 const TR_CONC = TR.conc.map(hexRGB);
-function railHit(I, wx) { for (const r of I.rails) if (Math.abs(wx - r) < 5) return r; return null; }
+function railHit(I, wx) { const g = (I.b === 'factory' || I.b === 'city') && run.sortie && run.sortie.straight; for (const r of I.rails) if (g ? Math.abs(wx - (r - 0.5)) < 4 : Math.abs(wx - r) < 5) return r; return null; } /* (on the temperate old land's estate and town grounds the railway is 8 px wide, x 14 to 21: exactly the street column of the shifted block grid, so it never covers a building) */
 function wob(wx, wy) { return (vnoise(wx * 0.045, wy * 0.012 + 7) - 0.5) * 22 + (vnoise(wx * 0.19 + 50, wy * 0.19) - 0.5) * 7; }
 const CL = { tt: '', p: 0, ly: 0, I: null, coastD: 99, rail: null, fence: -1 };
 function classify(wx, wy) {
