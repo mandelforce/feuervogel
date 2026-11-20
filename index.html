@@ -19427,15 +19427,15 @@ FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircr
   e.subs.forEach((m, i) => { if (m.type === 'parked' && m.takeoff && e.ft >= m.takeoff && !m.dead) { const f2 = mkFighter(m.x, m.y, -PI / 2, 1.6, { turn: 0.042, fireAt: 40 }); f2.hp0 = f2.hp; m.dead = true; boom(m.x, m.y, 8, 'a'); world.enemies.push(f2); e.subs[i] = f2; } }); };
 FOLLOW.silo.tick = (e, sc) => { /* the rocket is shielded while a control bunker stands; with both down it is armed, and forty-five seconds later it launches */
   const r = e.subs.find(m => m.type === 'silorocket'); if (!r || r.dead || r.dying) return; const cov = e.subs.some(m => m.type === 'bunker' && !m.dead && !m.dying); r.shield = cov;
-  if (!cov && !r.armed) { r.armed = e.ft; showMsg('LAUNCH SEQUENCE', 'SINK THE ROCKET BEFORE IT LIFTS OFF', 200); sfx('warn'); }
+  if (!cov && !r.armed) { r.armed = e.ft; sfx('warn'); }
   if (r.armed && !r.launch && e.ft - r.armed > 2700) { r.launch = true; sfx('rocket'); feel.shake = Math.max(feel.shake, 6); } };
 FOLLOW.slipway.tick = (e, sc) => { /* the hull slides: down the slip (the hull is held where it is by nothing, so it is moved here); at the bottom of the screen it floats clear and the level ends */
   const h = e.subs.find(m => m.slip); if (!h || h.dead || h.dying) return; h.wy += 0.055; if ((h.wy + sc) % 90 < 0.06) sfx('tick');
-  if (h.wy + sc > 258) { h.escaped = true; h.dead = true; showMsg('THE HULL FLOATS CLEAR', 'IT GOES TO SEA UNFINISHED', 160); sfx('horn'); } };
+  if (h.wy + sc > 258) { h.escaped = true; h.dead = true; sfx('horn'); } };
 FOLLOW.bridgedef.tick = (e, sc) => { /* the column drives down the screen on to the bridge; every tank that gets there is across */
   let across = 0; for (const m of e.subs) { if (m.dead || m.dying || (m.type !== 'tank' && m.type !== 'htank')) continue; if (m.baseWy === undefined) m.baseWy = m.wy; m.wy = m.baseWy + e.ft * (m.type === 'htank' ? 0.042 : 0.055); m.moving = true; m.hd = PI / 2;
     if (m.wy + sc > 226) { m.escaped = true; m.dead = true; across++; boom(m.x, m.y, 6, 'g'); } }
-  if (across) { sfx('horn'); showMsg('ACROSS THE BRIDGE', 'THE COLUMN CROSSED', 100); } };
+  if (across) { sfx('horn'); } };
 function canyonW(wy, side, open) { /* the canyon's wall width at world row wy (plan 12.22, 12.12 item 28): two sine sums, a wall on each side, and open (0 to 1) takes the walls away towards the mouth */
   const a = side ? 2.1 : 0.4, w = 22 + 24 * (0.5 + 0.5 * Math.sin(wy * 0.013 + a)) + 9 * Math.sin(wy * 0.037 + a * 3.1); return Math.max(6, w * (1 - 0.85 * open)); }
 const ESC_T = 2700; /* the escape endings: 45 s to the exit */
@@ -19444,7 +19444,7 @@ function escapeTick(e, sc) { /* the front rises (0.1 px a frame, up to half the 
   w.y = H + 30 - Math.min(e.ft * 0.1, 0.5 * H); w.hp = Math.max(1, w.hp0 * (1 - k));
   for (const q of [player, p2]) if (q && !q.dead && q.y > w.y - 8) { q.y = w.y - 10; if (e.ft % 40 === 0) { if (ice) { laserHeat = 100; overheatT = Math.max(overheatT, 90); } else dustOverheat(q); feel.shake = Math.max(feel.shake, 3); sfx('tick'); } }
   if (e.ft % 360 === 90) waveDive(4, 30 + (((e.ft / 360) | 0) * 53) % (W - 60)); if (e.ft % 720 === 400) waveSweep(((e.ft / 720) | 0) % 2 ? 1 : -1);
-  if (e.ft >= ESC_T) { w.dead = true; w.hp = 0; showMsg('YOU MADE IT', ice ? 'OPEN ICE AHEAD' : 'THE PASS IS AHEAD', 140); sfx('horn'); } }
+  if (e.ft >= ESC_T) { w.dead = true; w.hp = 0; sfx('horn'); } }
 FOLLOW.sandstorm.tick = escapeTick; FOLLOW.iceshelf.tick = escapeTick;
 FOLLOW.dam.tick = (e, sc) => { /* the flood waits off screen until the last gate is down, then runs down the arena (0.35 px a frame); at the bottom the level ends */
   const w = e.subs.find(m => m.type === 'stormwall'); if (!w || w.dead) return; const gates = e.subs.some(m => m.gate && !m.dead && !m.dying);
