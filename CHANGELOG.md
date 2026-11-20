@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Three more Daily Sortie endings (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): a sandstorm to outrun in the desert, a collapsing ice shelf on the winter's frozen sea (a wall rises up the screen, the boss bar is the time left, 45 seconds to the exit), and a dam: break the spillway gates and the flood runs down the arena (desert, forest, city).
 - Three new Daily Sortie endings (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): a rocket silo (shoot the control bunkers, then the rocket before its 45 second launch sequence ends), a slipway (sink an unfinished hull before it floats clear) and a bridge defence (stop an armoured column before it crosses the bridge). If you let it get away the level still ends.
 - Three new Daily Sortie ground encounters (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): DUNE BATTERY in the desert, RIDGE FLAK in the forest, SNOW BATTERY in the winter: guns on both sides, then fighters, tankers, a convoy and a bomber. A saved and resumed Daily Sortie now also draws the same shot ranges as the run it came from when a wreck was smoking on screen.
 - The Campaign's two-train yard boss can end a desert or a city Daily Sortie (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): the arena is a rail yard with eight tracks, platforms and crossovers, and the boss is called the Rail Wolf there.
