@@ -72,13 +72,14 @@ export const KITS = {
     opener: [['carrier_start', 4], ['open_sea', 6]],
     middle: [['island_chain', 6], ['island_fortress', 6], ['island_archipelago', 7], ['island_airbase', 9], ['open_sea', 3]],
     approach: [['open_sea', 3]],
-    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway', main_shore: 'bunker', main_farm: 'fields', main_wood: 'wood', main_village: 'village' },
-    markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway', island_lagoon: 'cranes', main_shore: 'bunker', main_farm: 'fields', main_wood: 'wood', main_village: 'village' },
+    markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : q.band === 'lagoon' ? 'island_lagoon' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
       if (p.airbase) m.push({ t: 'island_airbase', y: (p.airbase.y0 + p.airbase.y1) / 2, what: 'runway' });
+      for (const q of p.lagoons || []) if (q.cranes) m.push({ t: 'island_lagoon', y: q.cy, what: 'cranes' });
       for (const r of (p.mainland && p.mainland.stretches) || []) { const y = (r.y0 + r.y1) / 2; if (r.t === 'main_shore' && r.bunkers) m.push({ t: r.t, y, what: 'bunker' }); if (r.t === 'main_farm') { if (r.farms) m.push({ t: r.t, y, what: 'farmstead' }); if (r.fields > 6) m.push({ t: r.t, y, what: 'fields' }); } if (r.t === 'main_wood' && r.wood > 4000) m.push({ t: r.t, y, what: 'wood' }); }
       if (p.mainVillage && p.mainVillage.items > 8) m.push({ t: 'main_village', y: (p.mainVillage.y0 + p.mainVillage.y1) / 2, what: 'village' }); return m; },
     extra: (p, rg) => { const out = []; if (!p.airbase) out.push('no airbase on the large island'); if (!p.village || !p.village.items) out.push('no village on the large island');
-      const bands = rg.filter(r => /^island_(chain|fortress|archipelago)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
+      const bands = rg.filter(r => /^island_(chain|fortress|archipelago|lagoon)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
       for (const r of rg) if (r.t === 'island_fortress' && !(p.slots || []).some(s => s.kind === 'bunker' && s.y >= r.y0 - 40 && s.y < r.y1 + 40)) out.push('no bunker in the fortress islets'); return out; } },
   /* the city (level 6): the segment-native portSouth plan. The harbour's cranes lie in the harbour, the industrial quarters where the works stretch is, the station in the last stretch; the market square is the densest
      point, so with a city centre in the list it lies in it. (A ruins stretch is only a damage curve of 1: its rubble share, 9 to 19 %, overlaps the other districts', so it is not checked.) */
