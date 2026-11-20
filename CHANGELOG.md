@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The Campaign's two-train yard boss can end a desert or a city Daily Sortie (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): the arena is a rail yard with eight tracks, platforms and crossovers, and the boss is called the Rail Wolf there.
 - The Daily Sortie's climate castles have floor plans of their own (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): the Sandstone Citadel has square bastions and twin gates, the Frost Keep a frozen pool with a causeway, the Sea Bastion a star fort's pointed bastions. The keep and the fight are as before.
 - The temperate Daily Sortie has a lagoon harbour (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): a ring island open to the south with a basin inside, a quay all round it, cranes swinging over the water, ships moored along it, warehouses, flak and a bunker at the mouth and a lighthouse. About one day in four.
 - The Daily Sortie's sky fortress has a smaller form (three quarters of its size, a fifth fewer hit points) in every kit's boss pool, and the temperate kit's shore is now a sandy Atlantic Wall coast (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): dug-in camouflaged casemates with gun barrels, pillboxes, Tobruk pits, wire, hedgehogs, a fire trench, anti-tank walls where the road comes up, wrecked landing craft, a coastal battery and flak emplacements in the dunes, with fields behind.
