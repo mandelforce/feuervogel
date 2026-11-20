@@ -1951,7 +1951,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
         case K.RBRIDGE: { const m = RMx[i]; if (Br[i] <= -23 && Br[i] >= -25) { c = gorgeDeckPix(plan, x, y, Br[i], m); break; } /* the gorge finale: a hillside viaduct's deck, a gallery's roof, the truss bridge */ if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
-          if (plan.shore) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
+          if (plan.shore && (plan.shore[i] < 255 || !plan.coast)) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
             if (dd <= 1 && hh(x >> 1, y) < 0.8) { c = C.foam; break; } if (dd <= 3 && hh(x, y >> 1) < 0.45) { c = C.sea[5]; break; }
             if (seaPix) { c = seaPix(x, y, false, 0); break; } c = C.sea[pickI(6, 0.62 - Math.min(dd, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; }
           if (Br[i] === -10) { c = C.sea[pickI(6, 0.26 + (vn(x * 0.08, y * 0.08) - 0.5) * 0.12 + Math.sin(x * 0.4 + y * 0.9) * 0.03, x, y)]; break; } // calm water in the harbour
@@ -2419,6 +2419,7 @@ function islands(o) {
       if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago' || g.t === 'island_lagoon') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : g.t === 'island_lagoon' ? 'lagoon' : 'arch', p: g.p || null });
       else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L];
       else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
+    if (P.opener && !P.segs.some(g => g.t === 'island_airbase')) { P.noBig = true; P.big = [2, 3]; } /* (an opener: bands of islets and open sea only, no large island; plan 12.21) */
     if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
   const L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296;
@@ -2454,7 +2455,7 @@ function islands(o) {
   if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < L; y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end, its beach and its grass from the steps below) */
   const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
   const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]], lagoon: [[20, 26], [11, 18]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10], lagoon: [3, 3] };
-  BK.forEach((bd, bi) => { const T0 = bi * 1000, lside = rnd(T.ISLE, 5 + T0) < 0.5 ? -1 : 1, lx = bd.kind === 'lagoon' ? (lside < 0 ? 18 + lw / 2 : W - 18 - lw / 2) /* (a lagoon band: the warships' lane at one edge, the harbour in the room that is left) */ : Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
+  BK.forEach((bd, bi) => { const T0 = bi * 1000, lside = rnd(T.ISLE, 5 + T0) < 0.5 ? -1 : 1, lx = P.laneX !== undefined ? P.laneX /* (an opener: the port's own fairway, plan 12.22) */ : bd.kind === 'lagoon' ? (lside < 0 ? 18 + lw / 2 : W - 18 - lw / 2) /* (a lagoon band: the warships' lane at one edge, the harbour in the room that is left) */ : Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
     plan.shipLanes.push({ x: lx, w: lw, y0: bd.y0, y1: bd.y0 >= by1 ? bd.y1 : Math.min(bd.y1, by0 - 50), kind: 'fairway' }); // (it ends before the jetty)
     const NN = KIND_N[bd.kind], R2 = KIND_R[bd.kind], bp = bd.p || {}, sz = Math.min(1.25, Math.max(0.8, bp.size || 1)), want = Math.max(2, NN[0] + ((rnd(T.ISLE, 4 + T0) * (NN[1] - NN[0] + 1)) | 0) + Math.round(Math.min(2, Math.max(-2, bp.count || 0)))), mine = []; let lastOk = 0;
     if (bd.kind === 'lagoon') { const e0 = lside < 0 ? lx + lw / 2 + 4 : 6, e1 = lside < 0 ? W - 6 : lx - lw / 2 - 4, rxL = Math.min(58, Math.floor((e1 - e0) / 2.5)), ryL = Math.min(Math.round(rxL * 1.35), Math.floor((bd.y1 - bd.y0) / 2.6) - 6);
@@ -2484,6 +2485,7 @@ function islands(o) {
     Kr[i] = dL[i] <= bw ? (rock ? K.ROCK : K.BEACH) : K.MEADOW; }
   plan.stage.shapes = +(now() - t0).toFixed(2);
 
+  if (!P.noBig) {
   // 3. the large island's village: the village preset generated on its own, its road on the island's axis, then copied in and clipped to the
   // shore. Whatever would reach the beach is left out whole (a farmstead with all its buildings, a church with all its parts); so is a house
   // that would lose the street it fronts.
@@ -2568,6 +2570,7 @@ function islands(o) {
         fillR(px0, py, 20, 16, K.BANK); fillR(px0 + 3, py + 3, 17, 10, K.APRON); slot('parked', 'pen', px0 + 11, py + 8, 6); }
       for (const [gx, gy] of [[rwX + 18, ra0 - 4], [rwX - 4, ra1 + 2], [apx1 + 10, apY0 - 12], [txX + 14, ra1 - 22], [rwX - 20, mid]]) if (rectFree(gx - 7, gy - 7, 14, 14)) gunPit(gx, gy);
       plan.airbase = { rx: rwX, rw: 20, y0: ra0, y1: ra1, tx: txX, ap: [txX + 4, apY0, apx1 + 22, apY1], hangars: hg.length }; } }
+  }
   // 6b. the mainland (a segment list with main_ stretches, plan 12.21): land from the shore to the plan's end. One main road winds through all of it (mxM; the village's own road is made to
   // match it, the rest is laid here). main_shore: the fortified beach (bunkers, flak pits, casemates behind the surf); main_farm: fields of every size either side of the road, farmsteads,
   // paddocks, a pond, poplars along the road; main_village: the village preset generated on its own and copied in whole, offsets for its items, streets, parcels and churches as stackPlans has them;
@@ -3031,12 +3034,15 @@ function wearGround(plan) {
 // The two plans are generated apart and then joined row on row: buildings and streets renumbered, every position moved up by the port's length.
 function sandSea(o) {
   const P0 = Object.assign({}, PRESETS[o.preset] && PRESETS[o.preset].builder === 'sandSea' ? PRESETS[o.preset] : PRESETS.sandSea, o.params || {}), segs = P0.segs, CHp = P0.chunk || 64, seed = o.seed | 0, W = 224;
+  const nPre = (() => { let k = 0; while (k < segs.length && ISLE_OPEN.has(segs[k].t)) k++; return k; })(), Li = segs.slice(0, nPre).reduce((a2, g) => a2 + g.n, 0) * CHp; /* (an island opener, plan 12.22: islet bands and open sea before the port; Li rows, the port's own sea made that much longer) */
   const variant = P0.variant | 0, vr = k => h32(seed, 7000 + k) / 4294967296; // variant > 0: the Campaign's loops (index.html, level 2): the same level with a moved railway and coast, a larger oasis, a stronger fort and guarded oil fields; 0 is the level as it was
-  const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp;
-  const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5), hl = Math.round(hn * CHp * 0.62 * (variant ? 0.9 + 0.2 * vr(1) : 1)), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
+  const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp + Li;
+  const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5) + Li, hl = Math.round(hn * CHp * 0.62 * (variant ? 0.9 + 0.2 * vr(1) : 1)), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
   const pp = Object.assign({}, { wear: P0.wear, wearMix: P0.wear > 0 ? P0.mixPort : undefined, L: Lp, railSide: -1, portDensity: P0.portDensity, density: [[0, 0.85], [0.35, 0.8], [0.6, 0.4], [0.85, 0.15], [1, 0.04]], damage: P0.portDamage !== undefined ? clamp(P0.portDamage, 0, 1) : 0.6, damageCurve: PRESETS.portDesert.damageCurve,
-    coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? [(yC + 20) / Lp, (yC + 20 + hl * 0.8) / Lp] : [hl / Lp, hl / Lp], beachRun: run }, P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? { yard: true } : null) }); /* (a dockyard: the side harbour with its shipyard, as the city's, along the end quay) */
+    coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? [(yC - Li + 20) / Lp, (yC - Li + 20 + hl * 0.8) / Lp] : [hl / Lp, hl / Lp], beachRun: run }, P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? { yard: true } : null) }); /* (a dockyard: the side harbour with its shipyard, as the city's, along the end quay) */
   const A = withPerimeter({ seed: h32(seed, 1), preset: 'portDesert', params: pp }); markSlotRoofs(A); calmWater(A); desertize(A);
+  if (Li) { const fw = (A.shipLanes || []).filter(l => l.kind === 'fairway' || l.kind === 'channel' || l.kind === 'warships'), fx0 = Math.min(...fw.map(l => l.x - l.w / 2)), fx1 = Math.max(...fw.map(l => l.x + l.w / 2)); /* (the port's lanes run out to the plan's start: the islets keep clear of them) */
+    const I = islands({ seed: h32(seed, 3), preset: 'islands', params: { segs: segs.slice(0, nPre).map(g => Object.assign({}, g)), climate: 'desert', opener: true, laneX: Math.round((fx0 + fx1) / 2), lane: Math.ceil(fx1 - fx0) + 8 } }); markSlotRoofs(I); calmWater(I); desertize(I); overlayIsles(A, I, Li); }
   // war areas: the front (port, held village), the junction, the airbase and the pass. A village's damage grows with how close it lies to one (in the aged look; only the
   // held village is old through and through, the others are mixed: mostly kept up, a few old houses)
   const WAR = new Set(['harbour_commercial', 'harbour_dock', 'beach_town', 'village', 'oasis_town', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
@@ -3055,6 +3061,7 @@ function sandSea(o) {
   plan.K = cat(Uint8Array, A.K, B.K); plan.F = cat(Int32Array, A.F || new Int32Array(W * Lp).fill(-1), B.F); plan.RM = cat(Uint8Array, A.RM || new Uint8Array(W * Lp), B.RM);
   const Bb = Int32Array.from(B.B); for (let i = 0; i < Bb.length; i++) { const k = B.K[i], v = Bb[i]; if (v >= 0) Bb[i] = v + nI; else if (v <= -2 && (k === K.ROAD || k === K.BRIDGE || k === K.STREET)) Bb[i] = -2 - (-2 - v + nS); } plan.B = cat(Int32Array, A.B, Bb);
   for (const key of ['U', 'D', 'mx', 'aw']) plan[key] = cat(Float32Array, A[key], B[key]);
+  if (A.shore) plan.shore = cat(Uint8Array, A.shore, new Uint8Array(W * Ld).fill(255)); plan.isleBand = Li; if (Li) plan.isles = A.isles;
   plan.wallL = cat(Float32Array, new Float32Array(Lp).fill(-1), B.wallL); plan.wallR = cat(Float32Array, new Float32Array(Lp).fill(W), B.wallR);
   const up = q => { const r = Object.assign({}, q); for (const k of ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax']) if (typeof r[k] === 'number') r[k] += Lp; return r; };
   plan.items = A.items.concat(B.items.map(it => { const r = up(it); r.id = it.id + nI; if (r.group !== undefined && r.group >= 0) r.group = 'b' + r.group; if (r.run !== undefined && r.run >= 0) r.run = r.run + 1e6; return r; }));
@@ -3980,6 +3987,22 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
+const ISLE_OPEN = new Set(['open_sea', 'island_chain', 'island_fortress', 'island_archipelago', 'island_lagoon']);
+// An island opener's islets laid into the port plan's first rows (both start at row 0, nothing moves): where the islands plan has land, its raster, items,
+// slots, trees, lots, parcels and streets are copied in (ids renumbered); plan.shore holds the surf's distance there, 255 (far) elsewhere
+function overlayIsles(A, I, Li) {
+  const W = A.W, nI = A.items.length, nS = A.streets.length, nP = A.parcels.length, nL = A.slots.length;
+  A.F = A.F || new Int32Array(W * A.L).fill(-1); A.shore = new Uint8Array(W * A.L).fill(255);
+  for (let y = 0; y < Li; y++) for (let x = 0; x < W; x++) { const i = y * W + x; A.shore[i] = I.shore[i]; if (I.K[i] === K.SEA) continue;
+    let b = I.B[i]; if (b >= 0) b += nI; else if (b <= -2 && (I.K[i] === K.ROAD || I.K[i] === K.BRIDGE || I.K[i] === K.STREET)) b = -2 - (-2 - b + nS);
+    A.K[i] = I.K[i]; A.B[i] = b; A.F[i] = I.F[i] >= 0 ? I.F[i] + nP : -1; }
+  const up = q => q; /* (no shift) */
+  A.items = A.items.concat(I.items.map(it => { const r = Object.assign({}, it); r.id = it.id + nI; if (typeof r.run === 'number' && r.run < 0) r.run -= 1e6; return r; }));
+  A.streets = A.streets.concat(I.streets.map(st => Object.assign({}, st, { id: st.id + nS })));
+  A.parcels = A.parcels.concat(I.parcels); A.slots = A.slots.concat(I.slots.map(sl => { const r = Object.assign({}, sl); if (r.item !== undefined) r.item += nI; return r; })); A.slots.forEach((sl, i) => { sl.id = i; });
+  for (const key of ['trees', 'lots', 'farms', 'pastures', 'craters', 'fires', 'boats', 'isles']) A[key] = (A[key] || []).concat((I[key] || []).map(up));
+  A.isleBand = Li; return A;
+}
 const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };

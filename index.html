@@ -2472,7 +2472,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
         case K.RBRIDGE: { const m = RMx[i]; if (Br[i] <= -23 && Br[i] >= -25) { c = gorgeDeckPix(plan, x, y, Br[i], m); break; } /* the gorge finale: a hillside viaduct's deck, a gallery's roof, the truss bridge */ if (Br[i] === -22) { const V = plan.viaduct2, e = Math.min(x - V.x0, V.x1 - x); c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : e <= 1 ? (y % 3 === 0 ? C.stone[0] : C.stone[3]) : e <= 3 ? C.stone[1] : m === 1 ? C.gravel[pickI(3, 0.4 + (hh(x, y) - 0.5) * 0.5, x, y)] : C.snowRoof[pickI(5, 0.72 + (vn(x * 0.3, y * 0.15) - 0.5) * 0.4, x, y)]; break; } /* the double-track stone viaduct: parapets, snow on its deck, ballast, sleepers, rails */ if (Br[i] === -21) { const k = x + 0.5 - plan.rail.x; c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : Math.abs(k) > 8.5 ? C.stone[0] : Math.abs(k) > 7 ? C.stone[3] : C.stone[1]; break; } /* the stone viaduct: parapets, its deck, sleepers and rails */ c = m === 2 ? C.rail[(y & 1) ? 0 : 1] : m === 3 ? C.beam : m === 5 ? ((y % 4) < 2 ? C.conc[0] : C.shadow) : C.char[1]; break; } // a rail bridge: iron truss each side, a deck with sleepers
         case K.SEA: { if (C.snowRoof) iceSh = seaIceShade(plan, x, y); // winter: the water darkens in the lee of a floe
           if (seaPix && Br[i] === -10) { c = seaPix(x, y, true); break; } // a host's own water (the game's sea), calmer in the harbour
-          if (plan.shore) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
+          if (plan.shore && (plan.shore[i] < 255 || !plan.coast)) { const dd = plan.shore[i]; // around islands: foam where the waves break on a beach or the rocks, a lighter band of surf, then the sea
             if (dd <= 1 && hh(x >> 1, y) < 0.8) { c = C.foam; break; } if (dd <= 3 && hh(x, y >> 1) < 0.45) { c = C.sea[5]; break; }
             if (seaPix) { c = seaPix(x, y, false, 0); break; } c = C.sea[pickI(6, 0.62 - Math.min(dd, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; }
           if (Br[i] === -10) { c = C.sea[pickI(6, 0.26 + (vn(x * 0.08, y * 0.08) - 0.5) * 0.12 + Math.sin(x * 0.4 + y * 0.9) * 0.03, x, y)]; break; } // calm water in the harbour
@@ -2940,6 +2940,7 @@ function islands(o) {
       if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago' || g.t === 'island_lagoon') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : g.t === 'island_lagoon' ? 'lagoon' : 'arch', p: g.p || null });
       else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L];
       else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
+    if (P.opener && !P.segs.some(g => g.t === 'island_airbase')) { P.noBig = true; P.big = [2, 3]; } /* (an opener: bands of islets and open sea only, no large island; plan 12.21) */
     if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
   const L = P.L | 0, N = W * L;
   const rnd = (tag, i, j = 0) => h32(h32(seed, tag), h32(i | 0, j | 0)) / 4294967296;
@@ -2975,7 +2976,7 @@ function islands(o) {
   if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < L; y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end, its beach and its grass from the steps below) */
   const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
   const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]], lagoon: [[20, 26], [11, 18]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10], lagoon: [3, 3] };
-  BK.forEach((bd, bi) => { const T0 = bi * 1000, lside = rnd(T.ISLE, 5 + T0) < 0.5 ? -1 : 1, lx = bd.kind === 'lagoon' ? (lside < 0 ? 18 + lw / 2 : W - 18 - lw / 2) /* (a lagoon band: the warships' lane at one edge, the harbour in the room that is left) */ : Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
+  BK.forEach((bd, bi) => { const T0 = bi * 1000, lside = rnd(T.ISLE, 5 + T0) < 0.5 ? -1 : 1, lx = P.laneX !== undefined ? P.laneX /* (an opener: the port's own fairway, plan 12.22) */ : bd.kind === 'lagoon' ? (lside < 0 ? 18 + lw / 2 : W - 18 - lw / 2) /* (a lagoon band: the warships' lane at one edge, the harbour in the room that is left) */ : Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
     plan.shipLanes.push({ x: lx, w: lw, y0: bd.y0, y1: bd.y0 >= by1 ? bd.y1 : Math.min(bd.y1, by0 - 50), kind: 'fairway' }); // (it ends before the jetty)
     const NN = KIND_N[bd.kind], R2 = KIND_R[bd.kind], bp = bd.p || {}, sz = Math.min(1.25, Math.max(0.8, bp.size || 1)), want = Math.max(2, NN[0] + ((rnd(T.ISLE, 4 + T0) * (NN[1] - NN[0] + 1)) | 0) + Math.round(Math.min(2, Math.max(-2, bp.count || 0)))), mine = []; let lastOk = 0;
     if (bd.kind === 'lagoon') { const e0 = lside < 0 ? lx + lw / 2 + 4 : 6, e1 = lside < 0 ? W - 6 : lx - lw / 2 - 4, rxL = Math.min(58, Math.floor((e1 - e0) / 2.5)), ryL = Math.min(Math.round(rxL * 1.35), Math.floor((bd.y1 - bd.y0) / 2.6) - 6);
@@ -3005,6 +3006,7 @@ function islands(o) {
     Kr[i] = dL[i] <= bw ? (rock ? K.ROCK : K.BEACH) : K.MEADOW; }
   plan.stage.shapes = +(now() - t0).toFixed(2);
 
+  if (!P.noBig) {
   // 3. the large island's village: the village preset generated on its own, its road on the island's axis, then copied in and clipped to the
   // shore. Whatever would reach the beach is left out whole (a farmstead with all its buildings, a church with all its parts); so is a house
   // that would lose the street it fronts.
@@ -3089,6 +3091,7 @@ function islands(o) {
         fillR(px0, py, 20, 16, K.BANK); fillR(px0 + 3, py + 3, 17, 10, K.APRON); slot('parked', 'pen', px0 + 11, py + 8, 6); }
       for (const [gx, gy] of [[rwX + 18, ra0 - 4], [rwX - 4, ra1 + 2], [apx1 + 10, apY0 - 12], [txX + 14, ra1 - 22], [rwX - 20, mid]]) if (rectFree(gx - 7, gy - 7, 14, 14)) gunPit(gx, gy);
       plan.airbase = { rx: rwX, rw: 20, y0: ra0, y1: ra1, tx: txX, ap: [txX + 4, apY0, apx1 + 22, apY1], hangars: hg.length }; } }
+  }
   // 6b. the mainland (a segment list with main_ stretches, plan 12.21): land from the shore to the plan's end. One main road winds through all of it (mxM; the village's own road is made to
   // match it, the rest is laid here). main_shore: the fortified beach (bunkers, flak pits, casemates behind the surf); main_farm: fields of every size either side of the road, farmsteads,
   // paddocks, a pond, poplars along the road; main_village: the village preset generated on its own and copied in whole, offsets for its items, streets, parcels and churches as stackPlans has them;
@@ -3552,12 +3555,15 @@ function wearGround(plan) {
 // The two plans are generated apart and then joined row on row: buildings and streets renumbered, every position moved up by the port's length.
 function sandSea(o) {
   const P0 = Object.assign({}, PRESETS[o.preset] && PRESETS[o.preset].builder === 'sandSea' ? PRESETS[o.preset] : PRESETS.sandSea, o.params || {}), segs = P0.segs, CHp = P0.chunk || 64, seed = o.seed | 0, W = 224;
+  const nPre = (() => { let k = 0; while (k < segs.length && ISLE_OPEN.has(segs[k].t)) k++; return k; })(), Li = segs.slice(0, nPre).reduce((a2, g) => a2 + g.n, 0) * CHp; /* (an island opener, plan 12.22: islet bands and open sea before the port; Li rows, the port's own sea made that much longer) */
   const variant = P0.variant | 0, vr = k => h32(seed, 7000 + k) / 4294967296; // variant > 0: the Campaign's loops (index.html, level 2): the same level with a moved railway and coast, a larger oasis, a stronger fort and guarded oil fields; 0 is the level as it was
-  const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp;
-  const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5), hl = Math.round(hn * CHp * 0.62 * (variant ? 0.9 + 0.2 * vr(1) : 1)), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
+  const port = segs.filter(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock' || g.t === 'beach_town'), hn = (segs.find(g => g.t === 'harbour_commercial' || g.t === 'harbour_dock') || { n: 5 }).n, Lp = port.reduce((a, g) => a + g.n, 0) * CHp + Li;
+  const L = segs.reduce((a, g) => a + g.n, 0) * CHp, Ld = L - Lp, yC = Math.round(CHp * 1.5) + Li, hl = Math.round(hn * CHp * 0.62 * (variant ? 0.9 + 0.2 * vr(1) : 1)), run = Math.max(120, Lp - (yC + 2 + hl) - 70);
   const pp = Object.assign({}, { wear: P0.wear, wearMix: P0.wear > 0 ? P0.mixPort : undefined, L: Lp, railSide: -1, portDensity: P0.portDensity, density: [[0, 0.85], [0.35, 0.8], [0.6, 0.4], [0.85, 0.15], [1, 0.04]], damage: P0.portDamage !== undefined ? clamp(P0.portDamage, 0, 1) : 0.6, damageCurve: PRESETS.portDesert.damageCurve,
-    coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? [(yC + 20) / Lp, (yC + 20 + hl * 0.8) / Lp] : [hl / Lp, hl / Lp], beachRun: run }, P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? { yard: true } : null) }); /* (a dockyard: the side harbour with its shipyard, as the city's, along the end quay) */
+    coast: Object.assign({}, PRESETS.portDesert.coast, { end: yC / Lp, side: P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? [(yC - Li + 20) / Lp, (yC - Li + 20 + hl * 0.8) / Lp] : [hl / Lp, hl / Lp], beachRun: run }, P0.dockyard || segs.some(g => g.t === 'harbour_dock') ? { yard: true } : null) }); /* (a dockyard: the side harbour with its shipyard, as the city's, along the end quay) */
   const A = withPerimeter({ seed: h32(seed, 1), preset: 'portDesert', params: pp }); markSlotRoofs(A); calmWater(A); desertize(A);
+  if (Li) { const fw = (A.shipLanes || []).filter(l => l.kind === 'fairway' || l.kind === 'channel' || l.kind === 'warships'), fx0 = Math.min(...fw.map(l => l.x - l.w / 2)), fx1 = Math.max(...fw.map(l => l.x + l.w / 2)); /* (the port's lanes run out to the plan's start: the islets keep clear of them) */
+    const I = islands({ seed: h32(seed, 3), preset: 'islands', params: { segs: segs.slice(0, nPre).map(g => Object.assign({}, g)), climate: 'desert', opener: true, laneX: Math.round((fx0 + fx1) / 2), lane: Math.ceil(fx1 - fx0) + 8 } }); markSlotRoofs(I); calmWater(I); desertize(I); overlayIsles(A, I, Li); }
   // war areas: the front (port, held village), the junction, the airbase and the pass. A village's damage grows with how close it lies to one (in the aged look; only the
   // held village is old through and through, the others are mixed: mostly kept up, a few old houses)
   const WAR = new Set(['harbour_commercial', 'harbour_dock', 'beach_town', 'village', 'oasis_town', 'station_junction', 'airbase_desert', 'pass']), warAt = y => { let a2 = 0, s2 = 0, best = 0; for (const g of segs) { const s0 = s2, s1 = s2 + g.n * CHp; s2 = s1; if (!WAR.has(g.t)) continue; const d = y < s0 ? s0 - y : y > s1 ? y - s1 : 0; best = Math.max(best, Math.exp(-d / 220)); } return best; };
@@ -3576,6 +3582,7 @@ function sandSea(o) {
   plan.K = cat(Uint8Array, A.K, B.K); plan.F = cat(Int32Array, A.F || new Int32Array(W * Lp).fill(-1), B.F); plan.RM = cat(Uint8Array, A.RM || new Uint8Array(W * Lp), B.RM);
   const Bb = Int32Array.from(B.B); for (let i = 0; i < Bb.length; i++) { const k = B.K[i], v = Bb[i]; if (v >= 0) Bb[i] = v + nI; else if (v <= -2 && (k === K.ROAD || k === K.BRIDGE || k === K.STREET)) Bb[i] = -2 - (-2 - v + nS); } plan.B = cat(Int32Array, A.B, Bb);
   for (const key of ['U', 'D', 'mx', 'aw']) plan[key] = cat(Float32Array, A[key], B[key]);
+  if (A.shore) plan.shore = cat(Uint8Array, A.shore, new Uint8Array(W * Ld).fill(255)); plan.isleBand = Li; if (Li) plan.isles = A.isles;
   plan.wallL = cat(Float32Array, new Float32Array(Lp).fill(-1), B.wallL); plan.wallR = cat(Float32Array, new Float32Array(Lp).fill(W), B.wallR);
   const up = q => { const r = Object.assign({}, q); for (const k of ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax']) if (typeof r[k] === 'number') r[k] += Lp; return r; };
   plan.items = A.items.concat(B.items.map(it => { const r = up(it); r.id = it.id + nI; if (r.group !== undefined && r.group >= 0) r.group = 'b' + r.group; if (r.run !== undefined && r.run >= 0) r.run = r.run + 1e6; return r; }));
@@ -4501,6 +4508,22 @@ function winterLand(o) {
 }
 // Two plans one above the other (rasters row on row; B's positions moved up by A's length and its ids renumbered): A is the complex plan at the
 // bottom (left as it is), B a land builder's plan on top. (As sandSea joins its port and desert land.)
+const ISLE_OPEN = new Set(['open_sea', 'island_chain', 'island_fortress', 'island_archipelago', 'island_lagoon']);
+// An island opener's islets laid into the port plan's first rows (both start at row 0, nothing moves): where the islands plan has land, its raster, items,
+// slots, trees, lots, parcels and streets are copied in (ids renumbered); plan.shore holds the surf's distance there, 255 (far) elsewhere
+function overlayIsles(A, I, Li) {
+  const W = A.W, nI = A.items.length, nS = A.streets.length, nP = A.parcels.length, nL = A.slots.length;
+  A.F = A.F || new Int32Array(W * A.L).fill(-1); A.shore = new Uint8Array(W * A.L).fill(255);
+  for (let y = 0; y < Li; y++) for (let x = 0; x < W; x++) { const i = y * W + x; A.shore[i] = I.shore[i]; if (I.K[i] === K.SEA) continue;
+    let b = I.B[i]; if (b >= 0) b += nI; else if (b <= -2 && (I.K[i] === K.ROAD || I.K[i] === K.BRIDGE || I.K[i] === K.STREET)) b = -2 - (-2 - b + nS);
+    A.K[i] = I.K[i]; A.B[i] = b; A.F[i] = I.F[i] >= 0 ? I.F[i] + nP : -1; }
+  const up = q => q; /* (no shift) */
+  A.items = A.items.concat(I.items.map(it => { const r = Object.assign({}, it); r.id = it.id + nI; if (typeof r.run === 'number' && r.run < 0) r.run -= 1e6; return r; }));
+  A.streets = A.streets.concat(I.streets.map(st => Object.assign({}, st, { id: st.id + nS })));
+  A.parcels = A.parcels.concat(I.parcels); A.slots = A.slots.concat(I.slots.map(sl => { const r = Object.assign({}, sl); if (r.item !== undefined) r.item += nI; return r; })); A.slots.forEach((sl, i) => { sl.id = i; });
+  for (const key of ['trees', 'lots', 'farms', 'pastures', 'craters', 'fires', 'boats', 'isles']) A[key] = (A[key] || []).concat((I[key] || []).map(up));
+  A.isleBand = Li; return A;
+}
 const JOIN_LISTS = ['trees', 'craters', 'trainRuns', 'obstacles', 'pits', 'mines', 'signs', 'nets', 'barriers', 'wells', 'caravans', 'derricks', 'pumps', 'spills', 'sangars', 'wagons', 'canopies', 'drums', 'squares', 'oasis', 'posts', 'stacks', 'boats', 'ships', 'shipLanes', 'cranes', 'gantries', 'heaps', 'steam', 'basins', 'tunnels', 'churches', 'parks', 'lots', 'quarters', 'farms', 'civic', 'works', 'stars', 'subSlots', 'beachSlots', 'jumps'];
 function stackPlans(A, B, preset) {
   const W = A.W, La = A.L, L = La + B.L, nI = A.items.length, nS = A.streets.length, cat = (T2, a, b) => { const r = new T2(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
@@ -4818,6 +4841,7 @@ function bossPool(spec) { const out = []; for (const [kind, forms] of spec) for 
 const KITS = {
   desert: { id: 'desert', level: 2, preset: 'sandSea', params: { variant: 0 }, arena: 0, boss: { add: 5 }, climate: 'desert', timeOfDay: 'day', len: [62, 82],
     opener: [['harbour_commercial', 6], ['beach_town', 5]], approach: [['desert_open', 9]],
+    islandOpen: { share: 0.3, variants: [[['open_sea', 2], ['island_chain', 4], ['island_archipelago', 4]], [['open_sea', 2], ['island_archipelago', 4], ['island_fortress', 4]], [['open_sea', 2], ['island_fortress', 4], ['island_chain', 4]]] }, /* (in 30 % of the days the level opens over the sea among bands of sandy islets, before the port: the temperate kit's bands in the desert's look, plan 12.22) */
     openers: [[['harbour_commercial', 6], ['beach_town', 5]], [['harbour_dock', 6], ['beach_town', 5]]], openerShare: 0.3, /* (shared piece, plan 12.20: the city's dockyard, the side harbour's shipyard with hulls on slipways, along the desert port's end quay, in 30 % of the days) */
     middle: {
       valley: { len: [7, 12], max: 2, heat: 0.4, built: 0.15 },
@@ -4837,7 +4861,7 @@ const KITS = {
       desert_open: ['valley', 'station_junction', 'airbase_desert', 'pass'], // (not the village: a later open desert's roadside hamlet reaches up to 70 px past its segment's end, into the village's defences: 3 of 300 composed lists)
       airbase_desert: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'pass'],
       pass: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert'] },
-    enc: { harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], valley: [{ id: 'dunesweep', at: 1, end: 2, frames: 1100 }], airbase_desert: [{ id: 'dunebattery', at: 1, end: 2, frames: 1100 }], village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
+    enc: { island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], valley: [{ id: 'dunesweep', at: 1, end: 2, frames: 1100 }], airbase_desert: [{ id: 'dunebattery', at: 1, end: 2, frames: 1100 }], village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
   forest: { id: 'forest', level: 4, preset: 'ironForest', params: { roadEnd: 112 }, arena: 0, boss: { add: 3 }, climate: 'forest', timeOfDay: 'day', len: [50, 66],
     opener: [['beach_cliff', 3]], approach: [['farmland_approach', 7]],
     middle: {
@@ -4949,8 +4973,9 @@ const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest
 function encPlanFor(kit, segs, base) {
   const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
   const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
+  const opLen = kit.islandOpen ? (kit.islandOpen.variants.find(v => v.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || []).length : 0;
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
-    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= (kit.openers ? kit.openers[0] : kit.opener).length && k < segs.length - kit.approach.length;
+    const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= opLen + (kit.openers ? kit.openers[0] : kit.opener).length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.share !== undefined && !(hash(base | 0, 6900) < e.share)) || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
       const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
       if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
@@ -4987,9 +5012,9 @@ function checkMain(M, list) {
 }
 function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
-  const all = S.segs || [], segs = all.filter(g => !g.legacy && !g.main), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
+  const all = S.segs || [], segs0 = all.filter(g => !g.legacy && !g.main), IV = kit.islandOpen && kit.islandOpen.variants.find(v => v.every((q, k) => segs0[k] && segs0[k].t === q[0] && segs0[k].n === q[1])) || [], segs = segs0.slice(IV.length), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const O = (kit.openers || [kit.opener]).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
-  let at = 0; segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
+  if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL)); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
@@ -5015,7 +5040,7 @@ function check(kitId, S) {
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
   const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
   { const tot = kit.legacy || kit.main ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
-  enc.forEach(e => { const g = (kit.legacy || kit.main ? all : segs).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
+  enc.forEach(e => { const g = (kit.legacy || kit.main ? all : segs0).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
     if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
     spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
@@ -5126,7 +5151,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
-  const op = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
+  const op0 = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, isl = kit.islandOpen && hash(base, 6502) < kit.islandOpen.share ? kit.islandOpen.variants[Math.floor(hash(base, 6503) * kit.islandOpen.variants.length)] : [], op = isl.concat(op0) /* (an island opener: bands of islets before the port, plan 12.22) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
   let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base) : null; const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
@@ -8350,7 +8375,7 @@ function infoRails(b, th, river, rw, island, lake, q) {
   return { b, th, river, rw, island, lake, rail: rails.length ? rails[0] : null, rails, q };
 }
 // Enigma Run: the legacy biome name for a sortie template. The old director, placement and spawn code understand only these names (spec 15.1, 15.8 item 9).
-const SORTIE_BIOME = { harbour_dock: 'city', open_sea_ice: 'sea', harbour_winter: 'city', farmland_winter: 'country', lake_valley: 'country', station_winter: 'country', airbase_snow: 'country', beach_cliff: 'fortline', forest_conifer: 'forest', forest_fortified: 'fortline', clearing_village: 'forest', airbase_forest_hidden: 'forest', farmland_approach: 'country', city_small: 'city', airbase_searchlight: 'base', industrial_light: 'factory', rail_corridor: 'country', station_marshalling: 'factory', harbour_commercial: 'city', beach_town: 'city', valley: 'country', village: 'country', station_junction: 'factory', desert_open: 'country', airbase_desert: 'base', pass: 'fortline', carrier_start: 'sea', island_chain: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', harbour_dock: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory', rail_yard: 'factory' };
+const SORTIE_BIOME = { harbour_dock: 'city', open_sea_ice: 'sea', harbour_winter: 'city', farmland_winter: 'country', lake_valley: 'country', station_winter: 'country', airbase_snow: 'country', beach_cliff: 'fortline', forest_conifer: 'forest', forest_fortified: 'fortline', clearing_village: 'forest', airbase_forest_hidden: 'forest', farmland_approach: 'country', city_small: 'city', airbase_searchlight: 'base', industrial_light: 'factory', rail_corridor: 'country', station_marshalling: 'factory', harbour_commercial: 'city', beach_town: 'city', valley: 'country', village: 'country', station_junction: 'factory', desert_open: 'country', airbase_desert: 'base', pass: 'fortline', carrier_start: 'sea', island_chain: 'sea', island_fortress: 'sea', island_archipelago: 'sea', island_lagoon: 'sea', island_airbase: 'sea', beach_fortified: 'country', forest_deciduous: 'forest', coast_down: 'coastDown', harbour_south: 'city', harbour_dock: 'city', open_sea: 'sea', farmland: 'country', village: 'country', coast_plain: 'country', city_suburb: 'city', city_town: 'city', city_river: 'city', city_centre: 'city', ruins: 'city', industrial_power: 'factory', station_main: 'factory', rail_yard: 'factory' };
 function sortieSeg(S, c) { for (const g of S.segs) if (c >= g.start && c < g.start + g.n) return g; return null; }
 // Info for chunk p at sortie chunk c (0 = the level's first chunk). From c >= len on it is the Campaign's final airfield ground ('secret', theme 5),
 // open-ended, because the sky fortress duel needs it. Memoised on the sortie object (rebuilt with it), so nothing has to be cleared elsewhere.
@@ -13307,7 +13332,9 @@ function ttSub(sc) {
   const xs = []; for (let x = 26; x <= W - 26; x += 8) xs.push(x); xs.sort((a, b) => Math.abs(a - W / 2) - Math.abs(b - W / 2));
   for (const wx of xs) if (placeOK(wx, wy, 26) && seaOK(wx, wy, 8, 26)) { world.enemies.push(G('sub', wx, wy, { st: 'under', stT: 100, ta: PI / 2, cd: 30, untarget: true })); world.subN = 1; return; }
 }
-function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && (S.isles || S.level === 5))) return true; /* (level 5: never on the ice) */ for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
+/* (the desert's island opener, plan 12.22: its first stretches are open sea and islets) */
+function islOpenAt(S, wy) { if (S.level !== 2 || !S.segs || !S.segs[0] || !/^(island_|open_sea)/.test(S.segs[0].t)) return false; let n = 0; for (const g of S.segs) { if (/^(island_|open_sea)/.test(g.t)) n += g.n; else break; } return -Math.floor(wy / CH) - world.stageBaseP < n; }
+function seaOK(x, y, hw, hh) { const S = run.sortie; if (!(S && (S.isles || S.level === 5 || islOpenAt(S, y)))) return true; /* (level 5: never on the ice) */ for (const dx of [-hw, 0, hw]) for (const dy of [-hh, 0, hh]) if (terrainType(Math.floor(x + dx), Math.floor(y + dy)) !== 'sea') return false; return true; }
 function roadOK(x, y) { const S = run.sortie; return !(S && S.isles) || terrainType(Math.floor(x), Math.floor(y)) === 'road'; }
 /* Enigma Run: route objects (spec 2, Tier A; owner decision). A route is a road that vehicles follow, x a function of the world row: each tank
    street of the settlement plan that runs along the strip (the main road, the lanes round a village green, collectors, the island's road to
