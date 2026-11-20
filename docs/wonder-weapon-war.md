@@ -178,7 +178,7 @@ Medals already drop from enemies and feed the chain and the score. From now on e
 
 **Who runs it: the Magpie (Elster).** A smuggler who deals in anything that shines: the clan's gold, its stolen parts, its secrets. Magpies steal shiny things; it is one more bird in a game of birds (Falke, Swan, Robin, Swallow). The Magpie has robbed clan depots and sells what it found. It stands on the carrier's deck (the Daily Sorties' base; before the Campaign is finished, a hidden corner of the hangar). One small screen, reached from the title next to the ships.
 
-**Where medals come from:** every medal picked up in the Campaign, Enigma Run, Practice, Endless and the Daily Sortie, banked when the run ends, **game over included**. This matters as much as the shards: a player who dies in level 2 still leaves with something, and that is the newcomer the game keeps losing.
+**Where medals come from (owner decision):** only the Daily Sortie (and the weekend raid, §14). Campaign, Enigma Run, Practice and Endless medals do not count: the Campaign stays a pure score game. When medals are banked, and how much survives a game over, is in §15.3. A new player starts with a **starter purse** (§15.4).
 
 **What it sells:**
 
@@ -193,7 +193,7 @@ Medals already drop from enemies and feed the chain and the score. From now on e
 
 **Why the market cannot replace the dailies:** at most 2 shards a week, against about 3 to 7 a week from the dailies for a Rookie and 15 to 20 for an Ace. For a weaker player those 2 are a large share, for a strong one a small one. That is the right way round.
 
-**Farming.** Endless is the mode where medals pile up fastest. The weekly limit already stops a shard farm; if Endless still outpaces everything, bank Endless medals at half.
+**Farming.** Only the Daily Sortie banks, so the one farm is replaying the day's target; §15.3 limits it.
 
 **Saved data.** The purse sits beside the shards in `store` and needs the same save code (shard design, "practical points"). Since spending is local and cosmetic, editing the purse only cheats yourself; the community counter only counts shards from runs the server saw.
 
@@ -252,3 +252,53 @@ The front is the clan's network of hideouts across the four kits' lands (desert,
 2. Heat and the raid (14.2, 14.3), once three-target days are stable.
 
 **Decisions for the owner:** three targets or two; binding choice or free; the week's length (five steps over seven days); what intel and supplies give; the raid's boss rotation.
+
+## 15. Lives, continues and the purse in a Daily Sortie
+
+### 15.1 Lives
+
+- **3 ships, no free continues.** (Check: `run` starts with `lives: 2`; that should be two spares plus the ship flying. The HUD must show 3.)
+- **Score extends stay** (`DIFF.ext`): good play earns a life; in a 5-minute sortie at most one.
+- **One life is a twist**, not the rule: Glass cannon, on Hideout days.
+- **Two legs (if built):** one life back at the seam, capped at 3. A ship arriving with all 3 gets a score bonus instead ("FULL WING"). Retries start from leg 1.
+- Open: a flat 3, or by difficulty (4 / 3 / 3)?
+
+### 15.2 Continues cost medals (owner decisions)
+
+- **Price:** the first continue costs P/2, the second P (P is the market's shard price, §13). At most 2.
+- **Paid from this run's medals first, then the purse.** The prompt shows the price: "CONTINUE? 340 MEDALS".
+- **A continued clear pays the cargo in full** (owner). The price is what balances it: two continues cost 1.5 P, more than a market shard, so on a one-shard day a careful player retries instead; on a two-shard Ace day buying a continue is a fair deal. That is the decision the price is for.
+- **The score carries on** (owner), as in the Campaign. A continued run gets no ★ on the board, as today.
+- **The Campaign is unchanged:** its two free continues, its board.
+- Not enough medals: no continue, only the retry.
+
+### 15.3 When medals reach the purse
+
+Options:
+
+| Rule | Feel | Problem |
+|---|---|---|
+| Only on a clear | every medal is at stake | a game over leaves nothing: the newcomer we lose |
+| Everything, always | safe | no tension; replaying the day is a farm |
+| **On a clear in full, on a game over a share** | the roguelite rule (Rogue Legacy, Hades) | needs a number |
+
+**Proposal: the third.**
+- **Clear:** all of the run's medals are banked (after any continue was paid).
+- **Game over:** **half** are banked. In the world: **the Magpie's cut**. It salvages what it can from the wreck and keeps half.
+- **The seam of a two-leg sortie** banks leg 1's medals in full: a checkpoint for the purse, not for the run.
+- **Replays of the day:** the day's best run banks in full; every later run of the same target banks a quarter. Retries stay free, but a farm pays little. (Alternative: a daily banking cap. Simpler to explain, but it tells a good player to stop playing.)
+
+The continue's price and the game over share work together: at a game over the player either pays from the run's medals to go on, or takes half home.
+
+### 15.4 The starter purse
+
+There are no accounts. The **save code** (needed anyway for shards, purse and week state) is the closest thing: the first time a player's progress is created, the purse starts with **P/2**, one first continue. It teaches the mechanic on the first bad day: "CONTINUE? 120 MEDALS (YOU HAVE 120)".
+
+A new device or cleared storage gives a new starter purse. That is a small leak (half a shard's worth) and not worth guarding against.
+
+### 15.5 Still open
+
+1. Lives flat 3, or by difficulty?
+2. The game over share: half, or another number?
+3. Replays: a quarter after the best run, or a daily cap?
+4. The size of the starter purse: P/2 (one continue) or P?
