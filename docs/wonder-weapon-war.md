@@ -147,3 +147,27 @@ That is also why the ending works: the carrier (the navy) surrenders, the empire
 4. Does the ship speak (the memories in its voice), or are the memories the clan's own notes found with each shard (a colder, documentary tone)?
 5. The prototype: does player 2's captured prototype get a line of its own, or stays unexplained?
 6. The insignia on the clan's machines: keep the cross, or a raven emblem?
+
+## 12. Daily Sortie shards: an intermittent reward (owner idea)
+
+Not every Daily Sortie ends with a shard. Each date has a **shard value**: 0, 1 or 2. The difficulty tier multiplies it (Rookie 1, Veteran 2, Ace 3; not stacking, so an Ace clear pays the Ace amount only).
+
+| Day | Weight (proposal) | Rookie | Veteran | Ace |
+|---|---|---|---|---|
+| No shard | about 35 % | 0 | 0 | 0 |
+| Shard day | about 50 % | 1 | 2 | 3 |
+| **Double shard day** | about 15 % | 2 | 4 | 6 |
+
+Expected per day: about 0.8 × tier (Ace about 2.4, Rookie about 0.8).
+
+**Why it is given a reason in the world.** The clan moves its shards between hideouts. On a shard day the sortie's boss carries one: its core has the purple seam (§4), and only then. On a double day it escorts a second (a shard transport in its wake, or a second core). On a no-shard day the boss is plain hardware. So the player sees the reward on the boss itself.
+
+**Rules that keep it fair and keep people coming back:**
+- **Same for everyone, drawn from the date.** The value is part of `dailyDay(date)` (beside kit, seed, twist and flavour), drawn from its own `sortieHash` stream. It does not change the level, so it does not need a `composeVersion` bump.
+- **Shown in advance, one day ahead.** The title shows today's value and **tomorrow's** ("TOMORROW: DOUBLE SHARD"). A known double tomorrow is a reason to come back; a hidden one only surprises the people who were there anyway.
+- **No long dry spells.** Draw the values per week as a shuffled pattern, not day by day: every 7 days hold at least 4 shard days and at least 1 double, and never 2 no-shard days in a row.
+- **No day is empty.** The courier (an extra shard hidden in the level) is there on every day, including no-shard days; so are the board, the kit stamp and the week bonus. A no-shard day is a day for score and the hunt.
+- **Harder days pay more.** The twists that make a day harder (Glass cannon, Elite day, No pickups) can lift the value by one, capped at 2. The reward then feels earned, not random.
+- **Catch-up never pays more than 1.** Flying a past day (the last 7) pays at most 1 shard, whatever its value was, so missing a double day is a small loss and replaying old doubles is not a farm.
+
+**Decisions for the owner:** the weights; whether the courier exists every day; whether twists lift the value; whether tomorrow is shown, or only today.
