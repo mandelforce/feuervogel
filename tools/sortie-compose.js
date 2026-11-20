@@ -67,7 +67,7 @@ const KITS = {
       desert_open: ['valley', 'station_junction', 'airbase_desert', 'pass'], // (not the village: a later open desert's roadside hamlet reaches up to 70 px past its segment's end, into the village's defences: 3 of 300 composed lists)
       airbase_desert: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'pass'],
       pass: ['valley', 'village', 'oasis_town', 'station_junction', 'desert_open', 'airbase_desert'] },
-    enc: { harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], valley: [{ id: 'dunesweep', at: 1, end: 2, frames: 1100 }], village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
+    enc: { harbour_dock: [{ id: 'dockraid', at: 1, end: 2, frames: 1100 }], valley: [{ id: 'dunesweep', at: 1, end: 2, frames: 1100 }], airbase_desert: [{ id: 'dunebattery', at: 1, end: 2, frames: 1100 }], village: [{ id: 'oasisambush', at: 0, end: 1, frames: 1180 }], desert_open: [{ id: 'burningfield', at: 0, end: 1, frames: 1080, first: true, middle: true }, { id: 'fuelconvoy', at: 1, end: 2, frames: 1280, last: true }] } },
   forest: { id: 'forest', level: 4, preset: 'ironForest', params: { roadEnd: 112 }, arena: 0, boss: { add: 3 }, climate: 'forest', timeOfDay: 'day', len: [50, 66],
     opener: [['beach_cliff', 3]], approach: [['farmland_approach', 7]],
     middle: {
@@ -84,7 +84,7 @@ const KITS = {
       clearing_village: ['forest_conifer', 'forest_fortified', 'airbase_forest_hidden', 'valley'],
       airbase_forest_hidden: ['forest_conifer', 'forest_fortified', 'clearing_village', 'valley'],
       valley: ['forest_conifer', 'forest_fortified', 'clearing_village', 'airbase_forest_hidden'] },
-    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }], forest_conifer: [{ id: 'ridgesweep', at: 1, end: 2, frames: 1100 }] } }, // (not 'valleyconvoy': without the first loop's river three of its eight events make nothing, and it holds the air waves for 2100 frames)
+    enc: { beach_cliff: [{ id: 'cliffbattery', at: 1, end: 1, frames: 1280 }], forest_conifer: [{ id: 'ridgesweep', at: 1, end: 2, frames: 1100 }], forest_fortified: [{ id: 'ridgeflak', at: 1, end: 2, frames: 1100 }] } }, // (not 'valleyconvoy': without the first loop's river three of its eight events make nothing, and it holds the air waves for 2100 frames)
   winter: { id: 'winter', level: 5, preset: 'winterGorge', params: { joinRoad: 1 }, arena: 48, boss: { yard: true }, climate: 'winter', timeOfDay: 'day', len: [78, 90],
     opener: [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8]], approach: [['pass', 7], ['farmland_winter', 11]],
     middle: {
@@ -102,7 +102,7 @@ const KITS = {
       station_winter: ['village', 'lake_valley', 'airbase_snow', 'forest_conifer'],
       airbase_snow: ['village', 'lake_valley', 'station_winter', 'forest_conifer'],
       forest_conifer: ['village', 'lake_valley', 'station_winter', 'airbase_snow'] },
-    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }], forest_conifer: [{ id: 'whiteoutraid', at: 1, end: 2, frames: 1100 }] } }, // (not 'basebreak': without the first loop's basin its two flak guns find no place and it is called off, 5 of 5 flights)
+    enc: { open_sea_ice: [{ id: 'iceraid', at: 4, end: 6, frames: 1180 }], lake_valley: [{ id: 'iceroad', at: 1, end: 2, frames: 1280 }], forest_conifer: [{ id: 'whiteoutraid', at: 1, end: 2, frames: 1100 }], airbase_snow: [{ id: 'snowbattery', at: 1, end: 2, frames: 1100 }] } }, // (not 'basebreak': without the first loop's basin its two flak guns find no place and it is called off, 5 of 5 flights)
   /* the city (level 6, docs/daily-sortie-plan.md section 12, step 5.2): in over the sea to the south harbour, then the city in any order, the works once, the main station last. The first kit built on the
      segment-native city plan (CityGen: preset portSouth with params.segs). Lengths and limits from the first probe (tests/compose.mjs gate 2). No scripted encounter of its own yet (the loop's harbour raid
      is the Campaign's, behind its first loop); the Shadow Wing and the regular timetable. */
