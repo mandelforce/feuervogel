@@ -16240,7 +16240,7 @@ const ENT = {
     if (e.mt % 180 === 90) { const a = aim(e.x, e.y + 11), fh = DIFF.wingFan[settings.diff]; for (let k = -fh; k <= fh; k++) eshot(e.x, e.y + 11, a + k * 0.16, sp * 0.9, 'B'); sfx('cannon'); }
     if (e.mt % 300 === 210) ring(e.x, e.y, Math.round((16 + run.loop * 2) * DIFF.wingN[settings.diff]), sp * 0.75, e.mt * 0.05);
   } },
-  silorocket: { stats: { hp: 800, hw: 8, hh: 30, score: 20000, rad: 16 }, update(e) { /* the rocket silo's rocket (a Daily Sortie ending, plan 12.12 item 25, 12.22): it stands on its pad, shielded while the control bunkers live (FOLLOW.silo.tick sets e.shield); once they are down it fires up for thirty seconds (smoke, a glow, the ground shakes) and then climbs away, faster and faster: out of the top of the screen it is gone, and the level ends without its bonus */
+  silorocket: { stats: { hp: 1000, hw: 8, hh: 30, score: 20000, rad: 16 }, update(e) { /* the rocket silo's rocket (a Daily Sortie ending, plan 12.12 item 25, 12.22): it stands on its pad, shielded while the control bunkers live (FOLLOW.silo.tick sets e.shield); once they are down it fires up for forty-five seconds (smoke, a glow, the ground shakes) and then climbs away, faster and faster: out of the top of the screen it is gone, and the level ends without its bonus */
     if (e.dying) return dyingTick(e);
     e.t2 = (e.t2 || 0) + 1; e.untarget = !!e.shield;
     if (e.armed && !e.launch) { e.ig = (e.ig || 0) + 1; if (gf % 6 === 0) world.parts.push({ kind: 'smoke', layer: 'a', x: e.x + rnd(-4, 4), y: e.y + 32, vx: rnd(-0.5, 0.5), vy: 0.5, r: rnd(2, 4), life: 28, max: 28 }); if (e.ig % 240 === 0) feel.shake = Math.max(feel.shake, 2); }
@@ -18698,7 +18698,7 @@ const LOOKS = {
     ctx.strokeStyle = '#e2f0f8'; ctx.globalAlpha = 0.5 * r; ctx.beginPath(); ctx.ellipse(Math.round(e.x), Math.round(e.y), 30 * (1 + (1 - r) * 0.4), 78 * (1 + (1 - r) * 0.3), 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; },
   silorocket(e, fl) { /* a tall rocket in grey and red, its fins at the foot, a ring of light round it while it is shielded and a flame once it fires */
     const x = Math.round(e.x), y = Math.round(e.y), C = (a, b) => fl ? '#ffffff' : a || b; ctx.save();
-    if (e.armed || e.launch) { const k = e.launch ? 1 : Math.min(1, (e.ig || 0) / 1800), fh = 8 + k * 22 + ((gf >> 1) & 3) * 2; ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.moveTo(x - 6, y + 32); ctx.lineTo(x, y + 32 + fh); ctx.lineTo(x + 6, y + 32); ctx.fill(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#ffe070'; ctx.beginPath(); ctx.moveTo(x - 3, y + 32); ctx.lineTo(x, y + 32 + fh * 0.6); ctx.lineTo(x + 3, y + 32); ctx.fill(); ctx.globalAlpha = 1; }
+    if (e.armed || e.launch) { const k = e.launch ? 1 : Math.min(1, (e.ig || 0) / 2700), fh = 8 + k * 22 + ((gf >> 1) & 3) * 2; ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.moveTo(x - 6, y + 32); ctx.lineTo(x, y + 32 + fh); ctx.lineTo(x + 6, y + 32); ctx.fill(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#ffe070'; ctx.beginPath(); ctx.moveTo(x - 3, y + 32); ctx.lineTo(x, y + 32 + fh * 0.6); ctx.lineTo(x + 3, y + 32); ctx.fill(); ctx.globalAlpha = 1; }
     ctx.fillStyle = C('#16141a'); ctx.fillRect(x - 9, y - 26, 18, 60);
     ctx.fillStyle = C('#9ea3ac'); ctx.fillRect(x - 7, y - 24, 14, 56); ctx.fillStyle = C('#c8ccd4'); ctx.fillRect(x - 7, y - 24, 4, 56); ctx.fillStyle = C('#6c717a'); ctx.fillRect(x + 3, y - 24, 4, 56);
     ctx.fillStyle = C('#16141a'); ctx.beginPath(); ctx.moveTo(x - 9, y - 25); ctx.lineTo(x, y - 42); ctx.lineTo(x + 9, y - 25); ctx.fill(); ctx.fillStyle = C('#c8321e'); ctx.beginPath(); ctx.moveTo(x - 7, y - 24); ctx.lineTo(x, y - 39); ctx.lineTo(x + 7, y - 24); ctx.fill(); ctx.fillStyle = C('#e8584a'); ctx.beginPath(); ctx.moveTo(x - 7, y - 24); ctx.lineTo(x - 1, y - 37); ctx.lineTo(x - 1, y - 24); ctx.fill();
@@ -19332,7 +19332,7 @@ const FOLLOW = {
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
   silo: { warn: 'ROCKET SILO: DESTROY THE CONTROL BUNKERS, THEN THE ROCKET', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], out = [];
-    out.push(E('silorocket', { x: 112, y: 122, big: true, hp: 800 * m, maxhp: 800 * m, shield: true }));
+    out.push(E('silorocket', { x: 112, y: 122, big: true, hp: 1000 * m, maxhp: 1000 * m, shield: true }));
     for (const x of [48, 176]) { const b = G('bunker', x, 130 - sc, { ga: PI / 2, cd: 60 + (x % 50) }); b.hp *= 2.5; b.maxhp = b.hp; out.push(b); }
     for (const x of [24, 200]) out.push(G('aatower', x, 190 - sc, { cd: 60 + (x % 40) })); return out; } },
   ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1400 * m, maxhp: 1400 * m })]; } },
@@ -19358,10 +19358,10 @@ FOLLOW.tankfarm.tick = (e, sc) => { /* a fuel tank that goes up sets its neighbo
 FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircraft taxis and takes off, becoming a fighter that turns back on the player (shoot them while they sit) */
   if (e.ft > 200 && e.ft % 300 === 200) { const c = e.subs.filter(m => m.type === 'parked' && !m.dead && !m.takeoff); if (c.length) { const m = c[(e.ft / 300 | 0) % c.length]; m.takeoff = e.ft + 70; m.taxi = 70; m.v = 0.5; sfx('drone'); } }
   e.subs.forEach((m, i) => { if (m.type === 'parked' && m.takeoff && e.ft >= m.takeoff && !m.dead) { const f2 = mkFighter(m.x, m.y, -PI / 2, 1.6, { turn: 0.042, fireAt: 40 }); f2.hp0 = f2.hp; m.dead = true; boom(m.x, m.y, 8, 'a'); world.enemies.push(f2); e.subs[i] = f2; } }); };
-FOLLOW.silo.tick = (e, sc) => { /* the rocket is shielded while a control bunker stands; with both down it is armed, and thirty seconds later it launches */
+FOLLOW.silo.tick = (e, sc) => { /* the rocket is shielded while a control bunker stands; with both down it is armed, and forty-five seconds later it launches */
   const r = e.subs.find(m => m.type === 'silorocket'); if (!r || r.dead || r.dying) return; const cov = e.subs.some(m => m.type === 'bunker' && !m.dead && !m.dying); r.shield = cov;
   if (!cov && !r.armed) { r.armed = e.ft; showMsg('LAUNCH SEQUENCE', 'SINK THE ROCKET BEFORE IT LIFTS OFF', 200); sfx('warn'); }
-  if (r.armed && !r.launch && e.ft - r.armed > 1800) { r.launch = true; sfx('rocket'); feel.shake = Math.max(feel.shake, 6); } };
+  if (r.armed && !r.launch && e.ft - r.armed > 2700) { r.launch = true; sfx('rocket'); feel.shake = Math.max(feel.shake, 6); } };
 for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; if (['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo'].includes(k)) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
   BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
