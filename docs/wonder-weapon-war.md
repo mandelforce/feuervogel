@@ -148,26 +148,53 @@ That is also why the ending works: the carrier (the navy) surrenders, the empire
 5. The prototype: does player 2's captured prototype get a line of its own, or stays unexplained?
 6. The insignia on the clan's machines: keep the cross, or a raven emblem?
 
-## 12. Daily Sortie shards: an intermittent reward (owner idea)
+## 12. Daily Sortie shards: what the boss carries (owner idea)
 
-Not every Daily Sortie ends with a shard. Each date has a **shard value**: 0, 1 or 2. The difficulty tier multiplies it (Rookie 1, Veteran 2, Ace 3; not stacking, so an Ace clear pays the Ace amount only).
+Not every Daily Sortie ends with a shard. Every day's boss carries a **cargo**, and the cargo is the day's reward. The difficulty tier multiplies shards (Rookie 1, Veteran 2, Ace 3; not stacking, so an Ace clear pays the Ace amount only).
 
-| Day | Weight (proposal) | Rookie | Veteran | Ace |
-|---|---|---|---|---|
-| No shard | about 35 % | 0 | 0 | 0 |
-| Shard day | about 50 % | 1 | 2 | 3 |
-| **Double shard day** | about 15 % | 2 | 4 | 6 |
+| Cargo | When | Rookie | Veteran | Ace | Seen on the boss |
+|---|---|---|---|---|---|
+| **Gold** (the clan's payroll) | about 1 day in 3 | 0 shards, medals x2 | same | same | plain hardware; it bursts into a shower of medals |
+| **One shard** | most days | 1 | 2 | 3 | the purple seam on its core (§4) |
+| **Two shards** | **hard days only** (below) | 2 | 4 | 6 | the seam, and a shard transport in its wake (or a second core) |
 
-Expected per day: about 0.8 × tier (Ace about 2.4, Rookie about 0.8).
+**Two shards are earned, not drawn (owner).** A day carries two shards when it is hard:
+- a hard twist: Glass cannon, Elite day, No pickups, Heavy bullets (the list is the owner's);
+- a tough boss form: the heavy forms of the bosses (`docs/daily-sortie-plan.md`, the boss forms table: sand fortress heavy x1.2, castle heavy, sky fortress lance);
+- the `rank` or `loop` flavour (the 1945 rules).
 
-**Why it is given a reason in the world.** The clan moves its shards between hideouts. On a shard day the sortie's boss carries one: its core has the purple seam (§4), and only then. On a double day it escorts a second (a shard transport in its wake, or a second core). On a no-shard day the boss is plain hardware. So the player sees the reward on the boss itself.
+The composer already decides all three per date, so the cargo follows from them; the only drawn part is gold or one shard on the other days.
 
-**Rules that keep it fair and keep people coming back:**
-- **Same for everyone, drawn from the date.** The value is part of `dailyDay(date)` (beside kit, seed, twist and flavour), drawn from its own `sortieHash` stream. It does not change the level, so it does not need a `composeVersion` bump.
-- **Shown in advance, one day ahead.** The title shows today's value and **tomorrow's** ("TOMORROW: DOUBLE SHARD"). A known double tomorrow is a reason to come back; a hidden one only surprises the people who were there anyway.
-- **No long dry spells.** Draw the values per week as a shuffled pattern, not day by day: every 7 days hold at least 4 shard days and at least 1 double, and never 2 no-shard days in a row.
-- **No day is empty.** The courier (an extra shard hidden in the level) is there on every day, including no-shard days; so are the board, the kit stamp and the week bonus. A no-shard day is a day for score and the hunt.
-- **Harder days pay more.** The twists that make a day harder (Glass cannon, Elite day, No pickups) can lift the value by one, capped at 2. The reward then feels earned, not random.
-- **Catch-up never pays more than 1.** Flying a past day (the last 7) pays at most 1 shard, whatever its value was, so missing a double day is a small loss and replaying old doubles is not a farm.
+**Rules:**
+- **Same for everyone, from the date.** The cargo is part of `dailyDay(date)` (beside kit, seed, twist and flavour). The gold day is drawn from its own `sortieHash` stream. The cargo does not change the level's ground, so no `composeVersion` bump; the gold burst and the second core are looks and drops only.
+- **Shown in advance, one day ahead.** The title shows today's cargo and **tomorrow's** ("TOMORROW: TWO SHARDS, ELITE DAY"). A hard day announced with its reward is a challenge people plan for.
+- **No long dry spells.** Per week (shuffled, not day by day): at least 4 shard days, never 2 gold days in a row. If a week has no hard day, the composer makes one.
+- **No day is empty.** Gold days pay double medals for the black market (§13); the courier, the board, the kit stamp and the week bonus are there every day.
+- **Catch-up pays at most 1 shard.** Flying a past day (the last 7) pays at most 1, whatever its cargo was; gold days pay their medals as normal.
 
-**Decisions for the owner:** the weights; whether the courier exists every day; whether twists lift the value; whether tomorrow is shown, or only today.
+## 13. The black market: medals for shards (owner idea)
+
+Medals already drop from enemies and feed the chain and the score. From now on every medal picked up is also **banked** in a purse that survives the run. The purse buys shards and small things at the black market. Spending never touches a score, a board or a run.
+
+**Who runs it: the Magpie (Elster).** A smuggler who deals in anything that shines: the clan's gold, its stolen parts, its secrets. Magpies steal shiny things; it is one more bird in a game of birds (Falke, Swan, Robin, Swallow). The Magpie has robbed clan depots and sells what it found. It stands on the carrier's deck (the Daily Sorties' base; before the Campaign is finished, a hidden corner of the hangar). One small screen, reached from the title next to the ships.
+
+**Where medals come from:** every medal picked up in the Campaign, Enigma Run, Practice, Endless and the Daily Sortie, banked when the run ends, **game over included**. This matters as much as the shards: a player who dies in level 2 still leaves with something, and that is the newcomer the game keeps losing.
+
+**What it sells:**
+
+| Item | Price | Limit | Why |
+|---|---|---|---|
+| **Shard** | P medals, then 2P for the second | **2 a week** (resets with the weekly board) | a path to the shards that rewards effort, not skill |
+| **A rumour**: where today's courier hides (a hint, not the place: "the third train", "stay left after the bridge") | small | 1 a day | ties the purse to the hunt; the community sees who bought it |
+| Looks: a trail, a Nova colour, a poster for the title | medium | none | the sink for full purses, and after the ship is whole |
+| A memory you missed (a fragment, not a full one) | large | 1 a week | for the players chasing the story |
+
+**Setting P.** Measure the average medals banked per Daily Sortie on each difficulty with the bot (the balance bot already counts `run.stats.medals`). Set P so a shard costs about three average sorties' medals. Then a gold day (double medals) is about two thirds of a shard, and a week of play buys the two market shards with some to spare.
+
+**Why the market cannot replace the dailies:** at most 2 shards a week, against about 3 to 7 a week from the dailies for a Rookie and 15 to 20 for an Ace. For a weaker player those 2 are a large share, for a strong one a small one. That is the right way round.
+
+**Farming.** Endless is the mode where medals pile up fastest. The weekly limit already stops a shard farm; if Endless still outpaces everything, bank Endless medals at half.
+
+**Saved data.** The purse sits beside the shards in `store` and needs the same save code (shard design, "practical points"). Since spending is local and cosmetic, editing the purse only cheats yourself; the community counter only counts shards from runs the server saw.
+
+**Decisions for the owner:** the cargo of hard days (which twists and boss forms count); the gold days' share; the Magpie, or another dealer; P and the weekly limit; whether Endless and Practice bank medals in full.
