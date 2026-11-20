@@ -53,8 +53,9 @@ export const KITS = {
     opener: [['open_sea_ice', 18], ['harbour_winter', 5], ['farmland_winter', 8]],
     middle: [['village', 5], ['lake_valley', 7], ['station_winter', 9], ['airbase_snow', 7], ['forest_conifer', 7]],
     approach: [['pass', 7], ['farmland_winter', 11]],
-    needs: { open_sea_ice: 'ice hole', village: 'alpine village', lake_valley: 'lake', pass: 'gate' },
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', open_sea_ice: 'ice hole', village: 'alpine village', lake_valley: 'lake', pass: 'gate' },
     markers: p => { const m = [];
+      for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' }); /* (an island opener's islets) */
       for (const s of p.slots) if (s.kind === 'sub') m.push({ t: 'open_sea_ice', y: s.y, what: 'ice hole' });
       /* the middle of each village and lake: a segment needs one of its own, a neighbour's edge does not count */
       for (const A of p.alpines || []) { m.push({ t: 'village', y: (A.y0 + A.y1) / 2, what: 'alpine village' }); if (A.chapel) m.push({ t: 'village', y: A.chapel.y, what: 'chapel' }); }
@@ -62,11 +63,11 @@ export const KITS = {
       for (const it of p.items) if (it.label === 'Guard hut') m.push({ t: 'pass', y: it.y0, what: 'gate' });
       return m; },
     extra: (p, rg, noFin) => { const out = [], Lr = rg.reduce((a, r) => Math.max(a, r.t === '(arena)' ? 0 : r.y1), 0), G = p.gorge;
-      if (noFin) { const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if (noFin === 'depot' && p.P && p.P.depotRows > 0 && !p.iceArena) out.push('the ice arena is missing'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (noFin === 'railgorge' ? !p.throat || p.throat.tracks.length !== 2 : !p.throat || p.throat.tracks.length !== 3) out.push('the finale has the wrong number of tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
+      if (noFin) { const first = rg.find(r => !/^island_|^open_sea$/.test(r.t)) || rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea'); if (G) out.push('a gorge in a sea ending'); if (noFin === 'depot' && p.P && p.P.depotRows > 0 && !p.iceArena) out.push('the ice arena is missing'); if ((p.tunnels || []).length !== 2) out.push((p.tunnels || []).length + ' tunnel mouths, not 2'); if (noFin === 'railgorge' ? !p.throat || p.throat.tracks.length !== 2 : !p.throat || p.throat.tracks.length !== 3) out.push('the finale has the wrong number of tracks'); return out; } /* (a sea ending: the freight depot, no gorge) */
       if (!G) out.push('no gorge'); else { if (!(G.yb < Lr && G.yb > Lr - 220)) out.push('the gorge opens at ' + G.yb + ', level end ' + Lr); if (G.y1 !== p.L - 1) out.push('the gorge ends at ' + G.y1 + ', plan ' + p.L);
         for (const tx of [36, 68, 156, 188]) { let brk = 0; for (let y = G.y0; y < p.L; y++) if (p.RM[y * p.W + tx - 3] !== 2) brk++; if (brk) { out.push('a track breaks in the gorge'); break; } } }
       if ((p.tunnels || []).length !== 4) out.push((p.tunnels || []).length + ' tunnel mouths, not 4');
-      const first = rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea');
+      const first = rg.find(r => !/^island_|^open_sea$/.test(r.t)) || rg[0]; if (first.t !== 'open_sea_ice') out.push('the level does not open over the frozen sea');
       return out; } },
   /* the temperate kit (level 1): the segment-native islands plan up to the beach. Each band of islets holds islets of its own kind, the large island its runway; the legacy old land after the plan is not in the plan. */
   temperate: { preset: 'islands', arena: 0, params: segs => ({ segs }),
