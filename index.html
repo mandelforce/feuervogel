@@ -18224,7 +18224,7 @@ function update() {
     if (d.smokeT > 0) {
       d.smokeT--; const y = d.wy + sc;
       if (y > -10 && y < H + 10) {
-        if (gf % 9 === 0) smokePuff(d.wx + rnd(-3, 3), y);
+        if (gf % 9 === 0) { if (run.sortie && run.sortie.daily) fx(() => smokePuff(d.wx + rnd(-3, 3), y)); else smokePuff(d.wx + rnd(-3, 3), y); } /* (a Daily Sortie: a smoking wreck's puff is cosmetic, on the cosmetic stream; a save does not keep the wrecks, so on the shared stream a resumed run drew other shot ranges, plan 12.22) */
         if (d.fireT === undefined) d.fireT = Math.min(d.smokeT, (d.r || 10) * 22);
         if (d.fireT > 0) { d.fireT--; const rr = Math.min(22, (d.r || 8) * 0.8); if (gf % (lowFX ? 10 : 5) === 0) fx(() => fireAt(d.wx + rnd(-rr, rr), y + rnd(-rr * 0.5, rr * 0.5) + 2, 'g', rr > 12 && Math.random() < 0.5)); }
       }
