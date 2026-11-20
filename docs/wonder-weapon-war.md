@@ -198,3 +198,57 @@ Medals already drop from enemies and feed the chain and the score. From now on e
 **Saved data.** The purse sits beside the shards in `store` and needs the same save code (shard design, "practical points"). Since spending is local and cosmetic, editing the purse only cheats yourself; the community counter only counts shards from runs the server saw.
 
 **Decisions for the owner:** the cargo of hard days (which twists and boss forms count); the gold days' share; the Magpie, or another dealer; P and the weekly limit; whether Endless and Practice bank medals in full.
+
+## 14. The war map: choosing the daily (owner idea)
+
+Players choose which daily to fly. This turns sections 12 and 13 into a small roguelike meta game: risk and reward each day, and choices that carry through a week.
+
+### 14.1 Each day: three targets
+
+The title's Daily button opens a map of the front with **three targets for today**. They are the same for every player, all composed and flown by the bot before release, like today's single sortie.
+
+| Target | Cargo (§12) | What it is |
+|---|---|---|
+| **Supply line** (safe) | gold: double medals | an easy sortie, no twist |
+| **Depot** (standard) | one shard | today's ordinary sortie, a normal twist |
+| **Hideout** (risky) | two shards | a hard twist or a tough boss form |
+
+- **The choice is binding.** The first launch commits the day to that target. Retries of it are free (the same as now); the other two can still be flown for score, but pay medals only.
+- **Each target has its own board for the day.** Three sorties are not comparable, so their scores do not share a board. The title shows how many players took each target.
+- **First day: one button.** Until a player has cleared one Daily Sortie, the map is hidden and the Daily button flies the Depot. The choice comes on the second visit, when the player knows what a sortie is. A game that loses people early must not open with a map.
+
+### 14.2 Each week: the front and the raid
+
+The week is a short map, read like a front line: **five steps over seven days**, each step a choice of three targets (14.1), ending on the weekend in a **raid** on a clan hideout: one of the six wonder weapons (§3) in its heavy form, or the Raven Prototype.
+
+What the week's choices do:
+
+- **Intel.** Each Hideout cleared this week weakens the raid boss (one part fewer, or a pattern dropped). The risky road makes the end easier.
+- **Supplies.** Each Supply line cleared gives the raid a start bonus: a Nova, or the weapon one level up. The safe road makes the ship stronger.
+- **Heat.** Each Hideout raises the clan's **alert** by one. The raid is flown at that alert: more enemies and faster bullets, more shards (one more shard per two alert, capped).
+
+So a strong player takes Hideouts (high heat, weak boss, big pay), a careful player takes Supply lines (low heat, strong ship, small pay), and most players mix. The roguelike decisions are of the kind *Slay the Spire* and *Hades* use: pick a path node, carry its effect forward, raise the stakes for a bigger reward.
+
+**Two slack days.** Five steps in seven days: a player who misses two days still reaches the raid. A step not taken by the raid counts as a Depot.
+
+### 14.3 The raid's board
+
+Supplies, intel and heat make raids unequal. The raid board is split by **heat** (0 to 5), and within a heat tier ranks by score. Supplies and intel are shown next to the name. The high-heat tiers are the prestige board.
+
+### 14.4 Lore
+
+The front is the clan's network of hideouts across the four kits' lands (desert, forest, winter, city). Supply lines carry its payroll, depots its parts, hideouts its shards. The Magpie (§13) sells the rumour that names this week's raid target before Sunday.
+
+### 14.5 Cost
+
+- **Three sorties a day to compose and vet** instead of one. The flight gate's time triples (today one sortie takes a few minutes of bot flight per difficulty). The three can share the day's kit or take three kits.
+- **The raid**: a weekly sortie built from the existing bosses' heavy forms, with heat as a rank factor (the Daily plan's `rank` flavour is the base).
+- **Saved week state**: the steps taken, heat, supplies, intel, beside the shards and the purse in `store`, under the same save code.
+- **The map screen**: one screen, three cards a day, five rows a week.
+
+### 14.6 Suggested order
+
+1. Three targets a day, no week map (14.1). Already gives the daily choice.
+2. Heat and the raid (14.2, 14.3), once three-target days are stable.
+
+**Decisions for the owner:** three targets or two; binding choice or free; the week's length (five steps over seven days); what intel and supplies give; the raid's boss rotation.
