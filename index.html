@@ -19366,8 +19366,8 @@ const FOLLOW = {
     add('htank', 112, 56, {}, 2.2); for (const [x, y] of [[70, 36], [154, 36], [40, 84], [184, 84], [96, 108], [128, 108]]) add('tank', x, y, {}); return out; } },
   sandstorm: { warn: 'SANDSTORM FRONT: OUTRUN IT TO THE PASS', spawn(e, sc) { return [E('stormwall', { x: 112, y: H + 40, big: true, hp: 1000, maxhp: 1000, skin: 'sand', untarget: true })]; } },
   iceshelf: { warn: 'THE ICE SHELF IS COLLAPSING: GET OUT', spawn(e, sc) { return [E('stormwall', { x: 112, y: H + 40, big: true, hp: 1000, maxhp: 1000, skin: 'ice', untarget: true })]; } },
-  dam: { warn: 'THE DAM: BREAK THE SPILLWAY GATES', spawn(e, sc) { const out = []; /* (12.12 item 21, 12.22: three spillway gates (turrets in the wall, 2.5 times the hit points) and two AA towers guard it; with the gates down the reservoir pours through: a flood front runs down the arena and the level ends at the crest) */
-    for (const x of [48, 112, 176]) { const b = G('bunker', x, 98 - sc, { ga: PI / 2, cd: 60 + (x % 50) }); b.hp *= 2.5; b.maxhp = b.hp; b.gate = true; out.push(b); }
+  dam: { warn: 'THE DAM: BREAK THE SPILLWAY GATES', spawn(e, sc) { const out = []; /* (12.12 item 21, 12.22: three spillway gates (turrets in the wall, 18 times the hit points) and two AA towers guard it; with the gates down the reservoir pours through: a flood front runs down the arena and the level ends at the crest) */
+    for (const x of [48, 112, 176]) { const b = G('bunker', x, 98 - sc, { ga: PI / 2, cd: 60 + (x % 50) }); b.hp *= 18; b.maxhp = b.hp; b.gate = true; out.push(b); }
     for (const x of [24, 200]) out.push(G('aatower', x, 150 - sc, { cd: 60 + (x % 40) }));
     out.push(E('stormwall', { x: 112, y: -300, big: true, hp: 150, maxhp: 150, skin: 'flood', untarget: true, keep: true })); return out; } },
   ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1400 * m, maxhp: 1400 * m })]; } },
@@ -19412,10 +19412,10 @@ function escapeTick(e, sc) { /* the front rises (0.1 px a frame, up to half the 
   if (e.ft % 360 === 90) waveDive(4, 30 + (((e.ft / 360) | 0) * 53) % (W - 60)); if (e.ft % 720 === 400) waveSweep(((e.ft / 720) | 0) % 2 ? 1 : -1);
   if (e.ft >= ESC_T) { w.dead = true; w.hp = 0; showMsg('YOU MADE IT', ice ? 'OPEN ICE AHEAD' : 'THE PASS IS AHEAD', 140); sfx('horn'); } }
 FOLLOW.sandstorm.tick = escapeTick; FOLLOW.iceshelf.tick = escapeTick;
-FOLLOW.dam.tick = (e, sc) => { /* the flood waits off screen until the last gate is down, then runs down the arena (0.8 px a frame); at the bottom the level ends */
+FOLLOW.dam.tick = (e, sc) => { /* the flood waits off screen until the last gate is down, then runs down the arena (0.35 px a frame); at the bottom the level ends */
   const w = e.subs.find(m => m.type === 'stormwall'); if (!w || w.dead) return; const gates = e.subs.some(m => m.gate && !m.dead && !m.dying);
   if (gates) { w.y = -300; return; } if (!w.flood) { w.flood = e.ft; w.y = -4; showMsg('THE GATES GIVE WAY', 'THE RESERVOIR POURS THROUGH', 180); sfx('boom'); feel.shake = Math.max(feel.shake, 8); }
-  w.y += 0.8; if (e.ft % 30 === 0) feel.shake = Math.max(feel.shake, 2); if (w.y > H + 24) { w.dead = true; w.hp = 0; } };
+  w.y += 0.35; if (e.ft % 30 === 0) feel.shake = Math.max(feel.shake, 2); if (w.y > H + 24) { w.dead = true; w.hp = 0; } };
 for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; if (['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo', 'bridgedef', 'dam'].includes(k)) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
   BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
