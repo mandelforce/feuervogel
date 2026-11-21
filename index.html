@@ -388,6 +388,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <h2 id="pmTitle">Menu</h2>
         <div class="menu">
           <button type="button" class="primary" id="pmResume">Resume</button>
+          <button type="button" id="pmFreeze">Freeze for screenshot</button>
           <button type="button" id="pmMusic" aria-label="Music: On">Music<i>ON</i></button>
           <button type="button" id="pmSound" aria-label="Sound: On">Sound<i>ON</i></button>
           <div class="sep" aria-hidden="true"></div>
@@ -20506,7 +20507,7 @@ const pauseMenu = document.getElementById('pauseMenu');
 function showPauseMenu(v) {
   pauseMenu.classList.toggle('open', !!v);
   const inGame = app.state === 'play';
-  for (const id of ['pmSep2', 'pmRestart', 'pmQuit']) document.getElementById(id).style.display = inGame ? '' : 'none';
+  for (const id of ['pmSep2', 'pmRestart', 'pmQuit', 'pmFreeze']) document.getElementById(id).style.display = inGame ? '' : 'none';
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
   setSoundLabel(); achLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
@@ -20514,6 +20515,12 @@ function togglePause() { if (app.state !== 'play') return; app.blurPaused = fals
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
 function openMenu() { audio(); if (app.state === 'play') { if (!app.paused) togglePause(); else showPauseMenu(true); } else showPauseMenu(true); }
 const menuBtn = document.getElementById('menuBtn');
+/* Freeze for a screenshot (phones tell a page nothing about a screenshot): the menu closes, the game stays paused and the menu button hides; the next tap resumes */
+document.getElementById('pmFreeze').addEventListener('click', () => {
+  if (app.state !== 'play') return; if (!app.paused) togglePause(); app.frozenShot = true; showPauseMenu(false); menuBtn.style.visibility = 'hidden';
+  const t0 = performance.now(), off = e => { if (performance.now() - t0 < 500) return; e.stopPropagation(); e.preventDefault(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); app.frozenShot = false; menuBtn.style.visibility = ''; if (app.paused) togglePause(); };
+  addEventListener('pointerdown', off, true); addEventListener('keydown', off, true);
+});
 menuBtn.addEventListener('pointerdown', e => e.stopPropagation());
 menuBtn.addEventListener('click', () => { pauseMenu.classList.contains('open') ? closeMenu() : openMenu(); menuBtn.blur(); });
 pauseMenu.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.target === pauseMenu) closeMenu(); });

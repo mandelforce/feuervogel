@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The pause menu has Freeze for screenshot (for phones, whose screenshots a web page cannot detect): the menu closes, the game stays frozen with no menu or button over the picture, and the next tap resumes it with the usual countdown.
 - The game freezes when its window loses focus (a screenshot tool, another window), not only when the tab is hidden: no pause menu over the picture, and play resumes with the usual countdown when the window comes back. A pause you made yourself stays paused.
 - The forest Daily Sortie's Ravenhold can stand as a ruin too (build 1.2.6.49, composer v5; **not played by a person yet**): breaches in the walls, rubble, cracks, scorch, moss on the flagstones and ivy up the walls, a damaged keep and tower. Looks only. The Campaign's first-loop ruin is unchanged.
 - The temperate Daily Sortie's shore has sandbag rings round its gun pits and olive camouflage nets over many of its casemates (build 1.2.6.49, composer v5; **not played by a person yet**). The Campaign is unchanged.
