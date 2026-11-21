@@ -1815,16 +1815,17 @@ function bufferStops(plan) {
       const xc = Math.round((x + xr) / 2); if (!near(xc, y)) out.push({ x: xc, y, dir }); } }
   return out;
 }
-function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: its own track colours by the railway's mask; opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.apronPix(x, y): its own apron concrete
+function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: its own track colours by the railway's mask; opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.gatePix(x, y, m) -> [r, g, b]: the host's colours for the join's perimeter street (m 1) and its road (m 2, plan.GM); opts.apronPix(x, y): its own apron concrete
   const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
-  usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
+  usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, gatePix = opts && opts.gatePix, GMx = plan.GM, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
   const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
   for (let sr = 0; sr < h; sr++) {
     const y = y0 + h - 1 - sr; if (y < 0 || y >= L) continue;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
-      if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
+      else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
           if (b.round) { c = roundPix(b, x, y); break; }
@@ -2420,7 +2421,7 @@ function islands(o) {
   const mains = []; let bands = null; if (P.segs) { P.L = P.segs.reduce((a, g) => a + g.n, 0) * 64; bands = []; let at = 0; for (const g of P.segs) { const y0 = at * 64, y1 = (at + g.n) * 64; at += g.n;
       if (g.t === 'island_chain' || g.t === 'island_fortress' || g.t === 'island_archipelago' || g.t === 'island_lagoon') bands.push({ y0, y1, kind: g.t === 'island_chain' ? 'chain' : g.t === 'island_fortress' ? 'fort' : g.t === 'island_lagoon' ? 'lagoon' : 'arch', p: g.p || null });
       else if (g.t === 'island_airbase') P.big = [y0 / P.L, Math.min(P.L - 1, y0 + 620) / P.L];
-      else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
+      else if (/^main_/.test(g.t)) mains.push({ t: g.t, y0, y1, n: g.n, next: g.next }); } /* (the mainland: stretches of generator-made land after the open sea, plan 12.21) */
     if (P.opener && !P.segs.some(g => g.t === 'island_airbase')) { P.noBig = true; P.big = [2, 3]; } /* (an opener: bands of islets and open sea only, no large island; plan 12.21) */
     if (!P.big) throw new Error('islands: a segment list needs an island_airbase stretch'); }
   const L = P.L | 0, N = W * L;
@@ -2595,6 +2596,15 @@ function islands(o) {
       vOffA = v.mx[0] - mxM(vy); vOffB = v.mx[VLm - 1] - mxM(vy + VLm - 1); plan.mainVillage = { y0: vy, y1: vil.y1 - 1, items: v.items.length, farms: v.farms.length, nC }; }
     const mAt = y => { let m = mxM(y); if (vil) { m += vOffA * smooth(vil.y0 - 150, vil.y0, y) * (y < vil.y0 ? 1 : 0) + vOffB * (1 - smooth(vil.y1, vil.y1 + 150, y)) * (y >= vil.y1 ? 1 : 0); } return m; };
     for (let y = M0; y < L; y++) if (!inVil(y)) { plan.mx[y] = mAt(y); plan.aw[y] = 8; }
+    /* the gate (plan 12.22): the last stretch of a mainland that the legacy ground of a built-up kind follows (kit.main.gate). It owns the join: the main road is eased onto one of the street columns of the old land's block grid (x = ox + pitch * k + 3.5, 8 px wide) and
+       ends straight, a perimeter street of the grid (8 rows, kerbs both sides, the grid's own vertical streets opening into it) closes the plan, and the railway of the old land (x 14 to 21) comes in from the left edge over a long gentle slope and crosses that street. The game
+       paints the street and the road with the old land's own colour functions (opts.gatePix, plan.GM), so plan and legacy match by construction; the legacy grid's rows are phased so that its first row is the north edge of the street (index.html: gridOy). */
+    const gateM = mains.find(m => m.t === 'main_gate'), GATES = { industrial_light: { pitch: 64, rail: true }, city_small: { pitch: 56, rail: true }, airbase_searchlight: { pitch: 0, rail: true, cols: [132.5] /* (the airfield's runway takes x 60 to 103: the road meets the apron to its right) */ } };
+    if (gateM) { const G0 = GATES[gateM.next] || GATES.industrial_light, a = gateM.y0, yN = gateM.y1 - 1, yS = yN - 7; let tx = mAt(yN), best = 1e9;
+      for (const c of G0.cols || (() => { const o = []; for (let k = 1; 14 + G0.pitch * k + 3.5 <= W - 30; k++) o.push(14 + G0.pitch * k + 3.5); return o; })()) { const d = Math.abs(c - mAt(a)); if (d < best) { best = d; tx = c; } } /* (the street columns of the old land's grid, 8 px wide, but not the railway's) */
+      const yE0 = Math.max(a - 48, vil && vil.y1 > a - 48 ? vil.y1 : -1e9), yE1 = yS - 20;
+      for (let y = Math.max(M0, Math.floor(yE0)); y < L; y++) if (!inVil(y)) plan.mx[y] = lerp(mAt(y), tx, smooth(yE0, yE1, y));
+      plan.gate = { next: gateM.next || 'industrial_light', y0: a, yS, yN, x: tx, ox: 14, pitch: G0.pitch, rail: G0.rail ? 18 : null, rows: 8 }; }
     const roadSt = () => { const st = { cls: 'arterial', axis: 'v', tank: true, pts: [], island: true, id: plan.streets.length }; plan.streets.push(st); return st; };
     /* rivers (a main_river stretch, plan 12.22): a stream across the land, the town builder's own river object (the centre line yc and half width hw at every column, so its pixel code and its current streaks draw it), natural banks 3 px wide; the main road crosses it on a bridge (a deck of K.BRIDGE tiles of the road's street, one entry in plan.bridges, which validate wants for every river). It is cut before the road and the fields, which keep clear of it. */
     const rivs = [];
@@ -2606,8 +2616,14 @@ function islands(o) {
     plan.rivers = rivs; plan.river = rivs[0] || null;
     for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt(); let run = null;
       for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); let wet = false;
-        for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) { const c = Kr[idx(x, y)]; if (c === K.RIVER || c === K.BRIDGE) { Kr[idx(x, y)] = K.BRIDGE; Br[idx(x, y)] = -2 - st.id; wet = true; } else set(x, y, K.ROAD, -1); }
+        for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y) && !(m.t === 'main_gate' && Math.abs(x - mx) >= 4)) { const c = Kr[idx(x, y)]; if (c === K.RIVER || c === K.BRIDGE) { Kr[idx(x, y)] = K.BRIDGE; Br[idx(x, y)] = -2 - st.id; wet = true; } else set(x, y, K.ROAD, -1); }
         if (wet && !run) run = { y0: y, x: Math.round(mx) }; if (!wet && run) { const R = rivs.find(q => run.y0 > q.yMin && run.y0 < q.yMax) || rivs[0]; plan.bridges.push({ street: st.id, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial', river: R.id }); run = null; } } }
+    if (plan.gate) { const G = plan.gate, GM = plan.GM = new Uint8Array(N), RMg = plan.RM || (plan.RM = new Uint8Array(N)), st = { cls: 'collector', axis: 'h', tank: false, pts: [], yc: (G.yN + G.yS) / 2, x0: 0, x1: W - 1, w: 8, id: plan.streets.length, gate: true }; plan.streets.push(st);
+      for (let x = 0; x < W; x++) st.pts.push([x, st.yc, 8]);
+      for (let y = G.yS; y <= G.yN; y++) for (let x = 0; x < W; x++) { set(x, y, K.STREET, -2 - st.id); GM[idx(x, y)] = 1; RMg[idx(x, y)] = 0; } /* the perimeter street: GM 1 */
+      for (let y = G.y0; y <= G.yN; y++) { const mx = plan.mx[y]; for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y) && Math.abs(x - mx) < 4) { set(x, y, K.ROAD, -1); if (y >= G.yS - 20) GM[idx(x, y)] = 2; } } /* the main road runs on across the street, as the old land's own main road does (GM 2 for the straight last 20 rows and the street: the old land's kerb and dashes) */
+      if (G.rail !== null) { const rc0 = G.rail, yB = G.yS - 10, T = yB - (G.y0 + 4), R = 24, SM = 22 / (T - R / 2), rcAt = y => y >= yB ? rc0 : rc0 - (yB - y < R ? SM * (yB - y) * (yB - y) / (2 * R) : SM * (yB - y - R / 2)); /* straight across the street and ten rows beyond it, then a slope that eases in over 24 rows and runs about 1 in 4 to the left edge */
+        G.railSlope = SM; for (let y = G.y0 + 4; y <= G.yN; y++) { const rc = Math.round(rcAt(y)); for (let x = rc - 4; x <= rc + 3; x++) { if (!inB(x, y)) continue; const i = idx(x, y); Kr[i] = K.RAIL; Br[i] = -1; GM[i] = 0; RMg[i] = x === rc - 3 || x === rc + 2 ? 2 : y % 5 < 2 ? 3 : 1; } } } }
     const fortSpot = (a, b, ok) => { for (let k = 0; k < 6; k++) { const cx = lerp(24, W - 24, rnd(T.ISLE, 920 + k, a)), cy = lerp(a, b, rnd(T.ISLE, 930 + k, a)), r = near(14, 14, cx, cy, 30, (x, y) => ok(x + 7, y + 7)); if (r) return [r[0] + 7, r[1] + 7]; } return null; };
     const farSide = (x, y) => Math.abs(x - plan.mx[Math.min(L - 1, y)]) > 16;
     const yMemo = new Map(), yAtD = (x, d) => { const key = x * 4096 + Math.round(d * 4); let v = yMemo.get(key); if (v !== undefined) return v; v = -1; for (let y = Math.max(M0, Math.floor(shY(x)) - 2); y < L; y++) { const i = idx(x, y); if (land[i] === 1 && dL[i] >= d) { v = y; break; } } yMemo.set(key, v); return v; }; /* (the row where column x is d px inland of the waterline) */
@@ -2616,7 +2632,7 @@ function islands(o) {
         let h = 1; while (h < 40 && y + h < b - 2) { let all = true; for (let xx = x; xx < x + w; xx += 2) if (!ok(xx, y + h)) { all = false; break; } if (!all) break; h++; }
         if (h >= 14 && w * h >= 300) { parcel(x, y, w, h, blk++); n++; } } return n; };
     plan.mainland = { y0: M0, stretches: mains.map(m => ({ t: m.t, y0: m.y0, y1: m.y1, bunkers: 0, pits: 0, farms: 0, wood: 0, fields: 0 })) };
-    for (const m of mains) { const a = m.y0, b = m.y1, n = m.n, rec = plan.mainland.stretches[mains.indexOf(m)];
+    for (const m of mains) { const a = m.y0, b = m.t === 'main_gate' ? m.y1 - 10 : m.y1, n = m.n, rec = plan.mainland.stretches[mains.indexOf(m)];
       if (m.t === 'main_shore') { /* the Atlantic Wall, as the beach landing of level 3 has it (the owner's mockup E): obstacles in the shallows and on the wet sand, wire, a line of casemates, pillboxes and Tobruk pits behind it with a zigzag trench, anti-tank walls and dragon's teeth where the road comes up, wrecked landing craft, craters, a coastal battery with a radar dish */
         const shoreY = x => yAtD(clamp(Math.round(x), 0, W - 1), 1), In = (x, d) => yAtD(clamp(Math.round(x), 0, W - 1), d), roadX = y => plan.mx[clamp(y, 0, L - 1)], nearRoad = (x, mg) => Math.abs(x - roadX(In(x, 8))) < mg;
         const placed = [];
@@ -2654,12 +2670,12 @@ function islands(o) {
         for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (land[i] !== 1 || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; if (dL[i] <= 41 + 8 * vn(x * 0.05 + 21, y * 0.05)) { Kr[i] = K.BEACH; Br[i] = -13; } }
         if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 12); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); rec.bunkers++; } } /* (the shore always has one) */
         rec.fields += gapFill(a + 70, b, 56, 650); }
-      if (m.t === 'main_farm' || m.t === 'main_river') { let blk = 700 + mains.indexOf(m) * 100;
-        for (let k = 0; k < (n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
+      if (m.t === 'main_farm' || m.t === 'main_river' || m.t === 'main_gate') { let blk = 700 + mains.indexOf(m) * 100; const gt = m.t === 'main_gate'; /* (the gate: fields along the road, no farmstead, pond or gun pit next to the street) */
+        for (let k = 0; k < (gt ? 0 : n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
           if (fm) { const [fx0, fy] = fm, fy0 = fy + 7; fillR(fx0, fy0, 20, 9, K.COURT); building('farmhouse', fx0, fy0 + 9, 10, 7, 'h', 'S'); building('barn', fx0 + 11, fy0 + 9, 9, 10, 'v', 'S', { roof: 2 }); building('barn', fx0, fy0 - 7, 20, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy, w: 20, h: 26 }); rec.farms++;
             const pd = near(34, 22, fx0 + 10 + s * 28, fy + 10, 46, (x, y) => farSide(x + 17, y + 11)); if (pd) { fillR(pd[0], pd[1], 34, 22, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + 33, y1: pd[1] + 21, n: 4 }); } } }
-        if (rnd(T.ISLE, 970, a) < 0.6) { const s = rnd(T.ISLE, 971, a) < 0.5 ? -1 : 1, px = Math.round(plan.mx[(a + b) >> 1] + s * 60), py = Math.round(a + (b - a) * (0.3 + rnd(T.ISLE, 972, a) * 0.4)), prx = 10, pry = 6; if (rectFree(px - prx - 2, py - pry - 2, 2 * prx + 4, 2 * pry + 4)) { for (let y = py - pry; y <= py + pry; y++) for (let x = px - prx; x <= px + prx; x++) if (Math.hypot((x + 0.5 - px) / prx, (y + 0.5 - py) / pry) < 1 && free(x, y)) set(x, y, K.WATER, -7); tree(px + s * (prx + 3), py + 2, 4, 1); plan.pond = plan.pond || { x: px, y: py, rx: prx, ry: pry }; } }
-        for (let k = 0; k < Math.max(1, n >> 1); k++) { const c = fortSpot(a + 10 + k * (b - a) / Math.max(1, n >> 1), a + (k + 1) * (b - a) / Math.max(1, n >> 1) - 10, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 60); if (c) { gunPitB(c[0], c[1]); rec.pits++; } }
+        if (!gt && rnd(T.ISLE, 970, a) < 0.6) { const s = rnd(T.ISLE, 971, a) < 0.5 ? -1 : 1, px = Math.round(plan.mx[(a + b) >> 1] + s * 60), py = Math.round(a + (b - a) * (0.3 + rnd(T.ISLE, 972, a) * 0.4)), prx = 10, pry = 6; if (rectFree(px - prx - 2, py - pry - 2, 2 * prx + 4, 2 * pry + 4)) { for (let y = py - pry; y <= py + pry; y++) for (let x = px - prx; x <= px + prx; x++) if (Math.hypot((x + 0.5 - px) / prx, (y + 0.5 - py) / pry) < 1 && free(x, y)) set(x, y, K.WATER, -7); tree(px + s * (prx + 3), py + 2, 4, 1); plan.pond = plan.pond || { x: px, y: py, rx: prx, ry: pry }; } }
+        for (let k = 0; k < (gt ? 0 : Math.max(1, n >> 1)); k++) { const c = fortSpot(a + 10 + k * (b - a) / Math.max(1, n >> 1), a + (k + 1) * (b - a) / Math.max(1, n >> 1) - 10, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 60); if (c) { gunPitB(c[0], c[1]); rec.pits++; } }
         for (const sd2 of [-1, 1]) { let y = a + 3; while (y < b - 20) { const h = 22 + ((rnd(T.ISLE, 980 + (sd2 > 0 ? 1 : 0), y) * 22) | 0); let x = Math.round(plan.mx[Math.min(L - 1, y + (h >> 1))] + sd2 * 6);
             for (let q = 0; q < 6; q++) { const room = sd2 < 0 ? x : W - x; if (room < 12) break; let w = Math.min(room, 26 + ((rnd(T.ISLE, 990 + q, y * 3 + sd2) * 40) | 0)); if (room - w < 24) w = room; const x0 = sd2 < 0 ? x - w : x; rec.fields += parcel(x0, y, w, Math.min(h, b - 2 - y), blk++) > 0 ? 1 : 0; x += sd2 * w; }
             y += h; } }
