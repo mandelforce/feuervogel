@@ -20510,7 +20510,7 @@ function showPauseMenu(v) {
   document.getElementById('pmResume').textContent = inGame ? 'Resume' : 'Close';
   setSoundLabel(); achLabel(); if (v) { const b = document.getElementById('pmResume'); if (b && b.focus) b.focus(); } }
 
-function togglePause() { if (app.state !== 'play') return; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else { if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } } setPauseIcon(); showPauseMenu(app.paused); }
+function togglePause() { if (app.state !== 'play') return; app.blurPaused = false; app.paused = !app.paused; if (!app.paused) app.resumeT = 180; else { if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } } setPauseIcon(); showPauseMenu(app.paused); }
 function closeMenu() { if (app.state === 'play' && app.paused) togglePause(); else showPauseMenu(false); }
 function openMenu() { audio(); if (app.state === 'play') { if (!app.paused) togglePause(); else showPauseMenu(true); } else showPauseMenu(true); }
 const menuBtn = document.getElementById('menuBtn');
@@ -20879,7 +20879,8 @@ addEventListener('keydown', e => {
   if (k === 'p' || k === 'escape') togglePause();
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (app.state === 'play' && !app.paused) { app.paused = true; app.blurPaused = true; if (document.pointerLockElement) document.exitPointerLock(); try { snapNow(); } catch (e) { logError('snapshot', e); } setPauseIcon(); } }); /* (the window lost focus, as when a screenshot tool takes over: the game freezes on the spot, with no menu over the picture) */
+addEventListener('focus', () => { if (app.blurPaused) { app.blurPaused = false; if (app.state === 'play' && app.paused && !pauseMenu.classList.contains('open')) { app.paused = false; app.resumeT = 180; setPauseIcon(); } } });
 
 let drag = null, scale = 2;
 onCv('pointerdown', e => {
