@@ -65,15 +65,15 @@ const FLY = `(function (spec, diff, bot, bseed, mortal, deadMin) {
   if (spec.date) startDaily(spec.date, spec.kit || undefined, spec.sub, spec.flavour, spec.twist, spec.dials, spec.tod); else startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, spec.sub | 0, spec.flavour, spec.twist, spec.dials, spec.tod)); if (spec.boss) run.sortie.bossVar = { kind: spec.boss, variant: 'probe' };
   if (bot) SF.skill(Object.assign({}, SF.SKILL[bot], { seed: bseed })); else SF.human(8, 15);
   const S = run.sortie, L0 = S.level, f0 = gf, sc0 = world.scroll, t0 = performance.now(), seen = new WeakSet(), sec = [], quiet = [], encs = [];
-  let end = 'cap', bossF = -1, deadF = -1, kills = 0, q0 = -1, qc = 0, longest = [0, 0, 0], sh = 2166136261 | 0, spawns = 0, last = null, wing = false, livesAtBoss = null, f = 0;
+  let end = 'cap', bossF = -1, deadF = -1, kills = 0, q0 = -1, qc = 0, longest = [0, 0, 0], sh = 2166136261 | 0, spawns = 0, last = null, wing = false, raven = null, duels = 0, livesAtBoss = null, f = 0;
   const segAt = function (c) { const g = S.segs.find(function (q) { return c >= q.start && c < q.start + q.n; }); return g ? g.t : (c >= S.len ? 'boss ground' : '?'); };
   const close = function (to) { if (q0 < 0) return; const len = to - q0; if (len > longest[1] * 60) longest = [Math.round(q0 / 6) / 10, Math.round(len / 6) / 10, qc]; if (len >= deadMin * 60) quiet.push([Math.round(q0 / 6) / 10, Math.round(len / 6) / 10, qc, segAt(qc)]); q0 = -1; };
   for (let step = 0; step < 60 * 60 * 25 / 10; step++) {
     const r = SF.run(10); if (r !== 'ok') { end = r; break; }
     if (!run.sortie || run.sortie.level !== L0) { end = 'next:' + (run.sortie ? run.sortie.level : 0); break; }
     f = gf - f0;
-    for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); spawns++; const s = e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.y); for (let i = 0; i < s.length; i++) sh = Math.imul(sh ^ s.charCodeAt(i), 16777619); }
-    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing') wing = true; else encs.push([L.id, L.why, L.dropped | 0]); }
+    for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); spawns++; if (e.type === 'protoDuel') duels++; const s = e.type + '@' + gf + ':' + Math.round(e.x) + ',' + Math.round(e.y); for (let i = 0; i < s.length; i++) sh = Math.imul(sh ^ s.charCodeAt(i), 16777619); }
+    const L = world.encLast; if (L && (!last || L.at !== last.at)) { last = L; if (L.id === 'wing' || L.id === 'ravenmid') { wing = true; if (L.id === 'ravenmid') raven = L.why; } else encs.push([L.id, L.why, L.dropped | 0]); }
     const boss = world.enemies.find(function (e) { return e.type === 'boss'; });
     if (boss && bossF < 0) { bossF = f; livesAtBoss = run.lives; close(f); }
     if (bossF >= 0 && deadF < 0 && boss && boss.dying) deadF = f;
@@ -93,7 +93,7 @@ const FLY = `(function (spec, diff, bot, bseed, mortal, deadMin) {
     bossIn: bossF < 0 ? null : +(bossF / 60).toFixed(1), bossSec: bossF >= 0 && deadF >= 0 ? +((deadF - bossF) / 60).toFixed(1) : null, bossKilled: deadF >= 0,
     hitsPre: preHits, hitsAll: hits.length, hitsPerMin: bossF > 0 ? +(preHits / (bossF / 3600)).toFixed(2) : null,
     window10: +Math.max.apply(null, bins.concat([0])).toFixed(1), preAvg: +avg(pre).toFixed(1), killsPerMin: bossF > 0 ? +(kills / (bossF / 3600)).toFixed(1) : null,
-    longest: longest, quiet: quiet, planned: S.encPlan.map(function (e) { return e.id; }), encs: encs, wing: wing, spawns: spawns, spawnHash: (sh >>> 0).toString(16), score: run.score, state: app.state,
+    raven: raven, duels: duels, longest: longest, quiet: quiet, planned: S.encPlan.map(function (e) { return e.id; }), encs: encs, wing: wing, spawns: spawns, spawnHash: (sh >>> 0).toString(16), score: run.score, state: app.state,
     livesAtBoss: livesAtBoss, cleared: deadF >= 0 && end !== 'continue-screen' && end !== 'cap', perMin: +(hits.length / (Math.max(60, deadF >= 0 ? deadF : f) / 3600)).toFixed(2) };
 })`;
 
@@ -159,7 +159,7 @@ const f1 = (v, n = 1) => v === null || v === undefined || !Number.isFinite(+v) ?
 console.log(`Daily Sortie flight gate, build ${VERSION}, composer v${SC.VERSION}, human bot (8, 15) immortal, viewport ${VIEW.width}x${VIEW.height}, dead air > ${DEAD} s, ${CONC} pages`);
 console.log('sortie            kit     flavour twist diff     len gate2  boss in  boss s  hits/min      window        bullets       kills/min      quiet s (at s, chunk)    encounters                         det   verdict');
 for (const j of human) { const r = j.r, S = j.S, q = r.longest, m = j.marks;
-  const enc = r.encs.map(e => e[0] + ':' + e[1] + (e[2] ? '/' + e[2] : '')).join(',') + (r.wing ? ' +wing' : ' NO WING');
+  const enc = r.encs.map(e => e[0] + ':' + e[1] + (e[2] ? '/' + e[2] : '')).join(',') + (r.wing ? ' +wing' : ' NO WING') + (r.raven ? ' raven:' + r.raven + '/' + r.duels : '');
   console.log(`${(S.date || S.id).padEnd(17)} ${S.kit.padEnd(7)} ${(S.flavour || "").padEnd(7)} ${(S.twist || "").padEnd(5)} ${NAMES[j.diff].padEnd(8)} ${String(S.C.len).padStart(3)} ${(S.gate2.clean ? 'ok' : 'BAD').padEnd(5)} ${f1(r.bossIn).padStart(7)} ${f1(r.bossSec).padStart(7)}  ${(f1(r.hitsPerMin, 2) + ' ' + m.hitsPerMin).padEnd(12)}  ${(f1(r.window10) + ' ' + m.window10).padEnd(12)}  ${(f1(r.preAvg) + ' ' + m.preAvg).padEnd(12)}  ${(f1(r.killsPerMin) + ' ' + m.killsPerMin).padEnd(13)}  ${(q[1] + ' (' + q[0] + ', c' + q[2] + ')').padEnd(23)}  ${enc.padEnd(34)} ${j.det ? (j.det.same ? 'same' : 'DIFF') : '  - '}  ${j.pass ? 'PASS' : 'FAIL ' + j.why.join(',')}`);
   if (!j.pass) { if (!S.gate2.clean) console.log('      gate 2: ' + S.gate2.notes.join('; ')); if (r.errCount || r.pageErrs.length) console.log('      errors: ' + r.errs.concat(r.pageErrs).slice(0, 2).join(' | '));
     if (j.why.includes('dead-air')) console.log('      dead air: ' + r.quiet.filter(x => x[1] > DEAD).map(x => `${x[1]} s from ${x[0]} s at chunk ${x[2]} (${x[3]})`).join('; '));
