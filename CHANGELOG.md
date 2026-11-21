@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- The temperate Daily Sortie's shore has sandbag rings round its gun pits and olive camouflage nets over many of its casemates (build 1.2.6.49, composer v5; **not played by a person yet**). The Campaign is unchanged.
 - The Daily Sortie's climate castles (Sandstone Citadel, Frost Keep, Sea Bastion) can stand as ruins (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): in three days of ten the castle's floor has breaches in the curtain walls, chipped battlements, cracked and missing flagstones, scorch marks, shell craters and fallen stone, on the climate's own floor plan and colours. Looks only: the fight is the same. Ravenhold and the Campaign's ruin are unchanged.
 - The temperate Daily Sortie's shore trench (and the coastal battery's) is a proper fire trench (build 1.2.6.49, composer v5; **not played by a person yet**): fire bays and traverses in a square zigzag, 3 px wide, a dark floor with a sandbag rim and the dug sand heaped on the sea side, one piece where the shore runs steep. The Campaign's trenches are unchanged.
 - Five more Daily Sortie ground encounters (build 1.2.6.49, composer v5; **not played by a person yet**, flown by the test bot): JUNCTION RUN at the desert's junction, VIADUCT STRIKE at its pass, STATION RAID at the winter's station, and the Campaign's FLAK LANE at the desert's oasis town and the winter's village. Made from existing verbs; the Campaign is unchanged.
