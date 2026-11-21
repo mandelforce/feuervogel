@@ -4988,7 +4988,7 @@ const KITS = {
     minMiddle: 3,
     fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
     main: { open: [['main_shore', 3]], close: [['main_cove', 3]], /* (the mainland ends at a north shore of its own, with a jetty: plan 12.22, so that the sea of the boss's arena begins at generated ground, not at the legacy coast) */ middle: { main_farm: { len: [4, 7], max: 2, heat: 0.3 }, main_river: { len: [5, 7], max: 1, heat: 0.3 }, /* (farmland with a river across it and a bridge on the main road, plan 12.22) */ main_village: { len: [3, 5], max: 1, heat: 0.6 }, main_wood: { len: [3, 5], max: 1, heat: 0.4 } }, len: [16, 22], minMiddle: 3 }, /* (the mainland after the open sea: generator-made ground, plan 12.21: a fortified shore, farmland, a village and a wood, as stretches the walk reorders) */
-    legacy: { open: [], close: [['open_sea', 4]], len: [4, 16], minMiddle: 0, pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
+    legacy: { open: [], close: [['coast_down', 1], ['open_sea', 4]], closeCove: [['open_sea', 4]], len: [4, 17], minMiddle: 0, /* (with extras: the land goes on into them and ends at the legacy coast; with none the mainland has closed itself with its own cove (kit.main.close) and only the open sea is left) */ pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
       middle: {
         city_small: { len: [3, 5], max: 1, heat: 0.6 }, industrial_light: { len: [4, 6], max: 1, heat: 0.5 }, airbase_searchlight: { len: [5, 6], max: 1, heat: 0.6 } }, /* (shared pieces, plan 12.20: level 3's legacy town and works ground, a town and a light industrial estate, in level 1's old land) */
       follows: (() => { const all = ['city_small', 'industrial_light', 'airbase_searchlight'], f = {}; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'city_small' && q === 'industrial_light') && !(t === 'industrial_light' && q === 'city_small')); return f; })() }, /* (the town and the estate do not follow each other: their straight roads lie on grids of different widths, 56 and 64 px) */
@@ -5026,6 +5026,7 @@ function encPlanFor(kit, segs, base) {
 const J2 = JSON.stringify;
 /* The old land of a kit with legacy ground after its plan (the temperate kit): its opening stretches, a walk over the kit's own small grammar, its closing stretches */
 function checkLegacy(L, tail) {
+  if (L.closeCove && J2(tail.map(g => [g.t, g.n])) === J2(L.closeCove)) return []; /* (no extras: only the open sea after the cove) */
   const bad = [], t = tail.map(g => [g.t, g.n]), no = L.open.length, nc = L.close.length;
   if (t.length < no + nc) return ['the old land is too short: ' + J2(t)];
   L.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('old land opens with ' + J2(t[k]) + ', not ' + J2(q)); }); L.close.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('old land closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
@@ -5037,8 +5038,8 @@ function checkLegacy(L, tail) {
   return bad;
 }
 /* The mainland of a kit (kit.main): generator-made land stretches after the plan's approach, in the plan's own list (S.segs entries with main: true) */
-function checkMain(M, list) {
-  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length, CL = M.close || [], nc = CL.length; if (t.length < no + nc) return ['the mainland is too short: ' + J2(t)];
+function checkMain(M, list, cove) {
+  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length, CL = cove ? M.close || [] : [], nc = CL.length; if (t.length < no + nc) return ['the mainland is too short: ' + J2(t)];
   CL.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('the mainland closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
   M.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('the mainland opens with ' + J2(t[k]) + ', not ' + J2(q)); });
   const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (M.minMiddle || 1)) bad.push('mainland: only ' + mid.length + ' middle stretches');
@@ -5053,7 +5054,7 @@ function check(kitId, S) {
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
-  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL)); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
+  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL, !(kit.legacy && tail.some(g => kit.legacy.middle[g.t])))); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
   O.forEach((q, k) => { const g = segs[k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('opener ' + k + ' is not ' + q.join(' ')); });
@@ -5174,14 +5175,14 @@ const LOOP_PARAMS = { temperate: { burn: true }, desert: { variant: 1 }, forest:
 function legacyWalk(kit, base) {
   const L = kit.legacy, ls = hashInt(base, 6800); if (L.pick) { let n = 0; const r = () => hash(ls, n++), x = r(), k = x < L.pick[0] ? 0 : x < L.pick[1] ? 1 : 2, names = Object.keys(L.middle), mid = [];
     while (mid.length < k) { const prev = mid.length ? mid[mid.length - 1][0] : null, cand = names.filter(t => !mid.some(q => q[0] === t) && (!prev || (L.follows[prev] || []).includes(t))); if (!cand.length) break; const t = cand[Math.floor(r() * cand.length)], m = L.middle[t]; mid.push([t, m.len[0] + Math.floor(r() * (m.len[1] - m.len[0] + 1))]); }
-    return mid.concat(L.close); } /* (a pick: none, one or two of the built-up grounds) */
+    return mid.length ? mid.concat(L.close) : (L.closeCove || L.close).slice(); } /* (a pick: none, one or two of the built-up grounds) */
   const fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
   for (let k = 0; k < 40; k++) { const mid = walk(pk, L.len[0] + Math.floor(r() * (L.len[1] - L.len[0] + 1)) - fixed, r, L.close, L.open); if (mid) return L.open.concat(mid, L.close); }
   throw new Error('sortie-compose: no old land for kit ' + kit.id);
 }
 /* The mainland of a kit (kit.main): its opening stretch, a walk over its own grammar (own hash stream 6850) */
-function mainWalk(kit, base) {
-  const M = kit.main, CL = M.close || [], ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
+function mainWalk(kit, base, cove) {
+  const M = kit.main, CL = cove ? M.close || [] : [], ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
   for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) - fixed, r, CL.length ? CL : [['_end', 0]], M.open); if (mid) return M.open.concat(mid, CL); }
   throw new Error('sortie-compose: no mainland for kit ' + kit.id);
 }
@@ -5190,7 +5191,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op0 = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, isl = kit.islandOpen && hash(base, 6502) < kit.islandOpen.share ? kit.islandOpen.variants[Math.floor(hash(base, 6503) * kit.islandOpen.variants.length)] : [], op = isl.concat(isl.length && kit.islandOpen.take ? [[op0[0][0], op0[0][1] - kit.islandOpen.take]].concat(op0.slice(1)) : op0) /* (an island opener: bands of islets before the port, plan 12.22) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
-  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base) : null; const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
+  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base, !(tail && kit.legacy && tail.some(q => kit.legacy.middle[q[0]]))) : null; /* (the mainland closes itself with a cove only when no built-up extras follow it) */ const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
@@ -8847,6 +8848,14 @@ function fortColor(wx, wy, rx) {
 const TR_CONC = TR.conc.map(hexRGB);
 function railHit(I, wx) { const g = run.sortie && run.sortie.straight; for (const r of I.rails) if (g ? Math.abs(wx - (r - 0.5)) < 4 : Math.abs(wx - r) < 5) return r; return null; } /* (on the temperate old land's estate and town grounds the railway is 8 px wide, x 14 to 21: exactly the street column of the shifted block grid, so it never covers a building) */
 function wob(wx, wy) { return (vnoise(wx * 0.045, wy * 0.012 + 7) - 0.5) * 22 + (vnoise(wx * 0.19 + 50, wy * 0.19) - 0.5) * 7; }
+/* Where a composed sortie's plan hands over to the legacy ground (plan 12.22, owner: "a smoother transition from asphalt road to dirt road in general"): the plan's road is asphalt, 8 px wide; the legacy ground's is a dirt track, about 12 px. Instead of changing at the chunk line the road widens and turns to dirt over ROAD_BLEND rows after the plan's last one (the width eased, the surface dithered from asphalt to dirt). roadT: 0 at the plan's end, 1 from ROAD_BLEND rows on, and everywhere when the plan does not end on a road or the sortie has no plan. */
+const ROAD_BLEND = 160;
+function roadT(wy) {
+  const S = run.sortie, P = S && S.compose && S.plan; if (!P || S.planFor !== world.stageBaseP) return 1;
+  const d = (S.planY0 - wy) - P.L; if (d < 0 || d >= ROAD_BLEND) return 1;
+  if (S.roadEnd === undefined) { const k = P.K[(P.L - 1) * P.W + Math.round(P.mx[P.L - 1])], K = CityGen.K; S.roadEnd = k === K.ROAD || k === K.STREET || k === K.BRIDGE; }
+  if (!S.roadEnd) return 1; const u = d / ROAD_BLEND; return u * u * (3 - 2 * u);
+}
 const CL = { tt: '', p: 0, ly: 0, I: null, coastD: 99, rail: null, fence: -1 };
 function classify(wx, wy) {
   if (wx >= 60 && wx < 104) { const k0 = Math.floor(wy / CH), I0 = info(-k0); if (I0.b === 'base' && !I0.plan) { CL.p = -k0; CL.ly = wy - k0 * CH; CL.I = I0; CL.coastD = 99; CL.rail = null; CL.tt = 'runway'; return CL; } }
@@ -8858,7 +8867,7 @@ function classify(wx, wy) {
   const b = I.b;
   CL.p = p; CL.ly = ly; CL.I = I; CL.coastD = 99; CL.rail = null; CL.fence = -1;
   if (b === 'bossland' && (I.th === 1 || I.yard)) { CL.tt = 'ryard'; return CL; }
-  const rx = roadX(wy), onRoad = Math.abs(wx - rx) < 6;
+  const rx = roadX(wy), onRoad = Math.abs(wx - rx) < 4 + 2 * roadT(wy);
   let tt;
   if (b === 'sea') tt = 'sea';
   else if (b === 'coastUp' || b === 'coastDown') {
@@ -9086,8 +9095,9 @@ function pixelColor(wx, wy, rx) {
     case 'grass': return TRGB.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
     case 'forest': return TRGB.forest[pickI(4, 0.4 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.6, wx, wy)];
     case 'road': {
-      const d = wx - rx;
-      if (Math.abs(d) > 4.5 && hash(wx, wy) < 0.5) return TRGB.grass[2];
+      const d = wx - rx, rt = roadT(wy);
+      if (Math.abs(d) > 2.5 + 2 * rt && hash(wx, wy) < 0.5) return TRGB.grass[2];
+      if (rt < 1 && hash(wx * 7 + 3, wy * 5 + 1) >= rt) return CITYC.asph[pickI(4, 0.5 + (vnoise(wx * 0.3, wy * 0.3) - 0.5) * 0.4, wx, wy)]; /* (the asphalt of the plan's road, dithered into the dirt) */
       let l = 0.55 + (vnoise(wx * 0.3, wy * 0.3) - 0.5) * 0.4;
       if (Math.abs(Math.abs(d) - 2.5) < 0.7) l -= 0.35;
       return TRGB.dirt[pickI(4, l, wx, wy)];
@@ -9429,11 +9439,26 @@ function gorgeXoverPaint(a, wy0) {
    the plan's own last rows mirrored over them, dithered with a 4 x 4 ordered pattern: all plan at the seam, fading to none, so the plan's meadow, its forest patches and its road run on into the castle's
    ground and thin out. The plan rows are painted again here (pure: the same pixels the plan's last chunk has), so the result never depends on which chunk was built first; a hashed tree drawn after it stands on top. */
 const SEAM = { n: 44 };
-function castleSeam(job) {
+/* plan 12.22: a composed sortie's first legacy chunk after a plan that ends on land takes the same seam (the plan's last rows faded over it), so the plan's fields and road do not stop on a straight line. Not into the sea, the boss's own arenas or a plan that ends in water. */
+function seamLand(S, I) {
+  if (I.b === 'sea' || I.b === 'secret' || I.b === 'castle' || I.b === 'bossland' || !S.plan || (I.b !== 'country' && I.b !== 'coastDown')) return false; /* (a chunk with drawn streets and buildings keeps them: no blend over it) */
+  if (S.seamLand === undefined) { const P = S.plan, K = CityGen.K; let n = 0; for (let x = 0; x < P.W; x += 4) if (P.K[(P.L - 1) * P.W + x] !== K.SEA) n++; S.seamLand = n >= (P.W / 4) * 0.7; }
+  return S.seamLand;
+}
+function castleSeam(job, soft) { /* soft: a composed sortie's seam (plan 12.22): 64 rows and an irregular, noise-made edge instead of the 4 x 4 pattern, which shows as a lattice over fields */
   const S = run.sortie, nb = info(job.p - 1); if (!nb || !nb.plan || typeof CityGen === 'undefined' || !S.plan) return;
-  const wyN = -(job.p - 1) * CH, n = SEAM.n, tmp = new Uint8ClampedArray(W * n * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + n - 1), n, S.level === 3 ? Object.assign({}, planPaintOpts(S), { night: false }) : planPaintOpts(S)); /* (level 3, the first pass and the loop: the legacy chunk gets the night grade after this, so the plan rows go in ungraded) */
+  const wyN = -(job.p - 1) * CH, n = soft ? 64 : SEAM.n, sh = soft ? 14 : 0, m = n + sh, tmp = new Uint8ClampedArray(W * m * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + m - 1), m, S.level === 3 ? Object.assign({}, planPaintOpts(S), { night: false }) : planPaintOpts(S)); /* (level 3, the first pass and the loop: the legacy chunk gets the night grade after this, so the plan rows go in ungraded) */
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  for (let r = 0; r < n; r++) { const ly = CH - 1 - r, f = Math.pow(1 - r / n, 1.3); for (let x = 0; x < W; x++) { if ((B4[(ly & 3) * 4 + (x & 3)] + 0.5) / 16 >= f) continue; const o = (ly * W + x) * 4, s = (r * W + x) * 4; a[o] = tmp[s]; a[o + 1] = tmp[s + 1]; a[o + 2] = tmp[s + 2]; a[o + 3] = 255; } }
+  for (let r = 0; r < n; r++) { const ly = CH - 1 - r, f = Math.pow(1 - r / n, 1.3), wyr = -job.p * CH + ly, rxs = soft ? roadX(wyr) : -999; for (let x = 0; x < W; x++) { if (soft && Math.abs(x - rxs) < 9) continue; if ((soft ? Math.min(0.999, 0.1 + 0.55 * vnoise(x * 0.11 + 7, wyr * 0.11) + 0.25 * vnoise(x * 0.37 + 70, wyr * 0.37) + 0.12 * hash(x, wyr)) : (B4[(ly & 3) * 4 + (x & 3)] + 0.5) / 16) >= f) continue; const o = (ly * W + x) * 4, s = ((soft ? m - 1 - sh - r : r) * W + x) * 4; a[o] = tmp[s]; a[o + 1] = tmp[s + 1]; a[o + 2] = tmp[s + 2]; a[o + 3] = 255; } }
+}
+function seamBand(job) { /* plan 12.22: where the generated land meets a legacy chunk with streets and buildings, a cross street closes it: the blocks end at its kerb, the streets run into it as T junctions and the railway turns along it and leaves at the side, so nothing begins in mid-air */
+  const S = run.sortie, K = CityGen.K, P = S.plan, a = job.img.data, H = 13, R = [RAILC.steel, RAILC.sleeper, RAILC.ballast[1]], kerb = hexRGB('#8c8a86'), walk = hexRGB('#5c5a56'), dash = hexRGB('#c8b45a');
+  for (let r = 0; r < H; r++) { const ly = CH - 1 - r, wyr = -job.p * CH + ly; for (let x = 0; x < W; x++) {
+    let c;
+    if (r === 0 || r === H - 1) c = kerb; else if (r === 1 || r === H - 2) c = walk;
+    else if (r === (H >> 1) && ((x + 0) & 7) < 4) c = dash; else c = CITYC.asph[pickI(4, 0.5 + (vnoise(x * 0.3, wyr * 0.3) - 0.5) * 0.4, x, wyr)];
+    if (S.straight && x < 24 && r >= 2 && r <= H - 3) { const dy = r - (H >> 1), sl = x % 5 < 2; c = (dy === -2 || dy === 2) ? R[0] : (Math.abs(dy) < 2 && sl) ? R[1] : R[2]; if (x >= 14 && x <= 21 && r < 4) c = null; }
+    if (!c) continue; const o = (ly * W + x) * 4; a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; a[o + 3] = 255; } }
 }
 function workChunk(job, rows) {
   const wy0 = -job.p * CH, a = job.img.data;
@@ -9448,7 +9473,7 @@ function workChunk(job, rows) {
     for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
-    if (!job.painted) { job.painted = true; if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland'))) castleSeam(job); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
+    if (!job.painted) { job.painted = true; if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland') || (run.sortie.compose && seamLand(run.sortie, job.I)))) castleSeam(job, !!run.sortie.compose); else if (run.sortie && run.sortie.compose && !job.I.plan && (job.I.b === 'factory' || job.I.b === 'city' || job.I.b === 'base') && info(job.p - 1) && info(job.p - 1).plan && run.sortie.plan && run.sortie.seamBandOk !== false) seamBand(job); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
     world.featTheme = job.I.th; TRGB = themeRGB(job.I.th);
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade

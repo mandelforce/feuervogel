@@ -161,7 +161,7 @@ const KITS = {
     minMiddle: 3,
     fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
     main: { open: [['main_shore', 3]], close: [['main_cove', 3]], /* (the mainland ends at a north shore of its own, with a jetty: plan 12.22, so that the sea of the boss's arena begins at generated ground, not at the legacy coast) */ middle: { main_farm: { len: [4, 7], max: 2, heat: 0.3 }, main_river: { len: [5, 7], max: 1, heat: 0.3 }, /* (farmland with a river across it and a bridge on the main road, plan 12.22) */ main_village: { len: [3, 5], max: 1, heat: 0.6 }, main_wood: { len: [3, 5], max: 1, heat: 0.4 } }, len: [16, 22], minMiddle: 3 }, /* (the mainland after the open sea: generator-made ground, plan 12.21: a fortified shore, farmland, a village and a wood, as stretches the walk reorders) */
-    legacy: { open: [], close: [['open_sea', 4]], len: [4, 16], minMiddle: 0, pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
+    legacy: { open: [], close: [['coast_down', 1], ['open_sea', 4]], closeCove: [['open_sea', 4]], len: [4, 17], minMiddle: 0, /* (with extras: the land goes on into them and ends at the legacy coast; with none the mainland has closed itself with its own cove (kit.main.close) and only the open sea is left) */ pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
       middle: {
         city_small: { len: [3, 5], max: 1, heat: 0.6 }, industrial_light: { len: [4, 6], max: 1, heat: 0.5 }, airbase_searchlight: { len: [5, 6], max: 1, heat: 0.6 } }, /* (shared pieces, plan 12.20: level 3's legacy town and works ground, a town and a light industrial estate, in level 1's old land) */
       follows: (() => { const all = ['city_small', 'industrial_light', 'airbase_searchlight'], f = {}; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'city_small' && q === 'industrial_light') && !(t === 'industrial_light' && q === 'city_small')); return f; })() }, /* (the town and the estate do not follow each other: their straight roads lie on grids of different widths, 56 and 64 px) */
@@ -199,6 +199,7 @@ function encPlanFor(kit, segs, base) {
 const J2 = JSON.stringify;
 /* The old land of a kit with legacy ground after its plan (the temperate kit): its opening stretches, a walk over the kit's own small grammar, its closing stretches */
 function checkLegacy(L, tail) {
+  if (L.closeCove && J2(tail.map(g => [g.t, g.n])) === J2(L.closeCove)) return []; /* (no extras: only the open sea after the cove) */
   const bad = [], t = tail.map(g => [g.t, g.n]), no = L.open.length, nc = L.close.length;
   if (t.length < no + nc) return ['the old land is too short: ' + J2(t)];
   L.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('old land opens with ' + J2(t[k]) + ', not ' + J2(q)); }); L.close.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('old land closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
@@ -210,8 +211,8 @@ function checkLegacy(L, tail) {
   return bad;
 }
 /* The mainland of a kit (kit.main): generator-made land stretches after the plan's approach, in the plan's own list (S.segs entries with main: true) */
-function checkMain(M, list) {
-  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length, CL = M.close || [], nc = CL.length; if (t.length < no + nc) return ['the mainland is too short: ' + J2(t)];
+function checkMain(M, list, cove) {
+  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length, CL = cove ? M.close || [] : [], nc = CL.length; if (t.length < no + nc) return ['the mainland is too short: ' + J2(t)];
   CL.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('the mainland closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
   M.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('the mainland opens with ' + J2(t[k]) + ', not ' + J2(q)); });
   const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (M.minMiddle || 1)) bad.push('mainland: only ' + mid.length + ' middle stretches');
@@ -226,7 +227,7 @@ function check(kitId, S) {
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
-  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL)); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
+  { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL, !(kit.legacy && tail.some(g => kit.legacy.middle[g.t])))); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
   if (at < kit.len[0] || at > kit.len[1]) bad.push('total ' + at + ' outside ' + kit.len.join('..'));
   O.forEach((q, k) => { const g = segs[k]; if (!g || g.t !== q[0] || g.n !== q[1]) bad.push('opener ' + k + ' is not ' + q.join(' ')); });
@@ -347,14 +348,14 @@ const LOOP_PARAMS = { temperate: { burn: true }, desert: { variant: 1 }, forest:
 function legacyWalk(kit, base) {
   const L = kit.legacy, ls = hashInt(base, 6800); if (L.pick) { let n = 0; const r = () => hash(ls, n++), x = r(), k = x < L.pick[0] ? 0 : x < L.pick[1] ? 1 : 2, names = Object.keys(L.middle), mid = [];
     while (mid.length < k) { const prev = mid.length ? mid[mid.length - 1][0] : null, cand = names.filter(t => !mid.some(q => q[0] === t) && (!prev || (L.follows[prev] || []).includes(t))); if (!cand.length) break; const t = cand[Math.floor(r() * cand.length)], m = L.middle[t]; mid.push([t, m.len[0] + Math.floor(r() * (m.len[1] - m.len[0] + 1))]); }
-    return mid.concat(L.close); } /* (a pick: none, one or two of the built-up grounds) */
+    return mid.length ? mid.concat(L.close) : (L.closeCove || L.close).slice(); } /* (a pick: none, one or two of the built-up grounds) */
   const fixed = L.open.concat(L.close).reduce((a, q) => a + q[1], 0), pk = { middle: L.middle, follows: L.follows, minMiddle: L.minMiddle }; let n = 0; const r = () => hash(ls, n++);
   for (let k = 0; k < 40; k++) { const mid = walk(pk, L.len[0] + Math.floor(r() * (L.len[1] - L.len[0] + 1)) - fixed, r, L.close, L.open); if (mid) return L.open.concat(mid, L.close); }
   throw new Error('sortie-compose: no old land for kit ' + kit.id);
 }
 /* The mainland of a kit (kit.main): its opening stretch, a walk over its own grammar (own hash stream 6850) */
-function mainWalk(kit, base) {
-  const M = kit.main, CL = M.close || [], ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
+function mainWalk(kit, base, cove) {
+  const M = kit.main, CL = cove ? M.close || [] : [], ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
   for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) - fixed, r, CL.length ? CL : [['_end', 0]], M.open); if (mid) return M.open.concat(mid, CL); }
   throw new Error('sortie-compose: no mainland for kit ' + kit.id);
 }
@@ -363,7 +364,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
   seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op0 = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, isl = kit.islandOpen && hash(base, 6502) < kit.islandOpen.share ? kit.islandOpen.variants[Math.floor(hash(base, 6503) * kit.islandOpen.variants.length)] : [], op = isl.concat(isl.length && kit.islandOpen.take ? [[op0[0][0], op0[0][1] - kit.islandOpen.take]].concat(op0.slice(1)) : op0) /* (an island opener: bands of islets before the port, plan 12.22) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
-  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base) : null; const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
+  let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } let tail = bs && bs.sea && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); const main = kit.main ? mainWalk(kit, base, !(tail && kit.legacy && tail.some(q => kit.legacy.middle[q[0]]))) : null; /* (the mainland closes itself with a cove only when no built-up extras follow it) */ const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const as = hashInt(base, 1000 + attempt); let n = 0; const r = () => hash(as, n++);
     const total = kit.len[0] + Math.floor(r() * (kit.len[1] - kit.len[0] + 1)), mid = walk(kit, total - fixed, r, ap, op); if (!mid) continue;
