@@ -302,3 +302,64 @@ A new device or cleared storage gives a new starter purse. That is a small leak 
 2. The game over share: half, or another number?
 3. Replays: a quarter after the best run, or a daily cap?
 4. The size of the starter purse: P/2 (one continue) or P?
+
+## 16. The archive (owner decisions)
+
+Every Daily Sortie is kept. The composer rebuilds any date from its seed, so the archive costs no storage and grows by one vetted level a day.
+
+- **The last 7 days are free.** They are the catch-up: at most 1 shard for a missed day (§12).
+- **Older days are unlocked with medals**, for a player who likes a kit or wants practice beyond the Campaign:
+  - **per day:** price A;
+  - **per month:** every day of that month at **10 % off** (a month of 30 days costs 27 A).
+- **Archive days pay medals only, no shards.** They bank at the replay rate (§15.3).
+- **Each day keeps its board**, so an old day is still a score challenge.
+- **Setting A:** about one average sortie's medals (P/3), so a day costs one good sortie, and a whole month is a long-term goal (about 9 P).
+- The archive starts on the day the Daily Sortie goes live; days before it do not exist.
+
+## 17. Endless becomes the roguelite (owner decisions)
+
+The Endless mode is replaced by a roguelite built from the composer's sorties. (Open: keep the old Campaign-loop Endless as "Classic", or retire it with its board.)
+
+### 17.1 Name
+
+It belongs with the Enigma Run. Candidates:
+
+| Name | Why |
+|---|---|
+| **Endless Enigma** | the owner's; plain and clear |
+| **Enigma Rotor** | the cipher machine's rotors turn one step per letter; here one step per sortie. Depth can be shown as rotor letters |
+| **Enigma Unbroken** | the code nobody breaks: the run that does not end |
+| **Enigma Key** | the machine's settings changed every day; here the run's key changes every week (17.4) |
+
+### 17.2 How a run goes
+
+- An endless chain of **pre-vetted** sorties (17.3), one leg at a time.
+- **After each leg, choose the next of three targets** (§14.1): Supply line, Depot, Hideout.
+  - **Supply line:** an easy leg; one life back (capped at 3).
+  - **Depot:** an ordinary leg.
+  - **Hideout:** a hard leg; **heat** +1 (more enemies, faster bullets for the rest of the run), more medals.
+- **3 lives at the start, no continues.** The run ends at game over.
+- **Board: depth reached**, then score. Heat is shown next to the name.
+
+### 17.3 The vetted pool
+
+- The bot builds a **pool of vetted sorties per kit**, overnight, through the same flight gate as the dailies. Start with about 200 per kit; add more each month.
+- A run never draws the same sortie twice.
+- A rejected sortie never enters the pool, so every leg has passed the same checks as a daily.
+
+### 17.4 The weekly key
+
+All players get **the same tree of choices for a week**: the run's seed is the week's (in the spirit of the Enigma's key sheets, which set the machine for a day). Two players who choose the same targets fly the same legs, so the depth board is fair. The board is weekly, with an all-time best beside it.
+
+### 17.5 Rewards
+
+- **Medals:** the run always ends at game over, so it banks **half** (§15.3, the Magpie's cut).
+- **Shards at depth milestones (owner):** the first time a player reaches depth **10, 25 and 50** (and 100?), it pays shards: proposal 1, 2 and 3. These are once in a lifetime, so a whole ship cannot be farmed here.
+- **Cosmetics** at the milestones: a plumage mark next to the name on every board.
+- Open: should a smaller milestone (depth 10) pay 1 shard **once a week**, to bring players back to Endless Enigma as well as to the dailies?
+
+### 17.6 Cost
+
+- The pool: overnight bot time per kit; the dailies' flight gate already does this for one sortie a day.
+- The mode: the Enigma Run's flight into the next level (§21 of the spec) already carries score, lives, Novas and weapon; the seam choice is a small screen (three cards).
+- The weekly key and board: one more key per week in the Worker.
