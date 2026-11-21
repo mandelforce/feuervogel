@@ -14051,8 +14051,10 @@ function drawKeepTower(e) {
     if (k % 14 === 7) for (const sx of [-14, -5, 5, 14]) { ctx.fillStyle = '#ffd860'; ctx.fillRect(Math.round(cx + sx), Math.round(cy + Math.sqrt(r * r - sx * sx)) - 4, 1, 2); }
   }
   const cx = bx + tx, cy = by + ty;
-  for (let a = 0; a < 16; a++) { const an = a * TAU / 16; ctx.fillStyle = a % 2 ? ST[4] : ST[1]; ctx.fillRect(Math.round(cx + Math.cos(an) * (r - 2)) - 2, Math.round(cy + Math.sin(an) * (r - 2)) - 2, 4, 4); }
+  const rt = castleRuinOn();
+  for (let a = 0; a < 16; a++) { if (rt && hash(a * 7 + 1, 3) < 0.35) continue; /* (a ruin: battlements missing) */ const an = a * TAU / 16; ctx.fillStyle = a % 2 ? ST[4] : ST[1]; ctx.fillRect(Math.round(cx + Math.cos(an) * (r - 2)) - 2, Math.round(cy + Math.sin(an) * (r - 2)) - 2, 4, 4); }
   ctx.fillStyle = '#26232a'; ctx.beginPath(); ctx.arc(Math.round(cx) + 0.5, Math.round(cy) + 0.5, r - 6, 0, TAU); ctx.fill();
+  if (rt) for (let k = 0; k < 3; k++) { const an = hash(k, 91) * TAU, l = 7 + hash(k, 92) * 8; ctx.strokeStyle = 'rgba(14,12,12,0.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(cx + Math.cos(an) * (r - 9)) + 0.5, Math.round(cy + Math.sin(an) * (r - 9)) + 0.5); ctx.lineTo(Math.round(cx + Math.cos(an + 0.2) * (r - 9 + l)) + 0.5, Math.round(cy + Math.sin(an + 0.2) * (r - 9 + l)) + 0.5); ctx.stroke(); }
   const fx = Math.round(cx + 6), fy = Math.round(cy - r - 12); ctx.fillStyle = '#1a1a1a'; ctx.fillRect(fx, fy, 1, 14);
   for (let i = 0; i < 10; i++) { const wv = Math.round(Math.sin(gf * 0.15 - i * 0.6) * 1.2); ctx.fillStyle = '#7a1a1a'; ctx.fillRect(fx + 1 + i, fy + wv, 1, 6); ctx.fillStyle = '#d0a020'; ctx.fillRect(fx + 1 + i, fy + 2 + wv, 1, 1); }
 }
@@ -18590,6 +18592,17 @@ const RUIN_DUST = ['#8a8478', '#a39c8e', '#bdb6a6', '#9a9488']; /* (a climate ca
 function castleRuinOn() { return !!(run.sortie && run.sortie.castleRuin && castleSkin()); }
 function castleRuinBase(skin) { return SKIN_CACHE['rb' + skin] || (SKIN_CACHE['rb' + skin] = ruinFloor(buildRavenFloor(skin), skin, RUIN_DUST)); }
 function castleFloorSkin(skin) { if (castleRuinOn()) return SKIN_CACHE['r' + skin] || (SKIN_CACHE['r' + skin] = skinCanvas(castleRuinBase(skin), skin)); return SKIN_CACHE['f' + skin] || (SKIN_CACHE['f' + skin] = skinCanvas(buildRavenFloor(skin), skin)); } /* (the climate's own floor plan, recoloured) */
+function castleKeepRuin(skin, open) { /* the keep as a ruin (a climate castle with S.castleRuin): chipped battlements and corners, cracks, fallen blocks at the foot, scorch */
+  return SKIN_CACHE['kr' + skin + open] || (SKIN_CACHE['kr' + skin + open] = (() => {
+    const src = castleKeepSkin(skin, open).c, [c, x] = mk(src.width, src.height), h = (a, b) => hash(a * 11 + 5, b * 7 + 2); x.drawImage(src, 0, 0);
+    const img = x.getImageData(0, 0, c.width, c.height), a = img.data, w = c.width, solid = (px, py) => px >= 0 && py >= 0 && px < w && py < c.height && a[(py * w + px) * 4 + 3] > 8;
+    for (let py = 0; py < c.height; py++) for (let px = 0; px < w; px++) if (solid(px, py) && !(solid(px - 1, py) && solid(px + 1, py) && solid(px, py - 1) && solid(px, py + 1)) && h(px, py) < 0.3) a[(py * w + px) * 4 + 3] = 0; /* chipped outline */
+    x.putImageData(img, 0, 0);
+    for (let k = 0; k < 6; k++) { let cx = 8 + h(k, 1) * (w - 16), cy = 8 + h(k, 2) * (c.height - 16), an = h(k, 3) * TAU; for (let st = 0, n = 10 + Math.round(h(k, 4) * 18); st < n; st++) { an += (h(k, 10 + st) - 0.5) * 1.1; cx += Math.cos(an); cy += Math.sin(an); const px = Math.round(cx), py = Math.round(cy); if (!solid(px, py)) break; x.fillStyle = 'rgba(14,12,12,0.85)'; x.fillRect(px, py, 1, 1); if (st % 4 === 0) { x.fillStyle = 'rgba(160,154,142,0.4)'; x.fillRect(px + 1, py + 1, 1, 1); } } }
+    for (let k = 0; k < 3; k++) { const px = 12 + h(k, 21) * (w - 24), py = 12 + h(k, 22) * (c.height - 24), g = x.createRadialGradient(px, py, 1, px, py, 8 + h(k, 23) * 8); g.addColorStop(0, 'rgba(8,6,6,0.5)'); g.addColorStop(1, 'rgba(8,6,6,0)'); x.fillStyle = g; x.fillRect(px - 18, py - 18, 36, 36); }
+    for (let k = 0; k < 16; k++) { const px = Math.round(4 + h(k, 31) * (w - 14)), py = Math.round(c.height - 8 + h(k, 32) * 6), bw = 3 + ((h(k, 33) * 4) | 0), bh = 2 + ((h(k, 34) * 2) | 0); x.fillStyle = 'rgba(8,6,5,0.5)'; x.fillRect(px + 1, py + 1, bw, bh); x.fillStyle = '#6a6660'; x.fillRect(px, py, bw, bh); x.fillStyle = '#8e8a82'; x.fillRect(px, py, bw, 1); }
+    return finalize(c); })());
+}
 function castleKeepSkin(skin, open) { return SKIN_CACHE['k' + skin + open] || (SKIN_CACHE['k' + skin + open] = finalize(skinCanvas(SPR.keep[open], skin))); }
 function drawRaven() {
   const e = world.enemies.find(o => o.type === 'boss' && o.kind === 'castle' && o.gateWy !== undefined); if (e) world.ravenGate = e.gateWy; if (world.ravenGate === null) return;
@@ -19303,7 +19316,7 @@ const BOSS_LOOKS = {
   },
   castle(e, fl, core) {
     if (e.y > -140 && e.y < H + 60) {
-      spr(castleSkin() ? castleKeepSkin(castleSkin(), 1) : SPR.keep[1], e.x, e.y, fl);
+      spr(castleSkin() ? castleRuinOn() ? castleKeepRuin(castleSkin(), 1) : castleKeepSkin(castleSkin(), 1) : SPR.keep[1], e.x, e.y, fl);
       drawBossParts(e, { main: SPR.bMain }, q => !q.tw);
       drawKeepTower(e);
       if ((e.towerH ?? 70) > 8) drawBossParts(e, { aa: SPR.bAA, rocket: SPR.rocketPod }, q => q.tw && q.k !== 'core');
