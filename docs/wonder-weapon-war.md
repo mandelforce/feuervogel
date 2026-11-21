@@ -398,9 +398,8 @@ The weekly shard needs a price of entry, so Endless Enigma is an investment.
 - **The board shows each run's rotors.** The weekly board ranks depth first; the rotors are shown next to the name, the way heat is.
 - The rotors are the long-term medal sink of Endless Enigma, beside the archive.
 
-### 17.9 Still open
+### 17.9 Decisions
 
-1. The machine: 3 shards, or a medal price?
-2. The milestone shards (1, 2, 3 at depth 10, 26, 52) and the weekly 1 at depth 10.
-3. The rotor list and multipliers.
-4. Does the Raven rotor stay a found reward, or is it sold too?
+- **The machine costs 3 shards** (owner).
+- **The Raven rotor stays a found reward**, decrypted at depth 52, never sold (owner).
+- **The medal and shard economy is tuned later** (owner): the milestone shards, the weekly payout, the rotor list and multipliers, P, A and the continue prices are starting values. Tune them with real players' numbers (medals per sortie, clear rates per difficulty) once the purse and the dailies are live.
