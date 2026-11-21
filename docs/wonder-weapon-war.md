@@ -391,7 +391,7 @@ The weekly shard needs a price of entry, so Endless Enigma is an investment.
 | IV | Heavy bullets | x1.3 | medals |
 | V | Night: every leg at night | x1.4 | medals |
 | VI | Glass: one life, no Supply line lives | x2 | medals |
-| **R (the Raven rotor)** | heat starts at 2 | x1.5 | medals; found, not sold: decrypted at depth 52 |
+| **R (the Raven rotor)** | heat starts at 2 | x1.5 | found, not sold: decrypted at depth 52 |
 
 - Three slots, rotors combine (an Elite night run with the Raven rotor). The multipliers add.
 - **Rotors change medals, never shards.** The milestones pay the same however the run was set, so a rotor is chosen for the challenge and the purse.
