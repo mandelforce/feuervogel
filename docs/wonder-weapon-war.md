@@ -318,11 +318,11 @@ Every Daily Sortie is kept. The composer rebuilds any date from its seed, so the
 
 ## 17. Endless becomes the roguelite (owner decisions)
 
-The Endless mode is replaced by a roguelite built from the composer's sorties. (Open: keep the old Campaign-loop Endless as "Classic", or retire it with its board.)
+The Endless mode is replaced by a roguelite built from the composer's sorties: **Endless Enigma** (owner). The old Campaign-loop Endless is retired with its board (owner; it was hidden anyway).
 
 ### 17.1 Name
 
-It belongs with the Enigma Run. Candidates:
+**Endless Enigma** (owner), with the depth shown as rotor letters (17.7). The candidates that were weighed:
 
 | Name | Why |
 |---|---|
@@ -356,10 +356,51 @@ All players get **the same tree of choices for a week**: the run's seed is the w
 - **Medals:** the run always ends at game over, so it banks **half** (§15.3, the Magpie's cut).
 - **Shards at depth milestones (owner):** the first time a player reaches depth **10, 25 and 50** (and 100?), it pays shards: proposal 1, 2 and 3. These are once in a lifetime, so a whole ship cannot be farmed here.
 - **Cosmetics** at the milestones: a plumage mark next to the name on every board.
-- Open: should a smaller milestone (depth 10) pay 1 shard **once a week**, to bring players back to Endless Enigma as well as to the dailies?
+- **A weekly payout (owner):** reaching depth 10 in a week pays 1 shard, once a week. It needs the one-time unlock in 17.8.
 
 ### 17.6 Cost
 
 - The pool: overnight bot time per kit; the dailies' flight gate already does this for one sortie a day.
 - The mode: the Enigma Run's flight into the next level (§21 of the spec) already carries score, lives, Novas and weapon; the seam choice is a small screen (three cards).
 - The weekly key and board: one more key per week in the Worker.
+
+### 17.7 Depth as rotor letters: deeper into the code
+
+In the story, going deeper means going deeper into the clan's code. The depth counter is three rotor windows, like the cipher machine's:
+
+- Legs cleared count in base 26: **AAA** at the start, **AAK** after 10, **AAZ** after 25, then the middle rotor turns: **ABA** after 26, **ACA** after 52.
+- **A rotor turning over is an event:** the windows clack, a short banner ("SECOND ROTOR: A DEEPER LAYER"), and the kit or the heat steps up.
+- **The milestones follow the rotors:** depth **10**, **26** (the first turnover) and **52** (the second), instead of 10, 25 and 50. Proposal: 1, 2 and 3 shards, once in a lifetime; depth 10 also pays 1 shard once a week (17.5).
+- **Decrypted traffic.** Each turnover, and each tenth leg, decrypts one of the clan's own messages: orders, lab notes, transport lists. This is the colder, documentary voice of open decision 4 (§11): the ship's memories come from shards, the clan's intercepts come from depth. Together they tell the story from both sides, and Endless Enigma gets story of its own.
+
+### 17.8 The cost: the machine and its rotors
+
+The weekly shard needs a price of entry, so Endless Enigma is an investment.
+
+**The machine (one time, shards).** The Magpie sells a captured cipher machine. Without it the clan's key cannot be read, and Endless Enigma stays locked.
+- **Price: 3 shards** (proposal). With the weekly shard it pays for itself in three weeks; the lifetime milestones (6 shards) pay it back on top. It is a real decision for a new player, and an easy one for a regular.
+- **Needs one cleared Daily Sortie first**, so a player knows targets, lives and cargo before the deep end. It shows on the Magpie's screen as locked until then ("COME BACK WHEN YOU HAVE FLOWN A SORTIE").
+
+**The rotors (one time each, medals).** The machine has three rotor slots. A rotor is a rule for the whole run, picked before it starts, with a medal multiplier: the heat system of *Hades*, in the machine's shape.
+
+| Rotor | Rule | Medals | Unlock |
+|---|---|---|---|
+| I | none | x1 | with the machine |
+| II | Swarm: more, weaker enemies | x1.2 | with the machine |
+| III | Elite: fewer, tougher enemies | x1.3 | with the machine |
+| IV | Heavy bullets | x1.3 | medals |
+| V | Night: every leg at night | x1.4 | medals |
+| VI | Glass: one life, no Supply line lives | x2 | medals |
+| **R (the Raven rotor)** | heat starts at 2 | x1.5 | medals; found, not sold: decrypted at depth 52 |
+
+- Three slots, rotors combine (an Elite night run with the Raven rotor). The multipliers add.
+- **Rotors change medals, never shards.** The milestones pay the same however the run was set, so a rotor is chosen for the challenge and the purse.
+- **The board shows each run's rotors.** The weekly board ranks depth first; the rotors are shown next to the name, the way heat is.
+- The rotors are the long-term medal sink of Endless Enigma, beside the archive.
+
+### 17.9 Still open
+
+1. The machine: 3 shards, or a medal price?
+2. The milestone shards (1, 2, 3 at depth 10, 26, 52) and the weekly 1 at depth 10.
+3. The rotor list and multipliers.
+4. Does the Raven rotor stay a found reward, or is it sold too?
