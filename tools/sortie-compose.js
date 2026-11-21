@@ -160,12 +160,12 @@ const KITS = {
       island_airbase: ['open_sea'] },
     minMiddle: 3,
     fixedBuilt: { carrier_start: 0, open_sea: 0.06 },
-    main: { open: [['main_shore', 3]], middle: { main_farm: { len: [4, 7], max: 2, heat: 0.3 }, main_village: { len: [3, 5], max: 1, heat: 0.6 }, main_wood: { len: [3, 5], max: 1, heat: 0.4 } }, len: [16, 22], minMiddle: 3 }, /* (the mainland after the open sea: generator-made ground, plan 12.21: a fortified shore, farmland, a village and a wood, as stretches the walk reorders) */
-    legacy: { open: [], close: [['coast_down', 1], ['open_sea', 4]], len: [5, 17], minMiddle: 0, pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
+    main: { open: [['main_shore', 3]], close: [['main_cove', 3]], /* (the mainland ends at a north shore of its own, with a jetty: plan 12.22, so that the sea of the boss's arena begins at generated ground, not at the legacy coast) */ middle: { main_farm: { len: [4, 7], max: 2, heat: 0.3 }, main_river: { len: [5, 7], max: 1, heat: 0.3 }, /* (farmland with a river across it and a bridge on the main road, plan 12.22) */ main_village: { len: [3, 5], max: 1, heat: 0.6 }, main_wood: { len: [3, 5], max: 1, heat: 0.4 } }, len: [16, 22], minMiddle: 3 }, /* (the mainland after the open sea: generator-made ground, plan 12.21: a fortified shore, farmland, a village and a wood, as stretches the walk reorders) */
+    legacy: { open: [], close: [['open_sea', 4]], len: [4, 16], minMiddle: 0, pick: [0.3, 0.75], /* (what is left of the old land: none, one or two of level 3's built-up grounds, then the coast and the sea) */
       middle: {
         city_small: { len: [3, 5], max: 1, heat: 0.6 }, industrial_light: { len: [4, 6], max: 1, heat: 0.5 }, airbase_searchlight: { len: [5, 6], max: 1, heat: 0.6 } }, /* (shared pieces, plan 12.20: level 3's legacy town and works ground, a town and a light industrial estate, in level 1's old land) */
       follows: (() => { const all = ['city_small', 'industrial_light', 'airbase_searchlight'], f = {}; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'city_small' && q === 'industrial_light') && !(t === 'industrial_light' && q === 'city_small')); return f; })() }, /* (the town and the estate do not follow each other: their straight roads lie on grids of different widths, 56 and 64 px) */
-    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], main_farm: [{ id: 'anvil', at: 0, end: 1, frames: 1080, first: true }, { id: 'formations', at: 1, end: 1, frames: 720, last: true }] } },
+    enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], main_farm: [{ id: 'anvil', at: 0, end: 1, frames: 1080, first: true }, { id: 'formations', at: 1, end: 1, frames: 720, last: true }], main_river: [{ id: 'anvil', at: 0, end: 1, frames: 1080 }, { id: 'formations', at: 1, end: 1, frames: 720 }] } },
 };
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
 const CASTLE_RUIN_SHARE = 0.3;
@@ -211,9 +211,10 @@ function checkLegacy(L, tail) {
 }
 /* The mainland of a kit (kit.main): generator-made land stretches after the plan's approach, in the plan's own list (S.segs entries with main: true) */
 function checkMain(M, list) {
-  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length; if (t.length < no) return ['the mainland is too short: ' + J2(t)];
+  const bad = [], t = list.map(g => [g.t, g.n]), no = M.open.length, CL = M.close || [], nc = CL.length; if (t.length < no + nc) return ['the mainland is too short: ' + J2(t)];
+  CL.forEach((q, k) => { if (J2(t[t.length - nc + k]) !== J2(q)) bad.push('the mainland closes with ' + J2(t[t.length - nc + k]) + ', not ' + J2(q)); });
   M.open.forEach((q, k) => { if (J2(t[k]) !== J2(q)) bad.push('the mainland opens with ' + J2(t[k]) + ', not ' + J2(q)); });
-  const mid = t.slice(no), cnt = {}; if (mid.length < (M.minMiddle || 1)) bad.push('mainland: only ' + mid.length + ' middle stretches');
+  const mid = t.slice(no, t.length - nc), cnt = {}; if (mid.length < (M.minMiddle || 1)) bad.push('mainland: only ' + mid.length + ' middle stretches');
   mid.forEach((q, k) => { const m = M.middle[q[0]]; if (!m) { bad.push(q[0] + ' is not a mainland template'); return; } cnt[q[0]] = (cnt[q[0]] || 0) + 1; if (q[1] < m.len[0] || q[1] > m.len[1]) bad.push(q[0] + ' at ' + q[1] + ' chunks, outside ' + m.len.join('..')); if (k && mid[k - 1][0] === q[0]) bad.push(q[0] + ' twice in a row'); });
   for (const q in cnt) if (cnt[q] > M.middle[q].max) bad.push(q + ' ' + cnt[q] + ' times in the mainland');
   const sum = t.reduce((a, q) => a + q[1], 0); if (sum < M.len[0] || sum > M.len[1]) bad.push('mainland of ' + sum + ' chunks, outside ' + M.len.join('..'));
@@ -353,8 +354,8 @@ function legacyWalk(kit, base) {
 }
 /* The mainland of a kit (kit.main): its opening stretch, a walk over its own grammar (own hash stream 6850) */
 function mainWalk(kit, base) {
-  const M = kit.main, ls = hashInt(base, 6850), fixed = M.open.reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
-  for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) - fixed, r, [['_end', 0]], M.open); if (mid) return M.open.concat(mid); }
+  const M = kit.main, CL = M.close || [], ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
+  for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) - fixed, r, CL.length ? CL : [['_end', 0]], M.open); if (mid) return M.open.concat(mid, CL); }
   throw new Error('sortie-compose: no mainland for kit ' + kit.id);
 }
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {

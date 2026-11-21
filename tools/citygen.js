@@ -2454,7 +2454,8 @@ function islands(o) {
     const a = bc(y) - hw + 5 * Math.sin(y * 0.031 + ph2) + 3 * Math.sin(y * 0.09 + ph), b = bc(y) + hw + 5 * Math.sin(y * 0.027 + ph) + 3 * Math.sin(y * 0.11 + ph2);
     for (let x = Math.max(0, Math.ceil(a)); x <= Math.min(W - 1, Math.floor(b)); x++) land[idx(x, y)] = 1; }
   const M0 = mains.length ? mains[0].y0 : L, shY = x => M0 + 24 + 9 * Math.sin(x * 0.035 + ph) + 5 * Math.sin(x * 0.11 + ph2) + 6 * Math.sin(x * 0.013 + 1);
-  if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < L; y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end, its beach and its grass from the steps below) */
+  const coveM = mains.find(m => m.t === 'main_cove'), cvY = x => coveM ? coveM.y0 + 64 + 8 * Math.sin(x * 0.031 + ph2) + 5 * Math.sin(x * 0.09 + ph) : L; /* (a main_cove stretch ends the mainland at a north shore of its own: land to about a chunk into the stretch, then the sea to the plan's end, plan 12.22) */
+  if (mains.length) for (let x = 0; x < W; x++) for (let y = Math.ceil(shY(x)); y < Math.min(L, Math.floor(cvY(x))); y++) land[idx(x, y)] = 1; /* (the mainland: land from a wavy shore to the plan's end or to the cove, its beach and its grass from the steps below) */
   const cy0 = Math.round(L * P.chain[0]), cy1 = Math.round(L * P.chain[1]), lw = P.lane;
   const BK = bands || [{ y0: cy0, y1: cy1, kind: 'chain' }], isl = [], KIND_R = { chain: P.isleR, fort: [[30, 38], [20, 28]], arch: [[22, 30], [11, 20]], lagoon: [[20, 26], [11, 18]] }, KIND_N = { chain: P.isles, fort: [4, 5], arch: [8, 10], lagoon: [3, 3] };
   BK.forEach((bd, bi) => { const T0 = bi * 1000, lside = rnd(T.ISLE, 5 + T0) < 0.5 ? -1 : 1, lx = P.laneX !== undefined ? P.laneX /* (an opener: the port's own fairway, plan 12.22) */ : bd.kind === 'lagoon' ? (lside < 0 ? 18 + lw / 2 : W - 18 - lw / 2) /* (a lagoon band: the warships' lane at one edge, the harbour in the room that is left) */ : Math.round(lerp(18 + lw / 2, W - 18 - lw / 2, rnd(T.ISLE, 3 + T0)));
@@ -2595,8 +2596,18 @@ function islands(o) {
     const mAt = y => { let m = mxM(y); if (vil) { m += vOffA * smooth(vil.y0 - 150, vil.y0, y) * (y < vil.y0 ? 1 : 0) + vOffB * (1 - smooth(vil.y1, vil.y1 + 150, y)) * (y >= vil.y1 ? 1 : 0); } return m; };
     for (let y = M0; y < L; y++) if (!inVil(y)) { plan.mx[y] = mAt(y); plan.aw[y] = 8; }
     const roadSt = () => { const st = { cls: 'arterial', axis: 'v', tank: true, pts: [], island: true, id: plan.streets.length }; plan.streets.push(st); return st; };
-    for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt();
-      for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) set(x, y, K.ROAD, -1); } }
+    /* rivers (a main_river stretch, plan 12.22): a stream across the land, the town builder's own river object (the centre line yc and half width hw at every column, so its pixel code and its current streaks draw it), natural banks 3 px wide; the main road crosses it on a bridge (a deck of K.BRIDGE tiles of the road's street, one entry in plan.bridges, which validate wants for every river). It is cut before the road and the fields, which keep clear of it. */
+    const rivs = [];
+    for (const m of mains) if (m.t === 'main_river') { const ri = rivs.length, tg = 1000 + ri * 20, Y0 = Math.round((m.y0 + m.y1) / 2 + (rnd(T.ISLE, tg, 1) - 0.5) * (m.y1 - m.y0) * 0.25), ph = rnd(T.ISLE, tg, 2) * 6.283, amp = 4 + rnd(T.ISLE, tg, 3) * 5, wd = 20 + ((rnd(T.ISLE, tg, 4) * 9) | 0), yc = new Float32Array(W), hw = new Float32Array(W); let yMin = L, yMax = 0;
+      for (let x = 0; x < W; x++) { yc[x] = Y0 + amp * Math.sin(x * 0.022 + ph); hw[x] = wd / 2 + (vn(x * 0.05 + ri * 9, 3.3) - 0.5) * 3;
+        const top = yc[x] + hw[x], bot = yc[x] - hw[x]; yMin = Math.min(yMin, bot); yMax = Math.max(yMax, top);
+        for (let y = Math.floor(bot) - 3; y <= Math.ceil(top) + 3; y++) { if (!inB(x, y) || land[idx(x, y)] !== 1) continue; const i = idx(x, y), d = Math.max(bot - (y + 0.5), (y + 0.5) - top); if (d < 0) { Kr[i] = K.RIVER; Br[i] = -1; } else if (d < 3 && Kr[i] === K.MEADOW && Br[i] === -1) Kr[i] = K.BANK; } }
+      rivs.push({ id: ri, Y0, yc, hw, ix: 0, iy: 0, rx: 0, ry: 0, island: false, flow: rnd(T.ISLE, tg, 5) < 0.5 ? -1 : 1, yMin: yMin - 16, yMax: yMax + 16 }); }
+    plan.rivers = rivs; plan.river = rivs[0] || null;
+    for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt(); let run = null;
+      for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); let wet = false;
+        for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y)) { const c = Kr[idx(x, y)]; if (c === K.RIVER || c === K.BRIDGE) { Kr[idx(x, y)] = K.BRIDGE; Br[idx(x, y)] = -2 - st.id; wet = true; } else set(x, y, K.ROAD, -1); }
+        if (wet && !run) run = { y0: y, x: Math.round(mx) }; if (!wet && run) { const R = rivs.find(q => run.y0 > q.yMin && run.y0 < q.yMax) || rivs[0]; plan.bridges.push({ street: st.id, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial', river: R.id }); run = null; } } }
     const fortSpot = (a, b, ok) => { for (let k = 0; k < 6; k++) { const cx = lerp(24, W - 24, rnd(T.ISLE, 920 + k, a)), cy = lerp(a, b, rnd(T.ISLE, 930 + k, a)), r = near(14, 14, cx, cy, 30, (x, y) => ok(x + 7, y + 7)); if (r) return [r[0] + 7, r[1] + 7]; } return null; };
     const farSide = (x, y) => Math.abs(x - plan.mx[Math.min(L - 1, y)]) > 16;
     const yMemo = new Map(), yAtD = (x, d) => { const key = x * 4096 + Math.round(d * 4); let v = yMemo.get(key); if (v !== undefined) return v; v = -1; for (let y = Math.max(M0, Math.floor(shY(x)) - 2); y < L; y++) { const i = idx(x, y); if (land[i] === 1 && dL[i] >= d) { v = y; break; } } yMemo.set(key, v); return v; }; /* (the row where column x is d px inland of the waterline) */
@@ -2643,7 +2654,7 @@ function islands(o) {
         for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (land[i] !== 1 || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; if (dL[i] <= 41 + 8 * vn(x * 0.05 + 21, y * 0.05)) { Kr[i] = K.BEACH; Br[i] = -13; } }
         if (!rec.bunkers) { const c = fortSpot(a + 30, b - 4, (x, y) => dL[idx(x, y)] >= 12); if (c) { fillR(c[0] - 6, c[1] - 6, 12, 12, K.APRON); slot('bunker', 'isle', c[0], c[1], 6); rec.bunkers++; } } /* (the shore always has one) */
         rec.fields += gapFill(a + 70, b, 56, 650); }
-      if (m.t === 'main_farm') { let blk = 700 + mains.indexOf(m) * 100;
+      if (m.t === 'main_farm' || m.t === 'main_river') { let blk = 700 + mains.indexOf(m) * 100;
         for (let k = 0; k < (n >= 6 ? 2 : 1); k++) { const s = rnd(T.ISLE, 960 + k, a) < 0.5 ? -1 : 1, cy = a + (k + 0.5) * (b - a) / (n >= 6 ? 2 : 1), fm = near(20, 26, plan.mx[cy | 0] + s * 46, cy, 44, (x, y) => farSide(x + 10, y + 13));
           if (fm) { const [fx0, fy] = fm, fy0 = fy + 7; fillR(fx0, fy0, 20, 9, K.COURT); building('farmhouse', fx0, fy0 + 9, 10, 7, 'h', 'S'); building('barn', fx0 + 11, fy0 + 9, 9, 10, 'v', 'S', { roof: 2 }); building('barn', fx0, fy0 - 7, 20, 6, 'h', 'N', { roof: 2 }); plan.farms.push({ x0: fx0, y0: fy, w: 20, h: 26 }); rec.farms++;
             const pd = near(34, 22, fx0 + 10 + s * 28, fy + 10, 46, (x, y) => farSide(x + 17, y + 11)); if (pd) { fillR(pd[0], pd[1], 34, 22, K.MEADOW, -30); plan.pastures.push({ x0: pd[0], y0: pd[1], x1: pd[0] + 33, y1: pd[1] + 21, n: 4 }); } } }
@@ -2654,6 +2665,15 @@ function islands(o) {
             y += h; } }
         rec.fields += gapFill(a, b, 0, blk + 40);
         for (let y = a + 4; y < b - 4; y += 15) for (const sd2 of [-1, 1]) if (rnd(T.TREE, y * 5 + sd2, 77) < 0.55) { const x = Math.round(plan.mx[y] + sd2 * 8); if (free(x, y)) tree(x, y, 2, 3); } } /* (poplars along the road) */
+      if (m.t === 'main_cove') { /* the road runs out to a jetty over the beach with a barge beside it, two gun pits in the dunes, a lighthouse on the shore */
+        let yE = -1; for (let y = a; y < b; y++) if (land[idx(Math.round(plan.mx[y]), y)] === 1) yE = y;
+        if (yE > 0) { const jx0 = Math.round(plan.mx[yE]) - 5, jw = 10; let wet0 = -1, jy = yE + 1;
+          for (; jy < Math.min(L - 2, yE + 70); jy++) { let wet = 0; for (let x = jx0; x < jx0 + jw; x++) { if (inB(x, jy) && Kr[idx(x, jy)] === K.SEA) wet++; set(x, jy, K.QUAY, -1); } if (wet === jw && wet0 < 0) wet0 = jy; if (wet0 >= 0 && jy - wet0 >= 14) break; }
+          plan.jetty2 = { x0: jx0, w: jw, y0: yE, y1: jy }; plan.boats.push({ x0: jx0 + jw + 2, y0: Math.max(yE + 6, jy - 20), w: 18, h: 7, cargo: 1, dmg: 0 }); rec.jetty = 1;
+          for (let k = 0; k < 2; k++) { const c = fortSpot(a + 4, yE - 6, (x, y) => land[idx(x, y)] === 1 && dL[idx(x, y)] >= 6 && Math.abs(x - jx0 - 5) > 18); if (c) { gunPitB(c[0], c[1]); rec.pits++; } }
+          const lh = near(8, 8, jx0 + 5 + 34, yE - 10, 30, (x, y) => land[idx(x + 4, y + 4)] === 1 && dL[idx(x + 4, y + 4)] >= 3 && dL[idx(x + 4, y + 4)] < 9); if (lh) { round(lh[0] + 4, lh[1] + 4, 3, { t: 'works', label: 'Lighthouse', part: 'lighthouse', red: rnd(T.ISLE, 1030, a) < 0.5 }); rec.lighthouse = 1; } }
+        if (yE > 0) rec.fields += gapFill(a, yE - 6, 16, 900 + mains.indexOf(m) * 100); /* (fields in what is left of the cove's land behind its dunes) */
+        for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); if (land[i] !== 1 || Kr[i] !== K.MEADOW || Br[i] !== -1) continue; if (dL[i] <= 13 + 7 * vn(x * 0.05 + 31, y * 0.05)) { Kr[i] = K.BEACH; Br[i] = -13; } } /* (a sandy band along the cove's waterline, sand under marram grass as on the south shore, but narrower) */ }
       if (m.t === 'main_wood') { for (let k = 0; k < 2; k++) { const c = fortSpot(a + 14, b - 14, (x, y) => farSide(x, y) && Math.abs(x - plan.mx[y]) < 70); if (c) { gunPitB(c[0], c[1]); rec.pits++; } }
         const edge = y => smooth(a, a + 40, y) * (1 - smooth(b - 40, b, y));
         for (let y = a; y < b; y++) for (let x = 0; x < W; x++) { if (!free(x, y) || Math.abs(x - plan.mx[y]) < 8) continue; if (vn(x * 0.05 + 3, y * 0.05 + 5) < 0.1 + 0.52 * edge(y) + (vn(x * 0.2, y * 0.2) - 0.5) * 0.12) { set(x, y, K.MEADOW, -31); rec.wood++; } }

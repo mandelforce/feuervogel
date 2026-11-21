@@ -74,11 +74,11 @@ export const KITS = {
     opener: [['carrier_start', 4], ['open_sea', 6]],
     middle: [['island_chain', 6], ['island_fortress', 6], ['island_archipelago', 7], ['island_airbase', 9], ['open_sea', 3]],
     approach: [['open_sea', 3]],
-    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway', island_lagoon: 'cranes', main_shore: 'bunker', main_farm: 'fields', main_wood: 'wood', main_village: 'village' },
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_airbase: 'runway', island_lagoon: 'cranes', main_shore: 'bunker', main_cove: 'jetty', main_farm: 'fields', main_river: 'river', main_wood: 'wood', main_village: 'village' },
     markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : q.band === 'lagoon' ? 'island_lagoon' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
       if (p.airbase) m.push({ t: 'island_airbase', y: (p.airbase.y0 + p.airbase.y1) / 2, what: 'runway' });
       for (const q of p.lagoons || []) if (q.cranes) m.push({ t: 'island_lagoon', y: q.cy, what: 'cranes' });
-      for (const r of (p.mainland && p.mainland.stretches) || []) { const y = (r.y0 + r.y1) / 2; if (r.t === 'main_shore' && r.bunkers) m.push({ t: r.t, y, what: 'bunker' }); if (r.t === 'main_farm') { if (r.farms) m.push({ t: r.t, y, what: 'farmstead' }); if (r.fields > 6) m.push({ t: r.t, y, what: 'fields' }); } if (r.t === 'main_wood' && r.wood > 4000) m.push({ t: r.t, y, what: 'wood' }); }
+      for (const r of (p.mainland && p.mainland.stretches) || []) { const y = (r.y0 + r.y1) / 2; if (r.t === 'main_shore' && r.bunkers) m.push({ t: r.t, y, what: 'bunker' }); if (r.t === 'main_cove' && r.jetty) m.push({ t: r.t, y, what: 'jetty' }); if (r.t === 'main_farm' || r.t === 'main_river') { if (r.farms && r.t === 'main_farm') m.push({ t: r.t, y, what: 'farmstead' }); if (r.fields > 6) m.push({ t: r.t, y, what: r.t === 'main_river' ? 'river' : 'fields' }); } if (r.t === 'main_wood' && r.wood > 4000) m.push({ t: r.t, y, what: 'wood' }); }
       if (p.mainVillage && p.mainVillage.items > 8) m.push({ t: 'main_village', y: (p.mainVillage.y0 + p.mainVillage.y1) / 2, what: 'village' }); return m; },
     extra: (p, rg) => { const out = []; if (!p.airbase) out.push('no airbase on the large island'); if (!p.village || !p.village.items) out.push('no village on the large island');
       const bands = rg.filter(r => /^island_(chain|fortress|archipelago|lagoon)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
