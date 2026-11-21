@@ -5027,7 +5027,7 @@ function check(kitId, S) {
   const kit = KITS[kitId], bad = []; if (!kit) return ['no kit ' + kitId];
   const all = S.segs || [], segs0 = all.filter(g => !g.legacy && !g.main), IV = kit.islandOpen && kit.islandOpen.variants.find(v => v.every((q, k) => segs0[k] && segs0[k].t === q[0] && segs0[k].n === q[1])) || [], segs = segs0.slice(IV.length), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
-  if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle' && S.bossVar.castle)) bad.push('a castle ruin without a climate castle');
+  if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL)); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; });
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
@@ -5178,7 +5178,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
-    if (bs && bs.kind === 'castle' && bs.castle && hash(base, 6960) < CASTLE_RUIN_SHARE) S.castleRuin = true; /* (a climate castle as a ruin: breaches in the walls, cracked and scorched courts; looks only, its own stream) */
+    if (bs && bs.kind === 'castle' && hash(base, 6960) < CASTLE_RUIN_SHARE) S.castleRuin = true; /* (a castle as a ruin, Ravenhold too: breaches in the walls, cracked and scorched courts; looks only, its own stream) */
     if (bs && bs.yard) S.arenaYard = true; /* (the arena is a rail yard: eight tracks with crossovers, the two-train boss's ground) */
     if (bs) S.bossVar = bs; if (tail) { S.legacyTail = tailLen; S.arenaSea = true; }
     if (kit.arenaTracks && kit.arenaTracks[ap[0][0]]) S.arenaTracks = kit.arenaTracks[ap[0][0]].slice(); else if (bs && bs.track) S.arenaTracks = [].concat(bs.track); /* (an ending whose tracks run on into the boss arena: the rails are painted there) */
@@ -7247,7 +7247,7 @@ SPR.rocketPod = rotSet(sprite(14, 26, x => {
 function lazySpr(name, make) { Object.defineProperty(SPR, name, { configurable: true, get() { const v = make(); Object.defineProperty(SPR, name, { value: v, writable: true, configurable: true }); return v; } }); }
 /* Level 4's first loop: Ravenhold is a ruin. The same floor image with the walls and the floor damaged (visual only): breaches in the curtain walls (the ground shows through, rubble in the
    gap), chipped battlements, the outer gate's arch a heap of stones, cracks and missing flagstones in the courtyards, scorch marks and a few shell craters, autumn leaves. Seeded by hash. */
-function ruinFloor(base, lay, leaf) { /* (the ruin look as a function of the floor it damages: Ravenhold's in the first loop, a climate castle's own plan in the Daily Sortie; leaf: the scattered colours) */
+function ruinFloor(base, lay, leaf, kind) { /* (the ruin look as a function of the floor it damages: Ravenhold's in the first loop, a climate castle's own plan in the Daily Sortie; leaf: the scattered colours) */
   const [c, x] = mk(W, RV_H), Y = u => RV_GATE - u, h = (a, b) => hash(a * 13 + 7, b * 5 + 3), WALL = ['#2f2c28', '#413c35', '#524c43', '#645d52'], towers = [8, 432, 911, 1332];
   x.drawImage(base, 0, 0);
   const stones = (cx, cy, r, n, seed) => { for (let k = 0; k < n; k++) { const a = h(seed, k) * TAU, d = Math.sqrt(h(seed, k + 50)) * r, w = 2 + ((h(seed, k + 99) * 3) | 0), t = WALL[(h(seed, k + 150) * 4) | 0]; x.fillStyle = '#14110e'; x.fillRect(Math.round(cx + Math.cos(a) * d) + 1, Math.round(cy + Math.sin(a) * d * 0.8) + 1, w, 2); x.fillStyle = t; x.fillRect(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.8), w, 2); } };
@@ -7266,7 +7266,7 @@ function ruinFloor(base, lay, leaf) { /* (the ruin look as a function of the flo
   for (let k = 0; k < 90; k++) { const px = 24 + Math.floor(h(k, 91) * ((W - 48) / 12)) * 12, py = 30 + Math.floor(h(k, 92) * ((RV_H - 70) / 8)) * 8; if (!floor(px + 6, py + 4) || !floor(px, py)) continue; x.fillStyle = '#1e1b18'; x.fillRect(px + 1, py + 1, 11, 7); x.fillStyle = '#2c2925'; x.fillRect(px + 2, py + 2, 9, 3); } /* missing flagstones */
   for (let k = 0; k < 10; k++) { const px = 40 + h(k, 111) * (W - 80), py = 120 + h(k, 112) * (RV_H - 300); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = '#26221f'; x.beginPath(); x.ellipse(px, py, 7, 5, 0, 0, TAU); x.fill(); x.fillStyle = '#14110e'; x.beginPath(); x.ellipse(px, py, 4.5, 3, 0, 0, TAU); x.fill(); stones(px, py, 9, 6, 400 + k); } /* shell craters */
   for (let k = 0; k < 320; k++) { const px = 24 + h(k, 121) * (W - 48), py = 24 + h(k, 122) * (RV_H - 60); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = leaf[(h(k, 123) * 4) | 0]; x.fillRect(Math.round(px), Math.round(py), 2, 1); } /* autumn leaves */
-  if (lay) { /* a climate castle's ruin is richer: rubble heaps at the breaches, fallen blocks with shadows, broken flagstones with chipped edges, rimmed craters with debris, drifts along the walls */
+  if (kind) { /* a Daily Sortie castle's ruin is richer (kind: its climate, or 'forest' for Ravenhold): rubble heaps at the breaches, fallen blocks with shadows, broken flagstones with chipped edges, rimmed craters with debris, drifts along the walls */
     const blk = (px, py, w, hh, k) => { px = Math.round(px); py = Math.round(py); x.fillStyle = 'rgba(8,6,5,0.5)'; x.fillRect(px + 2, py + 2, w, hh); x.fillStyle = WALL[1 + ((h(k, 5) * 3) | 0)]; x.fillRect(px, py, w, hh); x.fillStyle = '#8a8478'; x.fillRect(px, py, w, 1); x.fillRect(px, py, 1, hh); x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(px + w - 1, py + 1, 1, hh - 1); x.fillRect(px + 1, py + hh - 1, w - 1, 1); };
     for (const side of [0, 1]) for (let k = 0; k < 9; k++) { const u = 70 + k * 140 + h(k, side) * 70; if (towers.some(t => Math.abs(u - t) < 40)) continue; const len = 12 + Math.round(h(k, side + 5) * 20), y1 = Y(u); /* (the breaches again, as above) */
       for (let n = 0; n < 9 + (len >> 1); n++) { const d = Math.sqrt(h(k * 9 + side, n + 400)), bx = side ? W - 14 - d * 34 : 14 + d * 34, by = y1 - len / 2 + (h(k * 9 + side, n + 450) - 0.5) * (len + 10); blk(bx, by, 3 + ((h(k, n + 500) * 5) | 0), 2 + ((h(k, n + 520) * 3) | 0), k * 31 + n + side * 7); } }
@@ -7275,21 +7275,27 @@ function ruinFloor(base, lay, leaf) { /* (the ruin look as a function of the flo
     for (let k = 0; k < 14; k++) { const px = 34 + h(k, 651) * (W - 68), py = 140 + h(k, 652) * (RV_H - 340); if (!floor(Math.round(px), Math.round(py))) continue; x.strokeStyle = 'rgba(120,110,96,0.6)'; x.lineWidth = 1; x.beginPath(); x.ellipse(px, py, 9, 6.5, 0, 0, TAU); x.stroke(); for (let n = 0; n < 7; n++) { const a = n / 7 * TAU + h(k, 660 + n), l = 8 + h(k, 670 + n) * 9; x.strokeStyle = 'rgba(10,8,7,0.55)'; x.beginPath(); x.moveTo(px + Math.cos(a) * 8, py + Math.sin(a) * 6); x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l * 0.8); x.stroke(); } } /* craters: a pale rim, rays of scorch */
     for (let k = 0; k < 34; k++) { const side = k % 2, px = side ? W - 24 - h(k, 681) * 16 : 24 + h(k, 681) * 16, py = 40 + h(k, 682) * (RV_H - 100); if (!floor(Math.round(px), Math.round(py))) continue; const g = x.createRadialGradient(px, py, 1, px, py, 9); g.addColorStop(0, 'rgba(214,206,190,0.6)'); g.addColorStop(1, 'rgba(214,206,190,0)'); x.fillStyle = g; x.fillRect(px - 10, py - 10, 20, 20); } /* drifts of dust along the walls */
     const each = fn => { for (const side of [0, 1]) for (let k = 0; k < 9; k++) { const u = 70 + k * 140 + h(k, side) * 70; if (towers.some(t => Math.abs(u - t) < 40)) continue; const len = 12 + Math.round(h(k, side + 5) * 20); fn(side, k, len, Y(u)); } }, dot = (px, py, w, hh, col) => { x.fillStyle = col; x.fillRect(Math.round(px), Math.round(py), w, hh); };
-    if (lay === 'sand') { /* wind: sand drifted through every breach and banked against the walls and the fallen blocks, a block half buried */
+    if (kind === 'sand') { /* wind: sand drifted through every breach and banked against the walls and the fallen blocks, a block half buried */
       each((side, k, len, y1) => { const bx = side ? W - 24 : 24, ln = len / 2 + 5; x.fillStyle = 'rgba(190,188,172,0.62)'; x.beginPath(); x.ellipse(bx, y1 - len / 2, 6 + h(k, 700) * 3, ln, 0, 0, TAU); x.fill(); x.fillStyle = 'rgba(214,212,196,0.7)'; x.beginPath(); x.ellipse(bx + (side ? -1 : 1), y1 - len / 2 - 1, 3.5, ln * 0.7, 0, 0, TAU); x.fill(); for (let n = -2; n <= 2; n++) dot(bx - 5 + (side ? -2 : 0), y1 - len / 2 + n * ln / 3, 9, 1, 'rgba(150,148,134,0.5)'); });
       for (let k = 0; k < 90; k++) { const px = 24 + h(k, 721) * (W - 48), py = 40 + h(k, 722) * (RV_H - 100); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = 'rgba(200,200,190,0.35)'; x.beginPath(); x.ellipse(px, py, 3 + h(k, 723) * 5, 1.5 + h(k, 724) * 2, -0.5, 0, TAU); x.fill(); } /* ripples of sand */ }
-    if (lay === 'ice') { /* frost: snow capping the rubble and the walls, shards of ice among the stones, the frozen pool cracked across */
+    if (kind === 'ice') { /* frost: snow capping the rubble and the walls, shards of ice among the stones, the frozen pool cracked across */
       each((side, k, len, y1) => { for (let n = 0; n < 7; n++) { const px = side ? W - 16 - h(k, n + 730) * 34 : 16 + h(k, n + 730) * 34, py = y1 - len / 2 + (h(k, n + 740) - 0.5) * (len + 8); dot(px, py - 1, 4 + ((h(k, n + 750) * 3) | 0), 2, '#f2f4f8'); dot(px + 1, py + 1, 3, 1, '#c4ccd8'); } for (let n = 0; n < 4; n++) { const px = side ? W - 18 - h(k, n + 760) * 30 : 18 + h(k, n + 760) * 30, py = y1 - len / 2 + (h(k, n + 770) - 0.5) * len; x.fillStyle = '#9ab8e0'; x.beginPath(); x.moveTo(px, py - 3); x.lineTo(px + 2, py + 2); x.lineTo(px - 1, py + 2); x.fill(); } });
       const bd = base.getContext('2d').getImageData(0, 0, W, RV_H).data, blue = (px, py) => { if (px < 0 || px >= W || py < 0 || py >= RV_H) return false; const i = (py * W + px) * 4; return bd[i + 3] > 8 && bd[i + 2] > bd[i] + 10 && bd[i + 2] >= bd[i + 1] - 2; };
       for (let k = 0; k < 160; k++) { let cx = 20 + h(k, 781) * (W - 40), cy = 60 + h(k, 782) * (RV_H - 160), a = h(k, 783) * TAU; if (!blue(Math.round(cx), Math.round(cy))) continue; for (let st = 0, n = 10 + Math.round(h(k, 784) * 30); st < n; st++) { a += (h(k, 800 + st) - 0.5) * 0.9; cx += Math.cos(a); cy += Math.sin(a); const px = Math.round(cx), py = Math.round(cy); if (!blue(px, py)) break; dot(px, py, 1, 1, '#24406e'); dot(px + 1, py + 1, 1, 1, '#a8c8f0'); } } }
-    if (lay === 'fort') { /* the sea has come in: puddles of seawater in the craters and low courts with a pale salt rim, seaweed along the walls, salt stains on the stone */
+    if (kind === 'fort') { /* the sea has come in: puddles of seawater in the craters and low courts with a pale salt rim, seaweed along the walls, salt stains on the stone */
       for (let k = 0; k < 26; k++) { const px = 30 + h(k, 831) * (W - 60), py = 80 + h(k, 832) * (RV_H - 200); if (!floor(Math.round(px), Math.round(py)) || !floor(Math.round(px) + 8, Math.round(py))) continue; const rx = 5 + h(k, 833) * 8, ry = 3 + h(k, 834) * 4; x.fillStyle = 'rgba(206,214,214,0.7)'; x.beginPath(); x.ellipse(px, py, rx + 1.5, ry + 1.5, 0, 0, TAU); x.fill(); x.fillStyle = '#2a5a8c'; x.beginPath(); x.ellipse(px, py, rx, ry, 0, 0, TAU); x.fill(); x.fillStyle = '#4a82b4'; x.beginPath(); x.ellipse(px - rx * 0.2, py - ry * 0.25, rx * 0.5, ry * 0.4, 0, 0, TAU); x.fill(); }
       each((side, k, len, y1) => { for (let n = 0; n < 8; n++) { const px = side ? W - 16 - h(k, n + 850) * 22 : 16 + h(k, n + 850) * 22, py = y1 - len / 2 + (h(k, n + 860) - 0.5) * (len + 6); dot(px, py, 1, 2 + (n % 3), '#2c5a30'); dot(px + 1, py + 1, 1, 2, '#3e7a42'); dot(px - 1, py + 1, 1, 1, '#2c5a30'); } });
       for (let k = 0; k < 120; k++) { const px = 24 + h(k, 871) * (W - 48), py = 40 + h(k, 872) * (RV_H - 100); if (!floor(Math.round(px), Math.round(py))) continue; dot(px, py, 1 + ((h(k, 873) * 3) | 0), 1, 'rgba(226,232,230,0.5)'); } /* salt */ }
+    if (kind === 'forest') { /* Ravenhold left to the wood: moss on the flagstones, ivy up the walls, ferns and saplings in the breaches */
+      each((side, k, len, y1) => { for (let n = 0; n < 10; n++) { const px = side ? W - 15 - h(k, n + 900) * 26 : 15 + h(k, n + 900) * 26, py = y1 - len / 2 + (h(k, n + 910) - 0.5) * (len + 8); dot(px, py, 2, 3, '#2a4a24'); dot(px + 1, py + 1, 2, 2, '#3e6a34'); dot(px - 1, py + 2, 1, 2, '#1e3a1a'); } });
+      for (let k = 0; k < 110; k++) { const px = 24 + h(k, 921) * (W - 48), py = 40 + h(k, 922) * (RV_H - 100); if (!floor(Math.round(px), Math.round(py))) continue; x.fillStyle = h(k, 923) < 0.5 ? 'rgba(58,96,46,0.55)' : 'rgba(40,72,34,0.5)'; x.beginPath(); x.ellipse(px, py, 2 + h(k, 924) * 5, 1.5 + h(k, 925) * 3, h(k, 926) * 3, 0, TAU); x.fill(); }
+      for (const side of [0, 1]) for (let k = 0; k < 24; k++) { const u = 40 + h(k, side + 940) * 1280; if (towers.some(t => Math.abs(u - t) < 30)) continue; const px = side ? W - 21 : 20, py = Y(u), l = 4 + ((h(k, side + 950) * 9) | 0); for (let n = 0; n < l; n++) dot(px + (side ? -1 : 1) * ((n * 7) % 3), py - n, 1, 1, h(k, n + 960) < 0.5 ? '#2c5428' : '#406e36'); } /* ivy */
+    }
   }
   return c;
 }
 lazySpr('ravenFloorRuin', () => ruinFloor(SPR.ravenFloor, undefined, ['#c47a2a', '#a8582a', '#d8a63c', '#8a4a24']));
+lazySpr('ravenFloorRuinF', () => ruinFloor(SPR.ravenFloor, undefined, RUIN_DUST, 'forest')); /* (the plain forest's Ravenhold as a Daily Sortie ruin: its own look, not the first loop's autumn one) */
 function prewarmBoss(th) { const k = (run.sortie && run.sortie.bossVar && run.sortie.bossVar.kind) || BOSS_KINDS[th]; /* (a composed sortie's boss: its kind, not the theme's) */ try { if (k === 'castle') { SPR.ravenFloor; SPR.keep; if (run.sortie && run.sortie.autumn) SPR.ravenFloorRuin; if (castleSkin()) { castleFloorSkin(castleSkin()); castleKeepSkin(castleSkin(), 1); } } else if (k === 'fortress') SPR.fortHull; else if (k === 'skyfort') SPR.skyfort; else if (k === 'railgun') { SPR.rgBase; SPR.rgBarrel; } } catch (e) {} }
 function fortHull(fr) {
   return sprite(96, 112, x => {
@@ -18540,7 +18546,7 @@ let ravenAlpha = { src: null, a: null };
 function ravenCovers(wx, wy) {
   if (world.ravenGate === null || world.ravenGate === undefined) return false;
   const yy = Math.round(wy - (world.ravenGate - RV_GATE)), xx = Math.round(wx); if (yy < 0 || yy >= RV_H || xx < 0 || xx >= W) return false;
-  const src = run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : castleRuinOn() ? castleRuinBase(castleSkin()) : SPR.ravenFloor;
+  const src = run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : castleRuinOn() ? (castleSkin() ? castleRuinBase(castleSkin()) : SPR.ravenFloorRuinF) : SPR.ravenFloor;
   if (ravenAlpha.src !== src) ravenAlpha = { src, a: src.getContext('2d').getImageData(0, 0, W, RV_H).data };
   return ravenAlpha.a[(yy * W + xx) * 4 + 3] > 0;
 }
@@ -18591,12 +18597,12 @@ function skinCanvas(src, skin) { /* a recoloured copy of a canvas (or of a sprit
 const SKIN_CACHE = {};
 function castleSkin() { const sv = run.sortie && run.sortie.bossVar; return sv && sv.kind === 'castle' && CASTLE_SKINS[sv.castle] ? sv.castle : ''; }
 const RUIN_DUST = ['#8a8478', '#a39c8e', '#bdb6a6', '#9a9488']; /* (a climate castle's ruin: dust and fallen stone where Ravenhold's has leaves; the skin turns it into the climate's own stone) */
-function castleRuinOn() { return !!(run.sortie && run.sortie.castleRuin && castleSkin()); }
-function castleRuinBase(skin) { return SKIN_CACHE['rb' + skin] || (SKIN_CACHE['rb' + skin] = ruinFloor(buildRavenFloor(skin), skin, RUIN_DUST)); }
+function castleRuinOn() { const S = run.sortie; return !!(S && S.castleRuin && !S.autumn && S.bossVar && S.bossVar.kind === 'castle'); }
+function castleRuinBase(skin) { return SKIN_CACHE['rb' + skin] || (SKIN_CACHE['rb' + skin] = ruinFloor(buildRavenFloor(skin), skin, RUIN_DUST, skin)); }
 function castleFloorSkin(skin) { if (castleRuinOn()) return SKIN_CACHE['r' + skin] || (SKIN_CACHE['r' + skin] = skinCanvas(castleRuinBase(skin), skin)); return SKIN_CACHE['f' + skin] || (SKIN_CACHE['f' + skin] = skinCanvas(buildRavenFloor(skin), skin)); } /* (the climate's own floor plan, recoloured) */
 function castleKeepRuin(skin, open) { /* the keep as a ruin (a climate castle with S.castleRuin): chipped battlements and corners, cracks, fallen blocks at the foot, scorch */
   return SKIN_CACHE['kr' + skin + open] || (SKIN_CACHE['kr' + skin + open] = (() => {
-    const src = castleKeepSkin(skin, open).c, [c, x] = mk(src.width, src.height), h = (a, b) => hash(a * 11 + 5, b * 7 + 2); x.drawImage(src, 0, 0);
+    const src = (skin ? castleKeepSkin(skin, open) : SPR.keep[open]).c, [c, x] = mk(src.width, src.height), h = (a, b) => hash(a * 11 + 5, b * 7 + 2); x.drawImage(src, 0, 0);
     const img = x.getImageData(0, 0, c.width, c.height), a = img.data, w = c.width, solid = (px, py) => px >= 0 && py >= 0 && px < w && py < c.height && a[(py * w + px) * 4 + 3] > 8;
     for (let py = 0; py < c.height; py++) for (let px = 0; px < w; px++) if (solid(px, py) && !(solid(px - 1, py) && solid(px + 1, py) && solid(px, py - 1) && solid(px, py + 1)) && h(px, py) < 0.3) a[(py * w + px) * 4 + 3] = 0; /* chipped outline */
     x.putImageData(img, 0, 0);
@@ -18611,7 +18617,7 @@ function drawRaven() {
   const top = world.ravenGate - RV_GATE + Math.floor(world.scroll);
   if (top > H) { world.ravenGate = null; return; }
   const y0 = Math.max(0, -top), y1 = Math.min(RV_H, H - top);
-  if (y1 > y0) { ctx.drawImage(castleSkin() ? castleFloorSkin(castleSkin()) : run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
+  if (y1 > y0) { ctx.drawImage(castleSkin() ? castleFloorSkin(castleSkin()) : run.sortie && run.sortie.autumn ? SPR.ravenFloorRuin : castleRuinOn() ? SPR.ravenFloorRuinF : SPR.ravenFloor, 0, y0, W, y1 - y0, 0, top + y0, W, y1 - y0); const t0 = Math.max(y0, RV_GATE - 910); if (y1 > t0) { ctx.fillStyle = 'rgba(10,10,22,0.1)'; ctx.fillRect(0, top + t0, W, y1 - t0); } }
 }
 function drawMarkers() {
   const sc = Math.floor(world.scroll);
@@ -19318,7 +19324,7 @@ const BOSS_LOOKS = {
   },
   castle(e, fl, core) {
     if (e.y > -140 && e.y < H + 60) {
-      spr(castleSkin() ? castleRuinOn() ? castleKeepRuin(castleSkin(), 1) : castleKeepSkin(castleSkin(), 1) : SPR.keep[1], e.x, e.y, fl);
+      spr(castleRuinOn() ? castleKeepRuin(castleSkin(), 1) : castleSkin() ? castleKeepSkin(castleSkin(), 1) : SPR.keep[1], e.x, e.y, fl);
       drawBossParts(e, { main: SPR.bMain }, q => !q.tw);
       drawKeepTower(e);
       if ((e.towerH ?? 70) > 8) drawBossParts(e, { aa: SPR.bAA, rocket: SPR.rocketPod }, q => q.tw && q.k !== 'core');
