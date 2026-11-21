@@ -18206,6 +18206,7 @@ const ASH = (() => {
   function src(c, p) { if (!on()) return c; const d = entry(c); d.p = p; if (d.r1 >= d.r0 && (d.r1 - d.r0 >= MR - 1 || d.t !== gf >> 1)) { d.t = gf >> 1; compose(d); } return d.c; } // (a chunk is drawn again at most every other frame: each new picture is sent to the graphics card)
   // colour into the mask: a disc around (wx, wy) in world pixels (wy = screen y - floor(scroll)), ragged at the edge when rag; cells nearer
   // than inner (cells) were filled by an earlier step of the same ring; rows outside ylo..yhi (cells) are left alone
+  const RAG = [0.72, 0.5], RING = [0.96, 0.06]; // a ring's edge: [the smallest share of the radius, how much the noise adds]; RING is nearly round, as the Nova's rings
   function paint(wx, wy, rad, s, heat, rag, inner, ylo, yhi) {
     const cx = wx / S, cy = wy / S, cr = rad / S, ext = cr * 1.25 + 2;
     const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(MW - 1, Math.ceil(cx + ext)), y0 = Math.max(ylo, Math.floor(cy - ext)), y1 = Math.min(yhi, Math.ceil(cy + ext));
@@ -18214,7 +18215,7 @@ const ASH = (() => {
       const lr = y + p * MR, row = lr * MW;
       const ddy = (y - cy) * (y - cy);
       for (let x = x0; x <= x1; x++) { const dd = Math.sqrt((x - cx) * (x - cx) + ddy); if (inner > 0 && dd < inner) continue;
-        const thr = rag ? cr * (0.72 + 0.5 * nz(x, y)) : cr; if (dd >= thr) continue;
+        const thr = rag ? cr * (rag[0] + rag[1] * nz(x, y)) : cr; if (dd >= thr) continue;
         const i = row + x, v = s * Math.min(1, (thr - dd) / 1.6);
         if (e.M[i] < v - 0.004) { e.M[i] = v; mark(e, lr); }
         if (heat && !lowFX && dd > thr - 2.5 && e.Hh[i] < heat) { e.Hh[i] = heat; mark(e, lr); heatRow(e, lr); } } }
@@ -18235,7 +18236,9 @@ const ASH = (() => {
     const dg = lastGf < 0 ? 0 : Math.max(0, Math.min(8, gf - lastGf)); lastGf = gf;
     const sc = Math.floor(world.scroll), vlo = Math.floor((-sc - 80) / S), vhi = Math.ceil((H - sc + 80) / S);
     for (let k = ev.length - 1; k >= 0; k--) { const o = ev[k], p = Math.min(1, (gf - o.g) / o.dur);
-      if (o.k === 'b') { const cr = o.r * (1 - (1 - p) ** 3); paint(o.x, o.y, cr, 1, 1, true, (o.prev || 0) / S * 0.72 - 3, o.ylo !== undefined ? o.ylo : vlo, o.yhi !== undefined ? o.yhi : vhi); o.prev = cr; }
+      if (o.k === 'b') { if (o.sy !== undefined) o.y = o.sy - sc; // (the Nova's rings stay put on the screen while the ground scrolls under them)
+        const rag = o.ring ? RING : RAG, cr = o.ring ? Math.min(o.r, (gf - o.g) * o.ring) : o.r * (1 - (1 - p) ** 3); // (a Nova's colour front moves out with its leading ring, at the ring's speed)
+        paint(o.x, o.y, cr, 1, o.ring ? 0 : 1, rag, (o.prev || 0) / S * rag[0] - 3, o.ylo !== undefined ? o.ylo : vlo, o.yhi !== undefined ? o.yhi : vhi); o.prev = cr; }
       else { const r = o.r * (1 - Math.pow(p, 1.7)) / S; drain(o, r);
         if (dg) for (let n = 0; n < 7; n++) { const a = Math.random() * TAU, rr = r * S * (0.85 + Math.random() * 0.3), px = o.x + Math.cos(a) * rr, py = o.y + sc + Math.sin(a) * rr;
           if (px > -4 && px < W + 4 && py > -4 && py < H + 4) parts.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.4 - Math.cos(a) * 0.25, vy: -0.25 - Math.random() * 0.5, t: 0, life: 40 + Math.random() * 30, c: Math.random() < 0.5 ? '#d8dee6' : Math.random() < 0.5 ? '#8f969e' : '#5d636a' }); }
@@ -18265,7 +18268,8 @@ const ASH = (() => {
     on, src, drawParts,
     frame() { if (on()) frame(); else { ev.length = 0; lastGf = -1; } },
     kill(x, y, e) { const big = !!e.big, r = big ? SCREEN() : e.type === 'troop' ? 14 : e.ground ? 62 : 36; push({ k: 'b', x, y: wyOf(y), r, dur: big ? 120 : e.ground ? 46 : 30 }); },
-    nova(x, y) { const sc = Math.floor(world.scroll); push({ k: 'b', x, y: wyOf(y), r: SCREEN(), dur: 60, ylo: Math.floor(-sc / S), yhi: Math.ceil((H - sc) / S) }); }, // the screen only
+    nova(x, y) { const sc = Math.floor(world.scroll), r = Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 8; // the screen only, coloured by the Nova's outgoing rings (drawn with feel.bombFx: the leading one at 6 pixels a frame)
+      push({ k: 'b', x, y: wyOf(y), sy: y, r, ring: 6, dur: Math.ceil(r / 6) + 1, ylo: Math.floor(-sc / S), yhi: Math.ceil((H - sc) / S) }); },
     pick(x, y) { push({ k: 'b', x, y: wyOf(y), r: 90, dur: 42 }); },
     die(x, y) { if (!settings.ash) return; const wy = wyOf(y), y0 = wyOf(0) - 16, y1 = wyOf(H) + 16;
       push({ k: 'd', x, y: wy, y0, y1, r: Math.hypot(Math.max(x, W - x), Math.max(wy - y0, y1 - wy)) / 0.78 + 16, dur: 96 });
