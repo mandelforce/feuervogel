@@ -495,6 +495,7 @@ body[data-results="1"] #bombBtn{display:none !important}
         <div class="row"><span>Show FPS</span><span class="seg"><button type="button" id="sFps" aria-pressed="false">Off</button></span></div>
         <div class="row"><span>Power saver (30 FPS)</span><span class="seg"><button type="button" id="sPower" aria-pressed="false">Off</button></span></div>
         <div class="row"><span>Ash mode</span><span class="seg"><button type="button" id="sAsh" aria-pressed="false">Off</button></span></div>
+        <div class="row" id="sAshLookRow"><span>Ash look</span><span class="seg"><button type="button" id="sAshLook">Shard 1989</button></span></div>
         <div class="row" id="sDailyRow"><span>Daily Sortie <i id="sDailyKit" style="font-style:normal;color:#fff0a0"></i></span><span class="seg"><button type="button" id="sDaily">Play</button></span></div>
         <details id="sSensRow"><summary>Sensitivity</summary>
           <div class="row"><label for="sSensMouse">Mouse</label><input type="range" id="sSensMouse" min="25" max="175" step="5"><output id="sSensMouseV"></output></div>
@@ -5240,7 +5241,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.51'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.52'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5285,7 +5286,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, power: false, ash: false, gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, power: false, ash: false, ashLook: 'shard89', gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -5293,6 +5294,7 @@ const SENS_BASE = { sensMouse: 1, sensKey: 1.2, sensPad: 1.2 }; // what 100% on 
 const sensPct = k => { const v = +settings[k]; return v >= 25 && v <= 175 ? v : 100; }; // the slider's value
 const sensOf = k => sensPct(k) / 100 * (SENS_BASE[k] || 1); // Settings > Sensitivity
 function saveSettings() { store.setJSON(KEY.settings, settings); }
+const ASH_LOOKS = { shard89: 'Shard 1989', shard: 'Alien shard', arcade: 'Arcade 1989', ember: 'Ember' }; // Settings > Ash look (settings.ashLook, the looks in ASH): each press goes to the next
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
 const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
@@ -18415,7 +18417,7 @@ function updParts() {
 }
 
 /* ================= ash mode: the occupied world is ash, the firebird's fire brings the colour back ================= */
-// Settings > Ash mode (settings.ash, off by default; not in the Retro Run, the tutorial or on the title). The ground is drawn grey and comes
+// Settings > Ash mode (settings.ash, off by default; its look: Settings > Ash look, settings.ashLook, see LOOKS; not in the Retro Run, the tutorial or on the title). The ground is drawn grey and comes
 // back in colour where the player's fire lands: a ring with a glowing edge from every kill (bigger for ground units, the whole screen for a
 // big enemy), a patch around the ship at a pickup, the whole screen (only the screen) at a Nova, and a faint trail under the ship. Being shot
 // down drains the screen again: grey closes in from the edges with a frosted rim and ash flakes, down to the wreck.
@@ -18434,30 +18436,51 @@ const ASH = (() => {
   const NZ = new Float32Array(MW * 256); for (let y = 0; y < 256; y++) for (let x = 0; x < MW; x++) NZ[y * MW + x] = vnoise(x, y); // (the ragged edge's noise, worked out once: it repeats every 512 pixels down the level)
   const nz = (x, y) => NZ[(y & 255) * MW + x];
   const on = () => !!settings.ash && app.state !== 'title' && !app.tut && !RETRO.on && !app.ending;
-  function entry(c) {
+  // The looks (Settings > Ash look, settings.ashLook): ash: the grey from a pixel's luminance (x, world row y: the dither is fixed to the
+  // ground); edge: what the ring's edge adds (e: 0..1); frost and speck: the drain's rim; dither: colour returns through the dither, not
+  // gradually; glitch: rows of the drain's rim shift sideways. Nothing moves on its own: animated stripes or a fast sparkle read as flicker.
+  const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16), bay = (x, y) => BAY[(y & 3) * 4 + (x & 3)];
+  const dith = (l, x, y) => { const v = [22, 84, 150, 222][Math.min(3, Math.floor(l / 255 * 3 + bay(x, y)))]; return [v, v, v + 6]; }; // (four greys, an ordered dither: the arcade boards)
+  const stripes = (e, x, y) => (((x + y) >> 2) & 1) ? [e * 170, e * 50, e * 255] : [e * 30, e * 225, e * 255]; // (the shards' violet and cyan)
+  const SHARD = { edge: stripes, glitch: true, frost: [44, 30, 76], speck: [255, 60, 200], label: '#a8f0ff', flakes: ['#c07bff', '#4ef0ff', '#ff4fd8'] };
+  const LOOKS = {
+    shard89: Object.assign({ ash: dith }, SHARD),
+    shard: Object.assign({ ash: l => { const v = 18 + l * 0.56; return [v * 0.84, v * 0.98, v * 1.14]; } }, SHARD),
+    arcade: { ash: dith, dither: true, edge: e => [e * 70, e * 70, e * 70], frost: [210, 210, 220], speck: [255, 255, 255], label: '#ffffff', flakes: ['#ffffff', '#a0a0a8', '#5a5a62'] },
+    ember: { ash: l => { const v = 24 + l * 0.56; return [v * 1.05, v * 0.99, v * 0.9]; }, edge: e => [e * 230, e * 105, e * 12], frost: [186, 198, 214], speck: [236, 236, 236], label: '#c9d6e6', flakes: ['#d8dee6', '#8f969e', '#5d636a'] },
+  };
+  const lookKey = () => LOOKS[settings.ashLook] ? settings.ashLook : 'shard89', LK = () => LOOKS[lookKey()];
+  function entry(c, p) {
     let d = data.get(c); const rv = c._rv | 0;
     if (!d) { const [cv, x] = mk(W, CH); d = { M: new Float32Array(MW * MR), Hh: new Float32Array(MW * MR), F: new Float32Array(MW * MR), rv: -1, c: cv, x, out: x.createImageData(W, CH), col: null, grey: null, r0: 0, r1: MR - 1, h0: MR, h1: -1, p: 0 }; data.set(c, d); }
-    if (d.rv !== rv) { // the chunk's own pixels (again after a crater): the colour, a little richer than the normal look, and its ash
-      d.rv = rv; const a = c.getContext('2d').getImageData(0, 0, W, CH).data, g = new Uint8ClampedArray(a.length);
-      for (let i = 0; i < a.length; i += 4) { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2], v = 24 + l * 0.56;
-        g[i] = v * 1.05; g[i + 1] = v * 0.99; g[i + 2] = v * 0.9; g[i + 3] = a[i + 3];
+    d.p = p;
+    if (d.rv !== rv) { // the chunk's own pixels (again after a crater): the colour, a little richer than the normal look, and its luminance
+      d.rv = rv; d.lk = null; const a = c.getContext('2d').getImageData(0, 0, W, CH).data, lum = d.lum || (d.lum = new Float32Array(W * CH));
+      for (let i = 0, q = 0; i < a.length; i += 4, q++) { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]; lum[q] = l;
         for (let k = 0; k < 3; k++) a[i + k] = l + (a[i + k] - l) * 1.15; }
-      d.col = a; d.grey = g; d.r0 = 0; d.r1 = MR - 1; }
+      d.col = a; }
+    const key = lookKey();
+    if (d.lk !== key) { // its ash in the current look (again when the look is changed)
+      d.lk = key; const f = LOOKS[key].ash, a = d.col, g = d.grey || (d.grey = new Uint8ClampedArray(a.length)), wy0 = -p * CH;
+      for (let i = 0, q = 0; i < a.length; i += 4, q++) { const v = f(d.lum[q], q % W, wy0 + ((q / W) | 0)); g[i] = v[0]; g[i + 1] = v[1]; g[i + 2] = v[2]; g[i + 3] = a[i + 3]; }
+      d.r0 = 0; d.r1 = MR - 1; }
     return d;
   }
   const mark = (e, r) => { if (r < e.r0) e.r0 = r; if (r > e.r1) e.r1 = r; }, heatRow = (e, r) => { if (r < e.h0) e.h0 = r; if (r > e.h1) e.h1 = r; };
   function compose(d) { // only the rows that changed (d.r0..d.r1, mask rows)
-    const o = d.out.data, A = d.col, G = d.grey, M = d.M, Hh = d.Hh, F = d.F, tk = gf >> 2, wy0 = -d.p * CH, la = d.r0 * S, lb = Math.min(CH, (d.r1 + 1) * S);
-    for (let ly = la; ly < lb; ly++) { const row = (ly >> 1) * MW;
-      for (let x = 0; x < W; x++) { const i = (ly * W + x) * 4, mi = row + (x >> 1), m = M[mi], t = m * m * (3 - 2 * m);
+    const o = d.out.data, A = d.col, G = d.grey, M = d.M, Hh = d.Hh, F = d.F, tk = gf >> 3, wy0 = -d.p * CH, la = d.r0 * S, lb = Math.min(CH, (d.r1 + 1) * S), L = LK(), fr = L.frost, sp = L.speck;
+    for (let ly = la; ly < lb; ly++) { const row = (ly >> 1) * MW, wy = wy0 + ly;
+      const shift = L.glitch && h2(wy >> 3, tk) > 0.72 ? (h2(wy >> 3, tk + 7) > 0.5 ? 3 : -3) : 0; // (the drain's glitch: a band of rows a little to the side)
+      for (let x = 0; x < W; x++) { const mi = row + (x >> 1), f = F[mi], xs = shift && f > 0.4 ? Math.max(0, Math.min(W - 1, x + shift)) : x, i = (ly * W + xs) * 4, oi = (ly * W + x) * 4, m = M[mi];
+        const t = L.dither ? (m > bay(x, wy) ? 1 : 0) : m * m * (3 - 2 * m);
         let r = G[i] + (A[i] - G[i]) * t, g = G[i + 1] + (A[i + 1] - G[i + 1]) * t, b = G[i + 2] + (A[i + 2] - G[i + 2]) * t;
-        const h = Hh[mi]; if (h > 0.01) { const e = h * h; r += e * 230; g += e * 105; b += e * 12; }
-        const f = F[mi]; if (f > 0.01) { const k = f * f * 0.7; r += (186 - r) * k; g += (198 - g) * k; b += (214 - b) * k; if (f > 0.6 && h2(x * 3 + tk, (wy0 + ly) * 5 - tk) > 0.94) r = g = b = 236; }
-        o[i] = r; o[i + 1] = g; o[i + 2] = b; o[i + 3] = A[i + 3]; } }
+        const h = Hh[mi]; if (h > 0.01) { const a = L.edge(L.dither ? (h > bay(x + 1, wy) ? 1 : 0) : h * h, x, wy); r += a[0]; g += a[1]; b += a[2]; }
+        if (f > 0.01) { const k = L.dither ? (f > bay(x, wy + 2) ? 0.9 : 0) : f * f * 0.7; r += (fr[0] - r) * k; g += (fr[1] - g) * k; b += (fr[2] - b) * k; if (f > 0.6 && h2(x * 3 + tk, wy * 5 - tk) > 0.95) { r = sp[0]; g = sp[1]; b = sp[2]; } }
+        o[oi] = r; o[oi + 1] = g; o[oi + 2] = b; o[oi + 3] = A[oi + 3]; } }
     d.x.putImageData(d.out, 0, 0, 0, la, W, lb - la); d.r0 = MR; d.r1 = -1;
   }
   // the canvas drawGround and drawRoofs draw for chunk p
-  function src(c, p) { if (!on()) return c; const d = entry(c); d.p = p; if (d.r1 >= d.r0 && (d.r1 - d.r0 >= MR - 1 || d.t !== gf >> 1)) { d.t = gf >> 1; compose(d); } return d.c; } // (a chunk is drawn again at most every other frame: each new picture is sent to the graphics card)
+  function src(c, p) { if (!on()) return c; const d = entry(c, p); if (d.r1 >= d.r0 && (d.r1 - d.r0 >= MR - 1 || d.t !== gf >> 1)) { d.t = gf >> 1; compose(d); } return d.c; } // (a chunk is drawn again at most every other frame: each new picture is sent to the graphics card)
   // colour into the mask: a disc around (wx, wy) in world pixels (wy = screen y - floor(scroll)), ragged at the edge when rag; cells nearer
   // than inner (cells) were filled by an earlier step of the same ring; rows outside ylo..yhi (cells) are left alone
   const RAG = [0.72, 0.5], RING = [0.96, 0.06]; // a ring's edge: [the smallest share of the radius, how much the noise adds]; RING is nearly round, as the Nova's rings
@@ -18465,7 +18488,7 @@ const ASH = (() => {
     const cx = wx / S, cy = wy / S, cr = rad / S, ext = cr * 1.25 + 2;
     const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(MW - 1, Math.ceil(cx + ext)), y0 = Math.max(ylo, Math.floor(cy - ext)), y1 = Math.min(yhi, Math.ceil(cy + ext));
     let e = null, ep = NaN;
-    for (let y = y0; y <= y1; y++) { const p = -Math.floor(y * S / CH); if (p !== ep) { ep = p; const c = world.chunks.get(p); e = c ? entry(c) : null; } if (!e) continue;
+    for (let y = y0; y <= y1; y++) { const p = -Math.floor(y * S / CH); if (p !== ep) { ep = p; const c = world.chunks.get(p); e = c ? entry(c, p) : null; } if (!e) continue;
       const lr = y + p * MR, row = lr * MW;
       const ddy = (y - cy) * (y - cy);
       for (let x = x0; x <= x1; x++) { const dd = Math.sqrt((x - cx) * (x - cx) + ddy); if (inner > 0 && dd < inner) continue;
@@ -18476,7 +18499,7 @@ const ASH = (() => {
   }
   function drain(o, r) { // everything in the band further from the wreck than the (ragged) radius r goes grey; a frosted rim just outside it
     const cx = o.x / S, cy = o.y / S, ylo = Math.floor(o.y0 / S), yhi = Math.ceil(o.y1 / S); let e = null, ep = NaN;
-    for (let y = ylo; y <= yhi; y++) { const p = -Math.floor(y * S / CH); if (p !== ep) { ep = p; const c = world.chunks.get(p); e = c ? entry(c) : null; } if (!e) continue;
+    for (let y = ylo; y <= yhi; y++) { const p = -Math.floor(y * S / CH); if (p !== ep) { ep = p; const c = world.chunks.get(p); e = c ? entry(c, p) : null; } if (!e) continue;
       const lr = y + p * MR, row = lr * MW;
       const ddy = (y - cy) * (y - cy);
       for (let x = 0; x < MW; x++) { const dd = Math.sqrt((x - cx) * (x - cx) + ddy), thr = r * (0.78 + 0.44 * nz(MW - 1 - x, y + 97)); if (dd <= thr) continue;
@@ -18495,8 +18518,8 @@ const ASH = (() => {
         paint(o.x, o.y, cr, 1, o.ring ? 0 : 1, rag, (o.prev || 0) / S * rag[0] - 3, o.ylo !== undefined ? o.ylo : vlo, o.yhi !== undefined ? o.yhi : vhi); o.prev = cr; }
       else { const r = o.r * (1 - Math.pow(p, 1.7)) / S; drain(o, r);
         if (dg) for (let n = 0; n < 7; n++) { const a = Math.random() * TAU, rr = r * S * (0.85 + Math.random() * 0.3), px = o.x + Math.cos(a) * rr, py = o.y + sc + Math.sin(a) * rr;
-          if (px > -4 && px < W + 4 && py > -4 && py < H + 4) parts.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.4 - Math.cos(a) * 0.25, vy: -0.25 - Math.random() * 0.5, t: 0, life: 40 + Math.random() * 30, c: Math.random() < 0.5 ? '#d8dee6' : Math.random() < 0.5 ? '#8f969e' : '#5d636a' }); }
-        if (p >= 1) for (let n = 0; n < 26; n++) { const a = Math.random() * TAU, v = Math.random() * 1.2; parts.push({ x: o.x, y: o.y + sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.3, t: 0, life: 50, c: '#6b7178' }); } }
+          if (px > -4 && px < W + 4 && py > -4 && py < H + 4) parts.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.4 - Math.cos(a) * 0.25, vy: -0.25 - Math.random() * 0.5, t: 0, life: 40 + Math.random() * 30, c: LK().flakes[Math.random() < 0.5 ? 0 : Math.random() < 0.5 ? 1 : 2] }); }
+        if (p >= 1) for (let n = 0; n < 26; n++) { const a = Math.random() * TAU, v = Math.random() * 1.2; parts.push({ x: o.x, y: o.y + sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.3, t: 0, life: 50, c: LK().flakes[2] }); } }
       if (p >= 1) ev.splice(k, 1); }
     if (dg && !lowFX && (gf >> 2) !== lastTrail) { lastTrail = gf >> 2; // the trail: the ship's fire warms the ground under it (every 4th frame)
       for (const s of [player, p2]) if (s && !s.dead && !s.out) paint(s.x, s.y - sc + 6, 10, 0.5, 0.35, false, 0, vlo, vhi); }
@@ -18514,7 +18537,7 @@ const ASH = (() => {
     if (!on()) { parts.length = 0; labels.length = 0; return; }
     for (const q of parts) { ctx.globalAlpha = Math.max(0, 1 - q.t / q.life); ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), 2, 2); }
     ctx.globalAlpha = 1;
-    for (const l of labels) if (l.t >= 0) { ctx.globalAlpha = Math.min(1, (80 - l.t) / 20); text(l.s, Math.max(40, Math.min(W - 40, l.x)), Math.round(l.y - l.t * 0.3), '#c9d6e6', 1, 'center'); }
+    for (const l of labels) if (l.t >= 0) { ctx.globalAlpha = Math.min(1, (80 - l.t) / 20); text(l.s, Math.max(40, Math.min(W - 40, l.x)), Math.round(l.y - l.t * 0.3), LK().label, 1, 'center'); }
     ctx.globalAlpha = 1;
   }
   const SCREEN = () => Math.hypot(W, H) + 40;
@@ -20756,6 +20779,7 @@ for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('ar
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   const pb = document.getElementById('sPower'); pb.setAttribute('aria-pressed', String(!!settings.power)); pb.textContent = settings.power ? 'On' : 'Off';
   const ab = document.getElementById('sAsh'); ab.setAttribute('aria-pressed', String(!!settings.ash)); ab.textContent = settings.ash ? 'On' : 'Off';
+  document.getElementById('sAshLook').textContent = ASH_LOOKS[settings.ashLook] || ASH_LOOKS.shard89; document.getElementById('sAshLookRow').hidden = !settings.ash;
   const dr = document.getElementById('sDailyRow'); dr.hidden = app.state !== 'title'; if (!dr.hidden) document.getElementById('sDailyKit').textContent = '(' + dailyToday().kit.toUpperCase() + ')'; // only at the title: a Daily Sortie starts from there
 }
 function buildHelp() {
@@ -20955,6 +20979,7 @@ document.getElementById('sClose').addEventListener('click', closeSettings);
 document.getElementById('sFps').addEventListener('click', () => { settings.fps = !settings.fps; syncSettingsUI(); saveSettings(); });
 document.getElementById('sPower').addEventListener('click', () => { settings.power = !settings.power; syncSettingsUI(); saveSettings(); });
 document.getElementById('sAsh').addEventListener('click', () => { settings.ash = !settings.ash; syncSettingsUI(); saveSettings(); });
+document.getElementById('sAshLook').addEventListener('click', () => { const k = Object.keys(ASH_LOOKS); settings.ashLook = k[(k.indexOf(settings.ashLook) + 1) % k.length]; syncSettingsUI(); saveSettings(); });
 document.getElementById('sDaily').addEventListener('click', () => { if (app.state !== 'title') return; setPanel.classList.remove('open'); saveSettings(); showPauseMenu(false); openDaily(); });
 function rangeFill(r) { r.style.setProperty('--v', (r.min ? (r.value - r.min) / (r.max - r.min) * 100 : r.value) + '%'); } // the pixel bar fills up to the handle
 for (const [id, k] of SENS_UI) document.getElementById(id).addEventListener('input', e => { settings[k] = +e.target.value; rangeFill(e.target); document.getElementById(id + 'V').textContent = e.target.value + '%'; });
