@@ -545,10 +545,10 @@ body[data-results="1"] #bombBtn{display:none !important}
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45 };
 const SPOIL_SAND = ['#8a7046', '#9a7e52', '#aa8e5e', '#b89b6a', '#c4a876'].map(h => [1, 3, 5].map(o => parseInt(h.slice(o, o + 2), 16))); /* (dug sand on the temperate shore's trench) */
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -2486,7 +2486,8 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
           const jh = plan.coast.yC !== null ? at(x, y - plan.coast.hd) : -1; if (d < 1.5 && ((j >= 0 && Kr[j] === K.BEACH) || (jh >= 0 && Kr[jh] === K.BEACH))) { c = C.foam; break; } if (d < 3.5 && j >= 0 && hh(x, y >> 1) < 0.4) { c = C.sea[5]; break; } // the surf on the beach
           if (seaPix) { c = seaPix(x, y, false, plan.calm ? plan.calm[i] / 255 : 0); break; } // (calm: how close a harbour basin is)
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
-        case K.APRON: { if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
+        case K.AROOF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : C.conc[0]; break; } // the city's generated arena: a hangar roof or a pad, the host's own colours (the game's final airfield)
+        case K.APRON: { if (opts && opts.arenaPix && plan.arenaField && y >= plan.arenaField.y0) { c = opts.arenaPix(x, y); break; } /* (the generated arena's apron, helipads and centre lines: the host's own) */ if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
         case K.TRENCH: { if (Br[i] === -61) { const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? ((x >> 1) + y) % 2 ? [150, 122, 82] : [124, 100, 66] : (x + y * 2) % 5 === 0 ? C.char[1] : C.char[0]; break; } /* (the shore's fire trench: a rim of sandbags, a dark floor) */ if (desert) { c = (x + y) % 3 === 0 ? C.trench[1] : C.trench[0]; break; } const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? C.sand[1] : C.char[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.4, x, y)]; break; } // a trench: dark, a sandbag rim
         case K.BEACH: if (Br[i] === -13) { c = hh(x, y) < 0.16 || vn(x * 0.15, y * 0.15) > 0.62 ? C.field.hedge[pickI(3, 0.5 + hh(x, y) * 0.4, x, y)] : C.sand[pickI(2, 0.45 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.6, x, y)]; break; } // dunes: sand under marram grass
         { const cs = plan.coast ? plan.coast.cs : 1, j = at(x + cs, y), wet = plan.coast ? j >= 0 && Kr[j] === K.SEA : [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Kr[q] === K.SEA); /* round an island: wet on every side */ c = wet ? C.sand[0] : hh(x, y) < 0.05 ? C.field.hedge[2] : C.sand[pickI(2, 0.55 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.6, x, y)]; break; } // sand, wet at the waterline, tufts of dune grass
@@ -3661,59 +3662,67 @@ function withPerimeter(o) {
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
   const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks); return plan;
 }
-// The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): the airfield
-// behind the perimeter fence, generated, where the Campaign repeats its final airfield's 300 px pattern. A concrete apron (the host's own apron colour,
-// opts.apronPix, so the Campaign pattern that takes over past the plan's end meets it on the same concrete), grass verges along both edges with gun and
-// fuel pads on them, a runway down one side, and along the other side a sequence of modules: hangar rows (with a control tower in the first), a fuel farm
-// in its berm, blast pens with a plane in each, flak parks of sandbag rings. Every target is a slot marked arena (flak, fuel, parked, aatower, patrol),
-// which the game fills as each chunk is built; the arena has no roads, so the tank routes stay the town's. tracks (x of the rail yard's tracks that run on
-// into the arena, params.cityArenaTracks): those tracks go on through the perimeter fence (a gap in it, no buffer stop) and down the whole arena, and the
-// field is laid out between them, with no runway (a rail-served depot airfield).
+// The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
+// from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
+// repeating 300 px pattern never makes. The pieces (plan.arenaField.pieces, plain data, plan rows: y grows up the map):
+//   hangar {x0, x1, y0, y1}: the great hangar roof, its warning stripes along its near (bottom) edge; ground kind AROOF ('roof', as the Campaign's)
+//   pad {x, y}: a round steel pad (r 12, AROOF) carrying a flak gun or a fuel tank
+//   heli {x, y}: the helipad ring with its cross; line {x, y0, y1}: the dashed centre line below a hangar
+// The host paints AROOF and the arena's apron with opts.arenaPix (the game: the Campaign's own colour functions); without it a plain stand-in.
+// A unit, from the bottom: an open stretch (a helipad, centred or to one side; parked planes; a stack of crates and drums; extra pads), then the centre
+// line and a roof: one full hangar, a short one, two side by side, or none. Pads on both edges every 70 to 80 rows, flak and fuel alternating, as the
+// Campaign's. The first unit is the Campaign's own start: line and full hangar at once. Every target is a slot marked arena (flak, fuel, parked,
+// patrol, crate, drums), which the game fills as each chunk is built. tracks (params.cityArenaTracks: x of the rail yard's tracks that run on into the
+// arena): they go on through the perimeter fence (a gap, no buffer stop) and down the whole arena; roofs stay between them, planes and crates inside them.
 function addArenaField(plan, h, tracks) {
-  const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0, R = k => h32(sd, 96000 + k) / 4294967296;
+  const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
   const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
   const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
   for (const key of ['U', 'D', 'mx', 'aw']) { const a = new Float32Array(L); a.set(plan[key]); a.fill(plan[key][L0 - 1], L0); plan[key] = a; }
-  plan.L = L; const RM = plan.RM, TR = [];
-  const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L, set = (x0, x1, y0, y1, k) => { for (let y = Math.max(L0, y0); y <= Math.min(L - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
-  const disc = (cx, cy, r, k) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
-  const ring = (cx, cy, r, gap) => { for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) { const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy); if (inB(x, y) && d >= r - 1.6 && d < r + 0.4 && !(gap && Math.abs(Math.atan2(y + 0.5 - cy, x + 0.5 - cx) - gap) < 0.5)) { Kr[y * W + x] = K.BERM; Br[y * W + x] = -1; } } };
-  const slot = (kind, x, y, r) => { const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
-  const item = (x0, y0, w, hh, label, style, roof) => { const it = { t: 'works', label, part: 'shed', x0, y0, w, h: hh, ori: 'v', style, roof, seed: h32(sd, 97000 + plan.items.length), dmg: 0 }; it.id = plan.items.length; plan.items.push(it);
-    for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y)) { Kr[y * W + x] = K.BLDG; Br[y * W + x] = it.id; } return it; };
-  set(0, W - 1, L0, L - 1, K.APRON);
-  const phL = R(1) * 6.283, phR = R(2) * 6.283, vl = y => Math.round(15 + 4 * Math.sin(y * 0.011 + phL)), vr = y => Math.round(15 + 4 * Math.sin(y * 0.013 + phR)); // the grass verges, gently waving
-  for (let y = L0 + 24; y < L; y++) { for (let x = 0; x < vl(y); x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } for (let x = W - vr(y); x < W; x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } }
-  const A = { y0: L0, y1: L - 1, runway: null, modules: [], tracks: TR }; plan.arenaField = A;
+  plan.L = L; const RM = plan.RM, TR = [], pieces = [];
+  const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L;
+  const slot = (kind, x, y, r) => { if (y < L0 || y >= L) return null; const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
+  for (let y = L0; y < L; y++) for (let x = 0; x < W; x++) { Kr[y * W + x] = K.APRON; Br[y * W + x] = -1; }
+  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [] }; plan.arenaField = A;
   // the yard's tracks run on: from where the perimeter stopped them, the town's last three rows of rail mask repeated (as addPerimeter does) to the arena's end
   const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0;
     for (const tx of tracks) { const st = pm.stops.find(b => Math.abs((b.x0 + b.x1) / 2 - tx) <= 4); if (!st) continue; pm.stops.splice(pm.stops.indexOf(st), 1); TR.push(tx);
       const a = st.x0 + 1, b = st.x1 - 1; for (let y = st.y - 1; y < L; y++) { const src = Lt - 3 + ((((y - Lt) % 3) + 3) % 3); for (let xx = a - 2; xx <= b + 2; xx++) { if (xx < 0 || xx >= W) continue; const i = y * W + xx, m = RM[src * W + xx]; if (!m || m > 3) continue; RM[i] = m; if (Kr[i] !== K.ROAD) { Kr[i] = K.RAIL; Br[i] = -1; } } } }
     pm.railGaps = TR.slice(); plan.bufs = null; }
-  // the runway down one side (the plan's only runway: a city plan has no airbase of its own), and the module column on the other
-  const sr = R(3) < 0.5 ? -1 : 1, rx = sr < 0 ? 60 : W - 60, rw = 24, ry0 = L0 + 110, ry1 = L - 110;
-  if (!TR.length && !plan.airbase && ry1 - ry0 > 300) { set(rx - rw / 2, rx + rw / 2 - 1, ry0, ry1, K.RUNWAY); plan.airbase = { rx, rw, y0: ry0, y1: ry1, arena: true }; A.runway = { rx, rw, y0: ry0, y1: ry1 }; }
-  const tL = TR.length ? Math.min(...TR) : null, tR = TR.length ? Math.max(...TR) : null, cA = TR.length ? tL + 12 : sr < 0 ? rx + rw / 2 + 12 : 28, cB = TR.length ? tR - 12 : sr < 0 ? W - 29 : rx - rw / 2 - 13, cM = Math.round((cA + cB) / 2), far = sr < 0 ? cB : cA, nearX = sr < 0 ? cA : cB; // the column: from the runway's verge to the far verge
-  // pads on the verges, every 80 rows: a gun or a fuel tank on each side, as the Campaign's final airfield has them
-  for (let y = L0 + 60, k = 0; y < L - 30; y += 80, k++) for (const [x, s] of [[11, 0], [W - 12, 1]]) { disc(x, y, 9, K.APRON); slot(R(10 + k * 2 + s) < 0.5 ? 'flak' : 'fuel', x, y, 8); }
-  // the modules, in a seeded order (each kind once before any repeats), with a gap of 40 to 70 rows between them
-  const kinds = ['hangars', 'fuel', 'pens', 'flak'], order = []; let tower = false;
-  for (let rep = 0; rep < 6; rep++) { const b = kinds.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(R(100 + rep * 8 + i) * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } if (rep && b[0] === order[order.length - 1]) b.push(b.shift()); order.push(...b); }
-  const HGT = { hangars: 150, fuel: 112, pens: 128, flak: 96 };
-  let y = L0 + 96; for (let m = 0; m < order.length; m++) { const kd = order[m], hh = HGT[kd]; if (y + hh > L - 120) break; const md = { kind: kd, y0: y, y1: y + hh }; A.modules.push(md);
-    if (kd === 'hangars') { const n = 3, hw = 30, hl = 34, x0 = sr < 0 ? cB - hw + 1 : cA; // hangars along the far verge, doors to the runway, the apron in front
-      for (let k = 0; k < n; k++) item(x0, y + 4 + k * 48, hw, hl, 'Hangar', 'gable', 3);
-      if (!tower) { tower = true; item(sr < 0 ? x0 - 18 : x0 + hw + 8, y + 60, 10, 10, 'Control tower', 'flat', 2); }
-      slot('aatower', nearX - sr * 10, y + hh / 2, 8); }
-    else if (kd === 'fuel') { const pw = 58, ph = 50, px = cM - pw / 2, py = y + (hh - ph) / 2; set(px - 3, px + pw + 2, py - 3, py + ph + 2, K.BERM); set(px, px + pw - 1, py, py + ph - 1, K.WORKS); set(sr < 0 ? px - 3 : px + pw, sr < 0 ? px - 1 : px + pw + 2, py + ph / 2 - 6, py + ph / 2 + 5, K.APRON); // a cinder pad in its berm, an opening towards the runway
-      for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) slot('fuel', px + 10 + c * 19, py + 13 + r * 24, 7); }
-    else if (kd === 'pens') { const n = 3, pw = 34, ph = 30; for (let k = 0; k < n; k++) { const py = y + 4 + k * 42, x1 = sr < 0 ? cB : cA + pw - 1, x0 = x1 - pw + 1; // an earth bank on three sides, open towards the runway, a plane inside
-        set(x0, x1, py, py + 2, K.BERM); set(x0, x1, py + ph - 3, py + ph - 1, K.BERM); if (sr < 0) set(x1 - 2, x1, py, py + ph - 1, K.BERM); else set(x0, x0 + 2, py, py + ph - 1, K.BERM);
-        slot('parked', (x0 + x1) / 2 + sr * 2, py + ph / 2, 8); } }
-    else if (kd === 'flak') { const xs = [cA + 16, cM, cB - 16]; for (let k = 0; k < 3; k++) { const cx = xs[k], cy = y + 22 + (k % 2) * 50; ring(cx, cy, 10, sr < 0 ? Math.PI : 0); slot('flak', cx, cy, 8); } slot('aatower', cM, y + hh - 14, 8); }
-    y += hh + 40 + Math.floor(R(300 + m) * 31); }
-  // patrol lanes across the apron: a tank drives from side to side (the Campaign's final airfield has one every 300 px in about half of them)
-  for (let y2 = L0 + 200, k = 0; y2 < L - 80; y2 += 300, k++) if (R(500 + k) < 0.6) slot('patrol', W / 2, y2, 6);
+  const tL = TR.length ? Math.min(...TR) : null, tR = TR.length ? Math.max(...TR) : null;
+  const roofK = (x0, x1, y0, y1) => { for (let y = Math.max(L0, y0); y <= Math.min(L - 1, y1); y++) for (let x = x0; x <= x1; x++) if (inB(x, y) && Kr[y * W + x] !== K.RAIL) { Kr[y * W + x] = K.AROOF; Br[y * W + x] = -1; } };
+  const hangar = (x0, x1, y0, y1) => { pieces.push({ k: 'hangar', x0, x1, y0, y1 }); roofK(x0, x1, y0, y1); };
+  const pad = (x, y, kind) => { if (y < L0 + 4 || y > L - 5) return; pieces.push({ k: 'pad', x, y }); for (let yy = y - 12; yy <= y + 12; yy++) for (let xx = x - 12; xx <= x + 12; xx++) if (inB(xx, yy) && Math.hypot(xx - x, yy - y) < 12 && Kr[yy * W + xx] === K.APRON) Kr[yy * W + xx] = K.AROOF; slot(kind, x, y, 8); };
+  // the roof's span: the Campaign's (x 36 to 187), or between the yard's tracks
+  const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = Math.round((RX0 + RX1) / 2);
+  const planeX = TR.length ? [RXM - 26, RXM + 26] : [62, 162], crateX = TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
+  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left)
+  for (let y = L0 + 40, k = 0; y < L - 12; y += 70 + Math.floor(R() * 11), k++) { pad(18, y, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y, k % 2 === 0 ? 'fuel' : 'flak'); }
+  // the units
+  let y = L0, first = true;
+  while (y < L - 60) { const u = { y0: y };
+    if (!first) { // the open stretch: 70 to 150 rows, one or two of its features
+      const len = 70 + Math.floor(R() * 81), mid = y + Math.round(len / 2), feats = [], pick = R();
+      if (pick < 0.45) feats.push('heli'); else if (pick < 0.7) feats.push('parked'); else if (pick < 0.85) feats.push('heliSide'); else feats.push('crates');
+      if (R() < 0.4) feats.push(feats[0] === 'crates' ? 'parked' : 'crates'); if (!TR.length && feats[0] !== 'heli' && feats[0] !== 'heliSide' && R() < 0.45) feats.push('innerPads'); /* (extra pads only beside planes or crates: never on a helipad's ring) */
+      for (const f of feats) {
+        if (f === 'heli' && len >= 84) pieces.push({ k: 'heli', x: RXM, y: mid });
+        else if (f === 'heliSide' && len >= 84) { const sx = R() < 0.5 ? -1 : 1; pieces.push({ k: 'heli', x: RXM + sx * (TR.length ? 0 : 38), y: mid }); }
+        else if (f === 'parked') for (const x of planeX) slot('parked', x, f === feats[0] ? mid : mid + 24, 8);
+        else if (f === 'crates') { const yc = y + 14; slot('crate', crateX[0], yc, 5); slot('drums', crateX[1], yc + 9, 5); slot('crate', crateX[2], yc, 5); }
+        else if (f === 'innerPads') { pad(60, mid - 20, 'fuel'); pad(164, mid + 20, 'flak'); } }
+      u.open = feats; y += len; }
+    // the centre line (38 rows) and the roof above it
+    const roofs = first ? ['full'] : ['full', 'full', 'short', 'twin', 'none'], roof = first ? 'full' : roofs[Math.floor(R() * roofs.length)];
+    const lineLen = 38, hl = roof === 'short' ? 70 + Math.floor(R() * 21) : 110 + Math.floor(R() * 31);
+    if (roof === 'none') { if (R() < 0.55) slot('patrol', W / 2, y + 20, 6); y += 40; u.roof = 'none'; A.units.push(u); first = false; continue; }
+    if (y + lineLen + hl > L - 4) break;
+    pieces.push({ k: 'line', x: RXM, y0: y, y1: y + lineLen - 1 }); if (R() < 0.55) slot('patrol', W / 2, y + 20, 6);
+    const r0 = y + lineLen, r1 = r0 + hl - 1;
+    if (roof === 'twin' && !TR.length) { const h2 = hl - Math.floor(R() * 30); hangar(36, 107, r0, r1); hangar(116, 187, r0, r0 + h2 - 1); }
+    else if (roof === 'short') { const w = Math.round((RX1 - RX0) * 0.62), sx = R() < 0.5 ? RX0 : RX1 - w + 1; hangar(sx, sx + w - 1, r0, r1); }
+    else hangar(RX0, RX1, r0, r1);
+    u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
 }
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
@@ -8852,6 +8861,25 @@ function secretColor(wx, wy) {
   if (m >= 150 && m < 188 && Math.abs(wx - 112) < 1 && (m >> 2) % 2) return hexRGB('#d8b020');
   return secretApron(wx, wy);
 }
+// The city's generated arena (CityGen addArenaField): its pieces painted exactly as the Campaign's final airfield paints them (secretColor), each at its own
+// place and size: a hangar roof (shading across its width, its ribs every 8 rows counted from its far edge, the warning stripes along its near edge), a steel pad
+// (lit from the upper left, a dotted shadow ring), the helipad's ring and cross, the dashed centre line; everything else is the airfield's apron. x and y: plan
+// pixels (y grows up the map), as CityGen.paint passes them.
+const ARENA_C = { stripe: hexRGB('#d8b020'), dark: hexRGB('#16141a'), ringD: hexRGB('#1e1c22'), cross: hexRGB('#d8d6cc') };
+function arenaColor(S, x, y) {
+  const A = S.plan.arenaField, wx = x, wy = S.planY0 - y;
+  if (!S.arenaIdx) { const ix = S.arenaIdx = new Map(), put = (k, q) => { let a = ix.get(k); if (!a) ix.set(k, a = []); a.push(q); };
+    for (const q of A.pieces) { const lo = q.k === 'pad' ? q.y - 14 : q.k === 'heli' ? q.y - 39 : q.y0, hi = q.k === 'pad' ? q.y + 14 : q.k === 'heli' ? q.y + 39 : q.y1; for (let b = lo >> 5; b <= hi >> 5; b++) put(b, q); } }
+  for (const q of S.arenaIdx.get(y >> 5) || []) {
+    if (q.k === 'hangar') { if (x < q.x0 || x > q.x1 || y < q.y0 || y > q.y1) continue; const lm = q.y1 - y, hh = q.y1 - q.y0 + 1, w = q.x1 - q.x0 + 1, lx = x - q.x0, m = lm + 10;
+      if (lm >= hh - 8) return (((wx + m) >> 2) & 1) ? ARENA_C.stripe : ARENA_C.dark;
+      if (lx === 0 || lx === w - 1 || lm === 0) return C2.shadow;
+      const f = lx / w, l = 0.18 + 0.7 * Math.sin(PI * f) * (1 - f * 0.35) - (m % 8 === 0 ? 0.16 : 0); return C2.gas[pickI(5, l, wx, wy)]; }
+    if (q.k === 'pad') { const dx = wx - q.x, dm = wy - (S.planY0 - q.y), r = Math.hypot(dx, dm); if (r < 12) { if (r > 11) return C2.metal[0]; return C2.metal[pickI(5, 0.85 - r / 12 * 0.4 + (dx < 0 && dm < 0 ? 0.1 : -0.05), wx, wy)]; } if (r < 13.5 && wx % 2 === 0) return C2.shadow; continue; }
+    if (q.k === 'heli') { const dx = wx - q.x, dm = wy - (S.planY0 - q.y), pr = Math.hypot(dx, dm); if (pr > 33 && pr < 38) return ((Math.atan2(dm, dx) * 6 / PI + 12) | 0) % 2 ? ARENA_C.stripe : ARENA_C.ringD; if (pr < 30 && (Math.abs(dx) < 1.2 || Math.abs(dm) < 1.2)) return ARENA_C.cross; continue; }
+    if (q.k === 'line') { if (y < q.y0 || y > q.y1 || Math.abs(wx - q.x) >= 1) continue; const m = (q.y1 - y) + 150; if ((m >> 2) % 2) return ARENA_C.stripe; continue; } }
+  return secretApron(wx, wy);
+}
 // The final airfield's concrete apron (also the apron of an Enigma Run settlement plan's airfield perimeter, so the two meet without a seam)
 function secretApron(wx, wy) {
   const m = secM(wy); let l = 0.58 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.25;
@@ -9500,7 +9528,7 @@ function planSeaColor(wx, wy, harbour, calm) { const n = vnoise(wx * 0.035, wy *
 // Level 5: the throat's ballast in the colours of the train boss's yard (the 'ryard' ground of theme 1: ballast with snow patches), so the two meet without a seam
 function planYardColor(wx, wy) { const col = vnoise(wx * 0.05, wy * 0.04) > 0.64 && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)], lum = (col[0] + col[1] + col[2]) / 3; // with workChunk's winter grade of theme 1 ground
   return [lum * 0.42 + col[0] * 0.2 + 30 | 0, lum * 0.44 + col[1] * 0.2 + 36 | 0, lum * 0.46 + col[2] * 0.22 + 52 | 0]; }
-function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.level === 1 && S.compose ? { railPix: (x, y, m) => planRailColor(x, S.planY0 - y, m), gatePix: (x, y, m) => gatePix(S, x, y, m) } : S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - y, y, S.plan.L) : planRailColor(x, S.planY0 - y, m) } : S.level === 5 ? { yardPix: (x, y) => planYardColor(x, S.planY0 - y) } : {})); }
+function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y), arenaPix: (x, y) => arenaColor(S, x, y) }, S.level === 1 && S.compose ? { railPix: (x, y, m) => planRailColor(x, S.planY0 - y, m), gatePix: (x, y, m) => gatePix(S, x, y, m) } : S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - y, y, S.plan.L) : planRailColor(x, S.planY0 - y, m) } : S.level === 5 ? { yardPix: (x, y) => planYardColor(x, S.planY0 - y) } : {})); }
 // Level 2's open desert in the Campaign's own colours: its desert ground (the 'field' of theme 2), dithering over the last 128 rows into the
 // boss ground's look (bossland, typed 'grass'), so the level's sand meets the Campaign's without a seam.
 // Level 2's plan track as the game draws its own (the 'rail' ground type): steel rails, sleepers two rows in five (by the world row, so they run on
@@ -14024,8 +14052,8 @@ function yardProps(p) {
   });
 }
 // The city's generated arena (a Daily Sortie, CityGen addArenaField): every arena slot of the plan in chunk p gets its target when the chunk is built, as the
-// Campaign's final airfield places its pattern's (finalAirfield): flak and fuel on the pads and in the fuel farm, planes in the blast pens, AA towers, a tank on
-// each patrol lane. Fixed places, nothing read from the screen or the other enemies.
+// Campaign's final airfield places its pattern's (finalAirfield) and with the same stats: flak and fuel on the pads, parked planes, crates and drums, a tank
+// on each patrol lane. Fixed places, nothing read from the screen or the other enemies.
 function planArena(p) {
   const S = run.sortie, P = S && S.plan; if (!P || S.planFor !== world.stageBaseP) return;
   const wy0 = -p * CH, K = o => Object.assign(o, { keep: true, noGuard: true });
@@ -14034,6 +14062,7 @@ function planArena(p) {
     else if (sl.kind === 'fuel') world.enemies.push(G('fuel', sl.x, y, K({})));
     else if (sl.kind === 'parked') world.enemies.push(G('parked', sl.x, y, K({ hd: PI / 2 })));
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, y - 8, K({ cd: 60 })));
+    else if (sl.kind === 'crate' || sl.kind === 'drums') world.enemies.push(G(sl.kind, sl.x, y, K({ hp: 3 * hpm(), hw: 4, hh: 4, score: 150, rad: 6 })));
     else if (sl.kind === 'patrol') world.enemies.push(G('tank', 60, y, tankStats(K({ road: false, hd: 0, v: 0.25, patrol: [[46, y], [178, y]], pi: 1 })))); }
 }
 let finalCache = { k: null, y: null };
