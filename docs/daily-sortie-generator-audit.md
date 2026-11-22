@@ -141,6 +141,40 @@ All ground enemies before the boss are counted, 13,194 in all.
 
 Not measured: Rookie and Ace; a mortal player (who does not reach every place); more than 10 sorties per kit; daily twists and flavours (the sweep flies none).
 
+## 3b. A2 for the city: the generated airfield arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+**What is built.** `CityGen` `addArenaField` (called from `withPerimeter` when `params.cityArena` is set) adds 48 chunks of airfield behind the city's perimeter fence:
+- a concrete apron, painted with the final airfield's own apron colour (`opts.apronPix`);
+- grass verges along both edges, with a gun or fuel pad every 80 rows;
+- a runway down one side of the strip;
+- on the other side, modules in a seeded order: hangar rows (a control tower with the first), a fuel farm in its berm, blast pens open towards the runway, and flak parks of sandbag rings;
+- tank patrol lanes across the apron.
+
+Every target is a plan slot marked `arena`. The game fills these slots as each chunk is built (`planArena`, in place of the Campaign pattern's `finalAirfield` spawns, and never read by the director's own slot code). If a fight scrolls past the 48 chunks, it goes on over the Campaign's pattern; `secOff` now starts that pattern where the plan ends, on a full hangar. The composer (`cityArena`, checked in gate 1) asks for the arena only on days whose boss fights on a plain airfield: the sky fortress, the land fortress, the rival, the Moth, the Raven and the Shadow Wing, with no sea tail and no tracks into the arena. That is **32 % of city days** (964 of 3,000 seeds). Why 48 chunks: city flights reach 12–30 chunks into the arena before the boss appears and up to 101 during the fight (sky fortress); 48 covers the run-up and most fights.
+
+**Measured on 18 city sorties with the arena** (`gen-share.mjs --only …`, Veteran, all 18 bosses killed, no errors):
+
+| | Before (all city days, 3a) | Arena days |
+|---|---|---|
+| Play time on generator ground | 55 % | **89 %** (the rest: 9 % fights that run past 48 chunks, 1 % start screen) |
+| Ground enemies on a plan slot | 14 % | **41 %** |
+
+**Flight gate** on the three arena dates of the next two months (2026-12-31 sky fortress, night; 2027-01-10 heavy fortress, fog; 2027-01-25 heavy fortress, elite), all three difficulties: **9 of 9 pass**, and each sortie's determinism twin flew the same. Against the previous build on the same dates, the arena makes the run-up a little harder:
+- average bullets before the boss: 5 to 19 % more;
+- worst 10-second window: up to 32 % more on Rookie (37.1 against 28.1);
+- kills per minute: about the same;
+- boss fights: mixed, some longer, some shorter.
+
+One rival fight (sweep seed 14) took 9 s against 29 s before. **[read]** The rival positions itself opposite the player (x = 224 − player x). Over the new ground the bot stays near the middle and keeps it in its fire, so this comes from how the bot moves, not from a fault in the arena.
+
+**Other checks:** `tests/compose.mjs` (city gate 2 clean; plan p95 435 ms, was 284 ms); `tests/citysegs.mjs`; `tests/citygen.mjs` goldens; `tests/daily.mjs` 341 (the composer-version check moved to 6). `tests/kit-check.mjs` now measures the works stretch against the level's own length, because the plan runs on past it.
+
+**Not done:**
+- The arena for the other two thirds of city days: the rail-yard ending and bosses on tracks (lay the tracks in the arena), sea endings (a coast finale, A1), and the land endings with their own scene (gun line, column, depot, airbase, dam, bridge, silo, slipway). For those, the arena scenes could become arena modules.
+- Density: the run-up's guns could be thinned if the owner finds it harder than intended.
+- Taxi lines and markings on the apron, which is plainer than the Campaign pattern's.
+- Nobody has played it.
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
