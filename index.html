@@ -5279,7 +5279,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.52'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.53'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5324,7 +5324,7 @@ const store = {
   getJSON(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
   setJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 };
-const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, power: false, ash: false, ashLook: 'shard89', gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
+const settings = { music: 70, sfx: 85, hap: true, diff: 1, fps: false, power: false, ash: false, ashLook: 'arcade', gold: false, mode: 'camp', musicOn: true, sfxOn: true, mouseMode: 'drag', rumble: true, p2: 'off', nacht: false, phoenix: false, robin: false, raptor: false, crt: false, enigma: 0, pb: true, fire: 90, sensMouse: 100, sensKey: 100, sensPad: 100 };
 Object.assign(settings, store.getJSON(KEY.settings, {}));
 settings.fire = 90; settings.pb = true; settings.enigma = 0; // v1.2.5: gun speed (percent, 100 = standard) and point-blank fire are fixed and no longer in Settings; the Enigma look slider is hidden and stays off
 settings.mode = 'camp'; settings.hap = false;
@@ -5332,7 +5332,7 @@ const SENS_BASE = { sensMouse: 1, sensKey: 1.2, sensPad: 1.2 }; // what 100% on 
 const sensPct = k => { const v = +settings[k]; return v >= 25 && v <= 175 ? v : 100; }; // the slider's value
 const sensOf = k => sensPct(k) / 100 * (SENS_BASE[k] || 1); // Settings > Sensitivity
 function saveSettings() { store.setJSON(KEY.settings, settings); }
-const ASH_LOOKS = { shard89: 'Shard 1989', shard: 'Alien shard', arcade: 'Arcade 1989', ember: 'Ember' }; // Settings > Ash look (settings.ashLook, the looks in ASH): each press goes to the next
+const ASH_LOOKS = { arcade: 'Arcade 1989', shard89: 'Shard 1989', shard: 'Alien shard', ember: 'Ember' }; // Settings > Ash look (settings.ashLook, the looks in ASH): each press goes to the next
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
 const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
 function fireSlow() { return DIFF.fs[settings.diff]; }
@@ -11192,7 +11192,7 @@ function setP2() {
 }
 const props = [], towerRows = new Set(), towerCells = new Set(), critters = [];
 function propFree(x, y, w, d, h) { for (const q of props) if (Math.abs(q.wx - x) < (q.w + w) / 2 + 6 && Math.abs(q.wy - y) < (q.d + d) / 2 + 6 + Math.max(q.h, h) * 0.35) return false; for (const e of world.enemies) if (!e.dead && (e.type === 'aatower' || e.type === 'tower') && Math.abs(e.wx - x) < (e.hw || 15) + w / 2 + 6 && Math.abs(e.wy - y) < (e.hh || 15) + d / 2 + 6 + h * 0.35) return false; return true; }
-const hiClouds = [{ x: 60, y: -40, s: 2, v: 1.8 }, { x: 170, y: -260, s: 0, v: 1.65 }];
+const hiClouds = [{ x: 60, y: -40, s: 2, v: 2 }, { x: 170, y: -260, s: 0, v: 2 }]; // (the high clouds: 2 pixels a frame at full speed, whole pixels so they never judder)
 function newSecret() { world.secret = { q: 11 + ((Math.random() * 14) | 0), x: rnd(30, W - 30), spawned: false }; }
 const chutes = [];
 const birds = [], chunkHouses = new Map(), chunkFires = new Map(), treads = [];
@@ -18482,7 +18482,9 @@ function updParts() {
 // Settings > Ash mode (settings.ash, off by default; its look: Settings > Ash look, settings.ashLook, see LOOKS; not in the Retro Run, the tutorial or on the title). The ground is drawn grey and comes
 // back in colour where the player's fire lands: a ring with a glowing edge from every kill (bigger for ground units, the whole screen for a
 // big enemy), a patch around the ship at a pickup, the whole screen (only the screen) at a Nova, and a faint trail under the ship. Being shot
-// down drains the screen again: grey closes in from the edges with a frosted rim and ash flakes, down to the wreck.
+// down drains the screen again: grey closes in from the edges with a frosted rim and ash flakes, down to the wreck. The edge shows only where
+// the ground gains colour and the drain's rim only where it loses colour: a ring crossing ground already in colour shows nothing. The ground
+// has a light relief (lit from the top left, see relief), in colour and in ash. The default look is Arcade 1989.
 // Looks only. The hooks (ASH.kill, ASH.nova, ASH.pick, ASH.die) are called from the simulation but only queue an event with the frame it
 // happened on; everything else (painting the mask, the flakes' Math.random, the drawing) runs at draw time from drawGround, so a run plays
 // the same with ash mode on or off. Nothing here is in the snapshot: a resumed run starts its ground grey again. With low effects (lowFX)
@@ -18508,10 +18510,10 @@ const ASH = (() => {
   const LOOKS = {
     shard89: Object.assign({ ash: dith }, SHARD),
     shard: Object.assign({ ash: l => { const v = 18 + l * 0.56; return [v * 0.84, v * 0.98, v * 1.14]; } }, SHARD),
-    arcade: { ash: dith, dither: true, edge: e => [e * 70, e * 70, e * 70], frost: [210, 210, 220], speck: [255, 255, 255], label: '#ffffff', flakes: ['#ffffff', '#a0a0a8', '#5a5a62'] },
+    arcade: { ash: dith, dither: true, edge: e => [e * 70, e * 70, e * 70], frost: [212, 212, 222], speck: null, label: '#ffffff', flakes: ['#ffffff', '#a0a0a8', '#5a5a62'] }, // (the 'Clean' variation: a pale dithered edge, a frosted rim, no sparkle)
     ember: { ash: l => { const v = 24 + l * 0.56; return [v * 1.05, v * 0.99, v * 0.9]; }, edge: e => [e * 230, e * 105, e * 12], frost: [186, 198, 214], speck: [236, 236, 236], label: '#c9d6e6', flakes: ['#d8dee6', '#8f969e', '#5d636a'] },
   };
-  const lookKey = () => LOOKS[settings.ashLook] ? settings.ashLook : 'shard89', LK = () => LOOKS[lookKey()];
+  const lookKey = () => LOOKS[settings.ashLook] ? settings.ashLook : 'arcade', LK = () => LOOKS[lookKey()];
   function entry(c, p) {
     let d = data.get(c); const rv = c._rv | 0;
     if (!d) { const [cv, x] = mk(W, CH); d = { M: new Float32Array(MW * MR), Hh: new Float32Array(MW * MR), F: new Float32Array(MW * MR), rv: -1, c: cv, x, out: x.createImageData(W, CH), col: null, grey: null, r0: 0, r1: MR - 1, h0: MR, h1: -1, p: 0 }; data.set(c, d); }
@@ -18520,7 +18522,7 @@ const ASH = (() => {
       d.rv = rv; d.lk = null; const a = c.getContext('2d').getImageData(0, 0, W, CH).data, lum = d.lum || (d.lum = new Float32Array(W * CH));
       for (let i = 0, q = 0; i < a.length; i += 4, q++) { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]; lum[q] = l;
         for (let k = 0; k < 3; k++) a[i + k] = l + (a[i + k] - l) * 1.15; }
-      d.col = a; }
+      relief(a, lum); d.col = a; }
     const key = lookKey();
     if (d.lk !== key) { // its ash in the current look (again when the look is changed)
       d.lk = key; const f = LOOKS[key].ash, a = d.col, g = d.grey || (d.grey = new Uint8ClampedArray(a.length)), wy0 = -p * CH;
@@ -18528,6 +18530,13 @@ const ASH = (() => {
       d.r0 = 0; d.r1 = MR - 1; }
     return d;
   }
+  // Relief: the ground lit from the top left, an emboss from its own brightness (the pixel up-left minus the one down-right), added to the
+  // colour and to the luminance the ash is made from, so the ash and the colour have the same relief. Once per chunk, when its pixels are read.
+  // (At a chunk's first and last row the missing neighbour is the pixel itself, so the seam between chunks stays shaded.)
+  function relief(a, lum) { const L0 = Float32Array.from(lum);
+    for (let y = 0; y < CH; y++) { const ya = y > 0 ? y - 1 : y, yb = y < CH - 1 ? y + 1 : y;
+      for (let x = 0; x < W; x++) { const xa = x > 0 ? x - 1 : x, xb = x < W - 1 ? x + 1 : x, s = Math.max(-34, Math.min(34, (L0[ya * W + xa] - L0[yb * W + xb]) * 0.32));
+        if (!s) continue; const q = y * W + x, i = q * 4; a[i] += s; a[i + 1] += s; a[i + 2] += s; lum[q] = Math.max(0, Math.min(255, L0[q] + s)); } } }
   const mark = (e, r) => { if (r < e.r0) e.r0 = r; if (r > e.r1) e.r1 = r; }, heatRow = (e, r) => { if (r < e.h0) e.h0 = r; if (r > e.h1) e.h1 = r; };
   function compose(d) { // only the rows that changed (d.r0..d.r1, mask rows)
     const o = d.out.data, A = d.col, G = d.grey, M = d.M, Hh = d.Hh, F = d.F, tk = gf >> 3, wy0 = -d.p * CH, la = d.r0 * S, lb = Math.min(CH, (d.r1 + 1) * S), L = LK(), fr = L.frost, sp = L.speck;
@@ -18537,7 +18546,7 @@ const ASH = (() => {
         const t = L.dither ? (m > bay(x, wy) ? 1 : 0) : m * m * (3 - 2 * m);
         let r = G[i] + (A[i] - G[i]) * t, g = G[i + 1] + (A[i + 1] - G[i + 1]) * t, b = G[i + 2] + (A[i + 2] - G[i + 2]) * t;
         const h = Hh[mi]; if (h > 0.01) { const a = L.edge(L.dither ? (h > bay(x + 1, wy) ? 1 : 0) : h * h, x, wy); r += a[0]; g += a[1]; b += a[2]; }
-        if (f > 0.01) { const k = L.dither ? (f > bay(x, wy + 2) ? 0.9 : 0) : f * f * 0.7; r += (fr[0] - r) * k; g += (fr[1] - g) * k; b += (fr[2] - b) * k; if (f > 0.6 && h2(x * 3 + tk, wy * 5 - tk) > 0.95) { r = sp[0]; g = sp[1]; b = sp[2]; } }
+        if (f > 0.01) { const k = L.dither ? (f > bay(x, wy + 2) ? 0.9 : 0) : f * f * 0.7; r += (fr[0] - r) * k; g += (fr[1] - g) * k; b += (fr[2] - b) * k; if (sp && f > 0.6 && h2(x * 3 + tk, wy * 5 - tk) > 0.95) { r = sp[0]; g = sp[1]; b = sp[2]; } }
         o[oi] = r; o[oi + 1] = g; o[oi + 2] = b; o[oi + 3] = A[oi + 3]; } }
     d.x.putImageData(d.out, 0, 0, 0, la, W, lb - la); d.r0 = MR; d.r1 = -1;
   }
@@ -18556,8 +18565,8 @@ const ASH = (() => {
       for (let x = x0; x <= x1; x++) { const dd = Math.sqrt((x - cx) * (x - cx) + ddy); if (inner > 0 && dd < inner) continue;
         const thr = rag ? cr * (rag[0] + rag[1] * nz(x, y)) : cr; if (dd >= thr) continue;
         const i = row + x, v = s * Math.min(1, (thr - dd) / 1.6);
-        if (e.M[i] < v - 0.004) { e.M[i] = v; mark(e, lr); }
-        if (heat && !lowFX && dd > thr - 2.5 && e.Hh[i] < heat) { e.Hh[i] = heat; mark(e, lr); heatRow(e, lr); } } }
+        const old = e.M[i]; if (old < v - 0.004) { e.M[i] = v; mark(e, lr); }
+        if (heat && !lowFX && dd > thr - 2.5 && v > old + 0.004) { const hh = heat * (v - old) / v; if (e.Hh[i] < hh) { e.Hh[i] = hh; mark(e, lr); heatRow(e, lr); } } } } // (the edge only where this paint adds colour, as much as it adds: a ring over ground already in colour shows nothing)
   }
   function drain(o, r) { // everything in the band further from the wreck than the (ragged) radius r goes grey; a frosted rim just outside it
     const cx = o.x / S, cy = o.y / S, ylo = Math.floor(o.y0 / S), yhi = Math.ceil(o.y1 / S); let e = null, ep = NaN;
@@ -18565,8 +18574,8 @@ const ASH = (() => {
       const lr = y + p * MR, row = lr * MW;
       const ddy = (y - cy) * (y - cy);
       for (let x = 0; x < MW; x++) { const dd = Math.sqrt((x - cx) * (x - cx) + ddy), thr = r * (0.78 + 0.44 * nz(MW - 1 - x, y + 97)); if (dd <= thr) continue;
-        const i = row + x; if (e.M[i] || e.Hh[i]) { e.M[i] = 0; e.Hh[i] = 0; mark(e, lr); }
-        if (dd < thr + 2 && !lowFX) { e.F[i] = 1; mark(e, lr); heatRow(e, lr); } } }
+        const i = row + x, had = e.M[i]; if (had || e.Hh[i]) { e.M[i] = 0; e.Hh[i] = 0; mark(e, lr); }
+        if (dd < thr + 2 && !lowFX && had > 0.02 && e.F[i] < had) { e.F[i] = had; mark(e, lr); heatRow(e, lr); } } } // (the rim only where colour was lost, as much as was lost)
   }
   const push = o => { if (!settings.ash) return; o.g = gf; o.map = world.chunks; ev.push(o); };
   const wyOf = y => y - Math.floor(world.scroll);
@@ -20841,7 +20850,7 @@ for (const b of document.querySelectorAll('#sRumble button')) b.setAttribute('ar
   const fb = document.getElementById('sFps'); fb.setAttribute('aria-pressed', String(!!settings.fps)); fb.textContent = settings.fps ? 'On' : 'Off';
   const pb = document.getElementById('sPower'); pb.setAttribute('aria-pressed', String(!!settings.power)); pb.textContent = settings.power ? 'On' : 'Off';
   const ab = document.getElementById('sAsh'); ab.setAttribute('aria-pressed', String(!!settings.ash)); ab.textContent = settings.ash ? 'On' : 'Off';
-  document.getElementById('sAshLook').textContent = ASH_LOOKS[settings.ashLook] || ASH_LOOKS.shard89; document.getElementById('sAshLookRow').hidden = !settings.ash;
+  document.getElementById('sAshLook').textContent = ASH_LOOKS[settings.ashLook] || ASH_LOOKS.arcade; document.getElementById('sAshLookRow').hidden = !settings.ash;
   const dr = document.getElementById('sDailyRow'); dr.hidden = app.state !== 'title'; if (!dr.hidden) document.getElementById('sDailyKit').textContent = '(' + dailyToday().kit.toUpperCase() + ')'; // only at the title: a Daily Sortie starts from there
 }
 function buildHelp() {
