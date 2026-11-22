@@ -2064,7 +2064,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
     for (const pl of AB.planes) { if (pl.y + 16 < y0 || pl.y - 16 >= y0 + h) continue; plane(pl, 0); plane(pl, 1); }
     for (const lp of AB.lamps) { if (lp.y < y0 - 1 || lp.y > y0 + h + 1) continue; put(lp.x, lp.y, C.side[2]); } }
   if (plan.perimeter) { const pm = plan.perimeter; // the airfield's fence (posts and wire), the gate's barrier, buffer stops at the end of the tracks
-    if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
+    if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = 0; x < W; x++) { if (Math.abs(x + 0.5 - pm.gate) < pm.gw / 2 + 1) continue; if (pm.railGaps && pm.railGaps.some(t => Math.abs(x - t) <= 8)) { if (pm.railGaps.some(t => Math.abs(x - t) === 8)) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x, pm.fence - 1, C.beam); } continue; } /* (a gap where a track of the yard runs on into the arena, a post either side) */ if (x % 5 === 0) { put(x, pm.fence, C.beam); put(x, pm.fence + 1, C.beam); put(x + 1, pm.fence - 1, C.shadow, 0.35); } else put(x, pm.fence + (x % 2), C.dark); }
     if (pm.fence >= y0 - 2 && pm.fence <= y0 + h + 2) for (let x = Math.round(pm.gate - pm.gw / 2); x <= pm.gate + pm.gw / 2 - 2; x++) put(x, pm.fence, ((x >> 1) % 2) ? C.lit : C.fire[1]);
     for (const b of pm.stops) { if (b.y < y0 - 3 || b.y > y0 + h + 3) continue; for (let x = b.x0; x <= b.x1; x++) { put(x, b.y, C.fire[1]); put(x, b.y + 1, C.dark); } } }
   for (const bf of bufferStops(plan)) { if (bf.y < y0 - 4 || bf.y > y0 + h + 4) continue; const yb = bf.y + bf.dir, yd = bf.y + 2 * bf.dir; // a buffer stop where a track ends: a striped beam across both rails, its dark block behind
@@ -3135,20 +3135,22 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64)); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks); return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): the airfield
 // behind the perimeter fence, generated, where the Campaign repeats its final airfield's 300 px pattern. A concrete apron (the host's own apron colour,
 // opts.apronPix, so the Campaign pattern that takes over past the plan's end meets it on the same concrete), grass verges along both edges with gun and
 // fuel pads on them, a runway down one side, and along the other side a sequence of modules: hangar rows (with a control tower in the first), a fuel farm
 // in its berm, blast pens with a plane in each, flak parks of sandbag rings. Every target is a slot marked arena (flak, fuel, parked, aatower, patrol),
-// which the game fills as each chunk is built; the arena has no roads, so the tank routes stay the town's.
-function addArenaField(plan, h) {
+// which the game fills as each chunk is built; the arena has no roads, so the tank routes stay the town's. tracks (x of the rail yard's tracks that run on
+// into the arena, params.cityArenaTracks): those tracks go on through the perimeter fence (a gap in it, no buffer stop) and down the whole arena, and the
+// field is laid out between them, with no runway (a rail-served depot airfield).
+function addArenaField(plan, h, tracks) {
   const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0, R = k => h32(sd, 96000 + k) / 4294967296;
   const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
   const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
   for (const key of ['U', 'D', 'mx', 'aw']) { const a = new Float32Array(L); a.set(plan[key]); a.fill(plan[key][L0 - 1], L0); plan[key] = a; }
-  plan.L = L;
+  plan.L = L; const RM = plan.RM, TR = [];
   const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L, set = (x0, x1, y0, y1, k) => { for (let y = Math.max(L0, y0); y <= Math.min(L - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
   const disc = (cx, cy, r, k) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
   const ring = (cx, cy, r, gap) => { for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) { const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy); if (inB(x, y) && d >= r - 1.6 && d < r + 0.4 && !(gap && Math.abs(Math.atan2(y + 0.5 - cy, x + 0.5 - cx) - gap) < 0.5)) { Kr[y * W + x] = K.BERM; Br[y * W + x] = -1; } } };
@@ -3158,11 +3160,16 @@ function addArenaField(plan, h) {
   set(0, W - 1, L0, L - 1, K.APRON);
   const phL = R(1) * 6.283, phR = R(2) * 6.283, vl = y => Math.round(15 + 4 * Math.sin(y * 0.011 + phL)), vr = y => Math.round(15 + 4 * Math.sin(y * 0.013 + phR)); // the grass verges, gently waving
   for (let y = L0 + 24; y < L; y++) { for (let x = 0; x < vl(y); x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } for (let x = W - vr(y); x < W; x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } }
-  const A = { y0: L0, y1: L - 1, runway: null, modules: [] }; plan.arenaField = A;
+  const A = { y0: L0, y1: L - 1, runway: null, modules: [], tracks: TR }; plan.arenaField = A;
+  // the yard's tracks run on: from where the perimeter stopped them, the town's last three rows of rail mask repeated (as addPerimeter does) to the arena's end
+  const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0;
+    for (const tx of tracks) { const st = pm.stops.find(b => Math.abs((b.x0 + b.x1) / 2 - tx) <= 4); if (!st) continue; pm.stops.splice(pm.stops.indexOf(st), 1); TR.push(tx);
+      const a = st.x0 + 1, b = st.x1 - 1; for (let y = st.y - 1; y < L; y++) { const src = Lt - 3 + ((((y - Lt) % 3) + 3) % 3); for (let xx = a - 2; xx <= b + 2; xx++) { if (xx < 0 || xx >= W) continue; const i = y * W + xx, m = RM[src * W + xx]; if (!m || m > 3) continue; RM[i] = m; if (Kr[i] !== K.ROAD) { Kr[i] = K.RAIL; Br[i] = -1; } } } }
+    pm.railGaps = TR.slice(); plan.bufs = null; }
   // the runway down one side (the plan's only runway: a city plan has no airbase of its own), and the module column on the other
   const sr = R(3) < 0.5 ? -1 : 1, rx = sr < 0 ? 60 : W - 60, rw = 24, ry0 = L0 + 110, ry1 = L - 110;
-  if (!plan.airbase && ry1 - ry0 > 300) { set(rx - rw / 2, rx + rw / 2 - 1, ry0, ry1, K.RUNWAY); plan.airbase = { rx, rw, y0: ry0, y1: ry1, arena: true }; A.runway = { rx, rw, y0: ry0, y1: ry1 }; }
-  const cA = sr < 0 ? rx + rw / 2 + 12 : 28, cB = sr < 0 ? W - 29 : rx - rw / 2 - 13, cM = Math.round((cA + cB) / 2), far = sr < 0 ? cB : cA, nearX = sr < 0 ? cA : cB; // the column: from the runway's verge to the far verge
+  if (!TR.length && !plan.airbase && ry1 - ry0 > 300) { set(rx - rw / 2, rx + rw / 2 - 1, ry0, ry1, K.RUNWAY); plan.airbase = { rx, rw, y0: ry0, y1: ry1, arena: true }; A.runway = { rx, rw, y0: ry0, y1: ry1 }; }
+  const tL = TR.length ? Math.min(...TR) : null, tR = TR.length ? Math.max(...TR) : null, cA = TR.length ? tL + 12 : sr < 0 ? rx + rw / 2 + 12 : 28, cB = TR.length ? tR - 12 : sr < 0 ? W - 29 : rx - rw / 2 - 13, cM = Math.round((cA + cB) / 2), far = sr < 0 ? cB : cA, nearX = sr < 0 ? cA : cB; // the column: from the runway's verge to the far verge
   // pads on the verges, every 80 rows: a gun or a fuel tank on each side, as the Campaign's final airfield has them
   for (let y = L0 + 60, k = 0; y < L - 30; y += 80, k++) for (const [x, s] of [[11, 0], [W - 12, 1]]) { disc(x, y, 9, K.APRON); slot(R(10 + k * 2 + s) < 0.5 ? 'flak' : 'fuel', x, y, 8); }
   // the modules, in a seeded order (each kind once before any repeats), with a gap of 40 to 70 rows between them
