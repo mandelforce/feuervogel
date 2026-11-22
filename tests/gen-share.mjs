@@ -6,7 +6,7 @@
 // the screen is put in a class (generator plan, generator arena, legacy tail, legacy old land, legacy arena, other); every ground enemy is put
 // in a class when it first appears: on a generator slot (its place came from plan.slots), on generator ground but not on a slot (the game chose
 // the place), or on legacy ground; with whether an encounter or the boss fight was running.
-// Serve the folder (python3 -m http.server 8000), then: node tests/gen-share.mjs [--per 10] [--seeds 1000] [--kit desert] [--conc 4] [--diff 1] [--save FILE]
+// Serve the folder (python3 -m http.server 8000), then: node tests/gen-share.mjs [--per 10 | --only 2,3,9] [--seeds 1000] [--kit desert] [--conc 4] [--diff 1] [--save FILE]
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -92,7 +92,8 @@ async function newPage(rseed) {
   await page.evaluate(src => window.__sf(src), harness);
   return page;
 }
-const jobs = []; for (const kit of KITS) for (let s = 0; s < PER; s++) jobs.push({ kit, seed: seedOf(s) });
+const ONLY = arg('only', null) ? String(arg('only')).split(',').map(Number) : null; /* --only 2,3,9: these sweep seeds instead of the first --per */
+const jobs = []; for (const kit of KITS) for (const s of ONLY || Array.from({ length: PER }, (_, i) => i)) jobs.push({ kit, seed: seedOf(s) });
 const out = [], pages = await Promise.all(Array.from({ length: CONC }, (_, i) => newPage(11 + i)));
 let next = 0;
 await Promise.all(pages.map(async page => { for (let j; (j = jobs[next++]);) {
@@ -105,7 +106,7 @@ if (SAVE) writeFileSync(SAVE, JSON.stringify(out, null, 1));
 /* ---------- report ---------- */
 const sum = (rs, f) => { const o = {}; for (const r of rs) for (const [k, v] of Object.entries(r[f] || {})) o[k] = (o[k] || 0) + v; return o; };
 const show = (title, o) => { const tot = Object.values(o).reduce((a, b) => a + b, 0); console.log('  ' + title + ' (' + tot + ')'); for (const [k, v] of Object.entries(o).sort((a, b) => b[1] - a[1])) console.log('    ' + k.padEnd(44) + String(v).padStart(7) + pct(v, tot).padStart(10)); };
-console.log('\nPart 2: flights (' + PER + ' per kit, difficulty ' + DIFF + ', the human bot, immortal)');
+console.log('\nPart 2: flights (' + (ONLY ? ONLY.length : PER) + ' per kit, difficulty ' + DIFF + ', the human bot, immortal)');
 for (const kit of KITS) {
   const rs = out.filter(r => r.kit === kit); console.log('\n' + kit + ': ' + rs.map(r => r.end + (r.boss ? ' ' + r.boss : '') + (r.errs && r.errs.length || r.pageErrs && r.pageErrs.length ? ' ERR' : '')).join(', '));
   show('screen time before the boss, by ground (frames)', sum(rs, 'pre'));

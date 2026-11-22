@@ -96,7 +96,7 @@ export const KITS = {
       for (const h of hulls) m.push({ t: 'harbour_dock', y: h.y0 + h.h / 2, what: 'hull' });
       /* the industrial quarters of the works stretch: a quarter is 200 to 400 px long, so one whose centre is within 250 px of the stretch (the generator's own industryAt) counts, at the nearest point of it
          (plan.works is the town's gasworks, a civic building placed by chance, not the works stretch) */
-      const ia = p.P && p.P.industryAt && p.P.industryAt.map(v => v * p.L); for (const q of p.quarters || []) if (q.style === 'industry') { const c = (q.y0 + q.y1) / 2; if (ia && c >= ia[0] - 250 && c <= ia[1] + 250) m.push({ t: 'industrial_power', y: Math.min(Math.max(c, ia[0]), ia[1]), what: 'industry' }); }
+      const Lv = p.arenaField ? p.arenaField.y0 : p.L, ia = p.P && p.P.industryAt && p.P.industryAt.map(v => v * Lv); /* (the level's own length: a generated arena runs on past it) */ for (const q of p.quarters || []) if (q.style === 'industry') { const c = (q.y0 + q.y1) / 2; if (ia && c >= ia[0] - 250 && c <= ia[1] + 250) m.push({ t: 'industrial_power', y: Math.min(Math.max(c, ia[0]), ia[1]), what: 'industry' }); }
       if (p.station && !p.yard) m.push({ t: 'station_main', y: p.station.y, what: 'station' }); /* (a plan that ends in the rail yard has a station elsewhere, placed by the generator; it is the main station's only when there is no yard) */
       for (const r of (p.rivers && p.rivers.length ? p.rivers : p.river ? [p.river] : [])) m.push({ t: 'city_river', y: r.Y0, what: 'river' });
       for (const tr of p.trainRuns || []) if (tr.line === 'yard') m.push({ t: 'rail_yard', y: (tr.y0 + tr.y1) / 2, what: 'yard' }); /* (the yard's two outer tracks, from its end back to where they start) */
@@ -118,7 +118,7 @@ export function check(kit, segs, seed, gen) {
   let p; const t0 = performance.now();
   try { p = CG.generate(gen || { seed, preset: kit.preset, params: kit.params(segs.map(g => ({ t: g.t, n: g.n }))) }); } catch (e) { res.flags.push('throw'); res.notes.push('throw: ' + String(e && e.message || e).slice(0, 90)); return res; }
   res.ms = performance.now() - t0;
-  const noFin = !!(gen && gen.params && (gen.params.finale === 'depot' || gen.params.finale === 'railgorge')), arenaN = noFin ? (gen.params.depotArena | gen.params.railArena | 0) : kit.arena; /* (a sea ending: the winter's plan has no gorge) */
+  const noFin = !!(gen && gen.params && (gen.params.finale === 'depot' || gen.params.finale === 'railgorge')), arenaN = noFin ? (gen.params.depotArena | gen.params.railArena | 0) : gen && gen.params && gen.params.cityArena ? gen.params.cityArena : kit.arena; /* (the city's generated airfield arena: plan past the level's end) */ /* (a sea ending: the winter's plan has no gorge) */
   const want = (segs.reduce((a, g) => a + g.n, 0) + arenaN) * CH;
   if (p.L !== want) { res.flags.push('length'); res.notes.push('plan ' + p.L + ' px, segments ' + want); }
   let v; try { v = CG.validate(p); } catch (e) { res.flags.push('throw'); res.notes.push('validate throws: ' + String(e && e.message || e).slice(0, 90)); return res; }

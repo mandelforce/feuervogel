@@ -3135,7 +3135,54 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64)); return plan;
+}
+// The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): the airfield
+// behind the perimeter fence, generated, where the Campaign repeats its final airfield's 300 px pattern. A concrete apron (the host's own apron colour,
+// opts.apronPix, so the Campaign pattern that takes over past the plan's end meets it on the same concrete), grass verges along both edges with gun and
+// fuel pads on them, a runway down one side, and along the other side a sequence of modules: hangar rows (with a control tower in the first), a fuel farm
+// in its berm, blast pens with a plane in each, flak parks of sandbag rings. Every target is a slot marked arena (flak, fuel, parked, aatower, patrol),
+// which the game fills as each chunk is built; the arena has no roads, so the tank routes stay the town's.
+function addArenaField(plan, h) {
+  const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0, R = k => h32(sd, 96000 + k) / 4294967296;
+  const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
+  const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
+  for (const key of ['U', 'D', 'mx', 'aw']) { const a = new Float32Array(L); a.set(plan[key]); a.fill(plan[key][L0 - 1], L0); plan[key] = a; }
+  plan.L = L;
+  const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L, set = (x0, x1, y0, y1, k) => { for (let y = Math.max(L0, y0); y <= Math.min(L - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
+  const disc = (cx, cy, r, k) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (inB(x, y) && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) { Kr[y * W + x] = k; Br[y * W + x] = -1; } };
+  const ring = (cx, cy, r, gap) => { for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) { const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy); if (inB(x, y) && d >= r - 1.6 && d < r + 0.4 && !(gap && Math.abs(Math.atan2(y + 0.5 - cy, x + 0.5 - cx) - gap) < 0.5)) { Kr[y * W + x] = K.BERM; Br[y * W + x] = -1; } } };
+  const slot = (kind, x, y, r) => { const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
+  const item = (x0, y0, w, hh, label, style, roof) => { const it = { t: 'works', label, part: 'shed', x0, y0, w, h: hh, ori: 'v', style, roof, seed: h32(sd, 97000 + plan.items.length), dmg: 0 }; it.id = plan.items.length; plan.items.push(it);
+    for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + w; x++) if (inB(x, y)) { Kr[y * W + x] = K.BLDG; Br[y * W + x] = it.id; } return it; };
+  set(0, W - 1, L0, L - 1, K.APRON);
+  const phL = R(1) * 6.283, phR = R(2) * 6.283, vl = y => Math.round(15 + 4 * Math.sin(y * 0.011 + phL)), vr = y => Math.round(15 + 4 * Math.sin(y * 0.013 + phR)); // the grass verges, gently waving
+  for (let y = L0 + 24; y < L; y++) { for (let x = 0; x < vl(y); x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } for (let x = W - vr(y); x < W; x++) { Kr[y * W + x] = K.TURF; Br[y * W + x] = -1; } }
+  const A = { y0: L0, y1: L - 1, runway: null, modules: [] }; plan.arenaField = A;
+  // the runway down one side (the plan's only runway: a city plan has no airbase of its own), and the module column on the other
+  const sr = R(3) < 0.5 ? -1 : 1, rx = sr < 0 ? 60 : W - 60, rw = 24, ry0 = L0 + 110, ry1 = L - 110;
+  if (!plan.airbase && ry1 - ry0 > 300) { set(rx - rw / 2, rx + rw / 2 - 1, ry0, ry1, K.RUNWAY); plan.airbase = { rx, rw, y0: ry0, y1: ry1, arena: true }; A.runway = { rx, rw, y0: ry0, y1: ry1 }; }
+  const cA = sr < 0 ? rx + rw / 2 + 12 : 28, cB = sr < 0 ? W - 29 : rx - rw / 2 - 13, cM = Math.round((cA + cB) / 2), far = sr < 0 ? cB : cA, nearX = sr < 0 ? cA : cB; // the column: from the runway's verge to the far verge
+  // pads on the verges, every 80 rows: a gun or a fuel tank on each side, as the Campaign's final airfield has them
+  for (let y = L0 + 60, k = 0; y < L - 30; y += 80, k++) for (const [x, s] of [[11, 0], [W - 12, 1]]) { disc(x, y, 9, K.APRON); slot(R(10 + k * 2 + s) < 0.5 ? 'flak' : 'fuel', x, y, 8); }
+  // the modules, in a seeded order (each kind once before any repeats), with a gap of 40 to 70 rows between them
+  const kinds = ['hangars', 'fuel', 'pens', 'flak'], order = []; let tower = false;
+  for (let rep = 0; rep < 6; rep++) { const b = kinds.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(R(100 + rep * 8 + i) * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } if (rep && b[0] === order[order.length - 1]) b.push(b.shift()); order.push(...b); }
+  const HGT = { hangars: 150, fuel: 112, pens: 128, flak: 96 };
+  let y = L0 + 96; for (let m = 0; m < order.length; m++) { const kd = order[m], hh = HGT[kd]; if (y + hh > L - 120) break; const md = { kind: kd, y0: y, y1: y + hh }; A.modules.push(md);
+    if (kd === 'hangars') { const n = 3, hw = 30, hl = 34, x0 = sr < 0 ? cB - hw + 1 : cA; // hangars along the far verge, doors to the runway, the apron in front
+      for (let k = 0; k < n; k++) item(x0, y + 4 + k * 48, hw, hl, 'Hangar', 'gable', 3);
+      if (!tower) { tower = true; item(sr < 0 ? x0 - 18 : x0 + hw + 8, y + 60, 10, 10, 'Control tower', 'flat', 2); }
+      slot('aatower', nearX - sr * 10, y + hh / 2, 8); }
+    else if (kd === 'fuel') { const pw = 58, ph = 50, px = cM - pw / 2, py = y + (hh - ph) / 2; set(px - 3, px + pw + 2, py - 3, py + ph + 2, K.BERM); set(px, px + pw - 1, py, py + ph - 1, K.WORKS); set(sr < 0 ? px - 3 : px + pw, sr < 0 ? px - 1 : px + pw + 2, py + ph / 2 - 6, py + ph / 2 + 5, K.APRON); // a cinder pad in its berm, an opening towards the runway
+      for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) slot('fuel', px + 10 + c * 19, py + 13 + r * 24, 7); }
+    else if (kd === 'pens') { const n = 3, pw = 34, ph = 30; for (let k = 0; k < n; k++) { const py = y + 4 + k * 42, x1 = sr < 0 ? cB : cA + pw - 1, x0 = x1 - pw + 1; // an earth bank on three sides, open towards the runway, a plane inside
+        set(x0, x1, py, py + 2, K.BERM); set(x0, x1, py + ph - 3, py + ph - 1, K.BERM); if (sr < 0) set(x1 - 2, x1, py, py + ph - 1, K.BERM); else set(x0, x0 + 2, py, py + ph - 1, K.BERM);
+        slot('parked', (x0 + x1) / 2 + sr * 2, py + ph / 2, 8); } }
+    else if (kd === 'flak') { const xs = [cA + 16, cM, cB - 16]; for (let k = 0; k < 3; k++) { const cx = xs[k], cy = y + 22 + (k % 2) * 50; ring(cx, cy, 10, sr < 0 ? Math.PI : 0); slot('flak', cx, cy, 8); } slot('aatower', cM, y + hh - 14, 8); }
+    y += hh + 40 + Math.floor(R(300 + m) * 31); }
+  // patrol lanes across the apron: a tank drives from side to side (the Campaign's final airfield has one every 300 px in about half of them)
+  for (let y2 = L0 + 200, k = 0; y2 < L - 80; y2 += 300, k++) if (R(500 + k) < 0.6) slot('patrol', W / 2, y2, 6);
 }
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
