@@ -41,7 +41,7 @@ const FLY = `(function (spec, diff) {
   if (app.booting) finishBoot();
   if (app.cont > 0) app.cont = 0;
   SF.setMode('immortal'); SF.start(diff, 1);
-  startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, 0));
+  const C = SortieCompose.composeSortie(spec.kit, spec.seed, 0); startComposed(C); /* (the composer's own list: the game's copy of the segments has no legacy flag) */
   SF.human(8, 15);
   const S = run.sortie, L0 = S.level, P0 = world.stageBaseP, seen = new WeakSet();
   const fr = {}, fb = {}, en = {}, types = {};
@@ -50,7 +50,7 @@ const FLY = `(function (spec, diff) {
     const P = S.plan || ((S.gen || S.isles) && sortiePlan(S)); const planned = !!P && c >= S.planC0 && c < S.planC1;
     if (c < 0) return 'before';
     if (c >= S.len) return planned ? 'gen arena' : 'legacy arena';
-    const g = S.segs.find(function (q) { return c >= q.start && c < q.start + q.n; });
+    const g = C.segs.find(function (q) { return c >= q.start && c < q.start + q.n; });
     if (g && g.legacy) return g.t === 'coast_down' || g.t === 'open_sea' ? 'legacy tail' : 'legacy old land';
     return planned ? 'gen plan' : 'legacy other';
   };

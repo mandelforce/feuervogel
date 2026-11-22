@@ -84,7 +84,7 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 
 ## 3. Proposed order (each step leaves the game playable)
 
-1. **Measure first (S).** Over 200 sorties per kit, count the chunks that are plan, legacy tail, old-land legacy and arena, and the ground targets from slots versus `placeOK`. This gives the real share of "not generated" ground, which this audit only infers.
+1. **Measure first (S). Done, see 3a.** Over 200 sorties per kit, count the chunks that are plan, legacy tail, old-land legacy and arena, and the ground targets from slots versus `placeOK`. This gives the real share of "not generated" ground, which this audit only infers.
 2. **C1, one composed plan builder.** This removes per-kit glue before more kits come.
 3. **A1, sea tail in the generator,** then **A3, the temperate extras.** After both, everything before the boss is generator ground.
 4. **A2, arena finales,** one kit at a time (desert, then city, then forest). Then **A5** on them, and **A4** last (the Campaign's Ravenhold must not move).
@@ -93,6 +93,53 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 7. **A6 and A7** only if step 1 shows the legacy placement path still matters.
 
 Rules that apply to every step: the Campaign stays unchanged (`replay.mjs` is not a gate, `ARCHITECTURE.md`; `fixed-seed.mjs`, `enigma.mjs` and `citysegs.mjs` goldens are). No `Math.random` in the composer or generator. New state goes into the snapshot. New terrain caches go into `resetTerrainState`. After a generator change, run `node scripts/embed-citygen.mjs`. Raise `SortieCompose.VERSION` when a date's output changes.
+
+## 3a. Step 1 results: the measured share (2026-11-22, `tests/gen-share.mjs`)
+
+**How it was measured.** Part 1: 1,000 composed sorties per kit, chunks counted by who builds them (Node). Part 2: 10 sorties per kit (the flight gate's sweep seeds 0–9), Veteran, the human bot (`SF.human(8, 15)`, immortal), flown to the boss's death. That is 50 flights, all 50 bosses killed, no errors, 261 s of play per flight on average. Every 10 frames the chunk under the middle of the screen was put in a class. Every ground enemy was put in a class when it first appeared: on a plan slot (within 14 px of one), on generator ground at a place the game chose, or on legacy ground. Commands: `node tests/gen-share.mjs --per 10 --seeds 1000` (serve the folder first).
+
+### Ground under the screen, as a share of play time
+
+| Kit | Generator (plan + arena) | Legacy arena before the boss appears | Legacy arena in the fight | Legacy stretches (sea tail, old land) | Start screen |
+|---|---|---|---|---|---|
+| desert | **69 %** | 5 % | 24 % | 0.6 % | 1.4 % |
+| forest | **64 %** | 3 % | 31 % | 0.8 % | 1.6 % |
+| winter | **96 %** (its gorge, rail gorge, ice and depot arenas are generator ground) | 0.5 % | 1 % | 0.6 % | 1.3 % |
+| city | **55 %** | 16 % | 27 % | 0 % | 1.4 % |
+| temperate | **63 %** | 0 % | 25 % | 11 % | 0.9 % |
+| all | **70 %** | 5 % | 21 % | 2 % | 1.3 % |
+
+- The legacy chunk count is small: about 1–2 % of a level's chunks in four kits, and 14.5 % in the temperate kit (part 1). **The legacy share comes almost all from the boss arena**: 26 % of all play time, from the scroll reaching the arena before the boss appears plus the fight itself.
+- **The city spends 45 s per flight on arena ground before its boss appears** (16 % of its time). This is the longest run-up of any kit. **[inferred]** It comes from `boss: { add: 5 }` plus the warning and intro. It is worth a look on its own, as dead ground to fly over.
+- "Start screen" is the chunk before chunk 0 (sortie chunk −1), which is legacy ground.
+- The first full run counted the legacy stretches as "legacy other": the game's copy of the segments has no `legacy` flag (**[read]**: the flag is only in the composer). The probe now reads the composer's list. One temperate flight re-run with the fix shows them as "legacy tail". The table above takes "legacy other" from the first run as the legacy stretches.
+
+### Ground enemies: who chose the place
+
+| Kit | On a plan slot | Generator ground, place chosen by the game | Legacy ground | Slots used (of the plan's) |
+|---|---|---|---|---|
+| desert | 13 % | 82 % | 5 % | 45 % |
+| forest | 29 % | 64 % | 7 % | 45 % |
+| winter | 12 % | 88 % | 0 % | 71 % |
+| city | 14 % | 66 % | 20 % | 49 % |
+| temperate | 21 % | 60 % | 17 % | 100 % |
+| all | **17 %** | **73 %** | **10 %** | |
+
+All ground enemies before the boss are counted, 13,194 in all.
+
+- **[read]** The game chooses the place for nearly three quarters of the ground enemies, mostly on the generator's own ground. Without troops and supply crates (which are dropped by other units), the shares are 15 % on a slot, 61 % chosen by the game and 23 % on legacy ground.
+- The largest single types at game-chosen places are troops (about half), then tanks, trucks, fuel trucks and train wagons. **[inferred]** Many of those move on the plan's roads and rails, so the generator made their route but not their starting point. The probe does not separate "on a plan road or rail" from "free placement". That split is the next thing to measure before planning A7.
+- The city's 20 % on legacy ground is mostly fuel tanks and flak (314 and 306) that the director places on the arena during the long run-up.
+- "Slots used" counts the slots the director marked as taken. A slot that fails `placeOK` is marked but gets no enemy, so 100 % for the temperate kit means that `planGuns` visits every slot, not that every slot was filled.
+
+### What this changes in the order (section 3)
+
+1. **A2, generated boss arenas, moves to the front.** It is about 26 % of play time in four kits, and the winter shows that it works (96 % generator ground). Start with the city: it has the largest share and the long run-up.
+2. **A1 and A3 (sea tail, temperate old land) shrink.** They are 2 % of play time overall, though 11 % in the temperate kit. Do A3 for the temperate kit; A1 can wait.
+3. **A7 grows.** The generator places only about a sixth of the ground enemies. Before any work, split the 73 % into "on a plan road or rail" and "free placement" (a small change to the probe).
+4. **A6 is unchanged.** The legacy biome mapping matters wherever the game places enemies, which is most of them.
+
+Not measured: Rookie and Ace; a mortal player (who does not reach every place); more than 10 sorties per kit; daily twists and flavours (the sweep flies none).
 
 ## 4. Decisions for the owner
 
@@ -103,7 +150,7 @@ Rules that apply to every step: the Campaign stays unchanged (`replay.mjs` is no
 
 ## 5. Not checked
 
-- How many ground targets in a composed sortie come from `placeOK` rather than slots (step 1).
+- Measured in 3a: how many ground enemies stand on slots. Still open: how many of the rest move on plan roads and rails.
 - Whether the weather and twist code reads anything level-specific beyond the kit's climate.
 - Whether the music and palette code would take a climate other than its level's own (also open in plan 12.3).
 - Nothing in this audit was run; it is read from `tools/sortie-compose.js`, `index.html` (`sortieInfo`, `SORTIE_BIOME`, the `sortiePlan*` builders, the director's slot use) and `docs/daily-sortie-plan.md` sections 1, 2, 12.5–12.22.
