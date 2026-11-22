@@ -169,8 +169,11 @@ One rival fight (sweep seed 14) took 9 s against 29 s before. **[read]** The riv
 
 **Other checks:** `tests/compose.mjs` (city gate 2 clean; plan p95 435 ms, was 284 ms); `tests/citysegs.mjs`; `tests/citygen.mjs` goldens; `tests/daily.mjs` 341 (the composer-version check moved to 6). `tests/kit-check.mjs` now measures the works stretch against the level's own length, because the plan runs on past it.
 
+**The rail yard ending (same build).** After the rail yard ending, the yard's two outer tracks (x 55 and 169) run on from where the perimeter stopped them. They cross the perimeter road (a level crossing) and pass through gaps in the fence, with a post either side; the yard's other tracks still end at their buffer stops. The tracks then run down all 48 chunks, and past the arena's end the game paints them on over the Campaign pattern at the same x (`S.arenaTracks`). Between the tracks the field has no runway, since 93 px leaves no room for one: the modules stand in that space. This takes the arena from **32 % to 59 % of city days**. Measured on 12 yard-arena sorties (Veteran, all bosses killed, no errors): **94 % of play time on generator ground**, and **43 % of ground enemies on slots**. Flight gate on the three yard-arena dates of December (12-06, 12-16, 12-21), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+
 **Not done:**
-- The arena for the other two thirds of city days: the rail-yard ending and bosses on tracks (lay the tracks in the arena), sea endings (a coast finale, A1), and the land endings with their own scene (gun line, column, depot, airbase, dam, bridge, silo, slipway). For those, the arena scenes could become arena modules.
+- The arena for the remaining 41 % of city days: bosses on a track (the long train and the supergun on a painted rail, the two-train yard), sea endings (a coast finale, A1), and the land endings with their own scene (gun line, column, depot, airbase, dam, bridge, silo, slipway). For the land endings, the arena scenes could become arena modules.
+- The strips between the yard's tracks and the verges are bare concrete.
 - Density: the run-up's guns could be thinned if the owner finds it harder than intended.
 - Taxi lines and markings on the apron, which is plainer than the Campaign pattern's.
 - Nobody has played it.
