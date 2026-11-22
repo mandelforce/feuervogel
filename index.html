@@ -3660,7 +3660,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes); return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3674,7 +3674,9 @@ function withPerimeter(o) {
 // Campaign's. The first unit is the Campaign's own start: line and full hangar at once. Every target is a slot marked arena (flak, fuel, parked,
 // patrol, crate, drums), which the game fills as each chunk is built. tracks (params.cityArenaTracks: x of the rail yard's tracks that run on into the
 // arena): they go on through the perimeter fence (a gap, no buffer stop) and down the whole arena; roofs stay between them, planes and crates inside them.
-function addArenaField(plan, h, tracks) {
+// scenes (params.cityArenaScenes, a land ending's day): scene zones (plan.arenaField.zones, {y0, y1}, 272 rows of bare apron with no pads), one about every
+// seven chunks from the sixth; the game lays the ending's own scene (arenaScene) in the first zone still ahead when the boss comes, and holds the scroll there.
+function addArenaField(plan, h, tracks, scenes) {
   const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
   const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
   const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
@@ -3683,7 +3685,7 @@ function addArenaField(plan, h, tracks) {
   const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L;
   const slot = (kind, x, y, r) => { if (y < L0 || y >= L) return null; const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
   for (let y = L0; y < L; y++) for (let x = 0; x < W; x++) { Kr[y * W + x] = K.APRON; Br[y * W + x] = -1; }
-  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [] }; plan.arenaField = A;
+  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [], zones: [] }; plan.arenaField = A;
   // the yard's tracks run on: from where the perimeter stopped them, the town's last three rows of rail mask repeated (as addPerimeter does) to the arena's end
   const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0;
     for (const tx of tracks) { const st = pm.stops.find(b => Math.abs((b.x0 + b.x1) / 2 - tx) <= 4); if (!st) continue; pm.stops.splice(pm.stops.indexOf(st), 1); TR.push(tx);
@@ -3696,11 +3698,14 @@ function addArenaField(plan, h, tracks) {
   // the roof's span: the Campaign's (x 36 to 187), or between the yard's tracks
   const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = Math.round((RX0 + RX1) / 2);
   const planeX = TR.length ? [RXM - 26, RXM + 26] : [62, 162], crateX = TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
-  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left)
-  for (let y = L0 + 40, k = 0; y < L - 12; y += 70 + Math.floor(R() * 11), k++) { pad(18, y, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y, k % 2 === 0 ? 'fuel' : 'flak'); }
-  // the units
-  let y = L0, first = true;
-  while (y < L - 60) { const u = { y0: y };
+  // the edge pads' rows, drawn first (the seeded draws keep their order; the pads are laid after the units, to keep them out of the scene zones)
+  const padYs = []; for (let y2 = L0 + 40; y2 < L - 12; y2 += 70 + Math.floor(R() * 11)) padYs.push(y2);
+  const layPads = () => padYs.forEach((y2, k) => { if (A.zones.some(z => y2 > z.y0 - 16 && y2 < z.y1 + 16)) return; pad(18, y2, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y2, k % 2 === 0 ? 'fuel' : 'flak'); });
+  if (!scenes) layPads(); /* (without scene zones the pads come first, as they always have: their slots keep their order) */
+  // the units (with scenes: a zone wherever the next one is due, between two units)
+  let y = L0, first = true, nextZone = L0 + 6 * 64;
+  while (y < L - 60) { if (scenes && y >= nextZone && y + 272 <= L - 40) { A.zones.push({ y0: y, y1: y + 271 }); pieces.push({ k: 'zone', y0: y, y1: y + 271 }); y += 272; nextZone = y + 150 + Math.floor(R() * 60); continue; }
+    const u = { y0: y };
     if (!first) { // the open stretch: 70 to 150 rows, one or two of its features
       const len = 70 + Math.floor(R() * 81), mid = y + Math.round(len / 2), feats = [], pick = R();
       if (pick < 0.45) feats.push('heli'); else if (pick < 0.7) feats.push('parked'); else if (pick < 0.85) feats.push('heliSide'); else feats.push('crates');
@@ -3723,6 +3728,8 @@ function addArenaField(plan, h, tracks) {
     else if (roof === 'short') { const w = Math.round((RX1 - RX0) * 0.62), sx = R() < 0.5 ? RX0 : RX1 - w + 1; hangar(sx, sx + w - 1, r0, r1); }
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
+  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left); none in a scene zone
+  if (scenes) layPads();
 }
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
@@ -5019,7 +5026,7 @@ const KITS = {
     openers: [[['open_sea', 5], ['harbour_south', 14]], [['open_sea', 5], ['harbour_dock', 14]]], openerShare: 0.35, // the harbour is the plain south harbour, or in 35 % of the days the dockyard (the side harbour's shipyard: slipways with hulls on them under gantries, the piers on the first half of the side)
     approaches: [[['station_main', 6]], [['rail_yard', 7]]], approachShare: 0.35, // the level ends in the main station, or in 35 % of the days in a marshalling yard (the rail city: tracks that run on into the arena, level 3's yard)
     gapBefore: { rail_yard: { city_centre: 14 } }, // (the yard narrows the strip for 640 px before it: with the city centre within about 800 px of it the market square was lost in 8 of 40 lists: at least 14 chunks between the centre and the yard)
-    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'] }, // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield (after the rail yard ending its tracks run on through it); a sea ending, a boss on a track and the land endings with their own scene keep the Campaign's arena
+    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'] }, // (scenes: the land endings, whose own scene the game lays in one of the arena's scene zones) // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield and the land endings (their scene in a zone of it); after the rail yard ending its tracks run on through it; a sea ending and a boss on a track keep the Campaign's arena
     arenaTracks: { rail_yard: [55, 169] }, // the yard's two outer tracks (the generator's yard has them at x 55 and 169), painted on through the arena
     middle: {
       city_suburb: { len: [5, 8], max: 2, heat: 0.3, built: 0.9 },
@@ -5133,7 +5140,7 @@ function check(kitId, S) {
   const all = S.segs || [], segs0 = all.filter(g => !g.legacy && !g.main), IV = kit.islandOpen && kit.islandOpen.variants.find(v => v.every((q, k) => segs0[k] && segs0[k].t === q[0] && segs0[k].n === q[1])) || [], segs = segs0.slice(IV.length), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
-  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail ? [1] : null), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); }
+  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail ? [1] : null), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); if (!!gp.cityArenaScenes !== (!!want && cityArenaScenes(kit, S.bossVar))) bad.push('the arena\'s scene zones do not match the boss'); }
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL, !(kit.legacy && tail.some(g => kit.legacy.middle[g.t])))); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; }); { const gt = mainL.find(g => g.t === 'main_gate'); if (gt && (!tail.length || gt.next !== tail[0].t)) bad.push('the gate is for ' + gt.next + ', the ground after it is ' + (tail[0] && tail[0].t)); if (gt && mainL[mainL.length - 1] !== gt) bad.push('the gate is not the last mainland stretch'); }
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
@@ -5269,7 +5276,8 @@ function mainWalk(kit, base, cove) {
 }
 /* The city's generated arena: on a day whose boss fights on a plain airfield, with no sea tail and no boss on a track (the long train, the supergun, the two-train yard). With the rail yard ending
    the yard's tracks run on through it (cityArenaTracks). */
-function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (!A || tail || !bs || !A.kinds.includes(bs.kind) || bs.track || bs.yard || bs.sea) return 0; return A.n; }
+function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (!A || tail || !bs || !(A.kinds.includes(bs.kind) || (A.scenes || []).includes(bs.kind)) || bs.track || bs.yard || bs.sea) return 0; return A.n; }
+function cityArenaScenes(kit, bs) { return !!(kit.cityArena && bs && (kit.cityArena.scenes || []).includes(bs.kind)); } /* (a land ending: scene zones in the arena) */
 function cityArenaTracks(kit, ap) { return kit.arenaTracks && kit.arenaTracks[ap[0][0]] ? kit.arenaTracks[ap[0][0]].slice() : null; }
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
   const kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
@@ -5285,7 +5293,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const cityArena = cityArenaFor(kit, bs, tail); if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; }
+    const cityArena = cityArenaFor(kit, bs, tail); if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; }
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
@@ -11352,7 +11360,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   world.shots = []; world.ebul = []; world.dust = []; world.veil = null; world.enemies = []; world.items = []; world.parts = []; world.decals = []; world.later = []; world.collect = null;
   player = { x: W / 2, y: Math.round(H * 0.71), inv: 150, dead: 0, wpn: 'S', lvl: 1, cd: 0, mcd: 0, bank: 0, lx: W / 2, drones: 0, dcd: 0, dr: [{ x: W / 2, y: H - 30 }, { x: W / 2, y: H - 30 }] };
   p2 = null; setP2();
-  world.trainDone = false; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
+  world.trainDone = false; world.sceneStop = null; world.quiet = false; world.rainT = 0; world.rainF = 0; world.rainCd = 1200; arcs.length = 0; world.scrollV = world.scrollTarget = SCROLL; birds.length = 0; critters.length = 0; props.length = 0; treads.length = 0; markers.length = 0; linkFx.length = 0; chutes.length = 0; burntTrees.clear(); damagedHouses.clear(); towerRows.clear(); towerCells.clear(); beam = null; world.trainLeft = {};
   world.waveCd = 95; world.groundCd = 70; world.podCd = 200; feel.bombFx = 0; feel.flashFx = 0; feel.shake = 0;
   world.midDone = false; world.bossSpawned = false; world.enc = world.encLast = world.encTry = null; world.subN = world.encPlanI = world.buechseN = 0;
   app.state = 'play'; app.paused = false; pauseBtn.textContent = 'Pause';
@@ -18165,7 +18173,7 @@ function update() {
   pollPad();
   if (app.state === 'play' && app.paused) return;
   if (app.ending) { updEnding(); return; } // (the ending scene: the world is frozen under it)
-  if (!(app.state === 'play' && app.cont > 0)) { world.scrollV += (world.scrollTarget - world.scrollV) * 0.03; world.scroll += world.scrollV; } // the battle holds still on the continue screen
+  if (!(app.state === 'play' && app.cont > 0)) { world.scrollV += (world.scrollTarget - world.scrollV) * 0.03; world.scroll += world.scrollV; } if (world.sceneStop != null && world.scroll >= world.sceneStop - 12) { world.sceneStop = null; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } /* (a land ending's scene in a zone of the city's generated arena: the ground stops when the zone fills the screen) */ // the battle holds still on the continue screen
   ensureChunks();
   const ck = 0.12 + 0.88 * clamp(world.scrollV / SCROLL, 0, 1);
   const simWas = simOn; simOn = false; // clouds, weather and birds are cosmetic: free stream (restored below)
@@ -19699,6 +19707,12 @@ const BOSS_LOOKS = {
 const rivalSet = id => [SPR.playerSet, SPR.schnee, nachtSet(), phoenixSet(), robinSet(), raptorSet(), goldSet(), falkeSet()][id];
 function rivalSkin() { const ids = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== curSkinId() && !(p2 && i === 6)); return ids[Math.floor(hash((run.sortie && run.sortie.seed) | 0, 4711) * ids.length) % ids.length]; }
 /* The land endings' own ground (plan 12.19, owner: they sat on the plain boss ground): a backdrop of the arena, drawn once onto a canvas in screen coordinates and laid on the ground as a decal at the boss's spawn, under the enemies and tinted to show the ground through. The gun line gets trenches, communication trenches, pits and wire; the airbase an apron with hardstands and taxi lines and a runway; the column a tank park with scraped pads, track marks and berms; the depot a concrete pad with a ring berm round each tank, pipes and a loading rack. */
+// The city's generated arena (CityGen addArenaField with scenes): the scroll at which the first scene zone still ahead of the screen fills it from the top
+// (its top row at the screen's top), or null (no zones, or all of them behind: the scene goes where the screen is, as on the Campaign's ground).
+function sceneZoneAt(sc) {
+  const S = run.sortie, P = S && S.plan, A = P && P.arenaField; if (!A || !A.zones || !A.zones.length || S.planFor !== world.stageBaseP) return null;
+  for (const z of A.zones) { const s2 = Math.round(z.y1 - S.planY0); if (s2 >= sc) return s2; } return null;
+}
 function arenaScene(kind) {
   const c = document.createElement('canvas'); c.width = W; c.height = 260; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
   const R = (x, y, w, h, col, a) => { g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); g.globalAlpha = 1; };
@@ -19854,8 +19868,8 @@ FOLLOW.canyon.tick = (e, sc) => { /* thirty seconds between the walls, the groun
       add('casemate', 112, -34, { ga: PI / 2, cd: 50 }, 2.5); add('fortgun', 44, -64, { ga: PI / 2, cd: 70 }); add('fortgun', 180, -64, { ga: PI / 2, cd: 110 }); add('aatower', 84, -90, { cd: 60 }); add('aatower', 140, -90, { cd: 100 }); } }
   else { const lowest = e.guards.reduce((a, g) => g.dead ? a : Math.max(a, g.y), -999); world.scrollTarget = lowest > -900 && lowest < 90 ? SCROLL * 0.9 : 0; w.open = 1; if (e.guards.every(g => g.dead || g.dying)) { w.dead = true; w.hp = 0; } }
   for (const q of [player, p2]) if (q && !q.dead) { const wy = q.y - sc0, wl = canyonW(wy, 0, w.open || 0), wr = canyonW(wy, 1, w.open || 0); q.x = Math.max(wl + 9, Math.min(W - wr - 9, q.x)); } };
-for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; if (['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo', 'bridgedef', 'dam'].includes(k)) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); for (const m of F.spawn(e, sc)) { if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
-  BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
+for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; const scene = ['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo', 'bridgedef', 'dam'].includes(k), z = scene ? sceneZoneAt(sc) : null; if (z !== null) { sc = z; world.sceneStop = z; world.scrollTarget = SCROLL * 1.6; } /* (the city's generated arena: the scene goes in the first scene zone still ahead, and the ground runs on until it is in place) */ if (scene) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); if (z === null) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } for (const m of F.spawn(e, sc)) { if (z !== null) m.keep = true; /* (placed in a zone above the screen: kept until the ground brings it down, as the Campaign arena's own targets are) */ if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
+  BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (world.sceneStop != null) return; /* (a scene in a zone ahead: its clock starts when it is in place; the stop itself is next to the scroll, in update) */ if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];
 for (const k in BOSS_FIGHT) Object.assign(BOSS[k], BOSS_FIGHT[k]);

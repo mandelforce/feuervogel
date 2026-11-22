@@ -3136,7 +3136,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes); return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3150,7 +3150,9 @@ function withPerimeter(o) {
 // Campaign's. The first unit is the Campaign's own start: line and full hangar at once. Every target is a slot marked arena (flak, fuel, parked,
 // patrol, crate, drums), which the game fills as each chunk is built. tracks (params.cityArenaTracks: x of the rail yard's tracks that run on into the
 // arena): they go on through the perimeter fence (a gap, no buffer stop) and down the whole arena; roofs stay between them, planes and crates inside them.
-function addArenaField(plan, h, tracks) {
+// scenes (params.cityArenaScenes, a land ending's day): scene zones (plan.arenaField.zones, {y0, y1}, 272 rows of bare apron with no pads), one about every
+// seven chunks from the sixth; the game lays the ending's own scene (arenaScene) in the first zone still ahead when the boss comes, and holds the scroll there.
+function addArenaField(plan, h, tracks, scenes) {
   const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
   const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
   const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
@@ -3159,7 +3161,7 @@ function addArenaField(plan, h, tracks) {
   const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L;
   const slot = (kind, x, y, r) => { if (y < L0 || y >= L) return null; const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
   for (let y = L0; y < L; y++) for (let x = 0; x < W; x++) { Kr[y * W + x] = K.APRON; Br[y * W + x] = -1; }
-  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [] }; plan.arenaField = A;
+  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [], zones: [] }; plan.arenaField = A;
   // the yard's tracks run on: from where the perimeter stopped them, the town's last three rows of rail mask repeated (as addPerimeter does) to the arena's end
   const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0;
     for (const tx of tracks) { const st = pm.stops.find(b => Math.abs((b.x0 + b.x1) / 2 - tx) <= 4); if (!st) continue; pm.stops.splice(pm.stops.indexOf(st), 1); TR.push(tx);
@@ -3172,11 +3174,14 @@ function addArenaField(plan, h, tracks) {
   // the roof's span: the Campaign's (x 36 to 187), or between the yard's tracks
   const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = Math.round((RX0 + RX1) / 2);
   const planeX = TR.length ? [RXM - 26, RXM + 26] : [62, 162], crateX = TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
-  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left)
-  for (let y = L0 + 40, k = 0; y < L - 12; y += 70 + Math.floor(R() * 11), k++) { pad(18, y, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y, k % 2 === 0 ? 'fuel' : 'flak'); }
-  // the units
-  let y = L0, first = true;
-  while (y < L - 60) { const u = { y0: y };
+  // the edge pads' rows, drawn first (the seeded draws keep their order; the pads are laid after the units, to keep them out of the scene zones)
+  const padYs = []; for (let y2 = L0 + 40; y2 < L - 12; y2 += 70 + Math.floor(R() * 11)) padYs.push(y2);
+  const layPads = () => padYs.forEach((y2, k) => { if (A.zones.some(z => y2 > z.y0 - 16 && y2 < z.y1 + 16)) return; pad(18, y2, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y2, k % 2 === 0 ? 'fuel' : 'flak'); });
+  if (!scenes) layPads(); /* (without scene zones the pads come first, as they always have: their slots keep their order) */
+  // the units (with scenes: a zone wherever the next one is due, between two units)
+  let y = L0, first = true, nextZone = L0 + 6 * 64;
+  while (y < L - 60) { if (scenes && y >= nextZone && y + 272 <= L - 40) { A.zones.push({ y0: y, y1: y + 271 }); pieces.push({ k: 'zone', y0: y, y1: y + 271 }); y += 272; nextZone = y + 150 + Math.floor(R() * 60); continue; }
+    const u = { y0: y };
     if (!first) { // the open stretch: 70 to 150 rows, one or two of its features
       const len = 70 + Math.floor(R() * 81), mid = y + Math.round(len / 2), feats = [], pick = R();
       if (pick < 0.45) feats.push('heli'); else if (pick < 0.7) feats.push('parked'); else if (pick < 0.85) feats.push('heliSide'); else feats.push('crates');
@@ -3199,6 +3204,8 @@ function addArenaField(plan, h, tracks) {
     else if (roof === 'short') { const w = Math.round((RX1 - RX0) * 0.62), sx = R() < 0.5 ? RX0 : RX1 - w + 1; hangar(sx, sx + w - 1, r0, r1); }
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
+  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left); none in a scene zone
+  if (scenes) layPads();
 }
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
