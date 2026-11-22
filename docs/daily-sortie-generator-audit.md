@@ -143,23 +143,29 @@ Not measured: Rookie and Ace; a mortal player (who does not reach every place); 
 
 ## 3b. A2 for the city: the generated airfield arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
 
-**What is built.** `CityGen` `addArenaField` (called from `withPerimeter` when `params.cityArena` is set) adds 48 chunks of airfield behind the city's perimeter fence:
-- a concrete apron, painted with the final airfield's own apron colour (`opts.apronPix`);
-- grass verges along both edges, with a gun or fuel pad every 80 rows;
-- a runway down one side of the strip;
-- on the other side, modules in a seeded order: hangar rows (a control tower with the first), a fuel farm in its berm, blast pens open towards the runway, and flak parks of sandbag rings;
-- tank patrol lanes across the apron.
+**What is built (second version, owner: "the generated versions must look like the existing boss area and allow combinations on top of it").** `CityGen` `addArenaField` (called from `withPerimeter` when `params.cityArena` is set) adds 48 chunks of the final airfield behind the city's perimeter fence. It is built from the Campaign arena's own pieces (`plan.arenaField.pieces`, plain data):
+- **Hangar roofs** with their warning stripes along the near edge;
+- **steel pads** with flak or fuel along both edges, every 70 to 80 rows, alternating as the Campaign's do;
+- the **helipad** ring with its cross;
+- the **dashed centre line** below each hangar;
+- **parked planes**, **crates and drums**, and a **tank patrolling** across.
 
-Every target is a plan slot marked `arena`. The game fills these slots as each chunk is built (`planArena`, in place of the Campaign pattern's `finalAirfield` spawns, and never read by the director's own slot code). If a fight scrolls past the 48 chunks, it goes on over the Campaign's pattern; `secOff` now starts that pattern where the plan ends, on a full hangar. The composer (`cityArena`, checked in gate 1) asks for the arena only on days whose boss fights on a plain airfield: the sky fortress, the land fortress, the rival, the Moth, the Raven and the Shadow Wing, with no sea tail and no tracks into the arena. That is **32 % of city days** (964 of 3,000 seeds). Why 48 chunks: city flights reach 12–30 chunks into the arena before the boss appears and up to 101 during the fight (sky fortress); 48 covers the run-up and most fights.
+The pieces come in seeded combinations that the Campaign's repeating 300 px pattern never makes. A unit is an open stretch followed by a roof:
+- the open stretch has one or two of: a helipad (centred or to one side), parked planes, crates, extra inner pads;
+- the roof is a full hangar, a short one, two side by side, or none.
 
-**Measured on 18 city sorties with the arena** (`gen-share.mjs --only …`, Veteran, all 18 bosses killed, no errors):
+The first unit is the Campaign's own start: the centre line and a full hangar at once. The game paints the pieces with the final airfield's own colour code (`arenaColor`, a copy of `secretColor`'s formulas for each piece at its own place and size), through a new paint hook (`opts.arenaPix`). The roofs and pads are a new ground kind, `AROOF`, typed as `roof` like the Campaign's. So the arena looks like the Campaign's; contact sheets compared side by side show it, and at the arena's end the Campaign's pattern follows on without a seam. The first version (a runway, blast pens, a fuel farm and flak parks in the city's generic airfield look, on grass verges) was replaced.
+
+Every target is a plan slot marked `arena`, with the Campaign arena's own kinds and stats. The game fills these slots as each chunk is built (`planArena`, in place of the Campaign pattern's `finalAirfield` spawns, and never read by the director's own slot code). If a fight scrolls past the 48 chunks, it goes on over the Campaign's pattern; `secOff` now starts that pattern where the plan ends, on a full hangar. The composer (`cityArena`, checked in gate 1) asks for the arena only on days whose boss fights on a plain airfield: the sky fortress, the land fortress, the rival, the Moth, the Raven and the Shadow Wing, with no sea tail and no tracks into the arena. That is **32 % of city days** (964 of 3,000 seeds). Why 48 chunks: city flights reach 12–30 chunks into the arena before the boss appears and up to 101 during the fight (sky fortress); 48 covers the run-up and most fights.
+
+**First version, measured on 18 city sorties with the arena** (`gen-share.mjs --only …`, Veteran, all 18 bosses killed, no errors):
 
 | | Before (all city days, 3a) | Arena days |
 |---|---|---|
 | Play time on generator ground | 55 % | **89 %** (the rest: 9 % fights that run past 48 chunks, 1 % start screen) |
 | Ground enemies on a plan slot | 14 % | **41 %** |
 
-**Flight gate** on the three arena dates of the next two months (2026-12-31 sky fortress, night; 2027-01-10 heavy fortress, fog; 2027-01-25 heavy fortress, elite), all three difficulties: **9 of 9 pass**, and each sortie's determinism twin flew the same. Against the previous build on the same dates, the arena makes the run-up a little harder:
+**First version, flight gate** on the three arena dates of the next two months (2026-12-31 sky fortress, night; 2027-01-10 heavy fortress, fog; 2027-01-25 heavy fortress, elite), all three difficulties: **9 of 9 pass**, and each sortie's determinism twin flew the same. Against the previous build on the same dates, the arena makes the run-up a little harder:
 - average bullets before the boss: 5 to 19 % more;
 - worst 10-second window: up to 32 % more on Rookie (37.1 against 28.1);
 - kills per minute: about the same;
@@ -169,13 +175,11 @@ One rival fight (sweep seed 14) took 9 s against 29 s before. **[read]** The riv
 
 **Other checks:** `tests/compose.mjs` (city gate 2 clean; plan p95 435 ms, was 284 ms); `tests/citysegs.mjs`; `tests/citygen.mjs` goldens; `tests/daily.mjs` 341 (the composer-version check moved to 6). `tests/kit-check.mjs` now measures the works stretch against the level's own length, because the plan runs on past it.
 
-**The rail yard ending (same build).** After the rail yard ending, the yard's two outer tracks (x 55 and 169) run on from where the perimeter stopped them. They cross the perimeter road (a level crossing) and pass through gaps in the fence, with a post either side; the yard's other tracks still end at their buffer stops. The tracks then run down all 48 chunks, and past the arena's end the game paints them on over the Campaign pattern at the same x (`S.arenaTracks`). Between the tracks the field has no runway, since 93 px leaves no room for one: the modules stand in that space. This takes the arena from **32 % to 59 % of city days**. Measured on 12 yard-arena sorties (Veteran, all bosses killed, no errors): **94 % of play time on generator ground**, and **43 % of ground enemies on slots**. Flight gate on the three yard-arena dates of December (12-06, 12-16, 12-21), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+**The rail yard ending (same build).** After the rail yard ending, the yard's two outer tracks (x 55 and 169) run on from where the perimeter stopped them. They cross the perimeter road (a level crossing) and pass through gaps in the fence, with a post either side; the yard's other tracks still end at their buffer stops. The tracks then run down all 48 chunks, and past the arena's end the game paints them on over the Campaign pattern at the same x (`S.arenaTracks`). The roofs stay between the tracks (x 67 to 157); the planes and crates stand inside them, and the helipad sits in the middle. This takes the arena from **32 % to 59 % of city days**. With the first version's layout, measured on 12 yard-arena sorties (Veteran, all bosses killed, no errors): **94 % of play time on generator ground**, and **43 % of ground enemies on slots**. Flight gate on the three yard-arena dates of December (12-06, 12-16, 12-21), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
 
 **Not done:**
-- The arena for the remaining 41 % of city days: bosses on a track (the long train and the supergun on a painted rail, the two-train yard), sea endings (a coast finale, A1), and the land endings with their own scene (gun line, column, depot, airbase, dam, bridge, silo, slipway). For the land endings, the arena scenes could become arena modules.
-- The strips between the yard's tracks and the verges are bare concrete.
-- Density: the run-up's guns could be thinned if the owner finds it harder than intended.
-- Taxi lines and markings on the apron, which is plainer than the Campaign pattern's.
+- The arena for the remaining 41 % of city days: bosses on a track (the long train and the supergun on a painted rail, the two-train yard), sea endings (a coast finale, A1), and the land endings with their own scene (gun line, column, depot, airbase, dam, bridge, silo, slipway). For the land endings, the next step is to make their scenes (`arenaScene`) arena pieces, so they combine with the airfield's pieces, as the tracks already do.
+- Past the 48 chunks on a yard day, the Campaign pattern draws its hangar under the tracks (as it always has); the generated part keeps the roofs between them.
 - Nobody has played it.
 
 ## 4. Decisions for the owner
