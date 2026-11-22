@@ -5279,7 +5279,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.53'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.54'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -18583,15 +18583,17 @@ const ASH = (() => {
     if (map !== world.chunks) { map = world.chunks; ev = ev.filter(o => o.map === map); }
     const dg = lastGf < 0 ? 0 : Math.max(0, Math.min(8, gf - lastGf)); lastGf = gf;
     const sc = Math.floor(world.scroll), vlo = Math.floor((-sc - 80) / S), vhi = Math.ceil((H - sc + 80) / S);
+    let clo = 0, chi = -1; for (const k of world.chunks.keys()) { chi = Math.max(chi, (1 - k) * MR - 1); clo = Math.min(clo, -k * MR); } // (the rows of the chunks that exist: a ring may reach past the screen)
     for (let k = ev.length - 1; k >= 0; k--) { const o = ev[k], p = Math.min(1, (gf - o.g) / o.dur);
       if (o.k === 'b') { if (o.sy !== undefined) o.y = o.sy - sc; // (the Nova's rings stay put on the screen while the ground scrolls under them)
         const rag = o.ring ? RING : RAG, cr = o.ring ? Math.min(o.r, (gf - o.g) * o.ring) : o.r * (1 - (1 - p) ** 3); // (a Nova's colour front moves out with its leading ring, at the ring's speed)
-        paint(o.x, o.y, cr, 1, o.ring ? 0 : 1, rag, (o.prev || 0) / S * rag[0] - 3, o.ylo !== undefined ? o.ylo : vlo, o.yhi !== undefined ? o.yhi : vhi); o.prev = cr; }
+        if (o.hold && p >= 1) { if (((gf - o.g) & 7) === 0) paint(o.x, o.y, o.r, 1, 0, rag, 0, clo, chi); } // (a boss's clean waits for the ground ahead: it is painted into each new chunk as it appears)
+        else { paint(o.x, o.y, cr, 1, o.ring ? 0 : 1, rag, (o.prev || 0) / S * rag[0] - 3, clo, chi); o.prev = cr; } }
       else { const r = o.r * (1 - Math.pow(p, 1.7)) / S; drain(o, r);
         if (dg) for (let n = 0; n < 7; n++) { const a = Math.random() * TAU, rr = r * S * (0.85 + Math.random() * 0.3), px = o.x + Math.cos(a) * rr, py = o.y + sc + Math.sin(a) * rr;
           if (px > -4 && px < W + 4 && py > -4 && py < H + 4) parts.push({ x: px, y: py, vx: (Math.random() - 0.5) * 0.4 - Math.cos(a) * 0.25, vy: -0.25 - Math.random() * 0.5, t: 0, life: 40 + Math.random() * 30, c: LK().flakes[Math.random() < 0.5 ? 0 : Math.random() < 0.5 ? 1 : 2] }); }
         if (p >= 1) for (let n = 0; n < 26; n++) { const a = Math.random() * TAU, v = Math.random() * 1.2; parts.push({ x: o.x, y: o.y + sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.3, t: 0, life: 50, c: LK().flakes[2] }); } }
-      if (p >= 1) ev.splice(k, 1); }
+      if (gf - o.g >= o.dur + (o.hold || 0)) ev.splice(k, 1); }
     if (dg && !lowFX && (gf >> 2) !== lastTrail) { lastTrail = gf >> 2; // the trail: the ship's fire warms the ground under it (every 4th frame)
       for (const s of [player, p2]) if (s && !s.dead && !s.out) paint(s.x, s.y - sc + 6, 10, 0.5, 0.35, false, 0, vlo, vhi); }
     if (dg) { const kh = Math.pow(0.93, dg), kf = Math.pow(0.78, dg);
@@ -18611,17 +18613,24 @@ const ASH = (() => {
     for (const l of labels) if (l.t >= 0) { ctx.globalAlpha = Math.min(1, (80 - l.t) / 20); text(l.s, Math.max(40, Math.min(W - 40, l.x)), Math.round(l.y - l.t * 0.3), LK().label, 1, 'center'); }
     ctx.globalAlpha = 1;
   }
-  const SCREEN = () => Math.hypot(W, H) + 40;
+  const SCREEN = () => Math.hypot(W, H) + 40, BLASTY = new Set(['fuel', 'drums', 'shells']);
   return {
     on, src, drawParts,
     frame() { if (on()) frame(); else { ev.length = 0; lastGf = -1; } },
-    kill(x, y, e) { const big = !!e.big, r = big ? SCREEN() : e.type === 'troop' ? 14 : e.ground ? 62 : 36; push({ k: 'b', x, y: wyOf(y), r, dur: big ? 120 : e.ground ? 46 : 30 }); },
-    nova(x, y) { const sc = Math.floor(world.scroll), r = Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 8; // the screen only, coloured by the Nova's outgoing rings (drawn with feel.bombFx: the leading one at 6 pixels a frame)
-      push({ k: 'b', x, y: wyOf(y), sy: y, r, ring: 6, dur: Math.ceil(r / 6) + 1, ylo: Math.floor(-sc / S), yhi: Math.ceil((H - sc) / S) }); },
+    kill(x, y, e) { const t = e.type, big = !!e.big; let r, dur;
+      if (t === 'boss') { r = H * 2; dur = 150; } // (the end boss: the next two screens)
+      else if (t === 'wing') { r = H * 1.5; dur = 120; } // (the mid-level mini boss: a screen and a half)
+      else if (BLASTY.has(t)) { r = 124; dur = 60; } // (explosive and flammable stores: twice the ground size)
+      else if (t === 'troop') { r = 14; dur = 30; }
+      else { const st = ENT[t] && ENT[t].stats, hp = e.maxhp || (st && (st.hp || st.fixedHp)) || 8, k = Math.max(1, Math.min(3, Math.sqrt(hp / 8))); // (the more hp, the wider: x1 up to 8 hp, x3 from 72 hp)
+        r = big ? Math.max(SCREEN(), 36 * k) : (e.ground ? 62 : 36) * k; dur = big ? 120 : e.ground ? 46 : 30; }
+      push({ k: 'b', x, y: wyOf(y), r, dur, hold: t === 'boss' || t === 'wing' ? 900 : 0 }); },
+    nova(x, y) { const r = H * 2; // two screens wide, a round front (not cut at the screen's edge), coloured by the Nova's outgoing rings (drawn with feel.bombFx: the leading one at 6 pixels a frame)
+      push({ k: 'b', x, y: wyOf(y), sy: y, r, ring: 6, dur: Math.ceil(r / 6) + 1 }); },
     pick(x, y) { push({ k: 'b', x, y: wyOf(y), r: 90, dur: 42 }); },
     die(x, y) { if (!settings.ash) return; const wy = wyOf(y), y0 = wyOf(0) - 16, y1 = wyOf(H) + 16;
       push({ k: 'd', x, y: wy, y0, y1, r: Math.hypot(Math.max(x, W - x), Math.max(wy - y0, y1 - wy)) / 0.78 + 16, dur: 96 });
-      labels.push({ x, y: y - 18, t: -30, s: 'THE ASH RETURNS' }); },
+    },
   };
 })();
 
