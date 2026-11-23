@@ -1963,7 +1963,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
           if (seaPix) { c = seaPix(x, y, false, plan.calm ? plan.calm[i] / 255 : 0); break; } // (calm: how close a harbour basin is)
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
         case K.AROOF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : C.conc[0]; break; } // the city's generated arena: a hangar roof or a pad, the host's own colours (the game's final airfield)
-        case K.APRON: { if (opts && opts.arenaPix && plan.arenaField && y >= plan.arenaField.y0) { c = opts.arenaPix(x, y); break; } /* (the generated arena's apron, helipads and centre lines: the host's own) */ if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
+        case K.APRON: { if (opts && opts.arenaPix && plan.isArena) { c = opts.arenaPix(x, y); break; } /* (the generated arena's apron, helipads and centre lines: the host's own) */ if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
         case K.TRENCH: { if (Br[i] === -61) { const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? ((x >> 1) + y) % 2 ? [150, 122, 82] : [124, 100, 66] : (x + y * 2) % 5 === 0 ? C.char[1] : C.char[0]; break; } /* (the shore's fire trench: a rim of sandbags, a dark floor) */ if (desert) { c = (x + y) % 3 === 0 ? C.trench[1] : C.trench[0]; break; } const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? C.sand[1] : C.char[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.4, x, y)]; break; } // a trench: dark, a sandbag rim
         case K.BEACH: if (Br[i] === -13) { c = hh(x, y) < 0.16 || vn(x * 0.15, y * 0.15) > 0.62 ? C.field.hedge[pickI(3, 0.5 + hh(x, y) * 0.4, x, y)] : C.sand[pickI(2, 0.45 + (vn(x * 0.25, y * 0.25) - 0.5) * 0.6, x, y)]; break; } // dunes: sand under marram grass
         { const cs = plan.coast ? plan.coast.cs : 1, j = at(x + cs, y), wet = plan.coast ? j >= 0 && Kr[j] === K.SEA : [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Kr[q] === K.SEA); /* round an island: wet on every side */ c = wet ? C.sand[0] : hh(x, y) < 0.05 ? C.field.hedge[2] : C.sand[pickI(2, 0.55 + (vn(x * 0.2, y * 0.2) - 0.5) * 0.6, x, y)]; break; } // sand, wet at the waterline, tufts of dune grass
@@ -3153,33 +3153,39 @@ function withPerimeter(o) {
 // scenes (params.cityArenaScenes, a land ending's day): scene zones (plan.arenaField.zones, {y0, y1}, 272 rows of bare apron with no pads), one about every
 // seven chunks from the sixth; the game lays the ending's own scene (arenaScene) in the first zone still ahead when the boss comes, and holds the scroll there.
 function addArenaField(plan, h, tracks, scenes) {
-  const { W } = plan, L0 = plan.L, L = L0 + h, sd = plan.seed | 0; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
-  const grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
-  const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1); plan.RM = grow(plan.RM, Uint8Array);
-  for (const key of ['U', 'D', 'mx', 'aw']) { const a = new Float32Array(L); a.set(plan[key]); a.fill(plan[key][L0 - 1], L0); plan[key] = a; }
-  plan.L = L; const RM = plan.RM, TR = [], pieces = [];
-  const inB = (x, y) => x >= 0 && x < W && y >= L0 && y < L;
-  const slot = (kind, x, y, r) => { if (y < L0 || y >= L) return null; const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: plan.slots.length, arena: true }; plan.slots.push(c); return c; };
-  for (let y = L0; y < L; y++) for (let x = 0; x < W; x++) { Kr[y * W + x] = K.APRON; Br[y * W + x] = -1; }
-  const A = { y0: L0, y1: L - 1, pieces, tracks: TR, units: [], zones: [] }; plan.arenaField = A;
-  // the yard's tracks run on: from where the perimeter stopped them, the town's last three rows of rail mask repeated (as addPerimeter does) to the arena's end
-  const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0;
+  // its own small plan (plan.arena): the town's plan is not grown or copied; the arena's rows are numbered from 0 at the town's end (arena.y0 = the town's
+  // length, so a town row is arena row + y0); pieces, slots and zones are in the arena's own rows
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.APRON), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h).fill(plan.U[L0 - 1]), D: new Float32Array(h).fill(plan.D[L0 - 1]), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true };
+  const Kr = A.K, Br = A.B, RM = A.RM, TR = A.arenaTracks, pieces = A.pieces, L = h;
+  const inB = (x, y) => x >= 0 && x < W && y >= 0 && y < L;
+  const slot = (kind, x, y, r) => { if (y < 0 || y >= L) return null; const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: A.slots.length, arena: true }; A.slots.push(c); return c; };
+  plan.arena = A; plan.arenaField = A; /* (arenaField: the same object, for the code that reads the pieces) */
+  // the yard's tracks run on: in the town, from where the perimeter stopped them to its end; in the arena, its whole length; the town's last three rows of rail mask repeated (as addPerimeter does)
+  const pm = plan.perimeter; if (tracks && tracks.length && pm) { const Lt = pm.y0, src = y => Lt - 3 + ((((y - Lt) % 3) + 3) % 3), TK = plan.K, TB = plan.B, TRM = plan.RM;
     for (const tx of tracks) { const st = pm.stops.find(b => Math.abs((b.x0 + b.x1) / 2 - tx) <= 4); if (!st) continue; pm.stops.splice(pm.stops.indexOf(st), 1); TR.push(tx);
-      const a = st.x0 + 1, b = st.x1 - 1; for (let y = st.y - 1; y < L; y++) { const src = Lt - 3 + ((((y - Lt) % 3) + 3) % 3); for (let xx = a - 2; xx <= b + 2; xx++) { if (xx < 0 || xx >= W) continue; const i = y * W + xx, m = RM[src * W + xx]; if (!m || m > 3) continue; RM[i] = m; if (Kr[i] !== K.ROAD) { Kr[i] = K.RAIL; Br[i] = -1; } } } }
+      const a = st.x0 + 1, b = st.x1 - 1;
+      for (let y = st.y - 1; y < L0 + L; y++) { const sy = src(y); for (let xx = a - 2; xx <= b + 2; xx++) { if (xx < 0 || xx >= W) continue; const m = TRM[sy * W + xx]; if (!m || m > 3) continue;
+        if (y < L0) { const i = y * W + xx; TRM[i] = m; if (TK[i] !== K.ROAD) { TK[i] = K.RAIL; TB[i] = -1; } } else { const i = (y - L0) * W + xx; RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; } } } }
     pm.railGaps = TR.slice(); plan.bufs = null; }
   const tL = TR.length ? Math.min(...TR) : null, tR = TR.length ? Math.max(...TR) : null;
-  const roofK = (x0, x1, y0, y1) => { for (let y = Math.max(L0, y0); y <= Math.min(L - 1, y1); y++) for (let x = x0; x <= x1; x++) if (inB(x, y) && Kr[y * W + x] !== K.RAIL) { Kr[y * W + x] = K.AROOF; Br[y * W + x] = -1; } };
+  const roofK = (x0, x1, y0, y1) => { for (let y = Math.max(0, y0); y <= Math.min(L - 1, y1); y++) for (let x = x0; x <= x1; x++) if (inB(x, y) && Kr[y * W + x] !== K.RAIL) { Kr[y * W + x] = K.AROOF; Br[y * W + x] = -1; } };
   const hangar = (x0, x1, y0, y1) => { pieces.push({ k: 'hangar', x0, x1, y0, y1 }); roofK(x0, x1, y0, y1); };
-  const pad = (x, y, kind) => { if (y < L0 + 4 || y > L - 5) return; pieces.push({ k: 'pad', x, y }); for (let yy = y - 12; yy <= y + 12; yy++) for (let xx = x - 12; xx <= x + 12; xx++) if (inB(xx, yy) && Math.hypot(xx - x, yy - y) < 12 && Kr[yy * W + xx] === K.APRON) Kr[yy * W + xx] = K.AROOF; slot(kind, x, y, 8); };
+  const pad = (x, y, kind) => { if (y < 4 || y > L - 5) return; pieces.push({ k: 'pad', x, y }); for (let yy = y - 12; yy <= y + 12; yy++) for (let xx = x - 12; xx <= x + 12; xx++) if (inB(xx, yy) && Math.hypot(xx - x, yy - y) < 12 && Kr[yy * W + xx] === K.APRON) Kr[yy * W + xx] = K.AROOF; slot(kind, x, y, 8); };
   // the roof's span: the Campaign's (x 36 to 187), or between the yard's tracks
   const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = Math.round((RX0 + RX1) / 2);
   const planeX = TR.length ? [RXM - 26, RXM + 26] : [62, 162], crateX = TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
-  // the edge pads' rows, drawn first (the seeded draws keep their order; the pads are laid after the units, to keep them out of the scene zones)
-  const padYs = []; for (let y2 = L0 + 40; y2 < L - 12; y2 += 70 + Math.floor(R() * 11)) padYs.push(y2);
+  // the edge pads' rows, drawn first (the seeded draws keep their order; with scene zones the pads are laid after the units, to keep them out of the zones)
+  const padYs = []; for (let y2 = 40; y2 < L - 12; y2 += 70 + Math.floor(R() * 11)) padYs.push(y2);
   const layPads = () => padYs.forEach((y2, k) => { if (A.zones.some(z => y2 > z.y0 - 16 && y2 < z.y1 + 16)) return; pad(18, y2, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y2, k % 2 === 0 ? 'fuel' : 'flak'); });
-  if (!scenes) layPads(); /* (without scene zones the pads come first, as they always have: their slots keep their order) */
+  if (!scenes) layPads(); /* (without scene zones the pads come first: their slots keep their order) */
   // the units (with scenes: a zone wherever the next one is due, between two units)
-  let y = L0, first = true, nextZone = L0 + 6 * 64;
+  let y = 0, first = true, nextZone = 6 * 64;
   while (y < L - 60) { if (scenes && y >= nextZone && y + 272 <= L - 40) { A.zones.push({ y0: y, y1: y + 271 }); pieces.push({ k: 'zone', y0: y, y1: y + 271 }); y += 272; nextZone = y + 150 + Math.floor(R() * 60); continue; }
     const u = { y0: y };
     if (!first) { // the open stretch: 70 to 150 rows, one or two of its features
@@ -3204,8 +3210,8 @@ function addArenaField(plan, h, tracks, scenes) {
     else if (roof === 'short') { const w = Math.round((RX1 - RX0) * 0.62), sx = R() < 0.5 ? RX0 : RX1 - w + 1; hangar(sx, sx + w - 1, r0, r1); }
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
-  // edge pads, every 70 to 80 rows from the arena's start, flak and fuel alternating from side to side (the Campaign's rule: idx even, a gun on the left); none in a scene zone
   if (scenes) layPads();
+  return A;
 }
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
