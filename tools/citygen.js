@@ -3136,7 +3136,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3152,7 +3152,9 @@ function withPerimeter(o) {
 // arena): they go on through the perimeter fence (a gap, no buffer stop) and down the whole arena; roofs stay between them, planes and crates inside them.
 // scenes (params.cityArenaScenes, a land ending's day): scene zones (plan.arenaField.zones, {y0, y1}, 272 rows of bare apron with no pads), one about every
 // seven chunks from the sixth; the game lays the ending's own scene (arenaScene) in the first zone still ahead when the boss comes, and holds the scroll there.
-function addArenaField(plan, h, tracks, scenes) {
+// bossTracks (params.cityArenaBossTracks: the rails a boss rides, the long train's at x 112 or the supergun's pair at 93 and 131): laid down the arena from a buffer
+// stop just behind the fence; the roofs, planes and crates take the strips beside them, and a helipad only where a strip is wide enough for its ring.
+function addArenaField(plan, h, tracks, scenes, bossTracks) {
   // its own small plan (plan.arena): the town's plan is not grown or copied; the arena's rows are numbered from 0 at the town's end (arena.y0 = the town's
   // length, so a town row is arena row + y0); pieces, slots and zones are in the arena's own rows
   const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 96000 + rk++) / 4294967296;
@@ -3173,13 +3175,20 @@ function addArenaField(plan, h, tracks, scenes) {
       for (let y = st.y - 1; y < L0 + L; y++) { const sy = src(y); for (let xx = a - 2; xx <= b + 2; xx++) { if (xx < 0 || xx >= W) continue; const m = TRM[sy * W + xx]; if (!m || m > 3) continue;
         if (y < L0) { const i = y * W + xx; TRM[i] = m; if (TK[i] !== K.ROAD) { TK[i] = K.RAIL; TB[i] = -1; } } else { const i = (y - L0) * W + xx; RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; } } } }
     pm.railGaps = TR.slice(); plan.bufs = null; }
+  // a boss's own rails: the town's track look (rails 3 px either side of the centre, sleepers every third row, ballast 6 px either side), from row 16 to the end
+  const BT = (bossTracks || []).slice(); A.bossTracks = BT;
+  for (const c of BT) for (let y = 16; y < L; y++) for (let x = c - 6; x <= c + 6; x++) { if (!inB(x, y)) continue; const i = y * W + x, m = (x === c - 3 || x === c + 3) ? 2 : (y % 3 === 0 && Math.abs(x - c) <= 5) ? 3 : 1; RM[i] = m; Kr[i] = K.RAIL; Br[i] = -1; }
+  // the strips of the roof's span (x 36 to 187) beside a boss's rails, 14 px clear of each
+  const spans = []; if (BT.length) { let a = null; for (let x = 36; x <= 188; x++) { const free = x <= 187 && !BT.some(c => Math.abs(x - c) < 14); if (free && a === null) a = x; if (!free && a !== null) { if (x - a >= 30) spans.push([a, x - 1]); a = null; } } }
+  const wide = spans.slice().sort((p, q) => (q[1] - q[0]) - (p[1] - p[0]));
   const tL = TR.length ? Math.min(...TR) : null, tR = TR.length ? Math.max(...TR) : null;
   const roofK = (x0, x1, y0, y1) => { for (let y = Math.max(0, y0); y <= Math.min(L - 1, y1); y++) for (let x = x0; x <= x1; x++) if (inB(x, y) && Kr[y * W + x] !== K.RAIL) { Kr[y * W + x] = K.AROOF; Br[y * W + x] = -1; } };
   const hangar = (x0, x1, y0, y1) => { pieces.push({ k: 'hangar', x0, x1, y0, y1 }); roofK(x0, x1, y0, y1); };
   const pad = (x, y, kind) => { if (y < 4 || y > L - 5) return; pieces.push({ k: 'pad', x, y }); for (let yy = y - 12; yy <= y + 12; yy++) for (let xx = x - 12; xx <= x + 12; xx++) if (inB(xx, yy) && Math.hypot(xx - x, yy - y) < 12 && Kr[yy * W + xx] === K.APRON) Kr[yy * W + xx] = K.AROOF; slot(kind, x, y, 8); };
   // the roof's span: the Campaign's (x 36 to 187), or between the yard's tracks
-  const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = Math.round((RX0 + RX1) / 2);
-  const planeX = TR.length ? [RXM - 26, RXM + 26] : [62, 162], crateX = TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
+  const RX0 = TR.length ? tL + 12 : 36, RX1 = TR.length ? tR - 12 : 187, RXM = BT.length ? (wide.length && wide[0][1] - wide[0][0] >= 78 ? Math.round((wide[0][0] + wide[0][1]) / 2) : null) : Math.round((RX0 + RX1) / 2); /* (RXM null: no strip takes a helipad's ring) */
+  const sc2 = sp => Math.round((sp[0] + sp[1]) / 2), planeX = BT.length ? (wide.length > 1 ? [sc2(wide[0]), sc2(wide[1])] : wide.length ? [wide[0][0] + 14, wide[0][1] - 14] : []) : TR.length ? [RXM - 26, RXM + 26] : [62, 162],
+    crateX = BT.length ? (wide.length ? [sc2(wide[0]) - 8, sc2(wide[0]), wide.length > 1 ? sc2(wide[1]) : sc2(wide[0]) + 8] : []) : TR.length ? [RXM - 34, RXM - 26, RXM + 34] : [56, 64, 168];
   // the edge pads' rows, drawn first (the seeded draws keep their order; with scene zones the pads are laid after the units, to keep them out of the zones)
   const padYs = []; for (let y2 = 40; y2 < L - 12; y2 += 70 + Math.floor(R() * 11)) padYs.push(y2);
   const layPads = () => padYs.forEach((y2, k) => { if (A.zones.some(z => y2 > z.y0 - 16 && y2 < z.y1 + 16)) return; pad(18, y2, k % 2 === 0 ? 'flak' : 'fuel'); pad(206, y2, k % 2 === 0 ? 'fuel' : 'flak'); });
@@ -3193,20 +3202,21 @@ function addArenaField(plan, h, tracks, scenes) {
       if (pick < 0.45) feats.push('heli'); else if (pick < 0.7) feats.push('parked'); else if (pick < 0.85) feats.push('heliSide'); else feats.push('crates');
       if (R() < 0.4) feats.push(feats[0] === 'crates' ? 'parked' : 'crates'); if (!TR.length && feats[0] !== 'heli' && feats[0] !== 'heliSide' && R() < 0.45) feats.push('innerPads'); /* (extra pads only beside planes or crates: never on a helipad's ring) */
       for (const f of feats) {
-        if (f === 'heli' && len >= 84) pieces.push({ k: 'heli', x: RXM, y: mid });
-        else if (f === 'heliSide' && len >= 84) { const sx = R() < 0.5 ? -1 : 1; pieces.push({ k: 'heli', x: RXM + sx * (TR.length ? 0 : 38), y: mid }); }
+        if (f === 'heli' && len >= 84) { if (RXM !== null) pieces.push({ k: 'heli', x: RXM, y: mid }); }
+        else if (f === 'heliSide' && len >= 84) { const sx = R() < 0.5 ? -1 : 1; if (RXM !== null) pieces.push({ k: 'heli', x: RXM + sx * (TR.length || BT.length ? 0 : 38), y: mid }); }
         else if (f === 'parked') for (const x of planeX) slot('parked', x, f === feats[0] ? mid : mid + 24, 8);
-        else if (f === 'crates') { const yc = y + 14; slot('crate', crateX[0], yc, 5); slot('drums', crateX[1], yc + 9, 5); slot('crate', crateX[2], yc, 5); }
-        else if (f === 'innerPads') { pad(60, mid - 20, 'fuel'); pad(164, mid + 20, 'flak'); } }
+        else if (f === 'crates') { if (crateX.length) { const yc = y + 14; slot('crate', crateX[0], yc, 5); slot('drums', crateX[1], yc + 9, 5); slot('crate', crateX[2], yc, 5); } }
+        else if (f === 'innerPads') { if (!BT.length) { pad(60, mid - 20, 'fuel'); pad(164, mid + 20, 'flak'); } } }
       u.open = feats; y += len; }
     // the centre line (38 rows) and the roof above it
     const roofs = first ? ['full'] : ['full', 'full', 'short', 'twin', 'none'], roof = first ? 'full' : roofs[Math.floor(R() * roofs.length)];
     const lineLen = 38, hl = roof === 'short' ? 70 + Math.floor(R() * 21) : 110 + Math.floor(R() * 31);
     if (roof === 'none') { if (R() < 0.55) slot('patrol', W / 2, y + 20, 6); y += 40; u.roof = 'none'; A.units.push(u); first = false; continue; }
     if (y + lineLen + hl > L - 4) break;
-    pieces.push({ k: 'line', x: RXM, y0: y, y1: y + lineLen - 1 }); if (R() < 0.55) slot('patrol', W / 2, y + 20, 6);
+    if (RXM !== null && !BT.some(c => Math.abs(RXM - c) < 10)) pieces.push({ k: 'line', x: RXM, y0: y, y1: y + lineLen - 1 }); if (R() < 0.55) slot('patrol', W / 2, y + 20, 6);
     const r0 = y + lineLen, r1 = r0 + hl - 1;
-    if (roof === 'twin' && !TR.length) { const h2 = hl - Math.floor(R() * 30); hangar(36, 107, r0, r1); hangar(116, 187, r0, r0 + h2 - 1); }
+    if (BT.length) { /* (a boss's rails: a roof in each strip beside them; short: only the widest; twin: the second one shorter) */ const h2 = roof === 'twin' ? hl - Math.floor(R() * 30) : hl; (roof === 'short' ? wide.slice(0, 1) : spans).forEach((sp, k) => hangar(sp[0], sp[1], r0, k && roof === 'twin' ? r0 + h2 - 1 : r1)); }
+    else if (roof === 'twin' && !TR.length) { const h2 = hl - Math.floor(R() * 30); hangar(36, 107, r0, r1); hangar(116, 187, r0, r0 + h2 - 1); }
     else if (roof === 'short') { const w = Math.round((RX1 - RX0) * 0.62), sx = R() < 0.5 ? RX0 : RX1 - w + 1; hangar(sx, sx + w - 1, r0, r1); }
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
