@@ -545,10 +545,10 @@ body[data-results="1"] #bombBtn{display:none !important}
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46 };
 const SPOIL_SAND = ['#8a7046', '#9a7e52', '#aa8e5e', '#b89b6a', '#c4a876'].map(h => [1, 3, 5].map(o => parseInt(h.slice(o, o + 2), 16))); /* (dug sand on the temperate shore's trench) */
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -2350,6 +2350,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      else if (plan.sea && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.SEA ? [40, 84, 124] : k === K.SURF ? [220, 228, 232] : k === K.BEACH ? [214, 196, 150] : [96, 130, 70]; /* the city's sea ending: every pixel the host's own (its grass, sand, surf and sea); a plain stand-in without a host */
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
           if (b.round) { c = roundPix(b, x, y); break; }
@@ -2486,6 +2487,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
           const jh = plan.coast.yC !== null ? at(x, y - plan.coast.hd) : -1; if (d < 1.5 && ((j >= 0 && Kr[j] === K.BEACH) || (jh >= 0 && Kr[jh] === K.BEACH))) { c = C.foam; break; } if (d < 3.5 && j >= 0 && hh(x, y >> 1) < 0.4) { c = C.sea[5]; break; } // the surf on the beach
           if (seaPix) { c = seaPix(x, y, false, plan.calm ? plan.calm[i] / 255 : 0); break; } // (calm: how close a harbour basin is)
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
+        case K.SURF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : [220, 228, 232]; break; } // the city's sea ending: the surf (the host's own)
         case K.AROOF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : C.conc[0]; break; } // the city's generated arena: a hangar roof or a pad, the host's own colours (the game's final airfield)
         case K.APRON: { if (opts && opts.arenaPix && plan.isArena) { c = opts.arenaPix(x, y); break; } /* (the generated arena's apron, helipads and centre lines: the host's own) */ if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
         case K.TRENCH: { if (Br[i] === -61) { const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? ((x >> 1) + y) % 2 ? [150, 122, 82] : [124, 100, 66] : (x + y * 2) % 5 === 0 ? C.char[1] : C.char[0]; break; } /* (the shore's fire trench: a rim of sandbags, a dark floor) */ if (desert) { c = (x + y) % 3 === 0 ? C.trench[1] : C.trench[0]; break; } const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? C.sand[1] : C.char[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.4, x, y)]; break; } // a trench: dark, a sandbag rim
@@ -3660,7 +3662,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3745,6 +3747,34 @@ function addArenaField(plan, h, tracks, scenes, bossTracks) {
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
   if (scenes) layPads();
+  return A;
+}
+// The city's sea ending (params.cityArena with params.cityArenaSea: the ship, the wolfpack, the squadron, the ghost ship, the slipway), generated as its own small
+// plan after the town as addArenaField's is: the coast of the Campaign's legacy coast_down chunk (grass, a band of sand with its tank traps, the surf, then the open
+// sea), so the host paints it with its own colours (opts.arenaPix, every kind), on a shoreline of the day's own (its height, its swell, the beach's width) and with
+// the day's beach defences (bunkers on the sand, flak behind it: slots marked arena). arena.coast[x]: the coastline's row (the sand's seaward edge); the surf is the
+// 5 rows above it, the sea beyond. The open sea runs to the plan's end, where the Campaign's open sea goes on.
+function addSeaArena(plan, h) {
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 97700 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.SEA), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h), D: new Float32Array(h), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true, sea: true };
+  plan.arena = A; plan.arenaField = A;
+  const slot = (kind, x, y, r) => { const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: A.slots.length, arena: true }; A.slots.push(c); return c; };
+  // the coastline, as the Campaign's (a mean of about 32 rows into its chunk, a slow swell of up to 13 rows either way, a short ripple), with the day's own mean, swell and sand
+  const base = 26 + Math.floor(R() * 8), amp = 16 + Math.floor(R() * 14), fr = 0.035 + R() * 0.02, ph = R() * 6.283, sand = 10 + Math.floor(R() * 5); R();
+  const coast = A.coast = new Int16Array(W);
+  const nk = h32(sd, 97790), n1 = (tag, t) => { const i = Math.floor(t), f = t - i, a = h32(tag, i) / 4294967296, b = h32(tag, i + 1) / 4294967296; return a + (b - a) * f * f * (3 - 2 * f); };
+  for (let x = 0; x < W; x++) coast[x] = Math.max(sand + 8, Math.round(base + (n1(nk, x * fr * 1.2) - 0.5) * amp * 1.3 + (n1(nk + 1, x * 0.21) - 0.5) * 5 + Math.sin(x * 0.09 + ph) * 3)); /* (never nearer the fence than the sand and a strip of grass) */ /* (a ragged line, as the Campaign's coastLine: slow noise, a fine ripple) */
+  for (let x = 0; x < W; x++) for (let y = 0; y < Math.min(h, coast[x] + 6); y++) { const d = coast[x] - y; A.K[y * W + x] = d < 0 ? K.SURF : d < sand ? K.BEACH : K.MEADOW; }
+  // the beach's defences: two to four bunkers on the sand, facing the sea, and up to three flak guns on the grass behind it, spread across the strip
+  const nb = 2 + Math.floor(R() * 3), nf = Math.floor(R() * 4);
+  for (let k = 0; k < nb; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / nb); slot('bunker', x, coast[x] - Math.round(sand / 2), 6); }
+  for (let k = 0; k < nf; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / Math.max(1, nf)); const y = coast[x] - sand - 10; if (y >= 8) slot('flak', x, y, 8); }
+  A.units.push({ coast: { base, amp, sand }, bunkers: nb, flak: nf });
   return A;
 }
 function addPerimeter(plan, h) {
@@ -5042,7 +5072,7 @@ const KITS = {
     openers: [[['open_sea', 5], ['harbour_south', 14]], [['open_sea', 5], ['harbour_dock', 14]]], openerShare: 0.35, // the harbour is the plain south harbour, or in 35 % of the days the dockyard (the side harbour's shipyard: slipways with hulls on them under gantries, the piers on the first half of the side)
     approaches: [[['station_main', 6]], [['rail_yard', 7]]], approachShare: 0.35, // the level ends in the main station, or in 35 % of the days in a marshalling yard (the rail city: tracks that run on into the arena, level 3's yard)
     gapBefore: { rail_yard: { city_centre: 14 } }, // (the yard narrows the strip for 640 px before it: with the city centre within about 800 px of it the market square was lost in 8 of 40 lists: at least 14 chunks between the centre and the yard)
-    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'] }, // (tracks: the bosses on a rail of their own, laid down the arena) // (scenes: the land endings, whose own scene the game lays in one of the arena's scene zones) // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield, the land endings (their scene in a zone of it) and the bosses on a rail of their own (laid down it); after the rail yard ending its tracks run on through it; a sea ending and the two-train yard keep the Campaign's arena
+    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'] }, // (tracks: the bosses on a rail of their own, laid down the arena; sea: the sea endings, whose coast and open sea are the arena, from the level's sea tail on) // (scenes: the land endings, whose own scene the game lays in one of the arena's scene zones) // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield, the land endings (their scene in a zone of it) and the bosses on a rail of their own (laid down it); after the rail yard ending its tracks run on through it; a sea ending and the two-train yard keep the Campaign's arena
     arenaTracks: { rail_yard: [55, 169] }, // the yard's two outer tracks (the generator's yard has them at x 55 and 169), painted on through the arena
     middle: {
       city_suburb: { len: [5, 8], max: 2, heat: 0.3, built: 0.9 },
@@ -5156,7 +5186,7 @@ function check(kitId, S) {
   const all = S.segs || [], segs0 = all.filter(g => !g.legacy && !g.main), IV = kit.islandOpen && kit.islandOpen.variants.find(v => v.every((q, k) => segs0[k] && segs0[k].t === q[0] && segs0[k].n === q[1])) || [], segs = segs0.slice(IV.length), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
-  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail ? [1] : null), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); if (!!gp.cityArenaScenes !== (!!want && cityArenaScenes(kit, S.bossVar))) bad.push('the arena\'s scene zones do not match the boss'); if (String(gp.cityArenaBossTracks || '') !== String(want && S.bossVar && S.bossVar.track !== undefined ? [].concat(S.bossVar.track) : '')) bad.push('the arena\'s boss rails do not match the boss'); }
+  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail | 0), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); if (!!gp.cityArenaScenes !== (!!want && cityArenaScenes(kit, S.bossVar))) bad.push('the arena\'s scene zones do not match the boss'); if (!!gp.cityArenaSea !== (!!want && !!(S.bossVar && S.bossVar.sea))) bad.push('the arena\'s sea does not match the ending'); if (String(gp.cityArenaBossTracks || '') !== String(want && S.bossVar && S.bossVar.track !== undefined ? [].concat(S.bossVar.track) : '')) bad.push('the arena\'s boss rails do not match the boss'); }
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL, !(kit.legacy && tail.some(g => kit.legacy.middle[g.t])))); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; }); { const gt = mainL.find(g => g.t === 'main_gate'); if (gt && (!tail.length || gt.next !== tail[0].t)) bad.push('the gate is for ' + gt.next + ', the ground after it is ' + (tail[0] && tail[0].t)); if (gt && mainL[mainL.length - 1] !== gt) bad.push('the gate is not the last mainland stretch'); }
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
@@ -5292,7 +5322,7 @@ function mainWalk(kit, base, cove) {
 }
 /* The city's generated arena: on a day whose boss fights on a plain airfield, with no sea tail and no boss on a track (the long train, the supergun, the two-train yard). With the rail yard ending
    the yard's tracks run on through it (cityArenaTracks). */
-function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (!A || tail || !bs || !(A.kinds.includes(bs.kind) || (A.scenes || []).includes(bs.kind) || (bs.track && (A.tracks || []).includes(bs.kind))) || (bs.track && !(A.tracks || []).includes(bs.kind)) || bs.yard || bs.sea) return 0; return A.n; }
+function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (A && bs && bs.sea && (A.sea || []).includes(bs.kind) && tail > 0) return A.n + tail; /* (a sea ending: the arena is the level's sea tail and 48 chunks beyond it) */ if (!A || tail || !bs || !(A.kinds.includes(bs.kind) || (A.scenes || []).includes(bs.kind) || (bs.track && (A.tracks || []).includes(bs.kind))) || (bs.track && !(A.tracks || []).includes(bs.kind)) || bs.yard || bs.sea) return 0; return A.n; }
 function cityArenaScenes(kit, bs) { return !!(kit.cityArena && bs && (kit.cityArena.scenes || []).includes(bs.kind)); } /* (a land ending: scene zones in the arena) */
 function cityArenaTracks(kit, ap) { return kit.arenaTracks && kit.arenaTracks[ap[0][0]] ? kit.arenaTracks[ap[0][0]].slice() : null; }
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
@@ -5309,7 +5339,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const cityArena = cityArenaFor(kit, bs, tail); if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
+    const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0); if (cityArena && bs.sea) { params.cityArena = cityArena; params.cityArenaSea = true; } else if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
@@ -8893,6 +8923,7 @@ function secretColor(wx, wy) {
 const ARENA_C = { stripe: hexRGB('#d8b020'), dark: hexRGB('#16141a'), ringD: hexRGB('#1e1c22'), cross: hexRGB('#d8d6cc') };
 function arenaColor(S, x, y) {
   const A = S.plan.arena, wx = x, wy = S.planY0 - (y + A.y0); /* (y: a row of the arena's own plan) */
+  if (A.sea) return seaArenaColor(S, A, x, y, wx, wy);
   if (!S.arenaIdx) { const ix = S.arenaIdx = new Map(), put = (k, q) => { let a = ix.get(k); if (!a) ix.set(k, a = []); a.push(q); };
     for (const q of A.pieces) { const lo = q.k === 'pad' ? q.y - 14 : q.k === 'heli' ? q.y - 39 : q.y0, hi = q.k === 'pad' ? q.y + 14 : q.k === 'heli' ? q.y + 39 : q.y1; for (let b = lo >> 5; b <= hi >> 5; b++) put(b, q); } }
   for (const q of S.arenaIdx.get(y >> 5) || []) {
@@ -8904,6 +8935,17 @@ function arenaColor(S, x, y) {
     if (q.k === 'heli') { const dx = wx - q.x, dm = wy - (S.planY0 - (q.y + A.y0)), pr = Math.hypot(dx, dm); if (pr > 33 && pr < 38) return ((Math.atan2(dm, dx) * 6 / PI + 12) | 0) % 2 ? ARENA_C.stripe : ARENA_C.ringD; if (pr < 30 && (Math.abs(dx) < 1.2 || Math.abs(dm) < 1.2)) return ARENA_C.cross; continue; }
     if (q.k === 'line') { if (y < q.y0 || y > q.y1 || Math.abs(wx - q.x) >= 1) continue; const m = (q.y1 - y) + 150; if ((m >> 2) % 2) return ARENA_C.stripe; continue; } }
   return secretApron(wx, wy);
+}
+// The city's generated sea ending (CityGen addSeaArena): grass, sand, surf and sea in the Campaign's own colours, as its legacy coast_down chunk and open sea paint
+// them (pixelColor's cases), the sea lit near the coastline as there (coastD: rows above the arena's coastline)
+function seaArenaColor(S, A, x, y, wx, wy) {
+  const k = A.K[y * A.W + x], K = CityGen.K, T = themeRGB(S.theme);
+  if (k === K.MEADOW) return T.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
+  if (k === K.BEACH) return T.sand[pickI(5, 0.5 + (vnoise(wx * 0.15, wy * 0.15) - 0.5) * 0.5 + Math.sin(wy * 0.7 + wx * 0.12) * 0.08, wx, wy)];
+  if (k === K.SURF) return T.surf[pickI(3, 0.45 + Math.sin(wx * 0.3 + wy * 0.5) * 0.25 + (hash(wx, wy) - 0.5) * 0.3, wx, wy)];
+  const n = vnoise(wx * 0.035, wy * 0.05), wv = Math.sin(wx * 0.19 + wy * 0.11 + n * 8) * 0.5 + 0.5, coastD = y - A.coast[x];
+  let l = 0.12 + n * 0.42 + wv * 0.18; if (coastD < 99) l += clamp((40 - coastD) / 40, 0, 1) ** 1.5 * 0.55;
+  return T.sea[pickI(7, l, wx, wy)];
 }
 // The final airfield's concrete apron (also the apron of an Enigma Run settlement plan's airfield perimeter, so the two meet without a seam)
 function secretApron(wx, wy) {
@@ -9454,7 +9496,7 @@ function houseAt(ci, cj) {
   houseCache.set(key, r); return r;
 }
 function drawFeatures(x, p, wy0) {
-  if (info(p).plan) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees
+  if (info(p).plan && !(run.sortie && run.sortie.plan && run.sortie.plan.arena && run.sortie.plan.arena.sea && -p * CH <= run.sortie.planY0 - run.sortie.plan.L)) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees (the city's generated sea ending paints none: its tank traps, scars and the rest are the Campaign's coast's own, drawn here)
   const y0 = wy0 - 16, y1 = wy0 + CH + 16;
   const TL = x.canvas.trees = []; // the trees this chunk really paints into its ground, kept on the chunk: what draws over a unit hiding under one (drawCanopy) is exactly what is already here
   const plant = (s, tx, ty, av) => { stamp(x, s, tx, ty - wy0); TL.push({ s, x: tx, y: ty, av }); };
@@ -14090,6 +14132,7 @@ function planArena(p) {
     else if (sl.kind === 'fuel') world.enemies.push(G('fuel', sl.x, y, K({})));
     else if (sl.kind === 'parked') world.enemies.push(G('parked', sl.x, y, K({ hd: PI / 2 })));
     else if (sl.kind === 'aatower') world.enemies.push(G('aatower', sl.x, y - 8, K({ cd: 60 })));
+    else if (sl.kind === 'bunker') world.enemies.push(G('bunker', sl.x, y, K({ ga: PI / 2, cd: rnd(60, 120) | 0 })));
     else if (sl.kind === 'crate' || sl.kind === 'drums') world.enemies.push(G(sl.kind, sl.x, y, K({ hp: 3 * hpm(), hw: 4, hh: 4, score: 150, rad: 6 })));
     else if (sl.kind === 'patrol') world.enemies.push(G('tank', 60, y, tankStats(K({ road: false, hd: 0, v: 0.25, patrol: [[46, y], [178, y]], pi: 1 })))); }
 }
@@ -14111,7 +14154,7 @@ function finalAirfield(p) {
   }
 }
 function worldLife(p) {
-  yardProps(p); finalAirfield(p);
+  yardProps(p); finalAirfield(p); { const S = run.sortie, A = S && S.plan && S.plan.arena; if (A && A.sea && info(p).plan) planArena(p); } /* (the city's generated sea ending: its beach defences) */
   const I = info(p), wy0 = -p * CH, th = I.th, b = I.b;
   const spot = (types, tries = 14) => { for (let k = 0; k < tries; k++) { const x = rnd(16, W - 16), y = wy0 + rnd(8, CH - 8); if (types.includes(terrainType(x, y)) && Math.abs(x - roadX(y)) > 14 && railDist(x, y) > 12 && !inFarm(x, y, 6) && !inTent(x, y) && !waterIn(x - 12, y - 8, x + 12, y + 8, 4)) return [x, y]; } return null; };
   const herd = (kind, n, types) => { const s0 = spot(types); if (!s0 || (th === 0 && !isMeadow(s0[0], s0[1])) || critterBlocked(s0[0], s0[1])) return; const hv = (Math.random() * 3) | 0, free = Math.random() < 0.5; for (let i = 0; i < n; i++) { const ax = s0[0] + rnd(-8, 8), ay = s0[1] + rnd(-5, 5); if (critterBlocked(ax, ay) || (th === 0 && !isMeadow(ax, ay))) continue; critters.push({ kind, free, wx: ax, wy: ay, home: s0, t: (Math.random() * 80) | 0, vx: 0, vy: 0, fl: Math.random() < 0.5, var: kind === 'horse' ? (Math.random() < 0.6 ? hv : (Math.random() * 3) | 0) : 0 }); } };

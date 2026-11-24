@@ -21,10 +21,10 @@
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46 };
 const SPOIL_SAND = ['#8a7046', '#9a7e52', '#aa8e5e', '#b89b6a', '#c4a876'].map(h => [1, 3, 5].map(o => parseInt(h.slice(o, o + 2), 16))); /* (dug sand on the temperate shore's trench) */
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -1826,6 +1826,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      else if (plan.sea && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.SEA ? [40, 84, 124] : k === K.SURF ? [220, 228, 232] : k === K.BEACH ? [214, 196, 150] : [96, 130, 70]; /* the city's sea ending: every pixel the host's own (its grass, sand, surf and sea); a plain stand-in without a host */
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
           if (b.round) { c = roundPix(b, x, y); break; }
@@ -1962,6 +1963,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
           const jh = plan.coast.yC !== null ? at(x, y - plan.coast.hd) : -1; if (d < 1.5 && ((j >= 0 && Kr[j] === K.BEACH) || (jh >= 0 && Kr[jh] === K.BEACH))) { c = C.foam; break; } if (d < 3.5 && j >= 0 && hh(x, y >> 1) < 0.4) { c = C.sea[5]; break; } // the surf on the beach
           if (seaPix) { c = seaPix(x, y, false, plan.calm ? plan.calm[i] / 255 : 0); break; } // (calm: how close a harbour basin is)
           c = C.sea[pickI(6, 0.62 - Math.min(d, 70) * 0.006 + Math.sin(x * 0.21 + y * 0.13 + Math.sin(y * 0.05) * 2) * 0.07 + (vn(x * 0.05, y * 0.04) - 0.5) * 0.18, x, y)]; break; } // deeper away from the shore, long swells
+        case K.SURF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : [220, 228, 232]; break; } // the city's sea ending: the surf (the host's own)
         case K.AROOF: { c = opts && opts.arenaPix ? opts.arenaPix(x, y) : C.conc[0]; break; } // the city's generated arena: a hangar roof or a pad, the host's own colours (the game's final airfield)
         case K.APRON: { if (opts && opts.arenaPix && plan.isArena) { c = opts.arenaPix(x, y); break; } /* (the generated arena's apron, helipads and centre lines: the host's own) */ if (desert && plan.airbase && plan.airbase.desert) { c = [[210, 188, 142], [220, 198, 154]][(hh(x, y) * 2) | 0]; break; } if (desert && plan.pits) { c = C.conc[pickI(4, 0.6 + (hh(x, y) - 0.5) * 0.3, x, y)]; break; } if (opts && opts.apronPix) { c = opts.apronPix(x, y); break; } let l = 0.58 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.25; if ((x - 4) % 24 === 0 || y % 24 === 0) l -= 0.3; if (vn(x * 0.05 + 70, y * 0.05) > 0.72) l -= 0.15; c = C.conc[pickI(4, l, x, y)]; break; } // an airfield's concrete apron (as the game's final airfield)
         case K.TRENCH: { if (Br[i] === -61) { const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? ((x >> 1) + y) % 2 ? [150, 122, 82] : [124, 100, 66] : (x + y * 2) % 5 === 0 ? C.char[1] : C.char[0]; break; } /* (the shore's fire trench: a rim of sandbags, a dark floor) */ if (desert) { c = (x + y) % 3 === 0 ? C.trench[1] : C.trench[0]; break; } const rim = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(j => j >= 0 && Kr[j] !== K.TRENCH); c = rim ? C.sand[1] : C.char[pickI(3, 0.5 + (hh(x, y) - 0.5) * 0.4, x, y)]; break; } // a trench: dark, a sandbag rim
@@ -3136,7 +3138,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3221,6 +3223,34 @@ function addArenaField(plan, h, tracks, scenes, bossTracks) {
     else hangar(RX0, RX1, r0, r1);
     u.roof = roof; u.y1 = r1; A.units.push(u); y = r1 + 1; first = false; }
   if (scenes) layPads();
+  return A;
+}
+// The city's sea ending (params.cityArena with params.cityArenaSea: the ship, the wolfpack, the squadron, the ghost ship, the slipway), generated as its own small
+// plan after the town as addArenaField's is: the coast of the Campaign's legacy coast_down chunk (grass, a band of sand with its tank traps, the surf, then the open
+// sea), so the host paints it with its own colours (opts.arenaPix, every kind), on a shoreline of the day's own (its height, its swell, the beach's width) and with
+// the day's beach defences (bunkers on the sand, flak behind it: slots marked arena). arena.coast[x]: the coastline's row (the sand's seaward edge); the surf is the
+// 5 rows above it, the sea beyond. The open sea runs to the plan's end, where the Campaign's open sea goes on.
+function addSeaArena(plan, h) {
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 97700 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.SEA), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h), D: new Float32Array(h), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true, sea: true };
+  plan.arena = A; plan.arenaField = A;
+  const slot = (kind, x, y, r) => { const c = { kind, on: 'arena', x: Math.round(x), y: Math.round(y), r, id: A.slots.length, arena: true }; A.slots.push(c); return c; };
+  // the coastline, as the Campaign's (a mean of about 32 rows into its chunk, a slow swell of up to 13 rows either way, a short ripple), with the day's own mean, swell and sand
+  const base = 26 + Math.floor(R() * 8), amp = 16 + Math.floor(R() * 14), fr = 0.035 + R() * 0.02, ph = R() * 6.283, sand = 10 + Math.floor(R() * 5); R();
+  const coast = A.coast = new Int16Array(W);
+  const nk = h32(sd, 97790), n1 = (tag, t) => { const i = Math.floor(t), f = t - i, a = h32(tag, i) / 4294967296, b = h32(tag, i + 1) / 4294967296; return a + (b - a) * f * f * (3 - 2 * f); };
+  for (let x = 0; x < W; x++) coast[x] = Math.max(sand + 8, Math.round(base + (n1(nk, x * fr * 1.2) - 0.5) * amp * 1.3 + (n1(nk + 1, x * 0.21) - 0.5) * 5 + Math.sin(x * 0.09 + ph) * 3)); /* (never nearer the fence than the sand and a strip of grass) */ /* (a ragged line, as the Campaign's coastLine: slow noise, a fine ripple) */
+  for (let x = 0; x < W; x++) for (let y = 0; y < Math.min(h, coast[x] + 6); y++) { const d = coast[x] - y; A.K[y * W + x] = d < 0 ? K.SURF : d < sand ? K.BEACH : K.MEADOW; }
+  // the beach's defences: two to four bunkers on the sand, facing the sea, and up to three flak guns on the grass behind it, spread across the strip
+  const nb = 2 + Math.floor(R() * 3), nf = Math.floor(R() * 4);
+  for (let k = 0; k < nb; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / nb); slot('bunker', x, coast[x] - Math.round(sand / 2), 6); }
+  for (let k = 0; k < nf; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / Math.max(1, nf)); const y = coast[x] - sand - 10; if (y >= 8) slot('flak', x, y, 8); }
+  A.units.push({ coast: { base, amp, sand }, bunkers: nb, flak: nf });
   return A;
 }
 function addPerimeter(plan, h) {
