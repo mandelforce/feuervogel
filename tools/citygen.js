@@ -21,10 +21,10 @@
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46, RYARD: 47 };
 const SPOIL_SAND = ['#8a7046', '#9a7e52', '#aa8e5e', '#b89b6a', '#c4a876'].map(h => [1, 3, 5].map(o => parseInt(h.slice(o, o + 2), 16))); /* (dug sand on the temperate shore's trench) */
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf', 'ryard'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -1826,6 +1826,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      else if (plan.yardA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : (x % 26 === 15 || x % 26 === 21) ? [150, 150, 160] : [96, 90, 84]; /* the city's two-train yard: the host's own yard ground; a plain stand-in without a host */
       else if (plan.sea && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.SEA ? [40, 84, 124] : k === K.SURF ? [220, 228, 232] : k === K.BEACH ? [214, 196, 150] : [96, 130, 70]; /* the city's sea ending: every pixel the host's own (its grass, sand, surf and sea); a plain stand-in without a host */
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
@@ -3138,7 +3139,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else if (P0.cityArenaYard) addYardArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3251,6 +3252,26 @@ function addSeaArena(plan, h) {
   for (let k = 0; k < nb; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / nb); slot('bunker', x, coast[x] - Math.round(sand / 2), 6); }
   for (let k = 0; k < nf; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / Math.max(1, nf)); const y = coast[x] - sand - 10; if (y >= 8) slot('flak', x, y, 8); }
   A.units.push({ coast: { base, amp, sand }, bunkers: nb, flak: nf });
+  return A;
+}
+// The city's two-train yard (params.cityArena with params.cityArenaYard: the Campaign's two-train boss on a yard of eight tracks), generated as its own small plan
+// after the town: every pixel the host's rail yard ground (kind RYARD, typed 'ryard' as the Campaign's; opts.arenaPix: the game's yard painter), in the day's own
+// layout (arena.yardLayout): the platforms in two or three of the gaps the trains never use (0, 1, 5, 6: the crossovers take 2 to 4), a signal gantry every 160 to 240
+// rows, and the six crossovers (from a track to its neighbour and back, for the boss trains on tracks 3 and 5) in the day's own order. The game reads the layout
+// for the painter, for the crossovers the trains follow and for the Campaign's yard beyond the arena, so all three agree.
+function addYardArena(plan, h) {
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 98300 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.RYARD), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h), D: new Float32Array(h), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true, yardA: true };
+  plan.arena = A; plan.arenaField = A;
+  const PLATS = [[1, 5], [0, 5], [1, 6], [0, 6], [0, 1, 5], [1, 5, 6], [0, 1, 6], [0, 5, 6]], plats = PLATS[Math.floor(R() * PLATS.length)].slice();
+  const gantP = [160, 200, 240][Math.floor(R() * 3)], seq = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
+  for (let i = seq.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [seq[i], seq[j]] = [seq[j], seq[i]]; }
+  A.yardLayout = { plats, gantP, seq }; /* (not .yard: that is a town's marshalling yard, which the painter dresses with wagons) */
   return A;
 }
 function addPerimeter(plan, h) {

@@ -545,10 +545,10 @@ body[data-results="1"] #bombBtn{display:none !important}
 'use strict';
 
 // ---------- pixel kinds (one per raster cell) ----------
-const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46 };
+const K = { NONE: 0, ROAD: 1, STREET: 2, WALK: 3, BLDG: 4, PLAZA: 5, FRONT: 6, GARDEN: 7, COURT: 8, PARK: 9, LOT: 10, CHYARD: 11, FIELD: 12, MEADOW: 13, RUBBLE: 14, WATER: 15, ORCHARD: 16, RIVER: 17, BRIDGE: 18, QUAY: 19, BANK: 20, TRACK: 21, WORKS: 22, RAIL: 23, RBRIDGE: 24, SEA: 25, BEACH: 26, TRENCH: 27, APRON: 28, ROCK: 29, RUNWAY: 30, DESERT: 31, SPOIL: 32, DITCH: 33, OASIS: 34, CLIFF: 35, WADI: 36, RAVINE: 37, BERM: 38, TURF: 39, WOOD: 40, CRAG: 41, LEDGE: 42, ICE: 43, SLOPE: 44, AROOF: 45, SURF: 46, RYARD: 47 };
 const SPOIL_SAND = ['#8a7046', '#9a7e52', '#aa8e5e', '#b89b6a', '#c4a876'].map(h => [1, 3, 5].map(o => parseInt(h.slice(o, o + 2), 16))); /* (dug sand on the temperate shore's trench) */
 // what the game's placement and spawn code calls each kind (its terrain-type vocabulary)
-const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf'];
+const TT = ['field', 'road', 'street', 'street', 'roof', 'yard', 'yard', 'grass', 'yard', 'park', 'yard', 'grass', 'field', 'grass', 'rubble', 'river', 'grass', 'river', 'bridge', 'street', 'sand', 'field', 'yard', 'rail', 'railbridge', 'sea', 'sand', 'mud', 'apron', 'sand', 'concrete', 'sand', 'sand', 'mud', 'grass', 'rock', 'sand', 'ravine', 'mud', 'grass', 'forest', 'rock', 'grass', 'ice', 'rock', 'roof', 'surf', 'ryard'];
 const KIND_NAMES = Object.keys(K);
 
 // ---------- presets ----------
@@ -2350,6 +2350,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      else if (plan.yardA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : (x % 26 === 15 || x % 26 === 21) ? [150, 150, 160] : [96, 90, 84]; /* the city's two-train yard: the host's own yard ground; a plain stand-in without a host */
       else if (plan.sea && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.SEA ? [40, 84, 124] : k === K.SURF ? [220, 228, 232] : k === K.BEACH ? [214, 196, 150] : [96, 130, 70]; /* the city's sea ending: every pixel the host's own (its grass, sand, surf and sea); a plain stand-in without a host */
       else switch (k) {
         case K.BLDG: { const b = items[Br[i]]; if (!b) { c = C.shadow; break; }
@@ -3662,7 +3663,7 @@ function withPerimeter(o) {
   for (const key of ['density', 'damageCurve']) if (P0[key]) q[key] = cv(P0[key]);
   for (const key of ['stationAt', 'industryAt', 'powerAt']) if (P0[key]) q[key] = P0[key].map(v => Array.isArray(v) ? v.map(sc) : sc(v));
   if (P0.river) q.river = Object.assign({}, P0.river, { at: sc(P0.river.at) }); if (P0.rivers) q.rivers = P0.rivers.map(r => Object.assign({}, r, { at: sc(r.at) }));
-  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
+  const plan = generate(Object.assign({}, o, { params: q })); addPerimeter(plan, h); if (P0.cityArena) { if (P0.cityArenaSea) addSeaArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else if (P0.cityArenaYard) addYardArena(plan, (P0.cityArena | 0) * (P0.chunk || 64)); else addArenaField(plan, (P0.cityArena | 0) * (P0.chunk || 64), P0.cityArenaTracks, !!P0.cityArenaScenes, P0.cityArenaBossTracks); } return plan;
 }
 // The city's boss arena (params.cityArena: chunks past the level's end; the Daily Sortie's city kit, docs/daily-sortie-generator-audit.md A2): generated
 // from the pieces of the Campaign's own final airfield (the game's secretColor and finalAirfield), so it looks like it, in combinations the Campaign's
@@ -3775,6 +3776,26 @@ function addSeaArena(plan, h) {
   for (let k = 0; k < nb; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / nb); slot('bunker', x, coast[x] - Math.round(sand / 2), 6); }
   for (let k = 0; k < nf; k++) { const x = Math.round(24 + (k + 0.25 + R() * 0.5) * (W - 48) / Math.max(1, nf)); const y = coast[x] - sand - 10; if (y >= 8) slot('flak', x, y, 8); }
   A.units.push({ coast: { base, amp, sand }, bunkers: nb, flak: nf });
+  return A;
+}
+// The city's two-train yard (params.cityArena with params.cityArenaYard: the Campaign's two-train boss on a yard of eight tracks), generated as its own small plan
+// after the town: every pixel the host's rail yard ground (kind RYARD, typed 'ryard' as the Campaign's; opts.arenaPix: the game's yard painter), in the day's own
+// layout (arena.yardLayout): the platforms in two or three of the gaps the trains never use (0, 1, 5, 6: the crossovers take 2 to 4), a signal gantry every 160 to 240
+// rows, and the six crossovers (from a track to its neighbour and back, for the boss trains on tracks 3 and 5) in the day's own order. The game reads the layout
+// for the painter, for the crossovers the trains follow and for the Campaign's yard beyond the arena, so all three agree.
+function addYardArena(plan, h) {
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 98300 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.RYARD), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h), D: new Float32Array(h), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true, yardA: true };
+  plan.arena = A; plan.arenaField = A;
+  const PLATS = [[1, 5], [0, 5], [1, 6], [0, 6], [0, 1, 5], [1, 5, 6], [0, 1, 6], [0, 5, 6]], plats = PLATS[Math.floor(R() * PLATS.length)].slice();
+  const gantP = [160, 200, 240][Math.floor(R() * 3)], seq = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
+  for (let i = seq.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [seq[i], seq[j]] = [seq[j], seq[i]]; }
+  A.yardLayout = { plats, gantP, seq }; /* (not .yard: that is a town's marshalling yard, which the painter dresses with wagons) */
   return A;
 }
 function addPerimeter(plan, h) {
@@ -5072,7 +5093,7 @@ const KITS = {
     openers: [[['open_sea', 5], ['harbour_south', 14]], [['open_sea', 5], ['harbour_dock', 14]]], openerShare: 0.35, // the harbour is the plain south harbour, or in 35 % of the days the dockyard (the side harbour's shipyard: slipways with hulls on them under gantries, the piers on the first half of the side)
     approaches: [[['station_main', 6]], [['rail_yard', 7]]], approachShare: 0.35, // the level ends in the main station, or in 35 % of the days in a marshalling yard (the rail city: tracks that run on into the arena, level 3's yard)
     gapBefore: { rail_yard: { city_centre: 14 } }, // (the yard narrows the strip for 640 px before it: with the city centre within about 800 px of it the market square was lost in 8 of 40 lists: at least 14 chunks between the centre and the yard)
-    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'] }, // (tracks: the bosses on a rail of their own, laid down the arena; sea: the sea endings, whose coast and open sea are the arena, from the level's sea tail on) // (scenes: the land endings, whose own scene the game lays in one of the arena's scene zones) // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield, the land endings (their scene in a zone of it) and the bosses on a rail of their own (laid down it); after the rail yard ending its tracks run on through it; a sea ending and the two-train yard keep the Campaign's arena
+    cityArena: { n: 48, kinds: ['skyfort', 'fortress', 'rival', 'moth', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'], yard: ['train'] }, // (yard: the two-train boss, whose rail yard is the arena) // (tracks: the bosses on a rail of their own, laid down the arena; sea: the sea endings, whose coast and open sea are the arena, from the level's sea tail on) // (scenes: the land endings, whose own scene the game lays in one of the arena's scene zones) // the generated boss arena (docs/daily-sortie-generator-audit.md A2): 48 chunks of airfield behind the perimeter fence, for the bosses that fight on a plain airfield, the land endings (their scene in a zone of it) and the bosses on a rail of their own (laid down it); after the rail yard ending its tracks run on through it; a sea ending and the two-train yard keep the Campaign's arena
     arenaTracks: { rail_yard: [55, 169] }, // the yard's two outer tracks (the generator's yard has them at x 55 and 169), painted on through the arena
     middle: {
       city_suburb: { len: [5, 8], max: 2, heat: 0.3, built: 0.9 },
@@ -5186,7 +5207,7 @@ function check(kitId, S) {
   const all = S.segs || [], segs0 = all.filter(g => !g.legacy && !g.main), IV = kit.islandOpen && kit.islandOpen.variants.find(v => v.every((q, k) => segs0[k] && segs0[k].t === q[0] && segs0[k].n === q[1])) || [], segs = segs0.slice(IV.length), tail = all.filter(g => g.legacy), mainL = all.filter(g => g.main), mainLen = mainL.reduce((a, g) => a + g.n, 0); /* (a sea ending: legacy stretches after the plan's own, plan 12.11) */
   const tk = IV.length && kit.islandOpen.take || 0, O = (kit.openers || [kit.opener]).map(o => tk ? [[o[0][0], o[0][1] - tk]].concat(o.slice(1)) : o).find(o => o.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || kit.opener, A = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []).find(a => a.length <= segs.length && a.every((q, k) => { const g = segs[segs.length - a.length + k]; return g && g.t === q[0] && g.n === q[1]; })) || kit.approach, mid = segs.slice(O.length, segs.length - A.length); /* (a kit may end in more than one way: kit.approaches, the first that the list ends in) */
   if (S.castleRuin && !(S.bossVar && S.bossVar.kind === 'castle')) bad.push('a castle ruin without a castle');
-  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail | 0), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); if (!!gp.cityArenaScenes !== (!!want && cityArenaScenes(kit, S.bossVar))) bad.push('the arena\'s scene zones do not match the boss'); if (!!gp.cityArenaSea !== (!!want && !!(S.bossVar && S.bossVar.sea))) bad.push('the arena\'s sea does not match the ending'); if (String(gp.cityArenaBossTracks || '') !== String(want && S.bossVar && S.bossVar.track !== undefined ? [].concat(S.bossVar.track) : '')) bad.push('the arena\'s boss rails do not match the boss'); }
+  { const ap = all.filter(g => !g.legacy && !g.main), last = ap[ap.length - 1], want = cityArenaFor(kit, S.bossVar, S.legacyTail | 0), wt = want ? cityArenaTracks(kit, [[last ? last.t : '']]) : null, gp = (S.gen && S.gen.params) || {}; if ((S.cityArena | 0) !== want) bad.push('cityArena ' + (S.cityArena | 0) + ', the boss and ending want ' + want); if (S.cityArena && gp.cityArena !== S.cityArena) bad.push('cityArena not in the generator input'); if (String(gp.cityArenaTracks || '') !== String(wt || '')) bad.push('the arena\'s tracks ' + (gp.cityArenaTracks || 'none') + ', the ending wants ' + (wt || 'none')); if (!!gp.cityArenaScenes !== (!!want && cityArenaScenes(kit, S.bossVar))) bad.push('the arena\'s scene zones do not match the boss'); if (!!gp.cityArenaSea !== (!!want && !!(S.bossVar && S.bossVar.sea))) bad.push('the arena\'s sea does not match the ending'); if (!!gp.cityArenaYard !== (!!want && !!(S.bossVar && S.bossVar.yard))) bad.push('the arena\'s yard does not match the boss'); if (String(gp.cityArenaBossTracks || '') !== String(want && S.bossVar && S.bossVar.track !== undefined ? [].concat(S.bossVar.track) : '')) bad.push('the arena\'s boss rails do not match the boss'); }
   if (!IV.length && segs0[0] && /^island_/.test(segs0[0].t)) bad.push('an island opener that is not one of the kit\'s'); let at = IV.reduce((a2, q) => a2 + q[1], 0); segs.forEach((g, k) => { if (g.start !== at) bad.push('segment ' + k + ' starts at ' + g.start + ', not ' + at); if (!(g.n >= 1) || g.n !== Math.floor(g.n)) bad.push('segment ' + k + ' has length ' + g.n); at += g.n; });
   { const wantTail = kit.legacy ? null : S.bossVar && S.bossVar.sea && kit.seaTail ? kit.seaTail : [], tl = tail.reduce((a, g) => a + g.n, 0); let ta = at + mainLen; if (kit.main) { bad.push(...checkMain(kit.main, mainL, !(kit.legacy && tail.some(g => kit.legacy.middle[g.t])))); let ma = at; mainL.forEach(g => { if (g.start !== ma) bad.push('mainland stretch starts at ' + g.start + ', not ' + ma); ma += g.n; }); } else if (mainL.length) bad.push('the kit has no mainland'); if (kit.legacy) bad.push(...checkLegacy(kit.legacy, tail)); else if (J2(tail.map(g => [g.t, g.n])) !== J2(wantTail)) bad.push('the sea ending is ' + J2(tail.map(g => [g.t, g.n])) + ', not ' + J2(wantTail)); tail.forEach(g => { if (g.start !== ta) bad.push('legacy stretch starts at ' + g.start + ', not ' + ta); ta += g.n; }); { const gt = mainL.find(g => g.t === 'main_gate'); if (gt && (!tail.length || gt.next !== tail[0].t)) bad.push('the gate is for ' + gt.next + ', the ground after it is ' + (tail[0] && tail[0].t)); if (gt && mainL[mainL.length - 1] !== gt) bad.push('the gate is not the last mainland stretch'); }
     if (S.len !== at + mainLen + tl) bad.push('len ' + S.len + ', segments ' + (at + mainLen + tl)); if ((S.legacyTail | 0) !== tl) bad.push('legacyTail ' + S.legacyTail + ', stretches ' + tl); if (!!S.arenaSea !== !!tl) bad.push('arenaSea does not match the sea ending'); }
@@ -5322,7 +5343,7 @@ function mainWalk(kit, base, cove) {
 }
 /* The city's generated arena: on a day whose boss fights on a plain airfield, with no sea tail and no boss on a track (the long train, the supergun, the two-train yard). With the rail yard ending
    the yard's tracks run on through it (cityArenaTracks). */
-function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (A && bs && bs.sea && (A.sea || []).includes(bs.kind) && tail > 0) return A.n + tail; /* (a sea ending: the arena is the level's sea tail and 48 chunks beyond it) */ if (!A || tail || !bs || !(A.kinds.includes(bs.kind) || (A.scenes || []).includes(bs.kind) || (bs.track && (A.tracks || []).includes(bs.kind))) || (bs.track && !(A.tracks || []).includes(bs.kind)) || bs.yard || bs.sea) return 0; return A.n; }
+function cityArenaFor(kit, bs, tail) { const A = kit.cityArena; if (A && bs && bs.sea && (A.sea || []).includes(bs.kind) && tail > 0) return A.n + tail; /* (a sea ending: the arena is the level's sea tail and 48 chunks beyond it) */ if (A && bs && bs.yard && !tail && (A.yard || []).includes(bs.kind)) return A.n; /* (the two-train yard: the arena is its yard) */ if (!A || tail || !bs || !(A.kinds.includes(bs.kind) || (A.scenes || []).includes(bs.kind) || (bs.track && (A.tracks || []).includes(bs.kind))) || (bs.track && !(A.tracks || []).includes(bs.kind)) || bs.yard || bs.sea) return 0; return A.n; }
 function cityArenaScenes(kit, bs) { return !!(kit.cityArena && bs && (kit.cityArena.scenes || []).includes(bs.kind)); } /* (a land ending: scene zones in the arena) */
 function cityArenaTracks(kit, ap) { return kit.arenaTracks && kit.arenaTracks[ap[0][0]] ? kit.arenaTracks[ap[0][0]].slice() : null; }
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
@@ -5339,7 +5360,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const coreAt = at, core = segs.slice(); if (tail) for (const [t, len] of tail) { segs.push({ t, start: at, n: len, legacy: true }); at += len; }
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
-    const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0); if (cityArena && bs.sea) { params.cityArena = cityArena; params.cityArenaSea = true; } else if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
+    const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0); if (cityArena && bs.sea) { params.cityArena = cityArena; params.cityArenaSea = true; } else if (cityArena && bs.yard) { params.cityArena = cityArena; params.cityArenaYard = true; } else if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
     const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
@@ -5575,9 +5596,13 @@ const YARD_T = [0, 1, 2, 3, 4, 5, 6, 7].map(i => 18 + i * 26), YARD_PLAT = [1, 5
 // They run in a fixed sequence (from track -> to track, for a train moving up the yard) so the boss trains on tracks 3 and 5
 // can step out to a neighbouring track and back. Returns { i, xTop, xBot, y0, y1 }.
 const XO_P = 240, XO_A = 60, XO_L = 120, XO_SEQ = [[3, 2], [2, 3], [3, 4], [4, 3], [5, 4], [4, 5]];
+// The yard's layout: the Campaign's (platforms in gaps 1 and 5, a gantry every 200 rows, the crossovers in XO_SEQ's order), or a Daily Sortie's generated
+// yard arena's (CityGen addYardArena: arena.yardLayout), which the painter, the crossovers the trains follow and the old yard ground beyond the arena all read
+const YARD_DEF = { plats: YARD_PLAT, gantP: 200, seq: XO_SEQ };
+function yardLayout() { const S = run.sortie, A = S && S.plan && S.plan.arena; return A && A.yardA && S.planFor === world.stageBaseP ? A.yardLayout : YARD_DEF; }
 function yardXover(k, yard) {
   if (!yard && gorgeArena()) return gorgeXover(k);
-  const [from, to] = XO_SEQ[((k % 6) + 6) % 6];
+  const SQ = yardLayout().seq, [from, to] = SQ[((k % SQ.length) + SQ.length) % SQ.length];
   return { i: Math.min(from, to), xTop: YARD_T[to], xBot: YARD_T[from], y0: k * XO_P + XO_A, y1: k * XO_P + XO_A + XO_L };
 }
 // Level 5's gorge (owner: option 1, spec 20.7): four tracks on two hillside viaducts, the boss trains on the inner two (x 68, 156), the supply
@@ -8600,7 +8625,7 @@ function sortieInfo(S, p, c) {
   if (S.arenaYard && !g) { I.yard = true; for (const r of YARD_T.slice(1)) if (!I.rails.includes(r)) I.rails.push(r); I.rail = I.rails[0]; } /* (the yard's tracks; its ground type is 'ryard', see classify) */
   if (S.straight && b === 'city' && !I.rails.includes(RAILX)) I.rails.push(RAILX); /* (the temperate old land: the railway runs on through the town, on its street column) */
   if (!g && (S.arenaRails || S.arenaTracks)) I.rails.push(...(S.arenaRails || S.arenaTracks)); // level 3: the yard's outer tracks run on through the arena; a composed city that ends in its rail yard: the tracks only (arenaTracks: no trains, they use Math.random)
-  if (planned) { I.plan = true; I.rails = []; I.rail = null; } // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
+  if (planned && !(S.arenaYard && !g)) { I.plan = true; I.rails = []; I.rail = null; } else if (planned) I.plan = true; /* (the city's generated yard keeps its eight tracks for the trains and the placement code) */ // painted and typed from the settlement plan, which lays its own railway (theme 5 has no legacy rail before it)
   if (m.size > 400) m.clear(); m.set(p, I); return I;
 }
 function info(p) { return world.chunkInfo.get(p) || predictInfo(p); }
@@ -8924,6 +8949,7 @@ const ARENA_C = { stripe: hexRGB('#d8b020'), dark: hexRGB('#16141a'), ringD: hex
 function arenaColor(S, x, y) {
   const A = S.plan.arena, wx = x, wy = S.planY0 - (y + A.y0); /* (y: a row of the arena's own plan) */
   if (A.sea) return seaArenaColor(S, A, x, y, wx, wy);
+  if (A.yardA) return ryardColor(wx, wy); /* (the city's generated two-train yard: the yard's own painter, in the arena's layout) */
   if (!S.arenaIdx) { const ix = S.arenaIdx = new Map(), put = (k, q) => { let a = ix.get(k); if (!a) ix.set(k, a = []); a.push(q); };
     for (const q of A.pieces) { const lo = q.k === 'pad' ? q.y - 14 : q.k === 'heli' ? q.y - 39 : q.y0, hi = q.k === 'pad' ? q.y + 14 : q.k === 'heli' ? q.y + 39 : q.y1; for (let b = lo >> 5; b <= hi >> 5; b++) put(b, q); } }
   for (const q of S.arenaIdx.get(y >> 5) || []) {
@@ -8935,6 +8961,25 @@ function arenaColor(S, x, y) {
     if (q.k === 'heli') { const dx = wx - q.x, dm = wy - (S.planY0 - (q.y + A.y0)), pr = Math.hypot(dx, dm); if (pr > 33 && pr < 38) return ((Math.atan2(dm, dx) * 6 / PI + 12) | 0) % 2 ? ARENA_C.stripe : ARENA_C.ringD; if (pr < 30 && (Math.abs(dx) < 1.2 || Math.abs(dm) < 1.2)) return ARENA_C.cross; continue; }
     if (q.k === 'line') { if (y < q.y0 || y > q.y1 || Math.abs(wx - q.x) >= 1) continue; const m = (q.y1 - y) + 150; if ((m >> 2) % 2) return ARENA_C.stripe; continue; } }
   return secretApron(wx, wy);
+}
+// The rail yard's ground ('ryard': the winter's train yard, a city's two-train yard), in a yard layout (yardLayout: the Campaign's or a generated arena's)
+function ryardColor(wx, wy) {
+  const Y = yardLayout(), GP = Y.gantP;
+  const snowy = !(run.sortie && run.sortie.arenaYard) && vnoise(wx * 0.05, wy * 0.04) > 0.64, ball = () => snowy && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
+  // a crossover between neighbouring tracks, drawn on exactly the curve the trains follow
+  { const X = yardXover(Math.floor(wy / XO_P), true); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
+    const cx = X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L), ddx = Math.round(wx - cx);
+    if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 3) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; } } }
+  const ti = Math.round((wx - 18) / 26), tx = 18 + ti * 26, dx = wx - tx;
+  // platforms with yellow edges and canopies
+  for (const g of Y.plats) { const a = YARD_T[g] + 7, b2 = YARD_T[g + 1] - 7; if (wx >= a && wx <= b2) { const canopy = ((Math.floor(wy / 96) % 2) + 2) % 2 === 0 && wy % 96 > 10 && wy % 96 < 86; if (wx === a || wx === b2) return hexRGB('#e8c040'); if (canopy) return hexRGB(((wy >> 1) & 1) ? '#4a4e58' : '#5a5e68'); if ((((wy % 32) + 32) % 32) === 0 && wx === ((a + b2) >> 1)) return hexRGB('#2a2a2e'); return hexRGB(snowy && hash(wx, wy) < 0.6 ? '#eef2f6' : hash(wx, wy) < 0.5 ? '#9a9ca2' : '#8a8c92'); } }
+  // signal gantries spanning the yard
+  if (((wy % GP) + GP) % GP < 2) return hexRGB('#2a2a30');
+  if (((wy % GP) + GP) % GP === 2 && (wx === tx + 5) && ti >= 0 && ti < 8) return hexRGB((ti & 1) ? '#ff3a2a' : '#3aff6a');
+  const p0 = -Math.floor(wy / CH), first = info(p0 - 1).b !== 'bossland', I0 = info(p0);
+  const before = ti > 0 && (I0.b !== 'bossland' || (first && wy > -p0 * CH + CH - 8));
+  if (ti >= 0 && ti < 8 && Math.abs(dx) <= 4 && !before) { if (dx === -3 || dx === 3) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; }
+  return ball();
 }
 // The city's generated sea ending (CityGen addSeaArena): grass, sand, surf and sea in the Campaign's own colours, as its legacy coast_down chunk and open sea paint
 // them (pixelColor's cases), the sea lit near the coastline as there (coastD: rows above the arena's coastline)
@@ -9225,23 +9270,7 @@ function pixelColor(wx, wy, rx) {
       const l = 0.42 + Math.sin(wx * 0.35 + ly * 0.8 + vnoise(wx * 0.1, wy * 0.1) * 5) * 0.12 + (d > 3.5 ? 0.22 : 0);
       return TRGB.sea[pickI(7, l, wx, wy)];
     }
-    case 'ryard': {
-      const snowy = !(run.sortie && run.sortie.arenaYard) && vnoise(wx * 0.05, wy * 0.04) > 0.64, ball = () => snowy && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)];
-      // a crossover between neighbouring tracks, drawn on exactly the curve the trains follow
-      { const X = yardXover(Math.floor(wy / XO_P), true); if (X && wy >= X.y0 && wy <= X.y1 && wx >= YARD_T[X.i] - 5 && wx <= YARD_T[X.i + 1] + 5) {
-        const cx = X.xTop + (X.xBot - X.xTop) * xoS((wy - X.y0) / XO_L), ddx = Math.round(wx - cx);
-        if (Math.abs(ddx) <= 4) { if (ddx === -3 || ddx === 3) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; } } }
-      const ti = Math.round((wx - 18) / 26), tx = 18 + ti * 26, dx = wx - tx;
-      // platforms with yellow edges and canopies
-      for (const g of YARD_PLAT) { const a = YARD_T[g] + 7, b2 = YARD_T[g + 1] - 7; if (wx >= a && wx <= b2) { const canopy = ((Math.floor(wy / 96) % 2) + 2) % 2 === 0 && wy % 96 > 10 && wy % 96 < 86; if (wx === a || wx === b2) return hexRGB('#e8c040'); if (canopy) return hexRGB(((wy >> 1) & 1) ? '#4a4e58' : '#5a5e68'); if ((((wy % 32) + 32) % 32) === 0 && wx === ((a + b2) >> 1)) return hexRGB('#2a2a2e'); return hexRGB(snowy && hash(wx, wy) < 0.6 ? '#eef2f6' : hash(wx, wy) < 0.5 ? '#9a9ca2' : '#8a8c92'); } }
-      // signal gantries spanning the yard
-      if (((wy % 200) + 200) % 200 < 2) return hexRGB('#2a2a30');
-      if (((wy % 200) + 200) % 200 === 2 && (wx === tx + 5) && ti >= 0 && ti < 8) return hexRGB((ti & 1) ? '#ff3a2a' : '#3aff6a');
-      const p0 = -Math.floor(wy / CH), first = info(p0 - 1).b !== 'bossland', I0 = info(p0);
-      const before = ti > 0 && (I0.b !== 'bossland' || (first && wy > -p0 * CH + CH - 8));
-      if (ti >= 0 && ti < 8 && Math.abs(dx) <= 4 && !before) { if (dx === -3 || dx === 3) return RAILC.steel; if (((wy % 5) + 5) % 5 < 2) return RAILC.sleeper; }
-      return ball();
-    }
+    case 'ryard': return ryardColor(wx, wy);
     case 'rail': case 'railbridge': {
       const st8 = run.sortie && run.sortie.straight, dx = wx - C.rail + (st8 ? 0.5 : 0), sl = ((wy % 5) + 5) % 5 < 2, ex = st8 ? 2.5 : 3; /* (the temperate Daily Sortie's railway is 8 px wide, x 14 to 21, the width of a street of the old land's block grids: rails at x 15 and 20) */
       if (dx === -ex || dx === ex) return RAILC.steel;
