@@ -5279,7 +5279,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.55'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.56'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -14178,18 +14178,19 @@ function ravenInit(e) {
   e.rvInit = true; e.hatches = [];
   const g = e.gateWy, m = hpm(), K = o => Object.assign(o, { keep: true, noGuard: true });
   const add = (type, x, u, o) => { const en = G(type, x, g - u, K(o)); world.enemies.push(en); return en; };
+  const rk = rookieRun(), gun = (type, x, u, o, on) => { if (rk && !on) { const en = G(type, x, g - u, K(o)); en.dead = true; return en; } return add(type, x, u, o); }; // (Rookie: half the castle's guns are not there, RK; a left-out hatch stays in e.hatches as dead, so the hatch patterns skip it)
   const loop = !!(run.sortie && run.sortie.autumn); /* level 4's first loop: Ravenhold is a ruin held by tanks: no gate guns, no wall guns, no AA towers, no hatches, no artillery; the inner gate is silent */
   if (!loop) add('cgate', 112, 10, { hp: 40 * m, cd: 60 });
   const en = !!run.sortie; // Enigma Run: the opening stretch of the keep yard is gentler (slower gate towers, wall guns that open up late)
-  if (!loop) for (const [x, u] of [[18, 12], [206, 12], [18, 432], [206, 432], [40, 911], [184, 911]]) add('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 });
+  if (!loop) for (const [x, u, on] of [[18, 12, 1], [206, 12, 0], [18, 432, 0], [206, 432, 1], [40, 911, 1], [184, 911, 0]]) gun('aatower', x, u, { hp: 28 * m, hw: 15, hh: 15, rad: 20, cd: 70, slow: en && u < 800 ? 1.35 : 1 }, on);
   let i = 0;
   if (!loop) for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++) {
     const rocket = [1, 7, 8, 10].includes(i++);
-    e.hatches.push(add('popup', 46 + col * 44, 120 + row * 90, { score: rocket ? 900 : 600, st: 'down', stT: 999, ga: PI / 2, untarget: true, ctrl: true, rocket, row, col }));
+    e.hatches.push(gun('popup', 46 + col * 44, 120 + row * 90, { score: rocket ? 900 : 600, st: 'down', stT: 999, ga: PI / 2, untarget: true, ctrl: true, rocket, row, col }, (row + col) % 2 === 0)); // (Rookie: a checkerboard of six)
   }
-  if (!loop) for (const x of [62, 162]) add('bunker', x, 432, { ga: PI / 2, cd: rnd(60, 120) | 0 });
+  if (!loop) for (const x of [62, 162]) gun('bunker', x, 432, { ga: PI / 2, cd: rnd(60, 120) | 0 }, x === 62);
   // guns on both wall walks: a crossfire over the courtyards
-  if (!loop) for (const u of [110, 220, 330, 530, 650, 770]) for (const x of [17, W - 17]) add('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 });
+  if (!loop) for (const [k, u] of [110, 220, 330, 530, 650, 770].entries()) for (const x of [17, W - 17]) gun('bunker', x, u, { hp: 12 * m, hw: 9, hh: 9, score: 800, rad: 11, ga: PI / 2, cd: (rnd(40, 140)) | 0, opn: en ? 75 : 0 }, (k % 2 === 0) === (x === 17)); // (Rookie: one gun a row, left and right in turn)
   // the inner gate: the advance stops in front of it until it is blasted open
   // the Ravens' secret project: a half-size Black Fortress prototype (The Moth in the looped versions) on the apron behind the keep, with mechanics
   const hull = mothOn() && !loop ? 'moth' : undefined, proto = add('proto', 112, 1214, Object.assign({ untarget: true, hull }, protoBox('proto', hull)));
@@ -14204,7 +14205,7 @@ function ravenInit(e) {
   for (const [dx, du] of [[-22, 0], [22, 6], [0, -18]]) add('drums', 170 + dx, 820 + du, { rad: 6 });
   for (const ln of [[[80, 500], [150, 500]], [[150, 700], [70, 700]], [[36, 165], [188, 165]], [[188, 255], [36, 255]]]) add('tank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.25, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
   for (const ln of [[[60, 980], [164, 980]], [[164, 1060], [60, 1060]]]) add('htank', ln[0][0], ln[0][1], tankStats({ road: false, hd: PI / 2, v: 0.18, patrol: ln.map(([x, u]) => [x, g - u]), pi: 1 }));
-  if (!loop) for (const [x, u] of [[30, 230], [194, 230], [30, 690], [194, 690]]) add('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, rad: 20, cd: 80 });
+  if (!loop) for (const [x, u, on] of [[30, 230, 0], [194, 230, 1], [30, 690, 1], [194, 690, 0]]) gun('aatower', x, u, { hp: 24 * m, hw: 15, hh: 15, rad: 20, cd: 80 }, on);
   add('bldg', 40, 1000, { bk: 'barracks', hp: 18 * m, hw: 22, hh: 11, score: 1500, rad: 22 });
   add('bldg', 184, 1040, { bk: 'armoury', hp: 16 * m, hw: 15, hh: 12, score: 2500, rad: 18 });
   if (loop) { /* the ruin's defenders: tanks dug in among the rubble (outer yard, keep yard), two heavy tanks at the inner gate and one at the keep, beside the patrolling ones above */
@@ -15006,7 +15007,7 @@ const TRW = { core: 1.3, ring: 8, main: 1.3, aa: 1.4, rocket: 1.3 };
 const AVAL = { at: [0.7, 0.35], wind: 50, gap: 20, n: 2, life: 72, rad: 18, shards: 7, sp: 0.7 };
 function avalanche(e) {
   e.trains.forEach((t, ti) => {
-    if (!t.on || t.dead || !t.ready) { t.av = null; return; }
+    if (!t.on || t.dead || !t.ready || rookieRun()) { t.av = null; return; } // (Rookie: no avalanche salvos, RK)
     const core = e.parts.find(p => p.tr === ti && p.k === 'core'), mp = e.parts.find(p => p.tr === ti && p.mortar);
     if (!core || core.dead || !mp || mp.dead) { t.av = null; return; }
     t.avN = t.avN || 0;
@@ -16938,6 +16939,7 @@ const ENT = {
         if (count('rdrone') <= 2) { for (const sd of [-1, 1]) world.enemies.push(E('rdrone', { x: px + sd * 5, y: py + 2, h: PI / 2, side: sd })); flash(px, py + 4, 4); sfx('clunk'); }
       } else if (p.k === 'mortar') {
         p.cd = Math.round((Math.max(120, 170 - run.loop * 15)) * fireSlow());
+        if (rookieRun()) continue; /* (Rookie: the mortar stays silent, RK) */
         mortarShot(px, py); flash(px, py + 6, 4); sfx('cannon');
       } else if (p.k === 'core') {
         BOSS[e.kind].coreFire(e, p, px, py, core, others, sp, mz);

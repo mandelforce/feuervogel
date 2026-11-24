@@ -51,8 +51,8 @@ for (const diff of [0, 1]) {
   await page.close();
 }
 
-/* 2. levels 3 to 6, and level 4 of the second loop: bullets at once, ground guns and fighter shooters, Rookie against Veteran */
-for (const [lv, lp] of [[3, 0], [4, 0], [5, 0], [6, 0], [4, 1]]) {
+/* 2. levels 1 to 6, and level 4 of the second loop: bullets at once, ground guns and fighter shooters, Rookie against Veteran */
+for (const [lv, lp] of [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [4, 1]]) {
   const res = {};
   for (const diff of [0, 1]) {
     const page = await freshPage();
@@ -75,6 +75,26 @@ for (const [lv, lp] of [[3, 0], [4, 0], [5, 0], [6, 0], [4, 1]]) {
   ok(R.shots < V.shots * 0.6, `${tag}: Rookie fires well under 60 % of Veteran's bullets (${R.shots} / ${V.shots})`);
   ok(R.guns + R.hidden <= V.guns + V.hidden && R.hidden <= Math.ceil(V.hidden / 2), `${tag}: no more ground guns on Rookie, and at most half the hidden ones (${R.guns} + ${R.hidden} hidden / ${V.guns} + ${V.hidden})`);
   ok(R.shooters <= Math.ceil(R.fighters / 3), `${tag}: at most about one fighter in three may fire on Rookie (${R.shooters} of ${R.fighters})`);
+}
+/* 3. the bosses: level 2's fortress keeps its mortar silent; level 4's castle has half its ground guns (wall guns, hatches, AA towers, gate bunkers) */
+for (const diff of [0, 1]) {
+  const page = await freshPage();
+  const r = await peek(page, `(() => { SF.setMode('immortal'); settings.diff = ${diff}; startEnigma(2, true);
+    world.enemies.length = 0; world.ebul.length = 0; spawnBoss(); let mort = 0;
+    for (let f = 0; f < 3000; f++) { update(); for (const b of world.ebul) if (b.kind === 'mortar' && b.life === b.max - 1) mort++; const B = world.enemies.find(e => e.type === 'boss'); if (B) for (const p of B.parts) if (p.k !== 'mortar' && p.k !== 'core') p.cd = 999; }
+    startEnigma(4, true); world.enemies.length = 0; spawnBoss(); const B = world.enemies.find(e => e.type === 'boss'); ravenInit(B);
+    const n = t => world.enemies.filter(e => e.type === t && !e.dead).length;
+    return { mort, wall: n('bunker'), hatch: n('popup'), aa: n('aatower'), hatches: B.hatches.length };
+  })()`);
+  if (verbose) console.log('     bosses, ' + ['Rookie', 'Veteran'][diff] + ': ' + JSON.stringify(r));
+  if (diff === 0) {
+    ok(r.mort === 0, `Rookie: level 2's fortress fires no mortar shells (${r.mort})`);
+    ok(r.wall === 7 && r.hatch === 6 && r.aa === 5 && r.hatches === 12, `Rookie: the castle has half its guns: 7 bunkers (6 wall guns, 1 gate), 6 hatches, 5 AA towers (${JSON.stringify(r)})`);
+  } else {
+    ok(r.mort > 0, `Veteran: the fortress still fires its mortar (${r.mort})`);
+    ok(r.wall === 14 && r.hatch === 12 && r.aa === 10, `Veteran: the castle keeps all its guns (${JSON.stringify(r)})`);
+  }
+  await page.close();
 }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `Rookie checks pass (${passed}).`);
