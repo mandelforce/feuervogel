@@ -5279,7 +5279,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.54'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.55'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5335,12 +5335,23 @@ function saveSettings() { store.setJSON(KEY.settings, settings); }
 const ASH_LOOKS = { arcade: 'Arcade 1989', shard89: 'Shard 1989', shard: 'Alien shard', ember: 'Ember' }; // Settings > Ash look (settings.ashLook, the looks in ASH): each press goes to the next
 // Easy thins the fire instead of just slowing it: skip drops every 3rd bullet, ring scales every ring, bombs (4 / 3 / 3), heat is the laser heat per shot (30 = three shots before overheating, 45 = two), conts is the number of continues.
 const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], lives: [2, 2, 2], skip: [3, 0, 0], ring: [0.65, 1, 1], wingN: [1, 0.6, 1], wingFan: [3, 2, 3], revenge: [0, 0.5, 1], revengeP: [0, 0.5, 1], turRevengeP: [0, 0.1, 0.15], revengeTo: [0, 3, 99], fighterFire: [0.3, 0.4, 0.3], heat: [30, 45, 45], conts: [3, 2, 2], bombs: [4, 3, 3], ext: [[100000, 150000], [100000, 150000], [100000, 150000]], rank: [0.6, 1.25, 1.25], plane: [70000, 90000, 120000], fs: [1.7, 1.15, 1.3] };
-function fireSlow() { return DIFF.fs[settings.diff]; }
+/* Rookie in the Campaign (the Enigma Run; not the Daily Sortie, which has its own tuning): playtests found it too hard from level 3 on and in the
+   second loop, with too many bullets at once. RK holds the extra easing, on top of DIFF's Rookie column:
+   skip: every skip-th bullet is left out (DIFF.skip is 3); fs: slower guns (DIFF.fs is 1.7); hp: enemy hit points; budget: the soft bullet budget
+   volleyOK keeps all the time (an encounter's own budget still applies when lower); cap: a hard ceiling, eshot fires nothing above it;
+   gap: frames after a fighter is cleared to fire before the next one may be (about one shooter per formation); late: frames its shot comes later;
+   loop: LOOP_STEP for the second loop (0.5); heavy: the Hammer fires one spread, not two, from level 3 on; gun / hidden: the share of ground guns
+   (flak, bunkers, towers, artillery, SAM) and of hidden ones (camouflaged hay, bush, net, the pop-up guns) the director's spawns keep;
+   orb: frames after the ship is free to fly (off the carrier's deck) before the first weapon orb, always Scatter, drops in front of it. The ship
+   starts at weapon level 4 with three of the four super steps, so that orb starts the frenzy at once. */
+const RK = { skip: 2, fs: 2.1, hp: 0.8, budget: 14, cap: 26, gap: 60, late: 30, loop: 0.3, gun: 0.6, hidden: 0.25, orb: 20 };
+const rookieRun = () => settings.diff === 0 && !!run.sortie && !run.sortie.daily;
+function fireSlow() { return rookieRun() ? RK.fs : DIFF.fs[settings.diff]; }
 /* Rank drives most of the scaling (bullet speed, hp, caps, spawn rates, the loop gates at >= 1). The first pass is unchanged; later loops climb more gently, per difficulty:
    LOOP_STEP is the rank added per completed loop, LOOP_SLOPE the rank per level inside a loop (the first pass keeps 0.08), and Ace's per-stage term stops growing after the first pass.
    Rookie stays under the gates all through loop 1; Veteran reaches them only in the later levels; Ace starts loop 1 about where the first pass ended. */
 const LOOP_STEP = [0.5, 0.65, 0.25], LOOP_SLOPE = [0.08, 0.06, 0.05];
-function rankFor(st) { const d = settings.diff, L = Math.floor((st - 1) / 6), w = (st - 1) % 6; return (w * (L ? LOOP_SLOPE[d] : 0.08) + L * (L ? LOOP_STEP[d] : 1) + (d === 2 ? Math.min(st - 1, 5) / 5 : 0)) * DIFF.rank[d]; }
+function rankFor(st) { const d = settings.diff, L = Math.floor((st - 1) / 6), w = (st - 1) % 6; return (w * (L ? LOOP_SLOPE[d] : 0.08) + L * (L ? (rookieRun() ? RK.loop : LOOP_STEP[d]) : 1) + (d === 2 ? Math.min(st - 1, 5) / 5 : 0)) * DIFF.rank[d]; }
 let eshotN = 0;
 
 /* ================= noise ================= */
@@ -11255,6 +11266,7 @@ function newGame(lp) { // lp: the Campaign's loop (0: the first pass, seed 1944;
   laserHeat = 0; overheatT = 0;
   world.ravenGate = null; app.newBestT = 0; app.newBestDone = false; app.localBest = -1; app.chainBan = null; app.roll = null; app.medalPop = 0; app.glows = null;
   world.ttSalt = 0; // (a Daily Sortie's campSeed sets it)
+  world.rkOrb = 0; world.rkFireG = -1e9; // (Rookie's first orb and its fighters' fire window: RK)
   world.SEED = settings.mode === 'gen' || run.endless ? (Math.random() * 1e9) | 0 : CAMP_SEED + (lp | 0);
   roadCache.clear(); farmCache.clear(); tentCache.clear(); canopyCache.clear(); setPieceDone.clear(); houseCache.clear(); fieldOkCache.clear(); railEndCache.clear(); rxW = NaN;
   resetTerrainState(); // also what an earlier run (Campaign or Enigma Run) left in the other terrain caches
@@ -11656,6 +11668,7 @@ function fixedWpn() { return SortieCompose.fixedWeapon(run.sortie.daily.seed); }
 function startComposed(C) { startAt(C.level, false, C.level, 0, C); run.ranked = false; if (C.twist === 'fixed') { player.wpn = fixedWpn(); if (p2) p2.wpn = player.wpn; } if (C.twist === 'nova') run.bombs = Math.max(run.bombs, 6); world.trainId = 0; world.snowF = world.dustF = world.nightF = 0; world.birdCd = 300; /* (the weather's fade-in and the birds' timer start as in a fresh page: they draw from the sim stream, so what an earlier flight left behind changed the next sortie) */ if (C.rank) run.loop = rankFor(C.level + 6); } /* (the flavours 'rank' and 'loop': the first loop's rank, nothing else of a loop: run.loops and run.stage stay) */
 function startEnigma(level, ranked, loops) { // ranked: the Campaign proper (START); otherwise a practice run of one level and those after it
   app.enigmaLast = level; startAt(level, false, level, loops); run.ranked = !!ranked; // each level flies the Campaign stage of its number (theme, music, boss) on its own ground
+  if (rookieRun()) { for (const q of [player, p2]) if (q) { q.wpn = 'S'; q.lvl = 4; q.sup = SUP_MAX - 1; q.supT = 0; } world.rkOrb = RK.orb; } // (Rookie: a full gun, one orb from the frenzy; endEnigmaLevel puts the carried weapon back and drops the orb)
   bossJump();
 }
 /* The boss test link (?boss, levels 2 to 6): the level starts a few chunks before its boss (the Campaign's unchanged: only a practice run, or a local build, takes it, as ?enc does).
@@ -11683,7 +11696,7 @@ function endEnigmaLevel() {
   if (nx && run.sortie) {
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'camp', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, sup: p2.sup || 0, supT: p2.supT || 0, drones: p2.drones } : null, lp = run.loops || 0;
-    startEnigma(nx, run.ranked, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2); // both ships keep weapon, level and Talons
+    startEnigma(nx, run.ranked, lp); world.rkOrb = 0; Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2); // both ships keep weapon, level and Talons
     return;
   }
   if (run.sortie && (run.loops || 0) >= 1) { // the Campaign is two loops long: the second loop's level 6 ends the run (the ending scene for the ranked Campaign, the title for practice)
@@ -11693,7 +11706,7 @@ function endEnigmaLevel() {
   if (run.sortie) { // level 6 is done (the Campaign, or practice from any level; one or two players): back to level 1 with score, lives and weapon, one loop harder
     const keep = {}; for (const k of ['score', 'score2', 'lives', 'lives2', 'bombs', 'bombs2', 'conts', 'nextExtend', 'extendsGot', 'medalLv', 'medalMul', 'frames', 'ranked', 'start']) keep[k] = run[k];
     const pw = player ? { wpn: player.wpn, lvl: player.lvl, sup: player.sup || 0, supT: player.supT || 0, drones: player.drones } : null, pw2 = p2 ? { wpn: p2.wpn, lvl: p2.lvl, sup: p2.sup || 0, supT: p2.supT || 0, drones: p2.drones } : null, lp = (run.loops || 0) + 1;
-    app.congrats = null; carrierFlyNext = true; startEnigma(1, true, lp); Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
+    app.congrats = null; carrierFlyNext = true; startEnigma(1, true, lp); world.rkOrb = 0; Object.assign(run, keep); if (player && pw) Object.assign(player, pw); if (p2 && pw2) Object.assign(p2, pw2);
     run.camp = newCamp(); run.camp.credits0 = app.credits; return; // (startEnigma made the loop: its seed, stage 7 and so on, harder)
   }
   if (run.ranked && lbEligible()) { rrSend('over'); clearResume(); saveHi(); stopMusic(); cutSfx(); app.flyby = null; app.state = 'over'; app.overT = 0; app.lbWin = true; openLB('submit'); return; } // the Campaign is won: the score dialog, then the title
@@ -12632,7 +12645,8 @@ function bspeed() { return (1.2 + Math.min(run.loop, rankFor(6)) * 0.18) * DIFF.
 function eshotPos(x, y) { setPos(x, y); }
 function eshot(x, y, a, sp, kind = 's') {
   if (world.ebul.length > 420 || feel.bombFx > 20) return;
-  const sk = DIFF.skip[settings.diff];
+  const rk = rookieRun(); if (rk && kind !== 'amine' && kind !== 'zone' && encBullets() >= RK.cap) return; // (Rookie: never more than RK.cap bullets at once)
+  const sk = rk ? (kind === 'shell' ? 0 : RK.skip) : DIFF.skip[settings.diff]; // (Rookie: a flak gun's single shell is never left out; it fires less often instead)
   if (sk && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket' && (rsObj && rsObj.rs0 !== undefined ? (rsObj.sn = (rsObj.sn | 0) + 1) : ++eshotN) % sk === 0) return; // (the Campaign: counted per enemy, so shooting one doesn't change which of another's shots are left out)
   const nv = twistOf() === 'nova' && kind !== 'flak' && kind !== 'mega' && kind !== 'rocket'; /* Nova storm (the heavy bullets): a third of the bullets are not fired, the rest are slower and bigger (the hit circle and the halo, not the sprite) */
   if (nv) { if ((((gf * 7 + Math.round(x * 3) + Math.round(y)) % 3) + 3) % 3 === 0) return; sp *= 0.8; }
@@ -12685,7 +12699,7 @@ function boatNear(wx, wy, r) { return critters.some(c => c.kind === 'boat' && !t
 const ttSeen = c => ttDir || ttFix;
 function placeOK(wx, wy, r) {
   if (boatNear(wx, wy, r) || underFlagship(wx, wy + Math.floor(world.scroll), r) || underCarrier(wx, wy + Math.floor(world.scroll), r) || flyLow()) return false; return world.enemies.every(e => !e.ground || e.type === 'troop' || e.type === 'secret' || ((ttDir || ttFix) && (e.y >= -24 || e.road)) || (e.wx - wx) ** 2 + (e.wy - wy) ** 2 > (r + e.rad) ** 2); } // (the Campaign's timetable minds only what stands still well above the screen, where no shot or Nova reaches (a Nova hits from 20 px above); not road vehicles, which queue behind the ones on screen and keep their distance themselves)
-function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * TWIST_HP[twistOf()]; } /* (the Daily Sortie's twists Swarm day and Elite day: hit points only, plan 11.8) */
+function hpm() { return (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * TWIST_HP[twistOf()] * (rookieRun() ? RK.hp : 1); } /* (the Daily Sortie's twists Swarm day and Elite day: hit points only, plan 11.8) */
 
 function boom(x, y, size, layer = 'a') { rsRun(null, 'rs', () => { // (an explosion's look, scorching and scaring draw from the shared stream, never an enemy's own: how much they draw depends on what is around)
   setPos(x, y); boomInner(x, y, size, layer); SPOS = null;
@@ -12795,6 +12809,13 @@ function biomeAtSpawn() { const sc = Math.floor(world.scroll); return biomeOf(-M
 // The frenzy: while a ship has the super weapon, extra planes attack (a wave every 42 to 54 frames, on top of the director's own), so the power has something to cut down.
 // It runs outside the director (no timetable ghosts, no shift of the Campaign's seeded streams: the stream, slot and order are put back afterwards) and holds off when 20 fighters are already up.
 const FRENZY_CD = 42;
+// Rookie's first orb (world.rkOrb, set by startEnigma): RK.orb frames after the ship is free to fly, a Scatter orb that does not change
+// weapon drops just in front of it; with the gun at level 4 and three super steps it starts the frenzy.
+function rkOrbTick() {
+  if (!world.rkOrb || app.state !== 'play' || app.tut || app.results || !player || player.dead || player.fly > 0 || player.deck) return;
+  if (--world.rkOrb > 0) return;
+  const it = mkItem('W', clamp(player.x, 16, W - 16), Math.max(20, player.y - 70)); it.w = 'S'; it.fixed = true; world.items.push(it);
+}
 function frenzyTick() {
   const on = [player, p2].some(q => q && !q.dead && !q.out && isSup(q));
   if (!on || app.state !== 'play' || app.tut || app.results || app.congrats || world.quiet) { world.frenzyCd = 24; return; }
@@ -12811,8 +12832,20 @@ function director() {
   if (app.tut) { tutTick(); return; }
   if (app.results || app.congrats || world.quiet) return;
   if (settings.mode === 'gen') return directorInner();
-  const rr = Math.random, nL = world.later.length; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
+  const rr = Math.random, nL = world.later.length, nE = world.enemies.length; Math.random = drand; ttDir = ttOn(); try { directorInner(); } finally { Math.random = rr; ttDir = false; }
+  if (rookieRun()) rkThin(nE);
   if (ttOn()) for (let k = nL; k < world.later.length; k++) { const it = world.later[k]; if (it.rs === undefined) it.rs = it.rs0 = rsHash(rsHash(world.SEED * 31 + run.stage * 977 + (world.ttSalt | 0) + 0x1A7E, gf), k - nL); } // (the Campaign: what the director left for later frames, the rest of a wave or the boss, runs on its own stream seeded now: rsRun in update)
+}
+// Rookie (RK.gun, RK.hidden): of the ground guns the director placed this frame, a share is left out, chosen by a hash of the place (no random
+// draw, and the timetable's ghost stays, so nothing else the director decides changes); their crews go with them. An encounter's guns,
+// guns that stay with a boss (keep) and big enemies are never left out.
+const RK_GUN = { flak: 'gun', bunker: 'gun', aatower: 'gun', arty: 'gun', sam: 'gun', fortgun: 'gun', nebel: 'gun', barrage: 'gun', camo: 'hidden', popup: 'hidden' };
+function rkThin(n0) {
+  const out = new Set();
+  for (let k = n0; k < world.enemies.length; k++) { const e = world.enemies[k], g = RK_GUN[e.type]; if (!g || e.enc || e.keep || e.big || e.wx === undefined) continue;
+    if (hash(Math.round(e.wx * 7) + 311, Math.round(e.wy * 7) + 57) >= RK[g]) out.add(e); }
+  if (!out.size) return;
+  for (let k = world.enemies.length - 1; k >= n0; k--) { const e = world.enemies[k]; if (out.has(e) || (e.post && out.has(e.post))) world.enemies.splice(k, 1); }
 }
 /* ---------- The Campaign's timetable (owner: every player gets the same challenge) ----------
    In the Campaign (and practice of its levels: run.sortie) the director keeps its zones, densities, timers and encounters, but nothing it
@@ -12937,8 +12970,17 @@ function directorInner() {
 }
 function mkFighter(x, y, h, v, o) {
   const boom = (run.stage >= 2 || run.endless || settings.mode === 'gen') && Math.random() < 0.18 + run.loop * 0.08;
-  return E('fighter', Object.assign({ x, y, h, v, turn: 0, boom,
+  const e = E('fighter', Object.assign({ x, y, h, v, turn: 0, boom,
     fireAt: Math.random() < DIFF.fighterFire[settings.diff] + run.loop * 0.12 ? (rnd(25, 70) | 0) : -1 }, o));
+  if (rookieRun() && (e.fireAt >= 0 || e.strafe)) rkFighter(e);
+  return e;
+}
+// Rookie: a fighter cleared to fire (its shot, or a strafer's pass) blocks the others for RK.gap frames, so a formation has about one shooter,
+// and its shot comes RK.late frames later. While a ship has the super weapon none fires: the frenzy is the reward. No random draw (nothing shifts).
+function rkFighter(e) {
+  const sup = [player, p2].some(q => q && !q.dead && !q.out && isSup(q));
+  if (sup || (world.rkFireG !== undefined && gf - world.rkFireG >= 0 && gf - world.rkFireG < RK.gap)) { e.fireAt = -1; if (e.strafe) e.fired = true; return; }
+  world.rkFireG = gf; if (e.fireAt >= 0) e.fireAt += RK.late;
 }
 // Stage arc: [until progress, zone, density]
 const ARC = [[0.18, 'mix', 1.0], [0.28, 'mix', 0.95], [0.32, 'set1', 1], [0.38, 'calm', 0.5], [0.47, 'mix', 1.0], [0.55, 'air', 1.1], [0.62, 'ground', 1.1], [0.7, 'mix', 1.2], [0.74, 'set2', 1.2], [0.965, 'mix', 1.3], [1.01, 'still', 0]];
@@ -12978,7 +13020,7 @@ function revealCamo(e, shot) {
   sfx('reveal'); haptic('tick');
   const col = cv === 'hay' ? ['#b89a48', '#d8c070', '#f0dc98'] : cv === 'bush' ? ['#2f5a22', '#40722c', '#58903a'] : ['#3e4428', '#565e3a', '#6a5a38'];
   for (let i = 0; i < 26; i++) { const a = Math.random() * TAU, sp = rnd(0.5, 1.8); world.parts.push({ kind: 'spark', layer: 'g', x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.8 + world.scrollV, life: (rnd(14, 26)) | 0, max: 26, col: col[i % 3] }); }
-  if (cv === 'hay') { world.decals.push({ kind: 'spr', s: SPR.straw, wx: e.wx, wy: e.wy, r: 0 }); const f = makeFlak(e.wx, e.wy); f.rear = true; f.cd = 26; f.ga = -PI / 2; }
+  if (cv === 'hay') { world.decals.push({ kind: 'spr', s: SPR.straw, wx: e.wx, wy: e.wy, r: 0 }); const f = makeFlak(e.wx, e.wy); f.rear = true; f.cd = rookieRun() ? 70 : 26; f.ga = -PI / 2; }
   else if (cv === 'bush') {
     world.decals.push({ kind: 'spr', s: SPR.bushFlat, wx: e.wx, wy: e.wy, r: 0 });
     const ty = e.wy + 26, tx = roadX(ty); let clear = true;
@@ -13252,10 +13294,10 @@ function encHeld(k) { const E0 = world.enc; return !!E0 && !!ENC[E0.id].holds[k]
 function encBullets() { let n = 0; for (const b of world.ebul) if (b.kind !== 'amine' && b.kind !== 'zone') n++; return n; }
 function encBudget() { const E0 = world.enc, B = E0 && ENC[E0.id].budget; return B && E0.st !== 'rest' ? B[settings.diff] : Infinity; } // (none: no budget)
 function volleyOK(n, later = 0) {
-  const B = encBudget(); if (B === Infinity) return true;
-  const E0 = world.enc; let held = 0; for (const r of E0.res) held += r[0];
+  const Be = encBudget(), B = rookieRun() ? Math.min(Be, RK.budget) : Be; if (B === Infinity) return true; // (Rookie: RK.budget all the time)
+  const E0 = Be === Infinity ? null : world.enc; let held = 0; if (E0) for (const r of E0.res) held += r[0];
   if (encBullets() + held + n > B) return false;
-  if (later > 0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
+  if (later > 0 && E0) E0.res.push([n, later + 1]); return true; // (+1: encTick counts down before the enemies move, so the frame of the last bullet stays covered)
 }
 const encOwned = id => world.enemies.reduce((n, e) => n + (e.enc === id && e.encOwn !== false && !e.dead && !e.dying && !e.crash && e.type !== 'pod' && !harmlessE(e) ? 1 : 0), 0);
 function encDispatch(E0, ev) { const n0 = world.enemies.length; let ok; ttSeed(40 + E0.i); encTag = { id: E0.id, own: ev.own, ev: E0.i }; try { ok = ENC_VERB[ev.do](ev, E0); } finally { encTag = null; }
@@ -13662,7 +13704,7 @@ function carrierTick() {
     if (ttOn() || chasers < cap) { // (the Campaign's timetable launches on time: LAUNCHES stays under the cap anyway)
       const [bx, by] = carrierXY(C, 0, CV.CAT1);
       if (!C.gone && by < H - 30 && C.parked > 0) { const tu = CV.CATS[C.cat++ % 2], [u0, v0] = CV.PARKED[CV.PARKED.length - C.parked--]; world.enemies.push(G('cfighter', 0, 0, { u: u0, v: v0, u0, v0, tu, vv: 0, untarget: true, up: true })); sfx('whistle'); } // (the parked plane itself rolls off: nothing appears on the deck; up: kept while its parking spot is still below the bottom edge)
-      else world.enemies.push(mkFighter(rnd(40, W - 40), H + 20, -PI / 2, 2.2, { homeT: 150, fireAt: (rnd(30, 80)) | 0, boom: false, chase: true }));
+      else { const fx0 = rnd(40, W - 40), fa = (rnd(30, 80)) | 0; world.enemies.push(mkFighter(fx0, H + 20, -PI / 2, 2.2, { homeT: 150, fireAt: rookieRun() ? -1 : fa, boom: false, chase: true })); }
       C.launched++;
     }
   }
@@ -16291,8 +16333,8 @@ const ENT = {
   heavy: { revenge: 2, medals: 1, stats: { hp: 12, hw: 13, hh: 10, score: 1200 }, update(e) {
     const hold = e.holdT > 0 && e.y >= e.holdY; if (hold) e.holdT--; // an encounter's Heavy (holdY, holdT) stops there for a while, firing as usual, then sinks on
     e.y += hold ? 0 : e.pause > 0 ? 0.15 : 0.7; e.x = clamp(e.x + Math.sin(e.t * 0.03 + e.ph) * 0.4, 20, W - 20);
-    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
-    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
+    if (e.pause > 0) { e.pause--; if ((e.pause === 12 || (run.sortie && run.sortie.level >= 3 && !rookieRun() && e.pause === 26)) && hasT()) { const a = aim(e.x, e.y + 10); if (run.sortie) { eshot(e.x - 7, e.y + 10, a - 0.25, bspeed()); eshot(e.x, e.y + 12, a, bspeed()); eshot(e.x + 7, e.y + 10, a + 0.25, bspeed()); } else for (const da of [-0.25, 0, 0.25]) eshot(e.x, e.y + 10, a + da, bspeed()); sfx('gun'); } } // (Enigma Run, the Hammer: the spread leaves its two engines, from level 3 twice)
+    else if (--e.cd <= 0 && e.y > 20 && e.y < H * 0.55 && volleyOK(run.sortie && run.sortie.level >= 3 && !rookieRun() ? 6 : 3, 30)) { e.pause = 42; e.cd = Math.round(rnd(100, 140) * fireSlow()); }
     if (gf % 3 === 0) for (const ox of (run.sortie ? [-8, 8] : [-14, 14])) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + ox, y: e.y - 2, vx: 0, vy: -0.05, life: 26, max: 26 });
     if (e.y > H + 30) e.dead = true;
   } },
@@ -16330,7 +16372,7 @@ const ENT = {
     if (e.st === 'in') { e.y -= S0.climb; e.x += (e.side - e.x) * 0.02; if (e.y <= S0.y) { e.st = 'hold'; e.ht = 0; } }
     else if (e.st === 'hold') { e.ht++; const paired = e.lane !== undefined, cx = paired ? W / 2 + e.lane * S0.laneX : W / 2, amp = paired ? (zig ? S0.pairA : S0.laneWeave) : S0.weave;
       const tx = zig ? cx + amp * zigTri(gf / S0.per) : cx + amp * Math.sin(e.ht * 0.011 + e.ph) + (paired ? 4 : 10) * Math.sin(e.ht * 0.031 + e.ph * 2), vx = zig ? clamp((tx - e.x) * 0.25, -S0.zigV, S0.zigV) : clamp((tx - e.x) * 0.04, -0.9, 0.9); e.x += vx; e.bank = clamp(vx, -0.9, 0.9); e.y += (S0.y + 8 * Math.sin(e.ht * 0.02 + (e.second ? 2 : 0)) - e.y) * 0.05;
-      if (e.ht > 30 && e.ht % S0.mineEvery === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 38, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
+      if (e.ht > 30 && e.ht % (rookieRun() ? S0.mineEvery * 2 : S0.mineEvery) === 0 && hasT() && world.ebul.length < 420) world.ebul.push({ x: e.x + rnd(-1, 1), y: e.y + 38, vx: 0, vy: S0.drift, r: 2, kind: 'amine', a: 0, life: S0.mineLife, max: S0.mineLife });
       if (e.ht > 60 && e.ht % S0.bombEvery === 0 && hasT() && world.ebul.length < 420) { world.ebul.push({ x: e.x, y: e.y + 8, vx: rnd(-0.35, 0.35), vy: 0.15, r: 3, kind: 'fbomb', a: PI / 2, fuse: (rnd(52, 80) | 0) }); sfx('whistle'); }
       if (!e.second && !e.called && e.ht === S0.pairAfter) { e.called = true; e.lane = e.x < W / 2 ? -1 : 1; const sx = W / 2 - e.lane * S0.laneX, P2 = E('sower', { x: sx, y: H + 50, side: sx, hp: e.maxhp, maxhp: e.maxhp, big: true, air: true, up: true, second: true, lane: -e.lane, partner: e, hold: (e.hold || S0.hold) - S0.pairAfter, ph: e.ph + PI }); e.partner = P2; world.enemies.push(P2); sfx('drone'); }
       if (e.ht >= (e.hold || S0.hold)) { e.st = 'out'; if (e.partner && e.partner.st === 'hold') e.partner.st = 'out'; } } // (a pair leaves together)
@@ -16490,13 +16532,14 @@ const ENT = {
     if (world.spotted > 0 && nightLit(e)) e.cd--;
     if (e.rd === undefined) e.rd = world.enemies.find(o => o.type === 'radar' && !o.dead && Math.hypot(o.wx - e.wx, o.wy - e.wy) < 140) || null;
     const tight = (e.rd && !e.rd.dead ? 0.3 : 1) * (run.sortie && world.nightF > 0.5 && nightLit(e) ? 0.6 : 1); // Enigma Run: a lit searchlight nearby also tightens the aim
-    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90)) && volleyOK((e.barrels || 1) + (world.nightF > 0.5 && nightLit(e) ? 3 : 0), world.nightF > 0.5 && nightLit(e) ? 21 : e.barrels === 4 ? 9 : 0)) {
-      e.cd = Math.round((Math.max(90, 150 - run.loop * 20)) * fireSlow() * (e.barrels === 4 ? 1.15 : 1) * (e.rear ? 0.6 : 1));
-      const bx = e.x + Math.cos(e.ga) * 12, by = e.y + Math.sin(e.ga) * 12, nb = e.barrels || 1;
+    const rkF = rookieRun(), nb = rkF ? 1 : e.barrels || 1, nn = world.nightF > 0.5 && nightLit(e) ? (rkF ? 1 : 3) : 0; // (Rookie: one barrel, one extra shell under a searchlight)
+    if (--e.cd <= 0 && (e.rear ? hasT() && !e.turDead && e.y < H - 4 : canFire(e, 90)) && volleyOK(nb + nn, nn ? 7 * nn : nb === 4 ? 9 : 0)) {
+      e.cd = Math.round((Math.max(90, 150 - run.loop * 20)) * fireSlow() * (nb === 4 ? 1.15 : 1) * (e.rear && !rkF ? 0.6 : 1));
+      const bx = e.x + Math.cos(e.ga) * 12, by = e.y + Math.sin(e.ga) * 12;
       flakShot(bx, by, tight); flash(bx, by, 2); sfx('gun');
       if (nb >= 2) flakShot(bx, by, tight * 1.6);
       if (nb >= 4) world.later.push({ at: gf + 9, fn: () => { if (!e.dead && !e.turDead && hasT()) { const cx = e.x + Math.cos(e.ga) * 12, cy = e.y + Math.sin(e.ga) * 12; flakShot(cx, cy, tight); flakShot(cx, cy, tight * 1.6); flash(cx, cy, 2); sfx('gun'); } } });
-      if (world.nightF > 0.5 && nightLit(e)) for (let k = 1; k <= 3; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
+      for (let k = 1; k <= nn; k++) world.later.push({ at: gf + k * 7, fn: () => { if (!e.dead && hasT()) { eshot(e.x + Math.cos(e.ga) * 12, e.y + Math.sin(e.ga) * 12, e.ga + rnd(-0.08, 0.08), bspeed() * 1.4, 'shell'); sfx('gun'); } } });
     }
   } },
   bunker: { turret: true, revenge: 2, guarded: true, medals: 0.7, treesInFront: true, stats: { hp: 14, hw: 10, hh: 10, score: 600, rad: 13 }, update(e) {
@@ -18111,6 +18154,7 @@ function update() {
   updFlyby();
   director();
   frenzyTick();
+  rkOrbTick();
   for (let i = world.later.length - 1; i >= 0; i--) if (world.later[i].at <= gf) { const it = world.later[i]; world.later.splice(i, 1); if (it.rs === undefined) { it.fn(); continue; } const nL = world.later.length; rsRun(it, 'rs', it.fn); for (let k = nL; k < world.later.length; k++) { const q = world.later[k]; if (q.rs === undefined) q.rs = q.rs0 = rsHash(it.rs, 0x200 + k - nL); } } // (the Campaign: a delayed call runs on its own stream, and what it leaves for later gets one seeded by it)
   if (run.sortie && run.sortie.snow) gorgeSnowTick(); // (level 5's avalanches)
   if (run.sortie && run.sortie.falls) gorgeFallTick(); // (level 5: cars falling from the bridge)
@@ -18172,7 +18216,7 @@ function update() {
         if (e.pbT === 14) world.parts.push({ kind: 'flash', layer: 'g', x: e.x, y: e.y, vx: 0, vy: world.scrollV, r: 3, life: 14, max: 14 });
         if (e.pbT <= 0) { e.pbT = 62; const a = aim(e.x, e.y); eshot(e.x + Math.cos(a) * 8, e.y + Math.sin(a) * 8, a, bspeed()); flash(e.x + Math.cos(a) * 8, e.y + Math.sin(a) * 8, 2); sfx('gun'); }
       }
-      if (e.type === 'fighter' && !e.crash && !e.lead && d < 95 && e.y < player.y) { e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.045, 0.045); e.v = Math.min(2.3, e.v + 0.02); }
+      if (e.type === 'fighter' && !e.crash && !e.lead && d < 95 && e.y < player.y && !rookieRun()) { /* (Rookie: no swerve into the ship) */ e.h += clamp(angDiff(e.h, aim(e.x, e.y)), -0.045, 0.045); e.v = Math.min(2.3, e.v + 0.02); }
     }
   }
   for (const e of world.enemies) if (ENT[e.type].treads && !e.dead && e.wx !== undefined) {
@@ -19258,7 +19302,7 @@ Object.assign(ENT, {
     const C = world.carrier; if (!C || C.gone) { e.dead = true; return; }
     [e.x, e.y] = carrierXY(C, e.u, e.v); e.wx = e.x; e.wy = e.y - Math.floor(world.scroll); const k = carrierPK(C); e.hw = e.hh = Math.max(4, 9 * k); e.rad = Math.max(6, 13 * k);
     if (hasT()) e.ga += clamp(angDiff(e.ga, aim(e.x, e.y)), -0.06, 0.06);
-    if (--e.cd <= 0 && canFire(e, 60)) { e.cd = Math.round(Math.max(90, 150 - run.loop * 20) * fireSlow()); const r = 14 * k, bx = e.x + Math.cos(e.ga) * r, by = e.y + Math.sin(e.ga) * r; flakShot(bx, by, 1); flash(bx, by, 2); sfx('gun'); }
+    if (--e.cd <= 0 && canFire(e, 60) && !rookieRun()) { e.cd = Math.round(Math.max(90, 150 - run.loop * 20) * fireSlow()); const r = 14 * k, bx = e.x + Math.cos(e.ga) * r, by = e.y + Math.sin(e.ga) * r; flakShot(bx, by, 1); flash(bx, by, 2); sfx('gun'); }
   }, wreck(e) { if (world.carrier) world.carrier.gunDead[e.gi] = true; },
   draw(e, fl) { const k = world.carrier ? carrierPK(world.carrier) : 1; ctx.save(); ctx.translate(Math.round(e.x), Math.round(e.y)); ctx.scale(k, k); dk(0, 0, 7, '#2e3036'); dk(0, 0, 6, '#6a6e76'); spr(SPR.dGun[dirIdx(e.ga)], 0, 0, fl); ctx.restore(); } },
   cparked: { harmless: true, uncounted: true, showScore: true, medals: 0.5, stats: { hp: 3, hw: 8, hh: 7, score: 300, rad: 10 }, update(e) { // a plane parked on the carrier's deck (the flyover)
@@ -19272,7 +19316,7 @@ Object.assign(ENT, {
       [e.x, e.y] = carrierXY(C, e.u, e.v); e.k = carrierPK(C);
       if (e.v <= CV.CAT1) { e.air = 1; e.k0 = e.k; e.cy0 = C.vy - e.vv * C.s; } }
     else { const f = Math.min(1, ++e.air / 30); e.y += lerp(e.cy0, -2, f); e.k = lerp(e.k0, 1, f);
-      if (e.air >= 30) { e.dead = true; world.enemies.push(mkFighter(e.x, e.y, -PI / 2, 2, { homeT: 150, fireAt: (rnd(30, 80)) | 0, boom: false, chase: true })); } }
+      if (e.air >= 30) { e.dead = true; const fa = (rnd(30, 80)) | 0; world.enemies.push(mkFighter(e.x, e.y, -PI / 2, 2, { homeT: 150, fireAt: rookieRun() ? -1 : fa, boom: false, chase: true })); } } // (Rookie: the carrier's planes chase but never fire)
     e.wx = e.x; e.wy = e.y - Math.floor(world.scroll);
     if (e.air && gf % 3 === 0) for (const sd of [-1, 1]) world.parts.push({ kind: 'trail', layer: 'a', x: e.x + sd * 9 * e.k, y: e.y + 2 * e.k, vx: 0, vy: 0, life: 14, max: 14 });
   }, draw(e) { const s = SPR.fighter[dirIdx(-PI / 2)], k = e.k || 1, w = Math.round(s.w * k), h = Math.round(s.h * k), a = e.air ? Math.min(1, e.air / 30) : 0;
