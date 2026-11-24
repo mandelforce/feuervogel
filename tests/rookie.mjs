@@ -1,7 +1,7 @@
 // Rookie in the Campaign (RK in index.html): the ship starts at weapon level 4 with three of the four super steps; once it is off the
 // carrier's deck a Scatter orb that never changes drops in front of it and starts the frenzy; the carrier's deck guns and the planes it
 // launches never fire; the fighters of a formation leave at most one shooter; the ground guns are thinned; never more than RK.cap bullets.
-// Veteran is unchanged. Serve the folder (python3 -m http.server 8000), then:  node tests/rookie.mjs [--verbose]
+// Every boss has Veteran's hit points. Veteran is unchanged. Serve the folder (python3 -m http.server 8000), then:  node tests/rookie.mjs [--verbose]
 import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 
@@ -95,6 +95,21 @@ for (const diff of [0, 1]) {
     ok(r.wall === 14 && r.hatch === 12 && r.aa === 10, `Veteran: the castle keeps all its guns (${JSON.stringify(r)})`);
   }
   await page.close();
+}
+/* 4. every level's boss, in both loops, has the same hit points on Rookie as on Veteran (its parts, or its own when it has none) */
+{
+  const hp = {};
+  for (const diff of [0, 1]) {
+    const page = await freshPage();
+    hp[diff] = await peek(page, `(() => { SF.setMode('immortal'); settings.diff = ${diff}; const out = [];
+      for (let k = 0; k < 12; k++) { const lv = k % 6 + 1, lp = k >= 6 ? 1 : 0; startEnigma(lv, true, lp); world.enemies.length = 0; spawnBoss(); const B = world.enemies.find(e => e.type === 'boss');
+        for (let i = 0; i < 5; i++) update();
+        const big = world.enemies.filter(e => e.big && !e.dead), sum = big.reduce((a, e) => a + (e.parts ? e.parts.reduce((x, p) => x + (p.maxhp || 0), 0) : 0) + (e.maxhp || e.hp || 0), 0);
+        out.push(Math.round(sum)); }
+      return out; })()`);
+    await page.close();
+  }
+  for (let i = 0; i < 12; i++) ok(hp[0][i] > 0 && Math.abs(hp[0][i] - hp[1][i]) <= 1, `level ${i % 6 + 1}${i >= 6 ? ' (loop 2)' : ''}: the boss has Veteran's hit points on Rookie (${hp[0][i]} / ${hp[1][i]})`);
 }
 await browser.close();
 console.log(bad ? `${bad} failed, ${passed} passed` : `Rookie checks pass (${passed}).`);

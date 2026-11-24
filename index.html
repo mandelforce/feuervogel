@@ -5279,7 +5279,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.56'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.57'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -5346,12 +5346,14 @@ const DIFF = { bs: [0.88, 1, 1.12], hp: [1, 1, 1.15], boss: [1.25, 1, 0.85], liv
    starts at weapon level 4 with three of the four super steps, so that orb starts the frenzy at once. */
 const RK = { skip: 2, fs: 2.1, hp: 0.8, budget: 14, cap: 26, gap: 60, late: 30, loop: 0.3, gun: 0.6, hidden: 0.25, orb: 20 };
 const rookieRun = () => settings.diff === 0 && !!run.sortie && !run.sortie.daily;
+const bossLoopK = () => rookieRun() ? (1 + 0.25 * rankFor(run.stage, 1)) / (1 + 0.25 * run.loop) : 1; // Rookie: a boss's hit points follow Veteran's rank, not Rookie's lower one
+const bossK = () => rookieRun() ? bossLoopK() / RK.hp : DIFF.boss[settings.diff]; // a boss's hit points beside hpm(): Rookie's bosses have Veteran's (DIFF.boss is 1 there; 1 / RK.hp undoes Rookie's lower enemy hit points)
 function fireSlow() { return rookieRun() ? RK.fs : DIFF.fs[settings.diff]; }
 /* Rank drives most of the scaling (bullet speed, hp, caps, spawn rates, the loop gates at >= 1). The first pass is unchanged; later loops climb more gently, per difficulty:
    LOOP_STEP is the rank added per completed loop, LOOP_SLOPE the rank per level inside a loop (the first pass keeps 0.08), and Ace's per-stage term stops growing after the first pass.
    Rookie stays under the gates all through loop 1; Veteran reaches them only in the later levels; Ace starts loop 1 about where the first pass ended. */
 const LOOP_STEP = [0.5, 0.65, 0.25], LOOP_SLOPE = [0.08, 0.06, 0.05];
-function rankFor(st) { const d = settings.diff, L = Math.floor((st - 1) / 6), w = (st - 1) % 6; return (w * (L ? LOOP_SLOPE[d] : 0.08) + L * (L ? (rookieRun() ? RK.loop : LOOP_STEP[d]) : 1) + (d === 2 ? Math.min(st - 1, 5) / 5 : 0)) * DIFF.rank[d]; }
+function rankFor(st, d = settings.diff) { const L = Math.floor((st - 1) / 6), w = (st - 1) % 6; return (w * (L ? LOOP_SLOPE[d] : 0.08) + L * (L ? (d === 0 && rookieRun() ? RK.loop : LOOP_STEP[d]) : 1) + (d === 2 ? Math.min(st - 1, 5) / 5 : 0)) * DIFF.rank[d]; }
 let eshotN = 0;
 
 /* ================= noise ================= */
@@ -14145,7 +14147,7 @@ BOSS.wolfpack = { warn: 'WOLFPACK BELOW THE WAVES', score: 30000, y: 120, x: 112
 BOSS.shadowwing = { warn: 'THE SHADOW WING RETURNS', score: 30000, y: 70, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }],
   setup(e, sc) { e.subs = []; const hp = 520 * 4 * hpm(), v = run.sortie.level - 1, V = WING_V[v], w = E('wing', Object.assign({ x: W / 2, y: -30, hp, maxhp: hp, big: true, stay: 1e9, bossWing: true }, V ? { v, hw: V.hw, hh: V.hh, si: 0, ph: 0, st: 0, rest: 30 } : null)); w.hp0 = hp; e.subs.push(w); world.enemies.push(w); } };
 /* The Raven prototype and The Moth as the end boss (plan 12.12 items 12, 13): the level 6 duel's aircraft alone, in its three phases, that does not escape (stay); the Moth (its looped hull) with more hit points and its dust cones. Followed by a hidden core as the wing is. */
-const protoBoss = (e, hull, k) => { e.subs = []; const hp = 260 * k * hpm() * DIFF.boss[settings.diff] * (run.sortie && run.sortie.bossVar && run.sortie.bossVar.hpK || 1), d = E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true, hp, maxhp: hp, stay: 1e9, hull }, protoBox('protoDuel', hull))); d.hp0 = hp; e.subs.push(d); world.enemies.push(d); };
+const protoBoss = (e, hull, k) => { e.subs = []; const hp = 260 * k * hpm() * bossK() * (run.sortie && run.sortie.bossVar && run.sortie.bossVar.hpK || 1), d = E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true, hp, maxhp: hp, stay: 1e9, hull }, protoBox('protoDuel', hull))); d.hp0 = hp; e.subs.push(d); world.enemies.push(d); };
 BOSS.raven = { warn: 'THE RAVEN PROTOTYPE', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, undefined, 7); } };
 BOSS.moth = { warn: 'THE MOTH TAKES WING', score: 30000, y: 90, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e) { protoBoss(e, 'moth', 4); } };
 BOSS.castle = { warn: 'THE CASTLE GUNS AWAKEN', score: 40000, blastArea: [50, 60], world: true, parts: [
@@ -14399,7 +14401,7 @@ function bossDead(e) { if (!bossHit && rankedCamp()) award('untouch'); world.scr
 function spawnBoss() {
   if (app.rr && app.rr.cur) app.rr.cur.boss = 1;
   bossHit = false;
-  const SB = run.sortie && run.sortie.bossVar, m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * DIFF.boss[settings.diff] * (SB && SB.hpK ? SB.hpK : 1), kind = (SB && SB.kind) || BOSS_KINDS[world.curTheme], def = BOSS[kind];
+  const SB = run.sortie && run.sortie.bossVar, m = 2 * (1 + 0.25 * run.loop) * DIFF.hp[settings.diff] * (rookieRun() ? bossLoopK() : DIFF.boss[settings.diff]) * (SB && SB.hpK ? SB.hpK : 1), kind = (SB && SB.kind) || BOSS_KINDS[world.curTheme], def = BOSS[kind];
   const ps = def.parts.map((q, i) => {
     const p = Object.assign({}, q);
     p.hp *= m;
@@ -15526,8 +15528,8 @@ function spawnProtoFly() {
   world.later.push({ at: gf + 20, fn: boostOutSfx });
 }
 function spawnProtoDuel(done, mid) { /* mid: a mid-level duel (the Daily Sortie's Raven encounter): its own hit points and stay, never the looped pair, no health bookkeeping of the Campaign's story */
-  const base = 260 * hpm() * DIFF.boss[settings.diff] * (mid ? mid.hpK : 1), hp = mid ? base : Math.max(base * 0.6, base - run.proto.dmg * 0.45);
-  const wk = 120 * hpm() * DIFF.boss[settings.diff], mk = o => E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true }, o)); // (the weakened old hull has 120 health, scaled like the others by the loop and the difficulty)
+  const base = 260 * hpm() * bossK() * (mid ? mid.hpK : 1), hp = mid ? base : Math.max(base * 0.6, base - run.proto.dmg * 0.45);
+  const wk = 120 * hpm() * bossK(), mk = o => E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, untarget: true }, o)); // (the weakened old hull has 120 health, scaled like the others by the loop and the difficulty)
   // the looped levels: the weakened old hull (120 health, always smoking, a thruster throwing sparks, no lunge or missile, few bullets, no health bar of its own) and The Moth fight together, on opposite sides of the sky
   const es = mid ? [mk({ hp, maxhp: hp, stay: mid.stay })] : mothOn() ? [mk(Object.assign({ hp, maxhp: hp, hull: 'moth', px: 0, yo: -10 }, protoBox('protoDuel', 'moth'))), mk({ hp: wk, maxhp: wk, hull: 'old', weak: true, under: true, barHide: true, px: PI, yo: 12, score: 8000 })] : [mk({ hp, maxhp: hp })];
   for (const e of es) world.enemies.push(e);
@@ -15553,7 +15555,7 @@ function drawProtoPlane(e, rot, sc, flames) {
    faster and with more arms as its parts fall, so the gaps in them sweep round the tower, and a fully charged laser both cuts a gap through the bullets and hits the
    tower's parts harder. The first pass keeps the old castle. */
 function castleAerial(e) {
-  e.aerialT0 = gf; const base = 200 * hpm() * DIFF.boss[settings.diff], hp = base; /* (The Moth comes whole: nothing it loses is carried on) */
+  e.aerialT0 = gf; const base = 200 * hpm() * bossK(), hp = base; /* (The Moth comes whole: nothing it loses is carried on) */
   world.enemies.push(E('protoDuel', Object.assign({ x: 112, y: -70, keep: true, big: true, hp, maxhp: hp, untarget: true, castle: true, hull: 'moth' }, protoBox('protoDuel', 'moth')))); e.aerial = true; e.barHide = true; sfx('flyin');
 }
 function castleWindmill(e, p, px, py, others, sp) { /* the keep's windmills: 3 arms while the tower's guns stand, then 4 and a counter-turning pair once its core is open */
@@ -19723,7 +19725,7 @@ const FOLLOW = {
   airbase: { hpK: 8, warn: 'AIRBASE: DESTROY THEM ON THE GROUND', spawn(e, sc) { const out = [], add = (type, x, y, o, k) => { const g = G(type, x, y - sc, o); if (k) g.hp *= k; out.push(g); };
     for (const [x, y, d] of [[50, 80, 1], [112, 72, -1], [174, 80, 1], [50, 130, -1], [112, 122, 1], [174, 130, -1], [80, 178, 1], [144, 178, -1]]) add('parked', x, y, { hd: d > 0 ? PI / 2 : -PI / 2 }, 3);
     add('aatower', 24, 110, { cd: 60 }); add('aatower', 200, 110, { cd: 100 }); add('bunker', 112, 210, { ga: PI / 2, cd: 80 }); return out; } },
-  silo: { warn: 'ROCKET SILO: DESTROY THE CONTROL BUNKERS, THEN THE ROCKET', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], out = [];
+  silo: { warn: 'ROCKET SILO: DESTROY THE CONTROL BUNKERS, THEN THE ROCKET', spawn(e, sc) { const m = hpm() * bossK(), out = [];
     out.push(E('silorocket', { x: 112, y: 122, big: true, hp: 1000 * m, maxhp: 1000 * m, shield: true }));
     for (const x of [48, 176]) { const b = G('bunker', x, 130 - sc, { ga: PI / 2, cd: 60 + (x % 50) }); b.hp *= 2.5; b.maxhp = b.hp; out.push(b); }
     for (const x of [24, 200]) out.push(G('aatower', x, 190 - sc, { cd: 60 + (x % 40) })); return out; } },
@@ -19739,10 +19741,10 @@ const FOLLOW = {
     for (const x of [24, 200]) out.push(G('aatower', x, 150 - sc, { cd: 60 + (x % 40) }));
     out.push(E('stormwall', { x: 112, y: -300, big: true, hp: 150, maxhp: 150, skin: 'flood', untarget: true, keep: true })); return out; } },
   canyon: { warn: 'CANYON RUN', spawn(e, sc) { return [E('stormwall', { x: 112, y: 200, big: true, hp: 150, maxhp: 150, skin: 'canyon', untarget: true, keep: true })]; } },
-  ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('ghost', { x: 112, y: -130, big: true, hp: 1400 * m, maxhp: 1400 * m })]; } },
-  crawler: { warn: 'THE SAND CRAWLER', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('crawler', { x: 112, y: -90, big: true, hp: 2300 * m, maxhp: 2300 * m })]; } },
-  leviathan: { warn: 'SOMETHING MOVES UNDER THE ICE', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff]; return [E('leviathan', { x: 112, y: 150, big: true, hp: 1500 * m, maxhp: 1500 * m })]; } },
-  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * DIFF.boss[settings.diff], r = E('rival', { x: 112, y: -40, big: true, hp: 220 * 1.8 * m, maxhp: 220 * 1.8 * m, skin: rivalSkin() }); return [r]; } }
+  ghostship: { warn: 'A GHOST SHIP OUT OF THE FOG', spawn(e, sc) { const m = hpm() * bossK(); return [E('ghost', { x: 112, y: -130, big: true, hp: 1400 * m, maxhp: 1400 * m })]; } },
+  crawler: { warn: 'THE SAND CRAWLER', spawn(e, sc) { const m = hpm() * bossK(); return [E('crawler', { x: 112, y: -90, big: true, hp: 2300 * m, maxhp: 2300 * m })]; } },
+  leviathan: { warn: 'SOMETHING MOVES UNDER THE ICE', spawn(e, sc) { const m = hpm() * bossK(); return [E('leviathan', { x: 112, y: 150, big: true, hp: 1500 * m, maxhp: 1500 * m })]; } },
+  rival: { warn: 'AN ACE ON YOUR TAIL', spawn(e, sc) { const m = hpm() * bossK(), r = E('rival', { x: 112, y: -40, big: true, hp: 220 * 1.8 * m, maxhp: 220 * 1.8 * m, skin: rivalSkin() }); return [r]; } }
 };
 /* The long train (plan 12.20, owner 12.4: one bigger train on one track instead of the two-train yard): a locomotive and ten cars (flatcars with a gun, two ammunition cars, a boxcar) on the arena's single rail (x 112; the winter's rail gorge: x 93), the game's own train enemies. It shuttles up and down the rail (a slow cycle of 25 px a side), the flatcars shoot aimed flak, the locomotive sends a ring every six seconds; with the locomotive gone the cars stall (trainMove) and the flatcars fire on. Ends when the last car is gone. */
 FOLLOW.longtrain = { hpK: 9, warn: 'THE LONG TRAIN', spawn(e, sc) {
