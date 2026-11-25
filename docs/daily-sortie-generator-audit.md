@@ -200,6 +200,37 @@ Measured on 6 sorties (Veteran, all bosses killed, no errors): 86 % of the fight
 - Past the 48 chunks on a yard day, the Campaign pattern draws its hangar under the tracks (as it always has); the generated part keeps the roofs between them.
 - Nobody has played it.
 
+## 3c. The desert's generated arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+Owner: keep the desert's original area for the tank boss (the sand crawler); no city graphics in the sand climate, but variations of the desert's boss area; then "hangars and the city final boss area could be nice to have as one option".
+
+**The old arena.** The desert's Campaign boss ground (`bossland`, theme 2): olive scrub, a winding dirt track, the railway down the left edge at x 18, bushes and palms from the detail pass, and bunkers and flak the director drops at random. It is procedural (it never repeats), but it meets the level's yellow sand at a hard, dithered change of colour.
+
+**Built.** `addDesertArena` builds 48 chunks after the level as its own small plan, in four kinds: scrub (`MEADOW`, typed `grass`), sand (`DESERT`), the dirt track (`ROAD`) and rails (`RAIL`). The game paints them with the old ground's own colours (`desertArenaColor`: pixelColor's scrub and dirt-track formulas with the arena's own track centre, the rails in `planRailColor`, the sand in the level's own `planSandColor`). The game's detail pass runs on its chunks, so the bushes, palms and scars are the old ground's; the tank traps it stamps on sand are left off, since they belong to a coast.
+
+What varies per day:
+- the level's sand easing into the scrub over 100 to 260 rows (dithered noise), with one to three sand fields further on;
+- the dirt track, going on from the level's road: one track, a fork that parts and meets again, or none, kept in the widest strip clear of any rails after easing in over 160 rows (it may cross a boss's rail there: a level crossing);
+- the railway going on at x 18 when the level's reaches its end there;
+- two to four gun positions (a bunker by the track, flak beside it; slots).
+
+Land endings get scene zones, as on the city. The long train and the supergun get their rails (beside the level's railway).
+
+Other days:
+- a quarter of the arena days get the city's generated final airfield instead (`cityArenaStyle: 'airfield'`, its own hash stream);
+- the sea endings get the generated coast and sea, which take the desert's colours from the theme.
+
+The sand crawler, the castle, the two-train yard, the canyon run and the sandstorm keep the Campaign's arena. **79 % of desert days are generated** (desert style 62 %, airfield 16 %, sea 13 %, over 3,000 seeds).
+
+**Fixed on the way:**
+- On an arena day the level's sand no longer fades into the scrub over its last 128 rows (`planSandColor`'s `L` now runs to the arena's end); the arena's own sand eases in instead, so there is no sand, scrub, sand.
+- `sandSea` passes its parameters on to the sub-plans it builds (the port town through `withPerimeter`), so `cityArena` built an unused arena there. The dispatcher now strips the arena's parameters before the desert builder runs. The level's own plan is byte-identical with and without the arena, and the arena adds about 17 ms (fastest of six runs, 12 days), in line with the city's.
+- The sand noise is computed only where sand can be (the lead rows and the fields' boxes), from precomputed lattice tables.
+
+**Checked:** 34 sorties, one of each ending and style (Veteran): every boss killed, no errors, 96 % of the fights' time on the generated arena. Flight gate on 2026-12-03 (gun line), 2026-12-13 (fuel depot) and 2026-12-18 (sand fortress), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. Plan checks over 301 desert-style arenas: no track on a rail after its ease, no jump at the join to the level's road.
+
+**Not done:** on an airfield day the concrete starts directly after the sand (no fence or verge); the forest's, winter's and temperate kit's arenas; nobody has played it.
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
