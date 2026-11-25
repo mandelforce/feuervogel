@@ -295,6 +295,13 @@ Levels are 46 to 63 chunks long, of which about two thirds is mainland. Encounte
 
 Land days have their own boss pool: the gun line, the tank column, the fuel depot, the airbase, the silo, the bridge and the dam (scenes), the land fortress, the sky fortress, the Moth, the Raven, the rival and the Shadow Wing. The level's plan is byte-identical with and without the arena.
 
+**Checked:**
+- **Flights:** 13 sorties, one of each land ending (Veteran): every boss killed, no errors, 98.4 % of the play before the boss on generator ground. In the fights: 84 % on the arena, 12 % on the level's last chunks (the boss comes one chunk after the level), 3.6 % past the arena.
+- **Flight gate** on the next five land dates (2026-11-27 rival, 12-02 sky fortress, 12-17 Moth, 12-22 sky fortress on a Fast scroll day, 12-27 dam), all difficulties: **15 of 15 pass**, and each determinism twin flew the same.
+- **Composer:** gate 1 is clean on 15,000 composed days (all kits). Land days need at most 20 tries of 64 (mean 2.7). `compose.mjs` now checks land days against their own grammar and pool.
+- **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`. `enigma --pixels` gives the same six stage hashes as before this work.
+- **Not checked:** scene fights on screen by eye (the contact sheets show the zones, not the fight); nobody has played it.
+
 **Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
 
 ## 4. Decisions for the owner
