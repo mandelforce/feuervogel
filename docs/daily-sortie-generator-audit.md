@@ -231,6 +231,47 @@ The sand crawler, the castle, the two-train yard, the canyon run and the sandsto
 
 **Not done:** on an airfield day the concrete starts directly after the sand (no fence or verge); the forest's, winter's and temperate kit's arenas; nobody has played it.
 
+## 3d. The winter's and the temperate kit's sea endings (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+Owner: each climate keeps its own look, as variations of its own Campaign boss area; more kinds of endings, only where the ground makes sense.
+
+### Winter: the open sea after the freight harbour
+
+**Before.** 88 % of winter days already ended on the generator's own finales (the gorge, the rail gorge, the frozen depot). The ship, the squadron, the ghost ship and the slipway (12 %) ended at the `depot` freight harbour, then on the legacy open sea (`seaTail [['open_sea', 7]]`). That sea was painted by `pixelColor` and then given the winter grade, so it met the harbour's water (the plan's, `planSeaColor`, ungraded) at a visible seam.
+
+**Built.** `addIceSeaArena` (`tools/citygen.js`) builds the ending as its own small plan, as the city's sea arena is: the level's sea tail and 48 chunks (`cityArena` = 55; the level's length and the boss's trigger are unchanged). The ground is the winter level's own frozen sea:
+- open water (`K.SEA`), painted by the plan painter through the host's own water (`opts.seaPix`, `planSeaColor`), as the harbour's is, so there is no seam; past the arena the game paints the legacy sea the same way, ungraded (`workChunk`'s `preSea` now also covers it);
+- floes (`K.ICE`, B −80, with −83 new ice on their rims), painted by the plan painter's own ice (`icePixK`, `seaIceShade`), from a jittered grid of the day's floe size.
+
+What varies per day (`arena.drift`):
+- the drift ice along both edges, or only the left or only the right (a fifth of days each);
+- the bands' widths (22 to 56 px), breathing along the arena and broken into fields by slow noise (35 to 75 % of the rows);
+- after a frozen harbour, broken floes drifting out from its mouth over 160 to 360 rows, thinning to open water; otherwise, on half the days, a field of pancakes at the mouth.
+
+The channel x 64 to 160 stays open water past the mouth for the ships. There are no targets: the legacy open sea has none, and the game brings its boats as there. The winter line's own plan is byte-identical with and without the arena (17 of 17 arena days among 120 seeds). The arena takes 10 to 38 ms (median about 17).
+
+**Checked:** 8 sorties (two of each ending, both edge kinds, iced and open harbours; Veteran): all bosses killed, no errors, 98.6 % of play time on generator ground, 100 % of the fights. Flight gate on 2027-01-09 (squadron) and 2027-01-19 (ghost ship), all difficulties: **6 of 6 pass**, and each determinism twin flew the same. **Every winter day now ends on generator ground.**
+
+### Temperate: the coast after the old land, then the sea
+
+**Before.** No temperate day ended on generated ground. The plan ends at the mainland's gate (with the old land's built-up stretches, `city_small`, `industrial_light`, `airbase_searchlight`, after it as legacy chunks) or at its own cove. Then came the legacy `coast_down` chunk and `open_sea`. Every ending is over that sea.
+
+**Built.** `KITS.temperate.cityArena.legacySea` lists the endings whose arena is the sea: the ship, the slipway, the squadron, the wolfpack, the ghost ship, and the air bosses that fight over it (the sky fortress, the Shadow Wing, the Raven, the Moth, the rival). The sea-fort castle keeps the Campaign's sea, because its ruin floor is drawn over it. That makes **92 % of temperate days** (1,848 of 2,000 seeds):
+- **Days with built-up stretches** (66 % of days): the Campaign's coast (`addSeaArena`, as the city's: grass, sand with its tank traps, surf, sea; the day's own shoreline, bunkers and flak) comes after them. The arena's plan starts `cityArenaGap` chunks after the level's plan (`A.y0 = plan.L + gap`), and the legacy stretches stay between them. On the arena's grass, the old land's dirt track and railway run on to the sand, as on the Campaign's coast chunk; the railway ends at a buffer stop 8 rows short of the sand (`arenaJoin`, painted with the game's own road and rail formulas).
+- **Cove days** (27 %): open sea from the mainland's own cove (`cityArenaOpen`: no coast), the same water as the plan's, so no seam.
+- **Both:** none to three islets near the edges (`seaIsles`, out past the coast, never in the channel x 64 to 160), in the coast's kinds and colours, the water lit near them as near a coast (`A.isleD`). A larger one has a bunker on its sand or a flak gun (slots marked arena) on 70 % of days.
+
+**In the game.** `sortiePlanIslands` keeps the plan's own end (`S.planEnd`) and the gap (`S.planGap`, rebuilt from the plan, so no new snapshot state). `sortieInfo` treats the gap's chunks as legacy, and the arena's chunks keep their stretches' biomes. The old land's gate join keys on `S.planEnd`. `roadXc` and `roadT` measure from the plan's end in the gap and from the arena's end after it; without a gap the old behaviour is unchanged. Gate 1 checks the gap, the coast and the islets against the old land; `kit-check.mjs` checks the arena's rows. The level's plan is byte-identical with and without the arena (52 of 52 days).
+
+**Checked:** 20 sorties, one of each ending on an old-land day and on a cove day (Veteran): all bosses killed, no errors, 98.7 % of play time on generator ground, 100 % of the fights. Flight gate on 2026-11-27 (Moth), 12-02 (wolfpack) and 12-27 (sky fortress, old land), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. 2026-12-02's "low" bullet counts are the same on the build before this work. On 12-27 the sky fortress died sooner (Rookie 187 s against 209 s, Veteran 124 s against 167 s; Ace the same).
+
+**Not done:**
+- the sea-fort castle's ending;
+- an airfield option and land endings for these kits (the temperate level ends at the sea; how it should end on land is the owner's decision);
+- the old land's built-up stretches as generator ground (A3);
+- the probe's "other" class: ground enemies before chunk 0 (the carrier's start, about 2 % of the temperate kit's);
+- nobody has played it.
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
