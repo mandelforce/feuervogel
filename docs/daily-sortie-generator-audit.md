@@ -309,6 +309,7 @@ Land days have their own boss pool: the gun line, the tank column, the fuel depo
 - sometimes a pond with a willow and a copse, and four to eight lone trees.
 
 Days without a scene have meadows in their arena walk too. When a scene is laid in a meadow, the animals there are removed, and none spawn under it later. `planCows` was not called once the boss had come, so the arena's animals now also come during the fight, on land days only (its own stream, `ttSeed(43)`). Checked by eye in a flight's screenshots (the sky fortress over a meadow: cows in their paddocks, sheep, the hedges and a pond). The arena now takes 117 to 156 ms.
+Re-checked with the meadows: 13 land endings, all bosses killed. In the fights: 81 % on the arena, 11 % on the level's last chunks, 8 % past it. Flight gate on the five land dates: 15 of 15, twins the same. The test battery is green, and the Campaign pixel hashes are unchanged.
 
 **Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
 
