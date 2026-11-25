@@ -265,6 +265,8 @@ The channel x 64 to 160 stays open water past the mouth for the ships. There are
 
 **Checked:** 20 sorties, one of each ending on an old-land day and on a cove day (Veteran): all bosses killed, no errors, 98.7 % of play time on generator ground, 100 % of the fights. Flight gate on 2026-11-27 (Moth), 12-02 (wolfpack) and 12-27 (sky fortress, old land), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. 2026-12-02's "low" bullet counts are the same on the build before this work. On 12-27 the sky fortress died sooner (Rookie 187 s against 209 s, Veteran 124 s against 167 s; Ace the same).
 
+**Test battery (both kits' changes together):** `compose.mjs` 77, `citysegs` 8, `citygen` goldens, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`. `node tests/enigma.mjs --pixels` gives the same six stage hashes as the build before this work (e326f0c: c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d); it fails against the stored reference on both, as before.
+
 **Not done:**
 - the sea-fort castle's ending;
 - an airfield option and land endings for these kits (the temperate level ends at the sea; how it should end on land is the owner's decision);
