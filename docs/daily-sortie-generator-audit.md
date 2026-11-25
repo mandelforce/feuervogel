@@ -355,6 +355,20 @@ The city's and the desert's airfields (`addArenaField`) are unchanged.
 - **Test battery** (for 3f and 3g together): `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base (c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d). Its six pixel checks fail against the stored reference file exactly as they do on the base; the reference file was left alone.
 - **Not checked:** nobody has played it. The hangar ruins and the layout were looked at in screenshots of a few flights only.
 
+**The city and the desert (owner: "give this layout also to the city and desert levels").** `addAirfield` now builds the city's arena (every city airfield day: the bosses that fight on a plain airfield, the land endings, the bosses on a rail of their own) and the desert's airfield option, with its own verges and colours for each climate:
+- **city:** grass, the city's asphalt;
+- **desert:** sandy verges, sand drifting across the runway;
+- **winter:** snow.
+
+It replaces `addArenaField` (3b), whose layout was the Campaign's final airfield in new combinations. What that arena carried is kept:
+- the scene zones (272 rows with no block, one about every seven chunks from the sixth);
+- the boss's own rails, laid from row 16;
+- the rail-yard ending's two tracks (x 55 and 169), which run on through the perimeter and down the whole arena.
+
+Nothing stands on a rail: the taxiway moves out past one (on a rail-yard day it starts 64 px in instead of 48), the hangars fill the spans beside the rails, and a stand, a building or a target that would touch one is left out. On 2026-12-21, a rail-yard day, nothing in the arena touches either track.
+
+CHECKCD
+
 ## 3g. Winter land endings on a snowfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
 
 Owner: winter land endings (would need a flat snowfield arena and new bosses in the winter pool).

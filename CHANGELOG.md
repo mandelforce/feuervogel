@@ -1,6 +1,17 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Daily Sortie: the city's and the desert's generated airfields get the new layout too (owner: "give this layout also to the city and desert levels"; flown by the test bot, **not by a person**). One builder, `addAirfield`, now makes all three airfields; it replaces `addArenaField`, the city's final airfield pattern in new combinations. Each climate gets its own verges and colours:
+  - **City:** grass verges and edges, the city's asphalt.
+  - **Desert:** sandy verges, sand drifting across the runway.
+  - **Winter:** snow, as before.
+  
+  What the old arena carried is kept:
+  - the scene zones of the land endings;
+  - the rails a boss rides (the long train, the supergun);
+  - the rail-yard ending's two tracks, which still run the whole arena.
+  
+  Nothing stands on a rail: the taxiway moves out past one, the hangars fill the spans beside them, and a stand, a building or a target that would touch one is left out. Every hangar is a target on the city and the desert too, and a destroyed one shows pale ash where the winter's shows snow.
 - Daily Sortie: winter land endings on a generated snowfield (owner: winter land endings; flown by the test bot, **not by a person**). The land endings join the winter's boss pool: the gun line, the tank column, the fuel depot, the airbase, the silo, the bridge and the dam (one weight each, about 18 % of winter days). On those days the line ends at a railhead on the valley floor (`finale: 'railend'`: the airfield's railhead without its fence and concrete). The boss's scene then lies on a snowfield (`addSnowArena`, 48 chunks, the arena's own small plan) painted in the winter's own colours: low snow banks with conifer stands along both edges, a gently rolling floor with copses, a dirt track down it, frozen streams across it, farmsteads (a house, a barn, a yard, a truck), flak on gravel lots, bunkers and now and then a gun tower. The scene zones are flat bare snow, 272 rows each: the first from the sixth chunk, then one every 570 to 770 rows. Adding seven bosses to the pool changes which boss every winter day gets.
 - Daily Sortie: a winter airfield ending with hangars that can be destroyed (owner: "Winter airport - give it destructible hangars etc", then a reference picture of a military airfield; flown by the test bot, **not by a person**). On 40 % of the winter days whose boss fights on a plain airfield (the land fortress, the sky fortress, the Moth, the Raven, the rival, the Shadow Wing; its own stream; about 9 % of winter days), the line no longer runs into the gorge. It runs 3 chunks further to a railhead (`finale: 'airhead'`). There, the two lines come out of the massif's portals and end at buffer stops by a platform with a canopy, with a siding of wagons, a fuel depot of six round tanks in a gravel bund, goods and freight sheds, flak on gravel lots and a few trucks. Then the snow is cleared to concrete, with a wire fence, a gate and two guard houses. The boss fights over a snowy airfield laid out after the reference (`addSnowAirfield`, 48 chunks):
   - a runway down one side (left or right, the day's own) with white edge lines, centre dashes and threshold bars, snow blown across it;
