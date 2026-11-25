@@ -51,7 +51,7 @@ const FLY = `(function (spec, diff) {
     if (c < 0) return 'before';
     if (c >= S.len) return planned ? 'gen arena' : 'legacy arena';
     const g = C.segs.find(function (q) { return c >= q.start && c < q.start + q.n; });
-    if (g && g.legacy) return g.t === 'coast_down' || g.t === 'open_sea' ? 'legacy tail' : 'legacy old land';
+    if (g && g.legacy) return planned ? 'gen arena' : g.t === 'coast_down' || g.t === 'open_sea' ? 'legacy tail' : 'legacy old land'; /* (a sea ending's generated arena covers the level's sea tail) */
     return planned ? 'gen plan' : 'legacy other';
   };
   const chunkOfWy = function (wy) { return Math.ceil(-wy / CH) - P0; };
