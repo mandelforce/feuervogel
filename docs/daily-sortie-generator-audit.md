@@ -367,7 +367,20 @@ It replaces `addArenaField` (3b), whose layout was the Campaign's final airfield
 
 Nothing stands on a rail: the taxiway moves out past one (on a rail-yard day it starts 64 px in instead of 48), the hangars fill the spans beside the rails, and a stand, a building or a target that would touch one is left out. On 2026-12-21, a rail-yard day, nothing in the arena touches either track.
 
-CHECKCD
+**Checked (city and desert):**
+- **A fault found and fixed:** the first city flights all ended in an error and no boss came. The tents in the supply area were painted with the palette's canvas colours, which only the desert's and the forest's palettes have, so every city chunk with a tent threw. A tent now takes the desert's canvas colours when its palette has none. A paint pass over every generated arena of the first 120 sweep seeds then ran without an error: 107 city, 80 desert and 27 winter arenas.
+- **Flights** (`gen-share.mjs`, Veteran, immortal; one sweep seed per kind of day):
+  - **City:** 8 sorties (plain airfield, a yard day, the rival, two land endings, a land ending on a yard day, the long train, the supergun): every boss killed, no errors. In the fights, 70.6 % of the time is on the arena and 29.4 % past it. The time past the arena is all from the two sky fortress (lance) fights, about 177 s each. The same eight seeds on the build before (the old layout) put 32.7 % past the arena, from the same two fights (158 and 181 s). The other fights are within a few seconds of the old ones, except the rival (58 s now, 21 s then).
+  - **Desert:** 6 sorties (two plain, two land endings, the long train, the supergun): every boss killed. **100 % of the fights on the arena.**
+- **Hangars:**
+  - on 2027-01-12 (desert, the Shadow Wing) the bot destroyed 21 of the 22 hangars that came up;
+  - on 2026-12-21 (city, a yard day) 1 of 8. That run stopped at the script's frame limit, so it is not a full flight.
+- **Rails:** on 2026-12-21 (a yard day) nothing in the arena stands on either track, and the taxiway starts 64 px in.
+- **Flight gate,** all difficulties, all pass, and each determinism twin flew the same: **18 of 18**. The dates:
+  - city 2026-11-26 (sky fortress, yard day, night), 2026-12-11 (bridge, yard day) and 2026-12-21 (land fortress, yard day);
+  - desert 2026-11-28 (bridge) and 2027-01-12 (Shadow Wing);
+  - winter 2027-03-20.
+- **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base, and its six pixel checks fail against the stored reference file exactly as they do on the base.
 
 ## 3g. Winter land endings on a snowfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
 
