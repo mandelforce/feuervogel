@@ -5154,20 +5154,21 @@ const RAVEN_MID_SHARE = 0.3; /* the share of days whose mid-level fight is the R
 const WING_AT = 0.375, WING_LATE = 0.55, WING_CH = 18; // the Shadow Wing's encounter: where it comes as a share of the level (the Campaign's levels 2 to 6: chunk 18 of 48) and the chunks it takes (2864 frames and its rest); WING_LATE: how far an encounter before it may push it back (the loops' own plans have it between 0.29 and 0.6)
 const RAIL_ARENA = 11; /* chunks of icy gorge after the winter's approach, the supergun's arena: two tracks in the middle */
 const ICE_ARENA = 11; /* chunks of frozen sea after the winter's harbour, the wolfpack's arena */
+const FAST_K = 1.2; /* the Fast scroll twist: the ground runs 20 % faster (the game's scrollFor), so an encounter and the Shadow Wing, which run fixed frames, cover 20 % more chunks */
 const ATTEMPTS = 64, MIN_MIDDLE = 4, ENC_REST = 2; // tries per sub-seed; fewest middle segments; chunks of rest between an encounter's end and the next one's start
 
 // Encounters by segment: at most one per segment, each id once, none starting before the last one has run its length and ENC_REST chunks have passed.
 // The Shadow Wing has its place among them: the game brings it once the spawn line passes its chunk and no encounter is on, and while it is up no
 // other encounter starts. So it is laid in here as one more encounter (from WING_AT of the level on, after whatever runs then, WING_LATE at the latest), and an encounter whose
 // segment the Wing covers is left out instead of being planned and then given up by the game. Returns { enc: [{ id, c, until, live }], wingC }.
-function encPlanFor(kit, segs, base) {
-  const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE); let free = 0, wingC = -1;
-  const layWing = () => { wingC = Math.max(wing0, free); free = wingC + WING_CH + ENC_REST; };
+function encPlanFor(kit, segs, base, sk = 1) { /* sk: the scroll factor (FAST_K on a Fast scroll day): chunks per encounter and for the Wing grow with it */
+  const out = [], used = {}, len = segs.reduce((a, g) => a + g.n, 0), wing0 = Math.round(len * WING_AT), wing1 = Math.round(len * WING_LATE), wingCh = Math.ceil(WING_CH * sk); let free = 0, wingC = -1;
+  const layWing = () => { wingC = Math.max(wing0, free); free = wingC + wingCh + ENC_REST; };
   const opLen = kit.islandOpen ? (kit.islandOpen.variants.find(v => v.every((q, k) => segs[k] && segs[k].t === q[0] && segs[k].n === q[1])) || []).length : 0;
   segs.forEach((g, k) => { const list = kit.enc[g.t]; if (!list) return;
     const firstOf = segs.findIndex(q => q.t === g.t) === k, lastOf = segs.map(q => q.t).lastIndexOf(g.t) === k, inMiddle = k >= opLen + (kit.openers ? kit.openers[0] : kit.opener).length && k < segs.length - kit.approach.length;
     for (const e of list) { if (used[e.id] || (e.share !== undefined && !(hash(base | 0, 6900) < e.share)) || (e.first && !firstOf) || (e.last && !lastOf) || (e.middle && !inMiddle)) continue;
-      const need = Math.ceil(e.frames / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
+      const need = Math.ceil(e.frames * sk / CH_S), c0 = g.start + e.at, until = Math.max(c0 + 1, g.start + g.n - e.end);
       if (wingC < 0 && Math.max(c0, free) + need + ENC_REST > wing1) layWing(); /* (it would keep the Wing waiting past its latest place: the Wing first) */
       const c = Math.max(c0, free); if (c >= until || c >= g.start + g.n) continue; /* (no room left in its segment) */
       if (kit.legacy && c + need > len - 4) continue; /* (the boss comes one chunk into the last stretch: an encounter that would still run then is left out, not cut short) */
@@ -5232,12 +5233,12 @@ function check(kitId, S) {
     const loopSet = S.ground ? LOOP_PARAMS[kitId] || {} : {}; /* (what the loop ground sets itself, such as the forest's lakes, is not a dial) */
     for (const q in D.global) if (P[q] !== undefined && loopSet[q] === undefined) { have.push(q); if (!(P[q] >= D.global[q][0] - 1e-9 && P[q] <= D.global[q][1] + 1e-9)) bad.push('dial ' + q + ' = ' + P[q] + ' outside ' + D.global[q].join('..')); }
     if (S.dials === 'off' && have.length) bad.push('dials off, yet ' + have.join(',') + ' are set'); }
-  const enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + WING_CH, 'the Shadow Wing']];
+  const sk = S.twist === 'fast' ? FAST_K : 1, enc = S.encPlan || [], ids = {}, spans = [[S.wingC, S.wingC + Math.ceil(WING_CH * sk), 'the Shadow Wing']];
   { const tot = kit.legacy || kit.main ? all.reduce((a, g) => a + g.n, 0) : at; if (!(S.wingC >= Math.round(tot * WING_AT) && S.wingC <= Math.round(tot * WING_LATE)) || S.wingC + WING_CH > tot) bad.push('the Shadow Wing at chunk ' + S.wingC + ' of ' + tot); }
   enc.forEach(e => { const g = (kit.legacy || kit.main ? all : segs0).find(q => e.c >= q.start && e.c < q.start + q.n), def = g && (kit.enc[g.t] || []).find(q => q.id === e.id);
     if (!def) { bad.push('encounter ' + e.id + ' at chunk ' + e.c + ' is in no segment that holds it'); return; }
     if (ids[e.id]) bad.push('encounter ' + e.id + ' twice'); ids[e.id] = true; if (!(e.until > e.c)) bad.push('encounter ' + e.id + ' has no room');
-    spans.push([e.c, e.c + Math.ceil(def.frames / CH_S), e.id]); });
+    spans.push([e.c, e.c + Math.ceil(def.frames * sk / CH_S), e.id]); });
   spans.sort((a, b) => a[0] - b[0]); for (let k = 1; k < spans.length; k++) if (spans[k][0] < spans[k - 1][1] + ENC_REST) bad.push(spans[k][2] + ' starts at chunk ' + spans[k][0] + ', before ' + spans[k - 1][2] + ' is over and rested');
   return bad;
 }
@@ -5361,7 +5362,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod) {
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
     const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0); if (cityArena && bs.sea) { params.cityArena = cityArena; params.cityArenaSea = true; } else if (cityArena && bs.yard) { params.cityArena = cityArena; params.cityArenaYard = true; } else if (cityArena) { params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
-    const ep = encPlanFor(kit, kit.legacy ? segs : core, base), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, kit.legacy ? segs : core, base, twist === 'fast' ? FAST_K : 1), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
     if (bs && bs.kind === 'castle' && hash(base, 6960) < CASTLE_RUIN_SHARE) S.castleRuin = true; /* (a castle as a ruin, Ravenhold too: breaches in the walls, cracked and scorched courts; looks only, its own stream) */
