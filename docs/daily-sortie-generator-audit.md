@@ -313,6 +313,33 @@ Re-checked with the meadows: 13 land endings, all bosses killed. In the fights: 
 
 **Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
 
+## 3f. The winter airfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+Owner: "Winter airport - give it destructible hangars etc" (the city's final airfield is the one look allowed outside its own climate).
+
+**Which days.** The winter's bosses that fight on a plain airfield are the land fortress, the sky fortress, the Moth, the Raven, the rival and the Shadow Wing. On 40 % of their days (`KITS.winter.cityArena.air`, its own stream, `hash(base, 6995)`), the boss fights on the airfield instead of in the gorge. That is 142 of 1,000 sweep seeds, and 13 of the next 500 calendar days, today (2026-11-25) among them. `cityArenaFor` takes the day's base to decide. Gate 1 checks `S.arenaAir`, the finale and the approach.
+
+**The level's end.** The approach is the sea ending's (the pass, then 14 chunks of farmland), and the line ends at a railhead (`winterLand`, `finale: 'airhead'`; no gorge, `plan.airhead`). Below the massif the floor opens out flat, with low snow banks and conifers at the edges. On it:
+- the two lines come out of the portals (x 96 and 122) and end at buffer stops, with a platform and canopy between them;
+- a siding (x 148) holds three wagons;
+- a fuel depot of six round tanks stands in a gravel bund with a pump house;
+- goods and freight sheds, a goods office and a signal box;
+- flak on five gravel lots and two trucks;
+- then a band of cleared concrete with a wire fence, a gate and a guard house each side.
+
+**The arena.** It is `addArenaField` with `o.winter` (48 chunks, the arena's own small plan, `A.snowA`). The layout is the city's: units of an open stretch, the centre line and a roof, with pads on both edges. The winter's differences:
+- hangars are 60 % as long, and every roof is split into bays 3 px apart (about 46 px each). Each bay is a slot `hangar`, which the game fills with an `ahangar` target (hp 24 + 0.55 × width, times the difficulty; harmless, low priority for the Arc). Destroyed, it goes up in a chain of blasts and smokes, and `hangarRuin` paints a burnt-out shell over its roof in every ground chunk it touches;
+- on open stretches without a side helipad: a control tower with its radar dish (the game's `tower` and `radar`), or a fuel farm of three tanks;
+- the paint (`arenaColor`, `snowApron`): the airfield's slabs and joints in the winter's concrete, drifts of snow on them and ploughed banks along both edges; the hangar roofs in the winter's snowy roof colours, with the ribs showing through in places. The door stripes, pads, helipads and centre line are the city's.
+
+**Checked:**
+- **Flights** (`gen-share.mjs --kit winter`, 8 sweep seeds: every one of the six bosses, the rival and the Shadow Wing twice; Veteran, immortal): every boss killed. Before the boss, 92.7 % of play is on generator ground (the plan), 5.7 % on the arena and 1.6 % before the level. In the fights, 96.3 % is on the arena and 3.7 % past its end (one long fight).
+- **Hangars:** on 2026-11-25 (Moth, Veteran, immortal) the bot destroyed 29 of the 36 bays that came up, and 4 of the 8 towers and radar dishes.
+- **Flight gate** on the next three airfield dates (2026-11-25 Moth, 2027-01-04 Moth, 2027-02-08 sky fortress), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+- **Cost:** an airfield day builds in 1.1 to 1.4 s in Node, against 1.8 to 2.1 s for the same day with the gorge (measured while other tests ran).
+- **Test battery:** BATTERY
+- **Not checked:** nobody has played it. The hangar ruins were looked at in screenshots of one flight only.
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
