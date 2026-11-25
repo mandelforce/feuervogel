@@ -274,6 +274,29 @@ The channel x 64 to 160 stays open water past the mouth for the ships. There are
 - the probe's "other" class: ground enemies before chunk 0 (the carrier's start, about 2 % of the temperate kit's);
 - nobody has played it.
 
+## 3e. Temperate land days (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+Owner, asked how the temperate level should end on land: "options for more land; there should also be temperate levels that are focused on land in general".
+
+**The level.** In 40 % of temperate days (`KITS.temperate.landShare`, its own stream, `hash(base, 6980)`), the day is composed from the kit's land variant (`KITS.temperate.landKit`; `S.land`). It is a short crossing, then a long mainland that runs to the level's end:
+- **the crossing:** the carrier, four chunks of open sea, perhaps a band of islets and a little more sea, then the large island with its airbase (a stretch of 9 to 12 chunks: the island is 620 rows, and a longer stretch has open sea after it), then two chunks of open sea;
+- **the mainland:** the fortified shore, then 24 to 32 chunks of farmland, streams, a village and woods (up to three farms, two streams and three woods), with no cove, no gate and no old land.
+
+Levels are 46 to 63 chunks long, of which about two thirds is mainland. Encounters: the kit's own, plus the village's flak lane and a fuel convoy on the road through a wood. On land days an encounter that would still run when the boss comes is left out (`encPlanFor`, as for the old land): the first flights failed the gate twice, with the farmland's formations cut off by the boss. 4.6 % of land days have no encounter; the gate's dead-air rule passes them.
+
+**The arena.** `addLandArena` builds 48 chunks of the same mainland as the arena's own small plan:
+- it uses the islands builder in a mainland-only mode (`P.mainOnly`: land from the first row; no shore, so the distance transforms and the beach pass are skipped);
+- the level's main road goes on without a step (`P.phM`, `P.yOff` and an ease from the level's last road x, `P.road0`);
+- the game paints it with the level's own paint options;
+- each day walks its own farmland, woods and streams;
+- on a land ending's day there is open pasture (`main_open`: the road and grass, nothing built) every few stretches from the sixth chunk, as scene zones (`arena.zones`, 272 rows each). The scene and its enemies go in the first zone still ahead (`sceneZoneAt`), as on the city and the desert;
+- the mainland's gun pits and bunkers are the arena's targets (`planArena`);
+- past the arena the legacy ground is the Campaign's country (`S.arenaLand`), not the sea.
+
+Land days have their own boss pool: the gun line, the tank column, the fuel depot, the airbase, the silo, the bridge and the dam (scenes), the land fortress, the sky fortress, the Moth, the Raven, the rival and the Shadow Wing. The level's plan is byte-identical with and without the arena.
+
+**Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
