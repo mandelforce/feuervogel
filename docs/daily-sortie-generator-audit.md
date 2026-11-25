@@ -302,6 +302,14 @@ Land days have their own boss pool: the gun line, the tank column, the fuel depo
 - **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`. `enigma --pixels` gives the same six stage hashes as before this work.
 - **Not checked:** scene fights on screen by eye (the contact sheets show the zones, not the fight); nobody has played it.
 
+**Meadows (owner: "the open pasture could look more like meadows with sheep and cows").** The open stretches (`main_open`) are now meadows:
+- one to three fenced paddocks with the game's cows (`plan.pastures`, as the farms' paddocks);
+- one or two flocks of sheep grazing free (`plan.flocks`; the game spawns them in `planCows`);
+- one or two hedgerows across the meadow (a gap at the road and a gateway), sometimes a hedge down one side;
+- sometimes a pond with a willow and a copse, and four to eight lone trees.
+
+Days without a scene have meadows in their arena walk too. When a scene is laid in a meadow, the animals there are removed, and none spawn under it later. `planCows` was not called once the boss had come, so the arena's animals now also come during the fight, on land days only (its own stream, `ttSeed(43)`). Checked by eye in a flight's screenshots (the sky fortress over a meadow: cows in their paddocks, sheep, the hedges and a pond). The arena now takes 117 to 156 ms.
+
 **Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
 
 ## 4. Decisions for the owner
