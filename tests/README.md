@@ -136,6 +136,14 @@ The timetable's numbers come from the bot on today's reactive director (build 1.
 node tests/fixed-seed.mjs
 ```
 
+## Rookie test (run by hand)
+
+`rookie.mjs` checks the Campaign's Rookie easing (`RK` in `index.html`): the ship starts at weapon level 4 with three super steps; once it is off the carrier's deck a Scatter orb that never changes drops in front of it and starts the frenzy; the carrier's deck guns never fire (they still do on Veteran). Then it flies levels 1 to 6 and level 4 of the second loop for 60 seconds on Rookie and on Veteran and compares: never many more than 26 bullets at once on Rookie (the Sower's mines apart), fewer of the Sower's mines, under 60 % of Veteran's bullets, no more ground guns and at most half the hidden ones, and at most about one fighter in three cleared to fire. Last, the bosses: level 2's fortress fires no mortar on Rookie (it does on Veteran), and level 4's castle has half its ground guns (7 bunkers, 6 hatches, 5 AA towers; all of them on Veteran). And every level's boss, in both loops, has the same hit points on Rookie as on Veteran. Prints only failures and a count; `--verbose` also prints the numbers per level. Serve the folder, then:
+
+```
+node tests/rookie.mjs
+```
+
 ## Super weapon test (run by hand)
 
 `superweapon.mjs` checks the super weapon ("level 8"): four pickups at level 4 fill the super steps (250 points each, then 1000 as before), another weapon or a hit clears them (a hit at level 4 or above leaves level 3), the super form lasts 660 frames, extra planes attack while it lasts (and only then, without touching the random stream), a pickup refills it and it then cools down to level 4, each gun fires its super form (Scatter 13 darts, Lance with four flank bolts, Seekers 10 missiles and a super laser, a stronger Arc table) and shoots down a basic fighter, and big enemies and boss parts take the weaker `bd` damage, the HUD, aura and glow draw without errors, and the steps carry into the next level and a snapshot.

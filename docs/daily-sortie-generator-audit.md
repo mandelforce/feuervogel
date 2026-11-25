@@ -141,7 +141,7 @@ All ground enemies before the boss are counted, 13,194 in all.
 
 Not measured: Rookie and Ace; a mortal player (who does not reach every place); more than 10 sorties per kit; daily twists and flavours (the sweep flies none).
 
-## 3b. A2 for the city: the generated airfield arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3b. A2 for the city: the generated airfield arena (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 **What is built (second version, owner: "the generated versions must look like the existing boss area and allow combinations on top of it").** `CityGen` `addArenaField` (called from `withPerimeter` when `params.cityArena` is set) adds 48 chunks of the final airfield behind the city's perimeter fence. It is built from the Campaign arena's own pieces (`plan.arenaField.pieces`, plain data):
 - **Hangar roofs** with their warning stripes along the near edge;
@@ -200,7 +200,7 @@ Measured on 6 sorties (Veteran, all bosses killed, no errors): 86 % of the fight
 - Past the 48 chunks on a yard day, the Campaign pattern draws its hangar under the tracks (as it always has); the generated part keeps the roofs between them.
 - Nobody has played it.
 
-## 3c. The desert's generated arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3c. The desert's generated arena (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner: keep the desert's original area for the tank boss (the sand crawler); no city graphics in the sand climate, but variations of the desert's boss area; then "hangars and the city final boss area could be nice to have as one option".
 
@@ -231,7 +231,7 @@ The sand crawler, the castle, the two-train yard, the canyon run and the sandsto
 
 **Not done:** on an airfield day the concrete starts directly after the sand (no fence or verge); the forest's, winter's and temperate kit's arenas; nobody has played it.
 
-## 3d. The winter's and the temperate kit's sea endings (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3d. The winter's and the temperate kit's sea endings (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner: each climate keeps its own look, as variations of its own Campaign boss area; more kinds of endings, only where the ground makes sense.
 
@@ -274,7 +274,7 @@ The channel x 64 to 160 stays open water past the mouth for the ships. There are
 - the probe's "other" class: ground enemies before chunk 0 (the carrier's start, about 2 % of the temperate kit's);
 - nobody has played it.
 
-## 3e. Temperate land days (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3e. Temperate land days (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner, asked how the temperate level should end on land: "options for more land; there should also be temperate levels that are focused on land in general".
 
@@ -313,7 +313,7 @@ Re-checked with the meadows: 13 land endings, all bosses killed. In the fights: 
 
 **Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
 
-## 3f. The winter airfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3f. The winter airfield (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner: "Winter airport - give it destructible hangars etc" (the city's final airfield is the one look allowed outside its own climate). Then a reference picture of a military airfield: "the airport could look more like this".
 
@@ -382,7 +382,7 @@ Nothing stands on a rail: the taxiway moves out past one (on a rail-yard day it 
   - winter 2027-03-20.
 - **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base, and its six pixel checks fail against the stored reference file exactly as they do on the base.
 
-## 3g. Winter land endings on a snowfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3g. Winter land endings on a snowfield (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner: winter land endings (would need a flat snowfield arena and new bosses in the winter pool).
 
