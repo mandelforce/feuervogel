@@ -349,7 +349,10 @@ Owner: "Winter airport - give it destructible hangars etc" (the city's final air
 The city's and the desert's airfields (`addArenaField`) are unchanged.
 
 **Checked:**
-AIRCHECK
+- **Flights** (`gen-share.mjs --kit winter`, one sweep seed for each of the six bosses; Veteran, immortal): every boss killed. Before the boss, 92.6 % of play is on the plan, 5.8 % on the arena and 1.6 % before the level. In the fights, **100 % on the arena**.
+- **Hangars:** the bot destroyed 26 of the 28 hangars that came up on 2027-03-20 (the Black Fortress) and 6 of 17 on 2027-04-04 (the sky fortress, a fog day). It destroyed 3 of 4 and 4 of 5 of the towers and radar dishes.
+- **Flight gate** on the next three airfield dates (2027-03-20, 2027-04-04, 2027-07-03, all sky fortress days), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. (The first layout also passed 9 of 9 on 2026-11-25, 2027-01-04 and 2027-02-08, before the land endings changed the pool.)
+- **Test battery** (for 3f and 3g together): `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base (c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d). Its six pixel checks fail against the stored reference file exactly as they do on the base; the reference file was left alone.
 - **Not checked:** nobody has played it. The hangar ruins and the layout were looked at in screenshots of a few flights only.
 
 ## 3g. Winter land endings on a snowfield (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
