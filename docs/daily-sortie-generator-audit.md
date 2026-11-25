@@ -337,7 +337,7 @@ Owner: "Winter airport - give it destructible hangars etc" (the city's final air
 - **Hangars:** on 2026-11-25 (Moth, Veteran, immortal) the bot destroyed 29 of the 36 bays that came up, and 4 of the 8 towers and radar dishes.
 - **Flight gate** on the next three airfield dates (2026-11-25 Moth, 2027-01-04 Moth, 2027-02-08 sky fortress), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
 - **Cost:** an airfield day builds in 1.1 to 1.4 s in Node, against 1.8 to 2.1 s for the same day with the gorge (measured while other tests ran).
-- **Test battery:** BATTERY
+- **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41, `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base (c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d). Its six pixel checks fail against the stored reference file exactly as they do on the base; the reference file was left alone.
 - **Not checked:** nobody has played it. The hangar ruins were looked at in screenshots of one flight only.
 
 ## 4. Decisions for the owner
