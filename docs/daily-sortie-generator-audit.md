@@ -231,6 +231,39 @@ The sand crawler, the castle, the two-train yard, the canyon run and the sandsto
 
 **Not done:** on an airfield day the concrete starts directly after the sand (no fence or verge); the forest's, winter's and temperate kit's arenas; nobody has played it.
 
+## 3d. The forest's generated arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+
+Owner: the forest keeps its own look (variations of its own Campaign boss area, the castle ground: grass, the road, the edge of the woods), painted by the game's own colour code for that ground and dressed by its own detail pass; not the city's graphics, except the city's final airfield as one option; other endings drawn from what the city and the desert have; the castle keeps its floor.
+
+**The old arena.** Past the level, the Campaign's castle ground (`castle`, theme 4): grass with flowers (fallen leaves on an autumn day), the castle's cobbled road (`croad`) at x 112, the castle farm and its fields near the start (`castleInfo`), sparse trees from the detail pass. With a boss on a rail the plain boss ground with the central rail. No forest day was generated (0 % of 2,000 composed days).
+
+**Built.** `addForestArena` builds 48 chunks after the level as its own small plan, in the castle ground's kinds: meadow (`MEADOW`, typed `grass`), woods (`WOOD`, typed `forest`), the castle's fields (`FIELD`), the road (`ROAD`), rails (`RAIL`) and the farms' ground (`FRONT`, typed `yard`: the detail pass plants no trees or scars there and draws the farm over it). The game paints them with the castle ground's own formulas (`forestArenaColor`: pixelColor's castle grass and flowers, its forest floor, the field look or the autumn's ploughed rows, the cobbled road with the arena's own centre and half width, a lane in the dirt road's look, the rails in `planRailColor`), and its detail pass runs on the arena's chunks: the woods get the Campaign's trees (`treeSets[4]`, the autumn set on an autumn day), the meadow its scattered trees, the farms are the Campaign's farm drawing (`farmAt` returns the arena's farm pieces; `castleInfo` returns null on such a day, so the castle farm is not dropped on top).
+
+What varies per day (over 200 forest-style arenas):
+- the level's forest patches (any woods in its last six rows) running on and fraying out over 90 to 200 rows, as the desert's sand does;
+- the edge of the woods on each side: none, a belt of about 26 to 44 px, or a deep one of 46 to 80 px, swelling and shrinking (every combination appears; both none in 5 %);
+- a forest gate, where both sides close in round the road for 200 to 360 rows (42 %);
+- one to four copses in the meadow;
+- the castle's cobbled road going on from the level's road, widening from its width to the castle road's 13 px over 70 rows as the Campaign's autumn road does: straight on (28 %) or winding (72 %), in the widest strip clear of any rails;
+- up to three of the castle's fields beside the road (72 % have one or more), up to two farms with a lane to the road (45 %);
+- two to four gun positions (a bunker by the road, flak across it; slots).
+
+The arena's first chunk takes the composer's soft seam (`castleSeam(job, true)`: the level's last rows faded over it, the road left out), as a legacy chunk after a plan does on the other kits. What still reads as a change there is the woods' look: the level's conifers give way to the castle ground's round trees, as they do at the Campaign's castle ground today. `castleSeam` now also stops where its rows would lie past the level's own plan (an autumn legacy chunk after a generated arena).
+
+Other days:
+- land endings get scene zones, as on the city and the desert (no fields, farms or copses in them, the woods' edge pulled back);
+- the long train gets its rail at x 112, the supergun its pair at x 93 and 131 (new for the forest, as the desert's and the city's), the road kept clear of them after its ease-in (a level crossing where it must cross one there);
+- the sea endings get the generated coast and sea, which take the forest's colours from the theme (no seam there: the beach is too near the level's end, the faded woods would lie on the sand);
+- a quarter of the arena days get the city's generated final airfield instead (`cityArenaStyle: 'airfield'`).
+
+The castle (its own floor, untouched), the canyon run and the two trains keep the Campaign's ground. **79 % of forest days are generated** (forest style 47 %, airfield 17 %, sea 15 %, over 2,000 seeds).
+
+**Merge notes.** The forest's work is in its own functions (`addForestArena`, `forestArenaColor`, `forestArena`, `forestArenaFarm`) and its own `KITS.forest.cityArena`; the shared lines got one new branch each (`paint`'s arena branch, `arenaColor`'s dispatch, the `CityGen.generate` dispatch, `drawFeatures`' gate, `workChunk`'s seam call), plus one guard line in `castleInfo`, `farmAt` and `castleSeam`.
+
+**Checked:** the level's own plan is byte-identical with and without the arena (40 arena days); the arena adds about 19 ms (median of 12 days, fastest of six runs). Plan checks over 200 forest-style arenas: no road on a rail after its ease, no jump at the join to the level's road. 35 sorties, one of each ending and style (Veteran, `gen-share.mjs --kit forest --only ...`): every boss killed, no errors; 97 % (step 1, 12 sorties) and 100 % (step 2, 23 sorties) of the fights' time on the generated arena. Flight gate on 2026-11-29 (sky fortress), 12-04 (tank column), 12-09 and 12-14 (long train), 12-19 (Moth), 12-24 (ship), 2027-01-03 (wolfpack) and 01-08 (dam), all difficulties: **24 of 24 pass**, and each determinism twin flew the same. Tests: `compose.mjs` 77, `citysegs` 8, `citygen` goldens, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`; the Campaign's six stage pixel hashes (`enigma.mjs --pixels`) are the same as on `claude/gallant-ride-jcciv4`.
+
+**Not done:** on an airfield day the concrete starts directly after the woods (no fence or verge), as on the desert; the forest-specific ideas (proposed to the owner, not built); nobody has played it.
+
 ## 4. Decisions for the owner
 
 1. **Is "every part generated" the goal,** or is "every part *ground* generated" enough? A, C and B3 make the ground and endings the generator's. B1 and B2 change how the game plays.
