@@ -70,7 +70,7 @@ for (const kit of SC.KIT_ORDER) { const date = DAYS[kit], page = await freshPage
   ok(r.seed === (C.base >>> 0) && r.salt === (C.base | 0) && r.worldSeed === 1944, `${kit}: its own stream and timetable seed (${r.seed}), the Campaign's ground seed beyond the plan (${r.worldSeed})`);
   const P = CG.generate(C.gen);
   /* (the game digs its tank pits and gun nests into the plan afterwards, so the rasters differ there; the road, the density and every building are compared) */
-  ok(r.L === P.L && r.mx === fnv(Array.from(P.mx, v => Math.round(v * 16))) && r.U === fnv(Array.from(P.U, v => Math.round(v * 1000))) && r.items === fnv(P.items.map(it => Math.round(it.x0) * 9973 + Math.round(it.y0))) + ':' + P.items.length && r.L === (C.len - (C.legacyTail | 0) + C.arena) * 64 && r.c1 === C.len - (C.legacyTail | 0) + C.arena, `${kit}: the plan is the one Node makes from the composer's output (${r.L} rows, ${P.items.length} buildings, the same road)`);
+  ok(r.L === P.L && r.mx === fnv(Array.from(P.mx, v => Math.round(v * 16))) && r.U === fnv(Array.from(P.U, v => Math.round(v * 1000))) && r.items === fnv(P.items.map(it => Math.round(it.x0) * 9973 + Math.round(it.y0))) + ':' + P.items.length && r.L === (C.len - (C.legacyTail | 0) + (C.cityArena ? 0 : C.arena)) * 64 && r.c1 === C.len - (C.legacyTail | 0) + C.arena, `${kit}: the plan is the one Node makes from the composer's output (${r.L} rows, ${P.items.length} buildings, the same road)`); /* (the city's generated arena is its own small plan after the town: the town's rows are the level's, the plan's chunks run on over the arena) */
   ok(r.n > 500 && r.types === 0, `${kit}: the ground types are the plan's (${r.types} of ${r.n} sampled points differ)`);
   await page.close(); }
 { const page = await freshPage(11, '?daily=2026-11-15&kit=forest&sub=3'), r = await peek(page, START), C = SC.composeDaily('2026-11-15', 'forest', 3);
@@ -189,7 +189,7 @@ for (const [at, kit] of [['2026-11-18T12:00:00Z', 'desert'], ['2026-11-19T23:59:
 
 // ---------- 8. the twists (plan 11.1, 11.8): the draw, and each switch on its own day and off on every other ----------
 { const dk = n => SC.dateKeyUTC(Date.UTC(2026, 0, 1) + n * 86400000), N = 1100, D = []; for (let n = 0; n < N; n++) D.push(SC.dailySeed(dk(n)));
-  ok(SC.VERSION === 5 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
+  ok(SC.VERSION === 6 && SC.TWISTS.join() === 'night,swarm,fixed,fog,elite,fast,nova', `composeVersion is ${SC.VERSION}; the first set is ${SC.TWISTS.join(', ')}`);
   ok(D.every(d => SC.TWISTS.includes(d.twist)) && D.every((d, i) => !i || d.twist !== D[i - 1].twist), `${N} dates draw a twist each, never the same twist two days running`);
   const byKit = {}; D.forEach(d => (byKit[d.kit] = byKit[d.kit] || []).push(d.twist));
   ok(SC.KIT_ORDER.every(k => byKit[k].every((t, i) => i < 6 || new Set(byKit[k].slice(i - 6, i + 1)).size === 7)), `a kit never meets one twist twice within its seven turns (${7 * SC.KIT_ORDER.length} days), and meets all seven in them`);
