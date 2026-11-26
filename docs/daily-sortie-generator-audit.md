@@ -404,7 +404,7 @@ The scenes' own backdrops (trenches, aprons, the dam's reservoir) are the game's
 - **Test battery:** see 3f (run once for both).
 - **Not checked:** nobody has played it.
 
-## 3h. Step 4: the temperate old land generated (A3; build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
+## 3h. Step 4: the temperate old land generated (A3; build 1.2.6.59, composer v6; flown by the test bot, **not by a person**)
 
 Owner: "Do step 4 next".
 
