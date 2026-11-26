@@ -58,7 +58,7 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 |---|---|---|---|---|---|
 | A1 Sea tail | legacy `coast_down` + `open_sea` after the plan | a coast-down and open-sea finale in each preset (the islands builder already makes sea; the winter's `depot` already ends in a harbour basin) | the plan must stay one piece up to the arena; `legacyTail` and `arenaSea` checks in gate 1 change | M | `compose.mjs`, `kit-check.mjs`, `daily.mjs` |
 | A2 Boss arenas for desert, forest, city | legacy `bossland` / `secret` / `castle` / `ryard` theme ground | an arena finale per preset, as the winter has (`finale`: gorge, railgorge, depot), with a central rail where the train and supergun may come, water where the ship may come | the arena is open-ended (the sky-fortress duel scrolls on): the plan must be able to extend, or hand back to a plain repeating ground. Bosses read the ground (`railHit`, the central rail at x 112) | L (one per kit) | `daily-gate.mjs --boss` (every boss on every arena), `daily.mjs` section 11 |
-| A3 Temperate old land extras | legacy `city_small`, `industrial_light`, `airbase_searchlight` with `straight` patches | `main_town`, `main_estate`, `main_airbase` stretches in the `islands` builder, as `main_village` copies the village preset in | a second built-up stretch still has an unphased grid (12.22 "not done"); after this the `gatePix` bridge would no longer be needed | M | `kit-check.mjs`, `citysegs.mjs`, contact sheets |
+| A3 Temperate old land extras (**done**, 3h) | legacy `city_small`, `industrial_light`, `airbase_searchlight` with `straight` patches | `main_town`, `main_estate`, `main_airbase` stretches in the `islands` builder, as `main_village` copies the village preset in | a second built-up stretch still has an unphased grid (12.22 "not done"); after this the `gatePix` bridge would no longer be needed | M | `kit-check.mjs`, `citysegs.mjs`, contact sheets |
 | A4 Castle floor | game `ravenU` / `buildRavenFloor`, its own region function | move it into `citygen.js` as a `castle` finale (moat, walls, keep yard, ruin layer) | the castle boss spawns 1,120 px up the map in world coordinates; trees must stay off breaches (`ravenCovers`). Campaign level 4's Ravenhold must stay pixel-identical | M | `enigma.mjs`, `fixed-seed.mjs`, golden of the floor image |
 | A5 Land-ending backdrops | `arenaScene` decal over plain ground | the same as A2: the gun line's trenches, the airbase's apron, the depot's berms as real ground in an arena finale | the enemies' places (`FOLLOW.spawn`) must match the ground's | S–M each, after A2 | `daily-gate.mjs --boss` |
 | A6 Legacy biome layer | `SORTIE_BIOME` maps templates to old biome names for the director and `placeOK` | a ground type per plan cell that the director reads directly (much of it exists: `planBiome`, `planRail`, `plan.K`) | many director rules branch on biome names; changing what they read can change the Campaign's spawns (fixed-seed guard) | L | `fixed-seed.mjs`, `daily.mjs`, gate 3 sweeps |
@@ -403,6 +403,35 @@ The scenes' own backdrops (trenches, aprons, the dam's reservoir) are the game's
 - **Screenshots:** the dam on 2026-12-30 (a morning day: the game's morning grading warms the whole level) and the airbase on 2027-01-19, with its scene in a zone.
 - **Test battery:** see 3f (run once for both).
 - **Not checked:** nobody has played it.
+
+## 3h. Step 4: the temperate old land generated (A3; build 1.2.6.59, composer v6; flown by the test bot, **not by a person**)
+
+Owner: "Do step 4 next".
+
+**Before.** On 66 % of temperate sea days, one or two built-up stretches came after the mainland: a town, a light industrial estate, a searchlight airbase. They were level 3's legacy ground (`city_small`, `industrial_light`, `airbase_searchlight`), painted by the game's own chunk painters. The plan ended in a gate (`main_gate`: a perimeter street, the road and the railway eased onto the old land's grid, painted with the old land's colours, `gatePix`). The generated coast arena then began after a gap of legacy ground (`cityArenaGap`), with the old land's road and rail painted on into it.
+
+**Now.** They are the mainland's own last stretches:
+- `main_town`: the town builder's town, without an old town or cathedral;
+- `main_estate`: the industrial estate preset;
+- `main_airbase`: a town-builder plan holding only level 3's searchlight airbase (runway, taxiway, hangars, blast pens with planes, flarepath lamps and searchlight posts).
+
+The islands builder makes each on its own and copies it in whole, as it does `main_village` (offsets for its items, streets, parcels, churches and slots). Each gets a main road on the mainland's line, and the mainland's road eases onto its ends. Neither stretch adds a parish church (`parishMinU` out of reach), so the plan's churches stay far enough apart.
+
+The composer picks them as before: none, one or two, on the same stream (6800); the town and the estate still do not follow each other. Two more rules come from the airbase's road, which runs along the strip's far edge (x 207) beside its airfield:
+- between two built-up stretches lie four chunks of farmland (`main_farm`), where the road bends from one line to the other;
+- the village is never right before them (gate 1 checks this).
+
+The legacy tail is now only the coast and the sea, which the arena covers from the plan's end: no gate, no gap, no road and rail join. A plan may hold more than one airbase (`plan.airbases`, rows `ya` to `yb`): the runway painter picks the right one by row, and its planes and lamps are drawn and lit as the island's are.
+
+**Checked:**
+- **Plans:** every temperate sea day of the first 300 sweep seeds builds and passes `validate` (179 plans: tank reach, overlaps, frontage, church spacing). Median 296 ms, p95 399 ms.
+- **Flights** (`gen-share.mjs --kit temperate`, Veteran, immortal; one sweep seed for each kind: the estate, the airbase, the town, the town and the airbase, the estate and the airbase in both orders, the airbase and the town, a cove day): every boss killed, no errors. Before the boss, 95.8 % of play is on the plan, 3.0 % on the arena and 1.2 % before the level; **100 % of the fights on the arena.** No legacy old land is left.
+- **Screenshots** (before and after): 2027-01-26 (the airbase) and 2027-03-02 (the estate).
+- **Flight gate** on 2027-01-26 (airbase, ship), 2027-02-20 (town and airbase, slipway) and 2027-03-02 (estate, ship), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+- **Test battery** (with the scroll hold below): `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. The Campaign's six stage hashes are the same as `main`'s, and its six pixel checks fail against the stored reference exactly as on `main`.
+- **Not checked:** nobody has played it.
+
+**The scroll hold (same build).** A long fight used to scroll past the end of a generated arena: the sky fortress's lance form ran about three minutes on the city's. While a boss lives, the scroll now eases down over the arena's last 220 px and stops with its last row at the top of the screen (`arenaHold`); the boss's death sets it going again (`bossDead`). It covers every kit's generated arena, Daily Sortie only (the Campaign is untouched). The same eight city seeds as before now keep **100 % of their fights on the arena**, the two lance fights included (169 and 202 s; 33 % past the arena before). The flight gate on 2026-11-26 (sky fortress) passes 3 of 3.
 
 ## 4. Decisions for the owner
 

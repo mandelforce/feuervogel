@@ -1815,6 +1815,7 @@ function bufferStops(plan) {
       const xc = Math.round((x + xr) / 2); if (!near(xc, y)) out.push({ x: xc, y, dir }); } }
   return out;
 }
+const runwayAt = (plan, y) => { if (plan.airbases) for (const q of plan.airbases) if (y >= q.ya && y <= q.yb) return q; return plan.airbase; }; /* (the runway a RUNWAY pixel belongs to: a plan may have more than one airbase, plan.airbases, each with its rows ya to yb) */
 function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: its own track colours by the railway's mask; opts.seaPix(x, y, harbour, calm) -> [r, g, b]: the host's own water colour for open sea and harbour basins (the surf stays); opts.gatePix(x, y, m) -> [r, g, b]: the host's colours for the join's perimeter street (m 1) and its road (m 2, plan.GM); opts.apronPix(x, y): its own apron concrete
   const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, gatePix = opts && opts.gatePix, GMx = plan.GM, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
@@ -1977,7 +1978,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
         case K.BANK: c = hh(x, y) < 0.22 ? C.field.wheat[1] : (y + x * 3) % 5 === 0 ? C.field.hedge[2] : C.soil[pickI(3, 0.4 + (vn(x * 0.3, y * 0.3) - 0.5) * 0.5, x, y)]; break; // mud and reeds
         case K.ROCK: { const n = vn(x * 0.32 + 5, y * 0.32), sea = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(q => q >= 0 && Kr[q] === K.SEA); // boulders lit from the upper left, wet and dark at the water
           c = sea && hh(x, y) < 0.5 ? C.rubble[1] : n > 0.6 ? C.conc[3] : n > 0.5 ? C.conc[2] : n > 0.4 ? C.rubble[4] : n > 0.3 ? C.rubble[3] : C.rubble[2]; if (vn(x * 0.32 + 5.3, y * 0.32 - 0.3) > n + 0.08) c = C.rubble[1]; if (C.snowRoof && n > 0.4 && c !== C.rubble[1] && hh(x, y) < 0.9) c = C.grass[pickI(4, 0.45 + (n - 0.4) * 1.2, x, y)]; break; } // (winter: snow on the boulders' tops)
-        case K.RUNWAY: { const A = plan.airbase; if (A.desert) { const lx = x - (A.rx - A.rw / 2), sand = [[228, 210, 170], [236, 220, 182], [242, 228, 194]]; // a runway of rolled sand: dark edges, white markers along them, tyre marks
+        case K.RUNWAY: { const A = runwayAt(plan, y); if (A.desert) { const lx = x - (A.rx - A.rw / 2), sand = [[228, 210, 170], [236, 220, 182], [242, 228, 194]]; // a runway of rolled sand: dark edges, white markers along them, tyre marks
             c = lx === 0 || lx === A.rw - 1 ? C.spoil[1] : (lx === 1 || lx === A.rw - 2) && y % 16 < 2 ? C.dome[4] : Math.abs(Math.abs(lx - A.rw / 2 + 0.5) - 4) < 1 && hh(x, y >> 1) < 0.5 ? C.spoil[2] : sand[pickI(3, 0.5 + (vn(x * 0.1, y * 0.1) - 0.5) * 0.5, x, y)]; break; }
           const lx = x - (A.rx - A.rw / 2), end = Math.min(y - A.y0, A.y1 - y); let l = 0.62 + (vn(x * 0.12, y * 0.12) - 0.5) * 0.2; // concrete with edge lines, a dashed centre line, threshold bars, tyre marks
           if (lx === 0 || lx === A.rw - 1) { c = C.conc[1]; break; } if (lx === 1 || lx === A.rw - 2) { c = C.mark; break; }
@@ -2061,7 +2062,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
     for (const lp of YD.lamps) { if (lp.y < y0 - 2 || lp.y > y0 + h + 2) continue; put(lp.x, lp.y, C.dark); put(lp.x, lp.y + 1, C.conc[1]); put(lp.x + 1, lp.y, C.shadow, 0.35); } // a hooded lamp post
     if (YD.gantry && YD.gantry.y >= y0 - 3 && YD.gantry.y <= y0 + h + 3) { const gt = YD.gantry; for (let x = gt.x0; x <= gt.x1; x++) { put(x, gt.y, x % 3 ? C.dark : C.conc[1]); put(x + 1, gt.y - 1, C.shadow, 0.35); } for (const x of [gt.x0, gt.x1]) for (let k = -1; k <= 1; k++) put(x, gt.y + k, C.dark); }
     if (YD.buffer && YD.buffer.y >= y0 - 2 && YD.buffer.y <= y0 + h + 2) { const bf = YD.buffer; for (let x = bf.x - 4; x <= bf.x + 4; x++) { put(x, bf.y, (x >> 1) % 2 ? C.fire[2] : C.lit); put(x, bf.y + 1, C.dark); } } }
-  if (plan.airbase && plan.airbase.planes) { const AB = plan.airbase; // (level 3's searchlight airbase) parked planes seen from above (nose toward the lane), the flarepath's lamp posts
+  for (const AB of [plan.airbase].concat(plan.airbases || [])) if (AB && AB.planes) { // (level 3's searchlight airbase, and the temperate mainland's airbase stretch: plan.airbases) parked planes seen from above (nose toward the lane), the flarepath's lamp posts
     const OL = [[62, 68, 50], [78, 84, 62], [96, 102, 78]], plane = (pl, pass) => { const big = pl.kind === 'bomber', Lh = big ? 10 : 7, S = big ? 13 : 9, d = pl.dir;
       for (let u = -Lh; u <= Lh; u++) for (let v = -S; v <= S; v++) { const fus = Math.abs(v) <= (big ? 1.5 : 1) && u > -Lh, wing = u >= (big ? -2 : -1) && u <= (big ? 3 : 2) && Math.abs(v) <= S - Math.max(0, u) * 0.4, tail = u <= -Lh + 2 && Math.abs(v) <= (big ? 5 : 3), eng = big && Math.abs(Math.abs(v) - 5) < 1.2 && u >= 1 && u <= 5;
         if (!(fus || wing || tail || eng)) continue; const px = Math.round(pl.x + d * u), py = Math.round(pl.y + v);
@@ -2312,7 +2313,7 @@ function nightLights(plan) {
         out.push({ x: x + 0.5, y: y + 0.5, r: 6, c: NL.warm, a: 0.45, px: [[x, y, NL.warm]] }); break; } } }
   for (const f of plan.fires) if (!f.smoke) out.push({ x: f.x, y: f.y, r: Math.max(f.w, f.h) + 16, c: NL.fire, a: 0.42 });
   if (plan.pylons) for (const p of plan.pylons) if (p.ok) out.push({ x: p.x + 0.5, y: p.y + 3.5, r: 3, c: NL.red, a: 0.45, px: [[p.x, p.y + 3, NL.red]] }); // a red lamp on each pylon
-  if (plan.airbase && plan.airbase.lamps) { const AB = plan.airbase; for (const lp of AB.lamps) out.push({ x: lp.x + 0.5, y: lp.y + 0.5, r: 3.5, c: NL.flare, a: 0.4, px: [[lp.x, lp.y, NL.flare]] }); // the flarepath, the control tower's windows
+  for (const AB of [plan.airbase].concat(plan.airbases || [])) if (AB && AB.lamps) { for (const lp of AB.lamps) out.push({ x: lp.x + 0.5, y: lp.y + 0.5, r: 3.5, c: NL.flare, a: 0.4, px: [[lp.x, lp.y, NL.flare]] }); // the flarepath, the control tower's windows
     if (AB.tower) { const b = AB.tower; out.push({ x: b.x0 + b.w / 2, y: b.y0 - 1, r: 6, c: NL.warm, a: 0.35, px: [[b.x0 + 3, b.y0 - 1, NL.warm], [b.x0 + 8, b.y0 - 1, NL.warm]] }); } }
   if (plan.yard) { const YD = plan.yard; // signal lamps, hooded yard lamps, the signal box's windows
     for (const sg of YD.signals) out.push({ x: sg.x + 0.5, y: sg.y + 2.5, r: 3.5, c: sg.red ? NL.red : NL.green, a: 0.5, px: [[sg.x, sg.y + 2, sg.red ? NL.red : NL.green]] });
@@ -2588,8 +2589,14 @@ function islands(o) {
   if (mains.length) {
     const gunPitB = (x, y) => { const sl = gunPit(x, y); sl.bags = true; return sl; }; /* (the mainland's gun pits: a sandbag ring of bags, plan 12.22) */
     const phM = P.phM !== undefined ? P.phM : rnd(T.ISLE, 91) * 6.283, yO = P.yOff | 0, mxM = y => clamp(W / 2 + 22 * Math.sin((y + yO) * 0.0045 + phM) + 2.5 * Math.sin((y + yO) * 0.021 + phM), 60, W - 60), /* (a land arena goes on with the level's own road: its phase and rows, P.phM and P.yOff) */ upk = ['y', 'y0', 'y1', 'ya', 'yb', 'yc', 'cy', 'acy', 'yFront', 'Y0', 'yMin', 'yMax'];
-    const vil = mains.find(m => m.t === 'main_village'), inVil = y => !!vil && y >= vil.y0 && y < vil.y1; let vOffA = 0, vOffB = 0;
-    if (vil) { const VLm = vil.y1 - vil.y0, vy = vil.y0, fr = 0.0045, v = generate({ seed: h32(seed, 177), preset: 'village', params: { L: VLm, road: { c: W / 2, amp: 22, fr, ph: phM + fr * (vy + yO) }, damage: 0, density: [[0, 0.1], [0.3, 0.4], [0.6, 0.45], [0.85, 0.3], [1, 0.1]] } });
+    /* the stretches made by the town builder on their own and copied in whole (main_village; the old land's built-up ground, audit A3: main_town, main_estate, main_airbase), offsets for their items, streets, parcels and churches as stackPlans has them; each gets
+       a main road on the mainland's own line (road c, amp, fr, ph), and the mainland's road eases onto its ends */
+    const SUBP = { main_village: { tag: 177, preset: 'village', params: { damage: 0, density: [[0, 0.1], [0.3, 0.4], [0.6, 0.45], [0.85, 0.3], [1, 0.1]] } },
+      main_town: { tag: 187, preset: 'town', params: { damage: 0.25, oldTown: null, squares: true, cathedral: false, parishMinU: 9, stars: 0, harbour: false, farms: 0, density: [[0, 0.25], [0.2, 0.7], [0.5, 0.85], [0.8, 0.7], [1, 0.3]] } },
+      main_estate: { tag: 197, preset: 'industrial', params: { damage: 0.3, harbour: false, farms: 0, parishMinU: 9, density: [[0, 0.3], [0.2, 0.6], [0.8, 0.6], [1, 0.3]] } },
+      main_airbase: { tag: 207, preset: 'town', params: { damage: 0, oldTown: null, squares: false, cathedral: false, stars: 0, harbour: false, farms: 0, railway: false, density: [[0, 0], [1, 0]], airbase: { at: [0.02, 0.98] } } } };
+    const subs = mains.filter(m => SUBP[m.t]), vil = subs.find(m => m.t === 'main_village'), inVil = y => subs.some(q => y >= q.y0 && y < q.y1);
+    for (const sb of subs) { const SP = SUBP[sb.t], VLm = sb.y1 - sb.y0, vy = sb.y0, fr = 0.0045, v = generate({ seed: h32(seed, SP.tag), preset: SP.preset, params: Object.assign({ L: VLm, road: { c: W / 2, amp: 22, fr, ph: phM + fr * (vy + yO) } }, SP.params) }); sb.offA = 0; sb.offB = 0;
       const nI = plan.items.length, nS = plan.streets.length, nP = plan.parcels.length, up = q => { const r = Object.assign({}, q); for (const k of upk) if (typeof r[k] === 'number') r[k] += vy; return r; };
       for (let y = 0; y < VLm; y++) for (let x = 0; x < W; x++) { const j = y * W + x, yy = y + vy; if (!inB(x, yy)) continue; const i = idx(x, yy); let k = v.K[j], b = v.B[j]; if (k === K.NONE) k = K.MEADOW; if (b >= 0) b += nI; else if (b <= -2 && (k === K.ROAD || k === K.STREET || k === K.WALK || k === K.BRIDGE)) b -= nS; Kr[i] = k; Br[i] = b; F[i] = k === K.FIELD && v.F[j] >= 0 ? v.F[j] + nP : -1; }
       const chs = new Map(), nC = plan.churches.length; v.churches.forEach(c => chs.set(c, Object.assign(up(c), c.parts ? { parts: c.parts.map(p => p + nI) } : {}))); plan.churches.push(...chs.values());
@@ -2599,8 +2606,9 @@ function islands(o) {
       for (const t of v.trees) { const y = t.y + vy; if (inB(t.x, y) && land[idx(t.x, y)] === 1 && Kr[idx(t.x, y)] !== K.BEACH) plan.trees.push(Object.assign({}, t, { y })); }
       for (const l of v.lots) plan.lots.push(up(l)); for (const sl of v.slots) { const r = up(sl); if (r.item !== undefined) r.item += nI; plan.slots.push(Object.assign(r, { id: plan.slots.length })); }
       for (let y = 0; y < VLm; y++) { plan.mx[y + vy] = v.mx[y]; plan.aw[y + vy] = v.aw[y]; plan.U[y + vy] = v.U[y]; }
-      vOffA = v.mx[0] - mxM(vy); vOffB = v.mx[VLm - 1] - mxM(vy + VLm - 1); plan.mainVillage = { y0: vy, y1: vil.y1 - 1, items: v.items.length, farms: v.farms.length, nC }; }
-    plan.mainPhM = phM; const mAt = y => { let m = mxM(y); if (P.road0 !== undefined) m += (P.road0 - mxM(0)) * (1 - smooth(0, 160, y)); /* (and eases in from the level's last road x) */ if (vil) { m += vOffA * smooth(vil.y0 - 150, vil.y0, y) * (y < vil.y0 ? 1 : 0) + vOffB * (1 - smooth(vil.y1, vil.y1 + 150, y)) * (y >= vil.y1 ? 1 : 0); } return m; };
+      sb.offA = v.mx[0] - mxM(vy); sb.offB = v.mx[VLm - 1] - mxM(vy + VLm - 1); if (sb.t === 'main_village') plan.mainVillage = { y0: vy, y1: sb.y1 - 1, items: v.items.length, farms: v.farms.length, nC };
+      if (v.airbase) (plan.airbases || (plan.airbases = [])).push(Object.assign(up(v.airbase), { planes: (v.airbase.planes || []).map(up), lamps: (v.airbase.lamps || []).map(up), pens: (v.airbase.pens || []).map(up), posts: (v.airbase.posts || []).map(up) }, v.airbase.tower ? { tower: up(v.airbase.tower) } : null)); /* (the airbase stretch: its runway, planes and lamps, read by the RUNWAY painter and the night lights by row) */ }
+    plan.mainPhM = phM; const mAt = y => { let m = mxM(y); if (P.road0 !== undefined) m += (P.road0 - mxM(0)) * (1 - smooth(0, 160, y)); /* (and eases in from the level's last road x) */ for (const q of subs) m += q.offA * smooth(q.y0 - 150, q.y0, y) * (y < q.y0 ? 1 : 0) + q.offB * (1 - smooth(q.y1, q.y1 + 150, y)) * (y >= q.y1 ? 1 : 0); return m; };
     for (let y = M0; y < L; y++) if (!inVil(y)) { plan.mx[y] = mAt(y); plan.aw[y] = 8; }
     /* the gate (plan 12.22): the last stretch of a mainland that the legacy ground of a built-up kind follows (kit.main.gate). It owns the join: the main road is eased onto one of the street columns of the old land's block grid (x = ox + pitch * k + 3.5, 8 px wide) and
        ends straight, a perimeter street of the grid (8 rows, kerbs both sides, the grid's own vertical streets opening into it) closes the plan, and the railway of the old land (x 14 to 21) comes in from the left edge over a long gentle slope and crosses that street. The game
@@ -2620,7 +2628,7 @@ function islands(o) {
         for (let y = Math.floor(bot) - 3; y <= Math.ceil(top) + 3; y++) { if (!inB(x, y) || land[idx(x, y)] !== 1) continue; const i = idx(x, y), d = Math.max(bot - (y + 0.5), (y + 0.5) - top); if (d < 0) { Kr[i] = K.RIVER; Br[i] = -1; } else if (d < 3 && Kr[i] === K.MEADOW && Br[i] === -1) Kr[i] = K.BANK; } }
       rivs.push({ id: ri, Y0, yc, hw, ix: 0, iy: 0, rx: 0, ry: 0, island: false, flow: rnd(T.ISLE, tg, 5) < 0.5 ? -1 : 1, yMin: yMin - 16, yMax: yMax + 16 }); }
     plan.rivers = rivs; plan.river = rivs[0] || null;
-    for (const m of mains) { if (m.t === 'main_village') continue; const st = roadSt(); let run = null;
+    for (const m of mains) { if (SUBP[m.t]) continue; const st = roadSt(); let run = null;
       for (let y = m.y0; y < m.y1; y++) { const mx = plan.mx[y]; if (land[idx(Math.round(mx), y)] !== 1) continue; st.pts.push([mx, y, 8]); let wet = false;
         for (let x = Math.floor(mx - 4); x < mx + 4; x++) if (inB(x, y) && !(m.t === 'main_gate' && Math.abs(x - mx) >= 4)) { const c = Kr[idx(x, y)]; if (c === K.RIVER || c === K.BRIDGE) { Kr[idx(x, y)] = K.BRIDGE; Br[idx(x, y)] = -2 - st.id; wet = true; } else set(x, y, K.ROAD, -1); }
         if (wet && !run) run = { y0: y, x: Math.round(mx) }; if (!wet && run) { const R = rivs.find(q => run.y0 > q.yMin && run.y0 < q.yMax) || rivs[0]; plan.bridges.push({ street: st.id, x: run.x, y0: run.y0, y1: y - 1, kind: 'arterial', river: R.id }); run = null; } } }
