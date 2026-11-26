@@ -3346,7 +3346,7 @@ function addForestArena(plan, h, o) {
     streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
     stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
     coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
-    pieces: [], arenaTracks: [], units: [], zones: [], pits: [], nets: [], roofs: [], isArena: true, forestA: true };
+    pieces: [], arenaTracks: [], units: [], zones: [], pits: [], nets: [], isArena: true, forestA: true };
   plan.arena = A; plan.arenaField = A;
   const Kr = A.K, RM = A.RM, L = h, at = (x, y) => y * W + x, nk = h32(sd, 96990), BT = (o.bossTracks || []).slice(), sceneZ = !!o.scenes;
   const grid = (tag, fx, fy) => { const nx = Math.ceil(W * fx) + 2, ny = Math.ceil(L * fy) + 2, g = new Float32Array(nx * ny); for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) g[j * nx + i] = h32(tag, i * 7919 + j * 104729) / 4294967296; /* (each lattice value once) */
@@ -3356,7 +3356,7 @@ function addForestArena(plan, h, o) {
   const lastRails = []; for (let x = 0; x < W; x++) if (plan.RM && plan.RM[(L0 - 1) * W + x] === 2) lastRails.push(x);
   const goOn = []; for (const r of lastRails) if (lastRails.includes(r + 6) && !BT.some(c => Math.abs(c - (r + 3)) < 16)) goOn.push(r + 3);
   const rails = BT.concat(goOn), clear = (x, m) => !rails.some(c => Math.abs(x - c) < m);
-  // the day's forest feature (o.feature, the composer's: burnt, fortified, logging, water, strip, tunnel), drawn on its own hash stream so the rest of the layout is the
+  // the day's forest feature (o.feature, the composer's: burnt, fortified, logging, water, strip, cutting), drawn on its own hash stream so the rest of the layout is the
   // same with or without it; its ground in the level's own kinds (Br not -1: the level generator's painter, the forest's palette), its trees and dressing the host's
   let fk = 0; const RF = () => h32(sd, 95900 + fk++) / 4294967296, FE = o.feature || null, FX = A.feature = { kind: FE, built: false };
   const strip = FE === 'strip' ? (() => { const s = RF() < 0.5 ? 0 : 1; return { s, x: s ? W - 46 : 46 }; })() : null; /* (the hidden airstrip: 26 px of turf along one side; the road keeps 39 px from its axis) */
@@ -3367,8 +3367,7 @@ function addForestArena(plan, h, o) {
   const own = bands.find(b => x0 >= b[0] && x0 <= b[1] && b[1] - b[0] >= 40), band = own || bands.slice().sort((p2, q2) => (q2[1] - q2[0]) - (p2[1] - p2[0]))[0] || [lo0, hi0];
   const mid = own && !rails.length ? x0 : (band[0] + band[1]) / 2, half = (band[1] - band[0]) / 2, sw = rkind < 0.3 && own && !rails.length ? 0 : Math.min(1, Math.max(0, half - 4) / (a1 + a2));
   const track = A.track = new Float32Array(L), rw = A.rw = new Float32Array(L), hw0 = Math.max(3, Math.min(6, (plan.aw[L0 - 1] || 9) / 2));
-  const easeN = FE === 'tunnel' && BT.length === 1 ? 60 : 180; /* (the long train's tunnel day: the road leaves the rail quickly, clear of the portal) */
-  for (let y = 0; y < L; y++) { const t = Math.min(1, y / easeN), s3 = t * t * (3 - 2 * t), want = Math.max(band[0] + 2, Math.min(band[1] - 2, mid + (a1 * Math.sin(y * f1 + ph) + a2 * Math.sin(y * f2 + ph2)) * sw)); track[y] = x0 + (want - x0) * s3;
+  for (let y = 0; y < L; y++) { const t = Math.min(1, y / 180), s3 = t * t * (3 - 2 * t), want = Math.max(band[0] + 2, Math.min(band[1] - 2, mid + (a1 * Math.sin(y * f1 + ph) + a2 * Math.sin(y * f2 + ph2)) * sw)); track[y] = x0 + (want - x0) * s3;
     const u = Math.min(1, y / 70); rw[y] = hw0 + (13 - hw0) * u * u * (3 - 2 * u); A.mx[y] = track[y]; }
   const roadD = (x, y) => Math.abs(x - track[Math.max(0, Math.min(L - 1, y | 0))]) - rw[Math.max(0, Math.min(L - 1, y | 0))]; /* (from the road's edge; negative on it) */
   // scene zones for a land ending (as the city's and the desert's: one about every seven chunks from the sixth, 272 rows); they stay open meadow
@@ -3439,11 +3438,11 @@ function addForestArena(plan, h, o) {
       for (let k = 0; k < 3; k++) slotF('parked', xs, Math.round(y0 + (k + 0.3) * n / 3), 8);
       { const y = Math.round(y0 + n * 0.6), x = xs - sx * 24; for (let yy = y - 7; yy <= y + 7; yy++) for (let xx = x - 7; xx <= x + 7; xx++) if (isK(xx, yy, K.WOOD)) setK(xx, yy, K.MEADOW, -39); A.pits.push({ x, y, r: 5 }); slotF('flak', x, y, 5); }
       A.pieces.push({ k: 'strip', x: xs, y0, y1: y0 + n }); boxes.push([xs - 50, y0 - 40, xs + 50, y0 + n + 40]); FX.built = true; FX.y0 = y0; FX.y1 = y0 + n; } }
-  if (FE === 'tunnel' && BT.length) { // a wooded ridge across the arena where the fight is seen, the boss's rails in a tunnel through it, the road in a cutting
-    const one = BT.length === 1, yr0 = one ? 68 + Math.floor(RF() * 4) : 296 + Math.floor(RF() * 16), yr1 = yr0 + (one ? 38 + Math.floor(RF() * 4) : 40 + Math.floor(RF() * 14)), eL = RF() * 6.283; /* (the long train parks with its cars over rows 100 to 360 and its engine never below row 123: its ridge is under it, at the foot of the held screen; the supergun's fight scrolls on, its ridge is where the fight begins) */
-    for (let x = 0; x < W; x++) { const near = rails.some(c => Math.abs(x - c) < 18), a = near ? 0 : Math.round(5 * Math.sin(x * 0.05 + eL) + (nz(x, yr0) - 0.5) * 8), b = near ? 0 : Math.round(5 * Math.sin(x * 0.04 + eL * 2) + (nz(x, yr1) - 0.5) * 8);
-      for (let y = yr0 + a; y <= yr1 + b; y++) if (roadD(x, y) > 3) setK(x, y, K.WOOD, -1); }
-    FX.ridge = { y0: yr0, y1: yr1 }; boxes.push([0, yr0 - 20, W, yr1 + 20]); FX.built = true; FX.y0 = yr0; FX.y1 = yr1; }
+  if (FE === 'cutting' && BT.length) { // a belt of forest across the arena where the fight is seen, the boss's rails running through a cleared opening in it (gravel verges, no trees), the road through its own opening
+    const one = BT.length === 1, yr0 = one ? 176 + Math.floor(RF() * 30) : 296 + Math.floor(RF() * 16), yr1 = yr0 + 60 + Math.floor(RF() * 30), eL = RF() * 6.283; /* (the long train parks with its cars over rows 100 to 360: its belt runs behind the parked train; the supergun's fight scrolls on, its belt is where the fight begins) */
+    for (let x = 0; x < W; x++) { const a = Math.round(6 * Math.sin(x * 0.05 + eL) + (nz(x, yr0) - 0.5) * 12), b = Math.round(6 * Math.sin(x * 0.04 + eL * 2) + (nz(x, yr1) - 0.5) * 12);
+      for (let y = yr0 + a; y <= yr1 + b; y++) { const rd = Math.min(...rails.map(c => Math.abs(x - c))), open = 9 + (nz(x * 3, y) - 0.5) * 4; if (rd <= open || roadD(x, y) <= 3 + (nz(x, y * 3) - 0.5) * 3) setK(x, y, K.MEADOW, -35); else setK(x, y, K.WOOD, -1); } }
+    boxes.push([0, yr0 - 20, W, yr1 + 20]); FX.built = true; FX.y0 = yr0; FX.y1 = yr1; }
   // the castle's fields beside the road (its field look), and farms: the farmyard and its paddock (the host draws them), with a lane to the road
   const freeBox = (bx0, by0, bx1, by1) => bx0 >= 4 && bx1 <= W - 4 && by0 >= lead && by1 < L - 20 && !boxes.some(b => bx0 < b[2] + 8 && bx1 > b[0] - 8 && by0 < b[3] + 8 && by1 > b[1] - 8) && !inZone(by0, 30) && !inZone(by1, 30) && !rails.some(c => c > bx0 - 12 && c < bx1 + 12);
   const nFm = R() < 0.3 ? 0 : R() < 0.72 ? 1 : 2, farms = [];
@@ -3461,10 +3460,6 @@ function addForestArena(plan, h, o) {
   for (let y = 0; y < L; y++) { const c = track[y], r = rw[y]; for (let x = Math.max(0, Math.floor(c - r - 1)); x <= Math.min(W - 1, Math.ceil(c + r + 1)); x++) if (Math.abs(x - c) <= r) { Kr[at(x, y)] = K.ROAD; A.B[at(x, y)] = -1; } }
   for (const c of rails) for (let y = BT.includes(c) ? 16 : 0; y < L; y++) for (let x = c - 4; x <= c + 4; x++) { if (x < 0 || x >= W) continue; const i = at(x, y), m = (x === c - 3 || x === c + 3) ? 2 : (y % 5 < 2 && Math.abs(x - c) <= 4) ? 3 : 1; RM[i] = m; Kr[i] = K.RAIL; A.B[i] = -1; }
   A.rails = rails;
-  if (FX.ridge) { const { y0: yr0, y1: yr1 } = FX.ridge; A.roofs = []; // the tunnel: the rails under the ridge are hidden, a portal on each face (the level generator's tunnel mouth), the ridge over the train (roofs)
-    for (const c of BT) { for (let y = yr0; y <= yr1; y++) for (let x = c - 4; x <= c + 4; x++) { const i = at(x, y); RM[i] = 0; Kr[i] = K.WOOD; }
-      for (const [ty, dir] of [[yr0, 1], [yr1, -1]]) { for (let r = 0; r <= 6; r++) for (let x = c - 14; x <= c + 13; x++) if (!isK(x, ty + dir * r, K.ROAD)) setK(x, ty + dir * r, K.FRONT, -1); A.tunnels.push({ x: c, y: ty, dir }); } /* (no trees of the detail pass on the portals) */
-      A.roofs.push({ x0: c - 10, x1: c + 10, y0: yr0 + 2, y1: yr1 - 2 }); } }
   // gun positions: a bunker by the road and a flak gun or two across it, on open ground, clear of the rails, the farms and the zones
   const nG = 2 + Math.floor(R() * 3), open = (x, y) => x > 16 && x < W - 16 && y >= 0 && y < L && (Kr[at(x, y)] === K.MEADOW || Kr[at(x, y)] === K.FIELD) && A.B[at(x, y)] === -1 && clear(x, 14);
   for (let k = 0; k < nG; k++) { const y = Math.round(lead + 120 + (k + 0.2 + R() * 0.6) * (L - lead - 240) / nG); if (inZone(y)) continue; const tx = track[y], sx = R() < 0.5 ? -1 : 1;
