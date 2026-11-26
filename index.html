@@ -18642,7 +18642,7 @@ function update() {
   pollPad();
   if (app.state === 'play' && app.paused) return;
   if (app.ending) { updEnding(); return; } // (the ending scene: the world is frozen under it)
-  if (!(app.state === 'play' && app.cont > 0)) { world.scrollV += (world.scrollTarget - world.scrollV) * 0.03; world.scroll += world.scrollV; } if (world.sceneStop != null && world.scroll >= world.sceneStop - 12) { world.sceneStop = null; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } /* (a land ending's scene in a zone of the city's generated arena: the ground stops when the zone fills the screen) */ // the battle holds still on the continue screen
+  if (!(app.state === 'play' && app.cont > 0)) { world.scrollV += (world.scrollTarget - world.scrollV) * 0.03; world.scroll += world.scrollV; } if (world.sceneStop != null && world.scroll >= world.sceneStop - 12) { world.sceneStop = null; world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } /* (a land ending's scene in a zone of the city's generated arena: the ground stops when the zone fills the screen) */ arenaHold(); // the battle holds still on the continue screen
   ensureChunks();
   const ck = 0.12 + 0.88 * clamp(world.scrollV / SCROLL, 0, 1);
   const simWas = simOn; simOn = false; // clouds, weather and birds are cosmetic: free stream (restored below)
@@ -20180,6 +20180,17 @@ function rivalSkin() { const ids = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => i !== cu
 /* The land endings' own ground (plan 12.19, owner: they sat on the plain boss ground): a backdrop of the arena, drawn once onto a canvas in screen coordinates and laid on the ground as a decal at the boss's spawn, under the enemies and tinted to show the ground through. The gun line gets trenches, communication trenches, pits and wire; the airbase an apron with hardstands and taxi lines and a runway; the column a tank park with scraped pads, track marks and berms; the depot a concrete pad with a ring berm round each tank, pipes and a loading rack. */
 // The generated airfield (CityGen addAirfield with scenes) and the other arenas with scene zones: the scroll at which the first scene zone still ahead of the screen fills it from the top
 // (its top row at the screen's top), or null (no zones, or all of them behind: the scene goes where the screen is, as on the Campaign's ground).
+// A Daily Sortie's generated boss arena (any kit's plan.arena) is 48 chunks long; a long fight (the sky fortress's lance form ran about three minutes) used to scroll
+// past its end onto legacy ground. While the boss lives, the scroll eases down over the arena's last ARENA_HOLD px and stops with the arena's last row at the
+// screen's top; the boss's death sets it going again (bossDead). Bosses that hold the ground themselves keep doing so (this only lowers the target).
+const ARENA_HOLD = 220;
+function arenaHold() {
+  const S = run.sortie, A = S && S.compose && S.plan && S.plan.arena; if (!A || !world.bossSpawned || S.planFor !== world.stageBaseP) return;
+  let b = null; for (const e of world.enemies) if (e.type === 'boss') { b = e; break; } if (!b || b.dead || b.dying) return;
+  const d = -(S.planY0 - (A.y0 + A.L - 1)) - world.scroll; /* (px of the arena still above the screen's top) */
+  if (d < ARENA_HOLD) world.scrollTarget = Math.min(world.scrollTarget, SCROLL * Math.max(0, d / ARENA_HOLD));
+  if (d <= 0) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0); }
+}
 function sceneZoneAt(sc) {
   const S = run.sortie, P = S && S.plan, A = P && P.arena; if (!A || !A.zones || !A.zones.length || S.planFor !== world.stageBaseP) return null;
   for (const z of A.zones) { const s2 = Math.round(z.y1 + A.y0 - S.planY0); if (s2 >= sc) return s2; } return null;
