@@ -2350,6 +2350,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
       if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
+      else if (plan.forestA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.WOOD ? [40, 60, 30] : k === K.ROAD ? [120, 112, 100] : k === K.FIELD ? [150, 140, 80] : k === K.RAIL ? [110, 100, 90] : [92, 120, 60]; /* the forest's boss arena: every pixel the host's own (the castle ground's grass, woods, fields, cobbled road and rails); a plain stand-in without a host */
       else if (plan.desertA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.DESERT ? [214, 190, 140] : k === K.ROAD ? [150, 120, 84] : k === K.RAIL ? [110, 100, 90] : [132, 128, 74]; /* the desert's boss arena: every pixel the host's own (its scrub, sand, track and rails); a plain stand-in without a host */
       else if (plan.yardA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : (x % 26 === 15 || x % 26 === 21) ? [150, 150, 160] : [96, 90, 84]; /* the city's two-train yard: the host's own yard ground; a plain stand-in without a host */
       else if (plan.sea && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.SEA ? [40, 84, 124] : k === K.SURF ? [220, 228, 232] : k === K.BEACH ? [214, 196, 150] : [96, 130, 70]; /* the city's sea ending: every pixel the host's own (its grass, sand, surf and sea); a plain stand-in without a host */
@@ -3854,6 +3855,83 @@ function addDesertArena(plan, h, o) {
   A.units.push({ lead, fields: nF, track: tkind < 0.3 ? 'fork' : tkind < 0.85 ? 'one' : 'none', guns: nG });
   return A;
 }
+// The forest's boss arena (params.cityArena with params.cityArenaStyle 'forest'; the Daily Sortie's forest kit, owner: variations of the forest's own Campaign boss
+// area, the castle ground, not the city's graphics): its own small plan after the level, in that ground's own kinds, which the host paints with its own colours
+// (opts.arenaPix: the castle ground's grass with its flowers, the woods' floor, the castle's fields, its cobbled road; the rails in their rail look) and dresses with its
+// own detail pass (the trees, the scars, the farms). The day's own layout: the level's forest patches running on and thinning out over the first 90 to 200 rows; the
+// edge of the woods along one side, both or neither, deep or shallow, sometimes closing in round the road (a forest gate); copses in the meadow; the castle's cobbled
+// road going on from the level's road, straight or winding, widening as the Campaign's over its first 70 rows; one to three of the castle's fields beside it; up to
+// two farms (pieces: the host draws its farm there), each with a lane to the road; two to four gun positions (a bunker and flak, slots marked arena); a boss's own
+// rails (bossTracks), and scene zones (scenes) for the land endings, as the city's and the desert's. arena.track[y]: the road's centre, arena.rw[y]: its half width.
+function addForestArena(plan, h, o) {
+  const { W } = plan, L0 = plan.L, sd = plan.seed | 0, N = W * h; let rk = 0; const R = () => h32(sd, 96900 + rk++) / 4294967296;
+  const A = { v: plan.v, seed: plan.seed, preset: plan.preset, P: plan.P, W, L: h, y0: L0, K: new Uint8Array(N).fill(K.MEADOW), B: new Int32Array(N).fill(-1), RM: new Uint8Array(N), F: null,
+    U: new Float32Array(h), D: new Float32Array(h), mx: new Float32Array(h).fill(plan.mx[L0 - 1]), aw: new Float32Array(h).fill(plan.aw[L0 - 1]),
+    streets: [], items: [], trees: [], slots: [], craters: [], fires: [], squares: [], churches: [], parks: [], lots: [], bridges: [], boats: [], tunnels: [], rivers: [], river: null, trainRuns: [], quarters: [], tracks: [],
+    stars: [], civic: [], works: [], farms: [], heaps: [], steam: [], basins: [], cranes: [], stacks: [], ships: [], gantries: [], shipLanes: [], subSlots: [], obstacles: [], wires: [], barrels: [], beachSlots: [], parcels: [],
+    coast: null, oldTown: null, harbour: null, railway: null, station: null, yard: null, airbase: null, forest: null, perimeter: null, port: null, fleetArea: null, stage: {}, uAt: plan.uAt,
+    pieces: [], arenaTracks: [], units: [], zones: [], isArena: true, forestA: true };
+  plan.arena = A; plan.arenaField = A;
+  const Kr = A.K, RM = A.RM, L = h, at = (x, y) => y * W + x, nk = h32(sd, 96990), BT = (o.bossTracks || []).slice(), sceneZ = !!o.scenes;
+  const grid = (tag, fx, fy) => { const nx = Math.ceil(W * fx) + 2, ny = Math.ceil(L * fy) + 2, g = new Float32Array(nx * ny); for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) g[j * nx + i] = h32(tag, i * 7919 + j * 104729) / 4294967296; /* (each lattice value once) */
+    return (x, y) => { const X = x * fx, Y = y * fy, xi = Math.floor(X), yi = Math.floor(Y), u0 = X - xi, v0 = Y - yi, u = u0 * u0 * (3 - 2 * u0), v = v0 * v0 * (3 - 2 * v0), i = yi * nx + xi, a = g[i], b = g[i + 1], c = g[i + nx], d = g[i + nx + 1]; return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }; };
+  const g1 = grid(nk, 0.07, 0.06), g2 = grid(nk + 1, 0.22, 0.22), nz = (x, y) => g1(x, y) * 0.7 + g2(x, y) * 0.3, n1 = (tag, t) => { const i = Math.floor(t), f = t - i, a = h32(tag, i) / 4294967296, b = h32(tag, i + 1) / 4294967296; return a + (b - a) * f * f * (3 - 2 * f); };
+  // the rails: a boss's own (from row 16, as the desert's), or the level's railway going on where it reaches the level's end
+  const lastRails = []; for (let x = 0; x < W; x++) if (plan.RM && plan.RM[(L0 - 1) * W + x] === 2) lastRails.push(x);
+  const goOn = []; for (const r of lastRails) if (lastRails.includes(r + 6) && !BT.some(c => Math.abs(c - (r + 3)) < 16)) goOn.push(r + 3);
+  const rails = BT.concat(goOn), clear = (x, m) => !rails.some(c => Math.abs(x - c) < m);
+  // the road: the castle's cobbled road, going on from the level's road (x0) and widening over 70 rows from the level's width to the castle road's 13; straight on, or
+  // winding within the widest strip clear of the rails (a level crossing where it must cross one while it eases in)
+  const x0 = plan.mx[L0 - 1], rkind = R(), ph = R() * 6.283, ph2 = R() * 6.283, a1 = 12 + R() * 30, a2 = 4 + R() * 8, f1 = 0.003 + R() * 0.004, f2 = 0.011 + R() * 0.008;
+  const lo0 = 34, hi0 = W - 34, bands = []; { let a = null; for (let x = lo0; x <= hi0 + 1; x++) { const ok = x <= hi0 && clear(x, 24); if (ok && a === null) a = x; if (!ok && a !== null) { bands.push([a, x - 1]); a = null; } } }
+  const own = bands.find(b => x0 >= b[0] && x0 <= b[1] && b[1] - b[0] >= 40), band = own || bands.slice().sort((p2, q2) => (q2[1] - q2[0]) - (p2[1] - p2[0]))[0] || [lo0, hi0];
+  const mid = own && !rails.length ? x0 : (band[0] + band[1]) / 2, half = (band[1] - band[0]) / 2, sw = rkind < 0.3 && own && !rails.length ? 0 : Math.min(1, Math.max(0, half - 4) / (a1 + a2));
+  const track = A.track = new Float32Array(L), rw = A.rw = new Float32Array(L), hw0 = Math.max(3, Math.min(6, (plan.aw[L0 - 1] || 9) / 2));
+  for (let y = 0; y < L; y++) { const t = Math.min(1, y / 180), s3 = t * t * (3 - 2 * t), want = Math.max(band[0] + 2, Math.min(band[1] - 2, mid + (a1 * Math.sin(y * f1 + ph) + a2 * Math.sin(y * f2 + ph2)) * sw)); track[y] = x0 + (want - x0) * s3;
+    const u = Math.min(1, y / 70); rw[y] = hw0 + (13 - hw0) * u * u * (3 - 2 * u); A.mx[y] = track[y]; }
+  const roadD = (x, y) => Math.abs(x - track[Math.max(0, Math.min(L - 1, y | 0))]) - rw[Math.max(0, Math.min(L - 1, y | 0))]; /* (from the road's edge; negative on it) */
+  // scene zones for a land ending (as the city's and the desert's: one about every seven chunks from the sixth, 272 rows); they stay open meadow
+  if (sceneZ) for (let y = 6 * 64; y + 272 <= L - 40; y += 272 + 150 + Math.floor(R() * 60)) { A.zones.push({ y0: y, y1: y + 271 }); A.pieces.push({ k: 'zone', y0: y, y1: y + 271 }); }
+  const inZone = (y, m = 20) => A.zones.some(z => y > z.y0 - m && y < z.y1 + m);
+  // the woods: the level's own forest patches go on and thin out over the lead rows, as the desert's sand does
+  const lead = 90 + Math.floor(R() * 111);
+  const wr = new Float32Array(W); for (let x = 0; x < W; x++) { let n = 0; for (let d = -6; d <= 6; d++) { let w = 0; for (let r = 1; r <= 6; r++) if (x + d >= 0 && x + d < W && plan.K[(L0 - r) * W + x + d] === K.WOOD) w = 1; n += w; } wr[x] = n / 13; } /* (the share of woods about each column: the patches' sides fray too) */
+  for (let x = 0; x < W; x++) { if (wr[x] === 0) continue; for (let y = 0; y < Math.min(L, lead); y++) if (nz(x, y) * 0.9 + (wr[x] - 0.5) * 0.7 > y / lead && roadD(x, y) > 3) Kr[at(x, y)] = K.WOOD; }
+  // the edge of the woods: along each side a belt whose depth swells and shrinks (a side may have none), and sometimes a forest gate, where both close in round the road
+  const side = [0, 1].map(s => { const q = R(); return { d: q < 0.25 ? 0 : q < 0.6 ? 26 + R() * 18 : 46 + R() * 34, f: 0.004 + R() * 0.006, tag: nk + 10 + s }; }); /* (at least about 20 px where it is: the detail pass plants its trees only inside 12 px of woods) */
+  const gate = R() < 0.4 ? (() => { const y1 = lead + 300 + Math.floor(R() * (L - lead - 900)); return { y1, y2: y1 + 200 + Math.floor(R() * 160) }; })() : null;
+  for (let y = Math.max(0, lead - 60); y < L; y++) { const c = track[y], g = gate && y > gate.y1 - 80 && y < gate.y2 + 80 ? Math.min(1, (y - (gate.y1 - 80)) / 80, ((gate.y2 + 80) - y) / 80) : 0, ein = Math.min(1, (y - (lead - 60)) / 120);
+    for (let s = 0; s < 2; s++) { const S = side[s], dep = (S.d * (0.5 + 0.5 * n1(S.tag, y * S.f)) * ein) * (inZone(y, 40) ? 0.4 : 1), room = s ? W - c - rw[y] - 30 : c - rw[y] - 30, gd = g ? g * room : 0, D = Math.min(Math.max(dep, gd), room);
+      if (D < 2) continue; for (let k = 0; k < D + 8; k++) { const x = s ? W - 1 - k : k, e = (nz(x, y) - 0.5) * 16; if (k < D + e && roadD(x, y) > 4 && clear(x, 12)) Kr[at(x, y)] = K.WOOD; } } }
+  // copses in the meadow, clear of the road, the rails and the zones
+  const nC = 1 + Math.floor(R() * 4); for (let k = 0; k < nC; k++) { const cy = lead + 120 + R() * (L - lead - 240), rx = 11 + R() * 13, ry = 13 + R() * 18, sd2 = R() < 0.5 ? -1 : 1, cx = track[cy | 0] + sd2 * (rw[cy | 0] + 22 + rx + R() * 40);
+    if (cx < rx + 4 || cx > W - rx - 4 || inZone(cy, ry + 20)) continue; for (let y = Math.max(0, Math.floor(cy - ry * 1.3)); y <= Math.min(L - 1, Math.ceil(cy + ry * 1.3)); y++) for (let x = Math.max(0, Math.floor(cx - rx * 1.3)); x <= Math.min(W - 1, Math.ceil(cx + rx * 1.3)); x++) {
+      const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (e < 1 + (nz(x, y) - 0.5) * 0.9 && roadD(x, y) > 6 && clear(x, 12)) Kr[at(x, y)] = K.WOOD; } }
+  // the castle's fields beside the road (its field look), and farms: the farmyard and its paddock (the host draws them), with a lane to the road
+  const boxes = [], freeBox = (bx0, by0, bx1, by1) => bx0 >= 4 && bx1 <= W - 4 && by0 >= lead && by1 < L - 20 && !boxes.some(b => bx0 < b[2] + 8 && bx1 > b[0] - 8 && by0 < b[3] + 8 && by1 > b[1] - 8) && !inZone(by0, 30) && !inZone(by1, 30) && !rails.some(c => c > bx0 - 12 && c < bx1 + 12);
+  const nFm = R() < 0.3 ? 0 : R() < 0.72 ? 1 : 2, farms = [];
+  for (let k = 0; k < nFm; k++) for (let tr = 0; tr < 6; tr++) { const top = Math.round(lead + 160 + R() * (L - lead - 420)), sx = R() < 0.5 ? -1 : 1, c = track[top - 34], gp = 10 + Math.floor(R() * 8), fx0 = sx < 0 ? Math.round(c - rw[top - 34] - gp - 74) : Math.round(c + rw[top - 34] + gp);
+    if (!freeBox(fx0 - 2, top - 70, fx0 + 76, top + 4) || farms.some(f => (f.x0 < 112) === (fx0 < 112) && Math.abs(f.top - top) < 320)) continue;
+    boxes.push([fx0 - 2, top - 70, fx0 + 76, top + 4]); farms.push({ x0: fx0, top }); A.pieces.push({ k: 'farm', x0: fx0, y: top });
+    for (let y = top - 70; y <= top + 4; y++) for (let x = fx0 - 2; x <= fx0 + 76; x++) Kr[at(x, y)] = K.FRONT; /* (the farm's ground: no trees or scars of the detail pass, which draws the farm over it) */
+    const ly = top - 12, xa = sx < 0 ? fx0 + 50 : Math.round(track[ly] + rw[ly]), xb = sx < 0 ? Math.round(track[ly] - rw[ly]) : fx0 - 2; for (let y = ly - 2; y <= ly + 2; y++) for (let x = Math.min(xa, xb); x <= Math.max(xa, xb); x++) if (Kr[at(x, y)] !== K.RAIL) Kr[at(x, y)] = K.ROAD; /* (the lane to the yard) */ boxes.push([Math.min(xa, xb), ly - 3, Math.max(xa, xb), ly + 3]);
+    break; }
+  const nFd = 1 + Math.floor(R() * 3); let fields = 0;
+  for (let k = 0; k < nFd; k++) for (let tr = 0; tr < 6; tr++) { const w = 40 + Math.floor(R() * 44), fh = 44 + Math.floor(R() * 60), y0 = Math.round(lead + 60 + R() * (L - lead - 200)), sx = R() < 0.5 ? -1 : 1, c = track[y0 + (fh >> 1)], gap = 14 + Math.floor(R() * 20), bx0 = sx < 0 ? Math.round(c - rw[y0] - gap - w) : Math.round(c + rw[y0] + gap);
+    if (!freeBox(bx0, y0, bx0 + w, y0 + fh)) continue; let ok = true; for (let y = y0; y <= y0 + fh && ok; y += 4) if (roadD(bx0, y) < 8 || roadD(bx0 + w, y) < 8) ok = false; if (!ok) continue;
+    boxes.push([bx0, y0, bx0 + w, y0 + fh]); fields++; A.pieces.push({ k: 'field', x0: bx0, y0, x1: bx0 + w, y1: y0 + fh }); for (let y = y0; y <= y0 + fh; y++) for (let x = bx0; x <= bx0 + w; x++) Kr[at(x, y)] = K.FIELD; break; }
+  // the road and the rails over everything else
+  for (let y = 0; y < L; y++) { const c = track[y], r = rw[y]; for (let x = Math.max(0, Math.floor(c - r - 1)); x <= Math.min(W - 1, Math.ceil(c + r + 1)); x++) if (Math.abs(x - c) <= r) Kr[at(x, y)] = K.ROAD; }
+  for (const c of rails) for (let y = BT.includes(c) ? 16 : 0; y < L; y++) for (let x = c - 4; x <= c + 4; x++) { if (x < 0 || x >= W) continue; const i = at(x, y), m = (x === c - 3 || x === c + 3) ? 2 : (y % 5 < 2 && Math.abs(x - c) <= 4) ? 3 : 1; RM[i] = m; Kr[i] = K.RAIL; }
+  A.rails = rails;
+  // gun positions: a bunker by the road and a flak gun or two across it, on open ground, clear of the rails, the farms and the zones
+  const nG = 2 + Math.floor(R() * 3), open = (x, y) => x > 16 && x < W - 16 && y >= 0 && y < L && (Kr[at(x, y)] === K.MEADOW || Kr[at(x, y)] === K.FIELD) && clear(x, 14);
+  for (let k = 0; k < nG; k++) { const y = Math.round(lead + 120 + (k + 0.2 + R() * 0.6) * (L - lead - 240) / nG); if (inZone(y)) continue; const tx = track[y], sx = R() < 0.5 ? -1 : 1;
+    const bx = Math.round(tx + sx * (rw[y] + 12 + R() * 16)); if (open(bx, y)) A.slots.push({ kind: 'bunker', on: 'arena', x: bx, y, r: 6, id: A.slots.length, arena: true });
+    for (let j = 0; j < 1 + (R() < 0.5 ? 1 : 0); j++) { const fx = Math.round(tx - sx * (rw[y] + 18 + R() * 36)), fy = y + Math.round((R() - 0.5) * 60); if (open(fx, fy) && !inZone(fy)) A.slots.push({ kind: 'flak', on: 'arena', x: fx, y: fy, r: 8, id: A.slots.length, arena: true }); } }
+  A.units.push({ lead, road: sw ? 'winding' : 'straight', woods: side.map(s => Math.round(s.d)), gate: !!gate, copses: nC, farms: farms.length, fields, guns: nG });
+  return A;
+}
 function addPerimeter(plan, h) {
   const { W } = plan, L0 = plan.L, L = L0 + h, grow = (a, T, fill) => { const b = new T(W * L); if (fill !== undefined) b.fill(fill); b.set(a); return b; };
   const Kr = plan.K = grow(plan.K, Uint8Array), Br = plan.B = grow(plan.B, Int32Array, -1), RM = plan.RM = grow(plan.RM, Uint8Array);
@@ -5028,7 +5106,7 @@ function cityFromSegs(o) {
   const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'dockyard', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
   return Object.assign({}, o, { params: Object.assign(d, rest) });
 }
-const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') { const q0 = o.params || {}, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = sandSea(Object.assign({}, o, { params: qs })); /* (the arena's parameters stay out of the desert builder: it passes its own on to the sub-plans it builds, and one would build an arena of its own) */ if (q0.cityArena) { const hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') addArenaField(p0, hA, null, !!q0.cityArenaScenes, q0.cityArenaBossTracks); else addDesertArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); } return p0; } /* (the desert's generated boss arena: its own small plan after the level) */ if (bd === 'winterLine') return winterLine(o); const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') { const q0 = o.params || {}, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = sandSea(Object.assign({}, o, { params: qs })); /* (the arena's parameters stay out of the desert builder: it passes its own on to the sub-plans it builds, and one would build an arena of its own) */ if (q0.cityArena) { const hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') addArenaField(p0, hA, null, !!q0.cityArenaScenes, q0.cityArenaBossTracks); else addDesertArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); } return p0; } /* (the desert's generated boss arena: its own small plan after the level) */ if (bd === 'winterLine') return winterLine(o); if (bd === 'forest' && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = forestLand(Object.assign({}, o, { params: qs })); markSlotRoofs(p0); calmWater(p0); const hA = (q0.cityArena | 0) * 64; /* (the forest's generated boss arena: its own small plan after the level, whose own plan never sees the arena's parameters) */ if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') addArenaField(p0, hA, null, !!q0.cityArenaScenes, q0.cityArenaBossTracks); else addForestArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); return p0; } const p = o.preset === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -5353,6 +5431,7 @@ KITS.temperate.bosses = bossPool([['ship', [['plain', 4]]], ['castle', [['fort',
 KITS.desert.bosses = bossPool([['canyon', [['plain', 1]]], ['dam', [['plain', 1]]], ['sandstorm', [['plain', 1]]], ['bridgedef', [['plain', 1]]], ['silo', [['plain', 1]]], ['train', [['yard', 2]]], ['fortress', [['plain', 3], ['heavy', 1], ['light', 1]]], ['castle', [['sand', 2]]], ['longtrain', [['plain', 1]]], ['railgun', [['plain', 1]]], ['skyfort', [['plain', 2], ['lance', 2], ['light', 1], ['small', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1], ['storm', 1]]], ['slipway', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['crawler', [['plain', 2]]]]);
 KITS.desert.cityArena = { n: 48, style: 'desert', airfieldShare: 0.25, kinds: ['fortress', 'skyfort', 'moth', 'rival', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'] }; /* (the desert's generated boss arena, owner: variations of the desert's own boss area, and the city's final airfield as one option in a quarter of its days; the sand crawler keeps the Campaign's original area, and so for now do the castle, the two-train yard and the escapes) */
 KITS.forest.bosses = bossPool([['canyon', [['plain', 1]]], ['dam', [['plain', 1]]], ['bridgedef', [['plain', 1]]], ['silo', [['plain', 1]]], ['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['longtrain', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1], ['small', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1], ['storm', 1]]], ['slipway', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
+KITS.forest.cityArena = { n: 48, style: 'forest', airfieldShare: 0.25, kinds: ['fortress', 'skyfort', 'moth', 'rival', 'raven', 'shadowwing'] }; /* (the forest's generated boss arena, owner: variations of its own Campaign boss area, the castle ground, and the city's final airfield as one option in a quarter of its days; the castle keeps its own floor) */
 KITS.winter.bosses = bossPool([['iceshelf', [['plain', 1]]], ['train', [['plain', 3], ['heavy', 1], ['light', 1]]], ['longtrain', [['plain', 2]]], ['castle', [['ice', 2]]], ['railgun', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1], ['small', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 2]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1], ['storm', 1]]], ['slipway', [['plain', 1]]], ['squadron', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]], ['leviathan', [['plain', 2]]]]);
 KITS.winter.bosses.find(b => b.kind === 'railgun').rail = true; KITS.winter.bosses.find(b => b.kind === 'longtrain').rail = true; KITS.forest.bosses.find(b => b.kind === 'longtrain').track = 112; /* (the forest's arena is the castle road: a single rail is painted down its middle, plan 12.20) */ /* (the winter's supergun: its own gorge with two tracks in the middle, plan 12.18) */
 KITS.winter.bosses.filter(b => b.kind === 'wolfpack' || b.kind === 'leviathan' || b.kind === 'iceshelf').forEach(b => { b.ice = true; }); /* (the winter's wolfpack breaks up through the ice of a frozen arena: plan 12.14) */
@@ -9010,6 +9089,7 @@ function arenaColor(S, x, y) {
   if (A.sea) return seaArenaColor(S, A, x, y, wx, wy);
   if (A.yardA) return ryardColor(wx, wy); /* (the city's generated two-train yard: the yard's own painter, in the arena's layout) */
   if (A.desertA) return desertArenaColor(S, A, x, y, wx, wy);
+  if (A.forestA) return forestArenaColor(S, A, x, y, wx, wy);
   if (!S.arenaIdx) { const ix = S.arenaIdx = new Map(), put = (k, q) => { let a = ix.get(k); if (!a) ix.set(k, a = []); a.push(q); };
     for (const q of A.pieces) { const lo = q.k === 'pad' ? q.y - 14 : q.k === 'heli' ? q.y - 39 : q.y0, hi = q.k === 'pad' ? q.y + 14 : q.k === 'heli' ? q.y + 39 : q.y1; for (let b = lo >> 5; b <= hi >> 5; b++) put(b, q); } }
   for (const q of S.arenaIdx.get(y >> 5) || []) {
@@ -9050,6 +9130,21 @@ function desertArenaColor(S, A, x, y, wx, wy) {
   if (k === K.DESERT) return planSandColor(wx, wy, y + A.y0, S.plan.L + A.L);
   if (k === K.ROAD) { const c1 = A.track[y], c2 = A.track2[y], d = isNaN(c2) || Math.abs(x - c1) <= Math.abs(x - c2) ? x - c1 : x - c2;
     if (Math.abs(d) > 4.5 && hash(wx, wy) < 0.5) return T.grass[2]; let l = 0.55 + (vnoise(wx * 0.3, wy * 0.3) - 0.5) * 0.4; if (Math.abs(Math.abs(d) - 2.5) < 0.7) l -= 0.35; return T.dirt[pickI(4, l, wx, wy)]; }
+  return T.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
+}
+// The forest's generated boss arena (CityGen addForestArena): its kinds in the colours of the forest's Campaign boss ground, the castle ground, as pixelColor paints
+// it (castle, theme 4, the first loop's autumn look on an autumn day): the grass with its flowers (or fallen leaves), the woods' floor (the detail pass plants the
+// trees), the castle's fields (ploughed rows in autumn), its cobbled road (the centre and half width the arena's own; a lane to a farm in the dirt road's look), the
+// rails in their rail look; the farms' ground as grass (the detail pass draws the farm over it)
+function forestArenaColor(S, A, x, y, wx, wy) {
+  const i = y * A.W + x, k = A.K[i], K = CityGen.K, T = themeRGB(4), aut = !!S.autumn;
+  if (k === K.RAIL) return planRailColor(wx, wy, A.RM[i] || 1);
+  if (k === K.WOOD) return T.forest[pickI(4, 0.4 + (vnoise(wx * 0.1, wy * 0.1) - 0.5) * 0.6, wx, wy)];
+  if (k === K.FIELD) { if (aut) { const n = vnoise(wx * 0.09, wy * 0.09) - 0.5; return (((wy >> 1) % 3) < 1 ? T.dirt : T.grass)[pickI((((wy >> 1) % 3) < 1 ? 4 : 5), 0.5 + n * 0.5, wx, wy)]; } const t0 = TRGB; TRGB = T; const c = fieldColor(wx, wy); TRGB = t0; return c; }
+  if (k === K.ROAD) { const dx = Math.abs(x - A.track[y]), hw = A.rw[y], n = hash(wx * 3, wy * 5);
+    if (dx > hw + 0.5) { let l = 0.55 + (vnoise(wx * 0.3, wy * 0.3) - 0.5) * 0.4; if (hash(wx, wy) < 0.15) return T.grass[2]; return T.dirt[pickI(4, l, wx, wy)]; } /* (a farm's lane) */
+    if (dx >= hw - 1) return hexRGB(n < 0.5 ? '#3a3630' : '#4a443c'); const bx = (wx + ((wy >> 2) & 1) * 2) % 4, by = ((wy % 4) + 4) % 4; return hexRGB(bx === 0 || by === 0 ? '#4e4840' : n < 0.33 ? '#6e675c' : n < 0.66 ? '#7a7266' : '#857c6e'); }
+  if (k === K.MEADOW) { const n = hash(wx, wy); if (n > 0.985) return hexRGB(aut ? (n > 0.993 ? '#c8962a' : '#a4541c') : n > 0.993 ? '#f4d050' : '#e8e0f0'); }
   return T.grass[pickI(5, 0.45 + (vnoise(wx * 0.08, wy * 0.08) - 0.5) * 0.7 + (hash(wx, wy) - 0.5) * 0.2, wx, wy)];
 }
 // The city's generated sea ending (CityGen addSeaArena): grass, sand, surf and sea in the Campaign's own colours, as its legacy coast_down chunk and open sea paint
@@ -9414,6 +9509,7 @@ const farmCache = new Map();
 let castleCache = { base: null, v: null };
 const croadHW = dIn => { const u = clamp((dIn - SEAM.n) / 70, 0, 1); return 5 + 8 * u * u * (3 - 2 * u); };
 function castleInfo() {
+  if (forestArena()) return null; /* (the forest's generated arena: the castle ground's farm, fields and road are the arena's own) */
   const ck = world.stageBaseP + '|' + world.curTheme + '|' + world.SEED; if (castleCache.base === ck) return castleCache.v;
   let v = null;
   for (let p = world.stageBaseP; p < world.stageBaseP + 90; p++) { const I = info(p); if (I.b === 'castle' && I.th === 4 && I.q >= 0) {
@@ -9426,6 +9522,7 @@ function castleInfo() {
   castleCache = { base: ck, v }; return v;
 }
 function farmAt(ci, cj) {
+  { const fa = forestArenaFarm(ci, cj); if (fa !== undefined) return fa; } /* (the forest's generated arena: its own farms) */
   { const cf = castleInfo(); if (cf && ci === (cf.x0 < 112 ? 0 : 1) && cf.y0 >= cj * 150 && cf.y0 < cj * 150 + 150) return { x0: cf.x0, y0: cf.y0, castle: true }; }
   const key = cj * 64 + ci + 8; if (farmCache.has(key)) return farmCache.get(key);
   let f = null;
@@ -9440,6 +9537,12 @@ function farmAt(ci, cj) {
   if (farmCache.size > 400) farmCache.clear();
   farmCache.set(key, f); return f;
 }
+// The forest's generated arena (CityGen addForestArena), when the day has one, and its farms (pieces k 'farm': x0, y the arena row of the yard's north edge) in farmAt's
+// cells (ci: the half of the strip, cj: 150 px bands of world y); undefined on a day without one, so the Campaign's farms stay as they are (level 4 has no others)
+function forestArena() { const S = run.sortie, A = S && S.level === 4 && S.plan && S.planFor === world.stageBaseP && S.plan.arena; return A && A.forestA ? A : null; }
+function forestArenaFarm(ci, cj) { const A = forestArena(); if (!A) return undefined; const S = run.sortie;
+  for (const q of A.pieces) if (q.k === 'farm') { const y0 = S.planY0 - (q.y + A.y0); if (ci === (q.x0 < 112 ? 0 : 1) && Math.floor(y0 / 150) === cj) return { x0: q.x0, y0 }; }
+  return null; }
 function inFarm(x, y, m = 4) {
   const cj = Math.floor(y / 150);
   for (let dj = -1; dj <= 0; dj++) for (let ci = 0; ci <= 1; ci++) { const f = farmAt(ci, cj + dj); if (f && x > f.x0 - m && x < f.x0 + 72 + m && y > f.y0 - m && y < f.y0 + 66 + m) return f; }
@@ -9596,7 +9699,7 @@ function houseAt(ci, cj) {
   houseCache.set(key, r); return r;
 }
 function drawFeatures(x, p, wy0) {
-  if (info(p).plan && !(run.sortie && run.sortie.plan && run.sortie.plan.arena && (run.sortie.plan.arena.sea || run.sortie.plan.arena.desertA) && -p * CH <= run.sortie.planY0 - run.sortie.plan.L)) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees (the city's generated sea ending paints none: its tank traps, scars and the rest are the Campaign's coast's own, drawn here)
+  if (info(p).plan && !(run.sortie && run.sortie.plan && run.sortie.plan.arena && (run.sortie.plan.arena.sea || run.sortie.plan.arena.desertA || run.sortie.plan.arena.forestA) && -p * CH <= run.sortie.planY0 - run.sortie.plan.L)) return; // Enigma Run level 6: the settlement plan already painted its buildings and trees (the city's generated sea ending paints none: its tank traps, scars and the rest are the Campaign's coast's own, drawn here)
   const y0 = wy0 - 16, y1 = wy0 + CH + 16;
   const TL = x.canvas.trees = []; // the trees this chunk really paints into its ground, kept on the chunk: what draws over a unit hiding under one (drawCanopy) is exactly what is already here
   const plant = (s, tx, ty, av) => { stamp(x, s, tx, ty - wy0); TL.push({ s, x: tx, y: ty, av }); };
@@ -9732,7 +9835,7 @@ function seamLand(S, I) {
 }
 function castleSeam(job, soft) { /* soft: a composed sortie's seam (plan 12.22): 64 rows and an irregular, noise-made edge instead of the 4 x 4 pattern, which shows as a lattice over fields */
   const S = run.sortie, nb = info(job.p - 1); if (!nb || !nb.plan || typeof CityGen === 'undefined' || !S.plan) return;
-  const wyN = -(job.p - 1) * CH, n = soft ? 64 : SEAM.n, sh = soft ? 14 : 0, m = n + sh, tmp = new Uint8ClampedArray(W * m * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + m - 1), m, S.level === 3 ? Object.assign({}, planPaintOpts(S), { night: false }) : planPaintOpts(S)); /* (level 3, the first pass and the loop: the legacy chunk gets the night grade after this, so the plan rows go in ungraded) */
+  const wyN = -(job.p - 1) * CH, n = soft ? 64 : SEAM.n, sh = soft ? 14 : 0, m = n + sh; if (S.planY0 - wyN > S.plan.L - 1) return; /* (only below the level's own plan: not past a generated arena) */ const tmp = new Uint8ClampedArray(W * m * 4), a = job.img.data; CityGen.paint(S.plan, { data: tmp }, S.planY0 - (wyN + m - 1), m, S.level === 3 ? Object.assign({}, planPaintOpts(S), { night: false }) : planPaintOpts(S)); /* (level 3, the first pass and the loop: the legacy chunk gets the night grade after this, so the plan rows go in ungraded) */
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   for (let r = 0; r < n; r++) { const ly = CH - 1 - r, f = Math.pow(1 - r / n, 1.3), wyr = -job.p * CH + ly, rxs = soft ? roadX(wyr) : -999; for (let x = 0; x < W; x++) { if (soft && Math.abs(x - rxs) < 9) continue; if ((soft ? Math.min(0.999, 0.1 + 0.55 * vnoise(x * 0.11 + 7, wyr * 0.11) + 0.25 * vnoise(x * 0.37 + 70, wyr * 0.37) + 0.12 * hash(x, wyr)) : (B4[(ly & 3) * 4 + (x & 3)] + 0.5) / 16) >= f) continue; const o = (ly * W + x) * 4, s = ((soft ? m - 1 - sh - r : r) * W + x) * 4; a[o] = tmp[s]; a[o + 1] = tmp[s + 1]; a[o + 2] = tmp[s + 2]; a[o + 3] = 255; } }
 }
@@ -9749,7 +9852,7 @@ function workChunk(job, rows) {
     for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
-    if (!job.painted) { job.painted = true; if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland') || (run.sortie.compose && seamLand(run.sortie, job.I)))) castleSeam(job, !!run.sortie.compose); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
+    if (!job.painted) { job.painted = true; if (run.sortie && job.I.plan && run.sortie.compose && forestArena() && job.p - world.stageBaseP === run.sortie.len) castleSeam(job, true); /* (the forest's generated arena: its first chunk takes the composer's seam, the level's last rows faded over it) */ if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland') || (run.sortie.compose && seamLand(run.sortie, job.I)))) castleSeam(job, !!run.sortie.compose); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
     world.featTheme = job.I.th; TRGB = themeRGB(job.I.th);
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
@@ -11821,7 +11924,7 @@ function sortiePlanLevel3(S) {
 // onto the high cliff coast, then the conifer forest with its gun sites, firebreaks, plantations, clearings and forest roads (the village,
 // the hidden airbase and the valley are forest for now), and the approach: meadow, a defence line, the road at x 112 where the castle road runs.
 function sortiePlanLevel4(S) {
-  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0); /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0) + (S.cityArena | 0); /* (the forest's generated arena: the plan runs on past the level) */ /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
