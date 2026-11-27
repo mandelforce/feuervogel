@@ -83,6 +83,17 @@ export const KITS = {
     extra: (p, rg) => { const out = []; if (!p.airbase) out.push('no airbase on the large island'); if (!p.village || !p.village.items) out.push('no village on the large island');
       const bands = rg.filter(r => /^island_(chain|fortress|archipelago|lagoon)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
       for (const r of rg) if (r.t === 'island_fortress' && !(p.slots || []).some(s => s.kind === 'bunker' && s.y >= r.y0 - 40 && s.y < r.y1 + 40)) out.push('no bunker in the fortress islets'); return out; } },
+  /* an archipelago day (any kit, sortie-compose archiKit): the islands builder with no large island, fewer islets per band, in the kit's climate. Each band holds islets of its own kind, one ship lane per band,
+     a bunker in the fortress islets, and the level is mostly water (owner: "mainly water and just a few islands": at most 15 % land before the arena). */
+  archi: { preset: 'islands', arena: 0, params: segs => ({ segs, opener: true, sparse: 1 }),
+    opener: [['open_sea', 4]], middle: [['island_chain', 5], ['island_fortress', 5], ['island_archipelago', 6], ['island_lagoon', 8], ['open_sea', 4]], approach: [['open_sea', 3]],
+    needs: { island_chain: 'islet', island_fortress: 'fortress', island_archipelago: 'islet', island_lagoon: 'cranes' },
+    markers: p => { const m = []; for (const q of p.isles || []) m.push({ t: q.band === 'fort' ? 'island_fortress' : q.band === 'arch' ? 'island_archipelago' : q.band === 'lagoon' ? 'island_lagoon' : 'island_chain', y: q.cy, what: q.type === 'fort' ? 'fortress' : 'islet' });
+      for (const q of p.lagoons || []) if (q.cranes) m.push({ t: 'island_lagoon', y: q.cy, what: 'cranes' }); return m; },
+    extra: (p, rg) => { const out = []; if (p.airbase || (p.village && p.village.items)) out.push('a large island on an archipelago day');
+      const bands = rg.filter(r => /^island_(chain|fortress|archipelago|lagoon)$/.test(r.t)).length; if ((p.shipLanes || []).length !== bands) out.push((p.shipLanes || []).length + ' ship lanes for ' + bands + ' bands');
+      for (const r of rg) if (r.t === 'island_fortress' && !(p.slots || []).some(s => s.kind === 'bunker' && s.y >= r.y0 - 40 && s.y < r.y1 + 40)) out.push('no bunker in the fortress islets');
+      let land = 0; for (let i = 0; i < p.W * p.L; i++) if (p.K[i] !== K.SEA && p.K[i] !== K.ICE) land++; if (land > p.W * p.L * 0.15) out.push('land is ' + (100 * land / (p.W * p.L)).toFixed(1) + ' % of the level, not mostly water'); return out; } },
   /* the city (level 6): the segment-native portSouth plan. The harbour's cranes lie in the harbour, the industrial quarters where the works stretch is, the station in the last stretch; the market square is the densest
      point, so with a city centre in the list it lies in it. (A ruins stretch is only a damage curve of 1: its rubble share, 9 to 19 %, overlaps the other districts', so it is not checked.) */
   city: { preset: 'portSouth', arena: 0, params: segs => ({ segs }),
