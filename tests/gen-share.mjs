@@ -51,7 +51,7 @@ const FLY = `(function (spec, diff) {
     if (c < 0) return 'before';
     if (c >= S.len) return planned ? 'gen arena' : 'legacy arena';
     const g = C.segs.find(function (q) { return c >= q.start && c < q.start + q.n; });
-    if (g && g.legacy) return g.t === 'coast_down' || g.t === 'open_sea' ? 'legacy tail' : 'legacy old land';
+    if (g && g.legacy) return planned ? 'gen arena' : g.t === 'coast_down' || g.t === 'open_sea' ? 'legacy tail' : 'legacy old land'; /* (a sea ending's generated arena covers the level's sea tail) */
     return planned ? 'gen plan' : 'legacy other';
   };
   const chunkOfWy = function (wy) { return Math.ceil(-wy / CH) - P0; };
@@ -68,9 +68,9 @@ const FLY = `(function (spec, diff) {
     const k = cls(chunkOfWy(H / 2 - world.scroll)); add(bossF >= 0 ? fb : fr, k, 10);
     const P = S.plan;
     for (const e of world.enemies) { if (seen.has(e)) continue; seen.add(e); if (!e.ground || e.type === 'boss') continue;
-      let on = 'other';
+      let on = 'other'; /* (other: before chunk 0, the carrier's start) */
       const ck = cls(chunkOfWy(e.wy));
-      if (P && P.slots && ck.indexOf('gen') === 0) { on = 'gen ground, game place'; for (const sl of P.slots) { if (Math.abs(sl.x - e.wx) <= 14 && Math.abs(S.planY0 - sl.y - e.wy) <= 14) { on = 'gen slot'; break; } } }
+      if (P && P.slots && ck.indexOf('gen') === 0) { on = 'gen ground, game place'; for (const sl of P.slots) { if (Math.abs(sl.x - e.wx) <= 14 && Math.abs(S.planY0 - sl.y - e.wy) <= 14) { on = 'gen slot'; break; } } if (P.arena && on !== 'gen slot') for (const sl of P.arena.slots) { if (Math.abs(sl.x - e.wx) <= 14 && Math.abs(S.planY0 - (sl.y + P.arena.y0) - e.wy) <= 14) { on = 'gen slot'; break; } } } /* (the arena's slots are in its own rows) */
       else if (ck.indexOf('legacy') === 0) on = 'legacy ground';
       const when = bossF >= 0 ? 'boss' : world.enc ? 'encounter' : 'director';
       add(en, on + ' | ' + when); add(types, on + ' | ' + e.type); }

@@ -58,7 +58,7 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 |---|---|---|---|---|---|
 | A1 Sea tail | legacy `coast_down` + `open_sea` after the plan | a coast-down and open-sea finale in each preset (the islands builder already makes sea; the winter's `depot` already ends in a harbour basin) | the plan must stay one piece up to the arena; `legacyTail` and `arenaSea` checks in gate 1 change | M | `compose.mjs`, `kit-check.mjs`, `daily.mjs` |
 | A2 Boss arenas for desert, forest, city | legacy `bossland` / `secret` / `castle` / `ryard` theme ground | an arena finale per preset, as the winter has (`finale`: gorge, railgorge, depot), with a central rail where the train and supergun may come, water where the ship may come | the arena is open-ended (the sky-fortress duel scrolls on): the plan must be able to extend, or hand back to a plain repeating ground. Bosses read the ground (`railHit`, the central rail at x 112) | L (one per kit) | `daily-gate.mjs --boss` (every boss on every arena), `daily.mjs` section 11 |
-| A3 Temperate old land extras | legacy `city_small`, `industrial_light`, `airbase_searchlight` with `straight` patches | `main_town`, `main_estate`, `main_airbase` stretches in the `islands` builder, as `main_village` copies the village preset in | a second built-up stretch still has an unphased grid (12.22 "not done"); after this the `gatePix` bridge would no longer be needed | M | `kit-check.mjs`, `citysegs.mjs`, contact sheets |
+| A3 Temperate old land extras (**done**, 3h) | legacy `city_small`, `industrial_light`, `airbase_searchlight` with `straight` patches | `main_town`, `main_estate`, `main_airbase` stretches in the `islands` builder, as `main_village` copies the village preset in | a second built-up stretch still has an unphased grid (12.22 "not done"); after this the `gatePix` bridge would no longer be needed | M | `kit-check.mjs`, `citysegs.mjs`, contact sheets |
 | A4 Castle floor | game `ravenU` / `buildRavenFloor`, its own region function | move it into `citygen.js` as a `castle` finale (moat, walls, keep yard, ruin layer) | the castle boss spawns 1,120 px up the map in world coordinates; trees must stay off breaches (`ravenCovers`). Campaign level 4's Ravenhold must stay pixel-identical | M | `enigma.mjs`, `fixed-seed.mjs`, golden of the floor image |
 | A5 Land-ending backdrops | `arenaScene` decal over plain ground | the same as A2: the gun line's trenches, the airbase's apron, the depot's berms as real ground in an arena finale | the enemies' places (`FOLLOW.spawn`) must match the ground's | S–M each, after A2 | `daily-gate.mjs --boss` |
 | A6 Legacy biome layer | `SORTIE_BIOME` maps templates to old biome names for the director and `placeOK` | a ground type per plan cell that the director reads directly (much of it exists: `planBiome`, `planRail`, `plan.K`) | many director rules branch on biome names; changing what they read can change the Campaign's spawns (fixed-seed guard) | L | `fixed-seed.mjs`, `daily.mjs`, gate 3 sweeps |
@@ -141,7 +141,7 @@ All ground enemies before the boss are counted, 13,194 in all.
 
 Not measured: Rookie and Ace; a mortal player (who does not reach every place); more than 10 sorties per kit; daily twists and flavours (the sweep flies none).
 
-## 3b. A2 for the city: the generated airfield arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3b. A2 for the city: the generated airfield arena (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 **What is built (second version, owner: "the generated versions must look like the existing boss area and allow combinations on top of it").** `CityGen` `addArenaField` (called from `withPerimeter` when `params.cityArena` is set) adds 48 chunks of the final airfield behind the city's perimeter fence. It is built from the Campaign arena's own pieces (`plan.arenaField.pieces`, plain data):
 - **Hangar roofs** with their warning stripes along the near edge;
@@ -200,7 +200,7 @@ Measured on 6 sorties (Veteran, all bosses killed, no errors): 86 % of the fight
 - Past the 48 chunks on a yard day, the Campaign pattern draws its hangar under the tracks (as it always has); the generated part keeps the roofs between them.
 - Nobody has played it.
 
-## 3c. The desert's generated arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3c. The desert's generated arena (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
 
 Owner: keep the desert's original area for the tank boss (the sand crawler); no city graphics in the sand climate, but variations of the desert's boss area; then "hangars and the city final boss area could be nice to have as one option".
 
@@ -231,7 +231,209 @@ The sand crawler, the castle, the two-train yard, the canyon run and the sandsto
 
 **Not done:** on an airfield day the concrete starts directly after the sand (no fence or verge); the forest's, winter's and temperate kit's arenas; nobody has played it.
 
-## 3d. The forest's generated arena (build 1.2.6.55, composer v6; flown by the test bot, **not by a person**)
+## 3d. The winter's and the temperate kit's sea endings (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
+
+Owner: each climate keeps its own look, as variations of its own Campaign boss area; more kinds of endings, only where the ground makes sense.
+
+### Winter: the open sea after the freight harbour
+
+**Before.** 88 % of winter days already ended on the generator's own finales (the gorge, the rail gorge, the frozen depot). The ship, the squadron, the ghost ship and the slipway (12 %) ended at the `depot` freight harbour, then on the legacy open sea (`seaTail [['open_sea', 7]]`). That sea was painted by `pixelColor` and then given the winter grade, so it met the harbour's water (the plan's, `planSeaColor`, ungraded) at a visible seam.
+
+**Built.** `addIceSeaArena` (`tools/citygen.js`) builds the ending as its own small plan, as the city's sea arena is: the level's sea tail and 48 chunks (`cityArena` = 55; the level's length and the boss's trigger are unchanged). The ground is the winter level's own frozen sea:
+- open water (`K.SEA`), painted by the plan painter through the host's own water (`opts.seaPix`, `planSeaColor`), as the harbour's is, so there is no seam; past the arena the game paints the legacy sea the same way, ungraded (`workChunk`'s `preSea` now also covers it);
+- floes (`K.ICE`, B −80, with −83 new ice on their rims), painted by the plan painter's own ice (`icePixK`, `seaIceShade`), from a jittered grid of the day's floe size.
+
+What varies per day (`arena.drift`):
+- the drift ice along both edges, or only the left or only the right (a fifth of days each);
+- the bands' widths (22 to 56 px), breathing along the arena and broken into fields by slow noise (35 to 75 % of the rows);
+- after a frozen harbour, broken floes drifting out from its mouth over 160 to 360 rows, thinning to open water; otherwise, on half the days, a field of pancakes at the mouth.
+
+The channel x 64 to 160 stays open water past the mouth for the ships. There are no targets: the legacy open sea has none, and the game brings its boats as there. The winter line's own plan is byte-identical with and without the arena (17 of 17 arena days among 120 seeds). The arena takes 10 to 38 ms (median about 17).
+
+**Checked:** 8 sorties (two of each ending, both edge kinds, iced and open harbours; Veteran): all bosses killed, no errors, 98.6 % of play time on generator ground, 100 % of the fights. Flight gate on 2027-01-09 (squadron) and 2027-01-19 (ghost ship), all difficulties: **6 of 6 pass**, and each determinism twin flew the same. **Every winter day now ends on generator ground.**
+
+### Temperate: the coast after the old land, then the sea
+
+**Before.** No temperate day ended on generated ground. The plan ends at the mainland's gate (with the old land's built-up stretches, `city_small`, `industrial_light`, `airbase_searchlight`, after it as legacy chunks) or at its own cove. Then came the legacy `coast_down` chunk and `open_sea`. Every ending is over that sea.
+
+**Built.** `KITS.temperate.cityArena.legacySea` lists the endings whose arena is the sea: the ship, the slipway, the squadron, the wolfpack, the ghost ship, and the air bosses that fight over it (the sky fortress, the Shadow Wing, the Raven, the Moth, the rival). The sea-fort castle keeps the Campaign's sea, because its ruin floor is drawn over it. That makes **92 % of temperate days** (1,848 of 2,000 seeds):
+- **Days with built-up stretches** (66 % of days): the Campaign's coast (`addSeaArena`, as the city's: grass, sand with its tank traps, surf, sea; the day's own shoreline, bunkers and flak) comes after them. The arena's plan starts `cityArenaGap` chunks after the level's plan (`A.y0 = plan.L + gap`), and the legacy stretches stay between them. On the arena's grass, the old land's dirt track and railway run on to the sand, as on the Campaign's coast chunk; the railway ends at a buffer stop 8 rows short of the sand (`arenaJoin`, painted with the game's own road and rail formulas).
+- **Cove days** (27 %): open sea from the mainland's own cove (`cityArenaOpen`: no coast), the same water as the plan's, so no seam.
+- **Both:** none to three islets near the edges (`seaIsles`, out past the coast, never in the channel x 64 to 160), in the coast's kinds and colours, the water lit near them as near a coast (`A.isleD`). A larger one has a bunker on its sand or a flak gun (slots marked arena) on 70 % of days.
+
+**In the game.** `sortiePlanIslands` keeps the plan's own end (`S.planEnd`) and the gap (`S.planGap`, rebuilt from the plan, so no new snapshot state). `sortieInfo` treats the gap's chunks as legacy, and the arena's chunks keep their stretches' biomes. The old land's gate join keys on `S.planEnd`. `roadXc` and `roadT` measure from the plan's end in the gap and from the arena's end after it; without a gap the old behaviour is unchanged. Gate 1 checks the gap, the coast and the islets against the old land; `kit-check.mjs` checks the arena's rows. The level's plan is byte-identical with and without the arena (52 of 52 days).
+
+**Checked:** 20 sorties, one of each ending on an old-land day and on a cove day (Veteran): all bosses killed, no errors, 98.7 % of play time on generator ground, 100 % of the fights. Flight gate on 2026-11-27 (Moth), 12-02 (wolfpack) and 12-27 (sky fortress, old land), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. 2026-12-02's "low" bullet counts are the same on the build before this work. On 12-27 the sky fortress died sooner (Rookie 187 s against 209 s, Veteran 124 s against 167 s; Ace the same).
+
+**Test battery (both kits' changes together):** `compose.mjs` 77, `citysegs` 8, `citygen` goldens, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`. `node tests/enigma.mjs --pixels` gives the same six stage hashes as the build before this work (e326f0c: c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d); it fails against the stored reference on both, as before.
+
+**Not done:**
+- the sea-fort castle's ending;
+- an airfield option and land endings for these kits (the temperate level ends at the sea; how it should end on land is the owner's decision);
+- the old land's built-up stretches as generator ground (A3);
+- the probe's "other" class: ground enemies before chunk 0 (the carrier's start, about 2 % of the temperate kit's);
+- nobody has played it.
+
+## 3e. Temperate land days (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
+
+Owner, asked how the temperate level should end on land: "options for more land; there should also be temperate levels that are focused on land in general".
+
+**The level.** In 40 % of temperate days (`KITS.temperate.landShare`, its own stream, `hash(base, 6980)`), the day is composed from the kit's land variant (`KITS.temperate.landKit`; `S.land`). It is a short crossing, then a long mainland that runs to the level's end:
+- **the crossing:** the carrier, four chunks of open sea, perhaps a band of islets and a little more sea, then the large island with its airbase (a stretch of 9 to 12 chunks: the island is 620 rows, and a longer stretch has open sea after it), then two chunks of open sea;
+- **the mainland:** the fortified shore, then 24 to 32 chunks of farmland, streams, a village and woods (up to three farms, two streams and three woods), with no cove, no gate and no old land.
+
+Levels are 46 to 63 chunks long, of which about two thirds is mainland. Encounters: the kit's own, plus the village's flak lane and a fuel convoy on the road through a wood. On land days an encounter that would still run when the boss comes is left out (`encPlanFor`, as for the old land): the first flights failed the gate twice, with the farmland's formations cut off by the boss. 4.6 % of land days have no encounter; the gate's dead-air rule passes them.
+
+**The arena.** `addLandArena` builds 48 chunks of the same mainland as the arena's own small plan:
+- it uses the islands builder in a mainland-only mode (`P.mainOnly`: land from the first row; no shore, so the distance transforms and the beach pass are skipped);
+- the level's main road goes on without a step (`P.phM`, `P.yOff` and an ease from the level's last road x, `P.road0`);
+- the game paints it with the level's own paint options;
+- each day walks its own farmland, woods and streams;
+- on a land ending's day there is open pasture (`main_open`: the road and grass, nothing built) every few stretches from the sixth chunk, as scene zones (`arena.zones`, 272 rows each). The scene and its enemies go in the first zone still ahead (`sceneZoneAt`), as on the city and the desert;
+- the mainland's gun pits and bunkers are the arena's targets (`planArena`);
+- past the arena the legacy ground is the Campaign's country (`S.arenaLand`), not the sea.
+
+Land days have their own boss pool: the gun line, the tank column, the fuel depot, the airbase, the silo, the bridge and the dam (scenes), the land fortress, the sky fortress, the Moth, the Raven, the rival and the Shadow Wing. The level's plan is byte-identical with and without the arena.
+
+**Checked:**
+- **Flights:** 13 sorties, one of each land ending (Veteran): every boss killed, no errors, 98.4 % of the play before the boss on generator ground. In the fights: 84 % on the arena, 12 % on the level's last chunks (the boss comes one chunk after the level), 3.6 % past the arena.
+- **Flight gate** on the next five land dates (2026-11-27 rival, 12-02 sky fortress, 12-17 Moth, 12-22 sky fortress on a Fast scroll day, 12-27 dam), all difficulties: **15 of 15 pass**, and each determinism twin flew the same.
+- **Composer:** gate 1 is clean on 15,000 composed days (all kits). Land days need at most 20 tries of 64 (mean 2.7). `compose.mjs` now checks land days against their own grammar and pool.
+- **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `enigma` 213, `fixed-seed` 41, `smoke`. `enigma --pixels` gives the same six stage hashes as before this work.
+- **Not checked:** scene fights on screen by eye (the contact sheets show the zones, not the fight); nobody has played it.
+
+**Meadows (owner: "the open pasture could look more like meadows with sheep and cows").** The open stretches (`main_open`) are now meadows:
+- one to three fenced paddocks with the game's cows (`plan.pastures`, as the farms' paddocks);
+- one or two flocks of sheep grazing free (`plan.flocks`; the game spawns them in `planCows`);
+- one or two hedgerows across the meadow (a gap at the road and a gateway), sometimes a hedge down one side;
+- sometimes a pond with a willow and a copse, and four to eight lone trees.
+
+Days without a scene have meadows in their arena walk too. When a scene is laid in a meadow, the animals there are removed, and none spawn under it later. `planCows` was not called once the boss had come, so the arena's animals now also come during the fight, on land days only (its own stream, `ttSeed(43)`). Checked by eye in a flight's screenshots (the sky fortress over a meadow: cows in their paddocks, sheep, the hedges and a pond). The arena now takes 117 to 156 ms.
+Re-checked with the meadows: 13 land endings, all bosses killed. In the fights: 81 % on the arena, 11 % on the level's last chunks, 8 % past it. Flight gate on the five land dates: 15 of 15, twins the same. The test battery is green, and the Campaign pixel hashes are unchanged.
+
+**Cost.** The arena takes 80 to 200 ms (median about 150) in Node, against the desert's 17. The islands builder's farmland and woods cost about 3 ms a chunk. Two speed-ups of the builder have the same output (50 of 50 temperate and Campaign level 1 plans byte-identical): the mainland fill no longer evaluates the cove's curve on every row, and the small-field merge uses typed arrays. They did not shorten the arena measurably. A shorter arena (32 chunks) would take about a third off; that is the owner's call (start time against arena length).
+
+## 3f. The winter airfield (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
+
+Owner: "Winter airport - give it destructible hangars etc" (the city's final airfield is the one look allowed outside its own climate). Then a reference picture of a military airfield: "the airport could look more like this".
+
+**Which days.** The winter's bosses that fight on a plain airfield are the land fortress, the sky fortress, the Moth, the Raven, the rival and the Shadow Wing. On 40 % of their days (`KITS.winter.cityArena.air`, its own stream, `hash(base, 6995)`), the boss fights on the airfield instead of in the gorge. With the land endings in the pool (3g) that is about 9 % of winter days. `cityArenaFor` takes the day's base to decide. Gate 1 checks `S.arenaAir`, the finale and the approach.
+
+**The level's end.** The approach is the sea ending's (the pass, then 14 chunks of farmland), and the line ends at a railhead (`winterLand`, `finale: 'airhead'`; no gorge, `plan.airhead`). Below the massif the floor opens out flat, with low snow banks and conifers at the edges. On it:
+- two lines from the portals to buffer stops, with a platform and canopy between them;
+- a siding with wagons;
+- a fuel depot of six round tanks in a bund;
+- goods and freight sheds, a goods office and a signal box;
+- flak on gravel lots and two trucks;
+- a band of cleared concrete with a wire fence, a gate and two guard houses.
+
+**The arena** (`addSnowAirfield`, 48 chunks, the arena's own small plan, `A.snowA`, `A.airW`), after the reference picture:
+- **Across:** snow, a runway, a snowy verge, a taxiway, the apron and the buildings, a service road, the fence, then snow with conifers. The runway's side is the day's own (21 of 37 airfield days have it on the right), and everything mirrors with it.
+- **Paint:** the game paints the concrete and markings (`winterAirPix`), in the winter's own colours:
+  - the runway in the winter's asphalt with snow blown across it, white edge lines, centre dashes and threshold bars at both ends;
+  - the taxiway and its links over the verge with a yellow line;
+  - yellow boxes and lead-in lines for the jets' stands;
+  - helipads with a yellow ring and a white H;
+  - the apron's slabs under drifts (`snowApron`), and the arched hangar roofs under snow.
+
+  The generator paints the buildings (snowy roofs) and the snow and conifers beyond the fence.
+- **Along:** blocks of 40 to 110 rows:
+  - groups of two or three arched hangars side by side (the first block always), sometimes with a jet and a crate stack before them;
+  - rows of three or four jets on their stands, with a link to the runway and a hangar shed;
+  - the control tower beside a terminal, with a radar dish, a SAM site and a patrolling tank;
+  - helipads with a crew hut, crates and drums;
+  - a supply area: tents and containers in rows, crate stacks, two parked fuel trucks (explosive) and two fuel tanks;
+  - flak pads, sometimes a gun tower.
+- **Hangars:** every hangar is a slot `hangar`, which the game fills with an `ahangar` target (hp 24 + 0.55 × width, times the difficulty; harmless, low priority for the Arc). Destroyed, it goes up in a chain of blasts and smokes, and `hangarRuin` paints a burnt-out shell over its roof in every ground chunk it touches.
+
+The city's and the desert's airfields (`addArenaField`) are unchanged.
+
+**Checked:**
+- **Flights** (`gen-share.mjs --kit winter`, one sweep seed for each of the six bosses; Veteran, immortal): every boss killed. Before the boss, 92.6 % of play is on the plan, 5.8 % on the arena and 1.6 % before the level. In the fights, **100 % on the arena**.
+- **Hangars:** the bot destroyed 26 of the 28 hangars that came up on 2027-03-20 (the Black Fortress) and 6 of 17 on 2027-04-04 (the sky fortress, a fog day). It destroyed 3 of 4 and 4 of 5 of the towers and radar dishes.
+- **Flight gate** on the next three airfield dates (2027-03-20, 2027-04-04, 2027-07-03, all sky fortress days), all difficulties: **9 of 9 pass**, and each determinism twin flew the same. (The first layout also passed 9 of 9 on 2026-11-25, 2027-01-04 and 2027-02-08, before the land endings changed the pool.)
+- **Test battery** (for 3f and 3g together): `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base (c0f2b20c, 969d4eec, d2a2fb45, cc006206, 639c2e8a, 7427862d). Its six pixel checks fail against the stored reference file exactly as they do on the base; the reference file was left alone.
+- **Not checked:** nobody has played it. The hangar ruins and the layout were looked at in screenshots of a few flights only.
+
+**The city and the desert (owner: "give this layout also to the city and desert levels").** `addAirfield` now builds the city's arena (every city airfield day: the bosses that fight on a plain airfield, the land endings, the bosses on a rail of their own) and the desert's airfield option, with its own verges and colours for each climate:
+- **city:** grass, the city's asphalt;
+- **desert:** sandy verges, sand drifting across the runway;
+- **winter:** snow.
+
+It replaces `addArenaField` (3b), whose layout was the Campaign's final airfield in new combinations. What that arena carried is kept:
+- the scene zones (272 rows with no block, one about every seven chunks from the sixth);
+- the boss's own rails, laid from row 16;
+- the rail-yard ending's two tracks (x 55 and 169), which run on through the perimeter and down the whole arena.
+
+Nothing stands on a rail: the taxiway moves out past one (on a rail-yard day it starts 64 px in instead of 48), the hangars fill the spans beside the rails, and a stand, a building or a target that would touch one is left out. On 2026-12-21, a rail-yard day, nothing in the arena touches either track.
+
+**Checked (city and desert):**
+- **A fault found and fixed:** the first city flights all ended in an error and no boss came. The tents in the supply area were painted with the palette's canvas colours, which only the desert's and the forest's palettes have, so every city chunk with a tent threw. A tent now takes the desert's canvas colours when its palette has none. A paint pass over every generated arena of the first 120 sweep seeds then ran without an error: 107 city, 80 desert and 27 winter arenas.
+- **Flights** (`gen-share.mjs`, Veteran, immortal; one sweep seed per kind of day):
+  - **City:** 8 sorties (plain airfield, a yard day, the rival, two land endings, a land ending on a yard day, the long train, the supergun): every boss killed, no errors. In the fights, 70.6 % of the time is on the arena and 29.4 % past it. The time past the arena is all from the two sky fortress (lance) fights, about 177 s each. The same eight seeds on the build before (the old layout) put 32.7 % past the arena, from the same two fights (158 and 181 s). The other fights are within a few seconds of the old ones, except the rival (58 s now, 21 s then).
+  - **Desert:** 6 sorties (two plain, two land endings, the long train, the supergun): every boss killed. **100 % of the fights on the arena.**
+- **Hangars:**
+  - on 2027-01-12 (desert, the Shadow Wing) the bot destroyed 21 of the 22 hangars that came up;
+  - on 2026-12-21 (city, a yard day) 1 of 8. That run stopped at the script's frame limit, so it is not a full flight.
+- **Rails:** on 2026-12-21 (a yard day) nothing in the arena stands on either track, and the taxiway starts 64 px in.
+- **Flight gate,** all difficulties, all pass, and each determinism twin flew the same: **18 of 18**. The dates:
+  - city 2026-11-26 (sky fortress, yard day, night), 2026-12-11 (bridge, yard day) and 2026-12-21 (land fortress, yard day);
+  - desert 2026-11-28 (bridge) and 2027-01-12 (Shadow Wing);
+  - winter 2027-03-20.
+- **Test battery:** `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. `enigma --pixels` gives the same six stage hashes as the base, and its six pixel checks fail against the stored reference file exactly as they do on the base.
+
+## 3g. Winter land endings on a snowfield (build 1.2.6.58, composer v6; flown by the test bot, **not by a person**)
+
+Owner: winter land endings (would need a flat snowfield arena and new bosses in the winter pool).
+
+**The pool.** The land endings join the winter's boss pool, one weight each: the gun line, the tank column, the fuel depot, the airbase, the silo, the bridge and the dam (180 of 1,000 sweep seeds). This changes which boss every winter day gets (composer v6 is unreleased). On those days (`S.arenaSnow`) the approach is the same as the airfield's and the line ends at a railhead on the valley floor (`finale: 'railend'`: the same railhead without the fence and concrete, `plan.railend`). Gate 1 checks the day, the finale and the approach.
+
+**The arena** (`addSnowArena`, 48 chunks, the arena's own small plan, `A.snowFieldA`) is the winter valley's floor opened out, painted by the generator in the winter's own colours. It has:
+- low snow banks at both edges, as at the railhead, with conifer stands;
+- a gently rolling floor (snowy slopes where it rises, cast shadows) with copses;
+- a dirt track winding down it;
+- in the gaps between zones: a frozen stream across the floor (most gaps), farmsteads (a house, a barn, a yard, sometimes a truck), flak on gravel lots, bunkers, and now and then a gun tower;
+- scene zones (`A.zones`): 272 rows of flat bare snow, the first from the sixth chunk, then one every 570 to 770 rows. The game lays the scene in the first zone still ahead (`sceneZoneAt`), as on the city, the desert and the temperate land.
+
+The scenes' own backdrops (trenches, aprons, the dam's reservoir) are the game's, drawn over the snow.
+
+**Checked:**
+- **Flights** (`gen-share.mjs --kit winter`, one sweep seed for each of the seven land endings; Veteran, immortal): every boss killed. Before the boss, 92.8 % of play is on the plan, 5.7 % on the arena and 1.6 % before the level. In the fights, **100 % on the arena**.
+- **Flight gate** on the next three snowfield dates (2026-12-30 dam, 2027-01-09 tank column, 2027-01-19 airbase), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+- **Screenshots:** the dam on 2026-12-30 (a morning day: the game's morning grading warms the whole level) and the airbase on 2027-01-19, with its scene in a zone.
+- **Test battery:** see 3f (run once for both).
+- **Not checked:** nobody has played it.
+
+## 3h. Step 4: the temperate old land generated (A3; build 1.2.6.59, composer v6; flown by the test bot, **not by a person**)
+
+Owner: "Do step 4 next".
+
+**Before.** On 66 % of temperate sea days, one or two built-up stretches came after the mainland: a town, a light industrial estate, a searchlight airbase. They were level 3's legacy ground (`city_small`, `industrial_light`, `airbase_searchlight`), painted by the game's own chunk painters. The plan ended in a gate (`main_gate`: a perimeter street, the road and the railway eased onto the old land's grid, painted with the old land's colours, `gatePix`). The generated coast arena then began after a gap of legacy ground (`cityArenaGap`), with the old land's road and rail painted on into it.
+
+**Now.** They are the mainland's own last stretches:
+- `main_town`: the town builder's town, without an old town or cathedral;
+- `main_estate`: the industrial estate preset;
+- `main_airbase`: a town-builder plan holding only level 3's searchlight airbase (runway, taxiway, hangars, blast pens with planes, flarepath lamps and searchlight posts).
+
+The islands builder makes each on its own and copies it in whole, as it does `main_village` (offsets for its items, streets, parcels, churches and slots). Each gets a main road on the mainland's line, and the mainland's road eases onto its ends. Neither stretch adds a parish church (`parishMinU` out of reach), so the plan's churches stay far enough apart.
+
+The composer picks them as before: none, one or two, on the same stream (6800); the town and the estate still do not follow each other. Two more rules come from the airbase's road, which runs along the strip's far edge (x 207) beside its airfield:
+- between two built-up stretches lie four chunks of farmland (`main_farm`), where the road bends from one line to the other;
+- the village is never right before them (gate 1 checks this).
+
+The legacy tail is now only the coast and the sea, which the arena covers from the plan's end: no gate, no gap, no road and rail join. A plan may hold more than one airbase (`plan.airbases`, rows `ya` to `yb`): the runway painter picks the right one by row, and its planes and lamps are drawn and lit as the island's are.
+
+**Checked:**
+- **Plans:** every temperate sea day of the first 300 sweep seeds builds and passes `validate` (179 plans: tank reach, overlaps, frontage, church spacing). Median 296 ms, p95 399 ms.
+- **Flights** (`gen-share.mjs --kit temperate`, Veteran, immortal; one sweep seed for each kind: the estate, the airbase, the town, the town and the airbase, the estate and the airbase in both orders, the airbase and the town, a cove day): every boss killed, no errors. Before the boss, 95.8 % of play is on the plan, 3.0 % on the arena and 1.2 % before the level; **100 % of the fights on the arena.** No legacy old land is left.
+- **Screenshots** (before and after): 2027-01-26 (the airbase) and 2027-03-02 (the estate).
+- **Flight gate** on 2027-01-26 (airbase, ship), 2027-02-20 (town and airbase, slipway) and 2027-03-02 (estate, ship), all difficulties: **9 of 9 pass**, and each determinism twin flew the same.
+- **Test battery** (with the scroll hold below): `compose.mjs` 77, `citysegs` 8, `citygen`, `daily.mjs` 341, `fixed-seed` 41 and `smoke` all pass; `enigma` 213 pass. The Campaign's six stage hashes are the same as `main`'s, and its six pixel checks fail against the stored reference exactly as on `main`.
+- **Not checked:** nobody has played it.
+
+**The scroll hold (same build).** A long fight used to scroll past the end of a generated arena: the sky fortress's lance form ran about three minutes on the city's. While a boss lives, the scroll now eases down over the arena's last 220 px and stops with its last row at the top of the screen (`arenaHold`); the boss's death sets it going again (`bossDead`). It covers every kit's generated arena, Daily Sortie only (the Campaign is untouched). The same eight city seeds as before now keep **100 % of their fights on the arena**, the two lance fights included (169 and 202 s; 33 % past the arena before). The flight gate on 2026-11-26 (sky fortress) passes 3 of 3.
+
+## 3i. The forest's generated arena (build 1.2.6.60, composer v6; flown by the test bot, **not by a person**)
 
 Owner: the forest keeps its own look (variations of its own Campaign boss area, the castle ground: grass, the road, the edge of the woods), painted by the game's own colour code for that ground and dressed by its own detail pass; not the city's graphics, except the city's final airfield as one option; other endings drawn from what the city and the desert have; the castle keeps its floor.
 
@@ -280,6 +482,8 @@ How: an arena pixel whose `B` is not -1 falls through `paint`'s arena branch to 
 **Checked (mountains):** the five mountain pairs flown (Veteran), every boss killed; flight gate on 2027-02-07 (Shadow Wing, mountain) and 06-02 (sky fortress, mountain), all difficulties: 6 of 6; after the tunnel was dropped the long train and the supergun again with the forest opening, and 02-22 (long train), 3 of 3. Autumn and sunset days checked by eye.
 
 **Not done:** on an airfield day the concrete starts directly after the woods (no fence or verge), as on the desert; nobody has played any of it.
+
+**Merged with main (build 1.2.6.60, after the temperate and winter work, PRs #260 and #261).** The forest's parts were fitted onto main's versions of the shared arena functions (`cityArenaFor(kit, bs, tail, base)`, `arenaStyle(kit, base, bs)`, the new params block and gate 1). The forest's airfield option now uses main's `addAirfield` (`clim: 'forest'`, as the desert's), so it has main's new airfield look. The feature's share is drawn on stream 6997 (it was on 6995, which main's winter airfield day uses); its choice stays on 6996. So which forest days carry a feature changed: 922 of 3,000 now, all built (a lake on a land ending's day is now capped to the room before the first zone; one had found no room). The level's own plan is still identical with and without the arena.
 
 ## 4. Decisions for the owner
 
