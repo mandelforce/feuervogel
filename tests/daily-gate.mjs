@@ -3,7 +3,7 @@
 // For each date (or seed) and difficulty: compose the sortie, run gate 2 (tests/kit-check.mjs, as tests/compose.mjs does), fly it with the
 // human bot (SF.human(8, 15), immortal) and print one line with every measure and PASS or FAIL.
 // Needs Node and Playwright. Serve the folder (python3 -m http.server 8000), then:
-//   node tests/daily-gate.mjs --from 2026-12-01 --days 14 [--diff 0,1,2] [--kit desert] [--sub K] [--flavour plain|rank|variant|loop] [--twist night|fog|fixed|swarm|elite|fast|nova|none] [--dials on|off] [--tod day|morning|sunset] [--boss ship|train|fortress|railgun|castle|skyfort] [--fresh] [--out DIR] [--save FILE] [--bots]
+//   node tests/daily-gate.mjs --from 2026-12-01 --days 14 [--diff 0,1,2] [--kit desert] [--sub K] [--flavour plain|rank|variant|loop] [--twist night|fog|fixed|swarm|elite|fast|nova|none] [--dials on|off] [--tod day|morning|sunset] [--sea on|off] [--boss ship|train|fortress|railgun|castle|skyfort] [--fresh] [--out DIR] [--save FILE] [--bots]
 //   node tests/daily-gate.mjs --sweep 200 [--kit desert] [--all 40] [--det 10] [--bot-sorties 20] [--no-bots] [--save FILE]
 // Dates: the date's own kit (rotation), or --kit to force one. Determinism is checked on every date (on the first difficulty flown).
 // Sweep: seeds instead of dates (SortieCompose.composeSortie(kit, seed, 0)); every seed on Veteran, the first --all also on Rookie and Ace,
@@ -29,6 +29,7 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i < 0 ?
 const PAGE = process.env.STARFALL_URL || 'http://localhost:8000/';
 const SWEEP = +arg('sweep', 0), FROM = arg('from', null), DAYS = +arg('days', 14), KIT = arg('kit', null), OUT = arg('out', null), SAVE = arg('save', null);
 const DIFFS = String(arg('diff', SWEEP ? '1' : '0,1,2')).split(',').map(Number), CONC = +arg('conc', 2), DEAD = +arg('dead', 12), SUB = arg('sub', null) === null ? undefined : +arg('sub', 0), FRESH = !!arg('fresh', false), TWIST = arg('twist', null) === null ? undefined : String(arg('twist', 'none')), FLAV = arg('flavour', null) === null ? undefined : String(arg('flavour', 'plain')), DIALS = arg('dials', null) === null ? undefined : String(arg('dials', 'on')), TOD = arg('tod', null) === null ? undefined : String(arg('tod', 'day')), BOSSK = arg('boss', null) === null ? null : String(arg('boss', 'skyfort')); /* --boss KIND: force the boss (ship, train, fortress, railgun, castle, skyfort) after the level starts, to probe which bosses fight on which ground (plan 12.10) */ /* --dials off: no ground dials (the vetting's plainer day); without it a date flies its own */
+const SEA = arg('sea', null) === null ? undefined : String(arg('sea', 'on')); /* --sea on|off: force an archipelago day, or none */
 const ALL = +arg('all', 40), DET = +arg('det', 10), BOT_SORTIES = arg('no-bots', false) ? 0 : +arg('bot-sorties', SWEEP ? 20 : (arg('bots', false) ? 1e9 : 0)), BOT_SEEDS = +arg('bot-seeds', 4);
 const NAMES = ['Rookie', 'Veteran', 'Ace'], BOTS = ['rookie', 'veteran', 'ace'], OWN = { rookie: 0, veteran: 1, ace: 2 }, VIEW = { width: 1000, height: 760 };
 const harness = readFileSync(new URL('./harness.js', import.meta.url), 'utf8'), skill = readFileSync(new URL('./skill-bot.js', import.meta.url), 'utf8');
@@ -41,17 +42,17 @@ if (KIT && !SC.KITS[KIT]) { console.error('no kit ' + KIT); process.exit(2); }
 const sorties = []; /* { id, kit, date?, seed, sub, C, diffs, det, bots } */
 if (SWEEP) {
   for (const kit of SC.KIT_ORDER.filter(k => !KIT || k === KIT)) for (let s = 0; s < SWEEP; s++) {
-    const seed = (SC.hash(s, 9090) * 4294967296) | 0, C = SC.composeSortie(kit, seed, 0, FLAV, TWIST, DIALS, TOD);
+    const seed = (SC.hash(s, 9090) * 4294967296) | 0, C = SC.composeSortie(kit, seed, 0, FLAV, TWIST, DIALS, TOD, SEA);
     sorties.push({ id: kit + '#' + s, kit, n: s, seed, sub: 0, flavour: C.flavour, twist: C.twist, C, diffs: s < ALL ? [0, 1, 2] : [1], det: s % DET === 0 ? 1 : -1, bots: s < BOT_SORTIES });
   }
 } else {
-  for (let i = 0; i < DAYS; i++) { const date = SC.dateKeyUTC(Date.parse(FROM + 'T00:00:00Z') + i * 86400000), C = SC.composeDaily(date, KIT || undefined, SUB, FLAV, TWIST, DIALS, TOD);
+  for (let i = 0; i < DAYS; i++) { const date = SC.dateKeyUTC(Date.parse(FROM + 'T00:00:00Z') + i * 86400000), C = SC.composeDaily(date, KIT || undefined, SUB, FLAV, TWIST, DIALS, TOD, SEA);
     sorties.push({ id: date, kit: C.kit, date, seed: C.seed, sub: C.sub, flavour: C.flavour, twist: C.twist, C, diffs: DIFFS, det: DIFFS[0], bots: BOT_SORTIES > 0 }); }
 }
 
 /* ---------- gate 2 in Node (the plan; it does not depend on the difficulty) ---------- */
 const tG = Date.now();
-for (const S of sorties) { const r = checkPlan(PROBE[S.kit], S.C.segs, S.C.gen.seed, S.C.gen), K = SC.KITS[S.kit], over = [];
+for (const S of sorties) { const r = checkPlan(PROBE[S.C.archi ? 'archi' : S.kit], S.C.segs, S.C.gen.seed, S.C.gen), K = S.C.archi ? SC.KITS[S.kit].archiKit : SC.KITS[S.kit], over = []; /* (an archipelago day: its own probe and grammar) */
   for (const b of r.built || []) { const lim = S.C.ground && K.groundBuilt && K.groundBuilt[b.t] !== undefined ? K.groundBuilt[b.t] : (K.middle[b.t] || {}).built || K.fixedBuilt[b.t]; if (lim !== undefined && b.v > lim) over.push(b.t + ' ' + (100 * b.v).toFixed(0) + ' %'); }
   S.gate2 = { clean: !r.flags.length && !over.length, flags: r.flags.concat(over.length ? ['structures'] : []), notes: r.notes.concat(over.length ? ['structures over the limit: ' + over.join(', ')] : []), ms: Math.round(r.ms) }; }
 const gate2S = (Date.now() - tG) / 1000;
@@ -62,7 +63,7 @@ const FLY = `(function (spec, diff, bot, bseed, mortal, deadMin) {
   if (app.booting) finishBoot();
   if (app.cont > 0) app.cont = 0;
   SF.setMode(mortal ? 'real' : 'immortal'); SF.start(diff, 1);
-  if (spec.date) startDaily(spec.date, spec.kit || undefined, spec.sub, spec.flavour, spec.twist, spec.dials, spec.tod); else startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, spec.sub | 0, spec.flavour, spec.twist, spec.dials, spec.tod)); if (spec.boss) run.sortie.bossVar = { kind: spec.boss, variant: 'probe' };
+  if (spec.date) startDaily(spec.date, spec.kit || undefined, spec.sub, spec.flavour, spec.twist, spec.dials, spec.tod, spec.sea); else startComposed(SortieCompose.composeSortie(spec.kit, spec.seed, spec.sub | 0, spec.flavour, spec.twist, spec.dials, spec.tod, spec.sea)); if (spec.boss) run.sortie.bossVar = { kind: spec.boss, variant: 'probe' };
   if (bot) SF.skill(Object.assign({}, SF.SKILL[bot], { seed: bseed })); else SF.human(8, 15);
   const S = run.sortie, L0 = S.level, f0 = gf, sc0 = world.scroll, t0 = performance.now(), seen = new WeakSet(), sec = [], quiet = [], encs = [];
   let end = 'cap', bossF = -1, deadF = -1, kills = 0, q0 = -1, qc = 0, longest = [0, 0, 0], sh = 2166136261 | 0, spawns = 0, last = null, wing = false, raven = null, duels = 0, livesAtBoss = null, f = 0;
@@ -110,7 +111,7 @@ async function newPage(rseed, withSkill) {
   return page;
 }
 async function fly(page, job) {
-  const S = job.S, spec = S.date ? { date: S.date, kit: KIT || null, sub: SUB === undefined ? undefined : SUB, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD, boss: BOSSK } : { kit: S.kit, seed: S.seed, sub: S.sub, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD, boss: BOSSK }, n0 = page.errs.length;
+  const S = job.S, spec = S.date ? { date: S.date, kit: KIT || null, sub: SUB === undefined ? undefined : SUB, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD, sea: SEA, boss: BOSSK } : { kit: S.kit, seed: S.seed, sub: S.sub, flavour: FLAV, twist: TWIST, dials: DIALS, tod: TOD, sea: SEA, boss: BOSSK }, n0 = page.errs.length;
   const a = [JSON.stringify(spec), job.diff, JSON.stringify(job.bot || null), job.bseed || 0, !!job.bot, DEAD];
   let r; try { r = await page.evaluate(([code, a]) => window.SF.peek(code + '(' + a.join(',') + ')'), [FLY, a]); } catch (e) { r = { end: 'evaluate-threw', errs: [String(e.message).slice(0, 200)], errCount: 1, encs: [], planned: [], quiet: [], longest: [0, 0, 0] }; }
   r.pageErrs = page.errs.slice(n0); return r;

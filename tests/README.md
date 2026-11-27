@@ -389,6 +389,7 @@ node tests/daily-gate.mjs --sweep 4 --all 4 --det 2 --twist night --no-bots --fr
 node tests/daily-gate.mjs --from 2026-12-01 --days 21 --fresh   # 21 days cover every kit x twist once, each with its own flavour
 node tests/daily-gate.mjs --sweep 4 --all 2 --det 2 --tod sunset --no-bots --fresh   # a light forced (--tod day|morning|sunset); --dials on|off forces the ground dials
 node tests/daily-gate.mjs --from 2026-12-03 --days 1 --sub 2 --save out.json  # one date on sub-seed 2; --save lists every sortie with pass and cause
+node tests/daily-gate.mjs --sweep 8 --all 2 --det 4 --no-bots --sea on   # archipelago days forced on every seed (--sea off: never one)
 node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seeds per kit on Veteran, the first 40 on all three, bots on the first 20 (see section 9 for the time)
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
 ```
