@@ -393,6 +393,15 @@ node tests/daily-gate.mjs --sweep 200 --save out.json                 # 200 seed
 node tests/daily-gate.mjs --sweep 20 --kit winter --no-bots --dead 15
 ```
 
+## Daily Sortie arena joins (by hand)
+
+`arena-joins.mjs` checks that nothing shows where a Daily Sortie's level meets its generated boss arena (owner: "avoid this track situation at all costs"). For a few sweep seeds of each kind of join (the desert's own arena; both airfield designs on desert and forest days; the forest's own arena) it builds the ground on both sides of the join and compares pixels: the colour change across the join on open ground against the level's own row-to-row change (a line across the ground fails), and, where the level's railway reaches its end, the track's profile on the arena's first rows against the level's (a track painted differently fails). Run it after any change to an arena's builder, to `arenaPaintOpts` or to the level's last rows. It failed on the commit that had the mistake and passes since.
+
+```
+node tests/arena-joins.mjs            # 6 seeds of each kind, 36 joins, about a minute
+node tests/arena-joins.mjs --per 12 --verbose   # more seeds; every join's numbers
+```
+
 ## Daily Sortie vetting (by hand; runs daily in CI as `.github/workflows/daily-vet.yml`)
 
 `scripts/daily-vet.mjs` (phase 4 of `docs/daily-sortie-plan.md`, section 10) vets the next 14 days with the flight gate and rerolls the dates that fail. Since composer v3 it flies each date's own twist and flavour, and when no sub-seed from 1 to 8 passes it makes the day plainer (plan 11.3): first the flavour plain, then no twist as well, each on sub-seeds 0 to 8, written to `DAILY_PLAIN` and named in the pull request text. It runs `tests/daily-gate.mjs --from <tomorrow UTC> --days 14 --save` (all three difficulties, no bots), and for each failing date `--sub 1` to `--sub 8` on that date alone until one passes on all three; it writes the passing sub-seeds into `DAILY_REROLL` in `tools/sortie-compose.js` (nothing else), runs `scripts/embed-citygen.mjs` and writes the pull request text (`--body FILE`: each rerolled date with its cause, and every date with no passing sub-seed in 8). Serve the folder first. `--dead S` goes to the gate (a smaller value forces failures: `--dead 6` fails 2 of the dates 2026-12-01 to 12-14), `--no-write` leaves the sources alone, `--keep DIR` keeps the gate's JSON files, `--from`, `--days`, `--max-sub` as named.
