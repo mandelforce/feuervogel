@@ -3876,12 +3876,17 @@ function addSnowArena(plan, h, o) {
 // (grass, or the desert's sand), the perimeter fence across it (posts and wire, as the coast's wire is drawn), and a gate where the level's road comes in, the road
 // running on through it onto the apron. The airfield's own pieces are painted only on its apron, so they stop at the verge; rails run on through gaps in the fence.
 function airfieldEnd(plan, ground) {
-  const A = plan.arena, W = A.W, Kr = A.K, Br = A.B, xr = Math.round(plan.mx[plan.L - 1]), VR = 9, FY = VR + 2, gate = x => Math.abs(x - xr) <= 7;
-  for (let y = 0; y <= FY + 1; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (Kr[i] === K.RAIL) continue; if (gate(x) && Math.abs(x - xr) <= 4) { Kr[i] = K.ROAD; Br[i] = -1; } else if (y <= VR || Kr[i] !== K.APRON) { Kr[i] = ground; Br[i] = -1; } }
+  const A = plan.arena, W = A.W, Kr = A.K, Br = A.B, L0 = plan.L, xr = Math.round(plan.mx[L0 - 1]), gate = x => Math.abs(x - xr) <= 7;
+  // the level's railway, where it reaches the level's end (rails 6 px apart), curves away off the strip's nearer edge over the verge, so it does not run into the airfield
+  const ends = []; if (plan.RM) for (let x = 0; x + 6 < W; x++) if (plan.RM[(L0 - 1) * W + x] === 2 && plan.RM[(L0 - 1) * W + x + 6] === 2 && !A.RM[x + 3]) ends.push(x + 3);
+  const curves = ends.map(c => { const left = c < W / 2, d = left ? c + 10 : W + 10 - c, Y = Math.max(36, Math.round(d * 1.7)); return { c, dir: left ? -1 : 1, d, Y }; });
+  const VR = Math.max(9, ...curves.map(q => q.Y + 2)), FY = VR + 2, RK = new Set([K.ROAD, K.TRACK, K.STREET, K.WALK]), roadK = x => gate(x) && RK.has(plan.K[(L0 - 1) * W + x]) ? plan.K[(L0 - 1) * W + x] : -1, stMap = new Map(), stB = b => { if (b > -2 || !plan.streets[-2 - b]) return -1; if (!stMap.has(b)) { A.streets.push(Object.assign({}, plan.streets[-2 - b], { pts: [], id: A.streets.length })); stMap.set(b, -2 - (A.streets.length - 1)); } return stMap.get(b); }; /* (its street record too: a desert track's dirt and ruts) */ /* (the level's own road, its last row's cross-section, on through the verge and the gate) */
+  for (const q of curves) for (let y = 0; y <= q.Y; y++) { const t = y / q.Y, xc = q.c + q.dir * q.d * t * t; for (let dx = -4; dx <= 4; dx++) { const x = Math.round(xc + dx); if (x < 0 || x >= W) continue; const i = y * W + x; A.RM[i] = Math.abs(dx) === 3 ? 2 : (y % 5 < 2 ? 3 : 1); Kr[i] = K.RAIL; Br[i] = -1; } }
+  for (let y = 0; y <= FY + 1; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (Kr[i] === K.RAIL) continue; if (roadK(x) >= 0) { const j = (L0 - 1) * W + x; Kr[i] = plan.K[j]; Br[i] = stB(plan.B[j]); } else if (y <= VR || Kr[i] !== K.APRON) { Kr[i] = ground; Br[i] = -1; } }
   for (let y = FY + 2; y < FY + 14; y++) for (let x = xr - 4; x <= xr + 4; x++) { const i = y * W + x; if (Kr[i] === K.APRON) { Kr[i] = K.ROAD; Br[i] = -1; } } /* (the road on a little way past the gate) */
   for (const wy of [FY, FY + 2]) { let run = []; for (let x = 0; x < W; x++) { const rail = A.RM[wy * W + x] > 0; if (gate(x) || rail) { if (run.length > 3) A.wires.push(run); run = []; continue; } run.push([x, wy]); } if (run.length > 3) A.wires.push(run); } /* (two strands) */
   for (const x of [xr - 8, xr + 8]) A.obstacles.push({ kind: 'hedgehog', x, y: FY }); /* (the gate's posts) */
-  A.units.push({ end: { verge: VR, fence: FY, gate: xr } });
+  A.units.push({ end: { verge: VR, fence: FY, gate: xr, railCurves: curves.map(q => q.c + (q.dir < 0 ? ' left' : ' right')) } });
 }
 function addAirfield(plan, h, o) {
   o = o || {}; const clim = o.clim || 'city', WN = clim === 'winter', tracks = o.tracks, bossTracks = o.bossTracks;
