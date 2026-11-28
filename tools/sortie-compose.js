@@ -173,6 +173,7 @@ const KITS = {
    off the boss's approach). The generator (CityGen, mountainStretches) builds it on the kit's own line in the climate's look, a cliff or an incline drawn from the
    plan's seed; its flak sites are plan slots, so its encounter is the flak lane. */
 for (const k of ['desert', 'forest', 'winter', 'city']) { const K0 = KITS[k]; K0.middle.mountain = { len: [6, 8], max: 1, heat: 0.5, built: 0.3 }; for (const t in K0.follows) if (!K0.follows[t].includes('mountain')) K0.follows[t].push('mountain'); K0.follows.mountain = Object.keys(K0.middle).filter(t => t !== 'mountain'); K0.enc.mountain = [{ id: 'flaklane', at: 1, end: 2, frames: 1140 }]; }
+KITS.city.middle.mountain.len = [5, 7]; /* (the city also requires its centre: a shorter mountain keeps its walk's tries low) */
 KITS.temperate.main.middle.main_mountain = { len: [5, 7], max: 1, heat: 0.5 }; KITS.temperate.enc.main_mountain = [{ id: 'flaklane', at: 1, end: 2, frames: 1140 }];
 /* a mountain day: MOUNTAIN_SHARE of the days (own stream 7101) take one mountain stretch for sure (the kit's walk requires it); the others walk without it, as before */
 const MOUNTAIN_SHARE = 0.3;

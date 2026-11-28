@@ -5138,7 +5138,7 @@ function mFlakAt(E, x, y, o = {}) {
   const bags = o.bags || MP.bag, floor = o.floor || [54, 46, 34];
   for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (Math.hypot(dx, dy) <= 5.2) E.dim(x + dx + 2, y + dy + 2, 0.6);
   for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) { const d = Math.hypot(dx, dy); if (d > 5.2) continue;
-    if (d > 3.6) E.put(x + dx, y + dy, o.snow && mH(x + dx, y + dy, 171) < 0.45 ? MP.snow[4] : mPick(bags, 0.35 + ((dx * 3 + dy * 5) & 2 ? 0.25 : 0) + (-dx - dy) * 0.04, x + dx, y + dy)); else E.put(x + dx, y + dy, floor); E.setK(x + dx, y + dy, K.TRENCH); }
+    if (d > 3.6) E.put(x + dx, y + dy, o.snow && mH(x + dx, y + dy, 171) < 0.45 ? MP.snow[4] : mPick(bags, 0.35 + ((dx * 3 + dy * 5) & 2 ? 0.25 : 0) + (-dx - dy) * 0.04, x + dx, y + dy)); else E.put(x + dx, y + dy, floor); E.setK(x + dx, y + dy, K.BERM); } /* (game type 'mud', as a trench; not K.TRENCH, the forest's own trench lines) */
   const a = -Math.PI / 2 + (mH(x, y, 172) - 0.5) * 1.6, ca = Math.cos(a), sa = Math.sin(a);
   for (let k = 0; k <= 6; k++) for (const off of [-0.8, 0.8]) E.put(x + ca * k - sa * off, y + sa * k + ca * off, k > 5 ? [20, 20, 22] : [44, 46, 50]);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) E.put(x + dx, y + dy, dx + dy < 0 ? [92, 96, 100] : [58, 60, 64]);
@@ -5387,7 +5387,7 @@ function mClearLists(plan, s0, s1) {
   for (const key of Object.keys(plan)) { const a = plan[key]; if (!Array.isArray(a) || MT_KEEP_LISTS.has(key) || !a.length) continue;
     const t = MT_TREE_LISTS.has(key) ? MT_SEAM >> 1 : -2, inR = y => typeof y === 'number' && y >= s0 + t && y < s1 - t;
     const keep = e => { if (Array.isArray(e)) return !(e.length && Array.isArray(e[0]) && e.some(p => inR(p[1]))); if (!e || typeof e !== 'object') return true;
-      if (typeof e.y === 'number') return !inR(e.y); if (typeof e.y0 === 'number' && typeof e.y1 === 'number') return e.y1 < s0 || e.y0 >= s1; if (typeof e.y0 === 'number') return !inR(e.y0); return true; };
+      if (typeof e.y === 'number') return !inR(e.y); if (typeof e.y0 === 'number' && typeof e.y1 === 'number') return !inR((e.y0 + e.y1) / 2); /* (a feature reaching in from a neighbouring stretch, as a village eases in, stays) */ if (typeof e.y0 === 'number') return !inR(e.y0); return true; };
     plan[key] = a.every(e => Array.isArray(e) && (!e.length || (e[0] && typeof e[0] === 'object' && !Array.isArray(e[0])))) ? a.map(sub => sub.filter(keep)) : a.filter(keep); } /* (a list of lists of things, the forest's conifers by kind: each list filtered) */
 }
 function mStretch(plan, s0, s1, climate, kind, seed) {
