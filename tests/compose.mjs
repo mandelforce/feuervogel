@@ -8,7 +8,8 @@
 // Checks: the hash is the game's; determinism; gate 1 on 10,000 seeds per kit (every composed list keeps the kit's rules, checked here
 // again independently of the module's own check); the daily seed (UTC date, rotation, reroll table); variety over 1,000 seeds (every
 // middle template appears, the orders differ); gate 2 (the generator's plan of a composed list: no throw, CityGen.validate, the length,
-// every template's feature in its own segment, the structures share under the template's limit, the plan time); and that the copy of
+// every template's feature in its own segment, the structures share under the template's limit, the plan time, the plan's span
+// (CityGen.planSpan) against the composer's own length, tail and arena); and that the copy of
 // the composer in index.html is current (node scripts/embed-citygen.mjs).
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -144,13 +145,21 @@ for (const k of kits) { const V = variety[k], K0 = SC.KITS[k]; let forced = 0, o
     ok(dead.length === 0, k + ': every dial changes the plan' + (dead.length ? ' (not: ' + dead.join(', ') + ')' : '')); } }
 
 // 7. gate 2: the generator's plan of each composed list
+// The span the composer asks for, worked out from its own numbers alone, to check the generator's planSpan (which the game uses, sortiePlanComposed).
+// The level's stretches, less a legacy tail; then the arena: the generated one (cityArena), or the winter's own finale past the level's end
+// (the wolfpack's ice, the supergun's icy gorge, else the gorge; kit.arena), which a sea ending (a legacy tail) replaces.
+const wantSpan = (kit, S) => { const tail = S.legacyTail | 0, bv = S.bossVar || {}, fin = tail ? 0 : bv.ice ? SC.ICE_ARENA : bv.rail ? SC.RAIL_ARENA : kit.arena | 0;
+  return { end: S.len - tail, c1: S.len - tail + ((S.cityArena | 0) || fin) }; };
 const BUDGET = 1.5 * 1.15; // the limit: the hand-made lists' time with half again on top, raised 15 % for the mountain days (owner, 2026-11-28: "raise budgets overall"; build 1.2.6.62)
 const BASE = { desert: 246, forest: 163, winter: 1265, city: 267, temperate: 340 }; // p95 plan time of the hand-made lists, ms, Node alone (plan section 6.4; temperate 340, owner: a limit of 510 ms, since the old land's town, estate and airbase are stretches of the plan (audit 3h): its built-up days' plans are about 9 chunks longer, median 256 to 334 ms here, and a CI runner put the kit's median at 469 to 487 ms against 450; city 267, owner: a limit of 400 ms, as a slow CI runner timed the city's plans with their generated arena at a median of 361 ms against 345, while they take 245 ms here; temperate 300: its plan is 54 chunks long since the generator-made mainland (28 before, plan 12.21), and the full-grid passes of the generator (the sea's distance transforms, calmWater) scale with the length: median 275 to 285 ms in Node alone on a container of this build, 42 ms before the mainland, and CI runs about 1.5 times slower than Node alone as for the city, so the limit is 450; city: CI runners measured a median of 278-290 ms with the dockyard, river and yard stretches, so 230 leaves headroom); the limit is 1.5 times it, on the median
-for (const k of kits) { const kit = SC.KITS[k], P = PROBE[k], flags = {}, notes = {}, ms = [], built = {}; let n = 0, clean = 0, over = 0; const t0 = Date.now();
+for (const k of kits) { const kit = SC.KITS[k], P = PROBE[k], flags = {}, notes = {}, ms = [], built = {}, spanBad = []; let n = 0, clean = 0, over = 0; const t0 = Date.now();
   for (let s = 0; s < PLANS; s++) { if (s % SHARD[1] !== SHARD[0] - 1) continue; n++; const S = SC.composeSortie(k, (SC.hash(s, 777) * 4294967296) | 0, 0, undefined, undefined, undefined, undefined, s % 4 === 1 ? 'on' : undefined), r = checkPlan(S.archi ? PROBE.archi : P, S.segs, S.gen.seed, S.gen); /* (every 4th list forced to an archipelago day: its own probe) */
     for (const f of r.flags) flags[f] = (flags[f] || 0) + 1; for (const nt of r.notes) notes[nt] = (notes[nt] || 0) + 1; if (r.ms) ms.push(r.ms); let ovr = false;
     const kq = S.archi ? kit.archiKit : S.land ? kit.landKit : kit; for (const b of r.built || []) { const lim = (kq.middle[b.t] || {}).built || kq.fixedBuilt[b.t]; (built[b.t] = built[b.t] || []).push(b.v); if (lim !== undefined && b.v > lim) ovr = true; }
+    if (r.span) { const w = wantSpan(kit, S), sp = r.span, gapOk = !sp.gap || (k === 'temperate' && sp.gap[0] === w.end && sp.gap[1] < sp.c1); /* (only the temperate kit has old land between its plan and its arena) */
+      if (sp.c1 !== w.c1 || !gapOk || (k === 'temperate' && sp.end !== w.end)) spanBad.push(`${k} list ${s}: span ${J(sp)}, the composer's ${J(w)}`); }
     if (ovr) over++; if (!r.flags.length && !ovr) clean++; }
+  ok(!spanBad.length, `${k}: the generator's span (CityGen.planSpan) is the composer's on all ${n} lists` + (spanBad.length ? ': ' + spanBad.slice(0, 3).join('; ') : ''));
   ms.sort((a, b) => a - b); const med = ms[Math.floor(ms.length / 2)] || 0, p95 = ms[Math.floor(ms.length * 0.95)] || 0;
   ok(clean === n, `${k}: gate 2 on ${n} composed lists: ${clean} clean` + (clean < n ? ` (${Object.entries(flags).map(([f, c]) => f + ' ' + c).join(', ')}${over ? ', structures over the limit ' + over : ''})` : ''));
   if (clean < n) for (const [nt, c] of Object.entries(notes).sort((a, b) => b[1] - a[1]).slice(0, 6)) console.log(`       ${c}x ${nt}`);

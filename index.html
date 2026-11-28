@@ -5398,6 +5398,21 @@ function bareTreePix(t, put) {
 
 // a spot within r px of a cow paddock (plan.pastures), where a dug-in tank would have cows grazing on it
 const nearPasture = (plan, x, y, r) => (plan.pastures || []).some(q => Math.hypot(Math.max(q.x0 - x, 0, x - q.x1), Math.max(q.y0 - y, 0, y - q.y1)) < r);
+// ---------- the plan's span: which sortie chunks a plan covers ----------
+// The one place that says how far a plan reaches, for the game (sortiePlanComposed) and the tests. A plan starts at the sortie's chunk 0
+// and covers its own rows (plan.L). A plan with a boss arena (plan.arena: rows y0 to y0 + L) reaches to the arena's end. An arena that
+// starts past plan.L leaves a gap between them, which the game fills with legacy ground (the temperate kit's old land before its sea ending).
+// Every plan and arena ends on a whole chunk; a part chunk means a builder broke that rule, and this throws rather than round it away.
+// Returns, in sortie chunks: end, where the level's own plan ends; c1, the first chunk after everything the plan covers;
+// gap, [first, end) of the chunks between the plan and its arena, or null.
+const SPAN_CH = 64; // rows per chunk (the game's CH)
+function planSpan(plan) {
+  const A = plan.arena && typeof plan.arena === 'object' ? plan.arena : null, last = A ? A.y0 + A.L : plan.L;
+  for (const [what, rows] of [['plan', plan.L], ['arena start', A ? A.y0 : 0], ['arena end', last]]) if (rows % SPAN_CH) throw new Error(`planSpan: the ${what} is not on a chunk line (row ${rows})`);
+  const end = plan.L / SPAN_CH, c1 = last / SPAN_CH, a0 = A ? A.y0 / SPAN_CH : end;
+  if (a0 < end) throw new Error(`planSpan: the arena starts inside the plan (chunk ${a0}, plan ends at ${end})`);
+  return { end, c1, gap: a0 > end ? [end, a0] : null };
+}
 // ---------- tank pits for the Drilling (Enigma Run, owner) ----------
 // Added to a finished plan by the game: one pit in each wanted row band [y0, y1] (plan rows), on open ground (fields, meadows, gardens, rubble,
 // sand, wood, snowy slopes) beside the main road (22 to 90 px off it, best about 36, at least 26 px from the screen's edges), clear of buildings,
@@ -5992,7 +6007,7 @@ function mTankNet(plan) {
   for (const id of cut) if (!reached.get(id) && plan.streets[id]) plan.streets[id].tank = false;
 }
 
-const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') { const q0 = o.params || {}, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = sandSea(Object.assign({}, o, { params: qs })); /* (the arena's parameters stay out of the desert builder: it passes its own on to the sub-plans it builds, and one would build an arena of its own) */ if (q0.cityArena) { const hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'desert', K.DESERT); else addDesertArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); } return p0; } /* (the desert's generated boss arena: its own small plan after the level) */ if (bd === 'winterLine') { const q0 = o.params || {}; if (!q0.cityArena) return winterLine(o); const qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = winterLine(Object.assign({}, o, { params: qs })), hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addIceSeaArena(p0, hA, { ice: !!q0.harbourIce }); else if (q0.cityArenaStyle === 'airfield') addAirfield(p0, hA, { clim: 'winter' }); else if (q0.cityArenaStyle === 'snow') addSnowArena(p0, hA, { scenes: !!q0.cityArenaScenes }); return p0; } /* (the winter's generated sea ending: its own small plan after the freight harbour) */ if (bd === 'forest' && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaFeature', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = forestLand(Object.assign({}, o, { params: qs })); markSlotRoofs(p0); calmWater(p0); const hA = (q0.cityArena | 0) * 64; /* (the forest's generated boss arena: its own small plan after the level, whose own plan never sees the arena's parameters) */ if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'forest', K.MEADOW); else addForestArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks, feature: q0.cityArenaFeature }); return p0; } if ((o.preset === 'islands' || bd === 'islands') && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaGap', 'cityArenaOpen', 'cityArenaIsles', 'cityArenaStyle', 'cityArenaScenes']) delete qs[k]; const p1 = islands(Object.assign({}, o, { params: qs })); markSlotRoofs(p1); calmWater(p1); if (p1.P.climate === 'desert') desertize(p1); else if (p1.P.climate === 'winter') { winterize(p1); addIceSeaArena(p1, (q0.cityArena | 0) * 64, {}); return p1; } /* (an archipelago day in another climate: its islets in that climate's look; the winter's arena is its own sea with drift ice) */ if (q0.cityArenaStyle === 'land') { addLandArena(p1, (q0.cityArena | 0) * 64, { scenes: !!q0.cityArenaScenes }); return p1; } /* (a land day: the mainland goes on as the arena) */ addSeaArena(p1, ((q0.cityArena | 0) - (q0.cityArenaGap | 0)) * 64, { gap: (q0.cityArenaGap | 0) * 64, open: !!q0.cityArenaOpen, isles: !!q0.cityArenaIsles }); return p1; } /* (the temperate kit's generated sea ending: its own small plan, after the old land's built-up stretches when there are any) */ const p = o.preset === 'islands' || bd === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+const CityGen = { VERSION: 1, planSpan, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') { const q0 = o.params || {}, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = sandSea(Object.assign({}, o, { params: qs })); /* (the arena's parameters stay out of the desert builder: it passes its own on to the sub-plans it builds, and one would build an arena of its own) */ if (q0.cityArena) { const hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'desert', K.DESERT); else addDesertArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); } return p0; } /* (the desert's generated boss arena: its own small plan after the level) */ if (bd === 'winterLine') { const q0 = o.params || {}; if (!q0.cityArena) return winterLine(o); const qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = winterLine(Object.assign({}, o, { params: qs })), hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addIceSeaArena(p0, hA, { ice: !!q0.harbourIce }); else if (q0.cityArenaStyle === 'airfield') addAirfield(p0, hA, { clim: 'winter' }); else if (q0.cityArenaStyle === 'snow') addSnowArena(p0, hA, { scenes: !!q0.cityArenaScenes }); return p0; } /* (the winter's generated sea ending: its own small plan after the freight harbour) */ if (bd === 'forest' && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaFeature', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = forestLand(Object.assign({}, o, { params: qs })); markSlotRoofs(p0); calmWater(p0); const hA = (q0.cityArena | 0) * 64; /* (the forest's generated boss arena: its own small plan after the level, whose own plan never sees the arena's parameters) */ if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'forest', K.MEADOW); else addForestArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks, feature: q0.cityArenaFeature }); return p0; } if ((o.preset === 'islands' || bd === 'islands') && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaGap', 'cityArenaOpen', 'cityArenaIsles', 'cityArenaStyle', 'cityArenaScenes']) delete qs[k]; const p1 = islands(Object.assign({}, o, { params: qs })); markSlotRoofs(p1); calmWater(p1); if (p1.P.climate === 'desert') desertize(p1); else if (p1.P.climate === 'winter') { winterize(p1); addIceSeaArena(p1, (q0.cityArena | 0) * 64, {}); return p1; } /* (an archipelago day in another climate: its islets in that climate's look; the winter's arena is its own sea with drift ice) */ if (q0.cityArenaStyle === 'land') { addLandArena(p1, (q0.cityArena | 0) * 64, { scenes: !!q0.cityArenaScenes }); return p1; } /* (a land day: the mainland goes on as the arena) */ addSeaArena(p1, ((q0.cityArena | 0) - (q0.cityArenaGap | 0)) * 64, { gap: (q0.cityArenaGap | 0) * 64, open: !!q0.cityArenaOpen, isles: !!q0.cityArenaIsles }); return p1; } /* (the temperate kit's generated sea ending: its own small plan, after the old land's built-up stretches when there are any) */ const p = o.preset === 'islands' || bd === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
 { const genBase = CityGen.generate, MT_CLIMATE = { sandSea: 'desert', forest: 'forest', winterLine: 'winter', islands: 'temperate' };
   CityGen.generate = o => { const p = genBase(o), segs = o && o.params && o.params.segs; if (!segs || !segs.some(g => g.t === 'mountain' || g.t === 'main_mountain')) return p;
     const bd = (PRESETS[o.preset] || {}).builder, climate = MT_CLIMATE[bd] || (o.preset === 'portSouth' ? 'city' : 'temperate'); return mountainStretches(p, segs, climate); };
@@ -6519,7 +6534,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.63'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.64'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12893,7 +12908,10 @@ function roadTip(S, P) {
   while (y < tip[1] + 40 && P.K[y * P.W + x] === CityGen.K.SEA) y++; // (on land)
   P.slots.push({ kind: 'tip', on: 'road', x, y, r: 8, id: P.slots.length });
 }
+// Which builder makes the plan. A composed sortie (the Daily Sortie) has one builder for every kit, sortiePlanComposed; the per-level
+// builders below are the Campaign's (and the Enigma Run's), each with its level's hand-set parameters.
 function sortiePlanBuild(S) {
+  if (S.compose) return sortiePlanComposed(S);
   if (S.isles) return sortiePlanIslands(S);
   if (S.level === 3) return sortiePlanLevel3(S);
   if (S.level === 4) return sortiePlanLevel4(S);
@@ -12903,19 +12921,44 @@ function sortiePlanBuild(S) {
   if (S.level === 2) return sortiePlanLevel2(S);
   return null;
 }
+// ---- The composed sortie's plan (every kit; docs/composed-plan-builder-plan.md) ----
+// The composer (tools/sortie-compose.js) decides everything about the ground and hands the generator's input over as S.compose.gen, so
+// the plan here is exactly the one the Node tests build and judge. Nothing in this function may depend on the kit or the level: a new
+// kit adds its preset and its numbers to the composer and the generator, not a case here.
+// What the game reads from the plan, all in sortie chunks (CityGen.planSpan, from the plan's own rows, so the composer's sums are not
+// repeated here; tests/compose.mjs checks the span against the composer's length, legacy tail and arena):
+//   planC0 .. planC1  the chunks the plan paints (the level's stretches and its arena or finale);
+//   planEnd           where the level's own plan ends (the temperate kit's old land, straightMix, starts there);
+//   planGap           [first, end) of legacy chunks between the plan and its arena (the temperate kit's old land before its sea ending), or null;
+//   planBiome         per chunk of the plan, the legacy biome for the director and placement ('country' or 'sea'): an islands plan only, by
+//                     its share of land; other plans take theirs from the segments (SORTIE_BIOME);
+//   planY0            the world row of plan row 0 (plan row y is world row planY0 - y).
+// Every one is set on every call, so a field from an earlier stage's plan never lingers.
+function sortiePlanComposed(S) {
+  const P = S.plan = CityGen.generate(S.compose.gen), sp = CityGen.planSpan(P);
+  S.planC0 = 0; S.planC1 = sp.c1; S.planEnd = sp.end; S.planGap = sp.gap; S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.planBiome = S.isles ? planBiomeOf(P, sp.end) : null;
+  return P;
+}
+// The legacy biome of each of an islands plan's first n chunks: 'country' where more than 45 % of the chunk is land (sampled every 4th
+// column), else 'sea'. Level 1's islands (the Campaign) and the temperate kit share it.
+function planBiomeOf(P, n) {
+  const out = [];
+  for (let c = 0; c < n; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P.W; x += 4) if (P.K[y * P.W + x] !== CityGen.K.SEA) land++; out.push(land / (CH * P.W / 4) > 0.45 ? 'country' : 'sea'); }
+  return out;
+}
 // Level 6: the harbour city. One plan over the whole level from its first chunk: the open sea, the end quay of the south
 // harbour (piers, U-boat bunker, breakwater, fairway) with the east side harbour opening into it (portSouth preset, corner form, sea to
 // the east), the old town, the works in their segment, the station in the last one, and the airfield's perimeter in the last chunk.
 const HARBOUR6 = { land: 0.56, pier: [30, 50], sideChannel: 62 };
 function sortiePlanHarbour(S) {
-  if (S.compose) { S.plan = CityGen.generate(S.compose.gen); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0) + (S.cityArena | 0); /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after; with the generated arena the plan runs on cityArena chunks past the level's end) */ S.planY0 = -world.stageBaseP * CH + CH - 1; return S.plan; } /* (a composed city: the composer's generator input, preset portSouth with params.segs; the Campaign's level 6 goes on below, as before) */
   const n = S.len, L = n * CH, dens = [], dmg = []; let lastU = 0;
   for (const g of S.segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; const f = (g.start + g.n / 2) / n; dens.push([f, u]); dmg.push([f, v[1] * 0.6]); }
   dens.unshift([0, dens[1][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[1][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
   const fr = t => { const g = S.segs.find(q => q.t === t); return [g.start / n, (g.start + g.n) / n]; }, sea = S.segs.find(g => g.t === 'open_sea'), hb = S.segs.find(g => g.t === 'harbour_south');
   const params = { L, density: dens, damageCurve: dmg, damage: 1, stationAt: [fr('station_main')[0], 1 - 170 / L], stationRoom: 64, industryAt: fr('industrial_power'), power: true, perimeter: CH,
     coast: Object.assign({}, CityGen.PRESETS.portSouth.coast, { mode: 'corner', cs: 1, openSide: true, end: (sea.n * CH + 40) / L, side: [hb.n * CH * 0.55 / L, hb.n * CH * 0.7 / L] }, S.haze ? HARBOUR6 : null) }; /* (the first loop: HARBOUR6 moves the shore, lengthens the piers and widens the side channel, so the fairway and the breakwater's entrance lie elsewhere) */ // the end quay just past the sea segment, the east harbour along most of the harbour segment
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0); /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'portSouth', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 1: the islands. One plan of the islands preset from the level's first chunk to the fortified beach: the
@@ -12923,13 +12966,11 @@ function sortiePlanHarbour(S) {
 // the start of island_airbase (running about 1.5 chunks into the open sea after it), then sea up to the beach. Its water is the game's own sea.
 // A plan chunk that is mostly land plays as 'country', the others as 'sea' (S.planBiome). From the beach on, the legacy ground (S.seq).
 function sortiePlanIslands(S) {
-  if (S.compose) { S.plan = CityGen.generate(S.compose.gen); S.planC0 = 0; S.planEnd = S.len - (S.legacyTail | 0); S.planC1 = S.planEnd + (S.cityArena | 0); S.planY0 = -world.stageBaseP * CH + CH - 1; { const A = S.plan.arena, g = A ? Math.round((A.y0 - S.plan.L) / CH) : 0; S.planGap = g > 0 ? [S.planEnd, S.planEnd + g] : null; } /* (the generated sea ending: its own small plan, after the old land's built-up stretches when there are any) */ const P0 = S.plan, bio0 = S.planBiome = []; for (let c = 0; c < S.planEnd; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P0.W; x += 4) if (P0.K[y * P0.W + x] !== CityGen.K.SEA) land++; bio0.push(land / (CH * P0.W / 4) > 0.45 ? 'country' : 'sea'); } return S.plan; } /* (a composed temperate sortie: the composer's generator input, the islands with a segment list; the plan ends where the old land begins) */
   const seg = t => S.segs.find(g => g.t === t), n = seg('beach_fortified').start, L = n * CH, ch = seg('island_chain'), ab = seg('island_airbase');
   const params = { L, chain: [ch.start / n, (ch.start + ch.n) / n], big: [ab.start / n, Math.min(0.94, (ab.start * CH + 620) / L)] };
   if (S.timeOfDay === 'sunset') params.burn = true; // a loop's level 1 is flown at sunset, and the island's church is on fire
   S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'islands', params }); S.planC0 = 0; S.planC1 = n; S.planY0 = -world.stageBaseP * CH + CH - 1;
-  const P = S.plan, bio = S.planBiome = [];
-  for (let c = 0; c < n; c++) { let land = 0; for (let y = c * CH; y < c * CH + CH; y++) for (let x = 0; x < P.W; x += 4) if (P.K[y * P.W + x] !== CityGen.K.SEA) land++; bio.push(land / (CH * P.W / 4) > 0.45 ? 'country' : 'sea'); }
+  S.planBiome = planBiomeOf(S.plan, n);
   return S.plan;
 }
 // Level 2, Sea of Sand: one plan over the whole level from its first chunk (the generator's sandSea, spec 18): the desert port with its
@@ -12937,7 +12978,7 @@ function sortiePlanIslands(S) {
 // segment's feature: the oil valley, the held oasis village, the junction, the small oasis, the airbase, the fortified pass with its viaduct,
 // and the quiet desert before the boss, whose ground is the Campaign's (bossland, theme 2). Plan row y is world row S.planY0 - y.
 function sortiePlanLevel2(S) {
-  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'sandSea', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })), variant: S.variant | 0 } }); /* (a composed sortie brings the generator's seed and parameters, so the test in Node makes the same plan) */ S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0) + (S.cityArena | 0); /* (the desert's generated arena: the plan runs on past the level) */ /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'sandSea', params: { segs: S.segs.map(g => ({ t: g.t, n: g.n })), variant: S.variant | 0 } }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 3, The Long Night: one plan over the whole level from its first chunk (the generator's longNight preset), at night. The beach with its
@@ -12953,14 +12994,14 @@ function sortiePlanLevel3(S) {
     for (const g of S.segs) { const v = L3D[g.t] || [0.1, 0.3], f = (g.start + g.n / 2) / n; dens.push([f, v[0]]); dmg.push([f, v[1]]); }
     dens.unshift([0, dens[0][1]]); dens.push([1, dens[dens.length - 1][1]]); dmg.unshift([0, dmg[0][1]]); dmg.push([1, dmg[dmg.length - 1][1]]);
     Object.assign(params, { variant: 1, shadows: 1, density: dens, damageCurve: dmg, coast: Object.assign({}, CityGen.PRESETS.longNight.coast, { end: CityGen.PRESETS.longNight.coast.end * 1.3 }) }); }
-  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'longNight', params }); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0); /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = y0w;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'longNight', params }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = y0w;
   return S.plan;
 }
 // Level 4, The Iron Forest: one plan over the whole level from its first chunk (the generator's ironForest preset, spec 19): over the sea
 // onto the high cliff coast, then the conifer forest with its gun sites, firebreaks, plantations, clearings and forest roads (the village,
 // the hidden airbase and the valley are forest for now), and the approach: meadow, a defence line, the road at x 112 where the castle road runs.
 function sortiePlanLevel4(S) {
-  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len - (S.legacyTail | 0) + (S.cityArena | 0); /* (the forest's generated arena: the plan runs on past the level) */ /* (a composed sortie with a sea ending: the plan covers the land, the legacy coast and sea come after) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'ironForest', params: Object.assign({ L: S.len * CH, segs: S.segs.map(g => ({ t: g.t, n: g.n })), roadEnd: 112 }, S.autumn ? { autumn: 1, lakes: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // Level 5, The Winter Line: one plan over the whole level from its first chunk (the generator's winterLine, spec 20): the frozen sea with its
@@ -12969,7 +13010,7 @@ function sortiePlanLevel4(S) {
 // on past the level's end as the train boss's arena (GORGE_ARENA chunks, preset winterGorge): two hillside viaducts with the chasm between them
 // (spec 20.6, 20.7). The boss code still sees its bossland (theme 1) there.
 function sortiePlanLevel5(S) {
-  S.plan = CityGen.generate(S.compose ? S.compose.gen : { seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.compose && S.legacyTail ? S.len - S.legacyTail + (S.cityArena | 0) : S.compose && S.cityArena ? S.len + S.cityArena /* (the winter's airfield ending: its arena after the railhead) */ : S.compose && S.bossVar && S.bossVar.ice ? S.len + ICE_ARENA : S.compose && S.bossVar && S.bossVar.rail ? S.len + RAIL_ARENA : S.len + GORGE_ARENA; /* (the wolfpack's frozen arena: ICE_ARENA chunks of the plan after the level's end, the composer's own number) */ /* (a sea ending: no gorge, the legacy coast and sea come after the plan) */ S.planY0 = -world.stageBaseP * CH + CH - 1;
+  S.plan = CityGen.generate({ seed: (S.rng(61) * 2147483647) | 0, preset: 'winterGorge', params: Object.assign({ segs: S.segs.map(g => ({ t: g.t, n: g.n })) }, S.winter ? { variant: 1 } : {}) }); S.planC0 = 0; S.planC1 = S.len + GORGE_ARENA; S.planY0 = -world.stageBaseP * CH + CH - 1;
   return S.plan;
 }
 // U and D at a world y, for a level with its own ground: linear between chunk middles, so a road or a density never steps at a chunk line.

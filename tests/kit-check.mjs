@@ -129,6 +129,7 @@ export function check(kit, segs, seed, gen) {
   let p; const t0 = performance.now();
   try { p = CG.generate(gen || { seed, preset: kit.preset, params: kit.params(segs.map(g => ({ t: g.t, n: g.n }))) }); } catch (e) { res.flags.push('throw'); res.notes.push('throw: ' + String(e && e.message || e).slice(0, 90)); return res; }
   res.ms = performance.now() - t0;
+  try { res.span = CG.planSpan(p); } catch (e) { res.flags.push('span'); res.notes.push(String(e && e.message || e)); } /* (the chunks the plan covers, as the game reads them: sortiePlanComposed) */
   const noFin = gen && gen.params && (gen.params.finale === 'depot' || gen.params.finale === 'railgorge' || gen.params.finale === 'airhead' || gen.params.finale === 'railend') ? gen.params.finale : false, arenaN = noFin ? (gen.params.depotArena | gen.params.railArena | 0) : kit.arena; /* (a sea ending or an airfield ending: the winter's plan has no gorge) */
   const want = (segs.reduce((a, g) => a + g.n, 0) + arenaN) * CH;
   if (p.L !== want) { res.flags.push('length'); res.notes.push('plan ' + p.L + ' px, segments ' + want); }

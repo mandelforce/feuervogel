@@ -77,7 +77,7 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 
 | Gap | Today | What would remove it | Cost |
 |---|---|---|---|
-| C1 One game-side plan builder per preset | `sortiePlanIslands`, `sortiePlanHarbour`, `sortiePlanLevel2..5`: each has an early return for a composed sortie, plus level-specific fixes (castle road at x 112, `subChunk`, harbour basins) | one generic `sortiePlanComposed(S)`: `CityGen.generate(S.compose.gen)`, `planC0/C1/Y0`, `planBiome` from the plan. Kit-specific hooks move to plan fields | M |
+| C1 One game-side plan builder per preset (**done**, build 1.2.6.64: `sortiePlanComposed`, `docs/composed-plan-builder-plan.md`; the kit-specific hooks are still open) | `sortiePlanIslands`, `sortiePlanHarbour`, `sortiePlanLevel2..5`: each has an early return for a composed sortie, plus level-specific fixes (castle road at x 112, `subChunk`, harbour basins) | one generic `sortiePlanComposed(S)`: `CityGen.generate(S.compose.gen)`, `planC0/C1/Y0`, `planBiome` from the plan. Kit-specific hooks move to plan fields | M |
 | C2 Kit grammars tuned by hand | `follows`, `len`, `max`, `beforeApproach`, `gapBefore`: found by probing which lists the generator breaks on | the generator reporting its own needs (a stretch's required neighbours and minimum length) so the grammar can be derived | M; gate 2 already finds the breaks |
 
 ---
@@ -85,7 +85,7 @@ Cost: **S** about a day, **M** a few days, **L** a week or more. These are rough
 ## 3. Proposed order (each step leaves the game playable)
 
 1. **Measure first (S). Done, see 3a.** Over 200 sorties per kit, count the chunks that are plan, legacy tail, old-land legacy and arena, and the ground targets from slots versus `placeOK`. This gives the real share of "not generated" ground, which this audit only infers.
-2. **C1, one composed plan builder.** This removes per-kit glue before more kits come.
+2. **C1, one composed plan builder.** This removes per-kit glue before more kits come. **Done** (build 1.2.6.64) for the plan itself; the other per-kit glue is listed in `docs/composed-plan-builder-plan.md` section 4.
 3. **A1, sea tail in the generator,** then **A3, the temperate extras.** After both, everything before the boss is generator ground.
 4. **A2, arena finales,** one kit at a time (desert, then city, then forest). Then **A5** on them, and **A4** last (the Campaign's Ravenhold must not move).
 5. **B3, composer-made count endings** on the new arenas.
