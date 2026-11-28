@@ -6027,7 +6027,7 @@ root.CityGen = CityGen;
    The grammar is what the presets tolerate, measured by tests/compose-probe.mjs (sections 6.2 and 6.6 of the plan). The length
    ranges below are narrower than what is merely valid: they keep every stretch long enough to play and short enough not to drag.
 
-   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
+   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, game (what the game needs from the kit: KIT_GAME), arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
    composeSortie(kitId, seed, sub, flavour): flavour 'plain' (default), 'rank', 'variant' or 'loop' (section 11.2 of the plan): adds .flavour, .ground, .rank
    composeSortie(kitId, seed, sub, flavour, twist): twist 'none' (default) or one of TWISTS (section 11.1): adds .twist. A twist never changes the segment list;
@@ -6053,8 +6053,9 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      built: the highest share of structures a segment of it may have (gate 2; twice the hand-made level's highest, plus 5 points).
    follows[t]: what may come directly after t (the opener's last template and every middle one). The approach may follow any
      middle template that differs from its first.
-   len: the total, in chunks. boss: { add: n } the trigger n chunks past the level's end, or { yard: true } (level 5's rule, which the
-     game works out from the screen). arena: chunks of plan past the level's end. params: the generator's, besides segs.
+   len: the total, in chunks. boss: where the boss's trigger lies, which is also the pacing length (the game's arcLen): { add: n } n chunks
+     past the level's end; { into: n } n chunks into the level's last segment (the temperate kit: one chunk into its last open sea);
+     { yard: true } level 5's rule, which the game works out from the screen (yardWait). arena: chunks of plan past the level's end. params: the generator's, besides segs.
    enc[t]: encounters a segment of t may hold: { id, at: chunks into the segment, end: chunks before its end the try is given up,
      frames: how long it runs (measured in the first loops, tests/daily-baseline.json), first/last: only in the level's first or
      last segment of that template }. Taken from the loops' hand-made plans (buildSortie). Only those that work on the first pass's ground
@@ -6161,7 +6162,7 @@ const KITS = {
   /* the temperate kit (level 1, plan 12.20): from the carrier over the open sea, bands of islets (the Campaign's chain, a ring of fortress islets, an archipelago of homes and rocks), the large island with the village and the airbase,
      then the old land, painted as level 1's own legacy chunks (a fortified beach, farmland, a village, a wood, a coast, the open sea the ship fights on). The plan is the generator's segment-native islands up to the beach (S.legacyTail
      is the old land after it); every sortie of the kit ends over open sea. The old land's order is its own small walk (kit.legacy). */
-  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [28, 40], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
+  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { into: 1 }, climate: 'temperate', timeOfDay: 'day', len: [28, 40], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
     opener: [['carrier_start', 4], ['open_sea', 6]], approach: [['open_sea', 3]],
     middle: {
       island_chain: { len: [5, 7], max: 2, heat: 0.5, built: 0.1 },
@@ -6397,6 +6398,23 @@ function archiKit(id) {
     dials: { global: { lane: [38, 56] }, seg: { island_chain: BANDS, island_fortress: BANDS, island_archipelago: BANDS }, int: ['count', 'lane'], strong: ['count', 'size'] } });
 }
 for (const id in KITS) { KITS[id].archiKit = archiKit(id); KITS[id].archiShare = ARCHI_SHARE; }
+/* What the game needs from a kit besides its ground (the plan, sortiePlanComposed) and its encounters (encPlan). The composed sortie carries it
+   as S.game, from the kit itself (KITS[id], never a day's variant: an archipelago or land day keeps its kit's), and the game reads only that,
+   never the kit's name or its level, so a new kit adds a line here instead of a case in the game:
+   pits: [[template, share]...] the Drilling's tank pits, one in the first segment of each template at that share of it (drillPits; a template
+     the day's list does not have gets none);
+   nests: how many Buechse side emplacements the plan gets (buechseNests; 0 for a plan with sea at both edges);
+   loopFlag: the game's flag for the kit's loop ground on a 'variant' or 'loop' day ('variant', 'autumn' or 'winter': the painters' switches
+     for the level's first-loop look; none where the loop ground is the generator's alone);
+   legacyGrid: the plan ends in the old land's legacy ground, painted with the old land's straight streets and the gate's colours (S.straight,
+     gatePix, railPix). */
+const KIT_GAME = {
+  desert: { pits: [['airbase_desert', 0.2], ['pass', 0.35]], nests: 2, loopFlag: 'variant' },
+  forest: { pits: [['forest_fortified', 0.5], ['valley', 0.5]], nests: 2, loopFlag: 'autumn' },
+  winter: { pits: [['station_winter', 0.5], ['pass', 0.4]], nests: 2, loopFlag: 'winter' },
+  city: { pits: [['city_centre', 0.5], ['industrial_power', 0.5]], nests: 2 },
+  temperate: { pits: [['island_chain', 0.2], ['island_airbase', 0.55]], nests: 0, legacyGrid: true } };
+for (const id in KITS) KITS[id].game = KIT_GAME[id];
 /* an archipelago day: forced by sea ('on' or 'off'), else the kit's share on its own stream */
 function archiDay(kit, base, sea) { return !!kit.archiKit && (sea === 'on' || (sea !== 'off' && hash(base | 0, 6985) < kit.archiShare)); }
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
@@ -6470,7 +6488,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod, sea) {
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
     const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0, base); if (air) Object.assign(params, kit.airParams); else if (snow) Object.assign(params, kit.snowParams); if (cityArena && arenaSeaFor(kit, bs)) { params.cityArena = cityArena; params.cityArenaSea = true; if (kit.legacy) { const gp = arenaGap(tail); if (gp) params.cityArenaGap = gp; if (!tail.some(q => q[0] === 'coast_down')) params.cityArenaOpen = true; } if (kit.archi) params.cityArenaOpen = true; /* (an archipelago day: the arena is open sea, no coast) */ if (kit.cityArena.isles) params.cityArenaIsles = true; } /* (the temperate kit: the arena begins after the old land's built-up stretches, at its coast, or is open sea after the mainland's own cove) */ else if (cityArena && bs.yard) { params.cityArena = cityArena; params.cityArenaYard = true; } else if (cityArena) { const st = arenaStyle(kit, base, bs); if (st) params.cityArenaStyle = st; const fe = arenaFeature(kit, bs, base, st); if (fe) params.cityArenaFeature = fe; params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
-    const ep = encPlanFor(kit, kit.legacy ? segs : core, base, twist === 'fast' ? FAST_K : 1), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, kit.legacy ? segs : core, base, twist === 'fast' ? FAST_K : 1), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), game: JSON.parse(JSON.stringify(KITS[kitId].game)), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
     if (bs && bs.kind === 'castle' && hash(base, 6960) < CASTLE_RUIN_SHARE) S.castleRuin = true; /* (a castle as a ruin, Ravenhold too: breaches in the walls, cracked and scorched courts; looks only, its own stream) */
@@ -6534,7 +6552,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.64'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.65'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -10851,7 +10869,7 @@ function planSeaColor(wx, wy, harbour, calm) { const n = vnoise(wx * 0.035, wy *
 function planYardColor(wx, wy) { const col = vnoise(wx * 0.05, wy * 0.04) > 0.64 && hash(wx, wy) < 0.4 ? hexRGB(hash(wx * 3, wy) < 0.5 ? '#e8ecf2' : '#d4dae4') : RAILC.ballast[pickI(3, 0.5 + (hash(wx, wy) - 0.5) * 0.9, wx, wy)], lum = (col[0] + col[1] + col[2]) / 3; // with workChunk's winter grade of theme 1 ground
   return [lum * 0.42 + col[0] * 0.2 + 30 | 0, lum * 0.44 + col[1] * 0.2 + 36 | 0, lum * 0.46 + col[2] * 0.22 + 52 | 0]; }
 function arenaPaintOpts(S) { if (S.plan.arena.landA) return S.arenaPaintOpts || (S.arenaPaintOpts = { night: S.timeOfDay === 'night', seaPix: (x, y, hb, calm) => planSeaColor(x, S.planY0 - (y + S.plan.arena.y0), hb, calm), apronPix: (x, y) => secretApron(x, S.planY0 - (y + S.plan.arena.y0)) }); /* (the temperate kit's land arena: the level's own mainland, painted as the level is) */ return S.arenaPaintOpts || (S.arenaPaintOpts = Object.assign({ night: S.timeOfDay === 'night', apronPix: (x, y) => secretApron(x, S.planY0 - (y + S.plan.arena.y0)), arenaPix: (x, y) => arenaColor(S, x, y) }, S.level === 2 && !S.plan.arena.desertA && !S.plan.arena.sea && !S.plan.arena.yardA ? { sandPix: (x, y) => planSandColor(x, S.planY0 - (y + S.plan.arena.y0), y + S.plan.arena.y0, S.plan.L + S.plan.arena.L), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - (y + S.plan.arena.y0), y + S.plan.arena.y0, S.plan.L + S.plan.arena.L) : planRailColor(x, S.planY0 - (y + S.plan.arena.y0), m) } : null /* (the desert's airfield option, either design: its verge is the level's own dunes and its railway the level's track, so neither changes at the join) */, S.plan.arena.iceSeaA ? { seaPix: (x, y, hb, calm) => planSeaColor(x, S.planY0 - (y + S.plan.arena.y0), hb, calm) } : null)); } /* (the winter's sea ending: its open water is the level's own, as the plan's) */ /* (the city's generated arena: rows of its own small plan) */
-function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.level === 1 && S.compose ? { railPix: (x, y, m) => planRailColor(x, S.planY0 - y, m), gatePix: (x, y, m) => gatePix(S, x, y, m) } : S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L + (S.plan.arena ? S.plan.arena.L : 0)), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - y, y, S.plan.L + (S.plan.arena ? S.plan.arena.L : 0)) : planRailColor(x, S.planY0 - y, m) } /* (with a generated arena the level's sand does not fade into the scrub at its end: the arena's own sand eases into it) */ : S.level === 5 ? Object.assign({ yardPix: (x, y) => planYardColor(x, S.planY0 - y) }, S.plan.airhead ? { apronPix: (x, y) => y >= S.plan.airhead.yF - 12 ? snowApron(x, S.planY0 - y) : secretApron(x, S.planY0 - y) } : null) : {})); } /* (the winter's airfield ending: the band of concrete at the railhead is the airfield's, under snow) */
+function planPaintOpts(S) { return S.paintOpts || (S.paintOpts = Object.assign({ night: S.timeOfDay === 'night', seaPix: (x, y, harbour, calm) => planSeaColor(x, S.planY0 - y, harbour, calm), apronPix: (x, y) => secretApron(x, S.planY0 - y) }, S.compose && S.compose.game.legacyGrid ? { railPix: (x, y, m) => planRailColor(x, S.planY0 - y, m), gatePix: (x, y, m) => gatePix(S, x, y, m) } : S.level === 2 ? { sandPix: (x, y) => planSandColor(x, S.planY0 - y, y, S.plan.L + (S.plan.arena ? S.plan.arena.L : 0)), railPix: (x, y, m) => m === 4 ? planSandColor(x, S.planY0 - y, y, S.plan.L + (S.plan.arena ? S.plan.arena.L : 0)) : planRailColor(x, S.planY0 - y, m) } /* (with a generated arena the level's sand does not fade into the scrub at its end: the arena's own sand eases into it) */ : S.level === 5 ? Object.assign({ yardPix: (x, y) => planYardColor(x, S.planY0 - y) }, S.plan.airhead ? { apronPix: (x, y) => y >= S.plan.airhead.yF - 12 ? snowApron(x, S.planY0 - y) : secretApron(x, S.planY0 - y) } : null) : {})); } /* (the winter's airfield ending: the band of concrete at the railhead is the airfield's, under snow) */
 // Level 2's open desert in the Campaign's own colours: its desert ground (the 'field' of theme 2), dithering over the last 128 rows into the
 // boss ground's look (bossland, typed 'grass'), so the level's sand meets the Campaign's without a seam.
 // Level 2's plan track as the game draws its own (the 'rail' ground type): steel rails, sleepers two rows in five (by the world row, so they run on
@@ -10902,7 +10920,7 @@ function workChunk(job, rows) {
     for (let wx = 0; wx < W; wx++) { let col = preSea ? planSeaColor(wx, wy, false, 0) : pixelColor(wx, wy, rx); if (ENIGMA_T && engSat) col = engDesat(col); const o = (ly * W + wx) * 4, wint = !preSea && (band ? (bay(wx + 1, wy + 2) + 0.5 < bf ? world.blendTo : world.blendFrom) === 1 : job.I.th === 1); if (wint) { const lum = (col[0] + col[1] + col[2]) / 3; a[o] = lum * 0.42 + col[0] * 0.2 + 30; a[o + 1] = lum * 0.44 + col[1] * 0.2 + 36; a[o + 2] = lum * 0.46 + col[2] * 0.22 + 52; } else { a[o] = col[0]; a[o + 1] = col[1]; a[o + 2] = col[2]; } a[o + 3] = 255; }
   }
   if (job.ly >= CH) {
-    if (!job.painted) { job.painted = true; if (run.sortie && job.I.plan && run.sortie.compose && run.sortie.level === 4 && run.sortie.plan && run.sortie.plan.arena && run.sortie.plan.arena.forestA && job.p - world.stageBaseP === run.sortie.plan.L / CH) castleSeam(job, true, true); /* (the forest's generated arena: its first chunk takes the composer's seam, the level's last rows faded over it; not the sea ending, whose beach is too near) */ if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland') || (run.sortie.compose && seamLand(run.sortie, job.I)))) castleSeam(job, !!run.sortie.compose); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
+    if (!job.painted) { job.painted = true; if (run.sortie && job.I.plan && run.sortie.compose && run.sortie.plan && run.sortie.plan.arena && run.sortie.plan.arena.forestA && job.p - world.stageBaseP === run.sortie.plan.L / CH) castleSeam(job, true, true); /* (the forest's generated arena: its first chunk takes the composer's seam, the level's last rows faded over it; not the sea ending, whose beach is too near) */ if (run.sortie && !job.I.plan && ((run.sortie.autumn && job.I.b === 'castle') || (run.sortie.level === 3 && job.I.b === 'bossland') || (run.sortie.compose && seamLand(run.sortie, job.I)))) castleSeam(job, !!run.sortie.compose); job.x.putImageData(job.img, 0, 0); if (rows < CH) return false; }
     world.featTheme = job.I.th; TRGB = themeRGB(job.I.th);
     drawFeatures(job.x, job.p, wy0);
     if (!job.I.plan && run.sortie && run.sortie.gen && run.sortie.timeOfDay === 'night' && typeof CityGen !== 'undefined') { const im = job.x.getImageData(0, 0, W, CH); CityGen.nightGrade(im.data); job.x.putImageData(im, 0, 0); } // a night level's legacy ground (the sea before it, the boss arena) gets the plan's night grade
@@ -12795,6 +12813,20 @@ function drawLakeMist(sc) {
 function sortieHash(a, b) { let h = Math.imul(a | 0, 0x9E3779B1) ^ Math.imul(b | 0, 0x85EBCA6B); h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; }
 // Level 5: the train boss comes as in the Campaign, once the yard fills the screen (the trigger adds ceil(XH / CH) chunks; the yard begins at the level's end)
 function yardWait() { return Math.max(1, Math.ceil(H / CH) - 1 - Math.ceil(XH / CH)); }
+// A composed sortie's boss trigger, in chunks from the level's start, from the kit's rule (C.boss, tools/sortie-compose.js: add, into or
+// yard). It is also the sortie's pacing length (arcLen), as in the Campaign's levels.
+function composedBossAt(C, segs, at) {
+  const b = C.boss;
+  if (b.yard) return at + yardWait();
+  if (b.into !== undefined) return segs[segs.length - 1].start + b.into;
+  return at + b.add;
+}
+// The Shadow Wing's place as a share of the pacing length (wingU; the director multiplies it by arcLen). KNOWN BUG, kept so that no date
+// changes: only the desert (level 2) and the forest (level 4) divide by their arcLen. Every other kit divides by at + yardWait(), the winter's
+// length: on city days the Wing comes about half a chunk late, on temperate days 2 to 3 chunks early (measured; the composer's chunk is
+// C.wingC). The fix is C.wingC / composedBossAt(C, segs, at) for every kit
+// (docs/composed-plan-builder-plan.md, section 6), after the owner's decision.
+function composedWingU(C, level, at) { return C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()); }
 // A loop's level 2 (seed above CAMP_SEED): the same journey with its stretches moved a little. The harbour and the beach town stay as they are; of the rest
 // the village and the junction may trade places, and the open desert and the airbase; the other stretches get 1 chunk (a weight of 1) longer or shorter, the pass
 // never shorter (its ravine and fort need the room). The level's length does not change (the weights are scaled to it below).
@@ -12824,11 +12856,11 @@ function loopSeq(seq, seed, level) {
 }
 function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.composeSortie, the Daily Sortie): its segments, encounters and seed take the place of the level's own; the level lends its boss, theme, art and rules. Without C nothing here differs from before.
   if (C) seed = C.base;
-  const variant = C ? (C.ground && level === 2 ? 1 : 0) /* (a flavoured Daily Sortie, 'variant' or 'loop': the loop's ground: the generator's params come with C.gen, the game's side is these flags) */ : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
-  const winter5 = C ? !!C.ground && level === 5 : level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
+  const variant = C ? (C.ground && C.game.loopFlag === 'variant' ? 1 : 0) /* (a flavoured Daily Sortie, 'variant' or 'loop': the loop's ground: the generator's params come with C.gen, the game's side is the kit's loopFlag) */ : level === 2 ? Math.max(0, (seed | 0) - CAMP_SEED) : level === 3 && (seed | 0) === CAMP_SEED + 1 ? 1 : 0; // (a level 2 of the loops: loopSeq, and the generator's variant; level 3 only in the first loop, seed 1945: the moonrise)
+  const winter5 = C ? !!C.ground && C.game.loopFlag === 'winter' : level === 5 && (seed | 0) === CAMP_SEED + 1; /* (level 5's first loop: its own stretches and base; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const haze6 = !C && level === 6 && (seed | 0) === CAMP_SEED + 1; /* (level 6's first loop: its own stretches and harbour; variant stays 0 so the loop code of levels 2 and 3 never runs for it) */
   const i = level - 1, city = level === 6, one = level === 1, theme = enigmaTheme(level), segs = [];
-  const autumn4 = C ? !!C.ground && level === 4 : level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
+  const autumn4 = C ? !!C.ground && C.game.loopFlag === 'autumn' : level === 4 && (seed | 0) === CAMP_SEED + 1; /* level 4's first loop (seed 1945) */
   /* a loop's level 1 opens with the flyover (seed CAMP_SEED + loop, as startAt makes it): its open sea gets FLY_SEA more chunks, so a whole ship length of water lies between the carrier and the first island */
   const fly = !C && one && (seed | 0) > CAMP_SEED && (seed | 0) - CAMP_SEED < 1000, seq = C ? C.segs.map(g => [g.t, g.n]) /* (whole chunks that add up to C.len, so the scaling below leaves them as they are) */ : fly ? ENIGMA_SEQ[i].map(q => q[0] === 'open_sea' && q[1] === 6 ? [q[0], q[1] + FLY_SEA] : q) : variant || winter5 || haze6 ? loopSeq(ENIGMA_SEQ[i], seed, level) : autumn4 ? ENIGMA_SEQ[i].map(q => q[0] === 'valley' ? [q[0], 11] : q) /* the first loop's valley is longer: a longer river */ : ENIGMA_SEQ[i], len = C ? C.len : ENIGMA_LEN[i] + (fly ? FLY_SEA : 0), sum = seq.reduce((s, q) => s + q[1], 0);
   let at = 0;
@@ -12847,7 +12879,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     const sg = t => segs.filter(g => g.t === t), v = sg('village')[0], d = sg('desert_open'), f = d[0], l = d[d.length - 1];
     return [{ id: 'oasisambush', c: v.start, until: v.start + v.n - 1, live: true }, { id: 'burningfield', c: f.start, until: f.start + f.n - 1, live: true }, { id: 'fuelconvoy', c: l.start + 1, until: l.start + l.n - 2, live: true }].sort((a2, b2) => a2.c - b2.c);
   })();
-  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain', twist: C.twist || 'none', dials: C.dials || 'on', tod: C.tod || 'day', picked: !!C.picked, ...(C.seaPick ? { sea: C.seaPick } : null) } : null, /* (sea: an archipelago day forced on or off with the picker; a day's own has none) */ compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: C && C.tod && C.tod !== 'day' ? C.tod /* (a Daily Sortie's light of the day, drawn from the date: plan 4, phase 4) */ : fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? C.wingC / (level === 2 ? at + 5 : level === 4 ? at + 3 : at + yardWait()) /* (the composer gives the Wing's chunk; wingU is a share of arcLen) */ : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
+  return { level, seed: seed | 0, daily: C ? { date: C.date || null, kit: C.kit, seed: C.seed, sub: C.sub, v: C.v, flavour: C.flavour || 'plain', twist: C.twist || 'none', dials: C.dials || 'on', tod: C.tod || 'day', picked: !!C.picked, ...(C.seaPick ? { sea: C.seaPick } : null) } : null, /* (sea: an archipelago day forced on or off with the picker; a day's own has none) */ compose: C || null, /* daily: what a Daily Sortie is rebuilt from (sortieRef, sortieOf); compose: the composer's output, with the generator's seed and parameters (gen) */ theme, climate: ENIGMA_CLIMATE[i], timeOfDay: C && C.tod && C.tod !== 'day' ? C.tod /* (a Daily Sortie's light of the day, drawn from the date: plan 4, phase 4) */ : fly ? 'sunset' : variant && level === 2 ? 'morning' : ENIGMA_TIME[i], moon: level === 3 && variant > 0, haze: haze6 /* level 6's first loop, seed 1945 only: dawn haze over the burning city (hazeGrade, drawHazeLight) */, len: at, segs, encPlan, wingU: C ? composedWingU(C, level, at) : autumn4 ? 0.29 : variant ? (level === 3 ? 0.15 : 0.6) : 0, // (a loop's level 2: the Shadow Wing after the ambush and the burning field, over the airbase and the pass, so the fuel convoy follows it)
     // (a loop's level 1 is flown at sunset and its level 2 in the golden light of a morning: the ground and the trees are graded, not the bright noon of the first pass)
     variant, autumn: autumn4, winter: winter5, /* level 5's first loop, seed 1945 only: the blizzard (drawWinterLight, snow squalls by stretch, the pass's basin) */ // (level 4's first loop, seed 1945 only: the late-autumn forest with its lakes, the generator's params.autumn and params.lakes)
     // gen: this level's ground comes from the sortie (spec 15). bossAt: the boss trigger in chunks from the level's start (directorInner adds the
@@ -12855,8 +12887,8 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
     // seq: the biome follows the sortie's own segments on the legacy ground (level 1, until its islands are built); the boss comes one chunk into its last open sea.
     // isles: level 1, whose islands are a settlement plan (spec 17.4) up to the fortified beach, the legacy ground after it.
     gen: city ? 6 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : level === 5 ? 5 : 0, seq: one, isles: one, // levels 2 and 3: their own ground too (spec 18, 16.z)
-    bossAt: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, arcLen: city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, // level 3: the supergun 3 chunks into its arena, as in the Campaign
-    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), ...(C && C.bossVar ? { bossVar: C.bossVar } : null), ...(C && C.ravenMid ? { ravenMid: true } : null), ...(C && C.castleRuin ? { castleRuin: true } : null), ...(C && C.cityArena ? { cityArena: C.cityArena } : null), ...(C && C.arenaYard ? { arenaYard: true } : null), ...(C && C.arenaLand ? { arenaLand: true } : null), ...(C && C.arenaSea ? { arenaSea: true, legacyTail: C.legacyTail | 0 } : null), ...(C && C.kit === 'temperate' ? { straight: true } : null), /* (the temperate kit's old land: straight roads on the built-up grounds, plan 12.20) */ name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
+    bossAt: C ? composedBossAt(C, segs, at) : city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, arcLen: C ? composedBossAt(C, segs, at) : city || level === 2 ? at + 5 : level === 3 || level === 4 ? at + 3 : level === 5 ? at + yardWait() : one ? segs[segs.length - 1].start + 1 : null, /* (a composed sortie: the kit's boss rule, C.boss; the Campaign: its level's) */ // level 3: the supergun 3 chunks into its arena, as in the Campaign
+    ...ENIGMA_ARENA[level], ...(C && C.arenaTracks ? { arenaTracks: C.arenaTracks } : null), ...(C && C.bossVar ? { bossVar: C.bossVar } : null), ...(C && C.ravenMid ? { ravenMid: true } : null), ...(C && C.castleRuin ? { castleRuin: true } : null), ...(C && C.cityArena ? { cityArena: C.cityArena } : null), ...(C && C.arenaYard ? { arenaYard: true } : null), ...(C && C.arenaLand ? { arenaLand: true } : null), ...(C && C.arenaSea ? { arenaSea: true, legacyTail: C.legacyTail | 0 } : null), ...(C && C.game.legacyGrid ? { straight: true } : null), /* (a kit whose plan ends in the old land: straight roads on the built-up grounds, plan 12.20) */ name: STAGE_NAMES[theme], rng: k => sortieHash((seed | 0) + ENIGMA_RNG[i] * 977, k), ud: city || (level >= 2 && level <= 5) ? sortieUD(segs, at) : null };
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
@@ -12880,21 +12912,21 @@ function sortiePlan(S) {
   if (typeof CityGen === 'undefined') return null;
   const P = sortiePlanBuild(S); if (P) { drillPits(S, P); buechseNests(S, P); roadTip(S, P); } return P;
 }
-// The Drilling's tank pits (owner): two in every level with a plan but level 1 (its islands: there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
+// The Drilling's tank pits (owner), for the Campaign's levels (a composed sortie takes its kit's, C.game.pits: KIT_GAME in tools/sortie-compose.js): two in every level with a plan but level 1 (its islands: there a heavy tank stands in each, planDrills), three in level 2 (its held village's pit and two
 // more), each in a segment, at a share of it: [template, share]. CityGen.tankPits picks the spot near there (open ground beside the main road).
 const DRILL_PITS = { 2: [['airbase_desert', 0.2], ['pass', 0.35]], 3: [['industrial_power', 0.5], ['airbase_searchlight', 0.5]], 4: [['forest_fortified', 0.5], ['valley', 0.5]],
   5: [['station_winter', 0.5], ['pass', 0.4]], 6: [['city_centre', 0.5], ['industrial_power', 0.5]], 1: [['island_chain', 0.2], ['island_airbase', 0.55]] }; // (level 1's two hold a dug-in heavy tank: the owner introduces the Drilling in level 2)
 function drillPits(S, P) {
-  const want = DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return;
+  const want = S.compose ? S.compose.game.pits : DRILL_PITS[S.level]; if (!want || !CityGen.tankPits) return; /* (a composed sortie: its kit's, KIT_GAME) */
   const bands = []; for (const [t, f] of want) { const g = S.segs.find(q => q.t === t); if (!g) continue; const c = (g.start - S.planC0 + f * g.n) * CH, h = Math.max(40, 0.4 * g.n * CH); bands.push([Math.max(0, c - h), Math.min(P.L - 1, c + h)]); }
   CityGen.tankPits(P, bands);
 }
-// The Buechse's side emplacements (owner): two in every level with a plan but level 1 (whose plan is the islands, sea at both edges), each
+// The Buechse's side emplacements (owner), for the Campaign's levels (a composed sortie takes its kit's, C.game.nests): two in every level with a plan but level 1 (whose plan is the islands, sea at both edges), each
 // in the widest stretches between the tank pits (or a pit and the plan's end) where one fits, kept 420 rows from the pits. CityGen.edgeNests picks
 // the spot there (at the screen's left or right edge, as near the stretch's middle as fits).
 const BUECHSE_NESTS = { 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 };
 function buechseNests(S, P) {
-  const n = BUECHSE_NESTS[S.level]; if (!n || !CityGen.edgeNests) return;
+  const n = S.compose ? S.compose.game.nests : BUECHSE_NESTS[S.level]; if (!n || !CityGen.edgeNests) return; /* (a composed sortie: its kit's, KIT_GAME) */
   const ys = [0, ...P.slots.filter(q => q.kind === 'tank').map(q => q.y).sort((a, b) => a - b), P.L - 1], gaps = [];
   for (let k = 1; k < ys.length; k++) { const a = ys[k - 1] + (k > 1 ? 420 : 120), b = ys[k] - (k < ys.length - 1 ? 420 : 120); if (b - a < 60) continue; if (b - a > 1100) gaps.push([a, (a + b) / 2], [(a + b) / 2, b]); else gaps.push([a, b]); } // (a long stretch: a band in each half)
   CityGen.edgeNests(P, gaps.sort((g, h) => (h[1] - h[0]) - (g[1] - g[0])), n); // (the widest first, until n fit: built-up edges have none)

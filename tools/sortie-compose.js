@@ -8,7 +8,7 @@
    The grammar is what the presets tolerate, measured by tests/compose-probe.mjs (sections 6.2 and 6.6 of the plan). The length
    ranges below are narrower than what is merely valid: they keep every stretch long enough to play and short enough not to drag.
 
-   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, arena,
+   composeSortie(kitId, seed, sub) -> { v, kit, level, seed, sub, base (the seed with the sub-seed mixed in: the game's sortie seed), attempt, segs: [{ t, start, n }], len, encPlan, wingC (the chunk the Shadow Wing comes at), boss, game (what the game needs from the kit: KIT_GAME), arena,
      climate, timeOfDay, gen: { preset, seed, params } }  (gen is what CityGen.generate takes)
    composeSortie(kitId, seed, sub, flavour): flavour 'plain' (default), 'rank', 'variant' or 'loop' (section 11.2 of the plan): adds .flavour, .ground, .rank
    composeSortie(kitId, seed, sub, flavour, twist): twist 'none' (default) or one of TWISTS (section 11.1): adds .twist. A twist never changes the segment list;
@@ -34,8 +34,9 @@ const hashInt = (a, b) => (hash(a, b) * 4294967296) | 0;
      built: the highest share of structures a segment of it may have (gate 2; twice the hand-made level's highest, plus 5 points).
    follows[t]: what may come directly after t (the opener's last template and every middle one). The approach may follow any
      middle template that differs from its first.
-   len: the total, in chunks. boss: { add: n } the trigger n chunks past the level's end, or { yard: true } (level 5's rule, which the
-     game works out from the screen). arena: chunks of plan past the level's end. params: the generator's, besides segs.
+   len: the total, in chunks. boss: where the boss's trigger lies, which is also the pacing length (the game's arcLen): { add: n } n chunks
+     past the level's end; { into: n } n chunks into the level's last segment (the temperate kit: one chunk into its last open sea);
+     { yard: true } level 5's rule, which the game works out from the screen (yardWait). arena: chunks of plan past the level's end. params: the generator's, besides segs.
    enc[t]: encounters a segment of t may hold: { id, at: chunks into the segment, end: chunks before its end the try is given up,
      frames: how long it runs (measured in the first loops, tests/daily-baseline.json), first/last: only in the level's first or
      last segment of that template }. Taken from the loops' hand-made plans (buildSortie). Only those that work on the first pass's ground
@@ -142,7 +143,7 @@ const KITS = {
   /* the temperate kit (level 1, plan 12.20): from the carrier over the open sea, bands of islets (the Campaign's chain, a ring of fortress islets, an archipelago of homes and rocks), the large island with the village and the airbase,
      then the old land, painted as level 1's own legacy chunks (a fortified beach, farmland, a village, a wood, a coast, the open sea the ship fights on). The plan is the generator's segment-native islands up to the beach (S.legacyTail
      is the old land after it); every sortie of the kit ends over open sea. The old land's order is its own small walk (kit.legacy). */
-  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { add: 1 }, climate: 'temperate', timeOfDay: 'day', len: [28, 40], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
+  temperate: { id: 'temperate', level: 1, preset: 'islands', params: {}, arena: 0, boss: { into: 1 }, climate: 'temperate', timeOfDay: 'day', len: [28, 40], /* (the plan's chunks, the carrier to the open sea before the beach; the old land after it, kit.legacy.len, is on top) */
     opener: [['carrier_start', 4], ['open_sea', 6]], approach: [['open_sea', 3]],
     middle: {
       island_chain: { len: [5, 7], max: 2, heat: 0.5, built: 0.1 },
@@ -378,6 +379,23 @@ function archiKit(id) {
     dials: { global: { lane: [38, 56] }, seg: { island_chain: BANDS, island_fortress: BANDS, island_archipelago: BANDS }, int: ['count', 'lane'], strong: ['count', 'size'] } });
 }
 for (const id in KITS) { KITS[id].archiKit = archiKit(id); KITS[id].archiShare = ARCHI_SHARE; }
+/* What the game needs from a kit besides its ground (the plan, sortiePlanComposed) and its encounters (encPlan). The composed sortie carries it
+   as S.game, from the kit itself (KITS[id], never a day's variant: an archipelago or land day keeps its kit's), and the game reads only that,
+   never the kit's name or its level, so a new kit adds a line here instead of a case in the game:
+   pits: [[template, share]...] the Drilling's tank pits, one in the first segment of each template at that share of it (drillPits; a template
+     the day's list does not have gets none);
+   nests: how many Buechse side emplacements the plan gets (buechseNests; 0 for a plan with sea at both edges);
+   loopFlag: the game's flag for the kit's loop ground on a 'variant' or 'loop' day ('variant', 'autumn' or 'winter': the painters' switches
+     for the level's first-loop look; none where the loop ground is the generator's alone);
+   legacyGrid: the plan ends in the old land's legacy ground, painted with the old land's straight streets and the gate's colours (S.straight,
+     gatePix, railPix). */
+const KIT_GAME = {
+  desert: { pits: [['airbase_desert', 0.2], ['pass', 0.35]], nests: 2, loopFlag: 'variant' },
+  forest: { pits: [['forest_fortified', 0.5], ['valley', 0.5]], nests: 2, loopFlag: 'autumn' },
+  winter: { pits: [['station_winter', 0.5], ['pass', 0.4]], nests: 2, loopFlag: 'winter' },
+  city: { pits: [['city_centre', 0.5], ['industrial_power', 0.5]], nests: 2 },
+  temperate: { pits: [['island_chain', 0.2], ['island_airbase', 0.55]], nests: 0, legacyGrid: true } };
+for (const id in KITS) KITS[id].game = KIT_GAME[id];
 /* an archipelago day: forced by sea ('on' or 'off'), else the kit's share on its own stream */
 function archiDay(kit, base, sea) { return !!kit.archiKit && (sea === 'on' || (sea !== 'off' && hash(base | 0, 6985) < kit.archiShare)); }
 const dialNames = kit => { const all = Object.keys(kit.dials.global); for (const t in kit.dials.seg) for (const k in kit.dials.seg[t]) if (!all.includes(k)) all.push(k); return all; };
@@ -451,7 +469,7 @@ function composeSortie(kitId, seed, sub, flavour, twist, dials, tod, sea) {
     const dl = dials === 'on' ? dialsFor(kit, base, core.slice(0, planN), ground) : { names: [], global: {}, seg: segs.map(() => null) };
     const params = Object.assign({}, kit.params, ground ? LOOP_PARAMS[kitId] : {}, dl.global, { segs: core.map((g, i) => Object.assign({ t: g.t, n: g.n }, g.next ? { next: g.next } : null, dl.seg[i] ? { p: dl.seg[i] } : null)) }); if (kit.preset === 'ironForest') params.L = coreAt * 64; if ((tail || (bs && bs.ice)) && kit.seaParams) Object.assign(params, kit.seaParams); if (bs && bs.ice) { params.harbourIce = true; params.depotArena = ICE_ARENA; } else if (bs && bs.rail) { params.finale = 'railgorge'; params.railArena = RAIL_ARENA; } else if (tail && kit.iceShare) params.harbourIce = hash(base, 6700) < kit.iceShare; /* (a sea ending replaces the kit's own arena: the winter's gorge) */
     const cityArena = cityArenaFor(kit, bs, tail ? tailLen : 0, base); if (air) Object.assign(params, kit.airParams); else if (snow) Object.assign(params, kit.snowParams); if (cityArena && arenaSeaFor(kit, bs)) { params.cityArena = cityArena; params.cityArenaSea = true; if (kit.legacy) { const gp = arenaGap(tail); if (gp) params.cityArenaGap = gp; if (!tail.some(q => q[0] === 'coast_down')) params.cityArenaOpen = true; } if (kit.archi) params.cityArenaOpen = true; /* (an archipelago day: the arena is open sea, no coast) */ if (kit.cityArena.isles) params.cityArenaIsles = true; } /* (the temperate kit: the arena begins after the old land's built-up stretches, at its coast, or is open sea after the mainland's own cove) */ else if (cityArena && bs.yard) { params.cityArena = cityArena; params.cityArenaYard = true; } else if (cityArena) { const st = arenaStyle(kit, base, bs); if (st) params.cityArenaStyle = st; const fe = arenaFeature(kit, bs, base, st); if (fe) params.cityArenaFeature = fe; params.cityArena = cityArena; const tr = cityArenaTracks(kit, ap); if (tr) params.cityArenaTracks = tr; if (cityArenaScenes(kit, bs)) params.cityArenaScenes = true; if (bs.track) params.cityArenaBossTracks = [].concat(bs.track); }
-    const ep = encPlanFor(kit, kit.legacy ? segs : core, base, twist === 'fast' ? FAST_K : 1), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
+    const ep = encPlanFor(kit, kit.legacy ? segs : core, base, twist === 'fast' ? FAST_K : 1), S = { v: VERSION, flavour, twist, dials, dialNames: dl.names, tod, ground, rank, kit: kitId, level: kit.level, seed, sub, base, attempt, segs, len: at, encPlan: ep.enc, wingC: ep.wingC, boss: Object.assign({}, kit.boss), game: JSON.parse(JSON.stringify(KITS[kitId].game)), arena: bs && bs.ice ? ICE_ARENA : bs && bs.rail ? RAIL_ARENA : tail && kit.seaParams ? 0 : kit.arena, climate: kit.climate, timeOfDay: kit.timeOfDay,
       gen: { preset: kit.preset, seed: (hash((base + kit.level * 977) | 0, 61) * 2147483647) | 0, params } };
     if (hash(base, 6950) < RAVEN_MID_SHARE) S.ravenMid = true; /* (the mid-level fight is the Raven prototype's duel instead of the Shadow Wing: its own stream, plan 12.22) */
     if (bs && bs.kind === 'castle' && hash(base, 6960) < CASTLE_RUIN_SHARE) S.castleRuin = true; /* (a castle as a ruin, Ravenhold too: breaches in the walls, cracked and scorched courts; looks only, its own stream) */

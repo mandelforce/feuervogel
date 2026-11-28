@@ -40,6 +40,16 @@ for (const k of kits) { let same = 0, subDiff = 0, seedDiff = 0; const N = 200;
   ok(same === N, `${k}: the same seed gives the same sortie (${same}/${N})`);
   ok(subDiff >= N * 0.9 && seedDiff >= N * 0.9, `${k}: another sub-seed or seed gives another list (${subDiff} and ${seedDiff} of ${N})`); }
 
+// 3b. what the game reads from a kit (S.boss, S.game; tools/sortie-compose.js KIT_GAME): well formed, and every tank pit's template one
+// the kit's lists really have (a misspelt template would only give a level without pits)
+for (const k of kits) { const seen = new Set(), rules = new Set(); let shape = true; const N = 300;
+  for (let s = 0; s < N; s++) { const S = SC.composeSortie(k, s * 13 + 5); S.segs.forEach(g => seen.add(g.t)); const b = S.boss || {}, G = S.game || {};
+    rules.add(b.yard ? 'yard' : b.into !== undefined ? 'into' : b.add !== undefined ? 'add' : 'none');
+    if (!(b.yard === true || b.into >= 0 || b.add >= 0) || !Array.isArray(G.pits) || !(G.nests >= 0) || (G.loopFlag && !['variant', 'autumn', 'winter'].includes(G.loopFlag))) shape = false; }
+  const G = SC.KITS[k].game, missing = G ? G.pits.map(q => q[0]).filter(t => !seen.has(t)) : ['(no game block)'];
+  ok(shape && rules.size === 1 && !rules.has('none'), `${k}: every sortie has one boss rule (${[...rules]}) and a well-formed game block`);
+  ok(!missing.length, `${k}: every tank pit's template occurs in the kit's lists` + (missing.length ? ` (never in ${N}: ${missing})` : '')); }
+
 // 4. gate 1 on 10,000 seeds per kit. The rules are checked here from the kit table, apart from SC.check.
 const variety = {};
 for (const k of kits) { const kit0 = SC.KITS[k], bad = {}, att = {}, N = 10000; let worst = 0, mod = 0, kit = kit0, APS, OPS; const setKit = q => { kit = q; APS = (kit.approaches || [kit.approach]).concat(kit.seaApproach ? [kit.seaApproach] : []); OPS = kit.openers || [kit.opener]; }; setKit(kit0); /* (a land day, the temperate kit's land variant, is checked against its own grammar) */
