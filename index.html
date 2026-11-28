@@ -6519,7 +6519,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.62'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.63'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16295,7 +16295,7 @@ function trainMove(e) {
     if (e.v <= 0) { groundPos(e); return; }
   }
   const nwy = e.wy + e.v, aY = e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4, ax = e.br ? brX(e.br, aY) : e.wx, ahead = terrainType(ax, aY); // (level 5: a train on the bridge looks ahead along it)
-  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(ax, aY))) && !blockedMove(e, 0, e.v) && !moundAt(ax, aY)) e.wy = nwy; // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
+  if (e.scripted ? !blockedMove(e, 0, e.v) : ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(ax, aY))) && !blockedMove(e, 0, e.v) && !moundAt(ax, aY))) e.wy = nwy; /* (e.scripted: the silo's trains run on the rails its scene draws, whatever the terrain under them is) */ // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
   if (e.br) { const x = brX(e.br, e.wy); e.ang = Math.atan(brX(e.br, e.wy - 1) - x); e.wx = x; } // across the bridge, turning with its curve
   groundPos(e);
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
@@ -21119,6 +21119,7 @@ function arenaScene(kind) {
     R(92, 150, 40, 62, '#2a2a30', 0.85); R(92, 150, 40, 1, '#8a8c90', 0.7); for (let y = 154; y < 210; y += 6) R(96, y, 32, 1, '#3c3e42', 0.7); /* (the flame trench) */
     for (const x of [48, 176]) { R(x - 20, 112, 40, 36, '#55575c', 0.85); R(x - 20, 112, 40, 1, '#8a8c90', 0.7); for (let k = 0; k < 40; k += 5) R(x - 20 + k, 144, 3, 2, '#d8b830', 0.8); } /* (aprons of the control bunkers) */
     R(0, 226, W, 24, '#44484e', 0.92); R(0, 226, W, 1, '#c8c8c4', 0.9); for (let x = 6; x < W; x += 14) R(x, 237, 8, 2, '#e0e0dc', 0.95); /* (the service road) */
+    for (const rx of [8, 216]) { R(rx - 5, 0, 10, 260, '#5a4e3e', 0.55); for (let y = 0; y < 260; y += 5) R(rx - 5, y, 10, 2, '#3a2e22', 0.8); R(rx - 3, 0, 1, 260, '#9a9a9e', 0.95); R(rx + 2, 0, 1, 260, '#9a9a9e', 0.95); } /* (the two rails the supply trains come up, west and east of the pad) */
   } else if (kind === 'bridgedef') { /* the river across the bottom of the arena, the road down to it, the bridge's deck and piers */
     R(0, 204, W, 46, '#1e4a66', 0.95); for (let y = 208; y < 246; y += 6) for (let x = (y % 12) * 2; x < W; x += 24) R(x, y, 8, 1, '#4a88a6', 0.7); R(0, 202, W, 3, '#8a7a58', 0.95); R(0, 247, W, 3, '#8a7a58', 0.95); /* (water, ripples, the banks) */
     R(98, 0, 28, 204, '#4a4a50', 0.85); for (let y = 6; y < 204; y += 14) R(111, y, 2, 7, '#d8d8c8', 0.9); /* (the road with its centre dashes) */
@@ -21213,7 +21214,18 @@ FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircr
 FOLLOW.silo.tick = (e, sc) => { /* the rocket is shielded while a control bunker stands; with both down it is armed, and forty-five seconds later it launches */
   const r = e.subs.find(m => m.type === 'silorocket'); if (!r || r.dead || r.dying) return; const cov = e.subs.some(m => m.type === 'bunker' && !m.dead && !m.dying); r.shield = cov;
   if (!cov && !r.armed) { r.armed = e.ft; sfx('warn'); }
-  if (r.armed && !r.launch && e.ft - r.armed > 2700) { r.launch = true; sfx('rocket'); feel.shake = Math.max(feel.shake, 6); } };
+  if (r.armed && !r.launch && e.ft - r.armed > 2700) { r.launch = true; sfx('rocket'); feel.shake = Math.max(feel.shake, 6); }
+  if (r.launch) return; /* (reinforcements, owner: trains with tanks come up the rails from the south, heavy tanks and Buechsen along the service road from the east; extras, not part of the fight's hit points (they are not in e.subs), and they stop coming once the rocket flies) */
+  for (const m of world.enemies) if (m.reinf && !m.dead && m.stopX !== undefined && m.wx <= m.stopX) m.v = 0; /* (a column halts at its station and fires from there) */
+  const t = e.ft - 360, live = world.enemies.filter(m => m.reinf && !m.dead && !m.dying && m.y > -60 && m.y < H + 40).length;
+  if (t >= 0 && t % 1200 === 0 && live < 12) { /* (a train every twenty seconds, on the west rail and the east in turn: a locomotive and three or four flatcars with their guns) */
+    const k = t / 1200, rx = k % 2 ? 216 : 8, n = 3 + (k % 2), tid = ++world.trainId, m2 = hpm(), v = -0.55; world.trainLeft[tid] = n + 1; trainBonus[tid] = 800 * (n + 1);
+    const add = (type, y, o) => { const g = G(type, rx, y - sc, Object.assign({ train: tid, v, up: true, scripted: true, reinf: true, far: 420, hd: -PI / 2 }, o)); world.enemies.push(g); };
+    add('loco', H + 30, { diesel: k % 3 === 0, hp: 16 * m2, hh: 20 });
+    for (let i = 0; i < n; i++) add(i === 1 && n > 3 ? 'boxcar' : 'flatcar', H + 66 + i * 30, { ga: -PI / 2, cd: i === 1 && n > 3 ? 999 : 60 + i * 20 });
+    sfx('whistle'); }
+  if (t >= 600 && (t - 600) % 1500 === 0 && live < 12) { /* (a column from the east every twenty-five seconds: two heavy tanks, and a Buechse after the first) */
+    const k = (t - 600) / 1500, kinds = k ? ['htank', 'buechse', 'htank'] : ['htank', 'htank']; kinds.forEach((kd, i) => { const y = 232, x = W + 26 + i * 34, o = { road: false, hd: PI, v: 0.22, reinf: true, stopX: 100 + i * 44 + (k % 2 ? 20 : 0), cd: 80 + i * 40 }; world.enemies.push(kd === 'buechse' ? makeBuechse(x, y - sc, o) : G(kd, x, y - sc, tankStats(o))); }); sfx('drone'); } };
 FOLLOW.slipway.tick = (e, sc) => { /* the hull slides: down the slip (the hull is held where it is by nothing, so it is moved here); at the bottom of the screen it floats clear and the level ends */
   const h = e.subs.find(m => m.slip); if (!h || h.dead || h.dying) return; h.wy += 0.055; if ((h.wy + sc) % 90 < 0.06) sfx('tick');
   if (h.wy + sc > 258) { h.escaped = true; h.dead = true; sfx('horn'); } };
