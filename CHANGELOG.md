@@ -13,7 +13,7 @@
   - **Seams:** the relief fades to the plain over 60 rows. In the 14 seam rows the kit's own ground is kept and its colours fade into the stretch's, so no line shows at a join. The kit's buildings, trees and other things in the stretch are cleared; buildings are retired with their index kept.
   - **Painting:** the colours are painted once into `plan.mtn[k].rgb`, lit from the upper left as the rest of the ground. `paint` copies them for every pixel but the kit's rail and road.
   - **Lab:** the city lab's daily panel has a **Mountain stretch** choice: as drawn, a cliff one, or an incline one (`mtn` on the segment).
-  - **Cost:** about 0.3 to 0.5 s more plan time in Node on a mountain day.
+  - **Cost:** about 0.3 to 0.5 s more plan time in Node on a mountain day. The composer test's plan-time budgets are raised 15 % for it (owner: "raise budgets overall"; `BUDGET` in `tests/compose.mjs`: the hand-made lists' time × 1.5 × 1.15).
 - Daily Sortie: archipelago days, a variation of every climate that is mostly water with a few islands (build 1.2.6.61, composer v6; owner: "a new climate / biome variation of all existing ones but with mainly water and just a few islands"; flown by the test bot, **not by a person**). In one day in five of every kit (desert, forest, winter, city, temperate; its own hash stream, 6985) the level is open sea with three to five bands of islets far apart, open sea after every band, and no land: about 4 % of the level is land. It keeps the kit's level (art, timetable, time of day) and its climate's look:
   - **Desert:** sandy islets with palms and flat-roofed houses.
   - **Forest:** the forest's dark greens and rockier shores.
