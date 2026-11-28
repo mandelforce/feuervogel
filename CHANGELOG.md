@@ -1,6 +1,19 @@
 # Changelog
 
 ## 1.2.5 beta (Unreleased)
+- Daily Sortie and generator: mountain stretches in every climate (build 1.2.6.62, composer v7; owner: "create mountain sections for the generator and daily sortie of all climates", from the mockups the owner reviewed; checked by `tests/mountains.mjs`, **not flown by a person or the test bot yet**). On about a third of the days (its own hash stream, 7101; `MOUNTAIN_SHARE`) one middle stretch of 6 to 8 chunks is a mountain (`mountain`; `main_mountain` on the temperate mainland), never two, never on the city's boss approach. The plan's seed makes it one of two kinds:
+  - **Cliff:** stepped rock faces with cast shadows: the desert's mesa escarpment with buttes, the forest's granite band with a ravine and a waterfall, the winter's arête with a glacier, the city's quarry, the temperate chalk scarp above a field patchwork.
+  - **Incline:** slopes shown by hill-shading and by what follows them: the desert's jebel ridge with a saddle, the forest's wooded spur with a lookout, the winter's snowfields with a road gallery, the city's hill town (streets on the contours, a town castle on top), the temperate vineyard hill with a ruined castle.
+
+  How it is built (`mountainStretches` in `tools/citygen.js`, called by `generate` after the kit's own builder, which lays those rows as open country):
+  - **The kit's rail** stays where it was and is graded at 0.25 at most: where the ground rises faster it runs in a cutting between rock walls. It is never a tunnel, so trains stay in sight (the open question from the mockups).
+  - **The main road** is laid again one point per row (the game's convoys follow `sortieRoutes`, one x per row, so it has no hairpins), joining the kit's road at both ends. It is found over the ground and graded in at 0.5 at most. Where the ground is steeper it runs in a cutting with rock walls, and where it is built out there is a dry-stone retaining wall. At a level crossing it meets the rail's height.
+  - **Rock faces** are `K.CLIFF` (game type `rock`). Houses and towers are `K.AROOF` (`roof`), fields, woods, streets and ice their own kinds.
+  - **Flak:** sites on level ground that stand above their surroundings near what they defend, 40 px apart, each with a supply track to a road or the rail. They become plan slots (`kind: 'flak', on: 'mountain'`), and the stretch's encounter is FLAK LANE. On the quarry, guns stand on the rim's high point.
+  - **Seams:** the relief fades to the plain over 60 rows. In the 14 seam rows the kit's own ground is kept and its colours fade into the stretch's, so no line shows at a join. The kit's buildings, trees and other things in the stretch are cleared; buildings are retired with their index kept.
+  - **Painting:** the colours are painted once into `plan.mtn[k].rgb`, lit from the upper left as the rest of the ground. `paint` copies them for every pixel but the kit's rail and road.
+  - **Lab:** the city lab's daily panel has a **Mountain stretch** choice: as drawn, a cliff one, or an incline one (`mtn` on the segment).
+  - **Cost:** about 0.3 to 0.5 s more plan time in Node on a mountain day.
 - Daily Sortie: archipelago days, a variation of every climate that is mostly water with a few islands (build 1.2.6.61, composer v6; owner: "a new climate / biome variation of all existing ones but with mainly water and just a few islands"; flown by the test bot, **not by a person**). In one day in five of every kit (desert, forest, winter, city, temperate; its own hash stream, 6985) the level is open sea with three to five bands of islets far apart, open sea after every band, and no land: about 4 % of the level is land. It keeps the kit's level (art, timetable, time of day) and its climate's look:
   - **Desert:** sandy islets with palms and flat-roofed houses.
   - **Forest:** the forest's dark greens and rockier shores.

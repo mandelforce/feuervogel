@@ -165,6 +165,7 @@ dl.metrics dd { margin: 0; font: 12.5px var(--data); font-variant-numeric: tabul
       <label class="row" for="dSub">Sub-seed <input type="number" id="dSub" value="0" min="0" style="width:64px"></label>
       <label class="row" for="dDials">Ground dials (drawn from the seed) <input type="checkbox" id="dDials" checked></label>
       <label class="row" for="dForce">Force one dial <span><select id="dForce" style="margin:0;width:auto"><option value="">none</option></select> <select id="dEnd" style="margin:0;width:auto"><option value="0">lowest</option><option value="1">highest</option></select></span></label>
+      <label class="row" for="dMtn">Mountain stretch <select id="dMtn" style="margin:0"><option value="">as drawn</option><option value="cliff">a cliff one</option><option value="incline">an incline one</option></select></label>
       <div class="btnrow"><button id="dRand" class="primary">New day (random seed)</button><button id="dSheet">Contact sheet (6 seeds)</button></div>
       <p class="note" id="dInfo">The seed above is the sortie's seed. "New day" is the composer's own draw: the segment list and, with dials on, the day's ground dials.</p>
       <label for="dSegs" class="note" style="display:block">Segment list (JSON, one segment a line; <code>p</code> holds a segment's dials). Edit, then Apply.</label>
@@ -208,7 +209,7 @@ $('legend').innerHTML = Object.keys(KIND_LABEL).map(k => `<span><i style="backgr
   Object.entries(SLOT_COL).map(([k, c]) => `<span><i style="background:${c};border-radius:50%"></i>${{ flak: 'Flak slot', arty: 'Artillery slot', aatower: 'AA tower slot', bunker: 'Bunker or turret slot', parked: 'Parked plane (blast pen)', sub: "Submarine berth (the game's submarine)" }[k]}</span>`).join('');
 
 // ---------- settings ----------
-const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'wear', 'dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire', 'oNight'];
+const ctl = ['seed', 'preset', 'curve', 'len', 'dmg', 'pden', 'spacing', 'coll', 'lots', 'trees', 'parish', 'grid', 'tilt', 'wear', 'dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd', 'dMtn', 'scale', 'oStreets', 'oTank', 'oSlots', 'oKinds', 'oQuarters', 'oChunks', 'oScreen', 'oFire', 'oNight'];
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) $('oFire').checked = false;
 try { const saved = JSON.parse(localStorage.getItem('citylab') || '{}'); for (const k of ctl) if (saved[k] !== undefined && $(k)) { if ($(k).type === 'checkbox') $(k).checked = saved[k]; else $(k).value = saved[k]; } } catch (e) {}
 function save() { try { const o = {}; for (const k of ctl) o[k] = $(k).type === 'checkbox' ? $(k).checked : $(k).value; localStorage.setItem('citylab', JSON.stringify(o)); } catch (e) {} }
@@ -226,7 +227,7 @@ function showVals() {
 // The composer's own day: its segment list and ground dials, generated and shown like any preset. The seed field is the sortie's seed.
 const SC = window.SortieCompose;
 let dailyList = null, dailyKey = ''; // an edited segment list (from the textarea), or null: the composed one; and the settings it was made under
-const dailyKeyNow = () => [$('dKit').value, +$('seed').value | 0, +$('dSub').value | 0, $('dFlav').value, $('dDials').checked, $('dForce').value, $('dEnd').value].join('|');
+const dailyKeyNow = () => [$('dKit').value, +$('seed').value | 0, +$('dSub').value | 0, $('dFlav').value, $('dDials').checked, $('dForce').value, $('dEnd').value, $('dMtn').value].join('|');
 function fillForce() { const k = $('dKit').value, cur = $('dForce').value; $('dForce').innerHTML = '<option value="">none</option>' + (k ? SC.dialNames(SC.KITS[k]).map(d => `<option>${d}</option>`).join('') : ''); if ([...$('dForce').options].some(o => o.value === cur)) $('dForce').value = cur; }
 fillForce(); try { const f = JSON.parse(localStorage.getItem('citylab') || '{}').dForce; if (f && [...$('dForce').options].some(o => o.value === f)) $('dForce').value = f; } catch (e) {}
 // { S: the composed sortie, gen: what CityGen.generate takes, kit } or null (kit off, or the composer found no list)
@@ -237,6 +238,11 @@ function dailyGen() {
   if (force) { const D = SC.KITS[kit].dials, end = +$('dEnd').value, params = Object.assign({}, gen.params); if (D.global[force]) params[force] = D.global[force][end];
     params.segs = gen.params.segs.map(g => (D.seg[g.t] || {})[force] ? Object.assign({}, g, { p: { [force]: D.seg[g.t][force][end] } }) : g); gen = Object.assign({}, gen, { params }); }
   if (dailyList) { const params = Object.assign({}, gen.params, { segs: dailyList }); if (SC.KITS[kit].preset === 'ironForest') params.L = dailyList.reduce((a, g) => a + (g.n | 0), 0) * 64; gen = Object.assign({}, gen, { params }); }
+  const mk = $('dMtn').value; if (mk) { /* a mountain stretch of the chosen kind: the day's own, or its first middle stretch made one (tools/citygen.js, mountainStretches) */
+    const K0 = SC.KITS[kit], tm = kit === 'temperate' ? 'main_mountain' : 'mountain', mids = Object.keys(kit === 'temperate' ? K0.main.middle : K0.middle); let done = false;
+    const segs = gen.params.segs.map(g => { if (g.t === tm && !done) { done = true; return Object.assign({}, g, { mtn: mk }); } return g; });
+    if (!done) { const k = segs.findIndex((g, i) => i > 1 && mids.includes(g.t) && g.n >= 5); if (k >= 0) segs[k] = Object.assign({}, segs[k], { t: tm, n: Math.max(6, Math.min(8, segs[k].n)), mtn: mk }); }
+    const params = Object.assign({}, gen.params, { segs }); if (K0.preset === 'ironForest') params.L = segs.reduce((a, g) => a + (g.n | 0), 0) * 64; gen = Object.assign({}, gen, { params }); }
   return { S, gen, kit };
 }
 function showDaily(dg) {
@@ -250,7 +256,7 @@ $('dApply').addEventListener('click', () => { let a; try { a = JSON.parse($('dSe
   if (!Array.isArray(a) || !a.length || a.some(g => !g || typeof g.t !== 'string' || !(g.n >= 1) || g.n !== Math.floor(g.n))) { $('dInfo').textContent = 'Each segment needs a template name t and a whole length n of at least 1.'; return; }
   dailyList = a; dailyKey = dailyKeyNow(); build(); });
 $('dReset').addEventListener('click', () => { dailyList = null; build(); });
-for (const id of ['dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd']) $(id).addEventListener('change', () => { if (id === 'dKit') fillForce(); build(); });
+for (const id of ['dKit', 'dFlav', 'dSub', 'dDials', 'dForce', 'dEnd', 'dMtn']) $(id).addEventListener('change', () => { if (id === 'dKit') fillForce(); build(); });
 $('dRand').addEventListener('click', () => { $('seed').value = (Math.random() * 99999) | 0; if (!$('dKit').value) $('dKit').value = 'desert'; fillForce(); build(); });
 // the whole plan painted into one image (as build() does, a chunk at a time)
 function paintFull(p) { const { W, L } = p, out = new ImageData(W, L), tmp = new ImageData(W, 64);
