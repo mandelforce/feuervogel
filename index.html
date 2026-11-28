@@ -6519,7 +6519,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.62'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.63'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -16295,7 +16295,8 @@ function trainMove(e) {
     if (e.v <= 0) { groundPos(e); return; }
   }
   const nwy = e.wy + e.v, aY = e.v >= 0 ? nwy + e.hh + 4 : nwy - e.hh - 4, ax = e.br ? brX(e.br, aY) : e.wx, ahead = terrainType(ax, aY); // (level 5: a train on the bridge looks ahead along it)
-  if ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(ax, aY))) && !blockedMove(e, 0, e.v) && !moundAt(ax, aY)) e.wy = nwy; // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
+  if (e.scripted) { let sx = 0, n = 0; for (let x = Math.round(e.wx) - 10; x <= e.wx + 10; x++) if (planRail(x, e.wy)) { sx += x; n++; } if (n) e.wx += ((sx / n - RAIL_OFF) - e.wx) * 0.2; } /* (a scripted train follows the plan's rail round its bends) */
+  if (e.scripted ? !blockedMove(e, 0, e.v) : ((ahead === 'rail' || ahead === 'railbridge' || ahead === 'ryard' || (run.sortie && planRail(ax, aY))) && !blockedMove(e, 0, e.v) && !moundAt(ax, aY))) e.wy = nwy; /* (e.scripted: the silo's trains run on the rails its scene draws, whatever the terrain under them is) */ // (level 5: a snow mound stops it) // (Enigma Run: on through a plan's level crossings)
   if (e.br) { const x = brX(e.br, e.wy); e.ang = Math.atan(brX(e.br, e.wy - 1) - x); e.wx = x; } // across the bridge, turning with its curve
   groundPos(e);
   if (gf % 20 === 0 && Math.random() < 0.4) world.parts.push({ kind: 'spark', layer: 'g', x: e.x + (Math.random() < 0.5 ? -7 : 7), y: e.y + rnd(-8, 8), vx: rnd(-0.5, 0.5), vy: world.scrollV - 0.4, life: 8, max: 8, col: '#fff2a8' });
@@ -21084,11 +21085,42 @@ function arenaHold() {
   if (d < ARENA_HOLD) world.scrollTarget = Math.min(world.scrollTarget, SCROLL * Math.max(0, d / ARENA_HOLD));
   if (d <= 0) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0); }
 }
+const RAIL_OFF = 2.5; /* (planRail's columns lie this far right of the rail's centre) */
+function sceneRails(sc, own) { /* the rails through a scene's band, as centres: the plan's own rail where it has one, else, for a scene with trains (own), two rails it draws itself */
+  const xs = []; let from = -1;
+  for (let x = 0; x <= W; x++) { const on = x < W && planRail(x, -sc + 90); if (on && from < 0) from = x; if (!on && from >= 0) { if (xs.length && from - xs[xs.length - 1].to <= 8) xs[xs.length - 1].to = x - 1; else xs.push({ from, to: x - 1 }); from = -1; } }
+  return xs.length ? { xs: xs.map(r => (r.from + r.to) / 2 - RAIL_OFF), plan: true } : own ? { xs: [20, 204], plan: false } : { xs: [], plan: true };
+}
+function onRail(wx, wy, hw, hh, R) { /* does a building of this size at (wx, wy) stand on a rail of the scene? */
+  if (!R.plan) return R.xs.some(r => Math.abs(wx - r) < hw + 9);
+  for (let y = wy - hh; y <= wy + hh + 5; y += 5) for (let x = wx - hw - 4; x <= wx + hw + 4; x += 2) if (planRail(x, y)) return true;
+  return false;
+}
+function offRail(m, R, all) { /* the rule: no building stands on a track; a ground unit of a scene that does is moved to the nearest place that is off the rail and clear of the scene's other units (sideways first, then up or down) */
+  if (!m.ground || TRAIN_CARS.has(m.type) || m.wx === undefined) return; const hw = m.hw || 8, hh = m.hh || 8; if (!onRail(m.wx, m.wy, hw, hh, R)) return;
+  const free = (x, y) => x >= hw + 4 && x <= W - hw - 4 && !onRail(x, y, hw, hh, R) && !all.some(o => o !== m && o.ground && o.wx !== undefined && Math.abs(x - o.wx) < hw + (o.hw || 8) + 14 && Math.abs(y - o.wy) < hh + (o.hh || 8) + 14), c = [];
+  for (let dx = -90; dx <= 90; dx += 2) for (let dy = -90; dy <= 90; dy += 4) c.push([dx, dy]);
+  c.sort((a, b) => Math.hypot(a[0], a[1] * 1.5) - Math.hypot(b[0], b[1] * 1.5));
+  for (const [dx, dy] of c) if (free(m.wx + dx, m.wy + dy)) { m.wx = m.x = m.wx + dx; m.wy += dy; m.y = m.wy + Math.floor(world.scroll); return; }
+}
+function sceneReinforce(e, sc) { /* a scene's reinforcements (owner: trains with tanks from the south, heavy tanks and Buechsen from the east): extras, not in e.subs (so not part of the fight's hit points) */
+  for (const m of world.enemies) if (m.reinf && !m.dead && m.stopX !== undefined && m.wx <= m.stopX) m.v = 0; /* (a column halts at its station and fires from there) */
+  const t = e.ft - 360, live = world.enemies.filter(m => m.reinf && !m.dead && !m.dying && m.y > -60 && m.y < H + 40).length, R = e.rails || { xs: [20, 204] };
+  if (t >= 0 && t % 1200 === 0 && live < 12) { /* (a train every twenty seconds, on the rails in turn: a locomotive and three or four flatcars with their guns) */
+    const k = t / 1200, rx = R.xs[k % R.xs.length], n = 3 + (k % 2), tid = ++world.trainId, m2 = hpm(); world.trainLeft[tid] = n + 1; trainBonus[tid] = 800 * (n + 1);
+    const add = (type, y, o) => world.enemies.push(G(type, rx, y - sc, Object.assign({ train: tid, v: -0.55, up: true, scripted: true, reinf: true, far: 420, hd: -PI / 2 }, o)));
+    add('loco', H + 30, { diesel: k % 3 === 0, hp: 16 * m2, hh: 20 });
+    for (let i = 0; i < n; i++) add(i === 1 && n > 3 ? 'boxcar' : 'flatcar', H + 66 + i * 30, { ga: -PI / 2, cd: i === 1 && n > 3 ? 999 : 60 + i * 20 });
+    sfx('whistle'); }
+  if (t >= 600 && (t - 600) % 1500 === 0 && live < 12) { /* (a column from the east every twenty-five seconds: two heavy tanks, and a Buechse after the first) */
+    const k = (t - 600) / 1500, kinds = k ? ['htank', 'buechse', 'htank'] : ['htank', 'htank'];
+    kinds.forEach((kd, i) => { const y = 232, x = W + 26 + i * 34, o = { road: false, hd: PI, v: 0.22, reinf: true, stopX: 100 + i * 44 + (k % 2 ? 20 : 0), cd: 80 + i * 40 }; world.enemies.push(kd === 'buechse' ? makeBuechse(x, y - sc, o) : G(kd, x, y - sc, tankStats(o))); }); sfx('drone'); }
+}
 function sceneZoneAt(sc) {
   const S = run.sortie, P = S && S.plan, A = P && P.arena; if (!A || !A.zones || !A.zones.length || S.planFor !== world.stageBaseP) return null;
   for (const z of A.zones) { const s2 = Math.round(z.y1 + A.y0 - S.planY0); if (s2 >= sc) return s2; } return null;
 }
-function arenaScene(kind) {
+function arenaScene(kind, rails) {
   const c = document.createElement('canvas'); c.width = W; c.height = 260; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
   const R = (x, y, w, h, col, a) => { g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); g.globalAlpha = 1; };
   const DISC = (cx, cy, r, col, a) => { for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); R(cx - w, cy + y, 2 * w, 1, col, a); } };
@@ -21137,6 +21169,7 @@ function arenaScene(kind) {
     R(96, 192, 32, 12, '#6a6e72', 0.9); R(96, 192, 32, 1, '#2c3036', 0.9); for (const x of [100, 112, 124]) R(x, 204, 6, 10, '#a89468', 0.6); /* (a loading rack and bays) */
     for (let x = 36; x < 190; x += 6) { R(x, 44, 1, 2, WIRE, 0.8); R(x, 192, 1, 2, WIRE, 0.8); } /* (the fence) */
   }
+  if (rails && !rails.plan) for (const rx of rails.xs) { R(rx - 5, 0, 10, 260, '#5a4e3e', 0.55); for (let y = 0; y < 260; y += 5) R(rx - 5, y, 10, 2, '#3a2e22', 0.8); R(rx - 3, 0, 1, 260, '#9a9a9e', 0.95); R(rx + 2, 0, 1, 260, '#9a9a9e', 0.95); } /* (a scene on ground with no rail of its own: two rails the supply trains come up) */
   return c;
 }
 /* Art of the ghost ship, the sand crawler and the ice leviathan (plan 12.19): drawn in code, as the game's other sprites. */
@@ -21206,7 +21239,8 @@ FOLLOW.tankcol.tick = (e, sc) => { /* the column advances on the player and fall
   for (const m of e.subs) { if (m.dead || m.dying || (m.type !== 'tank' && m.type !== 'htank')) continue; if (m.baseWy === undefined) m.baseWy = m.wy; const was = m.wy; m.wy = m.baseWy + 30 * (m.type === 'htank' ? 1.5 : 1) * (1 - Math.cos(e.ft * 0.012)); m.moving = Math.abs(m.wy - was) > 0.01; m.hd = PI / 2; } };
 FOLLOW.tankfarm.tick = (e, sc) => { /* a fuel tank that goes up sets its neighbours off: half of their hit points, with an explosion */
   for (const m of e.subs) { if (m.type !== 'fuel' || !m.dead || m.chained) continue; m.chained = true;
-    for (const o of e.subs) if (o.type === 'fuel' && !o.dead && !o.dying && Math.hypot(o.x - m.x, o.y - m.y) < 48) { boom(o.x, o.y, 16, 'g'); damage(o, o.hp0 * 0.55); } } };
+    for (const o of e.subs) if (o.type === 'fuel' && !o.dead && !o.dying && Math.hypot(o.x - m.x, o.y - m.y) < 48) { boom(o.x, o.y, 16, 'g'); damage(o, o.hp0 * 0.55); } }
+  if (e.subs.some(m => m.type === 'fuel' && !m.dead && !m.dying)) sceneReinforce(e, sc); };
 FOLLOW.airbase.tick = (e, sc) => { /* every five seconds one of the parked aircraft taxis and takes off, becoming a fighter that turns back on the player (shoot them while they sit) */
   if (e.ft > 200 && e.ft % 300 === 200) { const c = e.subs.filter(m => m.type === 'parked' && !m.dead && !m.takeoff); if (c.length) { const m = c[(e.ft / 300 | 0) % c.length]; m.takeoff = e.ft + 70; m.taxi = 70; m.v = 0.5; sfx('drone'); } }
   e.subs.forEach((m, i) => { if (m.type === 'parked' && m.takeoff && e.ft >= m.takeoff && !m.dead) { const f2 = mkFighter(m.x, m.y, -PI / 2, 1.6, { turn: 0.042, fireAt: 40 }); f2.hp0 = f2.hp; m.dead = true; boom(m.x, m.y, 8, 'a'); world.enemies.push(f2); e.subs[i] = f2; } }); };
@@ -21243,7 +21277,7 @@ FOLLOW.canyon.tick = (e, sc) => { /* thirty seconds between the walls, the groun
       add('casemate', 112, -34, { ga: PI / 2, cd: 50 }, 2.5); add('fortgun', 44, -64, { ga: PI / 2, cd: 70 }); add('fortgun', 180, -64, { ga: PI / 2, cd: 110 }); add('aatower', 84, -90, { cd: 60 }); add('aatower', 140, -90, { cd: 100 }); } }
   else { const lowest = e.guards.reduce((a, g) => g.dead ? a : Math.max(a, g.y), -999); world.scrollTarget = lowest > -900 && lowest < 90 ? SCROLL * 0.9 : 0; w.open = 1; if (e.guards.every(g => g.dead || g.dying)) { w.dead = true; w.hp = 0; } }
   for (const q of [player, p2]) if (q && !q.dead) { const wy = q.y - sc0, wl = canyonW(wy, 0, w.open || 0), wr = canyonW(wy, 1, w.open || 0); q.x = Math.max(wl + 9, Math.min(W - wr - 9, q.x)); } };
-for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; const scene = ['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo', 'bridgedef', 'dam'].includes(k), z = scene ? sceneZoneAt(sc) : null; if (z !== null) { sc = z; world.sceneStop = z; world.scrollTarget = SCROLL * 1.6; } /* (the city's generated arena: the scene goes in the first scene zone still ahead, and the ground runs on until it is in place) */ if (scene) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k) }); if (scene) for (let i = critters.length - 1; i >= 0; i--) { const c = critters[i]; if (ANIMALS.has(c.kind || 'cow') && c.wy > -sc - 30 && c.wy < -sc + 290) critters.splice(i, 1); } /* (no cows or sheep wander over the scene) */ if (z === null) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } for (const m of F.spawn(e, sc)) { if (z !== null) m.keep = true; /* (placed in a zone above the screen: kept until the ground brings it down, as the Campaign arena's own targets are) */ if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
+for (const k in FOLLOW) { const F = FOLLOW[k]; BOSS[k] = { warn: F.warn, score: 30000, y: 120, x: 112, song: 'boss', parts: [{ k: 'core', ox: 0, oy: 0, hp: 100, hw: 1, hh: 1 }], setup(e, sc) { e.subs = []; const scene = ['gunline', 'airbase', 'tankcol', 'tankfarm', 'silo', 'bridgedef', 'dam'].includes(k), z = scene ? sceneZoneAt(sc) : null; if (z !== null) { sc = z; world.sceneStop = z; world.scrollTarget = SCROLL * 1.6; } /* (the city's generated arena: the scene goes in the first scene zone still ahead, and the ground runs on until it is in place) */ if (scene) e.rails = sceneRails(sc, k === 'tankfarm'); if (scene) world.decals.push({ kind: 'scene', wx: 0, wy: -sc, cv: arenaScene(k, e.rails) }); if (scene) for (let i = critters.length - 1; i >= 0; i--) { const c = critters[i]; if (ANIMALS.has(c.kind || 'cow') && c.wy > -sc - 30 && c.wy < -sc + 290) critters.splice(i, 1); } /* (no cows or sheep wander over the scene) */ if (z === null) { world.scrollTarget = 0; world.scrollV = Math.min(world.scrollV, 0.3); } const spawned = F.spawn(e, sc); for (const m of spawned) { if (scene) offRail(m, e.rails, spawned); if (z !== null) m.keep = true; /* (placed in a zone above the screen: kept until the ground brings it down, as the Campaign arena's own targets are) */ if (F.hpK) { m.hp *= F.hpK; if (m.maxhp) m.maxhp = m.hp; } m.hp0 = m.hp; e.subs.push(m); world.enemies.push(m); } } };
   BOSSMOVE[k] = () => true; BOSS_INTROS[k] = () => {}; BOSS_LOOKS[k] = () => {}; BOSS_FIGHT[k] = { tick(e, core) { BOSS_FIGHT.wolfpack.tick(e, core); if (world.sceneStop != null) return; /* (a scene in a zone ahead: its clock starts when it is in place; the stop itself is next to the scroll, in update) */ if (F.tick && !core.dead) { e.ft = (e.ft || 0) + 1; F.tick(e, Math.floor(world.scroll)); } }, coreFire(e, p) { p.cd = 600; }, dyingFrames: 90 }; }
 for (const [hook, tbl] of Object.entries({ move: BOSSMOVE, intro: BOSS_INTROS, breakup: BOSS_BREAKUPS, remains: BOSS_REMAINS, react: BOSS_REACTS, draw: BOSS_LOOKS }))
   for (const k in tbl) BOSS[k][hook] = tbl[k];
