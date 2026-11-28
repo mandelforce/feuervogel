@@ -2351,12 +2351,14 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
   const moonSh = !!plan.shadowMask; /* the moonrise: the first pass's soft shadows (all cast to the lower right, light from the upper left) are left out; castShadows' mask is the only cast shadow */
   usePalette(plan); const desert = C === C_DESERT, seaPix = opts && opts.seaPix, sandPix = opts && opts.sandPix, railPix = opts && opts.railPix, gatePix = opts && opts.gatePix, GMx = plan.GM, { W, L, K: Kr, B: Br, items } = plan, d = img.data, at = (x, y) => (y < 0 || y >= L || x < 0 || x >= W) ? -1 : y * W + x;
   const bAt = (x, y) => { const i = at(x, y); if (i < 0) return null; const k = Kr[i]; return (k === K.BLDG) && Br[i] >= 0 ? items[Br[i]] : null; };
-  const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L);
+  const streetOf = i => Br[i] <= -2 ? plan.streets[-2 - Br[i]] : null, RMx = plan.RM || new Uint8Array(W * L), mtR = plan.mtnRow;
   for (let sr = 0; sr < h; sr++) {
     const y = y0 + h - 1 - sr; if (y < 0 || y >= L) continue;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, k = Kr[i]; let c, iceSh = 1;
-      if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
+      let mtJ = -1, mtA = 0, mtM = null; if (mtR && y < mtR.length && mtR[y] >= 0) { mtM = plan.mtn[mtR[y]]; const j = (mtM.y1 - 1 - y) * W + x; if (!mtM.keep[j]) { mtJ = j; mtA = mtM.alpha[mtM.y1 - 1 - y]; } } /* (a mountain stretch: its own colours, mountainStretches; blended into the host's in its seam rows) */
+      if (mtJ >= 0 && mtA >= 1) c = [mtM.rgb[mtJ * 3], mtM.rgb[mtJ * 3 + 1], mtM.rgb[mtJ * 3 + 2]];
+      else if (gatePix && GMx && GMx[i]) c = gatePix(x, y, GMx[i]); /* the gate's street and road: the host's own colours (plan 12.22) */
       else if (RMx[i] === 2 && (k === K.ROAD || k === K.STREET || k === K.WALK)) c = railPix ? railPix(x, y, 2) : C.rail[(y & 1) ? 0 : 1]; // a level crossing: the rails run through the road
       else if (plan.forestA && plan.isArena && Br[i] === -1) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.WOOD ? [40, 60, 30] : k === K.ROAD ? [120, 112, 100] : k === K.FIELD ? [150, 140, 80] : k === K.RAIL ? [110, 100, 90] : [92, 120, 60]; /* the forest's boss arena: every pixel the host's own (the castle ground's grass, woods, fields, cobbled road and rails); a plain stand-in without a host */
       else if (plan.desertA && plan.isArena) c = opts && opts.arenaPix ? opts.arenaPix(x, y) : k === K.DESERT ? [214, 190, 140] : k === K.ROAD ? [150, 120, 84] : k === K.RAIL ? [110, 100, 90] : [132, 128, 74]; /* the desert's boss arena: every pixel the host's own (its scrub, sand, track and rails); a plain stand-in without a host */
@@ -2555,6 +2557,7 @@ function paint(plan, img, y0, h, opts) { // opts.railPix(x, y, m) -> [r, g, b]: 
           else if (kk === 3) c = C.shadow; else { const pal = C.facade[b.church ? 2 : (hh(b.seed, 51) * 3) | 0]; c = x % 3 === 1 ? (hh(x >> 1, b.seed + kk) < (b.dmg ? 0.04 : 0.12) ? C.lit : C.dark) : pal[kk === 1 ? 2 : 1]; } }
         else if (!moonSh && (bAt(x - 1, y) || bAt(x - 2, y + 1) || bAt(x - 1, y + 4))) c = [c[0] * 0.55 | 0, c[1] * 0.55 | 0, c[2] * 0.6 | 0];
       }
+      if (mtJ >= 0 && mtA < 1) { /* (the seam rows keep the host's own ground; its colours fade into the stretch's) */ const q = mtJ * 3; c = [(c[0] + (mtM.rgb[q] - c[0]) * mtA) | 0, (c[1] + (mtM.rgb[q + 1] - c[1]) * mtA) | 0, (c[2] + (mtM.rgb[q + 2] - c[2]) * mtA) | 0]; }
       if (plan.shadowMask && plan.shadowMask[i] && k !== K.BLDG) { const sk = plan.shadowMask[i] / 255 * 0.6; c = [c[0] * (1 - sk) | 0, c[1] * (1 - sk * 0.92) | 0, c[2] * (1 - sk * 0.7) | 0]; } // the moon's cast shadow (castShadows)
       const o = (sr * W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     }
@@ -5471,7 +5474,7 @@ function edgeNests(plan, bands, max = bands.length) {
 // params.segs [{ t, n }] (chunks of 64 px) works out the plan's parameters from the stretches, exactly as the game's sortiePlanHarbour does for the Campaign's level 6 (the
 // density and damage curves from each template's own urbanisation and damage, the station and the works as shares of the length, the coast ending after the sea and running along
 // the harbour), so a plan from a segment list and one from those parameters are the same plan. Without params.segs nothing here is touched (every Campaign plan, and every other preset).
-const CITY_UD = { harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
+const CITY_UD = { mountain: [0.15, 0], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] }; // [urbanisation, damage] per template; null: as the stretch before
 const ISLES_DIALS = { count: [-2, 2, 1], size: [0.8, 1.25, 0] }; // an islet band's own dials (islands with a segment list): how many islets more or fewer, and their size
 const CITY_DIALS = { urban: [-0.25, 0.25, 0], damage: [0.3, 1.7, 0], riverW: [18, 40, 0], riverAmp: [3, 12, 0], riverIsland: [0, 1, 1], riverPort: [0, 1, 1] }; // a city stretch's own dials, read by cityFromSegs (a river stretch: its width, its wobble, an island or not, a harbour district on its bank)
 const HARBOUR6_COAST = { land: 0.56, pier: [30, 50], sideChannel: 62 }; // the first loop's harbour: the shore moved, longer piers, a wider side channel
@@ -5498,7 +5501,502 @@ function cityFromSegs(o) {
   const rest = Object.assign({}, q); for (const k of ['segs', 'chunk', 'harbour6', 'dockyard', 'sideChannel', 'shoreAmp', 'oldTownK']) delete rest[k];
   return Object.assign({}, o, { params: Object.assign(d, rest) });
 }
+// ---------- mountains: a 'mountain' stretch in any kit (owner, 2026-11-27: "mountain sections for the generator and daily sortie of all climates") ----------
+/* A 'mountain' segment (or 'main_mountain' on the temperate mainland) in a kit's list. The kit's own builder lays those rows as open country with its rail
+   and main road; mountainStretches (called by generate) then rebuilds them. Per stretch: a height field from its climate's recipe, of one of two kinds (g.mtn,
+   else drawn from the plan's seed): 'cliff', stepped rock faces, or 'incline', slopes shown by hill-shading and by what follows them; the ground lit from the
+   upper left and shadowed to the lower right, as the rest of the game's ground. The rules every recipe keeps (and tests/mountains.mjs checks):
+   - the kit's rail stays where the host laid it and is graded through the ground at MT_RAIL_G at most: where the ground rises faster it runs in a cutting
+     between rock walls (a tunnel would hide the trains; owner question left open, so the line stays in sight);
+   - the main road is laid again row by row (one x per row, so the game's convoys can follow it: sortieRoutes), joining the host's road at both ends; found
+     over the ground (steep ground and rock cost more) and graded in at MT_ROAD_G: a cutting with rock walls where the ground is steeper, a dry-stone
+     retaining wall where it is built out;
+   - rock faces (steeper than the recipe's cliff) are K.CLIFF, game type 'rock': the plane flies over, ground units keep off;
+   - houses, towers, pits and flak stand on level ground only; flak sites (plan.slots, kind 'flak') stand where they rise above their surroundings, near
+     what they defend, at least MT_FLAK_GAP apart, each reached by a track from a road at the road's grade;
+   - the stretch's height falls to the plain at both ends and its colours blend into the host's over MT_SEAM rows, so no line shows at a join.
+   Coordinates inside a stretch: x across, ys down from the stretch's top row (screen order); plan row y = y1 - 1 - ys. The colours are painted once into
+   plan.mtn[k].rgb; paint() copies them for every pixel but the host's rail and road (plan.mtn[k].keep). */
+const MT_ROAD_G = 0.5, MT_RAIL_G = 0.25, MT_CLIFF = 1.1, MT_FLAK_GAP = 40, MT_SEAM = 14;
+const MP = {
+  grassT: HX(['#24401a', '#2e4a22', '#38582a', '#446832', '#52783c', '#5e8e40']), treeT: HX(['#0e1e0a', '#183014', '#22441a', '#2f5a22', '#40722c', '#58903a']),
+  dune: HX(['#9e7440', '#b4884c', '#c69c5c', '#d6b070', '#e4c488', '#f0d6a2']), rockD: HX(['#3a2c1e', '#4e3c2a', '#6a5238', '#88694a', '#a6865e', '#c2a276', '#dabd92']),
+  hamada: HX(['#5a4430', '#76593c', '#8e6e4a', '#a2825a', '#b6966a']), dirt: HX(['#4c3a26', '#5e4c34', '#7a6448', '#94805e', '#a8946e']),
+  crag: HX(['#121214', '#1c1c1e', '#272727', '#343230', '#43403c', '#54504a', '#68635b', '#7e786e', '#969086']), fgrass: HX(['#16301a', '#1e3a1a', '#264a20', '#305a28', '#3c6c30', '#4a7c38']),
+  ftree: HX(['#060e07', '#0c1a0d', '#102010', '#152814', '#1a3018', '#24401e', '#2e5024']), heath: HX(['#2a2216', '#3a2e1c', '#4c3c24', '#3e2a3c', '#58405a']),
+  snow: HX(['#6e7a90', '#8a94a8', '#a8b2c4', '#c8d0dc', '#e2e8f0', '#f8fafc']), wrock: HX(['#1a1d24', '#22262e', '#343943', '#4b515c', '#666d79', '#868e9b', '#aab1bd']),
+  ice: HX(['#6f93ad', '#86a8c0', '#98b8cc', '#b2cede', '#cce0ec', '#e4f0f6']), wtree: HX(['#16241c', '#203024', '#2e4234', '#5a6474', '#e2e8f0']),
+  quarry: HX(['#5c5a56', '#74716b', '#8e8a82', '#a8a39a', '#c2bdb2', '#d8d3c8']), cgrass: HX(['#26361e', '#2e4224', '#384e2a', '#445c32', '#506a3a']),
+  roofs: HX(['#4e160e', '#701f14', '#93301e', '#b2472e', '#cc6644']), roofs2: HX(['#2e2c34', '#3e3c46', '#545260', '#6c6a78', '#86849a']), roofs3: HX(['#3a2618', '#523622', '#6c482e', '#86603e', '#a07a54']),
+  slate: HX(['#262a36', '#363c4c', '#4a5266', '#626c82', '#7a849a']), asphalt: HX(['#26262c', '#34343c', '#44444e', '#56565f']),
+  chalk: HX(['#7e8078', '#9ea094', '#bcbeb2', '#d6d6ca', '#eaeae0', '#f8f8f0']), downs: HX(['#3a5a26', '#46682c', '#527834', '#5e883c', '#6c9846', '#7aa652']),
+  wheat: HX(['#9a8236', '#b8a048', '#d4bc64', '#e8d488']), soil: HX(['#3a2818', '#523a22', '#6c4e30', '#86643e']), vine: HX(['#1e3a14', '#2a4e1a', '#3a6424', '#4e7c30']),
+  stone: HX(['#4a4844', '#64605a', '#7c7870', '#948e84', '#aaa498']), water: HX(['#123a44', '#1c4e5a', '#2a6a74', '#3e8a90', '#7cc0c4', '#dff4f4']),
+  bag: HX(['#3a3826', '#5e5a40', '#7e7856', '#a09872', '#bcb48c']), scrub: HX(['#26240e', '#4a5a24', '#728a3a']) };
+const MBAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => v / 16 - 0.47);
+const mSS = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const mH = (x, y, s) => { let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(s | 0, 982451653)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const mV = (x, y, s) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), a = mH(xi, yi, s), b = mH(xi + 1, yi, s), c = mH(xi, yi + 1, s), d = mH(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+const mF = (x, y, s, o = 4) => { let t = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { t += a * mV(x * f, y * f, s + i * 31); n += a; f *= 2; a *= 0.5; } return t / n; };
+const mR = (x, y, s, o = 4) => { let t = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { t += a * (1 - Math.abs(2 * mV(x * f, y * f, s + i * 37) - 1)); n += a; f *= 2; a *= 0.5; } return t / n; };
+const mPick = (pal, t, x, y) => pal[clamp(Math.floor(clamp(t, 0, 0.999) * pal.length + MBAY[(y & 3) * 4 + (x & 3)] * 0.9), 0, pal.length - 1)];
+const mTerr = (t, step, riser) => { const q = t / step, f = q - Math.floor(q); return (Math.floor(q) + mSS(1 - riser, 1, f)) * step; };
+const mSeg = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? clamp(((px - ax) * dx + (py - ay) * dy) / l, 0, 1) : 0; return Math.hypot(px - ax - t * dx, py - ay - t * dy); };
+const mChaikin = (p, n = 2) => { for (let k = 0; k < n; k++) { const q = [p[0]]; for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
+const mRdp = (p, eps) => { if (p.length < 3) return p; let m = 0, k = 0; const a = p[0], b = p[p.length - 1]; for (let i = 1; i < p.length - 1; i++) { const d = mSeg(p[i][0], p[i][1], a[0], a[1], b[0], b[1]); if (d > m) { m = d; k = i; } } return m > eps ? mRdp(p.slice(0, k + 1), eps).slice(0, -1).concat(mRdp(p.slice(k), eps)) : [a, b]; };
+const mDense = (p, step = 1) => { const out = [p[0]], s = [0]; for (let k = 1; k < p.length; k++) { const [ax, ay] = p[k - 1], [bx, by] = p[k], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step)); for (let j = 1; j <= n; j++) { out.push([lerp(ax, bx, j / n), lerp(ay, by, j / n)]); s.push(s[s.length - 1] + Math.hypot(bx - ax, by - ay) / n); } } return { p: out, s }; };
+function mInPoly(x, y, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
+const MT_KEEP = 255; /* (a pixel the host paints: its rail, the main road) */
+function mHeap(cap, E) { if (E && E.heap && E.heap.cap === cap) { E.heap.clear(); return E.heap; } const id = new Int32Array(cap), key = new Float32Array(cap); let n = 0; /* a binary min-heap on typed arrays (the floods and path searches; one per stretch, reused) */
+  const Hp = { cap, clear() { n = 0; }, size: () => n, top: () => key[0], push(i, k) { if (n >= cap) return; let c = n++; while (c > 0) { const q = (c - 1) >> 1; if (key[q] <= k) break; id[c] = id[q]; key[c] = key[q]; c = q; } id[c] = i; key[c] = k; },
+    pop() { const t = id[0]; n--; if (n > 0) { const li = id[n], lk = key[n]; let c = 0; for (;;) { let l = 2 * c + 1; if (l >= n) break; if (l + 1 < n && key[l + 1] < key[l]) l++; if (key[l] >= lk) break; id[c] = id[l]; key[c] = key[l]; c = l; } id[c] = li; key[c] = lk; } return t; } }; if (E) E.heap = Hp; return Hp; }
+
+/* the stretch's working surface: heights, slope, light, cast shadow, colours and kinds; every check that fails goes into E.issues */
+function mEngine(W, H) {
+  const N = W * H, E = { W, H, hf: new Float32Array(N), rs: new Float32Array(N), lit: new Float32Array(N), sl: new Float32Array(N), shade: new Uint8Array(N), rock: new Uint8Array(N), blocked: new Uint8Array(N),
+    rd: new Float32Array(N).fill(1e9), busy: new Uint8Array(N), railM: new Uint8Array(N), wet: new Uint8Array(N), rgb: new Uint8ClampedArray(N * 3), kind: new Uint8Array(N), issues: [], flak: [] };
+  const idx = (x, y) => clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1);
+  Object.assign(E, { idx, hg: (x, y) => E.hf[idx(x, y)], rsAt: (x, y) => E.rs[idx(x, y)], litAt: (x, y) => E.lit[idx(x, y)], slAt: (x, y) => E.sl[idx(x, y)],
+    put(x, y, c, a = 1) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const q = (y * W + x) * 3; if (a >= 1) { E.rgb[q] = c[0]; E.rgb[q + 1] = c[1]; E.rgb[q + 2] = c[2]; } else { E.rgb[q] += (c[0] - E.rgb[q]) * a; E.rgb[q + 1] += (c[1] - E.rgb[q + 1]) * a; E.rgb[q + 2] += (c[2] - E.rgb[q + 2]) * a; } },
+    dim(x, y, k) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const q = (y * W + x) * 3; E.rgb[q] *= k * 0.92; E.rgb[q + 1] *= k * 0.95; E.rgb[q + 2] *= Math.min(1, k * 1.15); },
+    setK(x, y, k) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const i = y * W + x; if (E.kind[i] !== MT_KEEP) E.kind[i] = k; },
+    claim(x, y, r) { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) E.busy[Y * W + X] = 1; } },
+    free: (x, y, r = 0) => { const i = idx(x, y); return E.rd[i] > r && !E.busy[i] && !E.railM[i] && !E.wet[i]; } });
+  return E;
+}
+/* the light: slope, lit (upper left), the cast shadow (to the lower right), rock (steeper than cliff) and the ground a road keeps 3 px clear of */
+function mShade(E, cfg, light = true) {
+  const { W, H, hf } = E, Z = cfg.z || 1, tanE = cfg.sun || 1.4, cliff = cfg.cliff || MT_CLIFF, hg = (x, y) => hf[clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1)]; let maxH = -1e9; for (let i = 0; i < W * H; i++) if (hf[i] > maxH) maxH = hf[i];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, h = hf[i], gx = (hg(x + 1, y) - hg(x - 1, y)) / 2, gy = (hg(x, y + 1) - hg(x, y - 1)) / 2; E.rs[i] = Math.hypot(gx, gy);
+    const hx = gx * Z, hy = gy * Z, s = Math.hypot(hx, hy); E.sl[i] = s; E.lit[i] = clamp(0.5 + (0.62 * hx + 0.5 * hy) / Math.sqrt(1 + s * s) * 0.9, 0, 1);
+    E.shade[i] = 0; if (light && ((x | y) & 1)) { E.shade[i] = E.shade[(y & ~1) * W + (x & ~1)]; } else if (light) for (let k = 1; k < 70; k++) { if (k * tanE > maxH - h) break; const sx = Math.round(x - k * 0.78), sy = Math.round(y - k * 0.62); if (sx < 0 || sy < 0) break; if (hf[sy * W + sx] - h > k * tanE) { E.shade[i] = 1; break; } } /* (no ground left high enough to shade it: stop) */
+    E.rock[i] = E.rs[i] > cliff ? 1 : 0; }
+  E.blocked.fill(0); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!E.rock[y * W + x]) continue; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && dx * dx + dy * dy <= 10) E.blocked[Y * W + X] = 1; } }
+}
+/* a line graded into the ground (a rail, the main road, a ramp): the corridor's height set to the line's own profile. The profile follows the ground, but
+   never steeper than gm: up a rise from both ends (the lower of the two), so a rise is cut through, never climbed; h0/h1 force a straight grade instead */
+function mGrade(E, pts, w, gm, o = {}) {
+  const { W, H, hf } = E, { p, s } = mDense(pts, o.step || 0.5), n = p.length, g = p.map(q => { const f = o.fix ? o.fix(q[0], q[1]) : undefined; return f !== undefined ? f : E.hg(q[0], q[1]); }); let prof; /* (o.fix: a height the line must meet there, the rail's at a level crossing) */
+  if (o.h1 !== undefined) { const h0 = o.h0 !== undefined ? o.h0 : g[0], L = s[n - 1]; prof = s.map(v => lerp(h0, o.h1, v / L)); }
+  else { const f = g.slice(), b = g.slice(); for (let k = 1; k < n; k++) f[k] = Math.min(g[k], f[k - 1] + gm * (s[k] - s[k - 1])); for (let k = n - 2; k >= 0; k--) b[k] = Math.min(g[k], b[k + 1] + gm * (s[k + 1] - s[k])); prof = f.map((v, k) => Math.min(v, b[k]));
+    for (let k = 1; k < n; k++) prof[k] = Math.max(prof[k], prof[k - 1] - gm * (s[k] - s[k - 1])); for (let k = n - 2; k >= 0; k--) prof[k] = Math.max(prof[k], prof[k + 1] - gm * (s[k + 1] - s[k])); } /* (then down from both ends: a dip is filled, never dived into) */
+  if (o.fix) { const fx = p.map(q => o.fix(q[0], q[1])); for (let k = 0; k < n; k++) if (fx[k] !== undefined) prof[k] = fx[k]; for (let it = 0; it < 2; it++) { for (let k = 1; k < n; k++) if (fx[k] === undefined) prof[k] = clamp(prof[k], prof[k - 1] - gm * (s[k] - s[k - 1]), prof[k - 1] + gm * (s[k] - s[k - 1])); for (let k = n - 2; k >= 0; k--) if (fx[k] === undefined) prof[k] = clamp(prof[k], prof[k + 1] - gm * (s[k + 1] - s[k]), prof[k + 1] + gm * (s[k + 1] - s[k])); } } /* (a fixed height is met exactly, the slopes either side fitted to it) */
+  const r = w / 2, R = r + (o.bank || 3), best = new Float32Array(W * H).fill(1e9), at = new Int32Array(W * H);
+  for (let k = 0; k < n; k++) { const [px, py] = p[k], x0 = Math.max(0, Math.floor(px - R)), x1 = Math.min(W - 1, Math.ceil(px + R)), y0 = Math.max(0, Math.floor(py - R)), y1 = Math.min(H - 1, Math.ceil(py + R)); for (let y = y0; y <= y1; y++) { const dy = y + 0.5 - py; for (let x = x0; x <= x1; x++) { const dx = x + 0.5 - px, d = dx * dx + dy * dy, i = y * W + x; if (d < best[i]) { best[i] = d; at[i] = k; } } } }
+  for (let i = 0; i < W * H; i++) if (best[i] < 1e9) best[i] = Math.sqrt(best[i]);
+  const before = o.keepOrig ? Float32Array.from(hf) : null; for (let i = 0; i < W * H; i++) if (best[i] <= R && !(o.skip && o.skip[i])) hf[i] = lerp(hf[i], prof[at[i]], clamp((R - best[i]) / (R - r), 0, 1)); /* (o.skip: pixels another line owns) */
+  return { p, s, prof, ground: g, before };
+}
+/* the main road: one x per row from the host's road at the bottom to the host's road at the top, found by dynamic programming over the rows: each row's cost
+   is the ground's steepness along and across, rock, the rail (a crossing costs, running beside it more) and the turn; at most 2 px aside a row */
+function mRoadDP(E, xIn, xOut, o = {}) {
+  const { W, H } = E, X0 = 6, X1 = W - 7, NX = X1 - X0 + 1, cost = new Float32Array(H * NX).fill(Infinity), from = new Int8Array(H * NX);
+  const cell = (x, y) => { const h = E.hg(x, y), dy = Math.abs(E.hg(x, y - 1) - h), dx = Math.abs(E.hg(x + 3, y) - E.hg(x - 3, y)) / 6; let c = 1 + 4 * (dy / MT_ROAD_G) ** 2 + 2 * dx * dx;
+    if (E.rs[y * W + x] > (o.cliff || MT_CLIFF)) c += 12; if (E.railM[y * W + x]) c += 6; for (let k = -18; k <= 18; k += 3) if (E.railM[y * W + clamp(x + k, 0, W - 1)]) c += 6; /* (beside the rail the two cuttings would meet: keep 18 px off it, or cross it) */ if (E.wet[y * W + x]) c += 30; if (o.cost) c += o.cost(x, y); return c; };
+  const y0 = H - 1; for (let x = X0; x <= X1; x++) cost[y0 * NX + x - X0] = Math.abs(x - xIn) < 0.5 ? 0 : Infinity;
+  for (let y = H - 2; y >= 0; y--) { const pull = y < 40 ? (40 - y) * 0.15 : 0; for (let x = X0; x <= X1; x++) { let best = Infinity, bd = 0; for (let d = -2; d <= 2; d++) { const px = x + d; if (px < X0 || px > X1) continue; const v = cost[(y + 1) * NX + px - X0] + d * d * 0.8; if (v < best) { best = v; bd = d; } }
+      if (best === Infinity) continue; cost[y * NX + x - X0] = best + cell(x, y) + pull * Math.abs(x - xOut) * 0.2; from[y * NX + x - X0] = bd; } }
+  let x = Math.round(xOut); if (cost[x - X0] === Infinity) { let b = Infinity; for (let xx = X0; xx <= X1; xx++) if (cost[xx - X0] < b) { b = cost[xx - X0]; x = xx; } }
+  const xs = new Float32Array(H); for (let y = 0; y < H; y++) { xs[y] = x; if (y < H - 1) x += from[y * NX + x - X0]; }
+  const sm = Float32Array.from(xs); for (let it = 0; it < 3; it++) for (let y = 3; y < H - 3; y++) { let a = 0; for (let k = -3; k <= 3; k++) a += xs[y + k]; sm[y] = a / 7; } for (let y = 0; y < 6; y++) { sm[y] = lerp(xOut, sm[y], y / 6); sm[H - 1 - y] = lerp(xIn, sm[H - 1 - y], y / 6); }
+  sm[0] = xOut; sm[H - 1] = xIn; for (let it = 0; it < 4; it++) { for (let y = 1; y < H - 1; y++) sm[y] = clamp(sm[y], sm[y - 1] - 2, sm[y - 1] + 2); for (let y = H - 2; y > 0; y--) sm[y] = clamp(sm[y], sm[y + 1] - 2, sm[y + 1] + 2); } /* (at most 2 px aside a row, both ends held: a convoy never steps sideways) */
+  return sm;
+}
+/* a road or track found over the ground (A*): rock is impassable, no step steeper than gm; tracks to flak, a lookout, a castle (not the main road) */
+const MDIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1], [2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]];
+function mAstar(E, a, b, o = {}) {
+  const { W, H, hf } = E, N = W * H; if (!E.ab || E.ab.g.length !== N) E.ab = { g: new Float32Array(N).fill(Infinity), from: new Int32Array(N).fill(-1), done: new Uint8Array(N) }; const { g, from, done } = E.ab, touched = [], Q = mHeap(N * 4, E), push = (i, k) => Q.push(i, k), pop = () => Q.pop();
+  const s = Math.round(a[1]) * W + Math.round(a[0]), t = Math.round(b[1]) * W + Math.round(b[0]), tx = Math.round(b[0]), ty = Math.round(b[1]), gm = (o.gmax || MT_ROAD_G) * 0.85;
+  g[s] = 0; touched.push(s); push(s, 0);
+  while (Q.size()) { if (o.maxCost && Q.top() > o.maxCost) break; const i = pop(); if (done[i]) continue; done[i] = 1; if (i === t) break; const x = i % W, y = (i / W) | 0;
+    for (const [dx, dy] of MDIRS) { const X = x + dx, Y = y + dy; if (X < 2 || X > W - 3 || Y < 0 || Y > H - 1) continue; const j = Y * W + X; if (done[j]) continue;
+      if (E.blocked[j] && j !== t) continue; const len = Math.hypot(dx, dy), gr = Math.abs(hf[j] - hf[i]) / len; if (gr > gm) continue;
+      const c = len * (1 + 3 * (gr / gm) ** 2 + (E.railM[j] ? 25 : 0) + (E.wet[j] ? 30 : 0) + (E.busy[j] ? 6 : 0)), ng = g[i] + c;
+      if (ng < g[j]) { if (g[j] === Infinity) touched.push(j); g[j] = ng; from[j] = i; push(j, ng + Math.hypot(X - tx, Y - ty)); } } }
+  let res = null; if (from[t] >= 0 || s === t) { const out = []; for (let i = t; i >= 0; i = from[i]) { out.push([i % W, (i / W) | 0]); if (i === s) break; } res = mChaikin(mRdp(out.reverse(), 0.6), 1); }
+  for (const i of touched) { g[i] = Infinity; from[i] = -1; done[i] = 0; } return res;
+}
+function mSteep(E, pts) { const { p, s } = mDense(pts, 1); let w = 0, rock = 0; for (let k = 0; k < p.length; k++) { if (E.rock[E.idx(p[k][0], p[k][1])]) rock++; if (k >= 8) w = Math.max(w, Math.abs(E.hg(p[k][0], p[k][1]) - E.hg(p[k - 8][0], p[k - 8][1])) / (s[k] - s[k - 8] || 1)); } return { w, rock }; }
+/* drawing a track into the stretch: its own kind (K.TRACK unless given), the road distance updated, shaded with the ground */
+function mTrack(E, pts, w, pal, o = {}) {
+  if (!pts || pts.length < 2) return; const { W, H } = E, r = w / 2, dist = new Float32Array(W * H).fill(1e9);
+  for (let k = 1; k < pts.length; k++) { const [ax, ay] = pts[k - 1], [bx, by] = pts[k]; for (let y = Math.floor(Math.min(ay, by) - r - 2); y <= Math.max(ay, by) + r + 2; y++) for (let x = Math.floor(Math.min(ax, bx) - r - 2); x <= Math.max(ax, bx) + r + 2; x++) { if (x < 0 || y < 0 || x >= W || y >= H) continue; const d = mSeg(x + 0.5, y + 0.5, ax, ay, bx, by), i = y * W + x; if (d < dist[i]) dist[i] = d; } }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, d = dist[i]; if (d > r + 1 || E.kind[i] === MT_KEEP) continue; if (d < E.rd[i]) E.rd[i] = d;
+    if (d > r) { E.put(x, y, o.edge || pal[0], 0.85); continue; } let c = mPick(pal, 0.35 + (E.lit[i] - 0.5) * 0.5 + (mH(x, y, 7) - 0.5) * 0.25, x, y); if (o.ruts && Math.abs(d - r * 0.45) < 0.5) c = pal[0];
+    E.put(x, y, c); if (E.shade[i]) E.dim(x, y, 0.62); E.setK(x, y, o.k !== undefined ? o.k : K.TRACK); }
+}
+/* a graded road's edges: a rock cutting on the side the ground stands above it, a dry-stone retaining wall where it is built out */
+function mRoadEdges(E, G, r, o = {}) {
+  const { p } = G; for (let k = 2; k < p.length - 2; k += 2) { const [x, y] = p[k], tx = p[k + 2][0] - p[k - 2][0], ty = p[k + 2][1] - p[k - 2][1], tl = Math.hypot(tx, ty) || 1, nx = -ty / tl, ny = tx / tl, hr = G.prof[k];
+    for (const sd of [-1, 1]) { const ox = x + nx * sd * (r + 4), oy = y + ny * sd * (r + 4), g0 = G.before ? G.before[E.idx(ox, oy)] : E.hg(ox, oy), dh = g0 - hr;
+      if (dh > 2) for (let d = r + 0.5; d <= r + Math.min(4.5, 1 + dh * 0.4); d += 0.5) { const X = x + nx * sd * d, Y = y + ny * sd * d, st = Math.floor(d * 2 + k * 0.2) % 3 === 0; E.put(X, Y, mPick(o.rock || MP.crag, 0.2 + E.litAt(X, Y) * 0.6 + (st ? 0.15 : 0) - (d - r) * 0.04, X | 0, Y | 0)); E.setK(X, Y, K.CLIFF); }
+      else if (dh < -2) { const X = x + nx * sd * (r + 1), Y = y + ny * sd * (r + 1); E.put(X, Y, (k & 2) ? MP.stone[4] : MP.stone[3]); E.put(X + nx * sd, Y + ny * sd, MP.stone[1]); E.dim(X + nx * sd * 2 + 1, Y + ny * sd * 2 + 1, 0.6); } } }
+}
+function mLevel(E, x, y, r, maxS) { if (x < r || y < r + MT_SEAM || x >= E.W - r || y >= E.H - r - MT_SEAM) return false; /* the site's own plane: its tilt at most maxS, no bump more than 2.5 off it */
+  const gx = (E.hg(x + r, y) - E.hg(x - r, y)) / (2 * r), gy = (E.hg(x, y + r) - E.hg(x, y - r)) / (2 * r), h0 = E.hg(x, y); if (Math.hypot(gx, gy) > maxS) return false;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = x + dx, Y = y + dy, j = Y * E.W + X; if (Math.abs(E.hf[j] - (h0 + gx * dx + gy * dy)) > 2.5 || E.rd[j] < 3 || E.busy[j] || E.railM[j] || E.rock[j] || E.wet[j] || E.kind[j] === MT_KEEP) return false; } return true; }
+function mFlat(E, x, y, r = 4, what = 'a building', maxS = 0.35, far = 40, quiet = false) {
+  for (let d = 0; d <= far; d++) for (let k = 0; k < Math.max(1, d * 6); k++) { const a = k / Math.max(1, d * 6) * 6.283, X = Math.round(x + Math.cos(a) * d), Y = Math.round(y + Math.sin(a) * d); if (mLevel(E, X, Y, r, maxS)) { E.claim(X, Y, r + 1); return [X, Y]; } }
+  if (!quiet) E.issues.push('no level ground for ' + what + ' near ' + Math.round(x) + ',' + Math.round(y)); return null;
+}
+function mTree(E, x, y, r, pal, o = {}) {
+  for (let dy = -r - 1; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r + 1; dx++) if (Math.hypot(dx, dy) < r + 0.3) E.dim(x + dx + 2, y + dy + 2, 0.55);
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const d = o.con ? Math.abs(dx) + Math.abs(dy) * 0.9 + (mH(x + dx, y + dy, 5) - 0.5) * 0.9 : Math.hypot(dx, dy) + (mH(x + dx, y + dy, 5) - 0.5) * 0.8; if (d > r + 0.2) continue;
+    let c = mPick(pal, 0.55 + (-dx - dy) / (2 * r + 1) * 0.5 - d / r * 0.2, x + dx, y + dy); if (o.snow && mH(x + dx, y + dy, 9) < 0.35 && (-dx - dy) >= 0) c = MP.snow[4]; E.put(x + dx, y + dy, c); if (o.k !== undefined) E.setK(x + dx, y + dy, o.k); }
+}
+function mScatter(E, step, seed, prob, draw, keep = 3) {
+  for (let gy = -step; gy < E.H + step; gy += step) for (let gx = -step; gx < E.W + step; gx += step) { const x = Math.round(gx + mH(gx, gy, seed) * step), y = Math.round(gy + mH(gx, gy, seed + 1) * step);
+    if (x < 0 || y < (MT_SEAM >> 1) || x >= E.W || y >= E.H - (MT_SEAM >> 1)) continue; const i = y * E.W + x; if (!E.free(x, y, keep) || E.rock[i] || E.kind[i] === MT_KEEP) continue; const p = prob(x, y); if (p > 0 && mH(gx, gy, seed + 2) < p) draw(x, y, mH(gx, gy, seed + 3)); }
+}
+function mHouse(E, x, y, w, l, ang, pal, o = {}) {
+  const ca = Math.cos(ang), sa = Math.sin(ang), R = Math.ceil(Math.hypot(w, l) / 2) + 3;
+  const inside = (px, py) => { const u = (px - x) * ca + (py - y) * sa, v = -(px - x) * sa + (py - y) * ca; return Math.abs(u) <= l / 2 && Math.abs(v) <= w / 2 ? [u, v] : null; };
+  for (let py = y - R; py <= y + R; py++) for (let px = x - R; px <= x + R; px++) if (inside(px - 2, py - 2) && !inside(px, py)) E.dim(px, py, 0.55);
+  for (let py = y - R; py <= y + R; py++) for (let px = x - R; px <= x + R; px++) { const q = inside(px, py); if (!q) continue; const [u, v] = q, edge = Math.abs(u) > l / 2 - 1 || Math.abs(v) > w / 2 - 1;
+    if (px >= 0 && py >= 0 && px < E.W && py < E.H) E.busy[py * E.W + px] = 1;
+    const sideLit = (v * ca < 0 ? 1 : -1), t = o.flat ? 0.5 + mH(px, py, 1) * 0.15 : (Math.abs(v) < 0.6 ? 0.9 : sideLit > 0 ? 0.62 : 0.3);
+    E.put(px, py, edge ? pal[0] : mPick(pal, t, px, py)); E.setK(px, py, o.k !== undefined ? o.k : K.AROOF); }
+}
+const mRing = (E, x, y, r, c) => { for (let a = 0; a < 6.3; a += 0.25) E.put(x + Math.cos(a) * r, y + Math.sin(a) * r, c); };
+/* a flak emplacement (a sandbag ring, a twin gun, a ready-ammunition niche) and its slot in the plan */
+function mFlakAt(E, x, y, o = {}) {
+  const bags = o.bags || MP.bag, floor = o.floor || [54, 46, 34];
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (Math.hypot(dx, dy) <= 5.2) E.dim(x + dx + 2, y + dy + 2, 0.6);
+  for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) { const d = Math.hypot(dx, dy); if (d > 5.2) continue;
+    if (d > 3.6) E.put(x + dx, y + dy, o.snow && mH(x + dx, y + dy, 171) < 0.45 ? MP.snow[4] : mPick(bags, 0.35 + ((dx * 3 + dy * 5) & 2 ? 0.25 : 0) + (-dx - dy) * 0.04, x + dx, y + dy)); else E.put(x + dx, y + dy, floor); E.setK(x + dx, y + dy, K.BERM); } /* (game type 'mud', as a trench; not K.TRENCH, the forest's own trench lines) */
+  const a = -Math.PI / 2 + (mH(x, y, 172) - 0.5) * 1.6, ca = Math.cos(a), sa = Math.sin(a);
+  for (let k = 0; k <= 6; k++) for (const off of [-0.8, 0.8]) E.put(x + ca * k - sa * off, y + sa * k + ca * off, k > 5 ? [20, 20, 22] : [44, 46, 50]);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) E.put(x + dx, y + dy, dx + dy < 0 ? [92, 96, 100] : [58, 60, 64]);
+  E.flak.push([x, y]); E.claim(x, y, 7);
+}
+/* how far every pixel is from a road over passable ground (no rock, no step steeper than the road grade): one flood from every road pixel; a track back to the road
+   is the flood's own path (E.reach.from) */
+function mReach(E, gm = MT_ROAD_G) {
+  const { W, H, hf } = E, N = W * H, d = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), Q = mHeap(N * 4, E), push = (i, k) => Q.push(i, k);
+  for (let i = 0; i < N; i++) if ((E.rd[i] < 1.5 && !E.railM[i]) || (!E.railM[i] && ((i % W > 0 && E.railM[i - 1]) || (i % W < W - 1 && E.railM[i + 1])))) { d[i] = 0; push(i, 0); } /* (from the roads, and from beside the rail: a gun is supplied along the line too) */
+  while (Q.size()) { const k0 = Q.top(), i = Q.pop(); if (k0 > d[i]) continue; if (k0 > (E.reachMax || 80)) break; const x = i % W, y = (i / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const X = x + dx, Y = y + dy; if (X < 2 || Y < 0 || X > W - 3 || Y >= H) continue; const j = Y * W + X; if (E.blocked[j] || E.wet[j] || E.railM[j]) continue;
+      const len = dx && dy ? 1.414 : 1, gr = Math.abs(hf[j] - hf[i]) / len; if (gr > gm * 0.85) continue; const nd = d[i] + len * (1 + (E.busy[j] ? 4 : 0)); if (nd < d[j]) { d[j] = nd; from[j] = i; push(j, nd); } } }
+  return { d, from, path(i) { const out = []; for (let k = i, n = 0; k >= 0 && n < 400; k = from[k], n++) out.push([k % W, (k / W) | 0]); return out.length > 1 ? mChaikin(mRdp(out, 0.6), 1) : null; } };
+}
+function mRoadDist(E) { const { W, H } = E, d = new Float32Array(W * H).fill(1e9), nx = new Int16Array(W * H), ny = new Int16Array(W * H);
+  for (let i = 0; i < W * H; i++) if (E.rd[i] < 1.5 || E.kind[i] === MT_KEEP) { d[i] = 0; nx[i] = i % W; ny[i] = (i / W) | 0; }
+  const pass = (y0, y1, dy, x0, x1, dx) => { for (let y = y0; y !== y1; y += dy) for (let x = x0; x !== x1; x += dx) { const i = y * W + x; for (const [ox, oy] of [[-dx, 0], [0, -dy], [-dx, -dy], [dx, -dy]]) { const X = x + ox, Y = y + oy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (d[j] >= 1e9) continue; const nd = Math.hypot(x - nx[j], y - ny[j]); if (nd < d[i]) { d[i] = nd; nx[i] = nx[j]; ny[i] = ny[j]; } } } };
+  pass(0, H, 1, 0, W, 1); pass(H - 1, -1, -1, W - 1, -1, -1); pass(0, H, 1, W - 1, -1, -1); pass(H - 1, -1, -1, 0, W, 1); return { d, nx, ny }; }
+/* flak by rule: level ground, not on a road, rail, building, rock or water; scored by how far it stands above its surroundings and how close it is to what it
+   defends; reached by a track from a road; MT_FLAK_GAP apart. Fewer than asked is fine; none at all is reported. */
+function mFlak(E, n, poi, o = {}) {
+  const { W, H } = E, RD = o.reach || mReach(E), maxS = o.maxS || 0.35, cand = []; /* (o.reach: a flood already made, shared) */
+  for (let y = 10; y < H - 10; y += 3) for (let x = 8; x < W - 8; x += 3) { const i = y * W + x; if (!(RD.d[i] <= 60) || !mLevel(E, x, y, 5, maxS)) continue;
+    let ring = 0; for (let k = 0; k < 8; k++) ring += E.hg(x + Math.cos(k * 0.785) * 16, y + Math.sin(k * 0.785) * 16); const prom = E.hg(x, y) - ring / 8;
+    const dp = poi.length ? Math.min(...poi.map(p => Math.hypot(x - p[0], y - p[1]))) : 60; cand.push([prom * 1.5 + 25 * Math.exp(-dp / 35) - RD.d[i] * 0.15 + (o.score ? o.score(x, y) : 0), x, y]); }
+  cand.sort((a, b) => b[0] - a[0]); let placed = 0;
+  for (const [, x, y] of cand) { if (placed >= n) break; if (E.flak.some(g => Math.hypot(g[0] - x, g[1] - y) < MT_FLAK_GAP) || !mLevel(E, x, y, 5, maxS)) continue;
+    const i = y * W + x; if (RD.d[i] > 7) { const tr = RD.path(i); if (!tr) continue; mTrack(E, tr, 2.5, o.track || MP.dirt); }
+    mFlakAt(E, x, y, o); placed++; }
+  if (!placed && n) E.issues.push('no sensible flak position'); return placed;
+}
+/* a hilltop castle laid out from the ground: the curtain wall on a contour just below the summit, the keep on the side where the hill stays highest (never the
+   gate's side) behind a neck ditch, the hall and chapel against the wall inside, the gate facing the approach with an outer bailey on the next contour down;
+   intact (a town castle: wings all round a paved court, a garden in the bailey) or a ruin (a roofless hall, collapsed stretches of wall) */
+function mCastlePlan(E, top, toward, o = {}) {
+  const hT = E.hg(top[0], top[1]), N = 72, ang = k => k / N * 6.2832, dir = a => [Math.cos(a), Math.sin(a)];
+  const contour = (lv, cap) => { let r = []; for (let k = 0; k < N; k++) { const [c, s] = dir(ang(k)); let d = 2; while (d < cap && E.hg(top[0] + c * d, top[1] + s * d) >= lv) d += 0.5; r.push(Math.min(d, cap)); }
+    for (let it = 0; it < 3; it++) r = r.map((v, k) => (r[(k + N - 1) % N] + 2 * v + r[(k + 1) % N]) / 4); return r; };
+  const r = contour(hT - (o.drop || 2.2), o.max || 20).map(v => clamp(v, o.min || 12, o.max || 20)), at = (rr, a) => rr[((Math.round(a / 6.2832 * N) % N) + N) % N];
+  const gateA = Math.atan2(toward[1] - top[1], toward[0] - top[0]);
+  let threatA = gateA + Math.PI, best = -1e9; for (let k = 0; k < N; k++) { if (Math.abs(Math.atan2(Math.sin(ang(k) - gateA), Math.cos(ang(k) - gateA))) < 1.8) continue; const [c, s] = dir(ang(k)), h = E.hg(top[0] + c * (r[k] + 16), top[1] + s * (r[k] + 16)); if (h > best) { best = h; threatA = ang(k); } }
+  const bl = o.bailey || [8, 13], ro = contour(hT - (o.drop || 2.2) - 4, 40).map((v, k) => clamp(v, r[k] + bl[0], r[k] + bl[1]));
+  const pt = (rr, a, off = 0) => { const [c, s] = dir(a), d = (typeof rr === 'number' ? rr : at(rr, a)) + off; return [top[0] + c * d, top[1] + s * d]; };
+  return { top, r, ro, threatA, gateA, pt, at, inner: Array.from({ length: N }, (_, k) => pt(r, ang(k))), outerGate: pt(ro, gateA), approach: [pt(ro, gateA + 0.9, 9), pt(ro, gateA, 7)] };
+}
+function mCastle(E, C, o = {}) {
+  const st = MP.stone, slate = MP.slate, [tx, ty] = C.top, ad = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const far = avoid => { let bA = 0, bD = -1; for (let a = 0; a < 6.28; a += 0.05) { const d = Math.min(...avoid.map(q => ad(a, q))); if (d > bD) { bD = d; bA = a; } } return bA; };
+  const wall = (pts, closed, gaps = []) => { const q = closed ? pts.concat([pts[0]]) : pts, gap = (x, y) => gaps.some(g => Math.hypot(x - g[0], y - g[1]) < 3);
+    for (let k = 1; k < q.length; k++) { const [ax, ay] = q[k - 1], [bx, by] = q[k], n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2); for (let j = 0; j <= n; j++) { const x = lerp(ax, bx, j / n), y = lerp(ay, by, j / n); if (gap(x, y)) { if (mH(x | 0, y | 0, 150) < 0.4) E.put(x, y, st[2]); continue; } E.dim(x + 1, y + 1, 0.72); E.dim(x + 2, y + 2, 0.82); } }
+    for (let k = 1; k < q.length; k++) { const [ax, ay] = q[k - 1], [bx, by] = q[k], n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2), nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+      for (let j = 0; j <= n; j++) { const x = lerp(ax, bx, j / n), y = lerp(ay, by, j / n); if (gap(x, y)) continue; E.put(x, y, mPick(st, 0.75 + (mH(x | 0, y | 0, 151) - 0.5) * 0.3, x | 0, y | 0)); E.put(x + nx / nl, y + ny / nl, st[1]); E.setK(x, y, K.CLIFF); E.setK(x + nx / nl, y + ny / nl, K.CLIFF); } } };
+  const tower = (x, y, rad, roof) => { for (let dy = -rad - 2; dy <= rad + 2; dy++) for (let dx = -rad - 2; dx <= rad + 2; dx++) if (Math.hypot(dx, dy) <= rad) E.dim(x + dx + 2, y + dy + 2, 0.55);
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) { const d = Math.hypot(dx, dy); if (d > rad + 0.3) continue; const rim = d > rad - 1.2, cren = rim && (Math.round(Math.atan2(dy, dx) * 3) & 1);
+      E.put(x + dx, y + dy, roof ? (d > rad - 0.7 ? roof[0] : mPick(roof, 0.75 - (dx + dy) / (4 * rad), x + dx, y + dy)) : rim ? (cren ? st[4] : st[2]) : mPick(st, 0.35 + (-dx - dy) / (4 * rad), x + dx, y + dy)); E.setK(x + dx, y + dy, K.AROOF); } };
+  const a0 = C.gateA - 0.75, a1 = C.gateA + 0.75, ob = [C.pt(C.r, a0)]; for (let a = a0; a <= a1 + 1e-6; a += 0.1) ob.push(C.pt(C.ro, a)); ob.push(C.pt(C.r, a1));
+  const obPoly = ob.concat(Array.from({ length: 16 }, (_, k) => C.pt(C.r, a1 - (a1 - a0) * k / 15)));
+  for (let y = ty - 50; y <= ty + 50; y++) for (let x = tx - 50; x <= tx + 50; x++) { if (x < 0 || y < 0 || x >= E.W || y >= E.H) continue;
+    if (mInPoly(x, y, C.inner)) { const pth = mSeg(x, y, ...C.pt(C.r, C.gateA), ...C.pt(C.r, C.threatA, -6)) < 1.6; E.put(x, y, o.intact ? mPick(st, 0.62 + ((x + y) & 1 ? 0.06 : -0.06) + (mH(x, y, 153) - 0.5) * 0.1, x, y) : pth ? mPick(MP.dirt, 0.6, x, y) : mPick(MP.grassT, 0.45 + (mH(x, y, 153) - 0.5) * 0.25, x, y)); E.busy[y * E.W + x] = 1; E.setK(x, y, o.intact ? K.PLAZA : K.MEADOW); }
+    else if (mInPoly(x, y, obPoly)) { const u = (x - tx) * Math.cos(C.gateA) + (y - ty) * Math.sin(C.gateA), v = -(x - tx) * Math.sin(C.gateA) + (y - ty) * Math.cos(C.gateA), gp = o.intact && ((u % 6 + 6) % 6 < 1.2 || Math.abs(v) < 1);
+      E.put(x, y, gp ? mPick(MP.quarry, 0.7, x, y) : o.intact ? mPick(MP.grassT, 0.35 + ((x ^ y) & 1) * 0.12, x, y) : mPick(MP.grassT, 0.55 + (mH(x, y, 154) - 0.5) * 0.3, x, y)); E.busy[y * E.W + x] = 1; E.setK(x, y, K.PARK); } }
+  for (let a = C.threatA - 0.6; a <= C.threatA + 0.6; a += 0.01) for (let d = 6; d <= 12; d++) { const [x, y] = C.pt(C.r, a, d), e = Math.abs(d - 9); E.put(x, y, e > 2 ? st[1] : mPick(MP.soil, 0.2 + (a - C.threatA + 0.6) * 0.2, x | 0, y | 0)); if (e <= 1) E.dim(x, y, 0.7); E.claim(Math.round(x), Math.round(y), 0); E.setK(x, y, K.DITCH); }
+  const gapA = o.intact ? [] : [C.threatA + 2.1, C.threatA - 2.4].map(a => C.pt(C.r, a));
+  wall(C.inner, true, gapA.concat([C.pt(C.r, C.gateA)])); wall(ob, false, [C.outerGate]);
+  for (const g of gapA) for (let k = 0; k < 10; k++) E.put(g[0] + (mH(k, 1, 155) - 0.5) * 7, g[1] + (mH(k, 2, 155) - 0.5) * 7, st[mH(k, 3, 155) < 0.5 ? 1 : 3]);
+  const palA = far([C.gateA, C.threatA, C.gateA + 0.75, C.gateA - 0.75]), chA = far([C.gateA, C.threatA, palA]), inward = (a, d) => C.pt(C.r, a, -d), pal = inward(palA, 5), pa = palA + Math.PI / 2;
+  if (o.intact) { const ranges = []; for (let k = 0; k < 9; k++) { const a = palA + k * 0.7; if (ad(a, C.gateA) < 0.5 || ad(a, C.threatA) < 0.55) continue; ranges.push(a); }
+    ranges.forEach((a, k) => { const rr = C.at(C.r, a), q = C.pt(C.r, a, -5), len = Math.max(8, Math.min(17, (rr - 5) * 0.62)) * (k === 0 ? 1.1 : 1); mHouse(E, Math.round(q[0]), Math.round(q[1]), k === 1 ? 6 : 8, Math.round(k === 1 ? len * 0.7 : len), a + Math.PI / 2, k <= 1 ? slate : k % 2 ? MP.roofs : MP.roofs2); }); }
+  else { const [x, y] = pal, ca = Math.cos(pa), sa = Math.sin(pa); for (let v = -3; v <= 3; v++) for (let u = -7; u <= 7; u++) { const X = Math.round(x + u * ca - v * sa), Y = Math.round(y + u * sa + v * ca), edge = Math.abs(u) === 7 || Math.abs(v) === 3; if (edge) { E.dim(X + 1, Y + 1, 0.55); E.dim(X + 2, Y + 2, 0.75); } }
+    for (let v = -3; v <= 3; v++) for (let u = -7; u <= 7; u++) { const X = Math.round(x + u * ca - v * sa), Y = Math.round(y + u * sa + v * ca), edge = Math.abs(u) === 7 || Math.abs(v) === 3, part = u === 1 && Math.abs(v) < 3; E.put(X, Y, edge || part ? st[(u + v) & 1 ? 4 : 3] : mH(X, Y, 156) < 0.35 ? st[1] : MP.grassT[0]); if (edge || part) E.setK(X, Y, K.RUBBLE); }
+    const chp = inward(chA, 5); mHouse(E, Math.round(chp[0]), Math.round(chp[1]), 5, 8, chA + Math.PI / 2, slate); }
+  const well = [tx + Math.cos(C.gateA + 0.6) * 6, ty + Math.sin(C.gateA + 0.6) * 6]; mRing(E, well[0], well[1], 1.6, st[3]); E.put(well[0], well[1], [10, 20, 26]);
+  const keep = inward(C.threatA, 4); tower(Math.round(keep[0]), Math.round(keep[1]), 5, o.intact ? slate : null);
+  for (const a of [C.gateA + 0.55, C.gateA + 0.9]) { const q = C.pt(C.ro, a, -5); mHouse(E, Math.round(q[0]), Math.round(q[1]), 4, 7, a + Math.PI / 2, MP.roofs); }
+  const gt = C.pt(C.r, C.gateA); { const ca = Math.cos(C.gateA), sa = Math.sin(C.gateA); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) E.dim(Math.round(gt[0] + u * ca - v * sa) + 2, Math.round(gt[1] + u * sa + v * ca) + 2, 0.6);
+    for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = Math.round(gt[0] + u * ca - v * sa), Y = Math.round(gt[1] + u * sa + v * ca); E.put(X, Y, Math.abs(v) <= 1 ? [24, 20, 16] : mPick(st, 0.55 + (u + v) * 0.04, X, Y)); E.setK(X, Y, Math.abs(v) <= 1 ? K.PLAZA : K.AROOF); } }
+  for (const a of [a0, a1]) { const [x, y] = C.pt(C.ro, a); tower(Math.round(x), Math.round(y), 3, o.intact ? MP.roofs : null); }
+  { const [x, y] = C.outerGate; for (let k = -2; k <= 2; k++) { E.put(x - Math.sin(C.gateA) * k, y + Math.cos(C.gateA) * k, [30, 24, 18]); E.setK(x - Math.sin(C.gateA) * k, y + Math.cos(C.gateA) * k, K.PLAZA); } }
+  return { keep, courtyard: [Math.round(tx), Math.round(ty)], garden: C.pt(C.ro, C.gateA - 0.45, -7).map(Math.round) };
+}
+/* The recipes, one per climate and kind. Shapes are in nominal rows (Y 0..448, the stretch's top to bottom) and scale with its length; noise takes the
+   stretch's own offset (c.so). c: the stretch (H, Y(ys) nominal row, ys(Y) back, so, railX, xIn/xOut and road(Y) the main road's straight line, free(r) the x
+   with the most room from both lines, clear(x, r) whether a feature of half-width r at x keeps off both). Each gives height(x, Y), mat(x, ys, Y, h, s, l),
+   optionally kind(x, ys, Y, h) and over(E, c) for what stands on the ground; z, sun and cliff tune the light and what counts as rock. */
+const mBell = Y => mSS(0, 90, Y) * mSS(448, 358, Y); /* (every relief falls to the plain at both ends of the stretch: no rock face at a join) */
+const MT_RECIPES = {
+  desert: {
+    cliff: c => { const so = c.so, gx = (c.xIn + c.xOut) / 2, esc = (x, y) => 250 + Math.sin(x * 0.03 + so) * 24 + (mF(x * 0.03, y * 0.03, 11 + so) - 0.5) * 50;
+      const bx = c.free(26), b2 = clamp(bx + (bx < 112 ? 64 : -64), 24, 200), bt = [[bx, 330, 22], [b2, 392, 14]].filter(b => c.clear(b[0], b[2] + 10));
+      const gul = (x, y) => Math.exp(-(((x - gx - Math.sin(y * 0.02) * 6) / 19) ** 2)), but = (x, y, b) => mSS(b[2] + 4, b[2] - 4, Math.hypot(x - b[0], (y - b[1]) * 1.2) + (mF(x * 0.08, y * 0.08, 13 + so) - 0.5) * 16);
+      return { height(x, y) { const e = esc(x, y), dip = mSS(-10 + (mF(x * 0.03, 7, 15 + so) - 0.5) * 60, 130, y); let t = mTerr(56 * mSS(e + 30, e - 30, y), 28, 0.32) * dip; t = lerp(t, 56 * mSS(e + 150, e - 150, y) * dip, gul(x, y));
+          for (const b of bt) t = Math.max(t, mTerr(46 * but(x, y, b), 23, 0.32)); return t * mSS(448, 400, y) + mF(x * 0.05, y * 0.05, 14 + so) * 3; },
+        mat(x, ys, y, h, s, l) { const ri = Math.floor(h / 4 + mF(x * 0.1, y * 0.1, 3 + so) * 2);
+          if (s > 2.2) return mPick(MP.rockD, 0.15 + l * 0.75 + (ri % 3 === 0 ? -0.12 : 0.04), x, ys);
+          if (s > 0.55) return mPick(MP.rockD, 0.35 + l * 0.5 + (mH(x, ys, 4) - 0.5) * 0.5, x, ys);
+          if (h > 22) return mPick(MP.hamada, 0.35 + l * 0.4 + (mH(x, ys, 6) < 0.06 ? -0.3 : 0) + (mF(x * 0.06, y * 0.06, 8 + so) - 0.5) * 0.4, x, ys);
+          const rip = Math.sin((x * 0.5 + y * 0.18) + mF(x * 0.05, y * 0.05, 9 + so) * 8) * 0.08; return mPick(MP.dune, 0.45 + rip + (l - 0.5) * 0.5 + (mF(x * 0.02, y * 0.04, 10 + so) - 0.5) * 0.3, x, ys); },
+        over(E) { mFlak(E, 3, [[gx, c.ys(150)], [c.railX ? c.railX[c.ys(250)] : gx, c.ys(255)]], { bags: MP.dune, floor: [96, 72, 44] });
+          mScatter(E, 14, 21 + so, (x, y) => E.hg(x, y) < 4 && E.slAt(x, y) < 0.3 ? 0.18 : 0, (x, y) => mTree(E, x, y, 1, MP.scrub)); } }; },
+    incline: c => { const so = c.so, rl = y => 30 + y * 0.36 + Math.sin(y * 0.02 + so) * 18, gx = (c.xIn + c.xOut) / 2; let yc = 224; { let bd = 1e9; for (let y = 120; y < 330; y++) { const d = Math.abs(rl(y) - gx); if (d < bd) { bd = d; yc = y; } } } /* (the saddle where the main road crosses the ridge) */
+      return { z: 1.6, cliff: 2.5,
+        height(x, y) { const d = x - rl(y), col = mSS(70, 0, Math.abs(y - yc)) * 34; return (Math.max(0, 80 * Math.exp(-((d / 56) ** 2)) - col) + 36 * mR(x * 0.022, y * 0.022, 31 + so) * Math.exp(-((d / 70) ** 2))) * mBell(y) + mF(x * 0.06, y * 0.06, 33 + so) * 4; },
+        mat(x, ys, y, h, s, l) { const sand = 22 + mF(x * 0.03, y * 0.03, 34 + so) * 26 + lerp(8, -6, mSS(70, 150, x));
+          if (h < sand) { const rip = Math.sin(x * 0.55 - y * 0.25 + mF(x * 0.05, y * 0.05, 35 + so) * 7) * 0.08; return mPick(MP.dune, 0.45 + rip + (l - 0.5) * 0.9, x, ys); }
+          return mPick(MP.rockD, 0.22 + l * 0.75 + (mR(x * 0.09, y * 0.09, 36 + so) - 0.5) * 0.25 + (mH(x, ys, 37) - 0.5) * 0.12, x, ys); },
+        over(E) { const top = c.road.reduce((m, p) => E.hg(p[0], p[1]) > E.hg(m[0], m[1]) ? p : m, c.road[0]), got = [];
+          for (const [dx, dy] of [[16, 8], [-16, -8], [-16, 8], [16, -8], [0, 20], [0, -20]]) { if (got.length === 2) break; const q = mFlat(E, top[0] + dx, top[1] + dy, 3, 'a sangar', 0.8, 30, true); if (q) got.push(q); }
+          for (const [x, y] of got) { mRing(E, x, y, 6, MP.stone[3]); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) E.put(x + a, y + b, MP.stone[1]); }
+          mFlak(E, 2, [top], { bags: MP.dune, floor: [96, 72, 44], maxS: 0.6 });
+          mScatter(E, 11, 41 + so, (x, y) => E.rsAt(x, y) > 0.55 && E.rsAt(x, y) < 1.3 ? 0.25 : 0, (x, y) => { for (let k = 0; k < 4; k++) E.put(x + k * 0.3, y - k, MP.rockD[1], 0.6); }); } }; } },
+  forest: {
+    cliff: c => { const so = c.so, band = x => 228 + Math.sin(x * 0.035 + so) * 16 + (mF(x * 0.05, 0, 51 + so) - 0.5) * 30, gx = (c.xIn + c.xOut) / 2, b0 = band(gx);
+      const ncx = y => gx + Math.sin(y * 0.05) * 3, notch = (x, y) => mSS(29 + (mF(x * 0.1, y * 0.1, 59 + so) - 0.5) * 4, 25, Math.abs(x - ncx(y))); /* (the ravine the main road climbs, sheer granite on both sides) */
+      const sx = c.free(16), strm = y => sx + Math.sin(y * 0.03 + so) * 8, wet = (x, y) => (y > 70 && y < band(strm(y)) + 30 && Math.abs(x - strm(y)) < 2.5) || Math.hypot(x - strm(y), (y - band(strm(y)) - 34) * 1.5) < 9;
+      const bandH = (x, y) => { const b = band(x); return (22 * mSS(b + 10, b - 4, y) + 16 * mSS(b - 40, b - 56, y)) * mSS(-10, 110, y); }, floor = y => 38 * mSS(b0 + 26, b0 - 72, y) * mSS(-10, 110, y);
+      return { sun: 0.9, wet,
+        height(x, y) { let t = lerp(bandH(x, y), floor(y), notch(x, y)) + 10 * mBell(y); t -= 3 * mSS(6, 1, Math.abs(x - strm(y))) * mSS(60, 80, y); return t + mF(x * 0.06, y * 0.06, 52 + so) * 3; },
+        mat(x, ys, y, h, s, l) { const b = band(x), n = notch(x, y);
+          if (wet(x, y)) return mPick(MP.water, 0.45 + l * 0.3 + (mH(x, ys, 3) - 0.5) * 0.3, x, ys);
+          if (s > 1.3) { const st = Math.floor((x * 0.3 + h * 0.6 + mF(x * 0.12, y * 0.12, 53 + so) * 4)) % 4 === 0; return mPick(MP.crag, 0.1 + l * 0.8 + (st ? 0.12 : 0), x, ys); }
+          if (n > 0.5 && y > b0 - 90 && y < b0 + 50) return mH(x >> 1, ys >> 1, 61) < 0.45 ? mPick(MP.crag, 0.4 + l * 0.4 + (mH(x, ys, 62) - 0.5) * 0.4, x, ys) : mPick(MP.fgrass, 0.25 + l * 0.5, x, ys);
+          if (y > b && y < b + 20 + mF(x * 0.1, 0, 54 + so) * 14 && n < 0.5) return mPick(MP.crag, 0.45 + (mH(x, ys, 55) - 0.5) * 0.6, x, ys);
+          if (y < b && y > b - 12 - mF(x * 0.1, 1, 56 + so) * 10 && n < 0.5) return mPick(MP.heath, 0.3 + mH(x, ys, 57) * 0.6, x, ys);
+          return mPick(MP.fgrass, 0.3 + l * 0.5 + (mF(x * 0.08, y * 0.08, 58 + so) - 0.5) * 0.3, x, ys); },
+        over(E) { for (let ys = 0; ys < c.H; ys++) { const y = c.Y(ys), x = strm(y), b = band(x); if (y >= b - 4 && y < b + 26) for (let dx = -3; dx <= 3; dx++) E.put(x + dx, ys, mH(x + dx, ys, 60) < 0.6 ? MP.water[5] : MP.water[3], 0.9); }
+          mFlak(E, 2, [[c.railX ? c.railX[c.ys(b0)] : gx, c.ys(b0)], [sx, c.ys(band(sx))]], {});
+          mScatter(E, 4, 63 + so, (x, ys) => { const y = c.Y(ys), n = notch(x, y); return n > 0.3 && y > b0 - 95 && y < b0 + 60 && E.rsAt(x, ys) < 1.2 ? 0.28 : 0; }, (x, y, r) => { const R = r < 0.6 ? 1 : 2; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= R * R + 0.5) E.dim(x + dx + 1, y + dy + 1, 0.6); for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= R * R + 0.5) E.put(x + dx, y + dy, mPick(MP.crag, 0.55 - (dy + dx) * 0.12, x + dx, y + dy)); }, 4);
+          mScatter(E, 5, 62 + so, (x, ys) => { const y = c.Y(ys), yb = band(x), n = notch(x, y); if (E.rsAt(x, ys) > 0.8 || wet(x, y) || Math.abs(x - strm(y)) < 5) return 0; if (n > 0.3 && y > b0 - 95 && y < b0 + 50) return 0.15; if (n < 0.5 && ((y > yb && y < yb + 30) || (y < yb && y > yb - 16))) return 0; return 0.92; }, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.ftree, { con: true, k: K.WOOD }), 4); } }; },
+    incline: c => { const so = c.so, hx = c.free(60), hy = 210, d0 = (x, y) => Math.hypot((x - hx) * 0.9, (y - hy) * 0.7), bx = clamp(hx + (hx < 112 ? 60 : -60), 30, 194);
+      return { z: 1.8, cliff: 2.5,
+        height(x, y) { const d = d0(x, y); return (70 * Math.exp(-((d / 110) ** 2)) + 26 * Math.exp(-((Math.hypot(x - bx, y - 330) / 50) ** 2)) + mR(x * 0.03, y * 0.03, 71 + so) * 18 * Math.exp(-((d / 140) ** 2))) * mBell(y) + mF(x * 0.05, y * 0.05, 72 + so) * 4; },
+        mat(x, ys, y, h, s, l) { if (h > 62 + mF(x * 0.1, y * 0.1, 73 + so) * 10) return mPick(MP.crag, 0.25 + l * 0.7 + (mH(x, ys, 74) - 0.5) * 0.25, x, ys);
+          if (h > 54 && mH(x, ys, 79) < 0.45) return mPick(MP.fgrass, 0.3 + l * 0.5, x, ys); if (mF(x * 0.02, y * 0.02, 76 + so) > 0.66 && h < 46) return mPick(MP.heath.slice(0, 3), 0.35 + l * 0.4 + (mH(x, ys, 77) - 0.5) * 0.5, x, ys);
+          if (h > 54) return mPick(MP.heath.slice(0, 3), 0.2 + l * 0.6 + mH(x, ys, 75) * 0.3, x, ys); return mPick(MP.fgrass, 0.2 + l * 0.7, x, ys); },
+        over(E) { let top = [0, 0]; for (let y = 0; y < c.H; y += 2) for (let x = 0; x < c.W; x += 2) if (E.hg(x, y) > E.hg(top[0], top[1])) top = [x, y];
+          const look = mFlat(E, top[0], top[1], 3, 'the lookout', 0.5); if (look) { E.reachMax = 400; const RD = mReach(E, MT_ROAD_G); E.reachMax = 0; const i0 = E.idx(look[0] + 5, look[1] + 4), tr = RD.d[i0] < 400 ? RD.path(i0) : null; if (tr) mTrack(E, tr, 4, MP.dirt, { ruts: true }); else E.issues.push('no logging road to the lookout');
+            const [x, y] = look; for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) E.dim(x + dx + 3, y + dy + 3, 0.5); for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) { E.put(x + dx, y + dy, (dx + dy) & 1 ? [90, 64, 40] : [124, 92, 56]); E.setK(x + dx, y + dy, K.AROOF); } }
+          mFlak(E, 2, look ? [look] : [], { maxS: 0.45 });
+          mScatter(E, 5, 78 + so, (x, y) => { const h = E.hg(x, y); if (h > 60) return 0; if (mF(x * 0.02, c.Y(y) * 0.02, 76 + so) > 0.66 && h < 46) return 0.05; return clamp(1.05 - h / 60, 0.12, 0.95); }, (x, y, r) => mTree(E, x, y, E.hg(x, y) > 42 ? 1 : r < 0.4 ? 2 : 3, MP.ftree, { con: true, k: K.WOOD }), 4);
+          mScatter(E, 4, 81 + so, (x, y) => E.rsAt(x, y) > 0.7 && E.hg(x, y) > 38 && E.litAt(x, y) < 0.42 ? 0.4 : 0, (x, y) => { for (let k = 0; k < 5; k++) E.put(x - k * 0.2, y + k, MP.crag[6 + (k & 1)], 0.5); }); } }; } },
+  winter: {
+    cliff: c => { const so = c.so, gside = c.free(40) < 112 ? -1 : 1, rx = y => 112 - gside * 70 + gside * y * 0.3 + Math.sin(y * 0.016 + so) * 18; /* (the arête slants across the strip; the glacier comes down on the side with room) */
+      const gx = y => 112 + gside * 60 + Math.sin(y * 0.018 + 0.6 + so) * 10, gw = y => (30 - (y - 130) * 0.045) * (1 + (mF(0, y * 0.03, 88 + so) - 0.5) * 0.3);
+      const onG = (x, y) => { if (y < 110) return -1; const w = gw(y), dy = Math.max(0, y - 380 + w * 0.8) / (w * 0.8); return Math.abs(x - gx(y)) / w + dy * dy * 0.9 + Math.max(0, (160 - y) / 40); };
+      return { z: 1.3, ice: (x, y) => { const e = onG(x, y); return e >= 0 && e < 1; },
+        height(x, y) { const d = Math.abs(x - rx(y)); let t = 120 * Math.exp(-(((y - 210) / 150) ** 2)) - d * (0.9 + mR(x * 0.03, y * 0.03, 81 + so) * 0.7); t = Math.max(t, 6 + mF(x * 0.03, y * 0.03, 82 + so) * 8) + mR(x * 0.08, y * 0.08, 83 + so) * 6; const e = onG(x, y); if (e >= 0) t -= 5 * mSS(1.3, 0.4, e); return t * mBell(y); },
+        mat(x, ys, y, h, s, l) { const e = onG(x, y);
+          if (e >= 0 && e < 1) { const u = x - gx(y), v = y + u * u * 0.012, w = gw(y), cr = (v / 8 - Math.floor(v / 8)) < 0.16 && Math.abs(u) < w * 0.75 && mH(Math.floor(u / 3), Math.floor(v / 8), 84) < 0.55, med = Math.abs(u - 4 - Math.sin(y * 0.05) * 2) < 1.2 && mH(x, ys, 89) < 0.7;
+            if (med) return mPick(MP.wrock, 0.3 + mH(x, ys, 90) * 0.4, x, ys); const bare = mSS(250, 330, y + (mF(x * 0.05, y * 0.05, 92 + so) - 0.5) * 50); if (cr) return bare > 0.5 ? MP.ice[0] : MP.ice[2]; return bare > 0.5 ? mPick(MP.ice, 0.3 + l * 0.5 + (mF(x * 0.2, y * 0.04, 91 + so) - 0.5) * 0.3, x, ys) : mPick(MP.snow, 0.45 + l * 0.5, x, ys); }
+          if (e >= 0.95 && e < 1.25 && y > 230 && mF(x * 0.15, y * 0.15, 87 + so) > 0.42) return mH(x, ys, 85) < 0.7 ? mPick(MP.wrock, 0.1 + mH(x, ys, 86) * 0.35, x, ys) : mPick(MP.snow, 0.3 + l * 0.4, x, ys);
+          if (s > 1.5) { const ledge = Math.floor(h / 6 + mF(x * 0.1, y * 0.1, 86 + so) * 2) % 3 === 0 && l > 0.35; return ledge ? mPick(MP.snow, 0.3 + l * 0.6, x, ys) : mPick(MP.wrock, 0.2 + l * 0.75, x, ys); }
+          return mPick(MP.snow, 0.15 + l * 0.85, x, ys); },
+        kind(x, ys, y) { const e = onG(x, y); return e >= 0 && e < 1 ? K.ICE : null; },
+        over(E) { for (let ys = 0; ys < c.H; ys++) { const y = c.Y(ys); if (y < 70 || y > 340) continue; const x = rx(y) + 1; if (E.hg(x, ys) < 40) continue; E.put(x, ys, MP.snow[5]); E.put(x + 1, ys, MP.snow[4], 0.7); E.put(x - 1, ys, MP.snow[3], 0.4); }
+          mFlak(E, 2, c.railX ? [[c.railX[c.ys(200)], c.ys(200)]] : [], { snow: true, floor: [70, 74, 84], track: MP.snow.slice(1, 4), maxS: 0.45 });
+          mScatter(E, 6, 87 + so, (x, ys) => { const y = c.Y(ys), e = onG(x, y); return E.hg(x, ys) < 26 && E.rsAt(x, ys) < 0.6 && (e < 0 || e > 1.6) ? 0.5 : 0; }, (x, y) => mTree(E, x, y, 2, MP.wtree, { con: true, snow: true, k: K.WOOD }), 6); } }; },
+    incline: c => { const so = c.so, side = c.free(40) < 112 ? 0 : 224;
+      return { z: 2.4, cliff: 2.5,
+        height(x, y) { return (60 * mF(x * 0.008 + 3, y * 0.008, 91 + so, 3) + 50 * mSS(224 - side, side, x) * Math.exp(-(((y - 224) / 150) ** 2)) + mR(x * 0.02, y * 0.02, 92 + so) * 14) * mBell(y) + mF(x * 0.05, y * 0.05, 93 + so) * 3; },
+        mat(x, ys, y, h, s, l) { if (s > 2.6 && mH(x >> 1, ys >> 1, 94) < 0.6) return mPick(MP.wrock, 0.2 + l * 0.7, x, ys); return mPick(MP.snow, 0.1 + l * 0.9 + (mH(x, ys, 95) - 0.5) * 0.08, x, ys); },
+        over(E) { const hut = mFlat(E, side ? 196 : 28, c.ys(140), 6, 'the ski hut', 0.4, 60); if (hut) mHouse(E, hut[0], hut[1], 8, 12, 0.3, MP.snow.slice(1));
+          { const p = c.road; let best = -1, bi = -1; for (let k = 24; k < p.length - 24; k += 2) { const a = p[k - 6], b = p[k + 6], nx = -(b[1] - a[1]), ny = b[0] - a[0], n = Math.hypot(nx, ny) || 1, sd = Math.abs(E.hg(p[k][0] + nx / n * 9, p[k][1] + ny / n * 9) - E.hg(p[k][0] - nx / n * 9, p[k][1] - ny / n * 9)); if (sd > best) { best = sd; bi = k; } }
+            if (bi > 0 && best > 6) for (let k = bi - 14; k <= bi + 14; k++) { const a = p[k - 1], b = p[k + 1], nx = -(b[1] - a[1]), ny = b[0] - a[0], n = Math.hypot(nx, ny) || 1; for (let d = -7; d <= 7; d++) { const X = Math.round(p[k][0] + nx / n * d), Y = Math.round(p[k][1] + ny / n * d); E.put(X, Y, Math.abs(d) >= 6 ? MP.wrock[1] : (k & 3) < 2 ? MP.snow[3] : MP.snow[2]); E.mine[E.idx(X, Y)] = 1; } E.dim(p[k][0] + nx / n * 8 + 1, p[k][1] + ny / n * 8 + 1, 0.6); } } /* (a snow gallery over the road on its most exposed traverse: painted over the road, the road's kind kept) */
+          mFlak(E, 2, hut ? [hut] : [], { snow: true, floor: [70, 74, 84], track: MP.snow.slice(1, 4), maxS: 0.45 });
+          mScatter(E, 9, 96 + so, (x, y) => E.rsAt(x, y) > 0.55 ? 0.55 : 0, (x, y) => { for (let k = -4; k <= 4; k++) { E.put(x + k, y + k * 0.2, MP.wtree[1]); E.put(x + k + 1, y + k * 0.2 + 1, MP.snow[1], 0.5); } }, 8);
+          mScatter(E, 6, 97 + so, (x, y) => E.hg(x, y) < 40 && E.rsAt(x, y) < 0.5 ? clamp(0.8 - E.hg(x, y) / 50, 0, 0.7) : 0, (x, y, r) => mTree(E, x, y, r < 0.5 ? 1 : 2, MP.wtree, { con: true, snow: true, k: K.WOOD }), 5); } }; } },
+  city: {
+    cliff: c => { const so = c.so, QX = c.free(52), QY = 300, R = 70, hill = (x, y) => 90 * Math.exp(-((Math.hypot(x - QX, (y - 230) * 0.8) / 120) ** 2)) * mBell(y) + mF(x * 0.03, y * 0.03, 101 + so) * 6;
+      const qr = (x, y) => Math.hypot(x - QX, (y - QY) * 0.62), qe = (x, y) => (mF(x * 0.08, y * 0.08, 105 + so) - 0.5) * 12, qm = (x, y) => mSS(3, -3, qr(x, y) - R + qe(x, y)), qb = (x, y) => mTerr(Math.max(0, qr(x, y) - 14) * 1.05, 10, 0.32) + 2, cut0 = (x, y) => qm(x, y) > 0.5 && qb(x, y) < hill(x, y) - 0.5, cutM = new Int8Array(c.W * c.H).fill(-1), cut = (x, y) => { const xi = Math.round(x), ys = c.ys(y); if (xi < 0 || xi >= c.W) return cut0(x, y); const j = ys * c.W + xi; if (cutM[j] < 0) cutM[j] = cut0(xi, c.Y(ys)) ? 1 : 0; return cutM[j] === 1; }; /* (cached per pixel: the colours, the kinds and the trees all ask) */
+      const HR = (() => { const legs = [[QX, c.ys(QY + 40)]]; for (let k = 0; k < 6; k++) legs.push([k % 2 ? QX + 30 : QX - 30, c.ys(QY + 20 - k * 22)]); return mChaikin(legs, 2); })(); /* (the haul ramp: zigzagging up the pit's benches) */
+      return { z: 1.2,
+        height(x, y) { const hl = hill(x, y); return lerp(hl, Math.min(hl, qb(x, y)), qm(x, y)); },
+        cuts(E) { mGrade(E, HR, 8, 0.44, { bank: 3 }); }, /* (cut in at a steady grade: trucks cannot drive up a riser) */
+        mat(x, ys, y, h, s, l) { if (cut(x, y)) { if (s > 0.9) return mPick(MP.stone, 0.08 + l * 0.5 + (mH(x, ys >> 2, 104) < 0.25 ? -0.12 : 0), x, ys); if (mF(x * 0.05, y * 0.05, 107 + so) > 0.66 && h < 6) return mPick(MP.water, 0.25 + l * 0.2, x, ys); return mPick(MP.quarry, 0.42 + l * 0.35 + (mH(x, ys, 102) - 0.5) * 0.3, x, ys); }
+          return mPick(MP.cgrass, 0.2 + l * 0.65 + (mH(x, ys, 103) - 0.5) * 0.25, x, ys); },
+        kind(x, ys, y) { return cut(x, y) ? K.SPOIL : null; },
+        over(E) { mTrack(E, HR, 6, MP.quarry.slice(0, 4), { ruts: true, k: K.SPOIL });
+          const works = mFlat(E, QX + (QX < 112 ? 30 : -30), c.ys(QY + 70), 6, 'the stone works', 0.4, 50), crusher = mFlat(E, QX, c.ys(QY + 30), 4, 'the crusher', 0.4, 30);
+          if (works) mHouse(E, works[0], works[1], 10, 20, 1.3, MP.roofs2, { flat: true }); if (crusher) mHouse(E, crusher[0], crusher[1], 7, 9, 0.2, MP.roofs2, { flat: true });
+          if (works && crusher) { const n = Math.ceil(Math.hypot(works[0] - crusher[0], works[1] - crusher[1])); for (let k = 0; k <= n; k++) { const x = lerp(crusher[0], works[0], k / n), y = lerp(crusher[1], works[1], k / n); E.dim(x + 2, y + 2, 0.6); E.put(x, y, [44, 40, 34]); E.put(x + 1, y, [70, 64, 54]); E.claim(Math.round(x), Math.round(y), 3); } }
+          { const rim = []; for (let an = Math.PI; an <= 2 * Math.PI; an += 0.04) for (const off of [7, 9, 11]) { const x = Math.round(QX + Math.cos(an) * (R + off)), y = c.ys(QY + Math.sin(an) * (R + off) / 0.62); if (x < 8 || x > c.W - 9 || y < 8 || y > c.H - 9) continue; const yn = c.Y(y); if (cut(x, yn) || qm(x, yn) > 0.05 || !mLevel(E, x, y, 5, 0.45)) continue; rim.push([E.hg(x, y) - off * 0.8, x, y]); }
+            rim.sort((p, q) => q[0] - p[0]); let n = 0; const RD = mReach(E); for (const [, x, y] of rim) { if (n >= 2) break; if (E.flak.some(g => Math.hypot(g[0] - x, g[1] - y) < 56) || !mLevel(E, x, y, 5, 0.45)) continue; const i = y * E.W + x; if (!(RD.d[i] <= 80)) continue; const tr = RD.d[i] > 7 ? RD.path(i) : null; if (tr) mTrack(E, tr, 3, MP.quarry.slice(0, 4)); mFlakAt(E, x, y, { bags: MP.stone, floor: [60, 58, 54] }); n++; }
+            if (n < 2) mFlak(E, 2 - n, [[QX, c.ys(QY - R / 0.62)]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45, reach: RD }); E.qReach = RD; } /* (the rim's guns: the highest level ground on the lip of the pit, a track each to the nearest road) */
+          mFlak(E, 1, [works || [QX, 0]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45, reach: E.qReach });
+          mScatter(E, 6, 104 + so, (x, ys) => { const y = c.Y(ys); return !cut(x, y) && qr(x, y) > R + 4 && E.rsAt(x, ys) < 0.9 ? 0.7 : 0; }, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.treeT, { k: K.PARK }), 4); } }; },
+    incline: c => { const so = c.so, cx = c.free(70), cy = 224, wx = (x, y) => x + (mF(x * 0.012, y * 0.012, 117 + so) - 0.5) * 60, wy = (x, y) => y + (mF(x * 0.012, y * 0.012, 118 + so) - 0.5) * 60;
+      const HT = (x, y) => 84 * Math.exp(-((Math.hypot(wx(x, y) - cx, (wy(x, y) - cy) * 0.8) / 110) ** 2)) * mBell(y) + mF(x * 0.04, y * 0.04, 111 + so) * 3;
+      return { z: 2.2, cliff: 2.5, height: HT,
+        mat(x, ys, y, h, s, l) { return mPick(MP.cgrass, 0.15 + l * 0.75, x, ys); },
+        over(E) { const ST = 13, W = c.W, H = c.H, G = new Float32Array(W * H * 4);
+          for (let ys = 0; ys < H; ys++) for (let x = 0; x < W; x++) { const h = E.hf[ys * W + x], gx = (E.hg(x + 1, ys) - E.hg(x - 1, ys)) / 2, gy = (E.hg(x, ys + 1) - E.hg(x, ys - 1)) / 2, g = Math.hypot(gx, gy) || 1e-3, lv = Math.round(h / ST) * ST, i = (ys * W + x) * 4; G[i] = Math.abs(h - lv) / g; G[i + 1] = gx; G[i + 2] = gy; G[i + 3] = lv; }
+          const gi = (x, y) => (clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)) * 4;
+          for (let ys = 0; ys < H; ys++) for (let x = 0; x < W; x++) { const i = gi(x, ys), lv = G[i + 3], j = ys * W + x; if (lv < 12 || lv > 65 || E.kind[j] === MT_KEEP || E.railM[j]) continue; const d = G[i]; if (d < 2.4) { E.put(x, ys, mPick(MP.asphalt, 0.45 + E.lit[j] * 0.3, x, ys)); E.rd[j] = Math.min(E.rd[j], d); E.setK(x, ys, K.STREET); } else if (d < 3.2) E.put(x, ys, MP.asphalt[0], 0.7); } /* (the streets are the hill's own contour lines: level by construction) */
+          let top = [Math.round(cx), c.ys(cy)]; for (let ys = 0; ys < H; ys++) for (let x = 20; x < W - 20; x++) if (E.hf[ys * W + x] > E.hg(top[0], top[1])) top = [x, ys];
+          const C = mCastlePlan(E, top, [c.road[c.road.length - 1][0], H - 1], { drop: 4.5, min: 17, max: 25, bailey: [12, 18] }), Kc = mCastle(E, C, { intact: true });
+          mFlakAt(E, Kc.courtyard[0], Kc.courtyard[1], { floor: [40, 36, 30] }); if (mLevel(E, Kc.garden[0], Kc.garden[1], 0, 9)) mFlakAt(E, Kc.garden[0], Kc.garden[1], { floor: [40, 36, 30] });
+          { const RD = mReach(E, MT_ROAD_G * 1.2), a0 = C.approach[0].map(Math.round), i0 = E.idx(a0[0], a0[1]), near = RD.d[i0] < 2, RP = !near && RD.d[i0] < 80 ? RD.path(i0) : null, R2 = mAstar(E, a0, C.approach[1].map(Math.round), { gmax: MT_ROAD_G * 1.5 }); /* (the last stretch along the wall is the castle's own ramp, steeper than a road) */ /* (the castle ramp: from the nearest street up to the approach, then along the outer wall to the gate) */
+            if (RP) mTrack(E, RP, 4, MP.stone.slice(1), { k: K.STREET }); if (R2) mTrack(E, R2, 4, MP.stone.slice(1), { k: K.STREET }); else { mTrack(E, [a0, C.approach[1].map(Math.round)], 3, MP.stone.slice(2), { k: K.WALK }); } /* (too steep for the ramp: the last stretch is a stair) */ if (!RP && !near) E.issues.push('no ramp to the castle'); }
+          for (const a of [0.3, 1.5, 2.6, 3.9, 5.0]) { const p = [[top[0] + Math.cos(a) * 30, top[1] + Math.sin(a) * 36], [top[0] + Math.cos(a) * 160, top[1] + Math.sin(a) * 200]]; let on = false;
+            for (let k = 0; k < 160; k++) { const t = k / 160, x = lerp(p[0][0], p[1][0], t), y = lerp(p[0][1], p[1][1], t), i = E.idx(x, y); if (!on && (E.busy[i] || E.hf[i] > 66)) continue; if (E.hf[i] < 12 || E.kind[i] === MT_KEEP || E.railM[i]) break; on = true; E.put(x, y, k % 2 ? MP.stone[4] : MP.stone[1]); E.put(x + 1, y, k % 2 ? MP.stone[2] : MP.stone[0]); E.claim(Math.round(x), Math.round(y), 1); E.setK(x, y, K.WALK); } }
+          mScatter(E, 5, 120 + so, (x, ys) => { const i = gi(x, ys), h = E.hf[ys * W + x]; if (h < 13 || h > 66 || G[i] < 4.2) return 0; return 0.52; }, (x, ys, r) => { const i = gi(x, ys), ang = Math.atan2(G[i + 2], G[i + 1]) + Math.PI / 2; mHouse(E, x, ys, 6, r < 0.5 ? 7 : 10, ang, r < 0.55 ? MP.roofs : r < 0.8 ? MP.roofs2 : MP.roofs3); }, 4);
+          mScatter(E, 6, 114 + so, (x, ys) => E.hf[ys * W + x] < 11 ? 0.55 : 0, (x, y) => mTree(E, x, y, 2, MP.treeT, { k: K.PARK }), 4);
+          mScatter(E, 5, 116 + so, (x, ys) => E.hf[ys * W + x] > 67 ? 0.75 : 0, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.treeT, { k: K.PARK }), 3); } }; } },
+  temperate: {
+    cliff: c => { const so = c.so, edge = x => 220 + Math.sin(x * 0.025 + 1 + so) * 26 + (mF(x * 0.04, 5, 121 + so) - 0.5) * 30;
+      const field = (x, y) => { const fx = Math.floor((x + mF(x * 0.02, y * 0.02, 126 + so) * 30) / 46), fy = Math.floor((y + mF(x * 0.02, y * 0.02, 127 + so) * 30) / 34); return mH(fx, fy, 128 + so); };
+      return { sun: 0.65,
+        height(x, y) { const e = edge(x); return (46 * mSS(e + 6, e - 6, y) + mSS(e - 6, 0, y) * 20) * mSS(-10, 120, y) * mSS(448, 400, y) + mF(x * 0.02, y * 0.02, 122 + so) * 8; },
+        mat(x, ys, y, h, s, l) { const e = edge(x);
+          if (s > 1.2) return mPick(MP.chalk, 0.2 + l * 0.8 + ((Math.floor(h / 3) % 4 === 0) ? -0.15 : 0), x, ys);
+          if (y > e && y < e + 16 + mF(x * 0.12, 0, 123 + so) * 12) return mPick(MP.chalk, 0.45 + (mH(x, ys, 124) - 0.5) * 0.7, x, ys);
+          if (y < e) return mPick(MP.downs, 0.35 + l * 0.5 + (mF(x * 0.05, y * 0.05, 125 + so) - 0.5) * 0.3, x, ys);
+          const k = field(x, y), pal = k < 0.35 ? MP.grassT : k < 0.6 ? MP.wheat : k < 0.8 ? MP.soil : MP.downs, stripe = k > 0.35 && k < 0.8 ? Math.sin((x + y * (k - 0.5)) * 1.2) * 0.12 : 0;
+          return mPick(pal, 0.45 + stripe + (l - 0.5) * 0.4 + (mH(x, ys, 129) - 0.5) * 0.15, x, ys); },
+        kind(x, ys, y) { const e = edge(x); return y > e + 24 && field(x, y) >= 0.35 && field(x, y) < 0.8 ? K.FIELD : null; },
+        over(E) { const fx = c.free(20), farm = mFlat(E, fx, c.ys(330), 7, 'the farm', 0.35, 60);
+          if (farm) { for (const [dx, dy, a] of [[0, 0, 0.2], [6, -6, 1.7], [-4, -9, 0.1]]) mHouse(E, farm[0] + dx, farm[1] + dy, 6, 10, a, MP.roofs); const near = c.road.reduce((m, p) => Math.hypot(p[0] - farm[0], p[1] - farm[1]) < Math.hypot(m[0] - farm[0], m[1] - farm[1]) ? p : m, c.road[0]), FL = mAstar(E, [farm[0] + (near[0] > farm[0] ? 9 : -9), farm[1]], near); if (FL) mTrack(E, FL, 3, MP.dirt); }
+          const ew = mFlat(E, c.free(12), c.ys(110), 9, 'the earthwork', 0.4, 60, true); if (ew) { const [x, y] = ew; for (let k = -8; k <= 8; k++) for (let j = -6; j <= 6; j++) if (Math.abs(Math.abs(k) - 8) < 1 || Math.abs(Math.abs(j) - 6) < 1) { E.put(x + k, y + j, MP.stone[2]); E.setK(x + k, y + j, K.BERM); } }
+          mFlak(E, 2, [[(c.xIn + c.xOut) / 2, c.ys(220)]].concat(ew ? [ew] : []), {});
+          mScatter(E, 4, 130 + so, (x, ys) => { const y = c.Y(ys), e = edge(x); if (y < e + 24) return 0; const fx2 = (x + mF(x * 0.02, y * 0.02, 126 + so) * 30) / 46, fy = (y + mF(x * 0.02, y * 0.02, 127 + so) * 30) / 34; return Math.min(Math.abs(fx2 - Math.round(fx2)) * 46, Math.abs(fy - Math.round(fy)) * 34) < 2.5 ? 0.85 : 0; }, (x, y) => mTree(E, x, y, 1, MP.treeT));
+          mScatter(E, 6, 131 + so, (x, ys) => { const y = c.Y(ys); return y < edge(x) - 20 && mF(x * 0.03, y * 0.03, 132 + so) > 0.58 ? 0.8 : 0; }, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.treeT, { k: K.WOOD }), 4); } }; },
+    incline: c => { const so = c.so, hx = c.free(60), hy = 200, bx = clamp(hx + (hx < 112 ? 70 : -70), 30, 194);
+      const vineH = (x, y) => (70 * Math.exp(-((Math.hypot(x - hx, y - hy) / 120) ** 2)) + 26 * Math.exp(-((Math.hypot(x - bx, y - 330) / 70) ** 2))) * mBell(y) + mF(x * 0.02, y * 0.02, 141 + so) * 14 * mBell(y);
+      const vine = (x, y, h, l) => h > 20 && h < 68 && (l - 0.5) * 1.6 + (mF(x * 0.025, y * 0.025, 147 + so) - 0.5) * 1.4 > -0.12;
+      return { z: 2.0, cliff: 2.5, height: vineH,
+        mat(x, ys, y, h, s, l) { if (vine(x, y, h, l) && s > 0.3) { const q = h / 4, f = q - Math.floor(q); if (f < 0.1) return mPick(MP.stone, 0.45 + l * 0.5, x, ys); return Math.floor(f * 6) % 2 ? mPick(MP.vine, 0.1 + l * 0.7, x, ys) : mPick(MP.dirt, 0.45 + l * 0.5, x, ys); }
+          return mPick(MP.grassT, 0.2 + l * 0.8 + (mF(x * 0.05, y * 0.05, 143 + so) - 0.5) * 0.2, x, ys); },
+        kind(x, ys, y, h, l, s) { return vine(x, y, h, l) && s > 0.3 ? K.ORCHARD : null; },
+        over(E) { let top = [0, 0]; for (let y = 0; y < c.H; y += 2) for (let x = 20; x < c.W - 20; x += 2) if (E.hg(x, y) > E.hg(top[0], top[1])) top = [x, y];
+          const farm = mFlat(E, bx, c.ys(336), 8, 'the wine farm', 0.4, 60), C = mCastlePlan(E, top, farm || c.road[c.road.length >> 1]);
+          const near = q => c.road.reduce((m, p) => Math.hypot(p[0] - q[0], p[1] - q[1]) < Math.hypot(m[0] - q[0], m[1] - q[1]) ? p : m, c.road[0]);
+          const LN = mAstar(E, near(farm || C.approach[0]), farm ? [farm[0] + 10, farm[1] - 4] : C.approach[0]), LN2 = mAstar(E, farm ? [farm[0] + 10, farm[1] - 4] : near(C.approach[0]), C.approach[0]), LN3 = mAstar(E, C.approach[0], C.approach[1].map(Math.round));
+          for (const l of [LN, LN2, LN3]) if (l) mTrack(E, l, 4, MP.dirt); else E.issues.push('no lane to the castle');
+          const Kc = mCastle(E, C, {}); mFlakAt(E, Kc.courtyard[0], Kc.courtyard[1], {});
+          if (farm) for (const [dx, dy, a] of [[0, 0, 0.2], [-6, -12, 1.6], [8, -12, 0.1]]) mHouse(E, farm[0] + dx, farm[1] + dy, 7, 12, a, MP.roofs);
+          mFlak(E, 1, farm ? [farm] : [], {});
+          mScatter(E, 5, 145 + so, (x, ys) => { const y = c.Y(ys), h = E.hf[ys * c.W + x]; return !(vine(x, y, h, E.lit[ys * c.W + x]) && E.sl[ys * c.W + x] > 0.3) && h < 60 ? (mF(x * 0.03, y * 0.03, 146 + so) > 0.5 ? 0.85 : 0.08) : 0; }, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.treeT, { k: K.WOOD }), 4); } }; } }
+};
+/* what a builder left in a stretch's rows that the mountain takes over: lists whose things stand there (trees, pits, plots, craters, ...) lose them; the
+   streets, items, rail runs and tunnels stay (their pixels are repainted; the main road is relaid) */
+const MT_KEEP_LISTS = new Set(['streets', 'items', 'parcels', 'slots', 'trainRuns', 'tunnels', 'segs', 'shipLanes', 'viaducts', 'ravines', 'bridges', 'rivers', 'mtn', 'isles', 'stars']);
+const MT_GROUND = { desert: K.DESERT, forest: K.MEADOW, winter: K.MEADOW, city: K.MEADOW, temperate: K.MEADOW };
+const MT_TREE_LISTS = new Set(['trees', 'conifers', 'tufts']); /* (trees are cleared only inside the seam, so the host's woods and the stretch's mingle at a join) */
+function mClearLists(plan, s0, s1) {
+  for (const key of Object.keys(plan)) { const a = plan[key]; if (!Array.isArray(a) || MT_KEEP_LISTS.has(key) || !a.length) continue;
+    const t = MT_TREE_LISTS.has(key) ? MT_SEAM >> 1 : -2, inR = y => typeof y === 'number' && y >= s0 + t && y < s1 - t;
+    const keep = e => { if (Array.isArray(e)) return !(e.length && Array.isArray(e[0]) && e.some(p => inR(p[1]))); if (!e || typeof e !== 'object') return true;
+      if (typeof e.y === 'number') return !inR(e.y); if (typeof e.y0 === 'number' && typeof e.y1 === 'number') return !inR((e.y0 + e.y1) / 2); /* (a feature reaching in from a neighbouring stretch, as a village eases in, stays) */ if (typeof e.y0 === 'number') return !inR(e.y0); return true; };
+    plan[key] = a.every(e => Array.isArray(e) && (!e.length || (e[0] && typeof e[0] === 'object' && !Array.isArray(e[0])))) ? a.map(sub => sub.filter(keep)) : a.filter(keep); } /* (a list of lists of things, the forest's conifers by kind: each list filtered) */
+}
+function mStretch(plan, s0, s1, climate, kind, seed) {
+  const W = plan.W, H = s1 - s0, Kr = plan.K, Br = plan.B, py = ys => s1 - 1 - ys, so = (seed >>> 0) % 9973, E = mEngine(W, H); E.mine = new Uint8Array(W * H);
+  const recipe = (MT_RECIPES[climate] || MT_RECIPES.temperate)[kind];
+  /* the host's lines: its main road where it enters and leaves the stretch, its rail pixels row by row */
+  const arts = plan.streets.filter(st => st.cls === 'arterial' && st.axis !== 'h' && st.pts && st.pts.length), near = y => { let best = null, bd = 4; for (const st of arts) for (const q of st.pts) { const d = Math.abs(q[1] - y); if (q[2] && d < bd) { bd = d; best = q; } } return best; };
+  const art = (() => { const a = near(s0 - 1), b = near(s1); if (!a || !b) return null; let st = null, cov = -1; for (const t of arts) { const n = t.pts.filter(q => q[1] >= s0 && q[1] < s1).length; if (n > cov) { cov = n; st = t; } } return st ? { st, a, b } : null; })(); /* (the main road may be one street or several end to end: its points where it meets the stretch, and the street that runs through it) */
+  if (!art) { for (let ys = 0; ys < H; ys++) for (let x = 0; x < W; x++) { const k = Kr[py(ys) * W + x]; if (k === K.ROAD || k === K.BRIDGE) E.kind[ys * W + x] = MT_KEEP; } E.issues.push('no main road found through the stretch'); }
+  const xIn = art ? art.a[0] : 112, xOut = art ? art.b[0] : 112, roadW = art ? Math.max(8, art.a[2] || 9) : 9;
+  const railRow = new Float32Array(H).fill(NaN), railSpan = new Float32Array(H); let railN = 0;
+  for (let ys = 0; ys < H; ys++) { const y = py(ys); let a = 0, n = 0, lo = W, hi = -1; for (let x = 0; x < W; x++) { const k = Kr[y * W + x]; if (k === K.RAIL || k === K.RBRIDGE || (plan.RM && plan.RM[y * W + x] === 2)) { if (k !== K.RAIL && k !== K.RBRIDGE) { Kr[y * W + x] = K.RAIL; Br[y * W + x] = -1; plan.RM[y * W + x] = 1; } /* (the host's old level crossing: rail again, the road is relaid) */ a += x; n++; lo = Math.min(lo, x); hi = Math.max(hi, x); E.kind[ys * W + x] = MT_KEEP; for (let d = -2; d <= 2; d++) if (x + d >= 0 && x + d < W) E.railM[ys * W + x + d] = 1; } } if (n) { railRow[ys] = a / n; railSpan[ys] = hi - lo + 1; railN++; } }
+  const railX = railN > H * 0.6 ? (() => { const r = Float32Array.from(railRow); let last = NaN; for (let ys = 0; ys < H; ys++) { if (isNaN(r[ys])) r[ys] = last; else last = r[ys]; } for (let ys = H - 1; ys >= 0; ys--) if (isNaN(r[ys])) r[ys] = r[Math.min(H - 1, ys + 1)]; const sm = Float32Array.from(r); for (let ys = 0; ys < H; ys++) { const a = [], b = Math.max(0, ys - 6), e = Math.min(H - 1, ys + 6); for (let k = b; k <= e; k++) a.push(r[k]); a.sort((u, v) => u - v); sm[ys] = a[a.length >> 1]; } return sm; })() : null; /* (its middle row by row, a running median: a crossing or a siding does not jolt it) */
+  const Y = ys => ys * 448 / H, YS = v => clamp(Math.round(v * H / 448), 0, H - 1), lineD = (x, ys) => Math.min(Math.abs(x - lerp(xOut, xIn, ys / H)), railX ? Math.abs(x - railX[ys]) : 1e9);
+  const clear = (x, r) => { for (let ys = 0; ys < H; ys += 8) if (lineD(x, ys) < r) return false; return true; };
+  const free = r => { let bx = 112, bd = -1; for (let x = r + 6; x <= W - r - 6; x += 2) { let m = 1e9; for (let ys = Math.round(H * 0.15); ys < H * 0.85; ys += 8) m = Math.min(m, lineD(x, ys)); if (m > bd) { bd = m; bx = x; } } return bx; };
+  const c = { W, H, so, Y, ys: YS, xIn, xOut, railX, clear, free, road: Array.from({ length: H }, (_, ys) => [lerp(xOut, xIn, ys / H), ys]) };
+  const R = recipe(c);
+  { const CW = (W >> 1) + 1, CHn = (H >> 1) + 1, cg = new Float32Array(CW * CHn); for (let cy = 0; cy < CHn; cy++) { const yn = Y(Math.min(H - 1, cy * 2)); for (let cx = 0; cx < CW; cx++) cg[cy * CW + cx] = R.height(Math.min(W - 1, cx * 2), yn); } /* (the recipe sampled every 2 px and filled in between: its relief is smoother than that, and the stretch costs half the time) */
+    for (let ys = 0; ys < H; ys++) { const yn = Y(ys), env = mSS(0, 60, ys) * mSS(H - 1, H - 61, ys), cy = ys >> 1, fy = (ys & 1) * 0.5, cy1 = Math.min(CHn - 1, cy + 1); /* (the relief fades to the plain over 60 rows at both ends: no rock face at a join) */
+      for (let x = 0; x < W; x++) { const cx = x >> 1, fx = (x & 1) * 0.5, cx1 = Math.min(CW - 1, cx + 1), a = cg[cy * CW + cx], b = cg[cy * CW + cx1], c2 = cg[cy1 * CW + cx], d = cg[cy1 * CW + cx1];
+        E.hf[ys * W + x] = (a + (b - a) * fx + (c2 - a) * fy + (a - b - c2 + d) * fx * fy) * env; if (R.wet && R.wet(x, yn)) E.wet[ys * W + x] = 1; } } }
+  const railW = railX ? Math.max(12, railSpan.reduce((m, v) => Math.max(m, v), 0) + 8) : 0, gradeRail = skip => mGrade(E, Array.from({ length: H }, (_, ys) => [railX[ys], ys]), railW, MT_RAIL_G * 0.9, { bank: 4, skip }); /* (a tenth under the limit: the bank's blend and the rows' rounding stay inside it) */
+  let railG = railX ? gradeRail() : null;
+  mShade(E, R, false); let G = null, xs = null;
+  if (art) { xs = mRoadDP(E, xIn, xOut, { cliff: R.cliff }); c.road = Array.from(xs, (x, ys) => [x, ys]); G = mGrade(E, c.road, roadW + 1, MT_ROAD_G * 0.85, { bank: 3, keepOrig: true, fix: railX ? (x, ys) => { const r = Math.round(clamp(ys, 0, H - 1)); return Math.abs(x - railX[r]) < railW / 2 + 3 ? railG.prof[clamp(Math.round(r * 2), 0, railG.prof.length - 1)] : undefined; } : null }); if (railX && xs.some((x, ys) => Math.abs(x - railX[ys]) < railW / 2 + roadW / 2 + 6)) { const sk = new Uint8Array(W * H); for (let ys = 0; ys < H; ys++) for (let x = 0; x < W; x++) if (Math.abs(x + 0.5 - xs[ys]) <= roadW / 2 + 3 && Math.abs(x + 0.5 - railX[ys]) > 5) sk[ys * W + x] = 1; railG = gradeRail(sk); } } /* (at a level crossing the road meets the rail's height; the rail is graded again last, so the line always keeps its own) */
+  if (R.cuts) R.cuts(E); mShade(E, R);
+  if (xs) for (let ys = 0; ys < H; ys++) for (let x = 0; x < W; x++) { const d = Math.abs(x + 0.5 - xs[ys]); E.rd[ys * W + x] = Math.min(E.rd[ys * W + x], d); if (d <= roadW / 2) E.kind[ys * W + x] = MT_KEEP; }
+  const ground = MT_GROUND[climate] || K.MEADOW;
+  for (let ys = 0; ys < H; ys++) { const yn = Y(ys); for (let x = 0; x < W; x++) { const j = ys * W + x, h = E.hf[j], s = E.sl[j], l = E.lit[j]; E.put(x, ys, R.mat(x, ys, yn, h, s, l)); if (E.shade[j]) E.dim(x, ys, 0.6);
+      if (E.kind[j] === MT_KEEP) continue; const k = R.kind ? R.kind(x, ys, yn, h, l, s) : null; E.kind[j] = E.rock[j] ? K.CLIFF : E.wet[j] ? K.RIVER : k !== null && k !== undefined ? k : ground; } }
+  if (G) mRoadEdges(E, G, roadW / 2 + 0.5, { rock: climate === 'winter' ? MP.wrock : climate === 'desert' ? MP.rockD : climate === 'temperate' ? MP.chalk : MP.crag });
+  if (R.over) R.over(E, c);
+  { const st = mSteep(E, railX ? Array.from({ length: H }, (_, ys) => [railX[ys], ys]) : [[0, 0], [0, 1]]); if (railX && st.w > MT_RAIL_G * 1.2) E.issues.push('rail climbs ' + st.w.toFixed(2)); }
+  if (xs) { const st = mSteep(E, c.road); if (st.w > MT_ROAD_G * 1.2) E.issues.push('road climbs ' + st.w.toFixed(2)); }
+  /* into the plan: the kinds, the main road (its street's points and plan.mx), the flak slots, the colours */
+  const artId = art ? plan.streets.indexOf(art.st) : -1, RM = plan.RM, alphaOf = ys => Math.min(1, Math.min(ys, H - 1 - ys) / MT_SEAM);
+  for (let ys = 0; ys < H; ys++) { const y = py(ys); for (let x = 0; x < W; x++) { const j = ys * W + x, i = y * W + x, hostRail = Kr[i] === K.RAIL || Kr[i] === K.RBRIDGE;
+      if (xs && Math.abs(x + 0.5 - xs[ys]) <= roadW / 2) { if (hostRail) { if (RM) RM[i] = 2; } Kr[i] = K.ROAD; Br[i] = -2 - artId; continue; }
+      if (hostRail) continue; if (alphaOf(ys) < 1) { if (xs && Kr[i] === K.ROAD && Br[i] <= -2 && plan.streets[-2 - Br[i]] && plan.streets[-2 - Br[i]].cls === 'arterial') { let q = x; for (let d = 6; d < 20; d++) { const xx = x + (x < xs[ys] ? -d : d); if (xx >= 0 && xx < W && Kr[y * W + xx] !== K.ROAD) { q = xx; break; } } Kr[i] = Kr[y * W + q]; Br[i] = Br[y * W + q]; if (plan.F) plan.F[i] = plan.F[y * W + q]; } continue; } /* (the seam rows keep the host's ground; only its old road is gone) */
+      Kr[i] = E.kind[j] === MT_KEEP ? ground : E.kind[j]; Br[i] = -1; if (plan.F && i < plan.F.length) plan.F[i] = -1; if (RM && RM[i] === 2) RM[i] = 0; } }
+  if (art) { const w = art.a[2] || 9, keep = art.st.pts.filter(q => q[1] < s0 || q[1] >= s1), add = Array.from(xs, (x, ys) => [x, py(ys), w]); art.st.pts = keep.concat(add).sort((a, b) => a[1] - b[1]); for (let ys = 0; ys < H; ys++) plan.mx[py(ys)] = xs[ys]; }
+  for (const st of plan.streets) if (!art || st !== art.st) st.pts = st.pts.filter(q => q[1] < s0 || q[1] >= s1);
+  { const gone = new Set(); plan.items.forEach((it, k) => { if (it.y0 + it.h > s0 + MT_SEAM && it.y0 < s1 - MT_SEAM) { gone.add(k); Object.assign(it, { w: 0, h: 0, t: 'gone', dmg: 0, fire: false, gone: true }); } }); /* (a building of the host's in the stretch: retired, its index kept, since the plan's pixels refer to items by index) */
+    if (gone.size) for (let y = Math.max(0, s0 - 4); y < Math.min(plan.L, s1 + 4); y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (Br[i] >= 0 && gone.has(Br[i])) { Kr[i] = ground; Br[i] = -1; } }
+    plan.items.forEach((it, k) => { if (gone.has(k) || it.round || it.part === 'apse' || it.part === 'bunker' || it.y0 + it.h < s0 - 2 || it.y0 > s1 + 2) return; let cut = false; /* (a building near a seam that the relaid road or the stretch cut into: retired) */
+      for (let y = it.y0; y < it.y0 + it.h && !cut; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const kk = Kr[y * W + x]; if (Br[y * W + x] !== k || (kk !== K.BLDG && kk !== K.RUBBLE)) { cut = true; break; } }
+      if (cut) { gone.add(k); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const i = y * W + x; if (Br[i] === k) { Kr[i] = y >= s0 && y < s1 ? ground : K.GARDEN; Br[i] = -1; } } Object.assign(it, { w: 0, h: 0, t: 'gone', dmg: 0, fire: false, gone: true }); } });
+    plan.items.forEach((it, k) => { if (gone.has(k) || !(it.t === 'house' || it.t === 'terrace' || it.t === 'block') || it.y0 + it.h < s0 - 48 || it.y0 > s1 + 48 || it.quayFront) return; /* (a house near the stretch whose street ran into it and is gone: retired too) */
+      const cx = (it.x0 + it.w / 2) | 0, cy = (it.y0 + it.h / 2) | 0, dir = { W: [-1, 0, it.x0 - 1, cy], E: [1, 0, it.x0 + it.w, cy], S: [0, -1, cx, it.y0 - 1], N: [0, 1, cx, it.y0 + it.h] }[it.front]; if (!dir) return; let ok = false;
+      for (let q = 0; q < 8 && !ok; q++) { const x = dir[2] + dir[0] * q, y = dir[3] + dir[1] * q; if (x >= 0 && x < W && y >= 0 && y < plan.L) { const kk = Kr[y * W + x]; if (kk === K.ROAD || kk === K.STREET || kk === K.WALK || kk === K.PLAZA) ok = true; else if (kk !== K.FRONT && kk !== K.RUBBLE && kk !== K.RAIL) break; } } /* (as validate reads a frontage) */
+      if (!ok) { gone.add(k); for (let y = it.y0; y < it.y0 + it.h; y++) for (let x = it.x0; x < it.x0 + it.w; x++) { const i = y * W + x; if (Br[i] === k) { Kr[i] = y >= s0 && y < s1 ? ground : K.GARDEN; Br[i] = -1; } } Object.assign(it, { w: 0, h: 0, t: 'gone', dmg: 0, fire: false, gone: true }); } });
+    plan.fires = plan.fires.filter(f => !(f.item >= 0 && gone.has(f.item))); for (const q of plan.slots) if (q.item !== undefined && gone.has(q.item)) q.y = -1e9; }
+  mClearLists(plan, s0, s1); plan.slots = plan.slots.filter(q => q.y >= 0 && (q.y < s0 || q.y >= s1));
+  for (const [x, ys] of E.flak) plan.slots.push({ kind: 'flak', on: 'mountain', x, y: py(ys), r: 8 }); plan.slots.forEach((q, i) => { q.id = i; });
+  if (plan.wallL) for (let y = s0 + MT_SEAM; y < s1 - MT_SEAM; y++) { plan.wallL[y] = -1; plan.wallR[y] = W; } /* (the host's rock walls stay in the seam rows, where its ground is kept) */
+  const keepM = new Uint8Array(W * H); for (let j = 0; j < W * H; j++) keepM[j] = E.kind[j] === MT_KEEP && !E.mine[j] ? 1 : 0;
+  const alpha = Float32Array.from({ length: H }, (_, ys) => Math.min(1, Math.min(ys, H - 1 - ys) / MT_SEAM));
+  plan.mtn.push({ y0: s0, y1: s1, H, kind, climate, rgb: E.rgb, keep: keepM, alpha, road: xs, rail: railX, flak: E.flak.map(([x, ys]) => [x, py(ys)]), issues: E.issues, hf: E.hf, rock: E.rock });
+}
+/* every mountain stretch of a plan's segment list; the kind (cliff or incline) is the segment's own (g.mtn, the lab's) or drawn from the plan's seed */
+function mountainStretches(plan, segs, climate, CHp = 64) {
+  if (!segs || !segs.some(g => g.t === 'mountain' || g.t === 'main_mountain')) return plan;
+  plan.mtn = plan.mtn || []; let at = 0;
+  for (const g of segs) { const s0 = at, s1 = at + g.n * CHp; at = s1; if (g.t !== 'mountain' && g.t !== 'main_mountain') continue; if (s1 > plan.L || s0 < 1) continue;
+    const kind = g.mtn === 'cliff' || g.mtn === 'incline' ? g.mtn : (h32(plan.seed | 0, 88000 + s0) & 1 ? 'cliff' : 'incline'); mStretch(plan, s0, s1, climate, kind, h32(plan.seed | 0, 88100 + s0)); }
+  plan.mtnRow = new Int16Array(plan.L).fill(-1); plan.mtn.forEach((M, k) => { for (let y = M.y0; y < M.y1; y++) plan.mtnRow[y] = k; });
+  mTankNet(plan); return plan;
+}
+/* the tank network after the stretches: a host's tank road that met the main road only through a stretch's rows is cut off; it becomes an ordinary street (no tank is
+   routed onto it), as validate floods the network: from the lowest row with a tank road (and the mainland's), through tank road and tank bridges */
+function mTankNet(plan) {
+  const { W, L, K: Kr, B: Br } = plan, seen = new Uint8Array(W * L), st = [], seed = y0 => { let y = y0; while (y < L - 1 && !Kr.subarray(y * W, y * W + W).includes(K.ROAD)) y++; for (let x = 0; x < W; x++) if (Kr[y * W + x] === K.ROAD && !seen[y * W + x]) { seen[y * W + x] = 1; st.push(y * W + x); } };
+  seed(0); if (plan.mainland) seed(plan.mainland.y0);
+  while (st.length) { const i = st.pop(), x = i % W; for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * L && !seen[j] && (Kr[j] === K.ROAD || (Kr[j] === K.BRIDGE && plan.streets[-2 - Br[j]] && plan.streets[-2 - Br[j]].tank))) { seen[j] = 1; st.push(j); } }
+  const reached = new Map(), cut = new Set(); for (let i = 0; i < W * L; i++) if (Kr[i] === K.ROAD) { const id = -2 - Br[i]; if (seen[i]) reached.set(id, true); else { Kr[i] = K.STREET; cut.add(id); } }
+  for (const id of cut) if (!reached.get(id) && plan.streets[id]) plan.streets[id].tank = false;
+}
+
 const CityGen = { VERSION: 1, CITY_UD, CITY_DIALS, ISLES_DIALS, FOREST_BASE, FOREST_DIALS, WINTER_DIALS, DESERT_DIALS, setHedgeSoft: t => { HEDGE_SOFT = t; }, getHedgeSoft: () => HEDGE_SOFT, K, KIND_NAMES, TT, PRESETS, GZ, gorgeBridgeX, bufferStops, generate: o => { o = cityFromSegs(o); const bd = (PRESETS[o.preset] || {}).builder; if (bd === 'sandSea') { const q0 = o.params || {}, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = sandSea(Object.assign({}, o, { params: qs })); /* (the arena's parameters stay out of the desert builder: it passes its own on to the sub-plans it builds, and one would build an arena of its own) */ if (q0.cityArena) { const hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'desert', K.DESERT); else addDesertArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks }); } return p0; } /* (the desert's generated boss arena: its own small plan after the level) */ if (bd === 'winterLine') { const q0 = o.params || {}; if (!q0.cityArena) return winterLine(o); const qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = winterLine(Object.assign({}, o, { params: qs })), hA = (q0.cityArena | 0) * 64; if (q0.cityArenaSea) addIceSeaArena(p0, hA, { ice: !!q0.harbourIce }); else if (q0.cityArenaStyle === 'airfield') addAirfield(p0, hA, { clim: 'winter' }); else if (q0.cityArenaStyle === 'snow') addSnowArena(p0, hA, { scenes: !!q0.cityArenaScenes }); return p0; } /* (the winter's generated sea ending: its own small plan after the freight harbour) */ if (bd === 'forest' && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaStyle', 'cityArenaFeature', 'cityArenaScenes', 'cityArenaBossTracks', 'cityArenaTracks', 'cityArenaYard']) delete qs[k]; const p0 = forestLand(Object.assign({}, o, { params: qs })); markSlotRoofs(p0); calmWater(p0); const hA = (q0.cityArena | 0) * 64; /* (the forest's generated boss arena: its own small plan after the level, whose own plan never sees the arena's parameters) */ if (q0.cityArenaSea) addSeaArena(p0, hA); else if (q0.cityArenaStyle === 'airfield') pickAirfield(p0, hA, q0, 'forest', K.MEADOW); else addForestArena(p0, hA, { scenes: !!q0.cityArenaScenes, bossTracks: q0.cityArenaBossTracks, feature: q0.cityArenaFeature }); return p0; } if ((o.preset === 'islands' || bd === 'islands') && o.params && o.params.cityArena) { const q0 = o.params, qs = Object.assign({}, q0); for (const k of ['cityArena', 'cityArenaSea', 'cityArenaGap', 'cityArenaOpen', 'cityArenaIsles', 'cityArenaStyle', 'cityArenaScenes']) delete qs[k]; const p1 = islands(Object.assign({}, o, { params: qs })); markSlotRoofs(p1); calmWater(p1); if (p1.P.climate === 'desert') desertize(p1); else if (p1.P.climate === 'winter') { winterize(p1); addIceSeaArena(p1, (q0.cityArena | 0) * 64, {}); return p1; } /* (an archipelago day in another climate: its islets in that climate's look; the winter's arena is its own sea with drift ice) */ if (q0.cityArenaStyle === 'land') { addLandArena(p1, (q0.cityArena | 0) * 64, { scenes: !!q0.cityArenaScenes }); return p1; } /* (a land day: the mainland goes on as the arena) */ addSeaArena(p1, ((q0.cityArena | 0) - (q0.cityArenaGap | 0)) * 64, { gap: (q0.cityArenaGap | 0) * 64, open: !!q0.cityArenaOpen, isles: !!q0.cityArenaIsles }); return p1; } /* (the temperate kit's generated sea ending: its own small plan, after the old land's built-up stretches when there are any) */ const p = o.preset === 'islands' || bd === 'islands' ? islands(o) : bd === 'desert' ? desertLand(o) : bd === 'forest' ? forestLand(o) : bd === 'winterLand' ? winterLand(o) : withPerimeter(o); markSlotRoofs(p); calmWater(p); if (p.P && p.P.climate === 'desert' && p.P.builder !== 'desert') desertize(p); if (p.P && p.P.climate === 'winter') winterize(p); return p; }, validate, typeAt, tankPits, edgeNests, paint, paintFx, riverFx, fireBox, nightLights, nightGrade, sunsetGrade, morningGrade, moonGrade, hazeGrade, cloud, CLOUD_KINDS, palette: C_TEMP, desert: C_DESERT, winter: C_WINTER };
+{ const genBase = CityGen.generate, MT_CLIMATE = { sandSea: 'desert', forest: 'forest', winterLine: 'winter', islands: 'temperate' };
+  CityGen.generate = o => { const p = genBase(o), segs = o && o.params && o.params.segs; if (!segs || !segs.some(g => g.t === 'mountain' || g.t === 'main_mountain')) return p;
+    const bd = (PRESETS[o.preset] || {}).builder, climate = MT_CLIMATE[bd] || (o.preset === 'portSouth' ? 'city' : 'temperate'); return mountainStretches(p, segs, climate); };
+  CityGen.MT = { RECIPES: MT_RECIPES, ROAD_G: MT_ROAD_G, RAIL_G: MT_RAIL_G, CLIFF: MT_CLIFF, FLAK_GAP: MT_FLAK_GAP, SEAM: MT_SEAM }; } /* (the mountain stretches: mountainStretches) */
 if (typeof module !== 'undefined' && module.exports) module.exports = CityGen;
 root.CityGen = CityGen;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -5526,7 +6024,7 @@ root.CityGen = CityGen;
    check(kitId, sortie) -> [] or the list of broken rules (gate 1). composeSortie only returns a sortie that passes it. */
 (function (root) {
 'use strict';
-const VERSION = 6; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
+const VERSION = 7; // composeVersion: raise it with any change that alters what a date gives (the kits, the walk, the hash use); anything keyed by date uses date + version
 const CH_S = 174; // frames the level scrolls one chunk (measured: the boss trigger comes 2.9 s per chunk after the start, tests/daily-baseline.json)
 
 // The game's sortieHash, bit for bit (tests/compose.mjs compares the two): a pure hash of two integers, 0 <= result < 1.
@@ -5674,6 +6172,19 @@ const KITS = {
       extrasFollow: (() => { const all = ['main_town', 'main_estate', 'main_airbase'], f = {}; for (const t of all) f[t] = all.filter(q => q !== t && !(t === 'main_town' && q === 'main_estate') && !(t === 'main_estate' && q === 'main_town')); return f; })() }, /* (the same picks as before: the town and the estate still do not follow each other) */
     enc: { open_sea: [{ id: 'firstcontact', at: 0, end: 1, frames: 2760, first: true, share: 0.45 }]  /* (level 1's first contact lasts 2,760 frames: the carrier's take-off holds it, tests/daily-baseline.json; in 45 % of the days, so that the island bands' encounters have room before the Wing) */, island_fortress: [{ id: 'fortstrike', at: 1, end: 2, frames: 1100 }], island_archipelago: [{ id: 'reefpatrol', at: 1, end: 2, frames: 1000 }], main_farm: [{ id: 'anvil', at: 0, end: 1, frames: 1080, first: true }, { id: 'formations', at: 1, end: 1, frames: 720, last: true }], main_river: [{ id: 'anvil', at: 0, end: 1, frames: 1080 }, { id: 'formations', at: 1, end: 1, frames: 720 }] } },
 };
+/* Mountain stretches (owner, 2026-11-27: "mountain sections for the generator and daily sortie of all climates"): a middle template in every land kit, 'mountain'
+   ('main_mountain' on the temperate mainland), 6 to 8 chunks, at most once a day, after and before any other middle template (the city's beforeApproach keeps it
+   off the boss's approach). The generator (CityGen, mountainStretches) builds it on the kit's own line in the climate's look, a cliff or an incline drawn from the
+   plan's seed; its flak sites are plan slots, so its encounter is the flak lane. */
+for (const k of ['desert', 'forest', 'winter', 'city']) { const K0 = KITS[k]; K0.middle.mountain = { len: [6, 8], max: 1, heat: 0.5, built: 0.3 }; for (const t in K0.follows) if (!K0.follows[t].includes('mountain')) K0.follows[t].push('mountain'); K0.follows.mountain = Object.keys(K0.middle).filter(t => t !== 'mountain'); K0.enc.mountain = [{ id: 'flaklane', at: 1, end: 2, frames: 1140 }]; }
+KITS.city.middle.mountain.len = [5, 7]; /* (the city also requires its centre: a shorter mountain keeps its walk's tries low) */
+KITS.temperate.main.middle.main_mountain = { len: [5, 7], max: 1, heat: 0.5 }; KITS.temperate.enc.main_mountain = [{ id: 'flaklane', at: 1, end: 2, frames: 1140 }];
+/* a mountain day: MOUNTAIN_SHARE of the days (own stream 7101) take one mountain stretch for sure (the kit's walk requires it); the others walk without it, as before */
+const MOUNTAIN_SHARE = 0.3;
+function mountainKit(kit, base) { const mt = kit.middle.mountain ? 'mountain' : kit.main && kit.main.middle.main_mountain ? 'main_mountain' : null; if (!mt) return kit;
+  const on = hash(base | 0, 7101) < MOUNTAIN_SHARE, drop = m => { const r = Object.assign({}, m); delete r[mt]; return r; };
+  if (mt === 'mountain') return on ? Object.assign({}, kit, { require: (kit.require || []).concat(['mountain']) }) : Object.assign({}, kit, { middle: drop(kit.middle) });
+  return Object.assign({}, kit, { main: Object.assign({}, kit.main, on ? { require: ['main_mountain'] } : { middle: drop(kit.main.middle) }) }); }
 const KIT_ORDER = ['desert', 'forest', 'winter', 'city', 'temperate']; // the daily rotation (owner: rotation, so consecutive days differ)
 const CASTLE_RUIN_SHARE = 0.3;
 const RAVEN_MID_SHARE = 0.3; /* the share of days whose mid-level fight is the Raven prototype */
@@ -5837,6 +6348,7 @@ KITS.temperate.landKit = Object.assign({}, KITS.temperate, { land: true, len: [1
   enc: Object.assign({}, KITS.temperate.enc, { main_village: [{ id: 'flaklane', at: 0, end: 1, frames: 1140 }], main_wood: [{ id: 'fuelconvoy', at: 1, end: 2, frames: 1280 }] }), /* (a long mainland: the village's flak lane and a fuel convoy on the road through a wood as well) */
   bosses: bossPool([['gunline', [['plain', 2]]], ['tankcol', [['plain', 2]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['silo', [['plain', 1]]], ['bridgedef', [['plain', 1]]], ['dam', [['plain', 1]]], ['fortress', [['plain', 2], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1], ['small', 1]]], ['moth', [['plain', 1]]], ['raven', [['plain', 1]]], ['rival', [['plain', 1]]], ['shadowwing', [['plain', 1]]]]),
   cityArena: { n: 48, style: 'land', kinds: ['fortress', 'skyfort', 'moth', 'raven', 'rival', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'] } });
+KITS.temperate.landKit.main.middle.main_mountain = KITS.temperate.main.middle.main_mountain; /* (the land days' mainland takes the mountain too) */
 KITS.desert.cityArena = { n: 48, style: 'desert', airfieldShare: 0.25, kinds: ['fortress', 'skyfort', 'moth', 'rival', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'] }; /* (the desert's generated boss arena, owner: variations of the desert's own boss area, and the city's final airfield as one option in a quarter of its days; the sand crawler keeps the Campaign's original area, and so for now do the castle, the two-train yard and the escapes) */
 KITS.forest.bosses = bossPool([['canyon', [['plain', 1]]], ['dam', [['plain', 1]]], ['bridgedef', [['plain', 1]]], ['silo', [['plain', 1]]], ['castle', [['plain', 3], ['heavy', 1], ['light', 1]]], ['longtrain', [['plain', 2]]], ['fortress', [['plain', 1], ['heavy', 1]]], ['skyfort', [['plain', 1], ['lance', 1], ['small', 1]]], ['train', [['plain', 1]]], ['railgun', [['plain', 1]]], ['ship', [['plain', 1]]], ['wolfpack', [['plain', 1]]], ['shadowwing', [['plain', 1]]], ['raven', [['plain', 1]]], ['moth', [['plain', 1], ['storm', 1]]], ['slipway', [['plain', 1]]], ['squadron', [['plain', 1]]], ['gunline', [['plain', 1]]], ['tankcol', [['plain', 1]]], ['tankfarm', [['plain', 1]]], ['airbase', [['plain', 1]]], ['rival', [['plain', 1]]], ['ghostship', [['plain', 1]]]]);
 KITS.forest.cityArena = { n: 48, style: 'forest', airfieldShare: 0.25, kinds: ['fortress', 'skyfort', 'moth', 'rival', 'raven', 'shadowwing'], scenes: ['gunline', 'tankcol', 'tankfarm', 'airbase', 'silo', 'bridgedef', 'dam'], tracks: ['longtrain', 'railgun'], sea: ['ship', 'wolfpack', 'squadron', 'ghostship', 'slipway'] }; KITS.forest.bosses.find(b => b.kind === 'railgun').track = [93, 131]; KITS.forest.cityArena.features = { burnt: ['fortress', 'rival', 'skyfort', 'moth', 'raven', 'shadowwing', 'gunline', 'tankcol'], fortified: ['gunline', 'tankcol', 'fortress', 'tankfarm', 'silo', 'skyfort'], logging: ['fortress', 'tankcol', 'tankfarm', 'rival', 'skyfort', 'moth'], water: ['skyfort', 'moth', 'raven', 'shadowwing', 'rival', 'bridgedef', 'dam'], strip: ['rival', 'shadowwing', 'skyfort', 'raven'], cutting: ['longtrain', 'railgun'], mountain: ['skyfort', 'moth', 'raven', 'shadowwing', 'rival'] }; KITS.forest.cityArena.featureShare = 0.7; /* (the forest's own ideas, owner: all six; each for the bosses it suits, on 70 % of the forest-style days that have one, on its own hash stream) */ /* (the forest's generated boss arena, owner: variations of its own Campaign boss area, the castle ground, and the city's final airfield as one option in a quarter of its days; land endings with scene zones, the long train and the supergun on their own rails (the supergun's pair at x 93 and 131, as the desert's and the city's), the sea endings on the generated coast and sea; the castle keeps its own floor, and the canyon run and the two trains keep the Campaign's ground) */
@@ -5914,7 +6426,7 @@ function legacyWalk(kit, base) {
 /* The mainland of a kit (kit.main): its opening stretch, a walk over its own grammar (own hash stream 6850) */
 function mainWalk(kit, base, cove, ex) {
   const M = kit.main, CL = cove ? M.close || [] : ex && ex.length ? ex : M.gate || [], exN = !cove && ex ? ex.reduce((a, q) => a + q[1], 0) : 0, ls = hashInt(base, 6850), fixed = M.open.concat(CL).reduce((a, q) => a + q[1], 0), names = Object.keys(M.middle), follows = {}; for (const t of names.concat(M.open.map(q => q[0]))) follows[t] = names.slice(); let n = 0; const r = () => hash(ls, n++);
-  for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) + exN - fixed, r, CL.length ? CL : [['_end', 0]], M.open); /* (the built-up stretches come on top of the mainland's own length, as the legacy ones did) */ if (mid && !(exN && mid.length && mid[mid.length - 1][0] === 'main_village')) return M.open.concat(mid, CL); } /* (not the village right before them: neither can bend the main road, open land between does) */
+  for (let k = 0; k < 40; k++) { const mid = walk({ middle: M.middle, follows, minMiddle: M.minMiddle, require: M.require }, M.len[0] + Math.floor(r() * (M.len[1] - M.len[0] + 1)) + exN - fixed, r, CL.length ? CL : [['_end', 0]], M.open); /* (the built-up stretches come on top of the mainland's own length, as the legacy ones did) */ if (mid && !(exN && mid.length && mid[mid.length - 1][0] === 'main_village')) return M.open.concat(mid, CL); } /* (not the village right before them: neither can bend the main road, open land between does) */
   throw new Error('sortie-compose: no mainland for kit ' + kit.id);
 }
 /* The city's generated arena: on a day whose boss fights on a plain airfield, with no sea tail and no boss on a track (the long train, the supergun, the two-train yard). With the rail yard ending
@@ -5931,7 +6443,7 @@ function cityArenaTracks(kit, ap) { return kit.arenaTracks && kit.arenaTracks[ap
 function composeSortie(kitId, seed, sub, flavour, twist, dials, tod, sea) {
   let kit = KITS[kitId]; if (!kit) throw new Error('sortie-compose: no kit ' + kitId);
   flavour = FLAVOURS.includes(flavour) ? flavour : 'plain'; twist = TWISTS.includes(twist) ? twist : 'none'; dials = dials === 'off' ? 'off' : 'on'; tod = TODS.includes(tod) && twist !== 'night' ? tod : 'day'; const ground = flavour === 'variant' || flavour === 'loop', rank = flavour === 'rank' || flavour === 'loop';
-  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; sea = sea === 'on' || sea === 'off' ? sea : undefined; const archi = archiDay(kit, base, sea); if (archi) kit = kit.archiKit; /* (an archipelago day: open sea and a few islets in the kit's climate, its own stream) */ else if (kit.landKit && hash(base, 6980) < kit.landShare) kit = kit.landKit; /* (a land day: the kit's land variant, its own stream) */ let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
+  seed = seed | 0; sub = sub | 0; const base = sub ? hashInt(seed, 7919 + sub) : seed; sea = sea === 'on' || sea === 'off' ? sea : undefined; const archi = archiDay(kit, base, sea); if (archi) kit = kit.archiKit; /* (an archipelago day: open sea and a few islets in the kit's climate, its own stream) */ else if (kit.landKit && hash(base, 6980) < kit.landShare) kit = kit.landKit; /* (a land day: the kit's land variant, its own stream) */ kit = mountainKit(kit, base); /* (a mountain day, its own stream) */ let ap = kit.approaches ? kit.approaches[hash(base, 6500) < (kit.approachShare || 0.35) ? 1 : 0] : kit.approach /* (the way the level ends: its own stream) */;
   const op0 = kit.openers ? kit.openers[hash(base, 6501) < (kit.openerShare || 0.35) ? 1 : 0] : kit.opener /* (the way the level opens: its own stream) */, isl = kit.islandOpen && hash(base, 6502) < kit.islandOpen.share ? kit.islandOpen.variants[Math.floor(hash(base, 6503) * kit.islandOpen.variants.length)] : [], op = isl.concat(isl.length && kit.islandOpen.take ? [[op0[0][0], op0[0][1] - kit.islandOpen.take]].concat(op0.slice(1)) : op0) /* (an island opener: bands of islets before the port, plan 12.22) */; let fixed = op.concat(ap).reduce((a, q) => a + q[1], 0);
   let bs = bossFor(kit, base, ap); if (bs && (bs.sea || bs.ice) && kit.seaApproach) { ap = kit.seaApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } const air = airDay(kit, base, bs), snow = snowDay(kit, bs); if (air || snow) { ap = kit.airApproach; fixed = op.concat(ap).reduce((a, q) => a + q[1], 0); } /* (a winter airfield day: the line runs on to the airfield's railhead) */ let tail = bs && (bs.sea || kit.archi) && kit.seaTail ? kit.seaTail : null; if (kit.legacy) tail = legacyWalk(kit, base); /* (an archipelago day ends over the sea whatever its boss) */ const ex = extrasWalk(kit, base), main = kit.main ? mainWalk(kit, base, !ex.length, ex) : null; /* (the mainland closes itself with a cove when the day has no built-up stretches; else they are its last stretches) */ const tailLen = tail ? tail.reduce((a, q) => a + q[1], 0) : 0; /* (the boss is drawn first: the ship needs a sea ending, which is added after the list) */
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
@@ -6007,7 +6519,7 @@ function rsRun(o, k, fn) { const po = rsObj, pk = rsKey; rsObj = o; rsKey = k; t
 const onStream = (on, fn) => function (...a) { const was = simOn; simOn = on; try { return fn.apply(this, a); } finally { simOn = was; } };
 // fx(): run a visual-effect block on the free stream. Used where an effect only runs when lowFX is off (a speed setting that differs between devices).
 const fx = fn => onStream(false, fn)();
-const VERSION = '1.2.6.61'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
+const VERSION = '1.2.6.62'; // sent with scores; the title screen shows only the first three parts, so a 4th part is a hidden build for fixes. Also update VERSION in sw.js
 const FRAME2 = document.documentElement.classList.contains('standalone') ? 0 : 12; // the 6px frame on both sides (none in the Home Screen app)
 const W = 224, H = (() => {
   // size the playfield to the box #app really offers (minus its padding and the frame), so it fills the screen width
@@ -12333,7 +12845,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
-const SORTIE_UD = { harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
+const SORTIE_UD = { mountain: [0.15, 0], harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
 function sortieUD(segs, len) {
   const pts = []; let lastU = 0;
   for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }

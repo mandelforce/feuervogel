@@ -357,6 +357,22 @@ node tests/skill-bots.mjs --levels 1,6 --bots rookie,ace --seeds 4 --no-checks -
 
 ## Sortie composer test (runs in CI, blocking)
 
+`mountains.mjs` (Node only) checks the mountain stretches (`mountainStretches` in `tools/citygen.js`). On real composed mountain days of every kit, each built as a cliff and as an incline, it checks:
+- the stretch reports no problem of its own;
+- the rail runs through every row at a grade of 0.25 at most;
+- the main road has one point per row, at most 2.5 px aside, on road pixels, off rock, at a grade of 0.5 at most, and joins the kit's road;
+- flak slots stand on level ground, off rock, 20 px apart;
+- the relief is the plain at both ends, with no rock in the seam rows;
+- no building of the kit's is left inside;
+- the same input gives the same plan.
+
+It also checks the composer's share of mountain days.
+
+```
+node tests/mountains.mjs              # 8 days per kit, about 3 minutes
+node tests/mountains.mjs --days 4     # fewer
+```
+
 `compose.mjs` (Node only) checks `tools/sortie-compose.js`: its hash is the game's `sortieHash`; the same seed gives the same sortie; every composed list of 10,000 seeds per kit keeps the kit's rules (opener, approach, who may follow whom, how often, how long, the total, encounter spacing); every middle template appears and the orders differ over 1,000 seeds; the daily seed (UTC day, kit by rotation, reroll table); the generator's plan of 300 composed lists per kit passes `CityGen.validate`, has the right length, holds every template's feature in its own segment and stays under the structures limit; and the copy in `index.html` is current. `kit-check.mjs` holds the plan checks it shares with `compose-probe.mjs`.
 
 ```
