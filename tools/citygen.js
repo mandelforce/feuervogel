@@ -5045,7 +5045,7 @@ function mShade(E, cfg, light = true) {
   const { W, H, hf } = E, Z = cfg.z || 1, tanE = cfg.sun || 1.4, cliff = cfg.cliff || MT_CLIFF, hg = (x, y) => hf[clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1)]; let maxH = -1e9; for (let i = 0; i < W * H; i++) if (hf[i] > maxH) maxH = hf[i];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, h = hf[i], gx = (hg(x + 1, y) - hg(x - 1, y)) / 2, gy = (hg(x, y + 1) - hg(x, y - 1)) / 2; E.rs[i] = Math.hypot(gx, gy);
     const hx = gx * Z, hy = gy * Z, s = Math.hypot(hx, hy); E.sl[i] = s; E.lit[i] = clamp(0.5 + (0.62 * hx + 0.5 * hy) / Math.sqrt(1 + s * s) * 0.9, 0, 1);
-    E.shade[i] = 0; if (light) for (let k = 1; k < 70; k++) { if (k * tanE > maxH - h) break; const sx = Math.round(x - k * 0.78), sy = Math.round(y - k * 0.62); if (sx < 0 || sy < 0) break; if (hf[sy * W + sx] - h > k * tanE) { E.shade[i] = 1; break; } } /* (no ground left high enough to shade it: stop) */
+    E.shade[i] = 0; if (light && ((x | y) & 1)) { E.shade[i] = E.shade[(y & ~1) * W + (x & ~1)]; } else if (light) for (let k = 1; k < 70; k++) { if (k * tanE > maxH - h) break; const sx = Math.round(x - k * 0.78), sy = Math.round(y - k * 0.62); if (sx < 0 || sy < 0) break; if (hf[sy * W + sx] - h > k * tanE) { E.shade[i] = 1; break; } } /* (no ground left high enough to shade it: stop) */
     E.rock[i] = E.rs[i] > cliff ? 1 : 0; }
   E.blocked.fill(0); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!E.rock[y * W + x]) continue; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && dx * dx + dy * dy <= 10) E.blocked[Y * W + X] = 1; } }
 }
@@ -5162,7 +5162,7 @@ function mRoadDist(E) { const { W, H } = E, d = new Float32Array(W * H).fill(1e9
 /* flak by rule: level ground, not on a road, rail, building, rock or water; scored by how far it stands above its surroundings and how close it is to what it
    defends; reached by a track from a road; MT_FLAK_GAP apart. Fewer than asked is fine; none at all is reported. */
 function mFlak(E, n, poi, o = {}) {
-  const { W, H } = E, RD = mReach(E), maxS = o.maxS || 0.35, cand = [];
+  const { W, H } = E, RD = o.reach || mReach(E), maxS = o.maxS || 0.35, cand = []; /* (o.reach: a flood already made, shared) */
   for (let y = 10; y < H - 10; y += 3) for (let x = 8; x < W - 8; x += 3) { const i = y * W + x; if (!(RD.d[i] <= 60) || !mLevel(E, x, y, 5, maxS)) continue;
     let ring = 0; for (let k = 0; k < 8; k++) ring += E.hg(x + Math.cos(k * 0.785) * 16, y + Math.sin(k * 0.785) * 16); const prom = E.hg(x, y) - ring / 8;
     const dp = poi.length ? Math.min(...poi.map(p => Math.hypot(x - p[0], y - p[1]))) : 60; cand.push([prom * 1.5 + 25 * Math.exp(-dp / 35) - RD.d[i] * 0.15 + (o.score ? o.score(x, y) : 0), x, y]); }
@@ -5309,7 +5309,7 @@ const MT_RECIPES = {
           mScatter(E, 6, 97 + so, (x, y) => E.hg(x, y) < 40 && E.rsAt(x, y) < 0.5 ? clamp(0.8 - E.hg(x, y) / 50, 0, 0.7) : 0, (x, y, r) => mTree(E, x, y, r < 0.5 ? 1 : 2, MP.wtree, { con: true, snow: true, k: K.WOOD }), 5); } }; } },
   city: {
     cliff: c => { const so = c.so, QX = c.free(52), QY = 300, R = 70, hill = (x, y) => 90 * Math.exp(-((Math.hypot(x - QX, (y - 230) * 0.8) / 120) ** 2)) * mBell(y) + mF(x * 0.03, y * 0.03, 101 + so) * 6;
-      const qr = (x, y) => Math.hypot(x - QX, (y - QY) * 0.62), qe = (x, y) => (mF(x * 0.08, y * 0.08, 105 + so) - 0.5) * 12, qm = (x, y) => mSS(3, -3, qr(x, y) - R + qe(x, y)), qb = (x, y) => mTerr(Math.max(0, qr(x, y) - 14) * 1.05, 10, 0.32) + 2, cut = (x, y) => qm(x, y) > 0.5 && qb(x, y) < hill(x, y) - 0.5;
+      const qr = (x, y) => Math.hypot(x - QX, (y - QY) * 0.62), qe = (x, y) => (mF(x * 0.08, y * 0.08, 105 + so) - 0.5) * 12, qm = (x, y) => mSS(3, -3, qr(x, y) - R + qe(x, y)), qb = (x, y) => mTerr(Math.max(0, qr(x, y) - 14) * 1.05, 10, 0.32) + 2, cut0 = (x, y) => qm(x, y) > 0.5 && qb(x, y) < hill(x, y) - 0.5, cutM = new Int8Array(c.W * c.H).fill(-1), cut = (x, y) => { const xi = Math.round(x), ys = c.ys(y); if (xi < 0 || xi >= c.W) return cut0(x, y); const j = ys * c.W + xi; if (cutM[j] < 0) cutM[j] = cut0(xi, c.Y(ys)) ? 1 : 0; return cutM[j] === 1; }; /* (cached per pixel: the colours, the kinds and the trees all ask) */
       const HR = (() => { const legs = [[QX, c.ys(QY + 40)]]; for (let k = 0; k < 6; k++) legs.push([k % 2 ? QX + 30 : QX - 30, c.ys(QY + 20 - k * 22)]); return mChaikin(legs, 2); })(); /* (the haul ramp: zigzagging up the pit's benches) */
       return { z: 1.2,
         height(x, y) { const hl = hill(x, y); return lerp(hl, Math.min(hl, qb(x, y)), qm(x, y)); },
@@ -5323,8 +5323,8 @@ const MT_RECIPES = {
           if (works && crusher) { const n = Math.ceil(Math.hypot(works[0] - crusher[0], works[1] - crusher[1])); for (let k = 0; k <= n; k++) { const x = lerp(crusher[0], works[0], k / n), y = lerp(crusher[1], works[1], k / n); E.dim(x + 2, y + 2, 0.6); E.put(x, y, [44, 40, 34]); E.put(x + 1, y, [70, 64, 54]); E.claim(Math.round(x), Math.round(y), 3); } }
           { const rim = []; for (let an = Math.PI; an <= 2 * Math.PI; an += 0.04) for (const off of [7, 9, 11]) { const x = Math.round(QX + Math.cos(an) * (R + off)), y = c.ys(QY + Math.sin(an) * (R + off) / 0.62); if (x < 8 || x > c.W - 9 || y < 8 || y > c.H - 9) continue; const yn = c.Y(y); if (cut(x, yn) || qm(x, yn) > 0.05 || !mLevel(E, x, y, 5, 0.45)) continue; rim.push([E.hg(x, y) - off * 0.8, x, y]); }
             rim.sort((p, q) => q[0] - p[0]); let n = 0; const RD = mReach(E); for (const [, x, y] of rim) { if (n >= 2) break; if (E.flak.some(g => Math.hypot(g[0] - x, g[1] - y) < 56) || !mLevel(E, x, y, 5, 0.45)) continue; const i = y * E.W + x; if (!(RD.d[i] <= 80)) continue; const tr = RD.d[i] > 7 ? RD.path(i) : null; if (tr) mTrack(E, tr, 3, MP.quarry.slice(0, 4)); mFlakAt(E, x, y, { bags: MP.stone, floor: [60, 58, 54] }); n++; }
-            if (n < 2) mFlak(E, 2 - n, [[QX, c.ys(QY - R / 0.62)]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45 }); } /* (the rim's guns: the highest level ground on the lip of the pit, a track each to the nearest road) */
-          mFlak(E, 1, [works || [QX, 0]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45 });
+            if (n < 2) mFlak(E, 2 - n, [[QX, c.ys(QY - R / 0.62)]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45, reach: RD }); E.qReach = RD; } /* (the rim's guns: the highest level ground on the lip of the pit, a track each to the nearest road) */
+          mFlak(E, 1, [works || [QX, 0]], { bags: MP.stone, floor: [60, 58, 54], maxS: 0.45, reach: E.qReach });
           mScatter(E, 6, 104 + so, (x, ys) => { const y = c.Y(ys); return !cut(x, y) && qr(x, y) > R + 4 && E.rsAt(x, ys) < 0.9 ? 0.7 : 0; }, (x, y, r) => mTree(E, x, y, r < 0.5 ? 2 : 3, MP.treeT, { k: K.PARK }), 4); } }; },
     incline: c => { const so = c.so, cx = c.free(70), cy = 224, wx = (x, y) => x + (mF(x * 0.012, y * 0.012, 117 + so) - 0.5) * 60, wy = (x, y) => y + (mF(x * 0.012, y * 0.012, 118 + so) - 0.5) * 60;
       const HT = (x, y) => 84 * Math.exp(-((Math.hypot(wx(x, y) - cx, (wy(x, y) - cy) * 0.8) / 110) ** 2)) * mBell(y) + mF(x * 0.04, y * 0.04, 111 + so) * 3;
