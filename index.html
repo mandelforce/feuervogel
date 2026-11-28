@@ -12836,7 +12836,7 @@ function buildSortie(level, seed, C) { // C: a composed sortie (SortieCompose.co
 }
 // Urbanisation U (0 open farmland .. 1 city centre) and damage D (0 .. 1) per sortie chunk (spec 15.2): each segment's value at its middle, linear
 // in between, so nothing changes abruptly at a segment border. Segments without their own U (industry, station) keep the U before them.
-const SORTIE_UD = { harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
+const SORTIE_UD = { mountain: [0.03, 0], harbour_commercial: [0.8, 0.5], beach_town: [0.45, 0.7], valley: [0.05, 0.1], village: [0.3, 0.2], station_junction: [0.2, 0.3], desert_open: [0, 0.05], airbase_desert: [0.1, 0.3], pass: [0.05, 0.25], harbour_south: [0.85, 0.35], harbour_dock: [0.85, 0.35], open_sea: [0, 0], coast_plain: [0, 0], farmland: [0.05, 0], village: [0.3, 0], city_suburb: [0.5, 0.15], city_town: [0.65, 0.25], city_river: [0.8, 0.4], city_centre: [1, 0.6], industrial_power: [null, 0.75], ruins: [0.9, 1], station_main: [null, 0.8], rail_yard: [null, 0.3] };
 function sortieUD(segs, len) {
   const pts = []; let lastU = 0;
   for (const g of segs) { const v = SORTIE_UD[g.t] || [lastU, 0], u = v[0] === null ? lastU : v[0]; lastU = u; pts.push([g.start + g.n / 2, u, v[1]]); }
